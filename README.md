@@ -4,6 +4,10 @@ Primera recreación jugable en C# del combate elemental de **Magicka: Wizard War
 
 El código, las mallas y los sonidos son propios. Esta versión reproduce la estructura del combate; los gráficos, mapas, magicks y valores de daño son una aproximación, no una reproducción exacta del original.
 
+![Launcher de la versión 0.1.0](docs/images/launcher.png)
+
+![Práctica local en el cliente 3D](docs/images/game.png)
+
 ## Qué se puede jugar
 
 - Ocho elementos y hasta tres elementos por hechizo. Las combinaciones se resuelven por reglas, no por un catálogo de unos pocos hechizos.
@@ -126,7 +130,7 @@ Si se usa contraseña, definir `TEST_PASSWORD` en el proceso de pruebas. El clie
 
 En la preparación de v0.1.0 pasaron **19 pruebas**: 15 de reglas y cuatro de red, incluidas dos conexiones reales, descubrimiento UDP, rechazo de versión incompatible y contraseña incorrecta. El cliente se compiló con los generadores de Godot y arrancó una práctica de cuatro magos durante 240 pasos en modo headless.
 
-Docker no estaba disponible en el entorno de preparación. El workflow de GitHub incluye la compilación normal, las pruebas de red, el arranque headless y la construcción/comprobación del contenedor; su resultado aparece en **Actions**.
+El workflow de GitHub incluye la compilación normal, las pruebas de red, el arranque headless y dos modalidades Docker: puertos publicados para IP directa y red del host para descubrimiento LAN en Linux. Su resultado aparece en **Actions**.
 
 ## Alcance de esta primera versión
 

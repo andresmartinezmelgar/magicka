@@ -41,12 +41,12 @@ public partial class WizardVisual : Node3D
         _shield = Mesh(this, new SphereMesh { Radius = 0.9f, Height = 2.4f }, new(0, 1.1f, 0), shieldMat);
         _ghost = Mesh(this, new SphereMesh { Radius = 0.4f, Height = 1.5f }, new(0, 0.7f, 0),
             new StandardMaterial3D { AlbedoColor = new Color(_color.R, _color.G, _color.B, 0.14f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha });
-        _name = new Label3D { Text = p.Name, Position = new(0, 2.7f, 0), FontSize = 34, PixelSize = 0.013f,
+        _name = new Label3D { Text = p.Name, Position = new(0, 3.15f, 0), FontSize = 34, PixelSize = 0.013f,
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, Modulate = local ? Ui.Gold : _color, OutlineSize = 9, NoDepthTest = true };
         AddChild(_name);
-        _healthRoot = new Node3D { Position = new(0, 2.42f, 0) }; AddChild(_healthRoot);
-        Mesh(_healthRoot, new BoxMesh { Size = new(1.42f, 0.1f, 0.025f) }, Vector3.Zero, new StandardMaterial3D { AlbedoColor = new("121c28"), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
-        _healthFill = Mesh(_healthRoot, new BoxMesh { Size = new(1.34f, 0.055f, 0.04f) }, new(0, 0, 0.025f),
+        _healthRoot = new Node3D { Position = new(0, 2.6f, 0) }; AddChild(_healthRoot);
+        Mesh(_healthRoot, new BoxMesh { Size = new(1.42f, 0.13f, 0.025f) }, Vector3.Zero, new StandardMaterial3D { AlbedoColor = new("121c28"), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
+        _healthFill = Mesh(_healthRoot, new BoxMesh { Size = new(1.34f, 0.09f, 0.04f) }, new(0, 0, -0.03f),
             new StandardMaterial3D { AlbedoColor = local ? new("8de0ad") : _color, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
     }
     private static MeshInstance3D Mesh(Node3D parent, Godot.Mesh mesh, Vector3 position, Material material)
@@ -73,6 +73,6 @@ public partial class WizardVisual : Node3D
         _healthRoot.Visible = p.Alive;
         _healthRoot.LookAt(camera.GlobalPosition);
         float hp = Math.Max(0.01f, p.Health / p.MaxHealth);
-        _healthFill.Scale = new(hp, 1, 1); _healthFill.Position = new(-(1 - hp) * 0.67f, 0, 0.025f);
+        _healthFill.Scale = new(hp, 1, 1); _healthFill.Position = new(-(1 - hp) * 0.67f, 0, -0.03f);
     }
 }

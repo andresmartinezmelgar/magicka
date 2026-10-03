@@ -44,7 +44,20 @@ jobs:
             sleep 0.5
           done
           curl -fsS http://127.0.0.1:27015/health
-      - name: Comprobar conexiones contra Docker
+      - name: Comprobar conexión IP contra Docker con puertos publicados
+        env:
+          TEST_PASSWORD: arcana-ci-test
+        run: dotnet tests/Arcana.Tests/bin/Release/net8.0/Arcana.Tests.dll --only-network --skip-discovery --server=127.0.0.1:27015 --discovery-port=27016
+      - name: Arrancar variante Docker para LAN Linux
+        run: |
+          docker rm -f arcana-ci
+          docker run -d --name arcana-ci --network host -e SERVER_PASSWORD=arcana-ci-test arcana-arena-server:test
+          for i in {1..40}; do
+            if curl -fsS http://127.0.0.1:27015/health; then break; fi
+            sleep 0.5
+          done
+          curl -fsS http://127.0.0.1:27015/health
+      - name: Comprobar IP y descubrimiento LAN contra Docker con red host
         env:
           TEST_PASSWORD: arcana-ci-test
         run: dotnet tests/Arcana.Tests/bin/Release/net8.0/Arcana.Tests.dll --only-network --server=127.0.0.1:27015 --discovery-port=27016

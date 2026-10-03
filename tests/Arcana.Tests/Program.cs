@@ -193,7 +193,8 @@ if (server != null)
         a.Send(new() { Type = "release" });
         await WaitFor(() => !b.Latest!.Players.First(p => p.Id == a.PlayerId).Casting, "No se replicó la interrupción.");
     });
-    await AsyncTest("Descubrimiento UDP LAN devuelve el servidor real", async () =>
+    // La red puente de Docker sirve para IP directa. LAN por broadcast se comprueba con red host.
+    if (!args.Contains("--skip-discovery")) await AsyncTest("Descubrimiento UDP LAN devuelve el servidor real", async () =>
     {
         var found = await LanDiscovery.FindAsync(discoveryPort);
         Check(found.Length > 0 && found.Any(s => s.Info.Protocol == Protocol.Version), "No se encontró el servidor por UDP.");
