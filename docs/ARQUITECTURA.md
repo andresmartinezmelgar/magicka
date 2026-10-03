@@ -6,7 +6,7 @@
 
 El cliente envía selección de elemento, inicio/fin de lanzamiento, objetivo de movimiento y apuntado. No envía el daño, la vida o una nueva posición válida. `GameWorld.ApplyMessage` comprueba secuencias y coordenadas; `GameWorld.Step` decide movimiento, colisiones y efectos.
 
-`GameService` tiene una cola de entrada por jugador. El temporizador consume intenciones y ejecuta la simulación bajo un único bloqueo. Los estados se copian en ese bloqueo y se serializan fuera. Cada conexión tiene un único emisor y conserva los dos estados recientes, para que un cliente lento no detenga a los demás. Los eventos recientes forman parte del estado y tienen un identificador para no reproducir el mismo sonido o mensaje dos veces.
+`GameService` administra un `GameWorld` por sala y una cola de entrada por jugador. Los IDs de magos son locales; la clave de sesión de transporte es un GUID para evitar colisiones entre salas. Solo se envía el estado a las sesiones de su sala. El temporizador consume intenciones y ejecuta la simulación bajo un único bloqueo. Los estados se copian en ese bloqueo y se serializan fuera. Cada conexión tiene un único emisor y conserva los dos estados recientes, para que un cliente lento no detenga a los demás. Los eventos recientes forman parte del estado y tienen un identificador para no reproducir el mismo sonido o mensaje dos veces.
 
 ## Elementos y formas
 
@@ -18,11 +18,17 @@ Los números de daño, alcance, duración y reutilización de esta versión est�
 
 ## Red
 
-El saludo es JSON sobre WebSocket: versión del protocolo, nombre, preferencia de equipo y contraseña. La respuesta contiene el identificador del jugador y el primer estado. Después viajan intenciones del cliente y estados del servidor. Se aceptan como máximo 4096 bytes por mensaje de entrada y 180 mensajes por segundo por conexión; las colas de entrada son acotadas.
+El saludo es JSON sobre WebSocket: versión del protocolo, nombre, preferencia de equipo, contraseña de servidor, ID de sala y contraseña de sala. La respuesta contiene el identificador del jugador y el primer estado. Después viajan intenciones del cliente y estados del servidor. Se aceptan como máximo 4096 bytes por mensaje de entrada y 180 mensajes por segundo por conexión; las colas de entrada son acotadas.
 
 El cliente utiliza `ClientWebSocket`, incluido en .NET. El servidor utiliza WebSocket de ASP.NET Core. Se reutiliza el mismo formato JSON en los tres proyectos. La búsqueda LAN es un canal UDP independiente y solo sirve para encontrar la dirección de conexión.
 
 La frecuencia de simulación es 60 Hz; la de envío es 20 Hz; el cliente dibuja a la frecuencia de pantalla y acerca las mallas a la última posición recibida. Esa interpolación evita saltos de dibujo, pero añade retraso y no equivale a predicción de movimiento.
+
+## Launcher y distribución
+
+`RoomBrowser` usa HTTP para consultar y crear salas. `RoomLobby` construye las pantallas de selección y creación; `Launcher` administra IP, LAN, práctica y alojamiento. `LocalServerHost` inicia solo el servidor que acompaña al paquete, pasa la configuración en el entorno de ese proceso y guarda sus mensajes en `server.log`. No usa shell para iniciar el servidor. La contraseña no se guarda en disco ni se muestra en la lista de salas.
+
+El cliente exportado incluye Godot y el runtime .NET. El servidor se publica para `win-x64` con `--self-contained true`. `package-windows.ps1` conserva todos los archivos exportados y verifica que existen ambos runtimes. La CI ejecuta ese paquete antes de publicar el ZIP. `ParentLifetimeService` cierra el servidor alojado si desaparece el proceso del juego; un servidor dedicado no recibe esa variable.
 
 ## Representación
 

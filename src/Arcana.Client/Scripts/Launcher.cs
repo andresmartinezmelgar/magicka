@@ -6,12 +6,15 @@ namespace Arcana.Client;
 public partial class Launcher : Control
 {
     private Main _main = null!;
-    private LineEdit _name = null!, _address = null!, _password = null!;
+    private LineEdit _name = null!, _address = null!, _password = null!, _hostName = null!;
     private OptionButton _team = null!, _practiceMode = null!;
-    private SpinBox _bots = null!, _discoveryPort = null!;
+    private SpinBox _bots = null!, _discoveryPort = null!, _hostPort = null!, _hostDiscovery = null!;
     private Label _status = null!;
     private ItemList _servers = null!;
-    private Button _connect = null!, _refresh = null!;
+    private Button _connect = null!, _refresh = null!, _stopHost = null!;
+    private Label _hostInfo = null!;
+    private RoomLobby? _lobby;
+    private readonly LocalServerHost _host = new();
     private TabContainer _tabs = null!;
     private LanServer[] _lan = [];
     private CancellationTokenSource? _search;
@@ -28,7 +31,7 @@ public partial class Launcher : Control
         var columns = new HBoxContainer(); columns.AddThemeConstantOverride("separation", 52); margin.AddChild(columns);
         var left = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new(410, 0) };
         left.AddThemeConstantOverride("separation", 20); columns.AddChild(left);
-        left.AddChild(Ui.Label("ARCANA ARENA  /  0.1.0", 16, Ui.Gold));
+        left.AddChild(Ui.Label("ARCANA ARENA  /  0.2.0", 16, Ui.Gold));
         left.AddChild(new Control { CustomMinimumSize = new(0, 80) });
         left.AddChild(Ui.Label("ARCANA\nARENA", 68));
         left.AddChild(Ui.Label("EL COMBATE SE ESCRIBE CON ELEMENTOS", 16, Ui.Gold));
@@ -44,13 +47,15 @@ public partial class Launcher : Control
             text.HorizontalAlignment = HorizontalAlignment.Center; tile.AddChild(text); keyboard.AddChild(tile);
         }
         left.AddChild(Ui.Label("C# · GODOT .NET · SERVIDOR AUTORITATIVO", 13, Ui.Muted));
-        var rightCenter = new CenterContainer { CustomMinimumSize = new(570, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        columns.AddChild(rightCenter);
+        var rightScroll = new ScrollContainer { CustomMinimumSize = new(570, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; columns.AddChild(rightScroll);
+        var rightCenter = new CenterContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
+        rightScroll.AddChild(rightCenter);
         var panel = new PanelContainer { CustomMinimumSize = new(560, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill }; rightCenter.AddChild(panel);
         panel.AddThemeStyleboxOverride("panel", Ui.Panel(new Color(0.035f, 0.057f, 0.093f, 0.97f), 16));
-        var form = new VBoxContainer(); form.AddThemeConstantOverride("separation", 14); panel.AddChild(form);
+        var form = new VBoxContainer(); form.AddThemeConstantOverride("separation", 10); panel.AddChild(form);
         form.AddChild(Ui.Label("ENTRAR EN LA ARENA", 27, Ui.Gold));
-        form.AddChild(Ui.Label("Conexión directa, red local o práctica con bots.", 16, Ui.Muted));
+        form.AddChild(Ui.Label("Entra por IP o LAN, aloja salas o entrena con bots.", 16, Ui.Muted));
         var identity = new HBoxContainer(); identity.AddThemeConstantOverride("separation", 12); form.AddChild(identity);
         var nameColumn = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; identity.AddChild(nameColumn);
         nameColumn.AddChild(Ui.Label("Nombre del mago", 14, Ui.Muted));
@@ -83,9 +88,27 @@ public partial class Launcher : Control
         botRow.AddChild(Ui.Label("Bots", 16));
         _bots = new SpinBox { MinValue = 1, MaxValue = 7, Value = 3, SizeFlagsHorizontal = SizeFlags.ExpandFill }; botRow.AddChild(_bots);
         practice.AddChild(Ui.Label("El duelo usa un bot. No requiere iniciar un servidor.", 13, Ui.Muted));
+        var hosting = TabBox("Alojar");
+        _hostName = new LineEdit { Text = _config.GetValue("host", "name", "Partida local").AsString(),
+            MaxLength = 32, PlaceholderText = "Nombre del servidor", CustomMinimumSize = new(0, 42) }; hosting.AddChild(_hostName);
+        var ports = new HBoxContainer(); ports.AddThemeConstantOverride("separation", 10); hosting.AddChild(ports);
+        ports.AddChild(Ui.Label("Juego TCP", 14, Ui.Muted));
+        _hostPort = new SpinBox { MinValue = 1024, MaxValue = 65535, Value = _config.GetValue("host", "port", Protocol.GamePort).AsInt32(),
+            SizeFlagsHorizontal = SizeFlags.ExpandFill }; ports.AddChild(_hostPort);
+        ports.AddChild(Ui.Label("LAN UDP", 14, Ui.Muted));
+        _hostDiscovery = new SpinBox { MinValue = 1024, MaxValue = 65535, Value = _config.GetValue("host", "discovery", Protocol.DiscoveryPort).AsInt32(),
+            SizeFlagsHorizontal = SizeFlags.ExpandFill }; ports.AddChild(_hostDiscovery);
+        _hostInfo = Ui.Label("Inicia el servidor incluido y crea salas desde el juego.\nEl servidor permanece activo mientras el juego esté abierto.", 14, Ui.Muted);
+        _hostInfo.AutowrapMode = TextServer.AutowrapMode.WordSmart; hosting.AddChild(_hostInfo);
+        var hostActions = new HBoxContainer(); hosting.AddChild(hostActions);
+        _stopHost = Ui.Button("Detener servidor", StopHost); _stopHost.Disabled = true; _stopHost.SizeFlagsHorizontal = SizeFlags.ExpandFill; hostActions.AddChild(_stopHost);
+        var log = Ui.Button("Ver registro", () => { if (_host.LogPath.Length > 0) OS.ShellOpen(_host.LogPath); }); log.SizeFlagsHorizontal = SizeFlags.ExpandFill; hostActions.AddChild(log);
+        var firewall = Ui.Button("Permitir LAN", ConfigureLan); firewall.SizeFlagsHorizontal = SizeFlags.ExpandFill; hostActions.AddChild(firewall);
+        firewall.Disabled = !OperatingSystem.IsWindows();
+        firewall.TooltipText = "Windows pedirá permiso de administrador para permitir estos dos puertos al servidor en redes privadas.";
         form.AddChild(Ui.Label("Contraseña del servidor (si tiene)", 14, Ui.Muted));
         _password = new LineEdit { Secret = true, MaxLength = 128, PlaceholderText = "Opcional", CustomMinimumSize = new(0, 42) }; form.AddChild(_password);
-        _connect = Ui.Button("Conectar por IP", Connect, true); form.AddChild(_connect);
+        _connect = Ui.Button("Ver salas por IP", Connect, true); form.AddChild(_connect);
         _status = Ui.Label("El servidor usa TCP 27015. LAN usa UDP 27016.", 14, Ui.Muted);
         _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; _status.CustomMinimumSize = new(0, 45); form.AddChild(_status);
         var footer = new HBoxContainer(); form.AddChild(footer);
@@ -93,8 +116,9 @@ public partial class Launcher : Control
         var exit = Ui.Button("Salir", () => GetTree().Quit()); exit.SizeFlagsHorizontal = SizeFlags.ExpandFill; footer.AddChild(exit);
         _tabs.TabChanged += tab =>
         {
-            _connect.Text = tab == 0 ? "Conectar por IP" : tab == 1 ? "Conectar al servidor LAN" : "Entrenar con bots";
-            _password.Editable = tab != 2;
+            UpdateConnectLabel();
+            _password.Editable = tab != 2 && !(tab == 3 && _host.Running);
+            if (tab == 3 && _host.Running) _password.Text = _hostPassword;
             if (tab == 1 && _lan.Length == 0 && !_busy) StartSearch();
         };
     }
@@ -106,13 +130,21 @@ public partial class Launcher : Control
     }
     public void SetBusy(bool busy, string message = "")
     {
-        _busy = busy; _connect.Disabled = busy; _tabs.SetTabDisabled(0, busy); _tabs.SetTabDisabled(1, busy); _tabs.SetTabDisabled(2, busy);
+        _busy = busy; _connect.Disabled = busy; for (int i = 0; i < 4; i++) _tabs.SetTabDisabled(i, busy);
+        if (GodotObject.IsInstanceValid(_lobby)) _lobby!.SetBusy(busy);
         if (message.Length > 0) { _status.Text = message; _status.AddThemeColorOverride("font_color", Ui.Muted); }
     }
-    public void ShowError(string message) { SetBusy(false); _status.Text = message; _status.AddThemeColorOverride("font_color", Ui.Red); }
+    public void ShowError(string message)
+    {
+        SetBusy(false);
+        if (GodotObject.IsInstanceValid(_lobby)) { _lobby!.ShowError(message); return; }
+        _status.Text = message; _status.AddThemeColorOverride("font_color", Ui.Red);
+    }
     private void Remember()
     {
-        _config.SetValue("player", "name", _name.Text); _config.SetValue("network", "address", _address.Text); _config.Save("user://launcher.cfg");
+        _config.SetValue("player", "name", _name.Text); _config.SetValue("network", "address", _address.Text);
+        _config.SetValue("host", "name", _hostName.Text); _config.SetValue("host", "port", (int)_hostPort.Value);
+        _config.SetValue("host", "discovery", (int)_hostDiscovery.Value); _config.Save("user://launcher.cfg");
     }
     private void Connect()
     {
@@ -123,6 +155,7 @@ public partial class Launcher : Control
         {
             _main.StartPractice(_name.Text, team, (GameMode)_practiceMode.GetSelectedId(), (int)_bots.Value); return;
         }
+        if (_tabs.CurrentTab == 3) { _ = Host(); return; }
         string address = _address.Text;
         if (_tabs.CurrentTab == 1)
         {
@@ -130,9 +163,84 @@ public partial class Launcher : Control
             if (selected.Length == 0 || selected[0] >= _lan.Length) { ShowError("Selecciona un servidor de la lista LAN."); return; }
             address = _lan[selected[0]].Address;
         }
-        SetBusy(true, "Conectando con " + address + "…");
-        _ = _main.ConnectOnline(address, _name.Text, team, _password.Text);
+        OpenRooms(address, _password.Text);
     }
+    private void OpenRooms(string address, string password)
+    {
+        if (GodotObject.IsInstanceValid(_lobby)) _lobby!.QueueFree();
+        _lobby = new RoomLobby(); AddChild(_lobby); _lobby.Build(_main, this, address, password, _name.Text, _team.GetSelectedId());
+    }
+    public void CloseRooms()
+    { if (GodotObject.IsInstanceValid(_lobby)) _lobby!.QueueFree(); _lobby = null; }
+    private string _hostPassword = "";
+    private async Task Host()
+    {
+        if (_host.Running) { OpenRooms(_host.Address, _hostPassword); return; }
+        var options = new LocalServerOptions(_hostName.Text.Trim(), (int)_hostPort.Value, (int)_hostDiscovery.Value, _password.Text);
+        if (options.Name.Length == 0) { ShowError("Escribe un nombre para el servidor."); return; }
+        SetBusy(true, "Iniciando el servidor incluido…");
+        try
+        {
+            await _host.StartAsync(PackageDirectory(), ProjectSettings.GlobalizePath("user://"), options);
+            _main.Post(() =>
+            {
+                _hostPassword = options.Password; SetBusy(false); _stopHost.Disabled = false; _password.Editable = false;
+                _hostName.Editable = _hostPort.Editable = _hostDiscovery.Editable = false;
+                string addresses = "Busca el servidor en LAN";
+                try
+                {
+                    var ips = System.Net.Dns.GetHostAddresses(System.Net.Dns.GetHostName()).Where(ip =>
+                        ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork && !System.Net.IPAddress.IsLoopback(ip)).Take(3);
+                    string list = string.Join(" · ", ips.Select(ip => ip + ":" + options.Port));
+                    if (list.Length > 0) addresses = "IP para compartir: " + list;
+                }
+                catch (System.Net.Sockets.SocketException) { }
+                _hostInfo.Text = $"Servidor activo · Juego TCP {options.Port} · LAN UDP {options.DiscoveryPort}\n{addresses}";
+                UpdateConnectLabel(); OpenRooms(_host.Address, _hostPassword);
+            });
+        }
+        catch (Exception e) { _main.Post(() => ShowError(e is InvalidOperationException or ArgumentException or IOException ? e.Message : "No se pudo iniciar el servidor incluido.")); }
+    }
+    public static string PackageDirectory() => OS.HasFeature("editor") ? ProjectSettings.GlobalizePath("res://../../artifacts/windows")
+        : System.IO.Path.GetDirectoryName(OS.GetExecutablePath())!;
+    public void BrowseAddress(string address, bool create = false)
+    { OpenRooms(address, _password.Text); if (create) _lobby!.OpenCreation(); }
+    public void ShowTab(int tab) { if (tab is >= 0 and <= 3) _tabs.CurrentTab = tab; }
+    public async Task<RoomInfo> StartSmokeRoom()
+    {
+        await _host.StartAsync(PackageDirectory(), ProjectSettings.GlobalizePath("user://"), new("Prueba de launcher", 29025, 29026, ""));
+        return await RoomBrowser.CreateAsync(_host.Address, new() { Name = "Sala del launcher", Bots = 1 });
+    }
+    private async void ConfigureLan()
+    {
+        if (_busy || !OperatingSystem.IsWindows()) return;
+        string script = System.IO.Path.Combine(PackageDirectory(), "Configurar-LAN.ps1");
+        string server = System.IO.Path.Combine(PackageDirectory(), "server", "Arcana.Server.exe");
+        if (!File.Exists(script) || !File.Exists(server)) { ShowError("Extrae el paquete Windows completo para configurar LAN."); return; }
+        var start = new System.Diagnostics.ProcessStartInfo(System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe"))
+        { UseShellExecute = true, Verb = "runas", WorkingDirectory = PackageDirectory() };
+        foreach (string arg in new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, "-ServerPath", server,
+            "-GamePort", ((int)_hostPort.Value).ToString(), "-DiscoveryPort", ((int)_hostDiscovery.Value).ToString() }) start.ArgumentList.Add(arg);
+        SetBusy(true, "Windows solicitará permiso para permitir el servidor en redes privadas…");
+        try
+        {
+            using var process = System.Diagnostics.Process.Start(start) ?? throw new IOException("No se abrió la configuración de Windows.");
+            await process.WaitForExitAsync();
+            int code = process.ExitCode;
+            _main.Post(() => { if (code == 0) SetBusy(false, "Acceso LAN configurado para estos puertos en redes privadas.");
+                else ShowError("Windows no pudo configurar el acceso. Comprueba el permiso de administrador."); });
+        }
+        catch (Exception e) { _main.Post(() => ShowError(e is System.ComponentModel.Win32Exception ? "La configuración de LAN se canceló en Windows." : e.Message)); }
+    }
+    private void StopHost()
+    {
+        _host.Stop(); _hostPassword = ""; _stopHost.Disabled = true; _password.Editable = true;
+        _hostName.Editable = _hostPort.Editable = _hostDiscovery.Editable = true;
+        _hostInfo.Text = "Servidor detenido. Puedes cambiar sus opciones e iniciarlo otra vez.";
+        _status.Text = "El servidor y sus salas se han cerrado."; UpdateConnectLabel();
+    }
+    private void UpdateConnectLabel() => _connect.Text = _tabs.CurrentTab switch
+    { 0 => "Ver salas por IP", 1 => "Ver salas del servidor LAN", 2 => "Entrenar con bots", _ => _host.Running ? "Ver mis salas" : "Iniciar servidor y ver salas" };
     private async void StartSearch()
     {
         if (_busy || _refresh.Disabled) return;
@@ -146,7 +254,7 @@ public partial class Launcher : Control
             {
                 _lan = servers; _servers.Clear();
                 foreach (var s in servers)
-                    _servers.AddItem($"{s.Info.Name}   {s.Info.Players}/{s.Info.MaxPlayers}   {Ui.ModeName(s.Info.Mode)}\n{s.Address}");
+                    _servers.AddItem($"{s.Info.Name}  ·  {s.Address}  ·  {s.Info.Players}/{s.Info.MaxPlayers} plazas");
                 if (servers.Length > 0) _servers.Select(0);
                 _status.Text = servers.Length > 0 ? $"{servers.Length} servidor(es) encontrado(s)." : "No se encontraron servidores. También puedes usar su IP local en la pestaña Por IP.";
                 _refresh.Disabled = false;
@@ -155,5 +263,5 @@ public partial class Launcher : Control
         catch (OperationCanceledException) { _main.Post(() => _refresh.Disabled = false); }
         catch (Exception) { _main.Post(() => { _refresh.Disabled = false; ShowError("No se ha podido buscar en LAN. Comprueba el puerto UDP y el cortafuegos."); }); }
     }
-    public override void _ExitTree() { _search?.Cancel(); _search?.Dispose(); }
+    public override void _ExitTree() { _search?.Cancel(); _search?.Dispose(); _host.Dispose(); }
 }

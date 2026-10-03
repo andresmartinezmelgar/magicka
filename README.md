@@ -1,10 +1,10 @@
-# Arcana Arena — v0.1.0
+# Arcana Arena — v0.2.0
 
-Primera recreación jugable en C# del combate elemental de **Magicka: Wizard Wars**. Cliente 3D de escritorio con **Godot 4.5.2 .NET**, servidor independiente **ASP.NET Core / .NET 8**, Docker y launcher con conexión por IP, búsqueda LAN y práctica local.
+Primera recreación jugable en C# del combate elemental de **Magicka: Wizard Wars**. Cliente 3D de escritorio con **Godot 4.5.2 .NET**, servidor independiente **ASP.NET Core / .NET 8**, Docker, launcher con conexión por IP/LAN, salas independientes y paquete Windows para abrir con doble clic.
 
 El código, las mallas y los sonidos son propios. Esta versión reproduce la estructura del combate; los gráficos, mapas, magicks y valores de daño son una aproximación, no una reproducción exacta del original.
 
-![Launcher de la versión 0.1.0](docs/images/launcher.png)
+![Launcher de la versión 0.2.0](docs/images/launcher.png)
 
 ![Práctica local en el cliente 3D](docs/images/game.png)
 
@@ -16,23 +16,39 @@ El código, las mallas y los sonidos son propios. Esta versión reproduce la est
 - Duelo, todos contra todos y guerra por tres puntos de control, con tickets, muerte, reaparición y reinicio de partidas.
 - Cuatro magicks: celeridad, traslación, meteoro y reanimación. Coste de energía y tiempos de reutilización.
 - Bots que combaten, se curan y capturan puntos. Práctica local sin iniciar Docker.
-- Launcher: nombre, equipo preferido, IP/dominio, contraseña opcional y descubrimiento automático UDP en LAN.
+- Launcher: IP/dominio, búsqueda LAN, servidor incluido, configuración gráfica y creación de salas con modo, bots, aforo y contraseñas.
+- Distribución Windows x64 autónoma: motor, cliente, servidor y runtimes incluidos. No necesita instalar Godot, .NET ni Docker para jugar o alojar.
 - Servidor autoritativo a 60 pasos/s, envío de estado a 20 Hz y representación interpolada en el cliente.
 
-## Ejecutar el cliente en Windows
+## Jugar con doble clic en Windows
 
-1. Instalar el **SDK .NET 8 x64**: <https://dotnet.microsoft.com/download/dotnet/8.0>.
-2. Descargar **Godot 4.5.2 .NET** (la edición con soporte C#, llamada `mono` en los archivos): <https://github.com/godotengine/godot/releases/tag/4.5.2-stable>.
-3. Descargar o clonar este repositorio. Desde su raíz:
+1. Descargar [ArcanaArena-v0.2.0-Windows-x64.zip](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.2.0/ArcanaArena-v0.2.0-Windows-x64.zip) de [Releases](https://github.com/andresmartinezmelgar/magicka/releases/latest).
+2. **Extraer todo el ZIP** en una carpeta. Abrir **ArcanaArena.exe** con doble clic.
+3. Elegir **Práctica** para jugar con bots, **Alojar** para iniciar tu servidor, **LAN** para buscar servidores o **Por IP** para usar una dirección.
+
+En **Alojar**, elegir nombre del servidor, puertos y contraseña opcional. Pulsar **Iniciar servidor y ver salas**. Desde la pantalla de salas, pulsar **Crear sala**, elegir modo, plazas, bots, fuego amigo y límites de victoria; finalmente, **Crear y entrar**. Otros jugadores abren el mismo ejecutable, buscan el servidor en **LAN** y eligen tu sala. También pueden usar la IP de tu equipo en **Por IP**.
+
+El servidor se inicia sin consola y permanece activo durante tu partida. **Detener servidor** o cerrar el juego cierra las salas que estás alojando. El launcher recuerda nombre y puertos; las contraseñas se mantienen solo en memoria.
+
+El botón **Permitir LAN** configura dos reglas específicas del servidor en redes privadas. Windows solicita permiso de administrador mediante UAC. Si cambias puertos o mueves la carpeta del juego, puedes volver a pulsarlo. El botón **Ver registro** abre el diagnóstico del servidor.
+
+La distribución incluye todos los archivos necesarios. El `.exe`, el `.pck`, la carpeta de datos y `server/` se conservan juntos. No hace falta instalar el SDK .NET, Godot ni Docker en el PC de los jugadores. Requisitos: Windows 10/11 x64 y gráficos compatibles con OpenGL 3.3.
+
+![Alojamiento desde el launcher](docs/images/hosting.png)
+
+![Directorio de salas independientes](docs/images/rooms.png)
+
+![Crear una sala desde el juego](docs/images/create-room.png)
+
+## Abrir el código C#
+
+Para **desarrollar**, instalar el SDK .NET 8 x64 y [Godot 4.5.2 .NET](https://github.com/godotengine/godot/releases/tag/4.5.2-stable). Abrir `ArcanaArena.sln` en Visual Studio, o ejecutar:
 
 ```powershell
 dotnet build ArcanaArena.sln -c Debug
 ```
 
-4. En Godot, importar `src/Arcana.Client/project.godot` y pulsar **F5**.
-5. En el launcher, abrir **Práctica** para jugar con bots, **Por IP** para conectar directamente o **LAN** para buscar servidores.
-
-Visual Studio abre `ArcanaArena.sln`. El cliente se ejecuta desde Godot; el servidor y las pruebas se pueden ejecutar desde Visual Studio o la consola.
+Importar `src/Arcana.Client/project.godot` en Godot y pulsar **F5**. [Exportar y empaquetar](docs/EXPORTAR.md) explica cómo regenerar la distribución autónoma. El paquete que publica GitHub Actions utiliza ese mismo proceso.
 
 ## Iniciar el servidor con Docker
 
@@ -73,7 +89,7 @@ Esta variante utiliza la red del host. Ejecutar una sola variante a la vez. En D
 dotnet run --project src/Arcana.Server -c Release
 ```
 
-No necesita Godot. El estado del servidor está en `http://IP:27015/health`; la información de partida está en `/info`.
+No necesita Godot. El paquete Windows ya incluye `server/Arcana.Server.exe` con su runtime. Para alojar con configuración gráfica, usar **Alojar** en el juego. El estado del servidor está en `http://IP:27015/health`; el directorio de salas está en `/rooms`.
 
 | Uso | Protocolo | Puerto predeterminado |
 |---|---|---:|
@@ -128,9 +144,9 @@ dotnet run --project tests/Arcana.Tests -c Release -- --server=127.0.0.1:27015 -
 
 Si se usa contraseña, definir `TEST_PASSWORD` en el proceso de pruebas. El cliente y el servidor deben ejecutar la misma versión del protocolo.
 
-En la preparación de v0.1.0 pasaron **19 pruebas**: 15 de reglas y cuatro de red, incluidas dos conexiones reales, descubrimiento UDP, rechazo de versión incompatible y contraseña incorrecta. El cliente se compiló con los generadores de Godot y arrancó una práctica de cuatro magos durante 240 pasos en modo headless.
+La batería incluye **22 pruebas** con servidor protegido: 15 de reglas y siete de red, incluyendo aislamiento de salas, contraseñas de sala, aforo, directorio, conexión real y descubrimiento UDP. El cliente ejecuta una práctica de cuatro magos durante 240 pasos en modo headless.
 
-El workflow de GitHub incluye la compilación normal, las pruebas de red, el arranque headless y dos modalidades Docker: puertos publicados para IP directa y red del host para descubrimiento LAN en Linux. Su resultado aparece en **Actions**.
+El workflow compila y prueba en Linux, valida Docker con IP y LAN, y genera el paquete en Windows. Antes de publicarlo prueba el servidor incluido, la creación de salas y el juego **exportado**, con el runtime global deshabilitado. También arranca el servidor desde el launcher exportado y comprueba que se detiene al cerrar. Solo una ejecución completa satisfactoria publica una nueva versión en **Releases**.
 
 ## Alcance de esta primera versión
 

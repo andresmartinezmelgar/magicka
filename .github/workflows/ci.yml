@@ -65,7 +65,7 @@ jobs:
         run: dotnet publish src/Arcana.Server -c Release --no-restore -o artifacts/server
       - uses: actions/upload-artifact@v4
         with:
-          name: arcana-server-v0.1.0
+          name: arcana-server-v0.2.0
           path: artifacts/server
       - name: Logs de diagnóstico
         if: failure()
@@ -75,3 +75,110 @@ jobs:
       - name: Detener contenedor de prueba
         if: always()
         run: docker rm -f arcana-ci 2>/dev/null || true
+
+  package-windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Descargar Godot .NET y plantillas de exportacion Windows
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'godot'
+          New-Item -ItemType Directory -Path $root -Force | Out-Null
+          Invoke-WebRequest https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_mono_win64.zip -OutFile "$root/editor.zip"
+          Expand-Archive "$root/editor.zip" "$root/editor"
+          Invoke-WebRequest https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_mono_export_templates.tpz -OutFile "$root/templates.zip"
+          # La descarga contiene todas las plataformas; extraer solo Windows x64.
+          $archive = [System.IO.Compression.ZipFile]::OpenRead("$root/templates.zip")
+          try {
+            $entry = $archive.Entries | Where-Object { $_.Name -eq 'version.txt' } | Select-Object -First 1
+            $reader = [System.IO.StreamReader]::new($entry.Open())
+            try { $version = $reader.ReadToEnd().Trim() } finally { $reader.Dispose() }
+            $target = Join-Path $env:APPDATA "Godot/export_templates/$version"
+            New-Item -ItemType Directory -Path $target -Force | Out-Null
+            foreach ($entry in $archive.Entries | Where-Object { $_.Name -match '^windows_.*x86_64' -or $_.Name -eq 'version.txt' }) {
+              [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, (Join-Path $target $entry.Name), $true)
+            }
+          } finally { $archive.Dispose() }
+          Remove-Item "$root/templates.zip"
+          $editor = Get-ChildItem "$root/editor" -Recurse -Filter '*win64_console.exe' | Select-Object -First 1
+          if (!$editor) { throw 'No se encuentra el editor Godot .NET.' }
+          "ARCANA_GODOT=$($editor.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Crear paquete con motor, cliente y servidor autonomos
+        shell: pwsh
+        run: ./scripts/package-windows.ps1 -GodotPath $env:ARCANA_GODOT
+      - name: Probar servidor incluido, salas y LAN desde Windows
+        shell: pwsh
+        run: |
+          dotnet build tests/Arcana.Tests -c Release --nologo
+          if ($LASTEXITCODE -ne 0) { throw 'No se compilaron las pruebas.' }
+          dotnet tests/Arcana.Tests/bin/Release/net8.0/Arcana.Tests.dll --only-network "--package=$((Resolve-Path artifacts/windows).Path)"
+          if ($LASTEXITCODE -ne 0) { throw 'Fallo la prueba del servidor incluido.' }
+      - name: Ejecutar el juego exportado sin usar el editor
+        shell: pwsh
+        run: |
+          $package = (Resolve-Path artifacts/windows).Path
+          # Evita que el juego use el SDK o un runtime instalado en el runner.
+          $env:DOTNET_ROOT = Join-Path $env:RUNNER_TEMP 'sin-dotnet-global'
+          $env:DOTNET_ROOT_X64 = $env:DOTNET_ROOT
+          $env:DOTNET_MULTILEVEL_LOOKUP = '0'
+          foreach ($mode in @('smoke', 'host-smoke')) {
+            $log = Join-Path $env:RUNNER_TEMP "arcana-$mode.log"
+            $game = Start-Process "$package/ArcanaArena.exe" -ArgumentList '--headless','--audio-driver','Dummy','--log-file',"`"$log`"",'--',"--$mode" -PassThru
+            if (!$game.WaitForExit(60000)) { $game.Kill(); throw "El juego no termino: $mode" }
+            if ($game.ExitCode -ne 0) { if (Test-Path $log) { Get-Content $log }; throw "El juego fallo: $mode" }
+            $marker = if ($mode -eq 'smoke') { 'SMOKE_OK' } else { 'HOST_SMOKE_OK' }
+            Get-Content $log
+            if (!(Select-String -Path $log -SimpleMatch $marker)) { throw "Falta la confirmacion: $mode" }
+          }
+          $leftovers = Get-Process -Name 'Arcana.Server' -ErrorAction SilentlyContinue
+          if ($leftovers) { throw 'El launcher dejo el servidor activo tras cerrar.' }
+      - name: Comprimir distribucion y calcular SHA256
+        shell: pwsh
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          $zip = "artifacts/ArcanaArena-v$version-Windows-x64.zip"
+          Compress-Archive -Path artifacts/windows/* -DestinationPath $zip -CompressionLevel Optimal
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $([System.IO.Path]::GetFileName($zip))" | Set-Content artifacts/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ArcanaArena-Windows-x64
+          path: |
+            artifacts/ArcanaArena-*-Windows-x64.zip
+            artifacts/SHA256SUMS.txt
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: windows-diagnostic-logs
+          path: |
+            ${{ runner.temp }}/arcana-*.log
+            artifacts/windows/server/*.log
+
+  release:
+    needs: [build-and-test, package-windows]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ArcanaArena-Windows-x64
+          path: artifacts
+      - name: Publicar version descargable validada
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(tr -d '\r\n' < VERSION)
+          if gh release view "v$version" >/dev/null 2>&1; then
+            echo "La version v$version ya esta publicada; no se sustituyen sus ejecutables."
+          else
+            gh release create "v$version" "artifacts/ArcanaArena-v$version-Windows-x64.zip" artifacts/SHA256SUMS.txt --target "$GITHUB_SHA" --title "Arcana Arena v$version" --notes-file docs/RELEASE-v0.2.0.md
+          fi

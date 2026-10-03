@@ -5,10 +5,10 @@ namespace Arcana.Core;
 
 public static class Protocol
 {
-    public const int Version = 1;
+    public const int Version = 2;
     public const int GamePort = 27015;
     public const int DiscoveryPort = 27016;
-    public const string DiscoveryMagic = "ARCANA_DISCOVER_V1";
+    public const string DiscoveryMagic = "ARCANA_DISCOVER_V2";
     public const int MaxMessageBytes = 4096;
     public static readonly JsonSerializerOptions Json = new()
     {
@@ -28,6 +28,8 @@ public sealed class ClientMessage
     public int Protocol { get; set; } = Core.Protocol.Version;
     public string Name { get; set; } = "Mago";
     public string Password { get; set; } = "";
+    public string RoomId { get; set; } = "default";
+    public string RoomPassword { get; set; } = "";
     public int Team { get; set; } = -1;
     public Element Element { get; set; }
     public int Slot { get; set; }
@@ -49,6 +51,7 @@ public sealed class ServerMessage
     public int PlayerId { get; set; }
     public string Error { get; set; } = "";
     public ServerInfo? Server { get; set; }
+    public RoomInfo? Room { get; set; }
     public WorldSnapshot? Snapshot { get; set; }
 }
 

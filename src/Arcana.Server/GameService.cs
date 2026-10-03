@@ -8,9 +8,24 @@ using Arcana.Core;
 
 namespace Arcana.Server;
 
-internal sealed class PlayerSession(int id, WebSocket socket)
+internal sealed class GameRoom(string id, string name, string password, WorldOptions options)
 {
+    public string Id { get; } = id;
+    public string Name { get; } = name;
+    public string Password { get; } = password;
+    public WorldOptions Options { get; } = options;
+    public GameWorld World { get; } = new(options);
+    public Dictionary<int, PlayerSession> Sessions { get; } = [];
+    public long LastOccupied { get; set; } = Environment.TickCount64;
+    public RoomInfo Info() => new(Id, Name, Options.Mode, World.Players.Count, Options.MaxPlayers,
+        Options.Bots, Options.FriendlyFire, Options.ScoreLimit, Options.Tickets, Password.Length > 0);
+}
+internal sealed class PlayerSession(int id, GameRoom room, WebSocket socket)
+{
+    // Los IDs de magos son locales a la sala. La sesión de transporte es única en todo el servidor.
+    public Guid Key { get; } = Guid.NewGuid();
     public int Id { get; } = id;
+    public GameRoom Room { get; } = room;
     public WebSocket Socket { get; } = socket;
     public Channel<ClientMessage> Commands { get; } = Channel.CreateBounded<ClientMessage>(new BoundedChannelOptions(64)
     { SingleReader = true, SingleWriter = true, FullMode = BoundedChannelFullMode.Wait });
@@ -20,24 +35,58 @@ internal sealed class PlayerSession(int id, WebSocket socket)
 
 public sealed class GameService(ServerSettings settings, ILogger<GameService> logger) : BackgroundService
 {
-    private readonly GameWorld _world = new(settings.World);
     private readonly object _gate = new();
-    private readonly ConcurrentDictionary<int, PlayerSession> _sessions = [];
+    private readonly Dictionary<string, GameRoom> _rooms = new(StringComparer.Ordinal)
+    { ["default"] = new("default", "Sala principal", "", settings.World) };
+    private readonly ConcurrentDictionary<Guid, PlayerSession> _sessions = [];
     private readonly SemaphoreSlim _handshakes = new(32, 32);
+    private const int MaxRooms = 16;
+    private readonly CancellationTokenSource _stopping = new();
 
     public ServerInfo Info()
     {
         lock (_gate) return new(settings.Name, settings.Port, settings.DiscoveryPort,
-            settings.World.Mode, _world.Players.Count, settings.World.MaxPlayers, Protocol.Version, settings.Password.Length > 0);
+            settings.World.Mode, _rooms.Values.Sum(r => r.World.Players.Count),
+            _rooms.Values.Sum(r => r.Options.MaxPlayers), Protocol.Version, settings.Password.Length > 0);
     }
-    public long CurrentTick { get { lock (_gate) return _world.Tick; } }
+    public long CurrentTick { get { lock (_gate) return _rooms["default"].World.Tick; } }
+    public RoomDirectory ListRooms()
+    { lock (_gate) return new(Info(), _rooms.Values.Select(r => r.Info()).ToArray()); }
+
+    public (RoomInfo? Room, string Error, int Status) CreateRoom(CreateRoomRequest? request)
+    {
+        if (request == null) return (null, "Faltan los datos de la sala.", 400);
+        if (!PasswordMatches(request.ServerPassword, settings.Password)) return (null, "Contraseña del servidor incorrecta.", 403);
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 32 || request.Name.Any(char.IsControl) ||
+            request.Password == null || request.Password.Length > 128 || !Enum.IsDefined(request.Mode) ||
+            request.MaxPlayers is < 2 or > 16 || request.Bots < 0 || request.Bots >= request.MaxPlayers ||
+            request.ScoreLimit is < 1 or > 200 || request.Tickets is < 5 or > 1000 ||
+            (request.Mode == GameMode.Duel && request.MaxPlayers != 2))
+            return (null, "Datos inválidos. Duelo requiere 2 plazas; deja al menos una plaza libre de bots.", 400);
+        lock (_gate)
+        {
+            RemoveIdleRooms();
+            if (_rooms.Count >= MaxRooms) return (null, "El servidor ha alcanzado su límite de 16 salas.", 409);
+            var options = new WorldOptions { Mode = request.Mode, MaxPlayers = request.MaxPlayers, Bots = request.Bots,
+                FriendlyFire = request.FriendlyFire, ScoreLimit = request.ScoreLimit, Tickets = request.Tickets };
+            var room = new GameRoom(Guid.NewGuid().ToString("N"), request.Name.Trim(), request.Password, options);
+            _rooms.Add(room.Id, room);
+            logger.LogInformation("Sala creada: {Name}, {Id}", room.Name, room.Id);
+            return (room.Info(), "", 201);
+        }
+    }
+    private void RemoveIdleRooms()
+    {
+        foreach (var room in _rooms.Values.Where(r => r.Id != "default" && r.Sessions.Count == 0 &&
+            Environment.TickCount64 - r.LastOccupied > 15 * 60 * 1000).ToArray()) _rooms.Remove(room.Id);
+    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("Arcana Arena v0.1.0: {Mode}, {Players} jugadores, {Bots} bots", settings.World.Mode,
-            settings.World.MaxPlayers, settings.World.Bots);
+        logger.LogInformation("Arcana Arena v0.2.0: TCP {Port}, hasta {Rooms} salas", settings.Port, MaxRooms);
         var clock = Stopwatch.StartNew();
         double previous = clock.Elapsed.TotalSeconds, accumulator = 0;
+        long cleanupAt = Environment.TickCount64;
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(4));
         try
         {
@@ -45,30 +94,38 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             {
                 double now = clock.Elapsed.TotalSeconds;
                 accumulator += Math.Min(0.15, now - previous); previous = now;
-                WorldSnapshot? snapshot = null;
+                var snapshots = new Dictionary<GameRoom, (WorldSnapshot World, PlayerSession[] Recipients)>();
                 lock (_gate)
                 {
                     while (accumulator >= GameWorld.StepSeconds)
                     {
-                        foreach (var session in _sessions.Values)
-                            for (int n = 0; n < 32 && session.Commands.Reader.TryRead(out var message); n++)
-                                _world.ApplyMessage(session.Id, message);
-                        _world.Step(); accumulator -= GameWorld.StepSeconds;
-                        if (_world.Tick % 3 == 0) snapshot = _world.Snapshot();
+                        foreach (var room in _rooms.Values)
+                        {
+                            foreach (var session in room.Sessions.Values)
+                                for (int n = 0; n < 32 && session.Commands.Reader.TryRead(out var message); n++)
+                                    room.World.ApplyMessage(session.Id, message);
+                            room.World.Step();
+                            if (room.Sessions.Count > 0)
+                            {
+                                room.LastOccupied = Environment.TickCount64;
+                                if (room.World.Tick % 3 == 0) snapshots[room] = (room.World.Snapshot(), room.Sessions.Values.ToArray());
+                            }
+                        }
+                        accumulator -= GameWorld.StepSeconds;
                     }
+                    if (Environment.TickCount64 - cleanupAt > 60000) { RemoveIdleRooms(); cleanupAt = Environment.TickCount64; }
                 }
-                if (snapshot == null || _sessions.IsEmpty) continue;
-                var bytes = Encoding.UTF8.GetBytes(Protocol.Serialize(new ServerMessage { Type = "snapshot", Snapshot = snapshot }));
-                foreach (var session in _sessions.Values) session.Outbox.Writer.TryWrite(bytes);
+                foreach (var (room, snapshot) in snapshots)
+                {
+                    var bytes = Encoding.UTF8.GetBytes(Protocol.Serialize(new ServerMessage { Type = "snapshot", Snapshot = snapshot.World }));
+                    foreach (var session in snapshot.Recipients) session.Outbox.Writer.TryWrite(bytes);
+                }
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { }
         finally
         {
-            foreach (var session in _sessions.Values)
-            {
-                session.Outbox.Writer.TryComplete(); session.Socket.Abort();
-            }
+            foreach (var session in _sessions.Values) { session.Outbox.Writer.TryComplete(); session.Socket.Abort(); }
         }
     }
 
@@ -76,27 +133,40 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
     {
         if (!context.WebSockets.IsWebSocketRequest) { context.Response.StatusCode = 400; return; }
         if (!await _handshakes.WaitAsync(0, context.RequestAborted)) { context.Response.StatusCode = 503; return; }
-        using var socket = await context.WebSockets.AcceptWebSocketAsync();
+        WebSocket? socket = null;
         PlayerSession? session = null;
         try
         {
-            using var handshake = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
+            socket = await context.WebSockets.AcceptWebSocketAsync();
+            using var handshake = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, _stopping.Token);
             handshake.CancelAfter(TimeSpan.FromSeconds(5));
             var hello = await Receive(socket, handshake.Token);
             if (hello is not { Type: "hello" } || hello.Protocol != Protocol.Version)
-            { await Reject(socket, "La versión del cliente no coincide con la del servidor.", context.RequestAborted); return; }
+            { await Reject(socket, "La versión del cliente no coincide con la del servidor.", handshake.Token); return; }
             if (!PasswordMatches(hello.Password, settings.Password))
-            { await Reject(socket, "Contraseña incorrecta.", context.RequestAborted); return; }
-            Wizard? player;
-            lock (_gate) player = _world.AddPlayer(hello.Name, hello.Team);
-            if (player == null) { await Reject(socket, "El servidor está lleno.", context.RequestAborted); return; }
-            session = new(player.Id, socket);
-            WorldSnapshot initial;
-            lock (_gate) initial = _world.Snapshot();
-            await Send(socket, new ServerMessage { Type = "welcome", PlayerId = player.Id, Server = Info(), Snapshot = initial }, context.RequestAborted);
-            _sessions[player.Id] = session;
-            logger.LogInformation("Conectado: {Name}, id {Id}", player.Name, player.Id);
-            using var connection = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, StoppingToken);
+            { await Reject(socket, "Contraseña del servidor incorrecta.", handshake.Token); return; }
+            string error = ""; WorldSnapshot? initial = null; RoomInfo? roomInfo = null;
+            lock (_gate)
+            {
+                if (hello.RoomId == null || !_rooms.TryGetValue(hello.RoomId, out var room)) error = "La sala ya no existe. Actualiza la lista.";
+                else if (!PasswordMatches(hello.RoomPassword, room.Password)) error = "Contraseña de la sala incorrecta.";
+                else
+                {
+                    var player = room.World.AddPlayer(hello.Name, hello.Team);
+                    if (player == null) error = "La sala está llena.";
+                    else
+                    {
+                        session = new(player.Id, room, socket); room.Sessions.Add(player.Id, session);
+                        _sessions[session.Key] = session; room.LastOccupied = Environment.TickCount64;
+                        initial = room.World.Snapshot(); roomInfo = room.Info();
+                    }
+                }
+            }
+            if (session == null) { await Reject(socket, error, handshake.Token); return; }
+            await Send(socket, new ServerMessage { Type = "welcome", PlayerId = session.Id, Server = Info(), Room = roomInfo,
+                Snapshot = initial }, handshake.Token);
+            logger.LogInformation("Conectado: sala {Room}, id {Id}", session.Room.Name, session.Id);
+            using var connection = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, _stopping.Token);
             var sendTask = SendLoop(session, connection.Token);
             try
             {
@@ -108,8 +178,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                     long now = Environment.TickCount64;
                     if (now - window >= 1000) { window = now; count = 0; }
                     if (++count > 180 || !session.Commands.Writer.TryWrite(message))
-                    { await socket.CloseOutputAsync(WebSocketCloseStatus.PolicyViolation, "Demasiados mensajes", connection.Token); break; }
-                    if ((message.Name?.Length ?? 0) > 64 || (message.Password?.Length ?? 0) > 128) break;
+                    { socket.Abort(); break; }
                 }
             }
             finally
@@ -126,26 +195,22 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
         {
             if (session != null)
             {
-                _sessions.TryRemove(session.Id, out _);
-                lock (_gate) _world.RemovePlayer(session.Id);
-                logger.LogInformation("Desconectado: id {Id}", session.Id);
+                _sessions.TryRemove(session.Key, out _);
+                lock (_gate) { session.Room.Sessions.Remove(session.Id); session.Room.World.RemovePlayer(session.Id); }
+                logger.LogInformation("Desconectado: sala {Room}, id {Id}", session.Room.Name, session.Id);
             }
-            if (socket.State == WebSocketState.Open)
+            if (socket?.State == WebSocketState.Open)
             {
                 using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(1));
                 try { await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Fin de sesión", timeout.Token); }
                 catch (Exception e) when (e is WebSocketException or OperationCanceledException) { }
             }
+            socket?.Dispose();
             _handshakes.Release();
         }
     }
-
-    // BackgroundService no expone su token: se guarda en StartAsync para cancelar las conexiones al apagar.
-    private CancellationToken StoppingToken => _stopping.Token;
-    private readonly CancellationTokenSource _stopping = new();
     public override Task StopAsync(CancellationToken cancellationToken)
     { _stopping.Cancel(); return base.StopAsync(cancellationToken); }
-
     private static bool PasswordMatches(string? supplied, string expected)
     {
         var a = System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(supplied ?? ""));
@@ -174,7 +239,14 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             if (result.MessageType != WebSocketMessageType.Text) throw new InvalidDataException("Solo se permite JSON UTF-8.");
             size += result.Count;
             if (size > Protocol.MaxMessageBytes) throw new InvalidDataException("Mensaje demasiado grande.");
-            if (result.EndOfMessage) return Protocol.Deserialize<ClientMessage>(Encoding.UTF8.GetString(buffer, 0, size));
+            if (result.EndOfMessage)
+            {
+                var message = Protocol.Deserialize<ClientMessage>(Encoding.UTF8.GetString(buffer, 0, size));
+                if (message != null && ((message.Name?.Length ?? 0) > 64 || (message.Password?.Length ?? 0) > 128 ||
+                    (message.RoomPassword?.Length ?? 0) > 128 || (message.RoomId?.Length ?? 0) > 64))
+                    throw new InvalidDataException("Datos demasiado largos.");
+                return message;
+            }
         }
     }
 }

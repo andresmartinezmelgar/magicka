@@ -1,0 +1,31 @@
+ARCANA ARENA v0.2.0
+
+1. Extrae TODO el ZIP antes de jugar.
+2. Abre ArcanaArena.exe con doble clic.
+
+PRACTICA: jugar con bots sin servidor.
+ALOJAR: nombre, puerto TCP, puerto UDP y contrasena opcional.
+   Pulsa Iniciar servidor y ver salas. Crear sala permite elegir modo,
+   plazas, bots, fuego amigo y limites. Pulsa Crear y entrar.
+LAN: otros jugadores de la misma red buscan tu servidor y eligen la sala.
+POR IP: introducir la IP del servidor y su puerto (ejemplo 192.168.1.20:27015).
+
+Windows: Permitir LAN solicita permiso de administrador y permite
+solo el servidor incluido en redes privadas, usando los puertos seleccionados.
+Si cambias puertos o mueves la carpeta, vuelve a pulsarlo.
+Ver registro abre el diagnostico del servidor.
+
+El servidor sigue funcionando mientras juegas. Cerrar el juego o pulsar
+Detener servidor cierra las salas que alojas. Las salas vacias duran 15 minutos.
+No se guardan contrasenas ni estadisticas al apagar.
+
+No necesitas instalar Godot, .NET ni Docker. Mantener juntos el .exe, el .pck,
+la carpeta de datos y server/. Windows 10/11 x64 y OpenGL 3.3.
+
+Q W E R: agua, vida, escudo, frio. A S D F: rayo, arcano, tierra, fuego.
+Clic izquierdo / flechas: movimiento. Derecho: lanzar y mantener; soltar: parar.
+Central: magia sobre ti. Mayus + derecho: area. Mayus + izquierdo: baston.
+1-4: magicks. Retroceso: vaciar elementos. F1: ayuda. ESC: menu. TAB: clasificacion.
+
+Recreacion inicial con recursos propios y balance aproximado de Magicka: Wizard Wars.
+Codigo y documentacion: https://github.com/andresmartinezmelgar/magicka

@@ -1,5 +1,17 @@
 # Servidor y conexiones
 
+## Alojar desde Windows
+
+Abrir el paquete con doble clic y elegir **Alojar**. Introducir nombre, TCP, UDP y contraseña; pulsar **Iniciar servidor y ver salas**. El proceso incluido es autónomo y no abre consola. **Permitir LAN** abre el permiso UAC y añade reglas de entrada únicamente para este ejecutable, los puertos elegidos y el perfil de red privado. **Ver registro** abre `server.log` dentro de los datos de usuario del juego.
+
+El anfitrión puede entrar en una sala mientras el servidor continúa atendiendo las demás. Cerrar el juego o pulsar **Detener servidor** detiene el proceso y pierde las salas y estadísticas en memoria. Para un servidor que permanezca activo sin el cliente, usar Docker o ejecutar el servidor dedicado aparte.
+
+## Salas
+
+`GET /rooms` devuelve servidor y salas sin revelar contraseñas. `POST /rooms` permite crear una sala; requiere `serverPassword` si está configurada. El saludo WebSocket selecciona `roomId` y `roomPassword`, además de la contraseña del servidor.
+
+Hay hasta 16 salas, cada una con 2–16 plazas, incluidas las de bots. Duelo utiliza exactamente dos plazas. Las salas creadas se eliminan tras 15 minutos sin personas conectadas; los bots no impiden esa limpieza. La sala principal permanece. El aforo, la simulación, los jugadores, los marcadores y los mensajes son independientes por sala. No hay cuentas ni persistencia de salas tras reiniciar.
+
 ## Parámetros
 
 | Variable | Predeterminado | Valores |
@@ -15,6 +27,8 @@
 | `TICKETS` | 75 | Tickets iniciales por equipo en guerra |
 | `SERVER_PASSWORD` | vacía | Contraseña opcional del saludo |
 
+Estos ajustes configuran la **sala principal** del servidor dedicado. Las salas adicionales tienen sus propias opciones, elegidas desde el launcher. La contraseña del servidor autoriza tanto entrar como crear salas.
+
 Los ajustes se leen al iniciar el proceso. Después de editar `.env`, recrear el contenedor:
 
 ```sh
@@ -29,7 +43,7 @@ Una dirección sin esquema utiliza `ws://`, puerto 27015 y ruta `/play`. Una dir
 
 ## LAN
 
-El launcher envía `ARCANA_DISCOVER_V1` y un nonce por UDP al puerto de búsqueda. El servidor responde con nombre, IP de origen, puerto TCP, modo, ocupación y si necesita contraseña. El cliente obtiene la IP de la respuesta, no de datos declarados por un tercero.
+El launcher envía `ARCANA_DISCOVER_V2` y un nonce por UDP al puerto de búsqueda. El servidor responde con nombre, IP de origen, puerto TCP, modo, ocupación y si necesita contraseña. El cliente obtiene la IP de la respuesta, no de datos declarados por un tercero.
 
 La búsqueda dura dos segundos y también pregunta a loopback, para encontrar un servidor ejecutado en el mismo equipo. Las subredes de Wi-Fi invitado, el aislamiento entre clientes y los cortafuegos pueden impedir broadcast. En ese caso, la misma partida LAN es accesible introduciendo su IP en **Por IP**.
 
@@ -54,6 +68,7 @@ El servidor reinicia la partida nueve segundos después de terminar. Conserva a 
 ```sh
 curl http://127.0.0.1:27015/health
 curl http://127.0.0.1:27015/info
+curl http://127.0.0.1:27015/rooms
 docker compose logs --tail 100 server
 ```
 

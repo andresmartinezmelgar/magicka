@@ -1,5 +1,16 @@
 # Cambios
 
+## 0.2.0
+
+- Paquete Windows x64 autónomo: doble clic en `ArcanaArena.exe`, sin instalar herramientas.
+- Pestaña Alojar: servidor incluido, nombre, puertos, contraseña, inicio, parada y registro.
+- Configuración de reglas LAN privadas mediante botón y permiso UAC de Windows.
+- Directorio, selección y creación de salas con modo, aforo, bots, fuego amigo y victoria.
+- Salas independientes, contraseñas propias y limpieza después de 15 minutos vacías.
+- Protocolo v2; cliente y servidor deben actualizarse juntos.
+- Pruebas de aislamiento, aforo, contraseñas y paquete autónomo en Windows.
+- Exportación reproducible, prueba del juego distribuido y publicación automática del ZIP solo tras validación.
+
 ## 0.1.0
 
 Primera versión del proyecto:

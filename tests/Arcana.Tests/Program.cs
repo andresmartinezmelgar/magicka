@@ -162,6 +162,7 @@ Test("Direcciones IP, dominio, IPv6 y WSS", () =>
     Check(ArenaConnection.Address("127.0.0.1:29015").AbsolutePath == "/play", "Ruta por defecto incorrecta.");
     Check(ArenaConnection.Address("::1").Port == 27015, "IPv6 inválida.");
     Check(ArenaConnection.Address("wss://juego.example/play").Scheme == "wss", "No se acepta WSS.");
+    Check(RoomBrowser.Endpoint("wss://juego.example/arcana/play", "rooms").ToString() == "https://juego.example/arcana/rooms", "No se conservó el prefijo del proxy para salas.");
 });
 
 string? server = args.FirstOrDefault(a => a.StartsWith("--server="))?[9..];
@@ -174,6 +175,61 @@ async Task WaitFor(Func<bool> ready, string reason)
 if (server != null)
 {
     string password = Environment.GetEnvironmentVariable("TEST_PASSWORD") ?? "";
+    await AsyncTest("Crear salas con opciones, enumerarlas y aislar estado aunque los IDs coincidan", async () =>
+    {
+        var roomA = await RoomBrowser.CreateAsync(server, new() { Name = "Prueba aislamiento A", ServerPassword = password,
+            Mode = GameMode.Arena, MaxPlayers = 4, FriendlyFire = false, ScoreLimit = 9, Tickets = 45 });
+        var roomB = await RoomBrowser.CreateAsync(server, new() { Name = "Prueba aislamiento B", ServerPassword = password,
+            Mode = GameMode.Warfare, MaxPlayers = 3, Bots = 0 });
+        var directory = await RoomBrowser.ListAsync(server);
+        Check(directory.Rooms.Any(r => r.Id == roomA.Id && r.ScoreLimit == 9 && !r.FriendlyFire) &&
+            directory.Rooms.Any(r => r.Id == roomB.Id && r.Bots == 0), "No se publicaron las opciones de sala.");
+        await using var a = new ArenaConnection(); await using var b = new ArenaConnection();
+        await a.ConnectAsync(server, "Solo A", -1, password, roomId: roomA.Id);
+        await b.ConnectAsync(server, "Solo B", -1, password, roomId: roomB.Id);
+        Check(a.PlayerId == b.PlayerId, "La prueba debe cubrir IDs locales iguales en dos salas.");
+        a.Send(new() { Type = "element", Element = Element.Fire });
+        await WaitFor(() => a.Latest!.Players.First(p => p.Id == a.PlayerId).Selected.Length == 1, "No llegó la intención a su sala.");
+        Check(a.Latest!.Mode == GameMode.Arena && a.Latest.Players.Length == 1 && b.Latest!.Mode == GameMode.Warfare &&
+            b.Latest.Players.All(p => p.Name != "Solo A" && p.Selected.Length == 0), "Se filtró estado entre salas.");
+        Check(a.Room?.Id == roomA.Id && b.Room?.Id == roomB.Id, "El saludo no identifica la sala.");
+    });
+    await AsyncTest("Contraseña de sala, aforo y sala inexistente se validan", async () =>
+    {
+        var room = await RoomBrowser.CreateAsync(server, new() { Name = "Duelo privado", ServerPassword = password,
+            Password = "sala-clave", Mode = GameMode.Duel, MaxPlayers = 2, Bots = 1 });
+        await using var wrong = new ArenaConnection(); bool rejected = false;
+        try { await wrong.ConnectAsync(server, "Sin clave", -1, password, roomId: room.Id, roomPassword: "incorrecta"); }
+        catch (InvalidOperationException e) { rejected = e.Message.Contains("sala"); }
+        Check(rejected, "Se admitió una contraseña de sala incorrecta.");
+        await using var a = new ArenaConnection(); await a.ConnectAsync(server, "Con clave", -1, password, roomId: room.Id, roomPassword: "sala-clave");
+        Check(a.Latest!.Players.Length == 2, "No se añadió el bot del duelo.");
+        await using var full = new ArenaConnection(); rejected = false;
+        try { await full.ConnectAsync(server, "Tercero", -1, password, roomId: room.Id, roomPassword: "sala-clave"); }
+        catch (InvalidOperationException e) { rejected = e.Message.Contains("llena"); }
+        Check(rejected, "Se excedió el aforo.");
+        await using var missing = new ArenaConnection(); rejected = false;
+        try { await missing.ConnectAsync(server, "Perdido", -1, password, roomId: "no-existe"); }
+        catch (InvalidOperationException e) { rejected = e.Message.Contains("existe"); }
+        Check(rejected, "Se admitió una sala inexistente.");
+    });
+    await AsyncTest("Crear sala rechaza opciones inválidas y no expone contraseñas", async () =>
+    {
+        bool rejected = false;
+        try { await RoomBrowser.CreateAsync(server, new() { Name = "Inválida", Mode = GameMode.Duel, MaxPlayers = 8, ServerPassword = password }); }
+        catch (InvalidOperationException) { rejected = true; }
+        Check(rejected, "Se admitió un duelo de ocho jugadores.");
+        using var http = new HttpClient();
+        string directory = await http.GetStringAsync(RoomBrowser.Endpoint(server, "rooms"));
+        Check(!directory.Contains("sala-clave") && (password.Length == 0 || !directory.Contains(password)), "Se expuso una contraseña en el directorio.");
+        if (password.Length > 0)
+        {
+            rejected = false;
+            try { await RoomBrowser.CreateAsync(server, new() { Name = "No autorizada", ServerPassword = "incorrecta" }); }
+            catch (InvalidOperationException) { rejected = true; }
+            Check(rejected, "Se creó una sala sin la contraseña del servidor.");
+        }
+    });
     await AsyncTest("Dos clientes reales, selección sincronizada y movimiento autoritativo", async () =>
     {
         await using var a = new ArenaConnection(); await using var b = new ArenaConnection();
@@ -217,5 +273,19 @@ if (server != null)
         Check(rejected, "Se admitió una contraseña incorrecta.");
     });
 }
+string? package = args.FirstOrDefault(a => a.StartsWith("--package="))?[10..];
+if (package != null) await AsyncTest("Paquete autónomo: alojar, crear, entrar y detener desde LocalServerHost", async () =>
+{
+    using var host = new LocalServerHost();
+    await host.StartAsync(package, Path.Combine(Path.GetTempPath(), "arcana-package-test"), new("Paquete de prueba", 29015, 29016, "paquete-clave"));
+    Check(host.Running, "No arrancó el servidor incluido.");
+    var room = await RoomBrowser.CreateAsync(host.Address, new() { Name = "Sala desde paquete", Bots = 1, ServerPassword = "paquete-clave" });
+    await using var player = new ArenaConnection();
+    await player.ConnectAsync(host.Address, "Doble clic", -1, "paquete-clave", roomId: room.Id);
+    Check(player.Latest!.Players.Length == 2, "No se pudo jugar en el servidor incluido.");
+    var lan = await LanDiscovery.FindAsync(29016);
+    Check(lan.Any(s => s.Info.Name == "Paquete de prueba"), "El servidor incluido no se anuncia en LAN.");
+    await player.DisposeAsync(); host.Stop(); Check(!host.Running, "El servidor quedó activo tras detenerlo.");
+});
 Console.WriteLine($"RESULTADO: {passed} correctas, {failed} fallidas.");
 return failed == 0 ? 0 : 1;

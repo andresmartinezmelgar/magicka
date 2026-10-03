@@ -21,6 +21,7 @@ public sealed class ArenaConnection : IAsyncDisposable
     private bool _disposing;
     public int PlayerId { get; private set; }
     public ServerInfo? Server { get; private set; }
+    public RoomInfo? Room { get; private set; }
     public WorldSnapshot? Latest => Volatile.Read(ref _latest);
     public bool Connected => !_lifetime.IsCancellationRequested && _socket.State == WebSocketState.Open;
     public event Action<string>? Disconnected;
@@ -43,19 +44,21 @@ public sealed class ArenaConnection : IAsyncDisposable
         return uri;
     }
 
-    public async Task ConnectAsync(string address, string name, int team, string password, CancellationToken token = default)
+    public async Task ConnectAsync(string address, string name, int team, string password, CancellationToken token = default,
+        string roomId = "default", string roomPassword = "")
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token, _lifetime.Token);
         timeout.CancelAfter(TimeSpan.FromSeconds(7));
         _socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(10);
         await _socket.ConnectAsync(Address(address), timeout.Token).ConfigureAwait(false);
-        var hello = new ClientMessage { Type = "hello", Name = name, Team = team, Password = password, Protocol = Protocol.Version };
+        var hello = new ClientMessage { Type = "hello", Name = name, Team = team, Password = password,
+            RoomId = roomId, RoomPassword = roomPassword, Protocol = Protocol.Version };
         await _socket.SendAsync(Encoding.UTF8.GetBytes(Protocol.Serialize(hello)), WebSocketMessageType.Text, true, timeout.Token).ConfigureAwait(false);
         var welcome = await Read(timeout.Token).ConfigureAwait(false);
         if (welcome?.Type == "error") throw new InvalidOperationException(welcome.Error);
         if (welcome is not { Type: "welcome", Snapshot: not null } || welcome.PlayerId <= 0)
             throw new InvalidOperationException("El servidor no ha enviado un saludo válido.");
-        PlayerId = welcome.PlayerId; Server = welcome.Server;
+        PlayerId = welcome.PlayerId; Server = welcome.Server; Room = welcome.Room;
         Volatile.Write(ref _latest, welcome.Snapshot);
         _writer = WriteLoop(); _reader = ReadLoop();
     }

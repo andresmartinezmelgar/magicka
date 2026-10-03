@@ -25,6 +25,7 @@ public partial class Main : Node
     private long _lastTick = -1;
     private string _serverName = "";
     private bool _smoke;
+    private bool _hostSmoke;
     private int _smokeFrames, _renderFrames;
     private string? _capturePath;
 
@@ -39,8 +40,13 @@ public partial class Main : Node
         foreach (string arg in OS.GetCmdlineUserArgs())
         {
             if (arg == "--smoke") _smoke = true;
+            if (arg == "--host-smoke") _hostSmoke = true;
             if (arg.StartsWith("--capture=")) _capturePath = arg[10..];
+            if (arg.StartsWith("--server=")) _launcher.BrowseAddress(arg[9..]);
+            if (arg.StartsWith("--create-room=")) _launcher.BrowseAddress(arg[14..], true);
+            if (arg.StartsWith("--tab=") && int.TryParse(arg[6..], out int tab)) _launcher.ShowTab(tab);
         }
+        if (_hostSmoke) _ = HostedSmoke();
         if (_smoke)
         {
             StartPractice("Aprendiz", 0, GameMode.Warfare, 3);
@@ -50,18 +56,28 @@ public partial class Main : Node
         }
     }
     public void Post(Action action) => _posted.Enqueue(action);
+    private async Task HostedSmoke()
+    {
+        try
+        {
+            var room = await _launcher.StartSmokeRoom();
+            await ConnectOnline("127.0.0.1:29025", "Launcher", -1, "", room.Id);
+        }
+        catch (Exception e) { Post(() => { GD.PushError("HOST_SMOKE_FAILED: " + e.Message); GetTree().Quit(1); }); }
+    }
 
-    public async Task ConnectOnline(string address, string name, int team, string password)
+    public async Task ConnectOnline(string address, string name, int team, string password,
+        string roomId = "default", string roomPassword = "")
     {
         var connection = new ArenaConnection();
         try
         {
-            await connection.ConnectAsync(address, name, team, password);
+            await connection.ConnectAsync(address, name, team, password, roomId: roomId, roomPassword: roomPassword);
             connection.Disconnected += reason => Post(() => { if (_connection == connection) ReturnToLauncher(reason); });
             Post(() =>
             {
                 _connection = connection; _practice = null; _localId = connection.PlayerId;
-                _serverName = connection.Server?.Name ?? address;
+                _serverName = (connection.Server?.Name ?? address) + " / " + (connection.Room?.Name ?? "Sala principal");
                 StartGame(connection.Latest!);
             });
         }
@@ -87,7 +103,7 @@ public partial class Main : Node
     {
         _playing = true; _paused = false; _moveTo = false; _snapshotAge = 0; _lastTick = -1;
         _ignoreLeftUntilRelease = true;
-        _launcher.Visible = false; _launcher.SetBusy(false); _help.Visible = _pause.Visible = false;
+        _launcher.Visible = false; _launcher.CloseRooms(); _launcher.SetBusy(false); _help.Visible = _pause.Visible = false;
         _renderer.Clear(); _snapshot = snapshot;
         _hud?.QueueFree(); _hud = new Hud(); _ui.AddChild(_hud); _hud.Build();
         _ui.MoveChild(_help, -1); _ui.MoveChild(_pause, -1);
@@ -150,6 +166,8 @@ public partial class Main : Node
             if (_smokeFrames >= 240 && _capturePath == null)
             { GD.Print($"SMOKE_OK: {_snapshot?.Players.Length} jugadores, tick {_snapshot?.Tick}"); GetTree().Quit(); }
         }
+        if (_hostSmoke && _connection?.Connected == true && ++_smokeFrames >= 180)
+        { GD.Print($"HOST_SMOKE_OK: {_connection.Room?.Name}, {_snapshot?.Players.Length} jugadores"); GetTree().Quit(); }
     }
     private ClientMessage InputMessage()
     {
