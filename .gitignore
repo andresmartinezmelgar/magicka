@@ -1,0 +1,9 @@
+**/bin/
+**/obj/
+**/.godot/
+**/.vs/
+.env
+artifacts/
+*.user
+*.suo
+*.log

@@ -1,0 +1,712 @@
+namespace Arcana.Core;
+
+/// <summary>
+/// Simulación autoritativa compartida por el servidor y la práctica sin conexión.
+/// No depende de Godot, ni de sockets, ni del reloj del equipo del jugador.
+/// Una sola hebra debe llamar a sus métodos; el servidor lo garantiza con un bloqueo.
+/// </summary>
+public sealed class GameWorld
+{
+    public const float StepSeconds = 1f / 60;
+    private readonly Dictionary<int, Wizard> _players = [];
+    private readonly List<Projectile> _projectiles = [];
+    private readonly List<Wall> _walls = [];
+    private readonly List<Field> _fields = [];
+    private readonly List<BeamSnapshot> _beams = [];
+    private readonly List<(long Tick, GameEvent Event)> _events = [];
+    private readonly ControlPoint[] _points;
+    private readonly Random _random;
+    private int _nextPlayer = 1, _nextEntity = 1;
+    private long _nextEvent = 1;
+    private float _ticketClock;
+    public WorldOptions Options { get; }
+    public long Tick { get; private set; }
+    public double Time => Tick / 60.0;
+    public bool MatchEnded { get; private set; }
+    public int Winner { get; private set; } = -1;
+    public float RestartIn { get; private set; }
+    public int[] Scores { get; } = new int[2];
+    public IReadOnlyDictionary<int, Wizard> Players => _players;
+
+    public GameWorld(WorldOptions? options = null)
+    {
+        Options = options ?? new();
+        _random = new(Options.Seed);
+        _points = ArenaMap.ControlPoints.Select((p, i) => new ControlPoint { Id = i, Position = p }).ToArray();
+        ResetScores();
+        for (int i = 0; i < Math.Min(Options.Bots, Options.MaxPlayers); i++) AddPlayer($"Bot {i + 1}", -1, true);
+    }
+
+    public Wizard? AddPlayer(string name, int preferredTeam = -1, bool bot = false)
+    {
+        if (_players.Count >= Options.MaxPlayers || Options.Mode == GameMode.Duel && _players.Count >= 2) return null;
+        int blue = _players.Values.Count(p => p.Team == 0), red = _players.Count - blue;
+        // No se puede llenar un solo equipo mediante el campo del saludo.
+        int team = blue == red && preferredTeam is 0 or 1 ? preferredTeam : blue <= red ? 0 : 1;
+        string cleanName = new((name ?? "Mago").Where(c => !char.IsControl(c) && c != '[' && c != ']').Take(24).ToArray());
+        if (string.IsNullOrWhiteSpace(cleanName)) cleanName = "Mago";
+        var wizard = new Wizard { Id = _nextPlayer++, Name = cleanName.Trim(), Team = team, Bot = bot };
+        wizard.Position = ArenaMap.Spawn(team, _players.Values.Count(p => p.Team == team));
+        wizard.Facing = new(team == 0 ? 1 : -1, 0);
+        wizard.LastInput = Time;
+        _players.Add(wizard.Id, wizard);
+        Emit("join", wizard.Position, [], $"{wizard.Name} entra en la arena");
+        return wizard;
+    }
+
+    public void RemovePlayer(int id)
+    {
+        if (!_players.Remove(id, out var wizard)) return;
+        _projectiles.RemoveAll(p => p.Owner == id);
+        _walls.RemoveAll(p => p.Owner == id);
+        _fields.RemoveAll(p => p.Owner == id);
+        Emit("leave", wizard.Position, [], $"{wizard.Name} sale de la arena");
+    }
+
+    public bool ApplyMessage(int id, ClientMessage message)
+    {
+        if (!_players.TryGetValue(id, out var p) || message.Sequence <= p.LastSequence) return false;
+        p.LastSequence = message.Sequence;
+        if (message.Type == "input")
+        {
+            if (!float.IsFinite(message.MoveX) || !float.IsFinite(message.MoveY) ||
+                !float.IsFinite(message.AimX) || !float.IsFinite(message.AimY) ||
+                !float.IsFinite(message.TargetX) || !float.IsFinite(message.TargetY)) return false;
+            message.MoveX = Math.Clamp(message.MoveX, -1, 1);
+            message.MoveY = Math.Clamp(message.MoveY, -1, 1);
+            message.AimX = Math.Clamp(message.AimX, -100, 100);
+            message.AimY = Math.Clamp(message.AimY, -100, 100);
+            message.TargetX = Math.Clamp(message.TargetX, -ArenaMap.HalfWidth, ArenaMap.HalfWidth);
+            message.TargetY = Math.Clamp(message.TargetY, -ArenaMap.HalfHeight, ArenaMap.HalfHeight);
+            p.Input = message;
+            p.LastInput = Time;
+            return true;
+        }
+        if (!p.Alive || MatchEnded || p.Frozen > 0) return false;
+        switch (message.Type)
+        {
+            case "element": return p.Selection.Add(message.Element);
+            case "clear": p.Selection.Clear(); return true;
+            case "cast": BeginCast(p); return true;
+            case "release": Release(p); return true;
+            case "self": SelfCast(p); return true;
+            case "nova": Nova(p); return true;
+            case "melee": Melee(p); return true;
+            case "magick": Magick(p, message.Slot); return true;
+            default: return false;
+        }
+    }
+
+    public void Step()
+    {
+        Tick++;
+        const float dt = StepSeconds;
+        _beams.Clear();
+        _events.RemoveAll(e => Tick - e.Tick > 90);
+        if (MatchEnded)
+        {
+            RestartIn -= dt;
+            if (RestartIn <= 0) ResetMatch();
+            return;
+        }
+        foreach (var p in _players.Values)
+        {
+            p.ActionCooldown = Math.Max(0, p.ActionCooldown - dt);
+            p.Invulnerable = Math.Max(0, p.Invulnerable - dt);
+            for (int i = 0; i < 4; i++) p.MagickCooldowns[i] = Math.Max(0, p.MagickCooldowns[i] - dt);
+            if (!p.Alive)
+            {
+                p.Respawn -= dt;
+                if (p.Respawn <= 0) Respawn(p);
+                continue;
+            }
+            if (p.Bot) ThinkBot(p, dt);
+            if (Time - p.LastInput > 0.6)
+            {
+                p.Channel = null; p.Charging = null;
+                p.Input.MoveTo = false; p.Input.MoveX = p.Input.MoveY = 0;
+            }
+            TickStatus(p, dt);
+            if (!p.Alive) continue;
+            var aim = new V2(p.Input.AimX, p.Input.AimY) - p.Position;
+            if (aim.Length > 0.05f) p.Facing = aim.Normalized;
+            Move(p, dt);
+            if (p.Charging != null && p.Frozen <= 0)
+            {
+                p.ChargeTime = Math.Min(1.4f, p.ChargeTime + dt);
+                if (p.ChargeTime >= 1.4f) Release(p);
+            }
+            if (p.Channel != null && p.Frozen <= 0) Channel(p, dt);
+        }
+        TickProjectiles(dt);
+        TickWallsAndFields(dt);
+        if (Options.Mode == GameMode.Warfare) TickCapture(dt);
+        CheckVictory();
+    }
+
+    private void TickStatus(Wizard p, float dt)
+    {
+        p.Wet = Math.Max(0, p.Wet - dt);
+        p.Frozen = Math.Max(0, p.Frozen - dt);
+        p.Chill = Math.Max(0, p.Chill - 10 * dt);
+        p.Haste = Math.Max(0, p.Haste - dt);
+        p.Energy = Math.Min(100, p.Energy + 1.8f * dt);
+        p.ShieldTime -= dt;
+        p.WardTime -= dt;
+        if (p.ShieldTime <= 0) p.Shield = 0;
+        if (p.WardTime <= 0) p.Ward = [];
+        if (p.Burning > 0)
+        {
+            p.Burning = Math.Max(0, p.Burning - dt);
+            Damage(p, 28 * dt * Resistance(p, Element.Fire), p.BurnOwner);
+        }
+    }
+
+    private bool Allied(Wizard a, Wizard b) => a.Id == b.Id || Options.Mode != GameMode.Arena && a.Team == b.Team;
+    private bool Hostile(Wizard a, Wizard b) => !Allied(a, b);
+    private float Resistance(Wizard p, Element e) => p.Ward.Contains(e) ? 0.18f : 1;
+
+    private void Move(Wizard p, float dt)
+    {
+        var move = new V2(p.Input.MoveX, p.Input.MoveY);
+        if (move.Length < 0.1f && p.Input.MoveTo)
+        {
+            move = new V2(p.Input.TargetX, p.Input.TargetY) - p.Position;
+            if (move.Length < 0.18f) { move = V2.Zero; p.Input.MoveTo = false; }
+        }
+        float speed = 6.2f * (p.Haste > 0 ? 1.65f : 1) * (1 - p.Chill * 0.005f);
+        if (p.Channel != null) speed *= 0.48f;
+        if (p.Charging != null) speed *= 0.35f;
+        if (p.Ward.Contains(Element.Earth)) speed *= 0.78f;
+        if (p.Frozen > 0) { speed = 0; p.Channel = null; p.Charging = null; }
+        var delta = move.Normalized * (speed * dt) + p.Knockback * dt;
+        p.Knockback *= MathF.Max(0, 1 - 8 * dt);
+        // Dos ejes: el mago se desliza por los obstáculos en vez de atravesarlos.
+        var x = p.Position + new V2(delta.X, 0);
+        if (Walkable(x)) p.Position = x;
+        var y = p.Position + new V2(0, delta.Y);
+        if (Walkable(y)) p.Position = y;
+    }
+
+    public bool Walkable(V2 position)
+    {
+        float r = ArenaMap.WizardRadius;
+        if (MathF.Abs(position.X) > ArenaMap.HalfWidth - r || MathF.Abs(position.Y) > ArenaMap.HalfHeight - r) return false;
+        if (ArenaMap.Obstacles.Any(o => V2.Distance(position, o.Position) < o.Radius + r)) return false;
+        return !_walls.Any(w => w.Health > 0 && Geometry.DistanceToSegment(position, w.A, w.B) < r + 0.18f);
+    }
+
+    private bool Ready(Wizard p) => p.Alive && p.Frozen <= 0 && p.ActionCooldown <= 0 && !MatchEnded;
+    private void BeginCast(Wizard p)
+    {
+        if (!Ready(p)) return;
+        p.Channel = null; p.Charging = null;
+        var spell = new SpellRecipe(p.Selection.Consume());
+        if (spell.Shape == SpellShape.Rock)
+        {
+            p.Charging = spell; p.ChargeTime = 0;
+        }
+        else if (spell.Shape == SpellShape.Shards)
+        {
+            int count = 3 + spell.Count(Element.Cold);
+            for (int i = 0; i < count; i++) SpawnProjectile(p, spell, p.Facing.Rotated((i - (count - 1) / 2f) * 0.11f), 0.6f, 22, 0.16f);
+            p.ActionCooldown = 0.5f;
+        }
+        else if (spell.Shape == SpellShape.Barrier)
+        {
+            CreateBarrier(p, spell); p.ActionCooldown = 0.7f;
+        }
+        else
+        {
+            p.Channel = spell;
+            Emit("cast", p.Position, spell.Elements, "");
+        }
+    }
+
+    private void Release(Wizard p)
+    {
+        if (p.Charging != null)
+        {
+            SpawnProjectile(p, p.Charging, p.Facing, 1.1f + p.ChargeTime, 13 + p.ChargeTime * 9,
+                0.24f + p.Charging.Count(Element.Earth) * 0.13f);
+            p.ActionCooldown = 0.35f;
+        }
+        p.Charging = null; p.ChargeTime = 0; p.Channel = null;
+    }
+
+    private void SpawnProjectile(Wizard p, SpellRecipe spell, V2 direction, float power, float speed, float radius)
+    {
+        if (_projectiles.Count >= 128) return;
+        _projectiles.Add(new Projectile
+        {
+            Id = _nextEntity++, Owner = p.Id, Position = p.Position + direction * 0.85f,
+            Velocity = direction * speed, Recipe = spell, Power = power, Radius = radius
+        });
+        Emit("cast", p.Position, spell.Elements, "");
+    }
+
+    private V2 RayEnd(V2 from, V2 direction, float range, out Wall? hitWall)
+    {
+        hitWall = null;
+        var to = from + direction * range;
+        float best = 1;
+        foreach (var o in ArenaMap.Obstacles)
+            if (Geometry.SegmentCircle(from, to, o.Position, o.Radius) is float t && t < best) best = t;
+        // Segmento de pared contra rayo mediante productos cruzados.
+        foreach (var w in _walls.Where(w => w.Health > 0))
+        {
+            var r = to - from; var s = w.B - w.A;
+            float cross = r.X * s.Y - r.Y * s.X;
+            if (MathF.Abs(cross) < 0.0001f) continue;
+            var a = w.A - from;
+            float t = (a.X * s.Y - a.Y * s.X) / cross;
+            float u = (a.X * r.Y - a.Y * r.X) / cross;
+            if (t >= 0 && t < best && u >= 0 && u <= 1) { best = t; hitWall = w; }
+        }
+        return from + (to - from) * best;
+    }
+
+    private void Channel(Wizard p, float dt)
+    {
+        var spell = p.Channel!;
+        var from = p.Position + p.Facing * 0.7f;
+        var end = RayEnd(from, p.Facing, spell.Range, out var wall);
+        if (wall != null && !spell.Healing) wall.Health -= 110 * spell.Power * dt;
+        if (spell.Shape == SpellShape.Beam)
+        {
+            Wizard? first = null; float best = float.MaxValue;
+            foreach (var target in _players.Values.Where(q => q.Id != p.Id && q.Alive))
+            {
+                if (Geometry.SegmentCircle(from, end, target.Position, 0.6f) is not float t || t >= best) continue;
+                best = t; first = target;
+            }
+            if (first != null)
+            {
+                end = V2.Lerp(from, end, best);
+                Hit(first, spell, dt, p.Id, p.Facing);
+            }
+        }
+        else
+        {
+            var targets = _players.Values.Where(q => q.Id != p.Id && q.Alive)
+                .Where(q => V2.Distance(q.Position, from) <= V2.Distance(end, from) + 0.1f &&
+                            V2.Dot((q.Position - from).Normalized, p.Facing) >
+                            (spell.Shape == SpellShape.Lightning ? 0.55f : 0.74f))
+                .Where(q => Visible(from, q.Position)).OrderBy(q => V2.Distance(q.Position, from)).ToArray();
+            if (spell.Shape == SpellShape.Lightning)
+            {
+                // Mojado hace peligroso incluso preparar un rayo sobre uno mismo.
+                if (p.Wet > 0) { Hit(p, spell, dt, p.Id, V2.Zero); p.Channel = null; }
+                V2 last = from;
+                foreach (var target in targets.Take(3))
+                {
+                    Hit(target, spell, dt, p.Id, p.Facing);
+                    _beams.Add(new(p.Id, last, target.Position, spell.Elements, spell.Shape));
+                    last = target.Position;
+                }
+                if (targets.Length == 0) _beams.Add(new(p.Id, from, end, spell.Elements, spell.Shape));
+                return;
+            }
+            foreach (var target in targets) Hit(target, spell, dt, p.Id, p.Facing);
+        }
+        _beams.Add(new(p.Id, from, end, spell.Elements, spell.Shape));
+    }
+
+    private bool Visible(V2 from, V2 to)
+    {
+        float distance = V2.Distance(from, to);
+        var end = RayEnd(from, (to - from).Normalized, distance, out _);
+        return V2.Distance(end, to) < 0.2f;
+    }
+
+    private void SelfCast(Wizard p)
+    {
+        if (!Ready(p)) return;
+        Release(p);
+        var spell = new SpellRecipe(p.Selection.Consume());
+        p.ActionCooldown = 0.45f;
+        if (spell.Has(Element.Shield))
+        {
+            p.Ward = spell.Elements.Where(e => e != Element.Shield).Distinct().ToArray();
+            p.WardTime = 12;
+            p.Shield = spell.Has(Element.Earth) ? 650 : p.Ward.Length == 0 ? 420 : 180;
+            p.ShieldTime = 12;
+        }
+        else if (spell.Healing)
+        {
+            p.Health = Math.Min(Wizard.MaxHealth, p.Health + 145 * spell.Count(Element.Life));
+        }
+        else if (spell.Has(Element.Fire) && (p.Wet > 0 || p.Frozen > 0 || p.Chill > 0))
+        {
+            p.Wet = 0; p.Frozen = 0; p.Chill = 0;
+        }
+        else if (spell.Has(Element.Water))
+        {
+            p.Wet = 6; p.Burning = 0;
+        }
+        else if (spell.Elements.Length > 0) Hit(p, spell, 1, p.Id, V2.Zero);
+        Emit("self", p.Position, spell.Elements, "");
+    }
+
+    private void Nova(Wizard p)
+    {
+        if (!Ready(p)) return;
+        Release(p);
+        var spell = new SpellRecipe(p.Selection.Consume());
+        p.ActionCooldown = 0.8f;
+        if (spell.Has(Element.Shield))
+        {
+            for (int i = 0; i < 6; i++)
+            {
+                var a = new V2(1, 0).Rotated(i * MathF.Tau / 6);
+                var b = new V2(1, 0).Rotated((i + 1) * MathF.Tau / 6);
+                AddWall(p, spell, p.Position + a * 2.5f, p.Position + b * 2.5f);
+            }
+        }
+        else
+        {
+            foreach (var target in _players.Values.Where(q => q.Id != p.Id && q.Alive && V2.Distance(q.Position, p.Position) < 4))
+                if (Visible(p.Position, target.Position)) Hit(target, spell, 1.0f, p.Id, (target.Position - p.Position).Normalized);
+        }
+        Emit("nova", p.Position, spell.Elements, "");
+    }
+
+    private void CreateBarrier(Wizard p, SpellRecipe spell)
+    {
+        var center = p.Position + p.Facing * 3.2f;
+        if (!ArenaMap.Inside(center)) return;
+        if (spell.Has(Element.Life) || spell.Has(Element.Arcane))
+        {
+            if (_fields.Count >= 40) return;
+            _fields.Add(new Field { Id = _nextEntity++, Owner = p.Id, Position = center,
+                Radius = 2.4f, Lifetime = 12, Delay = 0.4f, Recipe = spell, Kind = "mine" });
+        }
+        else AddWall(p, spell, center - p.Facing.Perpendicular * 2.2f, center + p.Facing.Perpendicular * 2.2f);
+        Emit("barrier", center, spell.Elements, "");
+    }
+
+    private void AddWall(Wizard p, SpellRecipe recipe, V2 a, V2 b)
+    {
+        if (_walls.Count >= 40 || !ArenaMap.Inside(a) || !ArenaMap.Inside(b)) return;
+        // Evita encerrar a alguien dentro de una pared recién creada.
+        if (_players.Values.Any(q => q.Alive && Geometry.DistanceToSegment(q.Position, a, b) < 0.7f)) return;
+        _walls.Add(new Wall { Id = _nextEntity++, Owner = p.Id, A = a, B = b, Recipe = recipe,
+            Health = recipe.Has(Element.Earth) ? 1300 : 650, Lifetime = recipe.Has(Element.Earth) ? 10 : 7 });
+    }
+
+    private void Melee(Wizard p)
+    {
+        if (!Ready(p)) return;
+        p.ActionCooldown = 0.5f;
+        foreach (var q in _players.Values.Where(q => q.Id != p.Id && q.Alive && V2.Distance(q.Position, p.Position) < 1.8f))
+            if (V2.Dot((q.Position - p.Position).Normalized, p.Facing) > 0.2f) Damage(q, 90, p.Id);
+        Emit("melee", p.Position + p.Facing, [], "");
+    }
+
+    private void Magick(Wizard p, int slot)
+    {
+        if (!Ready(p) || slot is < 0 or > 3 || p.MagickCooldowns[slot] > 0) return;
+        float[] costs = [25, 35, 75, 60];
+        float[] cooldowns = [9, 12, 24, 22];
+        if (p.Energy < costs[slot]) return;
+        var target = new V2(p.Input.AimX, p.Input.AimY);
+        if (slot == 0) p.Haste = 4;
+        if (slot == 1)
+        {
+            // El recorrido se comprueba: no se puede saltar fuera del mapa ni cruzar muros.
+            float distance = Math.Min(7, V2.Distance(p.Position, target));
+            V2 last = p.Position;
+            for (float d = 0.3f; d <= distance; d += 0.3f)
+            {
+                var candidate = p.Position + p.Facing * d;
+                if (!Walkable(candidate)) break;
+                last = candidate;
+            }
+            if (V2.Distance(last, p.Position) < 0.4f) return;
+            Emit("blink", p.Position, [], "");
+            p.Position = last; p.Input.MoveTo = false;
+        }
+        if (slot == 2)
+        {
+            var direction = target - p.Position;
+            if (direction.Length > 14) target = p.Position + direction.Normalized * 14;
+            if (!ArenaMap.Inside(target) || _fields.Count >= 40) return;
+            _fields.Add(new Field { Id = _nextEntity++, Owner = p.Id, Position = target, Radius = 4,
+                Lifetime = 1.5f, Delay = 1.4f, Kind = "meteor",
+                Recipe = new SpellRecipe([Element.Earth, Element.Fire, Element.Fire]) });
+        }
+        if (slot == 3)
+        {
+            var ally = _players.Values.Where(q => !q.Alive && Allied(p, q) && q.Id != p.Id && V2.Distance(q.Position, p.Position) < 8)
+                .OrderBy(q => V2.Distance(q.Position, p.Position)).FirstOrDefault();
+            if (ally == null) return;
+            var location = ally.Position;
+            Respawn(ally); ally.Position = location; ally.Health = 600;
+        }
+        p.Energy -= costs[slot]; p.MagickCooldowns[slot] = cooldowns[slot];
+        p.ActionCooldown = 0.2f;
+        Emit("magick", p.Position, [], new[] { "Celeridad", "Traslación", "Meteoro", "Reanimación" }[slot]);
+    }
+
+    private void Hit(Wizard target, SpellRecipe spell, float scale, int owner, V2 force)
+    {
+        if (!target.Alive) return;
+        if (spell.Healing) target.Health = Math.Min(Wizard.MaxHealth, target.Health + 140 * spell.Count(Element.Life) * scale);
+        if (target.Invulnerable > 0) return;
+        if (_players.TryGetValue(owner, out var source) && source.Id != target.Id && Allied(source, target) && !Options.FriendlyFire) return;
+        float damage = 0;
+        damage += spell.Count(Element.Arcane) * 115 * Resistance(target, Element.Arcane);
+        damage += spell.Count(Element.Earth) * 100 * Resistance(target, Element.Earth);
+        damage += spell.Count(Element.Lightning) * 100 * (target.Wet > 0 ? 1.9f : 1) * Resistance(target, Element.Lightning);
+        if (spell.Steam) damage += 160 * Resistance(target, Element.Fire);
+        else damage += spell.Count(Element.Fire) * 58 * Resistance(target, Element.Fire);
+        damage += spell.Count(Element.Cold) * (spell.Ice ? 68 : 24) * Resistance(target, Element.Cold);
+        if (spell.Has(Element.Water) && !spell.Steam && !spell.Ice && Resistance(target, Element.Water) > 0.5f)
+        {
+            target.Wet = 6; target.Burning = 0;
+            target.Knockback += force * (18 * scale);
+        }
+        if (spell.Shape == SpellShape.Force) target.Knockback += force * (45 * scale);
+        if (spell.Has(Element.Fire) && !spell.Steam && Resistance(target, Element.Fire) > 0.5f)
+        {
+            if (target.Wet > 0) target.Wet = Math.Max(0, target.Wet - 12 * scale);
+            else { target.Burning = 4; target.BurnOwner = owner; }
+            target.Chill = Math.Max(0, target.Chill - 100 * scale);
+            target.Frozen = Math.Max(0, target.Frozen - 5 * scale);
+        }
+        if (spell.Has(Element.Cold) && Resistance(target, Element.Cold) > 0.5f)
+        {
+            target.Burning = 0;
+            target.Chill = Math.Min(100, target.Chill + 38 * spell.Count(Element.Cold) * (target.Wet > 0 ? 2 : 1) * scale);
+            if (target.Chill >= 99) { target.Frozen = 1.4f; target.Wet = 0; }
+        }
+        if (spell.Has(Element.Earth)) target.Knockback += force * (10 * scale);
+        Damage(target, damage * scale, owner);
+        if (_players.TryGetValue(owner, out var caster) && caster.Id != target.Id)
+            caster.Energy = Math.Min(100, caster.Energy + damage * scale * 0.015f);
+    }
+
+    private void Damage(Wizard target, float amount, int owner)
+    {
+        if (!target.Alive || target.Invulnerable > 0 || amount <= 0) return;
+        float absorbed = Math.Min(target.Shield, amount);
+        target.Shield -= absorbed; amount -= absorbed;
+        target.Health = Math.Max(0, target.Health - amount);
+        if (target.Health > 0) return;
+        target.Deaths++; target.Respawn = Options.Mode == GameMode.Duel ? 2.5f : 4;
+        target.Channel = null; target.Charging = null; target.Selection.Clear(); target.Shield = 0;
+        if (Options.Mode == GameMode.Warfare) Scores[target.Team] = Math.Max(0, Scores[target.Team] - 1);
+        string text = $"{target.Name} ha caído";
+        if (_players.TryGetValue(owner, out var killer) && killer.Id != target.Id)
+        {
+            bool enemy = Hostile(killer, target);
+            killer.Kills = Math.Max(0, killer.Kills + (enemy ? 1 : -1));
+            killer.Energy = Math.Min(100, killer.Energy + 15);
+            if (enemy && Options.Mode == GameMode.Duel) Scores[killer.Team]++;
+            text = $"{killer.Name} → {target.Name}";
+        }
+        Emit("death", target.Position, [], text);
+    }
+
+    private void TickProjectiles(float dt)
+    {
+        foreach (var projectile in _projectiles)
+        {
+            projectile.Lifetime -= dt;
+            var from = projectile.Position; var to = from + projectile.Velocity * dt;
+            float nearest = 1; Wizard? target = null; Wall? wallHit = null; bool obstacleHit = false;
+            foreach (var o in ArenaMap.Obstacles)
+                if (Geometry.SegmentCircle(from, to, o.Position, o.Radius + projectile.Radius) is float t && t < nearest)
+                { nearest = t; obstacleHit = true; target = null; wallHit = null; }
+            foreach (var w in _walls.Where(w => w.Health > 0))
+            {
+                // Muestreo a intervalos pequeños para colisión continua con una pared fina.
+                for (int k = 0; k <= 8; k++)
+                {
+                    float t = k / 8f;
+                    if (t < nearest && Geometry.DistanceToSegment(V2.Lerp(from, to, t), w.A, w.B) < projectile.Radius + 0.2f)
+                    { nearest = t; wallHit = w; obstacleHit = false; target = null; break; }
+                }
+            }
+            foreach (var q in _players.Values.Where(q => q.Alive && q.Id != projectile.Owner))
+                if (Geometry.SegmentCircle(from, to, q.Position, ArenaMap.WizardRadius + projectile.Radius) is float t && t < nearest)
+                { nearest = t; target = q; obstacleHit = false; wallHit = null; }
+            projectile.Position = V2.Lerp(from, to, nearest);
+            if (target != null)
+            {
+                Hit(target, projectile.Recipe, projectile.Power, projectile.Owner, projectile.Velocity.Normalized);
+                projectile.Lifetime = 0;
+            }
+            if (wallHit != null)
+            {
+                wallHit.Health -= 170 * projectile.Power * projectile.Recipe.Power;
+                if (wallHit.Recipe.Elements.Length == 1)
+                {
+                    var normal = (wallHit.B - wallHit.A).Perpendicular.Normalized;
+                    projectile.Velocity -= normal * (2 * V2.Dot(projectile.Velocity, normal));
+                    projectile.Position += projectile.Velocity.Normalized * (projectile.Radius + 0.4f);
+                    projectile.Owner = wallHit.Owner; projectile.Power *= 0.8f;
+                }
+                else projectile.Lifetime = 0;
+            }
+            if (obstacleHit || !ArenaMap.Inside(projectile.Position)) projectile.Lifetime = 0;
+            if (projectile.Lifetime <= 0)
+                Emit("impact", projectile.Position, projectile.Recipe.Elements, "");
+        }
+        _projectiles.RemoveAll(p => p.Lifetime <= 0);
+    }
+
+    private void TickWallsAndFields(float dt)
+    {
+        foreach (var w in _walls)
+        {
+            w.Lifetime -= dt;
+            if (w.Recipe.Has(Element.Fire) || w.Recipe.Has(Element.Cold) || w.Recipe.Has(Element.Lightning))
+                foreach (var p in _players.Values.Where(p => p.Alive && Geometry.DistanceToSegment(p.Position, w.A, w.B) < 1))
+                    Hit(p, w.Recipe, dt, w.Owner, (p.Position - (w.A + w.B) / 2).Normalized);
+        }
+        _walls.RemoveAll(w => w.Lifetime <= 0 || w.Health <= 0);
+        foreach (var f in _fields)
+        {
+            f.Lifetime -= dt; f.Delay -= dt;
+            if (f.Delay > 0) continue;
+            bool trigger = f.Kind == "meteor" || _players.Values.Any(p => p.Alive && p.Id != f.Owner && V2.Distance(p.Position, f.Position) < f.Radius);
+            if (!trigger) continue;
+            foreach (var p in _players.Values.Where(p => p.Alive && V2.Distance(p.Position, f.Position) < f.Radius))
+                Hit(p, f.Recipe, f.Kind == "meteor" ? 2.7f : 1.8f, f.Owner, (p.Position - f.Position).Normalized);
+            Emit("explosion", f.Position, f.Recipe.Elements, f.Kind == "meteor" ? "Meteoro" : "");
+            f.Lifetime = 0;
+        }
+        _fields.RemoveAll(f => f.Lifetime <= 0);
+    }
+
+    private void TickCapture(float dt)
+    {
+        foreach (var point in _points)
+        {
+            int blue = _players.Values.Count(p => p.Alive && p.Team == 0 && V2.Distance(p.Position, point.Position) < 3);
+            int red = _players.Values.Count(p => p.Alive && p.Team == 1 && V2.Distance(p.Position, point.Position) < 3);
+            if (blue > 0 && red > 0 || blue + red == 0) continue;
+            point.Progress = Math.Clamp(point.Progress + (red > 0 ? 1 : -1) * dt * 0.24f, -1, 1);
+            if (point.Owner == 0 && point.Progress > -0.6f || point.Owner == 1 && point.Progress < 0.6f) point.Owner = -1;
+            if (point.Progress <= -0.99f) point.Owner = 0;
+            if (point.Progress >= 0.99f) point.Owner = 1;
+        }
+        _ticketClock += dt;
+        if (_ticketClock < 1) return;
+        _ticketClock -= 1;
+        int advantage = _points.Count(p => p.Owner == 0) - _points.Count(p => p.Owner == 1);
+        if (advantage > 0) Scores[1] = Math.Max(0, Scores[1] - advantage);
+        if (advantage < 0) Scores[0] = Math.Max(0, Scores[0] + advantage);
+    }
+
+    private void CheckVictory()
+    {
+        int winner = -1;
+        if (Options.Mode == GameMode.Warfare)
+        {
+            if (Scores[0] <= 0) winner = 1;
+            else if (Scores[1] <= 0) winner = 0;
+        }
+        else if (Options.Mode == GameMode.Duel)
+        {
+            if (Scores[0] >= Options.ScoreLimit) winner = 0;
+            if (Scores[1] >= Options.ScoreLimit) winner = 1;
+        }
+        else
+        {
+            var champion = _players.Values.FirstOrDefault(p => p.Kills >= Options.ScoreLimit);
+            if (champion != null) winner = champion.Id;
+        }
+        if (winner < 0) return;
+        Winner = winner; MatchEnded = true; RestartIn = 9;
+        foreach (var p in _players.Values) { p.Channel = null; p.Charging = null; }
+        Emit("victory", V2.Zero, [], "Partida terminada");
+    }
+
+    private void ResetScores()
+    {
+        Scores[0] = Scores[1] = Options.Mode == GameMode.Warfare ? Options.Tickets : 0;
+        _ticketClock = 0;
+    }
+    private void ResetMatch()
+    {
+        MatchEnded = false; Winner = -1; RestartIn = 0;
+        ResetScores(); _projectiles.Clear(); _walls.Clear(); _fields.Clear();
+        foreach (var point in _points) { point.Owner = -1; point.Progress = 0; }
+        foreach (var p in _players.Values) { p.Kills = p.Deaths = 0; Respawn(p); p.Energy = 100; Array.Clear(p.MagickCooldowns); }
+        Emit("restart", V2.Zero, [], "Nueva partida");
+    }
+    private void Respawn(Wizard p)
+    {
+        p.Position = ArenaMap.Spawn(p.Team, p.Id % 4); p.Health = Wizard.MaxHealth;
+        p.Wet = p.Burning = p.Chill = p.Frozen = p.Haste = p.Shield = 0;
+        p.Ward = []; p.Knockback = V2.Zero; p.Selection.Clear(); p.Channel = p.Charging = null;
+        p.Input.MoveTo = false; p.Input.MoveX = p.Input.MoveY = 0; p.Respawn = 0;
+        p.Invulnerable = 1.2f; p.ActionCooldown = 0;
+    }
+
+    private void ThinkBot(Wizard p, float dt)
+    {
+        var target = _players.Values.Where(q => q.Alive && Hostile(p, q)).OrderBy(q => V2.Distance(p.Position, q.Position)).FirstOrDefault();
+        V2 goal = target?.Position ?? ArenaMap.ControlPoints[p.Id % 3];
+        if (Options.Mode == GameMode.Warfare && (target == null || V2.Distance(p.Position, target.Position) > 12))
+            goal = _points.Where(q => q.Owner != p.Team).OrderBy(q => V2.Distance(q.Position, p.Position)).FirstOrDefault()?.Position ?? V2.Zero;
+        float distance = target == null ? 100 : V2.Distance(p.Position, target.Position);
+        var direction = (goal - p.Position).Normalized;
+        if (target != null && distance < 8) direction = direction.Perpendicular * MathF.Sin((float)Time * 0.65f + p.Id);
+        if (target != null && distance < 3.5f) direction = (p.Position - target.Position).Normalized;
+        foreach (var o in ArenaMap.Obstacles)
+            if (V2.Distance(p.Position + direction * 1.6f, o.Position) < o.Radius + 1)
+                direction = (p.Position - o.Position).Normalized.Perpendicular * (p.Id % 2 == 0 ? 1 : -1);
+        var aim = target?.Position ?? goal;
+        p.Input = new() { Type = "input", MoveX = direction.X, MoveY = direction.Y, AimX = aim.X, AimY = aim.Y };
+        p.LastInput = Time;
+        p.BotDecision -= dt;
+        if (p.BotDecision > 0 || p.Frozen > 0 || !Ready(p)) return;
+        p.BotDecision = 0.6f + (float)_random.NextDouble() * 0.5f;
+        if (p.Channel != null || p.Charging != null) Release(p);
+        p.Selection.Clear();
+        if (p.Health < 600 || p.Burning > 0)
+        {
+            if (p.Burning > 0) p.Selection.Add(Element.Water);
+            else for (int i = 0; i < 3; i++) p.Selection.Add(Element.Life);
+            SelfCast(p); return;
+        }
+        if (target == null || distance > 18) return;
+        if (p.Shield <= 0 && _random.Next(8) == 0)
+        {
+            p.Selection.Add(Element.Shield); SelfCast(p); return;
+        }
+        if (p.Energy >= 75 && _random.Next(16) == 0) { Magick(p, 2); return; }
+        Element[][] recipes =
+        [
+            [Element.Arcane, Element.Arcane, Element.Fire], [Element.Fire, Element.Fire, Element.Fire],
+            [Element.Water, Element.Cold, Element.Cold], [Element.Earth, Element.Earth, Element.Fire],
+            [Element.Lightning, Element.Lightning, Element.Arcane], [Element.Water, Element.Fire, Element.Fire],
+            [Element.Cold, Element.Cold, Element.Cold], [Element.Water, Element.Water, Element.Water]
+        ];
+        int choice = distance > 9 ? _random.Next(2) == 0 ? 0 : 3 : _random.Next(recipes.Length);
+        foreach (var element in recipes[choice]) p.Selection.Add(element);
+        p.Facing = (aim - p.Position).Normalized;
+        BeginCast(p);
+    }
+
+    private void Emit(string kind, V2 position, Element[] elements, string text)
+    {
+        _events.Add((Tick, new(_nextEvent++, kind, position, elements, text)));
+        if (_events.Count > 160) _events.RemoveRange(0, _events.Count - 160);
+    }
+
+    /// <summary>Copia inmutable del estado. La red la serializa fuera del bloqueo de la simulación.</summary>
+    public WorldSnapshot Snapshot() => new(Tick, Time, Options.Mode, MatchEnded, Winner, Math.Max(0, RestartIn), Scores.ToArray(),
+        _players.Values.Select(p => new WizardSnapshot(p.Id, p.Name, p.Team, p.Bot, p.Position, p.Facing, p.Health,
+            Wizard.MaxHealth, p.Shield, p.Ward.ToArray(), p.Selection.Elements.ToArray(), p.Alive, Math.Max(0, p.Respawn),
+            p.Wet, p.Burning, p.Chill, p.Frozen, p.Haste, p.Energy, p.MagickCooldowns.ToArray(), p.Kills, p.Deaths,
+            p.ChargeTime / 1.4f, p.Channel != null || p.Charging != null)).ToArray(),
+        _projectiles.Select(p => new ProjectileSnapshot(p.Id, p.Owner, p.Position, p.Velocity.Normalized, p.Recipe.Elements, p.Radius)).ToArray(),
+        _walls.Select(w => new WallSnapshot(w.Id, w.Owner, w.A, w.B, w.Health, w.Lifetime, w.Recipe.Elements)).ToArray(),
+        _fields.Select(f => new FieldSnapshot(f.Id, f.Owner, f.Position, f.Radius, f.Lifetime, f.Recipe.Elements, f.Kind)).ToArray(),
+        _beams.ToArray(), _points.Select(p => new PointSnapshot(p.Id, p.Position, p.Owner, p.Progress)).ToArray(),
+        _events.Select(e => e.Event).ToArray());
+}

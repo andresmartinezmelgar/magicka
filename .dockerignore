@@ -1,0 +1,9 @@
+**/bin/
+**/obj/
+**/.godot/
+**/.vs/
+.git/
+.env
+src/Arcana.Client/
+tests/
+artifacts/

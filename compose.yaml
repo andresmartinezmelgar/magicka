@@ -1,0 +1,22 @@
+services:
+  server:
+    build: .
+    image: arcana-arena-server:0.1.0
+    restart: unless-stopped
+    ports:
+      - "${GAME_PORT:-27015}:${GAME_PORT:-27015}/tcp"
+      - "${DISCOVERY_PORT:-27016}:${DISCOVERY_PORT:-27016}/udp"
+    environment:
+      SERVER_NAME: "${SERVER_NAME:-Arcana Arena}"
+      GAME_PORT: "${GAME_PORT:-27015}"
+      DISCOVERY_PORT: "${DISCOVERY_PORT:-27016}"
+      GAME_MODE: "${GAME_MODE:-warfare}"
+      MAX_PLAYERS: "${MAX_PLAYERS:-8}"
+      BOTS: "${BOTS:-0}"
+      FRIENDLY_FIRE: "${FRIENDLY_FIRE:-true}"
+      SCORE_LIMIT: "${SCORE_LIMIT:-15}"
+      TICKETS: "${TICKETS:-75}"
+      SERVER_PASSWORD: "${SERVER_PASSWORD:-}"
+    stop_grace_period: 10s
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
