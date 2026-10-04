@@ -2,7 +2,19 @@
 
 Para jugar, descargar el ZIP de **Releases**, extraerlo completo y abrir `ArcanaArena.exe`. Los jugadores no necesitan las herramientas de desarrollo.
 
-Para crear de nuevo la distribución:
+## Compilar con doble clic
+
+1. Descarga el código de GitHub con **Code → Download ZIP** y extrae todo, o actualiza tu copia del repositorio.
+2. Cierra el juego y abre **`Compilar-Juego.cmd`** en la raíz.
+3. Al terminar, abre **`Juego/ArcanaArena.exe`**.
+
+La primera ejecución descarga el SDK .NET **8.0.425 x64**, Godot **4.5.2 .NET** y sus plantillas oficiales. Instala las herramientas en `.tools/` y las plantillas en `%APPDATA%/Godot/export_templates/4.5.2.stable.mono/`, sin permisos de administrador. Requiere Internet la primera vez; las herramientas se reutilizan. Fuentes: [instalador oficial .NET](https://learn.microsoft.com/es-es/dotnet/core/tools/dotnet-install-script) y [Godot 4.5.2](https://github.com/godotengine/godot/releases/tag/4.5.2-stable).
+
+Cada compilación correcta **sustituye completamente `Juego/`**, incluidos archivos y carpetas sobrantes. Primero se genera y valida el paquete en `artifacts/windows/`; después se publica la nueva carpeta. Si falla la compilación, permanece el juego anterior. No guardar archivos personales en `Juego/`. Los registros quedan en `artifacts/compilacion-*.log` y la ventana permanece abierta para leer el resultado.
+
+## Compilación manual
+
+Para crear la distribución con herramientas ya instaladas:
 
 1. Instalar el SDK .NET 8 x64 y Godot **4.5.2 .NET**.
 2. Instalar las plantillas de exportación **4.5.2 .NET** de la misma versión desde Godot.

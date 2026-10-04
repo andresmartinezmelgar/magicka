@@ -5,6 +5,31 @@ namespace Arcana.Client;
 /// <summary>Escena determinista utilizada por capturas y comprobaciones del HUD, nunca por partidas en red.</summary>
 internal static class VisualFixture
 {
+    private static readonly string[] EffectKinds = ["cast", "self", "nova", "impact", "explosion", "shield_hit", "shield_break", "hurt", "blink", "blink_arrive", "barrier", "death"];
+    public static WorldSnapshot Effects(int frame)
+    {
+        var state = Create("half"); bool idle = frame >= 160;
+        var players = state.Players.Select((p, i) => p with
+        {
+            WizardType = (WizardType)(i + 1), Casting = !idle && i == 0,
+            Burning = !idle && i == 1 ? 2 : 0, Frozen = !idle && i == 2 ? 1 : 0,
+            Wet = !idle && i == 3 ? 3 : 0, Haste = !idle && i == 0 ? 2 : 0
+        }).ToArray();
+        int eventIndex = Math.Max(0, (frame - 1) / 10);
+        string kind = EffectKinds[eventIndex % EffectKinds.Length];
+        V2 position = kind == "explosion" ? new(0, 4) : kind == "impact" ? new(3, 0) : players[eventIndex % 4].Position;
+        Element[] elements = kind is "shield_hit" or "shield_break" or "self" ? [Element.Shield] : kind == "impact" ? [Element.Cold] : [Element.Fire];
+        return state with
+        {
+            Tick = frame, Time = frame / 60.0, Players = players,
+            Projectiles = idle ? [] : [new(1, 1, new(-2 + frame % 90 / 15f, 1), new(1, 0), [Element.Earth, Element.Fire], 0.3f),
+                new(2, 2, new(2 - frame % 90 / 15f, 3), new(-1, 0), [Element.Water, Element.Cold], 0.16f)],
+            Fields = idle ? [] : [new(1, 1, new(0, 4), 3, 0.8f, [Element.Earth, Element.Fire], "meteor")],
+            Beams = idle ? [] : [new(1, new(-3.2f, -1), new(2.8f, -1), [Element.Fire], SpellShape.Spray),
+                new(4, new(3.2f, 5), new(-2.8f, 5), [Element.Lightning], SpellShape.Lightning)],
+            Events = idle ? [] : [new(eventIndex + 1, kind, position, elements, "")]
+        };
+    }
     public static WorldSnapshot Create(string shieldState)
     {
         var world = new GameWorld(new() { Mode = GameMode.Warfare, MaxPlayers = 8 });

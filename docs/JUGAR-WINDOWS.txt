@@ -1,7 +1,8 @@
-ARCANA ARENA v0.3.1
+ARCANA ARENA v0.4.0
 
 1. Extrae TODO el ZIP antes de jugar.
 2. Abre ArcanaArena.exe con doble clic.
+3. Elige tipo de mago: equilibrado, piromante, criomante, tempestario o geomante.
 
 PRACTICA: jugar con bots sin servidor.
 ALOJAR: nombre, puerto TCP, puerto UDP y contrasena opcional.
@@ -34,3 +35,28 @@ El escudo normal tiene 420 puntos, las guardas 180 y tierra 650.
 
 Recreacion inicial con recursos propios y balance aproximado de Magicka: Wizard Wars.
 Codigo y documentacion: https://github.com/andresmartinezmelgar/magicka
+
+COMO GANAR
+Duelo: primer equipo en alcanzar el limite de bajas de la sala.
+Arena: primer mago en alcanzar el limite de bajas. Todos son rivales.
+Guerra: reducir a cero los tickets del rival. Controlar mas puntos desgasta
+sus tickets cada segundo. Cada muerte cuesta un ticket al equipo del mago.
+Los limites por defecto son 15 bajas y 75 tickets; practica en duelo, 5 bajas.
+F1 > Como ganar explica las reglas. La sala y el HUD muestran el objetivo real.
+Nueva partida 9 segundos despues de anunciar al ganador.
+
+TIPOS DE MAGO
+Equilibrado: dano normal y sin debilidad adicional.
+Piromante: +25% fuego, recibe +25% frio.
+Criomante: +25% frio, recibe +25% fuego.
+Tempestario: +25% rayo, recibe +25% tierra.
+Geomante: +25% tierra, recibe +25% rayo.
+Todos pueden combinar los ocho elementos. El bonus afecta a su componente,
+no a los otros elementos, la curacion o el baston. Se conserva al reaparecer.
+La vulnerabilidad tambien consume mas escudo. F1 > Tipos de mago: detalles.
+
+COMPILAR DESDE EL CODIGO
+Descarga el repositorio y extrae todo. Doble clic en Compilar-Juego.cmd.
+La primera vez necesita Internet. Resultado: Juego/ArcanaArena.exe.
+Sustituye toda la carpeta Juego tras compilar. Registro: artifacts/compilacion-*.log.
+Protocolo 3: actualizar cliente y servidor juntos, tambien el servidor Docker.

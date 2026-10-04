@@ -9,12 +9,13 @@ public static class SnapshotValidation
     {
         if (!Enum.IsDefined(state.Mode) || state.Tick < 0 || !double.IsFinite(state.Time) || state.Time < 0 || !NonNegative(state.RestartIn) ||
             state.Scores is not { Length: 2 } || state.Scores.Any(s => s < 0) ||
+            state.ScoreLimit is < 1 or > 200 || state.StartingTickets is < 1 or > 1000 ||
             state.Players is not { Length: <= 16 } || state.Projectiles is not { Length: <= 160 } ||
             state.Walls is not { Length: <= 40 } || state.Fields is not { Length: <= 40 } ||
             state.Beams is not { Length: <= 64 } || state.Points is not { Length: 3 } || state.Events is not { Length: <= 160 }) Invalid();
         var ids = new HashSet<int>();
         foreach (var p in state.Players!)
-            if (p == null || p.Id <= 0 || !ids.Add(p.Id) || p.Team is < 0 or > 1 || p.Name == null || p.Name.Length > 24 ||
+            if (p == null || p.Id <= 0 || !ids.Add(p.Id) || p.Team is < 0 or > 1 || !Enum.IsDefined(p.WizardType) || p.Name == null || p.Name.Length > 24 ||
                 !p.Position.IsFinite || !p.Facing.IsFinite || !Elements(p.Selected) || !Elements(p.Ward, 8) ||
                 p.Cooldowns is not { Length: 4 } || !NonNegative(p.Cooldowns) ||
                 !NonNegative(p.Health, p.MaxHealth, p.Shield, p.Energy, p.Respawn, p.Wet, p.Burning, p.Chill, p.Frozen, p.Haste, p.Charge) ||

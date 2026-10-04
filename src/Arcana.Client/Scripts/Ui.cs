@@ -35,6 +35,7 @@ public static class Ui
     }
     public static float ShieldMaximum(WizardSnapshot player) => player.ShieldMax > 0 ? player.ShieldMax
         : player.Ward.Contains(Element.Earth) ? 650 : player.Ward.Length > 0 ? 180 : 420;
+    public static Color WizardColor(WizardType type) => WizardTypes.Affinity(type) is { } element ? ElementColor(element) : Gold;
     public static Color SpellColor(Element[] elements)
     {
         if (elements.Length == 0) return new Color("d8eaf8");

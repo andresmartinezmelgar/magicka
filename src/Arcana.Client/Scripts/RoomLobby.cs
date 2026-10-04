@@ -10,6 +10,8 @@ public partial class RoomLobby : Control
     private Launcher _launcher = null!;
     private string _address = "", _serverPassword = "", _playerName = "";
     private int _team;
+    private WizardType _wizardType;
+    private Label _objective = null!, _creationObjective = null!;
     private RoomInfo[] _rooms = [];
     private ItemList _list = null!;
     private Label _status = null!, _heading = null!;
@@ -22,9 +24,9 @@ public partial class RoomLobby : Control
     private bool _busy;
     private readonly CancellationTokenSource _lifetime = new();
 
-    public void Build(Main main, Launcher launcher, string address, string password, string name, int team)
+    public void Build(Main main, Launcher launcher, string address, string password, string name, int team, WizardType wizardType)
     {
-        _main = main; _launcher = launcher; _address = address; _serverPassword = password; _playerName = name; _team = team;
+        _main = main; _launcher = launcher; _address = address; _serverPassword = password; _playerName = name; _team = team; _wizardType = wizardType;
         Theme = Ui.Theme(); Ui.Full(this);
         var shade = new ColorRect { Color = new(0.01f, 0.025f, 0.045f, 0.94f) }; AddChild(shade); Ui.Full(shade);
         var center = new CenterContainer(); AddChild(center); Ui.Full(center);
@@ -35,6 +37,8 @@ public partial class RoomLobby : Control
         _listPane = new VBoxContainer(); _listPane.AddThemeConstantOverride("separation", 14); box.AddChild(_listPane);
         _list = new ItemList { CustomMinimumSize = new(0, 240), SelectMode = ItemList.SelectModeEnum.Single };
         _listPane.AddChild(_list); _list.ItemActivated += _ => Join();
+        _objective = Ui.Label("", 15, Ui.Gold); _objective.AutowrapMode = TextServer.AutowrapMode.WordSmart; _listPane.AddChild(_objective);
+        _list.ItemSelected += _ => ShowObjective();
         _listPane.AddChild(Ui.Label("Contraseña de la sala (si tiene)", 14, Ui.Muted));
         _joinPassword = new LineEdit { Secret = true, MaxLength = 128, PlaceholderText = "Opcional", CustomMinimumSize = new(0, 42) };
         _listPane.AddChild(_joinPassword);
@@ -56,12 +60,16 @@ public partial class RoomLobby : Control
         _tickets = Number(5, 1000, 75); Row(grid, "Tickets por equipo (guerra)", _tickets);
         _roomPassword = new LineEdit { Secret = true, MaxLength = 128, PlaceholderText = "Dejar vacío para sala abierta", CustomMinimumSize = new(0, 42) };
         Row(grid, "Contraseña de esta sala", _roomPassword);
+        _creationObjective = Ui.Label("", 14, Ui.Gold); _creationObjective.AutowrapMode = TextServer.AutowrapMode.WordSmart; _createPane.AddChild(_creationObjective);
         _mode.ItemSelected += _ =>
         {
             bool duel = (GameMode)_mode.GetSelectedId() == GameMode.Duel;
             _capacity.Editable = !duel; if (duel) _capacity.Value = 2;
             _bots.MaxValue = _capacity.Value - 1;
+            ShowCreationObjective();
         };
+        _score.ValueChanged += _ => ShowCreationObjective(); _tickets.ValueChanged += _ => ShowCreationObjective();
+        ShowCreationObjective();
         _capacity.ValueChanged += value => _bots.MaxValue = value - 1;
         var creation = new HBoxContainer(); creation.AddThemeConstantOverride("separation", 12); _createPane.AddChild(creation);
         ActionButton(creation, "Crear y entrar", Create, true); ActionButton(creation, "Volver a salas", () => SwitchPane(false));
@@ -110,6 +118,7 @@ public partial class RoomLobby : Control
                     _list.AddItem($"{room.Name}{(room.PasswordRequired ? " · CON CLAVE" : "")}  ·  {Ui.ModeName(room.Mode)}  ·  {room.Players}/{room.MaxPlayers} plazas  ·  {room.Bots} bots");
                 int at = Array.FindIndex(_rooms, r => r.Id == previous);
                 if (_rooms.Length > 0) _list.Select(Math.Max(0, at));
+                ShowObjective();
                 SetBusy(false); _status.Text = $"{_rooms.Length} sala(s). Selecciona una o crea tu propia partida.";
             });
         }
@@ -117,6 +126,9 @@ public partial class RoomLobby : Control
     }
     private RoomInfo? Selected()
     { var selected = _list.GetSelectedItems(); return selected.Length > 0 && selected[0] < _rooms.Length ? _rooms[selected[0]] : null; }
+    private void ShowObjective() => _objective.Text = Selected() is { } room
+        ? MatchRules.Objective(room.Mode, room.ScoreLimit, room.Tickets) : "Selecciona una sala para ver su objetivo.";
+    private void ShowCreationObjective() => _creationObjective.Text = MatchRules.Objective((GameMode)_mode.GetSelectedId(), (int)_score.Value, (int)_tickets.Value);
     public void OpenCreation() => SwitchPane(true);
     private void Join()
     {
@@ -124,7 +136,7 @@ public partial class RoomLobby : Control
         var room = Selected(); if (room == null) { ShowError("Selecciona una sala."); return; }
         if (room.Players >= room.MaxPlayers) { ShowError("La sala está llena. Crea otra o actualiza la lista."); return; }
         Loading("Entrando en " + room.Name + "…");
-        _ = _main.ConnectOnline(_address, _playerName, _team, _serverPassword, room.Id, _joinPassword.Text);
+        _ = _main.ConnectOnline(_address, _playerName, _team, _serverPassword, room.Id, _joinPassword.Text, _wizardType);
     }
     private async void Create()
     {
@@ -136,7 +148,7 @@ public partial class RoomLobby : Control
         try
         {
             var room = await RoomBrowser.CreateAsync(_address, request, _lifetime.Token);
-            _main.Post(() => { if (Active) _ = _main.ConnectOnline(_address, _playerName, _team, _serverPassword, room.Id, request.Password); });
+            _main.Post(() => { if (Active) _ = _main.ConnectOnline(_address, _playerName, _team, _serverPassword, room.Id, request.Password, _wizardType); });
         }
         catch (Exception e) { Failure(e); }
     }

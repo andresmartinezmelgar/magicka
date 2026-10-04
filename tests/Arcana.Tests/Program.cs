@@ -135,6 +135,90 @@ Test("La roca cargada se lanza al soltar y colisiona con el enemigo", () =>
     Send(w, a, "release"); Run(w, a, 20);
     Check(b.Health < 650, "La roca atravesó al objetivo sin aplicar daño.");
 });
+
+float NovaDamage(WizardType attacker, WizardType defender, params Element[] elements)
+{
+    var world = new GameWorld(new() { Mode = GameMode.Arena });
+    var a = world.AddPlayer("Atacante", wizardType: attacker)!; var b = world.AddPlayer("Defensor", wizardType: defender)!;
+    a.Position = new(-2, 0); b.Position = new(1, 0); a.Invulnerable = b.Invulnerable = 0;
+    Select(world, a, elements); Send(world, a, "nova"); return 1000 - b.Health;
+}
+Test("Afinidades: bonus y debilidad por elemento para todos los tipos", () =>
+{
+    foreach (var type in Enum.GetValues<WizardType>().Where(t => t != WizardType.Balanced))
+    {
+        var element = WizardTypes.Affinity(type)!.Value; var opposite = WizardTypes.Weakness(type)!.Value;
+        float normal = NovaDamage(WizardType.Balanced, WizardType.Balanced, element);
+        Check(Math.Abs(NovaDamage(type, WizardType.Balanced, element) - normal * 1.25f) < 0.01f, "No se aplica el bonus de " + type);
+        float counter = NovaDamage(WizardType.Balanced, WizardType.Balanced, opposite);
+        Check(Math.Abs(NovaDamage(WizardType.Balanced, type, opposite) - counter * 1.25f) < 0.01f, "No se aplica la debilidad de " + type);
+    }
+    Check(Math.Abs(NovaDamage(WizardType.Pyromancer, WizardType.Cryomancer, Element.Fire) - 58 * 1.5625f) < 0.01f, "Bonus y debilidad no se multiplican.");
+});
+Test("Combinaciones: el bonus no multiplica todo el hechizo ni la curación", () =>
+{
+    float mixed = NovaDamage(WizardType.Pyromancer, WizardType.Balanced, Element.Fire, Element.Arcane);
+    Check(Math.Abs(mixed - (58 * 1.25f + 115)) < 0.01f, "El bonus de fuego multiplicó el componente arcano.");
+    Check(Math.Abs(NovaDamage(WizardType.Pyromancer, WizardType.Balanced, Element.Water, Element.Fire) - 160 * 1.25f) < 0.01f, "Vapor no usa el componente de fuego.");
+    var w = new GameWorld(); var p = w.AddPlayer("Piromante", wizardType: WizardType.Pyromancer)!; p.Health = 500;
+    Select(w, p, Element.Life); Send(w, p, "self"); Check(p.Health == 645, "La afinidad alteró la curación.");
+});
+Test("La quemadura conserva la potencia del piromante al desconectarse", () =>
+{
+    var w = new GameWorld(new() { Mode = GameMode.Arena });
+    var a = w.AddPlayer("Fuego", wizardType: WizardType.Pyromancer)!; var b = w.AddPlayer("Hielo", wizardType: WizardType.Cryomancer)!;
+    a.Position = new(-2, 0); b.Position = new(1, 0); a.Invulnerable = b.Invulnerable = 0;
+    Select(w, a, Element.Fire); Send(w, a, "nova"); float health = b.Health; w.RemovePlayer(a.Id);
+    for (int i = 0; i < 60; i++) w.Step();
+    Check(Math.Abs(health - b.Health - 28 * 1.5625f) < 0.02f, "La quemadura perdió el bonus o la debilidad.");
+});
+Test("La debilidad consume más escudo y los efectos de impacto tienen límite", () =>
+{
+    var w = new GameWorld(new() { Mode = GameMode.Arena });
+    var a = w.AddPlayer("Hielo", wizardType: WizardType.Cryomancer)!; var b = w.AddPlayer("Fuego", wizardType: WizardType.Pyromancer)!;
+    a.Position = new(-2, 0); b.Position = new(1, 0); a.Invulnerable = b.Invulnerable = 0;
+    b.Shield = b.ShieldMax = 420; b.ShieldTime = 12;
+    Select(w, a, Element.Cold); Send(w, a, "nova");
+    Check(Math.Abs(b.Shield - (420 - 24 * 1.5625f)) < 0.01f && b.Health == 1000, "La debilidad ignoró el escudo.");
+    Check(w.Snapshot().Events.Any(e => e.Kind == "shield_hit"), "Falta el impacto de escudo.");
+    a.ActionCooldown = 0; b.Shield = 1; Select(w, a, Element.Cold); Send(w, a, "nova");
+    Check(w.Snapshot().Events.Count(e => e.Kind == "shield_break") == 1 && b.Shield == 0, "La rotura se perdió por el límite de efectos.");
+    b.Health = 1000; b.Chill = b.Frozen = 0; a.ActionCooldown = 0;
+    Select(w, a, Element.Arcane); Send(w, a, "cast");
+    for (int i = 0; i < 60; i++) { Send(w, a, "input", aim: b.Position); w.Step(); }
+    Check(w.Snapshot().Events.Count(e => e.Kind == "hurt") <= 9, "Se emite un impacto por cada tick del rayo.");
+});
+Test("El tipo es válido, se replica y no puede cambiar con una intención", () =>
+{
+    var w = new GameWorld(); Check(w.AddPlayer("Inválido", wizardType: (WizardType)999) == null, "Se admitió un tipo desconocido.");
+    var p = w.AddPlayer("Mago", wizardType: WizardType.Geomancer)!;
+    w.ApplyMessage(p.Id, new() { Type = "input", Sequence = 1, WizardType = WizardType.Pyromancer });
+    var state = Protocol.Deserialize<WorldSnapshot>(Protocol.Serialize(w.Snapshot()))!;
+    Check(state.Players[0].WizardType == WizardType.Geomancer, "Una intención cambió el tipo o no se replicó.");
+    bool rejected = false;
+    try { SnapshotValidation.Check(state with { Players = [state.Players[0] with { WizardType = (WizardType)999 }] }); }
+    catch (InvalidDataException) { rejected = true; }
+    Check(rejected, "El cliente aceptó un tipo desconocido.");
+});
+Test("Duelo y arena respetan su límite, ganador y metadatos de victoria", () =>
+{
+    foreach (var mode in new[] { GameMode.Duel, GameMode.Arena })
+    {
+        var w = new GameWorld(new() { Mode = mode, ScoreLimit = 2, Tickets = 33 });
+        var a = w.AddPlayer("Ganador", 0, wizardType: WizardType.Pyromancer)!; var b = w.AddPlayer("Rival", 1)!;
+        for (int kill = 0; kill < 2; kill++)
+        {
+            a.Position = new(-2, 0); b.Position = new(1, 0); b.Health = 1; a.Invulnerable = b.Invulnerable = a.ActionCooldown = 0;
+            Select(w, a, Element.Arcane); Send(w, a, "nova"); w.Step();
+            if (kill == 0) Check(!w.MatchEnded, "La partida terminó antes del límite.");
+        }
+        var state = Protocol.Deserialize<WorldSnapshot>(Protocol.Serialize(w.Snapshot()))!;
+        Check(state.MatchEnded && state.Winner == (mode == GameMode.Duel ? a.Team : a.Id), "Ganador incorrecto.");
+        Check(state.ScoreLimit == 2 && state.StartingTickets == 33 && MatchRules.Objective(mode, 2, 33).Contains("2"), "La ayuda no recibe el límite real.");
+        for (int i = 0; i < 550; i++) w.Step();
+        Check(!w.MatchEnded && a.Kills == 0 && a.WizardType == WizardType.Pyromancer, "La nueva partida perdió el tipo o mantuvo bajas.");
+    }
+});
 Test("Obstáculos bloquean movimiento y rayos", () =>
 {
     var (w, a, b) = Setup(); a.Position = new(-16, 0); b.Position = new(-10, 0);
@@ -413,6 +497,31 @@ if (server != null)
         var sender = Task.Run(async () => { for (int i = 0; i < 20; i++) { connection.Send(new() { Type = "input" }); await Task.Delay(2); } });
         await Task.WhenAll(sender, connection.DisposeAsync().AsTask(), connection.DisposeAsync().AsTask());
         Check(!connection.Connected && !connection.Send(new() { Type = "release" }), "Una conexión cerrada aceptó mensajes.");
+    });
+    await AsyncTest("La red replica tipos y objetivos y aplica la debilidad en el servidor", async () =>
+    {
+        var room = await RoomBrowser.CreateAsync(server, new() { Name = "Afinidades", ServerPassword = password, Mode = GameMode.Arena,
+            MaxPlayers = 2, ScoreLimit = 7, Tickets = 33 });
+        await using var a = new ArenaConnection(); await using var b = new ArenaConnection();
+        await a.ConnectAsync(server, "Piromante", 0, password, roomId: room.Id, wizardType: WizardType.Pyromancer);
+        await b.ConnectAsync(server, "Tempestario", 1, password, roomId: room.Id, wizardType: WizardType.Stormcaller);
+        await WaitFor(() => b.Latest!.Players.Any(p => p.Id == a.PlayerId && p.WizardType == WizardType.Pyromancer), "El rival no recibió el tipo.");
+        Check(a.Latest!.ScoreLimit == 7 && a.Latest.StartingTickets == 33 &&
+            b.Latest!.Players.First(p => p.Id == b.PlayerId).WizardType == WizardType.Stormcaller, "Se perdieron los objetivos o el tipo.");
+        await Task.Delay(1300);
+        a.Send(new() { Type = "element", Element = Element.Cold }); a.Send(new() { Type = "self" });
+        await WaitFor(() => b.Latest!.Players.First(p => p.Id == a.PlayerId).Health < 1000, "No se aplicó el daño.");
+        Check(Math.Abs(b.Latest!.Players.First(p => p.Id == a.PlayerId).Health - 970) < 0.01f, "El servidor no aplicó el +25 % de debilidad al frío.");
+    });
+    await AsyncTest("El servidor rechaza un tipo de mago desconocido en el saludo", async () =>
+    {
+        using var socket = new System.Net.WebSockets.ClientWebSocket(); using var timeout = new CancellationTokenSource(5000);
+        await socket.ConnectAsync(ArenaConnection.Address(server), timeout.Token);
+        byte[] hello = System.Text.Encoding.UTF8.GetBytes(Protocol.Serialize(new ClientMessage { Type = "hello", Name = "Inválido", Password = password, WizardType = (WizardType)999 }));
+        await socket.SendAsync(hello.AsMemory(), System.Net.WebSockets.WebSocketMessageType.Text, true, timeout.Token);
+        var buffer = new byte[4096]; var reply = await socket.ReceiveAsync(buffer.AsMemory(), timeout.Token);
+        var message = Protocol.Deserialize<ServerMessage>(System.Text.Encoding.UTF8.GetString(buffer, 0, reply.Count));
+        Check(message is { Type: "error" } && message.Error.Contains("mago"), "El servidor aceptó un tipo de mago desconocido.");
     });
     await AsyncTest("Cerrar durante el saludo cancela el arranque de la conexión", async () =>
     {

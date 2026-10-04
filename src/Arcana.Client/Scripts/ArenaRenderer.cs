@@ -12,7 +12,8 @@ public partial class ArenaRenderer : Node3D
     private readonly Dictionary<int, MeshInstance3D> _walls = [];
     private readonly Dictionary<int, Node3D> _fields = [];
     private readonly List<(Node3D Root, MeshInstance3D Mesh, CylinderMesh Shape)> _beamPool = [];
-    private readonly List<Burst> _bursts = [];
+    private readonly CombatEffects _effects = new();
+    public CombatEffects Effects => _effects;
     private readonly Dictionary<int, (Node3D Root, MeshInstance3D Ring, MeshInstance3D Crystal)> _points = [];
     private readonly Dictionary<(Color Color, float Glow, bool Unshaded), StandardMaterial3D> _materials = [];
     private readonly HashSet<int> _present = [];
@@ -28,6 +29,7 @@ public partial class ArenaRenderer : Node3D
 
     public override void _Ready()
     {
+        AddChild(_effects);
         AddChild(_audio);
         var env = new WorldEnvironment
         {
@@ -69,7 +71,7 @@ public partial class ArenaRenderer : Node3D
         foreach (var v in _projectiles.Values) v.QueueFree(); _projectiles.Clear();
         foreach (var v in _walls.Values) v.QueueFree(); _walls.Clear();
         foreach (var v in _fields.Values) v.QueueFree(); _fields.Clear();
-        foreach (var b in _bursts) b.Root.QueueFree(); _bursts.Clear();
+        _effects.Clear();
         foreach (var beam in _beamPool) beam.Root.Visible = false;
         _lastEvent = 0; _playing = false; _lastSnapshot = null;
     }
@@ -207,14 +209,15 @@ public partial class ArenaRenderer : Node3D
         for (int i = _beamUsed; i < _beamPool.Count; i++) _beamPool[i].Root.Visible = false;
         foreach (var e in snapshot.Events.Where(e => e.Id > _lastEvent))
         {
-            if (playing && e.Kind is "cast" or "self" or "nova" or "impact" or "explosion" or "death" or "blink")
+            if (playing)
             {
-                if (_bursts.Count < 40) CreateBurst(e);
-                if (local != null && V2.Distance(e.Position, local.Position) < 15) _audio.PlayEvent(e);
+                _effects.Play(e);
+                if (e.Kind is "cast" or "self" or "nova" or "impact" or "explosion" or "death" or "blink" &&
+                    local != null && V2.Distance(e.Position, local.Position) < 15) _audio.PlayEvent(e);
             }
             _lastEvent = Math.Max(_lastEvent, e.Id);
         }
-        TickBursts(dt);
+        _effects.Advance(snapshot, dt, playing);
     }
 
     private void RemoveMissing<T>(Dictionary<int, T> nodes, IEnumerable<int> present) where T : Node
@@ -339,41 +342,4 @@ public partial class ArenaRenderer : Node3D
         }
     }
 
-    private sealed class Burst(Node3D root, List<(MeshInstance3D Mesh, Vector3 Velocity)> particles, float duration)
-    {
-        public Node3D Root = root;
-        public List<(MeshInstance3D Mesh, Vector3 Velocity)> Particles = particles;
-        public float Remaining = duration;
-        public float Duration = duration;
-    }
-    private void CreateBurst(GameEvent e)
-    {
-        var root = new Node3D { Position = World(e.Position, 0.9f) }; AddChild(root);
-        var particles = new List<(MeshInstance3D, Vector3)>();
-        var random = new Random((int)e.Id);
-        int count = e.Kind is "explosion" or "death" or "nova" ? 18 : 6;
-        float speed = e.Kind is "explosion" or "nova" ? 6 : 2.2f;
-        Color color = Ui.SpellColor(e.Elements);
-        for (int i = 0; i < count; i++)
-        {
-            var mesh = Mesh(root, new SphereMesh { Radius = 0.075f, Height = 0.15f, RadialSegments = 8, Rings = 4 }, Vector3.Zero, color, 0.7f);
-            var direction = new Vector3((float)random.NextDouble() * 2 - 1, (float)random.NextDouble() * 1.4f, (float)random.NextDouble() * 2 - 1).Normalized();
-            particles.Add((mesh, direction * speed));
-        }
-        _bursts.Add(new(root, particles, 0.65f));
-    }
-    private void TickBursts(float dt)
-    {
-        foreach (var b in _bursts)
-        {
-            b.Remaining -= dt;
-            foreach (var particle in b.Particles)
-            {
-                particle.Mesh.Position += particle.Velocity * dt;
-                particle.Mesh.Scale = Vector3.One * Math.Max(0.02f, b.Remaining / b.Duration);
-            }
-        }
-        for (int i = _bursts.Count - 1; i >= 0; i--)
-            if (_bursts[i].Remaining <= 0) { _bursts[i].Root.QueueFree(); _bursts.RemoveAt(i); }
-    }
 }

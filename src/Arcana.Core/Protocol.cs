@@ -5,10 +5,10 @@ namespace Arcana.Core;
 
 public static class Protocol
 {
-    public const int Version = 2;
+    public const int Version = 3;
     public const int GamePort = 27015;
     public const int DiscoveryPort = 27016;
-    public const string DiscoveryMagic = "ARCANA_DISCOVER_V2";
+    public const string DiscoveryMagic = "ARCANA_DISCOVER_V3";
     public const int MaxMessageBytes = 4096;
     public static readonly JsonSerializerOptions Json = new()
     {
@@ -31,6 +31,7 @@ public sealed class ClientMessage
     public string RoomId { get; set; } = "default";
     public string RoomPassword { get; set; } = "";
     public int Team { get; set; } = -1;
+    public WizardType WizardType { get; set; }
     public Element Element { get; set; }
     public int Slot { get; set; }
     public float MoveX { get; set; }
@@ -59,7 +60,7 @@ public sealed record WizardSnapshot(int Id, string Name, int Team, bool Bot, V2 
     V2 Facing, float Health, float MaxHealth, float Shield, Element[] Ward, Element[] Selected,
     bool Alive, float Respawn, float Wet, float Burning, float Chill, float Frozen, float Haste,
     float Energy, float[] Cooldowns, int Kills, int Deaths, float Charge, bool Casting,
-    float ShieldMax = 0, float ShieldSeconds = 0);
+    float ShieldMax = 0, float ShieldSeconds = 0, WizardType WizardType = WizardType.Balanced);
 public sealed record ProjectileSnapshot(int Id, int Owner, V2 Position, V2 Direction,
     Element[] Elements, float Radius);
 public sealed record WallSnapshot(int Id, int Owner, V2 A, V2 B, float Health, float Lifetime, Element[] Elements);
@@ -69,4 +70,5 @@ public sealed record PointSnapshot(int Id, V2 Position, int Owner, float Progres
 public sealed record GameEvent(long Id, string Kind, V2 Position, Element[] Elements, string Text);
 public sealed record WorldSnapshot(long Tick, double Time, GameMode Mode, bool MatchEnded,
     int Winner, float RestartIn, int[] Scores, WizardSnapshot[] Players, ProjectileSnapshot[] Projectiles,
-    WallSnapshot[] Walls, FieldSnapshot[] Fields, BeamSnapshot[] Beams, PointSnapshot[] Points, GameEvent[] Events);
+    WallSnapshot[] Walls, FieldSnapshot[] Fields, BeamSnapshot[] Beams, PointSnapshot[] Points, GameEvent[] Events,
+    int ScoreLimit = 15, int StartingTickets = 75);

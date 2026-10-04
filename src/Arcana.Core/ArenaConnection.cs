@@ -60,17 +60,18 @@ public sealed class ArenaConnection : IAsyncDisposable
         return uri.AbsolutePath == "/" ? new UriBuilder(uri) { Path = "/play" }.Uri : uri;
     }
     public Task ConnectAsync(string address, string name, int team, string password, CancellationToken token = default,
-        string roomId = "default", string roomPassword = "")
+        string roomId = "default", string roomPassword = "", WizardType wizardType = WizardType.Balanced)
     {
         lock (_disposeGate)
         {
             ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposing) != 0, this);
             if (_connecting != null) throw new InvalidOperationException("Esta conexión ya se ha iniciado.");
-            return _connecting = ConnectCore(address, name, team, password, token, roomId, roomPassword);
+            if (!Enum.IsDefined(wizardType)) throw new ArgumentOutOfRangeException(nameof(wizardType));
+            return _connecting = ConnectCore(address, name, team, password, token, roomId, roomPassword, wizardType);
         }
     }
     private async Task ConnectCore(string address, string name, int team, string password, CancellationToken token,
-        string roomId, string roomPassword)
+        string roomId, string roomPassword, WizardType wizardType)
     {
         Diagnostics.Log.ProtectSecret(password); Diagnostics.Log.ProtectSecret(roomPassword);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token, _lifetime.Token);
@@ -82,7 +83,7 @@ public sealed class ArenaConnection : IAsyncDisposable
             _socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(10);
             await _socket.ConnectAsync(endpoint, timeout.Token).ConfigureAwait(false);
             var hello = new ClientMessage { Type = "hello", Name = name, Team = team, Password = password,
-                RoomId = roomId, RoomPassword = roomPassword, Protocol = Protocol.Version };
+                RoomId = roomId, RoomPassword = roomPassword, Protocol = Protocol.Version, WizardType = wizardType };
             await SendFrame(hello, timeout.Token).ConfigureAwait(false);
             var welcome = await Read(timeout.Token).ConfigureAwait(false);
             if (welcome?.Type == "error") throw new InvalidOperationException(welcome.Error);

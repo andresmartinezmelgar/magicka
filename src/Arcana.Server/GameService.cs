@@ -180,6 +180,8 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             var hello = await Receive(socket, handshake.Token);
             if (hello is not { Type: "hello" } || hello.Protocol != Protocol.Version)
             { await RejectLogged("La versión del cliente no coincide con la del servidor.", handshake.Token); return; }
+            if (!Enum.IsDefined(hello.WizardType))
+            { await RejectLogged("Tipo de mago desconocido.", handshake.Token); return; }
             if (!PasswordMatches(hello.Password, settings.Password))
             { await RejectLogged("Contraseña del servidor incorrecta.", handshake.Token); return; }
             string error = ""; WorldSnapshot? initial = null; RoomInfo? roomInfo = null;
@@ -189,7 +191,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                 else if (!PasswordMatches(hello.RoomPassword, room.Password)) error = "Contraseña de la sala incorrecta.";
                 else
                 {
-                    var player = room.World.AddPlayer(hello.Name, hello.Team);
+                    var player = room.World.AddPlayer(hello.Name, hello.Team, wizardType: hello.WizardType);
                     if (player == null) error = "La sala está llena.";
                     else
                     {

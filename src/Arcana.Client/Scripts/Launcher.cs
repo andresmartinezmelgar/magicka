@@ -7,7 +7,7 @@ public partial class Launcher : Control
 {
     private Main _main = null!;
     private LineEdit _name = null!, _address = null!, _password = null!, _hostName = null!;
-    private OptionButton _team = null!, _practiceMode = null!;
+    private OptionButton _team = null!, _practiceMode = null!, _wizardType = null!;
     private SpinBox _bots = null!, _discoveryPort = null!, _hostPort = null!, _hostDiscovery = null!;
     private Label _status = null!;
     private ItemList _servers = null!;
@@ -43,14 +43,15 @@ public partial class Launcher : Control
         {
             keyboard.AddChild(Ui.ElementTile(e));
         }
-        left.AddChild(Ui.Label("C# · GODOT .NET · SERVIDOR AUTORITATIVO", 13, Ui.Muted));
+        left.AddChild(Ui.Label("F1 · CONTROLES, OBJETIVOS Y TIPOS DE MAGO", 13, Ui.Muted));
         var rightScroll = new ScrollContainer { CustomMinimumSize = new(570, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; columns.AddChild(rightScroll);
         var rightCenter = new CenterContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
         rightScroll.AddChild(rightCenter);
         var panel = new PanelContainer { CustomMinimumSize = new(560, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill }; rightCenter.AddChild(panel);
-        panel.AddThemeStyleboxOverride("panel", Ui.Panel(new Color(0.035f, 0.057f, 0.093f, 0.97f), 16));
-        var form = new VBoxContainer(); form.AddThemeConstantOverride("separation", 10); panel.AddChild(form);
+        var formStyle = Ui.Panel(new Color(0.035f, 0.057f, 0.093f, 0.97f), 16);
+        formStyle.ContentMarginTop = formStyle.ContentMarginBottom = 12; panel.AddThemeStyleboxOverride("panel", formStyle);
+        var form = new VBoxContainer(); form.AddThemeConstantOverride("separation", 6); panel.AddChild(form);
         form.AddChild(Ui.Label("ENTRAR EN LA ARENA", 27, Ui.Gold));
         form.AddChild(Ui.Label("Entra por IP o LAN, aloja salas o entrena con bots.", 16, Ui.Muted));
         var identity = new HBoxContainer(); identity.AddThemeConstantOverride("separation", 12); form.AddChild(identity);
@@ -62,6 +63,15 @@ public partial class Launcher : Control
         _team = new OptionButton { CustomMinimumSize = new(0, 45) };
         _team.AddItem("Automático", -1); _team.AddItem("Azul", 0); _team.AddItem("Rojo", 1);
         teamColumn.AddChild(_team);
+        var typeRow = new HBoxContainer(); typeRow.AddThemeConstantOverride("separation", 12); form.AddChild(typeRow);
+        typeRow.AddChild(Ui.Label("Tipo de mago", 14, Ui.Muted));
+        _wizardType = new OptionButton { Name = "WizardTypeChoice", CustomMinimumSize = new(0, 40), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        foreach (var type in Enum.GetValues<WizardType>()) _wizardType.AddItem(WizardTypes.Name(type), (int)type);
+        int savedType = _config.GetValue("player", "wizard_type", 0).AsInt32();
+        _wizardType.Select(Enum.IsDefined((WizardType)savedType) ? savedType : 0); typeRow.AddChild(_wizardType);
+        var typeInfo = Ui.Label(WizardTypes.Description((WizardType)_wizardType.GetSelectedId()), 14, Ui.Gold);
+        typeInfo.AutowrapMode = TextServer.AutowrapMode.WordSmart; form.AddChild(typeInfo);
+        _wizardType.ItemSelected += _ => typeInfo.Text = WizardTypes.Description((WizardType)_wizardType.GetSelectedId());
         _tabs = new TabContainer(); form.AddChild(_tabs);
         var ip = TabBox("Por IP");
         ip.AddChild(Ui.Label("IP o nombre del servidor", 14, Ui.Muted));
@@ -109,7 +119,7 @@ public partial class Launcher : Control
         _status = Ui.Label("El servidor usa TCP 27015. LAN usa UDP 27016.", 14, Ui.Muted);
         _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; _status.CustomMinimumSize = new(0, 45); form.AddChild(_status);
         var footer = new HBoxContainer(); form.AddChild(footer);
-        var help = Ui.Button("Controles", () => _main.ToggleHelp()); help.SizeFlagsHorizontal = SizeFlags.ExpandFill; footer.AddChild(help);
+        var help = Ui.Button("Cómo jugar", () => _main.ToggleHelp()); help.SizeFlagsHorizontal = SizeFlags.ExpandFill; footer.AddChild(help);
         var diagnostic = Ui.Button("Diagnóstico", _main.ExportDiagnostics); diagnostic.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         diagnostic.TooltipText = "Exporta registros y contexto de la partida a un ZIP para investigar errores."; footer.AddChild(diagnostic);
         var exit = Ui.Button("Salir", () => GetTree().Quit()); exit.SizeFlagsHorizontal = SizeFlags.ExpandFill; footer.AddChild(exit);
@@ -131,12 +141,12 @@ public partial class Launcher : Control
     private VBoxContainer TabBox(string name)
     {
         var box = new VBoxContainer { Name = name, CustomMinimumSize = new(0, 226) };
-        box.AddThemeConstantOverride("separation", 10); _tabs.AddChild(box); return box;
+        box.AddThemeConstantOverride("separation", 7); _tabs.AddChild(box); return box;
     }
     public void SetBusy(bool busy, string message = "")
     {
         _busy = busy; _connect.Disabled = busy; for (int i = 0; i < 4; i++) _tabs.SetTabDisabled(i, busy);
-        _name.Editable = _address.Editable = !busy; _team.Disabled = busy;
+        _name.Editable = _address.Editable = !busy; _team.Disabled = _wizardType.Disabled = busy;
         _hostName.Editable = _hostPort.Editable = _hostDiscovery.Editable = !busy && !_host.Running;
         _password.Editable = !busy && _tabs.CurrentTab != 2 && !(_tabs.CurrentTab == 3 && _host.Running);
         _stopHost.Disabled = busy || !_host.Running; _firewall.Disabled = busy || !OperatingSystem.IsWindows();
@@ -154,6 +164,7 @@ public partial class Launcher : Control
     private void Remember()
     {
         _config.SetValue("player", "name", _name.Text); _config.SetValue("network", "address", _address.Text);
+        _config.SetValue("player", "wizard_type", _wizardType.GetSelectedId());
         _config.SetValue("host", "name", _hostName.Text); _config.SetValue("host", "port", (int)_hostPort.Value);
         _config.SetValue("host", "discovery", (int)_hostDiscovery.Value);
         var saved = _config.Save("user://launcher.cfg");
@@ -167,7 +178,7 @@ public partial class Launcher : Control
         int team = _team.GetSelectedId();
         if (_tabs.CurrentTab == 2)
         {
-            _main.StartPractice(_name.Text, team, (GameMode)_practiceMode.GetSelectedId(), (int)_bots.Value); return;
+            _main.StartPractice(_name.Text, team, (GameMode)_practiceMode.GetSelectedId(), (int)_bots.Value, (WizardType)_wizardType.GetSelectedId()); return;
         }
         if (_tabs.CurrentTab == 3) { _ = Host(); return; }
         string address = _address.Text;
@@ -182,7 +193,7 @@ public partial class Launcher : Control
     private void OpenRooms(string address, string password)
     {
         if (GodotObject.IsInstanceValid(_lobby)) _lobby!.QueueFree();
-        _lobby = new RoomLobby(); AddChild(_lobby); _lobby.Build(_main, this, address, password, _name.Text, _team.GetSelectedId());
+        _lobby = new RoomLobby(); AddChild(_lobby); _lobby.Build(_main, this, address, password, _name.Text, _team.GetSelectedId(), (WizardType)_wizardType.GetSelectedId());
     }
     public void CloseRooms()
     { if (GodotObject.IsInstanceValid(_lobby)) _lobby!.QueueFree(); _lobby = null; }

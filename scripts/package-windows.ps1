@@ -4,6 +4,7 @@ $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $godot = (Resolve-Path -LiteralPath $GodotPath).Path
 $package = Join-Path $repo 'artifacts/windows'
 $version = (Get-Content (Join-Path $repo 'VERSION') -Raw).Trim()
+. (Join-Path $PSScriptRoot 'build-support.ps1')
 if (Test-Path $package) { Remove-Item $package -Recurse -Force }
 New-Item -ItemType Directory -Path $package -Force | Out-Null
 Push-Location $repo
@@ -16,15 +17,11 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'No se pudieron importar los recursos.' }
     & $godot --headless --path src/Arcana.Client --export-release 'Windows Desktop' "$package/ArcanaArena.exe"
     if ($LASTEXITCODE -ne 0) { throw 'La exportacion Windows ha fallado.' }
-    if (!(Test-Path "$package/ArcanaArena.exe") -or !(Test-Path "$package/ArcanaArena.pck") -or !(Test-Path "$package/server/Arcana.Server.exe")) {
-        throw 'Faltan archivos del paquete.'
-    }
-    # Godot exporta tambien el runtime .NET: no se copia solamente el .exe.
-    $coreClr = Get-ChildItem $package -Recurse -Filter coreclr.dll | Where-Object { $_.FullName -notlike "$package\server\*" }
-    $clientDll = Get-ChildItem $package -Recurse -Filter Arcana.Client.dll
-    if (!$coreClr -or !$clientDll) { throw 'El cliente no incluye su runtime .NET o sus ensamblados.' }
+    Test-GamePackage -Package $package
     Copy-Item scripts/Configurar-LAN.ps1 "$package/Configurar-LAN.ps1"
     Copy-Item docs/JUGAR-WINDOWS.txt "$package/LEEME.txt"
+    Copy-Item docs/COMO-GANAR.md "$package/COMO-GANAR.md"
+    Copy-Item docs/TIPOS-DE-MAGO.md "$package/TIPOS-DE-MAGO.md"
     Copy-Item docs/THIRD-PARTY-NOTICES.txt "$package/THIRD-PARTY-NOTICES.txt"
     Copy-Item docs/GODOT-COPYRIGHT.txt "$package/GODOT-COPYRIGHT.txt"
     Copy-Item docs/DOTNET-NOTICES.txt "$package/DOTNET-NOTICES.txt"

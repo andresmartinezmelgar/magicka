@@ -41,18 +41,19 @@ public sealed class GameWorld
         _random = new(Options.Seed);
         _points = ArenaMap.ControlPoints.Select((p, i) => new ControlPoint { Id = i, Position = p }).ToArray();
         ResetScores();
-        for (int i = 0; i < Math.Min(Options.Bots, Options.MaxPlayers); i++) AddPlayer($"Bot {i + 1}", -1, true);
+        for (int i = 0; i < Math.Min(Options.Bots, Options.MaxPlayers); i++)
+            AddPlayer($"Bot {i + 1}", -1, true, (WizardType)(i % 5));
     }
 
-    public Wizard? AddPlayer(string name, int preferredTeam = -1, bool bot = false)
+    public Wizard? AddPlayer(string name, int preferredTeam = -1, bool bot = false, WizardType wizardType = WizardType.Balanced)
     {
-        if (_players.Count >= Options.MaxPlayers || Options.Mode == GameMode.Duel && _players.Count >= 2) return null;
+        if (!Enum.IsDefined(wizardType) || _players.Count >= Options.MaxPlayers || Options.Mode == GameMode.Duel && _players.Count >= 2) return null;
         int blue = _players.Values.Count(p => p.Team == 0), red = _players.Count - blue;
         // No se puede llenar un solo equipo mediante el campo del saludo.
         int team = blue == red && preferredTeam is 0 or 1 ? preferredTeam : blue <= red ? 0 : 1;
         string cleanName = new((name ?? "Mago").Where(c => !char.IsControl(c) && c != '[' && c != ']').Take(24).ToArray());
         if (string.IsNullOrWhiteSpace(cleanName)) cleanName = "Mago";
-        var wizard = new Wizard { Id = _nextPlayer++, Name = cleanName.Trim(), Team = team, Bot = bot };
+        var wizard = new Wizard { Id = _nextPlayer++, Name = cleanName.Trim(), Team = team, Bot = bot, WizardType = wizardType };
         wizard.Position = ArenaMap.Spawn(team, _players.Values.Count(p => p.Team == team));
         wizard.Facing = new(team == 0 ? 1 : -1, 0);
         wizard.LastInput = Time;
@@ -121,6 +122,7 @@ public sealed class GameWorld
         foreach (var p in _players.Values)
         {
             p.ActionCooldown = Math.Max(0, p.ActionCooldown - dt);
+            p.HitEffectCooldown = Math.Max(0, p.HitEffectCooldown - dt);
             p.Invulnerable = Math.Max(0, p.Invulnerable - dt);
             for (int i = 0; i < 4; i++) p.MagickCooldowns[i] = Math.Max(0, p.MagickCooldowns[i] - dt);
             if (!p.Alive)
@@ -167,13 +169,17 @@ public sealed class GameWorld
         if (p.Burning > 0)
         {
             p.Burning = Math.Max(0, p.Burning - dt);
-            Damage(p, 28 * dt * Resistance(p, Element.Fire), p.BurnOwner);
+            Damage(p, 28 * dt * p.BurnMultiplier * WizardTypes.Incoming(p.WizardType, Element.Fire) * Resistance(p, Element.Fire), p.BurnOwner, [Element.Fire]);
         }
     }
 
     private bool Allied(Wizard a, Wizard b) => a.Id == b.Id || Options.Mode != GameMode.Arena && a.Team == b.Team;
     private bool Hostile(Wizard a, Wizard b) => !Allied(a, b);
     private float Resistance(Wizard p, Element e) => p.Ward.Contains(e) ? 0.18f : 1;
+    private float Outgoing(int owner, Element element) => _players.TryGetValue(owner, out var source)
+        ? WizardTypes.Outgoing(source.WizardType, element) : 1;
+    private float ElementDamage(Wizard target, int owner, Element element, float amount) =>
+        amount * Outgoing(owner, element) * WizardTypes.Incoming(target.WizardType, element) * Resistance(target, element);
 
     private void Move(Wizard p, float dt)
     {
@@ -434,6 +440,7 @@ public sealed class GameWorld
             if (V2.Distance(last, p.Position) < 0.4f) return;
             Emit("blink", p.Position, [], "");
             p.Position = last; p.Input.MoveTo = false;
+            Emit("blink_arrive", p.Position, [], "");
         }
         if (slot == 2)
         {
@@ -464,12 +471,12 @@ public sealed class GameWorld
         if (target.Invulnerable > 0) return;
         if (_players.TryGetValue(owner, out var source) && source.Id != target.Id && Allied(source, target) && !Options.FriendlyFire) return;
         float damage = 0;
-        damage += spell.Count(Element.Arcane) * 115 * Resistance(target, Element.Arcane);
-        damage += spell.Count(Element.Earth) * 100 * Resistance(target, Element.Earth);
-        damage += spell.Count(Element.Lightning) * 100 * (target.Wet > 0 ? 1.9f : 1) * Resistance(target, Element.Lightning);
-        if (spell.Steam) damage += 160 * Resistance(target, Element.Fire);
-        else damage += spell.Count(Element.Fire) * 58 * Resistance(target, Element.Fire);
-        damage += spell.Count(Element.Cold) * (spell.Ice ? 68 : 24) * Resistance(target, Element.Cold);
+        damage += ElementDamage(target, owner, Element.Arcane, spell.Count(Element.Arcane) * 115);
+        damage += ElementDamage(target, owner, Element.Earth, spell.Count(Element.Earth) * 100);
+        damage += ElementDamage(target, owner, Element.Lightning, spell.Count(Element.Lightning) * 100 * (target.Wet > 0 ? 1.9f : 1));
+        if (spell.Steam) damage += ElementDamage(target, owner, Element.Fire, 160);
+        else damage += ElementDamage(target, owner, Element.Fire, spell.Count(Element.Fire) * 58);
+        damage += ElementDamage(target, owner, Element.Cold, spell.Count(Element.Cold) * (spell.Ice ? 68 : 24));
         if (spell.Has(Element.Water) && !spell.Steam && !spell.Ice && Resistance(target, Element.Water) > 0.5f)
         {
             target.Wet = 6; target.Burning = 0;
@@ -479,7 +486,7 @@ public sealed class GameWorld
         if (spell.Has(Element.Fire) && !spell.Steam && Resistance(target, Element.Fire) > 0.5f)
         {
             if (target.Wet > 0) target.Wet = Math.Max(0, target.Wet - 12 * scale);
-            else { target.Burning = 4; target.BurnOwner = owner; }
+            else { target.Burning = 4; target.BurnOwner = owner; target.BurnMultiplier = Outgoing(owner, Element.Fire); }
             target.Chill = Math.Max(0, target.Chill - 100 * scale);
             target.Frozen = Math.Max(0, target.Frozen - 5 * scale);
         }
@@ -490,17 +497,26 @@ public sealed class GameWorld
             if (target.Chill >= 99) { target.Frozen = 1.4f; target.Wet = 0; }
         }
         if (spell.Has(Element.Earth)) target.Knockback += force * (10 * scale);
-        Damage(target, damage * scale, owner);
+        Damage(target, damage * scale, owner, spell.Elements);
         if (_players.TryGetValue(owner, out var caster) && caster.Id != target.Id)
             caster.Energy = Math.Min(100, caster.Energy + damage * scale * 0.015f);
     }
 
-    private void Damage(Wizard target, float amount, int owner)
+    private void Damage(Wizard target, float amount, int owner, Element[]? elements = null)
     {
         if (!target.Alive || target.Invulnerable > 0 || amount <= 0) return;
         float absorbed = Math.Min(target.Shield, amount);
         target.Shield -= absorbed; amount -= absorbed;
         target.Health = Math.Max(0, target.Health - amount);
+        // Un rayo golpea a 60 Hz; limita sus impactos, pero nunca omite la rotura del escudo.
+        bool broken = absorbed > 0 && target.Shield <= 0;
+        if (broken) Emit("shield_break", target.Position, [Element.Shield], "");
+        if (target.HitEffectCooldown <= 0)
+        {
+            if (absorbed > 0 && !broken) Emit("shield_hit", target.Position, [Element.Shield], "");
+            if (amount > 0) Emit("hurt", target.Position, elements ?? [], "");
+            target.HitEffectCooldown = 0.14f;
+        }
         if (target.Health > 0) return;
         target.Deaths++; target.Respawn = Options.Mode == GameMode.Duel ? 2.5f : 4;
         target.Channel = null; target.Charging = null; target.Selection.Clear(); target.Shield = target.ShieldMax = target.ShieldTime = 0;
@@ -651,6 +667,7 @@ public sealed class GameWorld
         p.Position = ArenaMap.Spawn(p.Team, p.Id % 4); p.Health = Wizard.MaxHealth;
         p.Wet = p.Burning = p.Chill = p.Frozen = p.Haste = p.Shield = p.ShieldMax = p.ShieldTime = 0;
         p.Ward = []; p.Knockback = V2.Zero; p.Selection.Clear(); p.Channel = p.Charging = null;
+        p.BurnMultiplier = 1; p.HitEffectCooldown = 0;
         p.Input.MoveTo = false; p.Input.MoveX = p.Input.MoveY = 0; p.Respawn = 0;
         p.Invulnerable = 1.2f; p.ActionCooldown = 0;
     }
@@ -711,10 +728,10 @@ public sealed class GameWorld
         _players.Values.Select(p => new WizardSnapshot(p.Id, p.Name, p.Team, p.Bot, p.Position, p.Facing, p.Health,
             Wizard.MaxHealth, p.Shield, p.Ward.ToArray(), p.Selection.Elements.ToArray(), p.Alive, Math.Max(0, p.Respawn),
             p.Wet, p.Burning, p.Chill, p.Frozen, p.Haste, p.Energy, p.MagickCooldowns.ToArray(), p.Kills, p.Deaths,
-            p.ChargeTime / 1.4f, p.Channel != null || p.Charging != null, p.ShieldMax, p.Shield > 0 ? p.ShieldTime : 0)).ToArray(),
+            p.ChargeTime / 1.4f, p.Channel != null || p.Charging != null, p.ShieldMax, p.Shield > 0 ? p.ShieldTime : 0, p.WizardType)).ToArray(),
         _projectiles.Select(p => new ProjectileSnapshot(p.Id, p.Owner, p.Position, p.Velocity.Normalized, p.Recipe.Elements.ToArray(), p.Radius)).ToArray(),
         _walls.Select(w => new WallSnapshot(w.Id, w.Owner, w.A, w.B, w.Health, w.Lifetime, w.Recipe.Elements.ToArray())).ToArray(),
         _fields.Select(f => new FieldSnapshot(f.Id, f.Owner, f.Position, f.Radius, f.Lifetime, f.Recipe.Elements.ToArray(), f.Kind)).ToArray(),
         _beams.Select(b => b with { Elements = b.Elements.ToArray() }).ToArray(), _points.Select(p => new PointSnapshot(p.Id, p.Position, p.Owner, p.Progress)).ToArray(),
-        _events.Select(e => e.Event with { Elements = e.Event.Elements.ToArray() }).ToArray());
+        _events.Select(e => e.Event with { Elements = e.Event.Elements.ToArray() }).ToArray(), Options.ScoreLimit, Options.Tickets);
 }

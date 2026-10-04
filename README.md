@@ -1,4 +1,4 @@
-# Arcana Arena — v0.3.1
+# Arcana Arena — v0.4.0
 
 Primera recreación jugable en C# del combate elemental de **Magicka: Wizard Wars**. Cliente 3D de escritorio con **Godot 4.5.2 .NET**, servidor independiente **ASP.NET Core / .NET 8**, Docker, launcher con conexión por IP/LAN, salas independientes y paquete Windows para abrir con doble clic.
 
@@ -6,7 +6,7 @@ El código, las mallas y los sonidos son propios. Esta versión reproduce la est
 
 ![Launcher y acceso a partidas](docs/images/launcher.png)
 
-![Práctica local en el cliente 3D](docs/images/game.png)
+![Tipos de mago y efectos de combate](docs/images/game.png)
 
 ![Escudo al 50 %, con puntos y duración restantes](docs/images/shield-half.png)
 
@@ -16,7 +16,9 @@ El código, las mallas y los sonidos son propios. Esta versión reproduce la est
 - Rayos continuos, chorros en cono, arcos eléctricos, rocas con carga, fragmentos de hielo, vapor, muros, minas y lanzamientos en área.
 - Curación, escudos, guardas elementales, empujes, mojado, quemaduras, frío y congelación. Fuego amigo configurable.
 - Colores con más contraste y símbolos por elemento. Vida y escudo separados: el escudo muestra puntos/capacidad real y segundos restantes; también aparece sobre el mago.
-- Duelo, todos contra todos y guerra por tres puntos de control, con tickets, muerte, reaparición y reinicio de partidas.
+- Duelo, todos contra todos y guerra por tres puntos de control, con tickets, muerte, reaparición y reinicio de partidas. El objetivo y el límite real aparecen en la sala y en el HUD; ayuda **F1 → Cómo ganar**.
+- Cinco tipos de mago: equilibrado, piromante, criomante, tempestario y geomante. Bonus elemental del 25 % y debilidad del 25 %, elegidos antes de entrar y calculados por el servidor.
+- Estelas, ondas, impactos, fragmentos de hielo/roca, explosiones, destellos y rotura de escudo. Quemadura, mojado, frío y celeridad con partículas. Efectos con nodos reutilizados y límites fijos.
 - Cuatro magicks: celeridad, traslación, meteoro y reanimación. Coste de energía y tiempos de reutilización.
 - Bots que combaten, se curan y capturan puntos. Práctica local sin iniciar Docker.
 - Launcher: IP/dominio, búsqueda LAN, servidor incluido, configuración gráfica y creación de salas con modo, bots, aforo y contraseñas.
@@ -25,9 +27,9 @@ El código, las mallas y los sonidos son propios. Esta versión reproduce la est
 
 ## Jugar con doble clic en Windows
 
-1. Descargar [ArcanaArena-v0.3.1-Windows-x64.zip](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.3.1/ArcanaArena-v0.3.1-Windows-x64.zip) de [Releases](https://github.com/andresmartinezmelgar/magicka/releases/latest).
+1. Descargar [ArcanaArena-v0.4.0-Windows-x64.zip](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.4.0/ArcanaArena-v0.4.0-Windows-x64.zip) de [Releases](https://github.com/andresmartinezmelgar/magicka/releases/latest).
 2. **Extraer todo el ZIP** en una carpeta. Abrir **ArcanaArena.exe** con doble clic.
-3. Elegir **Práctica** para jugar con bots, **Alojar** para iniciar tu servidor, **LAN** para buscar servidores o **Por IP** para usar una dirección.
+3. Elegir el **tipo de mago**. Elegir **Práctica** para jugar con bots, **Alojar** para iniciar tu servidor, **LAN** para buscar servidores o **Por IP** para usar una dirección.
 
 En **Alojar**, elegir nombre del servidor, puertos y contraseña opcional. Pulsar **Iniciar servidor y ver salas**. Desde la pantalla de salas, pulsar **Crear sala**, elegir modo, plazas, bots, fuego amigo y límites de victoria; finalmente, **Crear y entrar**. Otros jugadores abren el mismo ejecutable, buscan el servidor en **LAN** y eligen tu sala. También pueden usar la IP de tu equipo en **Por IP**.
 
@@ -42,6 +44,20 @@ La distribución incluye todos los archivos necesarios. El `.exe`, el `.pck`, la
 ![Directorio de salas independientes](docs/images/rooms.png)
 
 ![Crear una sala desde el juego](docs/images/create-room.png)
+
+## Compilar con doble clic
+
+Descargar el código con **Code → Download ZIP** y extraer todo, o actualizar el repositorio local. Abrir **`Compilar-Juego.cmd`** en la raíz. Instala el SDK .NET 8 x64 y Godot 4.5.2 .NET en `.tools/`, descarga sus plantillas y compila cliente y servidor. La primera ejecución necesita Internet; después reutiliza las herramientas.
+
+El resultado queda en **`Juego/ArcanaArena.exe`**. Cada compilación correcta **sustituye completamente `Juego/`**, incluidos los archivos antiguos. Cerrar el juego antes de recompilar. Si la compilación falla, se conserva el resultado anterior. Registro: `artifacts/compilacion-*.log`. No requiere Visual Studio ni instalación de administrador. [Proceso y compilación manual](docs/EXPORTAR.md).
+
+## Cómo ganar y tipos de mago
+
+- **Duelo:** primer equipo que llega al límite de bajas; por defecto 15, o 5 en práctica.
+- **Todos contra todos:** primer mago que llega al límite de bajas; por defecto 15.
+- **Guerra:** reducir a cero los tickets rivales; controlar más puntos los desgasta cada segundo y cada muerte cuesta un ticket.
+
+Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). Las clases y la debilidad se calculan en el servidor: **protocolo 3**, actualizar el cliente y el servidor Docker juntos a esta versión.
 
 ## Diagnosticar un problema
 
@@ -155,9 +171,9 @@ dotnet run --project tests/Arcana.Tests -c Release -- --server=127.0.0.1:27015 -
 
 Si se usa contraseña, definir `TEST_PASSWORD` en el proceso de pruebas. El cliente y el servidor deben ejecutar la misma versión del protocolo.
 
-La batería incluye **35 pruebas** con servidor protegido: 23 de núcleo/diagnóstico y 12 de red. Cubre combate, copias de estado, absorción/capacidad/caducidad del escudo, replicación de sus datos, respuestas acotadas, rotación y ocultación de contraseñas, aislamiento de salas, cierre simultáneo, cancelación del saludo, bots en salas vacías y errores HTTP. El cliente ejecuta una práctica de cuatro magos durante 240 pasos en modo headless.
+La batería incluye **43 pruebas** con servidor protegido: 29 de núcleo/diagnóstico y 14 de red. Cubre combate, copias de estado, absorción/capacidad/caducidad del escudo, afinidades por componente, quemaduras, victoria y replicación de tipos/objetivos, respuestas acotadas, rotación y ocultación de contraseñas, aislamiento de salas, cierre simultáneo, cancelación del saludo, bots en salas vacías y errores HTTP. El cliente ejecuta una práctica de cuatro magos durante 240 pasos en modo headless.
 
-El workflow compila y prueba en Linux, valida Docker con IP y LAN, y genera el paquete en Windows. Antes de publicarlo prueba el servidor incluido, la creación de salas y el juego **exportado**, con el runtime global deshabilitado. También arranca el servidor desde el launcher exportado, comprueba que se detiene al cerrar exporta un informe que incluye un aviso de prueba del motor y comprueba seis estados del escudo en el HUD. Solo una ejecución completa satisfactoria publica una nueva versión en **Releases**.
+El workflow compila y prueba en Linux, valida Docker con IP y LAN, y genera el paquete en Windows. Antes de publicarlo prueba el servidor incluido, la creación de salas y el juego **exportado**, con el runtime global deshabilitado. También arranca el servidor desde el launcher exportado, comprueba que se detiene al cerrar, exporta un informe que incluye un aviso de prueba del motor y comprueba seis estados del escudo en el HUD. Valida doce tipos de eventos visuales, su expiración y limpieza. La compilación automática se ejecuta en Windows PowerShell 5.1; comprueba la sustitución completa de la carpeta y que un fallo conserve el resultado anterior. Solo una ejecución completa satisfactoria publica una nueva versión en **Releases**.
 
 ## Alcance de esta primera versión
 

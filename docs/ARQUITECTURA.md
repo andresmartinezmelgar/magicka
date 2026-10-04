@@ -50,6 +50,14 @@ Las salas sin humanos se pausan. El servidor reutiliza contenedores temporales y
 
 ## Vida y escudo
 
-`Wizard.ShieldMax` conserva la capacidad aplicada, aunque el daño reduzca `Shield`. El snapshot transmite `ShieldMax` y `ShieldSeconds`; la expiración, muerte y reaparición limpian los valores. El HUD y las barras 3D usan la misma capacidad y diferencian vida, protección y energía. Los campos se añaden con valor predeterminado cero para mantener compatibilidad con snapshots anteriores del protocolo v2.
+`Wizard.ShieldMax` conserva la capacidad aplicada, aunque el daño reduzca `Shield`. El snapshot transmite `ShieldMax` y `ShieldSeconds`; la expiración, muerte y reaparición limpian los valores. El HUD y las barras 3D usan la misma capacidad y diferencian vida, protección y energía. Los campos tienen valores predeterminados para fixtures antiguos. Desde v0.4.0, las conexiones exigen protocolo 3 para garantizar afinidades y objetivos comunes.
 
 `ElementIcon` dibuja formas vectoriales sin texturas externas. `Ui.ElementTile` reutiliza símbolo, tecla, nombre y color en launcher y HUD. `VisualFixture` proporciona escenas deterministas para capturas; `--hud-smoke` verifica barras y cifras en seis estados sin conectarse a un servidor.
+
+## Afinidades, objetivos y efectos
+
+`WizardTypes` define cinco tipos y multiplicadores de 1,25. `GameWorld.ElementDamage` aplica el bonus del atacante, la debilidad del defensor y la guarda a cada componente. `BurnMultiplier` conserva la potencia inicial de la quemadura incluso si el atacante se desconecta. El tipo es inmutable en `Wizard`; se valida en el saludo y viaja en `WizardSnapshot`. `WorldSnapshot` replica `ScoreLimit` y `StartingTickets`. `MatchRules` proporciona objetivos compartidos por HUD, salas y ayuda.
+
+El servidor emite `shield_hit`, `shield_break` y `hurt`; limita los impactos continuos a uno por mago cada 0,14 s, y siempre emite la rotura. `CombatEffects` mantiene pools de hasta 384 partículas y 32 ondas, con mallas y materiales compartidos. Procesa eventos por ID, crea estelas y partículas de estado a intervalos y limpia los efectos al salir. `--effects-smoke` comprueba doce eventos, datos de tipo, límites, expiración y limpieza.
+
+`Compilar-Juego.cmd` ejecuta `auto-compile.ps1` en Windows PowerShell 5.1. Las herramientas se almacenan en `.tools/`; `package-windows.ps1` construye `artifacts/windows`. `Publish-GamePackage` valida el paquete, copia a una carpeta temporal y sustituye `Juego/` mediante movimientos, con restauración si falla el movimiento. La prueba `test-build-output.ps1` verifica reemplazo, segunda publicación, rutas con espacios y preservación del juego ante un paquete incompleto.

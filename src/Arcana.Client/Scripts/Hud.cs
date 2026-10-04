@@ -8,6 +8,7 @@ public partial class Hud : Control
     private Label _name = null!, _status = null!, _match = null!, _feed = null!, _banner = null!, _server = null!;
     private ProgressBar _health = null!, _shield = null!, _energy = null!, _charge = null!;
     private Label _healthText = null!, _shieldText = null!, _energyText = null!;
+    private Label _objective = null!, _affinity = null!;
     private HBoxContainer _teams = null!;
     private Label _blueScore = null!, _redScore = null!;
     private StyleBoxFlat _shieldFill = null!, _shieldTrack = null!;
@@ -39,10 +40,14 @@ public partial class Hud : Control
         _teams.Position = new(-240, 18); _teams.Size = new(480, 42); AddChild(_teams);
         _blueScore = Ui.Label("", 24, Ui.Blue); _redScore = Ui.Label("", 24, Ui.Red);
         _teams.AddChild(_blueScore); _teams.AddChild(Ui.Label("·", 24, Ui.Muted)); _teams.AddChild(_redScore);
-        var playerPanel = new PanelContainer { CustomMinimumSize = new(310, 230), MouseFilter = MouseFilterEnum.Ignore };
-        playerPanel.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomLeft); playerPanel.Position = new(24, -258); AddChild(playerPanel);
+        _objective = Ui.Label("", 14, Ui.Gold); _objective.Name = "MatchObjective"; _objective.HorizontalAlignment = HorizontalAlignment.Center;
+        _objective.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterTop); _objective.Position = new(-345, 60); _objective.Size = new(690, 46);
+        _objective.AutowrapMode = TextServer.AutowrapMode.WordSmart; AddChild(_objective);
+        var playerPanel = new PanelContainer { CustomMinimumSize = new(310, 254), MouseFilter = MouseFilterEnum.Ignore };
+        playerPanel.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomLeft); playerPanel.Position = new(24, -282); AddChild(playerPanel);
         var info = new VBoxContainer(); info.AddThemeConstantOverride("separation", 7); playerPanel.AddChild(info);
         _name = Ui.Label("", 19); info.AddChild(_name);
+        _affinity = Ui.Label("", 13); _affinity.Name = "WizardAffinity"; info.AddChild(_affinity);
         _health = Bar(Ui.Health, 1000, 33); _health.Name = "HealthBar";
         info.AddChild(Meter(_health, "HealthValue", out _healthText));
         _shield = Bar(Ui.Shield, 420, 28); _shield.Name = "ShieldBar";
@@ -127,6 +132,10 @@ public partial class Hud : Control
         _server.Text = serverName.ToUpperInvariant() + "  /  " + Ui.ModeName(snapshot.Mode).ToUpperInvariant();
         _name.Text = player.Name + (player.Team == 0 ? "  /  AZUL" : "  /  ROJO");
         _name.AddThemeColorOverride("font_color", player.Team == 0 ? Ui.Blue : Ui.Red);
+        _affinity.Text = WizardTypes.Name(player.WizardType);
+        _affinity.TooltipText = WizardTypes.Description(player.WizardType);
+        _affinity.AddThemeColorOverride("font_color", Ui.WizardColor(player.WizardType));
+        _objective.Text = MatchRules.Objective(snapshot.Mode, snapshot.ScoreLimit, snapshot.StartingTickets);
         _health.MaxValue = player.MaxHealth; _health.Value = player.Health;
         _healthText.Text = $"VIDA  {Math.Ceiling(player.Health):0} / {player.MaxHealth:0}";
         _shield.MaxValue = Ui.ShieldMaximum(player); _shield.Value = player.Shield;

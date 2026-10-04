@@ -6,6 +6,7 @@ public sealed class Wizard
     public required string Name { get; init; }
     public int Team { get; init; }
     public bool Bot { get; init; }
+    public WizardType WizardType { get; init; }
     public V2 Position { get; set; }
     public V2 Facing { get; set; } = new(1, 0);
     public float Health { get; set; } = 1000;
@@ -19,6 +20,8 @@ public sealed class Wizard
     public float Wet { get; set; }
     public float Burning { get; set; }
     public int BurnOwner { get; set; }
+    public float BurnMultiplier { get; set; } = 1;
+    public float HitEffectCooldown { get; set; }
     public float Chill { get; set; }
     public float Frozen { get; set; }
     public float Haste { get; set; }

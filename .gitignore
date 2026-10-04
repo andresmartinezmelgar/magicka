@@ -9,3 +9,5 @@ artifacts/
 *.log
 *.jsonl
 reports/
+.tools/
+Juego/

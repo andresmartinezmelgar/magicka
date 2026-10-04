@@ -12,6 +12,7 @@ public partial class WizardVisual : Node3D
     private MeshInstance3D _healthFill = null!;
     private MeshInstance3D _shieldFill = null!, _shieldTrack = null!;
     private Label3D _shieldAmount = null!;
+    private MeshInstance3D _affinityRing = null!;
     private Color _color;
     public void Build(WizardSnapshot p, bool local)
     {
@@ -19,14 +20,16 @@ public partial class WizardVisual : Node3D
         Position = ArenaRenderer.World(p.Position);
         _body = new Node3D(); AddChild(_body);
         var cloth = new StandardMaterial3D { AlbedoColor = _color.Darkened(0.18f), Roughness = 1 };
+        Color affinityColor = Ui.WizardColor(p.WizardType);
+        var hatCloth = p.WizardType == WizardType.Balanced ? cloth : new StandardMaterial3D { AlbedoColor = affinityColor.Darkened(0.12f), Roughness = 1 };
         var dark = new StandardMaterial3D { AlbedoColor = _color.Darkened(0.6f), Roughness = 1 };
         var skin = new StandardMaterial3D { AlbedoColor = new("e0b68f"), Roughness = 1 };
         Mesh(_body, new CylinderMesh { TopRadius = 0.23f, BottomRadius = 0.46f, Height = 1.08f, RadialSegments = 12 }, new(0, 0.75f, 0), cloth);
         Mesh(_body, new CylinderMesh { TopRadius = 0.27f, BottomRadius = 0.27f, Height = 0.1f, RadialSegments = 12 }, new(0, 0.93f, 0), dark);
         Mesh(_body, new SphereMesh { Radius = 0.23f, Height = 0.46f }, new(0, 1.4f, 0), skin);
         Mesh(_body, new BoxMesh { Size = new(0.31f, 0.1f, 0.04f) }, new(0, 1.43f, 0.22f), dark);
-        Mesh(_body, new CylinderMesh { TopRadius = 0.49f, BottomRadius = 0.49f, Height = 0.06f, RadialSegments = 16 }, new(0, 1.63f, 0), cloth);
-        var hat = Mesh(_body, new CylinderMesh { TopRadius = 0, BottomRadius = 0.38f, Height = 0.72f, RadialSegments = 12 }, new(0, 2, 0), cloth);
+        Mesh(_body, new CylinderMesh { TopRadius = 0.49f, BottomRadius = 0.49f, Height = 0.06f, RadialSegments = 16 }, new(0, 1.63f, 0), hatCloth);
+        var hat = Mesh(_body, new CylinderMesh { TopRadius = 0, BottomRadius = 0.38f, Height = 0.72f, RadialSegments = 12 }, new(0, 2, 0), hatCloth);
         hat.RotationDegrees = new(-8, 0, -9);
         Mesh(_body, new BoxMesh { Size = new(0.19f, 0.17f, 0.35f) }, new(-0.18f, 0.13f, 0.15f), dark);
         Mesh(_body, new BoxMesh { Size = new(0.19f, 0.17f, 0.35f) }, new(0.18f, 0.13f, 0.15f), dark);
@@ -34,16 +37,25 @@ public partial class WizardVisual : Node3D
         arm.RotationDegrees = new(22, 0, -26);
         var wood = new StandardMaterial3D { AlbedoColor = new("624a35"), Roughness = 1 };
         Mesh(_body, new CylinderMesh { TopRadius = 0.04f, BottomRadius = 0.04f, Height = 1.65f }, new(0.57f, 0.99f, 0.25f), wood);
-        var glow = new StandardMaterial3D { AlbedoColor = Ui.Gold, EmissionEnabled = true, Emission = Ui.Gold, EmissionEnergyMultiplier = 0.9f };
-        Mesh(_body, new SphereMesh { Radius = 0.105f, Height = 0.21f }, new(0.57f, 1.88f, 0.25f), glow);
+        var glow = new StandardMaterial3D { AlbedoColor = affinityColor, EmissionEnabled = true, Emission = affinityColor, EmissionEnergyMultiplier = 0.9f };
+        Godot.Mesh focus = p.WizardType switch
+        {
+            WizardType.Cryomancer => new PrismMesh { Size = new(0.22f, 0.45f, 0.22f) },
+            WizardType.Geomancer => new BoxMesh { Size = new(0.28f, 0.28f, 0.28f) },
+            WizardType.Stormcaller => new PrismMesh { Size = new(0.16f, 0.38f, 0.16f) },
+            _ => new SphereMesh { Radius = 0.105f, Height = 0.21f }
+        };
+        Mesh(_body, focus, new(0.57f, 1.88f, 0.25f), glow);
         _halo = Mesh(this, new TorusMesh { InnerRadius = local ? 0.63f : 0.56f, OuterRadius = local ? 0.72f : 0.6f, Rings = 32, RingSegments = 8 }, new(0, 0.05f, 0),
             new StandardMaterial3D { AlbedoColor = _color, EmissionEnabled = true, Emission = _color, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
+        _affinityRing = Mesh(this, new TorusMesh { InnerRadius = 0.82f, OuterRadius = 0.86f, Rings = 24, RingSegments = 6 }, new(0, 0.055f, 0),
+            new StandardMaterial3D { AlbedoColor = affinityColor, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
         var shieldMat = new StandardMaterial3D { AlbedoColor = new Color(Ui.Shield.R, Ui.Shield.G, Ui.Shield.B, 0.22f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
             EmissionEnabled = true, Emission = Ui.Shield, EmissionEnergyMultiplier = 0.5f, CullMode = BaseMaterial3D.CullModeEnum.Disabled };
         _shield = Mesh(this, new SphereMesh { Radius = 0.9f, Height = 2.4f }, new(0, 1.1f, 0), shieldMat);
         _ghost = Mesh(this, new SphereMesh { Radius = 0.4f, Height = 1.5f }, new(0, 0.7f, 0),
             new StandardMaterial3D { AlbedoColor = new Color(_color.R, _color.G, _color.B, 0.14f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha });
-        _name = new Label3D { Text = p.Name, Position = new(0, 3.95f, 0), FontSize = 34, PixelSize = 0.013f,
+        _name = new Label3D { Text = p.Name, Position = new(0, p.WizardType == WizardType.Balanced ? 3.95f : 4.55f, 0), FontSize = 34, PixelSize = 0.013f,
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, Modulate = local ? Ui.Text : _color, OutlineModulate = new("060a12"), OutlineSize = 10, NoDepthTest = true };
         AddChild(_name);
         _healthRoot = new Node3D { Position = new(0, 2.6f, 0) }; AddChild(_healthRoot);
@@ -72,6 +84,8 @@ public partial class WizardVisual : Node3D
         _body.Rotation = new(0, Mathf.LerpAngle(_body.Rotation.Y, angle, 1 - Mathf.Exp(-18 * dt)), 0);
         _body.Position = new(0, distance > 0.025f ? Mathf.Sin(time * 14 + p.Id) * 0.035f : 0, 0);
         _body.Visible = p.Alive; _ghost.Visible = !p.Alive; _halo.Visible = p.Alive;
+        _affinityRing.Visible = p.Alive && p.WizardType != WizardType.Balanced;
+        _affinityRing.Scale = Vector3.One * (1 + Mathf.Sin(time * 2 + p.Id) * 0.04f);
         _shield.Visible = p.Alive && (p.Shield > 0 || p.Frozen > 0);
         if (_shield.MaterialOverride is StandardMaterial3D shieldMat)
         {
@@ -80,7 +94,8 @@ public partial class WizardVisual : Node3D
             shieldMat.AlbedoColor = c; shieldMat.Emission = c;
         }
         _shield.Scale = Vector3.One * (1 + Mathf.Sin(time * 3) * 0.03f);
-        _name.Text = p.Name + (!p.Alive ? $"  {Mathf.CeilToInt(p.Respawn)}s" : p.Frozen > 0 ? "  CONGELADO" : p.Burning > 0 ? "  FUEGO" : p.Wet > 0 ? "  MOJADO" : "");
+        _name.Text = p.Name + (!p.Alive ? $"  {Mathf.CeilToInt(p.Respawn)}s" : p.Frozen > 0 ? "  CONGELADO" : p.Burning > 0 ? "  FUEGO" : p.Wet > 0 ? "  MOJADO" : "")
+            + (p.WizardType != WizardType.Balanced ? "\n" + WizardTypes.Name(p.WizardType) : "");
         _healthRoot.Visible = p.Alive;
         _healthRoot.LookAt(camera.GlobalPosition);
         float hp = Math.Clamp(p.Health / p.MaxHealth, 0, 1);

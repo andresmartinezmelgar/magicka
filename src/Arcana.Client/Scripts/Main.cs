@@ -22,6 +22,8 @@ public partial class Main : Node
     private Control _ui = null!, _help = null!, _pause = null!;
     private Label _diagnosticStatus = null!;
     private Launcher _launcher = null!;
+    private TabContainer _helpPages = null!;
+    private Label _currentObjective = null!;
     private Hud? _hud;
     private ArenaConnection? _connection;
     private GameWorld? _practice;
@@ -38,6 +40,8 @@ public partial class Main : Node
     private bool _smoke;
     private bool _hostSmoke;
     private bool _hudSmoke;
+    private bool _effectsSmoke, _previewEffects;
+    private int _previewHelp = -1;
     private string? _previewShield;
     private static readonly (string State, float Shield, float Maximum)[] HudCases =
         [("none", 0, 420), ("full", 420, 420), ("half", 210, 420), ("low", 40, 420), ("ward", 90, 180), ("stone", 325, 650)];
@@ -65,6 +69,9 @@ public partial class Main : Node
             if (arg == "--host-smoke") _hostSmoke = true;
             if (arg == "--diagnostics-smoke") _diagnosticsSmoke = true;
             if (arg == "--hud-smoke") _hudSmoke = true;
+            if (arg == "--effects-smoke") _effectsSmoke = true;
+            if (arg == "--preview-effects") _previewEffects = true;
+            if (arg.StartsWith("--preview-help=") && int.TryParse(arg[15..], out int page)) _previewHelp = Math.Clamp(page, 0, 2);
             if (arg.StartsWith("--preview-shield=")) _previewShield = arg[17..];
             if (arg.StartsWith("--capture=")) _capturePath = arg[10..];
             if (arg.StartsWith("--server=")) _launcher.BrowseAddress(arg[9..]);
@@ -72,11 +79,12 @@ public partial class Main : Node
             if (arg.StartsWith("--tab=") && int.TryParse(arg[6..], out int tab)) _launcher.ShowTab(tab);
         }
         if (_hostSmoke) _ = HostedSmoke();
-        if (_hudSmoke || _previewShield != null)
+        if (_hudSmoke || _previewShield != null || _effectsSmoke || _previewEffects)
         {
             _practice = null; _localId = 1; _serverName = "Práctica · Colores y escudo";
             StartGame(VisualFixture.Create(_previewShield ?? "none"));
         }
+        if (_previewHelp >= 0) { ToggleHelp(); _helpPages.CurrentTab = _previewHelp; }
         if (_smoke)
         {
             StartPractice("Aprendiz", 0, GameMode.Warfare, 3);
@@ -98,14 +106,14 @@ public partial class Main : Node
     }
 
     public async Task ConnectOnline(string address, string name, int team, string password,
-        string roomId = "default", string roomPassword = "")
+        string roomId = "default", string roomPassword = "", WizardType wizardType = WizardType.Balanced)
     {
         var connection = new ArenaConnection();
         connection.Disconnected += reason => Post(() => { if (_connection == connection) ReturnToLauncher(reason); });
         lock (_connectionGate) _pendingConnection = connection;
         try
         {
-            await connection.ConnectAsync(address, name, team, password, _lifetime.Token, roomId: roomId, roomPassword: roomPassword).ConfigureAwait(false);
+            await connection.ConnectAsync(address, name, team, password, _lifetime.Token, roomId: roomId, roomPassword: roomPassword, wizardType: wizardType).ConfigureAwait(false);
             if (!Post(() =>
             {
                 lock (_connectionGate) if (_pendingConnection == connection) _pendingConnection = null;
@@ -128,14 +136,15 @@ public partial class Main : Node
         }
         finally { lock (_connectionGate) if (_pendingConnection == connection && !connection.Connected) _pendingConnection = null; }
     }
-    public void StartPractice(string name, int team, GameMode mode, int bots)
+    public void StartPractice(string name, int team, GameMode mode, int bots, WizardType wizardType = WizardType.Balanced)
     {
         _practice = new(new WorldOptions { Mode = mode, MaxPlayers = mode == GameMode.Duel ? 2 : 8,
             FriendlyFire = true, ScoreLimit = mode == GameMode.Duel ? 5 : 15, Tickets = 75 });
-        var player = _practice.AddPlayer(name, team)!; _localId = player.Id;
-        for (int i = 0; i < (mode == GameMode.Duel ? 1 : Math.Clamp(bots, 1, 7)); i++) _practice.AddPlayer($"Bot {i + 1}", -1, true);
+        var player = _practice.AddPlayer(name, team, wizardType: wizardType)!; _localId = player.Id;
+        for (int i = 0; i < (mode == GameMode.Duel ? 1 : Math.Clamp(bots, 1, 7)); i++)
+            _practice.AddPlayer($"Bot {i + 1}", -1, true, (WizardType)(i % 5));
         _serverName = "Práctica local"; _localSequence = 0;
-        Diagnostics.Info("practice.start", "Práctica iniciada.", new Dictionary<string, object?> { ["mode"] = mode, ["bots"] = bots });
+        Diagnostics.Info("practice.start", "Práctica iniciada.", new Dictionary<string, object?> { ["mode"] = mode, ["bots"] = bots, ["wizardType"] = wizardType });
         StartGame(_practice.Snapshot());
     }
     private void StartGame(WorldSnapshot snapshot)
@@ -166,6 +175,7 @@ public partial class Main : Node
             try { action(); }
             catch (Exception e) { Diagnostics.Error("client.callback_failed", "Fallo en una operación de interfaz.", e, Context()); }
         _renderFrames++;
+        if (_effectsSmoke || _previewEffects) _snapshot = VisualFixture.Effects(_renderFrames);
         if (_hudSmoke && _renderFrames <= HudCases.Length * 3 && _renderFrames % 3 == 1)
             _snapshot = VisualFixture.Create(HudCases[(_renderFrames - 1) / 3].State);
         _metricsTime += delta;
@@ -188,9 +198,10 @@ public partial class Main : Node
                 Diagnostics.Warn("client.stale_snapshot", "El servidor dejó de enviar el estado.", context: Context());
                 ReturnToLauncher("El servidor ha dejado de enviar el estado de la partida. Puedes exportar el diagnóstico desde el launcher."); return;
             }
-            _renderer.Render(latest, _localId, delta, true);
+            _renderer.Render(latest, _localId, _effectsSmoke ? 1 / 60.0 : delta, true);
             _hud?.Update(latest, _localId, _serverName, delta);
             if (_hudSmoke && _renderFrames <= HudCases.Length * 3 && _renderFrames % 3 == 2) CheckHudCase();
+            if (_effectsSmoke) CheckEffects();
         }
         else _renderer.Render(_backdropSnapshot ??= _backdrop.Snapshot(), 0, delta, false);
         if (_diagnosticsSmoke && _renderFrames == 30) ExportDiagnostics();
@@ -199,7 +210,7 @@ public partial class Main : Node
 
     public override void _PhysicsProcess(double delta)
     {
-        if (_hudSmoke || _previewShield != null) return;
+        if (_hudSmoke || _previewShield != null || _effectsSmoke || _previewEffects) return;
         if (!_playing) { _backdrop.Step(); _backdropSnapshot = _backdrop.Snapshot(); return; }
         _inputTime += delta;
         if (_practice != null)
@@ -238,6 +249,19 @@ public partial class Main : Node
         if (!correct) { GD.PushError($"HUD_SMOKE_FAILED: {expected.State}, {shield.Value}/{shield.MaxValue}, {text.Text}"); GetTree().Quit(1); return; }
         GD.Print($"HUD_CASE_OK: {expected.State}, {shield.Value}/{shield.MaxValue}");
         if (expected.State == HudCases[^1].State) { GD.Print("HUD_SMOKE_OK: 6 estados de escudo, vida, capacidad y duración"); GetTree().Quit(); }
+    }
+    private void CheckEffects()
+    {
+        var effects = _renderer.Effects;
+        bool valid = effects.ActiveCount <= CombatEffects.ParticleLimit + CombatEffects.RingLimit && effects.PooledCount <= CombatEffects.ParticleLimit + CombatEffects.RingLimit;
+        if (_renderFrames == 130) valid &= effects.ActiveCount > 0 && effects.SeenKinds.Count == 12 &&
+            ((Label)_hud!.FindChild("WizardAffinity", true, false)).Text == "Piromante";
+        if (_renderFrames == 240)
+        {
+            valid &= effects.ActiveCount == 0; _renderer.Clear(); valid &= effects.ActiveCount == 0;
+            if (valid) { GD.Print("EFFECTS_SMOKE_OK: 12 eventos, tipos, expiración, reutilización y limpieza"); GetTree().Quit(); }
+        }
+        if (!valid) { GD.PushError("EFFECTS_SMOKE_FAILED: efectos o tipo de mago inválidos"); GetTree().Quit(1); }
     }
     private ClientMessage InputMessage()
     {
@@ -300,6 +324,9 @@ public partial class Main : Node
     public void ToggleHelp()
     {
         _help.Visible = !_help.Visible;
+        _currentObjective.Text = _playing && _snapshot != null
+            ? "ESTA PARTIDA: " + MatchRules.Objective(_snapshot.Mode, _snapshot.ScoreLimit, _snapshot.StartingTickets)
+            : "Los límites se eligen al crear la sala. Su objetivo aparece antes de entrar.";
         if (_playing && _help.Visible) StopInput();
     }
     private void TogglePause()
@@ -320,8 +347,10 @@ public partial class Main : Node
     }
     private Control BuildHelp()
     {
-        var root = Modal(out var box);
-        box.AddChild(Ui.Label("CONTROLES Y COMBINACIONES", 27, Ui.Gold));
+        var root = Modal(out var outer);
+        outer.AddChild(Ui.Label("CÓMO JUGAR", 27, Ui.Gold));
+        _helpPages = new TabContainer { CustomMinimumSize = new(800, 475) }; outer.AddChild(_helpPages);
+        var box = new VBoxContainer { Name = "Controles" }; box.AddThemeConstantOverride("separation", 16); _helpPages.AddChild(box);
         var table = new GridContainer { Columns = 2 }; table.AddThemeConstantOverride("h_separation", 30); table.AddThemeConstantOverride("v_separation", 9); box.AddChild(table);
         string[,] rows =
         {
@@ -339,8 +368,30 @@ public partial class Main : Node
         for (int i = 0; i < rows.GetLength(0); i++) { table.AddChild(Ui.Label(rows[i, 0], 15, Ui.Gold)); table.AddChild(Ui.Label(rows[i, 1], 15)); }
         box.AddChild(Ui.Label("FFF: fuego · SSS: rayo arcano · WW + central: curación\nE + central: escudo · EF + central: guarda de fuego · DDF: roca incendiaria\nQF: vapor · QR: hielo · agua seguida de frío congela al objetivo", 16, Ui.Muted));
         box.AddChild(Ui.Label("Fuego/frío, vida/arcano, agua/rayo, tierra/rayo y escudo/escudo se anulan.\nLas magias también pueden afectar a aliados. Tres elementos por hechizo.", 15, Ui.Muted));
-        box.AddChild(Ui.Button("Cerrar", () => _help.Visible = false, true));
+        var wins = new VBoxContainer { Name = "Cómo ganar" }; wins.AddThemeConstantOverride("separation", 13); _helpPages.AddChild(wins);
+        _currentObjective = HelpText(wins, "Los límites se eligen al crear la sala. Su objetivo aparece antes de entrar.", Ui.Gold);
+        foreach (var mode in new[] { GameMode.Warfare, GameMode.Duel, GameMode.Arena })
+        {
+            wins.AddChild(Ui.Label(Ui.ModeName(mode).ToUpperInvariant(), 19, Ui.Gold));
+            HelpText(wins, MatchRules.Objective(mode, 15, 75));
+            HelpText(wins, MatchRules.Details(mode), Ui.Muted);
+        }
+        HelpText(wins, "Al terminar, se muestra el ganador y empieza otra partida a los 9 segundos. Puedes consultar el marcador con TAB. En práctica, el duelo se juega a 5 bajas.", Ui.Muted);
+        var types = new VBoxContainer { Name = "Tipos de mago" }; types.AddThemeConstantOverride("separation", 12); _helpPages.AddChild(types);
+        HelpText(types, "Elige tu tipo en el launcher antes de entrar. Todos pueden combinar los ocho elementos.", Ui.Muted);
+        foreach (var type in Enum.GetValues<WizardType>())
+        {
+            types.AddChild(Ui.Label(WizardTypes.Name(type).ToUpperInvariant(), 19, Ui.WizardColor(type)));
+            HelpText(types, WizardTypes.Description(type));
+        }
+        HelpText(types, "El bonus solo aumenta su componente elemental, incluida la quemadura. La debilidad también consume más escudo. Si atacante y defensor combinan bonus y debilidad, ese daño se multiplica por 1,5625. La clase se conserva al reaparecer.", Ui.Muted);
+        outer.AddChild(Ui.Button("Cerrar", () => _help.Visible = false, true));
         return root;
+    }
+    private static Label HelpText(Node parent, string text, Color? color = null)
+    {
+        var label = Ui.Label(text, 15, color); label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        parent.AddChild(label); return label;
     }
     private Control BuildPause()
     {
@@ -366,7 +417,9 @@ public partial class Main : Node
         ["room"] = _connection?.Room?.Id, ["player"] = _localId, ["tick"] = _snapshot?.Tick,
         ["mode"] = _snapshot?.Mode, ["online"] = _connection != null, ["snapshotAgeSeconds"] = _snapshotAge,
         ["managedBytes"] = GC.GetTotalMemory(false), ["gen0Collections"] = GC.CollectionCount(0), ["frames"] = _renderFrames,
-        ["logError"] = _log?.LastError
+        ["logError"] = _log?.LastError,
+        ["wizardType"] = _snapshot?.Players.FirstOrDefault(p => p.Id == _localId)?.WizardType,
+        ["activeEffects"] = _renderer?.Effects.ActiveCount, ["pooledEffects"] = _renderer?.Effects.PooledCount
     };
     public async void ExportDiagnostics()
     {
