@@ -165,6 +165,124 @@ Test("Direcciones IP, dominio, IPv6 y WSS", () =>
     Check(RoomBrowser.Endpoint("wss://juego.example/arcana/play", "rooms").ToString() == "https://juego.example/arcana/rooms", "No se conservó el prefijo del proxy para salas.");
 });
 
+
+Test("Una intención inválida no envenena la secuencia y no se conserva su referencia", () =>
+{
+    var (w, a, _) = Setup();
+    Check(!w.ApplyMessage(a.Id, new() { Type = "input", Sequence = long.MaxValue, MoveX = float.NaN }), "NaN aceptado.");
+    Check(!w.ApplyMessage(a.Id, new() { Type = "element", Sequence = long.MaxValue, Element = (Element)999 }), "Elemento desconocido aceptado.");
+    var message = new ClientMessage { Type = "input", Sequence = 1, MoveX = 1, AimX = 4 };
+    Check(w.ApplyMessage(a.Id, message), "La secuencia quedó bloqueada por un mensaje inválido.");
+    message.MoveX = -1; message.AimX = float.NaN;
+    var before = a.Position; w.Step();
+    Check(a.Position.X > before.X && a.Facing.IsFinite, "Modificar el mensaje alteró una entrada ya aceptada.");
+});
+Test("Las recetas de proyectiles, muros, campos y eventos del snapshot son copias", () =>
+{
+    var (w, a, _) = Setup();
+    Select(w, a, Element.Earth); Send(w, a, "cast"); Run(w, a, 10); Send(w, a, "release");
+    var snapshot = w.Snapshot(); Check(snapshot.Projectiles.Length == 1, "Falta la roca de prueba.");
+    snapshot.Projectiles[0].Elements[0] = Element.Life;
+    foreach (var e in snapshot.Events) if (e.Elements.Length > 0) e.Elements[0] = Element.Life;
+    Check(w.Snapshot().Projectiles[0].Elements[0] == Element.Earth && !w.Snapshot().Events.Any(e => e.Elements.Contains(Element.Life)), "Una copia alteró el mundo.");
+    var (walls, b, _) = Setup(); Select(walls, b, Element.Shield, Element.Earth); Send(walls, b, "cast");
+    var wallSnapshot = walls.Snapshot(); Check(wallSnapshot.Walls.Length == 1, "Falta el muro de prueba.");
+    wallSnapshot.Walls[0].Elements[0] = Element.Life;
+    Check(!walls.Snapshot().Walls[0].Elements.Contains(Element.Life), "El snapshot modificó un muro.");
+    var (fields, c, _) = Setup(); Send(fields, c, "magick", slot: 2);
+    var fieldSnapshot = fields.Snapshot(); Check(fieldSnapshot.Fields.Length == 1, "Falta el meteoro de prueba.");
+    fieldSnapshot.Fields[0].Elements[0] = Element.Life;
+    Check(!fields.Snapshot().Fields[0].Elements.Contains(Element.Life), "El snapshot modificó un campo.");
+});
+Test("Validación de snapshots acepta combates y rechaza estado parcial o no finito", () =>
+{
+    var world = new GameWorld(new() { Bots = 8 });
+    for (int i = 0; i < 1800; i++) { world.Step(); if (i % 30 == 0) SnapshotValidation.Check(world.Snapshot()); }
+    var snapshot = world.Snapshot();
+    foreach (var invalid in new[] { snapshot with { Scores = [1] }, snapshot with { Players = null! },
+        snapshot with { Points = [] }, snapshot with { Players = [snapshot.Players[0] with { Position = new(float.NaN, 0) }] },
+        snapshot with { Players = [snapshot.Players[0] with { Cooldowns = [0] }] } })
+    {
+        bool rejected = false; try { SnapshotValidation.Check(invalid); } catch (InvalidDataException) { rejected = true; }
+        Check(rejected, "Se aceptó un estado que rompe el renderer.");
+    }
+});
+Test("Direcciones con ruta e IPv6 entre corchetes; se rechazan credenciales en URL", () =>
+{
+    Check(ArenaConnection.Address("[::1]").Port == Protocol.GamePort, "Se duplicaron corchetes IPv6.");
+    Check(ArenaConnection.Address("[::1]:29015").Port == 29015, "Puerto IPv6 incorrecto.");
+    Check(ArenaConnection.Address("juego.example/prefijo/play").Port == Protocol.GamePort, "Puerto incorrecto con ruta.");
+    foreach (string invalid in new[] { "ws://usuario:clave@juego.example/play", "ws://juego.example/play?password=clave", "http://juego.example" })
+    {
+        bool rejected = false; try { ArenaConnection.Address(invalid); } catch (ArgumentException) { rejected = true; }
+        Check(rejected, "Se aceptó una dirección inválida.");
+    }
+});
+if (!args.Contains("--only-network"))
+{
+    await AsyncTest("Respuestas HTTP con y sin Content-Length tienen un límite real", async () =>
+    {
+        using var sized = new StringContent(new string('a', 4097));
+        using var streamed = new StreamContent(new UnknownLengthStream(new byte[4097]));
+        Check(streamed.Headers.ContentLength == null, "La prueba requiere una respuesta sin Content-Length.");
+        foreach (var content in new System.Net.Http.HttpContent[] { sized, streamed })
+        {
+            bool rejected = false; try { await RoomBrowser.ReadBoundedAsync(content, 4096); } catch (InvalidDataException) { rejected = true; }
+            Check(rejected, "Se leyó una respuesta demasiado grande.");
+        }
+        using var valid = new StringContent("correcta"); Check(await RoomBrowser.ReadBoundedAsync(valid, 16) == "correcta", "Se truncó una respuesta válida.");
+    });
+    await AsyncTest("Logs concurrentes: JSON, contraseñas ocultas, exportación y cierre repetido", async () =>
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "arcana-logs-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            await using var log = new DiagnosticLog(Path.Combine(directory, "logs"), "test", queueCapacity: 1024);
+            string secret = "clave-privada-\"\\-123"; log.ProtectSecret(secret);
+            var context = new Dictionary<string, object?> { ["room"] = "sala-1", ["password"] = secret,
+                ["endpoint"] = new Uri("https://user:clave@juego.example/play?token=abc"), ["note"] = secret };
+            await Task.WhenAll(Enumerable.Range(0, 4).Select(n => Task.Run(() =>
+                { for (int i = 0; i < 25; i++) log.Write(DiagnosticLevel.Error, "test.concurrent", "fallo " + secret, new IOException("password=oculta"), context); })));
+            await log.FlushAsync();
+            string[] lines = Directory.GetFiles(log.DirectoryPath, "*.jsonl").SelectMany(File.ReadAllLines).ToArray();
+            Check(lines.Length == 100, "Se perdieron registros sin saturar la cola.");
+            foreach (string line in lines)
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(line);
+                Check(doc.RootElement.GetProperty("session").GetString() == log.SessionId && doc.RootElement.GetProperty("context").GetProperty("room").GetString() == "sala-1", "Falta el contexto del fallo.");
+                Check(!line.Contains("clave-privada") && !line.Contains("oculta") && !line.Contains("token=abc") && !line.Contains("user:"), "Credencial presente en el log.");
+            }
+            File.WriteAllText(Path.Combine(log.DirectoryPath, "launcher.cfg"), secret);
+            string report = await log.ExportReportAsync(Path.Combine(directory, "reports"), context);
+            string second = await log.ExportReportAsync(Path.Combine(directory, "reports"));
+            Check(report != second, "Dos exportaciones colisionaron.");
+            using var zip = System.IO.Compression.ZipFile.OpenRead(report);
+            Check(zip.GetEntry("report.json") != null && zip.Entries.All(e => e.Name == "report.json" || e.Name.EndsWith(".jsonl")), "El ZIP incluyó archivos ajenos a los logs.");
+            await Task.WhenAll(log.DisposeAsync().AsTask(), log.DisposeAsync().AsTask());
+        }
+        finally { Directory.Delete(directory, true); }
+    });
+    await AsyncTest("Rotación y retención de logs; un fallo del disco no derriba el juego", async () =>
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "arcana-rotation-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            await using (var log = new DiagnosticLog(directory, "test", maxFileBytes: 2048, maxFiles: 3))
+            {
+                for (int i = 0; i < 30; i++) { log.Write(DiagnosticLevel.Information, "rotation", new string('a', 400)); await log.FlushAsync(); }
+                var files = Directory.GetFiles(directory, "test-*.jsonl");
+                Check(files.Length == 3 && files.All(p => new FileInfo(p).Length <= 2048), "La retención o el tamaño no se respetaron.");
+            }
+            string blocked = Path.Combine(directory, "no-es-carpeta"); File.WriteAllText(blocked, "archivo");
+            await using var broken = new DiagnosticLog(Path.Combine(blocked, "logs"), "broken");
+            broken.Write(DiagnosticLevel.Error, "disk", "El juego continúa aunque no se pueda escribir."); await broken.FlushAsync();
+            Check(broken.LastError != null, "No se comunicó el fallo del disco.");
+        }
+        finally { Directory.Delete(directory, true); }
+    });
+}
+
 string? server = args.FirstOrDefault(a => a.StartsWith("--server="))?[9..];
 int discoveryPort = int.TryParse(args.FirstOrDefault(a => a.StartsWith("--discovery-port="))?[17..], out int port) ? port : Protocol.DiscoveryPort;
 async Task WaitFor(Func<bool> ready, string reason)
@@ -249,6 +367,46 @@ if (server != null)
         a.Send(new() { Type = "release" });
         await WaitFor(() => !b.Latest!.Players.First(p => p.Id == a.PlayerId).Casting, "No se replicó la interrupción.");
     });
+
+    await AsyncTest("Reutilizar una intención conserva dos comandos; cierre concurrente es idempotente", async () =>
+    {
+        var connection = new ArenaConnection();
+        await connection.ConnectAsync(server, "Cierre concurrente", -1, password);
+        var message = new ClientMessage { Type = "element", Element = Element.Fire };
+        connection.Send(message); connection.Send(message); message.Element = Element.Life;
+        await WaitFor(() => connection.Latest!.Players.First(p => p.Id == connection.PlayerId).Selected.SequenceEqual(new[] { Element.Fire, Element.Fire }), "Se conservaron referencias de mensajes mutables.");
+        var sender = Task.Run(async () => { for (int i = 0; i < 20; i++) { connection.Send(new() { Type = "input" }); await Task.Delay(2); } });
+        await Task.WhenAll(sender, connection.DisposeAsync().AsTask(), connection.DisposeAsync().AsTask());
+        Check(!connection.Connected && !connection.Send(new() { Type = "release" }), "Una conexión cerrada aceptó mensajes.");
+    });
+    await AsyncTest("Cerrar durante el saludo cancela el arranque de la conexión", async () =>
+    {
+        var connection = new ArenaConnection();
+        var connect = connection.ConnectAsync(server, "Arranque cancelado", -1, password);
+        await connection.DisposeAsync();
+        try { await connect; } catch (Exception e) when (e is OperationCanceledException or System.Net.WebSockets.WebSocketException or IOException or ObjectDisposedException) { }
+        Check(!connection.Connected, "Se activó una conexión después de cerrarla.");
+    });
+    await AsyncTest("Salas vacías con bots se pausan; el primer jugador inicia la simulación", async () =>
+    {
+        var room = await RoomBrowser.CreateAsync(server, new() { Name = "Reposo con bots", MaxPlayers = 8, Bots = 7, ServerPassword = password });
+        await Task.Delay(500);
+        await using var connection = new ArenaConnection(); await connection.ConnectAsync(server, "Despertar", -1, password, roomId: room.Id);
+        Check(connection.Latest!.Tick < 15, "Los bots simularon una sala vacía.");
+        long first = connection.Latest.Tick;
+        await WaitFor(() => connection.Latest!.Tick > first + 5, "La simulación no se reanudó al entrar.");
+    });
+    await AsyncTest("API de salas rechaza formato no JSON y JSON malformado sin error 500", async () =>
+    {
+        using var http = new HttpClient();
+        using var text = new StringContent("no es json");
+        using var wrongType = await http.PostAsync(RoomBrowser.Endpoint(server, "rooms"), text);
+        Check((int)wrongType.StatusCode == 415, "El Content-Type inválido no recibió 415.");
+        using var malformed = new StringContent("{", System.Text.Encoding.UTF8, "application/json");
+        using var invalidJson = await http.PostAsync(RoomBrowser.Endpoint(server, "rooms"), malformed);
+        Check((int)invalidJson.StatusCode == 400, "El JSON malformado no recibió 400.");
+        Check((await http.GetAsync(RoomBrowser.Endpoint(server, "health"))).IsSuccessStatusCode, "El error de un cliente derribó el servidor.");
+    });
     // La red puente de Docker sirve para IP directa. LAN por broadcast se comprueba con red host.
     if (!args.Contains("--skip-discovery")) await AsyncTest("Descubrimiento UDP LAN devuelve el servidor real", async () =>
     {
@@ -287,5 +445,54 @@ if (package != null) await AsyncTest("Paquete autónomo: alojar, crear, entrar y
     Check(lan.Any(s => s.Info.Name == "Paquete de prueba"), "El servidor incluido no se anuncia en LAN.");
     await player.DisposeAsync(); host.Stop(); Check(!host.Running, "El servidor quedó activo tras detenerlo.");
 });
+
+if (package != null) await AsyncTest("Alojamiento: puerto ocupado, doble inicio, cancelación y logs conservados", async () =>
+{
+    string directory = Path.Combine(Path.GetTempPath(), "arcana-host-test-" + Guid.NewGuid().ToString("N"));
+    try
+    {
+        using var host = new LocalServerHost(); var options = new LocalServerOptions("Arranque de prueba", 29035, 29036, "host-regression-clave");
+        var pending = host.StartAsync(package, directory, options); host.Stop();
+        bool canceled = false; try { await pending; } catch (OperationCanceledException) { canceled = true; }
+        Check(canceled && !host.Running, "El servidor sobrevivió a cancelar su arranque.");
+        await host.StartAsync(package, directory, options);
+        bool blocked = false; try { await host.StartAsync(package, directory, options); } catch (InvalidOperationException) { blocked = true; }
+        Check(blocked && host.Running, "El doble inicio reemplazó al servidor activo.");
+        using (var competitor = new LocalServerHost())
+        {
+            blocked = false;
+            try { await competitor.StartAsync(package, directory, options); } catch (InvalidOperationException) { blocked = true; }
+            Check(blocked && host.Running && !competitor.Running, "Se admitió un puerto ocupado o se detuvo el otro servidor.");
+        }
+        var first = await RoomBrowser.ListAsync(host.Address); Check(!string.IsNullOrWhiteSpace(first.Server.InstanceId), "El servidor carece de identidad de arranque.");
+        host.Stop();
+        var oldLogs = Directory.GetFiles(Path.Combine(directory, "logs"), "server-*.jsonl");
+        Check(oldLogs.Length > 0, "El servidor incluido no escribió logs persistentes.");
+        await host.StartAsync(package, directory, options);
+        var second = await RoomBrowser.ListAsync(host.Address); Check(first.Server.InstanceId != second.Server.InstanceId, "Se reutilizó la identidad del proceso.");
+        host.Stop();
+        Check(oldLogs.All(File.Exists), "Reiniciar borró el diagnóstico anterior.");
+        foreach (string file in Directory.GetFiles(Path.Combine(directory, "logs"), "server-*.jsonl"))
+            Check(!File.ReadAllText(file).Contains(options.Password), "El log del servidor expuso su contraseña.");
+    }
+    finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+});
 Console.WriteLine($"RESULTADO: {passed} correctas, {failed} fallidas.");
 return failed == 0 ? 0 : 1;
+
+sealed class UnknownLengthStream(byte[] bytes) : Stream
+{
+    private readonly MemoryStream _inner = new(bytes);
+    public override bool CanRead => true;
+    public override bool CanWrite => false;
+    public override bool CanSeek => false;
+    public override long Length => throw new NotSupportedException();
+    public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+    public override int Read(byte[] buffer, int offset, int count) => _inner.Read(buffer, offset, count);
+    public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken token = default) => _inner.ReadAsync(buffer, token);
+    public override void Flush() { }
+    public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+    public override void SetLength(long value) => throw new NotSupportedException();
+    public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    protected override void Dispose(bool disposing) { if (disposing) _inner.Dispose(); base.Dispose(disposing); }
+}

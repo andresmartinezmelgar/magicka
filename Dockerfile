@@ -11,8 +11,9 @@ RUN dotnet publish src/Arcana.Server/Arcana.Server.csproj -c Release --no-restor
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/publish .
+RUN mkdir -p /app/logs && chown app:app /app/logs
 USER app
-ENV GAME_PORT=27015 DISCOVERY_PORT=27016 DOTNET_EnableDiagnostics=0
+ENV GAME_PORT=27015 DISCOVERY_PORT=27016 DOTNET_EnableDiagnostics=0 ARCANA_LOG_DIRECTORY=/app/logs
 EXPOSE 27015/tcp 27016/udp
-LABEL org.opencontainers.image.title="Arcana Arena Server" org.opencontainers.image.version="0.1.0"
+LABEL org.opencontainers.image.title="Arcana Arena Server" org.opencontainers.image.version="0.3.0"
 ENTRYPOINT ["dotnet", "Arcana.Server.dll"]

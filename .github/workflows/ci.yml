@@ -35,10 +35,16 @@ jobs:
         run: |
           timeout 30s /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64 --headless --audio-driver Dummy --path src/Arcana.Client -- --smoke | tee godot-test.log
           grep -q SMOKE_OK godot-test.log
+      - name: Exportar diagnóstico y capturar avisos del motor
+        env:
+          GODOT_SILENCE_ROOT_WARNING: 1
+        run: |
+          timeout 30s /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64 --headless --audio-driver Dummy --path src/Arcana.Client -- --diagnostics-smoke 2>&1 | tee diagnostic-test.log
+          grep -q DIAGNOSTICS_SMOKE_OK diagnostic-test.log
       - name: Construir y arrancar servidor Docker
         run: |
           docker build -t arcana-arena-server:test .
-          docker run -d --name arcana-ci -p 27015:27015 -p 27016:27016/udp -e SERVER_PASSWORD=arcana-ci-test arcana-arena-server:test
+          docker run -d --name arcana-ci -v arcana-ci-logs:/app/logs -p 27015:27015 -p 27016:27016/udp -e SERVER_PASSWORD=arcana-ci-test arcana-arena-server:test
           for i in {1..40}; do
             if curl -fsS http://127.0.0.1:27015/health; then break; fi
             sleep 0.5
@@ -51,7 +57,7 @@ jobs:
       - name: Arrancar variante Docker para LAN Linux
         run: |
           docker rm -f arcana-ci
-          docker run -d --name arcana-ci --network host -e SERVER_PASSWORD=arcana-ci-test arcana-arena-server:test
+          docker run -d --name arcana-ci -v arcana-ci-logs:/app/logs --network host -e SERVER_PASSWORD=arcana-ci-test arcana-arena-server:test
           for i in {1..40}; do
             if curl -fsS http://127.0.0.1:27015/health; then break; fi
             sleep 0.5
@@ -61,11 +67,26 @@ jobs:
         env:
           TEST_PASSWORD: arcana-ci-test
         run: dotnet tests/Arcana.Tests/bin/Release/net8.0/Arcana.Tests.dll --only-network --server=127.0.0.1:27015 --discovery-port=27016
+      - name: Verificar registros persistentes de Docker
+        run: |
+          docker exec arcana-ci sh -c 'test -n "$(ls /app/logs/server-*.jsonl)"'
+          docker cp arcana-ci:/app/logs docker-diagnostic-logs
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          lines = [json.loads(line) for p in Path('docker-diagnostic-logs').glob('*.jsonl') for line in p.read_text().splitlines()]
+          assert len({e['session'] for e in lines if e['code'] == 'server.start'}) >= 2
+          assert any(e['code'] == 'connection.accepted' for e in lines)
+          assert any(e['code'] == 'connection.rejected' for e in lines)
+          assert any(e['code'] == 'room.invalid_json' and e['exception']['stack'] for e in lines)
+          assert all('arcana-ci-test' not in json.dumps(e) for e in lines)
+          print('Docker: logs con sesiones, rechazos y trazas, sin contraseña.')
+          PY
       - name: Publicar servidor compilado
         run: dotnet publish src/Arcana.Server -c Release --no-restore -o artifacts/server
       - uses: actions/upload-artifact@v4
         with:
-          name: arcana-server-v0.2.0
+          name: arcana-server-v0.3.0
           path: artifacts/server
       - name: Logs de diagnóstico
         if: failure()
@@ -126,12 +147,12 @@ jobs:
           $env:DOTNET_ROOT = Join-Path $env:RUNNER_TEMP 'sin-dotnet-global'
           $env:DOTNET_ROOT_X64 = $env:DOTNET_ROOT
           $env:DOTNET_MULTILEVEL_LOOKUP = '0'
-          foreach ($mode in @('smoke', 'host-smoke')) {
+          foreach ($mode in @('smoke', 'host-smoke', 'diagnostics-smoke')) {
             $log = Join-Path $env:RUNNER_TEMP "arcana-$mode.log"
             $game = Start-Process "$package/ArcanaArena.exe" -ArgumentList '--headless','--audio-driver','Dummy','--log-file',"`"$log`"",'--',"--$mode" -PassThru
             if (!$game.WaitForExit(60000)) { $game.Kill(); throw "El juego no termino: $mode" }
             if ($game.ExitCode -ne 0) { if (Test-Path $log) { Get-Content $log }; throw "El juego fallo: $mode" }
-            $marker = if ($mode -eq 'smoke') { 'SMOKE_OK' } else { 'HOST_SMOKE_OK' }
+            $marker = switch ($mode) { 'smoke' { 'SMOKE_OK' }; 'host-smoke' { 'HOST_SMOKE_OK' }; 'diagnostics-smoke' { 'DIAGNOSTICS_SMOKE_OK' } }
             Get-Content $log
             if (!(Select-String -Path $log -SimpleMatch $marker)) { throw "Falta la confirmacion: $mode" }
           }
@@ -159,6 +180,7 @@ jobs:
           path: |
             ${{ runner.temp }}/arcana-*.log
             artifacts/windows/server/*.log
+            ~/AppData/Roaming/Godot/app_userdata/Arcana Arena/logs/*.jsonl
 
   release:
     needs: [build-and-test, package-windows]
@@ -180,5 +202,5 @@ jobs:
           if gh release view "v$version" >/dev/null 2>&1; then
             echo "La version v$version ya esta publicada; no se sustituyen sus ejecutables."
           else
-            gh release create "v$version" "artifacts/ArcanaArena-v$version-Windows-x64.zip" artifacts/SHA256SUMS.txt --target "$GITHUB_SHA" --title "Arcana Arena v$version" --notes-file docs/RELEASE-v0.2.0.md
+            gh release create "v$version" "artifacts/ArcanaArena-v$version-Windows-x64.zip" artifacts/SHA256SUMS.txt --target "$GITHUB_SHA" --title "Arcana Arena v$version" --notes-file "docs/RELEASE-v$version.md"
           fi

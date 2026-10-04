@@ -7,80 +7,128 @@ using System.Threading.Channels;
 
 namespace Arcana.Core;
 
-/// <summary>Red del cliente. Se puede probar sin arrancar el motor gráfico.</summary>
+/// <summary>Red independiente del motor. Todos los envíos, incluido el cierre, se serializan.</summary>
 public sealed class ArenaConnection : IAsyncDisposable
 {
     private readonly ClientWebSocket _socket = new();
     private readonly CancellationTokenSource _lifetime = new();
+    private readonly SemaphoreSlim _socketSend = new(1, 1);
     private readonly Channel<ClientMessage> _outgoing = Channel.CreateBounded<ClientMessage>(new BoundedChannelOptions(256)
     { SingleReader = true, FullMode = BoundedChannelFullMode.Wait });
-    private readonly object _sendGate = new();
+    private readonly object _sendGate = new(), _disposeGate = new();
+    private readonly string _connectionId = Guid.NewGuid().ToString("N");
     private long _sequence;
     private WorldSnapshot? _latest;
-    private Task? _reader, _writer;
-    private bool _disposing;
+    private Task? _reader, _writer, _disposal, _connecting;
+    private int _disposing, _connected, _notified;
     public int PlayerId { get; private set; }
     public ServerInfo? Server { get; private set; }
     public RoomInfo? Room { get; private set; }
     public WorldSnapshot? Latest => Volatile.Read(ref _latest);
-    public bool Connected => !_lifetime.IsCancellationRequested && _socket.State == WebSocketState.Open;
+    public bool Connected => Volatile.Read(ref _connected) == 1 && Volatile.Read(ref _disposing) == 0;
     public event Action<string>? Disconnected;
+    private Dictionary<string, object?> Context() => new() { ["connection"] = _connectionId, ["roomId"] = Room?.Id,
+        ["playerId"] = PlayerId, ["tick"] = Latest?.Tick };
 
     public static Uri Address(string address)
     {
+        ArgumentNullException.ThrowIfNull(address);
         address = address.Trim();
         if (string.IsNullOrWhiteSpace(address)) throw new ArgumentException("Introduce una IP o un nombre de servidor.");
-        if (!address.StartsWith("ws://", StringComparison.OrdinalIgnoreCase) &&
-            !address.StartsWith("wss://", StringComparison.OrdinalIgnoreCase))
+        bool bare = !address.StartsWith("ws://", StringComparison.OrdinalIgnoreCase) && !address.StartsWith("wss://", StringComparison.OrdinalIgnoreCase);
+        if (bare && address.Contains("://", StringComparison.Ordinal)) throw new ArgumentException("La dirección debe usar ws:// o wss://.");
+        if (bare)
         {
-            if (IPAddress.TryParse(address, out var ip) && ip.AddressFamily == AddressFamily.InterNetworkV6)
-                address = $"[{address}]:{Protocol.GamePort}";
-            else if (!address.Contains(':')) address += $":{Protocol.GamePort}";
+            string literal = address.Trim('[', ']');
+            if (IPAddress.TryParse(literal, out var ip) && ip.AddressFamily == AddressFamily.InterNetworkV6)
+                address = $"[{ip}]:{Protocol.GamePort}";
+            else
+            {
+                string authority = address.Split('/')[0];
+                bool port = authority.StartsWith('[') ? authority.Contains("]:") : authority.Contains(':');
+                if (!port)
+                {
+                    int slash = address.IndexOf('/');
+                    address = slash < 0 ? address + ":" + Protocol.GamePort : address.Insert(slash, ":" + Protocol.GamePort);
+                }
+            }
             address = "ws://" + address;
         }
         if (!Uri.TryCreate(address, UriKind.Absolute, out var uri) || uri.Scheme is not ("ws" or "wss") ||
-            uri.Host.Length == 0 || uri.UserInfo.Length > 0) throw new ArgumentException("Dirección inválida. Ejemplo: 192.168.1.20:27015");
-        if (uri.AbsolutePath == "/") return new UriBuilder(uri) { Path = "/play" }.Uri;
-        return uri;
+            uri.Host.Length == 0 || uri.UserInfo.Length > 0 || uri.Query.Length > 0 || uri.Fragment.Length > 0)
+            throw new ArgumentException("Dirección inválida. Ejemplo: 192.168.1.20:27015. Usa la casilla de contraseña para las claves.");
+        return uri.AbsolutePath == "/" ? new UriBuilder(uri) { Path = "/play" }.Uri : uri;
     }
-
-    public async Task ConnectAsync(string address, string name, int team, string password, CancellationToken token = default,
+    public Task ConnectAsync(string address, string name, int team, string password, CancellationToken token = default,
         string roomId = "default", string roomPassword = "")
     {
+        lock (_disposeGate)
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposing) != 0, this);
+            if (_connecting != null) throw new InvalidOperationException("Esta conexión ya se ha iniciado.");
+            return _connecting = ConnectCore(address, name, team, password, token, roomId, roomPassword);
+        }
+    }
+    private async Task ConnectCore(string address, string name, int team, string password, CancellationToken token,
+        string roomId, string roomPassword)
+    {
+        Diagnostics.Log.ProtectSecret(password); Diagnostics.Log.ProtectSecret(roomPassword);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token, _lifetime.Token);
         timeout.CancelAfter(TimeSpan.FromSeconds(7));
-        _socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(10);
-        await _socket.ConnectAsync(Address(address), timeout.Token).ConfigureAwait(false);
-        var hello = new ClientMessage { Type = "hello", Name = name, Team = team, Password = password,
-            RoomId = roomId, RoomPassword = roomPassword, Protocol = Protocol.Version };
-        await _socket.SendAsync(Encoding.UTF8.GetBytes(Protocol.Serialize(hello)), WebSocketMessageType.Text, true, timeout.Token).ConfigureAwait(false);
-        var welcome = await Read(timeout.Token).ConfigureAwait(false);
-        if (welcome?.Type == "error") throw new InvalidOperationException(welcome.Error);
-        if (welcome is not { Type: "welcome", Snapshot: not null } || welcome.PlayerId <= 0)
-            throw new InvalidOperationException("El servidor no ha enviado un saludo válido.");
-        PlayerId = welcome.PlayerId; Server = welcome.Server; Room = welcome.Room;
-        Volatile.Write(ref _latest, welcome.Snapshot);
-        _writer = WriteLoop(); _reader = ReadLoop();
+        try
+        {
+            var endpoint = Address(address);
+            Diagnostics.Info("network.connect", "Iniciando conexión.", new Dictionary<string, object?> { ["endpoint"] = endpoint, ["roomId"] = roomId, ["connection"] = _connectionId });
+            _socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(10);
+            await _socket.ConnectAsync(endpoint, timeout.Token).ConfigureAwait(false);
+            var hello = new ClientMessage { Type = "hello", Name = name, Team = team, Password = password,
+                RoomId = roomId, RoomPassword = roomPassword, Protocol = Protocol.Version };
+            await SendFrame(hello, timeout.Token).ConfigureAwait(false);
+            var welcome = await Read(timeout.Token).ConfigureAwait(false);
+            if (welcome?.Type == "error") throw new InvalidOperationException(welcome.Error);
+            if (welcome is not { Type: "welcome", Snapshot: not null, Server: not null } || welcome.PlayerId <= 0 ||
+                welcome.Server.Protocol != Protocol.Version || !welcome.Snapshot.Players.Any(p => p.Id == welcome.PlayerId))
+                throw new InvalidDataException("El servidor no ha enviado un saludo válido.");
+            PlayerId = welcome.PlayerId; Server = welcome.Server; Room = welcome.Room;
+            Volatile.Write(ref _latest, welcome.Snapshot); Volatile.Write(ref _connected, 1);
+            Diagnostics.Info("network.connected", "Conexión establecida.", Context());
+            _writer = WriteLoop(); _reader = ReadLoop();
+        }
+        catch (Exception e)
+        {
+            Diagnostics.Warn("network.connect_failed", "No se pudo establecer la conexión.", e, Context());
+            Volatile.Write(ref _connected, 0); _socket.Abort(); throw;
+        }
     }
-
     public bool Send(ClientMessage message)
     {
         lock (_sendGate)
         {
             if (!Connected) return false;
-            message.Sequence = ++_sequence;
-            return _outgoing.Writer.TryWrite(message);
+            var queued = new ClientMessage { Type = message.Type, Sequence = ++_sequence,
+                Element = message.Element, Slot = message.Slot, MoveX = message.MoveX, MoveY = message.MoveY,
+                MoveTo = message.MoveTo, TargetX = message.TargetX, TargetY = message.TargetY,
+                AimX = message.AimX, AimY = message.AimY };
+            if (_outgoing.Writer.TryWrite(queued)) return true;
+            // Perder release/input puede dejar un canal activo: no continúa una conexión saturada.
+            Fail("Cola de conexión saturada. Vuelve a conectar.", null, "network.queue_full"); return false;
         }
+    }
+    private async Task SendFrame(ClientMessage message, CancellationToken token)
+    {
+        await _socketSend.WaitAsync(token).ConfigureAwait(false);
+        try
+        {
+            if (Volatile.Read(ref _disposing) != 0) return;
+            await _socket.SendAsync(Encoding.UTF8.GetBytes(Protocol.Serialize(message)), WebSocketMessageType.Text, true, token).ConfigureAwait(false);
+        }
+        finally { _socketSend.Release(); }
     }
     private async Task WriteLoop()
     {
-        try
-        {
-            await foreach (var message in _outgoing.Reader.ReadAllAsync(_lifetime.Token))
-                await _socket.SendAsync(Encoding.UTF8.GetBytes(Protocol.Serialize(message)), WebSocketMessageType.Text, true, _lifetime.Token).ConfigureAwait(false);
-        }
-        catch (Exception e) when (e is WebSocketException or OperationCanceledException or IOException)
-        { if (!_disposing && !_lifetime.IsCancellationRequested) Disconnected?.Invoke("Conexión interrumpida."); _lifetime.Cancel(); }
+        try { await foreach (var message in _outgoing.Reader.ReadAllAsync(_lifetime.Token)) await SendFrame(message, _lifetime.Token).ConfigureAwait(false); }
+        catch (Exception e) when (e is WebSocketException or OperationCanceledException or IOException or ObjectDisposedException)
+        { if (Volatile.Read(ref _disposing) == 0 && !_lifetime.IsCancellationRequested) Fail("Conexión interrumpida.", e, "network.send_failed"); }
     }
     private async Task ReadLoop()
     {
@@ -89,44 +137,68 @@ public sealed class ArenaConnection : IAsyncDisposable
             while (!_lifetime.IsCancellationRequested)
             {
                 var message = await Read(_lifetime.Token).ConfigureAwait(false);
-                if (message == null) break;
+                if (message == null) { Fail("El servidor ha cerrado la conexión.", null, "network.server_closed"); break; }
                 if (message.Type == "snapshot" && message.Snapshot != null) Volatile.Write(ref _latest, message.Snapshot);
                 else if (message.Type == "error") throw new IOException(message.Error);
             }
-            if (!_disposing) Disconnected?.Invoke("El servidor ha cerrado la conexión.");
         }
-        catch (Exception e) when (e is WebSocketException or OperationCanceledException or IOException or System.Text.Json.JsonException)
-        { if (!_disposing && !_lifetime.IsCancellationRequested) Disconnected?.Invoke(e is IOException ? e.Message : "Se ha perdido la conexión con el servidor."); }
-        finally { _lifetime.Cancel(); _outgoing.Writer.TryComplete(); }
+        catch (Exception e) when (e is WebSocketException or OperationCanceledException or IOException or System.Text.Json.JsonException or ObjectDisposedException)
+        { if (Volatile.Read(ref _disposing) == 0 && !_lifetime.IsCancellationRequested) Fail(e is IOException ? e.Message : "Se ha perdido la conexión con el servidor.", e, "network.receive_failed"); }
+        finally { Volatile.Write(ref _connected, 0); _lifetime.Cancel(); _outgoing.Writer.TryComplete(); }
+    }
+    private void Fail(string reason, Exception? error, string code)
+    {
+        Volatile.Write(ref _connected, 0);
+        if (Volatile.Read(ref _disposing) == 0 && Interlocked.Exchange(ref _notified, 1) == 0)
+        {
+            Diagnostics.Warn(code, reason, error, Context());
+            try { Disconnected?.Invoke(reason); } catch (Exception e) { Diagnostics.Error("network.callback_failed", "Fallo en el manejador de desconexión.", e, Context()); }
+        }
+        _lifetime.Cancel(); _outgoing.Writer.TryComplete(); _socket.Abort();
     }
     private async Task<ServerMessage?> Read(CancellationToken token)
     {
-        using var stream = new MemoryStream();
-        var buffer = new byte[8192];
+        using var stream = new MemoryStream(); var buffer = new byte[8192];
         while (true)
         {
             var result = await _socket.ReceiveAsync(buffer, token).ConfigureAwait(false);
             if (result.MessageType == WebSocketMessageType.Close) return null;
             if (result.MessageType != WebSocketMessageType.Text) throw new IOException("Respuesta de red inválida.");
+            if (stream.Length + result.Count > 256 * 1024) throw new IOException("Respuesta de red demasiado grande.");
             stream.Write(buffer, 0, result.Count);
-            if (stream.Length > 256 * 1024) throw new IOException("Respuesta de red demasiado grande.");
-            if (result.EndOfMessage) return Protocol.Deserialize<ServerMessage>(Encoding.UTF8.GetString(stream.ToArray()));
+            if (!result.EndOfMessage) continue;
+            var message = Protocol.Deserialize<ServerMessage>(Encoding.UTF8.GetString(stream.ToArray()));
+            if (message?.Snapshot != null) SnapshotValidation.Check(message.Snapshot);
+            if (message?.Type == "snapshot" && message.Snapshot == null) throw new InvalidDataException("Estado de partida ausente.");
+            return message;
         }
     }
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        if (_disposing) return;
-        _disposing = true;
-        if (_socket.State == WebSocketState.Open)
+        lock (_disposeGate) return new(_disposal ??= DisposeCore());
+    }
+    private async Task DisposeCore()
+    {
+        Interlocked.Exchange(ref _disposing, 1); Volatile.Write(ref _connected, 0); _outgoing.Writer.TryComplete();
+        if (_connecting is { IsCompleted: false })
         {
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(1));
-            try { await _socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Salir", timeout.Token).ConfigureAwait(false); }
-            catch (Exception e) when (e is WebSocketException or OperationCanceledException) { }
+            _lifetime.Cancel(); _socket.Abort();
+            try { await _connecting.ConfigureAwait(false); }
+            catch (Exception) { } // ConnectCore ya registra y propaga el fallo a quien inició la conexión.
         }
-        _lifetime.Cancel(); _outgoing.Writer.TryComplete();
-        if (_reader != null) try { await _reader.ConfigureAwait(false); } catch (OperationCanceledException) { }
-        if (_writer != null) try { await _writer.ConfigureAwait(false); } catch (OperationCanceledException) { }
-        _socket.Dispose(); _lifetime.Dispose();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+        try
+        {
+            await _socketSend.WaitAsync(timeout.Token).ConfigureAwait(false);
+            try { if (_socket.State == WebSocketState.Open) await _socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Salir", timeout.Token).ConfigureAwait(false); }
+            finally { _socketSend.Release(); }
+        }
+        catch (Exception e) when (e is WebSocketException or OperationCanceledException or ObjectDisposedException) { }
+        _lifetime.Cancel(); _socket.Abort();
+        if (_reader != null) await _reader.ConfigureAwait(false);
+        if (_writer != null) await _writer.ConfigureAwait(false);
+        Diagnostics.Info("network.disposed", "Conexión cerrada.", Context());
+        _socket.Dispose(); _lifetime.Dispose(); _socketSend.Dispose();
     }
 }
 
@@ -173,10 +245,12 @@ public static class LanDiscovery
                     reply.Server.Protocol != Protocol.Version || reply.Server.Port is < 1 or > 65535 ||
                     reply.Server.Name == null || reply.Server.Name.Length > 64 || !Enum.IsDefined(reply.Server.Mode)) continue;
                 string address = response.RemoteEndPoint.Address + ":" + reply.Server.Port;
+                if (found.Count >= 128 && !found.ContainsKey(address)) continue;
                 found[address] = new(address, reply.Server);
             }
         }
         catch (OperationCanceledException) when (!token.IsCancellationRequested) { }
+        Diagnostics.Info("lan.search", "Búsqueda LAN finalizada.", new Dictionary<string, object?> { ["port"] = port, ["servers"] = found.Count });
         return found.Values.OrderBy(s => s.Info.Name).ToArray();
     }
 }

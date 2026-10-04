@@ -19,6 +19,13 @@ public sealed class GameWorld
     private int _nextPlayer = 1, _nextEntity = 1;
     private long _nextEvent = 1;
     private float _ticketClock;
+    private static readonly Element[][] BotRecipes =
+    [
+        [Element.Arcane, Element.Arcane, Element.Fire], [Element.Fire, Element.Fire, Element.Fire],
+        [Element.Water, Element.Cold, Element.Cold], [Element.Earth, Element.Earth, Element.Fire],
+        [Element.Lightning, Element.Lightning, Element.Arcane], [Element.Water, Element.Fire, Element.Fire],
+        [Element.Cold, Element.Cold, Element.Cold], [Element.Water, Element.Water, Element.Water]
+    ];
     public WorldOptions Options { get; }
     public long Tick { get; private set; }
     public double Time => Tick / 60.0;
@@ -66,22 +73,24 @@ public sealed class GameWorld
     public bool ApplyMessage(int id, ClientMessage message)
     {
         if (!_players.TryGetValue(id, out var p) || message.Sequence <= p.LastSequence) return false;
-        p.LastSequence = message.Sequence;
         if (message.Type == "input")
         {
             if (!float.IsFinite(message.MoveX) || !float.IsFinite(message.MoveY) ||
                 !float.IsFinite(message.AimX) || !float.IsFinite(message.AimY) ||
                 !float.IsFinite(message.TargetX) || !float.IsFinite(message.TargetY)) return false;
-            message.MoveX = Math.Clamp(message.MoveX, -1, 1);
-            message.MoveY = Math.Clamp(message.MoveY, -1, 1);
-            message.AimX = Math.Clamp(message.AimX, -100, 100);
-            message.AimY = Math.Clamp(message.AimY, -100, 100);
-            message.TargetX = Math.Clamp(message.TargetX, -ArenaMap.HalfWidth, ArenaMap.HalfWidth);
-            message.TargetY = Math.Clamp(message.TargetY, -ArenaMap.HalfHeight, ArenaMap.HalfHeight);
-            p.Input = message;
+            // No conserva una referencia mutable recibida del exterior.
+            p.Input = new ClientMessage { Type = "input", Sequence = message.Sequence, MoveTo = message.MoveTo,
+                MoveX = Math.Clamp(message.MoveX, -1, 1), MoveY = Math.Clamp(message.MoveY, -1, 1),
+                AimX = Math.Clamp(message.AimX, -100, 100), AimY = Math.Clamp(message.AimY, -100, 100),
+                TargetX = Math.Clamp(message.TargetX, -ArenaMap.HalfWidth, ArenaMap.HalfWidth),
+                TargetY = Math.Clamp(message.TargetY, -ArenaMap.HalfHeight, ArenaMap.HalfHeight) };
+            p.LastSequence = message.Sequence;
             p.LastInput = Time;
             return true;
         }
+        if (message.Type is not ("element" or "clear" or "cast" or "release" or "self" or "nova" or "melee" or "magick") ||
+            message.Type == "element" && !Enum.IsDefined(message.Element) || message.Type == "magick" && message.Slot is < 0 or > 3) return false;
+        p.LastSequence = message.Sequence;
         if (!p.Alive || MatchEnded || p.Frozen > 0) return false;
         switch (message.Type)
         {
@@ -648,7 +657,13 @@ public sealed class GameWorld
 
     private void ThinkBot(Wizard p, float dt)
     {
-        var target = _players.Values.Where(q => q.Alive && Hostile(p, q)).OrderBy(q => V2.Distance(p.Position, q.Position)).FirstOrDefault();
+        Wizard? target = null; float closest = float.MaxValue;
+        foreach (var candidate in _players.Values)
+        {
+            if (!candidate.Alive || !Hostile(p, candidate)) continue;
+            float squared = (p.Position - candidate.Position).LengthSquared;
+            if (squared < closest) { closest = squared; target = candidate; }
+        }
         V2 goal = target?.Position ?? ArenaMap.ControlPoints[p.Id % 3];
         if (Options.Mode == GameMode.Warfare && (target == null || V2.Distance(p.Position, target.Position) > 12))
             goal = _points.Where(q => q.Owner != p.Team).OrderBy(q => V2.Distance(q.Position, p.Position)).FirstOrDefault()?.Position ?? V2.Zero;
@@ -679,15 +694,8 @@ public sealed class GameWorld
             p.Selection.Add(Element.Shield); SelfCast(p); return;
         }
         if (p.Energy >= 75 && _random.Next(16) == 0) { Magick(p, 2); return; }
-        Element[][] recipes =
-        [
-            [Element.Arcane, Element.Arcane, Element.Fire], [Element.Fire, Element.Fire, Element.Fire],
-            [Element.Water, Element.Cold, Element.Cold], [Element.Earth, Element.Earth, Element.Fire],
-            [Element.Lightning, Element.Lightning, Element.Arcane], [Element.Water, Element.Fire, Element.Fire],
-            [Element.Cold, Element.Cold, Element.Cold], [Element.Water, Element.Water, Element.Water]
-        ];
-        int choice = distance > 9 ? _random.Next(2) == 0 ? 0 : 3 : _random.Next(recipes.Length);
-        foreach (var element in recipes[choice]) p.Selection.Add(element);
+        int choice = distance > 9 ? _random.Next(2) == 0 ? 0 : 3 : _random.Next(BotRecipes.Length);
+        foreach (var element in BotRecipes[choice]) p.Selection.Add(element);
         p.Facing = (aim - p.Position).Normalized;
         BeginCast(p);
     }
@@ -704,9 +712,9 @@ public sealed class GameWorld
             Wizard.MaxHealth, p.Shield, p.Ward.ToArray(), p.Selection.Elements.ToArray(), p.Alive, Math.Max(0, p.Respawn),
             p.Wet, p.Burning, p.Chill, p.Frozen, p.Haste, p.Energy, p.MagickCooldowns.ToArray(), p.Kills, p.Deaths,
             p.ChargeTime / 1.4f, p.Channel != null || p.Charging != null)).ToArray(),
-        _projectiles.Select(p => new ProjectileSnapshot(p.Id, p.Owner, p.Position, p.Velocity.Normalized, p.Recipe.Elements, p.Radius)).ToArray(),
-        _walls.Select(w => new WallSnapshot(w.Id, w.Owner, w.A, w.B, w.Health, w.Lifetime, w.Recipe.Elements)).ToArray(),
-        _fields.Select(f => new FieldSnapshot(f.Id, f.Owner, f.Position, f.Radius, f.Lifetime, f.Recipe.Elements, f.Kind)).ToArray(),
-        _beams.ToArray(), _points.Select(p => new PointSnapshot(p.Id, p.Position, p.Owner, p.Progress)).ToArray(),
-        _events.Select(e => e.Event).ToArray());
+        _projectiles.Select(p => new ProjectileSnapshot(p.Id, p.Owner, p.Position, p.Velocity.Normalized, p.Recipe.Elements.ToArray(), p.Radius)).ToArray(),
+        _walls.Select(w => new WallSnapshot(w.Id, w.Owner, w.A, w.B, w.Health, w.Lifetime, w.Recipe.Elements.ToArray())).ToArray(),
+        _fields.Select(f => new FieldSnapshot(f.Id, f.Owner, f.Position, f.Radius, f.Lifetime, f.Recipe.Elements.ToArray(), f.Kind)).ToArray(),
+        _beams.Select(b => b with { Elements = b.Elements.ToArray() }).ToArray(), _points.Select(p => new PointSnapshot(p.Id, p.Position, p.Owner, p.Progress)).ToArray(),
+        _events.Select(e => e.Event with { Elements = e.Event.Elements.ToArray() }).ToArray());
 }

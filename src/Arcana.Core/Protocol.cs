@@ -43,7 +43,7 @@ public sealed class ClientMessage
 }
 
 public sealed record ServerInfo(string Name, int Port, int DiscoveryPort, GameMode Mode,
-    int Players, int MaxPlayers, int Protocol, bool PasswordRequired);
+    int Players, int MaxPlayers, int Protocol, bool PasswordRequired, string? InstanceId = null);
 public sealed record DiscoveryReply(string Magic, string Nonce, ServerInfo Server);
 public sealed class ServerMessage
 {

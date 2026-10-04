@@ -1,4 +1,4 @@
-ARCANA ARENA v0.2.0
+ARCANA ARENA v0.3.0
 
 1. Extrae TODO el ZIP antes de jugar.
 2. Abre ArcanaArena.exe con doble clic.
@@ -13,7 +13,10 @@ POR IP: introducir la IP del servidor y su puerto (ejemplo 192.168.1.20:27015).
 Windows: Permitir LAN solicita permiso de administrador y permite
 solo el servidor incluido en redes privadas, usando los puertos seleccionados.
 Si cambias puertos o mueves la carpeta, vuelve a pulsarlo.
-Ver registro abre el diagnostico del servidor.
+Ver registros abre la carpeta de logs. Diagnostico exporta un ZIP.
+Durante una partida: ESC > Exportar diagnostico. Se abre la carpeta del informe.
+Los logs conservan errores y trazas, rotan y ocultan las contrasenas.
+Se guardan en %APPDATA%\Godot\app_userdata\Arcana Arena\logs y reports.
 
 El servidor sigue funcionando mientras juegas. Cerrar el juego o pulsar
 Detener servidor cierra las salas que alojas. Las salas vacias duran 15 minutos.

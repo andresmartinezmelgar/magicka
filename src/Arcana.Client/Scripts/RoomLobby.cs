@@ -82,7 +82,15 @@ public partial class RoomLobby : Control
     }
     private void SwitchPane(bool create) { _listPane.Visible = !create; _createPane.Visible = create; _status.Text = ""; }
     public void SetBusy(bool busy)
-    { _busy = busy; foreach (var b in _buttons) b.Disabled = busy; _list.MouseFilter = busy ? MouseFilterEnum.Ignore : MouseFilterEnum.Stop; }
+    {
+        _busy = busy; foreach (var b in _buttons) b.Disabled = busy;
+        _list.MouseFilter = busy ? MouseFilterEnum.Ignore : MouseFilterEnum.Stop;
+        _roomName.Editable = _roomPassword.Editable = _joinPassword.Editable = !busy;
+        _mode.Disabled = _friendly.Disabled = busy;
+        _bots.Editable = _score.Editable = _tickets.Editable = !busy;
+        _capacity.Editable = !busy && (GameMode)_mode.GetSelectedId() != GameMode.Duel;
+    }
+    private bool Active => GodotObject.IsInstanceValid(this) && IsInsideTree() && !IsQueuedForDeletion();
     public void ShowError(string error)
     { SetBusy(false); _status.Text = error; _status.AddThemeColorOverride("font_color", Ui.Red); }
     private void Loading(string text) { SetBusy(true); _status.Text = text; _status.AddThemeColorOverride("font_color", Ui.Muted); }
@@ -95,7 +103,7 @@ public partial class RoomLobby : Control
             var directory = await RoomBrowser.ListAsync(_address, _lifetime.Token);
             _main.Post(() =>
             {
-                if (!IsInsideTree()) return;
+                if (!Active) return;
                 _heading.Text = "SALAS  /  " + directory.Server.Name;
                 string? previous = Selected()?.Id; _rooms = directory.Rooms; _list.Clear();
                 foreach (var room in _rooms)
@@ -128,16 +136,17 @@ public partial class RoomLobby : Control
         try
         {
             var room = await RoomBrowser.CreateAsync(_address, request, _lifetime.Token);
-            _main.Post(() => { if (IsInsideTree()) _ = _main.ConnectOnline(_address, _playerName, _team, _serverPassword, room.Id, request.Password); });
+            _main.Post(() => { if (Active) _ = _main.ConnectOnline(_address, _playerName, _team, _serverPassword, room.Id, request.Password); });
         }
         catch (Exception e) { Failure(e); }
     }
     private void Failure(Exception e)
     {
         if (_lifetime.IsCancellationRequested) return;
+        Diagnostics.Warn("lobby.operation_failed", "Fallo en la gestión de salas.", e);
         string message = e is InvalidOperationException or ArgumentException ? e.Message
             : "No se pudo consultar el servidor. Comprueba la IP, los puertos y que esté iniciado.";
-        _main.Post(() => { if (IsInsideTree()) ShowError(message); });
+        _main.Post(() => { if (Active) ShowError(message); });
     }
     private void Close() { if (!_busy) QueueFree(); }
     public override void _ExitTree() { _lifetime.Cancel(); _lifetime.Dispose(); }

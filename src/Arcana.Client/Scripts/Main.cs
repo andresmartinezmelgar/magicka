@@ -8,8 +8,19 @@ namespace Arcana.Client;
 public partial class Main : Node
 {
     private readonly ConcurrentQueue<Action> _posted = new();
+    private readonly CancellationTokenSource _lifetime = new();
+    private readonly object _connectionGate = new();
+    private ArenaConnection? _pendingConnection;
+    private DiagnosticLog _log = null!;
+    private ProcessDiagnostics _processDiagnostics = null!;
+    private EngineLogBridge _engineLog = null!;
+    private int _exiting;
+    private bool _exporting, _diagnosticsSmoke;
+    private double _metricsTime;
+    private WorldSnapshot? _backdropSnapshot;
     private ArenaRenderer _renderer = null!;
     private Control _ui = null!, _help = null!, _pause = null!;
+    private Label _diagnosticStatus = null!;
     private Launcher _launcher = null!;
     private Hud? _hud;
     private ArenaConnection? _connection;
@@ -31,6 +42,13 @@ public partial class Main : Node
 
     public override void _Ready()
     {
+        _log = new DiagnosticLog(ProjectSettings.GlobalizePath("user://logs"), "client"); Diagnostics.Log = _log;
+        _processDiagnostics = new ProcessDiagnostics(_log);
+        _engineLog = new EngineLogBridge(); OS.AddLogger(_engineLog);
+        Diagnostics.Info("client.start", "Cliente iniciado.", new Dictionary<string, object?>
+        { ["os"] = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
+            ["runtime"] = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
+            ["display"] = DisplayServer.GetName(), ["editor"] = OS.HasFeature("editor") });
         _renderer = new ArenaRenderer(); AddChild(_renderer);
         var layer = new CanvasLayer(); AddChild(layer);
         _ui = new Control { MouseFilter = Control.MouseFilterEnum.Ignore }; layer.AddChild(_ui); Ui.Full(_ui);
@@ -41,6 +59,7 @@ public partial class Main : Node
         {
             if (arg == "--smoke") _smoke = true;
             if (arg == "--host-smoke") _hostSmoke = true;
+            if (arg == "--diagnostics-smoke") _diagnosticsSmoke = true;
             if (arg.StartsWith("--capture=")) _capturePath = arg[10..];
             if (arg.StartsWith("--server=")) _launcher.BrowseAddress(arg[9..]);
             if (arg.StartsWith("--create-room=")) _launcher.BrowseAddress(arg[14..], true);
@@ -55,7 +74,8 @@ public partial class Main : Node
             players[2].Position = new(0, -4); players[3].Position = new(3, 4);
         }
     }
-    public void Post(Action action) => _posted.Enqueue(action);
+    public bool Post(Action action)
+    { if (Volatile.Read(ref _exiting) != 0) return false; _posted.Enqueue(action); return true; }
     private async Task HostedSmoke()
     {
         try
@@ -70,25 +90,32 @@ public partial class Main : Node
         string roomId = "default", string roomPassword = "")
     {
         var connection = new ArenaConnection();
+        connection.Disconnected += reason => Post(() => { if (_connection == connection) ReturnToLauncher(reason); });
+        lock (_connectionGate) _pendingConnection = connection;
         try
         {
-            await connection.ConnectAsync(address, name, team, password, roomId: roomId, roomPassword: roomPassword);
-            connection.Disconnected += reason => Post(() => { if (_connection == connection) ReturnToLauncher(reason); });
-            Post(() =>
+            await connection.ConnectAsync(address, name, team, password, _lifetime.Token, roomId: roomId, roomPassword: roomPassword).ConfigureAwait(false);
+            if (!Post(() =>
             {
+                lock (_connectionGate) if (_pendingConnection == connection) _pendingConnection = null;
+                if (!connection.Connected) { _ = connection.DisposeAsync(); _launcher.ShowError("La conexión se cerró antes de entrar en la partida."); return; }
                 _connection = connection; _practice = null; _localId = connection.PlayerId;
                 _serverName = (connection.Server?.Name ?? address) + " / " + (connection.Room?.Name ?? "Sala principal");
                 StartGame(connection.Latest!);
-            });
+            })) await connection.DisposeAsync().ConfigureAwait(false);
         }
         catch (Exception e)
         {
             await connection.DisposeAsync();
+            if (_lifetime.IsCancellationRequested) return;
+            Diagnostics.Warn("client.connect_failed", "No se pudo entrar en la partida.", e,
+                new Dictionary<string, object?> { ["room"] = roomId });
             string message = e is OperationCanceledException ? "El servidor no responde. Comprueba la IP, el puerto TCP y el cortafuegos."
                 : e is ArgumentException or InvalidOperationException ? e.Message
                 : "No se pudo conectar. Comprueba que el servidor está iniciado y que la dirección es correcta.";
             Post(() => _launcher.ShowError(message));
         }
+        finally { lock (_connectionGate) if (_pendingConnection == connection && !connection.Connected) _pendingConnection = null; }
     }
     public void StartPractice(string name, int team, GameMode mode, int bots)
     {
@@ -97,11 +124,14 @@ public partial class Main : Node
         var player = _practice.AddPlayer(name, team)!; _localId = player.Id;
         for (int i = 0; i < (mode == GameMode.Duel ? 1 : Math.Clamp(bots, 1, 7)); i++) _practice.AddPlayer($"Bot {i + 1}", -1, true);
         _serverName = "Práctica local"; _localSequence = 0;
+        Diagnostics.Info("practice.start", "Práctica iniciada.", new Dictionary<string, object?> { ["mode"] = mode, ["bots"] = bots });
         StartGame(_practice.Snapshot());
     }
     private void StartGame(WorldSnapshot snapshot)
     {
         _playing = true; _paused = false; _moveTo = false; _snapshotAge = 0; _lastTick = -1;
+        _inputTime = 0;
+        Diagnostics.Info("game.start", "Partida iniciada.", Context());
         _ignoreLeftUntilRelease = true;
         _launcher.Visible = false; _launcher.CloseRooms(); _launcher.SetBusy(false); _help.Visible = _pause.Visible = false;
         _renderer.Clear(); _snapshot = snapshot;
@@ -110,6 +140,7 @@ public partial class Main : Node
     }
     public void ReturnToLauncher(string error = "")
     {
+        if (_playing) Diagnostics.Info("game.leave", "Vuelta al launcher.", Context());
         _playing = false; _paused = false; _practice = null; _snapshot = null;
         var old = _connection; _connection = null;
         if (old != null) _ = old.DisposeAsync();
@@ -120,8 +151,15 @@ public partial class Main : Node
 
     public override void _Process(double delta)
     {
-        while (_posted.TryDequeue(out var action)) action();
+        while (_posted.TryDequeue(out var action))
+            try { action(); }
+            catch (Exception e) { Diagnostics.Error("client.callback_failed", "Fallo en una operación de interfaz.", e, Context()); }
         _renderFrames++;
+        _metricsTime += delta;
+        if (_metricsTime >= 30)
+        {
+            Diagnostics.Info("client.metrics", "Estado periódico del cliente.", Context()); _metricsTime = 0;
+        }
         if (_playing)
         {
             _aim = _renderer.Cursor(GetViewport().GetMousePosition());
@@ -132,17 +170,22 @@ public partial class Main : Node
             if (latest == null) return;
             _snapshot = latest;
             if (latest.Tick != _lastTick) { _lastTick = latest.Tick; _snapshotAge = 0; } else _snapshotAge += delta;
-            if (_connection != null && _snapshotAge > 8) { ReturnToLauncher("El servidor ha dejado de enviar el estado de la partida."); return; }
+            if (_connection != null && _snapshotAge > 8)
+            {
+                Diagnostics.Warn("client.stale_snapshot", "El servidor dejó de enviar el estado.", context: Context());
+                ReturnToLauncher("El servidor ha dejado de enviar el estado de la partida. Puedes exportar el diagnóstico desde el launcher."); return;
+            }
             _renderer.Render(latest, _localId, delta, true);
             _hud?.Update(latest, _localId, _serverName, delta);
         }
-        else _renderer.Render(_backdrop.Snapshot(), 0, delta, false);
+        else _renderer.Render(_backdropSnapshot ??= _backdrop.Snapshot(), 0, delta, false);
+        if (_diagnosticsSmoke && _renderFrames == 30) ExportDiagnostics();
         if (_capturePath != null && _renderFrames == 90) _ = Capture(_capturePath);
     }
 
     public override void _PhysicsProcess(double delta)
     {
-        if (!_playing) { _backdrop.Step(); return; }
+        if (!_playing) { _backdrop.Step(); _backdropSnapshot = _backdrop.Snapshot(); return; }
         _inputTime += delta;
         if (_practice != null)
         {
@@ -278,6 +321,9 @@ public partial class Main : Node
         box.AddChild(Ui.Label("En red, la partida continúa mientras estás en este menú.", 17, Ui.Muted));
         box.AddChild(Ui.Button("Continuar", TogglePause, true));
         box.AddChild(Ui.Button("Volver al launcher", () => ReturnToLauncher()));
+        box.AddChild(Ui.Button("Exportar diagnóstico", ExportDiagnostics));
+        _diagnosticStatus = Ui.Label("", 15, Ui.Muted); _diagnosticStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        box.AddChild(_diagnosticStatus);
         box.AddChild(Ui.Button("Salir del juego", () => GetTree().Quit()));
         return root;
     }
@@ -288,5 +334,67 @@ public partial class Main : Node
         var error = GetViewport().GetTexture().GetImage().SavePng(path);
         GD.Print($"CAPTURE: {error} {path}"); GetTree().Quit(error == Error.Ok ? 0 : 1);
     }
-    public override void _ExitTree() { if (_connection != null) _ = _connection.DisposeAsync(); }
+    private Dictionary<string, object?> Context() => new()
+    {
+        ["room"] = _connection?.Room?.Id, ["player"] = _localId, ["tick"] = _snapshot?.Tick,
+        ["mode"] = _snapshot?.Mode, ["online"] = _connection != null, ["snapshotAgeSeconds"] = _snapshotAge,
+        ["managedBytes"] = GC.GetTotalMemory(false), ["gen0Collections"] = GC.CollectionCount(0), ["frames"] = _renderFrames,
+        ["logError"] = _log?.LastError
+    };
+    public async void ExportDiagnostics()
+    {
+        if (_exporting || Volatile.Read(ref _exiting) != 0) return;
+        _exporting = true;
+        _diagnosticStatus.Text = "Guardando diagnóstico…";
+        var context = Context();
+        context["os"] = System.Runtime.InteropServices.RuntimeInformation.OSDescription;
+        context["runtime"] = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription;
+        string directory = ProjectSettings.GlobalizePath("user://reports");
+        bool smoke = _diagnosticsSmoke;
+        if (smoke) GD.PushWarning("DIAGNOSTICS_SMOKE_MARKER: aviso de prueba controlado.");
+        try
+        {
+            Diagnostics.Info("diagnostic.export", "Exportando diagnóstico.", context);
+            string path = await _log.ExportReportAsync(directory, context, _lifetime.Token).ConfigureAwait(false);
+            if (smoke)
+            {
+                using var zip = System.IO.Compression.ZipFile.OpenRead(path);
+                bool marker = false;
+                foreach (var entry in zip.Entries.Where(e => e.Name.StartsWith("client-") && e.Name.EndsWith(".jsonl")))
+                {
+                    using var reader = new StreamReader(entry.Open());
+                    if ((await reader.ReadToEndAsync().ConfigureAwait(false)).Contains("DIAGNOSTICS_SMOKE_MARKER")) marker = true;
+                }
+                if (!marker || zip.GetEntry("report.json") == null) throw new IOException("El informe no incluye el aviso del motor o los metadatos.");
+                Post(() => { GD.Print("DIAGNOSTICS_SMOKE_OK: " + path); GetTree().Quit(); });
+            }
+            else Post(() => { string status = "Diagnóstico guardado en: " + path;
+                _launcher.ShowStatus(status); _diagnosticStatus.Text = status; OS.ShellOpen(directory); });
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch (Exception e)
+        {
+            Diagnostics.Error("diagnostic.export_failed", "No se pudo exportar el diagnóstico.", e);
+            Post(() => { _launcher.ShowError("No se pudo guardar el diagnóstico. Comprueba el espacio y los permisos de la carpeta de usuario.");
+                if (smoke) { GD.PushError("DIAGNOSTICS_SMOKE_FAILED: " + e.Message); GetTree().Quit(1); } });
+        }
+        finally { Post(() => _exporting = false); }
+    }
+    public override void _ExitTree()
+    {
+        Interlocked.Exchange(ref _exiting, 1); _lifetime.Cancel();
+        ArenaConnection? pending; lock (_connectionGate) pending = _pendingConnection;
+        try
+        {
+            if (pending != null) pending.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            if (_connection != null) _connection.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+        catch (Exception e) { Diagnostics.Warn("client.shutdown_failed", "Fallo al cerrar la conexión.", e); }
+        if (_log != null)
+        {
+            Diagnostics.Info("client.stop", "Cliente cerrado.", Context());
+            OS.RemoveLogger(_engineLog); _engineLog.Dispose(); _processDiagnostics.Dispose(); _log.Dispose();
+        }
+        // No libera la fuente mientras una operación cancelada aún puede consultar su Token.
+    }
 }

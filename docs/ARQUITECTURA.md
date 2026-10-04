@@ -26,7 +26,7 @@ La frecuencia de simulación es 60 Hz; la de envío es 20 Hz; el cliente dibuja 
 
 ## Launcher y distribución
 
-`RoomBrowser` usa HTTP para consultar y crear salas. `RoomLobby` construye las pantallas de selección y creación; `Launcher` administra IP, LAN, práctica y alojamiento. `LocalServerHost` inicia solo el servidor que acompaña al paquete, pasa la configuración en el entorno de ese proceso y guarda sus mensajes en `server.log`. No usa shell para iniciar el servidor. La contraseña no se guarda en disco ni se muestra en la lista de salas.
+`RoomBrowser` usa HTTP para consultar y crear salas. `RoomLobby` construye las pantallas de selección y creación; `Launcher` administra IP, LAN, práctica y alojamiento. `LocalServerHost` inicia solo el servidor que acompaña al paquete, pasa la configuración en el entorno de ese proceso verifica un identificador único del proceso y guarda sus mensajes en logs JSONL con rotación. El inicio y el cierre se coordinan para cancelar operaciones pendientes. No usa shell para iniciar el servidor. La contraseña no se guarda en disco ni se muestra en la lista de salas.
 
 El cliente exportado incluye Godot y el runtime .NET. El servidor se publica para `win-x64` con `--self-contained true`. `package-windows.ps1` conserva todos los archivos exportados y verifica que existen ambos runtimes. La CI ejecuta ese paquete antes de publicar el ZIP. `ParentLifetimeService` cierra el servidor alojado si desaparece el proceso del juego; un servidor dedicado no recibe esa variable.
 
@@ -39,3 +39,11 @@ Los diccionarios de mallas usan el identificador de cada entidad para reutilizar
 ## Pruebas
 
 El proyecto de pruebas es una aplicación de consola sin paquetes externos. Devuelve código 0 si todo pasa y 1 si hay fallos. Comprueba reglas, estados, serialización, colisiones, reinicio de partidas y un minuto simulado con ocho bots. Con `--server=...` también abre dos clientes reales y comprueba mensajes, descubrimiento LAN y rechazo de saludos inválidos.
+
+## Diagnóstico y rendimiento
+
+`Diagnostics.cs` es independiente de Godot y ASP.NET. Ofrece un registro JSONL con cola acotada, escritura asíncrona, rotación por tamaño, retención y ocultación de secretos. `ProcessDiagnostics` registra excepciones no controladas y tareas no observadas sin cambiar la terminación del runtime. `DiagnosticLoggerProvider` conecta los eventos del servidor y `EngineLogBridge` captura errores/avisos de Godot sin volcar variables del script.
+
+`SnapshotValidation` comprueba la estructura y los límites antes de representar estado remoto. El núcleo copia las entradas y recetas del snapshot; modificar un mensaje o una copia no modifica una partida ya aceptada. `ArenaConnection` serializa envíos y cierre, y espera a que se cancele un saludo pendiente antes de liberar recursos.
+
+Las salas sin humanos se pausan. El servidor reutiliza contenedores temporales y serializa solo el último estado de un lote de pasos. Los bots reutilizan recetas y buscan el rival más cercano sin ordenar listas. El cliente conserva el HUD entre snapshots y reutiliza celdas de clasificación, materiales y colecciones de limpieza; la interpolación y las animaciones continúan en cada fotograma. Las voces de audio se detienen y liberan al cerrar.

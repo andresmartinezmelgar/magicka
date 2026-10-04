@@ -2,7 +2,7 @@
 
 ## Alojar desde Windows
 
-Abrir el paquete con doble clic y elegir **Alojar**. Introducir nombre, TCP, UDP y contraseña; pulsar **Iniciar servidor y ver salas**. El proceso incluido es autónomo y no abre consola. **Permitir LAN** abre el permiso UAC y añade reglas de entrada únicamente para este ejecutable, los puertos elegidos y el perfil de red privado. **Ver registro** abre `server.log` dentro de los datos de usuario del juego.
+Abrir el paquete con doble clic y elegir **Alojar**. Introducir nombre, TCP, UDP y contraseña; pulsar **Iniciar servidor y ver salas**. El proceso incluido es autónomo y no abre consola. **Permitir LAN** abre el permiso UAC y añade reglas de entrada únicamente para este ejecutable, los puertos elegidos y el perfil de red privado. **Ver registros** abre la carpeta de logs dentro de los datos de usuario del juego. **Diagnóstico** exporta un ZIP con los registros de cliente y servidor.
 
 El anfitrión puede entrar en una sala mientras el servidor continúa atendiendo las demás. Cerrar el juego o pulsar **Detener servidor** detiene el proceso y pierde las salas y estadísticas en memoria. Para un servidor que permanezca activo sin el cliente, usar Docker o ejecutar el servidor dedicado aparte.
 
@@ -10,7 +10,7 @@ El anfitrión puede entrar en una sala mientras el servidor continúa atendiendo
 
 `GET /rooms` devuelve servidor y salas sin revelar contraseñas. `POST /rooms` permite crear una sala; requiere `serverPassword` si está configurada. El saludo WebSocket selecciona `roomId` y `roomPassword`, además de la contraseña del servidor.
 
-Hay hasta 16 salas, cada una con 2–16 plazas, incluidas las de bots. Duelo utiliza exactamente dos plazas. Las salas creadas se eliminan tras 15 minutos sin personas conectadas; los bots no impiden esa limpieza. La sala principal permanece. El aforo, la simulación, los jugadores, los marcadores y los mensajes son independientes por sala. No hay cuentas ni persistencia de salas tras reiniciar.
+Hay hasta 16 salas, cada una con 2–16 plazas, incluidas las de bots. Duelo utiliza exactamente dos plazas. Las salas creadas se eliminan tras 15 minutos sin personas conectadas; los bots no impiden esa limpieza. Su simulación se pausa mientras no haya personas conectadas. La sala principal permanece. El aforo, la simulación, los jugadores, los marcadores y los mensajes son independientes por sala. No hay cuentas ni persistencia de salas tras reiniciar.
 
 ## Parámetros
 
@@ -25,7 +25,9 @@ Hay hasta 16 salas, cada una con 2–16 plazas, incluidas las de bots. Duelo uti
 | `FRIENDLY_FIRE` | true | `false` desactiva el daño a aliados |
 | `SCORE_LIMIT` | 15 | Bajas necesarias en duelo/arena |
 | `TICKETS` | 75 | Tickets iniciales por equipo en guerra |
-| `SERVER_PASSWORD` | vacía | Contraseña opcional del saludo |
+| `SERVER_PASSWORD` | vacía | Contraseña opcional del saludo; máximo 128 caracteres |
+| `ARCANA_LOG_LEVEL` | Information | `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical` |
+| `ARCANA_LOG_DIRECTORY` | Datos locales de usuario / ArcanaArena / logs | Carpeta del servidor dedicado; Docker usa `/app/logs` |
 
 Estos ajustes configuran la **sala principal** del servidor dedicado. Las salas adicionales tienen sus propias opciones, elegidas desde el launcher. La contraseña del servidor autoriza tanto entrar como crear salas.
 
@@ -64,6 +66,9 @@ El puerto UDP de descubrimiento no es necesario para jugar por IP desde Internet
 El servidor reinicia la partida nueve segundos después de terminar. Conserva a los jugadores conectados y restablece vida, puntos, estadísticas y energía.
 
 ## Diagnóstico
+
+El servidor escribe JSONL con versión, sesión, conexiones, salas, tick y trazas de excepciones. Registra métricas de simulación cada 30 segundos. Compose conserva los archivos en el volumen `server-logs`. [Interpretación y extracción de logs](DIAGNOSTICO.md).
+
 
 ```sh
 curl http://127.0.0.1:27015/health

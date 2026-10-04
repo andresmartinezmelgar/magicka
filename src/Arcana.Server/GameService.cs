@@ -42,20 +42,23 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
     private readonly SemaphoreSlim _handshakes = new(32, 32);
     private const int MaxRooms = 16;
     private readonly CancellationTokenSource _stopping = new();
+    private long _tick, _ignoredCommands;
 
     public ServerInfo Info()
     {
         lock (_gate) return new(settings.Name, settings.Port, settings.DiscoveryPort,
             settings.World.Mode, _rooms.Values.Sum(r => r.World.Players.Count),
-            _rooms.Values.Sum(r => r.Options.MaxPlayers), Protocol.Version, settings.Password.Length > 0);
+            _rooms.Values.Sum(r => r.Options.MaxPlayers), Protocol.Version, settings.Password.Length > 0, settings.InstanceId);
     }
-    public long CurrentTick { get { lock (_gate) return _rooms["default"].World.Tick; } }
+    public long CurrentTick => Interlocked.Read(ref _tick);
     public RoomDirectory ListRooms()
     { lock (_gate) return new(Info(), _rooms.Values.Select(r => r.Info()).ToArray()); }
 
     public (RoomInfo? Room, string Error, int Status) CreateRoom(CreateRoomRequest? request)
     {
         if (request == null) return (null, "Faltan los datos de la sala.", 400);
+        Diagnostics.Log.ProtectSecret(request.Password);
+        Diagnostics.Log.ProtectSecret(request.ServerPassword);
         if (!PasswordMatches(request.ServerPassword, settings.Password)) return (null, "Contraseña del servidor incorrecta.", 403);
         if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 32 || request.Name.Any(char.IsControl) ||
             request.Password == null || request.Password.Length > 128 || !Enum.IsDefined(request.Mode) ||
@@ -78,44 +81,70 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
     private void RemoveIdleRooms()
     {
         foreach (var room in _rooms.Values.Where(r => r.Id != "default" && r.Sessions.Count == 0 &&
-            Environment.TickCount64 - r.LastOccupied > 15 * 60 * 1000).ToArray()) _rooms.Remove(room.Id);
+            Environment.TickCount64 - r.LastOccupied > 15 * 60 * 1000).ToArray())
+        {
+            _rooms.Remove(room.Id);
+            Diagnostics.Info("room.expired", "Sala vacía retirada.", new Dictionary<string, object?> { ["room"] = room.Id });
+        }
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("Arcana Arena v0.2.0: TCP {Port}, hasta {Rooms} salas", settings.Port, MaxRooms);
+        logger.LogInformation("Arcana Arena {Version}: TCP {Port}, hasta {Rooms} salas", BuildInfo.Version, settings.Port, MaxRooms);
         var clock = Stopwatch.StartNew();
         double previous = clock.Elapsed.TotalSeconds, accumulator = 0;
-        long cleanupAt = Environment.TickCount64;
+        long cleanupAt = Environment.TickCount64, metricsAt = cleanupAt, lagAt = 0;
+        var snapshots = new List<(WorldSnapshot World, PlayerSession[] Recipients)>(MaxRooms);
+        var dirty = new HashSet<GameRoom>();
+        double maxStepMs = 0;
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(4));
         try
         {
             while (await timer.WaitForNextTickAsync(stoppingToken))
             {
                 double now = clock.Elapsed.TotalSeconds;
-                accumulator += Math.Min(0.15, now - previous); previous = now;
-                var snapshots = new Dictionary<GameRoom, (WorldSnapshot World, PlayerSession[] Recipients)>();
+                double elapsed = now - previous;
+                if (elapsed > 0.15 && Environment.TickCount64 - lagAt > 10000)
+                {
+                    Diagnostics.Warn("simulation.lag", "La simulación ha sufrido un retraso.", context:
+                        new Dictionary<string, object?> { ["tick"] = CurrentTick, ["elapsedMs"] = elapsed * 1000 });
+                    lagAt = Environment.TickCount64;
+                }
+                accumulator += Math.Min(0.15, elapsed); previous = now;
+                snapshots.Clear(); dirty.Clear();
+                long stepStarted = Stopwatch.GetTimestamp();
                 lock (_gate)
                 {
                     while (accumulator >= GameWorld.StepSeconds)
                     {
                         foreach (var room in _rooms.Values)
                         {
+                            // Pausa los bots y el reloj de las salas sin jugadores humanos.
+                            if (room.Sessions.Count == 0) continue;
                             foreach (var session in room.Sessions.Values)
                                 for (int n = 0; n < 32 && session.Commands.Reader.TryRead(out var message); n++)
-                                    room.World.ApplyMessage(session.Id, message);
+                                    if (!room.World.ApplyMessage(session.Id, message)) _ignoredCommands++;
                             room.World.Step();
-                            if (room.Sessions.Count > 0)
-                            {
-                                room.LastOccupied = Environment.TickCount64;
-                                if (room.World.Tick % 3 == 0) snapshots[room] = (room.World.Snapshot(), room.Sessions.Values.ToArray());
-                            }
+                            room.LastOccupied = Environment.TickCount64;
+                            if (room.World.Tick % 3 == 0) dirty.Add(room);
                         }
+                        Interlocked.Increment(ref _tick);
                         accumulator -= GameWorld.StepSeconds;
                     }
+                    // Si hubo varios pasos atrasados, envía únicamente el estado más reciente.
+                    foreach (var room in dirty) snapshots.Add((room.World.Snapshot(), room.Sessions.Values.ToArray()));
                     if (Environment.TickCount64 - cleanupAt > 60000) { RemoveIdleRooms(); cleanupAt = Environment.TickCount64; }
+                    maxStepMs = Math.Max(maxStepMs, Stopwatch.GetElapsedTime(stepStarted).TotalMilliseconds);
+                    if (Environment.TickCount64 - metricsAt >= 30000)
+                    {
+                        Diagnostics.Info("server.metrics", "Estado periódico de la simulación.", new Dictionary<string, object?>
+                        { ["tick"] = CurrentTick, ["rooms"] = _rooms.Count, ["connections"] = _sessions.Count,
+                            ["activeRooms"] = _rooms.Values.Count(r => r.Sessions.Count > 0), ["maxStepMs"] = maxStepMs,
+                            ["ignoredCommands"] = _ignoredCommands, ["managedBytes"] = GC.GetTotalMemory(false) });
+                        metricsAt = Environment.TickCount64; maxStepMs = 0; _ignoredCommands = 0;
+                    }
                 }
-                foreach (var (room, snapshot) in snapshots)
+                foreach (var snapshot in snapshots)
                 {
                     var bytes = Encoding.UTF8.GetBytes(Protocol.Serialize(new ServerMessage { Type = "snapshot", Snapshot = snapshot.World }));
                     foreach (var session in snapshot.Recipients) session.Outbox.Writer.TryWrite(bytes);
@@ -135,6 +164,14 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
         if (!await _handshakes.WaitAsync(0, context.RequestAborted)) { context.Response.StatusCode = 503; return; }
         WebSocket? socket = null;
         PlayerSession? session = null;
+        string connectionKey = Guid.NewGuid().ToString("N");
+        Dictionary<string, object?> Context() => new() { ["connection"] = connectionKey, ["session"] = session?.Key,
+            ["room"] = session?.Room.Id, ["player"] = session?.Id, ["tick"] = CurrentTick };
+        async Task RejectLogged(string reason, CancellationToken token)
+        {
+            Diagnostics.Warn("connection.rejected", reason, context: Context());
+            await Reject(socket!, reason, token);
+        }
         try
         {
             socket = await context.WebSockets.AcceptWebSocketAsync();
@@ -142,9 +179,9 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             handshake.CancelAfter(TimeSpan.FromSeconds(5));
             var hello = await Receive(socket, handshake.Token);
             if (hello is not { Type: "hello" } || hello.Protocol != Protocol.Version)
-            { await Reject(socket, "La versión del cliente no coincide con la del servidor.", handshake.Token); return; }
+            { await RejectLogged("La versión del cliente no coincide con la del servidor.", handshake.Token); return; }
             if (!PasswordMatches(hello.Password, settings.Password))
-            { await Reject(socket, "Contraseña del servidor incorrecta.", handshake.Token); return; }
+            { await RejectLogged("Contraseña del servidor incorrecta.", handshake.Token); return; }
             string error = ""; WorldSnapshot? initial = null; RoomInfo? roomInfo = null;
             lock (_gate)
             {
@@ -162,10 +199,10 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                     }
                 }
             }
-            if (session == null) { await Reject(socket, error, handshake.Token); return; }
+            if (session == null) { await RejectLogged(error, handshake.Token); return; }
             await Send(socket, new ServerMessage { Type = "welcome", PlayerId = session.Id, Server = Info(), Room = roomInfo,
                 Snapshot = initial }, handshake.Token);
-            logger.LogInformation("Conectado: sala {Room}, id {Id}", session.Room.Name, session.Id);
+            Diagnostics.Info("connection.accepted", "Jugador conectado.", Context());
             using var connection = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, _stopping.Token);
             var sendTask = SendLoop(session, connection.Token);
             try
@@ -178,26 +215,31 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                     long now = Environment.TickCount64;
                     if (now - window >= 1000) { window = now; count = 0; }
                     if (++count > 180 || !session.Commands.Writer.TryWrite(message))
-                    { socket.Abort(); break; }
+                    { Diagnostics.Warn("connection.rate_limit", "Límite de mensajes o cola de comandos alcanzado.", context: Context()); socket.Abort(); break; }
                 }
             }
             finally
             {
                 connection.Cancel(); session.Outbox.Writer.TryComplete();
-                try { await sendTask; } catch (OperationCanceledException) { } catch (WebSocketException) { }
+                try { await sendTask; } catch (OperationCanceledException) { }
+                catch (WebSocketException e) { Diagnostics.Warn("connection.send_failed", "Fallo al enviar el estado.", e, Context()); }
             }
         }
-        catch (OperationCanceledException) { }
-        catch (WebSocketException) { }
-        catch (JsonException) { }
-        catch (InvalidDataException) { }
+        catch (OperationCanceledException)
+        {
+            if (!_stopping.IsCancellationRequested && !context.RequestAborted.IsCancellationRequested)
+                Diagnostics.Warn("connection.timeout", "El saludo del cliente no llegó a tiempo.", context: Context());
+        }
+        catch (WebSocketException e) { Diagnostics.Warn("connection.transport_failed", "La conexión se interrumpió.", e, Context()); }
+        catch (Exception e) when (e is JsonException or InvalidDataException)
+        { Diagnostics.Warn("connection.invalid_message", "El cliente envió un mensaje inválido.", e, Context()); }
         finally
         {
             if (session != null)
             {
                 _sessions.TryRemove(session.Key, out _);
                 lock (_gate) { session.Room.Sessions.Remove(session.Id); session.Room.World.RemovePlayer(session.Id); }
-                logger.LogInformation("Desconectado: sala {Room}, id {Id}", session.Room.Name, session.Id);
+                Diagnostics.Info("connection.closed", "Jugador desconectado.", Context());
             }
             if (socket?.State == WebSocketState.Open)
             {

@@ -11,7 +11,7 @@ public partial class Launcher : Control
     private SpinBox _bots = null!, _discoveryPort = null!, _hostPort = null!, _hostDiscovery = null!;
     private Label _status = null!;
     private ItemList _servers = null!;
-    private Button _connect = null!, _refresh = null!, _stopHost = null!;
+    private Button _connect = null!, _refresh = null!, _stopHost = null!, _firewall = null!;
     private Label _hostInfo = null!;
     private RoomLobby? _lobby;
     private readonly LocalServerHost _host = new();
@@ -31,7 +31,7 @@ public partial class Launcher : Control
         var columns = new HBoxContainer(); columns.AddThemeConstantOverride("separation", 52); margin.AddChild(columns);
         var left = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new(410, 0) };
         left.AddThemeConstantOverride("separation", 20); columns.AddChild(left);
-        left.AddChild(Ui.Label("ARCANA ARENA  /  0.2.0", 16, Ui.Gold));
+        left.AddChild(Ui.Label("ARCANA ARENA  /  " + BuildInfo.Version, 16, Ui.Gold));
         left.AddChild(new Control { CustomMinimumSize = new(0, 80) });
         left.AddChild(Ui.Label("ARCANA\nARENA", 68));
         left.AddChild(Ui.Label("EL COMBATE SE ESCRIBE CON ELEMENTOS", 16, Ui.Gold));
@@ -102,10 +102,10 @@ public partial class Launcher : Control
         _hostInfo.AutowrapMode = TextServer.AutowrapMode.WordSmart; hosting.AddChild(_hostInfo);
         var hostActions = new HBoxContainer(); hosting.AddChild(hostActions);
         _stopHost = Ui.Button("Detener servidor", StopHost); _stopHost.Disabled = true; _stopHost.SizeFlagsHorizontal = SizeFlags.ExpandFill; hostActions.AddChild(_stopHost);
-        var log = Ui.Button("Ver registro", () => { if (_host.LogPath.Length > 0) OS.ShellOpen(_host.LogPath); }); log.SizeFlagsHorizontal = SizeFlags.ExpandFill; hostActions.AddChild(log);
-        var firewall = Ui.Button("Permitir LAN", ConfigureLan); firewall.SizeFlagsHorizontal = SizeFlags.ExpandFill; hostActions.AddChild(firewall);
-        firewall.Disabled = !OperatingSystem.IsWindows();
-        firewall.TooltipText = "Windows pedirá permiso de administrador para permitir estos dos puertos al servidor en redes privadas.";
+        var log = Ui.Button("Ver registros", () => OS.ShellOpen(ProjectSettings.GlobalizePath("user://logs"))); log.SizeFlagsHorizontal = SizeFlags.ExpandFill; hostActions.AddChild(log);
+        _firewall = Ui.Button("Permitir LAN", ConfigureLan); _firewall.SizeFlagsHorizontal = SizeFlags.ExpandFill; hostActions.AddChild(_firewall);
+        _firewall.Disabled = !OperatingSystem.IsWindows();
+        _firewall.TooltipText = "Windows pedirá permiso de administrador para permitir estos dos puertos al servidor en redes privadas.";
         form.AddChild(Ui.Label("Contraseña del servidor (si tiene)", 14, Ui.Muted));
         _password = new LineEdit { Secret = true, MaxLength = 128, PlaceholderText = "Opcional", CustomMinimumSize = new(0, 42) }; form.AddChild(_password);
         _connect = Ui.Button("Ver salas por IP", Connect, true); form.AddChild(_connect);
@@ -113,6 +113,8 @@ public partial class Launcher : Control
         _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; _status.CustomMinimumSize = new(0, 45); form.AddChild(_status);
         var footer = new HBoxContainer(); form.AddChild(footer);
         var help = Ui.Button("Controles", () => _main.ToggleHelp()); help.SizeFlagsHorizontal = SizeFlags.ExpandFill; footer.AddChild(help);
+        var diagnostic = Ui.Button("Diagnóstico", _main.ExportDiagnostics); diagnostic.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        diagnostic.TooltipText = "Exporta registros y contexto de la partida a un ZIP para investigar errores."; footer.AddChild(diagnostic);
         var exit = Ui.Button("Salir", () => GetTree().Quit()); exit.SizeFlagsHorizontal = SizeFlags.ExpandFill; footer.AddChild(exit);
         _tabs.TabChanged += tab =>
         {
@@ -121,6 +123,12 @@ public partial class Launcher : Control
             if (tab == 3 && _host.Running) _password.Text = _hostPassword;
             if (tab == 1 && _lan.Length == 0 && !_busy) StartSearch();
         };
+        _host.UnexpectedExit += code => _main.Post(() =>
+        {
+            SetBusy(false); _hostPassword = ""; UpdateConnectLabel();
+            _hostInfo.Text = $"El servidor terminó (código {code}). Puedes iniciarlo otra vez y exportar el diagnóstico.";
+            ShowError("El servidor local ha terminado inesperadamente. Consulta los registros o exporta el diagnóstico.");
+        });
     }
 
     private VBoxContainer TabBox(string name)
@@ -131,6 +139,10 @@ public partial class Launcher : Control
     public void SetBusy(bool busy, string message = "")
     {
         _busy = busy; _connect.Disabled = busy; for (int i = 0; i < 4; i++) _tabs.SetTabDisabled(i, busy);
+        _name.Editable = _address.Editable = !busy; _team.Disabled = busy;
+        _hostName.Editable = _hostPort.Editable = _hostDiscovery.Editable = !busy && !_host.Running;
+        _password.Editable = !busy && _tabs.CurrentTab != 2 && !(_tabs.CurrentTab == 3 && _host.Running);
+        _stopHost.Disabled = busy || !_host.Running; _firewall.Disabled = busy || !OperatingSystem.IsWindows();
         if (GodotObject.IsInstanceValid(_lobby)) _lobby!.SetBusy(busy);
         if (message.Length > 0) { _status.Text = message; _status.AddThemeColorOverride("font_color", Ui.Muted); }
     }
@@ -140,11 +152,16 @@ public partial class Launcher : Control
         if (GodotObject.IsInstanceValid(_lobby)) { _lobby!.ShowError(message); return; }
         _status.Text = message; _status.AddThemeColorOverride("font_color", Ui.Red);
     }
+    public void ShowStatus(string message)
+    { _status.Text = message; _status.AddThemeColorOverride("font_color", Ui.Gold); }
     private void Remember()
     {
         _config.SetValue("player", "name", _name.Text); _config.SetValue("network", "address", _address.Text);
         _config.SetValue("host", "name", _hostName.Text); _config.SetValue("host", "port", (int)_hostPort.Value);
-        _config.SetValue("host", "discovery", (int)_hostDiscovery.Value); _config.Save("user://launcher.cfg");
+        _config.SetValue("host", "discovery", (int)_hostDiscovery.Value);
+        var saved = _config.Save("user://launcher.cfg");
+        if (saved != Error.Ok) Diagnostics.Warn("launcher.config_failed", "No se pudo guardar la configuración.", context:
+            new Dictionary<string, object?> { ["error"] = saved });
     }
     private void Connect()
     {
@@ -199,7 +216,11 @@ public partial class Launcher : Control
                 UpdateConnectLabel(); OpenRooms(_host.Address, _hostPassword);
             });
         }
-        catch (Exception e) { _main.Post(() => ShowError(e is InvalidOperationException or ArgumentException or IOException ? e.Message : "No se pudo iniciar el servidor incluido.")); }
+        catch (Exception e)
+        {
+            Diagnostics.Warn("launcher.host_failed", "No se pudo iniciar el servidor incluido.", e);
+            _main.Post(() => ShowError(e is InvalidOperationException or ArgumentException or IOException ? e.Message : "No se pudo iniciar el servidor incluido. Exporta el diagnóstico para revisar el error."));
+        }
     }
     public static string PackageDirectory() => OS.HasFeature("editor") ? ProjectSettings.GlobalizePath("res://../../artifacts/windows")
         : System.IO.Path.GetDirectoryName(OS.GetExecutablePath())!;
@@ -230,7 +251,11 @@ public partial class Launcher : Control
             _main.Post(() => { if (code == 0) SetBusy(false, "Acceso LAN configurado para estos puertos en redes privadas.");
                 else ShowError("Windows no pudo configurar el acceso. Comprueba el permiso de administrador."); });
         }
-        catch (Exception e) { _main.Post(() => ShowError(e is System.ComponentModel.Win32Exception ? "La configuración de LAN se canceló en Windows." : e.Message)); }
+        catch (Exception e)
+        {
+            Diagnostics.Warn("launcher.firewall_failed", "La configuración LAN no se completó.", e);
+            _main.Post(() => ShowError(e is System.ComponentModel.Win32Exception ? "La configuración de LAN se canceló en Windows." : e.Message));
+        }
     }
     private void StopHost()
     {
@@ -261,7 +286,11 @@ public partial class Launcher : Control
             });
         }
         catch (OperationCanceledException) { _main.Post(() => _refresh.Disabled = false); }
-        catch (Exception) { _main.Post(() => { _refresh.Disabled = false; ShowError("No se ha podido buscar en LAN. Comprueba el puerto UDP y el cortafuegos."); }); }
+        catch (Exception e)
+        {
+            Diagnostics.Warn("launcher.discovery_failed", "No se pudo buscar en LAN.", e);
+            _main.Post(() => { _refresh.Disabled = false; ShowError("No se ha podido buscar en LAN. Comprueba el puerto UDP y el cortafuegos."); });
+        }
     }
     public override void _ExitTree() { _search?.Cancel(); _search?.Dispose(); _host.Dispose(); }
 }

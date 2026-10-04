@@ -17,6 +17,8 @@ public sealed class DiscoveryService(ServerSettings settings, GameService game, 
             var last = new Dictionary<IPAddress, long>();
             while (!stoppingToken.IsCancellationRequested)
             {
+                try
+                {
                 var request = await udp.ReceiveAsync(stoppingToken);
                 if (request.Buffer.Length > 128) continue;
                 var parts = Encoding.UTF8.GetString(request.Buffer).Split(' ');
@@ -27,9 +29,15 @@ public sealed class DiscoveryService(ServerSettings settings, GameService game, 
                 last[request.RemoteEndPoint.Address] = now;
                 var reply = new DiscoveryReply(Protocol.DiscoveryMagic, parts[1], game.Info());
                 await udp.SendAsync(Encoding.UTF8.GetBytes(Protocol.Serialize(reply)), request.RemoteEndPoint, stoppingToken);
+                }
+                catch (SocketException e)
+                {
+                    logger.LogWarning(e, "Error transitorio de descubrimiento LAN en UDP {Port}", settings.DiscoveryPort);
+                    await Task.Delay(250, stoppingToken);
+                }
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { }
-        catch (SocketException e) { logger.LogWarning("No se puede iniciar el descubrimiento LAN: {Error}", e.Message); }
+        catch (SocketException e) { logger.LogWarning(e, "No se puede iniciar el descubrimiento LAN en UDP {Port}", settings.DiscoveryPort); }
     }
 }

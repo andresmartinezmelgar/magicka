@@ -7,3 +7,5 @@ artifacts/
 *.user
 *.suo
 *.log
+*.jsonl
+reports/

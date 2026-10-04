@@ -15,6 +15,11 @@ public partial class Hud : Control
     private string _feedText = "";
     private float _feedTime, _scoreClock;
     private readonly List<Label> _elementLabels = [];
+    private readonly List<string> _statuses = [];
+    private readonly List<Label> _scoreCells = [];
+    private WorldSnapshot? _lastSnapshot;
+    private static readonly float[] Costs = [25, 35, 75, 60];
+    private static readonly string[] Names = ["Celeridad", "Traslación", "Meteoro", "Reanimar"];
 
     public void Build()
     {
@@ -68,6 +73,7 @@ public partial class Hud : Control
         _scorePanel = new PanelContainer { Visible = false, CustomMinimumSize = new(700, 200), MouseFilter = MouseFilterEnum.Ignore };
         _scorePanel.SetAnchorsAndOffsetsPreset(LayoutPreset.Center); _scorePanel.Position = new(-350, -160); AddChild(_scorePanel);
         _scoreRows = new GridContainer { Columns = 5 }; _scoreRows.AddThemeConstantOverride("h_separation", 30); _scoreRows.AddThemeConstantOverride("v_separation", 12); _scorePanel.AddChild(_scoreRows);
+        foreach (string text in new[] { "MAGO", "EQUIPO", "BAJAS", "MUERTES", "VIDA" }) _scoreRows.AddChild(Ui.Label(text, 14, Ui.Gold));
         IgnoreChildren(this);
     }
     private static void IgnoreChildren(Node root)
@@ -82,11 +88,18 @@ public partial class Hud : Control
     }
     public void Update(WorldSnapshot snapshot, int id, string serverName, double delta)
     {
+        _feedTime -= (float)delta; _feed.Text = _feedTime > 0 ? _feedText : "";
+        bool opened = !_scorePanel.Visible && Input.IsPhysicalKeyPressed(Key.Tab);
+        _scorePanel.Visible = Input.IsPhysicalKeyPressed(Key.Tab); _scoreClock += (float)delta;
+        if (_scorePanel.Visible && (opened || _scoreClock >= 0.25f))
+        { _scoreClock = 0; UpdateScore(snapshot, id); }
+        if (ReferenceEquals(snapshot, _lastSnapshot)) return;
+        _lastSnapshot = snapshot;
         var player = snapshot.Players.FirstOrDefault(p => p.Id == id); if (player == null) return;
         _server.Text = serverName.ToUpperInvariant() + "  /  " + Ui.ModeName(snapshot.Mode).ToUpperInvariant();
         _name.Text = player.Name + $"  {Math.Ceiling(player.Health)}/1000";
-        _health.Value = player.Health; _shield.Value = player.Shield; _energy.Value = player.Energy; _charge.Value = player.Charge;
-        var statuses = new List<string>();
+        _health.MaxValue = player.MaxHealth; _health.Value = player.Health; _shield.Value = player.Shield; _energy.Value = player.Energy; _charge.Value = player.Charge;
+        _statuses.Clear(); var statuses = _statuses;
         if (player.Wet > 0) statuses.Add("Mojado"); if (player.Burning > 0) statuses.Add("Quemándose");
         if (player.Chill > 20) statuses.Add("Frío"); if (player.Frozen > 0) statuses.Add("Congelado"); if (player.Haste > 0) statuses.Add("Celeridad");
         if (player.Ward.Length > 0) statuses.Add("Guarda: " + string.Join(", ", player.Ward.Select(Ui.ElementName)));
@@ -97,12 +110,10 @@ public partial class Hud : Control
             _selected[i].Text = selected ? Ui.ElementKey(player.Selected[i]) : "—";
             _selected[i].AddThemeColorOverride("font_color", selected ? Ui.ElementColor(player.Selected[i]) : Ui.Muted);
         }
-        float[] costs = [25, 35, 75, 60];
-        string[] names = ["Celeridad", "Traslación", "Meteoro", "Reanimar"];
         for (int i = 0; i < 4; i++)
         {
-            _magicks[i].Text = $"{i + 1} {names[i]} " + (player.Cooldowns[i] > 0 ? $"{Math.Ceiling(player.Cooldowns[i])}s" : $"{costs[i]:0}");
-            _magicks[i].AddThemeColorOverride("font_color", player.Cooldowns[i] > 0 || player.Energy < costs[i] ? Ui.Muted : Ui.Gold);
+            _magicks[i].Text = $"{i + 1} {Names[i]} " + (player.Cooldowns[i] > 0 ? $"{Math.Ceiling(player.Cooldowns[i])}s" : $"{Costs[i]:0}");
+            _magicks[i].AddThemeColorOverride("font_color", player.Cooldowns[i] > 0 || player.Energy < Costs[i] ? Ui.Muted : Ui.Gold);
         }
         if (snapshot.Mode == GameMode.Arena)
             _match.Text = "ARENA  ·  " + snapshot.Players.Max(p => p.Kills) + " BAJAS";
@@ -113,7 +124,6 @@ public partial class Hud : Control
             string winner = snapshot.Mode == GameMode.Arena ? snapshot.Players.FirstOrDefault(p => p.Id == snapshot.Winner)?.Name ?? "Mago" : snapshot.Winner == 0 ? "Equipo azul" : "Equipo rojo";
             _banner.Text = winner + $" vence\nNueva partida en {Math.Ceiling(snapshot.RestartIn)} s";
         }
-        _feedTime -= (float)delta;
         foreach (var e in snapshot.Events.Where(e => e.Id > _lastEvent))
         {
             _lastEvent = Math.Max(_lastEvent, e.Id);
@@ -123,19 +133,24 @@ public partial class Hud : Control
         }
         _feed.Text = _feedTime > 0 ? _feedText : "";
         _map.State = snapshot; _map.LocalId = id; _map.QueueRedraw();
-        _scorePanel.Visible = Input.IsPhysicalKeyPressed(Key.Tab);
-        _scoreClock += (float)delta;
-        if (_scorePanel.Visible && _scoreClock > 0.25f)
+    }
+    private void UpdateScore(WorldSnapshot snapshot, int id)
+    {
+        int cell = 0;
+        foreach (var p in snapshot.Players.OrderByDescending(p => p.Kills))
         {
-            _scoreClock = 0;
-            foreach (var child in _scoreRows.GetChildren()) { _scoreRows.RemoveChild(child); child.QueueFree(); }
-            foreach (var text in new[] { "MAGO", "EQUIPO", "BAJAS", "MUERTES", "VIDA" }) _scoreRows.AddChild(Ui.Label(text, 14, Ui.Gold));
-            foreach (var p in snapshot.Players.OrderByDescending(p => p.Kills))
+            var color = p.Team == 0 ? Ui.Blue : Ui.Red;
+            foreach (var text in new[] { p.Name + (p.Id == id ? " (tú)" : ""), p.Team == 0 ? "Azul" : "Rojo", p.Kills.ToString(), p.Deaths.ToString(), p.Alive ? Math.Ceiling(p.Health).ToString() : "Caído" })
             {
-                var color = p.Team == 0 ? Ui.Blue : Ui.Red;
-                foreach (var text in new[] { p.Name + (p.Id == id ? " (tú)" : ""), p.Team == 0 ? "Azul" : "Rojo", p.Kills.ToString(), p.Deaths.ToString(), p.Alive ? Math.Ceiling(p.Health).ToString() : "Caído" })
-                    _scoreRows.AddChild(Ui.Label(text, 17, color));
+                if (cell == _scoreCells.Count)
+                {
+                    var label = Ui.Label("", 17, color); label.MouseFilter = MouseFilterEnum.Ignore;
+                    _scoreRows.AddChild(label); _scoreCells.Add(label);
+                }
+                var current = _scoreCells[cell++]; current.Text = text; current.Visible = true;
+                current.AddThemeColorOverride("font_color", color);
             }
         }
+        for (int i = cell; i < _scoreCells.Count; i++) _scoreCells[i].Visible = false;
     }
 }

@@ -14,7 +14,11 @@ public partial class ArenaRenderer : Node3D
     private readonly List<(Node3D Root, MeshInstance3D Mesh, CylinderMesh Shape)> _beamPool = [];
     private readonly List<Burst> _bursts = [];
     private readonly Dictionary<int, (Node3D Root, MeshInstance3D Ring, MeshInstance3D Crystal)> _points = [];
-    private readonly Dictionary<string, StandardMaterial3D> _materials = [];
+    private readonly Dictionary<(Color Color, float Glow, bool Unshaded), StandardMaterial3D> _materials = [];
+    private readonly HashSet<int> _present = [];
+    private readonly List<int> _removed = [];
+    private WorldSnapshot? _lastSnapshot;
+    private bool _fresh;
     private readonly SpellAudio _audio = new();
     private long _lastEvent;
     private double _time;
@@ -60,18 +64,19 @@ public partial class ArenaRenderer : Node3D
     public void Zoom(float delta) => _zoom = Math.Clamp(_zoom + delta, 17, 34);
     public void Clear()
     {
+        _audio.StopAll();
         foreach (var v in _wizards.Values) v.QueueFree(); _wizards.Clear();
         foreach (var v in _projectiles.Values) v.QueueFree(); _projectiles.Clear();
         foreach (var v in _walls.Values) v.QueueFree(); _walls.Clear();
         foreach (var v in _fields.Values) v.QueueFree(); _fields.Clear();
         foreach (var b in _bursts) b.Root.QueueFree(); _bursts.Clear();
         foreach (var beam in _beamPool) beam.Root.Visible = false;
-        _lastEvent = 0; _playing = false;
+        _lastEvent = 0; _playing = false; _lastSnapshot = null;
     }
 
     private StandardMaterial3D Material(Color color, float glow = 0, bool unshaded = false)
     {
-        string key = color.ToHtml() + ":" + glow + ":" + unshaded;
+        var key = (color, glow, unshaded);
         if (_materials.TryGetValue(key, out var existing)) return existing;
         var material = new StandardMaterial3D
         {
@@ -168,6 +173,7 @@ public partial class ArenaRenderer : Node3D
     public void Render(WorldSnapshot snapshot, int localId, double delta, bool playing)
     {
         float dt = (float)delta; _time += delta; _playing = playing;
+        _fresh = !ReferenceEquals(snapshot, _lastSnapshot); _lastSnapshot = snapshot;
         foreach (var p in snapshot.Players)
         {
             if (!_wizards.TryGetValue(p.Id, out var visual))
@@ -176,7 +182,7 @@ public partial class ArenaRenderer : Node3D
             }
             visual.Update(p, dt, (float)_time, Camera);
         }
-        RemoveMissing(_wizards, snapshot.Players.Select(p => p.Id));
+        if (_fresh) RemoveMissing(_wizards, snapshot.Players.Select(p => p.Id));
         var local = snapshot.Players.FirstOrDefault(p => p.Id == localId);
         var focus = playing && local != null ? new Vector3(Math.Clamp(local.Position.X, -7, 7), 0, Math.Clamp(local.Position.Y, -4, 4)) : new Vector3(-4, 0, 0);
         var desired = focus + new Vector3(0, 27, 21);
@@ -211,10 +217,12 @@ public partial class ArenaRenderer : Node3D
         TickBursts(dt);
     }
 
-    private static void RemoveMissing<T>(Dictionary<int, T> nodes, IEnumerable<int> present) where T : Node
+    private void RemoveMissing<T>(Dictionary<int, T> nodes, IEnumerable<int> present) where T : Node
     {
-        var ids = present.ToHashSet();
-        foreach (int id in nodes.Keys.Where(id => !ids.Contains(id)).ToArray()) { nodes[id].QueueFree(); nodes.Remove(id); }
+        _present.Clear(); _removed.Clear();
+        foreach (int id in present) _present.Add(id);
+        foreach (int id in nodes.Keys) if (!_present.Contains(id)) _removed.Add(id);
+        foreach (int id in _removed) { nodes[id].QueueFree(); nodes.Remove(id); }
     }
 
     private void DrawProjectiles(WorldSnapshot snapshot, float dt)
@@ -231,7 +239,7 @@ public partial class ArenaRenderer : Node3D
             mesh.Position = mesh.Position.Lerp(World(projectile.Position, 0.9f), 1 - Mathf.Exp(-35 * dt));
             mesh.Rotation += new Vector3(dt * 9, dt * 5, dt * 4);
         }
-        RemoveMissing(_projectiles, snapshot.Projectiles.Select(p => p.Id));
+        if (_fresh) RemoveMissing(_projectiles, snapshot.Projectiles.Select(p => p.Id));
     }
     private void DrawWalls(WorldSnapshot snapshot)
     {
@@ -249,7 +257,7 @@ public partial class ArenaRenderer : Node3D
             }
             mesh.Visible = wall.Lifetime > 1 || ((int)(_time * 9) % 2 == 0);
         }
-        RemoveMissing(_walls, snapshot.Walls.Select(w => w.Id));
+        if (_fresh) RemoveMissing(_walls, snapshot.Walls.Select(w => w.Id));
     }
     private void DrawFields(WorldSnapshot snapshot)
     {
@@ -276,7 +284,7 @@ public partial class ArenaRenderer : Node3D
                 meteorNode.RotateY(0.07f);
             }
         }
-        RemoveMissing(_fields, snapshot.Fields.Select(f => f.Id));
+        if (_fresh) RemoveMissing(_fields, snapshot.Fields.Select(f => f.Id));
     }
 
     private void BeamSegment(Vector3 from, Vector3 to, Color color, float radius, float endRadius = -1)
@@ -365,6 +373,7 @@ public partial class ArenaRenderer : Node3D
                 particle.Mesh.Scale = Vector3.One * Math.Max(0.02f, b.Remaining / b.Duration);
             }
         }
-        foreach (var b in _bursts.Where(b => b.Remaining <= 0).ToArray()) { b.Root.QueueFree(); _bursts.Remove(b); }
+        for (int i = _bursts.Count - 1; i >= 0; i--)
+            if (_bursts[i].Remaining <= 0) { _bursts[i].Root.QueueFree(); _bursts.RemoveAt(i); }
     }
 }

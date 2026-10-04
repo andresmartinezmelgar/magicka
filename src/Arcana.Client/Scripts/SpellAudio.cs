@@ -12,6 +12,7 @@ public partial class SpellAudio : Node
     private int _voice;
     public override void _Ready()
     {
+        if (DisplayServer.GetName() == "headless") return;
         for (int i = 0; i < 6; i++) { var voice = new AudioStreamPlayer { VolumeDb = -23 }; AddChild(voice); _voices.Add(voice); }
     }
     public void PlayEvent(GameEvent e)
@@ -22,6 +23,15 @@ public partial class SpellAudio : Node
         string key = e.Kind == "death" || e.Kind == "explosion" ? "boom" : e.Elements.FirstOrDefault().ToString();
         if (!_sounds.TryGetValue(key, out var sound)) { sound = Synthesize(key); _sounds[key] = sound; }
         var player = _voices[_voice++ % _voices.Count]; player.Stream = sound; player.Play();
+    }
+    public void StopAll()
+    {
+        foreach (var voice in _voices) if (GodotObject.IsInstanceValid(voice)) { voice.Stop(); voice.Stream = null; }
+    }
+    public override void _ExitTree()
+    {
+        StopAll();
+        foreach (var sound in _sounds.Values) sound.Dispose(); _sounds.Clear();
     }
     private static AudioStreamWav Synthesize(string key)
     {
