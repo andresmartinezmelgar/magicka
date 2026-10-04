@@ -12,6 +12,7 @@ public sealed class Wizard
     public const float BaseMaxHealth = 1000;
     public float Health { get; set; } = BaseMaxHealth;
     public float MaxHealth { get; set; } = BaseMaxHealth;
+    public int[] BuffStacks { get; } = new int[RelicBuffs.Count];
     public bool Alive => Health > 0;
     public float Shield { get; set; }
     public float ShieldMax { get; set; }

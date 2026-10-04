@@ -255,9 +255,9 @@ public partial class Main : Node
                 if (SmokeMode) { GD.PushError("SMOKE_FAILED: " + e.Message); GetTree().Quit(1); return; }
             }
         _renderFrames++;
-        if (_mapsSmoke && _renderFrames <= 120 && _renderFrames % 30 == 1)
-            _snapshot = MapFixture(_renderFrames <= 30 || _renderFrames > 90 ? ArenaMapId.Citadel
-                : _renderFrames <= 60 ? ArenaMapId.Classic : ArenaMapId.Ascension);
+        if (_mapsSmoke && _renderFrames <= 150 && _renderFrames % 30 == 1)
+            _snapshot = MapFixture(_renderFrames <= 30 || _renderFrames > 120 ? ArenaMapId.Citadel
+                : _renderFrames <= 60 ? ArenaMapId.Classic : _renderFrames <= 90 ? ArenaMapId.Ascension : ArenaMapId.Relics);
         if (_combinationsSmoke) CheckCombinations();
         if (_effectsSmoke || _previewEffects) _snapshot = VisualFixture.Effects(_renderFrames);
         if (_spritesSmoke || _previewWizards != null) _snapshot = VisualFixture.Wizards(_renderFrames, _previewWizards);
@@ -332,9 +332,14 @@ public partial class Main : Node
         var map = ArenaMap.Get(id); _serverName = map.Name;
         var source = VisualFixture.Create("none");
         bool hold = id == ArenaMapId.Citadel;
+        var items = id == ArenaMapId.Relics ? new GameWorld(new() { Map = id }).Snapshot().Pickups!
+            .Select(i => i.Id == 1 ? i with { Active = false, Respawn = 6 } : i).ToArray() : [];
         return source with { Map = id, HoldingTeam = hold ? 0 : -1, HoldSeconds = hold ? 7.5f : 0,
             Players = source.Players.Select(p => p with { Position = _previewMap != null ? new V2(0, -1) : map.Spawn(p.Team, p.Id),
-                MaxHealth = id == ArenaMapId.Ascension ? 1030 : 1000, Health = id == ArenaMapId.Ascension ? 1020 : p.Health }).ToArray(),
+                MaxHealth = id == ArenaMapId.Ascension ? 1030 : id == ArenaMapId.Relics && p.Id == 1 ? 1100 : 1000,
+                Health = id == ArenaMapId.Ascension ? 1020 : p.Health,
+                Buffs = id == ArenaMapId.Relics && p.Id == 1 ? [new(BuffKind.Power, 2), new(BuffKind.Vitality, 1)] : [] }).ToArray(),
+            Pickups = items,
             Points = map.ControlPoints.Select((p, i) => new PointSnapshot(i, p, hold ? 0 : -1, hold ? -1 : 0)).ToArray() };
     }
     private void CheckMaps(WorldSnapshot snapshot)
@@ -352,9 +357,18 @@ public partial class Main : Node
             var health = (ProgressBar)_hud.FindChild("HealthBar", true, false);
             valid &= objective.Text.Contains("+10") && objective.Text.Contains("10 s") && health.MaxValue == 1030 && health.Value == 1020;
         }
+        if (snapshot.Map == ArenaMapId.Relics)
+        {
+            var buffs = (Label)_hud.FindChild("ActiveBuffs", true, false);
+            valid &= _renderer.Pickups.Count == 14 && !_renderer.Pickups[1].Available && _renderer.Pickups.Values.Count(i => i.Available) == 13
+                && buffs.Text.Contains("Potencia ×2") && buffs.Text.Contains("Vitalidad ×1") && objective.Text.Contains("hasta morir");
+        }
+        else valid &= _renderer.Pickups.Count == 0;
+        var local = snapshot.Players.Single(p => p.Id == _localId);
+        valid &= _renderer.Wizards[_localId].ElementSlotCount == 3 && _renderer.Wizards[_localId].DisplayedElements.SequenceEqual(local.DisplayElements);
         if (!valid) { GD.PushError($"MAPS_SMOKE_FAILED: {map.Name}, cámara, selector, contador o geometría incorrectos"); GetTree().Quit(1); return; }
         GD.Print($"MAP_CASE_OK: {map.Name}, {map.Area} unidades²");
-        if (_renderFrames >= 120) CompleteSmoke("MAPS_SMOKE_OK: tres mapas, cambios de mapa, cámara, minimapa, control y vida acumulada");
+        if (_renderFrames >= 150) CompleteSmoke("MAPS_SMOKE_OK: cuatro mapas, cambios, cámara, minimapa, control, vida, reliquias, mejoras y tres casillas");
     }
     private void CheckHudCase()
     {
@@ -362,7 +376,8 @@ public partial class Main : Node
         var health = (ProgressBar)_hud!.FindChild("HealthBar", true, false);
         var shield = (ProgressBar)_hud.FindChild("ShieldBar", true, false);
         var text = (Label)_hud.FindChild("ShieldValue", true, false);
-        bool correct = health.Value == 830 && health.MaxValue == 1000 && shield.Value == expected.Shield && shield.MaxValue == expected.Maximum &&
+        bool correct = _hud.Scale.IsEqualApprox(Vector2.One * Hud.GameplayScale) && (_hud.Size * Hud.GameplayScale).IsEqualApprox(GetViewport().GetVisibleRect().Size) &&
+            health.Value == 830 && health.MaxValue == 1000 && shield.Value == expected.Shield && shield.MaxValue == expected.Maximum &&
             (expected.Shield == 0 ? text.Text.Contains("INACTIVO") : text.Text.Contains($"{expected.Shield:0} / {expected.Maximum:0}") && text.Text.Contains(" s"));
         if (!correct) { GD.PushError($"HUD_SMOKE_FAILED: {expected.State}, {shield.Value}/{shield.MaxValue}, {text.Text}"); GetTree().Quit(1); return; }
         GD.Print($"HUD_CASE_OK: {expected.State}, {shield.Value}/{shield.MaxValue}");
@@ -378,6 +393,12 @@ public partial class Main : Node
         try
         {
             var state = _spellBook.Demo.World.Snapshot(); SnapshotValidation.Check(state);
+            if (item.Kind == DemonstrationKind.Combination)
+            {
+                var damageText = (Label)_spellBook.FindChild("SpellDamageValues", true, false);
+                if (!damageText.Visible || damageText.Text != SpellBalance.Format(SpellCatalogue.FromKeys(item.Keys)!.Recipe, item.Mode))
+                    throw new InvalidDataException("F1 no muestra los valores de daño de la combinación y forma de lanzamiento.");
+            }
             var effects = _spellBook.Preview.Effects;
             bool valid = effects.PooledCount <= CombatEffects.ParticleLimit + CombatEffects.RingLimit;
             if (index == 0) valid &= !effects.SeenKinds.Contains("splash");
@@ -418,6 +439,7 @@ public partial class Main : Node
             var atlas = WizardSprites.Load(player.WizardType);
             valid &= sprite.Texture == atlas.Texture && sprite.IsVisibleInTree() == player.Alive &&
                 sprite.Frame is >= 0 and < 16 && sprite.Offset == atlas.Offset(sprite.Frame);
+            valid &= wizard.ElementSlotCount == 3 && wizard.ElementSlotsVisible == player.Alive;
             if (player.Alive && player.Frozen <= 0) _spriteCoverage.Add((player.WizardType, player.Team, sprite.Frame / 4, sprite.Frame % 4));
             if (player.Frozen > 0) valid &= sprite.Frame % 4 == 0;
             if (_renderFrames == 7) valid &= sprite.Frame % 4 == 3; // Evento instantáneo, sin Casting en el snapshot.
@@ -550,10 +572,17 @@ public partial class Main : Node
         wins.AddChild(Ui.Label("CIUDADELA DE LOS PASILLOS · 4×", 19, Ui.Gold));
         HelpText(wins, MatchRules.Objective(GameMode.Warfare, 15, 75, ArenaMapId.Citadel));
         HelpText(wins, MatchRules.Details(GameMode.Warfare, ArenaMapId.Citadel), Ui.Muted);
+        wins.AddChild(Ui.Label("SANTUARIO DE LAS RELIQUIAS", 19, Ui.Gold));
+        HelpText(wins, MatchRules.Details(GameMode.Warfare, ArenaMapId.Relics), Ui.Muted);
         wins.AddChild(Ui.Label("COLISEO DE LA ASCENSIÓN", 19, Ui.Gold));
         HelpText(wins, MatchRules.Details(GameMode.Warfare, ArenaMapId.Ascension), Ui.Muted);
         HelpText(wins, "En duelo, la primera muerte tarda 3 segundos; las siguientes añaden 0,5 segundos hasta 10. En todos contra todos y guerra, la primera tarda 4,5 segundos.", Ui.Muted);
         HelpText(wins, "Al terminar, se muestra el ganador y empieza otra partida a los 9 segundos. Puedes consultar el marcador con TAB. En práctica, el duelo se juega a 5 bajas.", Ui.Muted);
+        var relicsScroll = new ScrollContainer { Name = "Objetos", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; _helpPages.AddChild(relicsScroll);
+        var relics = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; relics.AddThemeConstantOverride("separation", 14); relicsScroll.AddChild(relics);
+        HelpText(relics, "Solo en el Santuario. Camina sobre un objeto para recogerlo; reaparece a los 12 s. Puedes acumular objetos iguales o distintos. Todas sus mejoras desaparecen al morir, también al ser reanimado.", Ui.Gold);
+        foreach (var kind in Enum.GetValues<BuffKind>())
+        { relics.AddChild(Ui.Label(RelicBuffs.Name(kind).ToUpperInvariant(), 18, RelicVisual.ColorFor(kind))); HelpText(relics, RelicBuffs.Description(kind), Ui.Muted); }
         var types = new VBoxContainer { Name = "Tipos de mago" }; types.AddThemeConstantOverride("separation", 12); _helpPages.AddChild(types);
         HelpText(types, "Elige tu tipo en el launcher antes de entrar. Todos pueden combinar los ocho elementos.", Ui.Muted);
         foreach (var type in Enum.GetValues<WizardType>())

@@ -7,7 +7,7 @@ public partial class SpellBook : VBoxContainer
 {
     private ItemList _list = null!;
     private LineEdit _search = null!;
-    private Label _title = null!, _description = null!, _clock = null!;
+    private Label _title = null!, _description = null!, _clock = null!, _damage = null!;
     private OptionButton _mode = null!, _scenario = null!;
     private ArenaRenderer _arena = null!;
     private ProgressBar _timeline = null!;
@@ -38,10 +38,12 @@ public partial class SpellBook : VBoxContainer
         choices.AddChild(Ui.Label($"{SpellCatalogue.All.Length} combinaciones válidas", 13, Ui.Muted));
         var view = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; row.AddChild(view);
         _title = Ui.Label("", 18, Ui.Gold); view.AddChild(_title);
-        var container = new SubViewportContainer { CustomMinimumSize = new(640, 270), Stretch = true,
+        _damage = Ui.Label("", 14, Ui.Gold); _damage.Name = "SpellDamageValues";
+        _damage.AutowrapMode = TextServer.AutowrapMode.WordSmart; view.AddChild(_damage);
+        var container = new SubViewportContainer { CustomMinimumSize = new(640, 230), Stretch = true,
             SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore };
         view.AddChild(container);
-        var viewport = new SubViewport { Size = new(640, 270), OwnWorld3D = true,
+        var viewport = new SubViewport { Size = new(640, 230), OwnWorld3D = true,
             RenderTargetUpdateMode = SubViewport.UpdateMode.WhenParentVisible, HandleInputLocally = false };
         container.AddChild(viewport);
         _arena = new ArenaRenderer { AudioEnabled = false, ShowControlPoints = false }; viewport.AddChild(_arena);
@@ -54,6 +56,7 @@ public partial class SpellBook : VBoxContainer
         var replay = Ui.Button("Repetir", Restart); replay.CustomMinimumSize = new(100, 34); controls.AddChild(replay);
         _timeline = new ProgressBar { ShowPercentage = false, SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new(0, 8) }; controls.AddChild(_timeline);
         _clock = Ui.Label("", 13, Ui.Muted); controls.AddChild(_clock);
+        AddChild(Ui.Label("Cifras base: magos equilibrados, objetivo seco y sin protección. Afinidades, escudos y objetos modifican el resultado.", 12, Ui.Muted));
         _list.ItemSelected += SelectRow;
         _search.TextChanged += _ => Refresh();
         _mode.ItemSelected += _ => Restart();
@@ -72,7 +75,7 @@ public partial class SpellBook : VBoxContainer
             if (!match) continue;
             _shown.Add(combination);
             _list.AddItem(combination.Keys + " · " + SpellCatalogue.Name(combination.Elements));
-            _list.SetItemTooltip(_shown.Count - 1, SpellCatalogue.Name(combination.Elements));
+            _list.SetItemTooltip(_shown.Count - 1, SpellCatalogue.Name(combination.Elements) + "\n" + SpellBalance.Format(combination.Recipe, (CastMode)_mode.Selected));
         }
         if (_shown.Count > 0) { _list.Select(0); SelectRow(0); }
     }
@@ -96,6 +99,10 @@ public partial class SpellBook : VBoxContainer
         _demo = new(_combination.Elements, mode, kind);
         _arena.Clear(); _arena.ShowControlPoints = kind == DemonstrationKind.Capture;
         _mode.Disabled = kind != DemonstrationKind.Combination;
+        _damage.Text = kind == DemonstrationKind.Combination ? SpellBalance.Format(_combination.Recipe, mode) : "";
+        _damage.Visible = kind == DemonstrationKind.Combination;
+        _damage.TooltipText = "Valores base contra un mago equilibrado, seco y sin protección. Afinidades, guardas, escudos y objetos modifican el resultado. La curación respeta la vida máxima del objetivo.";
+        for (int i = 0; i < _shown.Count; i++) _list.SetItemTooltip(i, SpellCatalogue.Name(_shown[i].Elements) + "\n" + SpellBalance.Format(_shown[i].Recipe, mode));
         _title.Text = kind switch { DemonstrationKind.CrossedBeams => "SSF + SSR · CRUCE DE RAYOS",
             DemonstrationKind.ShieldRefraction => "SS CONTRA EF · REFRACCIÓN",
             DemonstrationKind.Capture => "CAPTURA · AZUL Y ROJO", _ => _combination.Keys + " · " + SpellCatalogue.Name(_combination.Elements) };

@@ -418,6 +418,155 @@ Test("Ascensión: las reglas de vida y reaparición no se aplican a los mapas an
         Check(a.MaxHealth == 1000 && a.Health == 700 && b.Respawn == (mode == GameMode.Duel ? 2.5f : 4), "Las reglas se filtraron a " + map);
     }
 });
+(GameWorld World, Wizard A, Wizard B) RelicsSetup(GameMode mode = GameMode.Arena, int scoreLimit = 200)
+{
+    var w = new GameWorld(new() { Map = ArenaMapId.Relics, Mode = mode, ScoreLimit = scoreLimit, Tickets = 1000 });
+    var a = w.AddPlayer("Recolector", 0)!; var b = w.AddPlayer("Rival", 1)!;
+    a.Position = V2.Zero; b.Position = new(30, 20); a.Invulnerable = b.Invulnerable = 0;
+    return (w, a, b);
+}
+void Collect(GameWorld w, Wizard p, BuffKind kind)
+{
+    p.Position = w.Snapshot().Pickups!.First(i => i.Kind == kind && i.Active).Position;
+    w.Step(); p.Position = V2.Zero;
+}
+Test("Reliquias: catorce objetos simétricos, siete tipos y exclusividad del mapa", () =>
+{
+    var (w, _, _) = RelicsSetup(); var items = w.Snapshot().Pickups!;
+    Check(items.Length == 14 && items.All(i => i.Active && i.Respawn == 0 && w.Map.Walkable(i.Position)), "Objetos iniciales inválidos.");
+    foreach (var kind in Enum.GetValues<BuffKind>())
+    {
+        var pair = items.Where(i => i.Kind == kind).ToArray();
+        Check(pair.Length == 2 && pair[0].Position.X == -pair[1].Position.X && pair[0].Position.Y == pair[1].Position.Y, "Un tipo no tiene dos objetos simétricos.");
+    }
+    foreach (var map in Enum.GetValues<ArenaMapId>().Where(m => m != ArenaMapId.Relics))
+        Check(new GameWorld(new() { Map = map }).Snapshot().Pickups!.Length == 0, "Se filtraron objetos a " + map);
+    SnapshotValidation.Check(w.Snapshot());
+});
+Test("Reliquias: solo recoge el vivo más cercano, empate estable y reaparición tras doce segundos", () =>
+{
+    var (w, a, b) = RelicsSetup(); var item = w.Snapshot().Pickups![0];
+    a.Position = b.Position = item.Position; w.Step();
+    Check(a.BuffStacks[0] == 1 && b.BuffStacks[0] == 0 && !w.Snapshot().Pickups![0].Active, "La recogida tuvo dos ganadores o un empate inestable.");
+    a.Position = V2.Zero; b.Position = new(30, 20);
+    for (int i = 0; i < 719; i++) w.Step();
+    Check(!w.Snapshot().Pickups![0].Active, "El objeto reapareció antes de doce segundos.");
+    w.Step(); w.Step(); Check(w.Snapshot().Pickups![0].Active, "El objeto no reapareció.");
+    a.Position = item.Position; a.Health = 0; a.Respawn = 10; b.Position = item.Position + new V2(0.3f, 0);
+    w.Step(); Check(b.BuffStacks[0] == 1 && a.BuffStacks[0] == 1, "Un muerto recogió el objeto.");
+    var (nearest, c, d) = RelicsSetup(); var at = nearest.Snapshot().Pickups![0].Position;
+    c.Position = at + new V2(0.8f, 0); d.Position = at + new V2(0.1f, 0); nearest.Step();
+    Check(c.BuffStacks[0] == 0 && d.BuffStacks[0] == 1, "El ID desplazó al mago más cercano.");
+});
+Test("Reliquias: daño y protección acumulados afectan vida, escudo, bastón y quemaduras", () =>
+{
+    var (w, a, b) = RelicsSetup(); Collect(w, a, BuffKind.Power); Collect(w, a, BuffKind.Power);
+    Collect(w, b, BuffKind.Protection); Collect(w, b, BuffKind.Protection);
+    a.Position = new(-2, 0); b.Position = new(1, 0);
+    float multiplier = 1.2f * 0.92f * 0.92f;
+    Select(w, a, Element.Arcane); Send(w, a, "nova");
+    Check(Math.Abs(b.Health - (1000 - 115 * multiplier)) < 0.01f, "Daño o reducción no se acumulan.");
+    b.Health = 1000; b.Shield = b.ShieldMax = 420; b.ShieldTime = 12; a.ActionCooldown = 0;
+    Select(w, a, Element.Arcane); Send(w, a, "nova");
+    Check(b.Health == 1000 && Math.Abs(b.Shield - (420 - 115 * multiplier)) < 0.01f, "La reducción no protege el escudo.");
+    b.Shield = 0; b.Position = new(-0.6f, 0); a.Facing = new(1, 0); a.ActionCooldown = 0; Send(w, a, "melee");
+    Check(Math.Abs(b.Health - (1000 - 90 * multiplier)) < 0.01f, "El bastón ignora las mejoras.");
+    b.Health = 1000; b.Burning = 1; b.BurnOwner = a.Id; b.BurnMultiplier = 1; w.Step();
+    Check(Math.Abs(b.Health - (1000 - 28 * multiplier / 60)) < 0.01f, "La quemadura ignora las mejoras.");
+    b.BuffStacks[(int)BuffKind.Protection] = 100;
+    Check(RelicBuffs.Incoming(b) == 0.2f, "La protección superó la reducción máxima del 80 %.");
+});
+Test("Reliquias: vida, regeneración, energía, movimiento y curación se acumulan y respetan límites", () =>
+{
+    var (w, a, _) = RelicsSetup();
+    foreach (var kind in Enum.GetValues<BuffKind>()) { Collect(w, a, kind); Collect(w, a, kind); }
+    Check(a.MaxHealth == 1200 && a.BuffStacks.All(n => n == 2), "No se acumularon los siete tipos.");
+    a.Health = 600; a.Energy = 30; Run(w, a, 60);
+    Check(Math.Abs(a.Health - 640) < 0.01f && Math.Abs(a.Energy - 33.8f) < 0.01f, "Regeneración o energía incorrectas.");
+    var start = a.Position;
+    w.ApplyMessage(a.Id, new() { Type = "input", Sequence = a.LastSequence + 1, MoveX = 1 }); w.Step();
+    Check(Math.Abs(V2.Distance(start, a.Position) - 6.2f * 1.1f / 60) < 0.001f, "La velocidad no se acumuló.");
+    Send(w, a, "input"); float before = a.Health;
+    Select(w, a, Element.Life); Send(w, a, "self");
+    Check(Math.Abs(a.Health - before - 145 * 1.2f) < 0.01f, "La curación no se acumuló.");
+    a.Health = 1199; a.Energy = 99.99f; w.Step();
+    Check(a.Health <= 1200 && a.Energy == 100, "Se superaron los máximos.");
+    a.BuffStacks[(int)BuffKind.Speed] = 100; Check(RelicBuffs.Speed(a) == 2, "La velocidad superó su límite.");
+    SnapshotValidation.Check(w.Snapshot());
+});
+Test("Reliquias: sanación amplifica rayos, minas y escudo sin multiplicar la regeneración de objetos", () =>
+{
+    var (w, a, b) = RelicsSetup(GameMode.Warfare); var ally = w.AddPlayer("Aliado", 0)!;
+    ally.Position = new(30, -20); ally.Invulnerable = 0; Collect(w, a, BuffKind.Healing);
+    a.Position = new(-5, 0); ally.Position = new(-1.8f, 0); ally.Health = 500;
+    Select(w, a, Element.Life); Send(w, a, "input", aim: ally.Position); Send(w, a, "cast"); w.Step(); Send(w, a, "release");
+    Check(Math.Abs(ally.Health - 500 - 140 * 1.1f / 60) < 0.01f, "El rayo no amplificó la curación.");
+    a.ActionCooldown = 0; Select(w, a, Element.Shield, Element.Life); Send(w, a, "cast");
+    for (int i = 0; i < 32; i++) w.Step();
+    Check(Math.Abs(ally.Health - 500 - 140 * 1.1f / 60 - 252 * 1.1f) < 0.01f, "La mina no amplificó la curación.");
+    a.ActionCooldown = 0; a.Health = 500; Collect(w, a, BuffKind.Regeneration);
+    Select(w, a, Element.Shield, Element.Life); Send(w, a, "self"); float before = a.Health; w.Step();
+    Check(Math.Abs(a.Health - before - (38 * 1.1f + 20) / 60) < 0.01f && Math.Abs(w.Snapshot().Players.Single(p => p.Id == a.Id).RegenerationRate - 41.8f) < 0.01f,
+        "Escudo o regeneración de objetos incorrectos.");
+});
+Test("Reliquias: muerte y suicidio borran todas las mejoras; reanimar y reaparecer no las restauran", () =>
+{
+    var (w, a, b) = RelicsSetup(GameMode.Warfare); var ally = w.AddPlayer("Reanimador", 0)!; ally.Position = new(30, -20);
+    foreach (var kind in Enum.GetValues<BuffKind>()) Collect(w, a, kind);
+    LethalNova(w, b, a);
+    Check(a.MaxHealth == 1000 && a.BuffStacks.All(n => n == 0) && w.Snapshot().Players.Single(p => p.Id == a.Id).Buffs!.Length == 0,
+        "Morir dejó mejoras activas.");
+    ally.Position = a.Position + new V2(1, 0); Send(w, ally, "magick", slot: 3);
+    Check(a.Alive && a.Health == 600 && a.MaxHealth == 1000 && a.BuffStacks.All(n => n == 0), "Reanimar restauró mejoras.");
+    Collect(w, a, BuffKind.Vitality); a.Health = 1; a.Invulnerable = a.ActionCooldown = 0;
+    Select(w, a, Element.Arcane); Send(w, a, "self");
+    Check(!a.Alive && a.MaxHealth == 1000 && a.BuffStacks.All(n => n == 0), "El suicidio conservó mejoras.");
+    a.Position = V2.Zero; for (int i = 0; i < 241; i++) w.Step();
+    Check(a.Alive && a.Health == 1000 && a.BuffStacks.All(n => n == 0), "La aparición restauró mejoras.");
+    SnapshotValidation.Check(w.Snapshot());
+});
+Test("Reliquias: nueva partida reinicia acumulaciones, vida máxima y los catorce objetos", () =>
+{
+    var (w, a, b) = RelicsSetup(GameMode.Duel, 1); Collect(w, a, BuffKind.Vitality); Collect(w, a, BuffKind.Power);
+    LethalNova(w, a, b); w.Step(); Check(w.MatchEnded && a.MaxHealth == 1100, "No terminó el duelo de prueba.");
+    for (int i = 0; i < 541; i++) w.Step();
+    Check(!w.MatchEnded && a.MaxHealth == 1000 && a.Health == 1000 && a.BuffStacks.All(n => n == 0) && w.Snapshot().Pickups!.All(i => i.Active),
+        "El reinicio conservó vida, objetos recogidos o mejoras.");
+});
+Test("Reliquias: red independiente y validación de acumulaciones y objetos incompletos", () =>
+{
+    var (w, a, _) = RelicsSetup(); Collect(w, a, BuffKind.Power); var state = w.Snapshot();
+    var copy = Protocol.Deserialize<WorldSnapshot>(Protocol.Serialize(state))!; SnapshotValidation.Check(copy);
+    Check(copy.Pickups!.Length == 14 && copy.Players[0].Buffs!.Single().Stacks == 1 && !copy.Pickups[0].Active, "JSON perdió objetos o mejoras.");
+    state.Players[0].Buffs![0] = new(BuffKind.Power, 500); state.Pickups![0] = state.Pickups[0] with { Respawn = 1 };
+    Check(w.Snapshot().Players[0].Buffs!.Single().Stacks == 1 && w.Snapshot().Pickups![0].Respawn == 12, "Un snapshot modificó el mundo.");
+    foreach (var invalid in new[]
+    {
+        copy with { Pickups = [] }, copy with { Map = ArenaMapId.Classic },
+        copy with { Pickups = copy.Pickups!.Select(i => i.Id == 1 ? i with { Respawn = float.NaN } : i).ToArray() },
+        copy with { Players = [copy.Players[0] with { Buffs = [new(BuffKind.Power, 0)] }] },
+        copy with { Players = [copy.Players[0] with { Buffs = [new((BuffKind)99, 1)] }] },
+        copy with { Players = [copy.Players[0] with { Buffs = [new(BuffKind.Power, 1), new(BuffKind.Power, 1)] }] },
+        copy with { Players = [copy.Players[0] with { Alive = false }] },
+        copy with { Players = [copy.Players[0] with { CastingElements = [Element.Fire, Element.Fire, Element.Fire, Element.Fire] }] }
+    })
+    {
+        bool rejected = false; try { SnapshotValidation.Check(invalid); } catch (InvalidDataException) { rejected = true; }
+        Check(rejected, "Se aceptaron objetos o acumulaciones inválidos.");
+    }
+});
+Test("Reliquias: bots buscan y recogen objetos manteniendo snapshots válidos", () =>
+{
+    var w = new GameWorld(new() { Map = ArenaMapId.Relics, Mode = GameMode.Arena, Bots = 8, ScoreLimit = 200 });
+    bool collected = false;
+    for (int i = 0; i < 1200; i++)
+    {
+        w.Step(); if (i % 60 != 0) continue;
+        var state = w.Snapshot(); SnapshotValidation.Check(state); collected |= state.Players.Any(p => p.Buffs!.Length > 0);
+        Check(state.Players.All(p => w.Map.Walkable(p.Position)), "Un bot salió del suelo.");
+    }
+    Check(collected, "Los bots nunca recogieron objetos.");
+});
 (GameWorld World, Wizard[] Capturers) CaptureCitadel(int team)
 {
     var w = new GameWorld(new() { Map = ArenaMapId.Citadel, Tickets = 5 });
@@ -670,6 +819,60 @@ Test("Catálogo: todas las combinaciones se demuestran en sus tres modos y repit
     Console.WriteLine($"CATALOGO: {SpellCatalogue.All.Length} combinaciones, {SpellCatalogue.All.Length * 3} demostraciones y 3 interacciones.");
 });
 
+Test("F1: cifras de las 120 combinaciones coinciden con autocast y nova en combate", () =>
+{
+    foreach (var combination in SpellCatalogue.All)
+    foreach (var mode in Enum.GetValues<CastMode>())
+    {
+        var spell = combination.Recipe; var n = SpellBalance.Numbers(spell, mode);
+        Check(float.IsFinite(n.Minimum) && n.Minimum >= 0 && n.Maximum >= n.Minimum &&
+            n.HealingMinimum >= 0 && n.HealingMaximum >= n.HealingMinimum && SpellBalance.Format(spell, mode).StartsWith("DAÑO BASE:"),
+            "Faltan cifras para " + combination.Keys + "/" + mode);
+        if (mode == CastMode.Forward || spell.Has(Element.Shield)) continue;
+        var (w, a, b) = Setup(); b.Position = new(1, 0); var target = mode == CastMode.Self ? a : b;
+        target.Health = 1000; target.MaxHealth = 2000;
+        Select(w, a, combination.Elements); Send(w, a, mode == CastMode.Self ? "self" : "nova");
+        float expected = 1000 + n.HealingMinimum - n.Minimum;
+        Check(Math.Abs(target.Health - expected) < 0.02f, "F1 difiere del combate en " + combination.Keys + "/" + mode + ": " + target.Health + " vs " + expected);
+    }
+});
+Test("F1: daño por segundo, carga, hielo, minas, mojado, quemadura y curación tienen unidades y cifras reales", () =>
+{
+    SpellNumbers N(string keys, CastMode mode = CastMode.Forward) => SpellBalance.Numbers(SpellCatalogue.FromKeys(keys)!.Recipe, mode);
+    Check(N("SSS").Maximum == 345 && N("SSS").Unit == "daño/s", "Rayo arcano incorrecto.");
+    Check(N("FFF").Maximum == 174 && N("FFF").BurnPerSecond == 28, "Fuego o quemadura incorrectos.");
+    Check(N("AAA").Maximum == 300 && N("AAA").WetMaximum == 570, "El catálogo perdió el bonus contra mojado.");
+    Check(N("DD").Minimum == 220 && N("DD").Maximum == 500 && N("DD").Unit == "por impacto", "El rango de carga es incorrecto.");
+    Check(Math.Abs(N("QR").Maximum - 40.8f) < 0.01f && N("QR").Extra.Contains("4 fragmentos"), "Los fragmentos no tienen daño individual.");
+    Check(Math.Abs(N("ESF").Maximum - 311.4f) < 0.01f && N("ESF").Unit == "por mina", "La mina ofensiva no tiene daño individual.");
+    Check(N("WWW").HealingMaximum == 420 && N("WWW", CastMode.Self).HealingMaximum == 435 && N("EWW", CastMode.Self).HealingMaximum == 76,
+        "Curación y regeneración incorrectas.");
+    foreach (var keys in new[] { "SSS", "FFF", "AAA", "WWW" })
+    {
+        var (w, a, b) = Setup(); b.Position = new(1, 0); b.Health = 500; b.MaxHealth = 2000;
+        Select(w, a, SpellCatalogue.FromKeys(keys)!.Elements); Send(w, a, "input", aim: b.Position); Send(w, a, "cast"); w.Step();
+        var n = N(keys);
+        Check(Math.Abs(b.Health - (500 + (n.HealingMinimum - n.Minimum) / 60)) < 0.02f, "Daño/s de F1 difiere en " + keys);
+    }
+});
+Test("Elementos preparados: selección, carga y canal se replican y sus arrays son independientes", () =>
+{
+    var (w, a, _) = Setup(); Select(w, a, Element.Earth, Element.Earth, Element.Fire);
+    Check(w.Snapshot().Players[0].DisplayElements.SequenceEqual(new[] { Element.Earth, Element.Earth, Element.Fire }), "No se ven los tres elementos preparados.");
+    Send(w, a, "input"); Send(w, a, "cast"); var charging = w.Snapshot().Players[0];
+    Check(charging.Selected.Length == 0 && charging.Casting && charging.DisplayElements.SequenceEqual(new[] { Element.Earth, Element.Earth, Element.Fire }),
+        "Consumir la selección ocultó la roca mientras se carga.");
+    charging.CastingElements![0] = Element.Life;
+    Check(w.Snapshot().Players[0].CastingElements![0] == Element.Earth, "El snapshot modificó la roca en carga.");
+    Run(w, a, 10); Send(w, a, "release");
+    Check(w.Snapshot().Players[0].DisplayElements.Length == 0, "Soltar conservó elementos de la carga.");
+    a.ActionCooldown = 0; Select(w, a, Element.Arcane, Element.Arcane); Send(w, a, "cast");
+    var copy = Protocol.Deserialize<WorldSnapshot>(Protocol.Serialize(w.Snapshot()))!; SnapshotValidation.Check(copy);
+    Check(copy.Players[0].DisplayElements.SequenceEqual(new[] { Element.Arcane, Element.Arcane }), "La red perdió la combinación del canal.");
+    Send(w, a, "release"); Select(w, a, Element.Fire); Select(w, a, Element.Cold);
+    Check(w.Snapshot().Players[0].DisplayElements.Length == 0, "La cancelación no vació las casillas.");
+});
+
 Test("Direcciones IP, dominio, IPv6 y WSS", () =>
 {
     Check(ArenaConnection.Address("192.168.1.10").Port == 27015, "Puerto por defecto incorrecto.");
@@ -853,6 +1056,32 @@ if (server != null)
         Check(!dead.Alive && dead.MaxHealth == 1000 && dead.Respawn > 2 && dead.Respawn <= 3, "El servidor no aplicó la primera espera de 3 s.");
         SnapshotValidation.Check(connection.Latest);
     });
+    await AsyncTest("Reliquias en red: objetos, recogida autoritativa, acumulaciones y limpieza al morir", async () =>
+    {
+        var room = await RoomBrowser.CreateAsync(server, new() { Name = "Reliquias en red", ServerPassword = password,
+            Mode = GameMode.Duel, Map = ArenaMapId.Relics, MaxPlayers = 2, ScoreLimit = 10 });
+        await using var connection = new ArenaConnection();
+        await connection.ConnectAsync(server, "Recolector en red", 0, password, roomId: room.Id);
+        Check(connection.Room?.Map == ArenaMapId.Relics && connection.Latest!.Pickups is { Length: 14 }, "El saludo perdió el cuarto mapa u objetos.");
+        var item = connection.Latest!.Pickups!.First(i => i.Kind == BuffKind.Power);
+        await WaitFor(() =>
+        {
+            connection.Send(new() { Type = "input", MoveTo = true, TargetX = item.Position.X, TargetY = item.Position.Y,
+                AimX = 0, AimY = 0 });
+            return connection.Latest!.Players.Single().Buffs!.Any(b => b.Kind == BuffKind.Power && b.Stacks == 1);
+        }, "El servidor no recogió el objeto al llegar.");
+        connection.Send(new() { Type = "input" });
+        Check(!connection.Latest!.Pickups!.Single(i => i.Id == item.Id).Active, "La red dejó disponible el objeto recogido.");
+        for (int i = 0; i < 3; i++)
+        {
+            for (int e = 0; e < 3; e++) connection.Send(new() { Type = "element", Element = Element.Arcane });
+            connection.Send(new() { Type = "self" }); await Task.Delay(550);
+        }
+        await WaitFor(() => !connection.Latest!.Players.Single().Alive, "No se replicó la muerte del recolector.");
+        Check(connection.Latest!.Players.Single().Buffs!.Length == 0 && connection.Latest.Players.Single().MaxHealth == 1000,
+            "La red conservó las mejoras tras morir.");
+        SnapshotValidation.Check(connection.Latest);
+    });
     await AsyncTest("Contraseña de sala, aforo y sala inexistente se validan", async () =>
     {
         var room = await RoomBrowser.CreateAsync(server, new() { Name = "Duelo privado", ServerPassword = password,
@@ -909,8 +1138,11 @@ if (server != null)
         a.Send(new() { Type = "input", AimX = 0, AimY = 0 });
         a.Send(new() { Type = "cast" });
         await WaitFor(() => b.Latest!.Players.First(p => p.Id == a.PlayerId).Casting, "No se replicó el lanzamiento.");
+        Check(b.Latest!.Players.First(p => p.Id == a.PlayerId).DisplayElements.SequenceEqual(new[] { Element.Fire, Element.Fire, Element.Fire }),
+            "El rival perdió los elementos al empezar el canal.");
         a.Send(new() { Type = "release" });
         await WaitFor(() => !b.Latest!.Players.First(p => p.Id == a.PlayerId).Casting, "No se replicó la interrupción.");
+        Check(b.Latest!.Players.First(p => p.Id == a.PlayerId).DisplayElements.Length == 0, "El rival conservó casillas de un canal terminado.");
     });
 
 

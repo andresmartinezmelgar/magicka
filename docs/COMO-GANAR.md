@@ -50,9 +50,15 @@ El tercer mapa tiene un suelo en cruz de **2.688 unidades²**, cuatro pilares si
 
 En guerra se gana por tickets, como en Arena clásica. Duelo y todos contra todos mantienen el objetivo de bajas. Al comenzar otra partida se reinician vida máxima, bajas, muertes y tiempo de reaparición. Las reglas de Ascensión no se aplican a los otros mapas.
 
+## Santuario de las reliquias
+
+Sus catorce objetos dan mejoras acumulables de daño, protección, vida/s, vida máxima, velocidad, energía/s y curación. Se recogen al caminar sobre ellos y reaparecen a los doce segundos. Todas las mejoras desaparecen al morir, incluido el suicidio; reanimar no las recupera. [Efectos y límites de los objetos](OBJETOS.md).
+
+La guerra se decide por tickets; duelo y todos contra todos mantienen sus objetivos de bajas. No usa las reglas especiales de Ascensión.
+
 ## Límites, reaparición y nueva partida
 
-El creador elige el límite de bajas y, en Arena clásica o Ascensión, los tickets. Por defecto, duelo y arena se juegan a **15 bajas**; el duelo de práctica se juega a **5**. En Arena clásica y Ciudadela reapareces a los **2,5 segundos** en duelo y a los **4** en arena y guerra. Ascensión añade la penalización indicada arriba. Tras anunciar al ganador, comienza otra partida a los **9 segundos**, con los marcadores restablecidos y el mismo tipo de mago.
+El creador elige el límite de bajas y, en Arena clásica, Ascensión o Santuario, los tickets. Por defecto, duelo y arena se juegan a **15 bajas**; el duelo de práctica se juega a **5**. En Arena clásica, Ciudadela y Santuario reapareces a los **2,5 segundos** en duelo y a los **4** en arena y guerra. Ascensión añade la penalización indicada arriba. Tras anunciar al ganador, comienza otra partida a los **9 segundos**, con los marcadores restablecidos y el mismo tipo de mago.
 
 ## Combate
 

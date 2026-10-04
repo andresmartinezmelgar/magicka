@@ -80,11 +80,8 @@ public sealed partial class GameWorld
     private float BeamPressure(Wizard target, BeamPart part)
     {
         var s = part.Recipe;
-        return part.Scale * (ElementDamage(target, part.Owner, Element.Arcane, 115 * s.Count(Element.Arcane)) +
-            ElementDamage(target, part.Owner, Element.Fire, s.Steam ? 160 : 58 * s.Count(Element.Fire)) +
-            ElementDamage(target, part.Owner, Element.Cold, (s.Ice ? 68 : 24) * s.Count(Element.Cold)) +
-            ElementDamage(target, part.Owner, Element.Lightning, 100 * s.Count(Element.Lightning) * (target.Wet > 0 ? 1.9f : 1)) +
-            ElementDamage(target, part.Owner, Element.Earth, 100 * s.Count(Element.Earth)) + 35 * s.Count(Element.Life));
+        return part.Scale * (SpellBalance.Offensive.Sum(e => ElementDamage(target, part.Owner, e,
+            SpellBalance.Component(s, e, target.Wet > 0))) + 35 * s.Count(Element.Life));
     }
 
     private void TraceBeam(V2 from, V2 direction, float range, BeamPart[] parts, int owner, int ignoredWizard,
@@ -120,7 +117,7 @@ public sealed partial class GameWorld
             }
             else if (wall != null)
             {
-                wall.Health -= parts.Sum(p => 110 * p.Recipe.Power * p.Scale) * dt * 0.2f;
+                wall.Health -= parts.Sum(p => 110 * p.Recipe.Power * p.Scale * DamagePower(p.Owner)) * dt * 0.2f;
                 if (wall.Health <= 0) return;
                 normal = (wall.B - wall.A).Perpendicular.Normalized;
                 ward = wall.Recipe.Elements.Where(e => e != Element.Shield).ToArray();

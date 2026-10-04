@@ -19,6 +19,8 @@ public partial class MiniMap : Control
                 new Vector2(floor.Width, floor.Height) * scale), new("293c43"));
         foreach (var edge in map.Boundary) DrawLine(Point(edge.A), Point(edge.B), new("718784"), 1, true);
         foreach (var obstacle in map.Obstacles) DrawCircle(Point(obstacle.Position), Math.Max(1, obstacle.Radius * scale), new("526a70"));
+        foreach (var item in State.Pickups ?? [])
+            if (item.Active) DrawRect(new(Point(item.Position) - new Vector2(2, 2), new(4, 4)), RelicVisual.ColorFor(item.Kind));
         if (State.Mode == GameMode.Warfare)
             foreach (var p in State.Points)
             {

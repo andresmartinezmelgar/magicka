@@ -6,6 +6,23 @@ La demostración se repite, se puede pausar y reiniciar. Enseña el combate con 
 
 Grabaciones del juego: [efectos y minas](videos/combination-effects.mp4), [cruce de rayos](videos/beam-interactions.mp4), [refracción en escudos](videos/shield-refraction.mp4) y [captura progresiva](videos/point-capture.mp4). El catálogo integrado permite ver también las demás combinaciones.
 
+## Cifras de daño en F1
+
+Cada selección y modo muestra **DAÑO BASE** y, cuando corresponde, **CURACIÓN**. Las cifras suponen magos equilibrados, un objetivo seco sin escudo ni guarda y ninguna mejora de objeto. Afinidades, defensas y objetos modifican el resultado.
+
+| Caso | Cifra base |
+|---|---|
+| `SSS` frontal | 345 daño/s. |
+| `FFF` frontal | 174 daño/s y quemadura de 28 daño/s, hasta 4 s después del último golpe. |
+| `AAA` frontal | 300 daño/s; 570 contra un objetivo mojado. |
+| `DD` frontal | 220–500 por impacto, según la carga. |
+| `QR` frontal | 40,8 por fragmento; lanza cuatro. |
+| `ESF` frontal | 311,4 por mina y quemadura adicional. |
+| `WWW` frontal / sobre ti | 420 vida/s / 435 de vida instantánea. |
+| `EWW` sobre ti | 0 de daño; 76 vida/s y 180 de escudo durante 12 s. |
+
+El pulso sin escudo indica daño por impacto. El pulso con escudo crea seis minas o barreras y presenta la cifra de una. El catálogo distingue daño de rocas, splash, suelo y quemadura; no suma como un único golpe todos los fragmentos o los efectos con duración. La curación se limita a la capacidad individual del objetivo.
+
 ## Formas distintas de lanzar
 
 | Combinación | Lanzamiento | Comportamiento |
@@ -35,7 +52,7 @@ El anillo del impacto muestra su radio real. Una roca pura y un fragmento de hie
 
 ## Escudo regenerativo
 
-**EW + central** crea un escudo de 180 puntos y recupera **38 puntos de vida/s**; **EWW + central**, **76 puntos/s**. Dura hasta **12 s**. No cura instantáneamente y no supera 1000 puntos de vida. La curación termina al agotarse, caducar o sustituirse el escudo, y se limpia al morir y reaparecer.
+**EW + central** crea un escudo de 180 puntos y recupera **38 puntos de vida/s**; **EWW + central**, **76 puntos/s**. Dura hasta **12 s**. No cura instantáneamente y no supera la vida máxima individual. La curación termina al agotarse, caducar o sustituirse el escudo, y se limpia al morir y reaparecer.
 
 La burbuja se vuelve verde, aparecen partículas de recuperación y el HUD indica la tasa. La barra amarilla sigue mostrando la protección restante.
 
@@ -66,6 +83,6 @@ Cuando entra el rival, primero retira el progreso del equipo anterior, pasa por 
 
 ## Compatibilidad y comprobaciones
 
-La versión **v0.6.1 usa protocolo 4**. Actualizar cliente y servidor juntos. La red replica regeneración, minas armadas y sus radios, campos persistentes, componentes/intensidad de rayos y disputa de puntos.
+La versión **v0.9.0 usa protocolo 7**. Actualizar cliente y servidor juntos. La red replica regeneración, minas armadas y sus radios, campos persistentes, componentes/intensidad de rayos, disputa de puntos, cuatro mapas, elementos del lanzamiento activo y mejoras/objetos del Santuario.
 
 Las pruebas recorren las 360 demostraciones, verifican destinatarios de minas, regeneración, splash, caducidad, cruces, escudos y captura. `--combinations-smoke` comprueba diez escenas en el cliente y en la distribución Windows, incluida la representación de los nuevos eventos y los límites de recursos.

@@ -1,6 +1,6 @@
 namespace Arcana.Core;
 
-public enum ArenaMapId { Classic, Citadel, Ascension }
+public enum ArenaMapId { Classic, Citadel, Ascension, Relics }
 public sealed record FloorSection(V2 Center, float Width, float Height);
 public sealed record MapEdge(V2 A, V2 B);
 
@@ -15,6 +15,7 @@ public sealed class ArenaDefinition
     public IReadOnlyList<MapEdge> Boundary { get; }
     public IReadOnlyList<Obstacle> Obstacles { get; }
     public IReadOnlyList<V2> ControlPoints { get; }
+    public IReadOnlyList<V2> ItemSpawns { get; }
     public float Area => Floors.Sum(f => f.Width * f.Height);
     public int HoldSeconds => Id == ArenaMapId.Citadel ? 15 : 0;
     public float KillHealthBonus => Id == ArenaMapId.Ascension ? 10 : 0;
@@ -25,10 +26,11 @@ public sealed class ArenaDefinition
     private readonly Lazy<(V2[] Positions, int[][] Neighbors)> _navigation;
 
     internal ArenaDefinition(ArenaMapId id, string name, float halfWidth, float halfHeight,
-        FloorSection[] floors, V2[] outline, Obstacle[] obstacles, V2[] points, float spawnX)
+        FloorSection[] floors, V2[] outline, Obstacle[] obstacles, V2[] points, float spawnX, V2[]? itemSpawns = null)
     {
         Id = id; Name = name; HalfWidth = halfWidth; HalfHeight = halfHeight; _spawnX = spawnX;
         Floors = Array.AsReadOnly(floors); Obstacles = Array.AsReadOnly(obstacles); ControlPoints = Array.AsReadOnly(points);
+        ItemSpawns = Array.AsReadOnly(itemSpawns ?? []);
         Boundary = Array.AsReadOnly(outline.Select((p, i) => new MapEdge(p, outline[(i + 1) % outline.Length])).ToArray());
         _navigation = new(BuildNavigation);
     }
@@ -130,9 +132,16 @@ internal static class ArenaMaps
         [new(new(-12, -7), 1.5f, 3), new(new(-12, 7), 1.5f, 3),
          new(new(12, -7), 1.5f, 3), new(new(12, 7), 1.5f, 3)],
         [new(-24, 0), V2.Zero, new(24, 0)], 31);
+    private static readonly ArenaDefinition Relics = new(ArenaMapId.Relics, "Santuario de las reliquias", 36, 28,
+        [new(V2.Zero, 72, 56)], [new(-36, -28), new(36, -28), new(36, 28), new(-36, 28)],
+        [new(new(-10, -10), 1.4f, 2.8f), new(new(10, -10), 1.4f, 2.8f),
+         new(new(-10, 10), 1.4f, 2.8f), new(new(10, 10), 1.4f, 2.8f),
+         new(new(0, -18), 1.2f, 2.4f), new(new(0, 18), 1.2f, 2.4f)],
+        [new(-18, -10), V2.Zero, new(18, 10)], 31,
+        new[] { 0, -7, 7, -14, 14, -21, 21 }.SelectMany(y => new V2[] { new(-22, y), new(22, y) }).ToArray());
     public static ArenaDefinition Get(ArenaMapId id) => id switch
     {
-        ArenaMapId.Classic => Classic, ArenaMapId.Citadel => Citadel, ArenaMapId.Ascension => Ascension,
+        ArenaMapId.Classic => Classic, ArenaMapId.Citadel => Citadel, ArenaMapId.Ascension => Ascension, ArenaMapId.Relics => Relics,
         _ => throw new ArgumentOutOfRangeException(nameof(id))
     };
 }

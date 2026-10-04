@@ -46,6 +46,7 @@ public sealed partial class GameWorld
         Map = ArenaMap.Get(Options.Map);
         _random = new(Options.Seed);
         _points = Map.ControlPoints.Select((p, i) => new ControlPoint { Id = i, Position = p }).ToArray();
+        _pickups = Map.ItemSpawns.Select((p, i) => new Pickup { Id = i + 1, Position = p, Kind = (BuffKind)(i / 2) }).ToArray();
         ResetScores();
         for (int i = 0; i < Math.Min(Options.Bots, Options.MaxPlayers); i++)
             AddPlayer($"Bot {i + 1}", -1, true, (WizardType)(i % 5));
@@ -151,10 +152,11 @@ public sealed partial class GameWorld
             Move(p, dt);
             if (p.Charging != null && p.Frozen <= 0)
             {
-                p.ChargeTime = Math.Min(1.4f, p.ChargeTime + dt);
-                if (p.ChargeTime >= 1.4f) Release(p);
+                p.ChargeTime = Math.Min(SpellBalance.ChargeSeconds, p.ChargeTime + dt);
+                if (p.ChargeTime >= SpellBalance.ChargeSeconds) Release(p);
             }
         }
+        TickPickups(dt);
         // Todos se mueven antes de resolver los canales: cruzar rayos no depende del orden de los jugadores.
         TickChannels(dt);
         TickProjectiles(dt);
@@ -169,17 +171,17 @@ public sealed partial class GameWorld
         p.Frozen = Math.Max(0, p.Frozen - dt);
         p.Chill = Math.Max(0, p.Chill - 10 * dt);
         p.Haste = Math.Max(0, p.Haste - dt);
-        p.Energy = Math.Min(100, p.Energy + 1.8f * dt);
+        p.Energy = Math.Min(100, p.Energy + (1.8f + RelicBuffs.Energy(p)) * dt);
         p.ShieldTime = Math.Max(0, p.ShieldTime - dt);
         p.WardTime -= dt;
         if (p.ShieldTime <= 0) p.Shield = p.ShieldMax = p.RegenerationRate = 0;
         if (p.Shield <= 0) p.RegenerationRate = 0;
-        if (p.RegenerationRate > 0) p.Health = Math.Min(p.MaxHealth, p.Health + p.RegenerationRate * dt);
+        p.Health = Math.Min(p.MaxHealth, p.Health + (p.RegenerationRate * RelicBuffs.Healing(p) + RelicBuffs.Regeneration(p)) * dt);
         if (p.WardTime <= 0) p.Ward = [];
         if (p.Burning > 0)
         {
             p.Burning = Math.Max(0, p.Burning - dt);
-            Damage(p, 28 * dt * p.BurnMultiplier * WizardTypes.Incoming(p.WizardType, Element.Fire) * Resistance(p, Element.Fire), p.BurnOwner, [Element.Fire]);
+            Damage(p, SpellBalance.BurnPerSecond * dt * p.BurnMultiplier * WizardTypes.Incoming(p.WizardType, Element.Fire) * Resistance(p, Element.Fire), p.BurnOwner, [Element.Fire]);
         }
     }
 
@@ -201,7 +203,7 @@ public sealed partial class GameWorld
             if (move.Length < 0.18f) { move = V2.Zero; p.Input.MoveTo = false; }
             else if (Map.Id != ArenaMapId.Classic) move = NavigationDirection(p, goal, dt);
         }
-        float speed = 6.2f * (p.Haste > 0 ? 1.65f : 1) * (1 - p.Chill * 0.005f);
+        float speed = 6.2f * RelicBuffs.Speed(p) * (p.Haste > 0 ? 1.65f : 1) * (1 - p.Chill * 0.005f);
         if (p.Channel != null) speed *= 0.48f;
         if (p.Charging != null) speed *= 0.35f;
         if (p.Ward.Contains(Element.Earth)) speed *= 0.78f;
@@ -235,7 +237,7 @@ public sealed partial class GameWorld
         else if (spell.Shape == SpellShape.Shards)
         {
             int count = 3 + spell.Count(Element.Cold);
-            for (int i = 0; i < count; i++) SpawnProjectile(p, spell, p.Facing.Rotated((i - (count - 1) / 2f) * 0.11f), 0.6f, 22, 0.16f);
+            for (int i = 0; i < count; i++) SpawnProjectile(p, spell, p.Facing.Rotated((i - (count - 1) / 2f) * 0.11f), SpellBalance.ShardPower, 22, 0.16f);
             p.ActionCooldown = 0.5f;
         }
         else if (spell.Shape == SpellShape.Barrier)
@@ -253,7 +255,7 @@ public sealed partial class GameWorld
     {
         if (p.Charging != null)
         {
-            SpawnProjectile(p, p.Charging, p.Facing, 1.1f + p.ChargeTime, 13 + p.ChargeTime * 9,
+            SpawnProjectile(p, p.Charging, p.Facing, SpellBalance.RockMinimum + p.ChargeTime, 13 + p.ChargeTime * 9,
                 0.24f + p.Charging.Count(Element.Earth) * 0.13f);
             p.ActionCooldown = 0.35f;
         }
@@ -305,7 +307,7 @@ public sealed partial class GameWorld
         var spell = p.Channel!;
         var from = SpellOrigin(p, p.Facing, 0.7f);
         var end = RayEnd(from, p.Facing, spell.Range, out var wall);
-        if (wall != null && !spell.Healing) wall.Health -= 110 * spell.Power * dt;
+        if (wall != null && !spell.Healing) wall.Health -= 110 * spell.Power * DamagePower(p.Id) * dt;
         // Los rayos rectos se resuelven juntos en TickChannels. Este método mantiene chorros y cadenas.
         if (spell.Shape != SpellShape.Beam)
         {
@@ -356,7 +358,7 @@ public sealed partial class GameWorld
         }
         else if (spell.Healing)
         {
-            p.Health = Math.Min(p.MaxHealth, p.Health + 145 * spell.Count(Element.Life));
+            p.Health = Math.Min(p.MaxHealth, p.Health + SpellBalance.SelfHeal * spell.Count(Element.Life) * RelicBuffs.Healing(p));
         }
         else if (spell.Has(Element.Fire) && (p.Wet > 0 || p.Frozen > 0 || p.Chill > 0))
         {
@@ -480,16 +482,12 @@ public sealed partial class GameWorld
     private void Hit(Wizard target, SpellRecipe spell, float scale, int owner, V2 force)
     {
         if (!target.Alive) return;
-        if (spell.Healing) target.Health = Math.Min(target.MaxHealth, target.Health + 140 * spell.Count(Element.Life) * scale);
+        if (spell.Healing) target.Health = Math.Min(target.MaxHealth, target.Health + SpellBalance.Heal * spell.Count(Element.Life) * scale * HealingPower(owner));
         if (target.Invulnerable > 0) return;
         if (_players.TryGetValue(owner, out var source) && source.Id != target.Id && Allied(source, target) && !Options.FriendlyFire) return;
         float damage = 0;
-        damage += ElementDamage(target, owner, Element.Arcane, spell.Count(Element.Arcane) * 115);
-        damage += ElementDamage(target, owner, Element.Earth, spell.Count(Element.Earth) * 100);
-        damage += ElementDamage(target, owner, Element.Lightning, spell.Count(Element.Lightning) * 100 * (target.Wet > 0 ? 1.9f : 1));
-        if (spell.Steam) damage += ElementDamage(target, owner, Element.Fire, 160);
-        else damage += ElementDamage(target, owner, Element.Fire, spell.Count(Element.Fire) * 58);
-        damage += ElementDamage(target, owner, Element.Cold, spell.Count(Element.Cold) * (spell.Ice ? 68 : 24));
+        foreach (var element in SpellBalance.Offensive)
+            damage += ElementDamage(target, owner, element, SpellBalance.Component(spell, element, target.Wet > 0));
         if (spell.Has(Element.Water) && !spell.Steam && !spell.Ice && Resistance(target, Element.Water) > 0.5f)
         {
             target.Wet = 6; target.Burning = 0;
@@ -499,7 +497,7 @@ public sealed partial class GameWorld
         if (spell.Has(Element.Fire) && !spell.Steam && Resistance(target, Element.Fire) > 0.5f)
         {
             if (target.Wet > 0) target.Wet = Math.Max(0, target.Wet - 12 * scale);
-            else { target.Burning = 4; target.BurnOwner = owner; target.BurnMultiplier = Outgoing(owner, Element.Fire); }
+            else { target.Burning = SpellBalance.BurnDuration; target.BurnOwner = owner; target.BurnMultiplier = Outgoing(owner, Element.Fire); }
             target.Chill = Math.Max(0, target.Chill - 100 * scale);
             target.Frozen = Math.Max(0, target.Frozen - 5 * scale);
         }
@@ -518,6 +516,7 @@ public sealed partial class GameWorld
     private void Damage(Wizard target, float amount, int owner, Element[]? elements = null)
     {
         if (!target.Alive || target.Invulnerable > 0 || amount <= 0) return;
+        amount *= DamagePower(owner) * RelicBuffs.Incoming(target);
         float absorbed = Math.Min(target.Shield, amount);
         target.Shield -= absorbed; amount -= absorbed;
         target.Health = Math.Max(0, target.Health - amount);
@@ -532,6 +531,7 @@ public sealed partial class GameWorld
         }
         if (target.Health > 0) return;
         target.Deaths++; target.Respawn = Map.RespawnSeconds(Options.Mode, target.Deaths);
+        RelicBuffs.Clear(target);
         target.Channel = null; target.Charging = null; target.Selection.Clear(); target.Shield = target.ShieldMax = target.ShieldTime = target.RegenerationRate = 0;
         if (Options.Mode == GameMode.Warfare && !HoldToWin) Scores[target.Team] = Math.Max(0, Scores[target.Team] - 1);
         string text = $"{target.Name} ha caído";
@@ -585,7 +585,7 @@ public sealed partial class GameWorld
             }
             if (wallHit != null)
             {
-                wallHit.Health -= 170 * projectile.Power * projectile.Recipe.Power;
+                wallHit.Health -= 170 * projectile.Power * projectile.Recipe.Power * DamagePower(projectile.Owner);
                 if (wallHit.Recipe.Elements.Length == 1)
                 {
                     var normal = (wallHit.B - wallHit.A).Perpendicular.Normalized;
@@ -621,7 +621,7 @@ public sealed partial class GameWorld
             if (f.Kind is "burning_ground" or "frost_ground" or "water_pool")
             {
                 foreach (var p in _players.Values.Where(p => p.Alive && V2.Distance(p.Position, f.Position) < f.Radius && Visible(f.Position, p.Position)))
-                    Hit(p, f.Recipe, dt * 0.4f, f.Owner, (p.Position - f.Position).Normalized);
+                    Hit(p, f.Recipe, dt * SpellBalance.GroundPower, f.Owner, (p.Position - f.Position).Normalized);
                 continue;
             }
             bool trigger = f.Kind == "meteor" || _players.Values.Any(p => EligibleForMine(p, f) && V2.Distance(p.Position, f.Position) < f.TriggerRadius);
@@ -631,9 +631,9 @@ public sealed partial class GameWorld
                 if (f.Kind == "healing_mine")
                 {
                     if (_players.TryGetValue(f.Owner, out var owner) && Allied(owner, p))
-                        p.Health = Math.Min(p.MaxHealth, p.Health + 252 * f.Recipe.Count(Element.Life));
+                        p.Health = Math.Min(p.MaxHealth, p.Health + SpellBalance.MineHeal * f.Recipe.Count(Element.Life) * RelicBuffs.Healing(owner));
                 }
-                else Hit(p, f.Recipe, f.Kind == "meteor" ? 2.7f : 1.8f, f.Owner, (p.Position - f.Position).Normalized);
+                else Hit(p, f.Recipe, f.Kind == "meteor" ? 2.7f : SpellBalance.MinePower, f.Owner, (p.Position - f.Position).Normalized);
             }
             Emit(f.Kind == "healing_mine" ? "mine_heal" : "explosion", f.Position, f.Recipe.Elements, f.Kind == "meteor" ? "Meteoro" : "", f.Radius);
             f.Lifetime = 0;
@@ -712,7 +712,8 @@ public sealed partial class GameWorld
         MatchEnded = false; Winner = -1; RestartIn = 0;
         ResetScores(); _projectiles.Clear(); _walls.Clear(); _fields.Clear();
         foreach (var point in _points) { point.Owner = -1; point.Progress = 0; point.Contested = false; }
-        foreach (var p in _players.Values) { p.Kills = p.Deaths = 0; p.MaxHealth = Wizard.BaseMaxHealth; Respawn(p); p.Energy = 100; Array.Clear(p.MagickCooldowns); }
+        foreach (var item in _pickups) item.Respawn = 0;
+        foreach (var p in _players.Values) { p.Kills = p.Deaths = 0; RelicBuffs.Clear(p); p.MaxHealth = Wizard.BaseMaxHealth; Respawn(p); p.Energy = 100; Array.Clear(p.MagickCooldowns); }
         Emit("restart", V2.Zero, [], "Nueva partida");
     }
     private void Respawn(Wizard p)
@@ -741,6 +742,11 @@ public sealed partial class GameWorld
             goal = _points.Where(q => q.Owner != p.Team || q.Contested).OrderBy(q => V2.Distance(q.Position, p.Position)).FirstOrDefault()?.Position
                 ?? _points[p.Id % _points.Length].Position;
         float distance = target == null ? 100 : V2.Distance(p.Position, target.Position);
+        if (_pickups.Length > 0 && (target == null || distance > 9))
+        {
+            var item = _pickups.Where(i => i.Respawn <= 0).OrderBy(i => V2.Distance(p.Position, i.Position)).FirstOrDefault();
+            if (item != null && V2.Distance(p.Position, item.Position) < 12) goal = item.Position;
+        }
         var direction = (goal - p.Position).Normalized;
         if (target != null && distance < 8) direction = direction.Perpendicular * MathF.Sin((float)Time * 0.65f + p.Id);
         if (target != null && distance < 3.5f) direction = (p.Position - target.Position).Normalized;
@@ -786,11 +792,12 @@ public sealed partial class GameWorld
         _players.Values.Select(p => new WizardSnapshot(p.Id, p.Name, p.Team, p.Bot, p.Position, p.Facing, p.Health,
             p.MaxHealth, p.Shield, p.Ward.ToArray(), p.Selection.Elements.ToArray(), p.Alive, Math.Max(0, p.Respawn),
             p.Wet, p.Burning, p.Chill, p.Frozen, p.Haste, p.Energy, p.MagickCooldowns.ToArray(), p.Kills, p.Deaths,
-            p.ChargeTime / 1.4f, p.Channel != null || p.Charging != null, p.ShieldMax, p.Shield > 0 ? p.ShieldTime : 0, p.WizardType, p.RegenerationRate)).ToArray(),
+            p.ChargeTime / SpellBalance.ChargeSeconds, p.Channel != null || p.Charging != null, p.ShieldMax, p.Shield > 0 ? p.ShieldTime : 0, p.WizardType, p.RegenerationRate * RelicBuffs.Healing(p),
+            RelicBuffs.Snapshot(p), (p.Charging?.Elements ?? p.Channel?.Elements ?? []).ToArray())).ToArray(),
         _projectiles.Select(p => new ProjectileSnapshot(p.Id, p.Owner, p.Position, p.Velocity.Normalized, p.Recipe.Elements.ToArray(), p.Radius)).ToArray(),
         _walls.Select(w => new WallSnapshot(w.Id, w.Owner, w.A, w.B, w.Health, w.Lifetime, w.Recipe.Elements.ToArray())).ToArray(),
         _fields.Select(f => new FieldSnapshot(f.Id, f.Owner, f.Position, f.Radius, f.Lifetime, f.Recipe.Elements.ToArray(), f.Kind, f.TriggerRadius, f.Delay <= 0)).ToArray(),
         _beams.Select(b => b with { Elements = b.Elements.ToArray() }).ToArray(), _points.Select(p => new PointSnapshot(p.Id, p.Position, p.Owner, p.Progress, p.Contested)).ToArray(),
         _events.Select(e => e.Event with { Elements = e.Event.Elements.ToArray() }).ToArray(), Options.ScoreLimit, Options.Tickets,
-        Map.Id, HoldingTeam, HoldSeconds);
+        Map.Id, HoldingTeam, HoldSeconds, _pickups.Select(i => new PickupSnapshot(i.Id, i.Position, i.Kind, i.Respawn <= 0, Math.Max(0, i.Respawn))).ToArray());
 }

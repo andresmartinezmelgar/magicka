@@ -16,6 +16,8 @@ public partial class ArenaRenderer : Node3D
     private readonly CombatEffects _effects = new();
     public CombatEffects Effects => _effects;
     private readonly Dictionary<int, CapturePointVisual> _points = [];
+    private readonly Dictionary<int, RelicVisual> _pickups = [];
+    internal IReadOnlyDictionary<int, RelicVisual> Pickups => _pickups;
     internal IReadOnlyDictionary<int, CapturePointVisual> Points => _points;
     private readonly Dictionary<(Color Color, float Glow, bool Unshaded), StandardMaterial3D> _materials = [];
     private readonly HashSet<int> _present = [];
@@ -79,6 +81,7 @@ public partial class ArenaRenderer : Node3D
         foreach (var v in _projectiles.Values) v.QueueFree(); _projectiles.Clear();
         foreach (var v in _walls.Values) v.QueueFree(); _walls.Clear();
         foreach (var v in _fields.Values) v.QueueFree(); _fields.Clear();
+        foreach (var v in _pickups.Values) v.QueueFree(); _pickups.Clear();
         _effects.Clear();
         foreach (var point in _points.Values) point.Reset();
         foreach (var beam in _beamPool) beam.Root.Visible = false;
@@ -219,6 +222,13 @@ public partial class ArenaRenderer : Node3D
         DrawProjectiles(snapshot, dt);
         DrawWalls(snapshot);
         DrawFields(snapshot);
+        foreach (var item in snapshot.Pickups ?? [])
+        {
+            if (!_pickups.TryGetValue(item.Id, out var visual))
+            { visual = new RelicVisual(); AddChild(visual); visual.Build(item); _pickups[item.Id] = visual; }
+            visual.Update(item, (float)_time);
+        }
+        if (_fresh) RemoveMissing(_pickups, (snapshot.Pickups ?? []).Select(i => i.Id));
         _beamUsed = 0;
         foreach (var beam in snapshot.Beams) DrawBeam(beam);
         for (int i = _beamUsed; i < _beamPool.Count; i++) _beamPool[i].Root.Visible = false;
@@ -231,7 +241,7 @@ public partial class ArenaRenderer : Node3D
                 {
                     // El evento no contiene ID de autor; su posición es la del lanzador.
                     foreach (var p in snapshot.Players)
-                        if (p.Alive && V2.Distance(p.Position, e.Position) < 0.15f && _wizards.TryGetValue(p.Id, out var caster)) caster.PlayCastPose();
+                        if (p.Alive && V2.Distance(p.Position, e.Position) < 0.15f && _wizards.TryGetValue(p.Id, out var caster)) caster.PlayCastPose(e.Elements);
                 }
                 if (e.Kind is "cast" or "self" or "nova" or "impact" or "explosion" or "death" or "blink" &&
                     AudioEnabled && local != null && V2.Distance(e.Position, local.Position) < 15) _audio.PlayEvent(e);

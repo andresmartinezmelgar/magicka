@@ -5,10 +5,11 @@ namespace Arcana.Client;
 
 public partial class Hud : Control
 {
+    internal const float GameplayScale = 0.75f;
     private Label _name = null!, _status = null!, _match = null!, _feed = null!, _banner = null!, _server = null!;
     private ProgressBar _health = null!, _shield = null!, _energy = null!, _charge = null!;
     private Label _healthText = null!, _shieldText = null!, _energyText = null!;
-    private Label _objective = null!, _affinity = null!;
+    private Label _objective = null!, _affinity = null!, _buffs = null!;
     private HBoxContainer _teams = null!;
     private Label _blueScore = null!, _redScore = null!;
     private StyleBoxFlat _shieldFill = null!, _shieldTrack = null!;
@@ -29,7 +30,9 @@ public partial class Hud : Control
 
     public void Build()
     {
-        Theme = Ui.Theme(); MouseFilter = MouseFilterEnum.Ignore; Ui.Full(this);
+        Theme = Ui.Theme(); MouseFilter = MouseFilterEnum.Ignore;
+        SetAnchorsPreset(LayoutPreset.TopLeft); Position = Vector2.Zero;
+        Scale = Vector2.One * GameplayScale; ResizeLayout(); GetViewport().SizeChanged += ResizeLayout;
         _server = Ui.Label("", 15, Ui.Gold); _server.Position = new(28, 24); AddChild(_server);
         var controls = Ui.Label("F1  Controles     TAB  Clasificación     ESC  Menú", 14, Ui.Muted);
         controls.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight); controls.Position = new(-440, 24); controls.Size = new(420, 24); AddChild(controls);
@@ -43,7 +46,7 @@ public partial class Hud : Control
         _objective = Ui.Label("", 14, Ui.Gold); _objective.Name = "MatchObjective"; _objective.HorizontalAlignment = HorizontalAlignment.Center;
         _objective.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterTop); _objective.Position = new(-345, 60); _objective.Size = new(690, 46);
         _objective.AutowrapMode = TextServer.AutowrapMode.WordSmart; AddChild(_objective);
-        var playerPanel = new PanelContainer { CustomMinimumSize = new(310, 254), MouseFilter = MouseFilterEnum.Ignore };
+        var playerPanel = new PanelContainer { Name = "PlayerStatusPanel", CustomMinimumSize = new(310, 254), MouseFilter = MouseFilterEnum.Ignore };
         playerPanel.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomLeft); playerPanel.Position = new(24, -282); AddChild(playerPanel);
         var info = new VBoxContainer(); info.AddThemeConstantOverride("separation", 7); playerPanel.AddChild(info);
         _name = Ui.Label("", 19); info.AddChild(_name);
@@ -56,7 +59,9 @@ public partial class Hud : Control
         info.AddChild(Meter(_shield, "ShieldValue", out _shieldText));
         _energy = Bar(Ui.Energy, 100, 20); info.AddChild(Meter(_energy, "EnergyValue", out _energyText, 12));
         _status = Ui.Label("", 13, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; info.AddChild(_status);
-        var spells = new PanelContainer { CustomMinimumSize = new(690, 0), MouseFilter = MouseFilterEnum.Ignore };
+        var spells = new PanelContainer { Name = "SpellControlsPanel", CustomMinimumSize = new(690, 0), MouseFilter = MouseFilterEnum.Ignore };
+        _buffs = Ui.Label("", 13, Ui.Gold); _buffs.Name = "ActiveBuffs"; _buffs.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _buffs.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterBottom); _buffs.Position = new(-282, -273); _buffs.Size = new(690, 44); AddChild(_buffs);
         spells.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterBottom); spells.Position = new(-282, -225); AddChild(spells);
         var stack = new VBoxContainer(); stack.AddThemeConstantOverride("separation", 9); spells.AddChild(stack);
         var first = new HBoxContainer(); first.AddThemeConstantOverride("separation", 14); stack.AddChild(first);
@@ -101,6 +106,8 @@ public partial class Hud : Control
     {
         foreach (var child in root.GetChildren()) { if (child is Control c) c.MouseFilter = MouseFilterEnum.Ignore; IgnoreChildren(child); }
     }
+    private void ResizeLayout() => Size = GetViewportRect().Size / GameplayScale;
+    public override void _ExitTree() => GetViewport().SizeChanged -= ResizeLayout;
     private static ProgressBar Bar(Color color, float max, int height)
     {
         var bar = new ProgressBar { MaxValue = max, ShowPercentage = false, CustomMinimumSize = new(0, height) };
@@ -135,6 +142,8 @@ public partial class Hud : Control
         _affinity.Text = WizardTypes.Name(player.WizardType);
         _affinity.TooltipText = WizardTypes.Description(player.WizardType);
         _affinity.AddThemeColorOverride("font_color", Ui.WizardColor(player.WizardType));
+        _buffs.Text = RelicBuffs.Summary(player.Buffs); _buffs.Visible = _buffs.Text.Length > 0;
+        _buffs.TooltipText = string.Join("\n", (player.Buffs ?? []).Select(b => RelicBuffs.Name(b.Kind) + " ×" + b.Stacks + ": " + RelicBuffs.Description(b.Kind)));
         _objective.Text = MatchRules.Objective(snapshot.Mode, snapshot.ScoreLimit, snapshot.StartingTickets, snapshot.Map);
         bool hold = snapshot.Mode == GameMode.Warfare && snapshot.Map == ArenaMapId.Citadel;
         if (hold) _objective.Text += snapshot.HoldingTeam >= 0
@@ -159,11 +168,11 @@ public partial class Hud : Control
         _status.Text = statuses.Count > 0 ? string.Join(" · ", statuses) : "Sin estados alterados";
         for (int i = 0; i < 3; i++)
         {
-            bool selected = i < player.Selected.Length;
-            _selected[i].Text = selected ? Ui.ElementKey(player.Selected[i]) : "—";
+            bool selected = i < player.DisplayElements.Length;
+            _selected[i].Text = selected ? Ui.ElementKey(player.DisplayElements[i]) : "—";
             _selected[i].AddThemeColorOverride("font_color", selected ? Ui.Text : Ui.Muted);
-            _selectedIcons[i].Value = selected ? player.Selected[i] : null;
-            _selectedStyles[i].BorderColor = selected ? Ui.ElementColor(player.Selected[i]) : new Color("405372");
+            _selectedIcons[i].Value = selected ? player.DisplayElements[i] : null;
+            _selectedStyles[i].BorderColor = selected ? Ui.ElementColor(player.DisplayElements[i]) : new Color("405372");
         }
         for (int i = 0; i < 4; i++)
         {
@@ -202,7 +211,7 @@ public partial class Hud : Control
         {
             var color = p.Team == 0 ? Ui.Blue : Ui.Red;
             foreach (var text in new[] { p.Name + (p.Id == id ? " (tú)" : ""), p.Team == 0 ? "Azul" : "Rojo", p.Kills.ToString(), p.Deaths.ToString(), p.Alive
-                ? snapshot.Map == ArenaMapId.Ascension ? $"{Math.Ceiling(p.Health):0} / {p.MaxHealth:0}" : Math.Ceiling(p.Health).ToString() : "Caído" })
+                ? snapshot.Map is ArenaMapId.Ascension or ArenaMapId.Relics ? $"{Math.Ceiling(p.Health):0} / {p.MaxHealth:0}" : Math.Ceiling(p.Health).ToString() : "Caído" })
             {
                 if (cell == _scoreCells.Count)
                 {

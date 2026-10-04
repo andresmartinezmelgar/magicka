@@ -23,6 +23,13 @@ public partial class WizardVisual : Node3D
     private Label3D _shieldAmount = null!;
     private MeshInstance3D _affinityRing = null!;
     private Color _color;
+    private Node3D _elementsRoot = null!;
+    private readonly List<MeshInstance3D> _elementFills = [];
+    private readonly List<Label3D> _elementKeys = [];
+    private Element[] _lastCastElements = [];
+    internal Element[] DisplayedElements { get; private set; } = [];
+    internal int ElementSlotCount => _elementFills.Count;
+    internal bool ElementSlotsVisible => _elementsRoot.Visible;
     public void Build(WizardSnapshot p, bool local)
     {
         _color = p.Team == 0 ? Ui.Blue : Ui.Red;
@@ -65,6 +72,19 @@ public partial class WizardVisual : Node3D
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, Modulate = Ui.Shield,
             OutlineModulate = new("060a12"), OutlineSize = 8, NoDepthTest = true };
         _healthRoot.AddChild(_shieldAmount);
+        _elementsRoot = new Node3D { Name = "PreparedElements" }; AddChild(_elementsRoot);
+        for (int i = 0; i < 3; i++)
+        {
+            float x = (i - 1) * 0.4f;
+            Mesh(_elementsRoot, new BoxMesh { Size = new(0.36f, 0.36f, 0.03f) }, new(x, 0, 0),
+                new StandardMaterial3D { AlbedoColor = new("8b9bb0"), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, NoDepthTest = true });
+            var fill = Mesh(_elementsRoot, new BoxMesh { Size = new(0.29f, 0.29f, 0.04f) }, new(x, 0, 0.035f),
+                new StandardMaterial3D { AlbedoColor = new("111c2b"), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, NoDepthTest = true });
+            _elementFills.Add(fill);
+            var key = new Label3D { Position = new(x, 0, 0.075f), FontSize = 25, PixelSize = 0.008f,
+                Modulate = new("09111e"), OutlineSize = 0, NoDepthTest = true };
+            _elementsRoot.AddChild(key); _elementKeys.Add(key);
+        }
     }
     private static MeshInstance3D Mesh(Node3D parent, Godot.Mesh mesh, Vector3 position, Material material)
     {
@@ -114,6 +134,16 @@ public partial class WizardVisual : Node3D
         _healthRoot.Position = camera.GlobalBasis.Y * 2.25f;
         _healthRoot.Basis = camera.GlobalBasis;
         _name.Position = camera.GlobalBasis.Y * (p.WizardType == WizardType.Balanced ? 3.22f : 3.54f);
+        _elementsRoot.Position = camera.GlobalBasis.Y * (p.WizardType == WizardType.Balanced ? 3.65f : 4.02f);
+        _elementsRoot.Basis = camera.GlobalBasis; _elementsRoot.Visible = p.Alive;
+        var elements = p.DisplayElements.Length > 0 ? p.DisplayElements : _castPose > 0 ? _lastCastElements : [];
+        DisplayedElements = p.Alive ? elements : [];
+        for (int i = 0; i < 3; i++)
+        {
+            bool filled = p.Alive && i < elements.Length;
+            ((StandardMaterial3D)_elementFills[i].MaterialOverride).AlbedoColor = filled ? Ui.ElementColor(elements[i]) : new("111c2b");
+            _elementKeys[i].Text = filled ? Ui.ElementKey(elements[i]) : "";
+        }
         _affinityRing.Visible = p.Alive && p.WizardType != WizardType.Balanced;
         _affinityRing.Scale = Vector3.One * (1 + Mathf.Sin(time * 2 + p.Id) * 0.04f);
         _shield.Visible = p.Alive && (p.Shield > 0 || p.Frozen > 0);
@@ -139,5 +169,6 @@ public partial class WizardVisual : Node3D
             _shieldAmount.Text = $"{Math.Ceiling(p.Shield):0}/{Ui.ShieldMaximum(p):0}";
         }
     }
-    public void PlayCastPose() => _castPose = 0.28f;
+    public void PlayCastPose(Element[]? elements = null)
+    { _castPose = 0.28f; _lastCastElements = elements?.Take(3).ToArray() ?? []; }
 }

@@ -5,10 +5,10 @@ namespace Arcana.Core;
 
 public static class Protocol
 {
-    public const int Version = 6;
+    public const int Version = 7;
     public const int GamePort = 27015;
     public const int DiscoveryPort = 27016;
-    public const string DiscoveryMagic = "ARCANA_DISCOVER_V6";
+    public const string DiscoveryMagic = "ARCANA_DISCOVER_V7";
     public const int MaxMessageBytes = 4096;
     public static readonly JsonSerializerOptions Json = new()
     {
@@ -60,7 +60,13 @@ public sealed record WizardSnapshot(int Id, string Name, int Team, bool Bot, V2 
     V2 Facing, float Health, float MaxHealth, float Shield, Element[] Ward, Element[] Selected,
     bool Alive, float Respawn, float Wet, float Burning, float Chill, float Frozen, float Haste,
     float Energy, float[] Cooldowns, int Kills, int Deaths, float Charge, bool Casting,
-    float ShieldMax = 0, float ShieldSeconds = 0, WizardType WizardType = WizardType.Balanced, float RegenerationRate = 0);
+    float ShieldMax = 0, float ShieldSeconds = 0, WizardType WizardType = WizardType.Balanced, float RegenerationRate = 0,
+    BuffSnapshot[]? Buffs = null, Element[]? CastingElements = null)
+{
+    [JsonIgnore] public Element[] DisplayElements => Selected.Length > 0 ? Selected : CastingElements ?? [];
+}
+public sealed record BuffSnapshot(BuffKind Kind, int Stacks);
+public sealed record PickupSnapshot(int Id, V2 Position, BuffKind Kind, bool Active, float Respawn);
 public sealed record ProjectileSnapshot(int Id, int Owner, V2 Position, V2 Direction,
     Element[] Elements, float Radius);
 public sealed record WallSnapshot(int Id, int Owner, V2 A, V2 B, float Health, float Lifetime, Element[] Elements);
@@ -74,4 +80,4 @@ public sealed record WorldSnapshot(long Tick, double Time, GameMode Mode, bool M
     int Winner, float RestartIn, int[] Scores, WizardSnapshot[] Players, ProjectileSnapshot[] Projectiles,
     WallSnapshot[] Walls, FieldSnapshot[] Fields, BeamSnapshot[] Beams, PointSnapshot[] Points, GameEvent[] Events,
     int ScoreLimit = 15, int StartingTickets = 75, ArenaMapId Map = ArenaMapId.Classic,
-    int HoldingTeam = -1, float HoldSeconds = 0);
+    int HoldingTeam = -1, float HoldSeconds = 0, PickupSnapshot[]? Pickups = null);
