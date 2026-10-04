@@ -10,7 +10,7 @@ public static class MatchRules
         GameMode.Warfare when map == ArenaMapId.Citadel => "Mantén los tres puntos sin disputa durante 15 segundos seguidos para ganar.",
         _ => $"Captura y conserva los puntos. Gana al reducir a 0 los tickets del rival; cada equipo empieza con {tickets}."
     }) + (map == ArenaMapId.Ascension
-        ? "\nAscensión: +10 de vida permanente por baja; +0,5 s de reaparición por muerte (máx. 10 s)."
+        ? "\nAscensión: +10 de vida por baja; +0,5 s al morir (máx. 10 s). Objetos aleatorios hasta morir."
         : map == ArenaMapId.Relics ? "\nRecoge reliquias: sus mejoras se acumulan y duran hasta morir." : "");
     public static string Details(GameMode mode, ArenaMapId map = ArenaMapId.Classic) => (mode switch
     {
@@ -21,7 +21,8 @@ public static class MatchRules
     }) + (map == ArenaMapId.Ascension
         ? " Cada baja de otro mago aumenta tu vida máxima en 10 y recupera 10 de vida si sigues vivo; también cuenta el fuego amigo. El bonus se conserva al morir y al ser reanimado. Una baja póstuma aumenta la vida máxima sin revivirte. "
           + (mode == GameMode.Duel ? "La primera reaparición tarda 3 segundos" : "La primera reaparición tarda 4,5 segundos")
-          + "; cada nueva muerte añade 0,5 segundos, hasta 10. Vida y penalización se reinician en la siguiente partida."
+          + "; cada nueva muerte añade 0,5 segundos, hasta 10. Vida y penalización se reinician en la siguiente partida. "
+          + "Hay catorce objetos en posiciones aleatorias; al recogerlos, reaparecen tras 12 segundos en una posición nueva. Sus mejoras se acumulan y se pierden al morir. La vida ganada por bajas se conserva."
         : mode == GameMode.Duel ? " Reapareces a los 2,5 segundos." : " Reapareces a los 4 segundos.")
         + (map == ArenaMapId.Relics ? " Camina sobre una reliquia para recogerla. Cada objeto reaparece a los 12 segundos. Se acumulan daño, protección, vida/s, vida máxima, velocidad, energía/s y curación. Todas las mejoras desaparecen al morir, también si te reaniman." : "");
 }

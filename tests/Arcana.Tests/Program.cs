@@ -439,7 +439,7 @@ Test("Reliquias: catorce objetos simétricos, siete tipos y exclusividad del map
         var pair = items.Where(i => i.Kind == kind).ToArray();
         Check(pair.Length == 2 && pair[0].Position.X == -pair[1].Position.X && pair[0].Position.Y == pair[1].Position.Y, "Un tipo no tiene dos objetos simétricos.");
     }
-    foreach (var map in Enum.GetValues<ArenaMapId>().Where(m => m != ArenaMapId.Relics))
+    foreach (var map in Enum.GetValues<ArenaMapId>().Where(m => !ArenaMap.Get(m).HasPickups))
         Check(new GameWorld(new() { Map = map }).Snapshot().Pickups!.Length == 0, "Se filtraron objetos a " + map);
     SnapshotValidation.Check(w.Snapshot());
 });
@@ -553,6 +553,69 @@ Test("Reliquias: red independiente y validación de acumulaciones y objetos inco
     {
         bool rejected = false; try { SnapshotValidation.Check(invalid); } catch (InvalidDataException) { rejected = true; }
         Check(rejected, "Se aceptaron objetos o acumulaciones inválidos.");
+    }
+});
+Test("Coliseo: objetos aleatorios transitables, separados y reproducibles con semilla", () =>
+{
+    for (int seed = 0; seed < 80; seed++)
+    {
+        var w = new GameWorld(new() { Map = ArenaMapId.Ascension, PickupSeed = seed }); var items = w.Snapshot().Pickups!;
+        Check(items.Length == 14 && items.All(i => i.Active && w.Map.Walkable(i.Position) && w.Map.Inside(i.Position, 1.5f)), "Un objeto salió del suelo.");
+        foreach (var kind in Enum.GetValues<BuffKind>()) Check(items.Count(i => i.Kind == kind) == 2, "Falta un tipo de objeto.");
+        foreach (var item in items)
+        {
+            Check(items.All(i => i.Id == item.Id || V2.Distance(i.Position, item.Position) > 3) &&
+                w.Map.ControlPoints.All(p => V2.Distance(p, item.Position) > 4), "Objetos superpuestos o sobre un punto.");
+            for (int team = 0; team < 2; team++) for (int index = 0; index < 4; index++)
+                Check(V2.Distance(item.Position, w.Map.Spawn(team, index)) > 5, "Un objeto apareció sobre una salida.");
+            Check(w.Map.FindPath(w.Map.Spawn(0, 0), item.Position).Length > 0, "Un objeto no es accesible.");
+        }
+        var twin = new GameWorld(new() { Map = ArenaMapId.Ascension, PickupSeed = seed });
+        Check(items.SequenceEqual(twin.Snapshot().Pickups!), "La semilla no reproduce las posiciones."); SnapshotValidation.Check(w.Snapshot());
+    }
+    var a = new GameWorld(new() { Map = ArenaMapId.Ascension }); var b = new GameWorld(new() { Map = ArenaMapId.Ascension });
+    Check(!a.Snapshot().Pickups!.SequenceEqual(b.Snapshot().Pickups!), "Todas las salas comparten la misma distribución.");
+});
+Test("Coliseo: el objeto conserva su espera y reaparece en una posición nueva", () =>
+{
+    var w = new GameWorld(new() { Map = ArenaMapId.Ascension, Mode = GameMode.Arena, PickupSeed = 51 }); var a = w.AddPlayer("Recolector")!;
+    var item = w.Snapshot().Pickups![0]; a.Position = item.Position; a.Invulnerable = 0; w.Step(); a.Position = V2.Zero;
+    Check(a.BuffStacks[(int)item.Kind] == 1 && !w.Snapshot().Pickups![0].Active, "No se recogió el objeto.");
+    for (int i = 0; i < 719; i++) w.Step();
+    Check(!w.Snapshot().Pickups![0].Active && w.Snapshot().Pickups![0].Position == item.Position, "Se movió o apareció antes de tiempo.");
+    w.Step(); w.Step(); var respawned = w.Snapshot().Pickups![0];
+    Check(respawned.Active && V2.Distance(respawned.Position, item.Position) > 4 && w.Map.Walkable(respawned.Position), "La nueva aparición no cambió de sitio.");
+    SnapshotValidation.Check(w.Snapshot());
+    var json = Protocol.Deserialize<WorldSnapshot>(Protocol.Serialize(w.Snapshot()))!;
+    Check(json.Pickups![0] == respawned, "La red perdió la nueva posición.");
+});
+Test("Coliseo: al morir desaparece la vitalidad temporal y se conserva la vida por bajas", () =>
+{
+    var w = new GameWorld(new() { Map = ArenaMapId.Ascension, Mode = GameMode.Warfare, PickupSeed = 17 });
+    var a = w.AddPlayer("Ascendente", 0)!; var b = w.AddPlayer("Rival", 1)!; var ally = w.AddPlayer("Aliado", 0)!; ally.Position = new(0, 20);
+    Collect(w, a, BuffKind.Vitality); Collect(w, a, BuffKind.Power); LethalNova(w, a, b);
+    Check(a.MaxHealth == 1110 && a.BuffStacks[(int)BuffKind.Vitality] == 1, "La baja no sumó vida permanente a la temporal.");
+    for (int i = 0; i < 271; i++) w.Step(); LethalNova(w, b, a);
+    Check(a.MaxHealth == 1010 && a.BuffStacks.All(n => n == 0) && a.Respawn == 4.5f, "Morir borró el bonus permanente o conservó mejoras temporales.");
+    ally.Position = a.Position + new V2(1, 0); ally.ActionCooldown = 0; Send(w, ally, "magick", slot: 3);
+    Check(a.Alive && a.MaxHealth == 1010 && a.BuffStacks.All(n => n == 0), "Reanimar mezcló las mejoras permanentes y temporales."); SnapshotValidation.Check(w.Snapshot());
+});
+Test("Coliseo: nueva partida recoloca los catorce objetos y reinicia ambas clases de mejoras", () =>
+{
+    var w = new GameWorld(new() { Map = ArenaMapId.Ascension, Mode = GameMode.Duel, ScoreLimit = 1, PickupSeed = 38 });
+    var a = w.AddPlayer("Autor", 0)!; var b = w.AddPlayer("Rival", 1)!; var initial = w.Snapshot().Pickups!;
+    Collect(w, a, BuffKind.Vitality); LethalNova(w, a, b); w.Step();
+    for (int i = 0; i < 541; i++) w.Step(); var restarted = w.Snapshot();
+    Check(!w.MatchEnded && a.MaxHealth == 1000 && a.BuffStacks.All(n => n == 0) && restarted.Pickups!.All(i => i.Active) &&
+        !initial.Select(i => i.Position).SequenceEqual(restarted.Pickups!.Select(i => i.Position)), "El reinicio no recolocó los objetos o conservó mejoras."); SnapshotValidation.Check(restarted);
+});
+Test("Temas: bosque, ciudad, ruinas y santuario conservan geometría y reglas compartidas", () =>
+{
+    foreach (var (id, theme) in new[] { (ArenaMapId.Classic, ArenaTheme.Forest), (ArenaMapId.Citadel, ArenaTheme.City),
+        (ArenaMapId.Ascension, ArenaTheme.Ruins), (ArenaMapId.Relics, ArenaTheme.Sanctuary) })
+    {
+        var map = ArenaMap.Get(id); Check(map.Theme == theme && map.ControlPoints.All(map.Walkable), "Tema o puntos inválidos.");
+        for (int team = 0; team < 2; team++) for (int index = 0; index < 4; index++) Check(map.Walkable(map.Spawn(team, index)), "Una aparición quedó bloqueada.");
     }
 });
 Test("Reliquias: bots buscan y recogen objetos manteniendo snapshots válidos", () =>
@@ -1055,6 +1118,26 @@ if (server != null)
         var dead = connection.Latest!.Players.Single();
         Check(!dead.Alive && dead.MaxHealth == 1000 && dead.Respawn > 2 && dead.Respawn <= 3, "El servidor no aplicó la primera espera de 3 s.");
         SnapshotValidation.Check(connection.Latest);
+    });
+    await AsyncTest("Coliseo en red: dos clientes comparten las posiciones aleatorias y la recogida", async () =>
+    {
+        var room = await RoomBrowser.CreateAsync(server, new() { Name = "Objetos del Coliseo", ServerPassword = password,
+            Mode = GameMode.Duel, Map = ArenaMapId.Ascension, MaxPlayers = 2, ScoreLimit = 10 });
+        await using var a = new ArenaConnection(); await using var b = new ArenaConnection();
+        await a.ConnectAsync(server, "Recolector del Coliseo", 0, password, roomId: room.Id);
+        await b.ConnectAsync(server, "Observador del Coliseo", 1, password, roomId: room.Id);
+        Check(a.Latest!.Pickups is { Length: 14 } && a.Latest.Pickups.SequenceEqual(b.Latest!.Pickups!), "Los clientes sortearon posiciones diferentes.");
+        var start = a.Latest.Players.Single(p => p.Id == a.PlayerId).Position;
+        var item = a.Latest.Pickups!.OrderBy(i => V2.Distance(i.Position, start)).First();
+        for (int i = 0; i < 1200 && !a.Latest.Players.Single(p => p.Id == a.PlayerId).Buffs!.Any(); i++)
+        {
+            a.Send(new() { Type = "input", MoveTo = true, TargetX = item.Position.X, TargetY = item.Position.Y });
+            await Task.Delay(20);
+        }
+        a.Send(new() { Type = "input" });
+        await WaitFor(() => b.Latest!.Players.Single(p => p.Id == a.PlayerId).Buffs!.Any(buff => buff.Kind == item.Kind), "El rival no recibió la mejora recogida.");
+        Check(!b.Latest!.Pickups!.Single(i => i.Id == item.Id).Active && b.Latest.Pickups!.Single(i => i.Id == item.Id).Position == item.Position,
+            "La recogida no se replicó en la posición del servidor."); SnapshotValidation.Check(a.Latest); SnapshotValidation.Check(b.Latest);
     });
     await AsyncTest("Reliquias en red: objetos, recogida autoritativa, acumulaciones y limpieza al morir", async () =>
     {

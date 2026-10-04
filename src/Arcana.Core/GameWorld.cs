@@ -46,7 +46,8 @@ public sealed partial class GameWorld
         Map = ArenaMap.Get(Options.Map);
         _random = new(Options.Seed);
         _points = Map.ControlPoints.Select((p, i) => new ControlPoint { Id = i, Position = p }).ToArray();
-        _pickups = Map.ItemSpawns.Select((p, i) => new Pickup { Id = i + 1, Position = p, Kind = (BuffKind)(i / 2) }).ToArray();
+        _pickupRandom = new(Options.PickupSeed ?? Random.Shared.Next());
+        _pickups = CreatePickups();
         ResetScores();
         for (int i = 0; i < Math.Min(Options.Bots, Options.MaxPlayers); i++)
             AddPlayer($"Bot {i + 1}", -1, true, (WizardType)(i % 5));
@@ -712,7 +713,7 @@ public sealed partial class GameWorld
         MatchEnded = false; Winner = -1; RestartIn = 0;
         ResetScores(); _projectiles.Clear(); _walls.Clear(); _fields.Clear();
         foreach (var point in _points) { point.Owner = -1; point.Progress = 0; point.Contested = false; }
-        foreach (var item in _pickups) item.Respawn = 0;
+        foreach (var item in _pickups) { item.Respawn = 0; if (Map.RandomPickups) RelocatePickup(item); }
         foreach (var p in _players.Values) { p.Kills = p.Deaths = 0; RelicBuffs.Clear(p); p.MaxHealth = Wizard.BaseMaxHealth; Respawn(p); p.Energy = 100; Array.Clear(p.MagickCooldowns); }
         Emit("restart", V2.Zero, [], "Nueva partida");
     }

@@ -47,7 +47,8 @@ public partial class Hud : Control
         _objective.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterTop); _objective.Position = new(-345, 60); _objective.Size = new(690, 46);
         _objective.AutowrapMode = TextServer.AutowrapMode.WordSmart; AddChild(_objective);
         var playerPanel = new PanelContainer { Name = "PlayerStatusPanel", CustomMinimumSize = new(310, 254), MouseFilter = MouseFilterEnum.Ignore };
-        playerPanel.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomLeft); playerPanel.Position = new(24, -282); AddChild(playerPanel);
+        playerPanel.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomLeft);
+        playerPanel.Position = new Vector2(24, -282) / GameplayScale; playerPanel.Scale = Vector2.One / GameplayScale; AddChild(playerPanel);
         var info = new VBoxContainer(); info.AddThemeConstantOverride("separation", 7); playerPanel.AddChild(info);
         _name = Ui.Label("", 19); info.AddChild(_name);
         _affinity = Ui.Label("", 13); _affinity.Name = "WizardAffinity"; info.AddChild(_affinity);
@@ -151,7 +152,7 @@ public partial class Hud : Control
             : "\nControl total: 0 / 15 s";
         _health.MaxValue = player.MaxHealth; _health.Value = player.Health;
         _healthText.Text = $"VIDA  {Math.Ceiling(player.Health):0} / {player.MaxHealth:0}";
-        if (snapshot.Map == ArenaMapId.Ascension) _healthText.Text += $"  (+{player.MaxHealth - Wizard.BaseMaxHealth:0})";
+        if (snapshot.Map == ArenaMapId.Ascension) _healthText.Text += $"  (+{player.MaxHealth - Wizard.BaseMaxHealth - 100 * (player.Buffs ?? []).Where(b => b.Kind == BuffKind.Vitality).Sum(b => b.Stacks):0})";
         _shield.MaxValue = Ui.ShieldMaximum(player); _shield.Value = player.Shield;
         bool shielded = player.Alive && player.Shield > 0;
         _shieldFill.BgColor = shielded ? Ui.Shield : Ui.Shield.Darkened(0.65f);

@@ -5,6 +5,7 @@ public enum BuffKind { Power, Protection, Regeneration, Vitality, Speed, Energy,
 public static class RelicBuffs
 {
     public const int Count = 7;
+    public const int SpawnCount = Count * 2;
     public const float RespawnSeconds = 12, PickupRadius = 1.1f;
     public static string Name(BuffKind kind) => kind switch
     {

@@ -33,6 +33,8 @@ public partial class ArenaRenderer : Node3D
     private float _zoom = 27;
     private int _beamUsed;
     private bool _playing;
+    private Godot.Environment _environment = null!;
+    private DirectionalLight3D _sun = null!;
     public bool AudioEnabled { get; set; } = true;
     public bool ShowControlPoints { get; set; } = true;
 
@@ -51,13 +53,13 @@ public partial class ArenaRenderer : Node3D
                 TonemapMode = Godot.Environment.ToneMapper.Filmic
             }
         };
-        AddChild(env);
+        _environment = env.Environment; AddChild(env);
         var light = new DirectionalLight3D
         {
             RotationDegrees = new(-53, -28, 0), LightColor = new Color("fff0dd"),
             LightEnergy = 1.10f, ShadowEnabled = true
         };
-        AddChild(light);
+        _sun = light; AddChild(light);
         Camera = new Camera3D { Projection = Camera3D.ProjectionType.Orthogonal, Size = _zoom,
             Position = new(0, 27, 21), Current = true, Far = 180 };
         AddChild(Camera); Camera.LookAt(Vector3.Zero);
@@ -116,50 +118,7 @@ public partial class ArenaRenderer : Node3D
         if (_mapRoot != null) { RemoveChild(_mapRoot); _mapRoot.QueueFree(); }
         _points.Clear();
         var rootMap = new Node3D { Name = "MapGeometry" }; _mapRoot = rootMap; AddChild(rootMap);
-        Mesh(rootMap, new PlaneMesh { Size = new(220, 180) }, new(0, -1.2f, 0), new Color("101d26"));
-        var shader = new Shader
-        {
-            Code = """
-                shader_type spatial;
-                uniform vec2 tile_scale;
-                void fragment() {
-                    vec2 tile = UV * tile_scale;
-                    vec2 p = fract(tile);
-                    float edge = smoothstep(0.012, 0.036, min(min(p.x, 1.0-p.x), min(p.y, 1.0-p.y)));
-                    float noise = fract(sin(dot(floor(tile), vec2(127.1,311.7))) * 43758.5453);
-                    vec3 stone = mix(vec3(0.20,0.23,0.26), vec3(0.31,0.34,0.36), noise);
-                    ALBEDO = mix(vec3(0.105,0.14,0.15), stone, edge);
-                    ROUGHNESS = 0.92;
-                }
-                """
-        };
-        foreach (var section in _map.Floors)
-        {
-            var floor = Mesh(rootMap, new PlaneMesh { Size = new(section.Width, section.Height) }, World(section.Center), new Color("536363"));
-            var material = new ShaderMaterial { Shader = shader };
-            material.SetShaderParameter("tile_scale", new Vector2(section.Width / 2, section.Height / 2)); floor.MaterialOverride = material;
-            Box(rootMap, new(section.Width + 0.4f, 0.8f, section.Height + 0.4f), World(section.Center, -0.45f), new("273b3e"));
-        }
-        var stone = new Color("697371");
-        foreach (var edge in _map.Boundary)
-        {
-            int count = (int)Math.Ceiling(V2.Distance(edge.A, edge.B) / 2);
-            for (int i = 0; i < count; i++)
-            {
-                var pos = V2.Lerp(edge.A, edge.B, (i + 0.5f) / count);
-                var size = Math.Abs(edge.A.X - edge.B.X) > 0 ? new Vector3(1.9f, 0.55f, 0.5f) : new Vector3(0.5f, 0.55f, 1.9f);
-                Box(rootMap, size, World(pos, 0.25f), stone);
-            }
-        }
-        foreach (var obstacle in _map.Obstacles)
-        {
-            var root = new Node3D { Position = World(obstacle.Position) }; rootMap.AddChild(root);
-            Mesh(root, new CylinderMesh { TopRadius = obstacle.Radius, BottomRadius = obstacle.Radius + 0.05f, Height = 0.25f, RadialSegments = 10 }, new(0, 0.13f, 0), new("778282"));
-            Mesh(root, new CylinderMesh { TopRadius = obstacle.Radius * 0.75f, BottomRadius = obstacle.Radius * 0.88f, Height = obstacle.Height, RadialSegments = 8 }, new(0, obstacle.Height / 2 + 0.2f, 0), stone);
-            Mesh(root, new CylinderMesh { TopRadius = obstacle.Radius * 0.98f, BottomRadius = obstacle.Radius, Height = 0.3f, RadialSegments = 8 }, new(0, obstacle.Height + 0.25f, 0), new("89908a"));
-            var crystal = Mesh(root, new PrismMesh { Size = new(0.46f, 0.9f, 0.46f) }, new(0, obstacle.Height + 0.85f, 0), new("8eb4d1"), 0.7f);
-            crystal.RotationDegrees = new(0, 45, 0);
-        }
+        BuildScenery(rootMap);
         for (int team = 0; team < 2; team++)
         {
             var color = team == 0 ? Ui.Blue : Ui.Red;
@@ -175,17 +134,6 @@ public partial class ArenaRenderer : Node3D
         foreach (var p in _map.ControlPoints.Select((position, id) => (position, id)))
         {
             var visual = new CapturePointVisual(); rootMap.AddChild(visual); visual.Build(p.id, p.position); _points[p.id] = visual;
-        }
-        // Árboles y ruinas decorativos se quedan fuera de la zona de colisión.
-        var random = new Random(36);
-        for (int i = 0; i < 36; i++)
-        {
-            float x = ((float)random.NextDouble() * 2 - 1) * (_map.HalfWidth + 13);
-            float z = ((float)random.NextDouble() * 2 - 1) * (_map.HalfHeight + 11);
-            if (Mathf.Abs(x) < _map.HalfWidth + 2 && Mathf.Abs(z) < _map.HalfHeight + 2) continue;
-            float height = 2.5f + (float)random.NextDouble() * 3;
-            Mesh(rootMap, new CylinderMesh { TopRadius = 0.2f, BottomRadius = 0.4f, Height = height }, new(x, height / 2 - 1, z), new("283b36"));
-            Mesh(rootMap, new CylinderMesh { TopRadius = 0, BottomRadius = 2.1f, Height = height }, new(x, height - 1, z), new("1d3632"));
         }
     }
 

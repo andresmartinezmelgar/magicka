@@ -10,12 +10,50 @@ public sealed partial class GameWorld
         public float Respawn;
     }
     private readonly Pickup[] _pickups;
+    private readonly Random _pickupRandom;
+    private Pickup[] CreatePickups()
+    {
+        if (!Map.HasPickups) return [];
+        var items = new List<Pickup>();
+        for (int i = 0; i < RelicBuffs.SpawnCount; i++)
+        {
+            var position = Map.RandomPickups ? FindPickupPosition(items.Select(p => p.Position), null) : Map.ItemSpawns[i];
+            items.Add(new() { Id = i + 1, Position = position, Kind = (BuffKind)(i / 2) });
+        }
+        return items.ToArray();
+    }
+    private V2 FindPickupPosition(IEnumerable<V2> occupied, V2? previous)
+    {
+        var positions = occupied.ToArray();
+        bool Fits(V2 p) => Map.Inside(p, 1.5f) && Map.Walkable(p) &&
+            Map.Obstacles.All(o => V2.Distance(p, o.Position) > o.Radius + 1.5f) &&
+            Map.ControlPoints.All(c => V2.Distance(p, c) > 4) &&
+            Enumerable.Range(0, 8).All(i => V2.Distance(p, Map.Spawn(i / 4, i % 4)) > 5) &&
+            positions.All(at => V2.Distance(p, at) > 3) && (previous == null || V2.Distance(p, previous.Value) > 4) &&
+            _players.Values.All(w => !w.Alive || V2.Distance(w.Position, p) > 2) &&
+            _walls.All(w => Geometry.DistanceToSegment(p, w.A, w.B) > 1.5f);
+        for (int i = 0; i < 1024; i++)
+        {
+            var p = new V2(((float)_pickupRandom.NextDouble() * 2 - 1) * (Map.HalfWidth - 1.5f),
+                ((float)_pickupRandom.NextDouble() * 2 - 1) * (Map.HalfHeight - 1.5f));
+            if (Fits(p)) return p;
+        }
+        // Búsqueda finita si un combate ha ocupado muchas posiciones con muros o jugadores.
+        for (float x = -Map.HalfWidth + 2; x < Map.HalfWidth - 2; x += 2)
+        for (float y = -Map.HalfHeight + 2; y < Map.HalfHeight - 2; y += 2)
+            if (Fits(new(x, y))) return new(x, y);
+        return previous ?? Map.Spawn(0, 0);
+    }
+    private void RelocatePickup(Pickup item) => item.Position = FindPickupPosition(
+        _pickups.Where(p => p.Id != item.Id).Select(p => p.Position), item.Position);
     private void TickPickups(float dt)
     {
         foreach (var item in _pickups)
         {
+            bool returning = item.Respawn > 0;
             item.Respawn = Math.Max(0, item.Respawn - dt);
             if (item.Respawn > 0) continue;
+            if (returning && Map.RandomPickups) RelocatePickup(item);
             // El servidor resuelve un único ganador, también si dos magos llegan en el mismo paso.
             var player = _players.Values.Where(p => p.Alive && V2.Distance(p.Position, item.Position) < RelicBuffs.PickupRadius)
                 .OrderBy(p => (p.Position - item.Position).LengthSquared).ThenBy(p => p.Id).FirstOrDefault();

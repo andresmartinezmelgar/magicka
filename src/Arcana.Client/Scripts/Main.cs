@@ -65,6 +65,7 @@ public partial class Main : Node
         [("none", 0, 420), ("full", 420, 420), ("half", 210, 420), ("low", 40, 420), ("ward", 90, 180), ("stone", 325, 650)];
     private int _smokeFrames, _renderFrames;
     private string? _capturePath;
+    private bool _captureReview, _mapOverview;
     private bool _smokeFailed;
     private bool SmokeMode => _smoke || _hostSmoke || _diagnosticsSmoke || _hudSmoke || _effectsSmoke || _spritesSmoke || _combinationsSmoke || _mapsSmoke;
 
@@ -118,6 +119,8 @@ public partial class Main : Node
             if (arg.StartsWith("--preview-help=") && int.TryParse(arg[15..], out int page)) _previewHelp = Math.Clamp(page, 0, _helpPages.GetTabCount() - 1);
             if (arg.StartsWith("--preview-shield=")) _previewShield = arg[17..];
             if (arg.StartsWith("--capture=")) _capturePath = arg[10..];
+            if (arg == "--capture-review") _captureReview = true;
+            if (arg == "--map-overview") _mapOverview = true;
             if (arg.StartsWith("--server=")) _launcher.BrowseAddress(arg[9..]);
             if (arg.StartsWith("--create-room=")) _launcher.BrowseAddress(arg[14..], true);
             if (arg.StartsWith("--tab=") && int.TryParse(arg[6..], out int tab)) _launcher.ShowTab(tab);
@@ -255,9 +258,17 @@ public partial class Main : Node
                 if (SmokeMode) { GD.PushError("SMOKE_FAILED: " + e.Message); GetTree().Quit(1); return; }
             }
         _renderFrames++;
+        if (_mapOverview && _previewMap != null && _renderFrames == 2)
+        {
+            var overview = ArenaMap.Get(_previewMap.Value);
+            _renderer.SetPreviewZoom(Math.Max(overview.HalfWidth * 2 / (GetViewport().GetVisibleRect().Size.X / GetViewport().GetVisibleRect().Size.Y),
+                overview.HalfHeight * 1.58f) + 6);
+        }
         if (_mapsSmoke && _renderFrames <= 150 && _renderFrames % 30 == 1)
             _snapshot = MapFixture(_renderFrames <= 30 || _renderFrames > 120 ? ArenaMapId.Citadel
                 : _renderFrames <= 60 ? ArenaMapId.Classic : _renderFrames <= 90 ? ArenaMapId.Ascension : ArenaMapId.Relics);
+        if (_mapsSmoke && _renderFrames == 76)
+            _snapshot = _snapshot! with { Pickups = _snapshot!.Pickups!.Select(i => i.Id == 1 ? i with { Position = new V2(0, 20) } : i).ToArray() };
         if (_combinationsSmoke) CheckCombinations();
         if (_effectsSmoke || _previewEffects) _snapshot = VisualFixture.Effects(_renderFrames);
         if (_spritesSmoke || _previewWizards != null) _snapshot = VisualFixture.Wizards(_renderFrames, _previewWizards);
@@ -332,7 +343,7 @@ public partial class Main : Node
         var map = ArenaMap.Get(id); _serverName = map.Name;
         var source = VisualFixture.Create("none");
         bool hold = id == ArenaMapId.Citadel;
-        var items = id == ArenaMapId.Relics ? new GameWorld(new() { Map = id }).Snapshot().Pickups!
+        var items = map.HasPickups ? new GameWorld(new() { Map = id, PickupSeed = 271 }).Snapshot().Pickups!
             .Select(i => i.Id == 1 ? i with { Active = false, Respawn = 6 } : i).ToArray() : [];
         return source with { Map = id, HoldingTeam = hold ? 0 : -1, HoldSeconds = hold ? 7.5f : 0,
             Players = source.Players.Select(p => p with { Position = _previewMap != null ? new V2(0, -1) : map.Spawn(p.Team, p.Id),
@@ -348,6 +359,7 @@ public partial class Main : Node
         var objective = (Label)_hud!.FindChild("MatchObjective", true, false);
         var map = ArenaMap.Get(snapshot.Map);
         bool valid = choice.ItemCount == Enum.GetValues<ArenaMapId>().Length && _renderer.CurrentMap == snapshot.Map && _renderer.Points.Count == 3 &&
+            _renderer.SceneryTheme == map.Theme && (map.Theme == ArenaTheme.City ? _renderer.SceneryBuildings >= 12 : _renderer.SceneryTrees >= 20) &&
             _renderer.GetChildren().Count(n => n.Name == "MapGeometry") == 1 &&
             snapshot.Points.All(p => _renderer.Points[p.Id].Position == ArenaRenderer.World(p.Position));
         if (snapshot.Map == ArenaMapId.Citadel) valid &= objective.Text.Contains($"{snapshot.HoldSeconds:0.0} / 15 s") && Math.Abs(_renderer.Camera.Position.X) > 40;
@@ -357,18 +369,20 @@ public partial class Main : Node
             var health = (ProgressBar)_hud.FindChild("HealthBar", true, false);
             valid &= objective.Text.Contains("+10") && objective.Text.Contains("10 s") && health.MaxValue == 1030 && health.Value == 1020;
         }
+        if (map.HasPickups)
+            valid &= _renderer.Pickups.Count == 14 && !_renderer.Pickups[1].Available && _renderer.Pickups.Values.Count(i => i.Available) == 13
+                && snapshot.Pickups!.All(i => _renderer.Pickups[i.Id].Position == ArenaRenderer.World(i.Position));
+        else valid &= _renderer.Pickups.Count == 0;
         if (snapshot.Map == ArenaMapId.Relics)
         {
             var buffs = (Label)_hud.FindChild("ActiveBuffs", true, false);
-            valid &= _renderer.Pickups.Count == 14 && !_renderer.Pickups[1].Available && _renderer.Pickups.Values.Count(i => i.Available) == 13
-                && buffs.Text.Contains("Potencia ×2") && buffs.Text.Contains("Vitalidad ×1") && objective.Text.Contains("hasta morir");
+            valid &= buffs.Text.Contains("Potencia ×2") && buffs.Text.Contains("Vitalidad ×1") && objective.Text.Contains("hasta morir");
         }
-        else valid &= _renderer.Pickups.Count == 0;
         var local = snapshot.Players.Single(p => p.Id == _localId);
         valid &= _renderer.Wizards[_localId].ElementSlotCount == 3 && _renderer.Wizards[_localId].DisplayedElements.SequenceEqual(local.DisplayElements);
         if (!valid) { GD.PushError($"MAPS_SMOKE_FAILED: {map.Name}, cámara, selector, contador o geometría incorrectos"); GetTree().Quit(1); return; }
         GD.Print($"MAP_CASE_OK: {map.Name}, {map.Area} unidades²");
-        if (_renderFrames >= 150) CompleteSmoke("MAPS_SMOKE_OK: cuatro mapas, cambios, cámara, minimapa, control, vida, reliquias, mejoras y tres casillas");
+        if (_renderFrames >= 150) CompleteSmoke("MAPS_SMOKE_OK: bosque, ciudad, ruinas, santuario, objetos móviles, mejoras y tres casillas");
     }
     private void CheckHudCase()
     {
@@ -376,7 +390,10 @@ public partial class Main : Node
         var health = (ProgressBar)_hud!.FindChild("HealthBar", true, false);
         var shield = (ProgressBar)_hud.FindChild("ShieldBar", true, false);
         var text = (Label)_hud.FindChild("ShieldValue", true, false);
+        var playerPanel = (Control)_hud.FindChild("PlayerStatusPanel", true, false);
         bool correct = _hud.Scale.IsEqualApprox(Vector2.One * Hud.GameplayScale) && (_hud.Size * Hud.GameplayScale).IsEqualApprox(GetViewport().GetVisibleRect().Size) &&
+            playerPanel.GetGlobalTransform().Scale.IsEqualApprox(Vector2.One) && playerPanel.GetGlobalRect().Size.X >= 310 &&
+            Math.Abs(playerPanel.GetGlobalRect().Position.X - 24) < 0.01f &&
             health.Value == 830 && health.MaxValue == 1000 && shield.Value == expected.Shield && shield.MaxValue == expected.Maximum &&
             (expected.Shield == 0 ? text.Text.Contains("INACTIVO") : text.Text.Contains($"{expected.Shield:0} / {expected.Maximum:0}") && text.Text.Contains(" s"));
         if (!correct) { GD.PushError($"HUD_SMOKE_FAILED: {expected.State}, {shield.Value}/{shield.MaxValue}, {text.Text}"); GetTree().Quit(1); return; }
@@ -582,7 +599,7 @@ public partial class Main : Node
         HelpText(wins, "Al terminar, se muestra el ganador y empieza otra partida a los 9 segundos. Puedes consultar el marcador con TAB. En práctica, el duelo se juega a 5 bajas.", Ui.Muted);
         var relicsScroll = new ScrollContainer { Name = "Objetos", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; _helpPages.AddChild(relicsScroll);
         var relics = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; relics.AddThemeConstantOverride("separation", 14); relicsScroll.AddChild(relics);
-        HelpText(relics, "Solo en el Santuario. Camina sobre un objeto para recogerlo; reaparece a los 12 s. Puedes acumular objetos iguales o distintos. Todas sus mejoras desaparecen al morir, también al ser reanimado.", Ui.Gold);
+        HelpText(relics, "En el Santuario y el Coliseo. Camina sobre un objeto para recogerlo; reaparece a los 12 s. En el Coliseo cada aparición elige una posición nueva al azar. Puedes acumular objetos iguales o distintos. Sus mejoras se pierden al morir; la vida permanente por bajas del Coliseo se conserva.", Ui.Gold);
         foreach (var kind in Enum.GetValues<BuffKind>())
         { relics.AddChild(Ui.Label(RelicBuffs.Name(kind).ToUpperInvariant(), 18, RelicVisual.ColorFor(kind))); HelpText(relics, RelicBuffs.Description(kind), Ui.Muted); }
         var types = new VBoxContainer { Name = "Tipos de mago" }; types.AddThemeConstantOverride("separation", 12); _helpPages.AddChild(types);
@@ -618,7 +635,12 @@ public partial class Main : Node
     {
         if (DisplayServer.GetName() == "headless") { GD.Print("CAPTURE_SKIPPED: headless"); GetTree().Quit(); return; }
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
-        var error = GetViewport().GetTexture().GetImage().SavePng(path);
+        var captured = GetViewport().GetTexture().GetImage(); var error = captured.SavePng(path);
+        if (_captureReview)
+        {
+            captured.Resize(640, 400, Image.Interpolation.Lanczos);
+            GD.Print("MAP_REVIEW_BASE64:" + _previewMap + ":" + Convert.ToBase64String(captured.SaveJpgToBuffer(0.72f)));
+        }
         GD.Print($"CAPTURE: {error} {path}"); GetTree().Quit(error == Error.Ok ? 0 : 1);
     }
     private Dictionary<string, object?> Context() => new()

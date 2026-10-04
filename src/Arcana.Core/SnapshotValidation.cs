@@ -16,6 +16,7 @@ public static class SnapshotValidation
             state.Players is not { Length: <= 16 } || state.Projectiles is not { Length: <= 160 } ||
             state.Walls is not { Length: <= 40 } || state.Fields is not { Length: <= 40 } ||
             state.Beams is not { Length: <= 64 } || state.Points is not { Length: 3 } || state.Events is not { Length: <= 160 }) Invalid();
+        bool hasPickups = ArenaMap.Get(state.Map).HasPickups;
         var ids = new HashSet<int>();
         foreach (var p in state.Players!)
         {
@@ -23,16 +24,16 @@ public static class SnapshotValidation
                 !p.Position.IsFinite || !p.Facing.IsFinite || !Elements(p.Selected) || !Elements(p.Ward, 8) ||
                 p.Cooldowns is not { Length: 4 } || !NonNegative(p.Cooldowns) ||
                 !NonNegative(p.Health, p.MaxHealth, p.Shield, p.Energy, p.Respawn, p.Wet, p.Burning, p.Chill, p.Frozen, p.Haste, p.Charge) ||
-                !NonNegative(p.ShieldMax, p.ShieldSeconds, p.RegenerationRate) || state.Map != ArenaMapId.Relics && p.RegenerationRate > 76 || p.ShieldMax > 0 && p.Shield > p.ShieldMax ||
+                !NonNegative(p.ShieldMax, p.ShieldSeconds, p.RegenerationRate) || !hasPickups && p.RegenerationRate > 76 || p.ShieldMax > 0 && p.Shield > p.ShieldMax ||
                 p.MaxHealth <= 0 || p.Health > p.MaxHealth || p.Energy > 100 || p.Kills < 0 || p.Deaths < 0) Invalid();
             if (p!.CastingElements != null && !Elements(p.CastingElements) ||
-                p.Buffs is { Length: > RelicBuffs.Count } || state.Map == ArenaMapId.Relics && p.Buffs == null) Invalid();
+                p.Buffs is { Length: > RelicBuffs.Count } || hasPickups && p.Buffs == null) Invalid();
             var kinds = new HashSet<BuffKind>();
             foreach (var buff in p.Buffs ?? [])
-                if (buff == null || !Enum.IsDefined(buff.Kind) || !kinds.Add(buff.Kind) || buff.Stacks <= 0 || !p.Alive || state.Map != ArenaMapId.Relics) Invalid();
+                if (buff == null || !Enum.IsDefined(buff.Kind) || !kinds.Add(buff.Kind) || buff.Stacks <= 0 || !p.Alive || !hasPickups) Invalid();
         }
-        if (state.Pickups is { Length: > 16 } || state.Map == ArenaMapId.Relics && state.Pickups is not { Length: 14 } ||
-            state.Map != ArenaMapId.Relics && state.Pickups is { Length: > 0 }) Invalid();
+        if (state.Pickups is { Length: > 16 } || hasPickups && state.Pickups?.Length != RelicBuffs.SpawnCount ||
+            !hasPickups && state.Pickups is { Length: > 0 }) Invalid();
         var itemIds = new HashSet<int>();
         foreach (var item in state.Pickups ?? [])
             if (item == null || item.Id <= 0 || !itemIds.Add(item.Id) || !Enum.IsDefined(item.Kind) ||

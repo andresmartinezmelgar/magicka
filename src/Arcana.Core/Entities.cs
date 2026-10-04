@@ -98,4 +98,6 @@ public sealed class WorldOptions
     public int Tickets { get; init; } = 75;
     public int Bots { get; init; }
     public int Seed { get; init; } = 73;
+    // La colocación cambia entre salas. Una semilla explícita permite reproducir pruebas y capturas.
+    public int? PickupSeed { get; init; }
 }

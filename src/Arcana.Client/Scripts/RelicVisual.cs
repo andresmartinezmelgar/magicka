@@ -28,6 +28,7 @@ public partial class RelicVisual : Node3D
     }
     public void Update(PickupSnapshot item, float time)
     {
+        Position = ArenaRenderer.World(item.Position);
         _gem.Visible = item.Active;
         _gem.Position = new(0, 0.85f + MathF.Sin(time * 2.2f + item.Id) * 0.13f, 0);
         _gem.Rotation = new(0, time * 1.4f, 0);
