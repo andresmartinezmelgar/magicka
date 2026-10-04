@@ -45,7 +45,7 @@ Una dirección sin esquema utiliza `ws://`, puerto 27015 y ruta `/play`. Una dir
 
 ## LAN
 
-El launcher envía `ARCANA_DISCOVER_V3` y un nonce por UDP al puerto de búsqueda. El servidor responde con nombre, IP de origen, puerto TCP, modo, ocupación y si necesita contraseña. El cliente obtiene la IP de la respuesta, no de datos declarados por un tercero.
+El launcher envía `ARCANA_DISCOVER_V4` y un nonce por UDP al puerto de búsqueda. El servidor responde con nombre, IP de origen, puerto TCP, modo, ocupación y si necesita contraseña. El cliente obtiene la IP de la respuesta, no de datos declarados por un tercero.
 
 La búsqueda dura dos segundos y también pregunta a loopback, para encontrar un servidor ejecutado en el mismo equipo. Las subredes de Wi-Fi invitado, el aislamiento entre clientes y los cortafuegos pueden impedir broadcast. En ese caso, la misma partida LAN es accesible introduciendo su IP en **Por IP**.
 
@@ -81,6 +81,6 @@ Si `/health` funciona localmente pero otro PC no conecta, comprobar que el puert
 
 Para detener: `docker compose down`. Las estadísticas de esta versión son de la partida actual y se reinician al apagar el proceso.
 
-## Compatibilidad v0.4.0
+## Compatibilidad: protocolo 4
 
-El protocolo 3 incluye el tipo de mago y los límites reales de victoria. Actualizar el ejecutable y reconstruir el servidor Docker (`docker compose up -d --build`) juntos. El saludo rechaza tipos desconocidos; la clase es inmutable durante esa conexión.
+La versión v0.6.0 transmite regeneración, armado/radios de minas, nuevos campos, componentes/potencia/tramos de rayos y disputa de puntos. Actualizar cliente y servidor juntos; los clientes anteriores son rechazados. Para el servidor dedicado: `docker compose up -d --build`.

@@ -32,7 +32,7 @@ El cliente exportado incluye Godot y el runtime .NET. El servidor se publica par
 
 ## Representación
 
-`ArenaRenderer` construye ruinas, suelo, magos, escudos y hechizos con mallas procedurales. `WizardVisual` recibe el estado del mago. `Hud` representa vida, energía, selección, clasificación y minimapa. `SpellAudio` genera breves ondas PCM propias.
+`ArenaRenderer` construye ruinas, suelo, escudos y hechizos con mallas procedurales. `WizardVisual` representa el mago con un `Sprite3D` orientado hacia la cámara. `WizardSprites` comparte cinco atlas, lee los anclajes y prepara el material que cambia solo la tela por equipo. La dirección, movimiento, carga, lanzamiento y daño del snapshot deciden la pose. `Hud` representa vida, energía, selección, clasificación y minimapa. `SpellAudio` genera breves ondas PCM propias. [Formato, arte y animación de los magos](SPRITES-MAGOS.md).
 
 Los diccionarios de mallas usan el identificador de cada entidad para reutilizar nodos. Al desaparecer una entidad del estado, su nodo se elimina. Los rayos reutilizan un conjunto acotado de segmentos; los eventos se reproducen una sola vez.
 
@@ -50,7 +50,7 @@ Las salas sin humanos se pausan. El servidor reutiliza contenedores temporales y
 
 ## Vida y escudo
 
-`Wizard.ShieldMax` conserva la capacidad aplicada, aunque el daño reduzca `Shield`. El snapshot transmite `ShieldMax` y `ShieldSeconds`; la expiración, muerte y reaparición limpian los valores. El HUD y las barras 3D usan la misma capacidad y diferencian vida, protección y energía. Los campos tienen valores predeterminados para fixtures antiguos. Desde v0.4.0, las conexiones exigen protocolo 3 para garantizar afinidades y objetivos comunes.
+`Wizard.ShieldMax` conserva la capacidad aplicada, aunque el daño reduzca `Shield`. El snapshot transmite `ShieldMax`, `ShieldSeconds` y `RegenerationRate`; la expiración, muerte y reaparición limpian los valores. El HUD y las barras 3D usan la misma capacidad y diferencian vida, protección y energía. La versión v0.6.0 exige protocolo 4 para garantizar efectos e interacciones comunes.
 
 `ElementIcon` dibuja formas vectoriales sin texturas externas. `Ui.ElementTile` reutiliza símbolo, tecla, nombre y color en launcher y HUD. `VisualFixture` proporciona escenas deterministas para capturas; `--hud-smoke` verifica barras y cifras en seis estados sin conectarse a un servidor.
 
@@ -61,3 +61,13 @@ Las salas sin humanos se pausan. El servidor reutiliza contenedores temporales y
 El servidor emite `shield_hit`, `shield_break` y `hurt`; limita los impactos continuos a uno por mago cada 0,14 s, y siempre emite la rotura. `CombatEffects` mantiene pools de hasta 384 partículas y 32 ondas, con mallas y materiales compartidos. Procesa eventos por ID, crea estelas y partículas de estado a intervalos y limpia los efectos al salir. `--effects-smoke` comprueba doce eventos, datos de tipo, límites, expiración y limpieza.
 
 `Compilar-Juego.cmd` ejecuta `auto-compile.ps1` en Windows PowerShell 5.1. Las herramientas se almacenan en `.tools/`; `package-windows.ps1` construye `artifacts/windows`. `Publish-GamePackage` valida el paquete, copia a una carpeta temporal y sustituye `Juego/` mediante movimientos, con restauración si falla el movimiento. La prueba `test-build-output.ps1` verifica reemplazo, segunda publicación, rutas con espacios y preservación del juego ante un paquete incompleto.
+
+## Interacciones y catálogo
+
+`GameWorld.Beams` resuelve los canales rectos después del movimiento. Recorta el alcance por obstáculos, barreras y personajes; busca encuentros entre segmentos y conserva aportaciones separadas para los tramos combinados. Cada canal se une una vez por paso, cada salida tiene hasta dos rebotes y el snapshot conserva hasta 64 tramos. El renderer utiliza hasta 512 segmentos reutilizados para franjas de color y cadenas eléctricas.
+
+`GameWorld.Effects` controla colocación y destinatarios de minas y splash de rocas. Los campos persistentes reutilizan el contenedor acotado de 40 entidades y conservan solo los elementos secundarios. `FieldSnapshot` separa radio del efecto y radio de activación; `GameEvent.Radius` permite representar el alcance real.
+
+`SpellCatalogue` enumera 120 selecciones válidas de hasta tres elementos, sin permutaciones ni pares incompatibles. `SpellDemonstration` repite intenciones sobre un `GameWorld` aislado. `SpellBook` muestra ese combate en un `SubViewport` con mundo 3D propio, y procesa pasos solo mientras su pestaña está visible. No comparte la conexión ni la simulación de la partida. Las demos se reinician limpiando nodos y eventos.
+
+`CapturePointVisual` utiliza un shader por punto; el relleno angular y el color proceden del progreso firmado. Interpola el progreso sin crear materiales por fotograma, muestra disputa y porcentaje; `MiniMap` utiliza el mismo estado.

@@ -1,12 +1,14 @@
-# Arcana Arena — v0.4.0
+# Arcana Arena — v0.6.0
 
 Primera recreación jugable en C# del combate elemental de **Magicka: Wizard Wars**. Cliente 3D de escritorio con **Godot 4.5.2 .NET**, servidor independiente **ASP.NET Core / .NET 8**, Docker, launcher con conexión por IP/LAN, salas independientes y paquete Windows para abrir con doble clic.
 
-El código, las mallas y los sonidos son propios. Esta versión reproduce la estructura del combate; los gráficos, mapas, magicks y valores de daño son una aproximación, no una reproducción exacta del original.
+El código, las mallas y los sonidos son propios. Los sprites de los magos se han generado para este proyecto. Esta versión reproduce la estructura del combate; los gráficos, mapas, magicks y valores de daño son una aproximación, no una reproducción exacta del original.
 
 ![Launcher y acceso a partidas](docs/images/launcher.png)
 
 ![Tipos de mago y efectos de combate](docs/images/game.png)
+
+![Sprites de los cinco magos en azul y rojo](docs/images/wizards.png)
 
 ![Escudo al 50 %, con puntos y duración restantes](docs/images/shield-half.png)
 
@@ -18,16 +20,23 @@ El código, las mallas y los sonidos son propios. Esta versión reproduce la est
 - Colores con más contraste y símbolos por elemento. Vida y escudo separados: el escudo muestra puntos/capacidad real y segundos restantes; también aparece sobre el mago.
 - Duelo, todos contra todos y guerra por tres puntos de control, con tickets, muerte, reaparición y reinicio de partidas. El objetivo y el límite real aparecen en la sala y en el HUD; ayuda **F1 → Cómo ganar**.
 - Cinco tipos de mago: equilibrado, piromante, criomante, tempestario y geomante. Bonus elemental del 25 % y debilidad del 25 %, elegidos antes de entrar y calculados por el servidor.
+- Sprites propios para los cinco magos, con cuatro orientaciones, pasos y poses de lanzamiento. Túnicas por equipo y detalles de especialidad; barras sobre el sombrero. [Arte y código de los sprites](docs/SPRITES-MAGOS.md).
 - Estelas, ondas, impactos, fragmentos de hielo/roca, explosiones, destellos y rotura de escudo. Quemadura, mojado, frío y celeridad con partículas. Efectos con nodos reutilizados y límites fijos.
 - Cuatro magicks: celeridad, traslación, meteoro y reanimación. Coste de energía y tiempos de reutilización.
+- Splash selectivo en rocas imbuidas, suelo ardiente/helado/charcos, minas ofensivas y minas de vida que respetan equipos. Escudo de vida con regeneración gradual y cese al romperse.
+- Rayos que se unen en el cruce y suman componentes; reflexión en escudos y refracción con guardas elementales, con dos rebotes como máximo.
+- **F1 → Combinaciones:** 120 combinaciones, tres formas de lanzamiento, demostraciones animadas en bucle, pausa/repetición y escenas de cruce, escudo y captura.
+- Puntos de control con círculo que se rellena por equipo, porcentaje y estado disputado.
 - Bots que combaten, se curan y capturan puntos. Práctica local sin iniciar Docker.
 - Launcher: IP/dominio, búsqueda LAN, servidor incluido, configuración gráfica y creación de salas con modo, bots, aforo y contraseñas.
 - Distribución Windows x64 autónoma: motor, cliente, servidor y runtimes incluidos. No necesita instalar Godot, .NET ni Docker para jugar o alojar.
 - Servidor autoritativo a 60 pasos/s, envío de estado a 20 Hz y representación interpolada en el cliente.
 
+**Demostraciones en vídeo:** [splash, regeneración y minas](docs/videos/combination-effects.mp4) · [cruce de rayos](docs/videos/beam-interactions.mp4) · [refracción en escudos](docs/videos/shield-refraction.mp4) · [captura por equipos](docs/videos/point-capture.mp4). Dentro del juego, **F1 → Combinaciones** muestra cada receta y sus tres modos de lanzamiento. [Reglas y valores](docs/COMBINACIONES.md).
+
 ## Jugar con doble clic en Windows
 
-1. Descargar [ArcanaArena-v0.4.0-Windows-x64.zip](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.4.0/ArcanaArena-v0.4.0-Windows-x64.zip) de [Releases](https://github.com/andresmartinezmelgar/magicka/releases/latest).
+1. Descargar [ArcanaArena-v0.6.0-Windows-x64.zip](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.6.0/ArcanaArena-v0.6.0-Windows-x64.zip) de [Releases](https://github.com/andresmartinezmelgar/magicka/releases/latest).
 2. **Extraer todo el ZIP** en una carpeta. Abrir **ArcanaArena.exe** con doble clic.
 3. Elegir el **tipo de mago**. Elegir **Práctica** para jugar con bots, **Alojar** para iniciar tu servidor, **LAN** para buscar servidores o **Por IP** para usar una dirección.
 
@@ -57,7 +66,7 @@ El resultado queda en **`Juego/ArcanaArena.exe`**. Cada compilación correcta **
 - **Todos contra todos:** primer mago que llega al límite de bajas; por defecto 15.
 - **Guerra:** reducir a cero los tickets rivales; controlar más puntos los desgasta cada segundo y cada muerte cuesta un ticket.
 
-Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). Las clases y la debilidad se calculan en el servidor: **protocolo 3**, actualizar el cliente y el servidor Docker juntos a esta versión.
+Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). El combate usa **protocolo 4**. Actualizar cliente y servidor juntos a v0.6.0; las versiones anteriores se rechazan en el saludo.
 
 ## Diagnosticar un problema
 
@@ -171,12 +180,14 @@ dotnet run --project tests/Arcana.Tests -c Release -- --server=127.0.0.1:27015 -
 
 Si se usa contraseña, definir `TEST_PASSWORD` en el proceso de pruebas. El cliente y el servidor deben ejecutar la misma versión del protocolo.
 
-La batería incluye **43 pruebas** con servidor protegido: 29 de núcleo/diagnóstico y 14 de red. Cubre combate, copias de estado, absorción/capacidad/caducidad del escudo, afinidades por componente, quemaduras, victoria y replicación de tipos/objetivos, respuestas acotadas, rotación y ocultación de contraseñas, aislamiento de salas, cierre simultáneo, cancelación del saludo, bots en salas vacías y errores HTTP. El cliente ejecuta una práctica de cuatro magos durante 240 pasos en modo headless.
+La batería incluye **53 pruebas** con servidor protegido: 38 de núcleo/diagnóstico y 15 de red. Cubre combate, copias de estado, absorción/capacidad/caducidad del escudo, afinidades por componente, quemaduras, victoria y replicación de tipos/objetivos, respuestas acotadas, rotación y ocultación de contraseñas, aislamiento de salas, cierre simultáneo, cancelación del saludo, bots en salas vacías y errores HTTP. El cliente ejecuta una práctica de cuatro magos durante 240 pasos en modo headless.
 
-El workflow compila y prueba en Linux, valida Docker con IP y LAN, y genera el paquete en Windows. Antes de publicarlo prueba el servidor incluido, la creación de salas y el juego **exportado**, con el runtime global deshabilitado. También arranca el servidor desde el launcher exportado, comprueba que se detiene al cerrar, exporta un informe que incluye un aviso de prueba del motor y comprueba seis estados del escudo en el HUD. Valida doce tipos de eventos visuales, su expiración y limpieza. La compilación automática se ejecuta en Windows PowerShell 5.1; comprueba la sustitución completa de la carpeta y que un fallo conserve el resultado anterior. Solo una ejecución completa satisfactoria publica una nueva versión en **Releases**.
+El workflow compila y prueba en Linux, valida Docker con IP y LAN, y genera el paquete en Windows. Antes de publicarlo prueba el servidor incluido, la creación de salas y el juego **exportado**, con el runtime global deshabilitado. También arranca el servidor desde el launcher exportado, comprueba que se detiene al cerrar, exporta un informe que incluye un aviso de prueba del motor y comprueba seis estados del escudo en el HUD. Valida doce tipos de eventos visuales, su expiración y limpieza, y diez escenas del catálogo. Recorre las 360 demostraciones (120 combinaciones × 3 formas de lanzar) y valida sus snapshots y reinicios. La compilación automática se ejecuta en Windows PowerShell 5.1; comprueba la sustitución completa de la carpeta y que un fallo conserve el resultado anterior. Solo una ejecución completa satisfactoria publica una nueva versión en **Releases**.
 
 ## Alcance de esta primera versión
 
 El núcleo PvP, el launcher y el servidor están implementados. El mapa, los modelos, la animación y el balance son propios. Esta versión usa WebSocket sobre TCP y suavizado del estado; no incorpora predicción con reconciliación, compensación de latencia, matchmaking público, cuentas, persistencia de estadísticas ni las tablas completas de balance y equipo del original. La preferencia de equipo se respeta cuando permite mantener equipos equilibrados.
+
+Combate y demostraciones: [efectos, minas, rayos y captura](docs/COMBINACIONES.md).
 
 Documentación adicional: [servidor y redes](docs/SERVIDOR.md), [arquitectura](docs/ARQUITECTURA.md), [exportar el ejecutable](docs/EXPORTAR.md), [cambios de versión](CHANGELOG.md).
