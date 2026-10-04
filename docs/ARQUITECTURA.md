@@ -50,7 +50,7 @@ Las salas sin humanos se pausan. El servidor reutiliza contenedores temporales y
 
 ## Vida y escudo
 
-`Wizard.ShieldMax` conserva la capacidad aplicada, aunque el daño reduzca `Shield`. El snapshot transmite `ShieldMax`, `ShieldSeconds` y `RegenerationRate`; la expiración, muerte y reaparición limpian los valores. El HUD y las barras 3D usan la misma capacidad y diferencian vida, protección y energía. La versión v0.9.0 exige protocolo 7 para garantizar mapas, objetos y elementos preparados comunes.
+`Wizard.ShieldMax` conserva la capacidad aplicada, aunque el daño reduzca `Shield`. El snapshot transmite `ShieldMax`, `ShieldSeconds` y `RegenerationRate`; la expiración, muerte y reaparición limpian los valores. El HUD y las barras 3D usan la misma capacidad y diferencian vida, protección y energía. La versión v0.10.0 exige protocolo 8 para garantizar mapas, objetos y elementos preparados comunes.
 
 ## Mapas y control total
 
@@ -86,8 +86,10 @@ El servidor emite `shield_hit`, `shield_break` y `hurt`; limita los impactos con
 
 ## Reliquias, elementos preparados y cifras de F1
 
-`ArenaDefinition.ItemSpawns` define catorce posiciones solo para Santuario. `TickPickups` resuelve distancia, empate por ID, magos vivos y reaparición de doce segundos. `Wizard.BuffStacks` conserva siete contadores; `RelicBuffs` calcula sus efectos. `Damage` aplica potencia/protección antes del escudo y limpia todos los contadores al morir. Vitalidad reduce la capacidad al limpiarse; reanimación no restaura contadores y `ResetMatch` reinicia también los objetos. El snapshot copia `BuffSnapshot[]` y `PickupSnapshot[]`; su validación rechaza acumulaciones duplicadas, tipos desconocidos, mejoras en muertos o mapas distintos y esperas inválidas.
+`ArenaDefinition.ItemSpawns` define catorce posiciones fijas para Santuario. Ascensión usa `CreatePickups` y `FindPickupPosition` con un generador independiente: semilla aleatoria por mundo, opcionalmente reproducible mediante `WorldOptions.PickupSeed`. Excluye bordes, pilares, puntos de control, apariciones, otros objetos, magos vivos y muros activos. `TickPickups` recoloca los objetos aleatorios al terminar su espera de doce segundos. `Wizard.BuffStacks` conserva siete contadores; `RelicBuffs` calcula sus efectos. `Damage` limpia los contadores al morir y retira solo la vida temporal de Vitalidad, preservando el bonus de bajas. `ResetMatch` reinicia y recoloca los objetos. El snapshot copia sus posiciones y `RelicVisual.Update` mueve el nodo existente, sin un sorteo en el cliente.
 
 `CastingElements` copia la receta de `Charging` o `Channel` cuando la selección ya se consumió. `DisplayElements` da prioridad a la selección nueva y permite mostrar tres casillas de color/tecla sobre cada personaje y en el HUD. Los eventos de lanzamientos instantáneos mantienen las casillas brevemente durante su pose.
 
-`SpellBalance` comparte constantes y daño por componente entre simulación y catálogo. Calcula unidades de impacto, segundo, carga, fragmento y mina, curación, quemadura y objetivo mojado sin aplicar afinidades o mejoras. F1 muestra sus cifras con la descripción de condiciones base. El HUD de partida escala a 0,75 y ajusta su tamaño lógico al viewport para conservar anclajes.
+`SpellBalance` comparte constantes y daño por componente entre simulación y catálogo. Calcula unidades de impacto, segundo, carga, fragmento y mina, curación, quemadura y objetivo mojado sin aplicar afinidades o mejoras. F1 muestra sus cifras con la descripción de condiciones base. El HUD de partida escala a 0,75 y ajusta su tamaño lógico al viewport para conservar anclajes; el panel de vida/escudo compensa ese factor para recuperar sus dimensiones y márgenes originales.
+
+`ArenaRenderer.Scenery` construye superficies e iluminación según `ArenaTheme`: bosque, ciudad, ruinas y santuario. Edificios y árboles exteriores se sitúan fuera de los rectángulos de suelo. La vegetación baja utiliza MultiMesh con colores por instancia. Los obstáculos centrales reutilizan radios y posiciones de `ArenaDefinition`; solo cambia su representación. La CI verifica tanto el estado de los nodos como cuatro capturas OpenGL.

@@ -39,6 +39,7 @@ El tercer mapa tiene un suelo en cruz de **2.688 unidades²**, cuatro pilares si
 - El bonus permanece durante la partida, aunque mueras o te reanimen. Al reaparecer recuperas toda tu vida máxima acumulada; la reanimación conserva su curación inicial de 600 y el bonus de capacidad.
 - Autocuración, rayos de vida, regeneración y minas pueden curarte hasta la capacidad aumentada. HUD y marcador muestran el máximo del mago.
 - Cada muerte añade **0,5 segundos** a la espera base del modo, con máximo de **10 segundos**. La penalización pertenece a cada mago, incluidos los bots.
+- Catorce objetos aparecen en posiciones aleatorias. Al recogerlos, reaparecen tras doce segundos en un sitio diferente. Sus mejoras temporales se acumulan y se pierden al morir; la vida permanente por bajas se conserva. [Objetos y efectos](OBJETOS.md).
 
 | Muertes acumuladas | Duelo | Todos contra todos / guerra |
 |---:|---:|---:|

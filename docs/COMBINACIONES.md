@@ -83,6 +83,6 @@ Cuando entra el rival, primero retira el progreso del equipo anterior, pasa por 
 
 ## Compatibilidad y comprobaciones
 
-La versión **v0.9.0 usa protocolo 7**. Actualizar cliente y servidor juntos. La red replica regeneración, minas armadas y sus radios, campos persistentes, componentes/intensidad de rayos, disputa de puntos, cuatro mapas, elementos del lanzamiento activo y mejoras/objetos del Santuario.
+La versión **v0.10.0 usa protocolo 8**. Actualizar cliente y servidor juntos. La red replica regeneración, minas armadas y sus radios, campos persistentes, componentes/intensidad de rayos, disputa de puntos, cuatro mapas, elementos del lanzamiento activo y mejoras y objetos del Santuario y Coliseo, incluidas las nuevas posiciones aleatorias.
 
 Las pruebas recorren las 360 demostraciones, verifican destinatarios de minas, regeneración, splash, caducidad, cruces, escudos y captura. `--combinations-smoke` comprueba diez escenas en el cliente y en la distribución Windows, incluida la representación de los nuevos eventos y los límites de recursos.

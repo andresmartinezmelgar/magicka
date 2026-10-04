@@ -39,6 +39,12 @@ public partial class ArenaRenderer
             varying vec2 ground_position;
             void vertex() { ground_position = (MODEL_MATRIX * vec4(VERTEX,1.0)).xz; }
             float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
+            float ground_noise(vec2 p) {
+                vec2 cell = floor(p), blend = fract(p);
+                blend = blend * blend * (3.0 - 2.0 * blend);
+                return mix(mix(hash(cell),hash(cell+vec2(1.0,0.0)),blend.x),
+                    mix(hash(cell+vec2(0.0,1.0)),hash(cell+vec2(1.0,1.0)),blend.x),blend.y);
+            }
             float segment_distance(vec2 p, vec2 a, vec2 b) {
                 vec2 line = b-a;
                 float t = clamp(dot(p-a,line) / max(dot(line,line),0.001),0.0,1.0);
@@ -46,7 +52,7 @@ public partial class ArenaRenderer
             }
             void fragment() {
                 vec2 world = ground_position;
-                float patch = hash(floor(world * 0.45));
+                float patch = ground_noise(world * 0.32);
                 float grain = hash(floor(world * 13.0));
                 vec3 grass = mix(vec3(0.19,0.32,0.16),vec3(0.30,0.43,0.22),patch*0.7+grain*0.3);
                 float trail = min(segment_distance(world, point_a, point_b),segment_distance(world,point_b,point_c));

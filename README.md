@@ -1,4 +1,4 @@
-# Arcana Arena — v0.9.0
+# Arcana Arena — v0.10.0
 
 Primera recreación jugable en C# del combate elemental de **Magicka: Wizard Wars**. Cliente 3D de escritorio con **Godot 4.5.2 .NET**, servidor independiente **ASP.NET Core / .NET 8**, Docker, launcher con conexión por IP/LAN, salas independientes y paquete Windows para abrir con doble clic.
 
@@ -18,7 +18,7 @@ El código, las mallas y los sonidos son propios. Los sprites de los magos se ha
 - Rayos continuos, chorros en cono, arcos eléctricos, rocas con carga, fragmentos de hielo, vapor, muros, minas y lanzamientos en área.
 - Curación, escudos, guardas elementales, empujes, mojado, quemaduras, frío y congelación. Fuego amigo configurable.
 - Colores con más contraste y símbolos por elemento. Vida y escudo separados: el escudo muestra puntos/capacidad real y segundos restantes; también aparece sobre el mago.
-- UI de partida al 75 % del tamaño anterior. Tres cuadrados sobre cada mago muestran los elementos seleccionados y la combinación activa mientras carga o canaliza.
+- Panel de vida y escudo con su tamaño original; los demás controles mantienen la escala del 75 %. Tres cuadrados sobre cada mago muestran los elementos seleccionados y la combinación activa mientras carga o canaliza.
 - Duelo, todos contra todos y guerra por tres puntos de control, con tickets, muerte, reaparición y reinicio de partidas. El objetivo y el límite real aparecen en la sala y en el HUD; ayuda **F1 → Cómo ganar**.
 - Cinco tipos de mago: equilibrado, piromante, criomante, tempestario y geomante. Bonus elemental del 25 % y debilidad del 25 %, elegidos antes de entrar y calculados por el servidor.
 - Sprites propios para los cinco magos, con cuatro orientaciones, pasos y poses de lanzamiento. Túnicas por equipo y detalles de especialidad; barras sobre el sombrero. [Arte y código de los sprites](docs/SPRITES-MAGOS.md).
@@ -29,7 +29,8 @@ El código, las mallas y los sonidos son propios. Los sprites de los magos se ha
 - **F1 → Combinaciones:** 120 combinaciones, tres formas de lanzamiento, daño y curación con unidades reales, demostraciones animadas en bucle, pausa/repetición y escenas de cruce, escudo y captura.
 - Puntos de control con círculo que se rellena por equipo, porcentaje y estado disputado.
 - Cuatro mapas seleccionables: Arena clásica, Ciudadela de los pasillos (4× de suelo y victoria por control total), Coliseo de la ascensión y Santuario de las reliquias. Solo en Ascensión, cada baja añade 10 de vida permanente y cada muerte añade 0,5 segundos de reaparición, hasta 10 segundos.
-- En el Santuario, catorce objetos dan mejoras acumulables de daño, protección, vida/s, vida máxima, velocidad, energía/s y curación. Duran hasta morir, reaparecen a los doce segundos y tienen ayuda en **F1 → Objetos**.
+- En Santuario y Coliseo, catorce objetos dan mejoras acumulables de daño, protección, vida/s, vida máxima, velocidad, energía/s y curación. En el Coliseo sus posiciones son aleatorias y cambian al reaparecer a los doce segundos. Las mejoras temporales duran hasta morir. Ayuda en **F1 → Objetos**.
+- Escenarios de bosque con senderos, ciudad con calles y casas, ruinas cubiertas de vegetación y santuario forestal. Decoración procedural y plantas agrupadas para limitar el coste gráfico.
 - Bots que combaten, se curan y capturan puntos. Práctica local sin iniciar Docker.
 - Launcher: IP/dominio, búsqueda LAN, servidor incluido, configuración gráfica y creación de salas con modo, bots, aforo y contraseñas.
 - Distribución Windows x64 autónoma: motor, cliente, servidor y runtimes incluidos. No necesita instalar Godot, .NET ni Docker para jugar o alojar.
@@ -39,7 +40,7 @@ El código, las mallas y los sonidos son propios. Los sprites de los magos se ha
 
 ## Jugar con doble clic en Windows
 
-1. Descargar [ArcanaArena-v0.9.0-Windows-x64.zip](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.9.0/ArcanaArena-v0.9.0-Windows-x64.zip) de [Releases](https://github.com/andresmartinezmelgar/magicka/releases/latest).
+1. Descargar [ArcanaArena-v0.10.0-Windows-x64.zip](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.10.0/ArcanaArena-v0.10.0-Windows-x64.zip) de [Releases](https://github.com/andresmartinezmelgar/magicka/releases/latest).
 2. **Extraer todo el ZIP** en una carpeta. Abrir **ArcanaArena.exe** con doble clic.
 3. Elegir el **tipo de mago**. Elegir **Práctica** para jugar con bots, **Alojar** para iniciar tu servidor, **LAN** para buscar servidores o **Por IP** para usar una dirección.
 
@@ -70,22 +71,22 @@ El resultado queda en **`Juego/ArcanaArena.exe`**. Cada compilación correcta **
 - **Guerra en Arena clásica:** reducir a cero los tickets rivales; controlar más puntos los desgasta cada segundo y cada muerte cuesta un ticket.
 - **Guerra en Ciudadela:** controlar los tres puntos sin disputa durante **15 segundos consecutivos**. Disputar o neutralizar cualquiera reinicia el contador; no hay victoria por tickets o bajas.
 
-Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). El combate usa **protocolo 7**. Actualizar cliente y servidor juntos a v0.9.0; las versiones anteriores se rechazan en el saludo.
+Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). El combate usa **protocolo 8**. Actualizar cliente y servidor juntos a v0.10.0; las versiones anteriores se rechazan en el saludo.
 
 ## Mapas
 
 | Mapa | Superficie de suelo | Diseño | Guerra de puntos |
 |---|---|---|---|
-| Arena clásica | 1.408 unidades² | Arena original de 44×32. | Desgastar los tickets rivales. |
-| Ciudadela de los pasillos | 5.632 unidades², exactamente 4× | Tres salas de 22×64 conectadas por dos pasillos de 22×32; contorno irregular dentro de 110×64. | Mantener los tres puntos durante 15 segundos consecutivos. |
-| Coliseo de la ascensión | 2.688 unidades² | Suelo en cruz, zona central amplia y cuatro pilares simétricos. | Desgastar los tickets rivales; +10 de vida por baja y +0,5 s de reaparición por muerte. |
-| Santuario de las reliquias | 4.032 unidades² | Arena de 72×56, seis pilares y catorce objetos simétricos. | Desgastar los tickets rivales; objetos con mejoras acumulables hasta morir. |
+| Arena clásica | 1.408 unidades² | Claro de bosque de 44×32, árboles, flores y senderos de tierra. | Desgastar los tickets rivales. |
+| Ciudadela de los pasillos | 5.632 unidades², exactamente 4× | Ciudad con calles y plazas, fachadas, tejados, toldos y faroles. Tres salas de 22×64 y dos pasillos de 22×32. | Mantener los tres puntos durante 15 segundos consecutivos. |
+| Coliseo de la ascensión | 2.688 unidades² | Ruinas de piedra cubiertas de vegetación, suelo en cruz y catorce objetos aleatorios. | Desgastar los tickets rivales; +10 de vida por baja y +0,5 s de reaparición por muerte. |
+| Santuario de las reliquias | 4.032 unidades² | Bosque de 72×56 con menhires, cristales y catorce objetos simétricos. | Desgastar los tickets rivales; objetos con mejoras acumulables hasta morir. |
 
 La cámara sigue al mago por el escenario grande. El minimapa representa el suelo, sus límites y los objetos disponibles. Los patios sin suelo bloquean caminar, rayos, proyectiles y traslación. El desplazamiento al cursor y los bots buscan una ruta por los pasillos. Duelo y todos contra todos conservan sus condiciones de victoria en los cuatro mapas. En Ascensión se añaden las reglas de vida y reaparición.
 
 En **Ascensión**, cada baja de otro mago suma 10 a tu vida máxima y a la actual si sigues vivo. Se conserva al morir y al ser reanimado; curaciones y minas respetan el máximo individual. Cada muerte aumenta 0,5 segundos la espera base del modo, hasta 10: la primera tarda 3 segundos en duelo y 4,5 en arena/guerra. La siguiente partida reinicia vida y penalización. [Reglas y tiempos](docs/COMO-GANAR.md#coliseo-de-la-ascensión).
 
-En el **Santuario**, caminar sobre un objeto lo recoge. Sus mejoras se acumulan y el HUD muestra el número de acumulaciones. Todas se pierden al morir, incluido el suicidio, y reanimar no las restaura. [Objetos, efectos y límites](docs/OBJETOS.md).
+En **Santuario y Coliseo**, caminar sobre un objeto lo recoge. Sus mejoras se acumulan y el HUD muestra el número de acumulaciones. Todas las mejoras de objetos se pierden al morir, incluido el suicidio, y reanimar no las restaura. El Coliseo conserva por separado la vida permanente ganada por bajas. Sus objetos cambian de posición al reaparecer y al empezar otra partida. [Objetos, efectos y límites](docs/OBJETOS.md) · [Escenarios y decoración](docs/MAPAS.md).
 
 ## Diagnosticar un problema
 
@@ -199,7 +200,7 @@ dotnet run --project tests/Arcana.Tests -c Release -- --server=127.0.0.1:27015 -
 
 Si se usa contraseña, definir `TEST_PASSWORD` en el proceso de pruebas. El cliente y el servidor deben ejecutar la misma versión del protocolo.
 
-La batería incluye **82 pruebas** con servidor protegido: 64 de núcleo/diagnóstico y 18 de red. Cubre combate, cifras de las 120 combinaciones, elementos del canal/carga, objetos y acumulaciones, límites de protección y velocidad, muerte/reanimación/reinicio, copias de estado, absorción/capacidad/caducidad del escudo, afinidades por componente, quemaduras, victoria y replicación de tipos/objetivos, respuestas acotadas, rotación y ocultación de contraseñas, aislamiento de salas y mapas, vida acumulada, reaparición progresiva, cierre simultáneo, cancelación del saludo, bots en salas vacías y errores HTTP. El cliente ejecuta una práctica de cuatro magos durante 240 pasos en modo headless.
+La batería incluye **88 pruebas** con servidor protegido: 69 de núcleo/diagnóstico y 19 de red. Cubre combate, cifras de las 120 combinaciones, elementos del canal/carga, objetos y acumulaciones, límites de protección y velocidad, muerte/reanimación/reinicio, copias de estado, absorción/capacidad/caducidad del escudo, afinidades por componente, quemaduras, victoria y replicación de tipos/objetivos, respuestas acotadas, rotación y ocultación de contraseñas, aislamiento de salas y mapas, vida acumulada, reaparición progresiva, cierre simultáneo, cancelación del saludo, bots en salas vacías y errores HTTP. El cliente ejecuta una práctica de cuatro magos durante 240 pasos en modo headless.
 
 El workflow compila y prueba en Linux, valida Docker con IP y LAN, y genera el paquete en Windows. Antes de publicarlo prueba el servidor incluido, la creación de salas y el juego **exportado**, con el runtime global deshabilitado. También arranca el servidor desde el launcher exportado, comprueba que se detiene al cerrar, exporta un informe que incluye un aviso de prueba del motor y comprueba seis estados del escudo en el HUD. Valida doce tipos de eventos visuales, su expiración y limpieza, y diez escenas del catálogo. Recorre las 360 demostraciones (120 combinaciones × 3 formas de lanzar) y valida sus snapshots y reinicios. La compilación automática se ejecuta en Windows PowerShell 5.1; comprueba la sustitución completa de la carpeta y que un fallo conserve el resultado anterior. Solo una ejecución completa satisfactoria publica una nueva versión en **Releases**.
 

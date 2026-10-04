@@ -45,7 +45,7 @@ Una dirección sin esquema utiliza `ws://`, puerto 27015 y ruta `/play`. Una dir
 
 ## LAN
 
-El launcher envía `ARCANA_DISCOVER_V7` y un nonce por UDP al puerto de búsqueda. El servidor responde con nombre, IP de origen, puerto TCP, modo, ocupación y si necesita contraseña. El cliente obtiene la IP de la respuesta, no de datos declarados por un tercero.
+El launcher envía `ARCANA_DISCOVER_V8` y un nonce por UDP al puerto de búsqueda. El servidor responde con nombre, IP de origen, puerto TCP, modo, ocupación y si necesita contraseña. El cliente obtiene la IP de la respuesta, no de datos declarados por un tercero.
 
 La búsqueda dura dos segundos y también pregunta a loopback, para encontrar un servidor ejecutado en el mismo equipo. Las subredes de Wi-Fi invitado, el aislamiento entre clientes y los cortafuegos pueden impedir broadcast. En ese caso, la misma partida LAN es accesible introduciendo su IP en **Por IP**.
 
@@ -81,8 +81,8 @@ Si `/health` funciona localmente pero otro PC no conecta, comprobar que el puert
 
 Para detener: `docker compose down`. Las estadísticas de esta versión son de la partida actual y se reinician al apagar el proceso.
 
-## Compatibilidad: protocolo 7
+## Compatibilidad: protocolo 8
 
-La versión v0.9.0 incorpora el cuarto mapa, Santuario de las reliquias. Los snapshots transmiten objetos y espera de reaparición, mejoras acumuladas y elementos del lanzamiento activo; la recogida y sus efectos se calculan en el servidor. La sala y el saludo replican el mapa elegido. Actualizar cliente y servidor juntos; los clientes anteriores son rechazados. Para el servidor dedicado: `docker compose up -d --build`.
+La versión v0.10.0 añade objetos aleatorios al Coliseo. El servidor decide sus posiciones iniciales y sus recolocaciones; los clientes solo las representan. Los snapshots transmiten objetos y espera de reaparición, mejoras acumuladas y elementos del lanzamiento activo; la recogida y sus efectos se calculan en el servidor. La sala y el saludo replican el mapa elegido. Actualizar cliente y servidor juntos; los clientes anteriores son rechazados. Para el servidor dedicado: `docker compose up -d --build`.
 
 El mapa se elige en **Crear sala → Mapa**. Para la sala principal del servidor dedicado, `ARENA_MAP=Classic` mantiene la arena original y `ARENA_MAP=Citadel` selecciona la Ciudadela. En guerra, esta última exige 15 segundos seguidos de control total y no utiliza tickets para la victoria.
