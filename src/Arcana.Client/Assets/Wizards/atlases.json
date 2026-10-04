@@ -1,0 +1,367 @@
+[
+  {
+    "Type": 0,
+    "Texture": "res://Assets/Wizards/balanced.png",
+    "Width": 1254,
+    "Height": 1254,
+    "PixelSize": 0.00711287,
+    "Frames": [
+      {
+        "AnchorX": 138.0,
+        "AnchorY": 282.0
+      },
+      {
+        "AnchorX": 155.5,
+        "AnchorY": 294.0
+      },
+      {
+        "AnchorX": 133.0,
+        "AnchorY": 294.0
+      },
+      {
+        "AnchorX": 119.5,
+        "AnchorY": 294.0
+      },
+      {
+        "AnchorX": 171.0,
+        "AnchorY": 284.5
+      },
+      {
+        "AnchorX": 134.5,
+        "AnchorY": 282.5
+      },
+      {
+        "AnchorX": 112.0,
+        "AnchorY": 283.5
+      },
+      {
+        "AnchorX": 125.5,
+        "AnchorY": 284.5
+      },
+      {
+        "AnchorX": 169.0,
+        "AnchorY": 274.0
+      },
+      {
+        "AnchorX": 157.0,
+        "AnchorY": 289.0
+      },
+      {
+        "AnchorX": 159.0,
+        "AnchorY": 289.0
+      },
+      {
+        "AnchorX": 133.5,
+        "AnchorY": 279.0
+      },
+      {
+        "AnchorX": 144.0,
+        "AnchorY": 282.5
+      },
+      {
+        "AnchorX": 182.5,
+        "AnchorY": 282.5
+      },
+      {
+        "AnchorX": 181.0,
+        "AnchorY": 280.5
+      },
+      {
+        "AnchorX": 189.5,
+        "AnchorY": 281.5
+      }
+    ]
+  },
+  {
+    "Type": 1,
+    "Texture": "res://Assets/Wizards/pyromancer.png",
+    "Width": 1254,
+    "Height": 1254,
+    "PixelSize": 0.00711287,
+    "Frames": [
+      {
+        "AnchorX": 138.0,
+        "AnchorY": 288.0
+      },
+      {
+        "AnchorX": 155.5,
+        "AnchorY": 299.0
+      },
+      {
+        "AnchorX": 137.0,
+        "AnchorY": 298.0
+      },
+      {
+        "AnchorX": 120.5,
+        "AnchorY": 297.0
+      },
+      {
+        "AnchorX": 175.0,
+        "AnchorY": 289.5
+      },
+      {
+        "AnchorX": 135.5,
+        "AnchorY": 285.5
+      },
+      {
+        "AnchorX": 117.0,
+        "AnchorY": 285.5
+      },
+      {
+        "AnchorX": 127.5,
+        "AnchorY": 288.5
+      },
+      {
+        "AnchorX": 179.0,
+        "AnchorY": 278.0
+      },
+      {
+        "AnchorX": 158.5,
+        "AnchorY": 295.0
+      },
+      {
+        "AnchorX": 160.0,
+        "AnchorY": 292.0
+      },
+      {
+        "AnchorX": 117.5,
+        "AnchorY": 282.0
+      },
+      {
+        "AnchorX": 142.0,
+        "AnchorY": 284.5
+      },
+      {
+        "AnchorX": 181.5,
+        "AnchorY": 282.5
+      },
+      {
+        "AnchorX": 179.0,
+        "AnchorY": 280.5
+      },
+      {
+        "AnchorX": 191.5,
+        "AnchorY": 283.5
+      }
+    ]
+  },
+  {
+    "Type": 2,
+    "Texture": "res://Assets/Wizards/cryomancer.png",
+    "Width": 1254,
+    "Height": 1254,
+    "PixelSize": 0.00711287,
+    "Frames": [
+      {
+        "AnchorX": 143.0,
+        "AnchorY": 287.0
+      },
+      {
+        "AnchorX": 155.5,
+        "AnchorY": 297.0
+      },
+      {
+        "AnchorX": 136.0,
+        "AnchorY": 297.0
+      },
+      {
+        "AnchorX": 137.5,
+        "AnchorY": 297.0
+      },
+      {
+        "AnchorX": 176.0,
+        "AnchorY": 290.5
+      },
+      {
+        "AnchorX": 143.5,
+        "AnchorY": 284.5
+      },
+      {
+        "AnchorX": 120.0,
+        "AnchorY": 288.5
+      },
+      {
+        "AnchorX": 142.5,
+        "AnchorY": 289.5
+      },
+      {
+        "AnchorX": 146.0,
+        "AnchorY": 279.0
+      },
+      {
+        "AnchorX": 160.5,
+        "AnchorY": 293.0
+      },
+      {
+        "AnchorX": 163.0,
+        "AnchorY": 292.0
+      },
+      {
+        "AnchorX": 181.5,
+        "AnchorY": 281.0
+      },
+      {
+        "AnchorX": 143.0,
+        "AnchorY": 285.5
+      },
+      {
+        "AnchorX": 186.5,
+        "AnchorY": 284.5
+      },
+      {
+        "AnchorX": 187.0,
+        "AnchorY": 283.5
+      },
+      {
+        "AnchorX": 188.5,
+        "AnchorY": 284.5
+      }
+    ]
+  },
+  {
+    "Type": 3,
+    "Texture": "res://Assets/Wizards/stormcaller.png",
+    "Width": 1254,
+    "Height": 1254,
+    "PixelSize": 0.00711287,
+    "Frames": [
+      {
+        "AnchorX": 140.0,
+        "AnchorY": 286.0
+      },
+      {
+        "AnchorX": 152.5,
+        "AnchorY": 299.0
+      },
+      {
+        "AnchorX": 135.0,
+        "AnchorY": 299.0
+      },
+      {
+        "AnchorX": 120.5,
+        "AnchorY": 300.0
+      },
+      {
+        "AnchorX": 173.0,
+        "AnchorY": 290.5
+      },
+      {
+        "AnchorX": 134.5,
+        "AnchorY": 286.5
+      },
+      {
+        "AnchorX": 113.0,
+        "AnchorY": 285.5
+      },
+      {
+        "AnchorX": 125.5,
+        "AnchorY": 287.5
+      },
+      {
+        "AnchorX": 176.0,
+        "AnchorY": 278.0
+      },
+      {
+        "AnchorX": 159.5,
+        "AnchorY": 289.0
+      },
+      {
+        "AnchorX": 162.0,
+        "AnchorY": 289.0
+      },
+      {
+        "AnchorX": 115.5,
+        "AnchorY": 281.0
+      },
+      {
+        "AnchorX": 143.0,
+        "AnchorY": 288.5
+      },
+      {
+        "AnchorX": 187.5,
+        "AnchorY": 283.5
+      },
+      {
+        "AnchorX": 191.0,
+        "AnchorY": 282.5
+      },
+      {
+        "AnchorX": 193.5,
+        "AnchorY": 282.5
+      }
+    ]
+  },
+  {
+    "Type": 4,
+    "Texture": "res://Assets/Wizards/geomancer.png",
+    "Width": 1254,
+    "Height": 1254,
+    "PixelSize": 0.00711287,
+    "Frames": [
+      {
+        "AnchorX": 142.0,
+        "AnchorY": 294.0
+      },
+      {
+        "AnchorX": 163.5,
+        "AnchorY": 302.0
+      },
+      {
+        "AnchorX": 145.0,
+        "AnchorY": 303.0
+      },
+      {
+        "AnchorX": 152.5,
+        "AnchorY": 300.0
+      },
+      {
+        "AnchorX": 185.0,
+        "AnchorY": 291.5
+      },
+      {
+        "AnchorX": 140.5,
+        "AnchorY": 289.5
+      },
+      {
+        "AnchorX": 135.0,
+        "AnchorY": 288.5
+      },
+      {
+        "AnchorX": 237.5,
+        "AnchorY": 313.5
+      },
+      {
+        "AnchorX": 140.0,
+        "AnchorY": 280.0
+      },
+      {
+        "AnchorX": 165.5,
+        "AnchorY": 293.0
+      },
+      {
+        "AnchorX": 164.0,
+        "AnchorY": 295.0
+      },
+      {
+        "AnchorX": 238.0,
+        "AnchorY": 313.0
+      },
+      {
+        "AnchorX": 133.0,
+        "AnchorY": 281.5
+      },
+      {
+        "AnchorX": 175.5,
+        "AnchorY": 282.5
+      },
+      {
+        "AnchorX": 185.0,
+        "AnchorY": 281.5
+      },
+      {
+        "AnchorX": 188.5,
+        "AnchorY": 280.5
+      }
+    ]
+  }
+]
