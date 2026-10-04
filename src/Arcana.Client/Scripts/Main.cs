@@ -115,7 +115,7 @@ public partial class Main : Node
             if (arg.StartsWith("--preview-interaction=") && Enum.TryParse<DemonstrationKind>(arg[22..], true, out var interaction)) _previewInteraction = interaction;
             if (arg == "--preview-wizards") _previewWizards = "front";
             if (arg.StartsWith("--preview-wizards=")) _previewWizards = arg[18..];
-            if (arg.StartsWith("--preview-help=") && int.TryParse(arg[15..], out int page)) _previewHelp = Math.Clamp(page, 0, 3);
+            if (arg.StartsWith("--preview-help=") && int.TryParse(arg[15..], out int page)) _previewHelp = Math.Clamp(page, 0, _helpPages.GetTabCount() - 1);
             if (arg.StartsWith("--preview-shield=")) _previewShield = arg[17..];
             if (arg.StartsWith("--capture=")) _capturePath = arg[10..];
             if (arg.StartsWith("--server=")) _launcher.BrowseAddress(arg[9..]);
@@ -137,7 +137,7 @@ public partial class Main : Node
         if (_previewHelp >= 0) { ToggleHelp(); _helpPages.CurrentTab = _previewHelp; }
         if (_combinationsSmoke || _previewCombination != null || _previewInteraction != DemonstrationKind.Combination)
         {
-            _help.Visible = true; _helpPages.CurrentTab = 3;
+            _help.Visible = true; _helpPages.CurrentTab = _helpPages.GetTabIdxFromControl(_spellBook);
             _spellBook.FixedStepForVerification = _combinationsSmoke || _capturePath != null;
             _spellBook.SelectCombination(_previewCombination ?? "SS", _previewCastMode, _previewInteraction);
         }
@@ -393,10 +393,12 @@ public partial class Main : Node
         try
         {
             var state = _spellBook.Demo.World.Snapshot(); SnapshotValidation.Check(state);
+            if (!_spellBook.IsVisibleInTree() || state.Tick < 180)
+                throw new InvalidDataException("La pestaña de combinaciones está oculta o la demostración no avanza.");
             if (item.Kind == DemonstrationKind.Combination)
             {
                 var damageText = (Label)_spellBook.FindChild("SpellDamageValues", true, false);
-                if (!damageText.Visible || damageText.Text != SpellBalance.Format(SpellCatalogue.FromKeys(item.Keys)!.Recipe, item.Mode))
+                if (!damageText.IsVisibleInTree() || damageText.Text != SpellBalance.Format(SpellCatalogue.FromKeys(item.Keys)!.Recipe, item.Mode))
                     throw new InvalidDataException("F1 no muestra los valores de daño de la combinación y forma de lanzamiento.");
             }
             var effects = _spellBook.Preview.Effects;
