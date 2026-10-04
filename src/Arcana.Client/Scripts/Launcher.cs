@@ -154,6 +154,7 @@ public partial class Launcher : Control
     }
     public void SetBusy(bool busy, string message = "")
     {
+        if (busy) CancelSearch();
         _busy = busy; _connect.Disabled = busy; for (int i = 0; i < 4; i++) _tabs.SetTabDisabled(i, busy);
         _name.Editable = _address.Editable = !busy; _team.Disabled = _wizardType.Disabled = busy;
         _hostName.Editable = _hostPort.Editable = _hostDiscovery.Editable = !busy && !_host.Running;
@@ -203,8 +204,8 @@ public partial class Launcher : Control
     }
     private void OpenRooms(string address, string password)
     {
-        if (GodotObject.IsInstanceValid(_lobby)) _lobby!.QueueFree();
-        _lobby = new RoomLobby(); AddChild(_lobby); _lobby.Build(_main, this, address, password, _name.Text, _team.GetSelectedId(), (WizardType)_wizardType.GetSelectedId());
+        CancelSearch(); _main.CancelPendingConnection(); CloseRooms();
+        _lobby = new RoomLobby(); AddChild(_lobby); _lobby.Build(_main, address, password, _name.Text, _team.GetSelectedId(), (WizardType)_wizardType.GetSelectedId());
     }
     public void CloseRooms()
     { if (GodotObject.IsInstanceValid(_lobby)) _lobby!.QueueFree(); _lobby = null; }
@@ -288,14 +289,15 @@ public partial class Launcher : Control
     private async void StartSearch()
     {
         if (_busy || _refresh.Disabled) return;
-        _search?.Cancel(); _search?.Dispose(); _search = new();
+        CancelSearch(); var search = new CancellationTokenSource(); _search = search;
         _refresh.Disabled = true; _status.Text = "Buscando partidas en la red local…";
         int port = (int)_discoveryPort.Value;
         try
         {
-            var servers = await LanDiscovery.FindAsync(port, _search.Token);
+            var servers = await LanDiscovery.FindAsync(port, search.Token);
             _main.Post(() =>
             {
+                if (_search != search || search.IsCancellationRequested) return;
                 _lan = servers; _servers.Clear();
                 foreach (var s in servers)
                     _servers.AddItem($"{s.Info.Name}  ·  {s.Address}  ·  {s.Info.Players}/{s.Info.MaxPlayers} plazas");
@@ -304,12 +306,15 @@ public partial class Launcher : Control
                 _refresh.Disabled = false;
             });
         }
-        catch (OperationCanceledException) { _main.Post(() => _refresh.Disabled = false); }
+        catch (OperationCanceledException) { _main.Post(() => { if (_search == search) _refresh.Disabled = false; }); }
         catch (Exception e)
         {
+            if (search.IsCancellationRequested) return;
             Diagnostics.Warn("launcher.discovery_failed", "No se pudo buscar en LAN.", e);
-            _main.Post(() => { _refresh.Disabled = false; ShowError("No se ha podido buscar en LAN. Comprueba el puerto UDP y el cortafuegos."); });
+            _main.Post(() => { if (_search != search) return; _refresh.Disabled = false; ShowError("No se ha podido buscar en LAN. Comprueba el puerto UDP y el cortafuegos."); });
         }
     }
+    private void CancelSearch()
+    { var search = _search; _search = null; search?.Cancel(); search?.Dispose(); _refresh.Disabled = false; }
     public override void _ExitTree() { _search?.Cancel(); _search?.Dispose(); _host.Dispose(); }
 }

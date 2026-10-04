@@ -2,6 +2,8 @@ namespace Arcana.Core;
 
 public sealed partial class GameWorld
 {
+    internal Field? DemonstrationMine => _fields.FirstOrDefault(f => f.Kind is "mine" or "healing_mine");
+
     private void AddMine(Wizard owner, SpellRecipe spell, V2 position)
     {
         if (_fields.Count >= 40 || !Walkable(position)) return;

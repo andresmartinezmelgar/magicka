@@ -143,7 +143,7 @@ public sealed partial class GameWorld
             if (p.Bot) ThinkBot(p, dt);
             if (Time - p.LastInput > 0.6)
             {
-                p.Channel = null; p.Charging = null;
+                CancelCast(p);
                 p.Input.MoveTo = false; p.Input.MoveX = p.Input.MoveY = 0;
             }
             TickStatus(p, dt);
@@ -208,15 +208,18 @@ public sealed partial class GameWorld
         if (p.Channel != null) speed *= 0.48f;
         if (p.Charging != null) speed *= 0.35f;
         if (p.Ward.Contains(Element.Earth)) speed *= 0.78f;
-        if (p.Frozen > 0) { speed = 0; p.Channel = null; p.Charging = null; }
+        if (p.Frozen > 0) { speed = 0; CancelCast(p); }
         var delta = move.Normalized * (speed * dt) + p.Knockback * dt;
         p.Knockback *= MathF.Max(0, 1 - 8 * dt);
         // Dos ejes: el mago se desliza por los obstáculos en vez de atravesarlos.
         var x = p.Position + new V2(delta.X, 0);
-        if (Walkable(x)) p.Position = x;
+        if (ClearMovement(p.Position, x)) p.Position = x;
         var y = p.Position + new V2(0, delta.Y);
-        if (Walkable(y)) p.Position = y;
+        if (ClearMovement(p.Position, y)) p.Position = y;
     }
+
+    private bool ClearMovement(V2 from, V2 to) => Map.ClearPath(from, to) &&
+        !_walls.Any(w => w.Health > 0 && Geometry.SegmentCapsule(from, to, w.A, w.B, ArenaMap.WizardRadius + 0.18f) != null);
 
     public bool Walkable(V2 position)
     {
@@ -226,10 +229,12 @@ public sealed partial class GameWorld
     }
 
     private bool Ready(Wizard p) => p.Alive && p.Frozen <= 0 && p.ActionCooldown <= 0 && !MatchEnded;
+    private static void CancelCast(Wizard p)
+    { p.Channel = p.Charging = null; p.ChargeTime = 0; }
     private void BeginCast(Wizard p)
     {
         if (!Ready(p)) return;
-        p.Channel = null; p.Charging = null;
+        CancelCast(p);
         var spell = new SpellRecipe(p.Selection.Consume());
         if (spell.Shape == SpellShape.Rock)
         {
@@ -238,7 +243,10 @@ public sealed partial class GameWorld
         else if (spell.Shape == SpellShape.Shards)
         {
             int count = 3 + spell.Count(Element.Cold);
-            for (int i = 0; i < count; i++) SpawnProjectile(p, spell, p.Facing.Rotated((i - (count - 1) / 2f) * 0.11f), SpellBalance.ShardPower, 22, 0.16f);
+            bool launched = false;
+            for (int i = 0; i < count; i++) launched |= SpawnProjectile(p, spell,
+                p.Facing.Rotated((i - (count - 1) / 2f) * 0.11f), SpellBalance.ShardPower, 22, 0.16f);
+            if (launched) Emit("cast", p.Position, spell.Elements, "");
             p.ActionCooldown = 0.5f;
         }
         else if (spell.Shape == SpellShape.Barrier)
@@ -256,22 +264,22 @@ public sealed partial class GameWorld
     {
         if (p.Charging != null)
         {
-            SpawnProjectile(p, p.Charging, p.Facing, SpellBalance.RockMinimum + p.ChargeTime, 13 + p.ChargeTime * 9,
-                0.24f + p.Charging.Count(Element.Earth) * 0.13f);
+            if (SpawnProjectile(p, p.Charging, p.Facing, SpellBalance.RockMinimum + p.ChargeTime, 13 + p.ChargeTime * 9,
+                0.24f + p.Charging.Count(Element.Earth) * 0.13f)) Emit("cast", p.Position, p.Charging.Elements, "");
             p.ActionCooldown = 0.35f;
         }
-        p.Charging = null; p.ChargeTime = 0; p.Channel = null;
+        CancelCast(p);
     }
 
-    private void SpawnProjectile(Wizard p, SpellRecipe spell, V2 direction, float power, float speed, float radius)
+    private bool SpawnProjectile(Wizard p, SpellRecipe spell, V2 direction, float power, float speed, float radius)
     {
-        if (_projectiles.Count >= 128) return;
+        if (_projectiles.Count >= 128) return false;
         _projectiles.Add(new Projectile
         {
             Id = _nextEntity++, Owner = p.Id, Position = SpellOrigin(p, direction, 0.85f, radius),
             Velocity = direction * speed, Recipe = spell, Power = power, Radius = radius
         });
-        Emit("cast", p.Position, spell.Elements, "");
+        return true;
     }
 
     private V2 SpellOrigin(Wizard caster, V2 direction, float distance, float radius = 0)
@@ -437,9 +445,8 @@ public sealed partial class GameWorld
     private void Magick(Wizard p, int slot)
     {
         if (!Ready(p) || slot is < 0 or > 3 || p.MagickCooldowns[slot] > 0) return;
-        float[] costs = [25, 35, 75, 60];
-        float[] cooldowns = [9, 12, 24, 22];
-        if (p.Energy < costs[slot]) return;
+        var magick = SpellBalance.Magicks[slot];
+        if (p.Energy < magick.Cost) return;
         var target = new V2(p.Input.AimX, p.Input.AimY);
         if (slot == 0) p.Haste = 4;
         if (slot == 1)
@@ -473,11 +480,11 @@ public sealed partial class GameWorld
                 .OrderBy(q => V2.Distance(q.Position, p.Position)).FirstOrDefault();
             if (ally == null) return;
             var location = ally.Position;
-            Respawn(ally); ally.Position = location; ally.Health = 600;
+            Respawn(ally); if (Walkable(location)) ally.Position = location; ally.Health = 600;
         }
-        p.Energy -= costs[slot]; p.MagickCooldowns[slot] = cooldowns[slot];
+        p.Energy -= magick.Cost; p.MagickCooldowns[slot] = magick.Cooldown;
         p.ActionCooldown = 0.2f;
-        Emit("magick", p.Position, [], new[] { "Celeridad", "Traslación", "Meteoro", "Reanimación" }[slot]);
+        Emit("magick", p.Position, [], magick.Name);
     }
 
     private void Hit(Wizard target, SpellRecipe spell, float scale, int owner, V2 force)
@@ -533,7 +540,7 @@ public sealed partial class GameWorld
         if (target.Health > 0) return;
         target.Deaths++; target.Respawn = Map.RespawnSeconds(Options.Mode, target.Deaths);
         RelicBuffs.Clear(target);
-        target.Channel = null; target.Charging = null; target.Selection.Clear(); target.Shield = target.ShieldMax = target.ShieldTime = target.RegenerationRate = 0;
+        CancelCast(target); target.Selection.Clear(); target.Shield = target.ShieldMax = target.ShieldTime = target.RegenerationRate = 0;
         if (Options.Mode == GameMode.Warfare && !HoldToWin) Scores[target.Team] = Math.Max(0, Scores[target.Team] - 1);
         string text = $"{target.Name} ha caído";
         if (_players.TryGetValue(owner, out var killer) && killer.Id != target.Id)
@@ -566,15 +573,8 @@ public sealed partial class GameWorld
                 if (Geometry.SegmentCircle(from, to, o.Position, o.Radius + projectile.Radius) is float t && t < nearest)
                 { nearest = t; obstacleHit = true; target = null; wallHit = null; }
             foreach (var w in _walls.Where(w => w.Health > 0))
-            {
-                // Muestreo a intervalos pequeños para colisión continua con una pared fina.
-                for (int k = 0; k <= 8; k++)
-                {
-                    float t = k / 8f;
-                    if (t < nearest && Geometry.DistanceToSegment(V2.Lerp(from, to, t), w.A, w.B) < projectile.Radius + 0.2f)
-                    { nearest = t; wallHit = w; obstacleHit = false; target = null; break; }
-                }
-            }
+                if (Geometry.SegmentCapsule(from, to, w.A, w.B, projectile.Radius + 0.2f) is float t && t < nearest)
+                { nearest = t; wallHit = w; obstacleHit = false; target = null; }
             foreach (var q in _players.Values.Where(q => q.Alive && q.Id != projectile.Owner))
                 if (Geometry.SegmentCircle(from, to, q.Position, ArenaMap.WizardRadius + projectile.Radius) is float t && t < nearest)
                 { nearest = t; target = q; obstacleHit = false; wallHit = null; }
@@ -610,6 +610,7 @@ public sealed partial class GameWorld
         foreach (var w in _walls)
         {
             w.Lifetime -= dt;
+            if (w.Health <= 0 || w.Lifetime <= 0) continue;
             if (w.Recipe.Has(Element.Fire) || w.Recipe.Has(Element.Cold) || w.Recipe.Has(Element.Lightning))
                 foreach (var p in _players.Values.Where(p => p.Alive && Geometry.DistanceToSegment(p.Position, w.A, w.B) < 1))
                     Hit(p, w.Recipe, dt, w.Owner, (p.Position - (w.A + w.B) / 2).Normalized);
@@ -698,7 +699,7 @@ public sealed partial class GameWorld
         }
         if (winner < 0) return;
         Winner = winner; MatchEnded = true; RestartIn = 9;
-        foreach (var p in _players.Values) { p.Channel = null; p.Charging = null; }
+        foreach (var p in _players.Values) CancelCast(p);
         Emit("victory", V2.Zero, [], "Partida terminada");
     }
 
@@ -720,13 +721,33 @@ public sealed partial class GameWorld
     private void Respawn(Wizard p)
     {
         _routes.Remove(p.Id);
-        p.Position = Map.Spawn(p.Team, p.Id % 4); p.Health = p.MaxHealth;
+        p.Position = RespawnPosition(p); p.Health = p.MaxHealth;
         p.Wet = p.Burning = p.Chill = p.Frozen = p.Haste = p.Shield = p.ShieldMax = p.ShieldTime = 0;
         p.RegenerationRate = 0;
-        p.Ward = []; p.Knockback = V2.Zero; p.Selection.Clear(); p.Channel = p.Charging = null;
+        p.Ward = []; p.Knockback = V2.Zero; p.Selection.Clear(); CancelCast(p);
         p.BurnMultiplier = 1; p.HitEffectCooldown = 0;
         p.Input.MoveTo = false; p.Input.MoveX = p.Input.MoveY = 0; p.Respawn = 0;
         p.Invulnerable = 1.2f; p.ActionCooldown = 0;
+    }
+
+    private V2 RespawnPosition(Wizard p)
+    {
+        var preferred = Map.Spawn(p.Team, p.Id % 4);
+        for (int offset = 0; offset < 4; offset++)
+        {
+            var spawn = Map.Spawn(p.Team, (p.Id + offset) % 4);
+            if (Walkable(spawn)) return spawn;
+        }
+        // Si los cuatro puestos están cubiertos, busca suelo libre cerca de la base.
+        V2 best = preferred; float nearest = float.PositiveInfinity;
+        for (float x = -Map.HalfWidth + 1; x < Map.HalfWidth; x++)
+        for (float y = -Map.HalfHeight + 1; y < Map.HalfHeight; y++)
+        {
+            var candidate = new V2(x, y); float distance = (candidate - preferred).LengthSquared;
+            if (distance >= nearest || !Walkable(candidate)) continue;
+            best = candidate; nearest = distance;
+        }
+        return best;
     }
 
     private void ThinkBot(Wizard p, float dt)

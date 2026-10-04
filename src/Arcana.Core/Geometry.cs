@@ -103,7 +103,6 @@ public static class ArenaMap
         new(new(0, -10), 1.4f, 2.1f), new(new(0, 10), 1.4f, 2.1f)
     ];
     public static readonly V2[] ControlPoints = [new(-9, -7), new(0, 0), new(9, 7)];
-    public static V2 Spawn(int team, int index) => new(team == 0 ? -18 : 18, (index % 4 - 1.5f) * 2.2f);
     public static bool Inside(V2 p) => MathF.Abs(p.X) < HalfWidth && MathF.Abs(p.Y) < HalfHeight;
     public static ArenaDefinition Get(ArenaMapId id) => ArenaMaps.Get(id);
 }

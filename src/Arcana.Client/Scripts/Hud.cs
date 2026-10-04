@@ -25,8 +25,6 @@ public partial class Hud : Control
     private readonly List<string> _statuses = [];
     private readonly List<Label> _scoreCells = [];
     private WorldSnapshot? _lastSnapshot;
-    private static readonly float[] Costs = [25, 35, 75, 60];
-    private static readonly string[] Names = ["Celeridad", "Traslación", "Meteoro", "Reanimar"];
 
     public void Build()
     {
@@ -78,14 +76,14 @@ public partial class Hud : Control
             var label = Ui.Label("—", 21, Ui.Muted); row.AddChild(label); _selected.Add(label);
         }
         var hint = Ui.Label("Derecho: lanzar\nCentral: sobre ti · Mayús + derecho: área", 14, Ui.Muted); first.AddChild(hint);
-        _charge = Bar(Ui.Gold, 1, 5); stack.AddChild(_charge);
+        _charge = Bar(Ui.Gold, 1, 5); _charge.Name = "ChargeBar"; stack.AddChild(_charge);
         var elements = new HBoxContainer(); elements.AddThemeConstantOverride("separation", 7); stack.AddChild(elements);
         foreach (var e in Enum.GetValues<Element>())
         {
             elements.AddChild(Ui.ElementTile(e, true));
         }
         var magicks = new HBoxContainer(); magicks.AddThemeConstantOverride("separation", 12); stack.AddChild(magicks);
-        foreach (string text in new[] { "1 Celeridad", "2 Traslación", "3 Meteoro", "4 Reanimar" })
+        foreach (string text in SpellBalance.Magicks.Select((m, i) => $"{i + 1} {m.Name}"))
         {
             var label = Ui.Label(text, 13, Ui.Gold); label.SizeFlagsHorizontal = SizeFlags.ExpandFill; magicks.AddChild(label); _magicks.Add(label);
         }
@@ -160,7 +158,7 @@ public partial class Hud : Control
         _shieldText.Text = shielded ? $"ESCUDO  {Math.Ceiling(player.Shield):0} / {_shield.MaxValue:0}"
             + (player.ShieldSeconds > 0 ? $"  ·  {player.ShieldSeconds:0.0} s" : "") : "ESCUDO  0  /  INACTIVO";
         _shieldText.AddThemeColorOverride("font_color", shielded ? Ui.Text : Ui.Muted);
-        _energy.Value = player.Energy; _charge.Value = player.Charge; _energyText.Text = $"ENERGÍA  {Math.Floor(player.Energy):0} / 100";
+        _energy.Value = player.Energy; _charge.Value = player.Casting ? player.Charge : 0; _energyText.Text = $"ENERGÍA  {Math.Floor(player.Energy):0} / 100";
         _statuses.Clear(); var statuses = _statuses;
         if (player.Wet > 0) statuses.Add("Mojado"); if (player.Burning > 0) statuses.Add("Quemándose");
         if (player.Chill > 20) statuses.Add("Frío"); if (player.Frozen > 0) statuses.Add("Congelado"); if (player.Haste > 0) statuses.Add("Celeridad");
@@ -177,8 +175,9 @@ public partial class Hud : Control
         }
         for (int i = 0; i < 4; i++)
         {
-            _magicks[i].Text = $"{i + 1} {Names[i]} " + (player.Cooldowns[i] > 0 ? $"{Math.Ceiling(player.Cooldowns[i])}s" : $"{Costs[i]:0}");
-            _magicks[i].AddThemeColorOverride("font_color", player.Cooldowns[i] > 0 || player.Energy < Costs[i] ? Ui.Muted : Ui.Gold);
+            var magick = SpellBalance.Magicks[i];
+            _magicks[i].Text = $"{i + 1} {magick.Name} " + (player.Cooldowns[i] > 0 ? $"{Math.Ceiling(player.Cooldowns[i])}s" : $"{magick.Cost:0}");
+            _magicks[i].AddThemeColorOverride("font_color", player.Cooldowns[i] > 0 || player.Energy < magick.Cost ? Ui.Muted : Ui.Gold);
         }
         _match.Visible = snapshot.Mode == GameMode.Arena; _teams.Visible = !_match.Visible;
         if (_match.Visible)

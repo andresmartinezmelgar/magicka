@@ -1,5 +1,19 @@
 # Cambios
 
+## 0.11.1
+
+- Revisión de cliente, servidor, simulación, protocolo, interfaz y distribución.
+- Cancelación de cargas centralizada: muerte, congelación, falta de entrada, cambio de hechizo y final de partida limpian la carga. El cliente ignora valores residuales de servidores anteriores cuando el mago no está lanzando.
+- Cada descarga de hielo emite un único evento de lanzamiento. Se conservan todos sus fragmentos, con menos sonidos y efectos duplicados.
+- Colisión continua de empujes y proyectiles con obstáculos y muros. Los muros destruidos o caducados dejan de aplicar daño en ese mismo paso.
+- Los rayos combinados aplican a cada componente la bonificación de daño de su autor. Reaparición y reanimación evitan posiciones cubiertas por muros.
+- Cancelación de conexiones pendientes, rechazo de callbacks obsoletos y cierre de conexiones sustituidas. Volver al launcher permanece disponible durante la carga de salas; las búsquedas LAN canceladas no alteran operaciones posteriores.
+- Validación compartida de servidores y salas por HTTP, WebSocket y LAN; reglas, aforo y mapas completos. Snapshots con identificadores repetidos, eventos desordenados o vida/carga inválidas se rechazan antes de dibujar.
+- F1 reutiliza su receta y snapshot, calcula el filtro una vez y mantiene pasos exactos de 60 Hz. Costes, nombres y esperas de las magias comparten una única tabla con la simulación.
+- Retirados un campo y parámetro de launcher sin uso, estado redundante del renderer, un helper antiguo de aparición, uniformes de terreno y cálculos de escudo sobrescritos. Corregido el zoom de las capturas generales.
+- Versiones de Windows, Docker, Compose y LEEME actualizadas. La compilación verifica los metadatos del ejecutable; el servidor alojado no hereda un mapa externo.
+- Protocolo 8. 99 pruebas de combate, HTTP, diagnóstico y red, regresiones de conexiones en Godot y comprobación del paquete Windows, mapas y efectos de una/dos/tres cargas.
+
 ## 0.11.0
 
 - Efectos según el número de elementos del hechizo, incluidos los repetidos. Una carga es visible y compacta; dos añaden detalle; tres aumentan más la densidad y los acentos.

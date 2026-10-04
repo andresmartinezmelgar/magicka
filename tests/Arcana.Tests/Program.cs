@@ -936,6 +936,118 @@ Test("Elementos preparados: selección, carga y canal se replican y sus arrays s
     Check(w.Snapshot().Players[0].DisplayElements.Length == 0, "La cancelación no vació las casillas.");
 });
 
+Test("Cancelar una carga por falta de entrada, congelación, otro hechizo o muerte vacía su estado", () =>
+{
+    foreach (string cause in new[] { "timeout", "freeze", "replace", "death" })
+    {
+        var (w, a, b) = Setup();
+        Select(w, a, Element.Earth); Send(w, a, "cast"); Run(w, a, 12);
+        Check(a.ChargeTime > 0, "La roca no se estaba cargando.");
+        if (cause == "timeout") for (int i = 0; i < 40; i++) w.Step();
+        if (cause == "freeze") { a.Frozen = 1; Run(w, a, 1); }
+        if (cause == "replace") { Select(w, a, Element.Arcane); Send(w, a, "cast"); }
+        if (cause == "death")
+        {
+            a.Health = 1; b.Position = new(1, 0);
+            Select(w, b, Element.Arcane); Send(w, b, "nova");
+        }
+        var state = w.Snapshot().Players.Single(p => p.Id == a.Id);
+        Check(a.Charging == null && a.ChargeTime == 0 && state.Charge == 0, "La carga sobrevivió a " + cause);
+        if (cause == "death")
+        {
+            for (int i = 0; i < 245; i++) w.Step();
+            Check(a.Alive && w.Snapshot().Players.Single(p => p.Id == a.Id).Charge == 0, "La carga reapareció con el mago.");
+        }
+    }
+});
+Test("Una descarga de hielo crea todos los fragmentos y un único evento de lanzamiento", () =>
+{
+    var (w, a, _) = Setup(); Select(w, a, Element.Water, Element.Cold, Element.Cold); Send(w, a, "cast");
+    var state = w.Snapshot();
+    Check(state.Projectiles.Length == 5, "Cambió el número de fragmentos.");
+    Check(state.Events.Count(e => e.Kind == "cast") == 1, "Cada fragmento duplicó el sonido y los efectos del lanzamiento.");
+});
+Test("El empuje no permite saltar pilares ni muros entre dos posiciones transitables", () =>
+{
+    var (w, a, _) = Setup(); a.Position = new(10, 0); a.Knockback = new(360, 0); Run(w, a, 1);
+    Check(a.Position.X < 13 - 1.3f - ArenaMap.WizardRadius, "El empuje atravesó un pilar.");
+    var (walls, caster, _) = Setup(); Select(walls, caster, Element.Shield, Element.Earth); Send(walls, caster, "cast");
+    Check(walls.Snapshot().Walls.Length == 1, "Falta el muro de prueba.");
+    caster.Knockback = new(360, 0); Run(walls, caster, 1);
+    Check(caster.Position.X < 1.2f - ArenaMap.WizardRadius - 0.18f, "El empuje atravesó un muro.");
+});
+Test("La roca impacta exactamente en la superficie de un muro", () =>
+{
+    var (w, a, b) = Setup(); b.Position = new(8, 8);
+    Select(w, a, Element.Shield, Element.Fire); Send(w, a, "cast"); Run(w, a, 43);
+    Select(w, a, Element.Earth); Send(w, a, "cast"); Run(w, a, 40); Send(w, a, "release");
+    float radius = w.Snapshot().Projectiles.Single().Radius;
+    for (int i = 0; i < 20 && !w.Snapshot().Events.Any(e => e.Kind == "impact"); i++) Run(w, a, 1);
+    var impact = w.Snapshot().Events.Single(e => e.Kind == "impact");
+    Check(Math.Abs(impact.Position.X - (1.2f - radius - 0.2f)) < 0.001f, "La colisión depende del muestreo y penetra en el muro.");
+});
+Test("Un muro destruido o caducado deja de aplicar efectos de contacto en ese paso", () =>
+{
+    foreach (bool destroyed in new[] { true, false })
+    {
+        var (w, a, b) = Setup(); b.Position = new(8, 8);
+        Select(w, a, Element.Shield, Element.Fire); Send(w, a, "cast"); Run(w, a, 43);
+        if (destroyed) { Select(w, a, Element.Fire, Element.Fire, Element.Fire); Send(w, a, "cast"); }
+        float pressure = 110 * new SpellRecipe([Element.Fire, Element.Fire, Element.Fire]).Power * GameWorld.StepSeconds;
+        for (int i = 0; i < 450; i++)
+        {
+            var wall = w.Snapshot().Walls.Single();
+            if (destroyed ? wall.Health <= pressure : wall.Lifetime <= GameWorld.StepSeconds) break;
+            Run(w, a, 1);
+        }
+        b.Position = new(1.2f, 2.95f); b.Invulnerable = 0;
+        Run(w, a, 1);
+        Check(w.Snapshot().Walls.Length == 0, "El muro no terminó en el paso esperado.");
+        Check(b.Health == 1000 && b.Burning == 0, "Un muro que ya terminó todavía quemó al mago.");
+    }
+});
+Test("Cada componente de un rayo combinado conserva el bonus de daño de su autor contra un escudo", () =>
+{
+    foreach (bool firstBoosted in new[] { true, false })
+    {
+        var w = new GameWorld(new() { Mode = GameMode.Arena, Map = ArenaMapId.Relics });
+        var a = w.AddPlayer("A")!; var b = w.AddPlayer("B")!; var target = w.AddPlayer("Escudo")!;
+        a.Position = new(-5, 0); b.Position = new(5, 0); target.Position = new(0, 4);
+        a.Invulnerable = b.Invulnerable = target.Invulnerable = 0;
+        (firstBoosted ? a : b).BuffStacks[(int)BuffKind.Power] = 3;
+        Send(w, a, "input", aim: b.Position); Send(w, b, "input", aim: a.Position); w.Step();
+        target.Shield = target.ShieldMax = 420; target.ShieldTime = 12;
+        Select(w, a, Element.Arcane, Element.Arcane); Select(w, b, Element.Arcane, Element.Arcane);
+        Send(w, a, "cast"); Send(w, b, "cast");
+        Send(w, a, "input", aim: b.Position); Send(w, b, "input", aim: a.Position); w.Step();
+        float expected = 230 * (1 + RelicBuffs.Power(firstBoosted ? a : b)) * 0.2f * GameWorld.StepSeconds;
+        Check(Math.Abs(420 - target.Shield - expected) < 0.001f, "El bonus del primer mago se aplicó a ambos rayos.");
+    }
+});
+Test("La reaparición encuentra suelo libre aunque los cuatro puestos estén cubiertos por muros", () =>
+{
+    var (w, a, b) = Setup();
+    a.Health = 0; a.Respawn = 10;
+    foreach (float y in new[] { -2.2f, 2.2f })
+    {
+        b.Position = new(-21.2f, y); b.Facing = new(1, 0); b.ActionCooldown = 0;
+        Select(w, b, Element.Shield, Element.Earth); Send(w, b, "cast");
+    }
+    Check(w.Snapshot().Walls.Length == 2 && Enumerable.Range(0, 4).All(i => !w.Walkable(w.Map.Spawn(a.Team, i))), "La prueba requiere cuatro puestos bloqueados.");
+    a.Respawn = GameWorld.StepSeconds / 2; w.Step();
+    Check(a.Alive && w.Walkable(a.Position), "El mago reapareció dentro de un muro y no puede moverse.");
+});
+Test("Reanimación evita devolver al aliado al interior de un muro creado tras su muerte", () =>
+{
+    var w = new GameWorld(new() { Mode = GameMode.Warfare });
+    var a = w.AddPlayer("Reanimador", 0)!; w.AddPlayer("Rojo", 1); var ally = w.AddPlayer("Aliado", 0)!;
+    a.Position = new(-2, 0); ally.Position = new(1.2f, 0); ally.Health = 0; ally.Respawn = 10;
+    Select(w, a, Element.Shield, Element.Earth); Send(w, a, "cast"); Run(w, a, 43);
+    Check(!w.Walkable(ally.Position), "La prueba requiere un muro encima del aliado caído.");
+    Send(w, a, "magick", slot: 3);
+    Check(ally.Alive && ally.Health == 600 && w.Walkable(ally.Position), "El aliado reanimado quedó atrapado dentro del muro.");
+});
+
 Test("Direcciones IP, dominio, IPv6 y WSS", () =>
 {
     Check(ArenaConnection.Address("192.168.1.10").Port == 27015, "Puerto por defecto incorrecto.");
@@ -987,6 +1099,29 @@ Test("Validación de snapshots acepta combates y rechaza estado parcial o no fin
         Check(rejected, "Se aceptó un estado que rompe el renderer.");
     }
 });
+Test("Snapshots rechazan entidades y eventos repetidos, eventos desordenados y carga o vida contradictorias", () =>
+{
+    var (w, a, _) = Setup();
+    Select(w, a, Element.Earth); Send(w, a, "cast"); Run(w, a, 10); Send(w, a, "release");
+    var state = w.Snapshot(); var p = state.Players[0]; var shot = state.Projectiles.Single();
+    foreach (var invalid in new[]
+    {
+        state with { Players = [p with { Alive = false }] },
+        state with { Players = [p with { Charge = 1.1f, Casting = true }] },
+        state with { Players = [p with { Health = 0, Alive = false, Casting = true }] },
+        state with { Projectiles = [shot, shot] },
+        state with { Projectiles = [], Walls = [new(1, a.Id, V2.Zero, new(0, 2), 10, 1, [Element.Shield]), new(1, a.Id, V2.Zero, new(0, 2), 10, 1, [Element.Shield])] },
+        state with { Projectiles = [], Fields = [new(1, a.Id, V2.Zero, 2, 1, [Element.Fire], "burning_ground"), new(1, a.Id, V2.Zero, 2, 1, [Element.Fire], "burning_ground")] },
+        state with { Events = [state.Events[0], state.Events[0]] },
+        state with { Events = state.Events.Reverse().ToArray() }
+    })
+    {
+        bool rejected = false; try { SnapshotValidation.Check(invalid); } catch (InvalidDataException) { rejected = true; }
+        Check(rejected, "Se aceptó estado contradictorio o identificadores que el renderer confunde.");
+    }
+    // Protocolos 8 anteriores podían conservar un valor de carga después de interrumpirla.
+    SnapshotValidation.Check(state with { Players = [p with { Charge = 0.5f, Casting = false }] });
+});
 Test("Direcciones con ruta e IPv6 entre corchetes; se rechazan credenciales en URL", () =>
 {
     Check(ArenaConnection.Address("[::1]").Port == Protocol.GamePort, "Se duplicaron corchetes IPv6.");
@@ -1000,6 +1135,51 @@ Test("Direcciones con ruta e IPv6 entre corchetes; se rechazan credenciales en U
 });
 if (!args.Contains("--only-network"))
 {
+    async Task ReplyOnce(object value, Func<string, Task> request)
+    {
+        var portPicker = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        portPicker.Start(); int port = ((System.Net.IPEndPoint)portPicker.LocalEndpoint).Port; portPicker.Stop();
+        using var listener = new System.Net.HttpListener(); listener.Prefixes.Add($"http://127.0.0.1:{port}/"); listener.Start();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        async Task Reply()
+        {
+            var context = await listener.GetContextAsync().WaitAsync(timeout.Token);
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(Protocol.Serialize(value));
+            context.Response.ContentType = "application/json"; context.Response.ContentLength64 = bytes.Length;
+            await context.Response.OutputStream.WriteAsync(bytes, timeout.Token); context.Response.Close();
+        }
+        var response = Reply();
+        await request($"127.0.0.1:{port}"); await response;
+    }
+    await AsyncTest("HTTP: crear salas valida todos sus campos y conserva una respuesta válida", async () =>
+    {
+        var valid = new RoomInfo("audit", "Sala", GameMode.Arena, 0, 8, 0, true, 15, 75, false);
+        await ReplyOnce(valid, async address => Check(await RoomBrowser.CreateAsync(address, new()) == valid, "Se rechazó una sala válida."));
+        foreach (var invalid in new[] { valid with { Name = null! }, valid with { Map = (ArenaMapId)99 },
+            valid with { Mode = (GameMode)99 }, valid with { MaxPlayers = 17 }, valid with { Players = 9 },
+            valid with { Bots = 1 }, valid with { ScoreLimit = 0 }, valid with { Tickets = 0 }, valid with { Mode = GameMode.Duel } })
+            await ReplyOnce(invalid, async address =>
+            {
+                bool rejected = false; try { await RoomBrowser.CreateAsync(address, new()); } catch (InvalidDataException) { rejected = true; }
+                Check(rejected, "Crear sala aceptó metadatos que no cumplen sus reglas.");
+            });
+    });
+    await AsyncTest("HTTP: el directorio valida el servidor, las reglas y los identificadores únicos", async () =>
+    {
+        var serverInfo = new ServerInfo("Servidor", 27015, 27016, GameMode.Warfare, 0, 8, Protocol.Version, false);
+        var room = new RoomInfo("audit", "Sala", GameMode.Warfare, 0, 8, 0, true, 15, 75, false);
+        var valid = new RoomDirectory(serverInfo, [room]);
+        await ReplyOnce(valid, async address => Check((await RoomBrowser.ListAsync(address)).Rooms.Single() == room, "Se rechazó un directorio válido."));
+        foreach (var invalid in new[] { valid with { Server = serverInfo with { Name = null! } },
+            valid with { Server = serverInfo with { Players = 9 } }, valid with { Server = serverInfo with { DiscoveryPort = 0 } },
+            valid with { Rooms = [room with { ScoreLimit = 201 }] }, valid with { Rooms = [room with { Tickets = 1001 }] },
+            valid with { Rooms = [room, room] }, valid with { Rooms = [room with { Mode = GameMode.Duel }] } })
+            await ReplyOnce(invalid, async address =>
+            {
+                bool rejected = false; try { await RoomBrowser.ListAsync(address); } catch (InvalidDataException) { rejected = true; }
+                Check(rejected, "El directorio aceptó metadatos incompletos o repetidos.");
+            });
+    });
     await AsyncTest("Respuestas HTTP con y sin Content-Length tienen un límite real", async () =>
     {
         using var sized = new StringContent(new string('a', 4097));
@@ -1377,8 +1557,15 @@ string? package = args.FirstOrDefault(a => a.StartsWith("--package="))?[10..];
 if (package != null) await AsyncTest("Paquete autónomo: alojar, crear, entrar y detener desde LocalServerHost", async () =>
 {
     using var host = new LocalServerHost();
-    await host.StartAsync(package, Path.Combine(Path.GetTempPath(), "arcana-package-test"), new("Paquete de prueba", 29015, 29016, "paquete-clave"));
+    string? inheritedMap = Environment.GetEnvironmentVariable("ARENA_MAP");
+    try
+    {
+        Environment.SetEnvironmentVariable("ARENA_MAP", "Relics");
+        await host.StartAsync(package, Path.Combine(Path.GetTempPath(), "arcana-package-test"), new("Paquete de prueba", 29015, 29016, "paquete-clave"));
+    }
+    finally { Environment.SetEnvironmentVariable("ARENA_MAP", inheritedMap); }
     Check(host.Running, "No arrancó el servidor incluido.");
+    Check((await RoomBrowser.ListAsync(host.Address)).Rooms.Single().Map == ArenaMapId.Classic, "El servidor alojado heredó un mapa ajeno al launcher.");
     var room = await RoomBrowser.CreateAsync(host.Address, new() { Name = "Sala desde paquete", Bots = 1, ServerPassword = "paquete-clave" });
     await using var player = new ArenaConnection();
     await player.ConnectAsync(host.Address, "Doble clic", -1, "paquete-clave", roomId: room.Id);

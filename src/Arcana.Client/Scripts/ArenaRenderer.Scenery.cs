@@ -30,8 +30,6 @@ public partial class ArenaRenderer
     {
         var shader = new Shader { Code = """
             shader_type spatial;
-            uniform vec2 floor_size;
-            uniform vec2 floor_center;
             uniform vec2 point_a;
             uniform vec2 point_b;
             uniform vec2 point_c;
@@ -86,8 +84,6 @@ public partial class ArenaRenderer
         {
             var floor = Mesh(root, new PlaneMesh { Size = new(section.Width, section.Height) }, World(section.Center), Colors.White);
             var material = new ShaderMaterial { Shader = shader };
-            material.SetShaderParameter("floor_size", new Vector2(section.Width, section.Height));
-            material.SetShaderParameter("floor_center", new Vector2(section.Center.X, section.Center.Y));
             for (int i = 0; i < 3; i++) material.SetShaderParameter("point_" + (char)('a' + i), new Vector2(_map.ControlPoints[i].X, _map.ControlPoints[i].Y));
             material.SetShaderParameter("theme", (int)_map.Theme); floor.MaterialOverride = material;
             Box(root, new(section.Width + 0.3f, 0.18f, section.Height + 0.3f), World(section.Center, -0.11f), new("4c5140"));

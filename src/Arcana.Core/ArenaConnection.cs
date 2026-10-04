@@ -87,9 +87,14 @@ public sealed class ArenaConnection : IAsyncDisposable
             await SendFrame(hello, timeout.Token).ConfigureAwait(false);
             var welcome = await Read(timeout.Token).ConfigureAwait(false);
             if (welcome?.Type == "error") throw new InvalidOperationException(welcome.Error);
-            if (welcome is not { Type: "welcome", Snapshot: not null, Server: not null } || welcome.PlayerId <= 0 ||
-                welcome.Server.Protocol != Protocol.Version || !welcome.Snapshot.Players.Any(p => p.Id == welcome.PlayerId))
+            if (welcome is not { Type: "welcome", Snapshot: not null, Room: not null } || welcome.PlayerId <= 0 ||
+                !LobbyValidation.IsValid(welcome.Server) || !welcome.Snapshot.Players.Any(p => p.Id == welcome.PlayerId))
                 throw new InvalidDataException("El servidor no ha enviado un saludo válido.");
+            LobbyValidation.Check(welcome.Room);
+            if (welcome.Room.Id != roomId || welcome.Room.Mode != welcome.Snapshot.Mode || welcome.Room.Map != welcome.Snapshot.Map ||
+                welcome.Room.ScoreLimit != welcome.Snapshot.ScoreLimit || welcome.Room.Tickets != welcome.Snapshot.StartingTickets ||
+                welcome.Room.Players != welcome.Snapshot.Players.Length)
+                throw new InvalidDataException("El saludo no corresponde a la sala solicitada.");
             PlayerId = welcome.PlayerId; Server = welcome.Server; Room = welcome.Room;
             Volatile.Write(ref _latest, welcome.Snapshot); Volatile.Write(ref _connected, 1);
             Diagnostics.Info("network.connected", "Conexión establecida.", Context());
@@ -242,9 +247,7 @@ public static class LanDiscovery
                 DiscoveryReply? reply;
                 try { reply = Protocol.Deserialize<DiscoveryReply>(Encoding.UTF8.GetString(response.Buffer)); }
                 catch (System.Text.Json.JsonException) { continue; }
-                if (reply == null || reply.Server == null || reply.Magic != Protocol.DiscoveryMagic || reply.Nonce != nonce ||
-                    reply.Server.Protocol != Protocol.Version || reply.Server.Port is < 1 or > 65535 ||
-                    reply.Server.Name == null || reply.Server.Name.Length > 64 || !Enum.IsDefined(reply.Server.Mode)) continue;
+                if (reply == null || reply.Magic != Protocol.DiscoveryMagic || reply.Nonce != nonce || !LobbyValidation.IsValid(reply.Server)) continue;
                 string address = response.RemoteEndPoint.Address + ":" + reply.Server.Port;
                 if (found.Count >= 128 && !found.ContainsKey(address)) continue;
                 found[address] = new(address, reply.Server);

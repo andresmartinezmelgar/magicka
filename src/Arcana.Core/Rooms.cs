@@ -35,11 +35,7 @@ public static class RoomBrowser
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, Endpoint(address, "rooms"));
         var directory = await Request<RoomDirectory>(request, token).ConfigureAwait(false);
-        if (directory.Server == null || directory.Rooms is not { Length: <= 16 } || directory.Rooms.Any(r =>
-            r == null || string.IsNullOrWhiteSpace(r.Id) || r.Id.Length > 64 || string.IsNullOrWhiteSpace(r.Name) || r.Name.Length > 32 ||
-            !Enum.IsDefined(r.Mode) || !Enum.IsDefined(r.Map) || r.MaxPlayers is < 2 or > 16 || r.Players < 0 || r.Players > r.MaxPlayers ||
-            r.Bots < 0 || r.Bots >= r.MaxPlayers)) throw new InvalidDataException("Directorio de salas inválido.");
-        if (directory.Server.Protocol != Protocol.Version) throw new InvalidOperationException("Actualiza el juego: la versión del servidor es diferente.");
+        LobbyValidation.Check(directory);
         return directory;
     }
     public static async Task<RoomInfo> CreateAsync(string address, CreateRoomRequest room, CancellationToken token = default)
@@ -48,7 +44,7 @@ public static class RoomBrowser
         using var request = new HttpRequestMessage(HttpMethod.Post, Endpoint(address, "rooms"))
         { Content = JsonContent.Create(room, options: Protocol.Json) };
         var result = await Request<RoomInfo>(request, token).ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(result.Id) || result.Id.Length > 64) throw new InvalidDataException("El servidor no identificó la sala creada.");
+        LobbyValidation.Check(result);
         Diagnostics.Info("room.created", "Sala creada desde el cliente.", new Dictionary<string, object?> { ["roomId"] = result.Id, ["mode"] = result.Mode });
         return result;
     }

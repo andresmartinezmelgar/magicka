@@ -7,7 +7,6 @@ namespace Arcana.Client;
 public partial class RoomLobby : Control
 {
     private Main _main = null!;
-    private Launcher _launcher = null!;
     private string _address = "", _serverPassword = "", _playerName = "";
     private int _team;
     private WizardType _wizardType;
@@ -24,9 +23,9 @@ public partial class RoomLobby : Control
     private bool _busy;
     private readonly CancellationTokenSource _lifetime = new();
 
-    public void Build(Main main, Launcher launcher, string address, string password, string name, int team, WizardType wizardType)
+    public void Build(Main main, string address, string password, string name, int team, WizardType wizardType)
     {
-        _main = main; _launcher = launcher; _address = address; _serverPassword = password; _playerName = name; _team = team; _wizardType = wizardType;
+        _main = main; _address = address; _serverPassword = password; _playerName = name; _team = team; _wizardType = wizardType;
         Theme = Ui.Theme(); Ui.Full(this);
         var shade = new ColorRect { Color = new(0.01f, 0.025f, 0.045f, 0.94f) }; AddChild(shade); Ui.Full(shade);
         var center = new CenterContainer(); AddChild(center); Ui.Full(center);
@@ -82,7 +81,7 @@ public partial class RoomLobby : Control
         box.AddChild(Ui.Label("Cada sala tiene su propia partida. Las salas vacías se retiran a los 15 minutos.", 14, Ui.Muted));
         _status = Ui.Label("Cargando salas…", 15, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _status.CustomMinimumSize = new(0, 46); box.AddChild(_status);
-        ActionButton(box, "Volver al launcher", Close);
+        box.AddChild(Ui.Button("Volver al launcher", Close));
         Refresh();
     }
     private static SpinBox Number(int min, int max, int value) => new() { MinValue = min, MaxValue = max,
@@ -173,6 +172,6 @@ public partial class RoomLobby : Control
             : "No se pudo consultar el servidor. Comprueba la IP, los puertos y que esté iniciado.";
         _main.Post(() => { if (Active) ShowError(message); });
     }
-    private void Close() { if (!_busy) QueueFree(); }
+    private void Close() { _lifetime.Cancel(); _main.CancelPendingConnection(); QueueFree(); }
     public override void _ExitTree() { _lifetime.Cancel(); _lifetime.Dispose(); }
 }

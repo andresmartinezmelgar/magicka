@@ -15,6 +15,7 @@ public partial class SpellBook : VBoxContainer
     private readonly List<SpellCombination> _shown = [];
     private SpellCombination _combination = SpellCatalogue.All[0];
     private SpellDemonstration _demo = null!;
+    private WorldSnapshot _snapshot = null!;
     private bool _paused;
     private double _accumulator;
     public SpellDemonstration Demo => _demo;
@@ -32,7 +33,7 @@ public partial class SpellBook : VBoxContainer
         top.AddChild(_mode);
         var row = new HBoxContainer(); row.AddThemeConstantOverride("separation", 14); AddChild(row);
         var choices = new VBoxContainer { CustomMinimumSize = new(188, 0) }; row.AddChild(choices);
-        _search = new LineEdit { PlaceholderText = "EW, fuego…", Name = "SpellSearch" }; choices.AddChild(_search);
+        _search = new LineEdit { PlaceholderText = "EW, fuego…", Name = "SpellSearch", MaxLength = 64 }; choices.AddChild(_search);
         _list = new ItemList { CustomMinimumSize = new(188, 310), SizeFlagsVertical = SizeFlags.ExpandFill, Name = "SpellCombinations" };
         choices.AddChild(_list);
         choices.AddChild(Ui.Label($"{SpellCatalogue.All.Length} combinaciones válidas", 13, Ui.Muted));
@@ -67,10 +68,11 @@ public partial class SpellBook : VBoxContainer
     {
         string query = _search.Text.Trim().ToUpperInvariant();
         bool keys = query.Length > 0 && query.All(c => SpellCatalogue.ElementKeys.Contains(c));
+        var required = keys ? query.GroupBy(c => c).Select(g => (Key: g.Key, Count: g.Count())).ToArray() : [];
         _list.Clear(); _shown.Clear();
         foreach (var combination in SpellCatalogue.All)
         {
-            bool match = query.Length == 0 || keys && query.Distinct().All(c => combination.Keys.Count(k => k == c) >= query.Count(k => k == c)) ||
+            bool match = query.Length == 0 || keys && required.All(r => combination.Keys.Count(k => k == r.Key) >= r.Count) ||
                 SpellCatalogue.Name(combination.Elements).ToUpperInvariant().Contains(query);
             if (!match) continue;
             _shown.Add(combination);
@@ -97,6 +99,7 @@ public partial class SpellBook : VBoxContainer
         _paused = false; _pause.Text = "Pausar"; _accumulator = 0;
         var mode = (CastMode)_mode.Selected; var kind = (DemonstrationKind)_scenario.Selected;
         _demo = new(_combination.Elements, mode, kind);
+        _snapshot = _demo.World.Snapshot();
         _arena.Clear(); _arena.ShowControlPoints = kind == DemonstrationKind.Capture;
         _mode.Disabled = kind != DemonstrationKind.Combination;
         _damage.Text = kind == DemonstrationKind.Combination ? SpellBalance.Format(_combination.Recipe, mode) : "";
@@ -121,14 +124,16 @@ public partial class SpellBook : VBoxContainer
         if (!_paused)
         {
             _accumulator += FixedStepForVerification ? 1 / 60.0 : Math.Clamp(delta, 0, 0.1);
-            while (_accumulator >= GameWorld.StepSeconds)
+            bool advanced = false;
+            while (_accumulator >= 1 / 60.0)
             {
                 int cycle = _demo.Cycle; _demo.Step();
                 if (_demo.Cycle != cycle) _arena.Clear();
-                _accumulator -= GameWorld.StepSeconds;
+                _accumulator -= 1 / 60.0; advanced = true;
             }
+            if (advanced) _snapshot = _demo.World.Snapshot();
         }
-        _arena.Render(_demo.World.Snapshot(), _demo.LocalId, _paused ? 0 : FixedStepForVerification ? 1 / 60.0 : delta, true);
+        _arena.Render(_snapshot, _demo.LocalId, _paused ? 0 : FixedStepForVerification ? 1 / 60.0 : delta, true);
         _timeline.Value = _demo.Time;
         _clock.Text = $"{_demo.Time:0.0} / {_demo.Duration:0} s · bucle";
     }

@@ -93,10 +93,6 @@ public partial class WizardVisual : Node3D
     }
     public void Update(WizardSnapshot p, float dt, float time, Camera3D camera)
     {
-        var shieldMaterial = (StandardMaterial3D)_shield.MaterialOverride;
-        var shieldColor = p.RegenerationRate > 0 ? Ui.Health : Ui.Shield;
-        shieldMaterial.AlbedoColor = new(shieldColor.R, shieldColor.G, shieldColor.B, 0.22f);
-        shieldMaterial.Emission = shieldColor;
         var target = ArenaRenderer.World(p.Position);
         float distance = Position.DistanceTo(target);
         Position = distance > 4 ? target : Position.Lerp(target, 1 - Mathf.Exp(-16 * dt));
@@ -117,7 +113,7 @@ public partial class WizardVisual : Node3D
         bool moving = p.Alive && p.Frozen <= 0 && distance > 0.045f && distance < 4;
         _walkTime = moving ? _walkTime + dt * (p.Haste > 0 ? 1.4f : 1) : 0;
         _castPose = Math.Max(0, _castPose - dt);
-        int pose = !p.Alive || p.Frozen > 0 ? 0 : p.Casting || p.Charge > 0 || _castPose > 0 ? 3 : moving ? (int)(_walkTime * 8) % 2 : 0;
+        int pose = !p.Alive || p.Frozen > 0 ? 0 : p.Casting || _castPose > 0 ? 3 : moving ? (int)(_walkTime * 8) % 2 : 0;
         int frame = _facingRow * WizardSprites.Columns + pose;
         if (_sprite.Frame != frame) _sprite.Frame = frame;
         Vector2 offset = _atlas.Offset(frame);

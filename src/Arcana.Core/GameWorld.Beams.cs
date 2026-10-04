@@ -103,9 +103,9 @@ public sealed partial class GameWorld
                     foreach (var part in parts) Hit(target, part.Recipe, dt * part.Scale, part.Owner, direction);
                     return;
                 }
-                float pressure = parts.Where(part => !_players.TryGetValue(part.Owner, out var source) ||
-                    source.Id == target.Id || !Allied(source, target) || Options.FriendlyFire).Sum(part => BeamPressure(target, part));
-                Damage(target, pressure * 0.2f * dt, owner, BeamElements(parts));
+                foreach (var part in parts.Where(part => !_players.TryGetValue(part.Owner, out var source) ||
+                    source.Id == target.Id || !Allied(source, target) || Options.FriendlyFire))
+                    Damage(target, BeamPressure(target, part) * 0.2f * dt, part.Owner, part.Recipe.Elements);
                 if (target.Shield <= 0)
                 {
                     foreach (var part in parts) Hit(target, part.Recipe, dt * part.Scale * 0.8f, part.Owner, direction);

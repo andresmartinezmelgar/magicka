@@ -25,7 +25,9 @@ public static class SnapshotValidation
                 p.Cooldowns is not { Length: 4 } || !NonNegative(p.Cooldowns) ||
                 !NonNegative(p.Health, p.MaxHealth, p.Shield, p.Energy, p.Respawn, p.Wet, p.Burning, p.Chill, p.Frozen, p.Haste, p.Charge) ||
                 !NonNegative(p.ShieldMax, p.ShieldSeconds, p.RegenerationRate) || !hasPickups && p.RegenerationRate > 76 || p.ShieldMax > 0 && p.Shield > p.ShieldMax ||
-                p.MaxHealth <= 0 || p.Health > p.MaxHealth || p.Energy > 100 || p.Kills < 0 || p.Deaths < 0) Invalid();
+                p.MaxHealth <= 0 || p.Health > p.MaxHealth || p.Alive != (p.Health > 0) ||
+                p.Charge > 1 || !p.Alive && p.Casting ||
+                p.Energy > 100 || p.Kills < 0 || p.Deaths < 0) Invalid();
             if (p!.CastingElements != null && !Elements(p.CastingElements) ||
                 p.Buffs is { Length: > RelicBuffs.Count } || hasPickups && p.Buffs == null) Invalid();
             var kinds = new HashSet<BuffKind>();
@@ -38,13 +40,19 @@ public static class SnapshotValidation
         foreach (var item in state.Pickups ?? [])
             if (item == null || item.Id <= 0 || !itemIds.Add(item.Id) || !Enum.IsDefined(item.Kind) ||
                 !ArenaMap.Get(state.Map).Walkable(item.Position) || !NonNegative(item.Respawn) || item.Respawn > RelicBuffs.RespawnSeconds || item.Active != (item.Respawn == 0)) Invalid();
-        foreach (var p in state.Projectiles!) if (p == null || p.Id <= 0 || !p.Position.IsFinite || !p.Direction.IsFinite || !Elements(p.Elements) || !NonNegative(p.Radius)) Invalid();
-        foreach (var w in state.Walls!) if (w == null || w.Id <= 0 || !w.A.IsFinite || !w.B.IsFinite || !Elements(w.Elements) || !NonNegative(w.Health, w.Lifetime)) Invalid();
-        foreach (var f in state.Fields!) if (f == null || f.Id <= 0 || !f.Position.IsFinite || !Elements(f.Elements) || !NonNegative(f.Radius, f.Lifetime, f.TriggerRadius) || f.Kind is not ("meteor" or "mine" or "healing_mine" or "burning_ground" or "frost_ground" or "water_pool")) Invalid();
+        ids.Clear();
+        foreach (var p in state.Projectiles!) if (p == null || p.Id <= 0 || !ids.Add(p.Id) || !p.Position.IsFinite || !p.Direction.IsFinite || !Elements(p.Elements) || !NonNegative(p.Radius)) Invalid();
+        foreach (var w in state.Walls!) if (w == null || w.Id <= 0 || !ids.Add(w.Id) || !w.A.IsFinite || !w.B.IsFinite || !Elements(w.Elements) || !NonNegative(w.Health, w.Lifetime)) Invalid();
+        foreach (var f in state.Fields!) if (f == null || f.Id <= 0 || !ids.Add(f.Id) || !f.Position.IsFinite || !Elements(f.Elements) || !NonNegative(f.Radius, f.Lifetime, f.TriggerRadius) || f.Kind is not ("meteor" or "mine" or "healing_mine" or "burning_ground" or "frost_ground" or "water_pool")) Invalid();
         foreach (var b in state.Beams!) if (b == null || !b.From.IsFinite || !b.To.IsFinite || !Enum.IsDefined(b.Shape) || !Elements(b.Elements, 10) || !NonNegative(b.Power) || b.Power > 4 || b.Interaction is not ("direct" or "merged" or "reflected" or "refracted")) Invalid();
         ids.Clear();
         foreach (var p in state.Points!) if (p == null || p.Id is < 0 or > 2 || !ids.Add(p.Id) || !p.Position.IsFinite || p.Owner is < -1 or > 1 || !float.IsFinite(p.Progress) || Math.Abs(p.Progress) > 1) Invalid();
-        foreach (var e in state.Events!) if (e == null || e.Id <= 0 || !e.Position.IsFinite || !Elements(e.Elements, 10) || !NonNegative(e.Radius) || e.Radius > 20 || e.Text == null || e.Text.Length > 128 || e.Kind == null || e.Kind.Length > 24) Invalid();
+        long previousEvent = 0;
+        foreach (var e in state.Events!)
+        {
+            if (e == null || e.Id <= previousEvent || !e.Position.IsFinite || !Elements(e.Elements, 10) || !NonNegative(e.Radius) || e.Radius > 20 || e.Text == null || e.Text.Length > 128 || e.Kind == null || e.Kind.Length > 24) Invalid();
+            previousEvent = e!.Id;
+        }
     }
     private static void Invalid() => throw new InvalidDataException("El servidor envió un estado de partida incompleto o inválido.");
 }

@@ -57,7 +57,7 @@ public sealed class LocalServerHost : IDisposable
             }
             var start = new ProcessStartInfo(executable) { WorkingDirectory = Path.GetDirectoryName(executable)!,
                 UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
-            foreach (string key in new[] { "GAME_MODE", "MAX_PLAYERS", "BOTS", "FRIENDLY_FIRE", "SCORE_LIMIT", "TICKETS" }) start.Environment.Remove(key);
+            foreach (string key in new[] { "GAME_MODE", "ARENA_MAP", "MAX_PLAYERS", "BOTS", "FRIENDLY_FIRE", "SCORE_LIMIT", "TICKETS" }) start.Environment.Remove(key);
             start.Environment["SERVER_NAME"] = options.Name;
             start.Environment["GAME_PORT"] = options.Port.ToString(CultureInfo.InvariantCulture);
             start.Environment["DISCOVERY_PORT"] = options.DiscoveryPort.ToString(CultureInfo.InvariantCulture);

@@ -185,7 +185,7 @@ public partial class CombatEffects : Node3D
                 if (p.Chill > 20 || p.Frozen > 0) Emit(at + Direction() * 0.5f, Ui.ElementColor(Element.Cold), Direction() * 0.6f, 0.6f, 1, 0.15f, 0.2f);
                 if (p.Haste > 0) Emit(at, Ui.Energy, -ArenaRenderer.World(p.Facing) * 1.8f, 0.4f, 0, 0.24f, 0);
                 if (p.RegenerationRate > 0) Emit(at + Direction() * 0.4f, Ui.Health, Vector3.Up * 1.3f, 0.7f, 0, 0.20f, -0.2f);
-                if (p.Casting || p.Charge > 0)
+                if (p.Casting)
                 {
                     var elements = p.CastingElements is { Length: > 0 } ? p.CastingElements : p.Selected;
                     if (elements.Length == 0) continue;

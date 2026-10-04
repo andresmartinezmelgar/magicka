@@ -10,6 +10,8 @@ public static class SpellBalance
     public const float Heal = 140, SelfHeal = 145, MineHeal = 252;
     public const float RockMinimum = 1.1f, ChargeSeconds = 1.4f, ShardPower = 0.6f, MinePower = 1.8f, GroundPower = 0.4f;
     public static readonly Element[] Offensive = [Element.Arcane, Element.Earth, Element.Lightning, Element.Fire, Element.Cold];
+    public static IReadOnlyList<MagickDefinition> Magicks { get; } = Array.AsReadOnly<MagickDefinition>(
+        [new("Celeridad", 25, 9), new("Traslación", 35, 12), new("Meteoro", 75, 24), new("Reanimar", 60, 22)]);
     public static float Component(SpellRecipe spell, Element element, bool wet = false) => element switch
     {
         Element.Arcane => Arcane * spell.Count(element),
@@ -79,6 +81,8 @@ public static class SpellBalance
         return result;
     }
 }
+
+public sealed record MagickDefinition(string Name, float Cost, float Cooldown);
 
 public sealed record SpellNumbers(float Minimum, float Maximum, string Unit, float HealingMinimum, float HealingMaximum,
     string HealingUnit, float BurnPerSecond, float WetMinimum, float WetMaximum, bool Lightning, string Extra);

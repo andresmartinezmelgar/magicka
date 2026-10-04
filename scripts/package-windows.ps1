@@ -18,6 +18,10 @@ try {
     & $godot --headless --path src/Arcana.Client --export-release 'Windows Desktop' "$package/ArcanaArena.exe"
     if ($LASTEXITCODE -ne 0) { throw 'La exportacion Windows ha fallado.' }
     Test-GamePackage -Package $package
+    $metadata = [Diagnostics.FileVersionInfo]::GetVersionInfo("$package/ArcanaArena.exe")
+    if ($metadata.FileVersion -ne "$version.0" -or $metadata.ProductVersion -ne "$version.0") {
+        throw 'La version del ejecutable Windows no coincide con VERSION.'
+    }
     Copy-Item scripts/Configurar-LAN.ps1 "$package/Configurar-LAN.ps1"
     Copy-Item docs/JUGAR-WINDOWS.txt "$package/LEEME.txt"
     Copy-Item docs/COMO-GANAR.md "$package/COMO-GANAR.md"

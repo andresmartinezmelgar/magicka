@@ -34,7 +34,6 @@ public partial class ArenaRenderer : Node3D
     private float _zoom = 27;
     private int _beamUsed;
     internal int ActiveBeamSegments => _beamUsed;
-    private bool _playing;
     private Godot.Environment _environment = null!;
     private DirectionalLight3D _sun = null!;
     public bool AudioEnabled { get; set; } = true;
@@ -90,7 +89,7 @@ public partial class ArenaRenderer : Node3D
         foreach (var point in _points.Values) point.Reset();
         foreach (var beam in _beamPool) beam.Root.Visible = false;
         _beamUsed = 0;
-        _lastEvent = 0; _playing = false; _lastSnapshot = null;
+        _lastEvent = 0; _lastSnapshot = null;
     }
 
     private StandardMaterial3D Material(Color color, float glow = 0, bool unshaded = false)
@@ -144,7 +143,7 @@ public partial class ArenaRenderer : Node3D
     {
         if (_map.Id != snapshot.Map) { Clear(); _map = ArenaMap.Get(snapshot.Map); BuildMap(); }
         bool first = _lastSnapshot == null;
-        float dt = (float)delta; _time += delta; _playing = playing;
+        float dt = (float)delta; _time += delta;
         _fresh = !ReferenceEquals(snapshot, _lastSnapshot); _lastSnapshot = snapshot;
         foreach (var p in snapshot.Players)
         {

@@ -40,6 +40,7 @@ public partial class Main : Node
     private string _serverName = "";
     private bool _smoke;
     private bool _hostSmoke;
+    private bool _holdPostedForVerification;
     private bool _hudSmoke;
     private bool _effectsSmoke, _previewEffects;
     private int _previewStrength;
@@ -168,24 +169,48 @@ public partial class Main : Node
         try
         {
             var room = await _launcher.StartSmokeRoom();
+            _holdPostedForVerification = true;
+            var canceled = ConnectOnline("127.0.0.1:29025", "Cancelado", -1, "", room.Id);
+            CancelPendingConnection(); await canceled;
+            await ConnectOnline("127.0.0.1:29025", "Respuesta tardía", -1, "", room.Id);
+            ReturnToLauncher();
+            while (_posted.TryDequeue(out var action)) action();
+            if (_connection != null || _playing) throw new InvalidOperationException("Se entró en una conexión cancelada.");
+            await ConnectOnline("127.0.0.1:29025", "Anterior", -1, "", room.Id);
+            var previous = _pendingConnection!;
             await ConnectOnline("127.0.0.1:29025", "Launcher", -1, "", room.Id);
+            var current = _pendingConnection;
+            while (_posted.TryDequeue(out var action)) action();
+            if (current == null || _connection != current || !_playing)
+                throw new InvalidOperationException("Una respuesta anterior sustituyó la conexión actual.");
+            await previous.DisposeAsync();
+            GD.Print("CONNECTION_LIFECYCLE_OK: cancelación antes del saludo, respuesta tardía y sustitución de conexión.");
         }
         catch (Exception e) { Post(() => { GD.PushError("HOST_SMOKE_FAILED: " + e.Message); GetTree().Quit(1); }); }
+        finally { _holdPostedForVerification = false; }
     }
 
     public async Task ConnectOnline(string address, string name, int team, string password,
         string roomId = "default", string roomPassword = "", WizardType wizardType = WizardType.Balanced)
     {
+        if (Volatile.Read(ref _exiting) != 0) return;
         var connection = new ArenaConnection();
         connection.Disconnected += reason => Post(() => { if (_connection == connection) ReturnToLauncher(reason); });
-        lock (_connectionGate) _pendingConnection = connection;
+        ArenaConnection? previous;
+        lock (_connectionGate) { previous = _pendingConnection; _pendingConnection = connection; }
+        if (previous != null) _ = previous.DisposeAsync();
         try
         {
             await connection.ConnectAsync(address, name, team, password, _lifetime.Token, roomId: roomId, roomPassword: roomPassword, wizardType: wizardType).ConfigureAwait(false);
             if (!Post(() =>
             {
-                lock (_connectionGate) if (_pendingConnection == connection) _pendingConnection = null;
+                lock (_connectionGate)
+                {
+                    if (_pendingConnection != connection) { _ = connection.DisposeAsync(); return; }
+                    _pendingConnection = null;
+                }
                 if (!connection.Connected) { _ = connection.DisposeAsync(); _launcher.ShowError("La conexión se cerró antes de entrar en la partida."); return; }
+                if (_connection != null) _ = _connection.DisposeAsync();
                 _connection = connection; _practice = null; _localId = connection.PlayerId;
                 _serverName = (connection.Server?.Name ?? address) + " / " + (connection.Room?.Name ?? "Sala principal");
                 StartGame(connection.Latest!);
@@ -194,19 +219,35 @@ public partial class Main : Node
         catch (Exception e)
         {
             await connection.DisposeAsync();
-            if (_lifetime.IsCancellationRequested) return;
+            lock (_connectionGate) if (_pendingConnection != connection || _lifetime.IsCancellationRequested) return;
             Diagnostics.Warn("client.connect_failed", "No se pudo entrar en la partida.", e,
                 new Dictionary<string, object?> { ["room"] = roomId });
             string message = e is OperationCanceledException ? "El servidor no responde. Comprueba la IP, el puerto TCP y el cortafuegos."
                 : e is ArgumentException or InvalidOperationException ? e.Message
                 : "No se pudo conectar. Comprueba que el servidor está iniciado y que la dirección es correcta.";
-            Post(() => _launcher.ShowError(message));
+            Post(() =>
+            {
+                lock (_connectionGate)
+                {
+                    if (_pendingConnection != connection) return;
+                    _pendingConnection = null;
+                }
+                _launcher.ShowError(message);
+            });
         }
-        finally { lock (_connectionGate) if (_pendingConnection == connection && !connection.Connected) _pendingConnection = null; }
+    }
+    public void CancelPendingConnection()
+    {
+        ArenaConnection? pending;
+        lock (_connectionGate) { pending = _pendingConnection; _pendingConnection = null; }
+        if (pending != null) _ = pending.DisposeAsync();
     }
     public void StartPractice(string name, int team, GameMode mode, int bots, WizardType wizardType = WizardType.Balanced,
         ArenaMapId map = ArenaMapId.Classic)
     {
+        CancelPendingConnection();
+        var old = _connection; _connection = null;
+        if (old != null) _ = old.DisposeAsync();
         _practice = new(new WorldOptions { Mode = mode, Map = map, MaxPlayers = mode == GameMode.Duel ? 2 : 8,
             FriendlyFire = true, ScoreLimit = mode == GameMode.Duel ? 5 : 15, Tickets = 75 });
         var player = _practice.AddPlayer(name, team, wizardType: wizardType)!; _localId = player.Id;
@@ -229,6 +270,7 @@ public partial class Main : Node
     }
     public void ReturnToLauncher(string error = "")
     {
+        CancelPendingConnection();
         if (_playing) Diagnostics.Info("game.leave", "Vuelta al launcher.", Context());
         _playing = false; _paused = false; _practice = null; _snapshot = null;
         var old = _connection; _connection = null;
@@ -259,7 +301,7 @@ public partial class Main : Node
     private void ProcessFrame(double delta)
     {
         if (CheckSmokeErrors()) return;
-        while (_posted.TryDequeue(out var action))
+        while (!_holdPostedForVerification && _posted.TryDequeue(out var action))
             try { action(); }
             catch (Exception e)
             {
@@ -283,7 +325,10 @@ public partial class Main : Node
         if (_previewStrength > 0) _snapshot = VisualFixture.Strength(_renderFrames, _previewStrength);
         if (_spritesSmoke || _previewWizards != null) _snapshot = VisualFixture.Wizards(_renderFrames, _previewWizards);
         if (_hudSmoke && _renderFrames <= HudCases.Length * 3 && _renderFrames % 3 == 1)
+        {
             _snapshot = VisualFixture.Create(HudCases[(_renderFrames - 1) / 3].State);
+            _snapshot = _snapshot with { Players = _snapshot.Players.Select(p => p with { Charge = 0.5f, Casting = false }).ToArray() };
+        }
         _metricsTime += delta;
         if (_metricsTime >= 30)
         {
@@ -307,7 +352,7 @@ public partial class Main : Node
             _renderer.Render(latest, _localId, _effectsSmoke || _spritesSmoke || _previewStrength > 0 ? 1 / 60.0 : delta, true);
             _hud?.Update(latest, _localId, _serverName, delta);
             if (_mapsSmoke && _renderFrames % 30 == 0) CheckMaps(latest);
-            if (_previewMap != null) _renderer.SetPreviewZoom(72);
+            if (_previewMap != null && !_mapOverview && _renderFrames == 1) _renderer.SetPreviewZoom(72);
             if (_hudSmoke && _renderFrames <= HudCases.Length * 3 && _renderFrames % 3 == 2) CheckHudCase();
             if (_effectsSmoke) CheckEffects();
             if (_spritesSmoke) CheckSprites(latest);
@@ -398,13 +443,14 @@ public partial class Main : Node
     {
         var expected = HudCases[(_renderFrames - 1) / 3];
         var health = (ProgressBar)_hud!.FindChild("HealthBar", true, false);
+        var charge = (ProgressBar)_hud.FindChild("ChargeBar", true, false);
         var shield = (ProgressBar)_hud.FindChild("ShieldBar", true, false);
         var text = (Label)_hud.FindChild("ShieldValue", true, false);
         var playerPanel = (Control)_hud.FindChild("PlayerStatusPanel", true, false);
         bool correct = _hud.Scale.IsEqualApprox(Vector2.One * Hud.GameplayScale) && (_hud.Size * Hud.GameplayScale).IsEqualApprox(GetViewport().GetVisibleRect().Size) &&
             playerPanel.GetGlobalTransform().Scale.IsEqualApprox(Vector2.One) && playerPanel.GetGlobalRect().Size.X >= 310 &&
             Math.Abs(playerPanel.GetGlobalRect().Position.X - 24) < 0.01f &&
-            health.Value == 830 && health.MaxValue == 1000 && shield.Value == expected.Shield && shield.MaxValue == expected.Maximum &&
+            health.Value == 830 && health.MaxValue == 1000 && charge.Value == 0 && shield.Value == expected.Shield && shield.MaxValue == expected.Maximum &&
             (expected.Shield == 0 ? text.Text.Contains("INACTIVO") : text.Text.Contains($"{expected.Shield:0} / {expected.Maximum:0}") && text.Text.Contains(" s"));
         if (!correct) { GD.PushError($"HUD_SMOKE_FAILED: {expected.State}, {shield.Value}/{shield.MaxValue}, {text.Text}"); GetTree().Quit(1); return; }
         GD.Print($"HUD_CASE_OK: {expected.State}, {shield.Value}/{shield.MaxValue}");

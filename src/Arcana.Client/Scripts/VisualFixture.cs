@@ -64,7 +64,7 @@ internal static class VisualFixture
         {
             Position = new(-7, -5.4f + i * 3.6f), Name = Ui.ElementName(kinds[i]), Team = 0,
             Selected = [], CastingElements = Repeated(kinds[i]), Shield = 0, ShieldMax = 0, ShieldSeconds = 0,
-            Health = 1000, Casting = i < 3, Charge = i == 3 ? 0.65f : 0, Facing = new(1, 0)
+            Health = 1000, Casting = true, Charge = i == 3 ? 0.65f : 0, Facing = new(1, 0)
         }).ToArray();
         return state with
         {
