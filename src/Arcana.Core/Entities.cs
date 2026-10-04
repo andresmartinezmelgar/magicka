@@ -15,6 +15,7 @@ public sealed class Wizard
     public float Shield { get; set; }
     public float ShieldMax { get; set; }
     public float ShieldTime { get; set; }
+    public float RegenerationRate { get; set; }
     public Element[] Ward { get; set; } = [];
     public float WardTime { get; set; }
     public float Wet { get; set; }
@@ -72,6 +73,7 @@ internal sealed class Field
     public float Radius;
     public float Lifetime;
     public float Delay;
+    public float TriggerRadius = 0.85f;
     public required SpellRecipe Recipe;
     public string Kind = "area";
 }
@@ -81,6 +83,7 @@ internal sealed class ControlPoint
     public V2 Position;
     public int Owner = -1;
     public float Progress;
+    public bool Contested;
 }
 
 public sealed class WorldOptions

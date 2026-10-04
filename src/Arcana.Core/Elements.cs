@@ -37,6 +37,13 @@ public sealed class SpellRecipe
     public bool Steam => Has(Element.Water) && Has(Element.Fire);
     public bool Ice => Has(Element.Water) && Has(Element.Cold);
     public bool Healing => Has(Element.Life);
+    // Solo las rocas imbuidas salpican. Tierra pura y los fragmentos de hielo siguen siendo impactos directos.
+    public float SplashRadius => Shape != SpellShape.Rock ? 0
+        : Has(Element.Arcane) ? 2.8f : Has(Element.Fire) ? 2.5f
+        : Has(Element.Water) ? 2.7f : Has(Element.Cold) ? 2.1f : 0;
+    public string? GroundKind => Shape != SpellShape.Rock ? null
+        : Has(Element.Fire) ? "burning_ground" : Has(Element.Cold) ? "frost_ground"
+        : Has(Element.Water) ? "water_pool" : null;
     public int Count(Element e) => Elements.Count(x => x == e);
     public bool Has(Element e) => Elements.Contains(e);
     public float Power => Math.Max(1, Elements.Length);

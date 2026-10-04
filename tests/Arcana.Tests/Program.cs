@@ -260,6 +260,152 @@ Test("Partida con ocho bots se mantiene válida durante un minuto simulado", () 
     Check(snapshot.Players.All(p => p.Position.IsFinite && p.Health >= 0 && p.Health <= 1000 && ArenaMap.Inside(p.Position)), "Estado inválido tras combate.");
     Check(snapshot.Events.Any() && snapshot.Players.Any(p => p.Kills > 0 || p.Health < 1000), "Los bots no combatieron.");
 });
+Test("Escudo de vida: regeneración gradual, límite, rotura y sustitución", () =>
+{
+    var (world, a, _) = Setup(); a.Health = 500;
+    Select(world, a, Element.Shield, Element.Life); Send(world, a, "self");
+    Check(a.Health == 500 && a.RegenerationRate == 38, "El escudo curó instantáneamente o no activó regeneración.");
+    for (int i = 0; i < 120; i++) world.Step();
+    Check(Math.Abs(a.Health - 576) < 0.03f, "La regeneración no depende del tiempo simulado.");
+    var copy = Protocol.Deserialize<WorldSnapshot>(Protocol.Serialize(world.Snapshot()))!;
+    Check(copy.Players[0].RegenerationRate == 38, "La tasa no se replica.");
+    a.Shield = 0; float hp = a.Health; world.Step();
+    Check(a.Health == hp && a.RegenerationRate == 0, "Se siguió curando sin escudo.");
+    a.Health = 990; Select(world, a, Element.Shield, Element.Life, Element.Life); Send(world, a, "self");
+    for (int i = 0; i < 60; i++) world.Step();
+    Check(a.Health == 1000 && a.RegenerationRate == 76, "La curación superó el máximo o no cuenta dos vidas.");
+    Select(world, a, Element.Shield); Send(world, a, "self");
+    Check(a.RegenerationRate == 0, "Sustituir el escudo conservó regeneración.");
+});
+Test("Mina de vida: ignora enemigos y cura aliados y propietario una sola vez", () =>
+{
+    var (world, a, b) = Setup(GameMode.Warfare, false);
+    var ally = world.AddPlayer("Aliado", 0)!; ally.Position = new(8, 0); ally.Invulnerable = 0;
+    a.Position = new(-5, 0); a.Facing = new(1, 0); a.Health = 500;
+    b.Position = new(-1.8f, 0); b.Health = 500;
+    Select(world, a, Element.Shield, Element.Life); Send(world, a, "cast");
+    Check(!world.Snapshot().Fields[0].Armed, "La mina apareció armada sin demora.");
+    for (int i = 0; i < 40; i++) world.Step();
+    Check(world.Snapshot().Fields.Length == 1 && b.Health == 500, "Un enemigo consumió o se benefició de la mina de vida.");
+    ally.Position = new(-1.8f, 0); ally.Health = 600; a.Position = new(-2.4f, 0);
+    world.Step();
+    Check(world.Snapshot().Fields.Length == 0 && Math.Abs(ally.Health - 852) < 0.01f && Math.Abs(a.Health - 752) < 0.01f && b.Health == 500,
+        "La mina no respetó los destinatarios de la curación.");
+    float health = ally.Health; world.Step(); Check(ally.Health == health, "Una mina explotó dos veces.");
+    Check(world.Snapshot().Events.Any(e => e.Kind == "mine_heal" && e.Radius == 2.4f), "Falta la señal visual con su radio real.");
+});
+Test("Mina ofensiva: activación por enemigo, caducidad y limpieza al desconectar", () =>
+{
+    var (world, a, b) = Setup(GameMode.Warfare, true);
+    var ally = world.AddPlayer("Aliado", 0)!; ally.Invulnerable = 0;
+    a.Position = new(-5, 0); a.Facing = new(1, 0); b.Position = new(9, 0); ally.Position = new(-1.8f, 0);
+    Select(world, a, Element.Shield, Element.Arcane); Send(world, a, "cast");
+    for (int i = 0; i < 40; i++) world.Step();
+    Check(world.Snapshot().Fields.Length == 1 && ally.Health == 1000, "Un aliado activó la mina ofensiva.");
+    b.Position = new(-1.8f, 0); world.Step();
+    Check(b.Health < 1000 && world.Snapshot().Fields.Length == 0, "El enemigo no activó la mina.");
+    a.ActionCooldown = 0; b.Position = ally.Position = new(9, 0);
+    Select(world, a, Element.Shield, Element.Arcane); Send(world, a, "cast");
+    for (int i = 0; i < 725; i++) world.Step();
+    Check(world.Snapshot().Fields.Length == 0, "La mina no caducó.");
+    a.ActionCooldown = 0; Select(world, a, Element.Shield, Element.Arcane); Send(world, a, "cast");
+    world.RemovePlayer(a.Id); Check(world.Snapshot().Fields.Length == 0, "Una mina sobrevivió a su propietario desconectado.");
+});
+Test("Rocas: impacto directo, splash selectivo y suelo con caducidad", () =>
+{
+    foreach (var elements in new Element[][] { [Element.Earth], [Element.Earth, Element.Arcane], [Element.Earth, Element.Fire], [Element.Earth, Element.Water], [Element.Earth, Element.Cold] })
+    {
+        var (world, a, b) = Setup(); var neighbor = world.AddPlayer("Vecino")!;
+        a.Position = new(-5, 0); b.Position = new(-1.5f, 0); neighbor.Position = new(-1.2f, 1.3f); neighbor.Invulnerable = 0;
+        Select(world, a, elements); Send(world, a, "cast"); Run(world, a, 40); Send(world, a, "release");
+        for (int i = 0; i < 35 && !world.Snapshot().Events.Any(e => e.Kind == "impact"); i++) { Send(world, a, "input"); world.Step(); }
+        Check(b.Health < 1000, "La roca no golpeó al objetivo.");
+        if (elements.Length == 1) Check(neighbor.Health == 1000 && world.Snapshot().Fields.Length == 0, "Tierra pura creó un splash.");
+        else
+        {
+            Check(neighbor.Health < 1000 && world.Snapshot().Events.Any(e => e.Kind == "splash" && e.Radius > 0), "Falta el splash de una roca imbuida.");
+            string? kind = new SpellRecipe(elements).GroundKind;
+            Check(kind == null ? world.Snapshot().Fields.Length == 0 : world.Snapshot().Fields.Any(f => f.Kind == kind), "El suelo no corresponde a la combinación.");
+        }
+        for (int i = 0; i < 250; i++) world.Step();
+        Check(world.Snapshot().Fields.Length == 0, "Un campo de suelo no terminó.");
+        SnapshotValidation.Check(world.Snapshot());
+    }
+});
+Test("Dos rayos frontales suman efectos y desvían la salida sin atravesar el cruce", () =>
+{
+    var (world, a, b) = Setup(); var target = world.AddPlayer("Salida")!;
+    a.Position = new(-5, 0); b.Position = new(5, 0); target.Position = new(0, 4); target.Invulnerable = 0;
+    Send(world, a, "input", aim: b.Position); Send(world, b, "input", aim: a.Position); world.Step();
+    Select(world, a, Element.Arcane); Select(world, b, Element.Arcane); Send(world, a, "cast"); Send(world, b, "cast");
+    for (int i = 0; i < 30; i++) { Send(world, a, "input", aim: b.Position); Send(world, b, "input", aim: a.Position); world.Step(); }
+    var merged = world.Snapshot().Beams.Single(ray => ray.Interaction == "merged");
+    Check(merged.Elements.SequenceEqual(new[] { Element.Arcane, Element.Arcane }) && merged.Power == 2 && merged.To.Y > merged.From.Y,
+        "No se sumaron los componentes o no se desvió el rayo.");
+    Check(a.Health == 1000 && b.Health == 1000 && Math.Abs(target.Health - 885) < 0.05f, "La salida no suma ambos daños o las entradas atraviesan el cruce.");
+    Check(world.Snapshot().Events.Any(e => e.Kind == "beam_merge"), "No se replicó el destello del cruce.");
+    SnapshotValidation.Check(Protocol.Deserialize<WorldSnapshot>(Protocol.Serialize(world.Snapshot()))!);
+});
+Test("Rayos y escudos: reflexión, refracción elemental y rebotes acotados", () =>
+{
+    foreach (bool elemental in new[] { false, true })
+    {
+        var (world, a, b) = Setup(); Send(world, a, "input", aim: b.Position); Send(world, b, "input", aim: a.Position); world.Step();
+        Select(world, b, elemental ? [Element.Shield, Element.Fire] : [Element.Shield]); Send(world, b, "self");
+        Select(world, a, Element.Arcane, Element.Arcane); Send(world, a, "cast");
+        for (int i = 0; i < 20; i++) { Send(world, a, "input", aim: b.Position); world.Step(); }
+        var diverted = world.Snapshot().Beams.FirstOrDefault(ray => ray.Interaction == (elemental ? "refracted" : "reflected"));
+        Check(diverted != null && b.Shield < b.ShieldMax && b.Health == 1000, "El escudo no desvió o no consumió energía.");
+        if (elemental) Check(diverted!.Elements.Contains(Element.Fire) && Math.Abs(diverted.To.Y - diverted.From.Y) > 0.2f, "La guarda no añadió su elemento y ángulo.");
+        else Check(a.Health < 1000, "La reflexión no puede alcanzar al lanzador.");
+        Check(world.Snapshot().Beams.Length <= 3, "El rayo produjo una cadena de rebotes sin límite.");
+        SnapshotValidation.Check(world.Snapshot());
+    }
+});
+Test("Una barrera impide combinar rayos al otro lado", () =>
+{
+    var (world, a, b) = Setup(); a.Position = new(-5, 0); b.Position = new(5, 0);
+    Send(world, b, "input", aim: a.Position); world.Step(); Select(world, b, Element.Shield); Send(world, b, "cast");
+    for (int i = 0; i < 45; i++) world.Step();
+    Send(world, a, "input", aim: b.Position); Send(world, b, "input", aim: a.Position); world.Step();
+    Select(world, a, Element.Arcane); Select(world, b, Element.Arcane); Send(world, a, "cast"); Send(world, b, "cast"); world.Step();
+    Check(!world.Snapshot().Beams.Any(ray => ray.Interaction == "merged"), "Los rayos se combinaron a través de la barrera.");
+});
+Test("Captura: progreso firmado, disputa, neutralización y replicación", () =>
+{
+    var (world, a, b) = Setup(GameMode.Warfare); a.Position = V2.Zero; b.Position = new(18, 8);
+    for (int i = 0; i < 60; i++) world.Step();
+    var point = world.Snapshot().Points[1]; Check(Math.Abs(point.Progress + 0.24f) < 0.001f && point.Owner == -1, "No hay captura azul gradual.");
+    b.Position = new(0, 1); for (int i = 0; i < 60; i++) world.Step();
+    point = world.Snapshot().Points[1]; Check(point.Contested && Math.Abs(point.Progress + 0.24f) < 0.001f, "La disputa no bloqueó el progreso.");
+    Check(Protocol.Deserialize<WorldSnapshot>(Protocol.Serialize(world.Snapshot()))!.Points[1].Contested, "No se replicó la disputa.");
+    b.Position = new(18, 8); for (int i = 0; i < 200; i++) world.Step();
+    Check(world.Snapshot().Points[1].Owner == 0, "No terminó la captura azul.");
+    a.Position = new(-5, 0); b.Position = V2.Zero; for (int i = 0; i < 360; i++) world.Step();
+    point = world.Snapshot().Points[1]; Check(point.Owner == -1 && point.Progress > 0 && point.Progress < 1 && !point.Contested, "El rojo no neutralizó primero el progreso azul.");
+});
+Test("Catálogo: todas las combinaciones se demuestran en sus tres modos y repiten", () =>
+{
+    Check(SpellCatalogue.All.Select(c => c.Keys).Distinct().Count() == SpellCatalogue.All.Length && SpellCatalogue.FromKeys("EW")!.Recipe.Healing,
+        "El catálogo tiene duplicados o depende del orden de las teclas.");
+    foreach (var combination in SpellCatalogue.All)
+    foreach (var mode in Enum.GetValues<CastMode>())
+    {
+        var selection = new ElementBuffer(); foreach (var e in combination.Elements) selection.Add(e);
+        Check(selection.Elements.SequenceEqual(combination.Elements), "El catálogo contiene una selección anulada.");
+        var demo = new SpellDemonstration(combination.Elements, mode);
+        for (int i = 0; i < 361; i++) { demo.Step(); if (i % 60 == 0) SnapshotValidation.Check(demo.World.Snapshot()); }
+        Check(demo.Cycle == 2 && SpellCatalogue.Describe(combination.Recipe, mode).Length > 10, "Una combinación no repite o carece de explicación.");
+    }
+    foreach (var kind in new[] { DemonstrationKind.CrossedBeams, DemonstrationKind.ShieldRefraction, DemonstrationKind.Capture })
+    {
+        var demo = new SpellDemonstration([Element.Arcane], kind: kind);
+        for (int i = 0; i < 300; i++) demo.Step();
+        SnapshotValidation.Check(demo.World.Snapshot());
+    }
+    Console.WriteLine($"CATALOGO: {SpellCatalogue.All.Length} combinaciones, {SpellCatalogue.All.Length * 3} demostraciones y 3 interacciones.");
+});
+
 Test("Direcciones IP, dominio, IPv6 y WSS", () =>
 {
     Check(ArenaConnection.Address("192.168.1.10").Port == 27015, "Puerto por defecto incorrecto.");
@@ -512,6 +658,24 @@ if (server != null)
         a.Send(new() { Type = "element", Element = Element.Cold }); a.Send(new() { Type = "self" });
         await WaitFor(() => b.Latest!.Players.First(p => p.Id == a.PlayerId).Health < 1000, "No se aplicó el daño.");
         Check(Math.Abs(b.Latest!.Players.First(p => p.Id == a.PlayerId).Health - 970) < 0.01f, "El servidor no aplicó el +25 % de debilidad al frío.");
+    });
+    await AsyncTest("La red replica escudo regenerativo y minas de vida armadas", async () =>
+    {
+        var room = await RoomBrowser.CreateAsync(server, new() { Name = "Efectos", ServerPassword = password, Mode = GameMode.Warfare,
+            MaxPlayers = 2, FriendlyFire = false });
+        await using var a = new ArenaConnection(); await using var b = new ArenaConnection();
+        await a.ConnectAsync(server, "Vida", 0, password, roomId: room.Id); await b.ConnectAsync(server, "Observador", 1, password, roomId: room.Id);
+        a.Send(new() { Type = "element", Element = Element.Shield }); a.Send(new() { Type = "element", Element = Element.Life }); a.Send(new() { Type = "self" });
+        await WaitFor(() => b.Latest!.Players.Any(p => p.Id == a.PlayerId && p.RegenerationRate == 38), "No se recibió la regeneración.");
+        await Task.Delay(500);
+        var player = a.Latest!.Players.First(p => p.Id == a.PlayerId);
+        a.Send(new() { Type = "input", AimX = player.Position.X + 5, AimY = player.Position.Y });
+        await Task.Delay(80);
+        a.Send(new() { Type = "element", Element = Element.Shield }); a.Send(new() { Type = "element", Element = Element.Life }); a.Send(new() { Type = "cast" });
+        await WaitFor(() => b.Latest!.Fields.Any(f => f.Kind == "healing_mine" && f.Armed), "No se recibió la mina armada.");
+        var mine = b.Latest!.Fields.Single(f => f.Kind == "healing_mine");
+        Check(mine.TriggerRadius == 0.85f && mine.Radius == 2.4f, "Se perdió el radio de activación o de curación.");
+        SnapshotValidation.Check(b.Latest!);
     });
     await AsyncTest("El servidor rechaza un tipo de mago desconocido en el saludo", async () =>
     {

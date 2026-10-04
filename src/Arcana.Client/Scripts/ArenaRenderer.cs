@@ -3,18 +3,20 @@ using Godot;
 
 namespace Arcana.Client;
 
-/// <summary>Recursos 3D originales, generados con mallas de Godot. Solo dibuja el estado del servidor.</summary>
+/// <summary>Arena 3D y magos con sprites. Solo dibuja el estado del servidor.</summary>
 public partial class ArenaRenderer : Node3D
 {
     public Camera3D Camera { get; private set; } = null!;
     private readonly Dictionary<int, WizardVisual> _wizards = [];
+    internal IReadOnlyDictionary<int, WizardVisual> Wizards => _wizards;
     private readonly Dictionary<int, MeshInstance3D> _projectiles = [];
     private readonly Dictionary<int, MeshInstance3D> _walls = [];
     private readonly Dictionary<int, Node3D> _fields = [];
     private readonly List<(Node3D Root, MeshInstance3D Mesh, CylinderMesh Shape)> _beamPool = [];
     private readonly CombatEffects _effects = new();
     public CombatEffects Effects => _effects;
-    private readonly Dictionary<int, (Node3D Root, MeshInstance3D Ring, MeshInstance3D Crystal)> _points = [];
+    private readonly Dictionary<int, CapturePointVisual> _points = [];
+    internal IReadOnlyDictionary<int, CapturePointVisual> Points => _points;
     private readonly Dictionary<(Color Color, float Glow, bool Unshaded), StandardMaterial3D> _materials = [];
     private readonly HashSet<int> _present = [];
     private readonly List<int> _removed = [];
@@ -26,6 +28,8 @@ public partial class ArenaRenderer : Node3D
     private float _zoom = 27;
     private int _beamUsed;
     private bool _playing;
+    public bool AudioEnabled { get; set; } = true;
+    public bool ShowControlPoints { get; set; } = true;
 
     public override void _Ready()
     {
@@ -64,6 +68,7 @@ public partial class ArenaRenderer : Node3D
         return new(Math.Clamp(p.X, -ArenaMap.HalfWidth, ArenaMap.HalfWidth), Math.Clamp(p.Z, -ArenaMap.HalfHeight, ArenaMap.HalfHeight));
     }
     public void Zoom(float delta) => _zoom = Math.Clamp(_zoom + delta, 17, 34);
+    internal void SetPreviewZoom(float size) => _zoom = Math.Clamp(size, 10, 34);
     public void Clear()
     {
         _audio.StopAll();
@@ -72,6 +77,7 @@ public partial class ArenaRenderer : Node3D
         foreach (var v in _walls.Values) v.QueueFree(); _walls.Clear();
         foreach (var v in _fields.Values) v.QueueFree(); _fields.Clear();
         _effects.Clear();
+        foreach (var point in _points.Values) point.Reset();
         foreach (var beam in _beamPool) beam.Root.Visible = false;
         _lastEvent = 0; _playing = false; _lastSnapshot = null;
     }
@@ -153,11 +159,7 @@ public partial class ArenaRenderer : Node3D
         }
         foreach (var p in ArenaMap.ControlPoints.Select((position, id) => (position, id)))
         {
-            var root = new Node3D { Position = World(p.position) }; AddChild(root);
-            var ring = Ring(root, 3, 0.07f, new(0, 0.04f, 0), new("789094"));
-            Ring(root, 0.7f, 0.05f, new(0, 0.05f, 0), new("789094"));
-            var crystal = Mesh(root, new PrismMesh { Size = new(0.38f, 0.6f, 0.38f) }, new(0, 0.42f, 0), Ui.Gold, 0.7f);
-            _points[p.id] = (root, ring, crystal);
+            var visual = new CapturePointVisual(); AddChild(visual); visual.Build(p.id, p.position); _points[p.id] = visual;
         }
         // Árboles y ruinas decorativos se quedan fuera de la zona de colisión.
         var random = new Random(36);
@@ -193,13 +195,9 @@ public partial class ArenaRenderer : Node3D
         Camera.Size = Mathf.Lerp(Camera.Size, playing ? _zoom : 32, 1 - Mathf.Exp(-5 * dt));
         foreach (var point in snapshot.Points)
         {
-            var visuals = _points[point.Id];
-            visuals.Root.Visible = snapshot.Mode == GameMode.Warfare;
-            var color = point.Owner == 0 ? Ui.Blue : point.Owner == 1 ? Ui.Red : new Color("839999");
-            visuals.Ring.MaterialOverride = Material(color, 0.5f);
-            visuals.Crystal.MaterialOverride = Material(color, 0.8f);
-            visuals.Crystal.Rotation = new(0, (float)_time * 0.7f, 0);
-            visuals.Crystal.Position = new(0, 0.6f + Mathf.Sin((float)_time * 2 + point.Id) * 0.07f, 0);
+            var visual = _points[point.Id];
+            visual.Visible = ShowControlPoints && snapshot.Mode == GameMode.Warfare;
+            visual.Update(point, dt, (float)_time);
         }
         DrawProjectiles(snapshot, dt);
         DrawWalls(snapshot);
@@ -212,8 +210,14 @@ public partial class ArenaRenderer : Node3D
             if (playing)
             {
                 _effects.Play(e);
+                if (e.Kind is "cast" or "self" or "nova" or "barrier")
+                {
+                    // El evento no contiene ID de autor; su posición es la del lanzador.
+                    foreach (var p in snapshot.Players)
+                        if (p.Alive && V2.Distance(p.Position, e.Position) < 0.15f && _wizards.TryGetValue(p.Id, out var caster)) caster.PlayCastPose();
+                }
                 if (e.Kind is "cast" or "self" or "nova" or "impact" or "explosion" or "death" or "blink" &&
-                    local != null && V2.Distance(e.Position, local.Position) < 15) _audio.PlayEvent(e);
+                    AudioEnabled && local != null && V2.Distance(e.Position, local.Position) < 15) _audio.PlayEvent(e);
             }
             _lastEvent = Math.Max(_lastEvent, e.Id);
         }
@@ -270,9 +274,21 @@ public partial class ArenaRenderer : Node3D
             {
                 root = new Node3D { Position = World(field.Position) }; AddChild(root);
                 Color color = field.Kind == "meteor" ? new("ff8062") : Ui.SpellColor(field.Elements);
-                Ring(root, field.Radius, 0.10f, new(0, 0.08f, 0), color);
+                bool mine = field.Kind is "mine" or "healing_mine";
+                if (field.Kind == "healing_mine") color = Ui.Health;
+                Ring(root, field.Radius, mine ? 0.03f : 0.10f, new(0, 0.08f, 0), color.Darkened(mine ? 0.4f : 0));
+                if (mine)
+                {
+                    Ring(root, field.TriggerRadius, 0.07f, new(0, 0.09f, 0), color);
+                    var core = Mesh(root, new PrismMesh { Size = new(0.4f, 0.55f, 0.4f) }, new(0, 0.36f, 0), color, 1);
+                    core.Name = "MineCore";
+                    root.AddChild(new Label3D { Text = field.Kind == "healing_mine" ? "+" : "!", Position = new(0, 0.9f, 0),
+                        FontSize = 50, PixelSize = 0.009f, Modulate = color, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+                        CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
+                }
                 var fill = color; fill.A = 0.12f;
-                Mesh(root, new CylinderMesh { TopRadius = field.Radius, BottomRadius = field.Radius, Height = 0.02f, RadialSegments = 48 }, new(0, 0.035f, 0), fill, 0.4f);
+                float radius = mine ? field.TriggerRadius : field.Radius;
+                Mesh(root, new CylinderMesh { TopRadius = radius, BottomRadius = radius, Height = 0.02f, RadialSegments = 48 }, new(0, 0.035f, 0), fill, 0.4f);
                 if (field.Kind == "meteor")
                 {
                     var meteor = Mesh(root, new SphereMesh { Radius = 0.7f, Height = 1.4f }, new(0, 12, 0), new("ffb47a"), 1.1f);
@@ -281,6 +297,8 @@ public partial class ArenaRenderer : Node3D
                 _fields[field.Id] = root;
             }
             root.Scale = Vector3.One * (1 + Mathf.Sin((float)_time * 6) * 0.02f);
+            if (root.GetNodeOrNull<MeshInstance3D>("MineCore") is { } mineCore)
+                mineCore.Visible = field.Armed || (int)(_time * 10) % 2 == 0;
             if (field.Kind == "meteor" && root.GetNodeOrNull<MeshInstance3D>("Meteor") is { } meteorNode)
             {
                 meteorNode.Position = new(0, Math.Max(0.7f, field.Lifetime / 1.5f * 12), 0);
@@ -292,7 +310,7 @@ public partial class ArenaRenderer : Node3D
 
     private void BeamSegment(Vector3 from, Vector3 to, Color color, float radius, float endRadius = -1)
     {
-        if (_beamUsed >= 160 || from.DistanceTo(to) < 0.05f) return;
+        if (_beamUsed >= 512 || from.DistanceTo(to) < 0.05f) return;
         if (_beamUsed == _beamPool.Count)
         {
             var root = new Node3D(); AddChild(root);
@@ -336,9 +354,17 @@ public partial class ArenaRenderer : Node3D
         }
         else
         {
+            float power = Math.Clamp(beam.Power, 0.3f, 3);
             var glow = color; glow.A = 0.35f;
-            BeamSegment(from, to, glow, 0.16f);
-            BeamSegment(from, to, color.Lightened(0.08f), 0.042f);
+            BeamSegment(from, to, glow, 0.16f * Mathf.Sqrt(power));
+            var side = (to - from).Normalized().Cross(Vector3.Up);
+            var elements = beam.Elements.Distinct().ToArray();
+            for (int i = 0; i < elements.Length; i++)
+            {
+                var offset = side * ((i - (elements.Length - 1) * 0.5f) * 0.07f);
+                BeamSegment(from + offset, to + offset, Ui.ElementColor(elements[i]), 0.03f);
+            }
+            BeamSegment(from, to, beam.Interaction == "merged" ? Ui.Text : color.Lightened(0.08f), 0.025f);
         }
     }
 

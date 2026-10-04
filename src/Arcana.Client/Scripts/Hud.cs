@@ -150,6 +150,7 @@ public partial class Hud : Control
         if (player.Wet > 0) statuses.Add("Mojado"); if (player.Burning > 0) statuses.Add("Quemándose");
         if (player.Chill > 20) statuses.Add("Frío"); if (player.Frozen > 0) statuses.Add("Congelado"); if (player.Haste > 0) statuses.Add("Celeridad");
         if (player.Ward.Length > 0) statuses.Add("Guarda: " + string.Join(", ", player.Ward.Select(Ui.ElementName)));
+        if (player.RegenerationRate > 0) statuses.Add($"Regeneración +{player.RegenerationRate:0} vida/s");
         _status.Text = statuses.Count > 0 ? string.Join(" · ", statuses) : "Sin estados alterados";
         for (int i = 0; i < 3; i++)
         {

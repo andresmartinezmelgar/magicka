@@ -22,6 +22,28 @@ public readonly record struct V2(float X, float Y)
 
 public static class Geometry
 {
+    /// <summary>Intersección entre segmentos; para rayos frontales colineales devuelve el centro del solapamiento.</summary>
+    public static bool SegmentMeeting(V2 a, V2 b, V2 c, V2 d, out V2 meeting)
+    {
+        meeting = V2.Zero;
+        var r = b - a; var s = d - c;
+        float cross = r.X * s.Y - r.Y * s.X;
+        var offset = c - a;
+        if (MathF.Abs(cross) < 0.0001f)
+        {
+            if (r.LengthSquared < 0.0001f || s.LengthSquared < 0.0001f ||
+                MathF.Abs(offset.X * r.Y - offset.Y * r.X) > 0.001f || V2.Dot(r, s) >= 0) return false;
+            float start = V2.Dot(c - a, r) / r.LengthSquared, end = V2.Dot(d - a, r) / r.LengthSquared;
+            float low = Math.Max(0, Math.Min(start, end)), high = Math.Min(1, Math.Max(start, end));
+            if (high - low < 0.0001f) return false;
+            meeting = a + r * ((low + high) * 0.5f); return true;
+        }
+        float t = (offset.X * s.Y - offset.Y * s.X) / cross;
+        float u = (offset.X * r.Y - offset.Y * r.X) / cross;
+        if (t < 0 || t > 1 || u < 0 || u > 1) return false;
+        meeting = a + r * t; return true;
+    }
+
     public static float DistanceToSegment(V2 p, V2 a, V2 b)
     {
         var delta = b - a;

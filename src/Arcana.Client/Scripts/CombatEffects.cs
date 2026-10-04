@@ -85,17 +85,18 @@ public partial class CombatEffects : Node3D
     public void Play(GameEvent e)
     {
         if (e.Kind is not ("cast" or "self" or "nova" or "impact" or "explosion" or "death" or "blink" or
-            "blink_arrive" or "barrier" or "shield_hit" or "shield_break" or "hurt")) return;
+            "blink_arrive" or "barrier" or "shield_hit" or "shield_break" or "hurt" or "splash" or "mine_heal" or "mine_place" or "beam_merge" or "beam_refract")) return;
         SeenKinds.Add(e.Kind);
         bool shield = e.Kind is "shield_hit" or "shield_break" || e.Kind == "self" && e.Elements.Contains(Element.Shield);
         bool fire = e.Elements.Contains(Element.Fire), ice = e.Elements.Contains(Element.Cold);
-        Color color = shield ? Ui.Shield : e.Kind is "blink" or "blink_arrive" ? Ui.Energy : Ui.SpellColor(e.Elements);
+        Color color = e.Kind == "mine_heal" ? Ui.Health : shield ? Ui.Shield : e.Kind is "blink" or "blink_arrive" ? Ui.Energy : Ui.SpellColor(e.Elements);
         int count = e.Kind switch { "explosion" => 30, "nova" => 24, "shield_break" => 22, "death" => 20, "impact" => 16, "hurt" => 4, _ => 8 };
         float speed = e.Kind is "explosion" or "nova" or "shield_break" ? 5.5f : 2.8f;
         int shape = shield || ice || e.Elements.Contains(Element.Earth) ? 1 : fire ? 2 : 0;
         var origin = ArenaRenderer.World(e.Position, e.Kind == "explosion" ? 0.3f : 1.1f);
         for (int i = 0; i < count; i++) Emit(origin, color, Direction() * speed, 0.55f + (float)_random.NextDouble() * 0.3f, shape, e.Kind == "explosion" ? 0.28f : 0.17f);
-        if (e.Kind is "nova" or "explosion") Ring(e.Position, color, 0.4f, e.Kind == "nova" ? 4 : 5, 0.6f);
+        if (e.Kind is "nova" or "explosion" or "splash" or "mine_heal") Ring(e.Position, color, 0.4f, e.Radius > 0 ? e.Radius : e.Kind == "nova" ? 4 : 2.4f, 0.6f);
+        else if (e.Kind is "beam_merge" or "beam_refract") Ring(e.Position, color, 0.1f, 0.6f, 0.25f);
         else if (e.Kind is "blink" or "blink_arrive") Ring(e.Position, color, 0.2f, 1.7f, 0.45f);
         else if (shield || e.Kind is "self" or "barrier" or "cast") Ring(e.Position, color, 0.4f, shield ? 1.6f : 1.1f, 0.4f);
     }
@@ -151,8 +152,18 @@ public partial class CombatEffects : Node3D
                 if (p.Wet > 0) Emit(at + Vector3.Up * 0.9f + Direction() * 0.3f, Ui.ElementColor(Element.Water), Vector3.Down * 1.6f, 0.5f, 0, 0.16f);
                 if (p.Chill > 20 || p.Frozen > 0) Emit(at + Direction() * 0.5f, Ui.ElementColor(Element.Cold), Direction() * 0.6f, 0.6f, 1, 0.15f, 0.2f);
                 if (p.Haste > 0) Emit(at, Ui.Energy, -ArenaRenderer.World(p.Facing) * 1.8f, 0.4f, 0, 0.24f, 0);
+                if (p.RegenerationRate > 0) Emit(at + Direction() * 0.4f, Ui.Health, Vector3.Up * 1.3f, 0.7f, 0, 0.20f, -0.2f);
                 if (p.Casting && WizardTypes.Affinity(p.WizardType) is { } element)
                     Emit(at + Vector3.Up * 1.35f, Ui.ElementColor(element), Direction(), 0.45f, 0, 0.16f, 0);
+            }
+            foreach (var field in snapshot.Fields.Where(f => f.Kind is "burning_ground" or "frost_ground" or "water_pool"))
+            {
+                for (int i = 0; i < 3; i++)
+                {
+                    var at = ArenaRenderer.World(field.Position, 0.15f) + Direction() * (field.Radius * 0.7f);
+                    Emit(at, Ui.SpellColor(field.Elements), Vector3.Up * (field.Kind == "burning_ground" ? 1.4f : 0.35f),
+                        0.5f, field.Kind == "burning_ground" ? 2 : field.Kind == "frost_ground" ? 1 : 0, 0.20f, 0);
+                }
             }
         }
     }

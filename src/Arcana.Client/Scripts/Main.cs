@@ -24,6 +24,7 @@ public partial class Main : Node
     private Launcher _launcher = null!;
     private TabContainer _helpPages = null!;
     private Label _currentObjective = null!;
+    private SpellBook _spellBook = null!;
     private Hud? _hud;
     private ArenaConnection? _connection;
     private GameWorld? _practice;
@@ -41,6 +42,21 @@ public partial class Main : Node
     private bool _hostSmoke;
     private bool _hudSmoke;
     private bool _effectsSmoke, _previewEffects;
+    private bool _spritesSmoke;
+    private bool _combinationsSmoke;
+    private string? _previewCombination;
+    private CastMode _previewCastMode;
+    private DemonstrationKind _previewInteraction;
+    private static readonly (string Keys, CastMode Mode, DemonstrationKind Kind)[] CombinationCases =
+    [
+        ("D", CastMode.Forward, DemonstrationKind.Combination), ("DF", CastMode.Forward, DemonstrationKind.Combination),
+        ("DQ", CastMode.Forward, DemonstrationKind.Combination), ("DR", CastMode.Forward, DemonstrationKind.Combination),
+        ("EW", CastMode.Self, DemonstrationKind.Combination), ("ES", CastMode.Forward, DemonstrationKind.Combination),
+        ("EW", CastMode.Forward, DemonstrationKind.Combination), ("SS", CastMode.Forward, DemonstrationKind.CrossedBeams),
+        ("SS", CastMode.Forward, DemonstrationKind.ShieldRefraction), ("SS", CastMode.Forward, DemonstrationKind.Capture)
+    ];
+    private string? _previewWizards;
+    private readonly HashSet<(WizardType Type, int Team, int Row, int Pose)> _spriteCoverage = [];
     private int _previewHelp = -1;
     private string? _previewShield;
     private static readonly (string State, float Shield, float Maximum)[] HudCases =
@@ -71,7 +87,14 @@ public partial class Main : Node
             if (arg == "--hud-smoke") _hudSmoke = true;
             if (arg == "--effects-smoke") _effectsSmoke = true;
             if (arg == "--preview-effects") _previewEffects = true;
-            if (arg.StartsWith("--preview-help=") && int.TryParse(arg[15..], out int page)) _previewHelp = Math.Clamp(page, 0, 2);
+            if (arg == "--sprites-smoke") _spritesSmoke = true;
+            if (arg == "--combinations-smoke") _combinationsSmoke = true;
+            if (arg.StartsWith("--preview-combination=")) _previewCombination = arg[22..];
+            if (arg.StartsWith("--preview-cast=") && Enum.TryParse<CastMode>(arg[15..], true, out var castMode)) _previewCastMode = castMode;
+            if (arg.StartsWith("--preview-interaction=") && Enum.TryParse<DemonstrationKind>(arg[22..], true, out var interaction)) _previewInteraction = interaction;
+            if (arg == "--preview-wizards") _previewWizards = "front";
+            if (arg.StartsWith("--preview-wizards=")) _previewWizards = arg[18..];
+            if (arg.StartsWith("--preview-help=") && int.TryParse(arg[15..], out int page)) _previewHelp = Math.Clamp(page, 0, 3);
             if (arg.StartsWith("--preview-shield=")) _previewShield = arg[17..];
             if (arg.StartsWith("--capture=")) _capturePath = arg[10..];
             if (arg.StartsWith("--server=")) _launcher.BrowseAddress(arg[9..]);
@@ -79,12 +102,23 @@ public partial class Main : Node
             if (arg.StartsWith("--tab=") && int.TryParse(arg[6..], out int tab)) _launcher.ShowTab(tab);
         }
         if (_hostSmoke) _ = HostedSmoke();
-        if (_hudSmoke || _previewShield != null || _effectsSmoke || _previewEffects)
+        if (_hudSmoke || _previewShield != null || _effectsSmoke || _previewEffects || _spritesSmoke || _previewWizards != null)
         {
             _practice = null; _localId = 1; _serverName = "Práctica · Colores y escudo";
-            StartGame(VisualFixture.Create(_previewShield ?? "none"));
+            if (_spritesSmoke || _previewWizards != null)
+            {
+                _localId = 3; _serverName = "Práctica · Galería de magos";
+                StartGame(VisualFixture.Wizards(0, _previewWizards));
+            }
+            else StartGame(VisualFixture.Create(_previewShield ?? "none"));
         }
         if (_previewHelp >= 0) { ToggleHelp(); _helpPages.CurrentTab = _previewHelp; }
+        if (_combinationsSmoke || _previewCombination != null || _previewInteraction != DemonstrationKind.Combination)
+        {
+            _help.Visible = true; _helpPages.CurrentTab = 3;
+            _spellBook.FixedStepForVerification = _combinationsSmoke || _capturePath != null;
+            _spellBook.SelectCombination(_previewCombination ?? "SS", _previewCastMode, _previewInteraction);
+        }
         if (_smoke)
         {
             StartPractice("Aprendiz", 0, GameMode.Warfare, 3);
@@ -175,7 +209,9 @@ public partial class Main : Node
             try { action(); }
             catch (Exception e) { Diagnostics.Error("client.callback_failed", "Fallo en una operación de interfaz.", e, Context()); }
         _renderFrames++;
+        if (_combinationsSmoke) CheckCombinations();
         if (_effectsSmoke || _previewEffects) _snapshot = VisualFixture.Effects(_renderFrames);
+        if (_spritesSmoke || _previewWizards != null) _snapshot = VisualFixture.Wizards(_renderFrames, _previewWizards);
         if (_hudSmoke && _renderFrames <= HudCases.Length * 3 && _renderFrames % 3 == 1)
             _snapshot = VisualFixture.Create(HudCases[(_renderFrames - 1) / 3].State);
         _metricsTime += delta;
@@ -198,10 +234,11 @@ public partial class Main : Node
                 Diagnostics.Warn("client.stale_snapshot", "El servidor dejó de enviar el estado.", context: Context());
                 ReturnToLauncher("El servidor ha dejado de enviar el estado de la partida. Puedes exportar el diagnóstico desde el launcher."); return;
             }
-            _renderer.Render(latest, _localId, _effectsSmoke ? 1 / 60.0 : delta, true);
+            _renderer.Render(latest, _localId, _effectsSmoke || _spritesSmoke ? 1 / 60.0 : delta, true);
             _hud?.Update(latest, _localId, _serverName, delta);
             if (_hudSmoke && _renderFrames <= HudCases.Length * 3 && _renderFrames % 3 == 2) CheckHudCase();
             if (_effectsSmoke) CheckEffects();
+            if (_spritesSmoke) CheckSprites(latest);
         }
         else _renderer.Render(_backdropSnapshot ??= _backdrop.Snapshot(), 0, delta, false);
         if (_diagnosticsSmoke && _renderFrames == 30) ExportDiagnostics();
@@ -210,7 +247,7 @@ public partial class Main : Node
 
     public override void _PhysicsProcess(double delta)
     {
-        if (_hudSmoke || _previewShield != null || _effectsSmoke || _previewEffects) return;
+        if (_hudSmoke || _previewShield != null || _effectsSmoke || _previewEffects || _spritesSmoke || _previewWizards != null || _combinationsSmoke) return;
         if (!_playing) { _backdrop.Step(); _backdropSnapshot = _backdrop.Snapshot(); return; }
         _inputTime += delta;
         if (_practice != null)
@@ -250,6 +287,33 @@ public partial class Main : Node
         GD.Print($"HUD_CASE_OK: {expected.State}, {shield.Value}/{shield.MaxValue}");
         if (expected.State == HudCases[^1].State) { GD.Print("HUD_SMOKE_OK: 6 estados de escudo, vida, capacidad y duración"); GetTree().Quit(); }
     }
+    private void CheckCombinations()
+    {
+        int index = (_renderFrames - 1) / 200;
+        if (index >= CombinationCases.Length) return;
+        var item = CombinationCases[index];
+        if ((_renderFrames - 1) % 200 == 0) _spellBook.SelectCombination(item.Keys, item.Mode, item.Kind);
+        if (_renderFrames % 200 != 0) return;
+        try
+        {
+            var state = _spellBook.Demo.World.Snapshot(); SnapshotValidation.Check(state);
+            var effects = _spellBook.Preview.Effects;
+            bool valid = effects.PooledCount <= CombatEffects.ParticleLimit + CombatEffects.RingLimit;
+            if (index == 0) valid &= !effects.SeenKinds.Contains("splash");
+            if (index is >= 1 and <= 3) valid &= effects.SeenKinds.Contains("splash") && state.Fields.Length > 0;
+            if (index == 4) valid &= state.Players[0].RegenerationRate == 38 && state.Players[0].Health > 500;
+            if (index == 5) valid &= effects.SeenKinds.Contains("explosion");
+            if (index == 6) valid &= effects.SeenKinds.Contains("mine_heal");
+            if (index == 7) valid &= effects.SeenKinds.Contains("beam_merge");
+            if (index == 8) valid &= effects.SeenKinds.Contains("beam_refract");
+            if (index == 9) valid &= _spellBook.Preview.Points[1].DisplayedProgress < -0.5f;
+            if (!valid) throw new InvalidDataException("No se representó el comportamiento esperado.");
+            GD.Print($"COMBINATION_CASE_OK: {item.Keys} {item.Mode} {item.Kind}");
+            if (index == CombinationCases.Length - 1)
+            { GD.Print($"COMBINATIONS_SMOKE_OK: {SpellCatalogue.All.Length} combinaciones y 10 escenas verificadas"); GetTree().Quit(); }
+        }
+        catch (Exception e) { GD.PushError($"COMBINATIONS_SMOKE_FAILED: {index}, {e.Message}"); GetTree().Quit(1); }
+    }
     private void CheckEffects()
     {
         var effects = _renderer.Effects;
@@ -262,6 +326,31 @@ public partial class Main : Node
             if (valid) { GD.Print("EFFECTS_SMOKE_OK: 12 eventos, tipos, expiración, reutilización y limpieza"); GetTree().Quit(); }
         }
         if (!valid) { GD.PushError("EFFECTS_SMOKE_FAILED: efectos o tipo de mago inválidos"); GetTree().Quit(1); }
+    }
+    private void CheckSprites(WorldSnapshot snapshot)
+    {
+        bool valid = _renderer.Wizards.Count == 10;
+        foreach (var player in snapshot.Players)
+        {
+            if (!_renderer.Wizards.TryGetValue(player.Id, out var wizard)) { valid = false; continue; }
+            var sprite = wizard.Sprite;
+            var atlas = WizardSprites.Load(player.WizardType);
+            valid &= sprite.Texture == atlas.Texture && sprite.IsVisibleInTree() == player.Alive &&
+                sprite.Frame is >= 0 and < 16 && sprite.Offset == atlas.Offset(sprite.Frame);
+            if (player.Alive && player.Frozen <= 0) _spriteCoverage.Add((player.WizardType, player.Team, sprite.Frame / 4, sprite.Frame % 4));
+            if (player.Frozen > 0) valid &= sprite.Frame % 4 == 0;
+            if (_renderFrames == 7) valid &= sprite.Frame % 4 == 3; // Evento instantáneo, sin Casting en el snapshot.
+            var material = (ShaderMaterial)sprite.MaterialOverride;
+            valid &= material.GetShaderParameter("team_color").AsColor() == (player.Team == 0 ? Ui.Blue : Ui.Red);
+        }
+        if (_renderFrames == 270)
+        {
+            // Cinco atlas compartidos, ambos equipos, cuatro direcciones y tres poses usadas.
+            valid &= _spriteCoverage.Count == 120;
+            _renderer.Clear(); valid &= _renderer.Wizards.Count == 0;
+            if (valid) { GD.Print("SPRITES_SMOKE_OK: 5 atlas, 120 combinaciones, equipos, anclajes, congelación, muerte, reaparición y limpieza"); GetTree().Quit(); }
+        }
+        if (!valid) { GD.PushError($"SPRITES_SMOKE_FAILED: frame {_renderFrames}, cobertura {_spriteCoverage.Count}"); GetTree().Quit(1); }
     }
     private ClientMessage InputMessage()
     {
@@ -349,7 +438,7 @@ public partial class Main : Node
     {
         var root = Modal(out var outer);
         outer.AddChild(Ui.Label("CÓMO JUGAR", 27, Ui.Gold));
-        _helpPages = new TabContainer { CustomMinimumSize = new(800, 475) }; outer.AddChild(_helpPages);
+        _helpPages = new TabContainer { CustomMinimumSize = new(960, 510) }; outer.AddChild(_helpPages);
         var box = new VBoxContainer { Name = "Controles" }; box.AddThemeConstantOverride("separation", 16); _helpPages.AddChild(box);
         var table = new GridContainer { Columns = 2 }; table.AddThemeConstantOverride("h_separation", 30); table.AddThemeConstantOverride("v_separation", 9); box.AddChild(table);
         string[,] rows =
@@ -385,6 +474,7 @@ public partial class Main : Node
             HelpText(types, WizardTypes.Description(type));
         }
         HelpText(types, "El bonus solo aumenta su componente elemental, incluida la quemadura. La debilidad también consume más escudo. Si atacante y defensor combinan bonus y debilidad, ese daño se multiplica por 1,5625. La clase se conserva al reaparecer.", Ui.Muted);
+        _spellBook = new SpellBook { Name = "Combinaciones" }; _helpPages.AddChild(_spellBook);
         outer.AddChild(Ui.Button("Cerrar", () => _help.Visible = false, true));
         return root;
     }

@@ -5,10 +5,10 @@ namespace Arcana.Core;
 
 public static class Protocol
 {
-    public const int Version = 3;
+    public const int Version = 4;
     public const int GamePort = 27015;
     public const int DiscoveryPort = 27016;
-    public const string DiscoveryMagic = "ARCANA_DISCOVER_V3";
+    public const string DiscoveryMagic = "ARCANA_DISCOVER_V4";
     public const int MaxMessageBytes = 4096;
     public static readonly JsonSerializerOptions Json = new()
     {
@@ -60,14 +60,16 @@ public sealed record WizardSnapshot(int Id, string Name, int Team, bool Bot, V2 
     V2 Facing, float Health, float MaxHealth, float Shield, Element[] Ward, Element[] Selected,
     bool Alive, float Respawn, float Wet, float Burning, float Chill, float Frozen, float Haste,
     float Energy, float[] Cooldowns, int Kills, int Deaths, float Charge, bool Casting,
-    float ShieldMax = 0, float ShieldSeconds = 0, WizardType WizardType = WizardType.Balanced);
+    float ShieldMax = 0, float ShieldSeconds = 0, WizardType WizardType = WizardType.Balanced, float RegenerationRate = 0);
 public sealed record ProjectileSnapshot(int Id, int Owner, V2 Position, V2 Direction,
     Element[] Elements, float Radius);
 public sealed record WallSnapshot(int Id, int Owner, V2 A, V2 B, float Health, float Lifetime, Element[] Elements);
-public sealed record FieldSnapshot(int Id, int Owner, V2 Position, float Radius, float Lifetime, Element[] Elements, string Kind);
-public sealed record BeamSnapshot(int Owner, V2 From, V2 To, Element[] Elements, SpellShape Shape);
-public sealed record PointSnapshot(int Id, V2 Position, int Owner, float Progress);
-public sealed record GameEvent(long Id, string Kind, V2 Position, Element[] Elements, string Text);
+public sealed record FieldSnapshot(int Id, int Owner, V2 Position, float Radius, float Lifetime, Element[] Elements, string Kind,
+    float TriggerRadius = 0.85f, bool Armed = true);
+public sealed record BeamSnapshot(int Owner, V2 From, V2 To, Element[] Elements, SpellShape Shape,
+    float Power = 1, string Interaction = "direct");
+public sealed record PointSnapshot(int Id, V2 Position, int Owner, float Progress, bool Contested = false);
+public sealed record GameEvent(long Id, string Kind, V2 Position, Element[] Elements, string Text, float Radius = 0);
 public sealed record WorldSnapshot(long Tick, double Time, GameMode Mode, bool MatchEnded,
     int Winner, float RestartIn, int[] Scores, WizardSnapshot[] Players, ProjectileSnapshot[] Projectiles,
     WallSnapshot[] Walls, FieldSnapshot[] Fields, BeamSnapshot[] Beams, PointSnapshot[] Points, GameEvent[] Events,
