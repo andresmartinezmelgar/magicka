@@ -50,7 +50,7 @@ Las salas sin humanos se pausan. El servidor reutiliza contenedores temporales y
 
 ## Vida y escudo
 
-`Wizard.ShieldMax` conserva la capacidad aplicada, aunque el daño reduzca `Shield`. El snapshot transmite `ShieldMax`, `ShieldSeconds` y `RegenerationRate`; la expiración, muerte y reaparición limpian los valores. El HUD y las barras 3D usan la misma capacidad y diferencian vida, protección y energía. La versión v0.7.0 exige protocolo 5 para garantizar mapas, efectos e interacciones comunes.
+`Wizard.ShieldMax` conserva la capacidad aplicada, aunque el daño reduzca `Shield`. El snapshot transmite `ShieldMax`, `ShieldSeconds` y `RegenerationRate`; la expiración, muerte y reaparición limpian los valores. El HUD y las barras 3D usan la misma capacidad y diferencian vida, protección y energía. La versión v0.8.0 exige protocolo 6 para garantizar mapas, efectos e interacciones comunes.
 
 ## Mapas y control total
 
@@ -79,3 +79,7 @@ El servidor emite `shield_hit`, `shield_break` y `hurt`; limita los impactos con
 `SpellCatalogue` enumera 120 selecciones válidas de hasta tres elementos, sin permutaciones ni pares incompatibles. `SpellDemonstration` repite intenciones sobre un `GameWorld` aislado. `SpellBook` muestra ese combate en un `SubViewport` con mundo 3D propio, y procesa pasos solo mientras su pestaña está visible. No comparte la conexión ni la simulación de la partida. Las demos se reinician limpiando nodos y eventos.
 
 `CapturePointVisual` utiliza un shader por punto; el relleno angular y el color proceden del progreso firmado. Interpola el progreso sin crear materiales por fotograma, muestra disputa y porcentaje; `MiniMap` utiliza el mismo estado.
+
+## Vida y reaparición en Ascensión
+
+`ArenaDefinition` define el bonus por baja y calcula la espera por modo y muertes acumuladas. `Wizard.MaxHealth` es capacidad individual; cada baja de otro mago añade 10 solo en Ascensión. `Damage` actualiza la capacidad incluso en bajas póstumas, pero no revive al autor. Curaciones, minas, regeneración y `Respawn` respetan ese máximo. `ResetMatch` vuelve a `Wizard.BaseMaxHealth` y borra muertes, reiniciando también la espera. El snapshot ya transmite vida máxima y cuenta atrás; protocolo 6 permite distinguir el nuevo mapa en todos los clientes.

@@ -1,6 +1,6 @@
 namespace Arcana.Core;
 
-public enum ArenaMapId { Classic, Citadel }
+public enum ArenaMapId { Classic, Citadel, Ascension }
 public sealed record FloorSection(V2 Center, float Width, float Height);
 public sealed record MapEdge(V2 A, V2 B);
 
@@ -17,6 +17,10 @@ public sealed class ArenaDefinition
     public IReadOnlyList<V2> ControlPoints { get; }
     public float Area => Floors.Sum(f => f.Width * f.Height);
     public int HoldSeconds => Id == ArenaMapId.Citadel ? 15 : 0;
+    public float KillHealthBonus => Id == ArenaMapId.Ascension ? 10 : 0;
+    public float RespawnDeathPenalty => Id == ArenaMapId.Ascension ? 0.5f : 0;
+    public float RespawnSeconds(GameMode mode, int deaths) => Math.Min(10,
+        (mode == GameMode.Duel ? 2.5f : 4) + RespawnDeathPenalty * Math.Max(0, deaths));
     private readonly float _spawnX;
     private readonly Lazy<(V2[] Positions, int[][] Neighbors)> _navigation;
 
@@ -118,9 +122,17 @@ internal static class ArenaMaps
          new(new(44, -8), 1.3f, 2.6f), new(new(44, 8), 1.3f, 2.6f),
          new(new(-22, 0), 1.2f, 2), new(new(22, 0), 1.2f, 2)],
         [new(-44, -21), V2.Zero, new(44, 21)], 50);
+    // Coliseo en cruz: zona central ancha y dos graderíos abiertos, con cuatro pilares simétricos.
+    private static readonly ArenaDefinition Ascension = new(ArenaMapId.Ascension, "Coliseo de la ascensión", 36, 24,
+        [new(V2.Zero, 72, 24), new(new(0, -18), 40, 12), new(new(0, 18), 40, 12)],
+        [new(-36, -12), new(-20, -12), new(-20, -24), new(20, -24), new(20, -12), new(36, -12),
+         new(36, 12), new(20, 12), new(20, 24), new(-20, 24), new(-20, 12), new(-36, 12)],
+        [new(new(-12, -7), 1.5f, 3), new(new(-12, 7), 1.5f, 3),
+         new(new(12, -7), 1.5f, 3), new(new(12, 7), 1.5f, 3)],
+        [new(-24, 0), V2.Zero, new(24, 0)], 31);
     public static ArenaDefinition Get(ArenaMapId id) => id switch
     {
-        ArenaMapId.Classic => Classic, ArenaMapId.Citadel => Citadel,
+        ArenaMapId.Classic => Classic, ArenaMapId.Citadel => Citadel, ArenaMapId.Ascension => Ascension,
         _ => throw new ArgumentOutOfRangeException(nameof(id))
     };
 }

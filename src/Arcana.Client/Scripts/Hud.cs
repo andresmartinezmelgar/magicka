@@ -142,6 +142,7 @@ public partial class Hud : Control
             : "\nControl total: 0 / 15 s";
         _health.MaxValue = player.MaxHealth; _health.Value = player.Health;
         _healthText.Text = $"VIDA  {Math.Ceiling(player.Health):0} / {player.MaxHealth:0}";
+        if (snapshot.Map == ArenaMapId.Ascension) _healthText.Text += $"  (+{player.MaxHealth - Wizard.BaseMaxHealth:0})";
         _shield.MaxValue = Ui.ShieldMaximum(player); _shield.Value = player.Shield;
         bool shielded = player.Alive && player.Shield > 0;
         _shieldFill.BgColor = shielded ? Ui.Shield : Ui.Shield.Darkened(0.65f);
@@ -177,7 +178,8 @@ public partial class Hud : Control
             _blueScore.Text = $"AZUL  {(hold ? snapshot.Points.Count(p => p.Owner == 0) + "/3" : snapshot.Scores[0].ToString())}";
             _redScore.Text = $"{(hold ? snapshot.Points.Count(p => p.Owner == 1) + "/3" : snapshot.Scores[1].ToString())}  ROJO";
         }
-        _banner.Text = !player.Alive ? $"HAS CAÍDO\nReapareces en {Math.Ceiling(player.Respawn)} s" : "";
+        _banner.Text = !player.Alive ? "HAS CAÍDO\nReapareces en " +
+            (snapshot.Map == ArenaMapId.Ascension ? $"{player.Respawn:0.0}" : $"{Math.Ceiling(player.Respawn):0}") + " s" : "";
         if (snapshot.MatchEnded)
         {
             string winner = snapshot.Mode == GameMode.Arena ? snapshot.Players.FirstOrDefault(p => p.Id == snapshot.Winner)?.Name ?? "Mago" : snapshot.Winner == 0 ? "Equipo azul" : "Equipo rojo";
@@ -199,7 +201,8 @@ public partial class Hud : Control
         foreach (var p in snapshot.Players.OrderByDescending(p => p.Kills))
         {
             var color = p.Team == 0 ? Ui.Blue : Ui.Red;
-            foreach (var text in new[] { p.Name + (p.Id == id ? " (tú)" : ""), p.Team == 0 ? "Azul" : "Rojo", p.Kills.ToString(), p.Deaths.ToString(), p.Alive ? Math.Ceiling(p.Health).ToString() : "Caído" })
+            foreach (var text in new[] { p.Name + (p.Id == id ? " (tú)" : ""), p.Team == 0 ? "Azul" : "Rojo", p.Kills.ToString(), p.Deaths.ToString(), p.Alive
+                ? snapshot.Map == ArenaMapId.Ascension ? $"{Math.Ceiling(p.Health):0} / {p.MaxHealth:0}" : Math.Ceiling(p.Health).ToString() : "Caído" })
             {
                 if (cell == _scoreCells.Count)
                 {

@@ -10,6 +10,7 @@ La sala muestra su objetivo antes de entrar. Durante la partida aparece bajo el 
 | Todos contra todos | Primer mago que alcanza el límite de bajas. | Todos los demás magos son rivales, aunque compartan el color de la túnica. Cada baja suma uno; morir no resta bajas. |
 | Guerra · Arena clásica | Dejar al equipo rival con cero tickets. | Capturar y conservar los tres puntos, y causar bajas enemigas. |
 | Guerra · Ciudadela | Controlar los tres puntos sin disputa durante 15 segundos seguidos. | Capturar todos, impedir ataques y defender el control hasta completar el contador. |
+| Guerra · Ascensión | Dejar al equipo rival con cero tickets. | Capturar puntos y causar bajas; cada baja aumenta la vida máxima y cada muerte prolonga la reaparición. |
 
 ## Guerra en Arena clásica
 
@@ -30,9 +31,28 @@ La Ciudadela tiene tres salas conectadas por pasillos y una superficie de suelo 
 - Al completar el tiempo gana el equipo que mantiene el control. La partida reinicia a los 9 segundos, con puntos neutrales y contador a cero.
 - La cámara sigue al mago; el minimapa dibuja los pasillos y los patios sin suelo. No se pueden atravesar los bordes caminando, con traslación ni con proyectiles.
 
+## Coliseo de la ascensión
+
+El tercer mapa tiene un suelo en cruz de **2.688 unidades²**, cuatro pilares simétricos y tres puntos. Se selecciona en práctica o al crear una sala y está disponible en todos los modos.
+
+- Cada baja de otro mago aumenta tu vida máxima en **10** y recupera **10** de vida si estás vivo. Incluye bots y fuego amigo. El suicidio no concede vida; una baja póstuma aumenta la capacidad sin revivirte.
+- El bonus permanece durante la partida, aunque mueras o te reanimen. Al reaparecer recuperas toda tu vida máxima acumulada; la reanimación conserva su curación inicial de 600 y el bonus de capacidad.
+- Autocuración, rayos de vida, regeneración y minas pueden curarte hasta la capacidad aumentada. HUD y marcador muestran el máximo del mago.
+- Cada muerte añade **0,5 segundos** a la espera base del modo, con máximo de **10 segundos**. La penalización pertenece a cada mago, incluidos los bots.
+
+| Muertes acumuladas | Duelo | Todos contra todos / guerra |
+|---:|---:|---:|
+| 1 | 3 s | 4,5 s |
+| 2 | 3,5 s | 5 s |
+| 6 | 5,5 s | 7 s |
+| 12 | 8,5 s | 10 s |
+| 15 o más | 10 s | 10 s |
+
+En guerra se gana por tickets, como en Arena clásica. Duelo y todos contra todos mantienen el objetivo de bajas. Al comenzar otra partida se reinician vida máxima, bajas, muertes y tiempo de reaparición. Las reglas de Ascensión no se aplican a los otros mapas.
+
 ## Límites, reaparición y nueva partida
 
-El creador elige el límite de bajas y, en Arena clásica, los tickets. Por defecto, duelo y arena se juegan a **15 bajas**; el duelo de práctica se juega a **5**. Reapareces a los **2,5 segundos** en duelo y a los **4** en arena y guerra. Tras anunciar al ganador, comienza otra partida a los **9 segundos**, con los marcadores restablecidos y el mismo tipo de mago.
+El creador elige el límite de bajas y, en Arena clásica o Ascensión, los tickets. Por defecto, duelo y arena se juegan a **15 bajas**; el duelo de práctica se juega a **5**. En Arena clásica y Ciudadela reapareces a los **2,5 segundos** en duelo y a los **4** en arena y guerra. Ascensión añade la penalización indicada arriba. Tras anunciar al ganador, comienza otra partida a los **9 segundos**, con los marcadores restablecidos y el mismo tipo de mago.
 
 ## Combate
 

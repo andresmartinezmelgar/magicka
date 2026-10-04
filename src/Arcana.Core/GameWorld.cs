@@ -174,7 +174,7 @@ public sealed partial class GameWorld
         p.WardTime -= dt;
         if (p.ShieldTime <= 0) p.Shield = p.ShieldMax = p.RegenerationRate = 0;
         if (p.Shield <= 0) p.RegenerationRate = 0;
-        if (p.RegenerationRate > 0) p.Health = Math.Min(Wizard.MaxHealth, p.Health + p.RegenerationRate * dt);
+        if (p.RegenerationRate > 0) p.Health = Math.Min(p.MaxHealth, p.Health + p.RegenerationRate * dt);
         if (p.WardTime <= 0) p.Ward = [];
         if (p.Burning > 0)
         {
@@ -199,7 +199,7 @@ public sealed partial class GameWorld
             var goal = new V2(p.Input.TargetX, p.Input.TargetY);
             move = goal - p.Position;
             if (move.Length < 0.18f) { move = V2.Zero; p.Input.MoveTo = false; }
-            else if (Map.Id == ArenaMapId.Citadel) move = NavigationDirection(p, goal, dt);
+            else if (Map.Id != ArenaMapId.Classic) move = NavigationDirection(p, goal, dt);
         }
         float speed = 6.2f * (p.Haste > 0 ? 1.65f : 1) * (1 - p.Chill * 0.005f);
         if (p.Channel != null) speed *= 0.48f;
@@ -356,7 +356,7 @@ public sealed partial class GameWorld
         }
         else if (spell.Healing)
         {
-            p.Health = Math.Min(Wizard.MaxHealth, p.Health + 145 * spell.Count(Element.Life));
+            p.Health = Math.Min(p.MaxHealth, p.Health + 145 * spell.Count(Element.Life));
         }
         else if (spell.Has(Element.Fire) && (p.Wet > 0 || p.Frozen > 0 || p.Chill > 0))
         {
@@ -480,7 +480,7 @@ public sealed partial class GameWorld
     private void Hit(Wizard target, SpellRecipe spell, float scale, int owner, V2 force)
     {
         if (!target.Alive) return;
-        if (spell.Healing) target.Health = Math.Min(Wizard.MaxHealth, target.Health + 140 * spell.Count(Element.Life) * scale);
+        if (spell.Healing) target.Health = Math.Min(target.MaxHealth, target.Health + 140 * spell.Count(Element.Life) * scale);
         if (target.Invulnerable > 0) return;
         if (_players.TryGetValue(owner, out var source) && source.Id != target.Id && Allied(source, target) && !Options.FriendlyFire) return;
         float damage = 0;
@@ -531,7 +531,7 @@ public sealed partial class GameWorld
             target.HitEffectCooldown = 0.14f;
         }
         if (target.Health > 0) return;
-        target.Deaths++; target.Respawn = Options.Mode == GameMode.Duel ? 2.5f : 4;
+        target.Deaths++; target.Respawn = Map.RespawnSeconds(Options.Mode, target.Deaths);
         target.Channel = null; target.Charging = null; target.Selection.Clear(); target.Shield = target.ShieldMax = target.ShieldTime = target.RegenerationRate = 0;
         if (Options.Mode == GameMode.Warfare && !HoldToWin) Scores[target.Team] = Math.Max(0, Scores[target.Team] - 1);
         string text = $"{target.Name} ha caído";
@@ -540,6 +540,13 @@ public sealed partial class GameWorld
             bool enemy = Hostile(killer, target);
             killer.Kills = Math.Max(0, killer.Kills + (enemy ? 1 : -1));
             killer.Energy = Math.Min(100, killer.Energy + 15);
+            // Cada baja de otro mago cuenta para la ascensión, incluso con fuego amigo.
+            // Una baja póstuma aumenta la capacidad, pero no reanima al autor.
+            if (Map.KillHealthBonus > 0)
+            {
+                killer.MaxHealth += Map.KillHealthBonus;
+                if (killer.Alive) killer.Health = Math.Min(killer.MaxHealth, killer.Health + Map.KillHealthBonus);
+            }
             if (enemy && Options.Mode == GameMode.Duel) Scores[killer.Team]++;
             text = $"{killer.Name} → {target.Name}";
         }
@@ -624,7 +631,7 @@ public sealed partial class GameWorld
                 if (f.Kind == "healing_mine")
                 {
                     if (_players.TryGetValue(f.Owner, out var owner) && Allied(owner, p))
-                        p.Health = Math.Min(Wizard.MaxHealth, p.Health + 252 * f.Recipe.Count(Element.Life));
+                        p.Health = Math.Min(p.MaxHealth, p.Health + 252 * f.Recipe.Count(Element.Life));
                 }
                 else Hit(p, f.Recipe, f.Kind == "meteor" ? 2.7f : 1.8f, f.Owner, (p.Position - f.Position).Normalized);
             }
@@ -705,13 +712,13 @@ public sealed partial class GameWorld
         MatchEnded = false; Winner = -1; RestartIn = 0;
         ResetScores(); _projectiles.Clear(); _walls.Clear(); _fields.Clear();
         foreach (var point in _points) { point.Owner = -1; point.Progress = 0; point.Contested = false; }
-        foreach (var p in _players.Values) { p.Kills = p.Deaths = 0; Respawn(p); p.Energy = 100; Array.Clear(p.MagickCooldowns); }
+        foreach (var p in _players.Values) { p.Kills = p.Deaths = 0; p.MaxHealth = Wizard.BaseMaxHealth; Respawn(p); p.Energy = 100; Array.Clear(p.MagickCooldowns); }
         Emit("restart", V2.Zero, [], "Nueva partida");
     }
     private void Respawn(Wizard p)
     {
         _routes.Remove(p.Id);
-        p.Position = Map.Spawn(p.Team, p.Id % 4); p.Health = Wizard.MaxHealth;
+        p.Position = Map.Spawn(p.Team, p.Id % 4); p.Health = p.MaxHealth;
         p.Wet = p.Burning = p.Chill = p.Frozen = p.Haste = p.Shield = p.ShieldMax = p.ShieldTime = 0;
         p.RegenerationRate = 0;
         p.Ward = []; p.Knockback = V2.Zero; p.Selection.Clear(); p.Channel = p.Charging = null;
@@ -737,7 +744,7 @@ public sealed partial class GameWorld
         var direction = (goal - p.Position).Normalized;
         if (target != null && distance < 8) direction = direction.Perpendicular * MathF.Sin((float)Time * 0.65f + p.Id);
         if (target != null && distance < 3.5f) direction = (p.Position - target.Position).Normalized;
-        if (Map.Id == ArenaMapId.Citadel && (target == null || distance > 12 || !Visible(p.Position, target.Position) || !Walkable(p.Position + direction * 1.4f)))
+        if (Map.Id != ArenaMapId.Classic && (target == null || distance > 12 || !Visible(p.Position, target.Position) || !Walkable(p.Position + direction * 1.4f)))
             direction = NavigationDirection(p, goal, dt);
         foreach (var o in Map.Obstacles)
             if (V2.Distance(p.Position + direction * 1.6f, o.Position) < o.Radius + 1)
@@ -750,7 +757,7 @@ public sealed partial class GameWorld
         p.BotDecision = 0.6f + (float)_random.NextDouble() * 0.5f;
         if (p.Channel != null || p.Charging != null) Release(p);
         p.Selection.Clear();
-        if (p.Health < 600 || p.Burning > 0)
+        if (p.Health < p.MaxHealth * 0.6f || p.Burning > 0)
         {
             if (p.Burning > 0) p.Selection.Add(Element.Water);
             else for (int i = 0; i < 3; i++) p.Selection.Add(Element.Life);
@@ -777,7 +784,7 @@ public sealed partial class GameWorld
     /// <summary>Copia inmutable del estado. La red la serializa fuera del bloqueo de la simulación.</summary>
     public WorldSnapshot Snapshot() => new(Tick, Time, Options.Mode, MatchEnded, Winner, Math.Max(0, RestartIn), Scores.ToArray(),
         _players.Values.Select(p => new WizardSnapshot(p.Id, p.Name, p.Team, p.Bot, p.Position, p.Facing, p.Health,
-            Wizard.MaxHealth, p.Shield, p.Ward.ToArray(), p.Selection.Elements.ToArray(), p.Alive, Math.Max(0, p.Respawn),
+            p.MaxHealth, p.Shield, p.Ward.ToArray(), p.Selection.Elements.ToArray(), p.Alive, Math.Max(0, p.Respawn),
             p.Wet, p.Burning, p.Chill, p.Frozen, p.Haste, p.Energy, p.MagickCooldowns.ToArray(), p.Kills, p.Deaths,
             p.ChargeTime / 1.4f, p.Channel != null || p.Charging != null, p.ShieldMax, p.Shield > 0 ? p.ShieldTime : 0, p.WizardType, p.RegenerationRate)).ToArray(),
         _projectiles.Select(p => new ProjectileSnapshot(p.Id, p.Owner, p.Position, p.Velocity.Normalized, p.Recipe.Elements.ToArray(), p.Radius)).ToArray(),

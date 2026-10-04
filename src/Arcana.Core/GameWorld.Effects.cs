@@ -13,7 +13,7 @@ public sealed partial class GameWorld
     private bool EligibleForMine(Wizard player, Field mine)
     {
         if (!player.Alive || !_players.TryGetValue(mine.Owner, out var owner)) return false;
-        return mine.Kind == "healing_mine" ? Allied(owner, player) && player.Health < Wizard.MaxHealth - 0.01f
+        return mine.Kind == "healing_mine" ? Allied(owner, player) && player.Health < player.MaxHealth - 0.01f
             : Hostile(owner, player);
     }
 

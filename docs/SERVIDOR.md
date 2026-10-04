@@ -45,7 +45,7 @@ Una dirección sin esquema utiliza `ws://`, puerto 27015 y ruta `/play`. Una dir
 
 ## LAN
 
-El launcher envía `ARCANA_DISCOVER_V5` y un nonce por UDP al puerto de búsqueda. El servidor responde con nombre, IP de origen, puerto TCP, modo, ocupación y si necesita contraseña. El cliente obtiene la IP de la respuesta, no de datos declarados por un tercero.
+El launcher envía `ARCANA_DISCOVER_V6` y un nonce por UDP al puerto de búsqueda. El servidor responde con nombre, IP de origen, puerto TCP, modo, ocupación y si necesita contraseña. El cliente obtiene la IP de la respuesta, no de datos declarados por un tercero.
 
 La búsqueda dura dos segundos y también pregunta a loopback, para encontrar un servidor ejecutado en el mismo equipo. Las subredes de Wi-Fi invitado, el aislamiento entre clientes y los cortafuegos pueden impedir broadcast. En ese caso, la misma partida LAN es accesible introduciendo su IP en **Por IP**.
 
@@ -81,8 +81,8 @@ Si `/health` funciona localmente pero otro PC no conecta, comprobar que el puert
 
 Para detener: `docker compose down`. Las estadísticas de esta versión son de la partida actual y se reinician al apagar el proceso.
 
-## Compatibilidad: protocolo 5
+## Compatibilidad: protocolo 6
 
-La versión v0.7.0 añade el mapa de cada sala y el contador de control total a los datos de combate. Actualizar cliente y servidor juntos; los clientes anteriores son rechazados. Para el servidor dedicado: `docker compose up -d --build`.
+La versión v0.8.0 incorpora el tercer mapa, Ascensión, con vida máxima individual y reaparición progresiva. La sala, el saludo y los snapshots replican el mapa y sus reglas. Actualizar cliente y servidor juntos; los clientes anteriores son rechazados. Para el servidor dedicado: `docker compose up -d --build`.
 
 El mapa se elige en **Crear sala → Mapa**. Para la sala principal del servidor dedicado, `ARENA_MAP=Classic` mantiene la arena original y `ARENA_MAP=Citadel` selecciona la Ciudadela. En guerra, esta última exige 15 segundos seguidos de control total y no utiliza tickets para la victoria.

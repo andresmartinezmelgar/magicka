@@ -255,8 +255,9 @@ public partial class Main : Node
                 if (SmokeMode) { GD.PushError("SMOKE_FAILED: " + e.Message); GetTree().Quit(1); return; }
             }
         _renderFrames++;
-        if (_mapsSmoke && _renderFrames <= 90 && _renderFrames % 30 == 1)
-            _snapshot = MapFixture(_renderFrames <= 30 || _renderFrames > 60 ? ArenaMapId.Citadel : ArenaMapId.Classic);
+        if (_mapsSmoke && _renderFrames <= 120 && _renderFrames % 30 == 1)
+            _snapshot = MapFixture(_renderFrames <= 30 || _renderFrames > 90 ? ArenaMapId.Citadel
+                : _renderFrames <= 60 ? ArenaMapId.Classic : ArenaMapId.Ascension);
         if (_combinationsSmoke) CheckCombinations();
         if (_effectsSmoke || _previewEffects) _snapshot = VisualFixture.Effects(_renderFrames);
         if (_spritesSmoke || _previewWizards != null) _snapshot = VisualFixture.Wizards(_renderFrames, _previewWizards);
@@ -332,7 +333,8 @@ public partial class Main : Node
         var source = VisualFixture.Create("none");
         bool hold = id == ArenaMapId.Citadel;
         return source with { Map = id, HoldingTeam = hold ? 0 : -1, HoldSeconds = hold ? 7.5f : 0,
-            Players = source.Players.Select(p => p with { Position = _previewMap != null ? new V2(0, -1) : map.Spawn(p.Team, p.Id) }).ToArray(),
+            Players = source.Players.Select(p => p with { Position = _previewMap != null ? new V2(0, -1) : map.Spawn(p.Team, p.Id),
+                MaxHealth = id == ArenaMapId.Ascension ? 1030 : 1000, Health = id == ArenaMapId.Ascension ? 1020 : p.Health }).ToArray(),
             Points = map.ControlPoints.Select((p, i) => new PointSnapshot(i, p, hold ? 0 : -1, hold ? -1 : 0)).ToArray() };
     }
     private void CheckMaps(WorldSnapshot snapshot)
@@ -340,14 +342,19 @@ public partial class Main : Node
         var choice = (OptionButton)_launcher.FindChild("PracticeMapChoice", true, false);
         var objective = (Label)_hud!.FindChild("MatchObjective", true, false);
         var map = ArenaMap.Get(snapshot.Map);
-        bool valid = choice.ItemCount == 2 && _renderer.CurrentMap == snapshot.Map && _renderer.Points.Count == 3 &&
+        bool valid = choice.ItemCount == Enum.GetValues<ArenaMapId>().Length && _renderer.CurrentMap == snapshot.Map && _renderer.Points.Count == 3 &&
             _renderer.GetChildren().Count(n => n.Name == "MapGeometry") == 1 &&
             snapshot.Points.All(p => _renderer.Points[p.Id].Position == ArenaRenderer.World(p.Position));
         if (snapshot.Map == ArenaMapId.Citadel) valid &= objective.Text.Contains($"{snapshot.HoldSeconds:0.0} / 15 s") && Math.Abs(_renderer.Camera.Position.X) > 40;
         else valid &= objective.Text.Contains("tickets");
+        if (snapshot.Map == ArenaMapId.Ascension)
+        {
+            var health = (ProgressBar)_hud.FindChild("HealthBar", true, false);
+            valid &= objective.Text.Contains("+10") && objective.Text.Contains("10 s") && health.MaxValue == 1030 && health.Value == 1020;
+        }
         if (!valid) { GD.PushError($"MAPS_SMOKE_FAILED: {map.Name}, cámara, selector, contador o geometría incorrectos"); GetTree().Quit(1); return; }
         GD.Print($"MAP_CASE_OK: {map.Name}, {map.Area} unidades²");
-        if (_renderFrames >= 90) CompleteSmoke("MAPS_SMOKE_OK: ambos mapas, cambios de mapa, cámara, minimapa y contador de control");
+        if (_renderFrames >= 120) CompleteSmoke("MAPS_SMOKE_OK: tres mapas, cambios de mapa, cámara, minimapa, control y vida acumulada");
     }
     private void CheckHudCase()
     {
@@ -543,6 +550,9 @@ public partial class Main : Node
         wins.AddChild(Ui.Label("CIUDADELA DE LOS PASILLOS · 4×", 19, Ui.Gold));
         HelpText(wins, MatchRules.Objective(GameMode.Warfare, 15, 75, ArenaMapId.Citadel));
         HelpText(wins, MatchRules.Details(GameMode.Warfare, ArenaMapId.Citadel), Ui.Muted);
+        wins.AddChild(Ui.Label("COLISEO DE LA ASCENSIÓN", 19, Ui.Gold));
+        HelpText(wins, MatchRules.Details(GameMode.Warfare, ArenaMapId.Ascension), Ui.Muted);
+        HelpText(wins, "En duelo, la primera muerte tarda 3 segundos; las siguientes añaden 0,5 segundos hasta 10. En todos contra todos y guerra, la primera tarda 4,5 segundos.", Ui.Muted);
         HelpText(wins, "Al terminar, se muestra el ganador y empieza otra partida a los 9 segundos. Puedes consultar el marcador con TAB. En práctica, el duelo se juega a 5 bajas.", Ui.Muted);
         var types = new VBoxContainer { Name = "Tipos de mago" }; types.AddThemeConstantOverride("separation", 12); _helpPages.AddChild(types);
         HelpText(types, "Elige tu tipo en el launcher antes de entrar. Todos pueden combinar los ocho elementos.", Ui.Muted);

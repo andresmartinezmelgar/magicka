@@ -9,8 +9,9 @@ public sealed class Wizard
     public WizardType WizardType { get; init; }
     public V2 Position { get; set; }
     public V2 Facing { get; set; } = new(1, 0);
-    public float Health { get; set; } = 1000;
-    public const float MaxHealth = 1000;
+    public const float BaseMaxHealth = 1000;
+    public float Health { get; set; } = BaseMaxHealth;
+    public float MaxHealth { get; set; } = BaseMaxHealth;
     public bool Alive => Health > 0;
     public float Shield { get; set; }
     public float ShieldMax { get; set; }
