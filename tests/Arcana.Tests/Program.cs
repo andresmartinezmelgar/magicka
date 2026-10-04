@@ -266,6 +266,125 @@ Test("Captura, desgaste de tickets, victoria y nueva partida", () =>
     for (int i = 0; i < 550; i++) w.Step();
     Check(!w.MatchEnded && w.Scores[0] == 5 && w.Scores[1] == 5, "No se reinició la partida.");
 });
+Test("Ciudadela: suelo exactamente cuatro veces mayor, forma irregular y puntos accesibles", () =>
+{
+    var classic = ArenaMap.Get(ArenaMapId.Classic); var map = ArenaMap.Get(ArenaMapId.Citadel);
+    Check(classic.Area == 1408 && map.Area == classic.Area * 4 && map.HalfWidth != map.HalfHeight,
+        "El segundo mapa no tiene la superficie o la forma solicitadas.");
+    Check(map.Floors.Count == 5 && !map.Inside(new(-22, 24)) && map.Walkable(new(-22, 10)), "Los pasillos no delimitan el suelo.");
+    foreach (var point in map.ControlPoints) Check(map.Walkable(point), "Un punto está bloqueado.");
+    for (int team = 0; team < 2; team++)
+    for (int i = 0; i < 8; i++) Check(map.Walkable(map.Spawn(team, i)), "Una aparición está fuera del suelo.");
+    var path = map.FindPath(map.ControlPoints[0], map.ControlPoints[2]);
+    Check(path.Length > 1 && path[^1] == map.ControlPoints[2], "No existe ruta entre los extremos.");
+    var at = map.ControlPoints[0];
+    foreach (var next in path) { Check(map.ClearPath(at, next), "La ruta cruza una pared o un pilar."); at = next; }
+    Check(map.FindPath(map.ControlPoints[0], new(-22, 24)).Length == 0, "Se trazó una ruta por un patio sin suelo.");
+    var world = new GameWorld(new() { Map = ArenaMapId.Citadel }); var player = world.AddPlayer("Pasillos")!;
+    Check(world.ApplyMessage(player.Id, new() { Type = "input", Sequence = 1, MoveTo = true, TargetX = 50, TargetY = 28 }) &&
+        player.Input.TargetX == 50 && player.Input.TargetY == 28, "Se limitaron los destinos al mapa pequeño.");
+    var snapshot = Protocol.Deserialize<WorldSnapshot>(Protocol.Serialize(world.Snapshot()))!;
+    Check(snapshot.Map == map.Id && snapshot.Points.Select(p => p.Position).SequenceEqual(map.ControlPoints), "La red perdió el mapa o sus puntos.");
+    SnapshotValidation.Check(snapshot);
+    foreach (var invalid in new[] { snapshot with { Map = (ArenaMapId)99 }, snapshot with { HoldingTeam = 2 },
+        snapshot with { HoldSeconds = float.NaN }, snapshot with { HoldSeconds = 16 } })
+    {
+        bool rejected = false; try { SnapshotValidation.Check(invalid); } catch (InvalidDataException) { rejected = true; }
+        Check(rejected, "Se aceptaron metadatos de mapa o control inválidos.");
+    }
+});
+(GameWorld World, Wizard[] Capturers) CaptureCitadel(int team)
+{
+    var w = new GameWorld(new() { Map = ArenaMapId.Citadel, Tickets = 5 });
+    for (int i = 0; i < 6; i++) w.AddPlayer("Mago " + i);
+    var capturers = w.Players.Values.Where(p => p.Team == team).ToArray();
+    for (int i = 0; i < capturers.Length; i++) capturers[i].Position = w.Map.ControlPoints[i];
+    for (int i = 0; i < 300 && w.HoldingTeam < 0; i++) w.Step();
+    Check(w.HoldingTeam == team && w.Snapshot().Points.All(p => p.Owner == team), "No se capturaron los tres puntos.");
+    return (w, capturers);
+}
+Test("Ciudadela: ambos equipos ganan exactamente tras 900 ticks de control, y el reinicio borra el contador", () =>
+{
+    foreach (int team in new[] { 0, 1 })
+    {
+        var (w, _) = CaptureCitadel(team);
+        Check(Math.Abs(w.HoldSeconds - GameWorld.StepSeconds) < 0.00001f, "El contador no empezó al capturar el último punto.");
+        for (int i = 0; i < 898; i++) w.Step();
+        Check(!w.MatchEnded && w.HoldSeconds < 15 && w.Scores.All(s => s == 5), "Se ganó antes de 15 segundos o se consumieron tickets.");
+        w.Step(); var state = w.Snapshot();
+        Check(w.MatchEnded && w.Winner == team && state.HoldSeconds == 15 && state.HoldingTeam == team, "No se ganó a los 15 segundos exactos.");
+        SnapshotValidation.Check(Protocol.Deserialize<WorldSnapshot>(Protocol.Serialize(state))!);
+        for (int i = 0; i < 550; i++) w.Step();
+        Check(!w.MatchEnded && w.HoldingTeam == -1 && w.HoldSeconds == 0 && w.Snapshot().Points.All(p => p.Owner == -1) &&
+            w.Players.Values.All(p => w.Map.Walkable(p.Position)), "El reinicio no limpió el control o reapareció en el mapa equivocado.");
+    }
+});
+Test("Ciudadela: disputar y neutralizar reinicia el contador y nunca acumula intervalos separados", () =>
+{
+    var (w, capturers) = CaptureCitadel(0);
+    for (int i = 0; i < 898; i++) w.Step();
+    var enemy = w.Players.Values.First(p => p.Team == 1); enemy.Position = capturers[0].Position + new V2(1, 0); w.Step();
+    Check(!w.MatchEnded && w.HoldingTeam == -1 && w.HoldSeconds == 0 && w.Snapshot().Points[0].Contested,
+        "La disputa no detuvo la victoria en el último tick.");
+    enemy.Position = w.Map.Spawn(1, 0); w.Step();
+    for (int i = 0; i < 448; i++) w.Step();
+    Check(!w.MatchEnded && w.HoldSeconds < 8, "Se conservaron segundos anteriores a la disputa.");
+    capturers[0].Position = w.Map.Spawn(0, 0); enemy.Position = w.Map.ControlPoints[0]; w.Step();
+    Check(w.HoldSeconds == 0, "Un ataque sin defensor no interrumpió el control.");
+    for (int i = 0; i < 110; i++) w.Step();
+    Check(w.Snapshot().Points[0].Owner == -1 && w.HoldingTeam == -1, "Neutralizar el punto mantuvo el contador.");
+    enemy.Position = w.Map.Spawn(1, 0); capturers[0].Position = w.Map.ControlPoints[0];
+    for (int i = 0; i < 300 && w.HoldingTeam < 0; i++) w.Step();
+    Check(!w.MatchEnded && w.HoldSeconds == GameWorld.StepSeconds, "Recapturar no empezó un intervalo nuevo.");
+});
+Test("Ciudadela: control parcial y bajas no sustituyen los 15 segundos de control total", () =>
+{
+    var w = new GameWorld(new() { Map = ArenaMapId.Citadel, Tickets = 1 }); var a = w.AddPlayer("Azul", 0)!;
+    var b = w.AddPlayer("Rojo", 1)!; a.Position = w.Map.ControlPoints[1];
+    for (int i = 0; i < 1500; i++) w.Step();
+    Check(!w.MatchEnded && w.HoldSeconds == 0 && w.Scores.All(s => s == 1), "Un solo punto ganó por tickets.");
+    b.Position = a.Position + new V2(1, 0); b.Health = 1; b.Invulnerable = 0;
+    Select(w, a, Element.Arcane); Send(w, a, "nova"); w.Step();
+    Check(!b.Alive && !w.MatchEnded && w.Scores.All(s => s == 1), "Una baja decidió la victoria por tickets.");
+    Check(MatchRules.Objective(GameMode.Warfare, 15, 75, ArenaMapId.Citadel).Contains("15 segundos"), "La ayuda muestra otra condición de victoria.");
+});
+Test("Ciudadela: paredes bloquean caminar, rayos, proyectiles y traslación", () =>
+{
+    var w = new GameWorld(new() { Map = ArenaMapId.Citadel, Mode = GameMode.Arena });
+    var a = w.AddPlayer("A")!; var b = w.AddPlayer("B")!; a.Position = new(-35, -22); b.Position = new(-1, -22);
+    a.Invulnerable = b.Invulnerable = 0;
+    Check(!w.Walkable(new(-32, -22)) && !w.Walkable(new(-33.2f, -22)), "Se permitió entrar en el patio o atravesar la pared.");
+    Send(w, a, "input", aim: b.Position); w.Step(); Select(w, a, Element.Arcane, Element.Arcane, Element.Arcane); Send(w, a, "cast");
+    for (int i = 0; i < 30; i++) { Send(w, a, "input", aim: b.Position); w.Step(); }
+    Check(b.Health == 1000 && w.Snapshot().Beams.All(beam => beam.To.X <= -33), "El rayo atravesó un límite del mapa.");
+    Send(w, a, "release"); Select(w, a, Element.Earth); Send(w, a, "cast");
+    for (int i = 0; i < 10; i++) { Send(w, a, "input", aim: b.Position); w.Step(); }
+    Send(w, a, "release");
+    for (int i = 0; i < 25; i++) { Send(w, a, "input", aim: b.Position); w.Step(); }
+    Check(w.Snapshot().Projectiles.Length == 0 && b.Health == 1000, "La roca cruzó el patio.");
+    Send(w, a, "magick", slot: 1);
+    Check(a.Position.X < -33.48f && w.Map.Walkable(a.Position), "La traslación cruzó una pared del pasillo.");
+    a.Position = new(-33.5f, -22); a.ActionCooldown = 0;
+    Select(w, a, Element.Arcane, Element.Arcane, Element.Arcane); Send(w, a, "cast"); w.Step();
+    Check(w.Snapshot().Beams.All(beam => beam.From.X < -33 && beam.To.X <= -33), "El origen del hechizo saltó la pared al estar pegado a ella.");
+});
+Test("Ciudadela: el desplazamiento al cursor sigue los pasillos y los bots no salen del suelo", () =>
+{
+    var w = new GameWorld(new() { Map = ArenaMapId.Citadel }); var player = w.AddPlayer("Ruta")!;
+    player.Position = w.Map.ControlPoints[0]; var goal = w.Map.ControlPoints[2];
+    for (int i = 0; i < 1700 && V2.Distance(player.Position, goal) > 0.2f; i++)
+    {
+        w.ApplyMessage(player.Id, new() { Type = "input", Sequence = player.LastSequence + 1, MoveTo = true,
+            TargetX = goal.X, TargetY = goal.Y, AimX = goal.X, AimY = goal.Y }); w.Step();
+        Check(w.Map.Walkable(player.Position), "El jugador cortó por una zona sin suelo.");
+    }
+    Check(V2.Distance(player.Position, goal) < 0.2f, "El jugador no llegó al punto al otro lado de los pasillos.");
+    var bots = new GameWorld(new() { Map = ArenaMapId.Citadel, Bots = 8 });
+    for (int i = 0; i < 3600; i++) bots.Step();
+    SnapshotValidation.Check(bots.Snapshot());
+    Check(bots.Players.Values.All(p => bots.Map.Walkable(p.Position)) && bots.Players.Values.Any(p => Math.Abs(p.Position.X) < 30),
+        "Los bots quedaron atascados o atravesaron los bordes.");
+});
 Test("Timeout de entrada interrumpe un canal abandonado", () =>
 {
     var (w, a, _) = Setup(); Send(w, a, "input"); Select(w, a, Element.Arcane); Send(w, a, "cast");
@@ -568,10 +687,10 @@ if (server != null)
         var roomA = await RoomBrowser.CreateAsync(server, new() { Name = "Prueba aislamiento A", ServerPassword = password,
             Mode = GameMode.Arena, MaxPlayers = 4, FriendlyFire = false, ScoreLimit = 9, Tickets = 45 });
         var roomB = await RoomBrowser.CreateAsync(server, new() { Name = "Prueba aislamiento B", ServerPassword = password,
-            Mode = GameMode.Warfare, MaxPlayers = 3, Bots = 0 });
+            Mode = GameMode.Warfare, Map = ArenaMapId.Citadel, MaxPlayers = 3, Bots = 0 });
         var directory = await RoomBrowser.ListAsync(server);
         Check(directory.Rooms.Any(r => r.Id == roomA.Id && r.ScoreLimit == 9 && !r.FriendlyFire) &&
-            directory.Rooms.Any(r => r.Id == roomB.Id && r.Bots == 0), "No se publicaron las opciones de sala.");
+            directory.Rooms.Any(r => r.Id == roomB.Id && r.Bots == 0 && r.Map == ArenaMapId.Citadel), "No se publicaron las opciones de sala.");
         await using var a = new ArenaConnection(); await using var b = new ArenaConnection();
         await a.ConnectAsync(server, "Solo A", -1, password, roomId: roomA.Id);
         await b.ConnectAsync(server, "Solo B", -1, password, roomId: roomB.Id);
@@ -581,6 +700,9 @@ if (server != null)
         Check(a.Latest!.Mode == GameMode.Arena && a.Latest.Players.Length == 1 && b.Latest!.Mode == GameMode.Warfare &&
             b.Latest.Players.All(p => p.Name != "Solo A" && p.Selected.Length == 0), "Se filtró estado entre salas.");
         Check(a.Room?.Id == roomA.Id && b.Room?.Id == roomB.Id, "El saludo no identifica la sala.");
+        Check(a.Latest.Map == ArenaMapId.Classic && b.Latest!.Map == ArenaMapId.Citadel && b.Room!.Map == ArenaMapId.Citadel &&
+            b.Latest.Points.Select(p => p.Position).SequenceEqual(ArenaMap.Get(ArenaMapId.Citadel).ControlPoints) &&
+            b.Latest.HoldingTeam == -1 && b.Latest.HoldSeconds == 0, "La red mezcló los mapas o perdió sus reglas de control.");
     });
     await AsyncTest("Contraseña de sala, aforo y sala inexistente se validan", async () =>
     {
@@ -607,6 +729,10 @@ if (server != null)
         try { await RoomBrowser.CreateAsync(server, new() { Name = "Inválida", Mode = GameMode.Duel, MaxPlayers = 8, ServerPassword = password }); }
         catch (InvalidOperationException) { rejected = true; }
         Check(rejected, "Se admitió un duelo de ocho jugadores.");
+        rejected = false;
+        try { await RoomBrowser.CreateAsync(server, new() { Name = "Mapa inválido", Map = (ArenaMapId)99, ServerPassword = password }); }
+        catch (InvalidOperationException) { rejected = true; }
+        Check(rejected, "Se admitió una sala con un mapa inexistente.");
         using var http = new HttpClient();
         string directory = await http.GetStringAsync(RoomBrowser.Endpoint(server, "rooms"));
         Check(!directory.Contains("sala-clave") && (password.Length == 0 || !directory.Contains(password)), "Se expuso una contraseña en el directorio.");

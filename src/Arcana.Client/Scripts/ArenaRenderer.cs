@@ -21,6 +21,9 @@ public partial class ArenaRenderer : Node3D
     private readonly HashSet<int> _present = [];
     private readonly List<int> _removed = [];
     private WorldSnapshot? _lastSnapshot;
+    private ArenaDefinition _map = ArenaMap.Get(ArenaMapId.Classic);
+    private Node3D? _mapRoot;
+    internal ArenaMapId CurrentMap => _map.Id;
     private bool _fresh;
     private readonly SpellAudio _audio = new();
     private long _lastEvent;
@@ -65,10 +68,10 @@ public partial class ArenaRenderer : Node3D
         var origin = Camera.ProjectRayOrigin(screen); var direction = Camera.ProjectRayNormal(screen);
         if (Mathf.Abs(direction.Y) < 0.001f) return V2.Zero;
         var p = origin + direction * (-origin.Y / direction.Y);
-        return new(Math.Clamp(p.X, -ArenaMap.HalfWidth, ArenaMap.HalfWidth), Math.Clamp(p.Z, -ArenaMap.HalfHeight, ArenaMap.HalfHeight));
+        return new(Math.Clamp(p.X, -_map.HalfWidth, _map.HalfWidth), Math.Clamp(p.Z, -_map.HalfHeight, _map.HalfHeight));
     }
     public void Zoom(float delta) => _zoom = Math.Clamp(_zoom + delta, 17, 34);
-    internal void SetPreviewZoom(float size) => _zoom = Math.Clamp(size, 10, 34);
+    internal void SetPreviewZoom(float size) => _zoom = Math.Clamp(size, 10, Math.Max(34, _map.HalfHeight * 2 + 10));
     public void Clear()
     {
         _audio.StopAll();
@@ -107,14 +110,17 @@ public partial class ArenaRenderer : Node3D
 
     private void BuildMap()
     {
-        Mesh(this, new PlaneMesh { Size = new(180, 180) }, new(0, -1.2f, 0), new Color("101d26"));
-        var floor = Mesh(this, new PlaneMesh { Size = new(44, 32) }, Vector3.Zero, new Color("536363"));
-        floor.MaterialOverride = new ShaderMaterial
+        if (_mapRoot != null) { RemoveChild(_mapRoot); _mapRoot.QueueFree(); }
+        _points.Clear();
+        var rootMap = new Node3D { Name = "MapGeometry" }; _mapRoot = rootMap; AddChild(rootMap);
+        Mesh(rootMap, new PlaneMesh { Size = new(220, 180) }, new(0, -1.2f, 0), new Color("101d26"));
+        var shader = new Shader
         {
-            Shader = new Shader { Code = """
+            Code = """
                 shader_type spatial;
+                uniform vec2 tile_scale;
                 void fragment() {
-                    vec2 tile = UV * vec2(22.0, 16.0);
+                    vec2 tile = UV * tile_scale;
                     vec2 p = fract(tile);
                     float edge = smoothstep(0.012, 0.036, min(min(p.x, 1.0-p.x), min(p.y, 1.0-p.y)));
                     float noise = fract(sin(dot(floor(tile), vec2(127.1,311.7))) * 43758.5453);
@@ -122,23 +128,29 @@ public partial class ArenaRenderer : Node3D
                     ALBEDO = mix(vec3(0.105,0.14,0.15), stone, edge);
                     ROUGHNESS = 0.92;
                 }
-                """ }
+                """
         };
-        Box(this, new(45, 0.8f, 33), new(0, -0.45f, 0), new("273b3e"));
+        foreach (var section in _map.Floors)
+        {
+            var floor = Mesh(rootMap, new PlaneMesh { Size = new(section.Width, section.Height) }, World(section.Center), new Color("536363"));
+            var material = new ShaderMaterial { Shader = shader };
+            material.SetShaderParameter("tile_scale", new Vector2(section.Width / 2, section.Height / 2)); floor.MaterialOverride = material;
+            Box(rootMap, new(section.Width + 0.4f, 0.8f, section.Height + 0.4f), World(section.Center, -0.45f), new("273b3e"));
+        }
         var stone = new Color("697371");
-        for (int i = -21; i <= 21; i += 2)
+        foreach (var edge in _map.Boundary)
         {
-            Box(this, new(1.9f, 0.55f, 0.6f), new(i, 0.25f, -16.3f), stone);
-            Box(this, new(1.9f, 0.55f, 0.6f), new(i, 0.25f, 16.3f), stone);
+            int count = (int)Math.Ceiling(V2.Distance(edge.A, edge.B) / 2);
+            for (int i = 0; i < count; i++)
+            {
+                var pos = V2.Lerp(edge.A, edge.B, (i + 0.5f) / count);
+                var size = Math.Abs(edge.A.X - edge.B.X) > 0 ? new Vector3(1.9f, 0.55f, 0.5f) : new Vector3(0.5f, 0.55f, 1.9f);
+                Box(rootMap, size, World(pos, 0.25f), stone);
+            }
         }
-        for (int i = -15; i <= 15; i += 2)
+        foreach (var obstacle in _map.Obstacles)
         {
-            Box(this, new(0.6f, 0.55f, 1.9f), new(-22.3f, 0.25f, i), stone);
-            Box(this, new(0.6f, 0.55f, 1.9f), new(22.3f, 0.25f, i), stone);
-        }
-        foreach (var obstacle in ArenaMap.Obstacles)
-        {
-            var root = new Node3D { Position = World(obstacle.Position) }; AddChild(root);
+            var root = new Node3D { Position = World(obstacle.Position) }; rootMap.AddChild(root);
             Mesh(root, new CylinderMesh { TopRadius = obstacle.Radius, BottomRadius = obstacle.Radius + 0.05f, Height = 0.25f, RadialSegments = 10 }, new(0, 0.13f, 0), new("778282"));
             Mesh(root, new CylinderMesh { TopRadius = obstacle.Radius * 0.75f, BottomRadius = obstacle.Radius * 0.88f, Height = obstacle.Height, RadialSegments = 8 }, new(0, obstacle.Height / 2 + 0.2f, 0), stone);
             Mesh(root, new CylinderMesh { TopRadius = obstacle.Radius * 0.98f, BottomRadius = obstacle.Radius, Height = 0.3f, RadialSegments = 8 }, new(0, obstacle.Height + 0.25f, 0), new("89908a"));
@@ -148,34 +160,36 @@ public partial class ArenaRenderer : Node3D
         for (int team = 0; team < 2; team++)
         {
             var color = team == 0 ? Ui.Blue : Ui.Red;
-            float x = team == 0 ? -18 : 18;
-            Ring(this, 2.7f, 0.10f, new(x, 0.05f, 0), color);
-            Ring(this, 2.5f, 0.045f, new(x, 0.05f, 0), color);
+            float x = _map.Spawn(team, 0).X;
+            Ring(rootMap, 2.7f, 0.10f, new(x, 0.05f, 0), color);
+            Ring(rootMap, 2.5f, 0.045f, new(x, 0.05f, 0), color);
             for (int i = -1; i <= 1; i += 2)
             {
-                Mesh(this, new CylinderMesh { TopRadius = 0.2f, BottomRadius = 0.5f, Height = 1.2f }, new(x, 0.6f, i * 3.5f), new("424e58"));
-                Mesh(this, new SphereMesh { Radius = 0.24f, Height = 0.48f }, new(x, 1.4f, i * 3.5f), color, 1.1f);
+                Mesh(rootMap, new CylinderMesh { TopRadius = 0.2f, BottomRadius = 0.5f, Height = 1.2f }, new(x, 0.6f, i * 3.5f), new("424e58"));
+                Mesh(rootMap, new SphereMesh { Radius = 0.24f, Height = 0.48f }, new(x, 1.4f, i * 3.5f), color, 1.1f);
             }
         }
-        foreach (var p in ArenaMap.ControlPoints.Select((position, id) => (position, id)))
+        foreach (var p in _map.ControlPoints.Select((position, id) => (position, id)))
         {
-            var visual = new CapturePointVisual(); AddChild(visual); visual.Build(p.id, p.position); _points[p.id] = visual;
+            var visual = new CapturePointVisual(); rootMap.AddChild(visual); visual.Build(p.id, p.position); _points[p.id] = visual;
         }
         // Árboles y ruinas decorativos se quedan fuera de la zona de colisión.
         var random = new Random(36);
         for (int i = 0; i < 36; i++)
         {
-            float x = (float)random.NextDouble() * 70 - 35;
-            float z = (float)random.NextDouble() * 54 - 27;
-            if (Mathf.Abs(x) < 24 && Mathf.Abs(z) < 18) continue;
+            float x = ((float)random.NextDouble() * 2 - 1) * (_map.HalfWidth + 13);
+            float z = ((float)random.NextDouble() * 2 - 1) * (_map.HalfHeight + 11);
+            if (Mathf.Abs(x) < _map.HalfWidth + 2 && Mathf.Abs(z) < _map.HalfHeight + 2) continue;
             float height = 2.5f + (float)random.NextDouble() * 3;
-            Mesh(this, new CylinderMesh { TopRadius = 0.2f, BottomRadius = 0.4f, Height = height }, new(x, height / 2 - 1, z), new("283b36"));
-            Mesh(this, new CylinderMesh { TopRadius = 0, BottomRadius = 2.1f, Height = height }, new(x, height - 1, z), new("1d3632"));
+            Mesh(rootMap, new CylinderMesh { TopRadius = 0.2f, BottomRadius = 0.4f, Height = height }, new(x, height / 2 - 1, z), new("283b36"));
+            Mesh(rootMap, new CylinderMesh { TopRadius = 0, BottomRadius = 2.1f, Height = height }, new(x, height - 1, z), new("1d3632"));
         }
     }
 
     public void Render(WorldSnapshot snapshot, int localId, double delta, bool playing)
     {
+        if (_map.Id != snapshot.Map) { Clear(); _map = ArenaMap.Get(snapshot.Map); BuildMap(); }
+        bool first = _lastSnapshot == null;
         float dt = (float)delta; _time += delta; _playing = playing;
         _fresh = !ReferenceEquals(snapshot, _lastSnapshot); _lastSnapshot = snapshot;
         foreach (var p in snapshot.Players)
@@ -188,9 +202,12 @@ public partial class ArenaRenderer : Node3D
         }
         if (_fresh) RemoveMissing(_wizards, snapshot.Players.Select(p => p.Id));
         var local = snapshot.Players.FirstOrDefault(p => p.Id == localId);
-        var focus = playing && local != null ? new Vector3(Math.Clamp(local.Position.X, -7, 7), 0, Math.Clamp(local.Position.Y, -4, 4)) : new Vector3(-4, 0, 0);
+        float followX = _map.Id == ArenaMapId.Classic ? 7 : _map.HalfWidth - 8;
+        float followY = _map.Id == ArenaMapId.Classic ? 4 : _map.HalfHeight - 7;
+        var focus = playing && local != null ? new Vector3(Math.Clamp(local.Position.X, -followX, followX), 0,
+            Math.Clamp(local.Position.Y, -followY, followY)) : new Vector3(-4, 0, 0);
         var desired = focus + new Vector3(0, 27, 21);
-        Camera.Position = Camera.Position.Lerp(desired, 1 - Mathf.Exp(-3 * dt));
+        Camera.Position = first && playing ? desired : Camera.Position.Lerp(desired, 1 - Mathf.Exp(-3 * dt));
         Camera.LookAt(Camera.Position - new Vector3(0, 27, 21));
         Camera.Size = Mathf.Lerp(Camera.Size, playing ? _zoom : 32, 1 - Mathf.Exp(-5 * dt));
         foreach (var point in snapshot.Points)

@@ -66,6 +66,27 @@ public static class Geometry
         float t = (-b - MathF.Sqrt(discriminant)) / (2 * a);
         return t >= 0 && t <= 1 ? t : null;
     }
+
+    /// <summary>Primera colisión de un círculo en movimiento con un segmento y sus extremos.</summary>
+    public static float? SegmentCapsule(V2 from, V2 to, V2 a, V2 b, float radius)
+    {
+        if (DistanceToSegment(from, a, b) <= radius) return 0;
+        float? best = SegmentCircle(from, to, a, radius);
+        if (SegmentCircle(from, to, b, radius) is float end && (best == null || end < best)) best = end;
+        var edge = b - a;
+        if (edge.LengthSquared < 0.000001f) return best;
+        var normal = edge.Normalized.Perpendicular;
+        float start = V2.Dot(from - a, normal), speed = V2.Dot(to - from, normal);
+        if (MathF.Abs(speed) < 0.000001f) return best;
+        for (int side = -1; side <= 1; side += 2)
+        {
+            float t = (side * radius - start) / speed;
+            if (t < 0 || t > 1 || best != null && t >= best) continue;
+            float along = V2.Dot(V2.Lerp(from, to, t) - a, edge) / edge.LengthSquared;
+            if (along >= 0 && along <= 1) best = t;
+        }
+        return best;
+    }
 }
 
 public sealed record Obstacle(V2 Position, float Radius, float Height);
@@ -84,4 +105,5 @@ public static class ArenaMap
     public static readonly V2[] ControlPoints = [new(-9, -7), new(0, 0), new(9, 7)];
     public static V2 Spawn(int team, int index) => new(team == 0 ? -18 : 18, (index % 4 - 1.5f) * 2.2f);
     public static bool Inside(V2 p) => MathF.Abs(p.X) < HalfWidth && MathF.Abs(p.Y) < HalfHeight;
+    public static ArenaDefinition Get(ArenaMapId id) => ArenaMaps.Get(id);
 }

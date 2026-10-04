@@ -5,10 +5,10 @@ namespace Arcana.Core;
 
 public static class Protocol
 {
-    public const int Version = 4;
+    public const int Version = 5;
     public const int GamePort = 27015;
     public const int DiscoveryPort = 27016;
-    public const string DiscoveryMagic = "ARCANA_DISCOVER_V4";
+    public const string DiscoveryMagic = "ARCANA_DISCOVER_V5";
     public const int MaxMessageBytes = 4096;
     public static readonly JsonSerializerOptions Json = new()
     {
@@ -73,4 +73,5 @@ public sealed record GameEvent(long Id, string Kind, V2 Position, Element[] Elem
 public sealed record WorldSnapshot(long Tick, double Time, GameMode Mode, bool MatchEnded,
     int Winner, float RestartIn, int[] Scores, WizardSnapshot[] Players, ProjectileSnapshot[] Projectiles,
     WallSnapshot[] Walls, FieldSnapshot[] Fields, BeamSnapshot[] Beams, PointSnapshot[] Points, GameEvent[] Events,
-    int ScoreLimit = 15, int StartingTickets = 75);
+    int ScoreLimit = 15, int StartingTickets = 75, ArenaMapId Map = ArenaMapId.Classic,
+    int HoldingTeam = -1, float HoldSeconds = 0);

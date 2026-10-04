@@ -16,7 +16,7 @@ public partial class RoomLobby : Control
     private ItemList _list = null!;
     private Label _status = null!, _heading = null!;
     private LineEdit _joinPassword = null!, _roomName = null!, _roomPassword = null!;
-    private OptionButton _mode = null!;
+    private OptionButton _mode = null!, _map = null!;
     private SpinBox _capacity = null!, _bots = null!, _score = null!, _tickets = null!;
     private CheckBox _friendly = null!;
     private VBoxContainer _listPane = null!, _createPane = null!;
@@ -31,7 +31,9 @@ public partial class RoomLobby : Control
         var shade = new ColorRect { Color = new(0.01f, 0.025f, 0.045f, 0.94f) }; AddChild(shade); Ui.Full(shade);
         var center = new CenterContainer(); AddChild(center); Ui.Full(center);
         var panel = new PanelContainer { CustomMinimumSize = new(860, 0) }; center.AddChild(panel);
-        var box = new VBoxContainer(); box.AddThemeConstantOverride("separation", 16); panel.AddChild(box);
+        var scroll = new ScrollContainer { CustomMinimumSize = new(820, Math.Min(740, GetViewport().GetVisibleRect().Size.Y - 120)),
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; panel.AddChild(scroll);
+        var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; box.AddThemeConstantOverride("separation", 16); scroll.AddChild(box);
         _heading = Ui.Label("SALAS", 28, Ui.Gold); box.AddChild(_heading);
         box.AddChild(Ui.Label(address, 15, Ui.Muted));
         _listPane = new VBoxContainer(); _listPane.AddThemeConstantOverride("separation", 14); box.AddChild(_listPane);
@@ -53,6 +55,9 @@ public partial class RoomLobby : Control
         _mode = new OptionButton { CustomMinimumSize = new(0, 42) };
         _mode.AddItem("Guerra de puntos", (int)GameMode.Warfare); _mode.AddItem("Todos contra todos", (int)GameMode.Arena);
         _mode.AddItem("Duelo", (int)GameMode.Duel); Row(grid, "Modo", _mode);
+        _map = new OptionButton { Name = "RoomMapChoice", CustomMinimumSize = new(0, 42) };
+        foreach (var map in Enum.GetValues<ArenaMapId>()) _map.AddItem(ArenaMap.Get(map).Name + (map == ArenaMapId.Citadel ? " · 4×" : ""), (int)map);
+        Row(grid, "Mapa", _map);
         _capacity = Number(2, 16, 8); Row(grid, "Plazas (incluidos los bots)", _capacity);
         _bots = Number(0, 7, 0); Row(grid, "Bots", _bots);
         _friendly = new CheckBox { Text = "Permitir daño entre aliados", ButtonPressed = true }; Row(grid, "Fuego amigo", _friendly);
@@ -69,6 +74,7 @@ public partial class RoomLobby : Control
             ShowCreationObjective();
         };
         _score.ValueChanged += _ => ShowCreationObjective(); _tickets.ValueChanged += _ => ShowCreationObjective();
+        _map.ItemSelected += _ => ShowCreationObjective();
         ShowCreationObjective();
         _capacity.ValueChanged += value => _bots.MaxValue = value - 1;
         var creation = new HBoxContainer(); creation.AddThemeConstantOverride("separation", 12); _createPane.AddChild(creation);
@@ -94,9 +100,10 @@ public partial class RoomLobby : Control
         _busy = busy; foreach (var b in _buttons) b.Disabled = busy;
         _list.MouseFilter = busy ? MouseFilterEnum.Ignore : MouseFilterEnum.Stop;
         _roomName.Editable = _roomPassword.Editable = _joinPassword.Editable = !busy;
-        _mode.Disabled = _friendly.Disabled = busy;
+        _mode.Disabled = _map.Disabled = _friendly.Disabled = busy;
         _bots.Editable = _score.Editable = _tickets.Editable = !busy;
         _capacity.Editable = !busy && (GameMode)_mode.GetSelectedId() != GameMode.Duel;
+        ShowCreationObjective();
     }
     private bool Active => GodotObject.IsInstanceValid(this) && IsInsideTree() && !IsQueuedForDeletion();
     public void ShowError(string error)
@@ -115,7 +122,7 @@ public partial class RoomLobby : Control
                 _heading.Text = "SALAS  /  " + directory.Server.Name;
                 string? previous = Selected()?.Id; _rooms = directory.Rooms; _list.Clear();
                 foreach (var room in _rooms)
-                    _list.AddItem($"{room.Name}{(room.PasswordRequired ? " · CON CLAVE" : "")}  ·  {Ui.ModeName(room.Mode)}  ·  {room.Players}/{room.MaxPlayers} plazas  ·  {room.Bots} bots");
+                    _list.AddItem($"{room.Name}{(room.PasswordRequired ? " · CON CLAVE" : "")}  ·  {Ui.ModeName(room.Mode)}  ·  {ArenaMap.Get(room.Map).Name}  ·  {room.Players}/{room.MaxPlayers} plazas");
                 int at = Array.FindIndex(_rooms, r => r.Id == previous);
                 if (_rooms.Length > 0) _list.Select(Math.Max(0, at));
                 ShowObjective();
@@ -127,8 +134,14 @@ public partial class RoomLobby : Control
     private RoomInfo? Selected()
     { var selected = _list.GetSelectedItems(); return selected.Length > 0 && selected[0] < _rooms.Length ? _rooms[selected[0]] : null; }
     private void ShowObjective() => _objective.Text = Selected() is { } room
-        ? MatchRules.Objective(room.Mode, room.ScoreLimit, room.Tickets) : "Selecciona una sala para ver su objetivo.";
-    private void ShowCreationObjective() => _creationObjective.Text = MatchRules.Objective((GameMode)_mode.GetSelectedId(), (int)_score.Value, (int)_tickets.Value);
+        ? MatchRules.Objective(room.Mode, room.ScoreLimit, room.Tickets, room.Map) : "Selecciona una sala para ver su objetivo.";
+    private void ShowCreationObjective()
+    {
+        var mode = (GameMode)_mode.GetSelectedId(); var map = (ArenaMapId)_map.GetSelectedId();
+        _tickets.Editable = !_busy && mode == GameMode.Warfare && map == ArenaMapId.Classic;
+        _score.Editable = !_busy && mode != GameMode.Warfare;
+        _creationObjective.Text = MatchRules.Objective(mode, (int)_score.Value, (int)_tickets.Value, map);
+    }
     public void OpenCreation() => SwitchPane(true);
     private void Join()
     {
@@ -141,7 +154,7 @@ public partial class RoomLobby : Control
     private async void Create()
     {
         if (_busy) return;
-        var request = new CreateRoomRequest { Name = _roomName.Text, Mode = (GameMode)_mode.GetSelectedId(),
+        var request = new CreateRoomRequest { Name = _roomName.Text, Mode = (GameMode)_mode.GetSelectedId(), Map = (ArenaMapId)_map.GetSelectedId(),
             MaxPlayers = (int)_capacity.Value, Bots = (int)_bots.Value, FriendlyFire = _friendly.ButtonPressed,
             ScoreLimit = (int)_score.Value, Tickets = (int)_tickets.Value, Password = _roomPassword.Text, ServerPassword = _serverPassword };
         Loading("Creando sala…");

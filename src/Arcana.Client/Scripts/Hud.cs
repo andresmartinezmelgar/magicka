@@ -135,7 +135,11 @@ public partial class Hud : Control
         _affinity.Text = WizardTypes.Name(player.WizardType);
         _affinity.TooltipText = WizardTypes.Description(player.WizardType);
         _affinity.AddThemeColorOverride("font_color", Ui.WizardColor(player.WizardType));
-        _objective.Text = MatchRules.Objective(snapshot.Mode, snapshot.ScoreLimit, snapshot.StartingTickets);
+        _objective.Text = MatchRules.Objective(snapshot.Mode, snapshot.ScoreLimit, snapshot.StartingTickets, snapshot.Map);
+        bool hold = snapshot.Mode == GameMode.Warfare && snapshot.Map == ArenaMapId.Citadel;
+        if (hold) _objective.Text += snapshot.HoldingTeam >= 0
+            ? $"\n{(snapshot.HoldingTeam == 0 ? "AZUL" : "ROJO")} · {snapshot.HoldSeconds:0.0} / 15 s"
+            : "\nControl total: 0 / 15 s";
         _health.MaxValue = player.MaxHealth; _health.Value = player.Health;
         _healthText.Text = $"VIDA  {Math.Ceiling(player.Health):0} / {player.MaxHealth:0}";
         _shield.MaxValue = Ui.ShieldMaximum(player); _shield.Value = player.Shield;
@@ -168,7 +172,11 @@ public partial class Hud : Control
         _match.Visible = snapshot.Mode == GameMode.Arena; _teams.Visible = !_match.Visible;
         if (_match.Visible)
             _match.Text = "ARENA  ·  " + snapshot.Players.Max(p => p.Kills) + " BAJAS";
-        else { _blueScore.Text = $"AZUL  {snapshot.Scores[0]}"; _redScore.Text = $"{snapshot.Scores[1]}  ROJO"; }
+        else
+        {
+            _blueScore.Text = $"AZUL  {(hold ? snapshot.Points.Count(p => p.Owner == 0) + "/3" : snapshot.Scores[0].ToString())}";
+            _redScore.Text = $"{(hold ? snapshot.Points.Count(p => p.Owner == 1) + "/3" : snapshot.Scores[1].ToString())}  ROJO";
+        }
         _banner.Text = !player.Alive ? $"HAS CAÍDO\nReapareces en {Math.Ceiling(player.Respawn)} s" : "";
         if (snapshot.MatchEnded)
         {

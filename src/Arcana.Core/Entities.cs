@@ -89,6 +89,7 @@ internal sealed class ControlPoint
 public sealed class WorldOptions
 {
     public GameMode Mode { get; init; } = GameMode.Warfare;
+    public ArenaMapId Map { get; init; } = ArenaMapId.Classic;
     public int MaxPlayers { get; init; } = 8;
     public bool FriendlyFire { get; init; } = true;
     public int ScoreLimit { get; init; } = 15;

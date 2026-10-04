@@ -18,6 +18,8 @@ public sealed class ServerSettings
             int.TryParse(Environment.GetEnvironmentVariable(key), out int n) ? Math.Clamp(n, min, max) : fallback;
         var mode = Enum.TryParse<GameMode>(Environment.GetEnvironmentVariable("GAME_MODE"), true, out var value)
             && Enum.IsDefined(value) ? value : GameMode.Warfare;
+        var map = Enum.TryParse<ArenaMapId>(Environment.GetEnvironmentVariable("ARENA_MAP"), true, out var mapValue)
+            && Enum.IsDefined(mapValue) ? mapValue : ArenaMapId.Classic;
         int maxPlayers = mode == GameMode.Duel ? 2 : Number("MAX_PLAYERS", 8, 2, 16);
         string name = new((Environment.GetEnvironmentVariable("SERVER_NAME") ?? "Arcana Arena")
             .Where(c => !char.IsControl(c)).Take(64).ToArray());
@@ -33,7 +35,7 @@ public sealed class ServerSettings
             DiscoveryPort = Number("DISCOVERY_PORT", Protocol.DiscoveryPort, 1024, 65535),
             World = new()
             {
-                Mode = mode, MaxPlayers = maxPlayers,
+                Mode = mode, Map = map, MaxPlayers = maxPlayers,
                 Bots = Number("BOTS", 0, 0, maxPlayers - 1),
                 FriendlyFire = !bool.TryParse(Environment.GetEnvironmentVariable("FRIENDLY_FIRE"), out bool friendly) || friendly,
                 ScoreLimit = Number("SCORE_LIMIT", 15, 1, 200), Tickets = Number("TICKETS", 75, 5, 1000)

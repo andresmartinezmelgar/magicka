@@ -44,6 +44,8 @@ public partial class Main : Node
     private bool _effectsSmoke, _previewEffects;
     private bool _spritesSmoke;
     private bool _combinationsSmoke;
+    private bool _mapsSmoke;
+    private ArenaMapId? _previewMap;
     private string? _previewCombination;
     private CastMode _previewCastMode;
     private DemonstrationKind _previewInteraction;
@@ -64,7 +66,7 @@ public partial class Main : Node
     private int _smokeFrames, _renderFrames;
     private string? _capturePath;
     private bool _smokeFailed;
-    private bool SmokeMode => _smoke || _hostSmoke || _diagnosticsSmoke || _hudSmoke || _effectsSmoke || _spritesSmoke || _combinationsSmoke;
+    private bool SmokeMode => _smoke || _hostSmoke || _diagnosticsSmoke || _hudSmoke || _effectsSmoke || _spritesSmoke || _combinationsSmoke || _mapsSmoke;
 
     private bool CheckSmokeErrors()
     {
@@ -106,6 +108,8 @@ public partial class Main : Node
             if (arg == "--preview-effects") _previewEffects = true;
             if (arg == "--sprites-smoke") _spritesSmoke = true;
             if (arg == "--combinations-smoke") _combinationsSmoke = true;
+            if (arg == "--maps-smoke") _mapsSmoke = true;
+            if (arg.StartsWith("--preview-map=") && Enum.TryParse<ArenaMapId>(arg[14..], true, out var map) && Enum.IsDefined(map)) _previewMap = map;
             if (arg.StartsWith("--preview-combination=")) _previewCombination = arg[22..];
             if (arg.StartsWith("--preview-cast=") && Enum.TryParse<CastMode>(arg[15..], true, out var castMode)) _previewCastMode = castMode;
             if (arg.StartsWith("--preview-interaction=") && Enum.TryParse<DemonstrationKind>(arg[22..], true, out var interaction)) _previewInteraction = interaction;
@@ -119,6 +123,7 @@ public partial class Main : Node
             if (arg.StartsWith("--tab=") && int.TryParse(arg[6..], out int tab)) _launcher.ShowTab(tab);
         }
         if (_hostSmoke) _ = HostedSmoke();
+        if (_mapsSmoke || _previewMap != null) { _localId = 1; StartGame(MapFixture(_previewMap ?? ArenaMapId.Citadel)); }
         if (_hudSmoke || _previewShield != null || _effectsSmoke || _previewEffects || _spritesSmoke || _previewWizards != null)
         {
             _practice = null; _localId = 1; _serverName = "Práctica · Colores y escudo";
@@ -187,14 +192,15 @@ public partial class Main : Node
         }
         finally { lock (_connectionGate) if (_pendingConnection == connection && !connection.Connected) _pendingConnection = null; }
     }
-    public void StartPractice(string name, int team, GameMode mode, int bots, WizardType wizardType = WizardType.Balanced)
+    public void StartPractice(string name, int team, GameMode mode, int bots, WizardType wizardType = WizardType.Balanced,
+        ArenaMapId map = ArenaMapId.Classic)
     {
-        _practice = new(new WorldOptions { Mode = mode, MaxPlayers = mode == GameMode.Duel ? 2 : 8,
+        _practice = new(new WorldOptions { Mode = mode, Map = map, MaxPlayers = mode == GameMode.Duel ? 2 : 8,
             FriendlyFire = true, ScoreLimit = mode == GameMode.Duel ? 5 : 15, Tickets = 75 });
         var player = _practice.AddPlayer(name, team, wizardType: wizardType)!; _localId = player.Id;
         for (int i = 0; i < (mode == GameMode.Duel ? 1 : Math.Clamp(bots, 1, 7)); i++)
             _practice.AddPlayer($"Bot {i + 1}", -1, true, (WizardType)(i % 5));
-        _serverName = "Práctica local"; _localSequence = 0;
+        _serverName = "Práctica · " + _practice.Map.Name; _localSequence = 0;
         Diagnostics.Info("practice.start", "Práctica iniciada.", new Dictionary<string, object?> { ["mode"] = mode, ["bots"] = bots, ["wizardType"] = wizardType });
         StartGame(_practice.Snapshot());
     }
@@ -249,6 +255,8 @@ public partial class Main : Node
                 if (SmokeMode) { GD.PushError("SMOKE_FAILED: " + e.Message); GetTree().Quit(1); return; }
             }
         _renderFrames++;
+        if (_mapsSmoke && _renderFrames <= 90 && _renderFrames % 30 == 1)
+            _snapshot = MapFixture(_renderFrames <= 30 || _renderFrames > 60 ? ArenaMapId.Citadel : ArenaMapId.Classic);
         if (_combinationsSmoke) CheckCombinations();
         if (_effectsSmoke || _previewEffects) _snapshot = VisualFixture.Effects(_renderFrames);
         if (_spritesSmoke || _previewWizards != null) _snapshot = VisualFixture.Wizards(_renderFrames, _previewWizards);
@@ -276,6 +284,8 @@ public partial class Main : Node
             }
             _renderer.Render(latest, _localId, _effectsSmoke || _spritesSmoke ? 1 / 60.0 : delta, true);
             _hud?.Update(latest, _localId, _serverName, delta);
+            if (_mapsSmoke && _renderFrames % 30 == 0) CheckMaps(latest);
+            if (_previewMap != null) _renderer.SetPreviewZoom(72);
             if (_hudSmoke && _renderFrames <= HudCases.Length * 3 && _renderFrames % 3 == 2) CheckHudCase();
             if (_effectsSmoke) CheckEffects();
             if (_spritesSmoke) CheckSprites(latest);
@@ -288,7 +298,7 @@ public partial class Main : Node
     public override void _PhysicsProcess(double delta)
     {
         if (CheckSmokeErrors()) return;
-        if (_hudSmoke || _previewShield != null || _effectsSmoke || _previewEffects || _spritesSmoke || _previewWizards != null || _combinationsSmoke) return;
+        if (_hudSmoke || _previewShield != null || _effectsSmoke || _previewEffects || _spritesSmoke || _previewWizards != null || _combinationsSmoke || _mapsSmoke || _previewMap != null) return;
         if (!_playing) { _backdrop.Step(); _backdropSnapshot = _backdrop.Snapshot(); return; }
         _inputTime += delta;
         if (_practice != null)
@@ -315,6 +325,29 @@ public partial class Main : Node
         }
         if (_hostSmoke && _connection?.Connected == true && ++_smokeFrames >= 180)
         CompleteSmoke($"HOST_SMOKE_OK: {_connection.Room?.Name}, {_snapshot?.Players.Length} jugadores");
+    }
+    private WorldSnapshot MapFixture(ArenaMapId id)
+    {
+        var map = ArenaMap.Get(id); _serverName = map.Name;
+        var source = VisualFixture.Create("none");
+        bool hold = id == ArenaMapId.Citadel;
+        return source with { Map = id, HoldingTeam = hold ? 0 : -1, HoldSeconds = hold ? 7.5f : 0,
+            Players = source.Players.Select(p => p with { Position = _previewMap != null ? new V2(0, -1) : map.Spawn(p.Team, p.Id) }).ToArray(),
+            Points = map.ControlPoints.Select((p, i) => new PointSnapshot(i, p, hold ? 0 : -1, hold ? -1 : 0)).ToArray() };
+    }
+    private void CheckMaps(WorldSnapshot snapshot)
+    {
+        var choice = (OptionButton)_launcher.FindChild("PracticeMapChoice", true, false);
+        var objective = (Label)_hud!.FindChild("MatchObjective", true, false);
+        var map = ArenaMap.Get(snapshot.Map);
+        bool valid = choice.ItemCount == 2 && _renderer.CurrentMap == snapshot.Map && _renderer.Points.Count == 3 &&
+            _renderer.GetChildren().Count(n => n.Name == "MapGeometry") == 1 &&
+            snapshot.Points.All(p => _renderer.Points[p.Id].Position == ArenaRenderer.World(p.Position));
+        if (snapshot.Map == ArenaMapId.Citadel) valid &= objective.Text.Contains($"{snapshot.HoldSeconds:0.0} / 15 s") && Math.Abs(_renderer.Camera.Position.X) > 40;
+        else valid &= objective.Text.Contains("tickets");
+        if (!valid) { GD.PushError($"MAPS_SMOKE_FAILED: {map.Name}, cámara, selector, contador o geometría incorrectos"); GetTree().Quit(1); return; }
+        GD.Print($"MAP_CASE_OK: {map.Name}, {map.Area} unidades²");
+        if (_renderFrames >= 90) CompleteSmoke("MAPS_SMOKE_OK: ambos mapas, cambios de mapa, cámara, minimapa y contador de control");
     }
     private void CheckHudCase()
     {
@@ -455,7 +488,7 @@ public partial class Main : Node
     {
         _help.Visible = !_help.Visible;
         _currentObjective.Text = _playing && _snapshot != null
-            ? "ESTA PARTIDA: " + MatchRules.Objective(_snapshot.Mode, _snapshot.ScoreLimit, _snapshot.StartingTickets)
+            ? "ESTA PARTIDA: " + MatchRules.Objective(_snapshot.Mode, _snapshot.ScoreLimit, _snapshot.StartingTickets, _snapshot.Map)
             : "Los límites se eligen al crear la sala. Su objetivo aparece antes de entrar.";
         if (_playing && _help.Visible) StopInput();
     }
@@ -498,7 +531,8 @@ public partial class Main : Node
         for (int i = 0; i < rows.GetLength(0); i++) { table.AddChild(Ui.Label(rows[i, 0], 15, Ui.Gold)); table.AddChild(Ui.Label(rows[i, 1], 15)); }
         box.AddChild(Ui.Label("FFF: fuego · SSS: rayo arcano · WW + central: curación\nE + central: escudo · EF + central: guarda de fuego · DDF: roca incendiaria\nQF: vapor · QR: hielo · agua seguida de frío congela al objetivo", 16, Ui.Muted));
         box.AddChild(Ui.Label("Fuego/frío, vida/arcano, agua/rayo, tierra/rayo y escudo/escudo se anulan.\nLas magias también pueden afectar a aliados. Tres elementos por hechizo.", 15, Ui.Muted));
-        var wins = new VBoxContainer { Name = "Cómo ganar" }; wins.AddThemeConstantOverride("separation", 13); _helpPages.AddChild(wins);
+        var winsScroll = new ScrollContainer { Name = "Cómo ganar", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; _helpPages.AddChild(winsScroll);
+        var wins = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; wins.AddThemeConstantOverride("separation", 13); winsScroll.AddChild(wins);
         _currentObjective = HelpText(wins, "Los límites se eligen al crear la sala. Su objetivo aparece antes de entrar.", Ui.Gold);
         foreach (var mode in new[] { GameMode.Warfare, GameMode.Duel, GameMode.Arena })
         {
@@ -506,6 +540,9 @@ public partial class Main : Node
             HelpText(wins, MatchRules.Objective(mode, 15, 75));
             HelpText(wins, MatchRules.Details(mode), Ui.Muted);
         }
+        wins.AddChild(Ui.Label("CIUDADELA DE LOS PASILLOS · 4×", 19, Ui.Gold));
+        HelpText(wins, MatchRules.Objective(GameMode.Warfare, 15, 75, ArenaMapId.Citadel));
+        HelpText(wins, MatchRules.Details(GameMode.Warfare, ArenaMapId.Citadel), Ui.Muted);
         HelpText(wins, "Al terminar, se muestra el ganador y empieza otra partida a los 9 segundos. Puedes consultar el marcador con TAB. En práctica, el duelo se juega a 5 bajas.", Ui.Muted);
         var types = new VBoxContainer { Name = "Tipos de mago" }; types.AddThemeConstantOverride("separation", 12); _helpPages.AddChild(types);
         HelpText(types, "Elige tu tipo en el launcher antes de entrar. Todos pueden combinar los ocho elementos.", Ui.Muted);

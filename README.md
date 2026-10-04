@@ -1,4 +1,4 @@
-# Arcana Arena — v0.6.1
+# Arcana Arena — v0.7.0
 
 Primera recreación jugable en C# del combate elemental de **Magicka: Wizard Wars**. Cliente 3D de escritorio con **Godot 4.5.2 .NET**, servidor independiente **ASP.NET Core / .NET 8**, Docker, launcher con conexión por IP/LAN, salas independientes y paquete Windows para abrir con doble clic.
 
@@ -27,6 +27,7 @@ El código, las mallas y los sonidos son propios. Los sprites de los magos se ha
 - Rayos que se unen en el cruce y suman componentes; reflexión en escudos y refracción con guardas elementales, con dos rebotes como máximo.
 - **F1 → Combinaciones:** 120 combinaciones, tres formas de lanzamiento, demostraciones animadas en bucle, pausa/repetición y escenas de cruce, escudo y captura.
 - Puntos de control con círculo que se rellena por equipo, porcentaje y estado disputado.
+- Dos mapas seleccionables: Arena clásica y Ciudadela de los pasillos, con cuatro veces la superficie de suelo. Ciudadela exige 15 segundos seguidos de control total en guerra de puntos.
 - Bots que combaten, se curan y capturan puntos. Práctica local sin iniciar Docker.
 - Launcher: IP/dominio, búsqueda LAN, servidor incluido, configuración gráfica y creación de salas con modo, bots, aforo y contraseñas.
 - Distribución Windows x64 autónoma: motor, cliente, servidor y runtimes incluidos. No necesita instalar Godot, .NET ni Docker para jugar o alojar.
@@ -36,11 +37,11 @@ El código, las mallas y los sonidos son propios. Los sprites de los magos se ha
 
 ## Jugar con doble clic en Windows
 
-1. Descargar [ArcanaArena-v0.6.1-Windows-x64.zip](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.6.1/ArcanaArena-v0.6.1-Windows-x64.zip) de [Releases](https://github.com/andresmartinezmelgar/magicka/releases/latest).
+1. Descargar [ArcanaArena-v0.7.0-Windows-x64.zip](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.7.0/ArcanaArena-v0.7.0-Windows-x64.zip) de [Releases](https://github.com/andresmartinezmelgar/magicka/releases/latest).
 2. **Extraer todo el ZIP** en una carpeta. Abrir **ArcanaArena.exe** con doble clic.
 3. Elegir el **tipo de mago**. Elegir **Práctica** para jugar con bots, **Alojar** para iniciar tu servidor, **LAN** para buscar servidores o **Por IP** para usar una dirección.
 
-En **Alojar**, elegir nombre del servidor, puertos y contraseña opcional. Pulsar **Iniciar servidor y ver salas**. Desde la pantalla de salas, pulsar **Crear sala**, elegir modo, plazas, bots, fuego amigo y límites de victoria; finalmente, **Crear y entrar**. Otros jugadores abren el mismo ejecutable, buscan el servidor en **LAN** y eligen tu sala. También pueden usar la IP de tu equipo en **Por IP**.
+En **Práctica**, elegir el modo y el **Mapa** antes de empezar. En **Alojar**, elegir nombre del servidor, puertos y contraseña opcional. Pulsar **Iniciar servidor y ver salas**. Desde la pantalla de salas, pulsar **Crear sala**, elegir modo, **Mapa**, plazas, bots, fuego amigo y límites de victoria; finalmente, **Crear y entrar**. Otros jugadores abren el mismo ejecutable, buscan el servidor en **LAN** y eligen tu sala. La sala les envía el mapa elegido. También pueden usar la IP de tu equipo en **Por IP**.
 
 El servidor se inicia sin consola y permanece activo durante tu partida. **Detener servidor** o cerrar el juego cierra las salas que estás alojando. El launcher recuerda nombre y puertos; las contraseñas se mantienen solo en memoria.
 
@@ -64,9 +65,19 @@ El resultado queda en **`Juego/ArcanaArena.exe`**. Cada compilación correcta **
 
 - **Duelo:** primer equipo que llega al límite de bajas; por defecto 15, o 5 en práctica.
 - **Todos contra todos:** primer mago que llega al límite de bajas; por defecto 15.
-- **Guerra:** reducir a cero los tickets rivales; controlar más puntos los desgasta cada segundo y cada muerte cuesta un ticket.
+- **Guerra en Arena clásica:** reducir a cero los tickets rivales; controlar más puntos los desgasta cada segundo y cada muerte cuesta un ticket.
+- **Guerra en Ciudadela:** controlar los tres puntos sin disputa durante **15 segundos consecutivos**. Disputar o neutralizar cualquiera reinicia el contador; no hay victoria por tickets o bajas.
 
-Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). El combate usa **protocolo 4**. Actualizar cliente y servidor juntos a v0.6.1; las versiones anteriores se rechazan en el saludo.
+Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). El combate usa **protocolo 5**. Actualizar cliente y servidor juntos a v0.7.0; las versiones anteriores se rechazan en el saludo.
+
+## Mapas
+
+| Mapa | Superficie de suelo | Diseño | Guerra de puntos |
+|---|---|---|---|
+| Arena clásica | 1.408 unidades² | Arena original de 44×32. | Desgastar los tickets rivales. |
+| Ciudadela de los pasillos | 5.632 unidades², exactamente 4× | Tres salas de 22×64 conectadas por dos pasillos de 22×32; contorno irregular dentro de 110×64. | Mantener los tres puntos durante 15 segundos consecutivos. |
+
+La cámara sigue al mago por el escenario grande. El minimapa representa el suelo y sus límites. Los patios sin suelo bloquean caminar, rayos, proyectiles y traslación. El desplazamiento al cursor y los bots buscan una ruta por los pasillos. Duelo y todos contra todos conservan sus reglas en ambos mapas.
 
 ## Diagnosticar un problema
 

@@ -19,6 +19,7 @@ public sealed partial class GameWorld
     private int _nextPlayer = 1, _nextEntity = 1;
     private long _nextEvent = 1;
     private float _ticketClock;
+    private int _holdTicks;
     private static readonly Element[][] BotRecipes =
     [
         [Element.Arcane, Element.Arcane, Element.Fire], [Element.Fire, Element.Fire, Element.Fire],
@@ -27,6 +28,10 @@ public sealed partial class GameWorld
         [Element.Cold, Element.Cold, Element.Cold], [Element.Water, Element.Water, Element.Water]
     ];
     public WorldOptions Options { get; }
+    public ArenaDefinition Map { get; }
+    public bool HoldToWin => Options.Mode == GameMode.Warfare && Map.HoldSeconds > 0;
+    public int HoldingTeam { get; private set; } = -1;
+    public float HoldSeconds => _holdTicks / 60f;
     public long Tick { get; private set; }
     public double Time => Tick / 60.0;
     public bool MatchEnded { get; private set; }
@@ -38,8 +43,9 @@ public sealed partial class GameWorld
     public GameWorld(WorldOptions? options = null)
     {
         Options = options ?? new();
+        Map = ArenaMap.Get(Options.Map);
         _random = new(Options.Seed);
-        _points = ArenaMap.ControlPoints.Select((p, i) => new ControlPoint { Id = i, Position = p }).ToArray();
+        _points = Map.ControlPoints.Select((p, i) => new ControlPoint { Id = i, Position = p }).ToArray();
         ResetScores();
         for (int i = 0; i < Math.Min(Options.Bots, Options.MaxPlayers); i++)
             AddPlayer($"Bot {i + 1}", -1, true, (WizardType)(i % 5));
@@ -54,7 +60,7 @@ public sealed partial class GameWorld
         string cleanName = new((name ?? "Mago").Where(c => !char.IsControl(c) && c != '[' && c != ']').Take(24).ToArray());
         if (string.IsNullOrWhiteSpace(cleanName)) cleanName = "Mago";
         var wizard = new Wizard { Id = _nextPlayer++, Name = cleanName.Trim(), Team = team, Bot = bot, WizardType = wizardType };
-        wizard.Position = ArenaMap.Spawn(team, _players.Values.Count(p => p.Team == team));
+        wizard.Position = Map.Spawn(team, _players.Values.Count(p => p.Team == team));
         wizard.Facing = new(team == 0 ? 1 : -1, 0);
         wizard.LastInput = Time;
         _players.Add(wizard.Id, wizard);
@@ -65,6 +71,7 @@ public sealed partial class GameWorld
     public void RemovePlayer(int id)
     {
         if (!_players.Remove(id, out var wizard)) return;
+        _routes.Remove(id);
         _projectiles.RemoveAll(p => p.Owner == id);
         _walls.RemoveAll(p => p.Owner == id);
         _fields.RemoveAll(p => p.Owner == id);
@@ -83,8 +90,8 @@ public sealed partial class GameWorld
             p.Input = new ClientMessage { Type = "input", Sequence = message.Sequence, MoveTo = message.MoveTo,
                 MoveX = Math.Clamp(message.MoveX, -1, 1), MoveY = Math.Clamp(message.MoveY, -1, 1),
                 AimX = Math.Clamp(message.AimX, -100, 100), AimY = Math.Clamp(message.AimY, -100, 100),
-                TargetX = Math.Clamp(message.TargetX, -ArenaMap.HalfWidth, ArenaMap.HalfWidth),
-                TargetY = Math.Clamp(message.TargetY, -ArenaMap.HalfHeight, ArenaMap.HalfHeight) };
+                TargetX = Math.Clamp(message.TargetX, -Map.HalfWidth, Map.HalfWidth),
+                TargetY = Math.Clamp(message.TargetY, -Map.HalfHeight, Map.HalfHeight) };
             p.LastSequence = message.Sequence;
             p.LastInput = Time;
             return true;
@@ -189,8 +196,10 @@ public sealed partial class GameWorld
         var move = new V2(p.Input.MoveX, p.Input.MoveY);
         if (move.Length < 0.1f && p.Input.MoveTo)
         {
-            move = new V2(p.Input.TargetX, p.Input.TargetY) - p.Position;
+            var goal = new V2(p.Input.TargetX, p.Input.TargetY);
+            move = goal - p.Position;
             if (move.Length < 0.18f) { move = V2.Zero; p.Input.MoveTo = false; }
+            else if (Map.Id == ArenaMapId.Citadel) move = NavigationDirection(p, goal, dt);
         }
         float speed = 6.2f * (p.Haste > 0 ? 1.65f : 1) * (1 - p.Chill * 0.005f);
         if (p.Channel != null) speed *= 0.48f;
@@ -209,8 +218,7 @@ public sealed partial class GameWorld
     public bool Walkable(V2 position)
     {
         float r = ArenaMap.WizardRadius;
-        if (MathF.Abs(position.X) > ArenaMap.HalfWidth - r || MathF.Abs(position.Y) > ArenaMap.HalfHeight - r) return false;
-        if (ArenaMap.Obstacles.Any(o => V2.Distance(position, o.Position) < o.Radius + r)) return false;
+        if (!Map.Walkable(position)) return false;
         return !_walls.Any(w => w.Health > 0 && Geometry.DistanceToSegment(position, w.A, w.B) < r + 0.18f);
     }
 
@@ -257,18 +265,26 @@ public sealed partial class GameWorld
         if (_projectiles.Count >= 128) return;
         _projectiles.Add(new Projectile
         {
-            Id = _nextEntity++, Owner = p.Id, Position = p.Position + direction * 0.85f,
+            Id = _nextEntity++, Owner = p.Id, Position = SpellOrigin(p, direction, 0.85f, radius),
             Velocity = direction * speed, Recipe = spell, Power = power, Radius = radius
         });
         Emit("cast", p.Position, spell.Elements, "");
     }
 
+    private V2 SpellOrigin(Wizard caster, V2 direction, float distance, float radius = 0)
+    {
+        var to = caster.Position + direction * distance;
+        return Map.BoundaryHit(caster.Position, to, radius) is float t
+            ? V2.Lerp(caster.Position, to, Math.Max(0, t - 0.01f)) : to;
+    }
+
     private V2 RayEnd(V2 from, V2 direction, float range, out Wall? hitWall)
     {
         hitWall = null;
+        if (!Map.Inside(from)) return from;
         var to = from + direction * range;
-        float best = 1;
-        foreach (var o in ArenaMap.Obstacles)
+        float best = Map.BoundaryHit(from, to) ?? 1;
+        foreach (var o in Map.Obstacles)
             if (Geometry.SegmentCircle(from, to, o.Position, o.Radius) is float t && t < best) best = t;
         // Segmento de pared contra rayo mediante productos cruzados.
         foreach (var w in _walls.Where(w => w.Health > 0))
@@ -287,7 +303,7 @@ public sealed partial class GameWorld
     private void Channel(Wizard p, float dt)
     {
         var spell = p.Channel!;
-        var from = p.Position + p.Facing * 0.7f;
+        var from = SpellOrigin(p, p.Facing, 0.7f);
         var end = RayEnd(from, p.Facing, spell.Range, out var wall);
         if (wall != null && !spell.Healing) wall.Health -= 110 * spell.Power * dt;
         // Los rayos rectos se resuelven juntos en TickChannels. Este método mantiene chorros y cadenas.
@@ -386,7 +402,7 @@ public sealed partial class GameWorld
     private void CreateBarrier(Wizard p, SpellRecipe spell)
     {
         var center = p.Position + p.Facing * 3.2f;
-        if (!ArenaMap.Inside(center)) return;
+        if (!Map.Inside(center)) return;
         if (spell.Has(Element.Life) || spell.Has(Element.Arcane))
         {
             AddMine(p, spell, center);
@@ -397,7 +413,7 @@ public sealed partial class GameWorld
 
     private void AddWall(Wizard p, SpellRecipe recipe, V2 a, V2 b)
     {
-        if (_walls.Count >= 40 || !ArenaMap.Inside(a) || !ArenaMap.Inside(b)) return;
+        if (_walls.Count >= 40 || !Map.Inside(a) || !Map.Inside(b) || Map.BoundaryHit(a, b) != null) return;
         // Evita encerrar a alguien dentro de una pared recién creada.
         if (_players.Values.Any(q => q.Alive && Geometry.DistanceToSegment(q.Position, a, b) < 0.7f)) return;
         _walls.Add(new Wall { Id = _nextEntity++, Owner = p.Id, A = a, B = b, Recipe = recipe,
@@ -410,6 +426,7 @@ public sealed partial class GameWorld
         p.ActionCooldown = 0.5f;
         foreach (var q in _players.Values.Where(q => q.Id != p.Id && q.Alive && V2.Distance(q.Position, p.Position) < 1.8f))
             if (V2.Dot((q.Position - p.Position).Normalized, p.Facing) > 0.2f &&
+                Visible(p.Position, q.Position) &&
                 (Options.FriendlyFire || !Allied(p, q))) Damage(q, 90, p.Id);
         Emit("melee", p.Position + p.Facing, [], "");
     }
@@ -442,7 +459,7 @@ public sealed partial class GameWorld
         {
             var direction = target - p.Position;
             if (direction.Length > 14) target = p.Position + direction.Normalized * 14;
-            if (!ArenaMap.Inside(target) || _fields.Count >= 40) return;
+            if (!Map.Inside(target) || _fields.Count >= 40) return;
             _fields.Add(new Field { Id = _nextEntity++, Owner = p.Id, Position = target, Radius = 4,
                 Lifetime = 1.5f, Delay = 1.4f, Kind = "meteor",
                 Recipe = new SpellRecipe([Element.Earth, Element.Fire, Element.Fire]) });
@@ -516,7 +533,7 @@ public sealed partial class GameWorld
         if (target.Health > 0) return;
         target.Deaths++; target.Respawn = Options.Mode == GameMode.Duel ? 2.5f : 4;
         target.Channel = null; target.Charging = null; target.Selection.Clear(); target.Shield = target.ShieldMax = target.ShieldTime = target.RegenerationRate = 0;
-        if (Options.Mode == GameMode.Warfare) Scores[target.Team] = Math.Max(0, Scores[target.Team] - 1);
+        if (Options.Mode == GameMode.Warfare && !HoldToWin) Scores[target.Team] = Math.Max(0, Scores[target.Team] - 1);
         string text = $"{target.Name} ha caído";
         if (_players.TryGetValue(owner, out var killer) && killer.Id != target.Id)
         {
@@ -535,8 +552,9 @@ public sealed partial class GameWorld
         {
             projectile.Lifetime -= dt;
             var from = projectile.Position; var to = from + projectile.Velocity * dt;
-            float nearest = 1; Wizard? target = null; Wall? wallHit = null; bool obstacleHit = false;
-            foreach (var o in ArenaMap.Obstacles)
+            var boundary = Map.BoundaryHit(from, to, projectile.Radius);
+            float nearest = boundary ?? 1; Wizard? target = null; Wall? wallHit = null; bool obstacleHit = boundary != null;
+            foreach (var o in Map.Obstacles)
                 if (Geometry.SegmentCircle(from, to, o.Position, o.Radius + projectile.Radius) is float t && t < nearest)
                 { nearest = t; obstacleHit = true; target = null; wallHit = null; }
             foreach (var w in _walls.Where(w => w.Health > 0))
@@ -570,8 +588,8 @@ public sealed partial class GameWorld
                 }
                 else projectile.Lifetime = 0;
             }
-            if (obstacleHit || !ArenaMap.Inside(projectile.Position)) projectile.Lifetime = 0;
-            if ((target != null || obstacleHit || wallHit != null && projectile.Lifetime <= 0) && ArenaMap.Inside(projectile.Position))
+            if (obstacleHit || !Map.Inside(projectile.Position)) projectile.Lifetime = 0;
+            if ((target != null || obstacleHit || wallHit != null && projectile.Lifetime <= 0) && Map.Inside(projectile.Position))
                 ProjectileSplash(projectile, target?.Id ?? -1);
             if (projectile.Lifetime <= 0)
                 Emit("impact", projectile.Position, projectile.Recipe.Elements, "");
@@ -622,12 +640,23 @@ public sealed partial class GameWorld
         {
             int blue = _players.Values.Count(p => p.Alive && p.Team == 0 && V2.Distance(p.Position, point.Position) < 3);
             int red = _players.Values.Count(p => p.Alive && p.Team == 1 && V2.Distance(p.Position, point.Position) < 3);
-            point.Contested = blue > 0 && red > 0;
+            point.Contested = blue > 0 && red > 0 || HoldToWin && (point.Owner == 0 && red > 0 || point.Owner == 1 && blue > 0);
             if (blue > 0 && red > 0 || blue + red == 0) continue;
             point.Progress = Math.Clamp(point.Progress + (red > 0 ? 1 : -1) * dt * 0.24f, -1, 1);
             if (point.Owner == 0 && point.Progress > -0.6f || point.Owner == 1 && point.Progress < 0.6f) point.Owner = -1;
             if (point.Progress <= -0.99f) point.Owner = 0;
             if (point.Progress >= 0.99f) point.Owner = 1;
+        }
+        if (HoldToWin)
+        {
+            int team = _points[0].Owner;
+            if (team >= 0 && _points.All(p => p.Owner == team && !p.Contested))
+            {
+                if (HoldingTeam != team) { HoldingTeam = team; _holdTicks = 0; }
+                _holdTicks++;
+            }
+            else { HoldingTeam = -1; _holdTicks = 0; }
+            return;
         }
         _ticketClock += dt;
         if (_ticketClock < 1) return;
@@ -642,7 +671,11 @@ public sealed partial class GameWorld
         int winner = -1;
         if (Options.Mode == GameMode.Warfare)
         {
-            if (Scores[0] <= 0) winner = 1;
+            if (HoldToWin)
+            {
+                if (_holdTicks >= Map.HoldSeconds * 60) winner = HoldingTeam;
+            }
+            else if (Scores[0] <= 0) winner = 1;
             else if (Scores[1] <= 0) winner = 0;
         }
         else if (Options.Mode == GameMode.Duel)
@@ -665,6 +698,7 @@ public sealed partial class GameWorld
     {
         Scores[0] = Scores[1] = Options.Mode == GameMode.Warfare ? Options.Tickets : 0;
         _ticketClock = 0;
+        _holdTicks = 0; HoldingTeam = -1; _routes.Clear();
     }
     private void ResetMatch()
     {
@@ -676,7 +710,8 @@ public sealed partial class GameWorld
     }
     private void Respawn(Wizard p)
     {
-        p.Position = ArenaMap.Spawn(p.Team, p.Id % 4); p.Health = Wizard.MaxHealth;
+        _routes.Remove(p.Id);
+        p.Position = Map.Spawn(p.Team, p.Id % 4); p.Health = Wizard.MaxHealth;
         p.Wet = p.Burning = p.Chill = p.Frozen = p.Haste = p.Shield = p.ShieldMax = p.ShieldTime = 0;
         p.RegenerationRate = 0;
         p.Ward = []; p.Knockback = V2.Zero; p.Selection.Clear(); p.Channel = p.Charging = null;
@@ -694,14 +729,17 @@ public sealed partial class GameWorld
             float squared = (p.Position - candidate.Position).LengthSquared;
             if (squared < closest) { closest = squared; target = candidate; }
         }
-        V2 goal = target?.Position ?? ArenaMap.ControlPoints[p.Id % 3];
+        V2 goal = target?.Position ?? Map.ControlPoints[p.Id % Map.ControlPoints.Count];
         if (Options.Mode == GameMode.Warfare && (target == null || V2.Distance(p.Position, target.Position) > 12))
-            goal = _points.Where(q => q.Owner != p.Team).OrderBy(q => V2.Distance(q.Position, p.Position)).FirstOrDefault()?.Position ?? V2.Zero;
+            goal = _points.Where(q => q.Owner != p.Team || q.Contested).OrderBy(q => V2.Distance(q.Position, p.Position)).FirstOrDefault()?.Position
+                ?? _points[p.Id % _points.Length].Position;
         float distance = target == null ? 100 : V2.Distance(p.Position, target.Position);
         var direction = (goal - p.Position).Normalized;
         if (target != null && distance < 8) direction = direction.Perpendicular * MathF.Sin((float)Time * 0.65f + p.Id);
         if (target != null && distance < 3.5f) direction = (p.Position - target.Position).Normalized;
-        foreach (var o in ArenaMap.Obstacles)
+        if (Map.Id == ArenaMapId.Citadel && (target == null || distance > 12 || !Visible(p.Position, target.Position) || !Walkable(p.Position + direction * 1.4f)))
+            direction = NavigationDirection(p, goal, dt);
+        foreach (var o in Map.Obstacles)
             if (V2.Distance(p.Position + direction * 1.6f, o.Position) < o.Radius + 1)
                 direction = (p.Position - o.Position).Normalized.Perpendicular * (p.Id % 2 == 0 ? 1 : -1);
         var aim = target?.Position ?? goal;
@@ -746,5 +784,6 @@ public sealed partial class GameWorld
         _walls.Select(w => new WallSnapshot(w.Id, w.Owner, w.A, w.B, w.Health, w.Lifetime, w.Recipe.Elements.ToArray())).ToArray(),
         _fields.Select(f => new FieldSnapshot(f.Id, f.Owner, f.Position, f.Radius, f.Lifetime, f.Recipe.Elements.ToArray(), f.Kind, f.TriggerRadius, f.Delay <= 0)).ToArray(),
         _beams.Select(b => b with { Elements = b.Elements.ToArray() }).ToArray(), _points.Select(p => new PointSnapshot(p.Id, p.Position, p.Owner, p.Progress, p.Contested)).ToArray(),
-        _events.Select(e => e.Event with { Elements = e.Event.Elements.ToArray() }).ToArray(), Options.ScoreLimit, Options.Tickets);
+        _events.Select(e => e.Event with { Elements = e.Event.Elements.ToArray() }).ToArray(), Options.ScoreLimit, Options.Tickets,
+        Map.Id, HoldingTeam, HoldSeconds);
 }

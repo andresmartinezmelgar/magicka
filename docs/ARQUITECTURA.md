@@ -50,7 +50,15 @@ Las salas sin humanos se pausan. El servidor reutiliza contenedores temporales y
 
 ## Vida y escudo
 
-`Wizard.ShieldMax` conserva la capacidad aplicada, aunque el daño reduzca `Shield`. El snapshot transmite `ShieldMax`, `ShieldSeconds` y `RegenerationRate`; la expiración, muerte y reaparición limpian los valores. El HUD y las barras 3D usan la misma capacidad y diferencian vida, protección y energía. La versión v0.6.1 exige protocolo 4 para garantizar efectos e interacciones comunes.
+`Wizard.ShieldMax` conserva la capacidad aplicada, aunque el daño reduzca `Shield`. El snapshot transmite `ShieldMax`, `ShieldSeconds` y `RegenerationRate`; la expiración, muerte y reaparición limpian los valores. El HUD y las barras 3D usan la misma capacidad y diferencian vida, protección y energía. La versión v0.7.0 exige protocolo 5 para garantizar mapas, efectos e interacciones comunes.
+
+## Mapas y control total
+
+`WorldOptions.Map`, `CreateRoomRequest.Map`, `RoomInfo.Map` y `WorldSnapshot.Map` identifican la geometría común. `ArenaMap.Get` devuelve suelo, contorno, pilares, puntos y apariciones. Ciudadela consta de tres salas de 22×64 y dos pasillos de 22×32: exactamente cuatro veces el suelo original. Los límites forman segmentos que detienen cuerpos, rayos, rocas y traslación.
+
+Las rutas A* se construyen sobre el mismo suelo y se reutilizan durante el desplazamiento; nunca atraviesan una esquina del contorno. El cliente reconstruye la geometría al cambiar de mapa, adapta la cámara y dibuja el minimapa con escala uniforme.
+
+En guerra de Ciudadela, `GameWorld` suma ticks de control total sin disputa. Al perder o disputar un punto, borra el contador. A los 900 ticks consecutivos termina la partida; tickets y muertes no generan otra vía de victoria. El snapshot transmite `HoldingTeam` y `HoldSeconds` para que el HUD represente el tiempo autoritativo. El reinicio limpia ambos valores.
 
 `ElementIcon` dibuja formas vectoriales sin texturas externas. `Ui.ElementTile` reutiliza símbolo, tecla, nombre y color en launcher y HUD. `VisualFixture` proporciona escenas deterministas para capturas; `--hud-smoke` verifica barras y cifras en seis estados sin conectarse a un servidor.
 

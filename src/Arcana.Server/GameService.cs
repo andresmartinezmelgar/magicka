@@ -18,7 +18,7 @@ internal sealed class GameRoom(string id, string name, string password, WorldOpt
     public Dictionary<int, PlayerSession> Sessions { get; } = [];
     public long LastOccupied { get; set; } = Environment.TickCount64;
     public RoomInfo Info() => new(Id, Name, Options.Mode, World.Players.Count, Options.MaxPlayers,
-        Options.Bots, Options.FriendlyFire, Options.ScoreLimit, Options.Tickets, Password.Length > 0);
+        Options.Bots, Options.FriendlyFire, Options.ScoreLimit, Options.Tickets, Password.Length > 0, Options.Map);
 }
 internal sealed class PlayerSession(int id, GameRoom room, WebSocket socket)
 {
@@ -61,7 +61,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
         Diagnostics.Log.ProtectSecret(request.ServerPassword);
         if (!PasswordMatches(request.ServerPassword, settings.Password)) return (null, "Contraseña del servidor incorrecta.", 403);
         if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 32 || request.Name.Any(char.IsControl) ||
-            request.Password == null || request.Password.Length > 128 || !Enum.IsDefined(request.Mode) ||
+            request.Password == null || request.Password.Length > 128 || !Enum.IsDefined(request.Mode) || !Enum.IsDefined(request.Map) ||
             request.MaxPlayers is < 2 or > 16 || request.Bots < 0 || request.Bots >= request.MaxPlayers ||
             request.ScoreLimit is < 1 or > 200 || request.Tickets is < 5 or > 1000 ||
             (request.Mode == GameMode.Duel && request.MaxPlayers != 2))
@@ -70,7 +70,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
         {
             RemoveIdleRooms();
             if (_rooms.Count >= MaxRooms) return (null, "El servidor ha alcanzado su límite de 16 salas.", 409);
-            var options = new WorldOptions { Mode = request.Mode, MaxPlayers = request.MaxPlayers, Bots = request.Bots,
+            var options = new WorldOptions { Mode = request.Mode, Map = request.Map, MaxPlayers = request.MaxPlayers, Bots = request.Bots,
                 FriendlyFire = request.FriendlyFire, ScoreLimit = request.ScoreLimit, Tickets = request.Tickets };
             var room = new GameRoom(Guid.NewGuid().ToString("N"), request.Name.Trim(), request.Password, options);
             _rooms.Add(room.Id, room);

@@ -12,7 +12,7 @@ public sealed partial class GameWorld
         {
             if (!player.Alive || player.Frozen > 0 || player.Channel == null) continue;
             if (player.Channel.Shape != SpellShape.Beam) { Channel(player, dt); continue; }
-            var from = player.Position + player.Facing * 0.7f;
+            var from = SpellOrigin(player, player.Facing, 0.7f);
             var end = BeamEnd(from, player.Facing, player.Channel.Range, player.Id, out _, out _);
             rays.Add(new(player, from, player.Facing, end, new(player.Id, player.Channel)));
         }

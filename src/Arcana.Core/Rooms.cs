@@ -4,7 +4,7 @@ using System.Text;
 namespace Arcana.Core;
 
 public sealed record RoomInfo(string Id, string Name, GameMode Mode, int Players, int MaxPlayers,
-    int Bots, bool FriendlyFire, int ScoreLimit, int Tickets, bool PasswordRequired);
+    int Bots, bool FriendlyFire, int ScoreLimit, int Tickets, bool PasswordRequired, ArenaMapId Map = ArenaMapId.Classic);
 public sealed record RoomDirectory(ServerInfo Server, RoomInfo[] Rooms);
 public sealed record ApiError(string Error);
 public sealed class CreateRoomRequest
@@ -13,6 +13,7 @@ public sealed class CreateRoomRequest
     public string ServerPassword { get; set; } = "";
     public string Password { get; set; } = "";
     public GameMode Mode { get; set; } = GameMode.Warfare;
+    public ArenaMapId Map { get; set; } = ArenaMapId.Classic;
     public int MaxPlayers { get; set; } = 8;
     public int Bots { get; set; }
     public bool FriendlyFire { get; set; } = true;
@@ -36,7 +37,7 @@ public static class RoomBrowser
         var directory = await Request<RoomDirectory>(request, token).ConfigureAwait(false);
         if (directory.Server == null || directory.Rooms is not { Length: <= 16 } || directory.Rooms.Any(r =>
             r == null || string.IsNullOrWhiteSpace(r.Id) || r.Id.Length > 64 || string.IsNullOrWhiteSpace(r.Name) || r.Name.Length > 32 ||
-            !Enum.IsDefined(r.Mode) || r.MaxPlayers is < 2 or > 16 || r.Players < 0 || r.Players > r.MaxPlayers ||
+            !Enum.IsDefined(r.Mode) || !Enum.IsDefined(r.Map) || r.MaxPlayers is < 2 or > 16 || r.Players < 0 || r.Players > r.MaxPlayers ||
             r.Bots < 0 || r.Bots >= r.MaxPlayers)) throw new InvalidDataException("Directorio de salas inválido.");
         if (directory.Server.Protocol != Protocol.Version) throw new InvalidOperationException("Actualiza el juego: la versión del servidor es diferente.");
         return directory;

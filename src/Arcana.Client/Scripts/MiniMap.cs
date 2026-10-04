@@ -10,9 +10,15 @@ public partial class MiniMap : Control
     public override void _Draw()
     {
         if (State == null) return;
-        Vector2 Point(V2 p) => new((p.X / 44 + 0.5f) * Size.X, (p.Y / 32 + 0.5f) * Size.Y);
+        var map = ArenaMap.Get(State.Map);
+        float scale = Math.Min(Size.X / (map.HalfWidth * 2), Size.Y / (map.HalfHeight * 2));
+        Vector2 Point(V2 p) => Size / 2 + new Vector2(p.X, p.Y) * scale;
         DrawRect(new(Vector2.Zero, Size), new("14232d"));
-        foreach (var obstacle in ArenaMap.Obstacles) DrawCircle(Point(obstacle.Position), obstacle.Radius / 44 * Size.X, new("526a70"));
+        foreach (var floor in map.Floors)
+            DrawRect(new(Point(floor.Center) - new Vector2(floor.Width, floor.Height) * scale / 2,
+                new Vector2(floor.Width, floor.Height) * scale), new("293c43"));
+        foreach (var edge in map.Boundary) DrawLine(Point(edge.A), Point(edge.B), new("718784"), 1, true);
+        foreach (var obstacle in map.Obstacles) DrawCircle(Point(obstacle.Position), Math.Max(1, obstacle.Radius * scale), new("526a70"));
         if (State.Mode == GameMode.Warfare)
             foreach (var p in State.Points)
             {

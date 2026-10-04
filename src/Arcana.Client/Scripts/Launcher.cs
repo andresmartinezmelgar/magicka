@@ -7,7 +7,7 @@ public partial class Launcher : Control
 {
     private Main _main = null!;
     private LineEdit _name = null!, _address = null!, _password = null!, _hostName = null!;
-    private OptionButton _team = null!, _practiceMode = null!, _wizardType = null!;
+    private OptionButton _team = null!, _practiceMode = null!, _practiceMap = null!, _wizardType = null!;
     private SpinBox _bots = null!, _discoveryPort = null!, _hostPort = null!, _hostDiscovery = null!;
     private Label _status = null!;
     private ItemList _servers = null!;
@@ -91,6 +91,15 @@ public partial class Launcher : Control
         _practiceMode.AddItem("Guerra de puntos", (int)GameMode.Warfare);
         _practiceMode.AddItem("Todos contra todos", (int)GameMode.Arena);
         _practiceMode.AddItem("Duelo", (int)GameMode.Duel); practice.AddChild(_practiceMode);
+        practice.AddChild(Ui.Label("Mapa", 14, Ui.Muted));
+        _practiceMap = new OptionButton { Name = "PracticeMapChoice", CustomMinimumSize = new(0, 42) };
+        foreach (var map in Enum.GetValues<ArenaMapId>()) _practiceMap.AddItem(ArenaMap.Get(map).Name + (map == ArenaMapId.Citadel ? " · 4×" : ""), (int)map);
+        int savedMap = _config.GetValue("practice", "map", 0).AsInt32();
+        _practiceMap.Select(Enum.IsDefined((ArenaMapId)savedMap) ? savedMap : 0); practice.AddChild(_practiceMap);
+        var practiceObjective = Ui.Label("", 14, Ui.Gold); practiceObjective.AutowrapMode = TextServer.AutowrapMode.WordSmart; practice.AddChild(practiceObjective);
+        void Objective() => practiceObjective.Text = MatchRules.Objective((GameMode)_practiceMode.GetSelectedId(),
+            (GameMode)_practiceMode.GetSelectedId() == GameMode.Duel ? 5 : 15, 75, (ArenaMapId)_practiceMap.GetSelectedId());
+        _practiceMode.ItemSelected += _ => Objective(); _practiceMap.ItemSelected += _ => Objective(); Objective();
         var botRow = new HBoxContainer(); practice.AddChild(botRow);
         botRow.AddChild(Ui.Label("Bots", 16));
         _bots = new SpinBox { MinValue = 1, MaxValue = 7, Value = 3, SizeFlagsHorizontal = SizeFlags.ExpandFill }; botRow.AddChild(_bots);
@@ -165,6 +174,7 @@ public partial class Launcher : Control
     {
         _config.SetValue("player", "name", _name.Text); _config.SetValue("network", "address", _address.Text);
         _config.SetValue("player", "wizard_type", _wizardType.GetSelectedId());
+        _config.SetValue("practice", "map", _practiceMap.GetSelectedId());
         _config.SetValue("host", "name", _hostName.Text); _config.SetValue("host", "port", (int)_hostPort.Value);
         _config.SetValue("host", "discovery", (int)_hostDiscovery.Value);
         var saved = _config.Save("user://launcher.cfg");
@@ -178,7 +188,8 @@ public partial class Launcher : Control
         int team = _team.GetSelectedId();
         if (_tabs.CurrentTab == 2)
         {
-            _main.StartPractice(_name.Text, team, (GameMode)_practiceMode.GetSelectedId(), (int)_bots.Value, (WizardType)_wizardType.GetSelectedId()); return;
+            _main.StartPractice(_name.Text, team, (GameMode)_practiceMode.GetSelectedId(), (int)_bots.Value,
+                (WizardType)_wizardType.GetSelectedId(), (ArenaMapId)_practiceMap.GetSelectedId()); return;
         }
         if (_tabs.CurrentTab == 3) { _ = Host(); return; }
         string address = _address.Text;

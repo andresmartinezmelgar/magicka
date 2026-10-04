@@ -7,7 +7,10 @@ public static class SnapshotValidation
     private static bool NonNegative(params float[] values) => values.All(v => float.IsFinite(v) && v >= 0);
     public static void Check(WorldSnapshot state)
     {
-        if (!Enum.IsDefined(state.Mode) || state.Tick < 0 || !double.IsFinite(state.Time) || state.Time < 0 || !NonNegative(state.RestartIn) ||
+        if (!Enum.IsDefined(state.Mode) || !Enum.IsDefined(state.Map) || state.Tick < 0 || !double.IsFinite(state.Time) || state.Time < 0 || !NonNegative(state.RestartIn) ||
+            state.HoldingTeam is < -1 or > 1 || !NonNegative(state.HoldSeconds) || state.HoldSeconds > 15 ||
+            state.HoldingTeam == -1 && state.HoldSeconds != 0 ||
+            (state.Mode != GameMode.Warfare || state.Map != ArenaMapId.Citadel) && (state.HoldingTeam != -1 || state.HoldSeconds != 0) ||
             state.Scores is not { Length: 2 } || state.Scores.Any(s => s < 0) ||
             state.ScoreLimit is < 1 or > 200 || state.StartingTickets is < 1 or > 1000 ||
             state.Players is not { Length: <= 16 } || state.Projectiles is not { Length: <= 160 } ||

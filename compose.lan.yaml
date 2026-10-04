@@ -3,7 +3,7 @@
 services:
   server:
     build: .
-    image: arcana-arena-server:0.6.0
+    image: arcana-arena-server:0.7.0
     network_mode: host
     restart: unless-stopped
     environment:
@@ -11,6 +11,7 @@ services:
       GAME_PORT: "${GAME_PORT:-27015}"
       DISCOVERY_PORT: "${DISCOVERY_PORT:-27016}"
       GAME_MODE: "${GAME_MODE:-warfare}"
+      ARENA_MAP: "${ARENA_MAP:-Classic}"
       MAX_PLAYERS: "${MAX_PLAYERS:-8}"
       BOTS: "${BOTS:-0}"
       FRIENDLY_FIRE: "${FRIENDLY_FIRE:-true}"
