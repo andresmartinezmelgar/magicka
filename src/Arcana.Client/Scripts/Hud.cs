@@ -7,14 +7,19 @@ public partial class Hud : Control
 {
     private Label _name = null!, _status = null!, _match = null!, _feed = null!, _banner = null!, _server = null!;
     private ProgressBar _health = null!, _shield = null!, _energy = null!, _charge = null!;
+    private Label _healthText = null!, _shieldText = null!, _energyText = null!;
+    private HBoxContainer _teams = null!;
+    private Label _blueScore = null!, _redScore = null!;
+    private StyleBoxFlat _shieldFill = null!, _shieldTrack = null!;
     private readonly List<Label> _selected = [], _magicks = [];
+    private readonly List<ElementIcon> _selectedIcons = [];
+    private readonly List<StyleBoxFlat> _selectedStyles = [];
     private PanelContainer _scorePanel = null!;
     private GridContainer _scoreRows = null!;
     private MiniMap _map = null!;
     private long _lastEvent;
     private string _feedText = "";
     private float _feedTime, _scoreClock;
-    private readonly List<Label> _elementLabels = [];
     private readonly List<string> _statuses = [];
     private readonly List<Label> _scoreCells = [];
     private WorldSnapshot? _lastSnapshot;
@@ -29,13 +34,22 @@ public partial class Hud : Control
         controls.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight); controls.Position = new(-440, 24); controls.Size = new(420, 24); AddChild(controls);
         _match = Ui.Label("", 24); _match.HorizontalAlignment = HorizontalAlignment.Center;
         _match.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterTop); _match.Position = new(-240, 18); _match.Size = new(480, 42); AddChild(_match);
-        var playerPanel = new PanelContainer { CustomMinimumSize = new(270, 185), MouseFilter = MouseFilterEnum.Ignore };
-        playerPanel.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomLeft); playerPanel.Position = new(24, -216); AddChild(playerPanel);
+        _teams = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center, MouseFilter = MouseFilterEnum.Ignore };
+        _teams.AddThemeConstantOverride("separation", 18); _teams.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterTop);
+        _teams.Position = new(-240, 18); _teams.Size = new(480, 42); AddChild(_teams);
+        _blueScore = Ui.Label("", 24, Ui.Blue); _redScore = Ui.Label("", 24, Ui.Red);
+        _teams.AddChild(_blueScore); _teams.AddChild(Ui.Label("·", 24, Ui.Muted)); _teams.AddChild(_redScore);
+        var playerPanel = new PanelContainer { CustomMinimumSize = new(310, 230), MouseFilter = MouseFilterEnum.Ignore };
+        playerPanel.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomLeft); playerPanel.Position = new(24, -258); AddChild(playerPanel);
         var info = new VBoxContainer(); info.AddThemeConstantOverride("separation", 7); playerPanel.AddChild(info);
-        _name = Ui.Label("", 20, Ui.Gold); info.AddChild(_name);
-        _health = Bar(new("86d9a4"), 1000, 19); info.AddChild(_health);
-        _shield = Bar(Ui.Gold, 650, 6); info.AddChild(_shield);
-        _energy = Bar(new("b790eb"), 100, 6); info.AddChild(_energy);
+        _name = Ui.Label("", 19); info.AddChild(_name);
+        _health = Bar(Ui.Health, 1000, 33); _health.Name = "HealthBar";
+        info.AddChild(Meter(_health, "HealthValue", out _healthText));
+        _shield = Bar(Ui.Shield, 420, 28); _shield.Name = "ShieldBar";
+        _shieldFill = (StyleBoxFlat)_shield.GetThemeStylebox("fill");
+        _shieldTrack = (StyleBoxFlat)_shield.GetThemeStylebox("background");
+        info.AddChild(Meter(_shield, "ShieldValue", out _shieldText));
+        _energy = Bar(Ui.Energy, 100, 20); info.AddChild(Meter(_energy, "EnergyValue", out _energyText, 12));
         _status = Ui.Label("", 13, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; info.AddChild(_status);
         var spells = new PanelContainer { CustomMinimumSize = new(690, 0), MouseFilter = MouseFilterEnum.Ignore };
         spells.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterBottom); spells.Position = new(-282, -225); AddChild(spells);
@@ -44,18 +58,20 @@ public partial class Hud : Control
         var queue = new HBoxContainer(); queue.AddThemeConstantOverride("separation", 8); first.AddChild(queue);
         for (int i = 0; i < 3; i++)
         {
-            var panel = new PanelContainer { CustomMinimumSize = new(75, 46), MouseFilter = MouseFilterEnum.Ignore };
-            panel.AddThemeStyleboxOverride("panel", Ui.Panel(new("142439"), 6)); queue.AddChild(panel);
-            var label = Ui.Label("—", 20, Ui.Muted); label.HorizontalAlignment = HorizontalAlignment.Center; panel.AddChild(label); _selected.Add(label);
+            var panel = new PanelContainer { CustomMinimumSize = new(76, 51), MouseFilter = MouseFilterEnum.Ignore };
+            var style = Ui.Panel(new("0b1526"), 6); style.ContentMarginLeft = style.ContentMarginRight = 8;
+            style.ContentMarginTop = style.ContentMarginBottom = 6; style.BorderWidthBottom = 3;
+            panel.AddThemeStyleboxOverride("panel", style); queue.AddChild(panel); _selectedStyles.Add(style);
+            var row = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center }; row.AddThemeConstantOverride("separation", 7); panel.AddChild(row);
+            var icon = new ElementIcon(); row.AddChild(icon); _selectedIcons.Add(icon);
+            var label = Ui.Label("—", 21, Ui.Muted); row.AddChild(label); _selected.Add(label);
         }
         var hint = Ui.Label("Derecho: lanzar\nCentral: sobre ti · Mayús + derecho: área", 14, Ui.Muted); first.AddChild(hint);
         _charge = Bar(Ui.Gold, 1, 5); stack.AddChild(_charge);
-        var elements = new HBoxContainer(); elements.AddThemeConstantOverride("separation", 11); stack.AddChild(elements);
+        var elements = new HBoxContainer(); elements.AddThemeConstantOverride("separation", 7); stack.AddChild(elements);
         foreach (var e in Enum.GetValues<Element>())
         {
-            var label = Ui.Label(Ui.ElementKey(e) + "\n" + Ui.ElementName(e), 15, Ui.ElementColor(e));
-            label.HorizontalAlignment = HorizontalAlignment.Center; label.CustomMinimumSize = new(65, 38); label.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            elements.AddChild(label); _elementLabels.Add(label);
+            elements.AddChild(Ui.ElementTile(e, true));
         }
         var magicks = new HBoxContainer(); magicks.AddThemeConstantOverride("separation", 12); stack.AddChild(magicks);
         foreach (string text in new[] { "1 Celeridad", "2 Traslación", "3 Meteoro", "4 Reanimar" })
@@ -83,8 +99,20 @@ public partial class Hud : Control
     private static ProgressBar Bar(Color color, float max, int height)
     {
         var bar = new ProgressBar { MaxValue = max, ShowPercentage = false, CustomMinimumSize = new(0, height) };
-        bar.AddThemeStyleboxOverride("background", Ui.Panel(new("1d2b3b"), 3));
-        bar.AddThemeStyleboxOverride("fill", Ui.Panel(color, 3, color)); return bar;
+        var track = Ui.Panel(new("101a2b"), 4, color.Darkened(0.45f));
+        var fill = Ui.Panel(color, 4, color.Lightened(0.18f));
+        foreach (var style in new[] { track, fill })
+            style.ContentMarginLeft = style.ContentMarginRight = style.ContentMarginTop = style.ContentMarginBottom = 0;
+        bar.AddThemeStyleboxOverride("background", track); bar.AddThemeStyleboxOverride("fill", fill); return bar;
+    }
+    private static Control Meter(ProgressBar bar, string textName, out Label label, int fontSize = 14)
+    {
+        var root = new Control { CustomMinimumSize = bar.CustomMinimumSize, MouseFilter = MouseFilterEnum.Ignore };
+        root.AddChild(bar); Ui.Full(bar);
+        label = Ui.Label("", fontSize); label.Name = textName;
+        label.HorizontalAlignment = HorizontalAlignment.Center; label.VerticalAlignment = VerticalAlignment.Center;
+        label.AddThemeConstantOverride("outline_size", 4); root.AddChild(label); Ui.Full(label);
+        return root;
     }
     public void Update(WorldSnapshot snapshot, int id, string serverName, double delta)
     {
@@ -97,27 +125,40 @@ public partial class Hud : Control
         _lastSnapshot = snapshot;
         var player = snapshot.Players.FirstOrDefault(p => p.Id == id); if (player == null) return;
         _server.Text = serverName.ToUpperInvariant() + "  /  " + Ui.ModeName(snapshot.Mode).ToUpperInvariant();
-        _name.Text = player.Name + $"  {Math.Ceiling(player.Health)}/1000";
-        _health.MaxValue = player.MaxHealth; _health.Value = player.Health; _shield.Value = player.Shield; _energy.Value = player.Energy; _charge.Value = player.Charge;
+        _name.Text = player.Name + (player.Team == 0 ? "  /  AZUL" : "  /  ROJO");
+        _name.AddThemeColorOverride("font_color", player.Team == 0 ? Ui.Blue : Ui.Red);
+        _health.MaxValue = player.MaxHealth; _health.Value = player.Health;
+        _healthText.Text = $"VIDA  {Math.Ceiling(player.Health):0} / {player.MaxHealth:0}";
+        _shield.MaxValue = Ui.ShieldMaximum(player); _shield.Value = player.Shield;
+        bool shielded = player.Alive && player.Shield > 0;
+        _shieldFill.BgColor = shielded ? Ui.Shield : Ui.Shield.Darkened(0.65f);
+        _shieldTrack.BorderColor = shielded ? Ui.Shield : Ui.Muted.Darkened(0.5f);
+        _shieldText.Text = shielded ? $"ESCUDO  {Math.Ceiling(player.Shield):0} / {_shield.MaxValue:0}"
+            + (player.ShieldSeconds > 0 ? $"  ·  {player.ShieldSeconds:0.0} s" : "") : "ESCUDO  0  /  INACTIVO";
+        _shieldText.AddThemeColorOverride("font_color", shielded ? Ui.Text : Ui.Muted);
+        _energy.Value = player.Energy; _charge.Value = player.Charge; _energyText.Text = $"ENERGÍA  {Math.Floor(player.Energy):0} / 100";
         _statuses.Clear(); var statuses = _statuses;
         if (player.Wet > 0) statuses.Add("Mojado"); if (player.Burning > 0) statuses.Add("Quemándose");
         if (player.Chill > 20) statuses.Add("Frío"); if (player.Frozen > 0) statuses.Add("Congelado"); if (player.Haste > 0) statuses.Add("Celeridad");
         if (player.Ward.Length > 0) statuses.Add("Guarda: " + string.Join(", ", player.Ward.Select(Ui.ElementName)));
-        _status.Text = (statuses.Count > 0 ? string.Join(" · ", statuses) + "\n" : "") + $"Escudo {Math.Ceiling(player.Shield)} · Energía {Math.Floor(player.Energy)}";
+        _status.Text = statuses.Count > 0 ? string.Join(" · ", statuses) : "Sin estados alterados";
         for (int i = 0; i < 3; i++)
         {
             bool selected = i < player.Selected.Length;
             _selected[i].Text = selected ? Ui.ElementKey(player.Selected[i]) : "—";
-            _selected[i].AddThemeColorOverride("font_color", selected ? Ui.ElementColor(player.Selected[i]) : Ui.Muted);
+            _selected[i].AddThemeColorOverride("font_color", selected ? Ui.Text : Ui.Muted);
+            _selectedIcons[i].Value = selected ? player.Selected[i] : null;
+            _selectedStyles[i].BorderColor = selected ? Ui.ElementColor(player.Selected[i]) : new Color("405372");
         }
         for (int i = 0; i < 4; i++)
         {
             _magicks[i].Text = $"{i + 1} {Names[i]} " + (player.Cooldowns[i] > 0 ? $"{Math.Ceiling(player.Cooldowns[i])}s" : $"{Costs[i]:0}");
             _magicks[i].AddThemeColorOverride("font_color", player.Cooldowns[i] > 0 || player.Energy < Costs[i] ? Ui.Muted : Ui.Gold);
         }
-        if (snapshot.Mode == GameMode.Arena)
+        _match.Visible = snapshot.Mode == GameMode.Arena; _teams.Visible = !_match.Visible;
+        if (_match.Visible)
             _match.Text = "ARENA  ·  " + snapshot.Players.Max(p => p.Kills) + " BAJAS";
-        else _match.Text = $"AZUL  {snapshot.Scores[0]}     ·     {snapshot.Scores[1]}  ROJO";
+        else { _blueScore.Text = $"AZUL  {snapshot.Scores[0]}"; _redScore.Text = $"{snapshot.Scores[1]}  ROJO"; }
         _banner.Text = !player.Alive ? $"HAS CAÍDO\nReapareces en {Math.Ceiling(player.Respawn)} s" : "";
         if (snapshot.MatchEnded)
         {

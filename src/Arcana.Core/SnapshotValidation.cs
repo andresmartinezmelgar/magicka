@@ -18,6 +18,7 @@ public static class SnapshotValidation
                 !p.Position.IsFinite || !p.Facing.IsFinite || !Elements(p.Selected) || !Elements(p.Ward, 8) ||
                 p.Cooldowns is not { Length: 4 } || !NonNegative(p.Cooldowns) ||
                 !NonNegative(p.Health, p.MaxHealth, p.Shield, p.Energy, p.Respawn, p.Wet, p.Burning, p.Chill, p.Frozen, p.Haste, p.Charge) ||
+                !NonNegative(p.ShieldMax, p.ShieldSeconds) || p.ShieldMax > 0 && p.Shield > p.ShieldMax ||
                 p.MaxHealth <= 0 || p.Health > p.MaxHealth || p.Energy > 100 || p.Kills < 0 || p.Deaths < 0) Invalid();
         foreach (var p in state.Projectiles!) if (p == null || p.Id <= 0 || !p.Position.IsFinite || !p.Direction.IsFinite || !Elements(p.Elements) || !NonNegative(p.Radius)) Invalid();
         foreach (var w in state.Walls!) if (w == null || w.Id <= 0 || !w.A.IsFinite || !w.B.IsFinite || !Elements(w.Elements) || !NonNegative(w.Health, w.Lifetime)) Invalid();

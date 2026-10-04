@@ -37,6 +37,10 @@ public partial class Main : Node
     private string _serverName = "";
     private bool _smoke;
     private bool _hostSmoke;
+    private bool _hudSmoke;
+    private string? _previewShield;
+    private static readonly (string State, float Shield, float Maximum)[] HudCases =
+        [("none", 0, 420), ("full", 420, 420), ("half", 210, 420), ("low", 40, 420), ("ward", 90, 180), ("stone", 325, 650)];
     private int _smokeFrames, _renderFrames;
     private string? _capturePath;
 
@@ -60,12 +64,19 @@ public partial class Main : Node
             if (arg == "--smoke") _smoke = true;
             if (arg == "--host-smoke") _hostSmoke = true;
             if (arg == "--diagnostics-smoke") _diagnosticsSmoke = true;
+            if (arg == "--hud-smoke") _hudSmoke = true;
+            if (arg.StartsWith("--preview-shield=")) _previewShield = arg[17..];
             if (arg.StartsWith("--capture=")) _capturePath = arg[10..];
             if (arg.StartsWith("--server=")) _launcher.BrowseAddress(arg[9..]);
             if (arg.StartsWith("--create-room=")) _launcher.BrowseAddress(arg[14..], true);
             if (arg.StartsWith("--tab=") && int.TryParse(arg[6..], out int tab)) _launcher.ShowTab(tab);
         }
         if (_hostSmoke) _ = HostedSmoke();
+        if (_hudSmoke || _previewShield != null)
+        {
+            _practice = null; _localId = 1; _serverName = "Práctica · Colores y escudo";
+            StartGame(VisualFixture.Create(_previewShield ?? "none"));
+        }
         if (_smoke)
         {
             StartPractice("Aprendiz", 0, GameMode.Warfare, 3);
@@ -155,6 +166,8 @@ public partial class Main : Node
             try { action(); }
             catch (Exception e) { Diagnostics.Error("client.callback_failed", "Fallo en una operación de interfaz.", e, Context()); }
         _renderFrames++;
+        if (_hudSmoke && _renderFrames <= HudCases.Length * 3 && _renderFrames % 3 == 1)
+            _snapshot = VisualFixture.Create(HudCases[(_renderFrames - 1) / 3].State);
         _metricsTime += delta;
         if (_metricsTime >= 30)
         {
@@ -177,6 +190,7 @@ public partial class Main : Node
             }
             _renderer.Render(latest, _localId, delta, true);
             _hud?.Update(latest, _localId, _serverName, delta);
+            if (_hudSmoke && _renderFrames <= HudCases.Length * 3 && _renderFrames % 3 == 2) CheckHudCase();
         }
         else _renderer.Render(_backdropSnapshot ??= _backdrop.Snapshot(), 0, delta, false);
         if (_diagnosticsSmoke && _renderFrames == 30) ExportDiagnostics();
@@ -185,6 +199,7 @@ public partial class Main : Node
 
     public override void _PhysicsProcess(double delta)
     {
+        if (_hudSmoke || _previewShield != null) return;
         if (!_playing) { _backdrop.Step(); _backdropSnapshot = _backdrop.Snapshot(); return; }
         _inputTime += delta;
         if (_practice != null)
@@ -211,6 +226,18 @@ public partial class Main : Node
         }
         if (_hostSmoke && _connection?.Connected == true && ++_smokeFrames >= 180)
         { GD.Print($"HOST_SMOKE_OK: {_connection.Room?.Name}, {_snapshot?.Players.Length} jugadores"); GetTree().Quit(); }
+    }
+    private void CheckHudCase()
+    {
+        var expected = HudCases[(_renderFrames - 1) / 3];
+        var health = (ProgressBar)_hud!.FindChild("HealthBar", true, false);
+        var shield = (ProgressBar)_hud.FindChild("ShieldBar", true, false);
+        var text = (Label)_hud.FindChild("ShieldValue", true, false);
+        bool correct = health.Value == 830 && health.MaxValue == 1000 && shield.Value == expected.Shield && shield.MaxValue == expected.Maximum &&
+            (expected.Shield == 0 ? text.Text.Contains("INACTIVO") : text.Text.Contains($"{expected.Shield:0} / {expected.Maximum:0}") && text.Text.Contains(" s"));
+        if (!correct) { GD.PushError($"HUD_SMOKE_FAILED: {expected.State}, {shield.Value}/{shield.MaxValue}, {text.Text}"); GetTree().Quit(1); return; }
+        GD.Print($"HUD_CASE_OK: {expected.State}, {shield.Value}/{shield.MaxValue}");
+        if (expected.State == HudCases[^1].State) { GD.Print("HUD_SMOKE_OK: 6 estados de escudo, vida, capacidad y duración"); GetTree().Quit(); }
     }
     private ClientMessage InputMessage()
     {

@@ -47,3 +47,9 @@ El proyecto de pruebas es una aplicación de consola sin paquetes externos. Devu
 `SnapshotValidation` comprueba la estructura y los límites antes de representar estado remoto. El núcleo copia las entradas y recetas del snapshot; modificar un mensaje o una copia no modifica una partida ya aceptada. `ArenaConnection` serializa envíos y cierre, y espera a que se cancele un saludo pendiente antes de liberar recursos.
 
 Las salas sin humanos se pausan. El servidor reutiliza contenedores temporales y serializa solo el último estado de un lote de pasos. Los bots reutilizan recetas y buscan el rival más cercano sin ordenar listas. El cliente conserva el HUD entre snapshots y reutiliza celdas de clasificación, materiales y colecciones de limpieza; la interpolación y las animaciones continúan en cada fotograma. Las voces de audio se detienen y liberan al cerrar.
+
+## Vida y escudo
+
+`Wizard.ShieldMax` conserva la capacidad aplicada, aunque el daño reduzca `Shield`. El snapshot transmite `ShieldMax` y `ShieldSeconds`; la expiración, muerte y reaparición limpian los valores. El HUD y las barras 3D usan la misma capacidad y diferencian vida, protección y energía. Los campos se añaden con valor predeterminado cero para mantener compatibilidad con snapshots anteriores del protocolo v2.
+
+`ElementIcon` dibuja formas vectoriales sin texturas externas. `Ui.ElementTile` reutiliza símbolo, tecla, nombre y color en launcher y HUD. `VisualFixture` proporciona escenas deterministas para capturas; `--hud-smoke` verifica barras y cifras en seis estados sin conectarse a un servidor.

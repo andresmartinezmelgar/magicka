@@ -17,8 +17,11 @@ public partial class MiniMap : Control
             foreach (var p in State.Points) DrawCircle(Point(p.Position), 6, p.Owner == 0 ? Ui.Blue.Darkened(0.3f) : p.Owner == 1 ? Ui.Red.Darkened(0.3f) : Ui.Muted.Darkened(0.5f));
         foreach (var p in State.Players.Where(p => p.Alive))
         {
-            var pos = Point(p.Position); DrawCircle(pos, p.Id == LocalId ? 3.8f : 2.8f, p.Team == 0 ? Ui.Blue : Ui.Red);
-            if (p.Id == LocalId) DrawArc(pos, 5.8f, 0, Mathf.Tau, 20, Ui.Gold, 1.2f, true);
+            var pos = Point(p.Position); float radius = p.Id == LocalId ? 4 : 3;
+            if (p.Team == 0) DrawCircle(pos, radius, Ui.Blue);
+            else DrawColoredPolygon([pos + Vector2.Up * radius, pos + Vector2.Right * radius,
+                pos + Vector2.Down * radius, pos + Vector2.Left * radius], Ui.Red);
+            if (p.Id == LocalId) DrawArc(pos, 6.2f, 0, Mathf.Tau, 20, Ui.Text, 1.5f, true);
         }
         DrawRect(new(Vector2.Zero, Size), Ui.Muted.Darkened(0.5f), false, 1);
     }

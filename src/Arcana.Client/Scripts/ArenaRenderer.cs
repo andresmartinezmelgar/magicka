@@ -36,15 +36,15 @@ public partial class ArenaRenderer : Node3D
                 BackgroundMode = Godot.Environment.BGMode.Color,
                 BackgroundColor = new Color("090f1b"),
                 AmbientLightSource = Godot.Environment.AmbientSource.Color,
-                AmbientLightColor = new Color("91abc9"), AmbientLightEnergy = 0.75f,
+                AmbientLightColor = new Color("bac7db"), AmbientLightEnergy = 0.55f,
                 TonemapMode = Godot.Environment.ToneMapper.Filmic
             }
         };
         AddChild(env);
         var light = new DirectionalLight3D
         {
-            RotationDegrees = new(-53, -28, 0), LightColor = new Color("ffdfa9"),
-            LightEnergy = 1.35f, ShadowEnabled = true
+            RotationDegrees = new(-53, -28, 0), LightColor = new Color("fff0dd"),
+            LightEnergy = 1.10f, ShadowEnabled = true
         };
         AddChild(light);
         Camera = new Camera3D { Projection = Camera3D.ProjectionType.Orthogonal, Size = _zoom,
@@ -110,7 +110,7 @@ public partial class ArenaRenderer : Node3D
                     vec2 p = fract(tile);
                     float edge = smoothstep(0.012, 0.036, min(min(p.x, 1.0-p.x), min(p.y, 1.0-p.y)));
                     float noise = fract(sin(dot(floor(tile), vec2(127.1,311.7))) * 43758.5453);
-                    vec3 stone = mix(vec3(0.20,0.26,0.27), vec3(0.31,0.37,0.34), noise);
+                    vec3 stone = mix(vec3(0.20,0.23,0.26), vec3(0.31,0.34,0.36), noise);
                     ALBEDO = mix(vec3(0.105,0.14,0.15), stone, edge);
                     ROUGHNESS = 0.92;
                 }
@@ -333,9 +333,9 @@ public partial class ArenaRenderer : Node3D
         }
         else
         {
-            var glow = color; glow.A = 0.2f;
+            var glow = color; glow.A = 0.35f;
             BeamSegment(from, to, glow, 0.16f);
-            BeamSegment(from, to, color.Lightened(0.35f), 0.042f);
+            BeamSegment(from, to, color.Lightened(0.08f), 0.042f);
         }
     }
 

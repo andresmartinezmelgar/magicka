@@ -160,9 +160,9 @@ public sealed class GameWorld
         p.Chill = Math.Max(0, p.Chill - 10 * dt);
         p.Haste = Math.Max(0, p.Haste - dt);
         p.Energy = Math.Min(100, p.Energy + 1.8f * dt);
-        p.ShieldTime -= dt;
+        p.ShieldTime = Math.Max(0, p.ShieldTime - dt);
         p.WardTime -= dt;
-        if (p.ShieldTime <= 0) p.Shield = 0;
+        if (p.ShieldTime <= 0) p.Shield = p.ShieldMax = 0;
         if (p.WardTime <= 0) p.Ward = [];
         if (p.Burning > 0)
         {
@@ -338,7 +338,7 @@ public sealed class GameWorld
         {
             p.Ward = spell.Elements.Where(e => e != Element.Shield).Distinct().ToArray();
             p.WardTime = 12;
-            p.Shield = spell.Has(Element.Earth) ? 650 : p.Ward.Length == 0 ? 420 : 180;
+            p.Shield = p.ShieldMax = spell.Has(Element.Earth) ? 650 : p.Ward.Length == 0 ? 420 : 180;
             p.ShieldTime = 12;
         }
         else if (spell.Healing)
@@ -503,7 +503,7 @@ public sealed class GameWorld
         target.Health = Math.Max(0, target.Health - amount);
         if (target.Health > 0) return;
         target.Deaths++; target.Respawn = Options.Mode == GameMode.Duel ? 2.5f : 4;
-        target.Channel = null; target.Charging = null; target.Selection.Clear(); target.Shield = 0;
+        target.Channel = null; target.Charging = null; target.Selection.Clear(); target.Shield = target.ShieldMax = target.ShieldTime = 0;
         if (Options.Mode == GameMode.Warfare) Scores[target.Team] = Math.Max(0, Scores[target.Team] - 1);
         string text = $"{target.Name} ha caído";
         if (_players.TryGetValue(owner, out var killer) && killer.Id != target.Id)
@@ -649,7 +649,7 @@ public sealed class GameWorld
     private void Respawn(Wizard p)
     {
         p.Position = ArenaMap.Spawn(p.Team, p.Id % 4); p.Health = Wizard.MaxHealth;
-        p.Wet = p.Burning = p.Chill = p.Frozen = p.Haste = p.Shield = 0;
+        p.Wet = p.Burning = p.Chill = p.Frozen = p.Haste = p.Shield = p.ShieldMax = p.ShieldTime = 0;
         p.Ward = []; p.Knockback = V2.Zero; p.Selection.Clear(); p.Channel = p.Charging = null;
         p.Input.MoveTo = false; p.Input.MoveX = p.Input.MoveY = 0; p.Respawn = 0;
         p.Invulnerable = 1.2f; p.ActionCooldown = 0;
@@ -711,7 +711,7 @@ public sealed class GameWorld
         _players.Values.Select(p => new WizardSnapshot(p.Id, p.Name, p.Team, p.Bot, p.Position, p.Facing, p.Health,
             Wizard.MaxHealth, p.Shield, p.Ward.ToArray(), p.Selection.Elements.ToArray(), p.Alive, Math.Max(0, p.Respawn),
             p.Wet, p.Burning, p.Chill, p.Frozen, p.Haste, p.Energy, p.MagickCooldowns.ToArray(), p.Kills, p.Deaths,
-            p.ChargeTime / 1.4f, p.Channel != null || p.Charging != null)).ToArray(),
+            p.ChargeTime / 1.4f, p.Channel != null || p.Charging != null, p.ShieldMax, p.Shield > 0 ? p.ShieldTime : 0)).ToArray(),
         _projectiles.Select(p => new ProjectileSnapshot(p.Id, p.Owner, p.Position, p.Velocity.Normalized, p.Recipe.Elements.ToArray(), p.Radius)).ToArray(),
         _walls.Select(w => new WallSnapshot(w.Id, w.Owner, w.A, w.B, w.Health, w.Lifetime, w.Recipe.Elements.ToArray())).ToArray(),
         _fields.Select(f => new FieldSnapshot(f.Id, f.Owner, f.Position, f.Radius, f.Lifetime, f.Recipe.Elements.ToArray(), f.Kind)).ToArray(),

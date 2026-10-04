@@ -41,6 +41,12 @@ jobs:
         run: |
           timeout 30s /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64 --headless --audio-driver Dummy --path src/Arcana.Client -- --diagnostics-smoke 2>&1 | tee diagnostic-test.log
           grep -q DIAGNOSTICS_SMOKE_OK diagnostic-test.log
+      - name: Verificar vida y seis estados de escudo en el HUD
+        env:
+          GODOT_SILENCE_ROOT_WARNING: 1
+        run: |
+          timeout 30s /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64 --headless --audio-driver Dummy --path src/Arcana.Client -- --hud-smoke 2>&1 | tee hud-test.log
+          grep -q HUD_SMOKE_OK hud-test.log
       - name: Construir y arrancar servidor Docker
         run: |
           docker build -t arcana-arena-server:test .
@@ -86,7 +92,7 @@ jobs:
         run: dotnet publish src/Arcana.Server -c Release --no-restore -o artifacts/server
       - uses: actions/upload-artifact@v4
         with:
-          name: arcana-server-v0.3.0
+          name: arcana-server-v0.3.1
           path: artifacts/server
       - name: Logs de diagnóstico
         if: failure()
@@ -147,12 +153,12 @@ jobs:
           $env:DOTNET_ROOT = Join-Path $env:RUNNER_TEMP 'sin-dotnet-global'
           $env:DOTNET_ROOT_X64 = $env:DOTNET_ROOT
           $env:DOTNET_MULTILEVEL_LOOKUP = '0'
-          foreach ($mode in @('smoke', 'host-smoke', 'diagnostics-smoke')) {
+          foreach ($mode in @('smoke', 'host-smoke', 'diagnostics-smoke', 'hud-smoke')) {
             $log = Join-Path $env:RUNNER_TEMP "arcana-$mode.log"
             $game = Start-Process "$package/ArcanaArena.exe" -ArgumentList '--headless','--audio-driver','Dummy','--log-file',"`"$log`"",'--',"--$mode" -PassThru
             if (!$game.WaitForExit(60000)) { $game.Kill(); throw "El juego no termino: $mode" }
             if ($game.ExitCode -ne 0) { if (Test-Path $log) { Get-Content $log }; throw "El juego fallo: $mode" }
-            $marker = switch ($mode) { 'smoke' { 'SMOKE_OK' }; 'host-smoke' { 'HOST_SMOKE_OK' }; 'diagnostics-smoke' { 'DIAGNOSTICS_SMOKE_OK' } }
+            $marker = switch ($mode) { 'smoke' { 'SMOKE_OK' }; 'host-smoke' { 'HOST_SMOKE_OK' }; 'diagnostics-smoke' { 'DIAGNOSTICS_SMOKE_OK' }; 'hud-smoke' { 'HUD_SMOKE_OK' } }
             Get-Content $log
             if (!(Select-String -Path $log -SimpleMatch $marker)) { throw "Falta la confirmacion: $mode" }
           }

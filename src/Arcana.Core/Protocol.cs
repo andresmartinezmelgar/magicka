@@ -58,7 +58,8 @@ public sealed class ServerMessage
 public sealed record WizardSnapshot(int Id, string Name, int Team, bool Bot, V2 Position,
     V2 Facing, float Health, float MaxHealth, float Shield, Element[] Ward, Element[] Selected,
     bool Alive, float Respawn, float Wet, float Burning, float Chill, float Frozen, float Haste,
-    float Energy, float[] Cooldowns, int Kills, int Deaths, float Charge, bool Casting);
+    float Energy, float[] Cooldowns, int Kills, int Deaths, float Charge, bool Casting,
+    float ShieldMax = 0, float ShieldSeconds = 0);
 public sealed record ProjectileSnapshot(int Id, int Owner, V2 Position, V2 Direction,
     Element[] Elements, float Radius);
 public sealed record WallSnapshot(int Id, int Owner, V2 A, V2 B, float Health, float Lifetime, Element[] Elements);

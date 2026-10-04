@@ -107,6 +107,26 @@ Test("Curación propia, escudo y guarda elemental", () =>
     Select(w, a, Element.Shield, Element.Fire); Send(w, a, "self");
     Check(a.Shield > 0 && a.Ward.Contains(Element.Fire), "No se creó la guarda.");
 });
+
+Test("Escudo: capacidad real, absorción, duración, expiración y cambio de guarda", () =>
+{
+    var (w, a, b) = Setup(); Select(w, a, Element.Shield); Send(w, a, "self");
+    var state = w.Snapshot().Players.First(p => p.Id == a.Id);
+    Check(state.Shield == 420 && state.ShieldMax == 420 && state.ShieldSeconds == 12, "El escudo normal no empieza al 100%.");
+    Send(w, b, "input", aim: a.Position); w.Step(); Select(w, b, Element.Arcane, Element.Arcane, Element.Arcane); Send(w, b, "cast");
+    for (int i = 0; i < 35; i++) { Send(w, b, "input", aim: a.Position); w.Step(); }
+    state = w.Snapshot().Players.First(p => p.Id == a.Id);
+    Check(state.Shield is > 0 and < 420 && state.ShieldMax == 420 && a.Health == 1000 && state.ShieldSeconds < 12, "El daño no consumió primero el escudo manteniendo su capacidad.");
+    var roundTrip = Protocol.Deserialize<WorldSnapshot>(Protocol.Serialize(w.Snapshot()))!;
+    Check(roundTrip.Players[0].Shield == state.Shield && roundTrip.Players[0].ShieldMax == 420 && roundTrip.Players[0].ShieldSeconds == state.ShieldSeconds, "Se perdieron los valores del escudo al enviarlos.");
+    Send(w, b, "release"); for (int i = 0; i < 725; i++) w.Step();
+    state = w.Snapshot().Players[0]; Check(state.Shield == 0 && state.ShieldMax == 0 && state.ShieldSeconds == 0, "Quedó un escudo activo tras expirar.");
+    Select(w, a, Element.Shield, Element.Fire); Send(w, a, "self");
+    state = w.Snapshot().Players[0]; Check(state.Shield == 180 && state.ShieldMax == 180, "La guarda elemental usa una escala incorrecta.");
+    for (int i = 0; i < 30; i++) w.Step(); Select(w, a, Element.Shield, Element.Earth); Send(w, a, "self");
+    state = w.Snapshot().Players[0]; Check(state.Shield == 650 && state.ShieldMax == 650 && state.ShieldSeconds == 12, "Reaplicar tierra no actualizó la capacidad.");
+    SnapshotValidation.Check(w.Snapshot());
+});
 Test("La roca cargada se lanza al soltar y colisiona con el enemigo", () =>
 {
     var (w, a, b) = Setup(); Send(w, a, "input"); w.Step();
@@ -368,6 +388,21 @@ if (server != null)
         await WaitFor(() => !b.Latest!.Players.First(p => p.Id == a.PlayerId).Casting, "No se replicó la interrupción.");
     });
 
+
+    await AsyncTest("La red replica capacidad y duración reales del escudo a ambos jugadores", async () =>
+    {
+        var room = await RoomBrowser.CreateAsync(server, new() { Name = "Prueba de escudo", ServerPassword = password, Mode = GameMode.Arena, MaxPlayers = 2 });
+        await using var a = new ArenaConnection(); await using var b = new ArenaConnection();
+        await a.ConnectAsync(server, "Escudo A", -1, password, roomId: room.Id); await b.ConnectAsync(server, "Escudo B", -1, password, roomId: room.Id);
+        a.Send(new() { Type = "element", Element = Element.Shield }); a.Send(new() { Type = "self" });
+        await WaitFor(() => b.Latest!.Players.FirstOrDefault(p => p.Id == a.PlayerId)?.ShieldMax == 420, "El rival no recibió el escudo normal.");
+        var shield = b.Latest!.Players.First(p => p.Id == a.PlayerId);
+        Check(shield.Shield == 420 && shield.ShieldSeconds is > 0 and <= 12, "El escudo normal no se transmitió lleno o perdió su duración.");
+        await Task.Delay(550); a.Send(new() { Type = "element", Element = Element.Shield }); a.Send(new() { Type = "element", Element = Element.Earth }); a.Send(new() { Type = "self" });
+        await WaitFor(() => a.Latest!.Players.First(p => p.Id == a.PlayerId).ShieldMax == 650 && b.Latest!.Players.First(p => p.Id == a.PlayerId).ShieldMax == 650, "No se replicó el cambio de capacidad a tierra.");
+        shield = b.Latest!.Players.First(p => p.Id == a.PlayerId);
+        Check(shield.Shield == 650 && shield.Ward.Contains(Element.Earth) && shield.ShieldSeconds > 0, "La guarda de tierra se transmitió con datos incorrectos.");
+    });
     await AsyncTest("Reutilizar una intención conserva dos comandos; cierre concurrente es idempotente", async () =>
     {
         var connection = new ArenaConnection();

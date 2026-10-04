@@ -1,4 +1,4 @@
-ARCANA ARENA v0.3.0
+ARCANA ARENA v0.3.1
 
 1. Extrae TODO el ZIP antes de jugar.
 2. Abre ArcanaArena.exe con doble clic.
@@ -28,6 +28,8 @@ la carpeta de datos y server/. Windows 10/11 x64 y OpenGL 3.3.
 Q W E R: agua, vida, escudo, frio. A S D F: rayo, arcano, tierra, fuego.
 Clic izquierdo / flechas: movimiento. Derecho: lanzar y mantener; soltar: parar.
 Central: magia sobre ti. Mayus + derecho: area. Mayus + izquierdo: baston.
+Barra verde: vida. Barra amarilla: puntos de escudo / capacidad y segundos restantes.
+El escudo normal tiene 420 puntos, las guardas 180 y tierra 650.
 1-4: magicks. Retroceso: vaciar elementos. F1: ayuda. ESC: menu. TAB: clasificacion.
 
 Recreacion inicial con recursos propios y balance aproximado de Magicka: Wizard Wars.

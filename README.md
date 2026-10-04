@@ -1,4 +1,4 @@
-# Arcana Arena — v0.3.0
+# Arcana Arena — v0.3.1
 
 Primera recreación jugable en C# del combate elemental de **Magicka: Wizard Wars**. Cliente 3D de escritorio con **Godot 4.5.2 .NET**, servidor independiente **ASP.NET Core / .NET 8**, Docker, launcher con conexión por IP/LAN, salas independientes y paquete Windows para abrir con doble clic.
 
@@ -8,11 +8,14 @@ El código, las mallas y los sonidos son propios. Esta versión reproduce la est
 
 ![Práctica local en el cliente 3D](docs/images/game.png)
 
+![Escudo al 50 %, con puntos y duración restantes](docs/images/shield-half.png)
+
 ## Qué se puede jugar
 
 - Ocho elementos y hasta tres elementos por hechizo. Las combinaciones se resuelven por reglas, no por un catálogo de unos pocos hechizos.
 - Rayos continuos, chorros en cono, arcos eléctricos, rocas con carga, fragmentos de hielo, vapor, muros, minas y lanzamientos en área.
 - Curación, escudos, guardas elementales, empujes, mojado, quemaduras, frío y congelación. Fuego amigo configurable.
+- Colores con más contraste y símbolos por elemento. Vida y escudo separados: el escudo muestra puntos/capacidad real y segundos restantes; también aparece sobre el mago.
 - Duelo, todos contra todos y guerra por tres puntos de control, con tickets, muerte, reaparición y reinicio de partidas.
 - Cuatro magicks: celeridad, traslación, meteoro y reanimación. Coste de energía y tiempos de reutilización.
 - Bots que combaten, se curan y capturan puntos. Práctica local sin iniciar Docker.
@@ -22,7 +25,7 @@ El código, las mallas y los sonidos son propios. Esta versión reproduce la est
 
 ## Jugar con doble clic en Windows
 
-1. Descargar [ArcanaArena-v0.3.0-Windows-x64.zip](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.3.0/ArcanaArena-v0.3.0-Windows-x64.zip) de [Releases](https://github.com/andresmartinezmelgar/magicka/releases/latest).
+1. Descargar [ArcanaArena-v0.3.1-Windows-x64.zip](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.3.1/ArcanaArena-v0.3.1-Windows-x64.zip) de [Releases](https://github.com/andresmartinezmelgar/magicka/releases/latest).
 2. **Extraer todo el ZIP** en una carpeta. Abrir **ArcanaArena.exe** con doble clic.
 3. Elegir **Práctica** para jugar con bots, **Alojar** para iniciar tu servidor, **LAN** para buscar servidores o **Por IP** para usar una dirección.
 
@@ -152,9 +155,9 @@ dotnet run --project tests/Arcana.Tests -c Release -- --server=127.0.0.1:27015 -
 
 Si se usa contraseña, definir `TEST_PASSWORD` en el proceso de pruebas. El cliente y el servidor deben ejecutar la misma versión del protocolo.
 
-La batería incluye **33 pruebas** con servidor protegido: 22 de núcleo/diagnóstico y 11 de red. Cubre combate, copias de estado, respuestas acotadas, rotación y ocultación de contraseñas, aislamiento de salas, cierre simultáneo, cancelación del saludo, bots en salas vacías y errores HTTP. El cliente ejecuta una práctica de cuatro magos durante 240 pasos en modo headless.
+La batería incluye **35 pruebas** con servidor protegido: 23 de núcleo/diagnóstico y 12 de red. Cubre combate, copias de estado, absorción/capacidad/caducidad del escudo, replicación de sus datos, respuestas acotadas, rotación y ocultación de contraseñas, aislamiento de salas, cierre simultáneo, cancelación del saludo, bots en salas vacías y errores HTTP. El cliente ejecuta una práctica de cuatro magos durante 240 pasos en modo headless.
 
-El workflow compila y prueba en Linux, valida Docker con IP y LAN, y genera el paquete en Windows. Antes de publicarlo prueba el servidor incluido, la creación de salas y el juego **exportado**, con el runtime global deshabilitado. También arranca el servidor desde el launcher exportado, comprueba que se detiene al cerrar y exporta un informe que incluye un aviso de prueba del motor. Solo una ejecución completa satisfactoria publica una nueva versión en **Releases**.
+El workflow compila y prueba en Linux, valida Docker con IP y LAN, y genera el paquete en Windows. Antes de publicarlo prueba el servidor incluido, la creación de salas y el juego **exportado**, con el runtime global deshabilitado. También arranca el servidor desde el launcher exportado, comprueba que se detiene al cerrar exporta un informe que incluye un aviso de prueba del motor y comprueba seis estados del escudo en el HUD. Solo una ejecución completa satisfactoria publica una nueva versión en **Releases**.
 
 ## Alcance de esta primera versión
 

@@ -41,10 +41,7 @@ public partial class Launcher : Control
         var keyboard = new GridContainer { Columns = 4 }; keyboard.AddThemeConstantOverride("h_separation", 10); keyboard.AddThemeConstantOverride("v_separation", 10); left.AddChild(keyboard);
         foreach (var e in Enum.GetValues<Element>())
         {
-            var tile = new PanelContainer { CustomMinimumSize = new(96, 62), SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            tile.AddThemeStyleboxOverride("panel", Ui.Panel(new Color(0.05f, 0.09f, 0.14f, 0.86f), 8));
-            var text = Ui.Label(Ui.ElementKey(e) + "  " + Ui.ElementName(e), 16, Ui.ElementColor(e));
-            text.HorizontalAlignment = HorizontalAlignment.Center; tile.AddChild(text); keyboard.AddChild(tile);
+            keyboard.AddChild(Ui.ElementTile(e));
         }
         left.AddChild(Ui.Label("C# · GODOT .NET · SERVIDOR AUTORITATIVO", 13, Ui.Muted));
         var rightScroll = new ScrollContainer { CustomMinimumSize = new(570, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill,

@@ -12,6 +12,7 @@ public sealed class Wizard
     public const float MaxHealth = 1000;
     public bool Alive => Health > 0;
     public float Shield { get; set; }
+    public float ShieldMax { get; set; }
     public float ShieldTime { get; set; }
     public Element[] Ward { get; set; } = [];
     public float WardTime { get; set; }
