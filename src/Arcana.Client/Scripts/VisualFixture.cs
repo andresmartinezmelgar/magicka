@@ -31,25 +31,49 @@ internal static class VisualFixture
     public static WorldSnapshot Effects(int frame)
     {
         var state = Create("half"); bool idle = frame >= 160;
+        int charges = frame < 50 ? 1 : frame < 100 ? 2 : 3;
+        Element[] Repeated(Element element) => Enumerable.Repeat(element, charges).ToArray();
         var players = state.Players.Select((p, i) => p with
         {
             WizardType = (WizardType)(i + 1), Casting = !idle && i == 0,
+            CastingElements = Repeated(Element.Fire),
             Burning = !idle && i == 1 ? 2 : 0, Frozen = !idle && i == 2 ? 1 : 0,
             Wet = !idle && i == 3 ? 3 : 0, Haste = !idle && i == 0 ? 2 : 0
         }).ToArray();
         int eventIndex = Math.Max(0, (frame - 1) / 10);
         string kind = EffectKinds[eventIndex % EffectKinds.Length];
         V2 position = kind == "explosion" ? new(0, 4) : kind == "impact" ? new(3, 0) : players[eventIndex % 4].Position;
-        Element[] elements = kind is "shield_hit" or "shield_break" or "self" ? [Element.Shield] : kind == "impact" ? [Element.Cold] : [Element.Fire];
+        Element[] elements = Repeated(kind is "shield_hit" or "shield_break" or "self" ? Element.Shield : kind == "impact" ? Element.Cold : Element.Fire);
         return state with
         {
             Tick = frame, Time = frame / 60.0, Players = players,
-            Projectiles = idle ? [] : [new(1, 1, new(-2 + frame % 90 / 15f, 1), new(1, 0), [Element.Earth, Element.Fire], 0.3f),
-                new(2, 2, new(2 - frame % 90 / 15f, 3), new(-1, 0), [Element.Water, Element.Cold], 0.16f)],
+            Projectiles = idle ? [] : [new(charges*10+1, 1, new(-2 + frame % 90 / 15f, 1), new(1, 0), Repeated(Element.Earth), 0.3f),
+                new(charges*10+2, 2, new(2 - frame % 90 / 15f, 3), new(-1, 0), Repeated(Element.Cold), 0.16f)],
             Fields = idle ? [] : [new(1, 1, new(0, 4), 3, 0.8f, [Element.Earth, Element.Fire], "meteor")],
-            Beams = idle ? [] : [new(1, new(-3.2f, -1), new(2.8f, -1), [Element.Fire], SpellShape.Spray),
-                new(4, new(3.2f, 5), new(-2.8f, 5), [Element.Lightning], SpellShape.Lightning)],
+            Beams = idle ? [] : [new(1, new(-3.2f, -1), new(2.8f, -1), Repeated(Element.Fire), SpellShape.Spray),
+                new(4, new(3.2f, 5), new(-2.8f, 5), Repeated(Element.Lightning), SpellShape.Lightning)],
             Events = idle ? [] : [new(eventIndex + 1, kind, position, elements, "")]
+        };
+    }
+    public static WorldSnapshot Strength(int frame, int charges)
+    {
+        var state = Create("none");
+        Element[] Repeated(Element element) => Enumerable.Repeat(element, charges).ToArray();
+        var kinds = new[] { Element.Fire, Element.Arcane, Element.Lightning, Element.Earth };
+        var players = state.Players.Select((p, i) => p with
+        {
+            Position = new(-7, -5.4f + i * 3.6f), Name = Ui.ElementName(kinds[i]), Team = 0,
+            Selected = [], CastingElements = Repeated(kinds[i]), Shield = 0, ShieldMax = 0, ShieldSeconds = 0,
+            Health = 1000, Casting = i < 3, Charge = i == 3 ? 0.65f : 0, Facing = new(1, 0)
+        }).ToArray();
+        return state with
+        {
+            Tick = frame, Time = frame / 60.0, Mode = GameMode.Arena, Players = players, Points = [],
+            Beams = [new(1, new(-6.3f,-5.4f), new(6,-5.4f), Repeated(Element.Fire), SpellShape.Spray),
+                new(2, new(-6.3f,-1.8f), new(6,-1.8f), Repeated(Element.Arcane), SpellShape.Beam),
+                new(3, new(-6.3f,1.8f), new(6,1.8f), Repeated(Element.Lightning), SpellShape.Lightning)],
+            Projectiles = [new(1, 4, new(-4 + frame % 80 * 0.12f,5.4f), new(1,0), Repeated(Element.Earth),0.3f)],
+            Fields = [], Events = frame >= 86 ? [new(1,"nova",new(4,5.4f),Repeated(Element.Fire),"",2)] : []
         };
     }
     public static WorldSnapshot Create(string shieldState)

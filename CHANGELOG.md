@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.11.0
+
+- Efectos según el número de elementos del hechizo, incluidos los repetidos. Una carga es visible y compacta; dos añaden detalle; tres aumentan más la densidad y los acentos.
+- Estelas de una, dos o cuatro partículas, aros finos de proyectil, más hebras en rayos continuos, ramificaciones cortas de electricidad y trazos de sprays. Muros, minas y áreas incorporan marcas discretas.
+- Lanzamientos e impactos más densos por nivel y segunda onda interior breve en novas/explosiones de tres cargas. Emisión luminosa moderada y partículas cortas; las respuestas de daño continuo y rotura se mantienen breves.
+- Límites de 320 partículas, 24 ondas, 64 partículas nuevas por fotograma y 512 segmentos de rayos. Pools reutilizables y limpieza al salir.
+- El canal activo conserva sus elementos aunque se prepare otra combinación. Las demostraciones F1 usan los mismos efectos; daño, alcance y radios pertenecen a la simulación.
+- Protocolo 8 compatible con v0.10.0. 88 pruebas de combate, diagnóstico y red; comprobaciones Godot de progresión, repetición de elementos, saturación y reutilización; capturas comparables de una/dos/tres cargas y ejecución del paquete Windows.
+
 ## 0.10.0
 
 - Coliseo de la ascensión con catorce objetos, dos por cada tipo de mejora, en posiciones aleatorias calculadas por el servidor. Cada objeto cambia de sitio al reaparecer tras doce segundos y al reiniciar la partida.

@@ -6,7 +6,7 @@ namespace Arcana.Client;
 /// <summary>Efectos locales. Reutiliza nodos y mallas con límites fijos; nunca modifica el combate.</summary>
 public partial class CombatEffects : Node3D
 {
-    public const int ParticleLimit = 384, RingLimit = 32;
+    public const int ParticleLimit = 320, RingLimit = 24, EmissionBudget = 64;
     private sealed class Spark(MeshInstance3D node)
     {
         public readonly MeshInstance3D Node = node;
@@ -31,11 +31,15 @@ public partial class CombatEffects : Node3D
         new CylinderMesh { TopRadius = 0, BottomRadius = 0.5f, Height = 1, RadialSegments = 6 }
     ];
     private readonly TorusMesh _ring = new() { InnerRadius = 0.94f, OuterRadius = 1, Rings = 32, RingSegments = 6 };
-    private int _sparkCount, _waveCount;
+    private int _sparkCount, _waveCount, _emittedThisFrame;
     private float _trailClock, _statusClock;
     public int ActiveCount => _sparks.Count + _waves.Count;
     public int PooledCount => _sparkCount + _waveCount;
+    internal int ActiveParticles => _sparks.Count;
+    internal int ActiveRings => _waves.Count;
+    internal int EmittedLastFrame { get; private set; }
     public HashSet<string> SeenKinds { get; } = [];
+    internal HashSet<int> SeenCharges { get; } = [];
 
     private StandardMaterial3D Material(Color color)
     {
@@ -43,7 +47,7 @@ public partial class CombatEffects : Node3D
         material = new StandardMaterial3D
         {
             AlbedoColor = color, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-            EmissionEnabled = true, Emission = color, EmissionEnergyMultiplier = 0.8f,
+            EmissionEnabled = true, Emission = color, EmissionEnergyMultiplier = 0.35f,
             Transparency = color.A < 1 ? BaseMaterial3D.TransparencyEnum.Alpha : BaseMaterial3D.TransparencyEnum.Disabled
         };
         _materials.Add(color, material); return material;
@@ -51,6 +55,7 @@ public partial class CombatEffects : Node3D
     private void Emit(Vector3 position, Color color, Vector3 velocity, float duration = 0.45f,
         int shape = 0, float size = 0.18f, float gravity = 2)
     {
+        if (_emittedThisFrame >= EmissionBudget) return;
         Spark spark;
         if (_freeSparks.Count > 0) spark = _freeSparks.Pop();
         else
@@ -63,7 +68,7 @@ public partial class CombatEffects : Node3D
         spark.Node.Position = position; spark.Node.Rotation = Vector3.Zero; spark.Node.Visible = true;
         spark.Size = shape == 0 ? Vector3.One * size : new(size, size * 2.2f, size);
         spark.Node.Scale = spark.Size; spark.Velocity = velocity; spark.Gravity = gravity;
-        spark.Life = spark.Duration = duration; _sparks.Add(spark);
+        spark.Life = spark.Duration = duration; _sparks.Add(spark); _emittedThisFrame++;
     }
     private void Ring(V2 position, Color color, float start, float end, float duration)
     {
@@ -87,18 +92,32 @@ public partial class CombatEffects : Node3D
         if (e.Kind is not ("cast" or "self" or "nova" or "impact" or "explosion" or "death" or "blink" or
             "blink_arrive" or "barrier" or "shield_hit" or "shield_break" or "hurt" or "splash" or "mine_heal" or "mine_place" or "beam_merge" or "beam_refract")) return;
         SeenKinds.Add(e.Kind);
+        // Golpes continuos y efectos de estado conservan una respuesta breve, sin multiplicar destellos.
+        var strength = e.Kind is "hurt" or "shield_hit" or "shield_break" or "death" or "blink" or "blink_arrive"
+            ? new SpellVisualStrength(1) : SpellVisualStrength.For(e.Elements);
+        SeenCharges.Add(strength.Charges);
         bool shield = e.Kind is "shield_hit" or "shield_break" || e.Kind == "self" && e.Elements.Contains(Element.Shield);
         bool fire = e.Elements.Contains(Element.Fire), ice = e.Elements.Contains(Element.Cold);
         Color color = e.Kind == "mine_heal" ? Ui.Health : shield ? Ui.Shield : e.Kind is "blink" or "blink_arrive" ? Ui.Energy : Ui.SpellColor(e.Elements);
-        int count = e.Kind switch { "explosion" => 30, "nova" => 24, "shield_break" => 22, "death" => 20, "impact" => 16, "hurt" => 4, _ => 8 };
-        float speed = e.Kind is "explosion" or "nova" or "shield_break" ? 5.5f : 2.8f;
+        int basis = e.Kind switch { "explosion" => 12, "nova" => 10, "shield_break" => 14, "death" => 14, "impact" => 6, "hurt" => 3, _ => 4 };
+        int count = (int)MathF.Round(basis * strength.BurstDensity);
+        float speed = e.Kind is "explosion" or "nova" or "shield_break" ? 3.6f : 2.1f;
         int shape = shield || ice || e.Elements.Contains(Element.Earth) ? 1 : fire ? 2 : 0;
         var origin = ArenaRenderer.World(e.Position, e.Kind == "explosion" ? 0.3f : 1.1f);
-        for (int i = 0; i < count; i++) Emit(origin, color, Direction() * speed, 0.55f + (float)_random.NextDouble() * 0.3f, shape, e.Kind == "explosion" ? 0.28f : 0.17f);
-        if (e.Kind is "nova" or "explosion" or "splash" or "mine_heal") Ring(e.Position, color, 0.4f, e.Radius > 0 ? e.Radius : e.Kind == "nova" ? 4 : 2.4f, 0.6f);
+        color.A = 0.88f;
+        for (int i = 0; i < count; i++) Emit(origin, color, Direction() * speed,
+            strength.Lifetime + (float)_random.NextDouble() * 0.08f, shape, strength.SparkSize * (e.Kind == "explosion" ? 1.2f : 1));
+        color.A = 0.42f;
+        if (e.Kind is "nova" or "explosion" or "splash" or "mine_heal")
+        {
+            float radius = e.Radius > 0 ? e.Radius : e.Kind == "nova" ? 4 : 2.4f;
+            Ring(e.Position, color, 0.4f, radius, 0.45f);
+            if (strength.Charges == 3) Ring(e.Position, color, 0.2f, radius * 0.72f, 0.32f);
+        }
         else if (e.Kind is "beam_merge" or "beam_refract") Ring(e.Position, color, 0.1f, 0.6f, 0.25f);
         else if (e.Kind is "blink" or "blink_arrive") Ring(e.Position, color, 0.2f, 1.7f, 0.45f);
-        else if (shield || e.Kind is "self" or "barrier" or "cast") Ring(e.Position, color, 0.4f, shield ? 1.6f : 1.1f, 0.4f);
+        else if (shield || e.Kind is "self" or "barrier" or "cast")
+            Ring(e.Position, color, 0.4f, shield ? 1.6f : 0.7f + strength.Charges * 0.15f, 0.32f);
     }
 
     public void Advance(WorldSnapshot snapshot, float delta, bool playing)
@@ -124,21 +143,34 @@ public partial class CombatEffects : Node3D
             float radius = Mathf.Lerp(w.Start, w.End, 1 - w.Life / w.Duration);
             w.Node.Scale = new(radius, Math.Max(0.03f, w.Life / w.Duration) * 0.6f, radius);
         }
-        if (!playing) return;
+        if (!playing) { FinishFrame(); return; }
         _trailClock += dt; _statusClock += dt;
-        if (_trailClock >= 0.045f)
+        if (_trailClock >= 0.065f)
         {
-            _trailClock %= 0.045f;
+            _trailClock %= 0.065f;
             foreach (var p in snapshot.Projectiles)
             {
+                var strength = SpellVisualStrength.For(p.Elements); SeenCharges.Add(strength.Charges);
                 var color = Ui.SpellColor(p.Elements);
-                Emit(ArenaRenderer.World(p.Position, 0.9f), color, ArenaRenderer.World(p.Direction) * -1.3f,
-                    0.35f, p.Elements.Contains(Element.Cold) ? 1 : 0, 0.20f, 0);
+                var forward = ArenaRenderer.World(p.Direction);
+                var side = forward.Cross(Vector3.Up);
+                for (int i = 0; i < strength.TrailSamples; i++)
+                {
+                    float offset = (i - (strength.TrailSamples - 1) * 0.5f) * 0.085f;
+                    Emit(ArenaRenderer.World(p.Position, 0.9f) + side * offset, color,
+                        forward * -1.3f + side * offset, strength.Lifetime,
+                        p.Elements.Contains(Element.Cold) ? 1 : 0, strength.SparkSize, 0);
+                }
             }
             foreach (var b in snapshot.Beams)
             {
-                float t = (float)_random.NextDouble();
-                Emit(ArenaRenderer.World(V2.Lerp(b.From, b.To, t), 1), Ui.SpellColor(b.Elements), Direction() * 0.5f, 0.25f, 0, 0.12f, 0);
+                var strength = SpellVisualStrength.For(b.Elements); SeenCharges.Add(strength.Charges);
+                for (int i = 0; i < strength.ChannelSamples; i++)
+                {
+                    float t = (i + (float)_random.NextDouble()) / strength.ChannelSamples;
+                    Emit(ArenaRenderer.World(V2.Lerp(b.From, b.To, t), 1), Ui.SpellColor(b.Elements),
+                        Direction() * 0.35f, 0.20f, 0, strength.SparkSize * 0.7f, 0);
+                }
             }
         }
         if (_statusClock >= 0.11f)
@@ -153,24 +185,35 @@ public partial class CombatEffects : Node3D
                 if (p.Chill > 20 || p.Frozen > 0) Emit(at + Direction() * 0.5f, Ui.ElementColor(Element.Cold), Direction() * 0.6f, 0.6f, 1, 0.15f, 0.2f);
                 if (p.Haste > 0) Emit(at, Ui.Energy, -ArenaRenderer.World(p.Facing) * 1.8f, 0.4f, 0, 0.24f, 0);
                 if (p.RegenerationRate > 0) Emit(at + Direction() * 0.4f, Ui.Health, Vector3.Up * 1.3f, 0.7f, 0, 0.20f, -0.2f);
-                if (p.Casting && WizardTypes.Affinity(p.WizardType) is { } element)
-                    Emit(at + Vector3.Up * 1.35f, Ui.ElementColor(element), Direction(), 0.45f, 0, 0.16f, 0);
+                if (p.Casting || p.Charge > 0)
+                {
+                    var elements = p.CastingElements is { Length: > 0 } ? p.CastingElements : p.Selected;
+                    if (elements.Length == 0) continue;
+                    var strength = SpellVisualStrength.For(elements); SeenCharges.Add(strength.Charges);
+                    for (int i = 0; i < strength.ChannelSamples; i++)
+                        Emit(at + Vector3.Up * 0.55f + Direction() * 0.22f, Ui.SpellColor(elements),
+                            Direction() * 0.4f, 0.24f, 0, strength.SparkSize * 0.75f, 0);
+                }
             }
             foreach (var field in snapshot.Fields.Where(f => f.Kind is "burning_ground" or "frost_ground" or "water_pool"))
             {
-                for (int i = 0; i < 3; i++)
+                var strength = SpellVisualStrength.For(field.Elements);
+                for (int i = 0; i < strength.ChannelSamples; i++)
                 {
                     var at = ArenaRenderer.World(field.Position, 0.15f) + Direction() * (field.Radius * 0.7f);
                     Emit(at, Ui.SpellColor(field.Elements), Vector3.Up * (field.Kind == "burning_ground" ? 1.4f : 0.35f),
-                        0.5f, field.Kind == "burning_ground" ? 2 : field.Kind == "frost_ground" ? 1 : 0, 0.20f, 0);
+                        0.35f, field.Kind == "burning_ground" ? 2 : field.Kind == "frost_ground" ? 1 : 0, strength.SparkSize, 0);
                 }
             }
         }
+        FinishFrame();
     }
+    private void FinishFrame() { EmittedLastFrame = _emittedThisFrame; _emittedThisFrame = 0; }
     public void Clear()
     {
         foreach (var p in _sparks) { p.Node.Visible = false; _freeSparks.Push(p); } _sparks.Clear();
         foreach (var w in _waves) { w.Node.Visible = false; _freeWaves.Push(w); } _waves.Clear();
-        _trailClock = _statusClock = 0; SeenKinds.Clear();
+        _trailClock = _statusClock = 0; _emittedThisFrame = EmittedLastFrame = 0;
+        SeenKinds.Clear(); SeenCharges.Clear();
     }
 }

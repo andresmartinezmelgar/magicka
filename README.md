@@ -1,4 +1,4 @@
-# Arcana Arena — v0.10.0
+# Arcana Arena — v0.11.0
 
 Primera recreación jugable en C# del combate elemental de **Magicka: Wizard Wars**. Cliente 3D de escritorio con **Godot 4.5.2 .NET**, servidor independiente **ASP.NET Core / .NET 8**, Docker, launcher con conexión por IP/LAN, salas independientes y paquete Windows para abrir con doble clic.
 
@@ -40,7 +40,7 @@ El código, las mallas y los sonidos son propios. Los sprites de los magos se ha
 
 ## Jugar con doble clic en Windows
 
-1. Descargar [ArcanaArena-v0.10.0-Windows-x64.zip](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.10.0/ArcanaArena-v0.10.0-Windows-x64.zip) de [Releases](https://github.com/andresmartinezmelgar/magicka/releases/latest).
+1. Descargar [ArcanaArena-v0.11.0-Windows-x64.zip](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.11.0/ArcanaArena-v0.11.0-Windows-x64.zip) de [Releases](https://github.com/andresmartinezmelgar/magicka/releases/latest).
 2. **Extraer todo el ZIP** en una carpeta. Abrir **ArcanaArena.exe** con doble clic.
 3. Elegir el **tipo de mago**. Elegir **Práctica** para jugar con bots, **Alojar** para iniciar tu servidor, **LAN** para buscar servidores o **Por IP** para usar una dirección.
 
@@ -71,7 +71,7 @@ El resultado queda en **`Juego/ArcanaArena.exe`**. Cada compilación correcta **
 - **Guerra en Arena clásica:** reducir a cero los tickets rivales; controlar más puntos los desgasta cada segundo y cada muerte cuesta un ticket.
 - **Guerra en Ciudadela:** controlar los tres puntos sin disputa durante **15 segundos consecutivos**. Disputar o neutralizar cualquiera reinicia el contador; no hay victoria por tickets o bajas.
 
-Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). El combate usa **protocolo 8**. Actualizar cliente y servidor juntos a v0.10.0; las versiones anteriores se rechazan en el saludo.
+Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). El combate usa **protocolo 8**. La versión v0.11.0 es compatible con v0.10.0; las versiones con protocolos anteriores se rechazan en el saludo.
 
 ## Mapas
 
@@ -208,6 +208,6 @@ El workflow compila y prueba en Linux, valida Docker con IP y LAN, y genera el p
 
 El núcleo PvP, el launcher y el servidor están implementados. El mapa, los modelos, la animación y el balance son propios. Esta versión usa WebSocket sobre TCP y suavizado del estado; no incorpora predicción con reconciliación, compensación de latencia, matchmaking público, cuentas, persistencia de estadísticas ni las tablas completas de balance y equipo del original. La preferencia de equipo se respeta cuando permite mantener equipos equilibrados.
 
-Combate y demostraciones: [efectos, minas, rayos y captura](docs/COMBINACIONES.md).
+Combate y demostraciones: [efectos, minas, rayos y captura](docs/COMBINACIONES.md) · [detalle visual por cargas](docs/EFECTOS.md).
 
 Documentación adicional: [servidor y redes](docs/SERVIDOR.md), [arquitectura](docs/ARQUITECTURA.md), [exportar el ejecutable](docs/EXPORTAR.md), [cambios de versión](CHANGELOG.md).

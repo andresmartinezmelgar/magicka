@@ -50,7 +50,7 @@ Las salas sin humanos se pausan. El servidor reutiliza contenedores temporales y
 
 ## Vida y escudo
 
-`Wizard.ShieldMax` conserva la capacidad aplicada, aunque el daño reduzca `Shield`. El snapshot transmite `ShieldMax`, `ShieldSeconds` y `RegenerationRate`; la expiración, muerte y reaparición limpian los valores. El HUD y las barras 3D usan la misma capacidad y diferencian vida, protección y energía. La versión v0.10.0 exige protocolo 8 para garantizar mapas, objetos y elementos preparados comunes.
+`Wizard.ShieldMax` conserva la capacidad aplicada, aunque el daño reduzca `Shield`. El snapshot transmite `ShieldMax`, `ShieldSeconds` y `RegenerationRate`; la expiración, muerte y reaparición limpian los valores. El HUD y las barras 3D usan la misma capacidad y diferencian vida, protección y energía. Las versiones v0.10.0 y v0.11.0 comparten protocolo 8, mapas, objetos y elementos preparados comunes.
 
 ## Mapas y control total
 
@@ -66,7 +66,7 @@ En guerra de Ciudadela, `GameWorld` suma ticks de control total sin disputa. Al 
 
 `WizardTypes` define cinco tipos y multiplicadores de 1,25. `GameWorld.ElementDamage` aplica el bonus del atacante, la debilidad del defensor y la guarda a cada componente. `BurnMultiplier` conserva la potencia inicial de la quemadura incluso si el atacante se desconecta. El tipo es inmutable en `Wizard`; se valida en el saludo y viaja en `WizardSnapshot`. `WorldSnapshot` replica `ScoreLimit` y `StartingTickets`. `MatchRules` proporciona objetivos compartidos por HUD, salas y ayuda.
 
-El servidor emite `shield_hit`, `shield_break` y `hurt`; limita los impactos continuos a uno por mago cada 0,14 s, y siempre emite la rotura. `CombatEffects` mantiene pools de hasta 384 partículas y 32 ondas, con mallas y materiales compartidos. Procesa eventos por ID, crea estelas y partículas de estado a intervalos y limpia los efectos al salir. `--effects-smoke` comprueba doce eventos, datos de tipo, límites, expiración y limpieza.
+El servidor emite `shield_hit`, `shield_break` y `hurt`; limita los impactos continuos a uno por mago cada 0,14 s, y siempre emite la rotura. `CombatEffects` mantiene pools de hasta 320 partículas y 24 ondas, con mallas y materiales compartidos y un presupuesto de 64 partículas nuevas por fotograma. Procesa eventos por ID, crea estelas y partículas de estado a intervalos y limpia los efectos al salir. `SpellVisualStrength` gradúa el detalle por cantidad de elementos, incluidos los repetidos, con brillo contenido y partículas cortas. `--effects-smoke` comprueba doce eventos, los tres niveles de detalle, cuatro formas de canal, radio de proyectil, el canal frente a la siguiente selección, saturación, reutilización y limpieza. [Escala de efectos y capturas](EFECTOS.md).
 
 `Compilar-Juego.cmd` ejecuta `auto-compile.ps1` en Windows PowerShell 5.1. Las herramientas se almacenan en `.tools/`; `package-windows.ps1` construye `artifacts/windows`. `Publish-GamePackage` valida el paquete, copia a una carpeta temporal y sustituye `Juego/` mediante movimientos, con restauración si falla el movimiento. La prueba `test-build-output.ps1` verifica reemplazo, segunda publicación, rutas con espacios y preservación del juego ante un paquete incompleto.
 

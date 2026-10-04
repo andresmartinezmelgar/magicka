@@ -42,6 +42,7 @@ public partial class Main : Node
     private bool _hostSmoke;
     private bool _hudSmoke;
     private bool _effectsSmoke, _previewEffects;
+    private int _previewStrength;
     private bool _spritesSmoke;
     private bool _combinationsSmoke;
     private bool _mapsSmoke;
@@ -107,6 +108,7 @@ public partial class Main : Node
             if (arg == "--hud-smoke") _hudSmoke = true;
             if (arg == "--effects-smoke") _effectsSmoke = true;
             if (arg == "--preview-effects") _previewEffects = true;
+            if (arg.StartsWith("--preview-strength=") && int.TryParse(arg[19..], out int strength)) _previewStrength = Math.Clamp(strength, 1, 3);
             if (arg == "--sprites-smoke") _spritesSmoke = true;
             if (arg == "--combinations-smoke") _combinationsSmoke = true;
             if (arg == "--maps-smoke") _mapsSmoke = true;
@@ -136,6 +138,13 @@ public partial class Main : Node
                 StartGame(VisualFixture.Wizards(0, _previewWizards));
             }
             else StartGame(VisualFixture.Create(_previewShield ?? "none"));
+        }
+        if (_previewStrength > 0)
+        {
+            _practice = null; _localId = 1; StartGame(VisualFixture.Strength(0, _previewStrength));
+            _hud!.Visible = false;
+            _renderer.SetPreviewZoom(24); _renderer.ShowControlPoints = false;
+            _ui.AddChild(Ui.Label($"{_previewStrength} {(_previewStrength == 1 ? "carga" : "cargas")}", 28));
         }
         if (_previewHelp >= 0) { ToggleHelp(); _helpPages.CurrentTab = _previewHelp; }
         if (_combinationsSmoke || _previewCombination != null || _previewInteraction != DemonstrationKind.Combination)
@@ -271,6 +280,7 @@ public partial class Main : Node
             _snapshot = _snapshot! with { Pickups = _snapshot!.Pickups!.Select(i => i.Id == 1 ? i with { Position = new V2(0, 20) } : i).ToArray() };
         if (_combinationsSmoke) CheckCombinations();
         if (_effectsSmoke || _previewEffects) _snapshot = VisualFixture.Effects(_renderFrames);
+        if (_previewStrength > 0) _snapshot = VisualFixture.Strength(_renderFrames, _previewStrength);
         if (_spritesSmoke || _previewWizards != null) _snapshot = VisualFixture.Wizards(_renderFrames, _previewWizards);
         if (_hudSmoke && _renderFrames <= HudCases.Length * 3 && _renderFrames % 3 == 1)
             _snapshot = VisualFixture.Create(HudCases[(_renderFrames - 1) / 3].State);
@@ -294,7 +304,7 @@ public partial class Main : Node
                 Diagnostics.Warn("client.stale_snapshot", "El servidor dejó de enviar el estado.", context: Context());
                 ReturnToLauncher("El servidor ha dejado de enviar el estado de la partida. Puedes exportar el diagnóstico desde el launcher."); return;
             }
-            _renderer.Render(latest, _localId, _effectsSmoke || _spritesSmoke ? 1 / 60.0 : delta, true);
+            _renderer.Render(latest, _localId, _effectsSmoke || _spritesSmoke || _previewStrength > 0 ? 1 / 60.0 : delta, true);
             _hud?.Update(latest, _localId, _serverName, delta);
             if (_mapsSmoke && _renderFrames % 30 == 0) CheckMaps(latest);
             if (_previewMap != null) _renderer.SetPreviewZoom(72);
@@ -310,7 +320,7 @@ public partial class Main : Node
     public override void _PhysicsProcess(double delta)
     {
         if (CheckSmokeErrors()) return;
-        if (_hudSmoke || _previewShield != null || _effectsSmoke || _previewEffects || _spritesSmoke || _previewWizards != null || _combinationsSmoke || _mapsSmoke || _previewMap != null) return;
+        if (_hudSmoke || _previewShield != null || _effectsSmoke || _previewEffects || _previewStrength > 0 || _spritesSmoke || _previewWizards != null || _combinationsSmoke || _mapsSmoke || _previewMap != null) return;
         if (!_playing) { _backdrop.Step(); _backdropSnapshot = _backdrop.Snapshot(); return; }
         _inputTime += delta;
         if (_practice != null)
@@ -438,15 +448,70 @@ public partial class Main : Node
     private void CheckEffects()
     {
         var effects = _renderer.Effects;
-        bool valid = effects.ActiveCount <= CombatEffects.ParticleLimit + CombatEffects.RingLimit && effects.PooledCount <= CombatEffects.ParticleLimit + CombatEffects.RingLimit;
+        bool valid = effects.ActiveParticles <= CombatEffects.ParticleLimit && effects.ActiveRings <= CombatEffects.RingLimit &&
+            effects.PooledCount <= CombatEffects.ParticleLimit + CombatEffects.RingLimit && effects.EmittedLastFrame <= CombatEffects.EmissionBudget;
         if (_renderFrames == 130) valid &= effects.ActiveCount > 0 && effects.SeenKinds.Count == 12 &&
             ((Label)_hud!.FindChild("WizardAffinity", true, false)).Text == "Piromante";
         if (_renderFrames == 240)
         {
-            valid &= effects.ActiveCount == 0; _renderer.Clear(); valid &= effects.ActiveCount == 0;
-            if (valid) CompleteSmoke("EFFECTS_SMOKE_OK: 12 eventos, tipos, expiración, reutilización y limpieza");
+            valid &= effects.ActiveCount == 0 && effects.SeenCharges.SetEquals([1,2,3]);
+            if (valid) valid = CheckSpellStrength();
+            _renderer.Clear(); valid &= effects.ActiveCount == 0 && _renderer.ActiveBeamSegments == 0;
+            if (valid) CompleteSmoke("EFFECTS_SMOKE_OK: 1/2/3 cargas, elementos repetidos, 12 eventos, límites, expiración, reutilización y limpieza");
         }
         if (!valid) { GD.PushError("EFFECTS_SMOKE_FAILED: efectos o tipo de mago inválidos"); GetTree().Quit(1); }
+    }
+    private bool CheckSpellStrength()
+    {
+        var probe = new CombatEffects(); AddChild(probe);
+        var empty = _snapshot! with { Players = [], Projectiles = [], Beams = [], Fields = [], Walls = [], Points = [], Events = [], Pickups = [] };
+        var impacts = new int[3]; var trails = new int[3]; var waves = new int[3];
+        bool valid = true;
+        for (int charges = 1; charges <= 3; charges++)
+        {
+            var elements = Enumerable.Repeat(Element.Earth, charges).ToArray();
+            probe.Clear(); probe.Play(new(1,"impact",V2.Zero,elements,"")); impacts[charges-1] = probe.ActiveParticles;
+            probe.Clear(); probe.Play(new(1,"nova",V2.Zero,elements,"",4)); waves[charges-1] = probe.ActiveRings;
+            probe.Clear();
+            var shot = empty with { Projectiles = [new(1,1,V2.Zero,new(1,0),elements,0.3f)] };
+            probe.Advance(shot,0.04f,true); probe.Advance(shot,0.04f,true); trails[charges-1] = probe.ActiveParticles;
+            _renderer.Render(shot,0,1/60.0,true);
+            var meshes = _renderer.ProjectileVisuals[1].GetChildren().OfType<MeshInstance3D>().ToArray();
+            valid &= meshes.Length == charges && ((SphereMesh)meshes[0].Mesh).Radius == 0.3f;
+            _renderer.Clear();
+        }
+        valid &= impacts[0] > 0 && impacts[1] > impacts[0] && impacts[2] > impacts[1] && impacts[2] >= impacts[0]*2.5f;
+        valid &= trails[0] > 0 && trails[1] > trails[0] && trails[2] > trails[1] && waves[0] == 1 && waves[1] == 1 && waves[2] == 2;
+        foreach (var shape in new[] { SpellShape.Beam, SpellShape.Spray, SpellShape.Force, SpellShape.Lightning })
+        {
+            int previous = 0;
+            for (int charges = 1; charges <= 3; charges++)
+            {
+                var elements = Enumerable.Repeat(Element.Arcane,charges).ToArray();
+                _renderer.Render(empty with { Beams = [new(1,new(-3,0),new(3,0),elements,shape)] },0,1/60.0,true);
+                valid &= _renderer.ActiveBeamSegments > previous; previous = _renderer.ActiveBeamSegments;
+            }
+        }
+        // Un hechizo ya lanzado conserva su nivel aunque se preparen tres elementos para el siguiente.
+        probe.Clear();
+        var caster = _snapshot!.Players[0] with { Burning=0,Wet=0,Chill=0,Frozen=0,Haste=0,RegenerationRate=0,
+            Casting=true,Charge=0,Selected=[Element.Fire,Element.Fire,Element.Fire],CastingElements=[Element.Arcane] };
+        for (int i=0;i<3;i++) probe.Advance(empty with { Players=[caster] },0.05f,true);
+        valid &= probe.ActiveParticles == 1;
+        probe.Clear();
+        for (int frame=0;frame<40;frame++)
+        {
+            for (int i=0;i<20;i++) probe.Play(new(frame*20+i,"nova",V2.Zero,[Element.Fire,Element.Fire,Element.Fire],"",4));
+            probe.Advance(empty,0.05f,true);
+            valid &= probe.ActiveParticles <= CombatEffects.ParticleLimit && probe.ActiveRings <= CombatEffects.RingLimit &&
+                probe.EmittedLastFrame <= CombatEffects.EmissionBudget;
+        }
+        int allocated = probe.PooledCount; probe.Clear(); probe.Play(new(1,"impact",V2.Zero,[Element.Fire],""));
+        valid &= probe.ActiveParticles > 0 && probe.PooledCount == allocated;
+        for (int i=0;i<25;i++) probe.Advance(empty,0.05f,false);
+        valid &= probe.ActiveCount == 0; probe.QueueFree();
+        if (valid) GD.Print($"SPELL_STRENGTH_OK: impactos {string.Join('/',impacts)}, estelas {string.Join('/',trails)}, anillos {string.Join('/',waves)}, 4 formas y saturación comprobadas");
+        return valid;
     }
     private void CheckSprites(WorldSnapshot snapshot)
     {
@@ -638,8 +703,9 @@ public partial class Main : Node
         var captured = GetViewport().GetTexture().GetImage(); var error = captured.SavePng(path);
         if (_captureReview)
         {
-            captured.Resize(640, 400, Image.Interpolation.Lanczos);
-            GD.Print("MAP_REVIEW_BASE64:" + _previewMap + ":" + Convert.ToBase64String(captured.SaveJpgToBuffer(0.72f)));
+            captured.Resize(_previewStrength > 0 ? 960 : 640, _previewStrength > 0 ? 600 : 400, Image.Interpolation.Lanczos);
+            string marker = _previewStrength > 0 ? "EFFECT_REVIEW_BASE64:" + _previewStrength : "MAP_REVIEW_BASE64:" + _previewMap;
+            GD.Print(marker + ":" + Convert.ToBase64String(captured.SaveJpgToBuffer(0.8f)));
         }
         GD.Print($"CAPTURE: {error} {path}"); GetTree().Quit(error == Error.Ok ? 0 : 1);
     }
