@@ -63,6 +63,23 @@ public partial class Main : Node
         [("none", 0, 420), ("full", 420, 420), ("half", 210, 420), ("low", 40, 420), ("ward", 90, 180), ("stone", 325, 650)];
     private int _smokeFrames, _renderFrames;
     private string? _capturePath;
+    private bool _smokeFailed;
+    private bool SmokeMode => _smoke || _hostSmoke || _diagnosticsSmoke || _hudSmoke || _effectsSmoke || _spritesSmoke || _combinationsSmoke;
+
+    private bool CheckSmokeErrors()
+    {
+        if (_smokeFailed) return true;
+        if (!SmokeMode || _engineLog.ErrorCount == 0) return false;
+        _smokeFailed = true;
+        GD.PushError($"SMOKE_FAILED: {_engineLog.ErrorCount} errores del motor o de scripts.");
+        GetTree().Quit(1);
+        return true;
+    }
+    private void CompleteSmoke(string message)
+    {
+        if (CheckSmokeErrors()) return;
+        GD.Print(message); GetTree().Quit();
+    }
 
     public override void _Ready()
     {
@@ -205,9 +222,32 @@ public partial class Main : Node
 
     public override void _Process(double delta)
     {
+        if (CheckSmokeErrors()) return;
+        try { ProcessFrame(delta); }
+        catch (Exception e)
+        {
+            Diagnostics.Error("client.frame_failed", "Fallo al actualizar el cliente.", e, Context());
+            if (SmokeMode)
+            {
+                _smokeFailed = true;
+                GD.PushError("SMOKE_FAILED: " + e.Message);
+                GetTree().Quit(1);
+                return;
+            }
+            throw;
+        }
+    }
+
+    private void ProcessFrame(double delta)
+    {
+        if (CheckSmokeErrors()) return;
         while (_posted.TryDequeue(out var action))
             try { action(); }
-            catch (Exception e) { Diagnostics.Error("client.callback_failed", "Fallo en una operación de interfaz.", e, Context()); }
+            catch (Exception e)
+            {
+                Diagnostics.Error("client.callback_failed", "Fallo en una operación de interfaz.", e, Context());
+                if (SmokeMode) { GD.PushError("SMOKE_FAILED: " + e.Message); GetTree().Quit(1); return; }
+            }
         _renderFrames++;
         if (_combinationsSmoke) CheckCombinations();
         if (_effectsSmoke || _previewEffects) _snapshot = VisualFixture.Effects(_renderFrames);
@@ -247,6 +287,7 @@ public partial class Main : Node
 
     public override void _PhysicsProcess(double delta)
     {
+        if (CheckSmokeErrors()) return;
         if (_hudSmoke || _previewShield != null || _effectsSmoke || _previewEffects || _spritesSmoke || _previewWizards != null || _combinationsSmoke) return;
         if (!_playing) { _backdrop.Step(); _backdropSnapshot = _backdrop.Snapshot(); return; }
         _inputTime += delta;
@@ -270,10 +311,10 @@ public partial class Main : Node
             }
             if (_smokeFrames == 140) { Submit(new() { Type = "release" }); Submit(new() { Type = "element", Element = Element.Shield }); Submit(new() { Type = "self" }); }
             if (_smokeFrames >= 240 && _capturePath == null)
-            { GD.Print($"SMOKE_OK: {_snapshot?.Players.Length} jugadores, tick {_snapshot?.Tick}"); GetTree().Quit(); }
+            CompleteSmoke($"SMOKE_OK: {_snapshot?.Players.Length} jugadores, tick {_snapshot?.Tick}");
         }
         if (_hostSmoke && _connection?.Connected == true && ++_smokeFrames >= 180)
-        { GD.Print($"HOST_SMOKE_OK: {_connection.Room?.Name}, {_snapshot?.Players.Length} jugadores"); GetTree().Quit(); }
+        CompleteSmoke($"HOST_SMOKE_OK: {_connection.Room?.Name}, {_snapshot?.Players.Length} jugadores");
     }
     private void CheckHudCase()
     {
@@ -285,7 +326,7 @@ public partial class Main : Node
             (expected.Shield == 0 ? text.Text.Contains("INACTIVO") : text.Text.Contains($"{expected.Shield:0} / {expected.Maximum:0}") && text.Text.Contains(" s"));
         if (!correct) { GD.PushError($"HUD_SMOKE_FAILED: {expected.State}, {shield.Value}/{shield.MaxValue}, {text.Text}"); GetTree().Quit(1); return; }
         GD.Print($"HUD_CASE_OK: {expected.State}, {shield.Value}/{shield.MaxValue}");
-        if (expected.State == HudCases[^1].State) { GD.Print("HUD_SMOKE_OK: 6 estados de escudo, vida, capacidad y duración"); GetTree().Quit(); }
+        if (expected.State == HudCases[^1].State) CompleteSmoke("HUD_SMOKE_OK: 6 estados de escudo, vida, capacidad y duración");
     }
     private void CheckCombinations()
     {
@@ -310,7 +351,7 @@ public partial class Main : Node
             if (!valid) throw new InvalidDataException("No se representó el comportamiento esperado.");
             GD.Print($"COMBINATION_CASE_OK: {item.Keys} {item.Mode} {item.Kind}");
             if (index == CombinationCases.Length - 1)
-            { GD.Print($"COMBINATIONS_SMOKE_OK: {SpellCatalogue.All.Length} combinaciones y 10 escenas verificadas"); GetTree().Quit(); }
+            CompleteSmoke($"COMBINATIONS_SMOKE_OK: {SpellCatalogue.All.Length} combinaciones y 10 escenas verificadas");
         }
         catch (Exception e) { GD.PushError($"COMBINATIONS_SMOKE_FAILED: {index}, {e.Message}"); GetTree().Quit(1); }
     }
@@ -323,7 +364,7 @@ public partial class Main : Node
         if (_renderFrames == 240)
         {
             valid &= effects.ActiveCount == 0; _renderer.Clear(); valid &= effects.ActiveCount == 0;
-            if (valid) { GD.Print("EFFECTS_SMOKE_OK: 12 eventos, tipos, expiración, reutilización y limpieza"); GetTree().Quit(); }
+            if (valid) CompleteSmoke("EFFECTS_SMOKE_OK: 12 eventos, tipos, expiración, reutilización y limpieza");
         }
         if (!valid) { GD.PushError("EFFECTS_SMOKE_FAILED: efectos o tipo de mago inválidos"); GetTree().Quit(1); }
     }
@@ -348,7 +389,7 @@ public partial class Main : Node
             // Cinco atlas compartidos, ambos equipos, cuatro direcciones y tres poses usadas.
             valid &= _spriteCoverage.Count == 120;
             _renderer.Clear(); valid &= _renderer.Wizards.Count == 0;
-            if (valid) { GD.Print("SPRITES_SMOKE_OK: 5 atlas, 120 combinaciones, equipos, anclajes, congelación, muerte, reaparición y limpieza"); GetTree().Quit(); }
+            if (valid) CompleteSmoke("SPRITES_SMOKE_OK: 5 atlas, 120 combinaciones, equipos, anclajes, congelación, muerte, reaparición y limpieza");
         }
         if (!valid) { GD.PushError($"SPRITES_SMOKE_FAILED: frame {_renderFrames}, cobertura {_spriteCoverage.Count}"); GetTree().Quit(1); }
     }
@@ -536,7 +577,7 @@ public partial class Main : Node
                     if ((await reader.ReadToEndAsync().ConfigureAwait(false)).Contains("DIAGNOSTICS_SMOKE_MARKER")) marker = true;
                 }
                 if (!marker || zip.GetEntry("report.json") == null) throw new IOException("El informe no incluye el aviso del motor o los metadatos.");
-                Post(() => { GD.Print("DIAGNOSTICS_SMOKE_OK: " + path); GetTree().Quit(); });
+                Post(() => CompleteSmoke("DIAGNOSTICS_SMOKE_OK: " + path));
             }
             else Post(() => { string status = "Diagnóstico guardado en: " + path;
                 _launcher.ShowStatus(status); _diagnosticStatus.Text = status; OS.ShellOpen(directory); });

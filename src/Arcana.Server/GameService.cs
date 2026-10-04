@@ -162,6 +162,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
     {
         if (!context.WebSockets.IsWebSocketRequest) { context.Response.StatusCode = 400; return; }
         if (!await _handshakes.WaitAsync(0, context.RequestAborted)) { context.Response.StatusCode = 503; return; }
+        bool handshakeSlotHeld = true;
         WebSocket? socket = null;
         PlayerSession? session = null;
         string connectionKey = Guid.NewGuid().ToString("N");
@@ -202,6 +203,8 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                 }
             }
             if (session == null) { await RejectLogged(error, handshake.Token); return; }
+            // El límite protege solamente la fase de saludo. Las sesiones establecidas no deben ocuparlo.
+            _handshakes.Release(); handshakeSlotHeld = false;
             await Send(socket, new ServerMessage { Type = "welcome", PlayerId = session.Id, Server = Info(), Room = roomInfo,
                 Snapshot = initial }, handshake.Token);
             Diagnostics.Info("connection.accepted", "Jugador conectado.", Context());
@@ -250,7 +253,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                 catch (Exception e) when (e is WebSocketException or OperationCanceledException) { }
             }
             socket?.Dispose();
-            _handshakes.Release();
+            if (handshakeSlotHeld) _handshakes.Release();
         }
     }
     public override Task StopAsync(CancellationToken cancellationToken)

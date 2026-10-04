@@ -409,7 +409,8 @@ public sealed partial class GameWorld
         if (!Ready(p)) return;
         p.ActionCooldown = 0.5f;
         foreach (var q in _players.Values.Where(q => q.Id != p.Id && q.Alive && V2.Distance(q.Position, p.Position) < 1.8f))
-            if (V2.Dot((q.Position - p.Position).Normalized, p.Facing) > 0.2f) Damage(q, 90, p.Id);
+            if (V2.Dot((q.Position - p.Position).Normalized, p.Facing) > 0.2f &&
+                (Options.FriendlyFire || !Allied(p, q))) Damage(q, 90, p.Id);
         Emit("melee", p.Position + p.Facing, [], "");
     }
 

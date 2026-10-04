@@ -237,6 +237,26 @@ Test("Se aplica la configuración de fuego amigo", () =>
     Send(world, a, "cast"); Run(world, a, 30);
     Check(ally.Health == 1000, "Se dañó al aliado con fuego amigo desactivado.");
 });
+Test("El bastón respeta el fuego amigo en vida y escudo sin proteger rivales", () =>
+{
+    foreach (var mode in new[] { GameMode.Warfare, GameMode.Arena })
+    foreach (bool friendly in new[] { false, true })
+    {
+        var world = new GameWorld(new() { Mode = mode, FriendlyFire = friendly });
+        var attacker = world.AddPlayer("Atacante", 0)!;
+        var enemy = world.AddPlayer("Rival", 1)!;
+        var ally = world.AddPlayer("Mismo color", 0)!;
+        attacker.Position = new(-8, 0); attacker.Facing = new(1, 0);
+        enemy.Position = new(-7, 0); ally.Position = new(-6.7f, 0);
+        foreach (var player in world.Players.Values) player.Invulnerable = 0;
+        ally.Shield = ally.ShieldMax = 50; ally.ShieldTime = 12;
+        Send(world, attacker, "melee");
+        bool protectedAlly = mode == GameMode.Warfare && !friendly;
+        Check(enemy.Health == 910, "El bastón dejó de dañar al rival.");
+        Check(ally.Health == (protectedAlly ? 1000 : 960) && ally.Shield == (protectedAlly ? 50 : 0),
+            $"Daño o absorción incorrectos: {mode}, fuego amigo {friendly}.");
+    }
+});
 Test("Captura, desgaste de tickets, victoria y nueva partida", () =>
 {
     var w = new GameWorld(new() { Mode = GameMode.Warfare, Tickets = 5 }); var a = w.AddPlayer("A", 0)!;
@@ -714,6 +734,30 @@ if (server != null)
         using var invalidJson = await http.PostAsync(RoomBrowser.Endpoint(server, "rooms"), malformed);
         Check((int)invalidJson.StatusCode == 400, "El JSON malformado no recibió 400.");
         Check((await http.GetAsync(RoomBrowser.Endpoint(server, "health"))).IsSuccessStatusCode, "El error de un cliente derribó el servidor.");
+    });
+    await AsyncTest("Más de 32 jugadores pueden entrar en salas con plazas y volver a conectar", async () =>
+    {
+        var rooms = new List<RoomInfo>();
+        for (int i = 0; i < 3; i++) rooms.Add(await RoomBrowser.CreateAsync(server,
+            new() { Name = $"Aforo compartido {i}", ServerPassword = password, MaxPlayers = 16, Bots = 0 }));
+        var connections = new List<ArenaConnection>();
+        try
+        {
+            for (int i = 0; i < 33; i++)
+            {
+                var connection = new ArenaConnection(); connections.Add(connection);
+                await connection.ConnectAsync(server, $"Jugador {i}", -1, password, roomId: rooms[i / 16].Id);
+            }
+            var directory = await RoomBrowser.ListAsync(server);
+            Check(connections.All(c => c.Connected) && directory.Rooms.Where(r => rooms.Any(room => room.Id == r.Id)).Sum(r => r.Players) == 33,
+                "El límite de saludos se aplicó a jugadores ya conectados.");
+            foreach (var connection in connections) SnapshotValidation.Check(connection.Latest!);
+        }
+        finally { await Task.WhenAll(connections.Select(c => c.DisposeAsync().AsTask())); }
+        await WaitFor(() => connections.All(c => !c.Connected), "No se cerraron las conexiones de aforo.");
+        await using var again = new ArenaConnection();
+        await again.ConnectAsync(server, "Después del cierre", -1, password, roomId: rooms[2].Id);
+        Check(again.Connected, "Cerrar los jugadores impidió un nuevo saludo.");
     });
     // La red puente de Docker sirve para IP directa. LAN por broadcast se comprueba con red host.
     if (!args.Contains("--skip-discovery")) await AsyncTest("Descubrimiento UDP LAN devuelve el servidor real", async () =>
