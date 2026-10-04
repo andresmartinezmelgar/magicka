@@ -83,4 +83,4 @@ Para detener: `docker compose down`. Las estadísticas de esta versión son de l
 
 ## Compatibilidad: protocolo 4
 
-La versión v0.6.0 transmite regeneración, armado/radios de minas, nuevos campos, componentes/potencia/tramos de rayos y disputa de puntos. Actualizar cliente y servidor juntos; los clientes anteriores son rechazados. Para el servidor dedicado: `docker compose up -d --build`.
+La versión v0.6.1 transmite regeneración, armado/radios de minas, nuevos campos, componentes/potencia/tramos de rayos y disputa de puntos. Actualizar cliente y servidor juntos; los clientes anteriores son rechazados. Para el servidor dedicado: `docker compose up -d --build`.

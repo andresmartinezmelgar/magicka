@@ -66,6 +66,6 @@ Cuando entra el rival, primero retira el progreso del equipo anterior, pasa por 
 
 ## Compatibilidad y comprobaciones
 
-La versión **v0.6.0 usa protocolo 4**. Actualizar cliente y servidor juntos. La red replica regeneración, minas armadas y sus radios, campos persistentes, componentes/intensidad de rayos y disputa de puntos.
+La versión **v0.6.1 usa protocolo 4**. Actualizar cliente y servidor juntos. La red replica regeneración, minas armadas y sus radios, campos persistentes, componentes/intensidad de rayos y disputa de puntos.
 
 Las pruebas recorren las 360 demostraciones, verifican destinatarios de minas, regeneración, splash, caducidad, cruces, escudos y captura. `--combinations-smoke` comprueba diez escenas en el cliente y en la distribución Windows, incluida la representación de los nuevos eventos y los límites de recursos.

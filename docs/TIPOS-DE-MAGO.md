@@ -18,4 +18,4 @@ Las guardas siguen reduciendo el daño de su elemento. La vulnerabilidad aumenta
 
 El sombrero, la gema del bastón y un anillo exterior identifican la afinidad. La túnica y el anillo interior identifican el equipo. La clase aparece en el HUD y sobre el mago; **F1 → Tipos de mago** muestra sus características.
 
-La selección se valida y el daño se calcula en el servidor. Cambiar el tipo requiere salir y volver a entrar. Esta versión usa **protocolo 4**: actualizar cliente y servidor juntos a v0.6.0. Los sprites de v0.5.0 conservan los colores de especialidad y cambian la tela según el equipo.
+La selección se valida y el daño se calcula en el servidor. Cambiar el tipo requiere salir y volver a entrar. Esta versión usa **protocolo 4**: actualizar cliente y servidor juntos a v0.6.1. Los sprites de v0.5.0 conservan los colores de especialidad y cambian la tela según el equipo.
