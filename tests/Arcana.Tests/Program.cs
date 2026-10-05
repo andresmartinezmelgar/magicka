@@ -1164,6 +1164,19 @@ Test("La semilla reproduce apariciones sin cambiar las bases de los modos por eq
     for (int i = 0; i < 8; i++)
         Check(first.AddPlayer("Mago")!.Position == second.AddPlayer("Mago")!.Position, "La semilla no reproduce las entradas.");
     Check(first.Players[1].Position != different.AddPlayer("Mago")!.Position, "Cambiar de semilla no cambia la aparición.");
+    var guarded = new GameWorld(new() { Mode = GameMode.Arena, SpawnSeed = 72 });
+    var caster = guarded.AddPlayer("Mago")!; var returning = guarded.AddPlayer("Rival")!;
+    caster.Position = new(-2, 0); returning.Position = new(20, 10); caster.Invulnerable = 0;
+    Select(guarded, caster, Element.Shield, Element.Earth); Send(guarded, caster, "cast");
+    caster.ActionCooldown = 0; Send(guarded, caster, "input", aim: new(8, 4)); guarded.Step(); Send(guarded, caster, "magick", slot: 2);
+    var danger = guarded.Snapshot().Fields.Single();
+    Check(guarded.Snapshot().Walls.Length == 1 && danger.Kind == "meteor", "Faltan los peligros de la prueba.");
+    for (int i = 0; i < 30; i++)
+    {
+        returning.Health = 0; returning.Deaths++; returning.Respawn = GameWorld.StepSeconds / 2; guarded.Step();
+        Check(guarded.Walkable(returning.Position) && V2.Distance(returning.Position, danger.Position) >= danger.Radius + ArenaMap.WizardRadius,
+            "La reaparición ignora un muro o el área de un meteorito.");
+    }
     foreach (var mode in new[] { GameMode.Duel, GameMode.Warfare })
     {
         var world = new GameWorld(new() { Mode = mode });
@@ -1201,6 +1214,13 @@ Test("La intensidad del escudo conserva elementos repetidos y la red valida la p
         "El escudo perdió las cargas repetidas o cambió su capacidad.");
     var copy = Protocol.Deserialize<WorldSnapshot>(Protocol.Serialize(snapshot))!; SnapshotValidation.Check(copy);
     Check(copy.Players.Single(p => p.Id == a.Id).ShieldCharges == 3, "La red perdió la intensidad del escudo.");
+    var legacy = System.Text.Json.Nodes.JsonNode.Parse(Protocol.Serialize(snapshot))!;
+    foreach (var oldPlayer in legacy["players"]!.AsArray())
+    {
+        oldPlayer!.AsObject().Remove("shieldCharges"); oldPlayer.AsObject().Remove("invulnerableSeconds");
+    }
+    var previousVersion = Protocol.Deserialize<WorldSnapshot>(legacy.ToJsonString())!; SnapshotValidation.Check(previousVersion);
+    Check(previousVersion.Players.All(p => p.ShieldCharges == 1 && p.InvulnerableSeconds == 0), "Los campos opcionales rompen el protocolo anterior.");
     foreach (var invalid in new[] { player with { ShieldCharges = 0 }, player with { ShieldCharges = 4 },
         player with { InvulnerableSeconds = float.NaN }, player with { InvulnerableSeconds = 1.21f } })
     {

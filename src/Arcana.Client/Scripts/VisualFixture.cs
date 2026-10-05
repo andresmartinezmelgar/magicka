@@ -11,14 +11,14 @@ internal static class VisualFixture
         var local = state.Players[0] with { Position = V2.Zero, Selected = [], Shield = 0, ShieldMax = 0, ShieldSeconds = 0 };
         if (view == "shield-strength")
         {
-            Element[][] recipes = [[Element.Shield], [Element.Shield, Element.Water], [Element.Shield, Element.Water, Element.Water],
+            Element[][] protectionRecipes = [[Element.Shield], [Element.Shield, Element.Water], [Element.Shield, Element.Water, Element.Water],
                 [Element.Shield, Element.Earth], [Element.Shield, Element.Earth, Element.Earth], [Element.Shield, Element.Earth, Element.Fire]];
             return state with { Tick = frame, Time = frame / 60.0, Mode = GameMode.Arena,
                 Players = [local with { Position = new(-6, 7), Name = "Escudo básico", Shield = 420, ShieldMax = 420, ShieldCharges = 1 },
                     local with { Id = 2, Position = new(0, 7), Name = "Escudo · 3 elementos", Shield = 650, ShieldMax = 650,
                         Ward = [Element.Earth], ShieldCharges = 3 },
                     local with { Id = 3, Position = new(6, 7), Name = "Aparición · 1 segundo", InvulnerableSeconds = 1 }],
-                Walls = recipes.Select((elements, i) => new WallSnapshot(i + 1, 1,
+                Walls = protectionRecipes.Select((elements, i) => new WallSnapshot(i + 1, 1,
                     new(-10 + i % 3 * 8, i < 3 ? -6 : 0), new(-5 + i % 3 * 8, i < 3 ? -6 : 0),
                     elements.Contains(Element.Earth) ? 1300 : 650, 7, elements)).ToArray(),
                 Beams = [], Fields = [], Projectiles = [], Points = [], Events = [] };
