@@ -1,4 +1,4 @@
-; Arcana Arena v0.11.1 - abrir con Godot 4.5.2 .NET.
+; Arcana Arena v0.12.0 - abrir con Godot 4.5.2 .NET.
 config_version=5
 
 [application]
@@ -10,9 +10,17 @@ config/icon="res://icon.svg"
 [display]
 window/size/viewport_width=1440
 window/size/viewport_height=900
+window/size/viewport_width.mobile=1440
+window/size/viewport_height.mobile=720
 window/size/window_width_override=1440
 window/size/window_height_override=900
 window/stretch/mode="canvas_items"
+window/stretch/aspect.mobile="expand"
+window/handheld/orientation=0
+
+[input_devices]
+pointing/emulate_mouse_from_touch=true
+pointing/emulate_touch_from_mouse=false
 
 [dotnet]
 project/assembly_name="Arcana.Client"

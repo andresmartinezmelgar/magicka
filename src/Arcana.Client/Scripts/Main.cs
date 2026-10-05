@@ -69,7 +69,7 @@ public partial class Main : Node
     private string? _capturePath;
     private bool _captureReview, _mapOverview;
     private bool _smokeFailed;
-    private bool SmokeMode => _smoke || _hostSmoke || _diagnosticsSmoke || _hudSmoke || _effectsSmoke || _spritesSmoke || _combinationsSmoke || _mapsSmoke;
+    private bool SmokeMode => _smoke || _hostSmoke || _diagnosticsSmoke || _hudSmoke || _effectsSmoke || _spritesSmoke || _combinationsSmoke || _mapsSmoke || _mobileSmoke;
 
     private bool CheckSmokeErrors()
     {
@@ -88,6 +88,7 @@ public partial class Main : Node
 
     public override void _Ready()
     {
+        PrepareMobileWindow();
         _log = new DiagnosticLog(ProjectSettings.GlobalizePath("user://logs"), "client"); Diagnostics.Log = _log;
         _processDiagnostics = new ProcessDiagnostics(_log);
         _engineLog = new EngineLogBridge(); OS.AddLogger(_engineLog);
@@ -113,6 +114,7 @@ public partial class Main : Node
             if (arg == "--sprites-smoke") _spritesSmoke = true;
             if (arg == "--combinations-smoke") _combinationsSmoke = true;
             if (arg == "--maps-smoke") _mapsSmoke = true;
+            if (arg == "--mobile-smoke") _mobileSmoke = true;
             if (arg.StartsWith("--preview-map=") && Enum.TryParse<ArenaMapId>(arg[14..], true, out var map) && Enum.IsDefined(map)) _previewMap = map;
             if (arg.StartsWith("--preview-combination=")) _previewCombination = arg[22..];
             if (arg.StartsWith("--preview-cast=") && Enum.TryParse<CastMode>(arg[15..], true, out var castMode)) _previewCastMode = castMode;
@@ -160,6 +162,11 @@ public partial class Main : Node
             var players = _practice!.Players.Values.ToArray();
             players[0].Position = new(-4, 0); players[1].Position = new(4, 0);
             players[2].Position = new(0, -4); players[3].Position = new(3, 4);
+        }
+        if (_mobileSmoke || OS.GetCmdlineUserArgs().Contains("--mobile-fixture"))
+        {
+            StartPractice("Mago móvil", 0, GameMode.Warfare, 1);
+            _practice!.Players[_localId].Position = V2.Zero;
         }
     }
     public bool Post(Action action)
@@ -266,6 +273,7 @@ public partial class Main : Node
         _launcher.Visible = false; _launcher.CloseRooms(); _launcher.SetBusy(false); _help.Visible = _pause.Visible = false;
         _renderer.Clear(); _snapshot = snapshot;
         _hud?.QueueFree(); _hud = new Hud(); _ui.AddChild(_hud); _hud.Build();
+        BuildTouchControls();
         _ui.MoveChild(_help, -1); _ui.MoveChild(_pause, -1);
     }
     public void ReturnToLauncher(string error = "")
@@ -276,6 +284,7 @@ public partial class Main : Node
         var old = _connection; _connection = null;
         if (old != null) _ = old.DisposeAsync();
         _hud?.QueueFree(); _hud = null; _pause.Visible = false; _help.Visible = false;
+        _touch?.Reset(); _touch?.QueueFree(); _touch = null;
         _renderer.Clear(); _launcher.Visible = true; _launcher.SetBusy(false);
         if (error.Length > 0) _launcher.ShowError(error);
     }
@@ -336,9 +345,10 @@ public partial class Main : Node
         }
         if (_playing)
         {
-            _aim = _renderer.Cursor(GetViewport().GetMousePosition());
-            if (!Input.IsMouseButtonPressed(MouseButton.Left)) _ignoreLeftUntilRelease = false;
-            if (!_paused && !_help.Visible && !_ignoreLeftUntilRelease && !Input.IsPhysicalKeyPressed(Key.Shift) && Input.IsMouseButtonPressed(MouseButton.Left))
+            if (Ui.IsMobile) UpdateTouchAim();
+            else _aim = _renderer.Cursor(GetViewport().GetMousePosition());
+            if (!Ui.IsMobile && !Input.IsMouseButtonPressed(MouseButton.Left)) _ignoreLeftUntilRelease = false;
+            if (!Ui.IsMobile && !_paused && !_help.Visible && !_ignoreLeftUntilRelease && !Input.IsPhysicalKeyPressed(Key.Shift) && Input.IsMouseButtonPressed(MouseButton.Left))
             { _target = _aim; _moveTo = true; }
             var latest = _connection?.Latest ?? _snapshot;
             if (latest == null) return;
@@ -351,6 +361,7 @@ public partial class Main : Node
             }
             _renderer.Render(latest, _localId, _effectsSmoke || _spritesSmoke || _previewStrength > 0 ? 1 / 60.0 : delta, true);
             _hud?.Update(latest, _localId, _serverName, delta);
+            _touch?.Update(latest.Players.FirstOrDefault(p => p.Id == _localId));
             if (_mapsSmoke && _renderFrames % 30 == 0) CheckMaps(latest);
             if (_previewMap != null && !_mapOverview && _renderFrames == 1) _renderer.SetPreviewZoom(72);
             if (_hudSmoke && _renderFrames <= HudCases.Length * 3 && _renderFrames % 3 == 2) CheckHudCase();
@@ -359,6 +370,7 @@ public partial class Main : Node
         }
         else _renderer.Render(_backdropSnapshot ??= _backdrop.Snapshot(), 0, delta, false);
         if (_diagnosticsSmoke && _renderFrames == 30) ExportDiagnostics();
+        if (_mobileSmoke) CheckMobile();
         if (_capturePath != null && _renderFrames == 90) _ = Capture(_capturePath);
     }
 
@@ -590,8 +602,12 @@ public partial class Main : Node
         float x = 0, y = 0;
         if (!_paused && !_help.Visible)
         {
-            x = (Input.IsPhysicalKeyPressed(Key.Right) ? 1 : 0) - (Input.IsPhysicalKeyPressed(Key.Left) ? 1 : 0);
-            y = (Input.IsPhysicalKeyPressed(Key.Down) ? 1 : 0) - (Input.IsPhysicalKeyPressed(Key.Up) ? 1 : 0);
+            if (_touch != null) { x = _touch.Movement.X; y = _touch.Movement.Y; }
+            else
+            {
+                x = (Input.IsPhysicalKeyPressed(Key.Right) ? 1 : 0) - (Input.IsPhysicalKeyPressed(Key.Left) ? 1 : 0);
+                y = (Input.IsPhysicalKeyPressed(Key.Down) ? 1 : 0) - (Input.IsPhysicalKeyPressed(Key.Up) ? 1 : 0);
+            }
         }
         if (x != 0 || y != 0) _moveTo = false;
         return new() { Type = "input", MoveX = x, MoveY = y, MoveTo = _moveTo && !_paused && !_help.Visible,
@@ -609,7 +625,7 @@ public partial class Main : Node
             if (key.PhysicalKeycode == Key.F1) { ToggleHelp(); GetViewport().SetInputAsHandled(); return; }
             if (key.PhysicalKeycode == Key.Escape)
             {
-                if (_help.Visible) _help.Visible = false;
+                if (_help.Visible) { _help.Visible = false; UpdateTouchVisibility(); }
                 else if (_playing) TogglePause();
                 return;
             }
@@ -629,6 +645,7 @@ public partial class Main : Node
         }
         if (input is InputEventMouseButton mouse)
         {
+            if (Ui.IsMobile) return;
             _aim = _renderer.Cursor(mouse.Position); Submit(InputMessage());
             if (mouse.ButtonIndex == MouseButton.Left && mouse.Pressed)
             {
@@ -650,13 +667,15 @@ public partial class Main : Node
             ? "ESTA PARTIDA: " + MatchRules.Objective(_snapshot.Mode, _snapshot.ScoreLimit, _snapshot.StartingTickets, _snapshot.Map)
             : "Los límites se eligen al crear la sala. Su objetivo aparece antes de entrar.";
         if (_playing && _help.Visible) StopInput();
+        UpdateTouchVisibility();
     }
     private void TogglePause()
     {
         _paused = !_paused; _pause.Visible = _paused;
         if (_paused) StopInput();
+        UpdateTouchVisibility();
     }
-    private void StopInput() { _moveTo = false; Submit(new() { Type = "release" }); Submit(InputMessage()); }
+    private void StopInput() { _moveTo = false; _touch?.Reset(); Submit(new() { Type = "release" }); Submit(InputMessage()); }
 
     private Control Modal(out VBoxContainer content)
     {
@@ -664,7 +683,14 @@ public partial class Main : Node
         var shade = new ColorRect { Color = new Color(0.018f, 0.03f, 0.05f, 0.86f) }; root.AddChild(shade); Ui.Full(shade);
         var center = new CenterContainer(); root.AddChild(center); Ui.Full(center);
         var panel = new PanelContainer { CustomMinimumSize = new(750, 0) }; center.AddChild(panel);
-        content = new VBoxContainer(); content.AddThemeConstantOverride("separation", 16); panel.AddChild(content);
+        content = new VBoxContainer(); content.AddThemeConstantOverride("separation", 16);
+        if (Ui.IsMobile)
+        {
+            var scroll = new ScrollContainer { CustomMinimumSize = new(1080, GetViewport().GetVisibleRect().Size.Y - 64),
+                HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+            panel.AddChild(scroll); content.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill; scroll.AddChild(content);
+        }
+        else panel.AddChild(content);
         return root;
     }
     private Control BuildHelp()
@@ -686,6 +712,17 @@ public partial class Main : Node
             { "1 / 2 / 3 / 4", "Celeridad / traslación / meteoro / reanimación" },
             { "Retroceso / rueda", "Vaciar elementos / ajustar distancia de cámara" },
             { "TAB / F1 / ESC", "Clasificación / controles / menú" }
+        };
+        if (Ui.IsMobile) rows = new string[,]
+        {
+            { "Joystick izquierdo", "Mover al mago; soltar para detenerse" },
+            { "Ocho botones de elementos", "Seleccionar hasta tres cargas; se admiten repetidos" },
+            { "Joystick derecho", "Apuntar y lanzar mientras mantienes el dedo" },
+            { "Soltar joystick derecho", "Lanzar la roca cargada o interrumpir el rayo" },
+            { "Sobre ti / Área / Bastón", "Curación y escudo / pulso alrededor / golpe" },
+            { "Cuatro magias especiales", "Celeridad / traslación / meteoro / reanimación" },
+            { "Vaciar", "Retirar los elementos seleccionados" },
+            { "Ayuda / Tabla / Menú", "Combinaciones y daño / clasificación / pausa" }
         };
         for (int i = 0; i < rows.GetLength(0); i++) { table.AddChild(Ui.Label(rows[i, 0], 15, Ui.Gold)); table.AddChild(Ui.Label(rows[i, 1], 15)); }
         box.AddChild(Ui.Label("FFF: fuego · SSS: rayo arcano · WW + central: curación\nE + central: escudo · EF + central: guarda de fuego · DDF: roca incendiaria\nQF: vapor · QR: hielo · agua seguida de frío congela al objetivo", 16, Ui.Muted));
@@ -722,7 +759,7 @@ public partial class Main : Node
         }
         HelpText(types, "El bonus solo aumenta su componente elemental, incluida la quemadura. La debilidad también consume más escudo. Si atacante y defensor combinan bonus y debilidad, ese daño se multiplica por 1,5625. La clase se conserva al reaparecer.", Ui.Muted);
         _spellBook = new SpellBook { Name = "Combinaciones" }; _helpPages.AddChild(_spellBook);
-        outer.AddChild(Ui.Button("Cerrar", () => _help.Visible = false, true));
+        outer.AddChild(Ui.Button("Cerrar", () => { _help.Visible = false; UpdateTouchVisibility(); }, true));
         return root;
     }
     private static Label HelpText(Node parent, string text, Color? color = null)

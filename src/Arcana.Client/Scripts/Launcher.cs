@@ -44,16 +44,17 @@ public partial class Launcher : Control
             keyboard.AddChild(Ui.ElementTile(e));
         }
         left.AddChild(Ui.Label("F1 · CONTROLES, OBJETIVOS Y TIPOS DE MAGO", 13, Ui.Muted));
+        left.Visible = !Ui.IsMobile;
         var rightScroll = new ScrollContainer { CustomMinimumSize = new(570, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; columns.AddChild(rightScroll);
         var rightCenter = new CenterContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
         rightScroll.AddChild(rightCenter);
-        var panel = new PanelContainer { CustomMinimumSize = new(560, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill }; rightCenter.AddChild(panel);
+        var panel = new PanelContainer { CustomMinimumSize = new(Ui.IsMobile ? 920 : 560, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill }; rightCenter.AddChild(panel);
         var formStyle = Ui.Panel(new Color(0.035f, 0.057f, 0.093f, 0.97f), 16);
         formStyle.ContentMarginTop = formStyle.ContentMarginBottom = 12; panel.AddThemeStyleboxOverride("panel", formStyle);
         var form = new VBoxContainer(); form.AddThemeConstantOverride("separation", 6); panel.AddChild(form);
-        form.AddChild(Ui.Label("ENTRAR EN LA ARENA", 27, Ui.Gold));
-        form.AddChild(Ui.Label("Entra por IP o LAN, aloja salas o entrena con bots.", 16, Ui.Muted));
+        form.AddChild(Ui.Label(Ui.IsMobile ? "ARCANA ARENA  /  " + BuildInfo.Version : "ENTRAR EN LA ARENA", 27, Ui.Gold));
+        form.AddChild(Ui.Label(Ui.IsMobile ? "Entrena sin conexión o entra en un servidor por IP o LAN." : "Entra por IP o LAN, aloja salas o entrena con bots.", 16, Ui.Muted));
         var identity = new HBoxContainer(); identity.AddThemeConstantOverride("separation", 12); form.AddChild(identity);
         var nameColumn = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; identity.AddChild(nameColumn);
         nameColumn.AddChild(Ui.Label("Nombre del mago", 14, Ui.Muted));
@@ -145,6 +146,7 @@ public partial class Launcher : Control
             _hostInfo.Text = $"El servidor terminó (código {code}). Puedes iniciarlo otra vez y exportar el diagnóstico.";
             ShowError("El servidor local ha terminado inesperadamente. Consulta los registros o exporta el diagnóstico.");
         });
+        if (Ui.IsMobile) { _tabs.SetTabHidden(3, true); _tabs.SetTabDisabled(3, true); _tabs.CurrentTab = 2; UpdateConnectLabel(); }
     }
 
     private VBoxContainer TabBox(string name)
@@ -155,7 +157,7 @@ public partial class Launcher : Control
     public void SetBusy(bool busy, string message = "")
     {
         if (busy) CancelSearch();
-        _busy = busy; _connect.Disabled = busy; for (int i = 0; i < 4; i++) _tabs.SetTabDisabled(i, busy);
+        _busy = busy; _connect.Disabled = busy; for (int i = 0; i < 4; i++) _tabs.SetTabDisabled(i, busy || Ui.IsMobile && i == 3);
         _name.Editable = _address.Editable = !busy; _team.Disabled = _wizardType.Disabled = busy;
         _hostName.Editable = _hostPort.Editable = _hostDiscovery.Editable = !busy && !_host.Running;
         _password.Editable = !busy && _tabs.CurrentTab != 2 && !(_tabs.CurrentTab == 3 && _host.Running);
@@ -209,6 +211,11 @@ public partial class Launcher : Control
     }
     public void CloseRooms()
     { if (GodotObject.IsInstanceValid(_lobby)) _lobby!.QueueFree(); _lobby = null; }
+    public bool HandleBack()
+    {
+        if (!GodotObject.IsInstanceValid(_lobby)) return false;
+        _main.CancelPendingConnection(); CloseRooms(); SetBusy(false); return true;
+    }
     private string _hostPassword = "";
     private async Task Host()
     {

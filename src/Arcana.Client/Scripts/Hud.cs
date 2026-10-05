@@ -25,6 +25,7 @@ public partial class Hud : Control
     private readonly List<string> _statuses = [];
     private readonly List<Label> _scoreCells = [];
     private WorldSnapshot? _lastSnapshot;
+    public bool ScoreOpen { get; set; }
 
     public void Build()
     {
@@ -34,6 +35,7 @@ public partial class Hud : Control
         _server = Ui.Label("", 15, Ui.Gold); _server.Position = new(28, 24); AddChild(_server);
         var controls = Ui.Label("F1  Controles     TAB  Clasificación     ESC  Menú", 14, Ui.Muted);
         controls.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight); controls.Position = new(-440, 24); controls.Size = new(420, 24); AddChild(controls);
+        controls.Visible = !Ui.IsMobile;
         _match = Ui.Label("", 24); _match.HorizontalAlignment = HorizontalAlignment.Center;
         _match.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterTop); _match.Position = new(-240, 18); _match.Size = new(480, 42); AddChild(_match);
         _teams = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center, MouseFilter = MouseFilterEnum.Ignore };
@@ -56,7 +58,7 @@ public partial class Hud : Control
         _shieldFill = (StyleBoxFlat)_shield.GetThemeStylebox("fill");
         _shieldTrack = (StyleBoxFlat)_shield.GetThemeStylebox("background");
         info.AddChild(Meter(_shield, "ShieldValue", out _shieldText));
-        _energy = Bar(Ui.Energy, 100, 20); info.AddChild(Meter(_energy, "EnergyValue", out _energyText, 12));
+        _energy = Bar(Ui.Energy, 100, Ui.IsMobile ? 26 : 20); info.AddChild(Meter(_energy, "EnergyValue", out _energyText, 12));
         _status = Ui.Label("", 13, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; info.AddChild(_status);
         var spells = new PanelContainer { Name = "SpellControlsPanel", CustomMinimumSize = new(690, 0), MouseFilter = MouseFilterEnum.Ignore };
         _buffs = Ui.Label("", 13, Ui.Gold); _buffs.Name = "ActiveBuffs"; _buffs.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -76,17 +78,20 @@ public partial class Hud : Control
             var label = Ui.Label("—", 21, Ui.Muted); row.AddChild(label); _selected.Add(label);
         }
         var hint = Ui.Label("Derecho: lanzar\nCentral: sobre ti · Mayús + derecho: área", 14, Ui.Muted); first.AddChild(hint);
+        hint.Visible = !Ui.IsMobile;
         _charge = Bar(Ui.Gold, 1, 5); _charge.Name = "ChargeBar"; stack.AddChild(_charge);
         var elements = new HBoxContainer(); elements.AddThemeConstantOverride("separation", 7); stack.AddChild(elements);
         foreach (var e in Enum.GetValues<Element>())
         {
             elements.AddChild(Ui.ElementTile(e, true));
         }
+        elements.Visible = !Ui.IsMobile;
         var magicks = new HBoxContainer(); magicks.AddThemeConstantOverride("separation", 12); stack.AddChild(magicks);
         foreach (string text in SpellBalance.Magicks.Select((m, i) => $"{i + 1} {m.Name}"))
         {
             var label = Ui.Label(text, 13, Ui.Gold); label.SizeFlagsHorizontal = SizeFlags.ExpandFill; magicks.AddChild(label); _magicks.Add(label);
         }
+        magicks.Visible = !Ui.IsMobile;
         _feed = Ui.Label("", 15); _feed.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight);
         _feed.Position = new(-450, 245); _feed.Size = new(420, 100); _feed.HorizontalAlignment = HorizontalAlignment.Right; AddChild(_feed);
         var mapPanel = new PanelContainer { CustomMinimumSize = new(205, 151), MouseFilter = MouseFilterEnum.Ignore };
@@ -99,6 +104,15 @@ public partial class Hud : Control
         _scorePanel.SetAnchorsAndOffsetsPreset(LayoutPreset.Center); _scorePanel.Position = new(-350, -160); AddChild(_scorePanel);
         _scoreRows = new GridContainer { Columns = 5 }; _scoreRows.AddThemeConstantOverride("h_separation", 30); _scoreRows.AddThemeConstantOverride("v_separation", 12); _scorePanel.AddChild(_scoreRows);
         foreach (string text in new[] { "MAGO", "EQUIPO", "BAJAS", "MUERTES", "VIDA" }) _scoreRows.AddChild(Ui.Label(text, 14, Ui.Gold));
+        if (Ui.IsMobile)
+        {
+            _server.Visible = _status.Visible = _affinity.Visible = false;
+            playerPanel.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft);
+            playerPanel.Position = new Vector2(22, 18) / GameplayScale; playerPanel.CustomMinimumSize = new(310, 176);
+            spells.CustomMinimumSize = new(320, 0); spells.Position = new Vector2(-120, -310) / GameplayScale;
+            _buffs.Position = new Vector2(-260, -350) / GameplayScale;
+            _feed.Visible = false; mapPanel.Position = new(-235, 136);
+        }
         IgnoreChildren(this);
     }
     private static void IgnoreChildren(Node root)
@@ -128,8 +142,9 @@ public partial class Hud : Control
     public void Update(WorldSnapshot snapshot, int id, string serverName, double delta)
     {
         _feedTime -= (float)delta; _feed.Text = _feedTime > 0 ? _feedText : "";
-        bool opened = !_scorePanel.Visible && Input.IsPhysicalKeyPressed(Key.Tab);
-        _scorePanel.Visible = Input.IsPhysicalKeyPressed(Key.Tab); _scoreClock += (float)delta;
+        bool showScore = ScoreOpen || Input.IsPhysicalKeyPressed(Key.Tab);
+        bool opened = !_scorePanel.Visible && showScore;
+        _scorePanel.Visible = showScore; _scoreClock += (float)delta;
         if (_scorePanel.Visible && (opened || _scoreClock >= 0.25f))
         { _scoreClock = 0; UpdateScore(snapshot, id); }
         if (ReferenceEquals(snapshot, _lastSnapshot)) return;

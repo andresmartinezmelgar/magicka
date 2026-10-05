@@ -5,6 +5,7 @@ namespace Arcana.Client;
 
 public static class Ui
 {
+    public static bool IsMobile { get; } = OS.HasFeature("mobile") || OS.GetCmdlineUserArgs().Any(a => a is "--mobile" or "--mobile-smoke" or "--mobile-fixture");
     public static readonly Color Gold = new("f1cd83"), Text = new("f4f7ff"), Muted = new("b0bfd4"), Blue = new("37b9ff"), Red = new("ff526c");
     public static readonly Color Health = new("55e879"), Shield = new("ffe04b"), Energy = new("b995ff");
     public static Color ElementColor(Element e) => e switch
@@ -70,7 +71,7 @@ public static class Ui
     }
     public static Theme Theme()
     {
-        var theme = new Theme { DefaultFontSize = 17 };
+        var theme = new Theme { DefaultFontSize = IsMobile ? 24 : 17 };
         theme.SetColor("font_color", "Label", Text);
         theme.SetColor("font_color", "Button", Text);
         theme.SetColor("font_hover_color", "Button", Gold);
@@ -92,14 +93,14 @@ public static class Ui
     public static Label Label(string text, int size = 17, Color? color = null)
     {
         var label = new Label { Text = text };
-        label.AddThemeFontSizeOverride("font_size", size);
+        label.AddThemeFontSizeOverride("font_size", IsMobile ? Math.Max(size, 20) : size);
         label.AddThemeColorOverride("font_outline_color", new Color("070c16")); label.AddThemeConstantOverride("outline_size", 2);
         if (color != null) label.AddThemeColorOverride("font_color", color.Value);
         return label;
     }
     public static Button Button(string text, Action pressed, bool primary = false)
     {
-        var button = new Button { Text = text, CustomMinimumSize = new(0, 45), MouseDefaultCursorShape = Control.CursorShape.PointingHand };
+        var button = new Button { Text = text, CustomMinimumSize = new(0, IsMobile ? 64 : 45), MouseDefaultCursorShape = Control.CursorShape.PointingHand };
         if (primary)
         {
             button.AddThemeStyleboxOverride("normal", Panel(new("a6874e"), 8, Gold));

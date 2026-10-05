@@ -1,5 +1,12 @@
 # Cambios
 
+## v0.12.0
+
+- APK Android ARM64 firmada para instalación directa, con práctica sin conexión y conexión a salas de PC por IP/LAN.
+- Joysticks multitáctiles, ocho elementos, ataques frontal/sobre ti/área/bastón y cuatro magias especiales. Interfaz horizontal y acceso táctil a ayuda, combinaciones, clasificación y menú.
+- Cancelación de dedos al pausar, abrir ayuda o pasar a segundo plano; botón Atrás y liberación fuera del control.
+- CI: pruebas móviles Godot, capturas OpenGL, verificación de firma/contenido de APK y ejecución de la app en Android 15.
+
 ## 0.11.1
 
 - Revisión de cliente, servidor, simulación, protocolo, interfaz y distribución.

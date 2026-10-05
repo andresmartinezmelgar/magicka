@@ -15,6 +15,11 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wizard-sources
+          path: src/Arcana.Client/Assets/Wizards/*.png
+          retention-days: 1
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
@@ -35,6 +40,26 @@ jobs:
         run: /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64 --headless --editor --path src/Arcana.Client --import
       - name: Arrancar práctica Godot headless
         run: bash scripts/test-client-smoke.sh smoke /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
+      - name: Verificar controles multitáctiles y ciclo de vida móvil
+        run: bash scripts/test-client-smoke.sh mobile-smoke /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
+      - name: Revisar interfaz móvil con OpenGL
+        env:
+          LIBGL_ALWAYS_SOFTWARE: 1
+          GODOT_SILENCE_ROOT_WARNING: 1
+        run: |
+          mkdir -p artifacts/mobile-review
+          for screen in launcher practice help; do
+            args=(--mobile)
+            if [ "$screen" = practice ]; then args+=(--mobile-fixture); fi
+            if [ "$screen" = help ]; then args+=(--preview-help=5); fi
+            timeout 60s xvfb-run -a /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64 --audio-driver Dummy --path src/Arcana.Client -- "${args[@]}" --capture="${{ github.workspace }}/artifacts/mobile-review/$screen.png" 2>&1 | tee "artifacts/mobile-review/$screen.log"
+            test -s "artifacts/mobile-review/$screen.png"
+            if rg '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "artifacts/mobile-review/$screen.log"; then exit 1; fi
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mobile-review
+          path: artifacts/mobile-review/*.png
       - name: Exportar diagnóstico y capturar avisos del motor
         run: bash scripts/test-client-smoke.sh diagnostics-smoke /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
       - name: Verificar escala de la UI, vida y seis estados de escudo
@@ -126,7 +151,7 @@ jobs:
         run: dotnet publish src/Arcana.Server -c Release --no-restore -o artifacts/server
       - uses: actions/upload-artifact@v4
         with:
-          name: arcana-server-v0.11.1
+          name: arcana-server-v0.12.0
           path: artifacts/server
       - name: Logs de diagnóstico
         if: failure()
@@ -239,8 +264,63 @@ jobs:
             ~/AppData/Roaming/Godot/app_userdata/Arcana Arena/logs/*.jsonl
           if-no-files-found: ignore
 
+  package-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Preparar SDK Android
+        run: sdkmanager 'platform-tools' 'build-tools;35.0.0' 'platforms;android-35' 'emulator' 'system-images;android-35;google_apis;x86_64'
+      - name: Descargar Godot .NET y plantillas Android
+        run: |
+          curl -fL https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_mono_linux_x86_64.zip -o /tmp/android-godot.zip
+          unzip -q /tmp/android-godot.zip -d /tmp/android-godot
+          chmod +x /tmp/android-godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
+          curl -fL https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_mono_export_templates.tpz -o /tmp/android-templates.tpz
+          python3 - <<'PY'
+          import zipfile
+          from pathlib import Path
+          with zipfile.ZipFile('/tmp/android-templates.tpz') as z:
+              version=z.read('templates/version.txt').decode().strip()
+              target=Path.home()/'.local/share/godot/export_templates'/version
+              target.mkdir(parents=True,exist_ok=True)
+              for name in ('android_debug.apk','android_release.apk','android_source.zip','version.txt'):
+                  (target/name).write_bytes(z.read('templates/'+name))
+          PY
+          echo 'ARCANA_GODOT=/tmp/android-godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64' >> "$GITHUB_ENV"
+      - name: Compilar y comprobar entrada móvil antes de exportar
+        run: |
+          dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
+          "$ARCANA_GODOT" --headless --editor --path src/Arcana.Client --import
+          bash scripts/test-client-smoke.sh mobile-smoke "$ARCANA_GODOT"
+      - name: Generar APK ARM64 firmada y verificar contenido
+        run: bash scripts/package-android.sh "$ARCANA_GODOT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ArcanaArena-Android-arm64
+          path: |
+            artifacts/android/*-Android-arm64.apk
+            artifacts/android/SHA256SUMS-Android.txt
+      - name: Exportar la misma app para probarla en un emulador Android
+        run: bash scripts/package-android.sh "$ARCANA_GODOT" x86_64
+      - name: Instalar y arrancar la APK en Android 15
+        run: bash scripts/test-android.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-diagnostics
+          path: artifacts/android/*.log
+          if-no-files-found: ignore
+
   release:
-    needs: [build-and-test, package-windows]
+    needs: [build-and-test, package-windows, package-android]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
@@ -251,6 +331,10 @@ jobs:
         with:
           name: ArcanaArena-Windows-x64
           path: artifacts
+      - uses: actions/download-artifact@v4
+        with:
+          name: ArcanaArena-Android-arm64
+          path: artifacts
       - name: Publicar version descargable validada
         env:
           GH_TOKEN: ${{ github.token }}
@@ -259,5 +343,5 @@ jobs:
           if gh release view "v$version" >/dev/null 2>&1; then
             echo "La version v$version ya esta publicada; no se sustituyen sus ejecutables."
           else
-            gh release create "v$version" "artifacts/ArcanaArena-v$version-Windows-x64.zip" artifacts/SHA256SUMS.txt --target "$GITHUB_SHA" --title "Arcana Arena v$version" --notes-file "docs/RELEASE-v$version.md"
+            gh release create "v$version" "artifacts/ArcanaArena-v$version-Windows-x64.zip" "artifacts/ArcanaArena-v$version-Android-arm64.apk" artifacts/SHA256SUMS.txt artifacts/SHA256SUMS-Android.txt --target "$GITHUB_SHA" --title "Arcana Arena v$version" --notes-file "docs/RELEASE-v$version.md"
           fi

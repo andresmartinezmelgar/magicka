@@ -35,3 +35,7 @@ El script publica `Arcana.Server.exe` para `win-x64` con su runtime, importa los
 Conservar todos estos archivos al distribuir. El SDK y el editor hacen falta únicamente para compilar; el runtime del cliente y el del servidor se incluyen en el ZIP. Esta versión se exporta para Windows x64; el código fuente sigue siendo multiplataforma y Docker usa Linux.
 
 GitHub Actions realiza el proceso completo y prueba el juego exportado, la práctica, el alojamiento desde el launcher y el apagado del servidor. Si las pruebas Linux, Docker y Windows pasan, publica el ZIP y `SHA256SUMS.txt` en una Release. El artifact `ArcanaArena-Windows-x64` también queda disponible en la ejecución de Actions.
+
+## Exportar Android
+
+La APK ARM64 se genera con `scripts/package-android.sh` y se comprueba en la integración continua. [Herramientas, controles y requisitos](ANDROID.md).
