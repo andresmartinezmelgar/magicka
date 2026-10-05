@@ -1,5 +1,11 @@
 # Cambios
 
+## v0.12.4
+
+- Ajustes tras revisar capturas: láser de fuego con tono cálido, frío azul y electricidad con filamentos quebrados; núcleo menos blanco para distinguir combinaciones.
+- Barreras de tierra con rocas de cinco caras, alturas y orientaciones irregulares.
+- Ocultación de todos los marcadores de control cuando la vista no los utiliza, incluidas las demostraciones de hechizos.
+
 ## v0.12.3
 
 - Muros y anillos de barreras con superficie de energía arqueada, trama sutil, bordes, glifos y aparición/desaparición gradual. El daño se refleja en la superficie y con un destello breve. Muros de tierra con bloques de roca y sombras.

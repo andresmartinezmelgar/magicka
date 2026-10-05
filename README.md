@@ -1,10 +1,10 @@
-# Arcana Arena — v0.12.3
+# Arcana Arena — v0.12.4
 
 Primera recreación jugable en C# del combate elemental de **Magicka: Wizard Wars**. Cliente 3D de escritorio con **Godot 4.5.2 .NET**, servidor independiente **ASP.NET Core / .NET 8**, Docker, launcher con conexión por IP/LAN, salas independientes y paquete Windows para abrir con doble clic y APK Android con controles táctiles.
 
 El código, las mallas y los sonidos son propios. Los sprites de los magos se han generado para este proyecto. Esta versión reproduce la estructura del combate; los gráficos, mapas, magicks y valores de daño son una aproximación, no una reproducción exacta del original.
 
-**v0.12.3:** barreras arqueadas con superficie de energía, bordes definidos, deterioro e impactos; muros de tierra con bloques de roca. Láseres con núcleo, flujo y detalles por elemento y número de cargas. APK Android ARM64 y controles móviles junto a los bordes. [Instalación y controles](docs/ANDROID.md).
+**v0.12.4:** barreras arqueadas con superficie de energía, bordes definidos, deterioro e impactos; muros de tierra con bloques de roca. Láseres con núcleo, flujo y detalles por elemento y número de cargas. APK Android ARM64 y controles móviles junto a los bordes. [Instalación y controles](docs/ANDROID.md).
 
 **v0.11.1:** correcciones de carga, colisiones, muros, rayos y conexiones; simplificación de F1 y validación de salas. [Revisión del código y comprobaciones](docs/AUDITORIA-v0.11.1.md).
 
@@ -44,11 +44,11 @@ El código, las mallas y los sonidos son propios. Los sprites de los magos se ha
 
 ## Jugar en Android
 
-Instalar [ArcanaArena-v0.12.3-Android-arm64.apk](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.12.3/ArcanaArena-v0.12.3-Android-arm64.apk). Android 8 o posterior, ARM64, en horizontal. Práctica sin conexión; por IP o LAN se conecta al servidor de PC o Docker. [Controles, red y compilación](docs/ANDROID.md).
+Instalar [ArcanaArena-v0.12.4-Android-arm64.apk](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.12.4/ArcanaArena-v0.12.4-Android-arm64.apk). Android 8 o posterior, ARM64, en horizontal. Práctica sin conexión; por IP o LAN se conecta al servidor de PC o Docker. [Controles, red y compilación](docs/ANDROID.md).
 
 ## Jugar con doble clic en Windows
 
-1. Descargar [ArcanaArena-v0.12.3-Windows-x64.zip](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.12.3/ArcanaArena-v0.12.3-Windows-x64.zip) de [Releases](https://github.com/andresmartinezmelgar/magicka/releases/latest).
+1. Descargar [ArcanaArena-v0.12.4-Windows-x64.zip](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.12.4/ArcanaArena-v0.12.4-Windows-x64.zip) de [Releases](https://github.com/andresmartinezmelgar/magicka/releases/latest).
 2. **Extraer todo el ZIP** en una carpeta. Abrir **ArcanaArena.exe** con doble clic.
 3. Elegir el **tipo de mago**. Elegir **Práctica** para jugar con bots, **Alojar** para iniciar tu servidor, **LAN** para buscar servidores o **Por IP** para usar una dirección.
 
@@ -79,7 +79,7 @@ El resultado queda en **`Juego/ArcanaArena.exe`**. Cada compilación correcta **
 - **Guerra en Arena clásica:** reducir a cero los tickets rivales; controlar más puntos los desgasta cada segundo y cada muerte cuesta un ticket.
 - **Guerra en Ciudadela:** controlar los tres puntos sin disputa durante **15 segundos consecutivos**. Disputar o neutralizar cualquiera reinicia el contador; no hay victoria por tickets o bajas.
 
-Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). El combate usa **protocolo 8**. La versión v0.12.3 es compatible con v0.10.0, v0.11.0, v0.11.1, v0.12.0, v0.12.1 y v0.12.2; las versiones con protocolos anteriores se rechazan en el saludo.
+Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). El combate usa **protocolo 8**. La versión v0.12.4 es compatible con v0.10.0, v0.11.0, v0.11.1, v0.12.0, v0.12.1, v0.12.2 y v0.12.3; las versiones con protocolos anteriores se rechazan en el saludo.
 
 ## Mapas
 
