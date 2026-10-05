@@ -22,7 +22,7 @@ $client = Join-Path $repo 'src/Arcana.Client'
 $presetPath = Join-Path $client 'export_presets.cfg'
 $presetBackup = [IO.File]::ReadAllBytes($presetPath)
 $environmentBackup = @{}
-foreach ($name in @('PATH', 'APPDATA', 'JAVA_HOME', 'ANDROID_HOME', 'ANDROID_SDK_ROOT', 'DOTNET_ROOT', 'DOTNET_ROOT_X64', 'UseSharedCompilation', 'GODOT_ANDROID_KEYSTORE_DEBUG_PATH', 'GODOT_ANDROID_KEYSTORE_DEBUG_USER', 'GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD')) {
+foreach ($name in @('PATH', 'APPDATA', 'JAVA_HOME', 'ANDROID_HOME', 'ANDROID_SDK_ROOT', 'DOTNET_ROOT', 'DOTNET_ROOT_X64', 'UseSharedCompilation', 'GRADLE_OPTS', 'GODOT_ANDROID_KEYSTORE_DEBUG_PATH', 'GODOT_ANDROID_KEYSTORE_DEBUG_USER', 'GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD')) {
     $environmentBackup[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
 }
 $sdkVersion = '8.0.425'
@@ -99,6 +99,8 @@ try {
     $env:DOTNET_ROOT_X64 = $dotnetRoot
     # Evita que el servidor persistente de Roslyn mantenga abierto Godot en Windows.
     $env:UseSharedCompilation = 'false'
+    # El wrapper de consola espera a sus hijos: Gradle tambien debe cerrar su daemon.
+    $env:GRADLE_OPTS = "$env:GRADLE_OPTS -Dorg.gradle.daemon=false"
     $env:PATH = "$dotnetRoot;$env:PATH"
 
     $release = "https://github.com/godotengine/godot/releases/download/$godotVersion-stable"
