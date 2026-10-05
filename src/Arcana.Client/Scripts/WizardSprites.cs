@@ -46,6 +46,13 @@ internal static class WizardSprites
         return material;
     }
 
+    public static void ClearCache()
+    {
+        foreach (var atlas in Cache.Values) atlas.Texture.Dispose();
+        Cache.Clear();
+        _shader?.Dispose(); _shader = null;
+    }
+
     // Histeresis junto a las diagonales: no alternar de fila por ruido de red/apuntado.
     public static int FacingRow(V2 facing, int previous)
     {

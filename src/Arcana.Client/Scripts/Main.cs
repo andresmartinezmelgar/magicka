@@ -852,6 +852,7 @@ public partial class Main : Node
     }
     public override void _ExitTree()
     {
+        WizardSprites.ClearCache();
         Interlocked.Exchange(ref _exiting, 1); _lifetime.Cancel();
         ArenaConnection? pending; lock (_connectionGate) pending = _pendingConnection;
         try
