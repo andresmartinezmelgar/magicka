@@ -1,5 +1,10 @@
 # Cambios
 
+## v0.12.1
+
+- Ocho elementos móviles en dos columnas y cuatro filas junto al borde derecho, encima del joystick de lanzamiento. Botones ampliados de 90 × 62 a 108 × 72.
+- Minimapa móvil desplazado a la izquierda para dejar libre la selección de elementos.
+
 ## v0.12.0
 
 - APK Android ARM64 firmada para instalación directa, con práctica sin conexión y conexión a salas de PC por IP/LAN.

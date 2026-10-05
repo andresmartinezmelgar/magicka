@@ -57,7 +57,7 @@ public partial class MobileControls : Control
         if (_actions.Count == 0) return;
         float width = Size.X, height = Size.Y;
         _moveCenter = new(142, height - 125); _aimCenter = new(width - 142, height - 125);
-        for (int i = 0; i < 8; i++) Place(i, new(width / 2 - 186 + i % 4 * 94, height - 150 + i / 4 * 66), new(90, 62));
+        for (int i = 0; i < 8; i++) Place(i, new(width - 246 + i % 2 * 116, height - 572 + i / 2 * 80), new(108, 72));
         Place(8, new(251, height - 148), new(118, 62));
         Place(9, new(251, height - 80), new(118, 62));
         Place(10, new(width - 369, height - 148), new(118, 62));

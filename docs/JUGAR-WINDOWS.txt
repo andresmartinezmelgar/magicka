@@ -1,4 +1,4 @@
-ARCANA ARENA v0.12.0
+ARCANA ARENA v0.12.1
 
 1. Extrae TODO el ZIP antes de jugar.
 2. Abre ArcanaArena.exe con doble clic.
@@ -59,7 +59,7 @@ COMPILAR DESDE EL CODIGO
 Descarga el repositorio y extrae todo. Doble clic en Compilar-Juego.cmd.
 La primera vez necesita Internet. Resultado: Juego/ArcanaArena.exe.
 Sustituye toda la carpeta Juego tras compilar. Registro: artifacts/compilacion-*.log.
-Protocolo 8: actualizar cliente y servidor juntos a v0.12.0, tambien el servidor Docker.
+Protocolo 8: actualizar cliente y servidor juntos a v0.12.1, tambien el servidor Docker.
 
 COMBINACIONES Y EFECTOS
 F1 > Combinaciones: 120 combinaciones y tres formas de lanzamiento.

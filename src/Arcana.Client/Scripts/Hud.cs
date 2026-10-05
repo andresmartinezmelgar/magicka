@@ -116,7 +116,7 @@ public partial class Hud : Control
             _buffs.OffsetLeft = -260 / GameplayScale; _buffs.OffsetRight = 260 / GameplayScale;
             _buffs.OffsetTop = -350 / GameplayScale; _buffs.OffsetBottom = -315 / GameplayScale;
             _feed.Visible = false;
-            mapPanel.OffsetLeft = -235; mapPanel.OffsetRight = -30;
+            mapPanel.OffsetLeft = -555; mapPanel.OffsetRight = -350;
             mapPanel.OffsetTop = 136; mapPanel.OffsetBottom = 287;
         }
         IgnoreChildren(this);
