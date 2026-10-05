@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: 'Publicar los ejecutables validados en una Release de GitHub'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -442,7 +448,7 @@ jobs:
 
   release:
     needs: [build-and-test, package-windows, package-android, package-android-windows]
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish_release
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -463,7 +469,7 @@ jobs:
           version=$(tr -d '\r\n' < VERSION)
           latest_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
           if [ "$latest_sha" != "$GITHUB_SHA" ]; then
-            echo 'Hay una revisión más reciente; su ejecución publicará la versión.'
+            echo 'main ha cambiado; la publicación manual debe ejecutarse sobre su revisión actual.'
             exit 0
           fi
           if gh release view "v$version" >/dev/null 2>&1; then
