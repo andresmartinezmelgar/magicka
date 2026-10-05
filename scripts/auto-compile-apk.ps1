@@ -238,7 +238,11 @@ try {
         if ($names | Where-Object { $_ -match '^lib/[^/]+/.*\.so$' -and $_ -notlike "lib/$abi/*" }) { throw 'La APK contiene una arquitectura inesperada.' }
     } finally { $archive.Dispose() }
     $output = Join-Path $outputRoot "ArcanaArena-v$version-Android-$Architecture.apk"
-    $hash = (Get-FileHash -LiteralPath $stagedApk -Algorithm SHA256).Hash.ToLowerInvariant()
+    # SHA256 directo con .NET: no depende de modulos autoload de PowerShell.
+    $hashAlgorithm = [Security.Cryptography.SHA256]::Create()
+    $apkStream = [IO.File]::OpenRead($stagedApk)
+    try { $hash = [BitConverter]::ToString($hashAlgorithm.ComputeHash($apkStream)).Replace('-', '').ToLowerInvariant() }
+    finally { $apkStream.Dispose(); $hashAlgorithm.Dispose() }
     # Solo publica la salida una vez verificados firma, manifest y runtime.
     if (Test-Path -LiteralPath $output) { [IO.File]::Replace($stagedApk, $output, $null) }
     else { [IO.File]::Move($stagedApk, $output) }
