@@ -277,7 +277,18 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Preparar SDK Android
-        run: sdkmanager 'platform-tools' 'build-tools;35.0.0' 'platforms;android-35' 'emulator' 'system-images;android-35;google_apis;x86_64'
+        run: |
+          arcana_sdk="$RUNNER_TEMP/android-sdk"
+          mkdir -p "$arcana_sdk/cmdline-tools"
+          curl -fL https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip -o "$RUNNER_TEMP/android-cli.zip"
+          unzip -q "$RUNNER_TEMP/android-cli.zip" -d "$arcana_sdk/cmdline-tools"
+          mv "$arcana_sdk/cmdline-tools/cmdline-tools" "$arcana_sdk/cmdline-tools/latest"
+          yes | "$arcana_sdk/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$arcana_sdk" --licenses >/dev/null || true
+          "$arcana_sdk/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$arcana_sdk" 'platform-tools' 'build-tools;35.0.0' 'platforms;android-35' 'emulator' 'system-images;android-35;google_apis;x86_64'
+          echo "ANDROID_HOME=$arcana_sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$arcana_sdk" >> "$GITHUB_ENV"
+          echo "$arcana_sdk/platform-tools" >> "$GITHUB_PATH"
+          echo "$arcana_sdk/emulator" >> "$GITHUB_PATH"
       - name: Descargar Godot .NET y plantillas Android
         run: |
           curl -fL https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_mono_linux_x86_64.zip -o /tmp/android-godot.zip

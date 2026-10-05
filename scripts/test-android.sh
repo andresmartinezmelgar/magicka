@@ -22,7 +22,7 @@ $booted || { cat artifacts/android/emulator.log; exit 1; }
 adb shell input keyevent 82
 adb install -r "$apk"
 adb logcat -c
-adb shell am start -n com.arcana.arena/com.godot.game.GodotApp --esa command_line '--,--mobile-smoke'
+adb shell am start -n com.arcana.arena/com.godot.game.GodotApp --esa command_line_params '--,--mobile-smoke'
 passed=false
 for i in {1..90}; do
   adb logcat -d > artifacts/android/device.log

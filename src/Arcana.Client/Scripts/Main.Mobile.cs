@@ -77,6 +77,7 @@ public partial class Main
                 Down(2, button.GetRect().GetCenter()); Up(2);
             }
             void Require(bool condition, string message) { if (!condition) throw new InvalidDataException(message); }
+            void ReadyForSpell() { for (int i = 0; i < 60 && player.ActionCooldown > 0; i++) _practice.Step(); }
             switch (_renderFrames)
             {
                 case 10:
@@ -99,22 +100,28 @@ public partial class Main
                     Require(touch.Movement.IsZeroApprox() && player.Charging == null && _practice.Snapshot().Projectiles.Length > 0, "Soltar fuera del control no detiene el movimiento o libera la roca.");
                     break;
                 case 60:
+                    ReadyForSpell();
                     Submit(new() { Type = "clear" }); Tap(Element.Shield);
                     Down(2, new(width - 310, height - 120)); Up(2);
                     Require(player.Shield > 0, "El botón Sobre ti no crea el escudo.");
+                    ReadyForSpell();
                     Down(2, new(width / 2 - 184, height - 192)); Up(2);
                     Require(player.Haste > 0, "La magia especial no se ejecuta por toque.");
-                    Tap(Element.Earth); Down(1, aim); Up(1, true);
+                    ReadyForSpell(); Tap(Element.Earth); Down(1, aim);
+                    Require(player.Charging != null, "No empieza la carga que se va a cancelar."); Up(1, true);
                     Require(player.Charging == null, "Un toque cancelado deja el hechizo cargándose.");
                     break;
                 case 75:
-                    Tap(Element.Earth); Down(0, move); Down(1, aim); ToggleHelp();
+                    ReadyForSpell(); Tap(Element.Earth); Down(0, move); Down(1, aim);
+                    Require(player.Charging != null, "No empieza la carga antes de abrir ayuda."); ToggleHelp();
                     Require(!touch.Visible && touch.Movement.IsZeroApprox() && player.Charging == null, "Abrir ayuda no cancela todos los dedos.");
                     Require(!touch.Touch(3, global + move, true), "La ayuda permite que un toque alcance la partida.");
                     ToggleHelp(); Require(touch.Visible, "Cerrar ayuda no restaura los controles.");
                     break;
                 case 90:
-                    Down(0, move); Down(1, aim); _Notification((int)NotificationApplicationPaused);
+                    ReadyForSpell(); Tap(Element.Earth); Down(0, move); Down(1, aim);
+                    Require(player.Charging != null, "No empieza la carga antes de pasar a segundo plano.");
+                    _Notification((int)NotificationApplicationPaused);
                     Require(_paused && !touch.Visible && touch.Movement.IsZeroApprox() && player.Charging == null, "Pasar a segundo plano no detiene la entrada.");
                     _Notification((int)NotificationWMGoBackRequest);
                     Require(!_paused && touch.Visible, "Atrás no cierra la pausa.");
