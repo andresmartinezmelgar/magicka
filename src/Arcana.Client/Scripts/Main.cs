@@ -113,7 +113,7 @@ public partial class Main : Node
             if (arg == "--preview-effects") _previewEffects = true;
             if (arg.StartsWith("--preview-strength=") && int.TryParse(arg[19..], out int strength)) _previewStrength = Math.Clamp(strength, 1, 3);
             if (arg is "--preview-spells=barriers" or "--preview-spells=beams" or "--preview-spells=beam-charge"
-                or "--preview-spells=shield-elements" or "--preview-spells=meteor") _previewSpells = arg[17..];
+                or "--preview-spells=shield-elements" or "--preview-spells=shield-strength" or "--preview-spells=meteor") _previewSpells = arg[17..];
             if (arg == "--sprites-smoke") _spritesSmoke = true;
             if (arg == "--combinations-smoke") _combinationsSmoke = true;
             if (arg == "--maps-smoke") _mapsSmoke = true;
@@ -156,6 +156,12 @@ public partial class Main : Node
         {
             _practice = null; _localId = 1; StartGame(VisualFixture.Spells(0, _previewSpells));
             _hud!.Visible = false; _renderer.ShowControlPoints = false; _renderer.SetPreviewZoom(24);
+            if (_previewSpells == "shield-strength")
+            {
+                var legend = Ui.Label("ARRIBA: E · E+Q · E+Q+Q\nABAJO: E+D · E+D+D · E+D+F", 20);
+                legend.Position = new(24, 24); _ui.AddChild(legend);
+            }
+            GD.Print($"SPELL_PREVIEW_READY: {_previewSpells}");
         }
         if (_previewHelp >= 0) { ToggleHelp(); _helpPages.CurrentTab = _previewHelp; }
         if (_combinationsSmoke || _previewCombination != null || _previewInteraction != DemonstrationKind.Combination)
