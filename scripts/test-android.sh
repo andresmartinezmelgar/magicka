@@ -15,6 +15,16 @@ test -e /dev/kvm
 if [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
 echo no | "$android_sdk/cmdline-tools/latest/bin/avdmanager" create avd --force --name arcana --path "$ANDROID_AVD_HOME/arcana.avd" --package 'system-images;android-35;google_apis;x86_64' --device pixel_6
 test -s "$ANDROID_AVD_HOME/arcana.ini"
+python3 - "$ANDROID_AVD_HOME/arcana.avd/config.ini" <<'PY'
+from pathlib import Path
+import sys
+config = Path(sys.argv[1])
+settings = {'disk.dataPartition.size': '2G', 'disk.cachePartition.size': '128M'}
+lines = [line for line in config.read_text().splitlines() if line.split('=', 1)[0].strip() not in settings]
+config.write_text('\n'.join(lines + [f'{key}={value}' for key, value in settings.items()]) + '\n')
+PY
+# Liberar el daemon de compilación antes de reservar memoria para el dispositivo.
+"$root/src/Arcana.Client/android/build/gradlew" --stop >/dev/null
 adb start-server
 "$android_sdk/emulator/emulator" -avd arcana -port 5554 -partition-size 2048 -no-metrics -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -accel on -memory 2048 > artifacts/android/emulator.log 2>&1 &
 emulator_pid=$!

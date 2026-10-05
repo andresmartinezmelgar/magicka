@@ -325,6 +325,13 @@ jobs:
       - name: Instalar y arrancar la APK en Android 15
         run: bash scripts/test-android.sh
       - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: Android-emulator-apk
+          path: artifacts/android/*-Android-x86_64.apk
+          retention-days: 1
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: android-diagnostics
