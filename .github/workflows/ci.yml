@@ -181,6 +181,9 @@ jobs:
   package-windows:
     runs-on: windows-latest
     timeout-minutes: 25
+    env:
+      MSBUILDDISABLENODEREUSE: '1'
+      DOTNET_CLI_USE_MSBUILD_SERVER: '0'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -375,6 +378,7 @@ jobs:
         with:
           path: apk build
       - name: Generar APK con doble clic y herramientas locales en Windows PowerShell 5.1
+        timeout-minutes: 12
         run: |
           # Fuerza el bootstrap de Java y usa rutas con espacios.
           $env:JAVA_HOME = ''
@@ -394,6 +398,7 @@ jobs:
           $state = @{ presetHash = $presetHash; keyHash = (Get-FileHash .tools/android-debug.keystore).Hash }
           $state | ConvertTo-Json | Set-Content artifacts/android/build-state.json
       - name: Recompilar conservando la firma y comprobar que un fallo conserva la APK
+        timeout-minutes: 8
         run: |
           $env:JAVA_HOME = ''
           $state = Get-Content artifacts/android/build-state.json -Raw | ConvertFrom-Json
