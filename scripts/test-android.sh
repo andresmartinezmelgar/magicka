@@ -27,7 +27,8 @@ PY
 # Liberar el daemon de compilación antes de reservar memoria para el dispositivo.
 "$root/src/Arcana.Client/android/build/gradlew" --stop >/dev/null
 adb start-server
-"$android_sdk/emulator/emulator" -avd arcana -port 5554 -partition-size 2048 -no-metrics -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -accel on -memory 2048 > artifacts/android/emulator.log 2>&1 &
+# ANGLE evita el conteo incorrecto de uniformes de bloques del antiguo SwiftShader GLES.
+"$android_sdk/emulator/emulator" -avd arcana -port 5554 -partition-size 2048 -no-metrics -no-window -no-audio -no-boot-anim -no-snapshot -gpu swangle -accel on -memory 2048 > artifacts/android/emulator.log 2>&1 &
 emulator_pid=$!
 trap 'adb -s "$serial" emu kill >/dev/null 2>&1 || true; kill "$emulator_pid" 2>/dev/null || true' EXIT
 booted=false
