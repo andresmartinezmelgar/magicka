@@ -24,7 +24,9 @@ public static class SnapshotValidation
                 !p.Position.IsFinite || !p.Facing.IsFinite || !Elements(p.Selected) || !Elements(p.Ward, 8) ||
                 p.Cooldowns is not { Length: 4 } || !NonNegative(p.Cooldowns) ||
                 !NonNegative(p.Health, p.MaxHealth, p.Shield, p.Energy, p.Respawn, p.Wet, p.Burning, p.Chill, p.Frozen, p.Haste, p.Charge) ||
-                !NonNegative(p.ShieldMax, p.ShieldSeconds, p.RegenerationRate) || !hasPickups && p.RegenerationRate > 76 || p.ShieldMax > 0 && p.Shield > p.ShieldMax ||
+                !NonNegative(p.ShieldMax, p.ShieldSeconds, p.RegenerationRate, p.InvulnerableSeconds) || p.InvulnerableSeconds > 1.2f ||
+                !p.Alive && p.InvulnerableSeconds > 0 || p.ShieldCharges is < 1 or > 3 ||
+                !hasPickups && p.RegenerationRate > 76 || p.ShieldMax > 0 && p.Shield > p.ShieldMax ||
                 p.MaxHealth <= 0 || p.Health > p.MaxHealth || p.Alive != (p.Health > 0) ||
                 p.Charge > 1 || !p.Alive && p.Casting ||
                 p.Energy > 100 || p.Kills < 0 || p.Deaths < 0) Invalid();

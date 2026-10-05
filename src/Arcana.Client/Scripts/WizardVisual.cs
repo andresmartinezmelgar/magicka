@@ -65,6 +65,7 @@ public partial class WizardVisual : Node3D
         var shieldMat = new StandardMaterial3D { AlbedoColor = new Color(Ui.Shield.R, Ui.Shield.G, Ui.Shield.B, 0.22f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
             EmissionEnabled = true, Emission = Ui.Shield, EmissionEnergyMultiplier = 0.5f, CullMode = BaseMaterial3D.CullModeEnum.Disabled };
         _shield = Mesh(this, new SphereMesh { Radius = 1.05f, Height = 3.1f }, new(0, 1.45f, 0), shieldMat);
+        BuildProtectionBands();
         _ghost = Mesh(this, new SphereMesh { Radius = 0.4f, Height = 1.5f }, new(0, 0.7f, 0),
             new StandardMaterial3D { AlbedoColor = new Color(_color.R, _color.G, _color.B, 0.14f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha });
         _name = new Label3D { Text = p.Name, FontSize = 34, PixelSize = 0.013f,
@@ -152,15 +153,19 @@ public partial class WizardVisual : Node3D
         }
         _affinityRing.Visible = p.Alive && p.WizardType != WizardType.Balanced;
         _affinityRing.Scale = Vector3.One * (1 + Mathf.Sin(time * 2 + p.Id) * 0.04f);
-        _shield.Visible = p.Alive && (p.Shield > 0 || p.Frozen > 0);
+        bool spawnProtected = p.Alive && p.InvulnerableSeconds > 0;
+        _shield.Visible = p.Alive && (p.Shield > 0 || p.Frozen > 0 || spawnProtected);
         if (_shield.MaterialOverride is StandardMaterial3D shieldMat)
         {
             var c = p.Frozen > 0 ? Ui.ElementColor(Element.Cold) : p.Ward.Length > 0 ? Ui.SpellColor(p.Ward) : Ui.Shield;
             c.A = p.Frozen > 0 ? 0.42f : 0.12f + 0.10f * Math.Clamp(p.Shield / Ui.ShieldMaximum(p), 0, 1);
+            if (p.Shield > 0 && p.Frozen <= 0) c.A += (p.ShieldCharges - 1) * 0.035f * Math.Clamp(p.Shield / Ui.ShieldMaximum(p), 0, 1);
+            if (spawnProtected) c = new Color(new Color("fff2a3"), 0.20f + 0.035f * Mathf.Sin(time * 12));
             shieldMat.AlbedoColor = c; shieldMat.Emission = c;
         }
         _shield.Scale = Vector3.One * (1 + Mathf.Sin(time * 3) * 0.03f);
-        _name.Text = p.Name + (!p.Alive ? $"  {Mathf.CeilToInt(p.Respawn)}s" : p.Frozen > 0 ? "  CONGELADO" : p.Burning > 0 ? "  FUEGO" : p.Wet > 0 ? "  MOJADO" : "")
+        UpdateProtectionBands(p, time);
+        _name.Text = p.Name + (!p.Alive ? $"  {Mathf.CeilToInt(p.Respawn)}s" : spawnProtected ? "  INMUNE" : p.Frozen > 0 ? "  CONGELADO" : p.Burning > 0 ? "  FUEGO" : p.Wet > 0 ? "  MOJADO" : "")
             + (p.WizardType != WizardType.Balanced ? "\n" + WizardTypes.Name(p.WizardType) : "");
         _healthRoot.Visible = p.Alive;
         float hp = Math.Clamp(p.Health / p.MaxHealth, 0, 1);

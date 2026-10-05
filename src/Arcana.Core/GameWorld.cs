@@ -62,7 +62,8 @@ public sealed partial class GameWorld
         string cleanName = new((name ?? "Mago").Where(c => !char.IsControl(c) && c != '[' && c != ']').Take(24).ToArray());
         if (string.IsNullOrWhiteSpace(cleanName)) cleanName = "Mago";
         var wizard = new Wizard { Id = _nextPlayer++, Name = cleanName.Trim(), Team = team, Bot = bot, WizardType = wizardType };
-        wizard.Position = Map.Spawn(team, _players.Values.Count(p => p.Team == team));
+        wizard.Position = Options.Mode == GameMode.Arena ? ArenaSpawnPosition(wizard, null)
+            : Map.Spawn(team, _players.Values.Count(p => p.Team == team));
         wizard.Facing = new(team == 0 ? 1 : -1, 0);
         wizard.LastInput = Time;
         _players.Add(wizard.Id, wizard);
@@ -132,7 +133,7 @@ public sealed partial class GameWorld
         {
             p.ActionCooldown = Math.Max(0, p.ActionCooldown - dt);
             p.HitEffectCooldown = Math.Max(0, p.HitEffectCooldown - dt);
-            p.Invulnerable = Math.Max(0, p.Invulnerable - dt);
+            p.Invulnerable = p.Invulnerable <= dt + 0.00001f ? 0 : p.Invulnerable - dt;
             for (int i = 0; i < 4; i++) p.MagickCooldowns[i] = Math.Max(0, p.MagickCooldowns[i] - dt);
             if (!p.Alive)
             {
@@ -363,6 +364,7 @@ public sealed partial class GameWorld
             p.WardTime = 12;
             p.Shield = p.ShieldMax = spell.Has(Element.Earth) ? 650 : p.Ward.Length == 0 ? 420 : 180;
             p.ShieldTime = 12;
+            p.ShieldCharges = spell.Elements.Length;
             p.RegenerationRate = 38 * spell.Count(Element.Life);
         }
         else if (spell.Healing)
@@ -728,11 +730,13 @@ public sealed partial class GameWorld
         p.Ward = []; p.Knockback = V2.Zero; p.Selection.Clear(); CancelCast(p);
         p.BurnMultiplier = 1; p.HitEffectCooldown = 0;
         p.Input.MoveTo = false; p.Input.MoveX = p.Input.MoveY = 0; p.Respawn = 0;
-        p.Invulnerable = 1.2f; p.ActionCooldown = 0;
+        p.ShieldCharges = 1;
+        p.Invulnerable = Options.Mode == GameMode.Arena ? 1 : 1.2f; p.ActionCooldown = 0;
     }
 
     private V2 RespawnPosition(Wizard p)
     {
+        if (Options.Mode == GameMode.Arena) return ArenaSpawnPosition(p, p.Deaths > 0 ? p.Position : null);
         var preferred = Map.Spawn(p.Team, p.Id % 4);
         for (int offset = 0; offset < 4; offset++)
         {
@@ -817,7 +821,8 @@ public sealed partial class GameWorld
             p.Wet, p.Burning, p.Chill, p.Frozen, p.Haste, p.Energy, p.MagickCooldowns.ToArray(), p.Kills, p.Deaths,
             p.Charging != null ? p.ChargeTime / SpellBalance.ChargeSeconds : p.BeamCharge,
             p.Channel != null || p.Charging != null, p.ShieldMax, p.Shield > 0 ? p.ShieldTime : 0, p.WizardType, p.RegenerationRate * RelicBuffs.Healing(p),
-            RelicBuffs.Snapshot(p), (p.Charging?.Elements ?? p.Channel?.Elements ?? []).ToArray())).ToArray(),
+            RelicBuffs.Snapshot(p), (p.Charging?.Elements ?? p.Channel?.Elements ?? []).ToArray(),
+            p.ShieldCharges, p.Alive ? Math.Max(0, p.Invulnerable) : 0)).ToArray(),
         _projectiles.Select(p => new ProjectileSnapshot(p.Id, p.Owner, p.Position, p.Velocity.Normalized, p.Recipe.Elements.ToArray(), p.Radius)).ToArray(),
         _walls.Select(w => new WallSnapshot(w.Id, w.Owner, w.A, w.B, w.Health, w.Lifetime, w.Recipe.Elements.ToArray())).ToArray(),
         _fields.Select(f => new FieldSnapshot(f.Id, f.Owner, f.Position, f.Radius, f.Lifetime, f.Recipe.Elements.ToArray(), f.Kind, f.TriggerRadius, f.Delay <= 0)).ToArray(),

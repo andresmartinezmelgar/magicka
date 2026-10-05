@@ -26,6 +26,12 @@ En v0.12.5 el láser ofensivo también gana grosor y opacidad según su tiempo d
 
 ## Barreras combinadas y meteorito (v0.12.6)
 
+En v0.12.8, `E+D` conserva el muro de piedra de dos hiladas. `E+D+D` añade una tercera hilada, más grosor y contrafuertes. Las barreras de dos y tres elementos refuerzan su marco y su superficie; el agua repetida forma una cascada más densa, el fuego gana altura, el hielo adapta sus cristales y la electricidad añade un segundo arco. Se aplica también a los seis segmentos del anillo.
+
+El escudo personal de un elemento conserva su burbuja. Con dos elementos añade una banda y con tres añade dos; se cuentan los repetidos y las bandas se atenúan al perder protección. La capacidad del escudo, la vida de los muros y las colisiones conservan los valores del combate.
+
+La invulnerabilidad de aparición se dibuja como una envoltura dorada, dos bandas y un anillo al pie del mago, con el texto INMUNE. Desaparece al terminar el segundo de protección. `--preview-spells=shield-strength` compara barreras, piedra simple/doble, escudos personales y protección de aparición. `--effects-smoke` comprueba volumen real de las mallas, bandas y caducidad.
+
 Las barreras usan la receta del servidor para superponer llamas, agua descendente con espuma, arcos eléctricos, hielo o vapor. Los muros de tierra conservan la piedra bajo la superficie elemental. Las mezclas muestran ambos componentes; agua/frío se representa como hielo y agua/fuego como vapor. Se aplica al muro frontal y a cada segmento del anillo. La burbuja del escudo personal conserva su diseño.
 
 El meteorito usa una roca irregular con grietas calientes, estela y brasas. La caída se sincroniza con los 1,4 s de aviso y el círculo representa el radio real de 4 m. La explosión añade 30 partículas de fragmentos, brasas y humo, dos ondas y un destello de 0,2 s. Usa los pools y presupuestos existentes, también al acumularse meteoritos y barreras.

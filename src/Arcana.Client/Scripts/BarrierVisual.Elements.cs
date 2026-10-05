@@ -28,6 +28,7 @@ public partial class BarrierVisual
             uniform float steam = 0.0;
             uniform float stone = 0.0;
             uniform float ground = 0.0;
+            uniform float reinforcement = 0.0;
             float hash(vec2 p) {
                 return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
             }
@@ -58,7 +59,7 @@ public partial class BarrierVisual
                 if (fire > 0.0) {
                     vec2 flow = vec2(x * 5.0 + sin(y * 8.0 - clock * 2.0) * 0.45, y * 7.0 - clock * 3.0);
                     float turbulence = grain(flow) * 0.7 + grain(flow * 2.1) * 0.3;
-                    float tongues = 0.40 + 0.33 * pow(0.5 + 0.5 * sin(x * 8.0 + sin(clock * 2.3 + x) * 0.7), 1.4);
+                    float tongues = 0.40 + reinforcement * 0.045 + 0.33 * pow(0.5 + 0.5 * sin(x * 8.0 + sin(clock * 2.3 + x) * 0.7), 1.4);
                     float flame = smoothstep(-0.04, 0.075, tongues - y + (turbulence - 0.5) * 0.22);
                     float lift = stone > 0.0 ? smoothstep(0.36, 0.51, y) : 1.0;
                     float core = (1.0 - smoothstep(0.20, 0.78, y)) * turbulence;
@@ -67,7 +68,8 @@ public partial class BarrierVisual
                     light += heat * a; alpha += a;
                 }
                 if (water > 0.0 && ground < 0.5) {
-                    float stream = pow(0.5 + 0.5 * sin(x * 18.0 + sin(y * 4.0 + clock) * 0.5), 6.0);
+                    float stream = pow(0.5 + 0.5 * sin(x * (18.0 + reinforcement * 5.0)
+                        + sin(y * 4.0 + clock) * 0.5), 6.0 - reinforcement);
                     // UV.y crece hacia arriba: sumar tiempo hace que los reflejos bajen.
                     float flow = grain(vec2(x * 10.0, y * 18.0 + clock * 10.0));
                     float streak = pow(0.5 + 0.5 * sin(y * 38.0 + clock * 19.0 + x * 4.0), 12.0) * stream;
@@ -101,7 +103,9 @@ public partial class BarrierVisual
                         + (1.0 - smoothstep(0.003, 0.015, min(abs(spark_delta.x), abs(spark_delta.y))))
                         * (1.0 - smoothstep(0.04, 0.12, length(spark_delta)));
                     spark *= 1.0 - smoothstep(0.12, 0.8, fract(clock * 12.0));
-                    float a = (bolt + halo + branch * 0.65 + spark * 0.7) * electric;
+                    float second_path = 0.68 + sin(x * 6.5 - tick * 3.1) * 0.12;
+                    float second_bolt = (1.0 - smoothstep(0.005, 0.018, abs(y - second_path))) * reinforcement * 0.45;
+                    float a = (bolt + second_bolt + halo + branch * 0.65 + spark * (0.7 + reinforcement * 0.2)) * electric;
                     light += mix(vec3(0.35, 0.50, 1.0), vec3(0.90, 0.94, 1.0), bolt * 0.75 + spark * 0.2) * a;
                     alpha += a;
                 }
@@ -118,6 +122,7 @@ public partial class BarrierVisual
         _elementSkin = new ShaderMaterial { Shader = _elementShader };
         _elementSkin.SetShaderParameter("span", length);
         _elementSkin.SetShaderParameter("stone", stone ? 1 : 0);
+        _elementSkin.SetShaderParameter("reinforcement", Math.Max(0, Charges - 2));
         _elementSkin.SetShaderParameter("fire", recipe.Has(Element.Fire) && !recipe.Steam ? 1 : 0);
         _elementSkin.SetShaderParameter("water", recipe.Has(Element.Water) && !recipe.Steam && !recipe.Ice ? 1 : 0);
         _elementSkin.SetShaderParameter("frost", recipe.Has(Element.Cold) ? 1 : 0);
@@ -132,9 +137,11 @@ public partial class BarrierVisual
             void Vertex(float u, float v)
             {
                 face.SetUV(new(u, v));
-                float height = stone ? recipe.Has(Element.Fire) && !recipe.Steam ? 3.2f : 1.8f
-                    : 1.55f + MathF.Sin(u * MathF.PI) * 0.65f;
-                face.AddVertex(new(side * (stone ? 0.335f : 0.03f), 0.08f + height * v, (u - 0.5f) * length));
+                float height = stone ? recipe.Has(Element.Fire) && !recipe.Steam ? 3.2f + _reinforcement * 0.7f
+                    : 1.8f + _reinforcement * 0.76f
+                    : 1.55f + _reinforcement * 0.18f + MathF.Sin(u * MathF.PI) * 0.65f;
+                face.AddVertex(new(side * (stone ? StoneThickness / 2 + 0.025f : 0.03f),
+                    0.08f + height * v, (u - 0.5f) * length));
             }
             Vertex(a, 0); Vertex(b, 0); Vertex(a, 1);
             Vertex(a, 1); Vertex(b, 0); Vertex(b, 1);
@@ -146,7 +153,7 @@ public partial class BarrierVisual
             _foamSkin.SetShaderParameter("ground", 1);
             _foamSkin.SetShaderParameter("water", 1);
             _foamSkin.SetShaderParameter("span", length);
-            Piece(new PlaneMesh { Size = new(1.15f, length) }, new(0, 0.075f, 0), _foamSkin);
+            Piece(new PlaneMesh { Size = new(1.15f + Math.Max(0, Charges - 2) * 0.35f, length) }, new(0, 0.075f, 0), _foamSkin);
         }
         if (recipe.Has(Element.Cold))
         {
@@ -158,7 +165,8 @@ public partial class BarrierVisual
             {
                 float z = ((i + 0.5f) / count - 0.5f) * length;
                 var crystal = Piece(new PrismMesh { Size = new(0.16f, 0.45f + i % 3 * 0.12f, 0.24f) },
-                    new(0, stone ? 1.7f : 1.55f + MathF.Sin((i + 0.5f) / count * MathF.PI) * 0.65f, z), _iceSkin);
+                    new(0, stone ? 1.7f + _reinforcement * 0.76f : 1.55f + _reinforcement * 0.18f
+                        + MathF.Sin((i + 0.5f) / count * MathF.PI) * 0.65f, z), _iceSkin);
                 crystal.Rotation = new(0, i * 0.7f, MathF.Sin(i * 2.7f) * 0.12f);
             }
         }

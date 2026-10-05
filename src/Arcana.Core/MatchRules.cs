@@ -15,7 +15,7 @@ public static class MatchRules
     public static string Details(GameMode mode, ArenaMapId map = ArenaMapId.Classic) => (mode switch
     {
         GameMode.Duel => "Dos magos, uno por equipo. Cada baja enemiga suma un punto.",
-        GameMode.Arena => "Cada baja enemiga suma uno a tu marcador. Las muertes no restan bajas.",
+        GameMode.Arena => "Cada baja enemiga suma uno a tu marcador. Las muertes no restan bajas. Apareces en una posición aleatoria del mapa, con un segundo de invulnerabilidad visible al entrar y al reaparecer.",
         GameMode.Warfare when map == ArenaMapId.Citadel => "Captura los tres círculos. El contador empieza cuando tu equipo controla todos. Si un enemigo disputa o neutraliza cualquiera, vuelve a cero. Hay que mantener el control durante 15 segundos consecutivos. Los tickets y las bajas no deciden la victoria.",
         _ => "Permanece dentro de un círculo para capturarlo. Con ambos equipos dentro, la captura se detiene. Cada segundo, la diferencia de puntos controlados resta esa cantidad de tickets al rival. Cada muerte también cuesta un ticket a tu equipo."
     }) + (map == ArenaMapId.Ascension
