@@ -33,9 +33,9 @@ internal static class VisualFixture
         return state with
         {
             Tick=frame, Time=frame/60.0, Mode=GameMode.Arena,
-            Players=recipes.Select((elements,i) => local with { Id=i+1, Name=names[i], Position=new(-7,-6+i*3),
+            Players=recipes.Select((elements,i) => local with { Id=i+1, Name=names[i], Position=new(-4,-8+i*4),
                 Facing=new(1,0), Casting=true, CastingElements=elements }).ToArray(),
-            Beams=recipes.Select((elements,i) => new BeamSnapshot(i+1,new(-6.3f,-6+i*3),new(6,-6+i*3),
+            Beams=recipes.Select((elements,i) => new BeamSnapshot(i+1,new(-3.3f,-8+i*4),new(5,-8+i*4),
                 elements,SpellShape.Beam)).ToArray(),
             Walls=[], Fields=[], Projectiles=[], Points=[], Events=[]
         };

@@ -120,13 +120,15 @@ public partial class ArenaRenderer
             var primary = healing ? Ui.Health : Ui.ElementColor(Element.Arcane);
             var modifier = beam.Elements.FirstOrDefault(e => e is not Element.Arcane and not Element.Life,
                 healing ? Element.Life : Element.Arcane);
-            var accent = Ui.ElementColor(modifier);
+            var accent = modifier == Element.Cold ? new Color("80e5ff") : Ui.ElementColor(modifier);
+            if (modifier is Element.Fire or Element.Cold or Element.Lightning)
+                primary = primary.Lerp(accent, modifier == Element.Lightning ? 0.65f : 0.78f);
             int profile = modifier switch { Element.Fire => 3, Element.Cold => 4, Element.Lightning => 5, _ => healing ? 2 : 1 };
             float radius = strength.BeamRadius * Mathf.Sqrt(Math.Clamp(beam.Power, 0.3f, 3));
             if (!details)
             {
-                BeamSegment(from, to, new Color(primary, 0.46f), radius, profile: profile, charges: strength.Charges, accent: accent);
-                var core = beam.Interaction == "merged" ? Ui.Text : primary.Lightened(0.68f);
+                BeamSegment(from, to, new Color(primary, 0.52f), radius, profile: profile, charges: strength.Charges, accent: accent);
+                var core = beam.Interaction == "merged" ? Ui.Text : primary.Lightened(0.48f);
                 var tip = from.Lerp(to, 0.94f);
                 BeamSegment(from, tip, core, 0.026f + strength.Charges * 0.005f);
                 BeamSegment(tip, to, core, 0.026f + strength.Charges * 0.005f, 0.003f);
@@ -144,8 +146,13 @@ public partial class ArenaRenderer
                     float angle = t * Mathf.Tau + (float)_time * 2.4f + strand * MathF.PI;
                     var offset = (side * MathF.Cos(angle) + up * MathF.Sin(angle))
                         * MathF.Sin(t * MathF.PI) * (0.08f + strength.Charges * 0.025f);
+                    if (modifier == Element.Lightning)
+                        offset = side * MathF.Sin((float)_time * 17 + i * 7 + strand * 3) * MathF.Sin(t * MathF.PI) * 0.19f;
                     var next = from.Lerp(to, t) + offset;
-                    BeamSegment(previous, next, new Color(strand == 0 ? accent : primary, 0.66f), 0.016f);
+                    var strandColor = modifier is Element.Fire or Element.Cold or Element.Lightning
+                        ? strand == 0 ? accent : Ui.ElementColor(healing ? Element.Life : Element.Arcane)
+                        : primary;
+                    BeamSegment(previous, next, new Color(strandColor, 0.66f), 0.016f);
                     previous = next;
                 }
             }

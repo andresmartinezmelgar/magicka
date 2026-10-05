@@ -41,9 +41,11 @@ public partial class BarrierVisual : Node3D
                     AlbedoColor = new Color("56616b").Lerp(_color, 0.13f).Darkened(i % 3 * 0.07f),
                     Roughness = 0.95f
                 };
-                var block = Piece(new PrismMesh { Size = new(0.34f, height, length / blocks * 0.98f) },
+                var block = Piece(new CylinderMesh { TopRadius = length / blocks * 0.32f,
+                    BottomRadius = length / blocks * 0.58f, Height = height, RadialSegments = 5 },
                     new(0, height / 2, (i + 0.5f) / blocks * length - length / 2), material);
-                block.Rotation = new(0, 0, MathF.Sin(i * 3.7f) * 0.035f);
+                block.Scale = new(0.62f, 1, 1);
+                block.Rotation = new(0, MathF.Sin(i * 1.27f) * 0.18f, MathF.Sin(i * 3.7f) * 0.045f);
                 block.CastShadow = GeometryInstance3D.ShadowCastingSetting.On;
             }
         }

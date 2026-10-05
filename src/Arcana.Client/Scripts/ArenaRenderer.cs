@@ -163,10 +163,10 @@ public partial class ArenaRenderer : Node3D
         Camera.Position = first && playing ? desired : Camera.Position.Lerp(desired, 1 - Mathf.Exp(-3 * dt));
         Camera.LookAt(Camera.Position - new Vector3(0, 27, 21));
         Camera.Size = Mathf.Lerp(Camera.Size, playing ? _zoom : 32, 1 - Mathf.Exp(-5 * dt));
+        foreach (var visual in _points.Values) visual.Visible = ShowControlPoints && snapshot.Mode == GameMode.Warfare;
         foreach (var point in snapshot.Points)
         {
             var visual = _points[point.Id];
-            visual.Visible = ShowControlPoints && snapshot.Mode == GameMode.Warfare;
             visual.Update(point, dt, (float)_time);
         }
         DrawProjectiles(snapshot, dt);
