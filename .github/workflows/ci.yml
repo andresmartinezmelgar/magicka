@@ -363,8 +363,76 @@ jobs:
           path: artifacts/android/*.log
           if-no-files-found: ignore
 
+  package-android-windows:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: apk build
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: apk build
+      - name: Generar APK con doble clic y herramientas locales en Windows PowerShell 5.1
+        run: |
+          # Fuerza el bootstrap de Java y usa rutas con espacios.
+          $env:JAVA_HOME = ''
+          $env:APPDATA = Join-Path $env:RUNNER_TEMP 'preferencias Godot usuario'
+          $settings = Join-Path $env:APPDATA 'Godot/editor_settings-4.5.tres'
+          New-Item -ItemType Directory -Path (Split-Path $settings) -Force | Out-Null
+          'Preferencias del usuario: conservar exactamente.' | Set-Content -LiteralPath $settings
+          $presetHash = (Get-FileHash src/Arcana.Client/export_presets.cfg).Hash
+          $settingsHash = (Get-FileHash -LiteralPath $settings).Hash
+          cmd.exe /d /c 'Compilar-APK.cmd -AcceptAndroidLicenses < nul'
+          if ($LASTEXITCODE -ne 0) { throw 'Fallo el script de APK con doble clic.' }
+          if ((Get-FileHash src/Arcana.Client/export_presets.cfg).Hash -ne $presetHash) { throw 'Se modificaron los presets.' }
+          if ((Get-FileHash -LiteralPath $settings).Hash -ne $settingsHash) { throw 'Se modificaron las preferencias del editor.' }
+          $version = (Get-Content VERSION -Raw).Trim()
+          $apk = "artifacts/android/ArcanaArena-v$version-Android-arm64.apk"
+          if (!(Test-Path -LiteralPath $apk)) { throw 'Falta la APK ARM64.' }
+          $state = @{ presetHash = $presetHash; keyHash = (Get-FileHash .tools/android-debug.keystore).Hash }
+          $state | ConvertTo-Json | Set-Content artifacts/android/build-state.json
+      - name: Recompilar conservando la firma y comprobar que un fallo conserva la APK
+        run: |
+          $env:JAVA_HOME = ''
+          $state = Get-Content artifacts/android/build-state.json -Raw | ConvertFrom-Json
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/auto-compile-apk.ps1 -AcceptAndroidLicenses
+          if ($LASTEXITCODE -ne 0) { throw 'Fallo la segunda compilacion.' }
+          if ((Get-FileHash .tools/android-debug.keystore).Hash -ne $state.keyHash) { throw 'Se sustituyo la firma local.' }
+          if ((Get-FileHash src/Arcana.Client/export_presets.cfg).Hash -ne $state.presetHash) { throw 'No se restauraron los presets.' }
+          $version = (Get-Content VERSION -Raw).Trim()
+          $apk = "artifacts/android/ArcanaArena-v$version-Android-arm64.apk"
+          $apkHash = (Get-FileHash -LiteralPath $apk).Hash
+          $checksum = (Get-Content artifacts/android/SHA256SUMS-Android.txt -Raw).Split(' ')[0]
+          if ($checksum -ne $apkHash.ToLowerInvariant()) { throw 'SHA256 incorrecto.' }
+          $project = (Resolve-Path src/Arcana.Client/Arcana.Client.csproj).Path
+          $backup = [IO.File]::ReadAllBytes($project)
+          try {
+            [IO.File]::WriteAllText($project, '<proyecto-invalido>')
+            powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/auto-compile-apk.ps1 -AcceptAndroidLicenses
+            if ($LASTEXITCODE -eq 0) { throw 'El script no rechazo el proyecto invalido.' }
+          } finally { [IO.File]::WriteAllBytes($project, $backup) }
+          if ((Get-FileHash -LiteralPath $apk).Hash -ne $apkHash) { throw 'El fallo sustituyo la APK anterior.' }
+          if ((Get-FileHash .tools/android-debug.keystore).Hash -ne $state.keyHash) { throw 'El fallo sustituyo la firma.' }
+          if ((Get-FileHash src/Arcana.Client/export_presets.cfg).Hash -ne $state.presetHash) { throw 'El fallo dejo presets modificados.' }
+          'WINDOWS_APK_BUILD_OK: descarga, exportacion, recompilacion, firma y fallo seguro.'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ArcanaArena-Android-Windows-script
+          path: |
+            apk build/artifacts/android/*-Android-arm64.apk
+            apk build/artifacts/android/SHA256SUMS-Android.txt
+            apk build/artifacts/android/manifest-arm64.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-apk-diagnostics
+          path: apk build/artifacts/compilacion-apk-*.log
+          if-no-files-found: ignore
+
   release:
-    needs: [build-and-test, package-windows, package-android]
+    needs: [build-and-test, package-windows, package-android, package-android-windows]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:

@@ -6,6 +6,7 @@
 - Llamas con turbulencia y puntas; cascadas continuas con espuma en el suelo; arcos eléctricos ramificados y chispas en la superficie. Los elementos combinados se superponen a la piedra.
 - Meteorito con 80 facetas, basalto, grietas incandescentes y estela de dos capas orientada según el descenso. Brasas y humo dentro del presupuesto existente.
 - Mejora visual limitada a barreras y meteorito; se conservan los valores de combate y el protocolo 8.
+- `Compilar-APK.cmd` para generar una APK ARM64 desde Windows con doble clic. Prepara las herramientas, conserva la firma local y verifica la APK antes de sustituir la anterior.
 
 ## v0.12.6
 

@@ -4,6 +4,8 @@ Los escudos frontales y los anillos muestran superficies elementales más defini
 
 El meteorito tiene una roca de 80 facetas, basalto y grietas incandescentes. La estela combina un núcleo caliente y una envolvente irregular, se orienta según la caída y desprende brasas y humo.
 
+El código incluye `Compilar-APK.cmd` para generar la APK ARM64 con doble clic en Windows. Prepara las herramientas necesarias, conserva una firma local y comprueba la salida antes de sustituir la APK anterior.
+
 Se conservan el combate, la burbuja personal, los demás hechizos, el radio del meteorito de 4 m, sus 1,4 s de aviso y el protocolo 8. Las partículas siguen usando los límites y pools existentes.
 
 **Android:** instalar `ArcanaArena-v0.12.7-Android-arm64.apk`. Android 8 o posterior, ARM64.

@@ -34,6 +34,26 @@ La APK puede consultar, crear y entrar en las salas del servidor. Usa protocolo 
 
 ## Compilación y comprobaciones
 
+### Windows con doble clic
+
+Extraer el código completo y abrir **`Compilar-APK.cmd`** en la raíz desde Windows 10/11 x64. El script descarga las herramientas oficiales que falten en `.tools/`, sin necesitar Android Studio, Visual Studio ni permisos de administrador. La primera vez necesita Internet y varios GB libres; el SDK muestra sus licencias para aceptarlas con `y`.
+
+La APK ARM64 queda en **`artifacts/android/ArcanaArena-v0.12.7-Android-arm64.apk`**, junto con `SHA256SUMS-Android.txt` y el manifest comprobado. El script verifica firma, versión, paquete, Android 8+, permiso de red y bibliotecas Godot/C#. Solo sustituye la APK después de comprobarla; si falla, conserva la anterior. Los registros se guardan en `artifacts/compilacion-apk-*.log`.
+
+La firma de desarrollo se conserva en **`.tools/android-debug.keystore`**, excluida de Git. Mantener ese archivo permite actualizar las APK generadas en este equipo sin desinstalar el juego. Una APK de la Release puede usar otra firma. El script restaura los presets del proyecto y usa una configuración de Godot temporal.
+
+También se puede ejecutar desde PowerShell y reutilizar herramientas propias:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/auto-compile-apk.ps1
+# Opcional: indicar herramientas existentes o generar para un emulador.
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/auto-compile-apk.ps1 -GodotPath "C:\Godot\Godot_v4.5.2-stable_mono_win64_console.exe" -JavaHome "C:\Java\jdk-17" -AndroidSdkPath "C:\Android\Sdk" -Architecture x86_64
+```
+
+`-AcceptAndroidLicenses` acepta las licencias sin interacción, para un entorno automatizado que ya autorice esa aceptación. Por defecto se muestran y se solicita respuesta. Estas APK usan firma de desarrollo para instalación directa.
+
+### Linux
+
 Godot 4.5.2 .NET, SDK .NET 8, OpenJDK 17, SDK Android con plataforma y build-tools 35.0.0 y plantillas de exportación .NET de Godot. El proyecto conserva `net8.0`; Godot selecciona el runtime Mono Android al exportar.
 
 ```bash

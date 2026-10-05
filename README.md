@@ -74,6 +74,8 @@ Descargar el código con **Code → Download ZIP** y extraer todo, o actualizar 
 
 El resultado queda en **`Juego/ArcanaArena.exe`**. Cada compilación correcta **sustituye completamente `Juego/`**, incluidos los archivos antiguos. Cerrar el juego antes de recompilar. Si la compilación falla, se conserva el resultado anterior. Registro: `artifacts/compilacion-*.log`. No requiere Visual Studio ni instalación de administrador. [Proceso y compilación manual](docs/EXPORTAR.md).
 
+Para **Android**, abrir **`Compilar-APK.cmd`**. Prepara .NET 8, Godot 4.5.2 .NET, OpenJDK 17 y el SDK Android 35 en `.tools/`; la primera ejecución necesita Internet, varios GB libres y aceptar las licencias que muestra el SDK. Genera **`artifacts/android/ArcanaArena-v0.12.7-Android-arm64.apk`**, lista para instalar en un móvil ARM64 con Android 8 o posterior. Reutiliza la firma local en las siguientes compilaciones y conserva la APK anterior si falla. Registro: `artifacts/compilacion-apk-*.log`. [Opciones y compilación manual](docs/ANDROID.md#compilación-y-comprobaciones).
+
 ## Cómo ganar y tipos de mago
 
 - **Duelo:** primer equipo que llega al límite de bajas; por defecto 15, o 5 en práctica.
