@@ -1,6 +1,6 @@
 # Arcana Arena para Android
 
-Descargar `ArcanaArena-v0.12.6-Android-arm64.apk` desde la Release e instalarla. Android puede pedir autorización a la aplicación usada para abrir la APK. Requiere Android 8 o posterior y procesador ARM64. No hace falta instalar Godot ni .NET. Si Android rechaza actualizar una APK de desarrollo anterior porque tiene otra firma, desinstalar la anterior antes de instalar esta versión.
+Descargar `ArcanaArena-v0.12.7-Android-arm64.apk` desde la Release e instalarla. Android puede pedir autorización a la aplicación usada para abrir la APK. Requiere Android 8 o posterior y procesador ARM64. No hace falta instalar Godot ni .NET. Si Android rechaza actualizar una APK de desarrollo anterior porque tiene otra firma, desinstalar la anterior antes de instalar esta versión.
 
 El juego se abre en horizontal. **Práctica** funciona sin conexión y permite elegir los cuatro mapas, el modo y el tipo de mago. La APK incluye el motor, los sprites, los sonidos y el runtime C#.
 

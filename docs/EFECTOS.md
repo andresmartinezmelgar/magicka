@@ -30,4 +30,8 @@ Las barreras usan la receta del servidor para superponer llamas, agua descendent
 
 El meteorito usa una roca irregular con grietas calientes, estela y brasas. La caída se sincroniza con los 1,4 s de aviso y el círculo representa el radio real de 4 m. La explosión añade 30 partículas de fragmentos, brasas y humo, dos ondas y un destello de 0,2 s. Usa los pools y presupuestos existentes, también al acumularse meteoritos y barreras.
 
+En v0.12.7 la piedra forma dos hiladas de bloques irregulares, con juntas alternadas y caras rugosas. Las llamas tienen puntas y turbulencia ascendente; las cascadas muestran una cortina continua, reflejos descendentes y espuma con ondas en la base. Los arcos eléctricos se ramifican y producen chispas breves sobre la superficie. La mezcla conserva el volumen de la piedra y los componentes compatibles de la receta.
+
+La roca del meteorito tiene 80 facetas, zonas de basalto y grietas que pulsan. Su estela combina una envolvente irregular y un núcleo caliente, orientados en sentido contrario al descenso, con brasas y humo. El radio, el aviso, el instante de impacto y los límites de efectos siguen definidos por los valores existentes.
+
 `--preview-spells=shield-elements` y `--preview-spells=meteor` muestran estas escenas para capturas OpenGL. `--effects-smoke` recorre las 18 recetas que crean barreras, su desaparición y la caída, radio, impacto y saturación del meteorito. `--mobile-smoke` crea piedra con fuego y lanza el meteorito mediante los controles táctiles.

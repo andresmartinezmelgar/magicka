@@ -167,7 +167,7 @@ jobs:
         run: dotnet publish src/Arcana.Server -c Release --no-restore -o artifacts/server
       - uses: actions/upload-artifact@v4
         with:
-          name: arcana-server-v0.12.6
+          name: arcana-server-v0.12.7
           path: artifacts/server
       - name: Logs de diagnóstico
         if: failure()

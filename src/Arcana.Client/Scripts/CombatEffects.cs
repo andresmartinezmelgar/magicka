@@ -198,10 +198,11 @@ public partial class CombatEffects : Node3D
             foreach (var meteor in snapshot.Fields.Where(f => f.Kind == "meteor"))
             {
                 var at = ArenaRenderer.World(meteor.Position) + MeteorVisual.FlightPosition(meteor.Lifetime);
-                for (int i = 0; i < 2; i++)
-                    Emit(at + Vector3.Up * (0.6f + i * 0.65f) + Direction() * 0.25f,
-                        i == 0 ? Ui.ElementColor(Element.Fire) : new("ffc26a"), Vector3.Up * 0.9f,
-                        0.38f, 2, 0.12f, 0);
+                var trail = MeteorVisual.TrailDirection(meteor.Lifetime);
+                for (int i = 0; i < 3; i++)
+                    Emit(at + trail * (0.6f + i * 0.8f) + Direction() * 0.25f,
+                        i == 2 ? new Color(0.23f, 0.19f, 0.16f, 0.26f) : i == 0 ? new("ffe4ad") : Ui.ElementColor(Element.Fire),
+                        trail * 0.9f, i == 2 ? 0.55f : 0.38f, i == 2 ? 0 : 2, i == 2 ? 0.28f : 0.12f, 0);
             }
         }
         if (_statusClock >= 0.11f)

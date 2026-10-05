@@ -1,5 +1,12 @@
 # Cambios
 
+## v0.12.7
+
+- Muros de piedra con bloques irregulares en dos hiladas, juntas alternadas y caras rugosas.
+- Llamas con turbulencia y puntas; cascadas continuas con espuma en el suelo; arcos eléctricos ramificados y chispas en la superficie. Los elementos combinados se superponen a la piedra.
+- Meteorito con 80 facetas, basalto, grietas incandescentes y estela de dos capas orientada según el descenso. Brasas y humo dentro del presupuesto existente.
+- Mejora visual limitada a barreras y meteorito; se conservan los valores de combate y el protocolo 8.
+
 ## v0.12.6
 
 - Barreras frontales y anillos con superficies elementales animadas: fuego, agua descendente y espuma, arcos eléctricos y chispas, cristales de hielo y vapor. Las mezclas muestran sus componentes; las barreras de tierra conservan la roca con la capa elemental encima.
