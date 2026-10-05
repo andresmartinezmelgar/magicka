@@ -31,6 +31,7 @@ public partial class CombatEffects : Node3D
         new CylinderMesh { TopRadius = 0, BottomRadius = 0.5f, Height = 1, RadialSegments = 6 }
     ];
     private readonly TorusMesh _ring = new() { InnerRadius = 0.94f, OuterRadius = 1, Rings = 32, RingSegments = 6 };
+    private readonly SphereMesh _blast = new() { Radius = 1, Height = 0.8f, RadialSegments = 20, Rings = 8 };
     private int _sparkCount, _waveCount, _emittedThisFrame;
     private float _trailClock, _statusClock;
     public int ActiveCount => _sparks.Count + _waves.Count;
@@ -70,7 +71,7 @@ public partial class CombatEffects : Node3D
         spark.Node.Scale = spark.Size; spark.Velocity = velocity; spark.Gravity = gravity;
         spark.Life = spark.Duration = duration; _sparks.Add(spark); _emittedThisFrame++;
     }
-    private void Ring(V2 position, Color color, float start, float end, float duration)
+    private void Ring(V2 position, Color color, float start, float end, float duration, bool blast = false)
     {
         Wave wave;
         if (_freeWaves.Count > 0) wave = _freeWaves.Pop();
@@ -81,6 +82,7 @@ public partial class CombatEffects : Node3D
             wave = new(node); _waveCount++;
         }
         wave.Node.MaterialOverride = Material(color); wave.Node.Position = ArenaRenderer.World(position, 0.09f);
+        wave.Node.Mesh = blast ? _blast : _ring;
         wave.Node.Visible = true; wave.Start = start; wave.End = end;
         wave.Life = wave.Duration = duration; wave.Node.Scale = new(start, 0.5f, start); _waves.Add(wave);
     }
@@ -92,6 +94,10 @@ public partial class CombatEffects : Node3D
         if (e.Kind is not ("cast" or "self" or "nova" or "impact" or "explosion" or "death" or "blink" or
             "blink_arrive" or "barrier" or "shield_hit" or "shield_break" or "hurt" or "splash" or "mine_heal" or "mine_place" or "beam_merge" or "beam_refract")) return;
         SeenKinds.Add(e.Kind);
+        if (e.Kind == "explosion" && e.Text == "Meteoro")
+        {
+            SeenCharges.Add(3); MeteorImpact(e); return;
+        }
         // Golpes continuos y efectos de estado conservan una respuesta breve, sin multiplicar destellos.
         var strength = e.Kind is "hurt" or "shield_hit" or "shield_break" or "death" or "blink" or "blink_arrive"
             ? new SpellVisualStrength(1) : SpellVisualStrength.For(e.Elements);
@@ -118,6 +124,23 @@ public partial class CombatEffects : Node3D
         else if (e.Kind is "blink" or "blink_arrive") Ring(e.Position, color, 0.2f, 1.7f, 0.45f);
         else if (shield || e.Kind is "self" or "barrier" or "cast")
             Ring(e.Position, color, 0.4f, shield ? 1.6f : 0.7f + strength.Charges * 0.15f, 0.32f);
+    }
+
+    private void MeteorImpact(GameEvent e)
+    {
+        var origin = ArenaRenderer.World(e.Position, 0.25f);
+        for (int i = 0; i < 10; i++)
+            Emit(origin, new("665044"), Direction() * 4.3f, 0.65f, 1, 0.19f, 7);
+        for (int i = 0; i < 14; i++)
+            Emit(origin, i % 3 == 0 ? new("ffe1a3") : Ui.ElementColor(Element.Fire),
+                Direction() * 4.8f, 0.48f, 2, 0.14f, 3);
+        for (int i = 0; i < 6; i++)
+            Emit(origin + Direction() * 0.5f, new Color(0.22f, 0.18f, 0.15f, 0.3f),
+                Vector3.Up * 1.2f + Direction() * 0.5f, 0.85f, 0, 0.48f, -0.2f);
+        float radius = e.Radius > 0 ? e.Radius : 4;
+        Ring(e.Position, new Color(1, 0.45f, 0.12f, 0.4f), 0.45f, radius, 0.5f);
+        Ring(e.Position, new Color(0.55f, 0.42f, 0.29f, 0.3f), 0.25f, radius * 0.78f, 0.4f);
+        Ring(e.Position, new Color(1, 0.6f, 0.2f, 0.24f), 0.2f, radius * 0.6f, 0.2f, blast: true);
     }
 
     public void Advance(WorldSnapshot snapshot, float delta, bool playing)
@@ -172,6 +195,14 @@ public partial class CombatEffects : Node3D
                         Direction() * 0.35f, 0.20f, 0, strength.SparkSize * 0.7f, 0);
                 }
             }
+            foreach (var meteor in snapshot.Fields.Where(f => f.Kind == "meteor"))
+            {
+                var at = ArenaRenderer.World(meteor.Position) + MeteorVisual.FlightPosition(meteor.Lifetime);
+                for (int i = 0; i < 2; i++)
+                    Emit(at + Vector3.Up * (0.6f + i * 0.65f) + Direction() * 0.25f,
+                        i == 0 ? Ui.ElementColor(Element.Fire) : new("ffc26a"), Vector3.Up * 0.9f,
+                        0.38f, 2, 0.12f, 0);
+            }
         }
         if (_statusClock >= 0.11f)
         {
@@ -204,6 +235,20 @@ public partial class CombatEffects : Node3D
                     Emit(at, Ui.SpellColor(field.Elements), Vector3.Up * (field.Kind == "burning_ground" ? 1.4f : 0.35f),
                         0.35f, field.Kind == "burning_ground" ? 2 : field.Kind == "frost_ground" ? 1 : 0, strength.SparkSize, 0);
                 }
+            }
+            foreach (var wall in snapshot.Walls)
+            {
+                if (wall.Health <= 0 || wall.Lifetime <= 0) continue;
+                var spell = new SpellRecipe(wall.Elements);
+                var at = ArenaRenderer.World(V2.Lerp(wall.A, wall.B, (float)_random.NextDouble()), 0.4f);
+                if (spell.Steam)
+                    Emit(at + Vector3.Up * 0.6f, new Color(0.73f, 0.85f, 0.88f, 0.3f), Vector3.Up * 0.8f, 0.55f, 0, 0.22f, 0);
+                else if (spell.Has(Element.Fire))
+                    Emit(at + Vector3.Up * (spell.Has(Element.Earth) ? 1.1f : 0.4f), Ui.ElementColor(Element.Fire), Vector3.Up * 1.5f, 0.4f, 2, 0.12f, 0);
+                if (spell.Has(Element.Water) && !spell.Steam && !spell.Ice)
+                    Emit(at - Vector3.Up * 0.25f, new("a0e6ff"), Direction() * 0.75f, 0.28f, 0, 0.08f, 2);
+                if (spell.Has(Element.Lightning))
+                    Emit(at + Vector3.Up * 0.6f, new("c9cdff"), Direction() * 1.7f, 0.16f, 1, 0.055f, 0);
             }
         }
         FinishFrame();

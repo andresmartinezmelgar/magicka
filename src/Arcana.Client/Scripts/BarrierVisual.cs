@@ -20,6 +20,7 @@ public partial class BarrierVisual : Node3D
         Rotation = new(0, Mathf.Atan2(direction.X, direction.Y), 0);
         AddChild(_geometry);
         bool stone = wall.Elements.Contains(Element.Earth);
+        Stone = stone;
         int charges = SpellVisualStrength.For(wall.Elements).Charges;
         float length = V2.Distance(wall.A, wall.B);
         _previousHealth = wall.Health; _maximumHealth = stone ? 1300 : 650;
@@ -113,6 +114,7 @@ public partial class BarrierVisual : Node3D
                 new(stone ? 0.19f : 0.025f, 0.82f, z), _rim);
             glyph.Rotation = new(MathF.PI / 4, 0, 0);
         }
+        BuildElements(wall, length, stone);
     }
 
     private MeshInstance3D Piece(Godot.Mesh shape, Vector3 at, Godot.Material material)
@@ -139,6 +141,7 @@ public partial class BarrierVisual : Node3D
             _surface.SetShaderParameter("hit_flash", _flash);
             _surface.SetShaderParameter("clock", time);
         }
+        UpdateElements(fade, time);
         Visible = wall.Health > 0 && wall.Lifetime > 0;
     }
 }

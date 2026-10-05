@@ -1,5 +1,12 @@
 # Cambios
 
+## v0.12.6
+
+- Barreras frontales y anillos con superficies elementales animadas: fuego, agua descendente y espuma, arcos eléctricos y chispas, cristales de hielo y vapor. Las mezclas muestran sus componentes; las barreras de tierra conservan la roca con la capa elemental encima.
+- Meteorito con roca facetada incandescente, estela y brasas, caída acelerada sincronizada con el aviso del servidor y círculo de 4 m. Impacto con fragmentos, humo, dos ondas y un destello breve a ras del suelo.
+- Materiales y nodos reutilizables, efectos dentro de los presupuestos existentes. Comprobaciones de las 18 combinaciones de barrera, caducidad, caída, radio, impacto y saturación; los controles móviles ejercitan piedra con fuego y meteorito.
+- Capturas OpenGL de barreras combinadas y etapas del meteorito. Los valores de daño, curación, colisión y duración del combate se conservan; parámetros del meteorito compartidos con la simulación.
+
 ## v0.12.5
 
 - Daño directo de los láseres progresivo por tiempo de canalización: del 30 % del daño original al 150 % en 2 s; permanece al máximo hasta soltar o interrumpir. No modifica curación ni efectos de estado.

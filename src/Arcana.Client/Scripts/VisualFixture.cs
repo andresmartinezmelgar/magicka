@@ -9,6 +9,24 @@ internal static class VisualFixture
     {
         var state = Create("none");
         var local = state.Players[0] with { Position = V2.Zero, Selected = [], Shield = 0, ShieldMax = 0, ShieldSeconds = 0 };
+        if (view == "shield-elements")
+        {
+            Element[][] shieldRecipes = [[Element.Shield], [Element.Shield,Element.Earth,Element.Fire],
+                [Element.Shield,Element.Earth,Element.Water], [Element.Shield,Element.Water,Element.Cold],
+                [Element.Shield,Element.Water], [Element.Shield,Element.Lightning,Element.Fire],
+                [Element.Shield,Element.Cold], [Element.Shield,Element.Water,Element.Fire]];
+            return state with { Tick=frame, Time=frame/60.0, Mode=GameMode.Arena, Players=[local],
+                Walls=shieldRecipes.Select((elements,i) => new WallSnapshot(i+1,1,
+                    new(i<4 ? -10 : 3,-7+i%4*5),new(i<4 ? -4 : 9,-7+i%4*5),
+                    elements.Contains(Element.Earth) ? 1300 : 650,7,elements)).ToArray(),
+                Beams=[], Fields=[], Projectiles=[], Points=[], Events=[] };
+        }
+        if (view == "meteor")
+            return state with { Tick=frame, Time=frame/60.0, Mode=GameMode.Arena, Players=[local],
+                Fields=[new(1,1,new(-6,-2),4,0.9f,[Element.Earth,Element.Fire,Element.Fire],"meteor"),
+                    new(2,1,new(5,-2),4,0.23f,[Element.Earth,Element.Fire,Element.Fire],"meteor")],
+                Events=frame>=84 ? [new(1,"explosion",new(0,4),[Element.Earth,Element.Fire,Element.Fire],"Meteoro",4)] : [],
+                Walls=[], Beams=[], Projectiles=[], Points=[] };
         if (view == "barriers")
         {
             var walls = new List<WallSnapshot>

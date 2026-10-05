@@ -1,8 +1,10 @@
-# Arcana Arena — v0.12.5
+# Arcana Arena — v0.12.6
 
 Primera recreación jugable en C# del combate elemental de **Magicka: Wizard Wars**. Cliente 3D de escritorio con **Godot 4.5.2 .NET**, servidor independiente **ASP.NET Core / .NET 8**, Docker, launcher con conexión por IP/LAN, salas independientes y paquete Windows para abrir con doble clic y APK Android con controles táctiles.
 
 El código, las mallas y los sonidos son propios. Los sprites de los magos se han generado para este proyecto. Esta versión reproduce la estructura del combate; los gráficos, mapas, magicks y valores de daño son una aproximación, no una reproducción exacta del original.
+
+**v0.12.6:** barreras combinadas con llamas, cascadas, chispas, cristales de hielo o vapor; los muros de tierra conservan la roca bajo el efecto. Meteorito de roca incandescente, estela, aviso y explosión con fragmentos y humo.
 
 **v0.12.5:** el daño del láser aumenta mientras se mantiene: empieza al 30 % del valor original y alcanza el 150 % tras 2 s. La barra inferior muestra la carga y el láser gana grosor e intensidad de forma moderada. F1 indica los valores inicial y máximo. APK Android ARM64 y controles móviles junto a los bordes. [Instalación y controles](docs/ANDROID.md).
 
@@ -44,11 +46,11 @@ El código, las mallas y los sonidos son propios. Los sprites de los magos se ha
 
 ## Jugar en Android
 
-Instalar [ArcanaArena-v0.12.5-Android-arm64.apk](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.12.5/ArcanaArena-v0.12.5-Android-arm64.apk). Android 8 o posterior, ARM64, en horizontal. Práctica sin conexión; por IP o LAN se conecta al servidor de PC o Docker. [Controles, red y compilación](docs/ANDROID.md).
+Instalar [ArcanaArena-v0.12.6-Android-arm64.apk](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.12.6/ArcanaArena-v0.12.6-Android-arm64.apk). Android 8 o posterior, ARM64, en horizontal. Práctica sin conexión; por IP o LAN se conecta al servidor de PC o Docker. [Controles, red y compilación](docs/ANDROID.md).
 
 ## Jugar con doble clic en Windows
 
-1. Descargar [ArcanaArena-v0.12.5-Windows-x64.zip](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.12.5/ArcanaArena-v0.12.5-Windows-x64.zip) de [Releases](https://github.com/andresmartinezmelgar/magicka/releases/latest).
+1. Descargar [ArcanaArena-v0.12.6-Windows-x64.zip](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.12.6/ArcanaArena-v0.12.6-Windows-x64.zip) de [Releases](https://github.com/andresmartinezmelgar/magicka/releases/latest).
 2. **Extraer todo el ZIP** en una carpeta. Abrir **ArcanaArena.exe** con doble clic.
 3. Elegir el **tipo de mago**. Elegir **Práctica** para jugar con bots, **Alojar** para iniciar tu servidor, **LAN** para buscar servidores o **Por IP** para usar una dirección.
 
@@ -79,7 +81,7 @@ El resultado queda en **`Juego/ArcanaArena.exe`**. Cada compilación correcta **
 - **Guerra en Arena clásica:** reducir a cero los tickets rivales; controlar más puntos los desgasta cada segundo y cada muerte cuesta un ticket.
 - **Guerra en Ciudadela:** controlar los tres puntos sin disputa durante **15 segundos consecutivos**. Disputar o neutralizar cualquiera reinicia el contador; no hay victoria por tickets o bajas.
 
-Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). El combate usa **protocolo 8**. La versión v0.12.5 es compatible con v0.10.0, v0.11.0, v0.11.1, v0.12.0, v0.12.1, v0.12.2, v0.12.3 y v0.12.4; las versiones con protocolos anteriores se rechazan en el saludo. Actualizar también el servidor a v0.12.5 para que aplique el nuevo daño progresivo.
+Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). El combate usa **protocolo 8**. La versión v0.12.6 es compatible con v0.10.0, v0.11.0, v0.11.1, v0.12.0, v0.12.1, v0.12.2, v0.12.3, v0.12.4 y v0.12.5; las versiones con protocolos anteriores se rechazan en el saludo. El daño progresivo del láser requiere un servidor v0.12.5 o posterior.
 
 ## Mapas
 

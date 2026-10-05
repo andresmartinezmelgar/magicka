@@ -112,7 +112,8 @@ public partial class Main : Node
             if (arg == "--effects-smoke") _effectsSmoke = true;
             if (arg == "--preview-effects") _previewEffects = true;
             if (arg.StartsWith("--preview-strength=") && int.TryParse(arg[19..], out int strength)) _previewStrength = Math.Clamp(strength, 1, 3);
-            if (arg is "--preview-spells=barriers" or "--preview-spells=beams" or "--preview-spells=beam-charge") _previewSpells = arg[17..];
+            if (arg is "--preview-spells=barriers" or "--preview-spells=beams" or "--preview-spells=beam-charge"
+                or "--preview-spells=shield-elements" or "--preview-spells=meteor") _previewSpells = arg[17..];
             if (arg == "--sprites-smoke") _spritesSmoke = true;
             if (arg == "--combinations-smoke") _combinationsSmoke = true;
             if (arg == "--maps-smoke") _mapsSmoke = true;
@@ -522,6 +523,7 @@ public partial class Main : Node
         {
             valid &= effects.ActiveCount == 0 && effects.SeenCharges.SetEquals([1,2,3]);
             if (valid) valid = CheckSpellStrength();
+            if (valid) valid = CheckShieldMeteorVisuals();
             _renderer.Clear(); valid &= effects.ActiveCount == 0 && _renderer.ActiveBeamSegments == 0;
             if (valid) CompleteSmoke("EFFECTS_SMOKE_OK: 1/2/3 cargas, elementos repetidos, 12 eventos, límites, expiración, reutilización y limpieza");
         }

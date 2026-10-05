@@ -470,8 +470,8 @@ public sealed partial class GameWorld
             var direction = target - p.Position;
             if (direction.Length > 14) target = p.Position + direction.Normalized * 14;
             if (!Map.Inside(target) || _fields.Count >= 40) return;
-            _fields.Add(new Field { Id = _nextEntity++, Owner = p.Id, Position = target, Radius = 4,
-                Lifetime = 1.5f, Delay = 1.4f, Kind = "meteor",
+            _fields.Add(new Field { Id = _nextEntity++, Owner = p.Id, Position = target, Radius = SpellBalance.MeteorRadius,
+                Lifetime = SpellBalance.MeteorLifetime, Delay = SpellBalance.MeteorDelay, Kind = "meteor",
                 Recipe = new SpellRecipe([Element.Earth, Element.Fire, Element.Fire]) });
         }
         if (slot == 3)
@@ -636,7 +636,7 @@ public sealed partial class GameWorld
                     if (_players.TryGetValue(f.Owner, out var owner) && Allied(owner, p))
                         p.Health = Math.Min(p.MaxHealth, p.Health + SpellBalance.MineHeal * f.Recipe.Count(Element.Life) * RelicBuffs.Healing(owner));
                 }
-                else Hit(p, f.Recipe, f.Kind == "meteor" ? 2.7f : SpellBalance.MinePower, f.Owner, (p.Position - f.Position).Normalized);
+                else Hit(p, f.Recipe, f.Kind == "meteor" ? SpellBalance.MeteorPower : SpellBalance.MinePower, f.Owner, (p.Position - f.Position).Normalized);
             }
             Emit(f.Kind == "healing_mine" ? "mine_heal" : "explosion", f.Position, f.Recipe.Elements, f.Kind == "meteor" ? "Meteoro" : "", f.Radius);
             f.Lifetime = 0;

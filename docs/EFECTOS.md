@@ -23,3 +23,11 @@ Mientras se mantiene un canal o una roca, su efecto usa `CastingElements` aunque
 `--effects-smoke` comprueba la progresión real de partículas y segmentos de las cuatro formas de canal, los elementos repetidos, los aros de proyectil, su radio original, el hechizo activo frente a la siguiente selección, saturación, caducidad y reutilización. `--preview-strength=1`, `2` o `3` genera escenas equivalentes para revisar las capturas de OpenGL en el artefacto `effect-review`.
 
 En v0.12.5 el láser ofensivo también gana grosor y opacidad según su tiempo de canalización, del 30 al 150 % de daño original en 2 s. El número de elementos sigue determinando los detalles; la carga por tiempo no añade segmentos ni luces. La barra inferior se llena del 0 al 100 %. `--preview-spells=beam-charge` muestra cinco etapas equivalentes para revisar la progresión en OpenGL.
+
+## Barreras combinadas y meteorito (v0.12.6)
+
+Las barreras usan la receta del servidor para superponer llamas, agua descendente con espuma, arcos eléctricos, hielo o vapor. Los muros de tierra conservan la piedra bajo la superficie elemental. Las mezclas muestran ambos componentes; agua/frío se representa como hielo y agua/fuego como vapor. Se aplica al muro frontal y a cada segmento del anillo. La burbuja del escudo personal conserva su diseño.
+
+El meteorito usa una roca irregular con grietas calientes, estela y brasas. La caída se sincroniza con los 1,4 s de aviso y el círculo representa el radio real de 4 m. La explosión añade 30 partículas de fragmentos, brasas y humo, dos ondas y un destello de 0,2 s. Usa los pools y presupuestos existentes, también al acumularse meteoritos y barreras.
+
+`--preview-spells=shield-elements` y `--preview-spells=meteor` muestran estas escenas para capturas OpenGL. `--effects-smoke` recorre las 18 recetas que crean barreras, su desaparición y la caída, radio, impacto y saturación del meteorito. `--mobile-smoke` crea piedra con fuego y lanza el meteorito mediante los controles táctiles.

@@ -12,7 +12,9 @@ public partial class ArenaRenderer : Node3D
     private readonly Dictionary<int, Node3D> _projectiles = [];
     internal IReadOnlyDictionary<int, Node3D> ProjectileVisuals => _projectiles;
     private readonly Dictionary<int, BarrierVisual> _walls = [];
+    internal IReadOnlyDictionary<int, BarrierVisual> Walls => _walls;
     private readonly Dictionary<int, Node3D> _fields = [];
+    internal IReadOnlyDictionary<int, Node3D> Fields => _fields;
     private readonly List<(Node3D Root, MeshInstance3D Mesh, CylinderMesh Shape, ShaderMaterial Skin)> _beamPool = [];
     private readonly CombatEffects _effects = new();
     public CombatEffects Effects => _effects;
@@ -171,7 +173,7 @@ public partial class ArenaRenderer : Node3D
         }
         DrawProjectiles(snapshot, dt);
         DrawWalls(snapshot, dt);
-        DrawFields(snapshot);
+        DrawFields(snapshot, dt);
         foreach (var item in snapshot.Pickups ?? [])
         {
             if (!_pickups.TryGetValue(item.Id, out var visual))
@@ -251,14 +253,24 @@ public partial class ArenaRenderer : Node3D
         }
         if (_fresh) RemoveMissing(_walls, snapshot.Walls.Select(w => w.Id));
     }
-    private void DrawFields(WorldSnapshot snapshot)
+    private void DrawFields(WorldSnapshot snapshot, float delta)
     {
         foreach (var field in snapshot.Fields)
         {
+            if (field.Kind == "meteor")
+            {
+                if (!_fields.TryGetValue(field.Id, out var existing))
+                {
+                    var meteor = new MeteorVisual(); AddChild(meteor); meteor.Build(field);
+                    _fields[field.Id] = existing = meteor;
+                }
+                ((MeteorVisual)existing).Update(field, delta, (float)_time);
+                continue;
+            }
             if (!_fields.TryGetValue(field.Id, out var root))
             {
                 root = new Node3D { Position = World(field.Position) }; AddChild(root);
-                Color color = field.Kind == "meteor" ? new("ff8062") : Ui.SpellColor(field.Elements);
+                Color color = Ui.SpellColor(field.Elements);
                 bool mine = field.Kind is "mine" or "healing_mine";
                 if (field.Kind == "healing_mine") color = Ui.Health;
                 int charges = SpellVisualStrength.For(field.Elements).Charges;
@@ -284,21 +296,11 @@ public partial class ArenaRenderer : Node3D
                         new(Mathf.Cos(angle)*radius*0.82f,0.08f,Mathf.Sin(angle)*radius*0.82f),accent,0.2f);
                     glyph.Rotation = new(0,-angle,0); glyph.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
                 }
-                if (field.Kind == "meteor")
-                {
-                    var meteor = Mesh(root, new SphereMesh { Radius = 0.7f, Height = 1.4f }, new(0, 12, 0), new("ffb47a"), 1.1f);
-                    meteor.Name = "Meteor";
-                }
                 _fields[field.Id] = root;
             }
             root.Scale = Vector3.One * (1 + Mathf.Sin((float)_time * 6) * 0.02f);
             if (root.GetNodeOrNull<MeshInstance3D>("MineCore") is { } mineCore)
                 mineCore.Visible = field.Armed || (int)(_time * 10) % 2 == 0;
-            if (field.Kind == "meteor" && root.GetNodeOrNull<MeshInstance3D>("Meteor") is { } meteorNode)
-            {
-                meteorNode.Position = new(0, Math.Max(0.7f, field.Lifetime / 1.5f * 12), 0);
-                meteorNode.RotateY(0.07f);
-            }
         }
         if (_fresh) RemoveMissing(_fields, snapshot.Fields.Select(f => f.Id));
     }

@@ -116,6 +116,16 @@ public partial class Main
                     ReadyForSpell(); Tap(Element.Earth); Down(1, aim);
                     Require(player.Charging != null, "No empieza la carga que se va a cancelar."); Up(1, true);
                     Require(player.Charging == null, "Un toque cancelado deja el hechizo cargándose.");
+                    ReadyForSpell(); Submit(new() { Type = "clear" });
+                    Tap(Element.Shield); Tap(Element.Earth); Tap(Element.Fire); Down(1, aim); Up(1);
+                    Require(_practice.Snapshot().Walls.Any(w => w.Elements.Contains(Element.Earth) && w.Elements.Contains(Element.Fire)),
+                        "El control táctil no crea la barrera de piedra y fuego.");
+                    ReadyForSpell(); Down(2, new(width / 2 + 61, height - 54)); Up(2);
+                    Require(_practice.Snapshot().Fields.Any(f => f.Kind == "meteor"), "El toque no lanza el meteorito.");
+                    break;
+                case 70:
+                    Require(_renderer.Walls.Values.Any(w => w.Stone && w.HasElementSurface) && _renderer.Fields.Values.OfType<MeteorVisual>().Any(),
+                        "Los nuevos escudos y el meteorito no llegaron al renderer móvil.");
                     break;
                 case 75:
                     ReadyForSpell(); Tap(Element.Earth); Down(0, move); Down(1, aim);
@@ -134,7 +144,7 @@ public partial class Main
                     _hud!.ScoreOpen = true; _hud.Update(_practice.Snapshot(), _localId, "Prueba móvil", 0.1);
                     Require(_hud.ScoreOpen, "No se puede abrir la tabla sin teclado.");
                     _hud.ScoreOpen = false;
-                    CompleteSmoke("MOBILE_SMOKE_OK: multitáctil, tres cargas, roca, escudo, magia, cancelación, ayuda, pausa y Atrás");
+                    CompleteSmoke("MOBILE_SMOKE_OK: multitáctil, roca, escudo personal, barrera de piedra y fuego, meteorito, cancelación, ayuda, pausa y Atrás");
                     break;
             }
         }
