@@ -15,5 +15,5 @@ RUN mkdir -p /app/logs && chown app:app /app/logs
 USER app
 ENV GAME_PORT=27015 DISCOVERY_PORT=27016 DOTNET_EnableDiagnostics=0 ARCANA_LOG_DIRECTORY=/app/logs
 EXPOSE 27015/tcp 27016/udp
-LABEL org.opencontainers.image.title="Arcana Arena Server" org.opencontainers.image.version="0.12.8"
+LABEL org.opencontainers.image.title="Arcana Arena Server" org.opencontainers.image.version="0.12.9"
 ENTRYPOINT ["dotnet", "Arcana.Server.dll"]

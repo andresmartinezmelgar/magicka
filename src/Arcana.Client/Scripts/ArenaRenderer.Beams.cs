@@ -95,7 +95,7 @@ public partial class ArenaRenderer
                 if (!details) BeamSegment(previous, next, color, 0.035f + strength.Charges * 0.012f);
                 else
                 {
-                    BeamSegment(previous, next, color.Lightened(0.68f), 0.016f);
+                    BeamSegment(previous, next, color.Lightened(Ui.IsMobile ? 0.24f : 0.68f), 0.016f);
                     for (int branch = 0; branch < strength.LightningBranches; branch++)
                     {
                         if (i != 2 + branch * 2) continue;
@@ -128,7 +128,7 @@ public partial class ArenaRenderer
             var primary = healing ? Ui.Health : Ui.ElementColor(Element.Arcane);
             var modifier = beam.Elements.FirstOrDefault(e => e is not Element.Arcane and not Element.Life,
                 healing ? Element.Life : Element.Arcane);
-            var accent = modifier == Element.Cold ? new Color("80e5ff") : Ui.ElementColor(modifier);
+            var accent = modifier == Element.Cold && !Ui.IsMobile ? new Color("80e5ff") : Ui.ElementColor(modifier);
             if (modifier is Element.Fire or Element.Cold or Element.Lightning)
                 primary = primary.Lerp(accent, modifier == Element.Lightning ? 0.65f : 0.78f);
             int profile = modifier switch { Element.Fire => 3, Element.Cold => 4, Element.Lightning => 5, _ => healing ? 2 : 1 };
@@ -140,7 +140,7 @@ public partial class ArenaRenderer
             {
                 BeamSegment(from, to, new Color(primary, 0.38f + charged * 0.2f), radius,
                     profile: profile, charges: strength.Charges, accent: accent, power: beam.Power);
-                var core = beam.Interaction == "merged" ? Ui.Text : primary.Lightened(0.48f);
+                var core = beam.Interaction == "merged" ? Ui.Text : primary.Lightened(Ui.IsMobile ? 0.18f : 0.48f);
                 var tip = from.Lerp(to, 0.94f);
                 float coreRadius = (0.026f + strength.Charges * 0.005f) * thickness;
                 BeamSegment(from, tip, core, coreRadius, profile: 6);

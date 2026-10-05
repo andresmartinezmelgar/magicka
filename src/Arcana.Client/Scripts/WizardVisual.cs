@@ -13,7 +13,9 @@ public partial class WizardVisual : Node3D
     private WizardType _wizardType;
     private bool _local;
     private int _team, _facingRow;
-    private float _walkTime, _castPose, _hitFlash, _previousHealth, _renderedFlash = -1;
+    private float _castPose, _hitFlash, _previousHealth, _renderedFlash = -1;
+    private readonly WizardMotion _motion = new();
+    private bool _wasAlive;
     internal Sprite3D Sprite => _sprite;
     private MeshInstance3D _shield = null!, _halo = null!, _ghost = null!;
     private Label3D _name = null!;
@@ -45,6 +47,7 @@ public partial class WizardVisual : Node3D
         _color = p.Team == 0 ? Ui.Blue : Ui.Red;
         _team = p.Team; _wizardType = p.WizardType; _local = local;
         _previousHealth = p.Health;
+        _wasAlive = p.Alive;
         Position = ArenaRenderer.World(p.Position);
         _body = new Node3D(); AddChild(_body);
         _atlas = WizardSprites.Load(p.WizardType);
@@ -102,11 +105,11 @@ public partial class WizardVisual : Node3D
         var node = new MeshInstance3D { Mesh = mesh, Position = position, MaterialOverride = material,
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off }; parent.AddChild(node); return node;
     }
-    public void Update(WizardSnapshot p, float dt, float time, Camera3D camera)
+    public void Update(WizardSnapshot p, float dt, float time, Camera3D camera, double sampleTime, double interpolationDelay)
     {
-        var target = ArenaRenderer.World(p.Position);
-        float distance = Position.DistanceTo(target);
-        Position = distance > 4 ? target : Position.Lerp(target, 1 - Mathf.Exp(-16 * dt));
+        _motion.Advance(p.Position, sampleTime, dt, interpolationDelay, p.Alive != _wasAlive || p.Frozen > 0);
+        _wasAlive = p.Alive;
+        Position = ArenaRenderer.World(_motion.Position);
         if (_wizardType != p.WizardType || _team != p.Team)
         {
             _wizardType = p.WizardType; _team = p.Team;
@@ -121,16 +124,15 @@ public partial class WizardVisual : Node3D
             _name.Modulate = _local ? Ui.Text : _color;
         }
         _facingRow = WizardSprites.FacingRow(p.Facing, _facingRow);
-        bool moving = p.Alive && p.Frozen <= 0 && distance > 0.045f && distance < 4;
-        _walkTime = moving ? _walkTime + dt * (p.Haste > 0 ? 1.4f : 1) : 0;
+        bool moving = p.Alive && p.Frozen <= 0 && _motion.Moving;
         _castPose = Math.Max(0, _castPose - dt);
-        int pose = !p.Alive || p.Frozen > 0 ? 0 : p.Casting || _castPose > 0 ? 3 : moving ? (int)(_walkTime * 8) % 2 : 0;
+        int pose = !p.Alive || p.Frozen > 0 ? 0 : p.Casting || _castPose > 0 ? 3 : moving ? (int)(_motion.WalkCycle * 2) : 0;
         int frame = _facingRow * WizardSprites.Columns + pose;
         if (_sprite.Frame != frame) _sprite.Frame = frame;
         Vector2 offset = _atlas.Offset(frame);
         if (_sprite.Offset != offset) _sprite.Offset = offset;
         _body.Basis = camera.GlobalBasis;
-        _body.Position = camera.GlobalBasis.Y * (moving ? Math.Abs(Mathf.Sin(_walkTime * 8 * Mathf.Pi)) * 0.04f : Mathf.Sin(time * 2 + p.Id) * 0.012f) + new Vector3(0, 0.03f, 0);
+        _body.Position = camera.GlobalBasis.Y * (moving ? Math.Abs(Mathf.Sin(_motion.WalkCycle * Mathf.Tau)) * 0.025f : 0) + new Vector3(0, 0.03f, 0);
         _body.Visible = p.Alive; _ghost.Visible = !p.Alive; _halo.Visible = _shadow.Visible = p.Alive;
         _hitFlash = Math.Max(0, _hitFlash - dt);
         if (p.Alive && p.Health < _previousHealth - 0.5f) _hitFlash = 0.12f;

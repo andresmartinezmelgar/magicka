@@ -1,5 +1,13 @@
 # Cambios
 
+## v0.12.9
+
+- Movimiento del mago interpolado entre posiciones confirmadas, con 75 ms de margen en red y un paso de simulación en práctica. La cámara sigue la posición visible.
+- Pasos y oscilación del cuerpo ligados a la distancia recorrida; adaptados a lentitud, carga y celeridad. Parada sin arrastre, reposo estable y ajuste inmediato tras congelación, reaparición, teletransporte o pausa prolongada.
+- Paleta móvil más saturada y diferenciada: agua azul, frío turquesa, rayo violeta y arcano magenta. Controles con fondo más opaco, bordes de tres píxeles y símbolos elementales.
+- Iluminación móvil más neutra y terreno menos brillante. Barreras, rayos y partículas conservan más color en sus reflejos.
+- Comprobaciones de movimiento a 30, 60 y 120 FPS con snapshots a 20 Hz y fluctuación de llegada, paradas, pérdidas de paquetes y giros. Contraste de texto móvil y revisión OpenGL de controles, barreras y rayos.
+
 ## v0.12.8
 
 - Barreras con intensidad visible según las cargas. Una piedra y escudo conservan las dos hiladas; dos piedras y escudo añaden una tercera hilada, grosor y contrafuertes. Las capas elementales se adaptan al volumen.

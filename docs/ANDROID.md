@@ -1,8 +1,10 @@
 # Arcana Arena para Android
 
-Descargar `ArcanaArena-v0.12.8-Android-arm64.apk` desde la Release e instalarla. Android puede pedir autorización a la aplicación usada para abrir la APK. Requiere Android 8 o posterior y procesador ARM64. No hace falta instalar Godot ni .NET. Si Android rechaza actualizar una APK de desarrollo anterior porque tiene otra firma, desinstalar la anterior antes de instalar esta versión.
+Descargar `ArcanaArena-v0.12.9-Android-arm64.apk` desde la Release e instalarla. Android puede pedir autorización a la aplicación usada para abrir la APK. Requiere Android 8 o posterior y procesador ARM64. No hace falta instalar Godot ni .NET. Si Android rechaza actualizar una APK de desarrollo anterior porque tiene otra firma, desinstalar la anterior antes de instalar esta versión.
 
 El juego se abre en horizontal. **Práctica** funciona sin conexión y permite elegir los cuatro mapas, el modo y el tipo de mago. La APK incluye el motor, los sprites, los sonidos y el runtime C#.
+
+En v0.12.9, agua azul, frío turquesa, rayo violeta y arcano magenta usan tonos más definidos. Los botones llevan símbolos y bordes más gruesos; el fondo más opaco y la iluminación más neutra mejoran la distinción de los elementos. El movimiento y los pasos usan la misma interpolación que el escritorio.
 
 ## Controles
 
@@ -38,7 +40,7 @@ La APK puede consultar, crear y entrar en las salas del servidor. Usa protocolo 
 
 Extraer el código completo y abrir **`Compilar-APK.cmd`** en la raíz desde Windows 10/11 x64. El script descarga las herramientas oficiales que falten en `.tools/`, sin necesitar Android Studio, Visual Studio ni permisos de administrador. La primera vez necesita Internet y varios GB libres; el SDK muestra sus licencias para aceptarlas con `y`.
 
-La APK ARM64 queda en **`artifacts/android/ArcanaArena-v0.12.8-Android-arm64.apk`**, junto con `SHA256SUMS-Android.txt` y el manifest comprobado. El script verifica firma, versión, paquete, Android 8+, permiso de red y bibliotecas Godot/C#. Solo sustituye la APK después de comprobarla; si falla, conserva la anterior. Los registros se guardan en `artifacts/compilacion-apk-*.log`.
+La APK ARM64 queda en **`artifacts/android/ArcanaArena-v0.12.9-Android-arm64.apk`**, junto con `SHA256SUMS-Android.txt` y el manifest comprobado. El script verifica firma, versión, paquete, Android 8+, permiso de red y bibliotecas Godot/C#. Solo sustituye la APK después de comprobarla; si falla, conserva la anterior. Los registros se guardan en `artifacts/compilacion-apk-*.log`.
 
 La firma de desarrollo se conserva en **`.tools/android-debug.keystore`**, excluida de Git. Mantener ese archivo permite actualizar las APK generadas en este equipo sin desinstalar el juego. Una APK de la Release puede usar otra firma. El script restaura los presets del proyecto y usa una configuración de Godot temporal.
 

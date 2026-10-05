@@ -40,6 +40,7 @@ public partial class ArenaRenderer : Node3D
     private DirectionalLight3D _sun = null!;
     public bool AudioEnabled { get; set; } = true;
     public bool ShowControlPoints { get; set; } = true;
+    public double InterpolationDelay { get; set; } = 1 / 60.0;
 
     public override void _Ready()
     {
@@ -154,14 +155,15 @@ public partial class ArenaRenderer : Node3D
             {
                 visual = new WizardVisual(); AddChild(visual); visual.Build(p, p.Id == localId); _wizards[p.Id] = visual;
             }
-            visual.Update(p, dt, (float)_time, Camera);
+            visual.Update(p, dt, (float)_time, Camera, snapshot.Time, InterpolationDelay);
         }
         if (_fresh) RemoveMissing(_wizards, snapshot.Players.Select(p => p.Id));
         var local = snapshot.Players.FirstOrDefault(p => p.Id == localId);
         float followX = _map.Id == ArenaMapId.Classic ? 7 : _map.HalfWidth - 8;
         float followY = _map.Id == ArenaMapId.Classic ? 4 : _map.HalfHeight - 7;
-        var focus = playing && local != null ? new Vector3(Math.Clamp(local.Position.X, -followX, followX), 0,
-            Math.Clamp(local.Position.Y, -followY, followY)) : new Vector3(-4, 0, 0);
+        var visiblePosition = local != null ? _wizards[local.Id].Position : Vector3.Zero;
+        var focus = playing && local != null ? new Vector3(Math.Clamp(visiblePosition.X, -followX, followX), 0,
+            Math.Clamp(visiblePosition.Z, -followY, followY)) : new Vector3(-4, 0, 0);
         var desired = focus + new Vector3(0, 27, 21);
         bool respawned = snapshot.Mode == GameMode.Arena && local is { Alive: true } &&
             previous?.Players.FirstOrDefault(p => p.Id == localId) is { Alive: false };

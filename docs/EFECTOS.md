@@ -16,6 +16,8 @@ La intensidad se calcula con los elementos del hechizo enviado por el servidor. 
 
 El color principal sigue identificando el hechizo. El detalle aumenta por densidad, hebras y formas compactas; la emisión luminosa se mantiene moderada. Las partículas de los lanzamientos duran entre 0,28 y 0,48 segundos. Las ondas terminan en menos de 0,6 segundos. Golpes continuos, muerte y rotura de escudo usan respuestas breves independientes del número de elementos.
 
+En móvil, v0.12.9 usa agua azul, frío turquesa, rayo violeta y arcano magenta, con tonos más saturados y menos aclarado de los núcleos luminosos. Barreras y partículas de hielo/electricidad siguen la paleta móvil. El terreno y la iluminación reducen el brillo de fondo. La paleta del escritorio conserva sus colores.
+
 El límite por renderer es de **320 partículas**, **24 ondas** y **64 partículas nuevas por fotograma**, con reutilización de nodos. Los rayos conservan un máximo de 512 segmentos. Las emisiones de estela se espacian 0,065 segundos. Los radios de impacto, daño, curación y alcance pertenecen al servidor.
 
 Mientras se mantiene un canal o una roca, su efecto usa `CastingElements` aunque se estén preparando otros elementos. La previsualización F1 aplica el mismo renderer.

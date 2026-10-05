@@ -29,6 +29,10 @@ public partial class BarrierVisual
             uniform float stone = 0.0;
             uniform float ground = 0.0;
             uniform float reinforcement = 0.0;
+            uniform float mobile_contrast = 0.0;
+            uniform vec4 water_color : source_color;
+            uniform vec4 frost_color : source_color;
+            uniform vec4 electric_color : source_color;
             float hash(vec2 p) {
                 return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
             }
@@ -76,15 +80,15 @@ public partial class BarrierVisual
                     float foam = (1.0 - smoothstep(0.0, 0.13, y)) * (0.55 + flow * 0.45);
                     float lip = smoothstep(0.91, 0.98, y) * (0.3 + stream * 0.7);
                     float a = (0.34 + stream * 0.26 + streak * 0.16 + foam * 0.3 + lip * 0.14) * water;
-                    light += mix(vec3(0.06, 0.36, 0.72), vec3(0.78, 0.96, 1.0),
-                        stream * 0.28 + streak * 0.35 + foam * 0.55 + lip * 0.3) * a;
+                    light += mix(mix(vec3(0.06, 0.36, 0.72), water_color.rgb, mobile_contrast), vec3(0.78, 0.96, 1.0),
+                        (stream * 0.28 + streak * 0.35 + foam * 0.55 + lip * 0.3) * (1.0 - mobile_contrast * 0.3)) * a;
                     alpha += a;
                 }
                 if (frost > 0.0) {
                     float crystal = abs(sin(x * 5.5 + y * 6.0)) * abs(sin(x * 8.0 - y * 11.0));
                     float rim = pow(1.0 - y, 6.0) + pow(y, 12.0);
                     float a = (0.14 + (1.0 - smoothstep(0.02, 0.085, crystal)) * 0.45 + rim * 0.3) * frost;
-                    light += vec3(0.46, 0.84, 1.0) * a; alpha += a;
+                    light += mix(vec3(0.46, 0.84, 1.0), frost_color.rgb, mobile_contrast) * a; alpha += a;
                 }
                 if (electric > 0.0) {
                     float tick = floor(clock * 12.0);
@@ -106,7 +110,8 @@ public partial class BarrierVisual
                     float second_path = 0.68 + sin(x * 6.5 - tick * 3.1) * 0.12;
                     float second_bolt = (1.0 - smoothstep(0.005, 0.018, abs(y - second_path))) * reinforcement * 0.45;
                     float a = (bolt + second_bolt + halo + branch * 0.65 + spark * (0.7 + reinforcement * 0.2)) * electric;
-                    light += mix(vec3(0.35, 0.50, 1.0), vec3(0.90, 0.94, 1.0), bolt * 0.75 + spark * 0.2) * a;
+                    light += mix(mix(vec3(0.35, 0.50, 1.0), electric_color.rgb, mobile_contrast), vec3(0.90, 0.94, 1.0),
+                        (bolt * 0.75 + spark * 0.2) * (1.0 - mobile_contrast * 0.65)) * a;
                     alpha += a;
                 }
                 if (steam > 0.0) {
@@ -120,6 +125,7 @@ public partial class BarrierVisual
             }
             """ };
         _elementSkin = new ShaderMaterial { Shader = _elementShader };
+        SetElementPalette(_elementSkin);
         _elementSkin.SetShaderParameter("span", length);
         _elementSkin.SetShaderParameter("stone", stone ? 1 : 0);
         _elementSkin.SetShaderParameter("reinforcement", Math.Max(0, Charges - 2));
@@ -150,6 +156,7 @@ public partial class BarrierVisual
         if (recipe.Has(Element.Water) && !recipe.Steam && !recipe.Ice)
         {
             _foamSkin = new ShaderMaterial { Shader = _elementShader };
+            SetElementPalette(_foamSkin);
             _foamSkin.SetShaderParameter("ground", 1);
             _foamSkin.SetShaderParameter("water", 1);
             _foamSkin.SetShaderParameter("span", length);
@@ -157,7 +164,7 @@ public partial class BarrierVisual
         }
         if (recipe.Has(Element.Cold))
         {
-            _iceSkin = new StandardMaterial3D { AlbedoColor = new Color(new Color("9cddf1"), 0.68f),
+            _iceSkin = new StandardMaterial3D { AlbedoColor = new Color(Ui.IsMobile ? Ui.ElementColor(Element.Cold) : new Color("9cddf1"), 0.68f),
                 Transparency = BaseMaterial3D.TransparencyEnum.Alpha, Roughness = 0.22f,
                 EmissionEnabled = true, Emission = new("58afd1"), EmissionEnergyMultiplier = 0.18f };
             int count = Math.Clamp((int)MathF.Ceiling(length / 0.55f), 3, 12);
@@ -171,6 +178,13 @@ public partial class BarrierVisual
             }
         }
     }
+    private static void SetElementPalette(ShaderMaterial material)
+    {
+        material.SetShaderParameter("mobile_contrast", Ui.IsMobile ? 1 : 0);
+        material.SetShaderParameter("water_color", Ui.ElementColor(Element.Water));
+        material.SetShaderParameter("frost_color", Ui.ElementColor(Element.Cold));
+        material.SetShaderParameter("electric_color", Ui.ElementColor(Element.Lightning));
+    }
 
     private void UpdateElements(float fade, float time)
     {
@@ -182,6 +196,6 @@ public partial class BarrierVisual
             _foamSkin.SetShaderParameter("clock", time);
             _foamSkin.SetShaderParameter("fade", fade);
         }
-        if (_iceSkin != null) _iceSkin.AlbedoColor = new(new Color("9cddf1"), 0.68f * fade);
+        if (_iceSkin != null) _iceSkin.AlbedoColor = new(Ui.IsMobile ? Ui.ElementColor(Element.Cold) : new Color("9cddf1"), 0.68f * fade);
     }
 }

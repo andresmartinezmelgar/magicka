@@ -24,7 +24,7 @@ public partial class MobileControls : Control
         Name = "MobileControls"; Theme = Ui.Theme(); MouseFilter = MouseFilterEnum.Ignore; Ui.Full(this);
         foreach (var element in Enum.GetValues<Element>())
         {
-            var action = AddButton(Ui.ElementName(element), new() { Type = "element", Element = element }, color: Ui.ElementColor(element));
+            var action = AddButton(Ui.ElementName(element), new() { Type = "element", Element = element }, color: Ui.ElementColor(element), element: element);
             action.Panel.Name = "TouchElement" + element;
             action.Text.AddThemeFontSizeOverride("font_size", 22);
         }
@@ -39,17 +39,26 @@ public partial class MobileControls : Control
         AddButton("Menú", run: () => MenuRequested?.Invoke());
         Resized += Layout; Layout();
     }
-    private TouchAction AddButton(string title, ClientMessage? message = null, Action? run = null, Color? color = null)
+    private TouchAction AddButton(string title, ClientMessage? message = null, Action? run = null, Color? color = null, Element? element = null)
     {
         var panel = new PanelContainer { MouseFilter = MouseFilterEnum.Ignore };
-        var style = Ui.Panel(new Color(0.035f, 0.055f, 0.09f, 0.88f), 10, color ?? Ui.Muted);
+        var style = Ui.Panel(new Color(0.035f, 0.055f, 0.09f, 0.97f), 10, color ?? Ui.Muted);
+        if (element != null) style.BorderWidthBottom = style.BorderWidthTop = style.BorderWidthLeft = style.BorderWidthRight = 3;
         style.ContentMarginLeft = style.ContentMarginRight = 4;
         style.ContentMarginTop = style.ContentMarginBottom = 4;
         panel.AddThemeStyleboxOverride("panel", style); AddChild(panel);
         var label = Ui.Label(title, 22, color ?? Ui.Text);
         label.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
         label.HorizontalAlignment = HorizontalAlignment.Center; label.VerticalAlignment = VerticalAlignment.Center;
-        label.MouseFilter = MouseFilterEnum.Ignore; panel.AddChild(label);
+        label.MouseFilter = MouseFilterEnum.Ignore;
+        if (element != null)
+        {
+            var content = new VBoxContainer { Alignment = BoxContainer.AlignmentMode.Center, MouseFilter = MouseFilterEnum.Ignore };
+            content.AddThemeConstantOverride("separation", 1); panel.AddChild(content);
+            content.AddChild(new ElementIcon { Value = element, CustomMinimumSize = new(25, 25), SizeFlagsHorizontal = SizeFlags.ShrinkCenter });
+            content.AddChild(label);
+        }
+        else panel.AddChild(label);
         var action = new TouchAction(panel, label, message, run); _actions.Add(action); return action;
     }
     private void Layout()
@@ -149,9 +158,9 @@ public partial class MobileControls : Control
     }
     private void DrawStick(Vector2 center, Vector2 direction, string caption, Color color)
     {
-        DrawCircle(center, Radius, new Color(0.035f, 0.055f, 0.09f, 0.65f));
-        DrawArc(center, Radius, 0, Mathf.Tau, 48, new Color(color, 0.65f), 2, true);
-        DrawCircle(center + direction * (Radius - 27), 27, new Color(color, 0.35f));
+        DrawCircle(center, Radius, new Color(0.035f, 0.055f, 0.09f, 0.86f));
+        DrawArc(center, Radius, 0, Mathf.Tau, 48, new Color(color, 0.92f), 3, true);
+        DrawCircle(center + direction * (Radius - 27), 27, new Color(color, 0.68f));
         var font = ThemeDB.FallbackFont;
         float textWidth = font.GetStringSize(caption, fontSize: 19).X;
         DrawString(font, center + new Vector2(-textWidth / 2, -Radius - 16), caption, fontSize: 19, modulate: color);

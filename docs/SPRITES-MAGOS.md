@@ -20,6 +20,8 @@ Filas: frente/sur, izquierda/oeste, espalda/norte y derecha/este. Columnas: repo
 
 `atlases.json` guarda el anclaje de los pies para cada celda y la escala. `WizardSprites.cs` carga y comparte las cinco texturas; `WizardVisual.cs` elige la fila según el apuntado, con histéresis en las diagonales, y la pose según movimiento y lanzamiento. El cambio de fotograma no vuelve a cargar la imagen. Los sprites se orientan hacia la cámara y respetan la profundidad del escenario.
 
+Desde v0.12.9, `WizardMotion.cs` interpola posiciones confirmadas y sincroniza la alternancia de pasos y el balanceo con la distancia recorrida. La cámara sigue al sprite visible. El reposo mantiene los pies estables; parada, congelación, reaparición, teletransporte y reanudación de una práctica no conservan el arrastre anterior. `--sprites-smoke` comprueba velocidades y fases a 30, 60 y 120 FPS, con muestras de red a 20 Hz y fluctuación de llegada.
+
 ## Colores y combate
 
 `team-cloth.gdshader` convierte la tela azul del atlas al color azul o rojo del equipo, conservando luces y sombras. El blanco/cian del hielo, violeta del rayo, naranja del fuego y ocre de la tierra mantienen su especialidad. El anillo del suelo y el nombre refuerzan la identificación del equipo.

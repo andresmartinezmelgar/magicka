@@ -374,6 +374,7 @@ public partial class Main : Node
                 Diagnostics.Warn("client.stale_snapshot", "El servidor dejó de enviar el estado.", context: Context());
                 ReturnToLauncher("El servidor ha dejado de enviar el estado de la partida. Puedes exportar el diagnóstico desde el launcher."); return;
             }
+            _renderer.InterpolationDelay = _connection != null ? 0.075 : 1 / 60.0;
             _renderer.Render(latest, _localId, _effectsSmoke || _spritesSmoke || _previewStrength > 0 || _previewSpells != null ? 1 / 60.0 : delta, true);
             _hud?.Update(latest, _localId, _serverName, delta);
             _touch?.Update(latest.Players.FirstOrDefault(p => p.Id == _localId));
@@ -608,6 +609,7 @@ public partial class Main : Node
         {
             // Cinco atlas compartidos, ambos equipos, cuatro direcciones y tres poses usadas.
             valid &= _spriteCoverage.Count == 120;
+            valid &= CheckWizardMotion();
             _renderer.Clear(); valid &= _renderer.Wizards.Count == 0;
             if (valid) CompleteSmoke("SPRITES_SMOKE_OK: 5 atlas, 120 combinaciones, equipos, anclajes, congelación, muerte, reaparición y limpieza");
         }

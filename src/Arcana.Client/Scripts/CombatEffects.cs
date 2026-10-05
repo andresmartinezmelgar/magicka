@@ -247,9 +247,9 @@ public partial class CombatEffects : Node3D
                 else if (spell.Has(Element.Fire))
                     Emit(at + Vector3.Up * (spell.Has(Element.Earth) ? 1.1f : 0.4f), Ui.ElementColor(Element.Fire), Vector3.Up * 1.5f, 0.4f, 2, 0.12f, 0);
                 if (spell.Has(Element.Water) && !spell.Steam && !spell.Ice)
-                    Emit(at - Vector3.Up * 0.25f, new("a0e6ff"), Direction() * 0.75f, 0.28f, 0, 0.08f, 2);
+                    Emit(at - Vector3.Up * 0.25f, Ui.IsMobile ? Ui.ElementColor(Element.Cold) : new("a0e6ff"), Direction() * 0.75f, 0.28f, 0, 0.08f, 2);
                 if (spell.Has(Element.Lightning))
-                    Emit(at + Vector3.Up * 0.6f, new("c9cdff"), Direction() * 1.7f, 0.16f, 1, 0.055f, 0);
+                    Emit(at + Vector3.Up * 0.6f, Ui.IsMobile ? Ui.ElementColor(Element.Lightning) : new("c9cdff"), Direction() * 1.7f, 0.16f, 1, 0.055f, 0);
             }
         }
         FinishFrame();

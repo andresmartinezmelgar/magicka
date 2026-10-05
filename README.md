@@ -1,8 +1,10 @@
-# Arcana Arena — v0.12.8
+# Arcana Arena — v0.12.9
 
 Primera recreación jugable en C# del combate elemental de **Magicka: Wizard Wars**. Cliente 3D de escritorio con **Godot 4.5.2 .NET**, servidor independiente **ASP.NET Core / .NET 8**, Docker, launcher con conexión por IP/LAN, salas independientes y paquete Windows para abrir con doble clic y APK Android con controles táctiles.
 
 El código, las mallas y los sonidos son propios. Los sprites de los magos se han generado para este proyecto. Esta versión reproduce la estructura del combate; los gráficos, mapas, magicks y valores de daño son una aproximación, no una reproducción exacta del original.
+
+**v0.12.9:** movimiento interpolado, pasos sincronizados con la distancia y cámara que sigue la posición visible. En móvil, tonos elementales más definidos, símbolos y bordes en los botones, iluminación más neutra y menos brillo del terreno.
 
 **v0.12.8:** los escudos y barreras muestran la cantidad de elementos: dos piedras con escudo forman un muro más grueso, con tres hiladas y contrafuertes; los escudos personales añaden bandas y las superficies elementales más detalle. En todos contra todos, entradas y reapariciones aleatorias en los cuatro mapas, con un segundo de invulnerabilidad visible.
 
@@ -48,11 +50,11 @@ El código, las mallas y los sonidos son propios. Los sprites de los magos se ha
 
 ## Jugar en Android
 
-Instalar [ArcanaArena-v0.12.8-Android-arm64.apk](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.12.8/ArcanaArena-v0.12.8-Android-arm64.apk). Android 8 o posterior, ARM64, en horizontal. Práctica sin conexión; por IP o LAN se conecta al servidor de PC o Docker. [Controles, red y compilación](docs/ANDROID.md).
+Instalar [ArcanaArena-v0.12.9-Android-arm64.apk](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.12.9/ArcanaArena-v0.12.9-Android-arm64.apk). Android 8 o posterior, ARM64, en horizontal. Práctica sin conexión; por IP o LAN se conecta al servidor de PC o Docker. [Controles, red y compilación](docs/ANDROID.md).
 
 ## Jugar con doble clic en Windows
 
-1. Descargar [ArcanaArena-v0.12.8-Windows-x64.zip](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.12.8/ArcanaArena-v0.12.8-Windows-x64.zip) de [Releases](https://github.com/andresmartinezmelgar/magicka/releases/latest).
+1. Descargar [ArcanaArena-v0.12.9-Windows-x64.zip](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.12.9/ArcanaArena-v0.12.9-Windows-x64.zip) de [Releases](https://github.com/andresmartinezmelgar/magicka/releases/latest).
 2. **Extraer todo el ZIP** en una carpeta. Abrir **ArcanaArena.exe** con doble clic.
 3. Elegir el **tipo de mago**. Elegir **Práctica** para jugar con bots, **Alojar** para iniciar tu servidor, **LAN** para buscar servidores o **Por IP** para usar una dirección.
 
@@ -76,7 +78,7 @@ Descargar el código con **Code → Download ZIP** y extraer todo, o actualizar 
 
 El resultado queda en **`Juego/ArcanaArena.exe`**. Cada compilación correcta **sustituye completamente `Juego/`**, incluidos los archivos antiguos. Cerrar el juego antes de recompilar. Si la compilación falla, se conserva el resultado anterior. Registro: `artifacts/compilacion-*.log`. No requiere Visual Studio ni instalación de administrador. [Proceso y compilación manual](docs/EXPORTAR.md).
 
-Para **Android**, abrir **`Compilar-APK.cmd`**. Prepara .NET 8, Godot 4.5.2 .NET, OpenJDK 17 y el SDK Android 35 en `.tools/`; la primera ejecución necesita Internet, varios GB libres y aceptar las licencias que muestra el SDK. Genera **`artifacts/android/ArcanaArena-v0.12.8-Android-arm64.apk`**, lista para instalar en un móvil ARM64 con Android 8 o posterior. Reutiliza la firma local en las siguientes compilaciones y conserva la APK anterior si falla. Registro: `artifacts/compilacion-apk-*.log`. [Opciones y compilación manual](docs/ANDROID.md#compilación-y-comprobaciones).
+Para **Android**, abrir **`Compilar-APK.cmd`**. Prepara .NET 8, Godot 4.5.2 .NET, OpenJDK 17 y el SDK Android 35 en `.tools/`; la primera ejecución necesita Internet, varios GB libres y aceptar las licencias que muestra el SDK. Genera **`artifacts/android/ArcanaArena-v0.12.9-Android-arm64.apk`**, lista para instalar en un móvil ARM64 con Android 8 o posterior. Reutiliza la firma local en las siguientes compilaciones y conserva la APK anterior si falla. Registro: `artifacts/compilacion-apk-*.log`. [Opciones y compilación manual](docs/ANDROID.md#compilación-y-comprobaciones).
 
 ## Cómo ganar y tipos de mago
 
@@ -85,7 +87,7 @@ Para **Android**, abrir **`Compilar-APK.cmd`**. Prepara .NET 8, Godot 4.5.2 .NET
 - **Guerra en Arena clásica:** reducir a cero los tickets rivales; controlar más puntos los desgasta cada segundo y cada muerte cuesta un ticket.
 - **Guerra en Ciudadela:** controlar los tres puntos sin disputa durante **15 segundos consecutivos**. Disputar o neutralizar cualquiera reinicia el contador; no hay victoria por tickets o bajas.
 
-Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). El combate usa **protocolo 8**. La versión v0.12.8 es compatible con v0.10.0, v0.11.0, v0.11.1, v0.12.0, v0.12.1, v0.12.2, v0.12.3, v0.12.4, v0.12.5, v0.12.6 y v0.12.7; las versiones con protocolos anteriores se rechazan en el saludo. El daño progresivo del láser requiere un servidor v0.12.5 o posterior. Las apariciones aleatorias requieren un servidor v0.12.8; la intensidad del escudo y el halo de invulnerabilidad usan los nuevos campos opcionales del snapshot.
+Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). El combate usa **protocolo 8**. La versión v0.12.9 es compatible con v0.10.0, v0.11.0, v0.11.1, v0.12.0, v0.12.1, v0.12.2, v0.12.3, v0.12.4, v0.12.5, v0.12.6, v0.12.7 y v0.12.8; las versiones con protocolos anteriores se rechazan en el saludo. El daño progresivo del láser requiere un servidor v0.12.5 o posterior. Las apariciones aleatorias requieren un servidor v0.12.8; la intensidad del escudo y el halo de invulnerabilidad usan los nuevos campos opcionales del snapshot.
 
 ## Mapas
 
