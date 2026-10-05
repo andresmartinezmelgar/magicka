@@ -1,6 +1,6 @@
 # Arcana Arena para Android
 
-Descargar `ArcanaArena-v0.12.1-Android-arm64.apk` desde la Release e instalarla. Android puede pedir autorización a la aplicación usada para abrir la APK. Requiere Android 8 o posterior y procesador ARM64. No hace falta instalar Godot ni .NET. Si Android rechaza actualizar una APK de desarrollo anterior porque tiene otra firma, desinstalar la anterior antes de instalar esta versión.
+Descargar `ArcanaArena-v0.12.2-Android-arm64.apk` desde la Release e instalarla. Android puede pedir autorización a la aplicación usada para abrir la APK. Requiere Android 8 o posterior y procesador ARM64. No hace falta instalar Godot ni .NET. Si Android rechaza actualizar una APK de desarrollo anterior porque tiene otra firma, desinstalar la anterior antes de instalar esta versión.
 
 El juego se abre en horizontal. **Práctica** funciona sin conexión y permite elegir los cuatro mapas, el modo y el tipo de mago. La APK incluye el motor, los sprites, los sonidos y el runtime C#.
 
@@ -20,13 +20,13 @@ El juego se abre en horizontal. **Práctica** funciona sin conexión y permite e
 | Tabla | Clasificación. |
 | Menú / Atrás | Pausa y salida de la partida. |
 
-Los elementos se muestran en dos columnas y cuatro filas encima del joystick derecho, con botones más grandes y el minimapa a su izquierda. Los controles admiten varios dedos simultáneos. Soltar fuera del joystick también detiene la acción. Abrir la ayuda, abrir el menú o enviar la app a segundo plano cancela los movimientos y las cargas activos.
+Los elementos se muestran en dos columnas y cuatro filas encima del joystick derecho, con botones más grandes y el minimapa a su izquierda. Las tres casillas de elementos preparados y la barra de carga quedan justo encima de los cuatro hechizos, alineados al borde inferior para dejar libre el centro. Los controles admiten varios dedos simultáneos. Soltar fuera del joystick también detiene la acción. Abrir la ayuda, abrir el menú o enviar la app a segundo plano cancela los movimientos y las cargas activos.
 
 ## Partidas con PC
 
 Iniciar el servidor en Windows o Docker. Conectar el móvil a la misma red y usar **Por IP** con la dirección del PC, por ejemplo `192.168.1.20:27015`. **LAN** busca servidores por UDP 27016; si la red bloquea descubrimiento, sigue disponible la dirección IP.
 
-La APK puede consultar, crear y entrar en las salas del servidor. Usa protocolo 8, compatible con los clientes y servidores v0.10.0, v0.11.0, v0.11.1 y v0.12.0. El alojamiento del proceso de servidor se mantiene en PC y Docker; el móvil ejecuta las prácticas localmente.
+La APK puede consultar, crear y entrar en las salas del servidor. Usa protocolo 8, compatible con los clientes y servidores v0.10.0, v0.11.0, v0.11.1, v0.12.0 y v0.12.1. El alojamiento del proceso de servidor se mantiene en PC y Docker; el móvil ejecuta las prácticas localmente.
 
 ## Compilación y comprobaciones
 

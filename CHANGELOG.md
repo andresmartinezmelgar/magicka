@@ -1,5 +1,10 @@
 # Cambios
 
+## v0.12.2
+
+- Tres casillas de elementos preparados y barra de carga móviles justo encima de los cuatro hechizos, junto al borde inferior. La zona central queda libre para ver la partida.
+- Indicador de mejoras alineado con el mismo bloque inferior. Los elementos siguen en el borde derecho y los joysticks conservan su posición.
+
 ## v0.12.1
 
 - Ocho elementos móviles en dos columnas y cuatro filas junto al borde derecho, encima del joystick de lanzamiento. Botones ampliados de 90 × 62 a 108 × 72.

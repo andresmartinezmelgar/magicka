@@ -112,9 +112,9 @@ public partial class Hud : Control
             playerPanel.CustomMinimumSize = new(310, 176); playerPanel.Size = new(310, 176);
             spells.CustomMinimumSize = new(320, 0);
             spells.OffsetLeft = -120 / GameplayScale; spells.OffsetRight = 120 / GameplayScale;
-            spells.OffsetTop = -310 / GameplayScale; spells.OffsetBottom = spells.OffsetTop + spells.GetCombinedMinimumSize().Y;
+            spells.OffsetTop = -174 / GameplayScale; spells.OffsetBottom = spells.OffsetTop + spells.GetCombinedMinimumSize().Y;
             _buffs.OffsetLeft = -260 / GameplayScale; _buffs.OffsetRight = 260 / GameplayScale;
-            _buffs.OffsetTop = -350 / GameplayScale; _buffs.OffsetBottom = -315 / GameplayScale;
+            _buffs.OffsetTop = -214 / GameplayScale; _buffs.OffsetBottom = -179 / GameplayScale;
             _feed.Visible = false;
             mapPanel.OffsetLeft = -555; mapPanel.OffsetRight = -350;
             mapPanel.OffsetTop = 136; mapPanel.OffsetBottom = 287;

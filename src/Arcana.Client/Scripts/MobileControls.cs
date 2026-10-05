@@ -62,7 +62,7 @@ public partial class MobileControls : Control
         Place(9, new(251, height - 80), new(118, 62));
         Place(10, new(width - 369, height - 148), new(118, 62));
         Place(11, new(width - 369, height - 80), new(118, 62));
-        for (int i = 0; i < 4; i++) Place(12 + i, new(width / 2 - 244 + i * 124, height - 236), new(120, 72));
+        for (int i = 0; i < 4; i++) Place(12 + i, new(width / 2 - 244 + i * 124, height - 90), new(120, 72));
         for (int i = 0; i < 3; i++) Place(16 + i, new(width - 382 + i * 124, 22), new(118, 62));
         QueueRedraw();
     }
