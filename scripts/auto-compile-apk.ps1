@@ -244,7 +244,8 @@ try {
     try { $hash = [BitConverter]::ToString($hashAlgorithm.ComputeHash($apkStream)).Replace('-', '').ToLowerInvariant() }
     finally { $apkStream.Dispose(); $hashAlgorithm.Dispose() }
     # Solo publica la salida una vez verificados firma, manifest y runtime.
-    if (Test-Path -LiteralPath $output) { [IO.File]::Replace($stagedApk, $output, $null) }
+    # PowerShell 5.1 convierte $null en una ruta vacia al enlazar este overload.
+    if (Test-Path -LiteralPath $output) { [IO.File]::Replace($stagedApk, $output, (Join-Path $temp 'previous.apk')) }
     else { [IO.File]::Move($stagedApk, $output) }
     $hashFile = if ($Architecture -eq 'arm64') { 'SHA256SUMS-Android.txt' } else { 'SHA256SUMS-Android-x86_64.txt' }
     [IO.File]::WriteAllText((Join-Path $outputRoot $hashFile), "$hash  $([IO.Path]::GetFileName($output))`n", $utf8)
