@@ -22,6 +22,7 @@ config = Path(sys.argv[1])
 settings = {'disk.dataPartition.size': '2G', 'disk.cachePartition.size': '128M'}
 lines = [line for line in config.read_text().splitlines() if line.split('=', 1)[0].strip() not in settings]
 config.write_text('\n'.join(lines + [f'{key}={value}' for key, value in settings.items()]) + '\n')
+print(config.read_text())
 PY
 # Liberar el daemon de compilación antes de reservar memoria para el dispositivo.
 "$root/src/Arcana.Client/android/build/gradlew" --stop >/dev/null

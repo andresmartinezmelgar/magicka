@@ -261,7 +261,12 @@ jobs:
           path: |
             artifacts/windows/server/*.log
             artifacts/compilacion-*.log
-            ~/AppData/Roaming/Godot/app_userdata/Arcana Arena/logs/*.jsonl
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: windows-diagnostic-user-logs
+          path: ~/AppData/Roaming/Godot/app_userdata/Arcana Arena/logs/*.jsonl
           if-no-files-found: ignore
 
   package-android:
@@ -278,6 +283,9 @@ jobs:
           java-version: '17'
       - name: Preparar SDK Android
         run: |
+          # Se usa el SDK aislado de abajo; el preinstalado ocupa el espacio que necesita el AVD.
+          if [ -d /usr/local/lib/android ]; then sudo rm -rf /usr/local/lib/android; fi
+          df -h "$RUNNER_TEMP"
           arcana_sdk="$RUNNER_TEMP/android-sdk"
           mkdir -p "$arcana_sdk/cmdline-tools"
           curl -fL https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip -o "$RUNNER_TEMP/android-cli.zip"
