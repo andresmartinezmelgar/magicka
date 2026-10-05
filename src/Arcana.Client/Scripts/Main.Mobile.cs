@@ -144,7 +144,12 @@ public partial class Main
                     _hud!.ScoreOpen = true; _hud.Update(_practice.Snapshot(), _localId, "Prueba móvil", 0.1);
                     Require(_hud.ScoreOpen, "No se puede abrir la tabla sin teclado.");
                     _hud.ScoreOpen = false;
-                    CompleteSmoke("MOBILE_SMOKE_OK: multitáctil, roca, escudo personal, barrera de piedra y fuego, meteorito, cancelación, ayuda, pausa y Atrás");
+                    break;
+                case 160:
+                    Require(_practice.Snapshot().Events.Any(e => e.Kind == "explosion" && e.Text == "Meteoro") &&
+                        _renderer.Effects.SeenKinds.Contains("explosion") && !_renderer.Fields.Values.OfType<MeteorVisual>().Any(),
+                        "El meteorito no completó su caída e impacto en el renderer móvil.");
+                    CompleteSmoke("MOBILE_SMOKE_OK: multitáctil, roca, escudo personal, piedra y fuego, caída e impacto del meteorito, cancelación, ayuda, pausa y Atrás");
                     break;
             }
         }

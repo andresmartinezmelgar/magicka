@@ -17,7 +17,8 @@ public partial class MeteorVisual : Node3D
     internal static Vector3 FlightPosition(float lifetime)
     {
         float remaining = Math.Clamp((lifetime - (SpellBalance.MeteorLifetime - SpellBalance.MeteorDelay)) / SpellBalance.MeteorDelay, 0, 1);
-        return new(-2.4f * remaining, 0.65f + 12 * MathF.Pow(remaining, 1.4f), -1.6f * remaining);
+        float progress = 1 - remaining;
+        return new(-2.4f * remaining, 0.65f + 12 * (1 - progress * progress), -1.6f * remaining);
     }
 
     public void Build(FieldSnapshot field)

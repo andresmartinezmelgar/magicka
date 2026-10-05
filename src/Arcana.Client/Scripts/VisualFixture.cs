@@ -23,8 +23,8 @@ internal static class VisualFixture
         }
         if (view == "meteor")
             return state with { Tick=frame, Time=frame/60.0, Mode=GameMode.Arena, Players=[local],
-                Fields=[new(1,1,new(-6,-2),4,0.9f,[Element.Earth,Element.Fire,Element.Fire],"meteor"),
-                    new(2,1,new(5,-2),4,0.23f,[Element.Earth,Element.Fire,Element.Fire],"meteor")],
+                Fields=[new(1,1,new(-6,-2),4,0.5f,[Element.Earth,Element.Fire,Element.Fire],"meteor"),
+                    new(2,1,new(5,-2),4,0.14f,[Element.Earth,Element.Fire,Element.Fire],"meteor")],
                 Events=frame>=84 ? [new(1,"explosion",new(0,4),[Element.Earth,Element.Fire,Element.Fire],"Meteoro",4)] : [],
                 Walls=[], Beams=[], Projectiles=[], Points=[] };
         if (view == "barriers")
