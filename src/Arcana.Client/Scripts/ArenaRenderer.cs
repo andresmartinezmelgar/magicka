@@ -145,6 +145,7 @@ public partial class ArenaRenderer : Node3D
     {
         if (_map.Id != snapshot.Map) { Clear(); _map = ArenaMap.Get(snapshot.Map); BuildMap(); }
         bool first = _lastSnapshot == null;
+        var previous = _lastSnapshot;
         float dt = (float)delta; _time += delta;
         _fresh = !ReferenceEquals(snapshot, _lastSnapshot); _lastSnapshot = snapshot;
         foreach (var p in snapshot.Players)
@@ -162,7 +163,9 @@ public partial class ArenaRenderer : Node3D
         var focus = playing && local != null ? new Vector3(Math.Clamp(local.Position.X, -followX, followX), 0,
             Math.Clamp(local.Position.Y, -followY, followY)) : new Vector3(-4, 0, 0);
         var desired = focus + new Vector3(0, 27, 21);
-        Camera.Position = first && playing ? desired : Camera.Position.Lerp(desired, 1 - Mathf.Exp(-3 * dt));
+        bool respawned = snapshot.Mode == GameMode.Arena && local is { Alive: true } &&
+            previous?.Players.FirstOrDefault(p => p.Id == localId) is { Alive: false };
+        Camera.Position = playing && (first || respawned) ? desired : Camera.Position.Lerp(desired, 1 - Mathf.Exp(-3 * dt));
         Camera.LookAt(Camera.Position - new Vector3(0, 27, 21));
         Camera.Size = Mathf.Lerp(Camera.Size, playing ? _zoom : 32, 1 - Mathf.Exp(-5 * dt));
         foreach (var visual in _points.Values) visual.Visible = ShowControlPoints && snapshot.Mode == GameMode.Warfare;

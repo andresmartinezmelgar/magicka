@@ -4,7 +4,7 @@ Escudos y barreras muestran la intensidad de la combinación. Una piedra y escud
 
 En todos contra todos, cada entrada, reaparición y reinicio distribuye a los magos por posiciones aleatorias de los cuatro mapas. Se evita aparecer sobre muros, obstáculos, jugadores y campos peligrosos cuando hay espacio. Durante un segundo el mago queda protegido contra daño, estados y empujes; una envoltura dorada y el texto INMUNE muestran la protección.
 
-Duelo y guerra conservan las bases por equipo. Capacidad de escudos, vida de muros, daño y alcance mantienen sus valores. El protocolo 8 incorpora campos opcionales para la intensidad del escudo y la invulnerabilidad; los clientes anteriores pueden conectar, pero no dibujan estas señales. Las apariciones nuevas necesitan un servidor v0.12.8.
+La cámara se centra inmediatamente en la nueva posición al reaparecer en todos contra todos. Duelo y guerra conservan las bases por equipo. Capacidad de escudos, vida de muros, daño y alcance mantienen sus valores. El protocolo 8 incorpora campos opcionales para la intensidad del escudo y la invulnerabilidad; los clientes anteriores pueden conectar, pero no dibujan estas señales. Las apariciones nuevas necesitan un servidor v0.12.8.
 
 El movimiento y el contraste en móvil se han evaluado y quedan pendientes de decisión. El código conserva los scripts `Compilar-Juego.cmd` y `Compilar-APK.cmd` para generar los archivos localmente.
 
