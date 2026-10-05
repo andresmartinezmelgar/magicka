@@ -12,6 +12,10 @@ public partial class BarrierVisual : Node3D
     private readonly StandardMaterial3D _rim = new();
     private Color _color;
     private float _previousHealth, _maximumHealth, _flash, _age;
+    internal int Charges { get; private set; }
+    internal int StoneRows { get; private set; }
+    internal float StoneThickness { get; private set; }
+    private float _reinforcement;
 
     public void Build(WallSnapshot wall)
     {
@@ -22,6 +26,11 @@ public partial class BarrierVisual : Node3D
         bool stone = wall.Elements.Contains(Element.Earth);
         Stone = stone;
         int charges = SpellVisualStrength.For(wall.Elements).Charges;
+        Charges = charges;
+        _reinforcement = Math.Max(0, charges - (stone ? 2 : 1));
+        StoneRows = stone ? 2 + (int)_reinforcement : 0;
+        StoneThickness = stone ? 0.62f + _reinforcement * 0.20f
+            + Math.Max(0, wall.Elements.Count(e => e == Element.Earth) - 1) * 0.20f : 0;
         float length = V2.Distance(wall.A, wall.B);
         _previousHealth = wall.Health; _maximumHealth = stone ? 1300 : 650;
         _color = Ui.SpellColor(wall.Elements);
@@ -33,22 +42,32 @@ public partial class BarrierVisual : Node3D
 
         if (stone)
         {
-            int blocks = Math.Max(3, (int)MathF.Ceiling(length / 0.55f));
-            for (int i = 0; i < blocks; i++)
+            int blocks = Math.Clamp((int)MathF.Ceiling(length / 0.72f), 3, 16);
+            var stoneMaterials = Enumerable.Range(0, 3).Select(i => new StandardMaterial3D
             {
-                float height = 1.45f + 0.28f * MathF.Sin(i * 2.31f + wall.Id);
-                var material = new StandardMaterial3D
-                {
-                    AlbedoColor = new Color("56616b").Lerp(_color, 0.13f).Darkened(i % 3 * 0.07f),
-                    Roughness = 0.95f
-                };
-                var block = Piece(new CylinderMesh { TopRadius = length / blocks * 0.32f,
-                    BottomRadius = length / blocks * 0.58f, Height = height, RadialSegments = 5 },
-                    new(0, height / 2, (i + 0.5f) / blocks * length - length / 2), material);
-                block.Scale = new(0.62f, 1, 1);
-                block.Rotation = new(0, MathF.Sin(i * 1.27f) * 0.18f, MathF.Sin(i * 3.7f) * 0.045f);
+                AlbedoColor = new Color("647078").Lerp(_color, 0.08f).Darkened(i * 0.09f),
+                Roughness = 0.98f
+            }).ToArray();
+            // La pared básica conserva dos hiladas; una tercera carga añade masa y contrafuertes.
+            for (int row = 0; row < StoneRows; row++)
+            for (int i = 0; i < blocks + row % 2; i++)
+            {
+                float start = Math.Max(0, (i - row % 2 * 0.5f) / blocks) * length;
+                float end = Math.Min(1, (i + 1 - row % 2 * 0.5f) / blocks) * length;
+                float height = row == 0 ? 0.82f : 0.73f + 0.14f * MathF.Sin(i * 2.31f + wall.Id);
+                var block = Piece(StoneMesh(new(StoneThickness - (row == 0 ? 0 : 0.08f), height, end - start + 0.025f),
+                        i + row * 31 + wall.Id),
+                    new(0, 0.04f + row * 0.76f + height / 2, (start + end - length) / 2),
+                    stoneMaterials[(i + row) % stoneMaterials.Length]);
                 block.CastShadow = GeometryInstance3D.ShadowCastingSetting.On;
             }
+            if (_reinforcement > 0)
+                foreach (int end in new[] { -1, 1 })
+                {
+                    var support = Piece(StoneMesh(new(StoneThickness + 0.24f, 1.92f, 0.44f), wall.Id + end * 41),
+                        new(0, 1, end * (length / 2 - 0.24f)), stoneMaterials[2]);
+                    support.CastShadow = GeometryInstance3D.ShadowCastingSetting.On;
+                }
         }
         else
         {
@@ -63,6 +82,7 @@ public partial class BarrierVisual : Node3D
                 uniform float hit_flash = 0.0;
                 uniform float clock = 0.0;
                 void fragment() {
+                    float reinforcement = detail - 1.0;
                     vec2 p = vec2(UV.x * span, UV.y * 2.0) * (2.6 + detail * 0.25);
                     vec2 tile = vec2(1.0, 1.73205);
                     vec2 a = mod(p, tile) - tile * 0.5;
@@ -74,9 +94,9 @@ public partial class BarrierVisual : Node3D
                     float sweep = pow(0.5 + 0.5 * sin(UV.y * 7.0 - clock * 2.4), 12.0);
                     float scars = pow(0.5 + 0.5 * sin(UV.x * 37.0 + UV.y * 19.0), 28.0) * (1.0 - integrity);
                     ALBEDO = mix(barrier_color.rgb * 0.8, vec3(1.0, 0.97, 0.84), edge * 0.38 + hit_flash * 0.3);
-                    EMISSION = barrier_color.rgb * (0.12 + edge * 0.3 + hit_flash * 0.18);
+                    EMISSION = barrier_color.rgb * (0.12 + reinforcement * 0.06 + edge * 0.3 + hit_flash * 0.18);
                     ALPHA = fade * clamp(0.10 + edge * 0.62 + grid * (0.07 + detail * 0.015)
-                        + sweep * 0.045 + scars * 0.22 + hit_flash * 0.12, 0.0, 0.84);
+                        + reinforcement * 0.07 + sweep * 0.045 + scars * 0.22 + hit_flash * 0.12, 0.0, 0.84);
                 }
                 """ };
             _surface = new ShaderMaterial { Shader = _surfaceShader };
@@ -91,7 +111,7 @@ public partial class BarrierVisual : Node3D
                 void Vertex(float u, float v)
                 {
                     face.SetUV(new(u, v));
-                    float height = 1.55f + MathF.Sin(u * MathF.PI) * 0.65f;
+                    float height = 1.55f + _reinforcement * 0.18f + MathF.Sin(u * MathF.PI) * 0.65f;
                     face.AddVertex(new(0, 0.07f + height * v, (u - 0.5f) * length));
                 }
                 Vertex(a, 0); Vertex(b, 0); Vertex(a, 1);
@@ -101,9 +121,13 @@ public partial class BarrierVisual : Node3D
             Piece(face.Commit(), Vector3.Zero, _surface);
             foreach (int end in new[] { -1, 1 })
             {
-                Piece(new PrismMesh { Size = new(0.15f, 1.55f, 0.17f) },
-                    new(0, 0.82f, end * length / 2), _rim);
+                float height = 1.55f + _reinforcement * 0.18f;
+                Piece(new PrismMesh { Size = new(0.15f + _reinforcement * 0.04f, height, 0.17f) },
+                    new(0, 0.045f + height / 2, end * length / 2), _rim);
             }
+            for (int band = 0; band < charges - 1; band++)
+                Piece(new BoxMesh { Size = new(0.08f, 0.055f, length) },
+                    new(0, 0.58f + band * 0.64f, 0), _rim);
         }
         Piece(new BoxMesh { Size = new(0.16f, 0.045f, length) }, new(0, 0.06f, 0), _rim);
         int glyphs = charges == 1 ? 1 : charges == 2 ? 2 : 4;
@@ -111,10 +135,37 @@ public partial class BarrierVisual : Node3D
         {
             float z = ((i + 1) / (float)(glyphs + 1) - 0.5f) * length;
             var glyph = Piece(new PrismMesh { Size = new(0.035f, 0.23f, 0.13f) },
-                new(stone ? 0.19f : 0.025f, 0.82f, z), _rim);
+                new(stone ? StoneThickness / 2 + 0.025f : 0.025f, 0.82f, z), _rim);
             glyph.Rotation = new(MathF.PI / 4, 0, 0);
         }
         BuildElements(wall, length, stone);
+    }
+
+    private static ArrayMesh StoneMesh(Vector3 size, int seed)
+    {
+        Vector3[] corners = [new(-1,-1,-1),new(1,-1,-1),new(1,1,-1),new(-1,1,-1),
+            new(-1,-1,1),new(1,-1,1),new(1,1,1),new(-1,1,1)];
+        for (int i = 0; i < corners.Length; i++)
+        {
+            var point = corners[i];
+            float inset = 0.04f + 0.06f * (0.5f + 0.5f * MathF.Sin(seed * 2.3f + i * 4.1f));
+            corners[i] = new Vector3(point.X * (1 - inset), point.Y * (1 - inset * 0.45f), point.Z)
+                * size / 2;
+        }
+        int[][] faces = [[0,1,2,3],[5,4,7,6],[4,0,3,7],[1,5,6,2],[3,2,6,7],[4,5,1,0]];
+        var surface = new SurfaceTool(); surface.Begin(Godot.Mesh.PrimitiveType.Triangles);
+        foreach (var face in faces)
+        {
+            Vector3 center = (corners[face[0]] + corners[face[1]] + corners[face[2]] + corners[face[3]]) / 4;
+            for (int i = 0; i < 4; i++)
+            {
+                Vector3 a = corners[face[i]], b = corners[face[(i + 1) % 4]];
+                // Godot usa triángulos horarios; la normal debe apuntar hacia fuera.
+                surface.SetNormal((b - a).Cross(center - a).Normalized() * -1);
+                surface.AddVertex(a); surface.AddVertex(b); surface.AddVertex(center);
+            }
+        }
+        return surface.Commit();
     }
 
     private MeshInstance3D Piece(Godot.Mesh shape, Vector3 at, Godot.Material material)

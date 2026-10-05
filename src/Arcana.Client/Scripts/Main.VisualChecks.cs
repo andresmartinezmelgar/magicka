@@ -16,12 +16,42 @@ public partial class Main
             _renderer.Render(empty with { Tick=1, Walls=[wall] },0,1/60.0,true);
             bool elemental = combination.Elements.Any(e => e is Element.Water or Element.Fire or Element.Cold or Element.Lightning);
             var visual = _renderer.Walls[1];
-            if (visual.Stone != combination.Recipe.Has(Element.Earth) || visual.HasElementSurface != elemental) return false;
+            if (visual.Stone != combination.Recipe.Has(Element.Earth) || visual.HasElementSurface != elemental ||
+                visual.Charges != combination.Elements.Length) return false;
             _renderer.Render(empty with { Tick=2, Walls=[wall with { Health=0, Lifetime=0 }] },0,1/60.0,true);
             if (visual.Visible) return false;
             _renderer.Render(empty with { Tick=3 },0,1/60.0,true);
             if (_renderer.Walls.Count != 0) return false;
         }
+        float StoneVolume(Element[] elements)
+        {
+            _renderer.Clear();
+            _renderer.Render(empty with { Tick = 3, Walls = [new(1, 1, new(-3, 0), new(3, 0), 1300, 10, elements)] }, 0, 1/60.0, true);
+            var geometry = _renderer.Walls[1].GetChildren().OfType<Node3D>().First();
+            return geometry.GetChildren().OfType<MeshInstance3D>().Where(m => m.Mesh is ArrayMesh)
+                .Sum(m => { var size = m.Mesh.GetAabb().Size; return size.X * size.Y * size.Z; });
+        }
+        float basicVolume = StoneVolume([Element.Shield, Element.Earth]);
+        float reinforcedVolume = StoneVolume([Element.Shield, Element.Earth, Element.Earth]);
+        if (reinforcedVolume < basicVolume * 1.8f) return false;
+        _renderer.Clear();
+        var wizard = VisualFixture.Create("full").Players[0];
+        for (int charges = 1; charges <= 3; charges++)
+        {
+            _renderer.Render(empty with { Players = [wizard with { ShieldCharges = charges }] }, wizard.Id, 1/60.0, true);
+            if (_renderer.Wizards[wizard.Id].ProtectionBandCount != charges - 1 || _renderer.Wizards[wizard.Id].SpawnProtectionVisible) return false;
+        }
+        _renderer.Render(empty with { Players = [wizard with { Shield = 0, InvulnerableSeconds = 1 }] }, wizard.Id, 1/60.0, true);
+        if (!_renderer.Wizards[wizard.Id].SpawnProtectionVisible) return false;
+        _renderer.Render(empty with { Players = [wizard with { Shield = 0, InvulnerableSeconds = 0 }] }, wizard.Id, 1/60.0, true);
+        if (_renderer.Wizards[wizard.Id].SpawnProtectionVisible || _renderer.Wizards[wizard.Id].ProtectionBandCount != 0) return false;
+        _renderer.Clear();
+        _renderer.Render(empty with { Mode = GameMode.Arena, Players = [wizard with {
+            Position = new(-18, 0), Health = 0, Alive = false, Shield = 0, InvulnerableSeconds = 0 }] }, wizard.Id, 1/60.0, true);
+        _renderer.Render(empty with { Mode = GameMode.Arena, Players = [wizard with {
+            Position = new(18, 0), Shield = 0, InvulnerableSeconds = 1 }] }, wizard.Id, 1/60.0, true);
+        if (Math.Abs(_renderer.Camera.Position.X - 7) > 0.001f || !_renderer.Wizards[wizard.Id].SpawnProtectionVisible) return false;
+        _renderer.Clear();
         var field = new FieldSnapshot(1,1,V2.Zero,4,1.5f,[Element.Earth,Element.Fire,Element.Fire],"meteor");
         _renderer.Render(empty with { Tick=4, Fields=[field] },0,1/60.0,true);
         var meteor = (MeteorVisual)_renderer.Fields[1]; float height = meteor.Height;
@@ -47,7 +77,7 @@ public partial class Main
         for (int i=0;i<30;i++) probe.Advance(empty,0.05f,false);
         valid &= probe.ActiveCount == 0; probe.Clear(); probe.QueueFree(); _renderer.Clear();
         valid &= _renderer.Fields.Count == 0 && _renderer.Walls.Count == 0;
-        if (valid) GD.Print($"SHIELD_METEOR_OK: {recipes.Length} combinaciones de barrera, caducidad, caída, radio de 4 m, impacto y saturación");
+        if (valid) GD.Print($"SHIELD_METEOR_OK: {recipes.Length} combinaciones de barrera, muro reforzado, bandas de escudo, protección y cámara de reaparición, caducidad, caída, radio de 4 m, impacto y saturación");
         return valid;
     }
 }

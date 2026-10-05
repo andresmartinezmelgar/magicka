@@ -59,6 +59,8 @@ La guerra se decide por tickets; duelo y todos contra todos mantienen sus objeti
 
 ## Límites, reaparición y nueva partida
 
+En **todos contra todos**, cada entrada, reaparición y nueva partida coloca al mago en una posición aleatoria del mapa, independiente de su equipo. Se evita aparecer sobre obstáculos, muros, otros jugadores y campos peligrosos siempre que quede espacio. Una envoltura dorada y el texto **INMUNE** indican el segundo de protección: durante ese tiempo no recibes daño, estados ni empujes. Duelo y guerra mantienen sus bases de equipo.
+
 El creador elige el límite de bajas y, en Arena clásica, Ascensión o Santuario, los tickets. Por defecto, duelo y arena se juegan a **15 bajas**; el duelo de práctica se juega a **5**. En Arena clásica, Ciudadela y Santuario reapareces a los **2,5 segundos** en duelo y a los **4** en arena y guerra. Ascensión añade la penalización indicada arriba. Tras anunciar al ganador, comienza otra partida a los **9 segundos**, con los marcadores restablecidos y el mismo tipo de mago.
 
 ## Combate

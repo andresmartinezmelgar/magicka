@@ -1,5 +1,32 @@
 # Cambios
 
+## v0.12.9
+
+- Movimiento del mago interpolado entre posiciones confirmadas, con 75 ms de margen en red y un paso de simulación en práctica. La cámara sigue la posición visible.
+- Pasos y oscilación del cuerpo ligados a la distancia recorrida; adaptados a lentitud, carga y celeridad. Parada sin arrastre, reposo estable y ajuste inmediato tras congelación, reaparición, teletransporte o pausa prolongada.
+- Paleta móvil más saturada y diferenciada: agua azul, frío turquesa, rayo violeta y arcano magenta. Controles con fondo más opaco, bordes de tres píxeles y símbolos elementales.
+- Iluminación móvil más neutra y terreno menos brillante. Barreras, rayos y partículas conservan más color en sus reflejos.
+- Comprobaciones de movimiento a 30, 60 y 120 FPS con snapshots a 20 Hz y fluctuación de llegada, paradas, pérdidas de paquetes y giros. Contraste de texto móvil y revisión OpenGL de controles, barreras y rayos.
+
+## v0.12.8
+
+- Barreras con intensidad visible según las cargas. Una piedra y escudo conservan las dos hiladas; dos piedras y escudo añaden una tercera hilada, grosor y contrafuertes. Las capas elementales se adaptan al volumen.
+- Escudos personales con cero, una o dos bandas según los elementos del lanzamiento, incluidos los repetidos. La intensidad disminuye al recibir daño. Los hechizos de un solo elemento conservan su aspecto.
+- Todos contra todos: entradas, reapariciones y reinicios en posiciones aleatorias por el mapa, independientes del equipo, con separación de jugadores y evitando obstáculos, muros y campos peligrosos. Semilla opcional para reproducir pruebas.
+- Un segundo de invulnerabilidad en Arena, visible mediante una envoltura dorada, anillo y texto INMUNE; bloquea daño, estados y empujes y caduca a los 60 pasos.
+- La cámara se centra inmediatamente al reaparecer en todos contra todos, incluso al cambiar de extremo del mapa.
+- Campos opcionales de intensidad del escudo y segundos de invulnerabilidad en el protocolo 8. Los modos por equipos conservan sus bases y protección.
+- Se conservan capacidad de escudos, vida de muros, daño y alcance. Movimiento y paleta móvil evaluados, pendientes de decisión.
+- Pruebas de distribución en los cuatro mapas, duración de la protección, replicación y validación de intensidad; comprobación Godot del volumen reforzado, bandas y caducidad del halo.
+
+## v0.12.7
+
+- Muros de piedra con bloques irregulares en dos hiladas, juntas alternadas y caras rugosas.
+- Llamas con turbulencia y puntas; cascadas continuas con espuma en el suelo; arcos eléctricos ramificados y chispas en la superficie. Los elementos combinados se superponen a la piedra.
+- Meteorito con 80 facetas, basalto, grietas incandescentes y estela de dos capas orientada según el descenso. Brasas y humo dentro del presupuesto existente.
+- Mejora visual limitada a barreras y meteorito; se conservan los valores de combate y el protocolo 8.
+- `Compilar-APK.cmd` para generar una APK ARM64 desde Windows con doble clic. Prepara las herramientas, conserva la firma local y verifica la APK antes de sustituir la anterior.
+
 ## v0.12.6
 
 - Barreras frontales y anillos con superficies elementales animadas: fuego, agua descendente y espuma, arcos eléctricos y chispas, cristales de hielo y vapor. Las mezclas muestran sus componentes; las barreras de tierra conservan la roca con la capa elemental encima.

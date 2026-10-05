@@ -198,10 +198,11 @@ public partial class CombatEffects : Node3D
             foreach (var meteor in snapshot.Fields.Where(f => f.Kind == "meteor"))
             {
                 var at = ArenaRenderer.World(meteor.Position) + MeteorVisual.FlightPosition(meteor.Lifetime);
-                for (int i = 0; i < 2; i++)
-                    Emit(at + Vector3.Up * (0.6f + i * 0.65f) + Direction() * 0.25f,
-                        i == 0 ? Ui.ElementColor(Element.Fire) : new("ffc26a"), Vector3.Up * 0.9f,
-                        0.38f, 2, 0.12f, 0);
+                var trail = MeteorVisual.TrailDirection(meteor.Lifetime);
+                for (int i = 0; i < 3; i++)
+                    Emit(at + trail * (0.6f + i * 0.8f) + Direction() * 0.25f,
+                        i == 2 ? new Color(0.23f, 0.19f, 0.16f, 0.26f) : i == 0 ? new("ffe4ad") : Ui.ElementColor(Element.Fire),
+                        trail * 0.9f, i == 2 ? 0.55f : 0.38f, i == 2 ? 0 : 2, i == 2 ? 0.28f : 0.12f, 0);
             }
         }
         if (_statusClock >= 0.11f)
@@ -246,9 +247,9 @@ public partial class CombatEffects : Node3D
                 else if (spell.Has(Element.Fire))
                     Emit(at + Vector3.Up * (spell.Has(Element.Earth) ? 1.1f : 0.4f), Ui.ElementColor(Element.Fire), Vector3.Up * 1.5f, 0.4f, 2, 0.12f, 0);
                 if (spell.Has(Element.Water) && !spell.Steam && !spell.Ice)
-                    Emit(at - Vector3.Up * 0.25f, new("a0e6ff"), Direction() * 0.75f, 0.28f, 0, 0.08f, 2);
+                    Emit(at - Vector3.Up * 0.25f, Ui.IsMobile ? Ui.ElementColor(Element.Cold) : new("a0e6ff"), Direction() * 0.75f, 0.28f, 0, 0.08f, 2);
                 if (spell.Has(Element.Lightning))
-                    Emit(at + Vector3.Up * 0.6f, new("c9cdff"), Direction() * 1.7f, 0.16f, 1, 0.055f, 0);
+                    Emit(at + Vector3.Up * 0.6f, Ui.IsMobile ? Ui.ElementColor(Element.Lightning) : new("c9cdff"), Direction() * 1.7f, 0.16f, 1, 0.055f, 0);
             }
         }
         FinishFrame();

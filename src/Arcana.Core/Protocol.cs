@@ -61,7 +61,7 @@ public sealed record WizardSnapshot(int Id, string Name, int Team, bool Bot, V2 
     bool Alive, float Respawn, float Wet, float Burning, float Chill, float Frozen, float Haste,
     float Energy, float[] Cooldowns, int Kills, int Deaths, float Charge, bool Casting,
     float ShieldMax = 0, float ShieldSeconds = 0, WizardType WizardType = WizardType.Balanced, float RegenerationRate = 0,
-    BuffSnapshot[]? Buffs = null, Element[]? CastingElements = null)
+    BuffSnapshot[]? Buffs = null, Element[]? CastingElements = null, int ShieldCharges = 1, float InvulnerableSeconds = 0)
 {
     [JsonIgnore] public Element[] DisplayElements => Selected.Length > 0 ? Selected : CastingElements ?? [];
 }

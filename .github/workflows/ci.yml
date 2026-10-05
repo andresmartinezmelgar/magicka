@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: 'Publicar los ejecutables validados en una Release de GitHub'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -48,10 +54,11 @@ jobs:
           GODOT_SILENCE_ROOT_WARNING: 1
         run: |
           mkdir -p artifacts/mobile-review
-          for screen in launcher practice help; do
+          for screen in launcher practice help barriers beams; do
             args=(--mobile)
             if [ "$screen" = practice ]; then args+=(--mobile-fixture); fi
             if [ "$screen" = help ]; then args+=(--preview-help=5); fi
+            if [ "$screen" = barriers ] || [ "$screen" = beams ]; then args+=(--preview-spells="$screen"); fi
             timeout 60s xvfb-run -a /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64 --audio-driver Dummy --path src/Arcana.Client -- "${args[@]}" --capture="${{ github.workspace }}/artifacts/mobile-review/$screen.png" 2>&1 | tee "artifacts/mobile-review/$screen.log"
             test -s "artifacts/mobile-review/$screen.png"
             if grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "artifacts/mobile-review/$screen.log"; then exit 1; fi
@@ -66,10 +73,11 @@ jobs:
           GODOT_SILENCE_ROOT_WARNING: 1
         run: |
           mkdir -p artifacts/spell-review
-          for view in barriers beams beam-charge shield-elements meteor; do
+          for view in barriers beams beam-charge shield-elements shield-strength meteor; do
             log="artifacts/spell-review/$view.log"
             timeout 60s xvfb-run -a /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64 --audio-driver Dummy --path src/Arcana.Client -- --preview-spells="$view" --capture="${{ github.workspace }}/artifacts/spell-review/$view.png" 2>&1 | tee "$log"
             test -s "artifacts/spell-review/$view.png"
+            grep -F "SPELL_PREVIEW_READY: $view" "$log"
             if grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$log"; then exit 1; fi
           done
       - uses: actions/upload-artifact@v4
@@ -167,7 +175,7 @@ jobs:
         run: dotnet publish src/Arcana.Server -c Release --no-restore -o artifacts/server
       - uses: actions/upload-artifact@v4
         with:
-          name: arcana-server-v0.12.6
+          name: arcana-server-v0.12.9
           path: artifacts/server
       - name: Logs de diagnóstico
         if: failure()
@@ -181,6 +189,9 @@ jobs:
   package-windows:
     runs-on: windows-latest
     timeout-minutes: 25
+    env:
+      MSBUILDDISABLENODEREUSE: '1'
+      DOTNET_CLI_USE_MSBUILD_SERVER: '0'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -363,9 +374,81 @@ jobs:
           path: artifacts/android/*.log
           if-no-files-found: ignore
 
+  package-android-windows:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: apk build
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: apk build
+      - name: Generar APK con doble clic y herramientas locales en Windows PowerShell 5.1
+        timeout-minutes: 12
+        run: |
+          # Fuerza el bootstrap de Java y usa rutas con espacios.
+          $env:JAVA_HOME = ''
+          $env:APPDATA = Join-Path $env:RUNNER_TEMP 'preferencias Godot usuario'
+          $settings = Join-Path $env:APPDATA 'Godot/editor_settings-4.5.tres'
+          New-Item -ItemType Directory -Path (Split-Path $settings) -Force | Out-Null
+          'Preferencias del usuario: conservar exactamente.' | Set-Content -LiteralPath $settings
+          $presetHash = (Get-FileHash src/Arcana.Client/export_presets.cfg).Hash
+          $settingsHash = (Get-FileHash -LiteralPath $settings).Hash
+          cmd.exe /d /c 'Compilar-APK.cmd -AcceptAndroidLicenses < nul'
+          if ($LASTEXITCODE -ne 0) { throw 'Fallo el script de APK con doble clic.' }
+          if ((Get-FileHash src/Arcana.Client/export_presets.cfg).Hash -ne $presetHash) { throw 'Se modificaron los presets.' }
+          if ((Get-FileHash -LiteralPath $settings).Hash -ne $settingsHash) { throw 'Se modificaron las preferencias del editor.' }
+          $version = (Get-Content VERSION -Raw).Trim()
+          $apk = "artifacts/android/ArcanaArena-v$version-Android-arm64.apk"
+          if (!(Test-Path -LiteralPath $apk)) { throw 'Falta la APK ARM64.' }
+          $state = @{ presetHash = $presetHash; keyHash = (Get-FileHash .tools/android-debug.keystore).Hash }
+          $state | ConvertTo-Json | Set-Content artifacts/android/build-state.json
+      - name: Recompilar conservando la firma y comprobar que un fallo conserva la APK
+        timeout-minutes: 8
+        run: |
+          $env:JAVA_HOME = ''
+          $state = Get-Content artifacts/android/build-state.json -Raw | ConvertFrom-Json
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/auto-compile-apk.ps1 -AcceptAndroidLicenses
+          if ($LASTEXITCODE -ne 0) { throw 'Fallo la segunda compilacion.' }
+          if ((Get-FileHash .tools/android-debug.keystore).Hash -ne $state.keyHash) { throw 'Se sustituyo la firma local.' }
+          if ((Get-FileHash src/Arcana.Client/export_presets.cfg).Hash -ne $state.presetHash) { throw 'No se restauraron los presets.' }
+          $version = (Get-Content VERSION -Raw).Trim()
+          $apk = "artifacts/android/ArcanaArena-v$version-Android-arm64.apk"
+          $apkHash = (Get-FileHash -LiteralPath $apk).Hash
+          $checksum = (Get-Content artifacts/android/SHA256SUMS-Android.txt -Raw).Split(' ')[0]
+          if ($checksum -ne $apkHash.ToLowerInvariant()) { throw 'SHA256 incorrecto.' }
+          $project = (Resolve-Path src/Arcana.Client/Arcana.Client.csproj).Path
+          $backup = [IO.File]::ReadAllBytes($project)
+          try {
+            [IO.File]::WriteAllText($project, '<proyecto-invalido>')
+            powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/auto-compile-apk.ps1 -AcceptAndroidLicenses
+            if ($LASTEXITCODE -eq 0) { throw 'El script no rechazo el proyecto invalido.' }
+          } finally { [IO.File]::WriteAllBytes($project, $backup) }
+          if ((Get-FileHash -LiteralPath $apk).Hash -ne $apkHash) { throw 'El fallo sustituyo la APK anterior.' }
+          if ((Get-FileHash .tools/android-debug.keystore).Hash -ne $state.keyHash) { throw 'El fallo sustituyo la firma.' }
+          if ((Get-FileHash src/Arcana.Client/export_presets.cfg).Hash -ne $state.presetHash) { throw 'El fallo dejo presets modificados.' }
+          'WINDOWS_APK_BUILD_OK: descarga, exportacion, recompilacion, firma y fallo seguro.'
+          # El ultimo codigo 1 procede del fallo provocado y ya comprobado.
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ArcanaArena-Android-Windows-script
+          path: |
+            apk build/artifacts/android/*-Android-arm64.apk
+            apk build/artifacts/android/SHA256SUMS-Android.txt
+            apk build/artifacts/android/manifest-arm64.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-apk-diagnostics
+          path: apk build/artifacts/compilacion-apk-*.log
+          if-no-files-found: ignore
+
   release:
-    needs: [build-and-test, package-windows, package-android]
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [build-and-test, package-windows, package-android, package-android-windows]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish_release
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -386,7 +469,7 @@ jobs:
           version=$(tr -d '\r\n' < VERSION)
           latest_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
           if [ "$latest_sha" != "$GITHUB_SHA" ]; then
-            echo 'Hay una revisión más reciente; su ejecución publicará la versión.'
+            echo 'main ha cambiado; la publicación manual debe ejecutarse sobre su revisión actual.'
             exit 0
           fi
           if gh release view "v$version" >/dev/null 2>&1; then

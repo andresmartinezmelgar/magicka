@@ -9,6 +9,20 @@ internal static class VisualFixture
     {
         var state = Create("none");
         var local = state.Players[0] with { Position = V2.Zero, Selected = [], Shield = 0, ShieldMax = 0, ShieldSeconds = 0 };
+        if (view == "shield-strength")
+        {
+            Element[][] protectionRecipes = [[Element.Shield], [Element.Shield, Element.Water], [Element.Shield, Element.Water, Element.Water],
+                [Element.Shield, Element.Earth], [Element.Shield, Element.Earth, Element.Earth], [Element.Shield, Element.Earth, Element.Fire]];
+            return state with { Tick = frame, Time = frame / 60.0, Mode = GameMode.Arena,
+                Players = [local with { Position = new(-6, 7), Name = "Escudo básico", Shield = 420, ShieldMax = 420, ShieldCharges = 1 },
+                    local with { Id = 2, Position = new(0, 7), Name = "Escudo · 3 elementos", Shield = 650, ShieldMax = 650,
+                        Ward = [Element.Earth], ShieldCharges = 3 },
+                    local with { Id = 3, Position = new(6, 7), Name = "Aparición · 1 segundo", InvulnerableSeconds = 1 }],
+                Walls = protectionRecipes.Select((elements, i) => new WallSnapshot(i + 1, 1,
+                    new(-10 + i % 3 * 8, i < 3 ? -6 : 0), new(-5 + i % 3 * 8, i < 3 ? -6 : 0),
+                    elements.Contains(Element.Earth) ? 1300 : 650, 7, elements)).ToArray(),
+                Beams = [], Fields = [], Projectiles = [], Points = [], Events = [] };
+        }
         if (view == "shield-elements")
         {
             Element[][] shieldRecipes = [[Element.Shield], [Element.Shield,Element.Earth,Element.Fire],
@@ -72,6 +86,7 @@ internal static class VisualFixture
         for (int team = 0; team < 2; team++)
             foreach (WizardType type in Enum.GetValues<WizardType>()) world.AddPlayer(team == 0 ? "Azul" : "Rojo", team, wizardType: type);
         var state = world.Snapshot();
+        state = state with { Players = state.Players.Select(p => p with { InvulnerableSeconds = 0 }).ToArray() };
         int row = view switch { "front" => 0, "west" => 1, "back" => 2, "east" => 3, _ => frame / 60 % 4 };
         V2 facing = row switch { 1 => new(-1, 0), 2 => new(0, -1), 3 => new(1, 0), _ => new(0, 1) };
         int phase = frame % 60;
@@ -145,6 +160,7 @@ internal static class VisualFixture
         var ally = world.AddPlayer("Aliado azul", 0)!; ally.Position = new(-4, 5); ally.Health = 920;
         var other = world.AddPlayer("Rival rojo 2", 1)!; other.Position = new(4, 5); other.Health = 760;
         var snapshot = world.Snapshot();
+        snapshot = snapshot with { Players = snapshot.Players.Select(p => p with { InvulnerableSeconds = 0 }).ToArray() };
         var localState = snapshot.Players[0] with { Selected = [Element.Shield, Element.Arcane, Element.Fire] };
         localState = shieldState switch
         {

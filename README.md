@@ -1,10 +1,14 @@
-# Arcana Arena — v0.12.6
+# Arcana Arena — v0.12.9
 
 Primera recreación jugable en C# del combate elemental de **Magicka: Wizard Wars**. Cliente 3D de escritorio con **Godot 4.5.2 .NET**, servidor independiente **ASP.NET Core / .NET 8**, Docker, launcher con conexión por IP/LAN, salas independientes y paquete Windows para abrir con doble clic y APK Android con controles táctiles.
 
 El código, las mallas y los sonidos son propios. Los sprites de los magos se han generado para este proyecto. Esta versión reproduce la estructura del combate; los gráficos, mapas, magicks y valores de daño son una aproximación, no una reproducción exacta del original.
 
-**v0.12.6:** barreras combinadas con llamas, cascadas, chispas, cristales de hielo o vapor; los muros de tierra conservan la roca bajo el efecto. Meteorito de roca incandescente, estela, aviso y explosión con fragmentos y humo.
+**v0.12.9:** movimiento interpolado, pasos sincronizados con la distancia y cámara que sigue la posición visible. En móvil, tonos elementales más definidos, símbolos y bordes en los botones, iluminación más neutra y menos brillo del terreno.
+
+**v0.12.8:** los escudos y barreras muestran la cantidad de elementos: dos piedras con escudo forman un muro más grueso, con tres hiladas y contrafuertes; los escudos personales añaden bandas y las superficies elementales más detalle. En todos contra todos, entradas y reapariciones aleatorias en los cuatro mapas, con un segundo de invulnerabilidad visible.
+
+**v0.12.7:** muros de bloques irregulares con llamas ascendentes, cascadas con espuma o electricidad con chispas. Las combinaciones conservan sus superficies elementales. Meteorito de 80 facetas con grietas incandescentes y una estela irregular orientada según la caída, con núcleo caliente, brasas y humo.
 
 **v0.12.5:** el daño del láser aumenta mientras se mantiene: empieza al 30 % del valor original y alcanza el 150 % tras 2 s. La barra inferior muestra la carga y el láser gana grosor e intensidad de forma moderada. F1 indica los valores inicial y máximo. APK Android ARM64 y controles móviles junto a los bordes. [Instalación y controles](docs/ANDROID.md).
 
@@ -46,12 +50,12 @@ El código, las mallas y los sonidos son propios. Los sprites de los magos se ha
 
 ## Jugar en Android
 
-Instalar [ArcanaArena-v0.12.6-Android-arm64.apk](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.12.6/ArcanaArena-v0.12.6-Android-arm64.apk). Android 8 o posterior, ARM64, en horizontal. Práctica sin conexión; por IP o LAN se conecta al servidor de PC o Docker. [Controles, red y compilación](docs/ANDROID.md).
+Descargar el [código de main](https://github.com/andresmartinezmelgar/magicka/archive/refs/heads/main.zip), extraerlo y abrir **`Compilar-APK.cmd`** desde Windows. Instalar la APK generada en un dispositivo ARM64 con Android 8 o posterior, en horizontal. Práctica sin conexión; por IP o LAN se conecta al servidor de PC o Docker. [Controles, red y compilación](docs/ANDROID.md).
 
 ## Jugar con doble clic en Windows
 
-1. Descargar [ArcanaArena-v0.12.6-Windows-x64.zip](https://github.com/andresmartinezmelgar/magicka/releases/download/v0.12.6/ArcanaArena-v0.12.6-Windows-x64.zip) de [Releases](https://github.com/andresmartinezmelgar/magicka/releases/latest).
-2. **Extraer todo el ZIP** en una carpeta. Abrir **ArcanaArena.exe** con doble clic.
+1. Descargar el [código de main](https://github.com/andresmartinezmelgar/magicka/archive/refs/heads/main.zip) y **extraer todo el ZIP** en una carpeta.
+2. Abrir **`Compilar-Juego.cmd`** y, cuando termine, **`Juego/ArcanaArena.exe`** con doble clic.
 3. Elegir el **tipo de mago**. Elegir **Práctica** para jugar con bots, **Alojar** para iniciar tu servidor, **LAN** para buscar servidores o **Por IP** para usar una dirección.
 
 En **Práctica**, elegir el modo y el **Mapa** antes de empezar. En **Alojar**, elegir nombre del servidor, puertos y contraseña opcional. Pulsar **Iniciar servidor y ver salas**. Desde la pantalla de salas, pulsar **Crear sala**, elegir modo, **Mapa**, plazas, bots, fuego amigo y límites de victoria; finalmente, **Crear y entrar**. Otros jugadores abren el mismo ejecutable, buscan el servidor en **LAN** y eligen tu sala. La sala les envía el mapa elegido. También pueden usar la IP de tu equipo en **Por IP**.
@@ -74,14 +78,18 @@ Descargar el código con **Code → Download ZIP** y extraer todo, o actualizar 
 
 El resultado queda en **`Juego/ArcanaArena.exe`**. Cada compilación correcta **sustituye completamente `Juego/`**, incluidos los archivos antiguos. Cerrar el juego antes de recompilar. Si la compilación falla, se conserva el resultado anterior. Registro: `artifacts/compilacion-*.log`. No requiere Visual Studio ni instalación de administrador. [Proceso y compilación manual](docs/EXPORTAR.md).
 
+Para **Android**, abrir **`Compilar-APK.cmd`**. Prepara .NET 8, Godot 4.5.2 .NET, OpenJDK 17 y el SDK Android 35 en `.tools/`; la primera ejecución necesita Internet, varios GB libres y aceptar las licencias que muestra el SDK. Genera **`artifacts/android/ArcanaArena-v0.12.9-Android-arm64.apk`**, lista para instalar en un móvil ARM64 con Android 8 o posterior. Reutiliza la firma local en las siguientes compilaciones y conserva la APK anterior si falla. Registro: `artifacts/compilacion-apk-*.log`. [Opciones y compilación manual](docs/ANDROID.md#compilación-y-comprobaciones).
+
+La CI comprueba las compilaciones al actualizar `main`. Publicar los ejecutables como una Release requiere iniciar manualmente **Arcana Arena CI** en `main` y activar **`publish_release`**; por defecto queda desactivado.
+
 ## Cómo ganar y tipos de mago
 
 - **Duelo:** primer equipo que llega al límite de bajas; por defecto 15, o 5 en práctica.
-- **Todos contra todos:** primer mago que llega al límite de bajas; por defecto 15.
+- **Todos contra todos:** primer mago que llega al límite de bajas; por defecto 15. Apariciones aleatorias por todo el mapa, con un segundo de protección visible al entrar y reaparecer.
 - **Guerra en Arena clásica:** reducir a cero los tickets rivales; controlar más puntos los desgasta cada segundo y cada muerte cuesta un ticket.
 - **Guerra en Ciudadela:** controlar los tres puntos sin disputa durante **15 segundos consecutivos**. Disputar o neutralizar cualquiera reinicia el contador; no hay victoria por tickets o bajas.
 
-Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). El combate usa **protocolo 8**. La versión v0.12.6 es compatible con v0.10.0, v0.11.0, v0.11.1, v0.12.0, v0.12.1, v0.12.2, v0.12.3, v0.12.4 y v0.12.5; las versiones con protocolos anteriores se rechazan en el saludo. El daño progresivo del láser requiere un servidor v0.12.5 o posterior.
+Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). El combate usa **protocolo 8**. La versión v0.12.9 es compatible con v0.10.0, v0.11.0, v0.11.1, v0.12.0, v0.12.1, v0.12.2, v0.12.3, v0.12.4, v0.12.5, v0.12.6, v0.12.7 y v0.12.8; las versiones con protocolos anteriores se rechazan en el saludo. El daño progresivo del láser requiere un servidor v0.12.5 o posterior. Las apariciones aleatorias requieren un servidor v0.12.8; la intensidad del escudo y el halo de invulnerabilidad usan los nuevos campos opcionales del snapshot.
 
 ## Mapas
 
@@ -210,7 +218,7 @@ dotnet run --project tests/Arcana.Tests -c Release -- --server=127.0.0.1:27015 -
 
 Si se usa contraseña, definir `TEST_PASSWORD` en el proceso de pruebas. El cliente y el servidor deben ejecutar la misma versión del protocolo.
 
-La batería incluye **88 pruebas** con servidor protegido: 69 de núcleo/diagnóstico y 19 de red. Cubre combate, cifras de las 120 combinaciones, elementos del canal/carga, objetos y acumulaciones, límites de protección y velocidad, muerte/reanimación/reinicio, copias de estado, absorción/capacidad/caducidad del escudo, afinidades por componente, quemaduras, victoria y replicación de tipos/objetivos, respuestas acotadas, rotación y ocultación de contraseñas, aislamiento de salas y mapas, vida acumulada, reaparición progresiva, cierre simultáneo, cancelación del saludo, bots en salas vacías y errores HTTP. El cliente ejecuta una práctica de cuatro magos durante 240 pasos en modo headless.
+La batería prueba el núcleo, el diagnóstico y la red con un servidor protegido. Cubre combate, cifras de las 120 combinaciones, elementos del canal/carga, objetos y acumulaciones, límites de protección y velocidad, muerte/reanimación/reinicio, copias de estado, absorción/capacidad/caducidad del escudo, afinidades por componente, quemaduras, victoria y replicación de tipos/objetivos, respuestas acotadas, rotación y ocultación de contraseñas, aislamiento de salas y mapas, vida acumulada, reaparición progresiva, cierre simultáneo, cancelación del saludo, bots en salas vacías y errores HTTP. El cliente ejecuta una práctica de cuatro magos durante 240 pasos en modo headless.
 
 El workflow compila y prueba en Linux, valida Docker con IP y LAN, y genera el paquete en Windows. Antes de publicarlo prueba el servidor incluido, la creación de salas y el juego **exportado**, con el runtime global deshabilitado. También arranca el servidor desde el launcher exportado, comprueba que se detiene al cerrar, exporta un informe que incluye un aviso de prueba del motor y comprueba seis estados del escudo en el HUD. Valida doce tipos de eventos visuales, su expiración y limpieza, y diez escenas del catálogo. Recorre las 360 demostraciones (120 combinaciones × 3 formas de lanzar) y valida sus snapshots y reinicios. La compilación automática se ejecuta en Windows PowerShell 5.1; comprueba la sustitución completa de la carpeta y que un fallo conserve el resultado anterior. Solo una ejecución completa satisfactoria publica una nueva versión en **Releases**.
 

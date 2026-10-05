@@ -113,7 +113,7 @@ public partial class Main : Node
             if (arg == "--preview-effects") _previewEffects = true;
             if (arg.StartsWith("--preview-strength=") && int.TryParse(arg[19..], out int strength)) _previewStrength = Math.Clamp(strength, 1, 3);
             if (arg is "--preview-spells=barriers" or "--preview-spells=beams" or "--preview-spells=beam-charge"
-                or "--preview-spells=shield-elements" or "--preview-spells=meteor") _previewSpells = arg[17..];
+                or "--preview-spells=shield-elements" or "--preview-spells=shield-strength" or "--preview-spells=meteor") _previewSpells = arg[17..];
             if (arg == "--sprites-smoke") _spritesSmoke = true;
             if (arg == "--combinations-smoke") _combinationsSmoke = true;
             if (arg == "--maps-smoke") _mapsSmoke = true;
@@ -156,6 +156,12 @@ public partial class Main : Node
         {
             _practice = null; _localId = 1; StartGame(VisualFixture.Spells(0, _previewSpells));
             _hud!.Visible = false; _renderer.ShowControlPoints = false; _renderer.SetPreviewZoom(24);
+            if (_previewSpells == "shield-strength")
+            {
+                var legend = Ui.Label("ARRIBA: E · E+Q · E+Q+Q\nABAJO: E+D · E+D+D · E+D+F", 20);
+                legend.Position = new(24, 24); _ui.AddChild(legend);
+            }
+            GD.Print($"SPELL_PREVIEW_READY: {_previewSpells}");
         }
         if (_previewHelp >= 0) { ToggleHelp(); _helpPages.CurrentTab = _previewHelp; }
         if (_combinationsSmoke || _previewCombination != null || _previewInteraction != DemonstrationKind.Combination)
@@ -368,6 +374,7 @@ public partial class Main : Node
                 Diagnostics.Warn("client.stale_snapshot", "El servidor dejó de enviar el estado.", context: Context());
                 ReturnToLauncher("El servidor ha dejado de enviar el estado de la partida. Puedes exportar el diagnóstico desde el launcher."); return;
             }
+            _renderer.InterpolationDelay = _connection != null ? 0.075 : 1 / 60.0;
             _renderer.Render(latest, _localId, _effectsSmoke || _spritesSmoke || _previewStrength > 0 || _previewSpells != null ? 1 / 60.0 : delta, true);
             _hud?.Update(latest, _localId, _serverName, delta);
             _touch?.Update(latest.Players.FirstOrDefault(p => p.Id == _localId));
@@ -602,6 +609,7 @@ public partial class Main : Node
         {
             // Cinco atlas compartidos, ambos equipos, cuatro direcciones y tres poses usadas.
             valid &= _spriteCoverage.Count == 120;
+            valid &= CheckWizardMotion();
             _renderer.Clear(); valid &= _renderer.Wizards.Count == 0;
             if (valid) CompleteSmoke("SPRITES_SMOKE_OK: 5 atlas, 120 combinaciones, equipos, anclajes, congelación, muerte, reaparición y limpieza");
         }

@@ -7,10 +7,16 @@ public static class Ui
 {
     public static bool IsMobile { get; } = OS.HasFeature("mobile") || OS.GetCmdlineUserArgs().Any(a => a is "--mobile" or "--mobile-smoke" or "--mobile-fixture");
     public static readonly Color Gold = new("f1cd83"), Text = new("f4f7ff"), Muted = new("b0bfd4"), Blue = new("37b9ff"), Red = new("ff526c");
-    public static readonly Color Health = new("55e879"), Shield = new("ffe04b"), Energy = new("b995ff");
-    public static Color ElementColor(Element e) => e switch
+    public static readonly Color Health = new(IsMobile ? "37ec73" : "55e879"), Shield = new(IsMobile ? "ffdb22" : "ffe04b"), Energy = new(IsMobile ? "b580ff" : "b995ff");
+    public static Color ElementColor(Element e) => ElementColor(e, IsMobile);
+    internal static Color ElementColor(Element e, bool mobile) => mobile ? e switch
     {
-        Element.Water => new("3796ff"), Element.Life => Health, Element.Shield => Shield,
+        Element.Water => new("2985ff"), Element.Life => new("37ec73"), Element.Shield => new("ffdb22"),
+        Element.Cold => new("35e4e7"), Element.Lightning => new("b16aff"), Element.Arcane => new("ff3b9d"),
+        Element.Earth => new("d6a252"), _ => new("ff5d26")
+    } : e switch
+    {
+        Element.Water => new("3796ff"), Element.Life => new("55e879"), Element.Shield => new("ffe04b"),
         Element.Cold => new("d9fbff"), Element.Lightning => new("b58bff"), Element.Arcane => new("ff4fb5"),
         Element.Earth => new("c79c68"), _ => new("ff642f")
     };

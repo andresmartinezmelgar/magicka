@@ -17,6 +17,7 @@ public sealed class Wizard
     public float Shield { get; set; }
     public float ShieldMax { get; set; }
     public float ShieldTime { get; set; }
+    public int ShieldCharges { get; set; } = 1;
     public float RegenerationRate { get; set; }
     public Element[] Ward { get; set; } = [];
     public float WardTime { get; set; }
@@ -102,4 +103,5 @@ public sealed class WorldOptions
     public int Seed { get; init; } = 73;
     // La colocación cambia entre salas. Una semilla explícita permite reproducir pruebas y capturas.
     public int? PickupSeed { get; init; }
+    public int? SpawnSeed { get; init; }
 }

@@ -13,7 +13,9 @@ public partial class WizardVisual : Node3D
     private WizardType _wizardType;
     private bool _local;
     private int _team, _facingRow;
-    private float _walkTime, _castPose, _hitFlash, _previousHealth, _renderedFlash = -1;
+    private float _castPose, _hitFlash, _previousHealth, _renderedFlash = -1;
+    private readonly WizardMotion _motion = new();
+    private bool _wasAlive;
     internal Sprite3D Sprite => _sprite;
     private MeshInstance3D _shield = null!, _halo = null!, _ghost = null!;
     private Label3D _name = null!;
@@ -45,6 +47,7 @@ public partial class WizardVisual : Node3D
         _color = p.Team == 0 ? Ui.Blue : Ui.Red;
         _team = p.Team; _wizardType = p.WizardType; _local = local;
         _previousHealth = p.Health;
+        _wasAlive = p.Alive;
         Position = ArenaRenderer.World(p.Position);
         _body = new Node3D(); AddChild(_body);
         _atlas = WizardSprites.Load(p.WizardType);
@@ -65,6 +68,7 @@ public partial class WizardVisual : Node3D
         var shieldMat = new StandardMaterial3D { AlbedoColor = new Color(Ui.Shield.R, Ui.Shield.G, Ui.Shield.B, 0.22f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
             EmissionEnabled = true, Emission = Ui.Shield, EmissionEnergyMultiplier = 0.5f, CullMode = BaseMaterial3D.CullModeEnum.Disabled };
         _shield = Mesh(this, new SphereMesh { Radius = 1.05f, Height = 3.1f }, new(0, 1.45f, 0), shieldMat);
+        BuildProtectionBands();
         _ghost = Mesh(this, new SphereMesh { Radius = 0.4f, Height = 1.5f }, new(0, 0.7f, 0),
             new StandardMaterial3D { AlbedoColor = new Color(_color.R, _color.G, _color.B, 0.14f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha });
         _name = new Label3D { Text = p.Name, FontSize = 34, PixelSize = 0.013f,
@@ -101,11 +105,11 @@ public partial class WizardVisual : Node3D
         var node = new MeshInstance3D { Mesh = mesh, Position = position, MaterialOverride = material,
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off }; parent.AddChild(node); return node;
     }
-    public void Update(WizardSnapshot p, float dt, float time, Camera3D camera)
+    public void Update(WizardSnapshot p, float dt, float time, Camera3D camera, double sampleTime, double interpolationDelay)
     {
-        var target = ArenaRenderer.World(p.Position);
-        float distance = Position.DistanceTo(target);
-        Position = distance > 4 ? target : Position.Lerp(target, 1 - Mathf.Exp(-16 * dt));
+        _motion.Advance(p.Position, sampleTime, dt, interpolationDelay, p.Alive != _wasAlive || p.Frozen > 0);
+        _wasAlive = p.Alive;
+        Position = ArenaRenderer.World(_motion.Position);
         if (_wizardType != p.WizardType || _team != p.Team)
         {
             _wizardType = p.WizardType; _team = p.Team;
@@ -120,16 +124,15 @@ public partial class WizardVisual : Node3D
             _name.Modulate = _local ? Ui.Text : _color;
         }
         _facingRow = WizardSprites.FacingRow(p.Facing, _facingRow);
-        bool moving = p.Alive && p.Frozen <= 0 && distance > 0.045f && distance < 4;
-        _walkTime = moving ? _walkTime + dt * (p.Haste > 0 ? 1.4f : 1) : 0;
+        bool moving = p.Alive && p.Frozen <= 0 && _motion.Moving;
         _castPose = Math.Max(0, _castPose - dt);
-        int pose = !p.Alive || p.Frozen > 0 ? 0 : p.Casting || _castPose > 0 ? 3 : moving ? (int)(_walkTime * 8) % 2 : 0;
+        int pose = !p.Alive || p.Frozen > 0 ? 0 : p.Casting || _castPose > 0 ? 3 : moving ? (int)(_motion.WalkCycle * 2) : 0;
         int frame = _facingRow * WizardSprites.Columns + pose;
         if (_sprite.Frame != frame) _sprite.Frame = frame;
         Vector2 offset = _atlas.Offset(frame);
         if (_sprite.Offset != offset) _sprite.Offset = offset;
         _body.Basis = camera.GlobalBasis;
-        _body.Position = camera.GlobalBasis.Y * (moving ? Math.Abs(Mathf.Sin(_walkTime * 8 * Mathf.Pi)) * 0.04f : Mathf.Sin(time * 2 + p.Id) * 0.012f) + new Vector3(0, 0.03f, 0);
+        _body.Position = camera.GlobalBasis.Y * (moving ? Math.Abs(Mathf.Sin(_motion.WalkCycle * Mathf.Tau)) * 0.025f : 0) + new Vector3(0, 0.03f, 0);
         _body.Visible = p.Alive; _ghost.Visible = !p.Alive; _halo.Visible = _shadow.Visible = p.Alive;
         _hitFlash = Math.Max(0, _hitFlash - dt);
         if (p.Alive && p.Health < _previousHealth - 0.5f) _hitFlash = 0.12f;
@@ -152,15 +155,19 @@ public partial class WizardVisual : Node3D
         }
         _affinityRing.Visible = p.Alive && p.WizardType != WizardType.Balanced;
         _affinityRing.Scale = Vector3.One * (1 + Mathf.Sin(time * 2 + p.Id) * 0.04f);
-        _shield.Visible = p.Alive && (p.Shield > 0 || p.Frozen > 0);
+        bool spawnProtected = p.Alive && p.InvulnerableSeconds > 0;
+        _shield.Visible = p.Alive && (p.Shield > 0 || p.Frozen > 0 || spawnProtected);
         if (_shield.MaterialOverride is StandardMaterial3D shieldMat)
         {
             var c = p.Frozen > 0 ? Ui.ElementColor(Element.Cold) : p.Ward.Length > 0 ? Ui.SpellColor(p.Ward) : Ui.Shield;
             c.A = p.Frozen > 0 ? 0.42f : 0.12f + 0.10f * Math.Clamp(p.Shield / Ui.ShieldMaximum(p), 0, 1);
+            if (p.Shield > 0 && p.Frozen <= 0) c.A += (p.ShieldCharges - 1) * 0.035f * Math.Clamp(p.Shield / Ui.ShieldMaximum(p), 0, 1);
+            if (spawnProtected) c = new Color(new Color("fff2a3"), 0.20f + 0.035f * Mathf.Sin(time * 12));
             shieldMat.AlbedoColor = c; shieldMat.Emission = c;
         }
         _shield.Scale = Vector3.One * (1 + Mathf.Sin(time * 3) * 0.03f);
-        _name.Text = p.Name + (!p.Alive ? $"  {Mathf.CeilToInt(p.Respawn)}s" : p.Frozen > 0 ? "  CONGELADO" : p.Burning > 0 ? "  FUEGO" : p.Wet > 0 ? "  MOJADO" : "")
+        UpdateProtectionBands(p, time);
+        _name.Text = p.Name + (!p.Alive ? $"  {Mathf.CeilToInt(p.Respawn)}s" : spawnProtected ? "  INMUNE" : p.Frozen > 0 ? "  CONGELADO" : p.Burning > 0 ? "  FUEGO" : p.Wet > 0 ? "  MOJADO" : "")
             + (p.WizardType != WizardType.Balanced ? "\n" + WizardTypes.Name(p.WizardType) : "");
         _healthRoot.Visible = p.Alive;
         float hp = Math.Clamp(p.Health / p.MaxHealth, 0, 1);

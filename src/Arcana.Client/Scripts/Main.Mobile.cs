@@ -84,11 +84,15 @@ public partial class Main
             switch (++_mobileFrames)
             {
                 case 10:
+                    Require(CheckMobilePalette(), "La paleta móvil no distingue los elementos o pierde contraste.");
                     Require(width >= 1440 && height >= 720, "El viewport móvil no respeta la escala horizontal.");
                     foreach (var element in Enum.GetValues<Element>())
                     {
-                        var rect = ((Control)touch.FindChild("TouchElement" + element, true, false)).GetRect();
+                        var button = (PanelContainer)touch.FindChild("TouchElement" + element, true, false);
+                        var rect = button.GetRect();
                         Require(new Rect2(Vector2.Zero, touch.Size).Encloses(rect), "Un elemento queda fuera de pantalla.");
+                        Require(button.GetChildren().OfType<VBoxContainer>().Single().GetChildren().OfType<ElementIcon>().Single().Value == element,
+                            "Un control móvil no muestra su símbolo elemental.");
                     }
                     var viewport = GetViewport().GetVisibleRect();
                     foreach (string name in new[] { "PlayerStatusPanel", "SpellControlsPanel" })
