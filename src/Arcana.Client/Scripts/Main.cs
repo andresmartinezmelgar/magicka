@@ -44,6 +44,7 @@ public partial class Main : Node
     private bool _hudSmoke;
     private bool _effectsSmoke, _previewEffects;
     private int _previewStrength;
+    private string? _previewSpells;
     private bool _spritesSmoke;
     private bool _combinationsSmoke;
     private bool _mapsSmoke;
@@ -111,6 +112,7 @@ public partial class Main : Node
             if (arg == "--effects-smoke") _effectsSmoke = true;
             if (arg == "--preview-effects") _previewEffects = true;
             if (arg.StartsWith("--preview-strength=") && int.TryParse(arg[19..], out int strength)) _previewStrength = Math.Clamp(strength, 1, 3);
+            if (arg is "--preview-spells=barriers" or "--preview-spells=beams") _previewSpells = arg[17..];
             if (arg == "--sprites-smoke") _spritesSmoke = true;
             if (arg == "--combinations-smoke") _combinationsSmoke = true;
             if (arg == "--maps-smoke") _mapsSmoke = true;
@@ -148,6 +150,11 @@ public partial class Main : Node
             _hud!.Visible = false;
             _renderer.SetPreviewZoom(24); _renderer.ShowControlPoints = false;
             _ui.AddChild(Ui.Label($"{_previewStrength} {(_previewStrength == 1 ? "carga" : "cargas")}", 28));
+        }
+        if (_previewSpells != null)
+        {
+            _practice = null; _localId = 1; StartGame(VisualFixture.Spells(0, _previewSpells));
+            _hud!.Visible = false; _renderer.ShowControlPoints = false; _renderer.SetPreviewZoom(24);
         }
         if (_previewHelp >= 0) { ToggleHelp(); _helpPages.CurrentTab = _previewHelp; }
         if (_combinationsSmoke || _previewCombination != null || _previewInteraction != DemonstrationKind.Combination)
@@ -332,6 +339,7 @@ public partial class Main : Node
         if (_combinationsSmoke) CheckCombinations();
         if (_effectsSmoke || _previewEffects) _snapshot = VisualFixture.Effects(_renderFrames);
         if (_previewStrength > 0) _snapshot = VisualFixture.Strength(_renderFrames, _previewStrength);
+        if (_previewSpells != null) _snapshot = VisualFixture.Spells(_renderFrames, _previewSpells);
         if (_spritesSmoke || _previewWizards != null) _snapshot = VisualFixture.Wizards(_renderFrames, _previewWizards);
         if (_hudSmoke && _renderFrames <= HudCases.Length * 3 && _renderFrames % 3 == 1)
         {
@@ -359,7 +367,7 @@ public partial class Main : Node
                 Diagnostics.Warn("client.stale_snapshot", "El servidor dejó de enviar el estado.", context: Context());
                 ReturnToLauncher("El servidor ha dejado de enviar el estado de la partida. Puedes exportar el diagnóstico desde el launcher."); return;
             }
-            _renderer.Render(latest, _localId, _effectsSmoke || _spritesSmoke || _previewStrength > 0 ? 1 / 60.0 : delta, true);
+            _renderer.Render(latest, _localId, _effectsSmoke || _spritesSmoke || _previewStrength > 0 || _previewSpells != null ? 1 / 60.0 : delta, true);
             _hud?.Update(latest, _localId, _serverName, delta);
             _touch?.Update(latest.Players.FirstOrDefault(p => p.Id == _localId));
             if (_mapsSmoke && _renderFrames % 30 == 0) CheckMaps(latest);
@@ -376,7 +384,7 @@ public partial class Main : Node
     public override void _PhysicsProcess(double delta)
     {
         if (CheckSmokeErrors()) return;
-        if (_hudSmoke || _previewShield != null || _effectsSmoke || _previewEffects || _previewStrength > 0 || _spritesSmoke || _previewWizards != null || _combinationsSmoke || _mapsSmoke || _previewMap != null) return;
+        if (_hudSmoke || _previewShield != null || _effectsSmoke || _previewEffects || _previewStrength > 0 || _previewSpells != null || _spritesSmoke || _previewWizards != null || _combinationsSmoke || _mapsSmoke || _previewMap != null) return;
         if (!_playing) { _backdrop.Step(); _backdropSnapshot = _backdrop.Snapshot(); return; }
         _inputTime += delta;
         if (_practice != null)

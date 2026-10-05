@@ -1,0 +1,142 @@
+using Arcana.Core;
+using Godot;
+
+namespace Arcana.Client;
+
+/// <summary>La barrera sigue el segmento de colisión del servidor; solo anima su superficie.</summary>
+public partial class BarrierVisual : Node3D
+{
+    private static Shader? _surfaceShader;
+    private ShaderMaterial? _surface;
+    private readonly Node3D _geometry = new();
+    private readonly StandardMaterial3D _rim = new();
+    private Color _color;
+    private float _previousHealth, _maximumHealth, _flash, _age;
+
+    public void Build(WallSnapshot wall)
+    {
+        Position = ArenaRenderer.World((wall.A + wall.B) / 2);
+        var direction = wall.B - wall.A;
+        Rotation = new(0, Mathf.Atan2(direction.X, direction.Y), 0);
+        AddChild(_geometry);
+        bool stone = wall.Elements.Contains(Element.Earth);
+        int charges = SpellVisualStrength.For(wall.Elements).Charges;
+        float length = V2.Distance(wall.A, wall.B);
+        _previousHealth = wall.Health; _maximumHealth = stone ? 1300 : 650;
+        _color = Ui.SpellColor(wall.Elements);
+        _rim.AlbedoColor = _color.Lightened(0.24f);
+        _rim.ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded;
+        _rim.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
+        _rim.EmissionEnabled = true; _rim.Emission = _color;
+        _rim.EmissionEnergyMultiplier = 0.22f;
+
+        if (stone)
+        {
+            int blocks = Math.Max(3, (int)MathF.Ceiling(length / 0.55f));
+            for (int i = 0; i < blocks; i++)
+            {
+                float height = 1.45f + 0.28f * MathF.Sin(i * 2.31f + wall.Id);
+                var material = new StandardMaterial3D
+                {
+                    AlbedoColor = new Color("56616b").Lerp(_color, 0.13f).Darkened(i % 3 * 0.07f),
+                    Roughness = 0.95f
+                };
+                var block = Piece(new PrismMesh { Size = new(0.34f, height, length / blocks * 0.98f) },
+                    new(0, height / 2, (i + 0.5f) / blocks * length - length / 2), material);
+                block.Rotation = new(0, 0, MathF.Sin(i * 3.7f) * 0.035f);
+                block.CastShadow = GeometryInstance3D.ShadowCastingSetting.On;
+            }
+        }
+        else
+        {
+            _surfaceShader ??= new Shader { Code = """
+                shader_type spatial;
+                render_mode unshaded, cull_disabled, blend_mix, depth_draw_never;
+                uniform vec4 barrier_color : source_color;
+                uniform float span = 4.4;
+                uniform float detail = 1.0;
+                uniform float integrity = 1.0;
+                uniform float fade = 1.0;
+                uniform float hit_flash = 0.0;
+                uniform float clock = 0.0;
+                void fragment() {
+                    vec2 p = vec2(UV.x * span, UV.y * 2.0) * (2.6 + detail * 0.25);
+                    vec2 tile = vec2(1.0, 1.73205);
+                    vec2 a = mod(p, tile) - tile * 0.5;
+                    vec2 b = mod(p - tile * 0.5, tile) - tile * 0.5;
+                    vec2 cell = dot(a, a) < dot(b, b) ? a : b;
+                    float hex = max(abs(cell.x), dot(abs(cell), vec2(0.5, 0.866025)));
+                    float grid = smoothstep(0.43, 0.49, hex);
+                    float edge = 1.0 - smoothstep(0.0, 0.028, min(min(UV.x, 1.0 - UV.x), min(UV.y, 1.0 - UV.y)));
+                    float sweep = pow(0.5 + 0.5 * sin(UV.y * 7.0 - clock * 2.4), 12.0);
+                    float scars = pow(0.5 + 0.5 * sin(UV.x * 37.0 + UV.y * 19.0), 28.0) * (1.0 - integrity);
+                    ALBEDO = mix(barrier_color.rgb * 0.8, vec3(1.0, 0.97, 0.84), edge * 0.38 + hit_flash * 0.3);
+                    EMISSION = barrier_color.rgb * (0.12 + edge * 0.3 + hit_flash * 0.18);
+                    ALPHA = fade * clamp(0.10 + edge * 0.62 + grid * (0.07 + detail * 0.015)
+                        + sweep * 0.045 + scars * 0.22 + hit_flash * 0.12, 0.0, 0.84);
+                }
+                """ };
+            _surface = new ShaderMaterial { Shader = _surfaceShader };
+            _surface.SetShaderParameter("barrier_color", _color);
+            _surface.SetShaderParameter("span", length);
+            _surface.SetShaderParameter("detail", charges);
+            var face = new SurfaceTool(); face.Begin(Godot.Mesh.PrimitiveType.Triangles);
+            const int segments = 20;
+            for (int i = 0; i < segments; i++)
+            {
+                float a = i / (float)segments, b = (i + 1) / (float)segments;
+                void Vertex(float u, float v)
+                {
+                    face.SetUV(new(u, v));
+                    float height = 1.55f + MathF.Sin(u * MathF.PI) * 0.65f;
+                    face.AddVertex(new(0, 0.07f + height * v, (u - 0.5f) * length));
+                }
+                Vertex(a, 0); Vertex(b, 0); Vertex(a, 1);
+                Vertex(a, 1); Vertex(b, 0); Vertex(b, 1);
+            }
+            face.GenerateNormals();
+            Piece(face.Commit(), Vector3.Zero, _surface);
+            foreach (int end in new[] { -1, 1 })
+            {
+                Piece(new PrismMesh { Size = new(0.15f, 1.55f, 0.17f) },
+                    new(0, 0.82f, end * length / 2), _rim);
+            }
+        }
+        Piece(new BoxMesh { Size = new(0.16f, 0.045f, length) }, new(0, 0.06f, 0), _rim);
+        int glyphs = charges == 1 ? 1 : charges == 2 ? 2 : 4;
+        for (int i = 0; i < glyphs; i++)
+        {
+            float z = ((i + 1) / (float)(glyphs + 1) - 0.5f) * length;
+            var glyph = Piece(new PrismMesh { Size = new(0.035f, 0.23f, 0.13f) },
+                new(stone ? 0.19f : 0.025f, 0.82f, z), _rim);
+            glyph.Rotation = new(MathF.PI / 4, 0, 0);
+        }
+    }
+
+    private MeshInstance3D Piece(Godot.Mesh shape, Vector3 at, Godot.Material material)
+    {
+        var mesh = new MeshInstance3D { Mesh = shape, Position = at, MaterialOverride = material,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+        _geometry.AddChild(mesh); return mesh;
+    }
+
+    public void Update(WallSnapshot wall, float delta, float time)
+    {
+        _age += delta;
+        _flash = Math.Max(0, _flash - delta * 3);
+        if (wall.Health < _previousHealth - 0.01f) _flash = 0.6f;
+        _previousHealth = wall.Health;
+        float fade = Math.Clamp(wall.Lifetime / 0.8f, 0, 1);
+        float height = Mathf.Lerp(0.25f, 1, Math.Clamp(_age * 8, 0, 1));
+        _geometry.Scale = new(1, height * (_surface == null ? Math.Max(0.02f, fade) : 1), 1);
+        _rim.AlbedoColor = new(_color.Lightened(0.24f), fade * (0.75f + _flash * 0.25f));
+        if (_surface != null)
+        {
+            _surface.SetShaderParameter("integrity", Math.Clamp(wall.Health / _maximumHealth, 0, 1));
+            _surface.SetShaderParameter("fade", fade);
+            _surface.SetShaderParameter("hit_flash", _flash);
+            _surface.SetShaderParameter("clock", time);
+        }
+        Visible = wall.Health > 0 && wall.Lifetime > 0;
+    }
+}

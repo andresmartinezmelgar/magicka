@@ -1,5 +1,12 @@
 # Cambios
 
+## v0.12.3
+
+- Muros y anillos de barreras con superficie de energía arqueada, trama sutil, bordes, glifos y aparición/desaparición gradual. El daño se refleja en la superficie y con un destello breve. Muros de tierra con bloques de roca y sombras.
+- Láseres con núcleo y halo animado; flujos propios para arcano y curación, modificadores de fuego, frío y electricidad. Filamentos y pulsos aumentan con una, dos y tres cargas, con iluminación moderada.
+- Todos los canales se dibujan antes de los detalles, manteniendo el límite de 512 segmentos sin ocultar rayos principales por adornos. Capturas OpenGL de barreras y cinco variantes de láser.
+- Se conservan el escudo personal, las colisiones, el daño y los alcances del protocolo 8. El alcance queda pendiente de elegir un nuevo modelo.
+
 ## v0.12.2
 
 - Tres casillas de elementos preparados y barra de carga móviles justo encima de los cuatro hechizos, junto al borde inferior. La zona central queda libre para ver la partida.

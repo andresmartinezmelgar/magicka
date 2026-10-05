@@ -5,6 +5,42 @@ namespace Arcana.Client;
 /// <summary>Escena determinista utilizada por capturas y comprobaciones del HUD, nunca por partidas en red.</summary>
 internal static class VisualFixture
 {
+    public static WorldSnapshot Spells(int frame, string view)
+    {
+        var state = Create("none");
+        var local = state.Players[0] with { Position = V2.Zero, Selected = [], Shield = 0, ShieldMax = 0, ShieldSeconds = 0 };
+        if (view == "barriers")
+        {
+            var walls = new List<WallSnapshot>
+            {
+                new(1, 1, new(-9,-3), new(-4,-3), 650, 7, [Element.Shield]),
+                new(2, 1, new(-9,2), new(-4,2), 430, 7, [Element.Shield,Element.Cold]),
+                new(3, 1, new(-9,6), new(-4,6), 960, 10, [Element.Shield,Element.Earth,Element.Fire])
+            };
+            for (int i = 0; i < 6; i++)
+            {
+                V2 center = new(5,2);
+                walls.Add(new(10+i,1,center + new V2(1,0).Rotated(i*MathF.Tau/6)*2.5f,
+                    center + new V2(1,0).Rotated((i+1)*MathF.Tau/6)*2.5f,650,7,[Element.Shield]));
+            }
+            return state with { Tick=frame, Time=frame/60.0, Mode=GameMode.Arena, Players=[local],
+                Walls=walls.ToArray(), Beams=[], Fields=[], Projectiles=[], Points=[], Events=[] };
+        }
+        Element[][] recipes = [[Element.Arcane,Element.Arcane,Element.Arcane],
+            [Element.Life,Element.Life,Element.Life], [Element.Arcane,Element.Fire,Element.Fire],
+            [Element.Arcane,Element.Cold,Element.Cold], [Element.Arcane,Element.Lightning,Element.Lightning]];
+        string[] names = ["Arcano","Curación","Arcano + fuego","Arcano + frío","Arcano + rayo"];
+        return state with
+        {
+            Tick=frame, Time=frame/60.0, Mode=GameMode.Arena,
+            Players=recipes.Select((elements,i) => local with { Id=i+1, Name=names[i], Position=new(-7,-6+i*3),
+                Facing=new(1,0), Casting=true, CastingElements=elements }).ToArray(),
+            Beams=recipes.Select((elements,i) => new BeamSnapshot(i+1,new(-6.3f,-6+i*3),new(6,-6+i*3),
+                elements,SpellShape.Beam)).ToArray(),
+            Walls=[], Fields=[], Projectiles=[], Points=[], Events=[]
+        };
+    }
+
     public static WorldSnapshot Wizards(int frame, string? view = null)
     {
         var world = new GameWorld(new() { Mode = GameMode.Warfare, MaxPlayers = 16 });

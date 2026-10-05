@@ -11,9 +11,9 @@ public partial class ArenaRenderer : Node3D
     internal IReadOnlyDictionary<int, WizardVisual> Wizards => _wizards;
     private readonly Dictionary<int, Node3D> _projectiles = [];
     internal IReadOnlyDictionary<int, Node3D> ProjectileVisuals => _projectiles;
-    private readonly Dictionary<int, MeshInstance3D> _walls = [];
+    private readonly Dictionary<int, BarrierVisual> _walls = [];
     private readonly Dictionary<int, Node3D> _fields = [];
-    private readonly List<(Node3D Root, MeshInstance3D Mesh, CylinderMesh Shape)> _beamPool = [];
+    private readonly List<(Node3D Root, MeshInstance3D Mesh, CylinderMesh Shape, ShaderMaterial Skin)> _beamPool = [];
     private readonly CombatEffects _effects = new();
     public CombatEffects Effects => _effects;
     private readonly Dictionary<int, CapturePointVisual> _points = [];
@@ -170,7 +170,7 @@ public partial class ArenaRenderer : Node3D
             visual.Update(point, dt, (float)_time);
         }
         DrawProjectiles(snapshot, dt);
-        DrawWalls(snapshot);
+        DrawWalls(snapshot, dt);
         DrawFields(snapshot);
         foreach (var item in snapshot.Pickups ?? [])
         {
@@ -180,7 +180,9 @@ public partial class ArenaRenderer : Node3D
         }
         if (_fresh) RemoveMissing(_pickups, (snapshot.Pickups ?? []).Select(i => i.Id));
         _beamUsed = 0;
-        foreach (var beam in snapshot.Beams) DrawBeam(beam);
+        // Dibuja primero todos los canales; el presupuesto de detalle nunca oculta un rayo.
+        foreach (var beam in snapshot.Beams) DrawBeam(beam, false);
+        foreach (var beam in snapshot.Beams) DrawBeam(beam, true);
         for (int i = _beamUsed; i < _beamPool.Count; i++) _beamPool[i].Root.Visible = false;
         foreach (var e in snapshot.Events.Where(e => e.Id > _lastEvent))
         {
@@ -237,31 +239,15 @@ public partial class ArenaRenderer : Node3D
         }
         if (_fresh) RemoveMissing(_projectiles, snapshot.Projectiles.Select(p => p.Id));
     }
-    private void DrawWalls(WorldSnapshot snapshot)
+    private void DrawWalls(WorldSnapshot snapshot, float delta)
     {
         foreach (var wall in snapshot.Walls)
         {
-            if (!_walls.TryGetValue(wall.Id, out var mesh))
+            if (!_walls.TryGetValue(wall.Id, out var visual))
             {
-                var color = Ui.SpellColor(wall.Elements);
-                bool stone = wall.Elements.Contains(Element.Earth);
-                color.A = stone ? 1 : 0.44f;
-                mesh = Mesh(this, new BoxMesh { Size = new(0.28f, stone ? 1.7f : 2.3f, V2.Distance(wall.A, wall.B)) },
-                    World((wall.A + wall.B) / 2, stone ? 0.85f : 1.15f), color, stone ? 0 : 0.6f);
-                var direction = wall.B - wall.A; mesh.Rotation = new(0, Mathf.Atan2(direction.X, direction.Y), 0);
-                int charges = SpellVisualStrength.For(wall.Elements).Charges;
-                int marks = charges == 1 ? 0 : charges == 2 ? 2 : 4;
-                var accent = Ui.SpellColor(wall.Elements); accent.A = 0.45f;
-                float length = V2.Distance(wall.A, wall.B);
-                for (int i = 0; i < marks; i++)
-                {
-                    var glyph = Mesh(mesh, new PrismMesh { Size = new(0.08f,0.25f,0.18f) },
-                        new(0.17f,0,(i+1)/(float)(marks+1)*length-length/2),accent,0.2f);
-                    glyph.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
-                }
-                _walls[wall.Id] = mesh;
+                visual = new BarrierVisual(); AddChild(visual); visual.Build(wall); _walls[wall.Id] = visual;
             }
-            mesh.Visible = wall.Lifetime > 1 || ((int)(_time * 9) % 2 == 0);
+            visual.Update(wall, delta, (float)_time);
         }
         if (_fresh) RemoveMissing(_walls, snapshot.Walls.Select(w => w.Id));
     }
@@ -315,89 +301,6 @@ public partial class ArenaRenderer : Node3D
             }
         }
         if (_fresh) RemoveMissing(_fields, snapshot.Fields.Select(f => f.Id));
-    }
-
-    private void BeamSegment(Vector3 from, Vector3 to, Color color, float radius, float endRadius = -1)
-    {
-        if (_beamUsed >= 512 || from.DistanceTo(to) < 0.05f) return;
-        if (_beamUsed == _beamPool.Count)
-        {
-            var root = new Node3D(); AddChild(root);
-            var shape = new CylinderMesh { RadialSegments = 8 };
-            var mesh = Mesh(root, shape, Vector3.Zero, color, 1);
-            mesh.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
-            mesh.RotationDegrees = new(90, 0, 0); _beamPool.Add((root, mesh, shape));
-        }
-        var beam = _beamPool[_beamUsed++];
-        float length = from.DistanceTo(to);
-        beam.Root.Visible = true; beam.Root.Position = from; beam.Root.LookAt(to);
-        beam.Shape.Height = length; beam.Shape.TopRadius = radius; beam.Shape.BottomRadius = endRadius < 0 ? radius : endRadius;
-        beam.Mesh.Position = new(0, 0, -length / 2); beam.Mesh.MaterialOverride = Material(color, 0.45f, true);
-    }
-    private void DrawBeam(BeamSnapshot beam)
-    {
-        Color color = Ui.SpellColor(beam.Elements);
-        var strength = SpellVisualStrength.For(beam.Elements);
-        var from = World(beam.From, 1); var to = World(beam.To, 1);
-        if (beam.Shape == SpellShape.Lightning)
-        {
-            const int segments = 8; Vector3 previous = from;
-            var side = (to - from).Normalized().Cross(Vector3.Up);
-            for (int i = 1; i <= segments; i++)
-            {
-                float t = i / (float)segments;
-                var next = from.Lerp(to, t) + side * (i == segments ? 0 : Mathf.Sin((float)_time * 18 + i * 7 + beam.Owner) * (0.12f + strength.Charges * 0.07f));
-                BeamSegment(previous, next, color, 0.03f + strength.Charges * 0.01f);
-                for (int branch = 0; branch < strength.LightningBranches; branch++)
-                {
-                    if (i != 2 + branch * 2) continue;
-                    var end = next + side * (branch % 2 == 0 ? 0.4f : -0.4f) + (to - from).Normalized() * 0.25f;
-                    var accent = color; accent.A = 0.5f;
-                    BeamSegment(next, end, accent, 0.025f);
-                }
-                previous = next;
-            }
-        }
-        else if (beam.Shape is SpellShape.Spray or SpellShape.Force)
-        {
-            color.A = beam.Shape == SpellShape.Force ? 0.035f : 0.055f + strength.Charges * 0.012f;
-            BeamSegment(from, to, color, 0.09f, from.DistanceTo(to) * 0.28f);
-            Color bright = color; bright.A = 0.36f;
-            var direction = (to - from).Normalized(); var side = direction.Cross(Vector3.Up);
-            for (int i = 0; i < strength.SprayStrands; i++)
-            {
-                float t = Mathf.PosMod((float)_time * 1.6f + i / (float)strength.SprayStrands, 1);
-                var p = from.Lerp(to, t) + side * (Mathf.Sin(i * 4.23f + (float)_time * 5) * t * 1.2f);
-                BeamSegment(p, p + direction * (0.24f + strength.Charges * 0.055f), bright, 0.025f + 0.045f * t);
-            }
-        }
-        else
-        {
-            float power = Math.Clamp(beam.Power, 0.3f, 3);
-            var glow = color; glow.A = 0.20f;
-            BeamSegment(from, to, glow, strength.BeamRadius * Mathf.Sqrt(power));
-            var side = (to - from).Normalized().Cross(Vector3.Up);
-            for (int i = 0; i < strength.Charges; i++)
-            {
-                var offset = side * ((i - (strength.Charges - 1) * 0.5f) * 0.055f);
-                var strand = beam.Elements.Length > i ? Ui.ElementColor(beam.Elements[i]) : color;
-                strand.A = 0.78f;
-                BeamSegment(from + offset, to + offset, strand, 0.026f);
-            }
-            if (strength.Charges >= 2)
-            {
-                int accents = strength.Charges == 3 ? 4 : 1;
-                var accent = color; accent.A = 0.4f;
-                var direction = (to - from).Normalized();
-                for (int i = 0; i < accents; i++)
-                {
-                    float t = Mathf.PosMod((float)_time * 0.9f + i / (float)accents, 1);
-                    var at = from.Lerp(to, t) + side * (i % 2 == 0 ? 0.14f : -0.14f);
-                    BeamSegment(at, at + direction * 0.25f, accent, 0.024f);
-                }
-            }
-            if (beam.Interaction == "merged") BeamSegment(from, to, Ui.Text, 0.023f);
-        }
     }
 
 }
