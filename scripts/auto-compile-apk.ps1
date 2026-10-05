@@ -154,11 +154,17 @@ try {
     try {
         $ErrorActionPreference = 'Continue'
         if ($AcceptAndroidLicenses) {
-            1..100 | ForEach-Object { 'y' } | & $sdkManager "--sdk_root=$AndroidSdkPath" --licenses | Out-Host
+            # La tuberia a un .bat en PowerShell 5.1 puede heredar stdin cerrado
+            # del launcher. Redirigir un archivo garantiza las respuestas en CI.
+            $answers = Join-Path $temp 'android-license-answers.txt'
+            [IO.File]::WriteAllText($answers, ("y`r`n" * 100), [Text.Encoding]::ASCII)
+            $licenseArguments = '/d /s /c ""{0}" "--sdk_root={1}" --licenses"' -f $sdkManager, $AndroidSdkPath
+            $licenseProcess = Start-Process -FilePath $env:ComSpec -ArgumentList $licenseArguments -RedirectStandardInput $answers -NoNewWindow -Wait -PassThru
+            $licenseCode = $licenseProcess.ExitCode
         } else {
             & $sdkManager "--sdk_root=$AndroidSdkPath" --licenses | Out-Host
+            $licenseCode = $LASTEXITCODE
         }
-        $licenseCode = $LASTEXITCODE
     } finally { $ErrorActionPreference = $previousPreference }
     if ($licenseCode -ne 0) { throw 'No se pudieron aceptar las licencias Android.' }
     Invoke-Tool $sdkManager @("--sdk_root=$AndroidSdkPath", 'platform-tools', 'build-tools;35.0.0', 'platforms;android-35') | Out-Null
