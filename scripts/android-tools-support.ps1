@@ -1,5 +1,5 @@
 # Extrae los archivos del ZIP sin depender de entradas de directorio ni comodines de PowerShell.
-Add-Type -AssemblyName System.IO.Compression.FileSystem
+Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
 
 function Test-AndroidCommandLineTools {
     param([string]$Directory)
