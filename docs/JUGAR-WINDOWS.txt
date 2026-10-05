@@ -1,4 +1,4 @@
-ARCANA ARENA v0.12.4
+ARCANA ARENA v0.12.5
 
 1. Extrae TODO el ZIP antes de jugar.
 2. Abre ArcanaArena.exe con doble clic.
@@ -59,7 +59,7 @@ COMPILAR DESDE EL CODIGO
 Descarga el repositorio y extrae todo. Doble clic en Compilar-Juego.cmd.
 La primera vez necesita Internet. Resultado: Juego/ArcanaArena.exe.
 Sustituye toda la carpeta Juego tras compilar. Registro: artifacts/compilacion-*.log.
-Protocolo 8: actualizar cliente y servidor juntos a v0.12.4, tambien el servidor Docker.
+Protocolo 8: actualizar cliente y servidor juntos a v0.12.5, tambien el servidor Docker.
 
 COMBINACIONES Y EFECTOS
 F1 > Combinaciones: 120 combinaciones y tres formas de lanzamiento.
@@ -68,5 +68,7 @@ DF: roca con splash y fuego en el suelo. D puro: impacto directo.
 EW + central: escudo de vida, regeneracion +38 vida/s mientras siga activo.
 EWW + central: +76 vida/s. La curacion no supera el maximo de vida.
 ES + derecho: mina activada por enemigos. EW + derecho: mina para aliados heridos.
+Laser ofensivo: de 30 % de dano original a 150 % tras mantener 2 s.
+La barra de carga llega al 100 %. Soltar o interrumpir reinicia la progresion.
 Los rayos se combinan al cruzarse y se reflejan o refractan contra escudos.
 Los puntos se rellenan con el color del equipo mientras avanza la captura.

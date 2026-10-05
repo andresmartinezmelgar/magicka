@@ -1,5 +1,12 @@
 # Cambios
 
+## v0.12.5
+
+- Daño directo de los láseres progresivo por tiempo de canalización: del 30 % del daño original al 150 % en 2 s; permanece al máximo hasta soltar o interrumpir. No modifica curación ni efectos de estado.
+- La carga se calcula en el servidor y la práctica; se reinicia al soltar, sustituir, autocast, timeout, congelación, muerte o reaparición. Cada rayo conserva su progresión al cruzarse y reflejarse.
+- La barra inferior muestra del 0 al 100 % de carga. Núcleo, halo, filamentos y pulsos ganan grosor e intensidad moderada, conservando el presupuesto gráfico.
+- F1 muestra daño inicial y máximo; tres arcanos pasan de 103,5 a 517,5 daño/s. Captura OpenGL de cinco etapas de carga y pruebas de límites, interrupciones, cruces, reflexión y curación.
+
 ## v0.12.4
 
 - Ajustes tras revisar capturas: láser de fuego con tono cálido, frío azul y electricidad con filamentos quebrados; núcleo menos blanco para distinguir combinaciones.

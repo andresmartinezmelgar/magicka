@@ -2,7 +2,7 @@ namespace Arcana.Core;
 
 public sealed partial class GameWorld
 {
-    private sealed record BeamPart(int Owner, SpellRecipe Recipe, float Scale = 1);
+    private sealed record BeamPart(int Owner, SpellRecipe Recipe, float Scale = 1, float DamageMultiplier = 1);
     private sealed record CastRay(Wizard Caster, V2 From, V2 Direction, V2 End, BeamPart Part);
 
     private void TickChannels(float dt)
@@ -12,9 +12,15 @@ public sealed partial class GameWorld
         {
             if (!player.Alive || player.Frozen > 0 || player.Channel == null) continue;
             if (player.Channel.Shape != SpellShape.Beam) { Channel(player, dt); continue; }
+            float multiplier = 1;
+            if (SpellBalance.Damage(player.Channel) > 0)
+            {
+                player.BeamTicks = Math.Min((int)(SpellBalance.BeamChargeSeconds / StepSeconds + 0.5f), player.BeamTicks + 1);
+                multiplier = SpellBalance.BeamDamageMultiplier(player.BeamTicks * StepSeconds);
+            }
             var from = SpellOrigin(player, player.Facing, 0.7f);
             var end = BeamEnd(from, player.Facing, player.Channel.Range, player.Id, out _, out _);
-            rays.Add(new(player, from, player.Facing, end, new(player.Id, player.Channel)));
+            rays.Add(new(player, from, player.Facing, end, new(player.Id, player.Channel, DamageMultiplier: multiplier)));
         }
         rays.RemoveAll(ray => !ray.Caster.Alive || ray.Caster.Frozen > 0 || ray.Caster.Channel == null);
 
@@ -74,13 +80,14 @@ public sealed partial class GameWorld
     private void AddBeam(int owner, V2 from, V2 to, BeamPart[] parts, string interaction)
     {
         if (_beams.Count < 64 && V2.Distance(from, to) > 0.005f)
-            _beams.Add(new(owner, from, to, BeamElements(parts), SpellShape.Beam, parts.Sum(p => p.Scale), interaction));
+            _beams.Add(new(owner, from, to, BeamElements(parts), SpellShape.Beam,
+                parts.Sum(p => p.Scale * p.DamageMultiplier), interaction));
     }
 
     private float BeamPressure(Wizard target, BeamPart part)
     {
         var s = part.Recipe;
-        return part.Scale * (SpellBalance.Offensive.Sum(e => ElementDamage(target, part.Owner, e,
+        return part.Scale * (part.DamageMultiplier * SpellBalance.Offensive.Sum(e => ElementDamage(target, part.Owner, e,
             SpellBalance.Component(s, e, target.Wet > 0))) + 35 * s.Count(Element.Life));
     }
 
@@ -100,7 +107,7 @@ public sealed partial class GameWorld
                 bool alliedHealing = parts.All(part => part.Recipe.Healing && _players.TryGetValue(part.Owner, out var source) && Allied(source, target));
                 if (target.Shield <= 0 || target.ShieldTime <= 0 || alliedHealing)
                 {
-                    foreach (var part in parts) Hit(target, part.Recipe, dt * part.Scale, part.Owner, direction);
+                    foreach (var part in parts) Hit(target, part.Recipe, dt * part.Scale, part.Owner, direction, part.DamageMultiplier);
                     return;
                 }
                 foreach (var part in parts.Where(part => !_players.TryGetValue(part.Owner, out var source) ||
@@ -108,7 +115,7 @@ public sealed partial class GameWorld
                     Damage(target, BeamPressure(target, part) * 0.2f * dt, part.Owner, part.Recipe.Elements);
                 if (target.Shield <= 0)
                 {
-                    foreach (var part in parts) Hit(target, part.Recipe, dt * part.Scale * 0.8f, part.Owner, direction);
+                    foreach (var part in parts) Hit(target, part.Recipe, dt * part.Scale * 0.8f, part.Owner, direction, part.DamageMultiplier);
                     return;
                 }
                 normal = (end - target.Position).Normalized;
@@ -117,7 +124,7 @@ public sealed partial class GameWorld
             }
             else if (wall != null)
             {
-                wall.Health -= parts.Sum(p => 110 * p.Recipe.Power * p.Scale * DamagePower(p.Owner)) * dt * 0.2f;
+                wall.Health -= parts.Sum(p => 110 * p.Recipe.Power * p.Scale * p.DamageMultiplier * DamagePower(p.Owner)) * dt * 0.2f;
                 if (wall.Health <= 0) return;
                 normal = (wall.B - wall.A).Perpendicular.Normalized;
                 ward = wall.Recipe.Elements.Where(e => e != Element.Shield).ToArray();

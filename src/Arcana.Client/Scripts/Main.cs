@@ -112,7 +112,7 @@ public partial class Main : Node
             if (arg == "--effects-smoke") _effectsSmoke = true;
             if (arg == "--preview-effects") _previewEffects = true;
             if (arg.StartsWith("--preview-strength=") && int.TryParse(arg[19..], out int strength)) _previewStrength = Math.Clamp(strength, 1, 3);
-            if (arg is "--preview-spells=barriers" or "--preview-spells=beams") _previewSpells = arg[17..];
+            if (arg is "--preview-spells=barriers" or "--preview-spells=beams" or "--preview-spells=beam-charge") _previewSpells = arg[17..];
             if (arg == "--sprites-smoke") _spritesSmoke = true;
             if (arg == "--combinations-smoke") _combinationsSmoke = true;
             if (arg == "--maps-smoke") _mapsSmoke = true;

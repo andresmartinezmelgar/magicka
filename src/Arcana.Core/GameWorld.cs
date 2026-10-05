@@ -230,7 +230,7 @@ public sealed partial class GameWorld
 
     private bool Ready(Wizard p) => p.Alive && p.Frozen <= 0 && p.ActionCooldown <= 0 && !MatchEnded;
     private static void CancelCast(Wizard p)
-    { p.Channel = p.Charging = null; p.ChargeTime = 0; }
+    { p.Channel = p.Charging = null; p.ChargeTime = 0; p.BeamTicks = 0; }
     private void BeginCast(Wizard p)
     {
         if (!Ready(p)) return;
@@ -487,7 +487,7 @@ public sealed partial class GameWorld
         Emit("magick", p.Position, [], magick.Name);
     }
 
-    private void Hit(Wizard target, SpellRecipe spell, float scale, int owner, V2 force)
+    private void Hit(Wizard target, SpellRecipe spell, float scale, int owner, V2 force, float damageMultiplier = 1)
     {
         if (!target.Alive) return;
         if (spell.Healing) target.Health = Math.Min(target.MaxHealth, target.Health + SpellBalance.Heal * spell.Count(Element.Life) * scale * HealingPower(owner));
@@ -516,6 +516,7 @@ public sealed partial class GameWorld
             if (target.Chill >= 99) { target.Frozen = 1.4f; target.Wet = 0; }
         }
         if (spell.Has(Element.Earth)) target.Knockback += force * (10 * scale);
+        damage *= damageMultiplier;
         Damage(target, damage * scale, owner, spell.Elements);
         if (_players.TryGetValue(owner, out var caster) && caster.Id != target.Id)
             caster.Energy = Math.Min(100, caster.Energy + damage * scale * 0.015f);
@@ -814,7 +815,8 @@ public sealed partial class GameWorld
         _players.Values.Select(p => new WizardSnapshot(p.Id, p.Name, p.Team, p.Bot, p.Position, p.Facing, p.Health,
             p.MaxHealth, p.Shield, p.Ward.ToArray(), p.Selection.Elements.ToArray(), p.Alive, Math.Max(0, p.Respawn),
             p.Wet, p.Burning, p.Chill, p.Frozen, p.Haste, p.Energy, p.MagickCooldowns.ToArray(), p.Kills, p.Deaths,
-            p.ChargeTime / SpellBalance.ChargeSeconds, p.Channel != null || p.Charging != null, p.ShieldMax, p.Shield > 0 ? p.ShieldTime : 0, p.WizardType, p.RegenerationRate * RelicBuffs.Healing(p),
+            p.Charging != null ? p.ChargeTime / SpellBalance.ChargeSeconds : p.BeamCharge,
+            p.Channel != null || p.Charging != null, p.ShieldMax, p.Shield > 0 ? p.ShieldTime : 0, p.WizardType, p.RegenerationRate * RelicBuffs.Healing(p),
             RelicBuffs.Snapshot(p), (p.Charging?.Elements ?? p.Channel?.Elements ?? []).ToArray())).ToArray(),
         _projectiles.Select(p => new ProjectileSnapshot(p.Id, p.Owner, p.Position, p.Velocity.Normalized, p.Recipe.Elements.ToArray(), p.Radius)).ToArray(),
         _walls.Select(w => new WallSnapshot(w.Id, w.Owner, w.A, w.B, w.Health, w.Lifetime, w.Recipe.Elements.ToArray())).ToArray(),

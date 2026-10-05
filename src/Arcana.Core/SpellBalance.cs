@@ -9,6 +9,7 @@ public static class SpellBalance
     public const float WetLightning = 1.9f, BurnPerSecond = 28, BurnDuration = 4;
     public const float Heal = 140, SelfHeal = 145, MineHeal = 252;
     public const float RockMinimum = 1.1f, ChargeSeconds = 1.4f, ShardPower = 0.6f, MinePower = 1.8f, GroundPower = 0.4f;
+    public const float BeamMinimumDamage = 0.3f, BeamMaximumDamage = 1.5f, BeamChargeSeconds = 2;
     public static readonly Element[] Offensive = [Element.Arcane, Element.Earth, Element.Lightning, Element.Fire, Element.Cold];
     public static IReadOnlyList<MagickDefinition> Magicks { get; } = Array.AsReadOnly<MagickDefinition>(
         [new("Celeridad", 25, 9), new("Traslación", 35, 12), new("Meteoro", 75, 24), new("Reanimar", 60, 22)]);
@@ -22,11 +23,14 @@ public static class SpellBalance
         _ => 0
     };
     public static float Damage(SpellRecipe spell, bool wet = false) => Offensive.Sum(e => Component(spell, e, wet));
+    public static float BeamDamageMultiplier(float seconds) => BeamMinimumDamage +
+        (BeamMaximumDamage - BeamMinimumDamage) * Math.Clamp(seconds / BeamChargeSeconds, 0, 1);
     private static string N(float value) => value.ToString("0.##", CultureInfo.InvariantCulture);
     public static SpellNumbers Numbers(SpellRecipe spell, CastMode mode)
     {
         float damage = Damage(spell), wet = Damage(spell, true), healing = Heal * spell.Count(Element.Life);
-        float min = 1, max = 1; string unit = "por impacto", healingUnit = "por impacto", extra = "";
+        float min = 1, max = 1, healMin = 1, healMax = 1;
+        string unit = "por impacto", healingUnit = "por impacto", extra = "";
         bool burns = spell.Has(Element.Fire) && !spell.Steam;
         if (mode == CastMode.Self)
         {
@@ -51,6 +55,7 @@ public static class SpellBalance
             if (spell.Shape == SpellShape.Rock)
             {
                 min = RockMinimum; max = RockMinimum + ChargeSeconds;
+                healMin = min; healMax = max;
                 extra = "La carga modifica el impacto.";
                 if (spell.SplashRadius > 0) extra += " El splash causa hasta el 65 % y disminuye con la distancia.";
                 if (spell.GroundKind != null)
@@ -61,12 +66,21 @@ public static class SpellBalance
             }
             else if (spell.Shape == SpellShape.Shards)
             {
-                min = max = ShardPower; unit = healingUnit = "por fragmento";
+                min = max = healMin = healMax = ShardPower; unit = healingUnit = "por fragmento";
                 extra = (3 + spell.Count(Element.Cold)) + " fragmentos; el total depende de cuántos impacten.";
             }
-            else { unit = "daño/s"; healingUnit = "/s"; }
+            else
+            {
+                unit = "daño/s"; healingUnit = "/s";
+                if (spell.Shape == SpellShape.Beam && damage > 0)
+                {
+                    min = BeamMinimumDamage; max = BeamMaximumDamage;
+                    extra = "Carga por tiempo: " + N(BeamMinimumDamage * 100) + " % al iniciar; 100 % de carga en " + N(BeamChargeSeconds) +
+                        " s = " + N(BeamMaximumDamage * 100) + " % del daño original. Soltar o interrumpir reinicia la carga. Curación y estados no aumentan.";
+                }
+            }
         }
-        return new(damage * min, damage * max, unit, healing * min, healing * max, healingUnit,
+        return new(damage * min, damage * max, unit, healing * healMin, healing * healMax, healingUnit,
             burns ? BurnPerSecond : 0, wet * min, wet * max, spell.Has(Element.Lightning), extra);
     }
     public static string Format(SpellRecipe spell, CastMode mode)

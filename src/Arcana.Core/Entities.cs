@@ -40,6 +40,8 @@ public sealed class Wizard
     public double LastInput { get; set; }
     public long LastSequence { get; set; }
     public SpellRecipe? Channel { get; set; }
+    public int BeamTicks { get; set; }
+    public float BeamCharge => Math.Clamp(BeamTicks * GameWorld.StepSeconds / SpellBalance.BeamChargeSeconds, 0, 1);
     public SpellRecipe? Charging { get; set; }
     public float ChargeTime { get; set; }
     public float BotDecision { get; set; }

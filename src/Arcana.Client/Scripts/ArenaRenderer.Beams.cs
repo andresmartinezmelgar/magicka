@@ -8,7 +8,7 @@ public partial class ArenaRenderer
     private Shader? _beamShader;
 
     private void BeamSegment(Vector3 from, Vector3 to, Color color, float radius, float endRadius = -1,
-        int profile = 0, int charges = 1, Color? accent = null)
+        int profile = 0, int charges = 1, Color? accent = null, float power = 1)
     {
         if (_beamUsed >= 512 || from.DistanceTo(to) < 0.05f) return;
         if (_beamUsed == _beamPool.Count)
@@ -21,6 +21,7 @@ public partial class ArenaRenderer
                 uniform float span = 1.0;
                 uniform float profile = 1.0;
                 uniform float detail = 1.0;
+                uniform float power = 1.0;
                 uniform float clock = 0.0;
                 void fragment() {
                     float along = UV.y * span;
@@ -38,9 +39,15 @@ public partial class ArenaRenderer
                         filament = pow(0.5 + 0.5 * sin(along * 12.0 - clock * 15.0), 14.0);
                     }
                     float ends = smoothstep(0.0, 0.055, UV.y) * smoothstep(0.0, 0.11, 1.0 - UV.y);
-                    ALBEDO = mix(beam_color.rgb, accent_color.rgb, filament * 0.55);
-                    EMISSION = ALBEDO * (0.16 + pulse * 0.16);
-                    ALPHA = beam_color.a * ends * (0.58 + pulse * 0.25 + filament * (0.13 + detail * 0.025));
+                    if (profile > 5.5) {
+                        ALBEDO = beam_color.rgb;
+                        EMISSION = ALBEDO * 0.2;
+                        ALPHA = beam_color.a * ends;
+                    } else {
+                        ALBEDO = mix(beam_color.rgb, accent_color.rgb, filament * 0.55);
+                        EMISSION = ALBEDO * (0.16 + pulse * 0.16) * (0.7 + clamp(power, 0.0, 1.5) * 0.2);
+                        ALPHA = beam_color.a * ends * (0.58 + pulse * 0.25 + filament * (0.13 + detail * 0.025));
+                    }
                 }
                 """ };
             var root = new Node3D(); AddChild(root);
@@ -64,6 +71,7 @@ public partial class ArenaRenderer
             beam.Skin.SetShaderParameter("span", length);
             beam.Skin.SetShaderParameter("profile", profile);
             beam.Skin.SetShaderParameter("detail", charges);
+            beam.Skin.SetShaderParameter("power", power);
             beam.Skin.SetShaderParameter("clock", (float)_time);
             beam.Mesh.MaterialOverride = beam.Skin;
         }
@@ -124,14 +132,19 @@ public partial class ArenaRenderer
             if (modifier is Element.Fire or Element.Cold or Element.Lightning)
                 primary = primary.Lerp(accent, modifier == Element.Lightning ? 0.65f : 0.78f);
             int profile = modifier switch { Element.Fire => 3, Element.Cold => 4, Element.Lightning => 5, _ => healing ? 2 : 1 };
-            float radius = strength.BeamRadius * Mathf.Sqrt(Math.Clamp(beam.Power, 0.3f, 3));
+            float thickness = Mathf.Sqrt(Math.Clamp(beam.Power, SpellBalance.BeamMinimumDamage, 3));
+            float charged = Math.Clamp((beam.Power - SpellBalance.BeamMinimumDamage) /
+                (SpellBalance.BeamMaximumDamage - SpellBalance.BeamMinimumDamage), 0, 1);
+            float radius = strength.BeamRadius * thickness;
             if (!details)
             {
-                BeamSegment(from, to, new Color(primary, 0.52f), radius, profile: profile, charges: strength.Charges, accent: accent);
+                BeamSegment(from, to, new Color(primary, 0.38f + charged * 0.2f), radius,
+                    profile: profile, charges: strength.Charges, accent: accent, power: beam.Power);
                 var core = beam.Interaction == "merged" ? Ui.Text : primary.Lightened(0.48f);
                 var tip = from.Lerp(to, 0.94f);
-                BeamSegment(from, tip, core, 0.026f + strength.Charges * 0.005f);
-                BeamSegment(tip, to, core, 0.026f + strength.Charges * 0.005f, 0.003f);
+                float coreRadius = (0.026f + strength.Charges * 0.005f) * thickness;
+                BeamSegment(from, tip, core, coreRadius, profile: 6);
+                BeamSegment(tip, to, core, coreRadius, 0.003f, profile: 6);
                 return;
             }
             var up = side.Cross(direction).Normalized();
@@ -145,14 +158,14 @@ public partial class ArenaRenderer
                     float t = i / (float)pieces;
                     float angle = t * Mathf.Tau + (float)_time * 2.4f + strand * MathF.PI;
                     var offset = (side * MathF.Cos(angle) + up * MathF.Sin(angle))
-                        * MathF.Sin(t * MathF.PI) * (0.08f + strength.Charges * 0.025f);
+                        * MathF.Sin(t * MathF.PI) * (0.08f + strength.Charges * 0.025f) * thickness;
                     if (modifier == Element.Lightning)
-                        offset = side * MathF.Sin((float)_time * 17 + i * 7 + strand * 3) * MathF.Sin(t * MathF.PI) * 0.19f;
+                        offset = side * MathF.Sin((float)_time * 17 + i * 7 + strand * 3) * MathF.Sin(t * MathF.PI) * 0.19f * thickness;
                     var next = from.Lerp(to, t) + offset;
                     var strandColor = modifier is Element.Fire or Element.Cold or Element.Lightning
                         ? strand == 0 ? accent : Ui.ElementColor(healing ? Element.Life : Element.Arcane)
                         : primary;
-                    BeamSegment(previous, next, new Color(strandColor, 0.66f), 0.016f);
+                    BeamSegment(previous, next, new Color(strandColor, 0.45f + charged * 0.21f), 0.016f * thickness, profile: 6);
                     previous = next;
                 }
             }
@@ -162,11 +175,13 @@ public partial class ArenaRenderer
                 var at = from.Lerp(to, t);
                 // Pulsos pequeños conservan la dirección real del canal y el color del modificador.
                 var packetColor = modifier is Element.Cold ? accent.Lightened(0.45f) : accent;
-                BeamSegment(at, at + direction * 0.27f, new Color(packetColor, 0.76f), 0.035f, 0.013f);
+                BeamSegment(at, at + direction * 0.27f, new Color(packetColor, 0.56f + charged * 0.2f),
+                    0.035f * thickness, 0.013f, profile: 6);
                 if (modifier is Element.Fire or Element.Cold or Element.Lightning)
                 {
                     var start = at + side * (i % 2 == 0 ? radius * 1.2f : -radius * 1.2f);
-                    BeamSegment(start, start + direction * 0.16f + up * 0.06f, new Color(accent, 0.5f), 0.022f, 0.005f);
+                    BeamSegment(start, start + direction * 0.16f + up * 0.06f, new Color(accent, 0.3f + charged * 0.2f),
+                        0.022f * thickness, 0.005f, profile: 6);
                 }
             }
         }

@@ -12,7 +12,7 @@ Cada selección y modo muestra **DAÑO BASE** y, cuando corresponde, **CURACIÓN
 
 | Caso | Cifra base |
 |---|---|
-| `SSS` frontal | 345 daño/s. |
+| `SSS` frontal | 103,5–517,5 daño/s, según el tiempo de canalización. |
 | `FFF` frontal | 174 daño/s y quemadura de 28 daño/s, hasta 4 s después del último golpe. |
 | `AAA` frontal | 300 daño/s; 570 contra un objetivo mojado. |
 | `DD` frontal | 220–500 por impacto, según la carga. |
@@ -67,7 +67,9 @@ Una mina actúa una vez. Las barreras bloquean su efecto y desconectar elimina l
 
 ## Rayos y escudos
 
-Los canales rectos se resuelven juntos, después del movimiento. Si dos rayos se cruzan antes de llegar a un obstáculo, una barrera o un personaje, las entradas terminan en el cruce y aparece una salida con **la suma de sus componentes**. Cada aportación conserva su daño, curación, estados y afinidad de origen. Los componentes opuestos de rayos diferentes se aplican como efectos separados; no se someten a la cancelación del teclado.
+Los láseres ofensivos empiezan con el **30 % del daño original**. La carga crece linealmente durante **2 s** hasta el **100 %**, que causa el **150 % del daño original**. A 0, 0,5, 1, 1,5 y 2 s corresponden 30, 60, 90, 120 y 150 % de daño. Se mantiene el máximo mientras no se interrumpa el lanzamiento. Soltar, sustituir el hechizo, autocast, perder entrada, congelarse o morir reinicia la progresión. Curación y estados no se multiplican.
+
+Los canales rectos se resuelven juntos, después del movimiento. Si dos rayos se cruzan antes de llegar a un obstáculo, una barrera o un personaje, las entradas terminan en el cruce y aparece una salida con **la suma de sus componentes**. Cada aportación conserva su daño, tiempo de carga, curación, estados y afinidad de origen. Los componentes opuestos de rayos diferentes se aplican como efectos separados; no se someten a la cancelación del teclado.
 
 La salida sigue la **bisectriz** de las direcciones. En un choque frontal se desvía **90°**, con una orientación determinista. Se combinan dos canales por encuentro y cada canal participa como máximo en un encuentro por paso. El alcance restante es el menor de ambos; el cruce no crea alcance adicional.
 

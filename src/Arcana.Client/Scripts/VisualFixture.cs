@@ -30,13 +30,20 @@ internal static class VisualFixture
             [Element.Life,Element.Life,Element.Life], [Element.Arcane,Element.Fire,Element.Fire],
             [Element.Arcane,Element.Cold,Element.Cold], [Element.Arcane,Element.Lightning,Element.Lightning]];
         string[] names = ["Arcano","Curación","Arcano + fuego","Arcano + frío","Arcano + rayo"];
+        if (view == "beam-charge")
+        {
+            recipes = Enumerable.Range(0, 5).Select(_ => new[] { Element.Arcane, Element.Arcane, Element.Arcane }).ToArray();
+            names = ["Carga 0 % · Daño 30 %", "Carga 25 % · Daño 60 %", "Carga 50 % · Daño 90 %",
+                "Carga 75 % · Daño 120 %", "Carga 100 % · Daño 150 %"];
+        }
         return state with
         {
             Tick=frame, Time=frame/60.0, Mode=GameMode.Arena,
             Players=recipes.Select((elements,i) => local with { Id=i+1, Name=names[i], Position=new(-4,-8+i*4),
-                Facing=new(1,0), Casting=true, CastingElements=elements }).ToArray(),
+                Facing=new(1,0), Casting=true, CastingElements=elements, Charge=view == "beam-charge" ? i / 4f : 1 }).ToArray(),
             Beams=recipes.Select((elements,i) => new BeamSnapshot(i+1,new(-3.3f,-8+i*4),new(5,-8+i*4),
-                elements,SpellShape.Beam)).ToArray(),
+                elements,SpellShape.Beam, view == "beam-charge" ? SpellBalance.BeamDamageMultiplier(i * 0.5f)
+                    : elements.Contains(Element.Life) ? 1 : SpellBalance.BeamMaximumDamage)).ToArray(),
             Walls=[], Fields=[], Projectiles=[], Points=[], Events=[]
         };
     }

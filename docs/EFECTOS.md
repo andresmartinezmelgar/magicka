@@ -21,3 +21,5 @@ El límite por renderer es de **320 partículas**, **24 ondas** y **64 partícul
 Mientras se mantiene un canal o una roca, su efecto usa `CastingElements` aunque se estén preparando otros elementos. La previsualización F1 aplica el mismo renderer.
 
 `--effects-smoke` comprueba la progresión real de partículas y segmentos de las cuatro formas de canal, los elementos repetidos, los aros de proyectil, su radio original, el hechizo activo frente a la siguiente selección, saturación, caducidad y reutilización. `--preview-strength=1`, `2` o `3` genera escenas equivalentes para revisar las capturas de OpenGL en el artefacto `effect-review`.
+
+En v0.12.5 el láser ofensivo también gana grosor y opacidad según su tiempo de canalización, del 30 al 150 % de daño original en 2 s. El número de elementos sigue determinando los detalles; la carga por tiempo no añade segmentos ni luces. La barra inferior se llena del 0 al 100 %. `--preview-spells=beam-charge` muestra cinco etapas equivalentes para revisar la progresión en OpenGL.

@@ -84,7 +84,7 @@ Test("El rayo arcano aplica daño; al soltar deja de aplicarlo", () =>
     var (w, a, b) = Setup();
     Send(w, a, "input"); w.Step(); Select(w, a, Element.Arcane, Element.Arcane, Element.Arcane);
     Send(w, a, "cast"); Run(w, a, 30);
-    Check(b.Health < 850 && b.Health > 700, "Daño continuo inesperado.");
+    Check(Math.Abs(b.Health - 921.5125f) < 0.05f, "Daño continuo inesperado durante los primeros 0,5 s de carga.");
     Send(w, a, "release"); float health = b.Health; Run(w, a, 20);
     Check(Math.Abs(health - b.Health) < 0.01, "El hechizo siguió tras soltarlo.");
 });
@@ -816,11 +816,91 @@ Test("Dos rayos frontales suman efectos y desvían la salida sin atravesar el cr
     Select(world, a, Element.Arcane); Select(world, b, Element.Arcane); Send(world, a, "cast"); Send(world, b, "cast");
     for (int i = 0; i < 30; i++) { Send(world, a, "input", aim: b.Position); Send(world, b, "input", aim: a.Position); world.Step(); }
     var merged = world.Snapshot().Beams.Single(ray => ray.Interaction == "merged");
-    Check(merged.Elements.SequenceEqual(new[] { Element.Arcane, Element.Arcane }) && merged.Power == 2 && merged.To.Y > merged.From.Y,
+    Check(merged.Elements.SequenceEqual(new[] { Element.Arcane, Element.Arcane }) && Math.Abs(merged.Power - 1.2f) < 0.0001f && merged.To.Y > merged.From.Y,
         "No se sumaron los componentes o no se desvió el rayo.");
-    Check(a.Health == 1000 && b.Health == 1000 && Math.Abs(target.Health - 885) < 0.05f, "La salida no suma ambos daños o las entradas atraviesan el cruce.");
+    Check(a.Health == 1000 && b.Health == 1000 && Math.Abs(target.Health - 947.675f) < 0.05f, "La salida no suma ambos daños o las entradas atraviesan el cruce.");
     Check(world.Snapshot().Events.Any(e => e.Kind == "beam_merge"), "No se replicó el destello del cruce.");
     SnapshotValidation.Check(Protocol.Deserialize<WorldSnapshot>(Protocol.Serialize(world.Snapshot()))!);
+});
+Test("Láser: el daño aumenta con el tiempo, alcanza el 150 % en dos segundos y se mantiene", () =>
+{
+    var (w, a, b) = Setup(); b.MaxHealth = b.Health = 10000;
+    Select(w, a, Element.Arcane); Send(w, a, "cast");
+    Run(w, a, 1);
+    Check(Math.Abs(10000 - b.Health - 115 * 0.31f / 60) < 0.002f, "El primer paso no empieza con daño bajo.");
+    Check(Math.Abs(w.Snapshot().Beams.Single().Power - 0.31f) < 0.0001f, "La intensidad inicial no se replica.");
+    Run(w, a, 59);
+    float before = b.Health; Run(w, a, 1);
+    Check(Math.Abs(before - b.Health - 115 * 0.91f / 60) < 0.002f && Math.Abs(a.BeamCharge - 61f / 120) < 0.0001f,
+        "El daño o la barra de carga no progresan a mitad del lanzamiento.");
+    Run(w, a, 59);
+    var full = Protocol.Deserialize<WorldSnapshot>(Protocol.Serialize(w.Snapshot()))!;
+    Check(full.Players.Single(p => p.Id == a.Id).Charge == 1 && Math.Abs(full.Beams.Single().Power - 1.5f) < 0.0001f,
+        "La carga completa no llega a la red a los dos segundos.");
+    before = b.Health; Run(w, a, 180);
+    Check(a.BeamTicks == 120 && Math.Abs(before - b.Health - 172.5f * 3) < 0.15f,
+        "El láser supera el límite o no mantiene 172,5 daño/s a plena carga.");
+    SnapshotValidation.Check(full);
+});
+Test("Láser: soltar, sustituir, autocast, timeout, congelación y muerte reinician la carga", () =>
+{
+    foreach (string cause in new[] { "release", "recast", "replace", "self", "timeout", "freeze", "death" })
+    {
+        var (w, a, b) = Setup(); b.Position = new(18, 8);
+        Select(w, a, Element.Arcane); Send(w, a, "cast"); Run(w, a, 120);
+        Check(a.BeamCharge == 1, "No llegó a carga completa antes de " + cause);
+        switch (cause)
+        {
+            case "release": Send(w, a, "release"); break;
+            case "recast": Select(w, a, Element.Arcane); Send(w, a, "cast"); break;
+            case "replace": Select(w, a, Element.Earth); Send(w, a, "cast"); break;
+            case "self": Select(w, a, Element.Life); Send(w, a, "self"); break;
+            case "timeout": for (int i = 0; i < 40; i++) w.Step(); break;
+            case "freeze": a.Frozen = 1; Run(w, a, 1); break;
+            case "death":
+                a.Health = 1; b.Position = new(1, 0); Select(w, b, Element.Arcane); Send(w, b, "nova"); break;
+        }
+        Check(a.BeamTicks == 0 && w.Snapshot().Players.Single(p => p.Id == a.Id).Charge == 0,
+            "La carga se conservó tras " + cause);
+        if (cause == "death") for (int i = 0; i < 245; i++) w.Step();
+        a.Frozen = 0; a.ActionCooldown = 0;
+        Select(w, a, Element.Arcane); Send(w, a, "cast"); Run(w, a, 1);
+        Check(Math.Abs(w.Snapshot().Beams.Single(ray => ray.Owner == a.Id && ray.Interaction == "direct").Power - 0.31f) < 0.0001f,
+            "El siguiente láser heredó la potencia tras " + cause);
+    }
+});
+Test("Láseres cruzados conservan el tiempo individual y los reflejados conservan la potencia", () =>
+{
+    var (w, a, b) = Setup(); var target = w.AddPlayer("Salida")!;
+    a.Position = new(-5, 0); b.Position = new(5, 0); target.Position = new(0, 4); target.Invulnerable = 0;
+    Send(w, a, "input", aim: b.Position); w.Step(); Select(w, a, Element.Arcane); Send(w, a, "cast");
+    for (int i = 0; i < 119; i++) { Send(w, a, "input", aim: b.Position); w.Step(); }
+    Send(w, b, "input", aim: a.Position); w.Step(); Select(w, b, Element.Arcane); Send(w, b, "cast");
+    float before = target.Health;
+    Send(w, a, "input", aim: b.Position); Send(w, b, "input", aim: a.Position); w.Step();
+    Check(Math.Abs(w.Snapshot().Beams.Single(ray => ray.Interaction == "merged").Power - 1.81f) < 0.0001f &&
+        Math.Abs(before - target.Health - 115 * 1.81f / 60) < 0.001f, "El cruce igualó la carga de los dos magos.");
+    var (shielded, caster, defender) = Setup(); defender.Position = new(18, 8);
+    Select(shielded, caster, Element.Arcane); Send(shielded, caster, "cast"); Run(shielded, caster, 120);
+    defender.Position = new(2, 0); Select(shielded, defender, Element.Shield); Send(shielded, defender, "self");
+    float health = caster.Health, shield = defender.Shield; Run(shielded, caster, 1);
+    Check(Math.Abs(shielded.Snapshot().Beams.Single(ray => ray.Interaction == "reflected").Power - 1.2f) < 0.0001f &&
+        Math.Abs(health - caster.Health - 115 * 1.2f / 60) < 0.001f &&
+        Math.Abs(shield - defender.Shield - 115 * 1.5f * 0.2f / 60) < 0.001f,
+        "La reflexión reinició la carga o calculó mal daño y presión.");
+});
+Test("La carga del láser aumenta solo el daño: curación y frío conservan su tasa", () =>
+{
+    foreach (var elements in new[] { new[] { Element.Life, Element.Fire }, new[] { Element.Arcane, Element.Cold } })
+    {
+        var (w, a, b) = Setup(); b.Position = new(18, 8);
+        Select(w, a, elements); Send(w, a, "cast"); Run(w, a, 120);
+        b.Position = new(2, 0); b.Health = 500; b.Chill = 0; Run(w, a, 1);
+        if (elements.Contains(Element.Life))
+            Check(Math.Abs(b.Health - (500 + (140 - 58 * 1.5f) / 60)) < 0.001f,
+                "La carga multiplicó también la curación o la quemadura inmediata.");
+        else Check(Math.Abs(b.Chill - 38f / 60) < 0.001f, "El frío se aplica más rápido por la carga del láser.");
+    }
 });
 Test("Rayos y escudos: reflexión, refracción elemental y rebotes acotados", () =>
 {
@@ -902,7 +982,8 @@ Test("F1: cifras de las 120 combinaciones coinciden con autocast y nova en comba
 Test("F1: daño por segundo, carga, hielo, minas, mojado, quemadura y curación tienen unidades y cifras reales", () =>
 {
     SpellNumbers N(string keys, CastMode mode = CastMode.Forward) => SpellBalance.Numbers(SpellCatalogue.FromKeys(keys)!.Recipe, mode);
-    Check(N("SSS").Maximum == 345 && N("SSS").Unit == "daño/s", "Rayo arcano incorrecto.");
+    Check(Math.Abs(N("SSS").Minimum - 103.5f) < 0.001f && N("SSS").Maximum == 517.5f &&
+        N("SSS").Unit == "daño/s" && N("SSS").Extra.Contains("150 %"), "Rayo arcano incorrecto.");
     Check(N("FFF").Maximum == 174 && N("FFF").BurnPerSecond == 28, "Fuego o quemadura incorrectos.");
     Check(N("AAA").Maximum == 300 && N("AAA").WetMaximum == 570, "El catálogo perdió el bonus contra mojado.");
     Check(N("DD").Minimum == 220 && N("DD").Maximum == 500 && N("DD").Unit == "por impacto", "El rango de carga es incorrecto.");
@@ -915,7 +996,22 @@ Test("F1: daño por segundo, carga, hielo, minas, mojado, quemadura y curación 
         var (w, a, b) = Setup(); b.Position = new(1, 0); b.Health = 500; b.MaxHealth = 2000;
         Select(w, a, SpellCatalogue.FromKeys(keys)!.Elements); Send(w, a, "input", aim: b.Position); Send(w, a, "cast"); w.Step();
         var n = N(keys);
-        Check(Math.Abs(b.Health - (500 + (n.HealingMinimum - n.Minimum) / 60)) < 0.02f, "Daño/s de F1 difiere en " + keys);
+        float firstDamage = keys == "SSS" ? 345 * 0.31f : n.Minimum;
+        Check(Math.Abs(b.Health - (500 + (n.HealingMinimum - firstDamage) / 60)) < 0.02f, "Daño/s de F1 difiere en " + keys);
+    }
+});
+Test("F1: todas las combinaciones de láser tienen el daño máximo real, en seco y contra mojado", () =>
+{
+    foreach (var combination in SpellCatalogue.All.Where(c => c.Recipe.Shape == SpellShape.Beam && SpellBalance.Damage(c.Recipe) > 0))
+    foreach (bool wet in new[] { false, true })
+    {
+        var (w, a, b) = Setup(); b.Position = new(18, 8);
+        Select(w, a, combination.Elements); Send(w, a, "cast"); Run(w, a, 120);
+        b.Position = new(2, 0); b.MaxHealth = 10000; b.Health = 5000; b.Wet = wet ? 6 : 0;
+        var n = SpellBalance.Numbers(combination.Recipe, CastMode.Forward);
+        Run(w, a, 1);
+        float expected = 5000 + (n.HealingMaximum - (wet ? n.WetMaximum : n.Maximum)) / 60;
+        Check(Math.Abs(b.Health - expected) < 0.002f, "F1 y daño máximo difieren en " + combination.Keys + ", mojado=" + wet);
     }
 });
 Test("Elementos preparados: selección, carga y canal se replican y sus arrays son independientes", () =>
@@ -1020,7 +1116,7 @@ Test("Cada componente de un rayo combinado conserva el bonus de daño de su auto
         Select(w, a, Element.Arcane, Element.Arcane); Select(w, b, Element.Arcane, Element.Arcane);
         Send(w, a, "cast"); Send(w, b, "cast");
         Send(w, a, "input", aim: b.Position); Send(w, b, "input", aim: a.Position); w.Step();
-        float expected = 230 * (1 + RelicBuffs.Power(firstBoosted ? a : b)) * 0.2f * GameWorld.StepSeconds;
+        float expected = 230 * (1 + RelicBuffs.Power(firstBoosted ? a : b)) * 0.31f * 0.2f * GameWorld.StepSeconds;
         Check(Math.Abs(420 - target.Shield - expected) < 0.001f, "El bonus del primer mago se aplicó a ambos rayos.");
     }
 });
