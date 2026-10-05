@@ -109,7 +109,7 @@ public partial class Hud : Control
             _server.Visible = _status.Visible = _affinity.Visible = false;
             playerPanel.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft);
             playerPanel.Position = new Vector2(22, 18) / GameplayScale;
-            playerPanel.CustomMinimumSize = playerPanel.Size = new(310, 176);
+            playerPanel.CustomMinimumSize = new(310, 176); playerPanel.Size = new(310, 176);
             spells.CustomMinimumSize = new(320, 0);
             spells.OffsetLeft = -120 / GameplayScale; spells.OffsetRight = 120 / GameplayScale;
             spells.OffsetTop = -310 / GameplayScale; spells.OffsetBottom = spells.OffsetTop + spells.GetCombinedMinimumSize().Y;

@@ -351,6 +351,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           version=$(tr -d '\r\n' < VERSION)
+          latest_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+          if [ "$latest_sha" != "$GITHUB_SHA" ]; then
+            echo 'Hay una revisión más reciente; su ejecución publicará la versión.'
+            exit 0
+          fi
           if gh release view "v$version" >/dev/null 2>&1; then
             echo "La version v$version ya esta publicada; no se sustituyen sus ejecutables."
           else

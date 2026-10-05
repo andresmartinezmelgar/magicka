@@ -108,7 +108,7 @@ public partial class Main
                     Down(2, new(width - 310, height - 120)); Up(2);
                     Require(player.Shield > 0, "El botón Sobre ti no crea el escudo.");
                     ReadyForSpell();
-                    Down(2, new(width / 2 - 184, height - 192)); Up(2);
+                    Down(2, new(width / 2 - 184, height - 200)); Up(2);
                     Require(player.Haste > 0, "La magia especial no se ejecuta por toque.");
                     ReadyForSpell(); Tap(Element.Earth); Down(1, aim);
                     Require(player.Charging != null, "No empieza la carga que se va a cancelar."); Up(1, true);
