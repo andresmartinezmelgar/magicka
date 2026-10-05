@@ -5,6 +5,7 @@ $godot = (Resolve-Path -LiteralPath $GodotPath).Path
 $package = Join-Path $repo 'artifacts/windows'
 $version = (Get-Content (Join-Path $repo 'VERSION') -Raw).Trim()
 . (Join-Path $PSScriptRoot 'build-support.ps1')
+. (Join-Path $PSScriptRoot 'tool-support.ps1')
 if (Test-Path $package) { Remove-Item $package -Recurse -Force }
 New-Item -ItemType Directory -Path $package -Force | Out-Null
 Push-Location $repo
@@ -17,10 +18,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'No se pudo publicar el servidor autonomo.' }
     dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
     if ($LASTEXITCODE -ne 0) { throw 'No se pudo compilar el cliente.' }
-    & $godot --headless --editor --path src/Arcana.Client --import
-    if ($LASTEXITCODE -ne 0) { throw 'No se pudieron importar los recursos.' }
-    & $godot --headless --path src/Arcana.Client --export-release 'Windows Desktop' "$package/ArcanaArena.exe"
-    if ($LASTEXITCODE -ne 0) { throw 'La exportacion Windows ha fallado.' }
+    Invoke-Tool $godot @('--headless', '--editor', '--path', 'src/Arcana.Client', '--import') -CheckGodotErrors | Out-Null
+    Invoke-Tool $godot @('--headless', '--path', 'src/Arcana.Client', '--export-release', 'Windows Desktop', "$package/ArcanaArena.exe") -CheckGodotErrors | Out-Null
     Test-GamePackage -Package $package
     $metadata = [Diagnostics.FileVersionInfo]::GetVersionInfo("$package/ArcanaArena.exe")
     if ($metadata.FileVersion -ne "$version.0" -or $metadata.ProductVersion -ne "$version.0") {

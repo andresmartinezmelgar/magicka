@@ -51,6 +51,15 @@ public partial class Main
         _renderer.Render(empty with { Mode = GameMode.Arena, Players = [wizard with {
             Position = new(18, 0), Shield = 0, InvulnerableSeconds = 1 }] }, wizard.Id, 1/60.0, true);
         if (Math.Abs(_renderer.Camera.Position.X - 7) > 0.001f || !_renderer.Wizards[wizard.Id].SpawnProtectionVisible) return false;
+        foreach (var mode in Enum.GetValues<GameMode>())
+        {
+            _renderer.Clear();
+            _renderer.Render(empty with { Mode = mode, Time = 0, Players = [wizard with { Position = new(-5, 0), Deaths = 0 }] }, wizard.Id, 1/60.0, true);
+            // Reaparición cercana sin recibir el estado muerto: tampoco se interpola la vida anterior.
+            _renderer.Render(empty with { Mode = mode, Time = 0.05, Players = [wizard with { Position = new(-4, 0), Deaths = 1 }] }, wizard.Id, 1/60.0, true);
+            if (_renderer.Wizards[wizard.Id].Position != ArenaRenderer.World(new(-4, 0)) ||
+                Math.Abs(_renderer.Camera.Position.X + 4) > 0.001f) return false;
+        }
         _renderer.Clear();
         var field = new FieldSnapshot(1,1,V2.Zero,4,1.5f,[Element.Earth,Element.Fire,Element.Fire],"meteor");
         _renderer.Render(empty with { Tick=4, Fields=[field] },0,1/60.0,true);

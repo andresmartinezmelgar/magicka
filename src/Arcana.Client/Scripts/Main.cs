@@ -34,6 +34,8 @@ public partial class Main : Node
     private long _localSequence;
     private bool _playing, _paused, _moveTo;
     private bool _ignoreLeftUntilRelease;
+    private bool _localWasAlive;
+    private int _localDeaths;
     private V2 _aim, _target;
     private double _inputTime, _snapshotAge;
     private long _lastTick = -1;
@@ -113,7 +115,8 @@ public partial class Main : Node
             if (arg == "--preview-effects") _previewEffects = true;
             if (arg.StartsWith("--preview-strength=") && int.TryParse(arg[19..], out int strength)) _previewStrength = Math.Clamp(strength, 1, 3);
             if (arg is "--preview-spells=barriers" or "--preview-spells=beams" or "--preview-spells=beam-charge"
-                or "--preview-spells=shield-elements" or "--preview-spells=shield-strength" or "--preview-spells=meteor") _previewSpells = arg[17..];
+                or "--preview-spells=shield-elements" or "--preview-spells=shield-strength" or "--preview-spells=meteor"
+                or "--preview-spells=ground-contrast" or "--preview-spells=ground-contrast-stone") _previewSpells = arg[17..];
             if (arg == "--sprites-smoke") _spritesSmoke = true;
             if (arg == "--combinations-smoke") _combinationsSmoke = true;
             if (arg == "--maps-smoke") _mapsSmoke = true;
@@ -155,7 +158,8 @@ public partial class Main : Node
         if (_previewSpells != null)
         {
             _practice = null; _localId = 1; StartGame(VisualFixture.Spells(0, _previewSpells));
-            _hud!.Visible = false; _renderer.ShowControlPoints = false; _renderer.SetPreviewZoom(24);
+            _hud!.Visible = false; _renderer.ShowControlPoints = _previewSpells.StartsWith("ground-contrast"); _renderer.SetPreviewZoom(24);
+            if (_previewSpells == "ground-contrast-stone") _renderer.SetPreviewZoom(32);
             if (_previewSpells == "shield-strength")
             {
                 var legend = Ui.Label("ARRIBA: E · E+Q · E+Q+Q\nABAJO: E+D · E+D+D · E+D+F", 20);
@@ -286,6 +290,8 @@ public partial class Main : Node
         _ignoreLeftUntilRelease = true;
         _launcher.Visible = false; _launcher.CloseRooms(); _launcher.SetBusy(false); _help.Visible = _pause.Visible = false;
         _renderer.Clear(); _snapshot = snapshot;
+        var local = snapshot.Players.FirstOrDefault(p => p.Id == _localId);
+        _localWasAlive = local?.Alive ?? false; _localDeaths = local?.Deaths ?? 0;
         _hud?.QueueFree(); _hud = new Hud(); _ui.AddChild(_hud); _hud.Build();
         BuildTouchControls();
         _ui.MoveChild(_help, -1); _ui.MoveChild(_pause, -1);
@@ -360,15 +366,16 @@ public partial class Main : Node
         }
         if (_playing)
         {
+            var latest = _connection?.Latest ?? _snapshot;
+            if (latest == null) return;
+            _snapshot = latest;
+            SynchronizeLocalLife();
             if (Ui.IsMobile) UpdateTouchAim();
             else
             {
                 _aim = _renderer.Cursor(GetViewport().GetMousePosition());
                 UpdateMouseMovement(Input.IsMouseButtonPressed(MouseButton.Left), Input.IsPhysicalKeyPressed(Key.Shift));
             }
-            var latest = _connection?.Latest ?? _snapshot;
-            if (latest == null) return;
-            _snapshot = latest;
             if (latest.Tick != _lastTick) { _lastTick = latest.Tick; _snapshotAge = 0; } else _snapshotAge += delta;
             if (_connection != null && _snapshotAge > 8)
             {
@@ -612,6 +619,7 @@ public partial class Main : Node
             valid &= _spriteCoverage.Count == 120;
             valid &= CheckWizardMotion();
             valid &= CheckTranslationInput();
+            valid &= CheckRespawnInput();
             _renderer.Clear(); valid &= _renderer.Wizards.Count == 0;
             if (valid) CompleteSmoke("SPRITES_SMOKE_OK: 5 atlas, 120 combinaciones, equipos, anclajes, congelación, muerte, reaparición y limpieza");
         }
@@ -619,9 +627,23 @@ public partial class Main : Node
     }
     private void UpdateMouseMovement(bool leftPressed, bool shiftPressed)
     {
+        bool alive = SynchronizeLocalLife();
         if (!leftPressed) _ignoreLeftUntilRelease = false;
-        if (!_paused && !_help.Visible && !_ignoreLeftUntilRelease && !shiftPressed && leftPressed)
+        if (alive && !_paused && !_help.Visible && !_ignoreLeftUntilRelease && !shiftPressed && leftPressed)
         { _target = _aim; _moveTo = true; }
+    }
+    private bool SynchronizeLocalLife()
+    {
+        var local = (_connection?.Latest ?? _snapshot)?.Players.FirstOrDefault(p => p.Id == _localId);
+        if (local == null) return false;
+        // Deaths permite detectar otra vida aunque se haya perdido el snapshot de la muerte.
+        if (local.Alive != _localWasAlive || local.Deaths != _localDeaths)
+        {
+            _moveTo = false; _ignoreLeftUntilRelease = true; _target = local.Position;
+            _touch?.Reset();
+        }
+        _localWasAlive = local.Alive; _localDeaths = local.Deaths;
+        return local.Alive;
     }
     private void UseMagick(int slot)
     {
@@ -634,8 +656,9 @@ public partial class Main : Node
     }
     private ClientMessage InputMessage()
     {
+        bool alive = SynchronizeLocalLife();
         float x = 0, y = 0;
-        if (!_paused && !_help.Visible)
+        if (alive && !_paused && !_help.Visible)
         {
             if (_touch != null) { x = _touch.Movement.X; y = _touch.Movement.Y; }
             else
@@ -645,7 +668,7 @@ public partial class Main : Node
             }
         }
         if (x != 0 || y != 0) _moveTo = false;
-        return new() { Type = "input", MoveX = x, MoveY = y, MoveTo = _moveTo && !_paused && !_help.Visible,
+        return new() { Type = "input", MoveX = x, MoveY = y, MoveTo = alive && _moveTo && !_paused && !_help.Visible,
             TargetX = _target.X, TargetY = _target.Y, AimX = _aim.X, AimY = _aim.Y };
     }
     private void Submit(ClientMessage message)
@@ -685,7 +708,8 @@ public partial class Main : Node
             if (mouse.ButtonIndex == MouseButton.Left && mouse.Pressed)
             {
                 if (Input.IsPhysicalKeyPressed(Key.Shift)) Submit(new() { Type = "melee" });
-                else { _ignoreLeftUntilRelease = false; _target = _aim; _moveTo = true; Submit(InputMessage()); }
+                else if (SynchronizeLocalLife())
+                { _ignoreLeftUntilRelease = false; _target = _aim; _moveTo = true; Submit(InputMessage()); }
             }
             if (mouse.ButtonIndex == MouseButton.Right)
                 Submit(new() { Type = mouse.Pressed ? Input.IsPhysicalKeyPressed(Key.Shift) ? "nova" : "cast" : "release" });

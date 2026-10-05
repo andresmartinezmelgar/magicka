@@ -27,19 +27,22 @@ public partial class CapturePointVisual : Node3D
                 float circle = 1.0 - smoothstep(0.985, 1.0, length(p));
                 float angle = mod(atan(p.x, -p.y) + 6.283185, 6.283185) / 6.283185;
                 float occupied = step(angle, progress) * step(0.0001, progress);
-                ALBEDO = mix(vec3(0.34, 0.42, 0.46), team_color.rgb, occupied);
-                EMISSION = team_color.rgb * occupied * 0.24;
-                ALPHA = circle * mix(0.12, 0.48, occupied);
+                ALBEDO = mix(vec3(0.035, 0.06, 0.10), team_color.rgb, occupied);
+                EMISSION = team_color.rgb * occupied * 0.03;
+                ALPHA = circle * mix(0.58, 0.84, occupied);
             }
             """ };
         AddChild(new MeshInstance3D { Mesh = new PlaneMesh { Size = new(6, 6) },
             Position = new(0, 0.045f, 0), MaterialOverride = _fill, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
-        AddChild(new MeshInstance3D { Mesh = new TorusMesh { InnerRadius = 2.93f, OuterRadius = 3, Rings = 64, RingSegments = 6 },
-            Position = new(0, 0.08f, 0), MaterialOverride = _outline, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
+        var contrast = new StandardMaterial3D { AlbedoColor = new("09111e"), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded };
+        AddChild(new MeshInstance3D { Name = "CaptureContrast", Mesh = new TorusMesh { InnerRadius = 2.72f, OuterRadius = 3.12f, Rings = 64, RingSegments = 8 },
+            Position = new(0, 0.075f, 0), Scale = new(1, 0.20f, 1), MaterialOverride = contrast, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
+        AddChild(new MeshInstance3D { Mesh = new TorusMesh { InnerRadius = 2.81f, OuterRadius = 3.03f, Rings = 64, RingSegments = 8 },
+            Position = new(0, 0.15f, 0), Scale = new(1, 0.35f, 1), MaterialOverride = _outline, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
         _crystal = new MeshInstance3D { Mesh = new PrismMesh { Size = new(0.38f, 0.6f, 0.38f) }, MaterialOverride = _outline };
         AddChild(_crystal);
         _label = new Label3D { Text = ((char)('A' + id)).ToString(), Position = new(0, 0.32f, -2.3f), FontSize = 34,
-            PixelSize = 0.010f, OutlineSize = 8, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+            PixelSize = 0.010f, OutlineSize = 10, OutlineModulate = new("060a12"), Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
             NoDepthTest = true, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
         _label.Name = "CaptureLabel"; AddChild(_label);
     }

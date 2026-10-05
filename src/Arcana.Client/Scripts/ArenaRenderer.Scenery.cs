@@ -15,12 +15,12 @@ public partial class ArenaRenderer
     private void BuildScenery(Node3D root)
     {
         SceneryTrees = SceneryBuildings = 0;
-        bool city = _map.Theme == ArenaTheme.City, ruins = _map.Theme == ArenaTheme.Ruins;
+        bool city = _map.Theme == ArenaTheme.City;
         _environment.BackgroundColor = new(city ? "263f4c" : "172f29");
-        _environment.AmbientLightColor = new(Ui.IsMobile ? "c3ccd9" : city ? "d0d8df" : "b8d9c4");
-        _environment.AmbientLightEnergy = Ui.IsMobile ? 0.48f : 0.68f;
-        _sun.LightColor = new(Ui.IsMobile ? "f4f4f2" : ruins ? "ffdeb4" : city ? "fff1d3" : "e9f6cf");
-        _sun.LightEnergy = Ui.IsMobile ? 0.90f : 1.2f;
+        _environment.AmbientLightColor = new("c3ccd9");
+        _environment.AmbientLightEnergy = Ui.IsMobile ? 0.48f : 0.55f;
+        _sun.LightColor = new("f4f4f2");
+        _sun.LightEnergy = Ui.IsMobile ? 0.90f : 0.95f;
         Mesh(root, new PlaneMesh { Size = new(240, 200) }, new(0, -0.18f, 0), new(city ? "4a5952" : "233f2c"));
         BuildTerrain(root);
         BuildBorders(root);
@@ -36,7 +36,7 @@ public partial class ArenaRenderer
             uniform vec2 point_b;
             uniform vec2 point_c;
             uniform int theme;
-            uniform float mobile_contrast = 0.0;
+            uniform float ground_contrast = 0.0;
             varying vec2 ground_position;
             void vertex() { ground_position = (MODEL_MATRIX * vec4(VERTEX,1.0)).xz; }
             float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
@@ -80,7 +80,7 @@ public partial class ArenaRenderer
                     if (theme == 3) grass *= vec3(0.80,1.0,1.10);
                     ALBEDO = mix(dirt,grass,smoothstep(1.15,1.75,trail + patch*0.6));
                 }
-                ALBEDO = mix(ALBEDO, ALBEDO * vec3(0.68, 0.63, 0.72), mobile_contrast);
+                ALBEDO = mix(ALBEDO, ALBEDO * vec3(0.68, 0.63, 0.72), ground_contrast);
                 ROUGHNESS = 0.96;
             }
             """ };
@@ -90,7 +90,7 @@ public partial class ArenaRenderer
             var material = new ShaderMaterial { Shader = shader };
             for (int i = 0; i < 3; i++) material.SetShaderParameter("point_" + (char)('a' + i), new Vector2(_map.ControlPoints[i].X, _map.ControlPoints[i].Y));
             material.SetShaderParameter("theme", (int)_map.Theme); floor.MaterialOverride = material;
-            material.SetShaderParameter("mobile_contrast", Ui.IsMobile ? 1 : 0);
+            material.SetShaderParameter("ground_contrast", Ui.IsMobile ? 1 : 0.75f);
             Box(root, new(section.Width + 0.3f, 0.18f, section.Height + 0.3f), World(section.Center, -0.11f), new("4c5140"));
         }
     }

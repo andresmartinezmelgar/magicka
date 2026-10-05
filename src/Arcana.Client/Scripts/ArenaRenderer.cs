@@ -109,14 +109,24 @@ public partial class ArenaRenderer : Node3D
         };
         _materials[key] = material; return material;
     }
-    private MeshInstance3D Mesh(Node3D parent, Godot.Mesh mesh, Vector3 position, Color color, float glow = 0)
+    private MeshInstance3D Mesh(Node3D parent, Godot.Mesh mesh, Vector3 position, Color color, float glow = 0, bool unshaded = false)
     {
-        var node = new MeshInstance3D { Mesh = mesh, Position = position, MaterialOverride = Material(color, glow) };
+        var node = new MeshInstance3D { Mesh = mesh, Position = position, MaterialOverride = Material(color, glow, unshaded) };
         parent.AddChild(node); return node;
     }
     private MeshInstance3D Box(Node3D parent, Vector3 size, Vector3 pos, Color color) => Mesh(parent, new BoxMesh { Size = size }, pos, color);
     private MeshInstance3D Ring(Node3D parent, float radius, float width, Vector3 pos, Color color) =>
         Mesh(parent, new TorusMesh { InnerRadius = radius - width, OuterRadius = radius, Rings = 48, RingSegments = 8 }, pos, color, 0.6f);
+
+    private void GroundRing(Node3D parent, float radius, float width, Color color)
+    {
+        var border = Mesh(parent, new TorusMesh { InnerRadius = Math.Max(0.01f, radius - width - 0.07f),
+            OuterRadius = radius + 0.07f, Rings = 48, RingSegments = 8 }, new(0, 0.07f, 0), new("09111e"), unshaded: true);
+        var ring = Mesh(parent, new TorusMesh { InnerRadius = Math.Max(0.01f, radius - width),
+            OuterRadius = radius, Rings = 48, RingSegments = 8 }, new(0, 0.14f, 0), color, unshaded: true);
+        border.Scale = ring.Scale = new(1, 0.25f, 1);
+        border.CastShadow = ring.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+    }
 
     private void BuildMap()
     {
@@ -165,8 +175,9 @@ public partial class ArenaRenderer : Node3D
         var focus = playing && local != null ? new Vector3(Math.Clamp(visiblePosition.X, -followX, followX), 0,
             Math.Clamp(visiblePosition.Z, -followY, followY)) : new Vector3(-4, 0, 0);
         var desired = focus + new Vector3(0, 27, 21);
-        bool respawned = snapshot.Mode == GameMode.Arena && local is { Alive: true } &&
-            previous?.Players.FirstOrDefault(p => p.Id == localId) is { Alive: false };
+        var previousLocal = previous?.Players.FirstOrDefault(p => p.Id == localId);
+        bool respawned = local is { Alive: true } && previousLocal != null &&
+            (!previousLocal.Alive || previousLocal.Deaths != local.Deaths);
         Camera.Position = playing && (first || respawned) ? desired : Camera.Position.Lerp(desired, 1 - Mathf.Exp(-3 * dt));
         Camera.LookAt(Camera.Position - new Vector3(0, 27, 21));
         Camera.Size = Mathf.Lerp(Camera.Size, playing ? _zoom : 32, 1 - Mathf.Exp(-5 * dt));
@@ -279,26 +290,31 @@ public partial class ArenaRenderer : Node3D
                 bool mine = field.Kind is "mine" or "healing_mine";
                 if (field.Kind == "healing_mine") color = Ui.Health;
                 int charges = SpellVisualStrength.For(field.Elements).Charges;
-                Ring(root, field.Radius, mine ? 0.03f : 0.10f, new(0, 0.08f, 0), color.Darkened(mine ? 0.4f : 0));
+                GroundRing(root, field.Radius, mine ? 0.09f : 0.15f, color);
                 if (mine)
                 {
-                    Ring(root, field.TriggerRadius, 0.07f, new(0, 0.09f, 0), color);
-                    var core = Mesh(root, new PrismMesh { Size = new(0.4f, 0.55f, 0.4f) }, new(0, 0.36f, 0), color, 1);
+                    GroundRing(root, field.TriggerRadius, 0.12f, color);
+                    var core = Mesh(root, new PrismMesh { Size = new(0.4f, 0.55f, 0.4f) }, new(0, 0.36f, 0), color, unshaded: true);
                     core.Name = "MineCore";
                     root.AddChild(new Label3D { Text = field.Kind == "healing_mine" ? "+" : "!", Position = new(0, 0.9f, 0),
-                        FontSize = 50, PixelSize = 0.009f, Modulate = color, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+                        FontSize = 50, PixelSize = 0.009f, Modulate = color, OutlineSize = 10, OutlineModulate = new("060a12"),
+                        Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
                         CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
                 }
-                var fill = color; fill.A = 0.08f + charges * 0.01f;
+                var fill = color; fill.A = 0.32f + charges * 0.04f;
                 float radius = mine ? field.TriggerRadius : field.Radius;
-                Mesh(root, new CylinderMesh { TopRadius = radius, BottomRadius = radius, Height = 0.02f, RadialSegments = 48 }, new(0, 0.035f, 0), fill, 0.4f);
+                var floor = Mesh(root, new CylinderMesh { TopRadius = radius, BottomRadius = radius, Height = 0.012f, RadialSegments = 48 },
+                    new(0, 0.031f, 0), new(new Color("09111e"), 0.48f), unshaded: true);
+                var area = Mesh(root, new CylinderMesh { TopRadius = radius, BottomRadius = radius, Height = 0.012f, RadialSegments = 48 },
+                    new(0, 0.048f, 0), fill, unshaded: true);
+                floor.CastShadow = area.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
                 int marks = charges == 1 ? 0 : charges == 2 ? 3 : 6;
-                var accent = color; accent.A = 0.42f;
+                var accent = color;
                 for (int i = 0; i < marks; i++)
                 {
                     float angle = i * Mathf.Tau / marks;
                     var glyph = Mesh(root,new BoxMesh { Size = new(0.1f,0.035f,0.24f) },
-                        new(Mathf.Cos(angle)*radius*0.82f,0.08f,Mathf.Sin(angle)*radius*0.82f),accent,0.2f);
+                        new(Mathf.Cos(angle)*radius*0.82f,0.11f,Mathf.Sin(angle)*radius*0.82f),accent,unshaded:true);
                     glyph.Rotation = new(0,-angle,0); glyph.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
                 }
                 _fields[field.Id] = root;

@@ -156,6 +156,7 @@ public partial class Main
                         _renderer.Effects.SeenKinds.Contains("explosion") && !_renderer.Fields.Values.OfType<MeteorVisual>().Any(),
                         "El meteorito no completó su caída e impacto en el renderer móvil.");
                     Require(CheckTranslationInput(), "Traslación conserva el destino anterior o no continúa desde la llegada.");
+                    Require(CheckRespawnInput(), "La reaparición conserva la entrada de la vida anterior.");
                     CompleteSmoke("MOBILE_SMOKE_OK: multitáctil, roca, escudo personal, piedra y fuego, caída e impacto del meteorito, cancelación, ayuda, pausa y Atrás");
                     break;
             }

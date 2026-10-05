@@ -9,6 +9,21 @@ internal static class VisualFixture
     {
         var state = Create("none");
         var local = state.Players[0] with { Position = V2.Zero, Selected = [], Shield = 0, ShieldMax = 0, ShieldSeconds = 0 };
+        if (view.StartsWith("ground-contrast"))
+        {
+            var map = ArenaMap.Get(view.EndsWith("stone") ? ArenaMapId.Ascension : ArenaMapId.Classic);
+            Element[] elements = [Element.Shield, Element.Fire, Element.Water, Element.Cold,
+                Element.Lightning, Element.Arcane, Element.Earth, Element.Life];
+            return state with { Tick = frame, Time = frame / 60.0, Map = map.Id, Mode = GameMode.Warfare,
+                Players = [local with { Position = new(0, 5), Name = "Contraste en el suelo" }],
+                Points = map.ControlPoints.Select((position, i) => new PointSnapshot(i, position, i == 1 ? 0 : -1,
+                    i == 0 ? -0.65f : i == 1 ? -1 : 0.65f)).ToArray(),
+                Walls = [new(1, 1, new(-3, -6), new(3, -6), 650, 7, [Element.Shield])],
+                Fields = elements.Select((element, i) => new FieldSnapshot(i + 1, 1,
+                    new(-10.5f + i % 4 * 7, i < 4 ? -2.5f : 7.5f), 1.8f, 5, [element],
+                    element == Element.Life ? "healing_mine" : "mine")).ToArray(),
+                Beams = [], Projectiles = [], Events = [], Pickups = [] };
+        }
         if (view == "shield-strength")
         {
             Element[][] protectionRecipes = [[Element.Shield], [Element.Shield, Element.Water], [Element.Shield, Element.Water, Element.Water],

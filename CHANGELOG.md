@@ -1,5 +1,15 @@
 # Cambios
 
+## v0.12.11
+
+- Morir y reaparecer cancela el destino anterior del ratón y los dedos del joystick. Mantener pulsado no restaura la orden; el movimiento nuevo parte de la reaparición. También se detecta otra vida si se pierde el snapshot de muerte.
+- Mago y cámara se ajustan al reaparecer en los tres modos, sin interpolar la posición de la vida anterior.
+- Escudo básico amarillo más saturado, superficie más opaca, retícula definida y contorno oscuro. Puntos de captura y campos del suelo con bordes oscuros, colores sin lavado por la iluminación, rellenos más visibles y etiquetas con contraste.
+- Paleta más nítida en PC y móvil; iluminación neutra y terreno menos brillante para distinguir los efectos.
+- Herramientas Android extraídas archivo por archivo a `cmdline-tools/latest`, creando sus carpetas explícitamente. Validación de ZIP, sdkmanager y bibliotecas; reparación de instalaciones parciales y descarga de nuevo si el ZIP guardado está dañado.
+- Los scripts Windows y APK muestran como aviso la consulta conocida de EditorSettings al cerrar Godot .NET. Rechazan otros errores incluso con código de salida cero y verifican los archivos generados.
+- Comprobaciones de entrada tras muerte/reaparición y de cámara, pruebas de extracción en PowerShell 5.1 y capturas OpenGL de escudo, campos y captura sobre hierba y piedra.
+
 ## v0.12.10
 
 - Traslación cancela el destino del clic anterior en el cliente, evitando que los siguientes paquetes de entrada lo restauren después del salto.

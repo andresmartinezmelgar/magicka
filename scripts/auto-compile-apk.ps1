@@ -30,6 +30,8 @@ $godotVersion = '4.5.2'
 $templateVersion = "$godotVersion.stable.mono"
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 Add-Type -AssemblyName System.IO.Compression.FileSystem
+. (Join-Path $PSScriptRoot 'android-tools-support.ps1')
+. (Join-Path $PSScriptRoot 'tool-support.ps1')
 
 function Download-Tool {
     param([string]$Url, [string]$Target)
@@ -46,31 +48,6 @@ function Download-Tool {
             Start-Sleep -Seconds $attempt
         }
     }
-}
-
-function Invoke-Tool {
-    param([string]$File, [string[]]$Arguments, [switch]$CheckGodotErrors)
-    # Windows PowerShell 5.1 convierte stderr nativo en ErrorRecord, incluso con codigo 0.
-    $previousPreference = $ErrorActionPreference
-    try {
-        $ErrorActionPreference = 'Continue'
-        $lines = @(& $File @Arguments 2>&1 | ForEach-Object {
-            $line = $_.ToString()
-            Write-Host $line
-            $line
-        })
-        $code = $LASTEXITCODE
-    } finally { $ErrorActionPreference = $previousPreference }
-    if ($code -ne 0) { throw "$([IO.Path]::GetFileName($File)) termino con codigo $code." }
-    if ($CheckGodotErrors) {
-        # Unico error benigno conocido al cerrar una exportacion en Godot 4.5.2.
-        $shutdownMessage = 'ERROR: Condition "!EditorSettings::get_singleton() || !EditorSettings::get_singleton()->has_setting(p_setting)" is true. Returning: Variant()'
-        foreach ($line in $lines) {
-            if ($line.Trim() -eq $shutdownMessage) { continue }
-            if ($line -match '^\s*(ERROR:|SCRIPT ERROR:)|Failed to build project|Export failed') { throw "Godot registro un error: $line" }
-        }
-    }
-    return $lines
 }
 
 function Test-Jdk17 {
@@ -146,13 +123,14 @@ try {
     New-Item -ItemType Directory -Path $AndroidSdkPath -Force | Out-Null
     $AndroidSdkPath = (Resolve-Path -LiteralPath $AndroidSdkPath).Path
     $sdkManager = Join-Path $AndroidSdkPath 'cmdline-tools/latest/bin/sdkmanager.bat'
-    if (!(Test-Path -LiteralPath $sdkManager)) {
+    if (!(Test-AndroidCommandLineTools (Split-Path -Parent (Split-Path -Parent $sdkManager)))) {
         $zip = Join-Path $cache 'android-cli-win-13114758.zip'
+        if ((Test-Path -LiteralPath $zip) -and !(Test-AndroidToolsArchive $zip)) {
+            Write-Host 'El ZIP Android guardado esta incompleto. Se descargara otra vez.'
+            Remove-Item -LiteralPath $zip -Force
+        }
         Download-Tool 'https://dl.google.com/android/repository/commandlinetools-win-13114758_latest.zip' $zip
-        $cliTemp = Join-Path $temp 'android-cli'
-        Expand-Archive -LiteralPath $zip -DestinationPath $cliTemp -Force
-        New-Item -ItemType Directory -Path (Join-Path $AndroidSdkPath 'cmdline-tools/latest') -Force | Out-Null
-        Copy-Item -Path "$cliTemp/cmdline-tools/*" -Destination (Join-Path $AndroidSdkPath 'cmdline-tools/latest') -Recurse -Force
+        Install-AndroidCommandLineTools -ArchivePath $zip -SdkPath $AndroidSdkPath
     }
     $env:ANDROID_HOME = $AndroidSdkPath
     $env:ANDROID_SDK_ROOT = $AndroidSdkPath

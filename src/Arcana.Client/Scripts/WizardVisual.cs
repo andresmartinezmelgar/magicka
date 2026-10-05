@@ -16,6 +16,7 @@ public partial class WizardVisual : Node3D
     private float _castPose, _hitFlash, _previousHealth, _renderedFlash = -1;
     private readonly WizardMotion _motion = new();
     private bool _wasAlive;
+    private int _deaths;
     internal Sprite3D Sprite => _sprite;
     private MeshInstance3D _shield = null!, _halo = null!, _ghost = null!;
     private Label3D _name = null!;
@@ -107,8 +108,9 @@ public partial class WizardVisual : Node3D
     }
     public void Update(WizardSnapshot p, float dt, float time, Camera3D camera, double sampleTime, double interpolationDelay)
     {
-        _motion.Advance(p.Position, sampleTime, dt, interpolationDelay, p.Alive != _wasAlive || p.Frozen > 0);
-        _wasAlive = p.Alive;
+        _motion.Advance(p.Position, sampleTime, dt, interpolationDelay,
+            p.Alive != _wasAlive || p.Deaths != _deaths || p.Frozen > 0);
+        _wasAlive = p.Alive; _deaths = p.Deaths;
         Position = ArenaRenderer.World(_motion.Position);
         if (_wizardType != p.WizardType || _team != p.Team)
         {
