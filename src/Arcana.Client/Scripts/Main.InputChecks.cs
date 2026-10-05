@@ -52,7 +52,7 @@ public partial class Main
                     Require(_touch!.Movement.IsZeroApprox(), "el joystick conserva el dedo de la vida anterior.");
                     Require(_touch.Touch(0, _touch.GlobalPosition + new Vector2(142, _touch.Size.Y - 45), true),
                         "el joystick no admite un gesto nuevo.");
-                    Require(InputMessage().MoveX > 0.9f, "el gesto nuevo no mueve desde la reaparición.");
+                    Require(InputMessage().MoveY > 0.9f, "el gesto nuevo no mueve desde la reaparición.");
                 }
                 else
                 {
