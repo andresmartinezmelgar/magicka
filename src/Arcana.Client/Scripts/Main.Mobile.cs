@@ -7,6 +7,7 @@ public partial class Main
 {
     private MobileControls? _touch;
     private bool _mobileSmoke;
+    private int _mobileFrames;
     private V2 _mobileStart;
 
     private void PrepareMobileWindow()
@@ -78,7 +79,9 @@ public partial class Main
             }
             void Require(bool condition, string message) { if (!condition) throw new InvalidDataException(message); }
             void ReadyForSpell() { for (int i = 0; i < 60 && player.ActionCooldown > 0; i++) _practice.Step(); }
-            switch (_renderFrames)
+            // Los controles actúan sobre la simulación; el emulador puede dibujar
+            // varios segundos entre fotogramas y liberar automáticamente una roca.
+            switch (++_mobileFrames)
             {
                 case 10:
                     Require(width >= 1440 && height >= 720, "El viewport móvil no respeta la escala horizontal.");

@@ -320,6 +320,7 @@ jobs:
           dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
           "$ARCANA_GODOT" --headless --editor --path src/Arcana.Client --import
           bash scripts/test-client-smoke.sh mobile-smoke "$ARCANA_GODOT"
+          bash scripts/test-client-smoke.sh mobile-smoke "$ARCANA_GODOT" --max-fps 2
       - name: Generar APK ARM64 firmada y verificar contenido
         run: bash scripts/package-android.sh "$ARCANA_GODOT"
       - uses: actions/upload-artifact@v4

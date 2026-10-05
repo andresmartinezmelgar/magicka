@@ -370,7 +370,6 @@ public partial class Main : Node
         }
         else _renderer.Render(_backdropSnapshot ??= _backdrop.Snapshot(), 0, delta, false);
         if (_diagnosticsSmoke && _renderFrames == 30) ExportDiagnostics();
-        if (_mobileSmoke) CheckMobile();
         if (_capturePath != null && _renderFrames == 90) _ = Capture(_capturePath);
     }
 
@@ -404,6 +403,7 @@ public partial class Main : Node
         }
         if (_hostSmoke && _connection?.Connected == true && ++_smokeFrames >= 180)
         CompleteSmoke($"HOST_SMOKE_OK: {_connection.Room?.Name}, {_snapshot?.Players.Length} jugadores");
+        if (_mobileSmoke && _renderFrames >= 2) CheckMobile();
     }
     private WorldSnapshot MapFixture(ArenaMapId id)
     {

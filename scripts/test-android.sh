@@ -19,7 +19,8 @@ python3 - "$ANDROID_AVD_HOME/arcana.avd/config.ini" <<'PY'
 from pathlib import Path
 import sys
 config = Path(sys.argv[1])
-settings = {'disk.dataPartition.size': '2G', 'disk.cachePartition.size': '128M'}
+settings = {'disk.dataPartition.size': '2G', 'disk.cachePartition.size': '128M',
+            'hw.lcd.width': '480', 'hw.lcd.height': '960', 'hw.lcd.density': '160'}
 lines = [line for line in config.read_text().splitlines() if line.split('=', 1)[0].strip() not in settings]
 config.write_text('\n'.join(lines + [f'{key}={value}' for key, value in settings.items()]) + '\n')
 print(config.read_text())
