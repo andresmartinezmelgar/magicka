@@ -29,7 +29,9 @@ public partial class Main
         _touch.ActionRequested += message =>
         {
             if (!_playing || _paused || _help.Visible) return;
-            UpdateTouchAim(); Submit(InputMessage()); Submit(message);
+            UpdateTouchAim();
+            if (message.Type == "magick") UseMagick(message.Slot);
+            else { Submit(InputMessage()); Submit(message); }
         };
         _touch.HelpRequested += ToggleHelp;
         _touch.MenuRequested += TogglePause;
@@ -153,6 +155,7 @@ public partial class Main
                     Require(_practice.Snapshot().Events.Any(e => e.Kind == "explosion" && e.Text == "Meteoro") &&
                         _renderer.Effects.SeenKinds.Contains("explosion") && !_renderer.Fields.Values.OfType<MeteorVisual>().Any(),
                         "El meteorito no completó su caída e impacto en el renderer móvil.");
+                    Require(CheckTranslationInput(), "Traslación conserva el destino anterior o no continúa desde la llegada.");
                     CompleteSmoke("MOBILE_SMOKE_OK: multitáctil, roca, escudo personal, piedra y fuego, caída e impacto del meteorito, cancelación, ayuda, pausa y Atrás");
                     break;
             }

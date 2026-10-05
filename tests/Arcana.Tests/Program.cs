@@ -722,6 +722,35 @@ Test("Ciudadela: el desplazamiento al cursor sigue los pasillos y los bots no sa
     Check(bots.Players.Values.All(p => bots.Map.Walkable(p.Position)) && bots.Players.Values.Any(p => Math.Abs(p.Position.X) < 30),
         "Los bots quedaron atascados o atravesaron los bordes.");
 });
+Test("Traslación: la siguiente ruta se calcula desde la llegada", () =>
+{
+    var world = new GameWorld(new() { Map = ArenaMapId.Citadel, Mode = GameMode.Arena });
+    var player = world.AddPlayer("Ruta previa")!;
+    player.Position = world.Map.ControlPoints[0];
+    var goal = world.Map.ControlPoints[2];
+    void Click(GameWorld w, Wizard p) => w.ApplyMessage(p.Id, new() { Type = "input", Sequence = p.LastSequence + 1,
+        MoveTo = true, TargetX = goal.X, TargetY = goal.Y, AimX = goal.X, AimY = goal.Y });
+    Check(!world.Map.ClearPath(player.Position, goal), "La prueba no necesita una ruta por los pasillos.");
+    Click(world, player); world.Step();
+    player.Facing = new(0, 1);
+    Send(world, player, "input", aim: player.Position + player.Facing * 14);
+    var before = player.Position;
+    Send(world, player, "magick", slot: 1);
+    var arrival = player.Position;
+    Check(V2.Distance(before, arrival) > 6 && !player.Input.MoveTo, "Traslación no detuvo el recorrido anterior.");
+    world.Step(); Check(player.Position == arrival, "Se conservó el destino anterior al salto.");
+    var fresh = new GameWorld(new() { Map = ArenaMapId.Citadel, Mode = GameMode.Arena });
+    var reference = fresh.AddPlayer("Ruta desde la llegada")!; reference.Position = arrival;
+    Click(world, player); Click(fresh, reference);
+    for (int i = 0; i < 12; i++)
+    {
+        world.Step(); fresh.Step();
+        Check(V2.Distance(player.Position, reference.Position) < 0.0001f,
+            "El siguiente clic reutilizó una ruta calculada antes del salto.");
+        Check(world.Map.Walkable(player.Position), "La nueva ruta dejó el suelo.");
+    }
+    Check(V2.Distance(player.Position, arrival) > 0.5f, "La nueva ruta no avanzó desde la llegada.");
+});
 Test("Timeout de entrada interrumpe un canal abandonado", () =>
 {
     var (w, a, _) = Setup(); Send(w, a, "input"); Select(w, a, Element.Arcane); Send(w, a, "cast");

@@ -1,5 +1,12 @@
 # Cambios
 
+## v0.12.10
+
+- Traslación cancela el destino del clic anterior en el cliente, evitando que los siguientes paquetes de entrada lo restauren después del salto.
+- Mantener el botón izquierdo pulsado no reactiva ese destino; una nueva orden de movimiento continúa desde el punto de llegada.
+- La ruta de navegación anterior se descarta al saltar. Tecla 2 y botón táctil comparten el tratamiento de la entrada.
+- Comprobaciones en Godot de clic previo, clic mantenido, parada después del salto y movimiento desde la llegada con un nuevo clic o el joystick.
+
 ## v0.12.9
 
 - Movimiento del mago interpolado entre posiciones confirmadas, con 75 ms de margen en red y un paso de simulación en práctica. La cámara sigue la posición visible.

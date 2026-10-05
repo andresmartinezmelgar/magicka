@@ -465,6 +465,7 @@ public sealed partial class GameWorld
             if (V2.Distance(last, p.Position) < 0.4f) return;
             Emit("blink", p.Position, [], "");
             p.Position = last; p.Input.MoveTo = false;
+            _routes.Remove(p.Id);
             Emit("blink_arrive", p.Position, [], "");
         }
         if (slot == 2)

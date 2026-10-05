@@ -361,10 +361,11 @@ public partial class Main : Node
         if (_playing)
         {
             if (Ui.IsMobile) UpdateTouchAim();
-            else _aim = _renderer.Cursor(GetViewport().GetMousePosition());
-            if (!Ui.IsMobile && !Input.IsMouseButtonPressed(MouseButton.Left)) _ignoreLeftUntilRelease = false;
-            if (!Ui.IsMobile && !_paused && !_help.Visible && !_ignoreLeftUntilRelease && !Input.IsPhysicalKeyPressed(Key.Shift) && Input.IsMouseButtonPressed(MouseButton.Left))
-            { _target = _aim; _moveTo = true; }
+            else
+            {
+                _aim = _renderer.Cursor(GetViewport().GetMousePosition());
+                UpdateMouseMovement(Input.IsMouseButtonPressed(MouseButton.Left), Input.IsPhysicalKeyPressed(Key.Shift));
+            }
             var latest = _connection?.Latest ?? _snapshot;
             if (latest == null) return;
             _snapshot = latest;
@@ -610,10 +611,26 @@ public partial class Main : Node
             // Cinco atlas compartidos, ambos equipos, cuatro direcciones y tres poses usadas.
             valid &= _spriteCoverage.Count == 120;
             valid &= CheckWizardMotion();
+            valid &= CheckTranslationInput();
             _renderer.Clear(); valid &= _renderer.Wizards.Count == 0;
             if (valid) CompleteSmoke("SPRITES_SMOKE_OK: 5 atlas, 120 combinaciones, equipos, anclajes, congelación, muerte, reaparición y limpieza");
         }
         if (!valid) { GD.PushError($"SPRITES_SMOKE_FAILED: frame {_renderFrames}, cobertura {_spriteCoverage.Count}"); GetTree().Quit(1); }
+    }
+    private void UpdateMouseMovement(bool leftPressed, bool shiftPressed)
+    {
+        if (!leftPressed) _ignoreLeftUntilRelease = false;
+        if (!_paused && !_help.Visible && !_ignoreLeftUntilRelease && !shiftPressed && leftPressed)
+        { _target = _aim; _moveTo = true; }
+    }
+    private void UseMagick(int slot)
+    {
+        if (slot == 1)
+        {
+            // El siguiente paquete no debe restaurar el destino anterior al salto.
+            _moveTo = false; _ignoreLeftUntilRelease = true;
+        }
+        Submit(InputMessage()); Submit(new() { Type = "magick", Slot = slot });
     }
     private ClientMessage InputMessage()
     {
@@ -659,7 +676,7 @@ public partial class Main : Node
             if (element != null) Submit(new() { Type = "element", Element = element.Value });
             if (press.PhysicalKeycode == Key.Backspace) Submit(new() { Type = "clear" });
             int slot = press.PhysicalKeycode switch { Key.Key1 => 0, Key.Key2 => 1, Key.Key3 => 2, Key.Key4 => 3, _ => -1 };
-            if (slot >= 0) { Submit(InputMessage()); Submit(new() { Type = "magick", Slot = slot }); }
+            if (slot >= 0) UseMagick(slot);
         }
         if (input is InputEventMouseButton mouse)
         {
@@ -668,7 +685,7 @@ public partial class Main : Node
             if (mouse.ButtonIndex == MouseButton.Left && mouse.Pressed)
             {
                 if (Input.IsPhysicalKeyPressed(Key.Shift)) Submit(new() { Type = "melee" });
-                else { _target = _aim; _moveTo = true; Submit(InputMessage()); }
+                else { _ignoreLeftUntilRelease = false; _target = _aim; _moveTo = true; Submit(InputMessage()); }
             }
             if (mouse.ButtonIndex == MouseButton.Right)
                 Submit(new() { Type = mouse.Pressed ? Input.IsPhysicalKeyPressed(Key.Shift) ? "nova" : "cast" : "release" });
