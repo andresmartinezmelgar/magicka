@@ -39,7 +39,9 @@ p=Path(sys.argv[1])/'godot'; p.mkdir(parents=True,exist_ok=True)
 PY
 "$godot" --headless --editor --path src/Arcana.Client --import
 "$godot" --headless --path src/Arcana.Client --install-android-build-template --export-debug Android "$output" 2>&1 | tee "$root/artifacts/android/export.log"
-if rg '^(ERROR:|SCRIPT ERROR:)|Failed to build project|Export failed' "$root/artifacts/android/export.log"; then exit 1; fi
+# Godot 4.5.2 puede consultar EditorSettings al cerrar el editor tras una exportación correcta.
+# Se excluye únicamente ese mensaje; cualquier otro error de exportación sigue siendo fatal.
+if grep -vF 'ERROR: Condition "!EditorSettings::get_singleton() || !EditorSettings::get_singleton()->has_setting(p_setting)" is true. Returning: Variant()' "$root/artifacts/android/export.log" | grep -E '^(ERROR:|SCRIPT ERROR:)|Failed to build project|Export failed'; then exit 1; fi
 "$android_sdk/build-tools/35.0.0/apksigner" verify --verbose "$output"
 "$android_sdk/build-tools/35.0.0/aapt" dump badging "$output" > "$root/artifacts/android/manifest.txt"
 python3 - "$output" "$version" "$root/artifacts/android/manifest.txt" "$architecture" <<'PY'

@@ -8,6 +8,10 @@ $version = (Get-Content (Join-Path $repo 'VERSION') -Raw).Trim()
 if (Test-Path $package) { Remove-Item $package -Recurse -Force }
 New-Item -ItemType Directory -Path $package -Force | Out-Null
 Push-Location $repo
+$previousSharedCompilation = $env:UseSharedCompilation
+# El wrapper de consola Godot 4.5 espera también a sus procesos hijos.
+# El servidor Roslyn persistente puede impedir que termine una exportación ya completada.
+$env:UseSharedCompilation = 'false'
 try {
     dotnet publish src/Arcana.Server -c Release -r win-x64 --self-contained true -p:DebugSymbols=false -p:DebugType=None -o "$package/server" --nologo
     if ($LASTEXITCODE -ne 0) { throw 'No se pudo publicar el servidor autonomo.' }
@@ -31,4 +35,4 @@ try {
     Copy-Item docs/DOTNET-NOTICES.txt "$package/DOTNET-NOTICES.txt"
     Copy-Item VERSION "$package/VERSION.txt"
     Write-Host "PAQUETE_LISTO: $package"
-} finally { Pop-Location }
+} finally { $env:UseSharedCompilation = $previousSharedCompilation; Pop-Location }
