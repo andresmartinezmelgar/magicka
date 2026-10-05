@@ -422,6 +422,8 @@ jobs:
           if ((Get-FileHash .tools/android-debug.keystore).Hash -ne $state.keyHash) { throw 'El fallo sustituyo la firma.' }
           if ((Get-FileHash src/Arcana.Client/export_presets.cfg).Hash -ne $state.presetHash) { throw 'El fallo dejo presets modificados.' }
           'WINDOWS_APK_BUILD_OK: descarga, exportacion, recompilacion, firma y fallo seguro.'
+          # El ultimo codigo 1 procede del fallo provocado y ya comprobado.
+          exit 0
       - uses: actions/upload-artifact@v4
         with:
           name: ArcanaArena-Android-Windows-script
