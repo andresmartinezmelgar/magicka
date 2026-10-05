@@ -30,6 +30,16 @@ public partial class WizardVisual : Node3D
     internal Element[] DisplayedElements { get; private set; } = [];
     internal int ElementSlotCount => _elementFills.Count;
     internal bool ElementSlotsVisible => _elementsRoot.Visible;
+    public override void _ExitTree()
+    {
+        if (_sprite != null)
+        {
+            _sprite.Texture = null;
+            _sprite.MaterialOverride = null;
+        }
+        _spriteMaterial?.Dispose();
+    }
+
     public void Build(WizardSnapshot p, bool local)
     {
         _color = p.Team == 0 ? Ui.Blue : Ui.Red;
@@ -100,7 +110,7 @@ public partial class WizardVisual : Node3D
         {
             _wizardType = p.WizardType; _team = p.Team;
             _atlas = WizardSprites.Load(_wizardType); _sprite.Texture = _atlas.Texture; _sprite.PixelSize = _atlas.Spec.PixelSize;
-            _spriteMaterial.SetShaderParameter("atlas", _atlas.Texture);
+            WizardSprites.SetAtlas(_spriteMaterial, _atlas);
             _spriteMaterial.SetShaderParameter("team_color", _team == 0 ? Ui.Blue : Ui.Red);
             _color = _team == 0 ? Ui.Blue : Ui.Red;
             var halo = (StandardMaterial3D)_halo.MaterialOverride; halo.AlbedoColor = halo.Emission = _color;

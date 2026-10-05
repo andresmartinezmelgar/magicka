@@ -41,9 +41,15 @@ internal static class WizardSprites
         _shader ??= ResourceLoader.Load<Shader>("res://Assets/Wizards/team-cloth.gdshader")
             ?? throw new InvalidDataException("Falta el shader de colores de equipo.");
         var material = new ShaderMaterial { Shader = _shader };
-        material.SetShaderParameter("atlas", atlas.Texture);
+        SetAtlas(material, atlas);
         material.SetShaderParameter("team_color", team == 0 ? Ui.Blue : Ui.Red);
         return material;
+    }
+
+    public static void SetAtlas(ShaderMaterial material, Atlas atlas)
+    {
+        using var value = Variant.From(atlas.Texture);
+        material.SetShaderParameter("atlas", value);
     }
 
     public static void ClearCache()
