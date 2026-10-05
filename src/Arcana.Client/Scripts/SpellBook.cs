@@ -29,7 +29,8 @@ public partial class SpellBook : VBoxContainer
         _scenario = new OptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         foreach (string text in new[] { "Combinaciones", "Cruce de rayos", "Escudo prismático", "Captura de punto" }) _scenario.AddItem(text);
         top.AddChild(_scenario);
-        _mode = new OptionButton(); foreach (string text in new[] { "Frontal · derecho", "Sobre ti · central", "Pulso · Mayús + derecho" }) _mode.AddItem(text);
+        _mode = new OptionButton();
+        foreach (string text in Ui.IsMobile ? new[] { "Frontal", "Sobre ti", "Área" } : new[] { "Frontal · derecho", "Sobre ti · central", "Pulso · Mayús + derecho" }) _mode.AddItem(text);
         top.AddChild(_mode);
         var row = new HBoxContainer(); row.AddThemeConstantOverride("separation", 14); AddChild(row);
         var choices = new VBoxContainer { CustomMinimumSize = new(188, 0) }; row.AddChild(choices);

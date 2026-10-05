@@ -87,6 +87,9 @@ public partial class Main
                         var rect = ((Control)touch.FindChild("TouchElement" + element, true, false)).GetRect();
                         Require(new Rect2(Vector2.Zero, touch.Size).Encloses(rect), "Un elemento queda fuera de pantalla.");
                     }
+                    var viewport = GetViewport().GetVisibleRect();
+                    foreach (string name in new[] { "PlayerStatusPanel", "SpellControlsPanel" })
+                        Require(viewport.Encloses(((Control)_hud!.FindChild(name, true, false)).GetGlobalRect()), "Un panel del HUD móvil queda fuera de pantalla: " + name);
                     _mobileStart = player.Position;
                     Down(0, move); Tap(Element.Earth); Tap(Element.Earth); Tap(Element.Fire);
                     Down(1, aim);

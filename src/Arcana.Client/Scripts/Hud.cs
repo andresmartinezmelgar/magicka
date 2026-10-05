@@ -108,10 +108,16 @@ public partial class Hud : Control
         {
             _server.Visible = _status.Visible = _affinity.Visible = false;
             playerPanel.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft);
-            playerPanel.Position = new Vector2(22, 18) / GameplayScale; playerPanel.CustomMinimumSize = new(310, 176);
-            spells.CustomMinimumSize = new(320, 0); spells.Position = new Vector2(-120, -310) / GameplayScale;
-            _buffs.Position = new Vector2(-260, -350) / GameplayScale;
-            _feed.Visible = false; mapPanel.Position = new(-235, 136);
+            playerPanel.Position = new Vector2(22, 18) / GameplayScale;
+            playerPanel.CustomMinimumSize = playerPanel.Size = new(310, 176);
+            spells.CustomMinimumSize = new(320, 0);
+            spells.OffsetLeft = -120 / GameplayScale; spells.OffsetRight = 120 / GameplayScale;
+            spells.OffsetTop = -310 / GameplayScale; spells.OffsetBottom = spells.OffsetTop + spells.GetCombinedMinimumSize().Y;
+            _buffs.OffsetLeft = -260 / GameplayScale; _buffs.OffsetRight = 260 / GameplayScale;
+            _buffs.OffsetTop = -350 / GameplayScale; _buffs.OffsetBottom = -315 / GameplayScale;
+            _feed.Visible = false;
+            mapPanel.OffsetLeft = -235; mapPanel.OffsetRight = -30;
+            mapPanel.OffsetTop = 136; mapPanel.OffsetBottom = 287;
         }
         IgnoreChildren(this);
     }

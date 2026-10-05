@@ -11,3 +11,6 @@ artifacts/
 reports/
 .tools/
 Juego/
+src/Arcana.Client/android/
+*.keystore
+*.jks
