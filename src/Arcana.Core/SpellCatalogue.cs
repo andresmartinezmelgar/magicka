@@ -50,7 +50,7 @@ public static class SpellCatalogue
             if (spell.Has(Element.Shield)) return spell.Healing
                 ? $"Escudo regenerativo: +{38 * spell.Count(Element.Life)} vida/s durante 12 s. La curación termina si se rompe o se sustituye el escudo."
                 : spell.Has(Element.Earth) ? "Armadura de piedra: 650 puntos de escudo, 12 s. Su guarda ralentiza al mago."
-                : spell.Elements.Length == 1 ? "Escudo: 420 puntos, 12 s. Desvía los rayos y consume energía al hacerlo."
+                : spell.Elements.Length == 1 ? "Escudo: 420 puntos, 12 s. Desvía los rayos y consume escudo al hacerlo."
                 : "Guarda elemental: 180 puntos de escudo, 12 s. Reduce el daño de sus elementos y los añade a los rayos refractados.";
             if (spell.Healing) return $"Curación propia instantánea: +{SpellBalance.SelfHeal * spell.Count(Element.Life)} vida, sin superar tu vida máxima.";
             if (spell.Has(Element.Fire)) return "Fuego propio: elimina mojado y frío. Sobre un mago seco puede provocar daño y quemadura.";

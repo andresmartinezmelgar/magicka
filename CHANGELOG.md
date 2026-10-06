@@ -1,5 +1,14 @@
 # Cambios
 
+## v0.12.12
+
+- Traslación calcula dirección y orientación con el último destino aunque la intención llegue justo antes del salto. Mantiene los límites, colisiones y cancelación de la ruta anterior.
+- Joystick con intensidad proporcional; diagonales limitadas. Rutas de ratón y bots conservan su velocidad.
+- Arco de barreras sin piedra agrupado por material: 40 mallas pasan a 2. Búsqueda del nodo de navegación más próximo sin ordenar el mapa.
+- Compilación Android Bash con validación de importación/exportación, aviso de EditorSettings solo con su traza y APK temporal. Un fallo conserva APK, checksum y presets.
+- Regresiones de salto, joystick y exportación; comprobación nativa de geometría de barreras. Texto F1 y arquitectura actualizados.
+- [Auditoría del proyecto y mejoras pendientes](docs/AUDITORIA-v0.12.12.md).
+
 ## v0.12.11
 
 - Morir y reaparecer cancela el destino anterior del ratón y los dedos del joystick. Mantener pulsado no restaura la orden; el movimiento nuevo parte de la reaparición. También se detecta otra vida si se pierde el snapshot de muerte.

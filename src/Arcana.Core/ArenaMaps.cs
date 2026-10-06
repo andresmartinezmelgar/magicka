@@ -82,8 +82,17 @@ public sealed class ArenaDefinition
         if (!Walkable(from) || !Walkable(goal)) return [];
         if (ClearPath(from, goal)) return [goal];
         var (positions, neighbors) = _navigation.Value;
-        int Nearest(V2 p) => Enumerable.Range(0, positions.Length).OrderBy(i => (positions[i] - p).LengthSquared)
-            .FirstOrDefault(i => ClearPath(p, positions[i]), -1);
+        int Nearest(V2 p)
+        {
+            int best = -1; float distance = float.PositiveInfinity;
+            for (int i = 0; i < positions.Length; i++)
+            {
+                float candidate = (positions[i] - p).LengthSquared;
+                if (candidate >= distance || !ClearPath(p, positions[i])) continue;
+                best = i; distance = candidate;
+            }
+            return best;
+        }
         int start = Nearest(from), end = Nearest(goal);
         if (start < 0 || end < 0) return [];
         var costs = Enumerable.Repeat(float.PositiveInfinity, positions.Length).ToArray();

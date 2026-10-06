@@ -123,6 +123,8 @@ public partial class BarrierVisual : Node3D
             face.GenerateNormals();
             Piece(face.Commit(), Vector3.Zero, _surface);
             // Silueta oscura y núcleo de color: legible sobre hierba y piedra clara.
+            using var outlines = new SurfaceTool(); outlines.Begin(Godot.Mesh.PrimitiveType.Triangles);
+            using var edges = new SurfaceTool(); edges.Begin(Godot.Mesh.PrimitiveType.Triangles);
             for (int i = 0; i < segments; i++)
             {
                 Vector3 Top(float u) => new(0, 1.62f + _reinforcement * 0.18f + MathF.Sin(u * MathF.PI) * 0.65f,
@@ -130,11 +132,15 @@ public partial class BarrierVisual : Node3D
                 var a = Top(i / (float)segments); var b = Top((i + 1) / (float)segments);
                 float angle = -Mathf.Atan2(b.Y - a.Y, b.Z - a.Z);
                 float span = a.DistanceTo(b) + 0.035f;
-                var outline = Piece(new BoxMesh { Size = new(0.24f, 0.18f, span) }, (a + b) / 2, _contrast);
-                outline.Rotation = new(angle, 0, 0);
-                var edge = Piece(new BoxMesh { Size = new(0.26f, 0.075f, span) }, (a + b) / 2, _rim);
-                edge.Rotation = new(angle, 0, 0);
+                var transform = new Transform3D(new Basis(Vector3.Right, angle), (a + b) / 2);
+                using var outline = new BoxMesh { Size = new(0.24f, 0.18f, span) };
+                using var edge = new BoxMesh { Size = new(0.26f, 0.075f, span) };
+                outlines.AppendFrom(outline, 0, transform);
+                edges.AppendFrom(edge, 0, transform);
             }
+            // Los cuarenta segmentos conservan sus vértices en dos mallas con los mismos materiales.
+            Piece(outlines.Commit(), Vector3.Zero, _contrast).Name = "BarrierArchOutline";
+            Piece(edges.Commit(), Vector3.Zero, _rim).Name = "BarrierArchColor";
             foreach (int end in new[] { -1, 1 })
             {
                 float height = 1.55f + _reinforcement * 0.18f;

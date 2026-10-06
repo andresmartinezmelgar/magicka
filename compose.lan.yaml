@@ -3,7 +3,7 @@
 services:
   server:
     build: .
-    image: arcana-arena-server:0.12.11
+    image: arcana-arena-server:0.12.12
     network_mode: host
     restart: unless-stopped
     environment:

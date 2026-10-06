@@ -8,10 +8,12 @@ java_sdk="${JAVA_HOME:?JAVA_HOME debe señalar a OpenJDK 17}"
 test -d "$android_sdk" || { echo 'Falta el SDK Android.' >&2; exit 1; }
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
+source "$root/scripts/tool-support.sh"
 version=$(tr -d '\r\n' < VERSION)
 output="$root/artifacts/android/ArcanaArena-v$version-Android-$architecture.apk"
 mkdir -p "$root/artifacts/android"
-temp=$(mktemp -d)
+temp=$(mktemp -d "$root/artifacts/android/.build-XXXXXXXX")
+staged_apk="$temp/$(basename "$output")"
 cp src/Arcana.Client/export_presets.cfg "$temp/export_presets.cfg"
 trap 'cp "$temp/export_presets.cfg" "$root/src/Arcana.Client/export_presets.cfg"; rm -rf "$temp"' EXIT
 if [ "$architecture" = x86_64 ]; then
@@ -37,14 +39,11 @@ p=Path(sys.argv[1])/'godot'; p.mkdir(parents=True,exist_ok=True)
     +'export/android/java_sdk_path='+json.dumps(sys.argv[2])+'\n'
     +'export/android/android_sdk_path='+json.dumps(sys.argv[3])+'\n')
 PY
-"$godot" --headless --editor --path src/Arcana.Client --import
-"$godot" --headless --path src/Arcana.Client --install-android-build-template --export-debug Android "$output" 2>&1 | tee "$root/artifacts/android/export.log"
-# Godot 4.5.2 puede consultar EditorSettings al cerrar el editor tras una exportación correcta.
-# Se excluye únicamente ese mensaje; cualquier otro error de exportación sigue siendo fatal.
-if grep -vF 'ERROR: Condition "!EditorSettings::get_singleton() || !EditorSettings::get_singleton()->has_setting(p_setting)" is true. Returning: Variant()' "$root/artifacts/android/export.log" | grep -E '^(ERROR:|SCRIPT ERROR:)|Failed to build project|Export failed'; then exit 1; fi
-"$android_sdk/build-tools/35.0.0/apksigner" verify --verbose "$output"
-"$android_sdk/build-tools/35.0.0/aapt" dump badging "$output" > "$root/artifacts/android/manifest.txt"
-python3 - "$output" "$version" "$root/artifacts/android/manifest.txt" "$architecture" <<'PY'
+invoke_godot "$root/artifacts/android/import.log" "$godot" --headless --editor --path src/Arcana.Client --import
+invoke_godot "$root/artifacts/android/export.log" "$godot" --headless --path src/Arcana.Client --install-android-build-template --export-debug Android "$staged_apk"
+"$android_sdk/build-tools/35.0.0/apksigner" verify --verbose "$staged_apk"
+"$android_sdk/build-tools/35.0.0/aapt" dump badging "$staged_apk" > "$temp/manifest.txt"
+python3 - "$staged_apk" "$version" "$temp/manifest.txt" "$architecture" <<'PY'
 import sys,zipfile
 from pathlib import Path
 apk,version,manifest,arch=sys.argv[1:]
@@ -61,7 +60,11 @@ with zipfile.ZipFile(apk) as z:
     assert all(n.split('/')[1]==abi for n in names if n.startswith('lib/') and n.endswith('.so'))
 print(f'ANDROID_PACKAGE_OK: firma, identidad, versión, Android 8+, red, Godot y C# {arch}.')
 PY
-if [ "$architecture" = arm64 ]; then
-  (cd "$root/artifacts/android" && sha256sum "$(basename "$output")" > SHA256SUMS-Android.txt)
-fi
+hash_file=SHA256SUMS-Android.txt
+if [ "$architecture" = x86_64 ]; then hash_file=SHA256SUMS-Android-x86_64.txt; fi
+(cd "$temp" && sha256sum "$(basename "$output")" > "$hash_file")
+# La salida temporal está en el mismo sistema de archivos. Solo sustituye una APK ya verificada.
+mv -f "$staged_apk" "$output"
+mv -f "$temp/$hash_file" "$root/artifacts/android/$hash_file"
+mv -f "$temp/manifest.txt" "$root/artifacts/android/manifest.txt"
 printf 'APK: %s\n' "$output"

@@ -228,6 +228,26 @@ Test("Obstáculos bloquean movimiento y rayos", () =>
     Check(b.Health == 1000, "El rayo atravesó una columna.");
     Check(!w.Walkable(new(-13, 0)), "Se puede caminar dentro de la columna.");
 });
+Test("Joystick: intensidad proporcional, diagonal limitada y ruta a velocidad normal", () =>
+{
+    var world = new GameWorld(new() { Mode = GameMode.Arena });
+    var player = world.AddPlayer("Joystick")!;
+    float Distance(V2 movement, bool moveTo = false)
+    {
+        player.Position = V2.Zero;
+        world.ApplyMessage(player.Id, new() { Type = "input", Sequence = player.LastSequence + 1,
+            MoveX = movement.X, MoveY = movement.Y, MoveTo = moveTo, TargetX = 10, AimX = 10 });
+        world.Step();
+        return player.Position.Length;
+    }
+    float maximum = Distance(new(1, 0));
+    Check(Math.Abs(maximum - 6.2f / 60) < 0.0001f, "Cambió la velocidad máxima.");
+    Check(Math.Abs(Distance(new(0.25f, 0)) - maximum * 0.25f) < 0.0001f, "Una inclinación pequeña se normaliza a velocidad completa.");
+    Check(Math.Abs(Distance(new(0.3f, 0.4f)) - maximum * 0.5f) < 0.0001f, "El joystick diagonal pierde su intensidad.");
+    Check(Math.Abs(Distance(new(1, 1)) - maximum) < 0.0001f, "Las flechas diagonales exceden la velocidad máxima.");
+    Check(Distance(V2.Zero) == 0, "El mago se mueve con el joystick suelto.");
+    Check(Math.Abs(Distance(V2.Zero, true) - maximum) < 0.0001f, "La ruta del ratón perdió su velocidad.");
+});
 Test("Se aplica la configuración de fuego amigo", () =>
 {
     var world = new GameWorld(new() { Mode = GameMode.Warfare, FriendlyFire = false });
@@ -750,6 +770,29 @@ Test("Traslación: la siguiente ruta se calcula desde la llegada", () =>
         Check(world.Map.Walkable(player.Position), "La nueva ruta dejó el suelo.");
     }
     Check(V2.Distance(player.Position, arrival) > 0.5f, "La nueva ruta no avanzó desde la llegada.");
+});
+Test("Traslación: usa el último destino aunque no haya pasado un tick y respeta los pilares", () =>
+{
+    foreach (var map in Enum.GetValues<ArenaMapId>())
+    {
+        var world = new GameWorld(new() { Map = map, Mode = GameMode.Arena });
+        var player = world.AddPlayer("Giro inmediato")!;
+        player.Position = V2.Zero; player.Facing = new(1, 0);
+        Send(world, player, "input", aim: new(0, 7));
+        Send(world, player, "magick", slot: 1);
+        Check(Math.Abs(player.Position.X) < 0.0001f && player.Position.Y > 6.5f,
+            "Traslación reutilizó la orientación del tick anterior en " + map);
+        Check(player.Facing == new V2(0, 1) && !player.Input.MoveTo && world.Map.Walkable(player.Position),
+            "El salto no dejó orientación y posición coherentes.");
+        var arrival = player.Position;
+        world.Step(); Check(player.Position == arrival, "El mago continuó hacia el destino tras llegar.");
+    }
+    var (blocked, wizard, _) = Setup();
+    wizard.Position = new(-10, -5); wizard.Facing = new(0, 1);
+    Send(blocked, wizard, "input", aim: new(0, -5));
+    Send(blocked, wizard, "magick", slot: 1);
+    Check(wizard.Position.X is > -10 and < -7.5f && Math.Abs(wizard.Position.Y + 5) < 0.0001f && blocked.Walkable(wizard.Position),
+        "Actualizar la dirección permitió saltar al otro lado de un pilar.");
 });
 Test("Timeout de entrada interrumpe un canal abandonado", () =>
 {

@@ -14,7 +14,7 @@ El cliente envía selección de elemento, inicio/fin de lanzamiento, objetivo de
 
 `GameWorld.Hit` aplica los componentes elementales y sus relaciones con el estado del objetivo. La misma combinación sirve para lanzar de frente, sobre uno mismo o en área, con las reglas específicas de cada estilo.
 
-Los números de daño, alcance, duración y reutilización de esta versión están en `GameWorld.cs` y `Elements.cs`. Son valores de esta implementación. Los magicks están en `GameWorld.Magick`; las decisiones de bots están en `ThinkBot`.
+`SpellBalance` comparte el daño, los multiplicadores, la carga y las magias especiales entre combate y catálogo F1. `Elements.cs` resuelve forma y alcance; `GameWorld.cs` aplica colisiones, capacidades y estados. Los magicks están en `GameWorld.Magick`; las decisiones de bots están en `ThinkBot`.
 
 ## Red
 
@@ -22,7 +22,7 @@ El saludo es JSON sobre WebSocket: versión del protocolo, nombre, preferencia d
 
 El cliente utiliza `ClientWebSocket`, incluido en .NET. El servidor utiliza WebSocket de ASP.NET Core. Se reutiliza el mismo formato JSON en los tres proyectos. La búsqueda LAN es un canal UDP independiente y solo sirve para encontrar la dirección de conexión.
 
-La frecuencia de simulación es 60 Hz; la de envío es 20 Hz; el cliente dibuja a la frecuencia de pantalla y acerca las mallas a la última posición recibida. Esa interpolación evita saltos de dibujo, pero añade retraso y no equivale a predicción de movimiento.
+La frecuencia de simulación es 60 Hz; la de envío es 20 Hz. `WizardMotion` interpola entre posiciones confirmadas con 75 ms de margen en red y un paso de simulación en práctica. Los pasos dependen de la distancia recorrida. No extrapola a través de obstáculos; muerte, reaparición, congelación y saltos ajustan la posición inmediatamente. El servidor conserva la intensidad del joystick y limita los vectores diagonales a la velocidad máxima.
 
 ## Launcher y distribución
 

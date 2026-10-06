@@ -204,13 +204,16 @@ public sealed partial class GameWorld
             move = goal - p.Position;
             if (move.Length < 0.18f) { move = V2.Zero; p.Input.MoveTo = false; }
             else if (Map.Id != ArenaMapId.Classic) move = NavigationDirection(p, goal, dt);
+            move = move.Normalized;
         }
+        else if (p.Bot || move.LengthSquared > 1) move = move.Normalized;
         float speed = 6.2f * RelicBuffs.Speed(p) * (p.Haste > 0 ? 1.65f : 1) * (1 - p.Chill * 0.005f);
         if (p.Channel != null) speed *= 0.48f;
         if (p.Charging != null) speed *= 0.35f;
         if (p.Ward.Contains(Element.Earth)) speed *= 0.78f;
         if (p.Frozen > 0) { speed = 0; CancelCast(p); }
-        var delta = move.Normalized * (speed * dt) + p.Knockback * dt;
+        // El joystick conserva su intensidad; flechas diagonales y rutas no superan la velocidad máxima.
+        var delta = move * (speed * dt) + p.Knockback * dt;
         p.Knockback *= MathF.Max(0, 1 - 8 * dt);
         // Dos ejes: el mago se desliza por los obstáculos en vez de atravesarlos.
         var x = p.Position + new V2(delta.X, 0);
@@ -454,17 +457,18 @@ public sealed partial class GameWorld
         if (slot == 1)
         {
             // El recorrido se comprueba: no se puede saltar fuera del mapa ni cruzar muros.
+            var direction = (target - p.Position).Normalized;
             float distance = Math.Min(7, V2.Distance(p.Position, target));
             V2 last = p.Position;
             for (float d = 0.3f; d <= distance; d += 0.3f)
             {
-                var candidate = p.Position + p.Facing * d;
+                var candidate = p.Position + direction * d;
                 if (!Walkable(candidate)) break;
                 last = candidate;
             }
             if (V2.Distance(last, p.Position) < 0.4f) return;
             Emit("blink", p.Position, [], "");
-            p.Position = last; p.Input.MoveTo = false;
+            p.Position = last; p.Facing = direction; p.Input.MoveTo = false;
             _routes.Remove(p.Id);
             Emit("blink_arrive", p.Position, [], "");
         }
