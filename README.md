@@ -1,8 +1,10 @@
-# Arcana Arena — v0.12.16
+# Arcana Arena — v0.12.17
 
 Primera recreación jugable en C# del combate elemental de **Magicka: Wizard Wars**. Cliente 3D de escritorio con **Godot 4.5.2 .NET**, servidor independiente **ASP.NET Core / .NET 8**, Docker, launcher con conexión por IP/LAN, salas independientes y paquete Windows para abrir con doble clic y APK Android con controles táctiles.
 
 El código, las mallas y los sonidos son propios. Los sprites de los magos se han generado para este proyecto. Esta versión reproduce la estructura del combate; los gráficos, mapas, magicks y valores de daño son una aproximación, no una reproducción exacta del original.
+
+**v0.12.17:** Correcciones de apuntado inmediato, emisión de hechizos junto a paredes y bots bloqueados por muros. Los bots conservan su objetivo durante la carga y comprueban la línea de visión; los grupos de paredes respetan el límite ambiental. [Revisión y validación](docs/RELEASE-v0.12.17.md).
 
 **v0.12.16:** El sprite mira hacia el desplazamiento real al caminar y vuelve a la marcha después de lanzar. El apuntado conserva su dirección durante la carga, la canalización y las poses instantáneas. Comprobaciones de las cuatro orientaciones a 30, 60 y 120 FPS, con interpolación de práctica y de red.
 
@@ -41,7 +43,7 @@ El código, las mallas y los sonidos son propios. Los sprites de los magos se ha
 - Curación, escudos, guardas elementales, empujes, mojado, quemaduras, frío y congelación. Fuego amigo configurable.
 - Colores con más contraste y símbolos por elemento. Vida y escudo separados: el escudo muestra puntos/capacidad real y segundos restantes; también aparece sobre el mago.
 - Panel de vida y escudo con su tamaño original; los demás controles mantienen la escala del 75 %. Tres cuadrados sobre cada mago muestran los elementos seleccionados y la combinación activa mientras carga o canaliza.
-- Duelo, todos contra todos y guerra por tres puntos de control, con tickets, muerte, reaparición y reinicio de partidas. El objetivo y el límite real aparecen en la sala y en el HUD; ayuda **F1 → Cómo ganar**.
+- Duelo, todos contra todos y guerra por puntos de control. La victoria depende del mapa: tickets, mantenimiento de control total o cinco capturas consecutivas. Muerte, reaparición y reinicio de partidas; el objetivo y el límite real aparecen en la sala y en el HUD. Ayuda **F1 → Cómo ganar**.
 - Cinco tipos de mago: equilibrado, piromante, criomante, tempestario y geomante. Bonus elemental del 25 % y debilidad del 25 %, elegidos antes de entrar y calculados por el servidor.
 - Sprites propios para los cinco magos, con cuatro orientaciones, pasos y poses de lanzamiento. Túnicas por equipo y detalles de especialidad; barras sobre el sombrero. [Arte y código de los sprites](docs/SPRITES-MAGOS.md).
 - Estelas, ondas, impactos, fragmentos de hielo/roca, explosiones, destellos y rotura de escudo. Quemadura, mojado, frío y celeridad con partículas. Efectos con nodos reutilizados y límites fijos.
@@ -50,7 +52,7 @@ El código, las mallas y los sonidos son propios. Los sprites de los magos se ha
 - Rayos que se unen en el cruce y suman componentes; reflexión en escudos y refracción con guardas elementales, con dos rebotes como máximo.
 - **F1 → Combinaciones:** 120 combinaciones, tres formas de lanzamiento, daño y curación con unidades reales, demostraciones animadas en bucle, pausa/repetición y escenas de cruce, escudo y captura.
 - Puntos de control con círculo que se rellena por equipo, porcentaje y estado disputado.
-- Cuatro mapas seleccionables: Arena clásica, Ciudadela de los pasillos (4× de suelo y victoria por control total), Coliseo de la ascensión y Santuario de las reliquias. Solo en Ascensión, cada baja añade 10 de vida permanente y cada muerte añade 0,5 segundos de reaparición, hasta 10 segundos.
+- Cinco mapas seleccionables: Arena clásica, Ciudadela de los pasillos (4× de suelo y victoria por control total), Coliseo de la ascensión, Santuario de las reliquias y Frente de conquista (pasillo irregular de 480 unidades, cinco capturas consecutivas y reaparición según el terreno). Solo en Ascensión, cada baja añade 10 de vida permanente y cada muerte añade 0,5 segundos de reaparición, hasta 10 segundos.
 - En Santuario y Coliseo, catorce objetos dan mejoras acumulables de daño, protección, vida/s, vida máxima, velocidad, energía/s y curación. En el Coliseo sus posiciones son aleatorias y cambian al reaparecer a los doce segundos. Las mejoras temporales duran hasta morir. Ayuda en **F1 → Objetos**.
 - Escenarios de bosque con senderos, ciudad con calles y casas, ruinas cubiertas de vegetación y santuario forestal. Decoración procedural y plantas agrupadas para limitar el coste gráfico.
 - Bots que combaten, se curan y capturan puntos. Práctica local sin iniciar Docker.
@@ -90,7 +92,7 @@ Descargar el código con **Code → Download ZIP** y extraer todo, o actualizar 
 
 El resultado queda en **`Juego/ArcanaArena.exe`**. Cada compilación correcta **sustituye completamente `Juego/`**, incluidos los archivos antiguos. Cerrar el juego antes de recompilar. Si la compilación falla, se conserva el resultado anterior. Registro: `artifacts/compilacion-*.log`. No requiere Visual Studio ni instalación de administrador. [Proceso y compilación manual](docs/EXPORTAR.md).
 
-Para **Android**, abrir **`Compilar-APK.cmd`**. Prepara .NET 8, Godot 4.5.2 .NET, OpenJDK 17 y el SDK Android 35 en `.tools/`; la primera ejecución necesita Internet, varios GB libres y aceptar las licencias que muestra el SDK. Genera **`artifacts/android/ArcanaArena-v0.12.16-Android-arm64.apk`**, lista para instalar en un móvil ARM64 con Android 8 o posterior. Reutiliza la firma local en las siguientes compilaciones y conserva la APK anterior si falla. Registro: `artifacts/compilacion-apk-*.log`. [Opciones y compilación manual](docs/ANDROID.md#compilación-y-comprobaciones).
+Para **Android**, abrir **`Compilar-APK.cmd`**. Prepara .NET 8, Godot 4.5.2 .NET, OpenJDK 17 y el SDK Android 35 en `.tools/`; la primera ejecución necesita Internet, varios GB libres y aceptar las licencias que muestra el SDK. Genera **`artifacts/android/ArcanaArena-v0.12.17-Android-arm64.apk`**, lista para instalar en un móvil ARM64 con Android 8 o posterior. Reutiliza la firma local en las siguientes compilaciones y conserva la APK anterior si falla. Registro: `artifacts/compilacion-apk-*.log`. [Opciones y compilación manual](docs/ANDROID.md#compilación-y-comprobaciones).
 
 La CI comprueba las compilaciones al actualizar `main`. Publicar los ejecutables como una Release requiere iniciar manualmente **Arcana Arena CI** en `main` y activar **`publish_release`**; por defecto queda desactivado.
 

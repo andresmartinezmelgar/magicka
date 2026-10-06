@@ -1,5 +1,14 @@
 # Cambios
 
+## v0.12.17
+
+- Apuntado actualizado antes de ejecutar acciones del mismo lote: fragmentos, barreras, cuerpo a cuerpo y liberación de rocas usan el último destino recibido, sin esperar al siguiente paso de simulación.
+- Origen del bastón limitado por paredes, obstáculos y fronteras. Acercarse a una pared ya creada no permite emitir rayos o chorros al otro lado.
+- Navegación con aproximación al último lugar alcanzable cuando un muro temporal corta el pasillo. Los bots se acercan y abren un paso antes de su caducidad, conservando las colisiones.
+- Bots con objetivo de muro conservado durante la carga y eliminado al cancelar el hechizo o perder la pared. Solo atacan paredes que bloquean el objetivo; no inician ataques contra enemigos ocultos sin línea de visión.
+- Límite ambiental de doce segmentos comprobado antes de añadir cada grupo de paredes, además del máximo global de cuarenta. Diez regresiones nuevas de acciones inmediatas, colisiones, rutas y bots.
+- [Revisión y validación](docs/RELEASE-v0.12.17.md). El protocolo sigue siendo 9.
+
 ## v0.12.16
 
 - Orientación de marcha según el desplazamiento interpolado, aunque el ratón o el joystick de apuntado sigan señalando en sentido contrario. Al terminar un hechizo, el sprite recupera la dirección y los pasos del movimiento.

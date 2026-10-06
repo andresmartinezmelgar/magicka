@@ -18,7 +18,8 @@ public sealed partial class GameWorld
         route.Refresh -= dt;
         if (route.Refresh <= 0 || V2.Distance(route.Goal, goal) > 3)
         {
-            route.Goal = goal; route.Path = Map.FindPath(wizard.Position, goal, ClearWalls); route.Next = 0; route.Refresh = 0.8f;
+            route.Goal = goal; route.Path = Map.FindPath(wizard.Position, goal, ClearWalls, allowPartial: true);
+            route.Next = 0; route.Refresh = 0.8f;
         }
         while (route.Next < route.Path.Length && V2.Distance(wizard.Position, route.Path[route.Next]) < 0.6f) route.Next++;
         if (route.Next >= route.Path.Length) return V2.Zero;

@@ -107,6 +107,7 @@ public sealed partial class GameWorld
             message.Type == "element" && !Enum.IsDefined(message.Element) || message.Type == "magick" && message.Slot is < 0 or > 3) return false;
         p.LastSequence = message.Sequence;
         if (!p.Alive || MatchEnded || p.Frozen > 0) return false;
+        UpdateFacing(p);
         switch (message.Type)
         {
             case "element": return p.Selection.Add(message.Element);
@@ -153,8 +154,7 @@ public sealed partial class GameWorld
             }
             TickStatus(p, dt);
             if (!p.Alive) continue;
-            var aim = new V2(p.Input.AimX, p.Input.AimY) - p.Position;
-            if (aim.Length > 0.05f) p.Facing = aim.Normalized;
+            UpdateFacing(p);
             Move(p, dt);
             if (p.Charging != null && p.Frozen <= 0)
             {
@@ -239,8 +239,13 @@ public sealed partial class GameWorld
     }
 
     private bool Ready(Wizard p) => p.Alive && p.Frozen <= 0 && p.ActionCooldown <= 0 && !MatchEnded;
+    private static void UpdateFacing(Wizard p)
+    {
+        var aim = new V2(p.Input.AimX, p.Input.AimY) - p.Position;
+        if (aim.Length > 0.05f) p.Facing = aim.Normalized;
+    }
     private static void CancelCast(Wizard p)
-    { p.Channel = p.Charging = null; p.ChargeTime = 0; p.BeamTicks = 0; }
+    { p.Channel = p.Charging = null; p.ChargeTime = 0; p.BeamTicks = 0; p.BotWallTarget = 0; }
     private void BeginCast(Wizard p)
     {
         if (!Ready(p)) return;
@@ -295,8 +300,14 @@ public sealed partial class GameWorld
     private V2 SpellOrigin(Wizard caster, V2 direction, float distance, float radius = 0)
     {
         var to = caster.Position + direction * distance;
-        return Map.BoundaryHit(caster.Position, to, radius) is float t
-            ? V2.Lerp(caster.Position, to, Math.Max(0, t - 0.01f)) : to;
+        float? nearest = Map.BoundaryHit(caster.Position, to, radius);
+        foreach (var obstacle in Map.Obstacles)
+            if (Geometry.SegmentCircle(caster.Position, to, obstacle.Position, obstacle.Radius + radius) is float t && (nearest == null || t < nearest))
+                nearest = t;
+        foreach (var wall in _walls.Where(w => w.Health > 0))
+            if (Geometry.SegmentCapsule(caster.Position, to, wall.A, wall.B, radius + 0.2f) is float t && (nearest == null || t < nearest))
+                nearest = t;
+        return nearest is float hit ? V2.Lerp(caster.Position, to, Math.Max(0, hit - 0.01f)) : to;
     }
 
     private V2 RayEnd(V2 from, V2 direction, float range, out Wall? hitWall)
@@ -809,8 +820,15 @@ public sealed partial class GameWorld
             if (V2.Distance(p.Position + direction * 1.6f, o.Position) < o.Radius + 1)
                 direction = (p.Position - o.Position).Normalized.Perpendicular * (p.Id % 2 == 0 ? 1 : -1);
         var aim = target?.Position ?? goal;
+        if (p.BotWallTarget > 0 && p.Charging != null)
+        {
+            var wall = _walls.FirstOrDefault(w => w.Id == p.BotWallTarget && w.Health > 0);
+            if (wall != null) aim = (wall.A + wall.B) / 2;
+            else CancelCast(p);
+        }
         p.Input = new() { Type = "input", MoveX = direction.X, MoveY = direction.Y, AimX = aim.X, AimY = aim.Y };
         p.LastInput = Time;
+        UpdateFacing(p);
         p.BotDecision -= dt;
         if (p.BotDecision > 0 || p.Frozen > 0 || !Ready(p)) return;
         p.BotDecision = 0.6f + (float)_random.NextDouble() * 0.5f;
@@ -822,8 +840,8 @@ public sealed partial class GameWorld
             else for (int i = 0; i < 3; i++) p.Selection.Add(Element.Life);
             SelfCast(p); return;
         }
-        if (ConquestToWin && (target == null || distance > 12) && TryAttackFrontlineWall(p)) return;
-        if (target == null || distance > 18) return;
+        if (ConquestToWin && (target == null || distance > 12 || !Visible(p.Position, target.Position)) && TryAttackFrontlineWall(p, goal)) return;
+        if (target == null || distance > 18 || !Visible(p.Position, target.Position)) return;
         if (p.Shield <= 0 && _random.Next(8) == 0)
         {
             p.Selection.Add(Element.Shield); SelfCast(p); return;

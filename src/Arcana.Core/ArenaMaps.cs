@@ -93,7 +93,7 @@ public sealed class ArenaDefinition
     }
 
     /// <summary>A*: rutas por pasillos y alrededor de pilares; no permite atajos por los patios sin suelo.</summary>
-    public V2[] FindPath(V2 from, V2 goal, Func<V2, V2, bool>? clearSegment = null)
+    public V2[] FindPath(V2 from, V2 goal, Func<V2, V2, bool>? clearSegment = null, bool allowPartial = false)
     {
         if (!Walkable(from) || !Walkable(goal)) return [];
         bool Clear(V2 a, V2 b) => ClearPath(a, b) && (clearSegment == null || clearSegment(a, b));
@@ -111,19 +111,27 @@ public sealed class ArenaDefinition
             return best;
         }
         int start = Nearest(from), end = Nearest(goal);
-        if (start < 0 || end < 0) return [];
+        if (start < 0 || end < 0 && !allowPartial) return [];
         var costs = Enumerable.Repeat(float.PositiveInfinity, positions.Length).ToArray();
         var previous = Enumerable.Repeat(-1, positions.Length).ToArray(); var visited = new bool[positions.Length];
         var open = new PriorityQueue<int, float>(); costs[start] = 0; open.Enqueue(start, 0);
+        int closest = start; float closestDistance = V2.Distance(positions[start], goal);
+        V2[] Reconstruct(int node, bool complete)
+        {
+            var path = new List<V2>();
+            if (complete) path.Add(goal);
+            for (; node >= 0; node = previous[node]) path.Add(positions[node]);
+            path.Reverse(); return path.ToArray();
+        }
         while (open.TryDequeue(out int at, out _))
         {
             if (visited[at]) continue;
             visited[at] = true;
+            float remaining = V2.Distance(positions[at], goal);
+            if (remaining < closestDistance) { closest = at; closestDistance = remaining; }
             if (at == end)
             {
-                var path = new List<V2> { goal };
-                for (int node = end; node >= 0; node = previous[node]) path.Add(positions[node]);
-                path.Reverse(); return path.ToArray();
+                return Reconstruct(at, true);
             }
             foreach (int next in neighbors[at])
             {
@@ -131,10 +139,12 @@ public sealed class ArenaDefinition
                 float cost = costs[at] + V2.Distance(positions[at], positions[next]);
                 if (cost >= costs[next]) continue;
                 costs[next] = cost; previous[next] = at;
-                open.Enqueue(next, cost + V2.Distance(positions[next], positions[end]));
+                open.Enqueue(next, cost + V2.Distance(positions[next], goal));
             }
         }
-        return [];
+        // Una pared temporal puede cortar el pasillo entero. Acércate hasta el último
+        // lugar alcanzable para poder atacarla, manteniendo intactas las colisiones.
+        return allowPartial ? Reconstruct(closest, false) : [];
     }
 }
 

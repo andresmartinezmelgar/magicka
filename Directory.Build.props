@@ -5,6 +5,6 @@
     <Nullable>enable</Nullable>
     <LangVersion>12</LangVersion>
     <Deterministic>true</Deterministic>
-    <Version>0.12.16</Version>
+    <Version>0.12.17</Version>
   </PropertyGroup>
 </Project>

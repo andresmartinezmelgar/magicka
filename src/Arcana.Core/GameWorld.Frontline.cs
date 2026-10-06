@@ -96,7 +96,8 @@ public sealed partial class GameWorld
             var direction = (gate.B - gate.A).Normalized;
             var a = gate.A + direction * 0.2f; var b = gate.B - direction * 0.2f;
             int count = (int)MathF.Ceiling(V2.Distance(a, b) / 4.4f);
-            if (_walls.Count + count > 40 || _walls.Any(w => Geometry.DistanceToSegment((a + b) / 2, w.A, w.B) < 3) ||
+            if (_walls.Count + count > 40 || _walls.Count(w => w.Owner == 0) + count > 12 ||
+                _walls.Any(w => Geometry.DistanceToSegment((a + b) / 2, w.A, w.B) < 3) ||
                 _points.Any(p => Geometry.DistanceToSegment(p.Position, a, b) < 3.5f) ||
                 _players.Values.Any(p => p.Alive && Geometry.DistanceToSegment(p.Position, a, b) < 1.2f) ||
                 Enumerable.Range(0, 2).Any(team => Geometry.DistanceToSegment(TeamSpawn(team, 0), a, b) < 6)) continue;
@@ -110,12 +111,13 @@ public sealed partial class GameWorld
         }
     }
 
-    private bool TryAttackFrontlineWall(Wizard player)
+    private bool TryAttackFrontlineWall(Wizard player, V2 goal)
     {
         foreach (var wall in _walls.Where(w => w.Owner == 0 && w.Health > 0).OrderBy(w => V2.Distance(player.Position, (w.A + w.B) / 2)))
         {
             var center = (wall.A + wall.B) / 2;
-            if (V2.Distance(player.Position, center) > 14) continue;
+            if (V2.Distance(player.Position, center) > 14 ||
+                Geometry.SegmentCapsule(player.Position, goal, wall.A, wall.B, ArenaMap.WizardRadius + 0.18f) == null) continue;
             var direction = (center - player.Position).Normalized;
             RayEnd(player.Position, direction, 14, out var hit);
             if (hit != wall) continue;
@@ -123,6 +125,7 @@ public sealed partial class GameWorld
             player.Input.AimX = center.X; player.Input.AimY = center.Y;
             player.Selection.Add(Element.Earth); player.Selection.Add(Element.Earth); player.Selection.Add(Element.Earth);
             BeginCast(player);
+            if (player.Charging != null) player.BotWallTarget = wall.Id;
             return true;
         }
         return false;

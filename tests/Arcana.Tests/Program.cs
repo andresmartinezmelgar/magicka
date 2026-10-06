@@ -33,6 +33,7 @@ void Select(GameWorld w, Wizard p, params Element[] elements)
 { foreach (var element in elements) Send(w, p, "element", element); }
 
 FrontlineTests.Run(Test);
+GameplayRegressionTests.Run(Test);
 
 Test("Límite de tres elementos y cancelación de incompatibles", () =>
 {

@@ -48,6 +48,7 @@ public sealed class Wizard
     public SpellRecipe? Charging { get; set; }
     public float ChargeTime { get; set; }
     public float BotDecision { get; set; }
+    internal int BotWallTarget { get; set; }
     public V2 Knockback { get; set; }
 }
 
