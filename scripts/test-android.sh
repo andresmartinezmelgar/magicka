@@ -58,8 +58,8 @@ adb -s "$serial" shell am start -n com.arcana.arena/com.godot.game.GodotApp --es
 profiled=false
 for i in {1..120}; do
   adb -s "$serial" logcat -d > artifacts/android/profile-device.log
-  if rg -n 'PROFILE_FAILED|FATAL EXCEPTION|Unhandled exception' artifacts/android/profile-device.log; then break; fi
-  if rg -n 'PROFILE_OK:' artifacts/android/profile-device.log; then profiled=true; break; fi
+  if grep -nE 'PROFILE_FAILED|FATAL EXCEPTION|Unhandled exception' artifacts/android/profile-device.log; then break; fi
+  if grep -nE 'PROFILE_OK:' artifacts/android/profile-device.log; then profiled=true; break; fi
   sleep 2
 done
 $profiled || { cat artifacts/android/profile-device.log; exit 1; }

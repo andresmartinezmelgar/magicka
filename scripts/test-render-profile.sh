@@ -12,6 +12,6 @@ for map in Classic Citadel Ascension Relics; do
     --profile-render --profile-map="$map" --profile-warmup=1 --profile-seconds=3 \
     --profile-environment=ci-linux-software-opengl --profile-output="$output" 2>&1 | tee "$log"
   test -s "$output"
-  if rg -n '^(ERROR:|SCRIPT ERROR:)|PROFILE_FAILED' "$log"; then exit 1; fi
+  if grep -nE '^(ERROR:|SCRIPT ERROR:)|PROFILE_FAILED' "$log"; then exit 1; fi
   python3 scripts/check-render-profile.py "$output"
 done
