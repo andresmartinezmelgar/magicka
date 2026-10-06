@@ -47,3 +47,5 @@ try {
     }
     Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
 }
+# El codigo 75 anterior corresponde al rechazo esperado de la segunda compilacion.
+exit 0

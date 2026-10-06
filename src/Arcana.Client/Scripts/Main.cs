@@ -424,7 +424,7 @@ public partial class Main : Node
         };
         if (Ui.IsMobile) rows = new string[,]
         {
-            { "Joystick izquierdo", "Mover al mago; soltar para detenerse" },
+            { "Zona izquierda", "Tocar y arrastrar para mover; soltar detiene al mago" },
             { "Ocho botones de elementos", "Seleccionar hasta tres cargas; se admiten repetidos" },
             { "Joystick derecho", "Apuntar y lanzar mientras mantienes el dedo" },
             { "Soltar joystick derecho", "Lanzar la roca cargada o interrumpir el rayo" },
