@@ -89,11 +89,7 @@ public partial class RenderProfiler : Node
             _lastCpu = Stopwatch.GetElapsedTime(began).TotalMilliseconds;
             _status.Text = $"Medición gráfica · 16 magos y carga máxima\n{(_measuring ? "Midiendo" : "Calentando")} · {_samples.Count} muestras";
         }
-        catch (Exception error)
-        {
-            _stopped = true; GD.PushError("PROFILE_FAILED: " + error.Message);
-            if (_quit) GetTree().Quit(1); else _finished?.Invoke("No se pudo completar la medición.", default);
-        }
+        catch (Exception error) { Fail(error); }
     }
     private object? Stats(Func<Sample, double?> value)
     {
@@ -137,7 +133,16 @@ public partial class RenderProfiler : Node
         _finished?.Invoke(canceled ? "Medición cancelada; informe parcial guardado." : $"Medición guardada: {_samples.Count / measured:0.0} FPS medios en la escena de carga máxima.", element);
         if (_quit) GetTree().Quit(canceled || _samples.Count < 3 ? 1 : 0);
     }
-    internal void Cancel() { if (Running) Save(true); }
+    private void Fail(Exception error)
+    {
+        _stopped = true; GD.PushError("PROFILE_FAILED: " + error.Message);
+        if (_quit) GetTree().Quit(1); else _finished?.Invoke("No se pudo completar la medición.", default);
+    }
+    internal void Cancel()
+    {
+        if (!Running) return;
+        try { Save(true); } catch (Exception error) { Fail(error); }
+    }
     public override void _ExitTree()
     {
         if (_configured)

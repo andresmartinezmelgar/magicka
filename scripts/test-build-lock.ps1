@@ -20,7 +20,13 @@ try {
     [IO.File]::WriteAllText($holder, "from pathlib import Path`nimport sys, time`nPath(sys.argv[1]).touch()`nwhile not Path(sys.argv[2]).exists(): time.sleep(0.02)`n")
     $launcher = Join-Path $PSScriptRoot 'build-lock.py'
     $arguments = '"{0}" "{1}" python "{2}" "{3}" "{4}"' -f $launcher, $root, $holder, $ready, $release
-    $process = Start-Process -FilePath (Get-Command python).Source -ArgumentList $arguments -PassThru -NoNewWindow
+    # Process.Start conserva el codigo de salida en Windows PowerShell 5.1.
+    $start = New-Object Diagnostics.ProcessStartInfo
+    $start.FileName = (Get-Command python).Source
+    $start.Arguments = $arguments
+    $start.UseShellExecute = $false
+    $start.CreateNoWindow = $true
+    $process = [Diagnostics.Process]::Start($start)
     $deadline = (Get-Date).AddSeconds(10)
     while (!(Test-Path -LiteralPath $ready) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 50 }
     if (!(Test-Path -LiteralPath $ready)) { throw 'Python no adquirio el bloqueo.' }
