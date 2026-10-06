@@ -19,6 +19,23 @@ public partial class MiniMap : Control
                 new Vector2(floor.Width, floor.Height) * scale), new("293c43"));
         foreach (var edge in map.Boundary) DrawLine(Point(edge.A), Point(edge.B), new("718784"), 1, true);
         foreach (var obstacle in map.Obstacles) DrawCircle(Point(obstacle.Position), Math.Max(1, obstacle.Radius * scale), new("526a70"));
+        for (int i = 0; i < map.Teleports.Count; i++)
+        {
+            var pair = map.Teleports[i]; var color = i == 0 ? new Color("59ddd0") : i == 1 ? new Color("cea1ff") : new Color("ffd080");
+            DrawArc(Point(pair.A), 3, 0, Mathf.Tau, 16, color, 1.5f, true);
+            DrawArc(Point(pair.B), 3, 0, Mathf.Tau, 16, color, 1.5f, true);
+        }
+        foreach (var wall in State.Walls) DrawLine(Point(wall.A), Point(wall.B), Ui.Gold, 2, true);
+        foreach (var field in State.Fields.Where(f => f.Kind == "meteor")) DrawArc(Point(field.Position), Math.Max(3, field.Radius * scale), 0, Mathf.Tau, 16, Ui.Red, 1.5f, true);
+        if (map.SequentialCapture)
+            for (int team = 0; team < 2; team++)
+            {
+                int count = 0;
+                foreach (var point in team == 0 ? State.Points : State.Points.Reverse())
+                { if (point.Owner != team) break; count++; }
+                var at = map.Spawn(team, 0, count);
+                DrawRect(new(Point(new(at.X, at.Y + (count == 0 ? 3.3f : 2.7f))) - new Vector2(2, 2), new(4, 4)), team == 0 ? Ui.Blue : Ui.Red, false, 1);
+            }
         foreach (var item in State.Pickups ?? [])
             if (item.Active) DrawRect(new(Point(item.Position) - new Vector2(2, 2), new(4, 4)), RelicVisual.ColorFor(item.Kind));
         if (State.Mode == GameMode.Warfare)

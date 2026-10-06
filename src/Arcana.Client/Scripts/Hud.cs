@@ -166,6 +166,7 @@ public partial class Hud : Control
         _buffs.TooltipText = string.Join("\n", (player.Buffs ?? []).Select(b => RelicBuffs.Name(b.Kind) + " ×" + b.Stacks + ": " + RelicBuffs.Description(b.Kind)));
         _objective.Text = MatchRules.Objective(snapshot.Mode, snapshot.ScoreLimit, snapshot.StartingTickets, snapshot.Map);
         bool hold = snapshot.Mode == GameMode.Warfare && snapshot.Map == ArenaMapId.Citadel;
+        bool conquest = snapshot.Map == ArenaMapId.Frontline;
         if (hold) _objective.Text += snapshot.HoldingTeam >= 0
             ? $"\n{(snapshot.HoldingTeam == 0 ? "AZUL" : "ROJO")} · {snapshot.HoldSeconds:0.0} / 15 s"
             : "\nControl total: 0 / 15 s";
@@ -205,8 +206,8 @@ public partial class Hud : Control
             _match.Text = "ARENA  ·  " + snapshot.Players.Max(p => p.Kills) + " BAJAS";
         else
         {
-            _blueScore.Text = $"AZUL  {(hold ? snapshot.Points.Count(p => p.Owner == 0) + "/3" : snapshot.Scores[0].ToString())}";
-            _redScore.Text = $"{(hold ? snapshot.Points.Count(p => p.Owner == 1) + "/3" : snapshot.Scores[1].ToString())}  ROJO";
+            _blueScore.Text = $"AZUL  {(hold || conquest ? snapshot.Points.Count(p => p.Owner == 0) + "/" + snapshot.Points.Length : snapshot.Scores[0].ToString())}";
+            _redScore.Text = $"{(hold || conquest ? snapshot.Points.Count(p => p.Owner == 1) + "/" + snapshot.Points.Length : snapshot.Scores[1].ToString())}  ROJO";
         }
         _banner.Text = !player.Alive ? "HAS CAÍDO\nReapareces en " +
             (snapshot.Map == ArenaMapId.Ascension ? $"{player.Respawn:0.0}" : $"{Math.Ceiling(player.Respawn):0}") + " s" : "";

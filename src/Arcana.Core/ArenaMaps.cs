@@ -1,9 +1,10 @@
 namespace Arcana.Core;
 
-public enum ArenaMapId { Classic, Citadel, Ascension, Relics }
+public enum ArenaMapId { Classic, Citadel, Ascension, Relics, Frontline }
 public enum ArenaTheme { Forest, City, Ruins, Sanctuary }
 public sealed record FloorSection(V2 Center, float Width, float Height);
 public sealed record MapEdge(V2 A, V2 B);
+public sealed record TeleportPair(V2 A, V2 B);
 
 /// <summary>Geometría compartida: suelo, límites, pilares, puntos y rutas coinciden en servidor y cliente.</summary>
 public sealed class ArenaDefinition
@@ -17,10 +18,14 @@ public sealed class ArenaDefinition
     public IReadOnlyList<Obstacle> Obstacles { get; }
     public IReadOnlyList<V2> ControlPoints { get; }
     public IReadOnlyList<V2> ItemSpawns { get; }
+    public IReadOnlyList<TeleportPair> Teleports { get; }
+    public IReadOnlyList<MapEdge> EventGates { get; }
+    public bool SequentialCapture => Id == ArenaMapId.Frontline;
+    public bool SupportsMode(GameMode mode) => !SequentialCapture || mode == GameMode.Warfare;
     public bool HasPickups => Id is ArenaMapId.Ascension or ArenaMapId.Relics;
     public bool RandomPickups => Id == ArenaMapId.Ascension;
     public ArenaTheme Theme => Id switch { ArenaMapId.Classic => ArenaTheme.Forest, ArenaMapId.Citadel => ArenaTheme.City,
-        ArenaMapId.Ascension => ArenaTheme.Ruins, _ => ArenaTheme.Sanctuary };
+        ArenaMapId.Ascension or ArenaMapId.Frontline => ArenaTheme.Ruins, _ => ArenaTheme.Sanctuary };
     public float Area => Floors.Sum(f => f.Width * f.Height);
     public int HoldSeconds => Id == ArenaMapId.Citadel ? 15 : 0;
     public float KillHealthBonus => Id == ArenaMapId.Ascension ? 10 : 0;
@@ -31,16 +36,27 @@ public sealed class ArenaDefinition
     private readonly Lazy<(V2[] Positions, int[][] Neighbors)> _navigation;
 
     internal ArenaDefinition(ArenaMapId id, string name, float halfWidth, float halfHeight,
-        FloorSection[] floors, V2[] outline, Obstacle[] obstacles, V2[] points, float spawnX, V2[]? itemSpawns = null)
+        FloorSection[] floors, V2[] outline, Obstacle[] obstacles, V2[] points, float spawnX, V2[]? itemSpawns = null,
+        TeleportPair[]? teleports = null, MapEdge[]? eventGates = null)
     {
         Id = id; Name = name; HalfWidth = halfWidth; HalfHeight = halfHeight; _spawnX = spawnX;
         Floors = Array.AsReadOnly(floors); Obstacles = Array.AsReadOnly(obstacles); ControlPoints = Array.AsReadOnly(points);
         ItemSpawns = Array.AsReadOnly(itemSpawns ?? []);
+        Teleports = Array.AsReadOnly(teleports ?? []); EventGates = Array.AsReadOnly(eventGates ?? []);
         Boundary = Array.AsReadOnly(outline.Select((p, i) => new MapEdge(p, outline[(i + 1) % outline.Length])).ToArray());
         _navigation = new(BuildNavigation);
     }
 
-    public V2 Spawn(int team, int index) => new(team == 0 ? -_spawnX : _spawnX, (index % 4 - 1.5f) * 2.2f);
+    public V2 Spawn(int team, int index, int capturedPoints = 0)
+    {
+        if (SequentialCapture && capturedPoints > 0)
+        {
+            int count = Math.Clamp(capturedPoints, 1, ControlPoints.Count);
+            var point = ControlPoints[team == 0 ? count - 1 : ControlPoints.Count - count];
+            return point + new V2(team == 0 ? -7 : 7, (index % 4 - 1.5f) * 1.8f);
+        }
+        return new(team == 0 ? -_spawnX : _spawnX, (index % 4 - 1.5f) * 2.2f);
+    }
     public bool Inside(V2 p, float radius = 0) => p.IsFinite &&
         Floors.Any(f => MathF.Abs(p.X - f.Center.X) <= f.Width / 2 && MathF.Abs(p.Y - f.Center.Y) <= f.Height / 2) &&
         Boundary.All(e => Geometry.DistanceToSegment(p, e.A, e.B) > radius);
@@ -77,10 +93,11 @@ public sealed class ArenaDefinition
     }
 
     /// <summary>A*: rutas por pasillos y alrededor de pilares; no permite atajos por los patios sin suelo.</summary>
-    public V2[] FindPath(V2 from, V2 goal)
+    public V2[] FindPath(V2 from, V2 goal, Func<V2, V2, bool>? clearSegment = null)
     {
         if (!Walkable(from) || !Walkable(goal)) return [];
-        if (ClearPath(from, goal)) return [goal];
+        bool Clear(V2 a, V2 b) => ClearPath(a, b) && (clearSegment == null || clearSegment(a, b));
+        if (Clear(from, goal)) return [goal];
         var (positions, neighbors) = _navigation.Value;
         int Nearest(V2 p)
         {
@@ -88,7 +105,7 @@ public sealed class ArenaDefinition
             for (int i = 0; i < positions.Length; i++)
             {
                 float candidate = (positions[i] - p).LengthSquared;
-                if (candidate >= distance || !ClearPath(p, positions[i])) continue;
+                if (candidate >= distance || !Clear(p, positions[i])) continue;
                 best = i; distance = candidate;
             }
             return best;
@@ -110,6 +127,7 @@ public sealed class ArenaDefinition
             }
             foreach (int next in neighbors[at])
             {
+                if (clearSegment != null && !clearSegment(positions[at], positions[next])) continue;
                 float cost = costs[at] + V2.Distance(positions[at], positions[next]);
                 if (cost >= costs[next]) continue;
                 costs[next] = cost; previous[next] = at;
@@ -122,6 +140,30 @@ public sealed class ArenaDefinition
 
 internal static class ArenaMaps
 {
+    private static readonly ArenaDefinition Frontline = CreateFrontline();
+    private static ArenaDefinition CreateFrontline()
+    {
+        // Ocho tramos encadenados, con quiebros y ensanchamientos: 480 unidades de recorrido.
+        FloorSection[] floors = [new(new(-210, 0), 60, 24), new(new(-150, -12), 60, 20),
+            new(new(-90, 6), 60, 28), new(new(-30, -8), 60, 24), new(new(30, 8), 60, 24),
+            new(new(90, -6), 60, 28), new(new(150, 12), 60, 20), new(new(210, 0), 60, 24)];
+        var outline = floors.SelectMany(f => new V2[] {
+            new(f.Center.X - f.Width / 2, f.Center.Y - f.Height / 2),
+            new(f.Center.X + f.Width / 2, f.Center.Y - f.Height / 2) }).Concat(
+            floors.Reverse().SelectMany(f => new V2[] {
+                new(f.Center.X + f.Width / 2, f.Center.Y + f.Height / 2),
+                new(f.Center.X - f.Width / 2, f.Center.Y + f.Height / 2) })).ToArray();
+        return new(ArenaMapId.Frontline, "Frente de conquista", 240, 22, floors, outline,
+            [new(new(-90, -2), 1.4f, 2.8f), new(new(-90, 14), 1.4f, 2.8f),
+             new(new(-30, -15), 1.2f, 2.4f), new(new(30, 15), 1.2f, 2.4f),
+             new(new(90, -14), 1.4f, 2.8f), new(new(90, 2), 1.4f, 2.8f)],
+            [new(-168, -12), new(-84, 6), V2.Zero, new(84, -6), new(168, 12)], 230,
+            teleports: [new(new(-192, -7), new(-138, -17)), new(new(-42, -14), new(42, 14)),
+                new(new(138, 17), new(192, 7))],
+            eventGates: [new(new(-180, -12), new(-180, -2)), new(new(-120, -8), new(-120, -2)),
+                new(new(-60, -8), new(-60, 4)), new(new(0, -4), new(0, 4)),
+                new(new(60, -4), new(60, 8)), new(new(120, 2), new(120, 8)), new(new(180, 2), new(180, 12))]);
+    }
     private static readonly ArenaDefinition Classic = new(ArenaMapId.Classic, "Arena clásica", 22, 16,
         [new(V2.Zero, 44, 32)], [new(-22, -16), new(22, -16), new(22, 16), new(-22, 16)],
         ArenaMap.Obstacles.ToArray(), ArenaMap.ControlPoints.ToArray(), 18);
@@ -156,6 +198,7 @@ internal static class ArenaMaps
     public static ArenaDefinition Get(ArenaMapId id) => id switch
     {
         ArenaMapId.Classic => Classic, ArenaMapId.Citadel => Citadel, ArenaMapId.Ascension => Ascension, ArenaMapId.Relics => Relics,
+        ArenaMapId.Frontline => Frontline,
         _ => throw new ArgumentOutOfRangeException(nameof(id))
     };
 }

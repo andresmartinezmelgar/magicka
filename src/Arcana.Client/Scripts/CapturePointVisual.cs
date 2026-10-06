@@ -9,17 +9,14 @@ public partial class CapturePointVisual : Node3D
     private static readonly string[] Assets =
         ["fire.png", "ice.png", "nature.png", "arcane.png", "solar.png", "crystal.png"];
     private readonly ShaderMaterial _progressMaterial = new();
-    private Label3D _label = null!;
-    private int _id;
     private float _progress;
     public float DisplayedProgress => _progress;
     public bool Contested { get; private set; }
 
     public void Build(int id, V2 position, ArenaMapId map = ArenaMapId.Classic)
     {
-        _id = id;
         Position = ArenaRenderer.World(position);
-        // Los cuatro mapas alternan las dos láminas de tres círculos aportadas.
+        // Los mapas alternan las dos láminas de tres círculos aportadas.
         string path = $"res://Assets/CapturePoints/{Assets[(id + ((int)map % 2) * 3) % Assets.Length]}";
         var texture = ResourceLoader.Load<Texture2D>(path)
             ?? throw new InvalidDataException($"Falta el círculo mágico {path}.");
@@ -45,14 +42,6 @@ public partial class CapturePointVisual : Node3D
             Position = new(0, 0.09f, 0), MaterialOverride = _progressMaterial,
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off
         });
-        _label = new Label3D
-        {
-            Name = "CaptureLabel", Position = new(0, 0.37f, -2.65f), FontSize = 30,
-            PixelSize = 0.010f, OutlineSize = 0,
-            Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, NoDepthTest = true,
-            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off
-        };
-        AddChild(_label);
         Reset();
     }
 
@@ -67,10 +56,6 @@ public partial class CapturePointVisual : Node3D
         _progressMaterial.SetShaderParameter("progress", Math.Abs(_progress));
         _progressMaterial.SetShaderParameter("team_color", color);
         _progressMaterial.SetShaderParameter("brightness", point.Contested ? 0.65f + 0.35f * Mathf.Sin(time * 7) : 1f);
-        string team = _progress < -0.001f ? "AZUL" : _progress > 0.001f ? "ROJO" : "NEUTRAL";
-        _label.Text = $"{(char)('A' + point.Id)} · {team} {Math.Round(Math.Abs(_progress) * 100):0}%" +
-            (point.Contested ? " · DISPUTADO" : "");
-        _label.Modulate = point.Contested ? Ui.Text : color;
     }
 
     public void Reset()
@@ -78,7 +63,5 @@ public partial class CapturePointVisual : Node3D
         _progress = 0; Contested = false;
         _progressMaterial.SetShaderParameter("progress", 0f);
         _progressMaterial.SetShaderParameter("brightness", 1f);
-        _label.Text = $"{(char)('A' + _id)} · NEUTRAL 0%";
-        _label.Modulate = Ui.Text;
     }
 }

@@ -1,8 +1,10 @@
-# Arcana Arena — v0.12.14
+# Arcana Arena — v0.12.15
 
 Primera recreación jugable en C# del combate elemental de **Magicka: Wizard Wars**. Cliente 3D de escritorio con **Godot 4.5.2 .NET**, servidor independiente **ASP.NET Core / .NET 8**, Docker, launcher con conexión por IP/LAN, salas independientes y paquete Windows para abrir con doble clic y APK Android con controles táctiles.
 
 El código, las mallas y los sonidos son propios. Los sprites de los magos se han generado para este proyecto. Esta versión reproduce la estructura del combate; los gráficos, mapas, magicks y valores de daño son una aproximación, no una reproducción exacta del original.
+
+**v0.12.15:** Frente de conquista: pasillo irregular de 480 unidades, cinco capturas consecutivas y reaparición que avanza o retrocede con el terreno. Tres pares de portales, meteoros aleatorios y muros destructibles. Círculos sin nombres ni etiquetas y escudos sin borde negro. Requiere cliente y servidor actualizados al protocolo 9. [Cambios](docs/RELEASE-v0.12.15.md).
 
 **v0.12.14:** Seis círculos mágicos transparentes en los puntos de control, colores originales y anillo luminoso de progreso sin borde oscuro. Comprobación final de licencias del SDK Android, incluso cuando sdkmanager devuelve cero. [Cambios](docs/RELEASE-v0.12.14.md).
 
@@ -86,7 +88,7 @@ Descargar el código con **Code → Download ZIP** y extraer todo, o actualizar 
 
 El resultado queda en **`Juego/ArcanaArena.exe`**. Cada compilación correcta **sustituye completamente `Juego/`**, incluidos los archivos antiguos. Cerrar el juego antes de recompilar. Si la compilación falla, se conserva el resultado anterior. Registro: `artifacts/compilacion-*.log`. No requiere Visual Studio ni instalación de administrador. [Proceso y compilación manual](docs/EXPORTAR.md).
 
-Para **Android**, abrir **`Compilar-APK.cmd`**. Prepara .NET 8, Godot 4.5.2 .NET, OpenJDK 17 y el SDK Android 35 en `.tools/`; la primera ejecución necesita Internet, varios GB libres y aceptar las licencias que muestra el SDK. Genera **`artifacts/android/ArcanaArena-v0.12.14-Android-arm64.apk`**, lista para instalar en un móvil ARM64 con Android 8 o posterior. Reutiliza la firma local en las siguientes compilaciones y conserva la APK anterior si falla. Registro: `artifacts/compilacion-apk-*.log`. [Opciones y compilación manual](docs/ANDROID.md#compilación-y-comprobaciones).
+Para **Android**, abrir **`Compilar-APK.cmd`**. Prepara .NET 8, Godot 4.5.2 .NET, OpenJDK 17 y el SDK Android 35 en `.tools/`; la primera ejecución necesita Internet, varios GB libres y aceptar las licencias que muestra el SDK. Genera **`artifacts/android/ArcanaArena-v0.12.15-Android-arm64.apk`**, lista para instalar en un móvil ARM64 con Android 8 o posterior. Reutiliza la firma local en las siguientes compilaciones y conserva la APK anterior si falla. Registro: `artifacts/compilacion-apk-*.log`. [Opciones y compilación manual](docs/ANDROID.md#compilación-y-comprobaciones).
 
 La CI comprueba las compilaciones al actualizar `main`. Publicar los ejecutables como una Release requiere iniciar manualmente **Arcana Arena CI** en `main` y activar **`publish_release`**; por defecto queda desactivado.
 
@@ -97,7 +99,7 @@ La CI comprueba las compilaciones al actualizar `main`. Publicar los ejecutables
 - **Guerra en Arena clásica:** reducir a cero los tickets rivales; controlar más puntos los desgasta cada segundo y cada muerte cuesta un ticket.
 - **Guerra en Ciudadela:** controlar los tres puntos sin disputa durante **15 segundos consecutivos**. Disputar o neutralizar cualquiera reinicia el contador; no hay victoria por tickets o bajas.
 
-Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). El combate usa **protocolo 8**. La versión v0.12.14 es compatible con v0.10.0, v0.11.0, v0.11.1, v0.12.0, v0.12.1, v0.12.2, v0.12.3, v0.12.4, v0.12.5, v0.12.6, v0.12.7, v0.12.8, v0.12.9, v0.12.10, v0.12.11, v0.12.12 y v0.12.13; las versiones con protocolos anteriores se rechazan en el saludo. El daño progresivo del láser requiere un servidor v0.12.5 o posterior. Las apariciones aleatorias requieren un servidor v0.12.8; la intensidad del escudo y el halo de invulnerabilidad usan los nuevos campos opcionales del snapshot.
+Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). El combate usa **protocolo 9**. Actualiza cliente y servidor a v0.12.15: los protocolos anteriores se rechazan en el saludo porque no admiten el nuevo mapa ni sus cinco puntos de control.
 
 ## Mapas
 
@@ -107,8 +109,9 @@ Los valores de la sala prevalecen sobre los valores por defecto. [Reglas complet
 | Ciudadela de los pasillos | 5.632 unidades², exactamente 4× | Ciudad con calles y plazas, fachadas, tejados, toldos y faroles. Tres salas de 22×64 y dos pasillos de 22×32. | Mantener los tres puntos durante 15 segundos consecutivos. |
 | Coliseo de la ascensión | 2.688 unidades² | Ruinas de piedra cubiertas de vegetación, suelo en cruz y catorce objetos aleatorios. | Desgastar los tickets rivales; +10 de vida por baja y +0,5 s de reaparición por muerte. |
 | Santuario de las reliquias | 4.032 unidades² | Bosque de 72×56 con menhires, cristales y catorce objetos simétricos. | Desgastar los tickets rivales; objetos con mejoras acumulables hasta morir. |
+| Frente de conquista | 11.520 unidades² | Pasillo irregular de 480 unidades, ocho tramos, pasos estrechos y tres pares de portales. Meteoros y muros de piedra aleatorios. | Conquistar los cinco puntos en orden. La reaparición avanza o retrocede con el terreno; no hay puntuación de bajas ni tickets. |
 
-La cámara sigue al mago por el escenario grande. El minimapa representa el suelo, sus límites y los objetos disponibles. Los patios sin suelo bloquean caminar, rayos, proyectiles y traslación. El desplazamiento al cursor y los bots buscan una ruta por los pasillos. Duelo y todos contra todos conservan sus condiciones de victoria en los cuatro mapas. En Ascensión se añaden las reglas de vida y reaparición.
+La cámara sigue al mago por el escenario grande. El minimapa representa suelo, límites, objetos, portales, muros y avisos de meteoros. Los patios sin suelo bloquean caminar, rayos, proyectiles y traslación. El desplazamiento al cursor y los bots buscan una ruta por los pasillos y evitan muros; en el frente los bots atacan las paredes que bloquean el avance. Duelo y todos contra todos conservan sus condiciones de victoria en los cuatro mapas anteriores. Frente de conquista se juega exclusivamente en Guerra. En Ascensión se añaden las reglas de vida y reaparición.
 
 En **Ascensión**, cada baja de otro mago suma 10 a tu vida máxima y a la actual si sigues vivo. Se conserva al morir y al ser reanimado; curaciones y minas respetan el máximo individual. Cada muerte aumenta 0,5 segundos la espera base del modo, hasta 10: la primera tarda 3 segundos en duelo y 4,5 en arena/guerra. La siguiente partida reinicia vida y penalización. [Reglas y tiempos](docs/COMO-GANAR.md#coliseo-de-la-ascensión).
 

@@ -66,6 +66,8 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             request.ScoreLimit is < 1 or > 200 || request.Tickets is < 5 or > 1000 ||
             (request.Mode == GameMode.Duel && request.MaxPlayers != 2))
             return (null, "Datos inválidos. Duelo requiere 2 plazas; deja al menos una plaza libre de bots.", 400);
+        if (!ArenaMap.Get(request.Map).SupportsMode(request.Mode))
+            return (null, "Frente de conquista requiere el modo Guerra; la victoria se consigue capturando sus cinco puntos.", 400);
         lock (_gate)
         {
             RemoveIdleRooms();

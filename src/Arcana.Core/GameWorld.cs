@@ -30,6 +30,7 @@ public sealed partial class GameWorld
     public WorldOptions Options { get; }
     public ArenaDefinition Map { get; }
     public bool HoldToWin => Options.Mode == GameMode.Warfare && Map.HoldSeconds > 0;
+    public bool ConquestToWin => Options.Mode == GameMode.Warfare && Map.SequentialCapture;
     public int HoldingTeam { get; private set; } = -1;
     public float HoldSeconds => _holdTicks / 60f;
     public long Tick { get; private set; }
@@ -44,6 +45,7 @@ public sealed partial class GameWorld
     {
         Options = options ?? new();
         Map = ArenaMap.Get(Options.Map);
+        if (!Map.SupportsMode(Options.Mode)) throw new ArgumentException("Frente de conquista requiere el modo Guerra.", nameof(options));
         _random = new(Options.Seed);
         _points = Map.ControlPoints.Select((p, i) => new ControlPoint { Id = i, Position = p }).ToArray();
         _pickupRandom = new(Options.PickupSeed ?? Random.Shared.Next());
@@ -63,7 +65,8 @@ public sealed partial class GameWorld
         if (string.IsNullOrWhiteSpace(cleanName)) cleanName = "Mago";
         var wizard = new Wizard { Id = _nextPlayer++, Name = cleanName.Trim(), Team = team, Bot = bot, WizardType = wizardType };
         wizard.Position = Options.Mode == GameMode.Arena ? ArenaSpawnPosition(wizard, null)
-            : Map.Spawn(team, _players.Values.Count(p => p.Team == team));
+            : TeamSpawn(team, _players.Values.Count(p => p.Team == team));
+        if (ConquestToWin && !Walkable(wizard.Position)) wizard.Position = RespawnPosition(wizard);
         wizard.Facing = new(team == 0 ? 1 : -1, 0);
         wizard.LastInput = Time;
         _players.Add(wizard.Id, wizard);
@@ -92,7 +95,8 @@ public sealed partial class GameWorld
             // No conserva una referencia mutable recibida del exterior.
             p.Input = new ClientMessage { Type = "input", Sequence = message.Sequence, MoveTo = message.MoveTo,
                 MoveX = Math.Clamp(message.MoveX, -1, 1), MoveY = Math.Clamp(message.MoveY, -1, 1),
-                AimX = Math.Clamp(message.AimX, -100, 100), AimY = Math.Clamp(message.AimY, -100, 100),
+                AimX = Math.Clamp(message.AimX, -Math.Max(100, Map.HalfWidth), Math.Max(100, Map.HalfWidth)),
+                AimY = Math.Clamp(message.AimY, -Math.Max(100, Map.HalfHeight), Math.Max(100, Map.HalfHeight)),
                 TargetX = Math.Clamp(message.TargetX, -Map.HalfWidth, Map.HalfWidth),
                 TargetY = Math.Clamp(message.TargetY, -Map.HalfHeight, Map.HalfHeight) };
             p.LastSequence = message.Sequence;
@@ -159,6 +163,7 @@ public sealed partial class GameWorld
             }
         }
         TickPickups(dt);
+        TickFrontline(dt);
         // Todos se mueven antes de resolver los canales: cruzar rayos no depende del orden de los jugadores.
         TickChannels(dt);
         TickProjectiles(dt);
@@ -222,7 +227,8 @@ public sealed partial class GameWorld
         if (ClearMovement(p.Position, y)) p.Position = y;
     }
 
-    private bool ClearMovement(V2 from, V2 to) => Map.ClearPath(from, to) &&
+    private bool ClearMovement(V2 from, V2 to) => Map.ClearPath(from, to) && ClearWalls(from, to);
+    private bool ClearWalls(V2 from, V2 to) =>
         !_walls.Any(w => w.Health > 0 && Geometry.SegmentCapsule(from, to, w.A, w.B, ArenaMap.WizardRadius + 0.18f) != null);
 
     public bool Walkable(V2 position)
@@ -549,7 +555,7 @@ public sealed partial class GameWorld
         target.Deaths++; target.Respawn = Map.RespawnSeconds(Options.Mode, target.Deaths);
         RelicBuffs.Clear(target);
         CancelCast(target); target.Selection.Clear(); target.Shield = target.ShieldMax = target.ShieldTime = target.RegenerationRate = 0;
-        if (Options.Mode == GameMode.Warfare && !HoldToWin) Scores[target.Team] = Math.Max(0, Scores[target.Team] - 1);
+        if (Options.Mode == GameMode.Warfare && !HoldToWin && !ConquestToWin) Scores[target.Team] = Math.Max(0, Scores[target.Team] - 1);
         string text = $"{target.Name} ha caído";
         if (_players.TryGetValue(owner, out var killer) && killer.Id != target.Id)
         {
@@ -653,17 +659,23 @@ public sealed partial class GameWorld
 
     private void TickCapture(float dt)
     {
+        // Se fijan los dos objetivos antes de resolver el tick: nunca se captura una cadena de golpe.
+        int blueTarget = ConquestToWin ? FrontierTarget(0) : -1;
+        int redTarget = ConquestToWin ? FrontierTarget(1) : -1;
         foreach (var point in _points)
         {
             int blue = _players.Values.Count(p => p.Alive && p.Team == 0 && V2.Distance(p.Position, point.Position) < 3);
             int red = _players.Values.Count(p => p.Alive && p.Team == 1 && V2.Distance(p.Position, point.Position) < 3);
             point.Contested = blue > 0 && red > 0 || HoldToWin && (point.Owner == 0 && red > 0 || point.Owner == 1 && blue > 0);
             if (blue > 0 && red > 0 || blue + red == 0) continue;
+            int team = red > 0 ? 1 : 0;
+            if (ConquestToWin && point.Owner != team && point.Id != (team == 0 ? blueTarget : redTarget)) continue;
             point.Progress = Math.Clamp(point.Progress + (red > 0 ? 1 : -1) * dt * 0.24f, -1, 1);
             if (point.Owner == 0 && point.Progress > -0.6f || point.Owner == 1 && point.Progress < 0.6f) point.Owner = -1;
             if (point.Progress <= -0.99f) point.Owner = 0;
             if (point.Progress >= 0.99f) point.Owner = 1;
         }
+        if (ConquestToWin) return;
         if (HoldToWin)
         {
             int team = _points[0].Owner;
@@ -688,7 +700,12 @@ public sealed partial class GameWorld
         int winner = -1;
         if (Options.Mode == GameMode.Warfare)
         {
-            if (HoldToWin)
+            if (ConquestToWin)
+            {
+                int team = _points[0].Owner;
+                if (team >= 0 && _points.All(p => p.Owner == team && !p.Contested)) winner = team;
+            }
+            else if (HoldToWin)
             {
                 if (_holdTicks >= Map.HoldSeconds * 60) winner = HoldingTeam;
             }
@@ -713,7 +730,7 @@ public sealed partial class GameWorld
 
     private void ResetScores()
     {
-        Scores[0] = Scores[1] = Options.Mode == GameMode.Warfare ? Options.Tickets : 0;
+        Scores[0] = Scores[1] = Options.Mode == GameMode.Warfare && !ConquestToWin ? Options.Tickets : 0;
         _ticketClock = 0;
         _holdTicks = 0; HoldingTeam = -1; _routes.Clear();
     }
@@ -721,6 +738,7 @@ public sealed partial class GameWorld
     {
         MatchEnded = false; Winner = -1; RestartIn = 0;
         ResetScores(); _projectiles.Clear(); _walls.Clear(); _fields.Clear();
+        ResetFrontline();
         foreach (var point in _points) { point.Owner = -1; point.Progress = 0; point.Contested = false; }
         foreach (var item in _pickups) { item.Respawn = 0; if (Map.RandomPickups) RelocatePickup(item); }
         foreach (var p in _players.Values) { p.Kills = p.Deaths = 0; RelicBuffs.Clear(p); p.MaxHealth = Wizard.BaseMaxHealth; Respawn(p); p.Energy = 100; Array.Clear(p.MagickCooldowns); }
@@ -734,6 +752,8 @@ public sealed partial class GameWorld
         p.RegenerationRate = 0;
         p.Ward = []; p.Knockback = V2.Zero; p.Selection.Clear(); CancelCast(p);
         p.BurnMultiplier = 1; p.HitEffectCooldown = 0;
+        p.TeleportCooldown = 0;
+        p.TeleportNeedsExit = false;
         p.Input.MoveTo = false; p.Input.MoveX = p.Input.MoveY = 0; p.Respawn = 0;
         p.ShieldCharges = 1;
         p.Invulnerable = Options.Mode == GameMode.Arena ? 1 : 1.2f; p.ActionCooldown = 0;
@@ -742,10 +762,10 @@ public sealed partial class GameWorld
     private V2 RespawnPosition(Wizard p)
     {
         if (Options.Mode == GameMode.Arena) return ArenaSpawnPosition(p, p.Deaths > 0 ? p.Position : null);
-        var preferred = Map.Spawn(p.Team, p.Id % 4);
+        var preferred = TeamSpawn(p.Team, p.Id % 4);
         for (int offset = 0; offset < 4; offset++)
         {
-            var spawn = Map.Spawn(p.Team, (p.Id + offset) % 4);
+            var spawn = TeamSpawn(p.Team, (p.Id + offset) % 4);
             if (Walkable(spawn)) return spawn;
         }
         // Si los cuatro puestos están cubiertos, busca suelo libre cerca de la base.
@@ -771,7 +791,8 @@ public sealed partial class GameWorld
         }
         V2 goal = target?.Position ?? Map.ControlPoints[p.Id % Map.ControlPoints.Count];
         if (Options.Mode == GameMode.Warfare && (target == null || V2.Distance(p.Position, target.Position) > 12))
-            goal = _points.Where(q => q.Owner != p.Team || q.Contested).OrderBy(q => V2.Distance(q.Position, p.Position)).FirstOrDefault()?.Position
+            goal = (ConquestToWin ? _points.Where(q => q.Id == FrontierTarget(p.Team)) : _points.Where(q => q.Owner != p.Team || q.Contested))
+                .OrderBy(q => V2.Distance(q.Position, p.Position)).FirstOrDefault()?.Position
                 ?? _points[p.Id % _points.Length].Position;
         float distance = target == null ? 100 : V2.Distance(p.Position, target.Position);
         if (_pickups.Length > 0 && (target == null || distance > 9))
@@ -801,6 +822,7 @@ public sealed partial class GameWorld
             else for (int i = 0; i < 3; i++) p.Selection.Add(Element.Life);
             SelfCast(p); return;
         }
+        if (ConquestToWin && (target == null || distance > 12) && TryAttackFrontlineWall(p)) return;
         if (target == null || distance > 18) return;
         if (p.Shield <= 0 && _random.Next(8) == 0)
         {

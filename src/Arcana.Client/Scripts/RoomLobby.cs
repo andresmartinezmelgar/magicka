@@ -137,7 +137,11 @@ public partial class RoomLobby : Control
     private void ShowCreationObjective()
     {
         var mode = (GameMode)_mode.GetSelectedId(); var map = (ArenaMapId)_map.GetSelectedId();
-        _tickets.Editable = !_busy && mode == GameMode.Warfare && ArenaMap.Get(map).HoldSeconds == 0;
+        var definition = ArenaMap.Get(map);
+        for (int i = 0; i < _mode.ItemCount; i++) _mode.SetItemDisabled(i, !definition.SupportsMode((GameMode)_mode.GetItemId(i)));
+        if (!definition.SupportsMode(mode)) { _mode.Select(_mode.GetItemIndex((int)GameMode.Warfare)); mode = GameMode.Warfare; }
+        _capacity.Editable = !_busy && mode != GameMode.Duel;
+        _tickets.Editable = !_busy && mode == GameMode.Warfare && definition.HoldSeconds == 0 && !definition.SequentialCapture;
         _score.Editable = !_busy && mode != GameMode.Warfare;
         _creationObjective.Text = MatchRules.Objective(mode, (int)_score.Value, (int)_tickets.Value, map);
     }

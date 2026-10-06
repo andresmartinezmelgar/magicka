@@ -11,6 +11,7 @@ La sala muestra su objetivo antes de entrar. Durante la partida aparece bajo el 
 | Guerra · Arena clásica | Dejar al equipo rival con cero tickets. | Capturar y conservar los tres puntos, y causar bajas enemigas. |
 | Guerra · Ciudadela | Controlar los tres puntos sin disputa durante 15 segundos seguidos. | Capturar todos, impedir ataques y defender el control hasta completar el contador. |
 | Guerra · Ascensión | Dejar al equipo rival con cero tickets. | Capturar puntos y causar bajas; cada baja aumenta la vida máxima y cada muerte prolonga la reaparición. |
+| Guerra · Frente de conquista | Controlar los cinco puntos en orden. | Ganar terreno desde tu extremo; cada captura adelanta la reaparición y cada pérdida la hace retroceder. No hay puntos por bajas ni tickets. |
 
 ## Guerra en Arena clásica
 
@@ -59,7 +60,17 @@ La guerra se decide por tickets; duelo y todos contra todos mantienen sus objeti
 
 ## Límites, reaparición y nueva partida
 
-En **todos contra todos**, cada entrada, reaparición y nueva partida coloca al mago en una posición aleatoria del mapa, independiente de su equipo. Se evita aparecer sobre obstáculos, muros, otros jugadores y campos peligrosos siempre que quede espacio. Una envoltura dorada y el texto **INMUNE** indican el segundo de protección: durante ese tiempo no recibes daño, estados ni empujes. Duelo y guerra mantienen sus bases de equipo.
+### Frente de conquista
+
+El azul avanza desde la izquierda y el rojo desde la derecha. Los cinco círculos empiezan neutrales. Solo puedes capturar el primer punto que todavía no controla tu equipo desde su base: primero el libre más cercano, o el primer punto enemigo cuando los frentes se encuentran. Un jugador infiltrado no puede neutralizar ni conquistar los puntos posteriores. La disputa con ambos equipos dentro detiene la captura.
+
+Cada punto conquistado sitúa la reaparición siete unidades detrás de él. Las entradas tardías usan ese mismo frente. Si el enemigo neutraliza un punto, la reaparición retrocede al último punto que sigue conectado a la base. Controlar los cinco puntos decide la victoria; las bajas y los tickets no suman ni restan un marcador para ganar. El mapa solo admite Guerra.
+
+Tres pares de portales conectan tramos del pasillo. Camina sobre uno para trasladarte al otro; hay dos segundos de enfriamiento y la salida debe estar libre. Debes salir del círculo de llegada antes de volver a usar un portal, para evitar traslados involuntarios de ida y vuelta. Los portales tienen colores e indicadores comunes entre sus dos extremos. La captura sigue respetando el orden aunque te traslades detrás del enemigo.
+
+Cada 12–22 segundos puede aparecer un meteoro o un muro; el primer evento se produce a los 10–18 segundos. El meteoro avisa durante 1,4 segundos y puede dañar a ambos equipos, incluso con fuego amigo desactivado. Los muros bloquean un paso estrecho, reciben daño de hechizos y desaparecen al destruirlos o al cabo de 30 segundos. Se evita materializarlos sobre jugadores y cerca de las reapariciones.
+
+En **todos contra todos**, cada entrada, reaparición y nueva partida coloca al mago en una posición aleatoria del mapa, independiente de su equipo. Se evita aparecer sobre obstáculos, muros, otros jugadores y campos peligrosos siempre que quede espacio. Una envoltura dorada y el texto **INMUNE** indican el segundo de protección: durante ese tiempo no recibes daño, estados ni empujes. Duelo y guerra mantienen sus bases de equipo; en Frente de conquista la base avanza y retrocede con los puntos controlados.
 
 El creador elige el límite de bajas y, en Arena clásica, Ascensión o Santuario, los tickets. Por defecto, duelo y arena se juegan a **15 bajas**; el duelo de práctica se juega a **5**. En Arena clásica, Ciudadela y Santuario reapareces a los **2,5 segundos** en duelo y a los **4** en arena y guerra. Ascensión añade la penalización indicada arriba. Tras anunciar al ganador, comienza otra partida a los **9 segundos**, con los marcadores restablecidos y el mismo tipo de mago.
 

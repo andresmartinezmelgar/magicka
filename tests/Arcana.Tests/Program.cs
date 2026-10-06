@@ -32,6 +32,8 @@ void Run(GameWorld w, Wizard p, int ticks)
 void Select(GameWorld w, Wizard p, params Element[] elements)
 { foreach (var element in elements) Send(w, p, "element", element); }
 
+FrontlineTests.Run(Test);
+
 Test("Límite de tres elementos y cancelación de incompatibles", () =>
 {
     var buffer = new ElementBuffer();
@@ -775,12 +777,13 @@ Test("Traslación: usa el último destino aunque no haya pasado un tick y respet
 {
     foreach (var map in Enum.GetValues<ArenaMapId>())
     {
-        var world = new GameWorld(new() { Map = map, Mode = GameMode.Arena });
+        var world = new GameWorld(new() { Map = map, Mode = ArenaMap.Get(map).SequentialCapture ? GameMode.Warfare : GameMode.Arena });
         var player = world.AddPlayer("Giro inmediato")!;
-        player.Position = V2.Zero; player.Facing = new(1, 0);
-        Send(world, player, "input", aim: new(0, 7));
+        var origin = map == ArenaMapId.Frontline ? new V2(-150, -12) : V2.Zero;
+        player.Position = origin; player.Facing = new(1, 0);
+        Send(world, player, "input", aim: origin + new V2(0, 7));
         Send(world, player, "magick", slot: 1);
-        Check(Math.Abs(player.Position.X) < 0.0001f && player.Position.Y > 6.5f,
+        Check(Math.Abs(player.Position.X - origin.X) < 0.0001f && player.Position.Y > origin.Y + 6.5f,
             "Traslación reutilizó la orientación del tick anterior en " + map);
         Check(player.Facing == new V2(0, 1) && !player.Input.MoveTo && world.Map.Walkable(player.Position),
             "El salto no dejó orientación y posición coherentes.");
@@ -1207,7 +1210,7 @@ Test("La reaparición encuentra suelo libre aunque los cuatro puestos estén cub
 });
 Test("Todos contra todos reparte entradas y reapariciones por los cuatro mapas", () =>
 {
-    foreach (var map in Enum.GetValues<ArenaMapId>())
+    foreach (var map in Enum.GetValues<ArenaMapId>().Where(m => ArenaMap.Get(m).SupportsMode(GameMode.Arena)))
     {
         var world = new GameWorld(new() { Mode = GameMode.Arena, Map = map, MaxPlayers = 16, SpawnSeed = 902, PickupSeed = 1 });
         var players = Enumerable.Range(0, 16).Select(i => world.AddPlayer("Mago " + i, i % 2)!).ToArray();
@@ -1364,15 +1367,20 @@ Test("Validación de snapshots acepta combates y rechaza estado parcial o no fin
         Check(rejected, "Se aceptó un estado que rompe el renderer.");
     }
 });
-Test("Snapshots: límites espaciales antes del renderer y combate válido en los cuatro mapas", () =>
+Test("Snapshots: límites espaciales antes del renderer y combate válido en los cinco mapas", () =>
 {
     foreach (var id in Enum.GetValues<ArenaMapId>())
     {
-        var world = new GameWorld(new() { Map = id, Mode = GameMode.Arena, MaxPlayers = 16, Bots = 16, Seed = 41, SpawnSeed = 27, PickupSeed = 31 });
+        var world = new GameWorld(new() { Map = id, Mode = ArenaMap.Get(id).SequentialCapture ? GameMode.Warfare : GameMode.Arena,
+            MaxPlayers = 16, Bots = 16, Seed = 41, SpawnSeed = 27, PickupSeed = 31, EnvironmentSeed = 21 });
         for (int tick = 0; tick < 900; tick++)
         {
             world.Step();
-            if (tick % 30 == 0) SnapshotValidation.Check(world.Snapshot());
+            if (tick % 30 == 0)
+            {
+                try { SnapshotValidation.Check(world.Snapshot()); }
+                catch (InvalidDataException e) { throw new Exception($"{id}, tick {tick}: {e.Message}"); }
+            }
         }
         var state = world.Snapshot(); var map = world.Map; var player = state.Players[0];
         var huge = new V2(float.MaxValue, float.MaxValue);
@@ -1403,7 +1411,8 @@ Test("Snapshots: límites espaciales antes del renderer y combate válido en los
         SnapshotValidation.Check(state with { Projectiles = [], Walls = [], Fields = [],
             Beams = [new(player.Id, midpoint, midpoint, [Element.Arcane], SpellShape.Beam)],
             Events = [new(1, "melee", midpoint + (midpoint - V2.Zero).Normalized * 0.5f, [], "")] });
-        SnapshotValidation.Check(state with { Beams = [new(player.Id, new(4, -5), new(4, 5), [Element.Lightning], SpellShape.Lightning)] });
+        var lightningOrigin = id == ArenaMapId.Frontline ? new V2(-150, -12) : new V2(4, 0);
+        SnapshotValidation.Check(state with { Beams = [new(player.Id, lightningOrigin + new V2(0, -5), lightningOrigin + new V2(0, 5), [Element.Lightning], SpellShape.Lightning)] });
     }
 });
 Test("Snapshots rechazan entidades y eventos repetidos, eventos desordenados y carga o vida contradictorias", () =>
@@ -1560,6 +1569,7 @@ async Task WaitFor(Func<bool> ready, string reason)
 if (server != null)
 {
     string password = Environment.GetEnvironmentVariable("TEST_PASSWORD") ?? "";
+    await FrontlineTests.RunNetwork(server, password, AsyncTest);
     await AsyncTest("Crear salas con opciones, enumerarlas y aislar estado aunque los IDs coincidan", async () =>
     {
         var roomA = await RoomBrowser.CreateAsync(server, new() { Name = "Prueba aislamiento A", ServerPassword = password,

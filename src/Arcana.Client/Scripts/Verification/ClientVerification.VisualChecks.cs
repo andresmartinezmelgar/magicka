@@ -21,10 +21,9 @@ public partial class ClientVerification
             if (!visual.Stone)
             {
                 var geometry = visual.GetChildren().OfType<Node3D>().First();
-                var outline = geometry.GetNode<MeshInstance3D>("BarrierArchOutline");
                 var color = geometry.GetNode<MeshInstance3D>("BarrierArchColor");
-                if (outline.Mesh.GetSurfaceCount() != 1 || color.Mesh.GetSurfaceCount() != 1 ||
-                    outline.Mesh.GetAabb().Size.Z < 6 || color.Mesh.GetAabb().Size.Y < 0.65f ||
+                if (geometry.HasNode("BarrierArchOutline") || color.Mesh.GetSurfaceCount() != 1 ||
+                    color.Mesh.GetAabb().Size.Z < 6 || color.Mesh.GetAabb().Size.Y < 0.65f ||
                     geometry.GetChildren().OfType<MeshInstance3D>().Count() > 32) return false;
             }
             _runtime.Renderer.Render(empty with { Tick=2, Walls=[wall with { Health=0, Lifetime=0 }] },0,1/60.0,true);

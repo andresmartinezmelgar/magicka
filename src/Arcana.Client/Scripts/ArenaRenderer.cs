@@ -65,7 +65,7 @@ public partial class ArenaRenderer : Node3D
         };
         _sun = light; AddChild(light);
         Camera = new Camera3D { Projection = Camera3D.ProjectionType.Orthogonal, Size = _zoom,
-            Position = new(0, 27, 21), Current = true, Far = 180 };
+            Position = new(0, 27, 21), Current = true, Far = 600 };
         AddChild(Camera); Camera.LookAt(Vector3.Zero);
         BuildMap();
     }
@@ -79,7 +79,7 @@ public partial class ArenaRenderer : Node3D
         return new(Math.Clamp(p.X, -_map.HalfWidth, _map.HalfWidth), Math.Clamp(p.Z, -_map.HalfHeight, _map.HalfHeight));
     }
     public void Zoom(float delta) => _zoom = Math.Clamp(_zoom + delta, 17, 34);
-    internal void SetPreviewZoom(float size) => _zoom = Math.Clamp(size, 10, Math.Max(34, _map.HalfHeight * 2 + 10));
+    internal void SetPreviewZoom(float size) => _zoom = Math.Clamp(size, 10, Math.Max(34, Math.Max(_map.HalfHeight * 2, _map.HalfWidth * 2) + 10));
     internal float CurrentZoom => _zoom;
     public void Clear()
     {
@@ -151,6 +151,7 @@ public partial class ArenaRenderer : Node3D
         {
             var visual = new CapturePointVisual(); rootMap.AddChild(visual); visual.Build(p.id, p.position, _map.Id); _points[p.id] = visual;
         }
+        BuildFrontline(rootMap);
     }
 
     public void Render(WorldSnapshot snapshot, int localId, double delta, bool playing)
@@ -188,6 +189,7 @@ public partial class ArenaRenderer : Node3D
             var visual = _points[point.Id];
             visual.Update(point, dt, (float)_time);
         }
+        UpdateFrontline(snapshot, (float)_time);
         DrawProjectiles(snapshot, dt);
         DrawWalls(snapshot, dt);
         DrawFields(snapshot, dt);

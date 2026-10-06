@@ -1,5 +1,16 @@
 # Cambios
 
+## v0.12.15
+
+- Nuevo Frente de conquista: pasillo irregular de 480 unidades y cinco puntos consecutivos. Cada equipo solo captura el primer punto libre o enemigo desde su base; el servidor bloquea saltos e infiltraciones posteriores.
+- Reaparición y entradas tardías detrás del último punto conectado a la base. El frente retrocede al perder o neutralizar terreno. Victoria al controlar los cinco puntos, sin bajas, tickets ni contador de puntuación.
+- Tres pares de portales bidireccionales, con enfriamiento y salidas transitables. Meteoros aleatorios con aviso previo y muros de piedra destructibles de 30 segundos; daños ambientales independientes del fuego amigo.
+- Bots que persiguen el objetivo permitido, evitan muros en sus rutas y atacan las paredes ambientales. Minimapa con portales, avisos, muros y reapariciones avanzadas.
+- Eliminadas las etiquetas de los círculos de captura y las mallas negras que bordeaban los escudos.
+- Apuntado ampliado para cubrir los extremos del mapa. Validación de red con el número de puntos de cada mapa y protocolo 9; cliente y servidor deben actualizarse juntos.
+- Regresiones de captura, neutralización, disputa, victoria, respawn, portales, peligros, reinicio, red y cliente Godot.
+- [Detalles de la versión](docs/RELEASE-v0.12.15.md).
+
 ## v0.12.14
 
 - Seis círculos mágicos transparentes para los puntos de control, alternados por mapa y con sus colores originales; eliminados el disco, el borde oscuro y el cristal central.

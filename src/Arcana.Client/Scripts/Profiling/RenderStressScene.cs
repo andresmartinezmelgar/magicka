@@ -13,7 +13,8 @@ internal sealed class RenderStressScene
 
     internal RenderStressScene(ArenaMapId mapId)
     {
-        var world = new GameWorld(new() { Map = mapId, Mode = GameMode.Arena, MaxPlayers = Players, SpawnSeed = 271, PickupSeed = 271 });
+        var world = new GameWorld(new() { Map = mapId, Mode = ArenaMap.Get(mapId).SequentialCapture ? GameMode.Warfare : GameMode.Arena,
+            MaxPlayers = Players, SpawnSeed = 271, PickupSeed = 271 });
         for (int i = 0; i < Players; i++) world.AddPlayer("Mago " + (i + 1), i % 2, wizardType: (WizardType)(i % 5));
         var map = _map = world.Map;
         var candidates = new List<V2>();

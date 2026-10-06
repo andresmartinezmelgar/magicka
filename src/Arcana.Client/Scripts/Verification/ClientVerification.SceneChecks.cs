@@ -25,11 +25,13 @@ public partial class ClientVerification
         var choice = (OptionButton)_runtime.Launcher.FindChild("PracticeMapChoice", true, false);
         var objective = (Label)_runtime.Hud!.FindChild("MatchObjective", true, false);
         var map = ArenaMap.Get(snapshot.Map);
-        bool valid = choice.ItemCount == Enum.GetValues<ArenaMapId>().Length && _runtime.Renderer.CurrentMap == snapshot.Map && _runtime.Renderer.Points.Count == 3 &&
+        bool valid = choice.ItemCount == Enum.GetValues<ArenaMapId>().Length && _runtime.Renderer.CurrentMap == snapshot.Map && _runtime.Renderer.Points.Count == map.ControlPoints.Count &&
             _runtime.Renderer.SceneryTheme == map.Theme && (map.Theme == ArenaTheme.City ? _runtime.Renderer.SceneryBuildings >= 12 : _runtime.Renderer.SceneryTrees >= 20) &&
             _runtime.Renderer.GetChildren().Count(n => n.Name == "MapGeometry") == 1 &&
             snapshot.Points.All(p => _runtime.Renderer.Points[p.Id].Position == ArenaRenderer.World(p.Position));
         if (snapshot.Map == ArenaMapId.Citadel) valid &= objective.Text.Contains($"{snapshot.HoldSeconds:0.0} / 15 s") && Math.Abs(_runtime.Renderer.Camera.Position.X) > 40;
+        else if (map.SequentialCapture) valid &= objective.Text.Contains("cinco") && !objective.Text.Contains("tickets") &&
+            _runtime.Renderer.FindChildren("TeleportPortal*", "", true, false).Count == map.Teleports.Count * 2;
         else valid &= objective.Text.Contains("tickets");
         if (snapshot.Map == ArenaMapId.Ascension)
         {
@@ -52,34 +54,33 @@ public partial class ClientVerification
             var circle = point.GetNode<MeshInstance3D>("CaptureMagicCircle");
             var texture = ((StandardMaterial3D)circle.MaterialOverride).AlbedoTexture;
             valid &= texture != null && texture.GetWidth() == 512 && texture.GetHeight() == 512 &&
-                !point.HasNode("CaptureContrast") && point.HasNode("CaptureProgress");
+                !point.HasNode("CaptureContrast") && !point.HasNode("CaptureLabel") && point.HasNode("CaptureProgress");
         }
-        if (_renderFrames >= 150) valid &= CheckCaptureCircleVisuals();
+        if (_renderFrames >= 180) valid &= CheckCaptureCircleVisuals();
         if (!valid) { GD.PushError($"MAPS_SMOKE_FAILED: {map.Name}, cámara, selector, contador o geometría incorrectos"); GetTree().Quit(1); return; }
         GD.Print($"MAP_CASE_OK: {map.Name}, {map.Area} unidades²");
-        if (_renderFrames >= 150) CompleteSmoke("MAPS_SMOKE_OK: bosque, ciudad, ruinas, santuario, objetos móviles, mejoras y tres casillas");
+        if (_renderFrames >= 180) CompleteSmoke("MAPS_SMOKE_OK: cinco mapas, portales, círculos sin etiquetas, objetos móviles, mejoras y tres casillas");
     }
 
     private bool CheckCaptureCircleVisuals()
     {
         var probe = new CapturePointVisual(); AddChild(probe); probe.Build(0, V2.Zero);
         var ring = (ShaderMaterial)probe.GetNode<MeshInstance3D>("CaptureProgress").MaterialOverride;
-        var label = probe.GetNode<Label3D>("CaptureLabel");
-        bool valid = true;
+        bool valid = !probe.HasNode("CaptureLabel");
         probe.Update(new(0, V2.Zero, 0, -0.2f), 1, 0);
-        valid &= Math.Abs(probe.DisplayedProgress + 0.2f) < 0.001f && label.Text.Contains("AZUL 20%");
+        valid &= Math.Abs(probe.DisplayedProgress + 0.2f) < 0.001f && ring.GetShaderParameter("team_color").AsColor().IsEqualApprox(Ui.Blue);
         probe.Update(new(0, V2.Zero, -1, -0.35f, true), 1, 0.1f);
-        valid &= probe.Contested && label.Text.Contains("AZUL 35%") && label.Text.Contains("DISPUTADO");
+        valid &= probe.Contested && Math.Abs(probe.DisplayedProgress + 0.35f) < 0.001f;
         float brightness = ring.GetShaderParameter("brightness").AsSingle();
         probe.Update(new(0, V2.Zero, -1, -0.35f, true), 1, 0.6f);
         valid &= Math.Abs(ring.GetShaderParameter("progress").AsSingle() - 0.35f) < 0.001f &&
             Math.Abs(ring.GetShaderParameter("brightness").AsSingle() - brightness) > 0.1f;
         probe.Update(new(0, V2.Zero, 1, 0.4f), 1, 0);
-        valid &= !probe.Contested && probe.DisplayedProgress > 0 && label.Text.Contains("ROJO 40%");
+        valid &= !probe.Contested && probe.DisplayedProgress > 0 && ring.GetShaderParameter("team_color").AsColor().IsEqualApprox(Ui.Red);
         probe.Update(new(0, V2.Zero, 0, 0), 1, 0);
         valid &= Math.Abs(probe.DisplayedProgress + 1) < 0.001f;
         probe.Reset();
-        valid &= probe.DisplayedProgress == 0 && !probe.Contested && label.Text.Contains("NEUTRAL 0%") &&
+        valid &= probe.DisplayedProgress == 0 && !probe.Contested && !probe.HasNode("CaptureLabel") &&
             ring.GetShaderParameter("progress").AsSingle() == 0;
         probe.QueueFree();
         if (valid) GD.Print("CAPTURE_SPRITES_OK: seis recursos, neutralizacion, equipos, disputa sin variar porcentaje y reinicio limpio.");

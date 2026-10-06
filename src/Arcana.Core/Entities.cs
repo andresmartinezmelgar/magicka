@@ -32,6 +32,8 @@ public sealed class Wizard
     public float Energy { get; set; } = 100;
     public float Respawn { get; set; }
     public float Invulnerable { get; set; } = 1;
+    public float TeleportCooldown { get; set; }
+    public bool TeleportNeedsExit { get; set; }
     public float ActionCooldown { get; set; }
     public float[] MagickCooldowns { get; } = new float[4];
     public int Kills { get; set; }
@@ -104,4 +106,5 @@ public sealed class WorldOptions
     // La colocación cambia entre salas. Una semilla explícita permite reproducir pruebas y capturas.
     public int? PickupSeed { get; init; }
     public int? SpawnSeed { get; init; }
+    public int? EnvironmentSeed { get; init; }
 }

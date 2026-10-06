@@ -190,9 +190,10 @@ public partial class ClientVerification : Node
             _runtime.Renderer.SetPreviewZoom(Math.Max(overview.HalfWidth * 2 / (GetViewport().GetVisibleRect().Size.X / GetViewport().GetVisibleRect().Size.Y),
                 overview.HalfHeight * 1.58f) + 6);
         }
-        if (_mapsSmoke && _renderFrames <= 150 && _renderFrames % 30 == 1)
-            _runtime.Snapshot = MapFixture(_renderFrames <= 30 || _renderFrames > 120 ? ArenaMapId.Citadel
-                : _renderFrames <= 60 ? ArenaMapId.Classic : _renderFrames <= 90 ? ArenaMapId.Ascension : ArenaMapId.Relics);
+        if (_mapsSmoke && _renderFrames <= 180 && _renderFrames % 30 == 1)
+            _runtime.Snapshot = MapFixture(_renderFrames <= 30 || _renderFrames > 150 ? ArenaMapId.Citadel
+                : _renderFrames <= 60 ? ArenaMapId.Classic : _renderFrames <= 90 ? ArenaMapId.Ascension
+                : _renderFrames <= 120 ? ArenaMapId.Relics : ArenaMapId.Frontline);
         if (_mapsSmoke && _renderFrames == 76)
             _runtime.Snapshot = _runtime.Snapshot! with { Pickups = _runtime.Snapshot!.Pickups!.Select(i => i.Id == 1 ? i with { Position = new V2(0, 20) } : i).ToArray() };
         if (_combinationsSmoke) CheckCombinations();

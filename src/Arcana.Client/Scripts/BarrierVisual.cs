@@ -10,8 +10,6 @@ public partial class BarrierVisual : Node3D
     private ShaderMaterial? _surface;
     private readonly Node3D _geometry = new();
     private readonly StandardMaterial3D _rim = new();
-    private readonly StandardMaterial3D _contrast = new() { AlbedoColor = new("09111e"),
-        ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, Transparency = BaseMaterial3D.TransparencyEnum.Alpha };
     private Color _color;
     private float _previousHealth, _maximumHealth, _flash, _age;
     internal int Charges { get; private set; }
@@ -122,8 +120,7 @@ public partial class BarrierVisual : Node3D
             }
             face.GenerateNormals();
             Piece(face.Commit(), Vector3.Zero, _surface);
-            // Silueta oscura y núcleo de color: legible sobre hierba y piedra clara.
-            using var outlines = new SurfaceTool(); outlines.Begin(Godot.Mesh.PrimitiveType.Triangles);
+            // El borde usa únicamente el color elemental del escudo.
             using var edges = new SurfaceTool(); edges.Begin(Godot.Mesh.PrimitiveType.Triangles);
             for (int i = 0; i < segments; i++)
             {
@@ -133,19 +130,13 @@ public partial class BarrierVisual : Node3D
                 float angle = -Mathf.Atan2(b.Y - a.Y, b.Z - a.Z);
                 float span = a.DistanceTo(b) + 0.035f;
                 var transform = new Transform3D(new Basis(Vector3.Right, angle), (a + b) / 2);
-                using var outline = new BoxMesh { Size = new(0.24f, 0.18f, span) };
                 using var edge = new BoxMesh { Size = new(0.26f, 0.075f, span) };
-                outlines.AppendFrom(outline, 0, transform);
                 edges.AppendFrom(edge, 0, transform);
             }
-            // Los cuarenta segmentos conservan sus vértices en dos mallas con los mismos materiales.
-            Piece(outlines.Commit(), Vector3.Zero, _contrast).Name = "BarrierArchOutline";
             Piece(edges.Commit(), Vector3.Zero, _rim).Name = "BarrierArchColor";
             foreach (int end in new[] { -1, 1 })
             {
                 float height = 1.55f + _reinforcement * 0.18f;
-                Piece(new BoxMesh { Size = new(0.24f + _reinforcement * 0.04f, height + 0.06f, 0.29f) },
-                    new(0, 0.045f + height / 2, end * length / 2), _contrast);
                 Piece(new PrismMesh { Size = new(0.15f + _reinforcement * 0.04f, height, 0.17f) },
                     new(0.13f + _reinforcement * 0.02f, 0.045f + height / 2, end * length / 2), _rim);
                 Piece(new PrismMesh { Size = new(0.15f + _reinforcement * 0.04f, height, 0.17f) },
@@ -155,7 +146,6 @@ public partial class BarrierVisual : Node3D
                 Piece(new BoxMesh { Size = new(0.08f, 0.055f, length) },
                     new(0, 0.58f + band * 0.64f, 0), _rim);
         }
-        Piece(new BoxMesh { Size = new(0.30f, 0.04f, length + 0.15f) }, new(0, 0.05f, 0), _contrast);
         Piece(new BoxMesh { Size = new(0.19f, 0.055f, length) }, new(0, 0.08f, 0), _rim);
         int glyphs = charges == 1 ? 1 : charges == 2 ? 2 : 4;
         for (int i = 0; i < glyphs; i++)
@@ -212,7 +202,6 @@ public partial class BarrierVisual : Node3D
         float height = Mathf.Lerp(0.25f, 1, Math.Clamp(_age * 8, 0, 1));
         _geometry.Scale = new(1, height * (_surface == null ? Math.Max(0.02f, fade) : 1), 1);
         _rim.AlbedoColor = new(_color.Lightened(_flash * 0.18f), fade);
-        _contrast.AlbedoColor = new(new Color("09111e"), fade);
         if (_surface != null)
         {
             _surface.SetShaderParameter("integrity", Math.Clamp(wall.Health / _maximumHealth, 0, 1));

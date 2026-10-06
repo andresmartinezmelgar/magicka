@@ -21,7 +21,8 @@ public partial class ArenaRenderer
         _environment.AmbientLightEnergy = Ui.IsMobile ? 0.48f : 0.55f;
         _sun.LightColor = new("f4f4f2");
         _sun.LightEnergy = Ui.IsMobile ? 0.90f : 0.95f;
-        Mesh(root, new PlaneMesh { Size = new(240, 200) }, new(0, -0.18f, 0), new(city ? "4a5952" : "233f2c"));
+        Mesh(root, new PlaneMesh { Size = new(Math.Max(240, _map.HalfWidth * 2 + 50), Math.Max(200, _map.HalfHeight * 2 + 50)) },
+            new(0, -0.18f, 0), new(city ? "4a5952" : "233f2c"));
         BuildTerrain(root);
         BuildBorders(root);
         foreach (var obstacle in _map.Obstacles) BuildLandscapeObstacle(root, obstacle);

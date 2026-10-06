@@ -98,8 +98,14 @@ public partial class Launcher : Control
         int savedMap = _config.GetValue("practice", "map", 0).AsInt32();
         _practiceMap.Select(Enum.IsDefined((ArenaMapId)savedMap) ? savedMap : 0); practice.AddChild(_practiceMap);
         var practiceObjective = Ui.Label("", 14, Ui.Gold); practiceObjective.AutowrapMode = TextServer.AutowrapMode.WordSmart; practice.AddChild(practiceObjective);
-        void Objective() => practiceObjective.Text = MatchRules.Objective((GameMode)_practiceMode.GetSelectedId(),
-            (GameMode)_practiceMode.GetSelectedId() == GameMode.Duel ? 5 : 15, 75, (ArenaMapId)_practiceMap.GetSelectedId());
+        void Objective()
+        {
+            var map = ArenaMap.Get((ArenaMapId)_practiceMap.GetSelectedId());
+            for (int i = 0; i < _practiceMode.ItemCount; i++) _practiceMode.SetItemDisabled(i, !map.SupportsMode((GameMode)_practiceMode.GetItemId(i)));
+            if (!map.SupportsMode((GameMode)_practiceMode.GetSelectedId())) _practiceMode.Select(_practiceMode.GetItemIndex((int)GameMode.Warfare));
+            practiceObjective.Text = MatchRules.Objective((GameMode)_practiceMode.GetSelectedId(),
+                (GameMode)_practiceMode.GetSelectedId() == GameMode.Duel ? 5 : 15, 75, map.Id);
+        }
         _practiceMode.ItemSelected += _ => Objective(); _practiceMap.ItemSelected += _ => Objective(); Objective();
         var botRow = new HBoxContainer(); practice.AddChild(botRow);
         botRow.AddChild(Ui.Label("Bots", 16));

@@ -5,6 +5,7 @@ public static class MatchRules
 {
     public static string Objective(GameMode mode, int scoreLimit, int tickets, ArenaMapId map = ArenaMapId.Classic) => (mode switch
     {
+        GameMode.Warfare when map == ArenaMapId.Frontline => "Conquista los cinco puntos en orden para ganar. Tu reaparición avanza con el terreno controlado.",
         GameMode.Duel => $"Gana el primer equipo que consigue {scoreLimit} bajas enemigas.",
         GameMode.Arena => $"Gana el primer mago que alcanza {scoreLimit} bajas. Todos son rivales.",
         GameMode.Warfare when map == ArenaMapId.Citadel => "Mantén los tres puntos sin disputa durante 15 segundos seguidos para ganar.",
@@ -14,6 +15,7 @@ public static class MatchRules
         : map == ArenaMapId.Relics ? "\nRecoge reliquias: sus mejoras se acumulan y duran hasta morir." : "");
     public static string Details(GameMode mode, ArenaMapId map = ArenaMapId.Classic) => (mode switch
     {
+        GameMode.Warfare when map == ArenaMapId.Frontline => "Cada equipo solo puede capturar el primer punto libre o enemigo desde su extremo. No puedes saltarte puntos, tampoco usando los portales. La reaparición se sitúa detrás del último punto conectado a tu base y retrocede si lo pierdes. Gana quien controla los cinco puntos. Las bajas y los tickets no deciden la victoria. Hay tres pares de portales; caminar sobre uno te traslada al otro. De forma aleatoria caen meteoros con aviso previo o aparecen muros de piedra que puedes destruir con hechizos; desaparecen tras 30 segundos.",
         GameMode.Duel => "Dos magos, uno por equipo. Cada baja enemiga suma un punto.",
         GameMode.Arena => "Cada baja enemiga suma uno a tu marcador. Las muertes no restan bajas. Apareces en una posición aleatoria del mapa, con un segundo de invulnerabilidad visible al entrar y al reaparecer.",
         GameMode.Warfare when map == ArenaMapId.Citadel => "Captura los tres círculos. El contador empieza cuando tu equipo controla todos. Si un enemigo disputa o neutraliza cualquiera, vuelve a cero. Hay que mantener el control durante 15 segundos consecutivos. Los tickets y las bajas no deciden la victoria.",

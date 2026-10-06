@@ -22,8 +22,9 @@ public static class SnapshotValidation
             state.ScoreLimit is < 1 or > 200 || state.StartingTickets is < 1 or > 1000 ||
             state.Players is not { Length: <= 16 } || state.Projectiles is not { Length: <= 160 } ||
             state.Walls is not { Length: <= 40 } || state.Fields is not { Length: <= 40 } ||
-            state.Beams is not { Length: <= 64 } || state.Points is not { Length: 3 } || state.Events is not { Length: <= 160 }) Invalid();
+            state.Beams is not { Length: <= 64 } || state.Points == null || state.Events is not { Length: <= 160 }) Invalid();
         var map = ArenaMap.Get(state.Map);
+        if (!map.SupportsMode(state.Mode) || state.Points!.Length != map.ControlPoints.Count) Invalid();
         bool hasPickups = map.HasPickups;
         var ids = new HashSet<int>();
         foreach (var p in state.Players!)
@@ -53,7 +54,8 @@ public static class SnapshotValidation
         ids.Clear();
         foreach (var p in state.Projectiles!) if (p == null || p.Id <= 0 || !ids.Add(p.Id) || !Position(map, p.Position) || !Direction(p.Direction) || !Elements(p.Elements) || !Size(p.Radius, 1)) Invalid();
         foreach (var w in state.Walls!) if (w == null || w.Id <= 0 || !ids.Add(w.Id) || !Position(map, w.A) || !Position(map, w.B) ||
-            V2.Distance(w.A, w.B) is < 0.01f or > 5 || !Elements(w.Elements) || !Size(w.Health, 1300) || !Size(w.Lifetime, 10.01f)) Invalid();
+            V2.Distance(w.A, w.B) is < 0.01f or > 5 || !Elements(w.Elements) || !Size(w.Health, 1300) ||
+            !Size(w.Lifetime, map.SequentialCapture && w.Owner == 0 ? 30.01f : 10.01f)) Invalid();
         foreach (var f in state.Fields!) if (f == null || f.Id <= 0 || !ids.Add(f.Id) || !Position(map, f.Position) || !Elements(f.Elements) ||
             !Size(f.Radius, SpellBalance.MeteorRadius) || !Size(f.Lifetime, 12.01f) || !Size(f.TriggerRadius, 1) || f.Kind is not ("meteor" or "mine" or "healing_mine" or "burning_ground" or "frost_ground" or "water_pool")) Invalid();
         foreach (var b in state.Beams!) if (b == null || !Position(map, b.From) || !Position(map, b.To) ||
@@ -61,7 +63,8 @@ public static class SnapshotValidation
             !Size(V2.Distance(b.From, b.To), b.Shape switch { SpellShape.Beam => 17.1f, SpellShape.Spray => 6.6f, SpellShape.Lightning => 17.2f, SpellShape.Force => 4.1f, _ => -1 }) ||
             !Elements(b.Elements, 10) || !Size(b.Power, 4) || b.Interaction is not ("direct" or "merged" or "reflected" or "refracted")) Invalid();
         ids.Clear();
-        foreach (var p in state.Points!) if (p == null || p.Id is < 0 or > 2 || !ids.Add(p.Id) || !Position(map, p.Position) || p.Owner is < -1 or > 1 || !float.IsFinite(p.Progress) || Math.Abs(p.Progress) > 1) Invalid();
+        foreach (var p in state.Points!) if (p == null || p.Id < 0 || p.Id >= map.ControlPoints.Count || !ids.Add(p.Id) ||
+            p.Position != map.ControlPoints[p.Id] || p.Owner is < -1 or > 1 || !float.IsFinite(p.Progress) || Math.Abs(p.Progress) > 1) Invalid();
         long previousEvent = 0;
         foreach (var e in state.Events!)
         {
