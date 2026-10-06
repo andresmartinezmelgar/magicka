@@ -1,5 +1,13 @@
 # Cambios
 
+## v0.12.14
+
+- Seis círculos mágicos transparentes para los puntos de control, alternados por mapa y con sus colores originales; eliminados el disco, el borde oscuro y el cristal central.
+- Anillo de progreso luminoso firmado por el servidor. La disputa pulsa en brillo sin alterar el porcentaje; reset de material, etiqueta y estado al reiniciar.
+- Licencias Android con consola heredada y comprobación final no interactiva del mismo SDK. Se rechaza continuar con licencias pendientes incluso si sdkmanager devuelve código cero.
+- Regresiones de progreso, neutralización, disputa y limpieza en Godot y de aceptación/comprobación de licencias en Windows PowerShell 5.1.
+- [Detalles de la versión](docs/RELEASE-v0.12.14.md).
+
 ## v0.12.13
 
 - Joystick móvil flotante desde cualquier punto libre de la mitad izquierda. Prioridad de botones, intensidad proporcional, propiedad de cada dedo y cancelación al soltar, morir o usar Traslación.

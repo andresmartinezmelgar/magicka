@@ -63,4 +63,26 @@ try {
         Assert $rejected 'Se oculto un error real de Godot.'
     }
     Write-Host 'GODOT_BUILD_LOG_OK: aviso concreto con su traza, errores reales incluso con codigo cero y salida fallida rechazados.'
+
+    Assert-AndroidSdkLicenses -Lines @('All SDK package licenses accepted.') -ExitCode 0
+    foreach ($case in @(
+        @{ Lines = @('7 of 7 SDK package licenses not accepted.'); Code = 0 },
+        @{ Lines = @('1 of 7 SDK package licenses not accepted.'); Code = 0 },
+        @{ Lines = @('All SDK package licenses accepted.', '1 of 7 SDK package licenses not accepted.'); Code = 0 },
+        @{ Lines = @(''); Code = 0 },
+        @{ Lines = @('All SDK package licenses accepted.'); Code = 1 }
+    )) {
+        $rejected = $false
+        try { Assert-AndroidSdkLicenses -Lines $case.Lines -ExitCode $case.Code } catch { $rejected = $true }
+        Assert $rejected 'Se permitio continuar sin comprobar las licencias Android.'
+    }
+    $fakeManager = Join-Path $testRoot 'sdk manager.bat'
+    [IO.File]::WriteAllText($fakeManager, "@echo off`r`necho All SDK package licenses accepted.`r`nexit /b 0`r`n", [Text.Encoding]::ASCII)
+    Confirm-AndroidSdkLicenses -SdkManager $fakeManager -SdkPath $sdk -WorkDirectory $testRoot -Accept
+    Confirm-AndroidSdkLicenses -SdkManager $fakeManager -SdkPath $sdk -WorkDirectory $testRoot
+    [IO.File]::WriteAllText($fakeManager, "@echo off`r`necho 7 of 7 SDK package licenses not accepted.`r`nexit /b 0`r`n", [Text.Encoding]::ASCII)
+    $rejected = $false
+    try { Confirm-AndroidSdkLicenses -SdkManager $fakeManager -SdkPath $sdk -WorkDirectory $testRoot -Accept } catch { $rejected = $true }
+    Assert $rejected 'sdkmanager con codigo cero y licencias pendientes permitio seguir compilando.'
+    Write-Host 'ANDROID_LICENSES_TEST_OK: aceptacion explicita, consola heredada, rutas con espacios, consulta final y licencias pendientes con codigo cero rechazadas.'
 } finally { Remove-Item -LiteralPath $testRoot -Recurse -Force }

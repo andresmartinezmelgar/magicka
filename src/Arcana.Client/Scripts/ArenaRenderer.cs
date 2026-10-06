@@ -149,7 +149,7 @@ public partial class ArenaRenderer : Node3D
         }
         foreach (var p in _map.ControlPoints.Select((position, id) => (position, id)))
         {
-            var visual = new CapturePointVisual(); rootMap.AddChild(visual); visual.Build(p.id, p.position); _points[p.id] = visual;
+            var visual = new CapturePointVisual(); rootMap.AddChild(visual); visual.Build(p.id, p.position, _map.Id); _points[p.id] = visual;
         }
     }
 

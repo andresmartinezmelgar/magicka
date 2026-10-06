@@ -139,23 +139,7 @@ try {
     $env:ANDROID_HOME = $AndroidSdkPath
     $env:ANDROID_SDK_ROOT = $AndroidSdkPath
     Write-Host 'Comprobando las licencias del SDK Android. Responde y si aceptas los terminos mostrados.'
-    $previousPreference = $ErrorActionPreference
-    try {
-        $ErrorActionPreference = 'Continue'
-        if ($AcceptAndroidLicenses) {
-            # La tuberia a un .bat en PowerShell 5.1 puede heredar stdin cerrado
-            # del launcher. Redirigir un archivo garantiza las respuestas en CI.
-            $answers = Join-Path $temp 'android-license-answers.txt'
-            [IO.File]::WriteAllText($answers, ("y`r`n" * 100), [Text.Encoding]::ASCII)
-            $licenseArguments = '/d /s /c ""{0}" "--sdk_root={1}" --licenses"' -f $sdkManager, $AndroidSdkPath
-            $licenseProcess = Start-Process -FilePath $env:ComSpec -ArgumentList $licenseArguments -RedirectStandardInput $answers -NoNewWindow -Wait -PassThru
-            $licenseCode = $licenseProcess.ExitCode
-        } else {
-            & $sdkManager "--sdk_root=$AndroidSdkPath" --licenses | Out-Host
-            $licenseCode = $LASTEXITCODE
-        }
-    } finally { $ErrorActionPreference = $previousPreference }
-    if ($licenseCode -ne 0) { throw 'No se pudieron aceptar las licencias Android.' }
+    Confirm-AndroidSdkLicenses -SdkManager $sdkManager -SdkPath $AndroidSdkPath -WorkDirectory $temp -Accept:$AcceptAndroidLicenses
     Invoke-Tool $sdkManager @("--sdk_root=$AndroidSdkPath", 'platform-tools', 'build-tools;35.0.0', 'platforms;android-35') | Out-Null
     $buildTools = Join-Path $AndroidSdkPath 'build-tools/35.0.0'
     if (!(Test-Path -LiteralPath (Join-Path $buildTools 'apksigner.bat')) -or !(Test-Path -LiteralPath (Join-Path $AndroidSdkPath 'platforms/android-35/android.jar'))) {

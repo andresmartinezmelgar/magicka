@@ -1,8 +1,10 @@
 # Arcana Arena para Android
 
-Descargar el [código de main](https://github.com/andresmartinezmelgar/magicka/archive/refs/heads/main.zip), extraerlo y abrir **`Compilar-APK.cmd`** desde Windows. Instalar `artifacts/android/ArcanaArena-v0.12.13-Android-arm64.apk` cuando termine. Android puede pedir autorización a la aplicación usada para abrir la APK. Requiere Android 8 o posterior y procesador ARM64. En el móvil no hace falta instalar Godot ni .NET. Si Android rechaza actualizar una APK de desarrollo anterior porque tiene otra firma, desinstalar la anterior antes de instalar esta versión.
+Descargar el [código de main](https://github.com/andresmartinezmelgar/magicka/archive/refs/heads/main.zip), extraerlo y abrir **`Compilar-APK.cmd`** desde Windows. Instalar `artifacts/android/ArcanaArena-v0.12.14-Android-arm64.apk` cuando termine. Android puede pedir autorización a la aplicación usada para abrir la APK. Requiere Android 8 o posterior y procesador ARM64. En el móvil no hace falta instalar Godot ni .NET. Si Android rechaza actualizar una APK de desarrollo anterior porque tiene otra firma, desinstalar la anterior antes de instalar esta versión.
 
 El juego se abre en horizontal. **Práctica** funciona sin conexión y permite elegir los cuatro mapas, el modo y el tipo de mago. La APK incluye el motor, los sprites, los sonidos y el runtime C#.
+
+En v0.12.14, los puntos de control usan seis círculos mágicos transparentes con sus colores originales y progreso luminoso. La compilación comprueba todas las licencias del mismo SDK antes de continuar.
 
 En v0.12.13, tocar y arrastrar desde cualquier punto libre de la mitad izquierda activa el movimiento. Los botones tienen prioridad; el primer dedo conserva el joystick hasta soltarse. [Perfil gráfico y medición por USB](RENDIMIENTO.md).
 
@@ -44,9 +46,9 @@ La APK puede consultar, crear y entrar en las salas del servidor. Usa protocolo 
 
 ### Windows con doble clic
 
-Extraer el código completo y abrir **`Compilar-APK.cmd`** en la raíz desde Windows 10/11 x64. El script descarga las herramientas oficiales que falten en `.tools/`, sin necesitar Android Studio, Visual Studio ni permisos de administrador. La primera vez necesita Internet y varios GB libres; el SDK muestra sus licencias para aceptarlas con `y`.
+Extraer el código completo y abrir **`Compilar-APK.cmd`** en la raíz desde Windows 10/11 x64. El script descarga las herramientas oficiales que falten en `.tools/`, sin necesitar Android Studio, Visual Studio ni permisos de administrador. La primera vez necesita Internet y varios GB libres; el SDK muestra sus licencias en la consola para aceptarlas con `y` y Enter, primero en la revisión y después en cada licencia. Una comprobación final confirma que no queda ninguna pendiente.
 
-La APK ARM64 queda en **`artifacts/android/ArcanaArena-v0.12.13-Android-arm64.apk`**, junto con `SHA256SUMS-Android.txt` y el manifest comprobado. El script verifica firma, versión, paquete, Android 8+, permiso de red y bibliotecas Godot/C#. Solo sustituye la APK después de comprobarla; si falla, conserva la anterior. Los registros se guardan en `artifacts/compilacion-apk-*.log`. Los scripts Windows y Bash comparten un bloqueo por carpeta de proyecto: una segunda compilación se rechaza antes de modificar presets o herramientas. El archivo `.tools/arcana-build.lock` permanece; el bloqueo se libera al terminar el proceso.
+La APK ARM64 queda en **`artifacts/android/ArcanaArena-v0.12.14-Android-arm64.apk`**, junto con `SHA256SUMS-Android.txt` y el manifest comprobado. El script verifica firma, versión, paquete, Android 8+, permiso de red y bibliotecas Godot/C#. Solo sustituye la APK después de comprobarla; si falla, conserva la anterior. Los registros se guardan en `artifacts/compilacion-apk-*.log`. Los scripts Windows y Bash comparten un bloqueo por carpeta de proyecto: una segunda compilación se rechaza antes de modificar presets o herramientas. El archivo `.tools/arcana-build.lock` permanece; el bloqueo se libera al terminar el proceso.
 
 La firma de desarrollo se conserva en **`.tools/android-debug.keystore`**, excluida de Git. Mantener ese archivo permite actualizar las APK generadas en este equipo sin desinstalar el juego. Una APK de la Release puede usar otra firma. El script restaura los presets del proyecto y usa una configuración de Godot temporal.
 
@@ -63,6 +65,14 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/auto-compile-apk
 ```
 
 `-AcceptAndroidLicenses` acepta las licencias sin interacción, para un entorno automatizado que ya autorice esa aceptación. Por defecto se muestran y se solicita respuesta. Estas APK usan firma de desarrollo para instalación directa.
+
+Si aparece **`7 of 7 SDK package licenses not accepted`**, no se han aceptado los siete términos. El script se detiene antes de compilar aunque sdkmanager devuelva código cero. Para aceptar todos expresamente al iniciar la compilación:
+
+```powershell
+.\Compilar-APK.cmd -AcceptAndroidLicenses
+```
+
+La aceptación se guarda en el SDK de `.tools/android-sdk` o en el indicado mediante `-AndroidSdkPath`; una aceptación hecha en otro SDK no sirve para ese directorio.
 
 ### Linux
 

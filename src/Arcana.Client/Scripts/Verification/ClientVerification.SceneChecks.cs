@@ -47,9 +47,43 @@ public partial class ClientVerification
         }
         var local = snapshot.Players.Single(p => p.Id == _runtime.LocalId);
         valid &= _runtime.Renderer.Wizards[_runtime.LocalId].ElementSlotCount == 3 && _runtime.Renderer.Wizards[_runtime.LocalId].DisplayedElements.SequenceEqual(local.DisplayElements);
+        foreach (var point in _runtime.Renderer.Points.Values)
+        {
+            var circle = point.GetNode<MeshInstance3D>("CaptureMagicCircle");
+            var texture = ((StandardMaterial3D)circle.MaterialOverride).AlbedoTexture;
+            valid &= texture != null && texture.GetWidth() == 512 && texture.GetHeight() == 512 &&
+                !point.HasNode("CaptureContrast") && point.HasNode("CaptureProgress");
+        }
+        if (_renderFrames >= 150) valid &= CheckCaptureCircleVisuals();
         if (!valid) { GD.PushError($"MAPS_SMOKE_FAILED: {map.Name}, cámara, selector, contador o geometría incorrectos"); GetTree().Quit(1); return; }
         GD.Print($"MAP_CASE_OK: {map.Name}, {map.Area} unidades²");
         if (_renderFrames >= 150) CompleteSmoke("MAPS_SMOKE_OK: bosque, ciudad, ruinas, santuario, objetos móviles, mejoras y tres casillas");
+    }
+
+    private bool CheckCaptureCircleVisuals()
+    {
+        var probe = new CapturePointVisual(); AddChild(probe); probe.Build(0, V2.Zero);
+        var ring = (ShaderMaterial)probe.GetNode<MeshInstance3D>("CaptureProgress").MaterialOverride;
+        var label = probe.GetNode<Label3D>("CaptureLabel");
+        bool valid = true;
+        probe.Update(new(0, V2.Zero, 0, -0.2f), 1, 0);
+        valid &= Math.Abs(probe.DisplayedProgress + 0.2f) < 0.001f && label.Text.Contains("AZUL 20%");
+        probe.Update(new(0, V2.Zero, -1, -0.35f, true), 1, 0.1f);
+        valid &= probe.Contested && label.Text.Contains("AZUL 35%") && label.Text.Contains("DISPUTADO");
+        float brightness = ring.GetShaderParameter("brightness").AsSingle();
+        probe.Update(new(0, V2.Zero, -1, -0.35f, true), 1, 0.6f);
+        valid &= Math.Abs(ring.GetShaderParameter("progress").AsSingle() - 0.35f) < 0.001f &&
+            Math.Abs(ring.GetShaderParameter("brightness").AsSingle() - brightness) > 0.1f;
+        probe.Update(new(0, V2.Zero, 1, 0.4f), 1, 0);
+        valid &= !probe.Contested && probe.DisplayedProgress > 0 && label.Text.Contains("ROJO 40%");
+        probe.Update(new(0, V2.Zero, 0, 0), 1, 0);
+        valid &= Math.Abs(probe.DisplayedProgress + 1) < 0.001f;
+        probe.Reset();
+        valid &= probe.DisplayedProgress == 0 && !probe.Contested && label.Text.Contains("NEUTRAL 0%") &&
+            ring.GetShaderParameter("progress").AsSingle() == 0;
+        probe.QueueFree();
+        if (valid) GD.Print("CAPTURE_SPRITES_OK: seis recursos, neutralizacion, equipos, disputa sin variar porcentaje y reinicio limpio.");
+        return valid;
     }
     private void CheckHudCase()
     {

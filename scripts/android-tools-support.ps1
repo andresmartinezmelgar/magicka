@@ -1,6 +1,54 @@
 # Extrae los archivos del ZIP sin depender de entradas de directorio ni comodines de PowerShell.
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
 
+function Assert-AndroidSdkLicenses {
+    param([string[]]$Lines, [int]$ExitCode)
+    if ($ExitCode -ne 0) { throw "sdkmanager termino con codigo $ExitCode al comprobar las licencias." }
+    $output = $Lines -join "`n"
+    if ($output -match '(?i)\b\d+ of \d+ SDK package licenses not accepted' -or
+        $output -notmatch '(?im)^\s*All SDK package licenses accepted\.?\s*$') {
+        throw 'Quedan licencias del SDK Android sin aceptar. Responde y a la revision y a cada licencia, o ejecuta Compilar-APK.cmd -AcceptAndroidLicenses si aceptas sus terminos.'
+    }
+}
+
+function Confirm-AndroidSdkLicenses {
+    param([string]$SdkManager, [string]$SdkPath, [string]$WorkDirectory, [switch]$Accept)
+    $arguments = '/d /s /c ""{0}" "--sdk_root={1}" --licenses"' -f $SdkManager, $SdkPath
+    $launch = @{ FilePath = $env:ComSpec; ArgumentList = $arguments; NoNewWindow = $true; PassThru = $true }
+    if ($Accept) {
+        $answers = Join-Path $WorkDirectory 'android-license-answers.txt'
+        [IO.File]::WriteAllText($answers, ("y`r`n" * 100), [Text.Encoding]::ASCII)
+        $launch.RedirectStandardInput = $answers
+    }
+    # La consola heredada permite responder sin que una tuberia de PowerShell 5.1 cierre stdin.
+    $process = Start-Process @launch
+    try {
+        $null = $process.Handle
+        $process.WaitForExit()
+        if ($process.ExitCode -ne 0) { throw "sdkmanager termino con codigo $($process.ExitCode) al mostrar las licencias." }
+    } finally { $process.Dispose() }
+
+    # Reconsulta no interactiva: rechazar lo pendiente nunca acepta una licencia nueva.
+    # sdkmanager puede devolver 0 aunque se haya respondido n a todas las licencias.
+    $probeInput = Join-Path $WorkDirectory 'android-license-probe-input.txt'
+    $probeOutput = Join-Path $WorkDirectory 'android-license-probe-output.txt'
+    $probeError = Join-Path $WorkDirectory 'android-license-probe-error.txt'
+    [IO.File]::WriteAllText($probeInput, ("n`r`n" * 100), [Text.Encoding]::ASCII)
+    $launch.RedirectStandardInput = $probeInput
+    $launch.RedirectStandardOutput = $probeOutput
+    $launch.RedirectStandardError = $probeError
+    $process = Start-Process @launch
+    try {
+        $null = $process.Handle
+        $process.WaitForExit()
+        $code = $process.ExitCode
+    } finally { $process.Dispose() }
+    $lines = @([IO.File]::ReadAllLines($probeOutput)) + @([IO.File]::ReadAllLines($probeError))
+    $lines | ForEach-Object { Write-Host $_ }
+    Assert-AndroidSdkLicenses -Lines $lines -ExitCode $code
+    Write-Host 'ANDROID_LICENSES_OK: todas las licencias aceptadas en el SDK usado para esta APK.'
+}
+
 function Test-AndroidCommandLineTools {
     param([string]$Directory)
     foreach ($file in @('bin/sdkmanager.bat', 'lib/sdkmanager-classpath.jar', 'source.properties')) {

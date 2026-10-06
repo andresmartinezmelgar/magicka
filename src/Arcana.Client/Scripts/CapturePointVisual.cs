@@ -3,48 +3,57 @@ using Godot;
 
 namespace Arcana.Client;
 
-/// <summary>El área representa el progreso firmado del servidor, también durante la neutralización.</summary>
+/// <summary>Círculo mágico original y progreso firmado por el servidor, también al neutralizar.</summary>
 public partial class CapturePointVisual : Node3D
 {
-    private readonly ShaderMaterial _fill = new();
-    private readonly StandardMaterial3D _outline = new() { ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded };
+    private static readonly string[] Assets =
+        ["fire.png", "ice.png", "nature.png", "arcane.png", "solar.png", "crystal.png"];
+    private readonly ShaderMaterial _progressMaterial = new();
     private Label3D _label = null!;
-    private MeshInstance3D _crystal = null!;
+    private int _id;
     private float _progress;
     public float DisplayedProgress => _progress;
     public bool Contested { get; private set; }
 
-    public void Build(int id, V2 position)
+    public void Build(int id, V2 position, ArenaMapId map = ArenaMapId.Classic)
     {
+        _id = id;
         Position = ArenaRenderer.World(position);
-        _fill.Shader = new Shader { Code = """
-            shader_type spatial;
-            render_mode unshaded, cull_disabled, blend_mix;
-            uniform float progress : hint_range(0.0, 1.0) = 0.0;
-            uniform vec4 team_color : source_color = vec4(0.22, 0.73, 1.0, 1.0);
-            void fragment() {
-                vec2 p = UV * 2.0 - 1.0;
-                float circle = 1.0 - smoothstep(0.985, 1.0, length(p));
-                float angle = mod(atan(p.x, -p.y) + 6.283185, 6.283185) / 6.283185;
-                float occupied = step(angle, progress) * step(0.0001, progress);
-                ALBEDO = mix(vec3(0.035, 0.06, 0.10), team_color.rgb, occupied);
-                EMISSION = team_color.rgb * occupied * 0.03;
-                ALPHA = circle * mix(0.58, 0.84, occupied);
-            }
-            """ };
-        AddChild(new MeshInstance3D { Mesh = new PlaneMesh { Size = new(6, 6) },
-            Position = new(0, 0.045f, 0), MaterialOverride = _fill, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
-        var contrast = new StandardMaterial3D { AlbedoColor = new("09111e"), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded };
-        AddChild(new MeshInstance3D { Name = "CaptureContrast", Mesh = new TorusMesh { InnerRadius = 2.72f, OuterRadius = 3.12f, Rings = 64, RingSegments = 8 },
-            Position = new(0, 0.075f, 0), Scale = new(1, 0.20f, 1), MaterialOverride = contrast, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
-        AddChild(new MeshInstance3D { Mesh = new TorusMesh { InnerRadius = 2.81f, OuterRadius = 3.03f, Rings = 64, RingSegments = 8 },
-            Position = new(0, 0.15f, 0), Scale = new(1, 0.35f, 1), MaterialOverride = _outline, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
-        _crystal = new MeshInstance3D { Mesh = new PrismMesh { Size = new(0.38f, 0.6f, 0.38f) }, MaterialOverride = _outline };
-        AddChild(_crystal);
-        _label = new Label3D { Text = ((char)('A' + id)).ToString(), Position = new(0, 0.32f, -2.3f), FontSize = 34,
-            PixelSize = 0.010f, OutlineSize = 10, OutlineModulate = new("060a12"), Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
-            NoDepthTest = true, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
-        _label.Name = "CaptureLabel"; AddChild(_label);
+        // Los cuatro mapas alternan las dos láminas de tres círculos aportadas.
+        string path = $"res://Assets/CapturePoints/{Assets[(id + ((int)map % 2) * 3) % Assets.Length]}";
+        var texture = ResourceLoader.Load<Texture2D>(path)
+            ?? throw new InvalidDataException($"Falta el círculo mágico {path}.");
+        var material = new StandardMaterial3D
+        {
+            AlbedoTexture = texture,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled
+        };
+        AddChild(new MeshInstance3D
+        {
+            Name = "CaptureMagicCircle", Mesh = new PlaneMesh { Size = new(6, 6) },
+            Position = new(0, 0.06f, 0), MaterialOverride = material,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off
+        });
+
+        _progressMaterial.Shader = ResourceLoader.Load<Shader>("res://Assets/CapturePoints/progress.gdshader")
+            ?? throw new InvalidDataException("Falta el shader de progreso de captura.");
+        AddChild(new MeshInstance3D
+        {
+            Name = "CaptureProgress", Mesh = new PlaneMesh { Size = new(6.4f, 6.4f) },
+            Position = new(0, 0.09f, 0), MaterialOverride = _progressMaterial,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off
+        });
+        _label = new Label3D
+        {
+            Name = "CaptureLabel", Position = new(0, 0.37f, -2.65f), FontSize = 30,
+            PixelSize = 0.010f, OutlineSize = 0,
+            Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, NoDepthTest = true,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off
+        };
+        AddChild(_label);
+        Reset();
     }
 
     public void Update(PointSnapshot point, float dt, float time)
@@ -54,14 +63,22 @@ public partial class CapturePointVisual : Node3D
         _progress = Mathf.Lerp(_progress, desired, 1 - Mathf.Exp(-12 * dt));
         Contested = point.Contested;
         Color color = _progress < -0.001f ? Ui.Blue : _progress > 0.001f ? Ui.Red : Ui.Muted;
-        _fill.SetShaderParameter("progress", Math.Abs(_progress));
-        _fill.SetShaderParameter("team_color", color);
-        _outline.AlbedoColor = point.Contested && Math.Sin(time * 7) > 0 ? Ui.Text : color;
-        _crystal.Rotation = new(0, time * 0.7f, 0);
-        _crystal.Position = new(0, 0.6f + Mathf.Sin(time * 2 + point.Id) * 0.07f, 0);
+        // Una disputa pulsa en brillo; nunca inventa ni modifica el porcentaje capturado.
+        _progressMaterial.SetShaderParameter("progress", Math.Abs(_progress));
+        _progressMaterial.SetShaderParameter("team_color", color);
+        _progressMaterial.SetShaderParameter("brightness", point.Contested ? 0.65f + 0.35f * Mathf.Sin(time * 7) : 1f);
         string team = _progress < -0.001f ? "AZUL" : _progress > 0.001f ? "ROJO" : "NEUTRAL";
-        _label.Text = $"{(char)('A' + point.Id)} · " + (point.Contested ? "DISPUTADO" : $"{team} {Math.Round(Math.Abs(_progress) * 100):0}%");
-        _label.Modulate = color;
+        _label.Text = $"{(char)('A' + point.Id)} · {team} {Math.Round(Math.Abs(_progress) * 100):0}%" +
+            (point.Contested ? " · DISPUTADO" : "");
+        _label.Modulate = point.Contested ? Ui.Text : color;
     }
-    public void Reset() => _progress = 0;
+
+    public void Reset()
+    {
+        _progress = 0; Contested = false;
+        _progressMaterial.SetShaderParameter("progress", 0f);
+        _progressMaterial.SetShaderParameter("brightness", 1f);
+        _label.Text = $"{(char)('A' + _id)} · NEUTRAL 0%";
+        _label.Modulate = Ui.Text;
+    }
 }
