@@ -12,7 +12,7 @@ public partial class MobileControls : Control
     private readonly List<TouchAction> _magicks = [];
     private int _moveFinger = -1, _aimFinger = -1;
     private Vector2 _move, _aim = Vector2.Right, _aimKnob;
-    private Vector2 _moveCenter, _aimCenter;
+    private Vector2 _moveCenter, _moveHome, _aimCenter;
     private const float Radius = 82;
     public Vector2 Movement => _move;
     public Vector2 AimDirection => _aim;
@@ -65,7 +65,9 @@ public partial class MobileControls : Control
     {
         if (_actions.Count == 0) return;
         float width = Size.X, height = Size.Y;
-        _moveCenter = new(142, height - 125); _aimCenter = new(width - 142, height - 125);
+        _moveHome = new(142, height - 125);
+        if (_moveFinger < 0) _moveCenter = _moveHome;
+        _aimCenter = new(width - 142, height - 125);
         for (int i = 0; i < 8; i++) Place(i, new(width - 246 + i % 2 * 116, height - 572 + i / 2 * 80), new(108, 72));
         Place(8, new(251, height - 148), new(118, 62));
         Place(9, new(251, height - 80), new(118, 62));
@@ -79,7 +81,7 @@ public partial class MobileControls : Control
     { _actions[index].Panel.Position = position; _actions[index].Panel.Size = size; }
     public void Reset()
     {
-        _moveFinger = _aimFinger = -1; _move = _aimKnob = Vector2.Zero;
+        _moveFinger = _aimFinger = -1; _move = _aimKnob = Vector2.Zero; _moveCenter = _moveHome;
         foreach (var action in _pressed.Values) action.Panel.Modulate = Colors.White;
         _pressed.Clear(); QueueRedraw();
     }
@@ -110,7 +112,7 @@ public partial class MobileControls : Control
         point -= GlobalPosition;
         if (!down || canceled)
         {
-            if (finger == _moveFinger) { _moveFinger = -1; _move = Vector2.Zero; QueueRedraw(); return true; }
+            if (finger == _moveFinger) { _moveFinger = -1; _move = Vector2.Zero; _moveCenter = _moveHome; QueueRedraw(); return true; }
             if (finger == _aimFinger)
             {
                 _aimFinger = -1; _aimKnob = Vector2.Zero; QueueRedraw();
@@ -127,8 +129,10 @@ public partial class MobileControls : Control
             if (action.Message != null) ActionRequested?.Invoke(new() { Type = action.Message.Type, Element = action.Message.Element, Slot = action.Message.Slot });
             action.Run?.Invoke(); return true;
         }
-        if (_moveFinger < 0 && point.DistanceTo(_moveCenter) <= Radius + 20)
-        { _moveFinger = finger; Move(point); return true; }
+        // El primer contacto fija el origen. Un dedo ya asignado conserva su función
+        // al cruzar botones o la mitad derecha, y un toque nuevo no lo sustituye.
+        if (_moveFinger < 0 && new Rect2(Vector2.Zero, new(Size.X / 2, Size.Y)).HasPoint(point))
+        { _moveFinger = finger; _moveCenter = point; _move = Vector2.Zero; QueueRedraw(); return true; }
         if (_aimFinger < 0 && point.DistanceTo(_aimCenter) <= Radius + 20)
         {
             _aimFinger = finger; Aim(point); ActionRequested?.Invoke(new() { Type = "cast" }); return true;

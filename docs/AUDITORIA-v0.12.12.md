@@ -30,6 +30,8 @@ P1: puede perder o aceptar como válida una salida de compilación. P2: comporta
 
 ## Mejoras pendientes
 
+Estado posterior: [v0.12.13](RELEASE-v0.12.13.md) aplica el bloqueo compartido, los límites espaciales y la separación del coordinador. Añade un perfil reproducible y acceso desde móvil/ADB. La medición en un móvil físico permanece pendiente de disponer de ese dispositivo; las mediciones de CI se identifican como render por software y emulador. La tabla conserva los hallazgos originales de esta revisión.
+
 | Prioridad | Ubicación | Hallazgo por inspección y alcance pendiente |
 |---|---|---|
 | P2 | `auto-compile-apk.ps1` y `package-android.sh` | Ambos modifican temporalmente `export_presets.cfg`. Dos compilaciones simultáneas en la misma carpeta pueden interferir entre arquitecturas o restaurar un preset ajeno. Falta un bloqueo de compilación compartido. No se ha reproducido una carrera en exportaciones reales. |

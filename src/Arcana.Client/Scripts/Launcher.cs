@@ -105,6 +105,7 @@ public partial class Launcher : Control
         botRow.AddChild(Ui.Label("Bots", 16));
         _bots = new SpinBox { MinValue = 1, MaxValue = 7, Value = 3, SizeFlagsHorizontal = SizeFlags.ExpandFill }; botRow.AddChild(_bots);
         practice.AddChild(Ui.Label("El duelo usa un bot. No requiere iniciar un servidor.", 13, Ui.Muted));
+        practice.AddChild(Ui.Button("Medir rendimiento gráfico", () => _main.StartRenderProfile((ArenaMapId)_practiceMap.GetSelectedId())));
         var hosting = TabBox("Alojar");
         _hostName = new LineEdit { Text = _config.GetValue("host", "name", "Partida local").AsString(),
             MaxLength = 32, PlaceholderText = "Nombre del servidor", CustomMinimumSize = new(0, 42) }; hosting.AddChild(_hostName);

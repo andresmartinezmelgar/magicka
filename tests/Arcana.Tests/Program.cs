@@ -1364,6 +1364,48 @@ Test("Validación de snapshots acepta combates y rechaza estado parcial o no fin
         Check(rejected, "Se aceptó un estado que rompe el renderer.");
     }
 });
+Test("Snapshots: límites espaciales antes del renderer y combate válido en los cuatro mapas", () =>
+{
+    foreach (var id in Enum.GetValues<ArenaMapId>())
+    {
+        var world = new GameWorld(new() { Map = id, Mode = GameMode.Arena, MaxPlayers = 16, Bots = 16, Seed = 41, SpawnSeed = 27, PickupSeed = 31 });
+        for (int tick = 0; tick < 900; tick++)
+        {
+            world.Step();
+            if (tick % 30 == 0) SnapshotValidation.Check(world.Snapshot());
+        }
+        var state = world.Snapshot(); var map = world.Map; var player = state.Players[0];
+        var huge = new V2(float.MaxValue, float.MaxValue);
+        foreach (var invalid in new[]
+        {
+            state with { Players = [player with { Position = huge }] },
+            state with { Players = [player with { Facing = new(2, 0) }] },
+            state with { Projectiles = [new(10001, player.Id, huge, new(1, 0), [Element.Earth], 0.4f)] },
+            state with { Projectiles = [new(10001, player.Id, V2.Zero, huge, [Element.Earth], 0.4f)] },
+            state with { Projectiles = [new(10001, player.Id, V2.Zero, new(1, 0), [Element.Earth], 100)] },
+            state with { Walls = [new(10001, player.Id, V2.Zero, new(0, 6), 650, 7, [Element.Shield])] },
+            state with { Walls = [new(10001, player.Id, V2.Zero, huge, 650, 7, [Element.Shield])] },
+            state with { Fields = [new(10001, player.Id, V2.Zero, 100, 1, [Element.Fire], "meteor")] },
+            state with { Fields = [new(10001, player.Id, huge, 4, 1, [Element.Fire], "meteor")] },
+            state with { Fields = [new(10001, player.Id, V2.Zero, 4, 1, [Element.Fire], "meteor", 100)] },
+            state with { Beams = [new(player.Id, V2.Zero, huge, [Element.Arcane], SpellShape.Beam)] },
+            state with { Beams = [new(player.Id, new(-9, 0), new(9, 0), [Element.Arcane], SpellShape.Beam)] },
+            state with { Points = state.Points.Select(p => p.Id == 0 ? p with { Position = huge } : p).ToArray() },
+            state with { Events = [new(1, "hurt", huge, [], "")] }
+        })
+        {
+            bool rejected = false;
+            try { SnapshotValidation.Check(invalid); } catch (InvalidDataException) { rejected = true; }
+            Check(rejected, "Se aceptó una dimensión o posición no representable en " + id);
+        }
+        // El extremo de un rayo y el destello del bastón pueden tocar o sobrepasar la frontera.
+        var edge = map.Boundary[0]; var midpoint = (edge.A + edge.B) / 2;
+        SnapshotValidation.Check(state with { Projectiles = [], Walls = [], Fields = [],
+            Beams = [new(player.Id, midpoint, midpoint, [Element.Arcane], SpellShape.Beam)],
+            Events = [new(1, "melee", midpoint + (midpoint - V2.Zero).Normalized * 0.5f, [], "")] });
+        SnapshotValidation.Check(state with { Beams = [new(player.Id, new(4, -5), new(4, 5), [Element.Lightning], SpellShape.Lightning)] });
+    }
+});
 Test("Snapshots rechazan entidades y eventos repetidos, eventos desordenados y carga o vida contradictorias", () =>
 {
     var (w, a, _) = Setup();

@@ -7,7 +7,7 @@ trap 'rm -rf "$test_root"' EXIT
 project="$test_root/proyecto con espacios"
 mkdir -p "$project/scripts" "$project/src/Arcana.Client" "$project/artifacts/android" \
   "$test_root/java/bin" "$test_root/sdk/build-tools/35.0.0"
-cp "$root/scripts/package-android.sh" "$root/scripts/tool-support.sh" "$project/scripts/"
+cp "$root/scripts/package-android.sh" "$root/scripts/package-android-core.sh" "$root/scripts/build-lock.py" "$root/scripts/tool-support.sh" "$project/scripts/"
 cp "$root/VERSION" "$project/"
 cp "$root/src/Arcana.Client/export_presets.cfg" "$project/src/Arcana.Client/"
 export JAVA_HOME="$test_root/java" ANDROID_HOME="$test_root/sdk"

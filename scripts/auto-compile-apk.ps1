@@ -20,7 +20,8 @@ $log = Join-Path $artifactRoot ("compilacion-apk-{0}-{1}.log" -f (Get-Date -Form
 $temp = Join-Path $cache ("apk-build-{0}" -f [Guid]::NewGuid().ToString('N'))
 $client = Join-Path $repo 'src/Arcana.Client'
 $presetPath = Join-Path $client 'export_presets.cfg'
-$presetBackup = [IO.File]::ReadAllBytes($presetPath)
+$presetBackup = $null
+$buildLease = $null
 $environmentBackup = @{}
 foreach ($name in @('PATH', 'APPDATA', 'JAVA_HOME', 'ANDROID_HOME', 'ANDROID_SDK_ROOT', 'DOTNET_ROOT', 'DOTNET_ROOT_X64', 'UseSharedCompilation', 'MSBUILDDISABLENODEREUSE', 'DOTNET_CLI_USE_MSBUILD_SERVER', 'GRADLE_OPTS', 'GODOT_ANDROID_KEYSTORE_DEBUG_PATH', 'GODOT_ANDROID_KEYSTORE_DEBUG_USER', 'GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD')) {
     $environmentBackup[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
@@ -32,6 +33,7 @@ $utf8 = New-Object System.Text.UTF8Encoding($false)
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 . (Join-Path $PSScriptRoot 'android-tools-support.ps1')
 . (Join-Path $PSScriptRoot 'tool-support.ps1')
+. (Join-Path $PSScriptRoot 'build-lock.ps1')
 
 function Download-Tool {
     param([string]$Url, [string]$Target)
@@ -61,6 +63,8 @@ function Test-Jdk17 {
 Start-Transcript -Path $log | Out-Null
 Push-Location -LiteralPath $repo
 try {
+    $buildLease = Enter-ArcanaBuildLock -RepositoryRoot $repo
+    $presetBackup = [IO.File]::ReadAllBytes($presetPath)
     Write-Host 'Compilando la APK de Arcana Arena. La primera vez necesita Internet y varios GB libres.'
     $version = (Get-Content -LiteralPath (Join-Path $repo 'VERSION') -Raw).Trim()
     if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'VERSION debe contener una version como 0.12.7.' }
@@ -241,9 +245,11 @@ try {
     Write-Host "Registro: $log"
     exit 1
 } finally {
-    [IO.File]::WriteAllBytes($presetPath, $presetBackup)
-    foreach ($name in $environmentBackup.Keys) { [Environment]::SetEnvironmentVariable($name, $environmentBackup[$name], 'Process') }
-    Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
-    Pop-Location
-    Stop-Transcript | Out-Null
+    try {
+        if ($null -ne $presetBackup) { [IO.File]::WriteAllBytes($presetPath, $presetBackup) }
+        foreach ($name in $environmentBackup.Keys) { [Environment]::SetEnvironmentVariable($name, $environmentBackup[$name], 'Process') }
+        Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
+        Pop-Location
+        Stop-Transcript | Out-Null
+    } finally { Exit-ArcanaBuildLock -Lease $buildLease }
 }

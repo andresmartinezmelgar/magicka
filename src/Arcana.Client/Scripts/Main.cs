@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using Arcana.Core;
 using Godot;
 
@@ -15,7 +16,7 @@ public partial class Main : Node
     private ProcessDiagnostics _processDiagnostics = null!;
     private EngineLogBridge _engineLog = null!;
     private int _exiting;
-    private bool _exporting, _diagnosticsSmoke;
+    private bool _exporting;
     private double _metricsTime;
     private WorldSnapshot? _backdropSnapshot;
     private ArenaRenderer _renderer = null!;
@@ -40,54 +41,10 @@ public partial class Main : Node
     private double _inputTime, _snapshotAge;
     private long _lastTick = -1;
     private string _serverName = "";
-    private bool _smoke;
-    private bool _hostSmoke;
-    private bool _holdPostedForVerification;
-    private bool _hudSmoke;
-    private bool _effectsSmoke, _previewEffects;
-    private int _previewStrength;
-    private string? _previewSpells;
-    private bool _spritesSmoke;
-    private bool _combinationsSmoke;
-    private bool _mapsSmoke;
-    private ArenaMapId? _previewMap;
-    private string? _previewCombination;
-    private CastMode _previewCastMode;
-    private DemonstrationKind _previewInteraction;
-    private static readonly (string Keys, CastMode Mode, DemonstrationKind Kind)[] CombinationCases =
-    [
-        ("D", CastMode.Forward, DemonstrationKind.Combination), ("DF", CastMode.Forward, DemonstrationKind.Combination),
-        ("DQ", CastMode.Forward, DemonstrationKind.Combination), ("DR", CastMode.Forward, DemonstrationKind.Combination),
-        ("EW", CastMode.Self, DemonstrationKind.Combination), ("ES", CastMode.Forward, DemonstrationKind.Combination),
-        ("EW", CastMode.Forward, DemonstrationKind.Combination), ("SS", CastMode.Forward, DemonstrationKind.CrossedBeams),
-        ("SS", CastMode.Forward, DemonstrationKind.ShieldRefraction), ("SS", CastMode.Forward, DemonstrationKind.Capture)
-    ];
-    private string? _previewWizards;
-    private readonly HashSet<(WizardType Type, int Team, int Row, int Pose)> _spriteCoverage = [];
-    private int _previewHelp = -1;
-    private string? _previewShield;
-    private static readonly (string State, float Shield, float Maximum)[] HudCases =
-        [("none", 0, 420), ("full", 420, 420), ("half", 210, 420), ("low", 40, 420), ("ward", 90, 180), ("stone", 325, 650)];
-    private int _smokeFrames, _renderFrames;
-    private string? _capturePath;
-    private bool _captureReview, _mapOverview;
-    private bool _smokeFailed;
-    private bool SmokeMode => _smoke || _hostSmoke || _diagnosticsSmoke || _hudSmoke || _effectsSmoke || _spritesSmoke || _combinationsSmoke || _mapsSmoke || _mobileSmoke;
-
-    private bool CheckSmokeErrors()
-    {
-        if (_smokeFailed) return true;
-        if (!SmokeMode || _engineLog.ErrorCount == 0) return false;
-        _smokeFailed = true;
-        GD.PushError($"SMOKE_FAILED: {_engineLog.ErrorCount} errores del motor o de scripts.");
-        GetTree().Quit(1);
-        return true;
-    }
-    private void CompleteSmoke(string message)
-    {
-        if (CheckSmokeErrors()) return;
-        GD.Print(message); GetTree().Quit();
-    }
+    private int _renderFrames;
+    private ClientVerification? _verification;
+    private RenderProfiler? _profiler;
+    private JsonElement? _lastRenderProfile;
 
     public override void _Ready()
     {
@@ -105,116 +62,45 @@ public partial class Main : Node
         _launcher = new Launcher(); _ui.AddChild(_launcher); _launcher.Build(this);
         _help = BuildHelp(); _ui.AddChild(_help); _help.Visible = false;
         _pause = BuildPause(); _ui.AddChild(_pause); _pause.Visible = false;
-        foreach (string arg in OS.GetCmdlineUserArgs())
+        var arguments = OS.GetCmdlineUserArgs();
+        foreach (string arg in arguments)
         {
-            if (arg == "--smoke") _smoke = true;
-            if (arg == "--host-smoke") _hostSmoke = true;
-            if (arg == "--diagnostics-smoke") _diagnosticsSmoke = true;
-            if (arg == "--hud-smoke") _hudSmoke = true;
-            if (arg == "--effects-smoke") _effectsSmoke = true;
-            if (arg == "--preview-effects") _previewEffects = true;
-            if (arg.StartsWith("--preview-strength=") && int.TryParse(arg[19..], out int strength)) _previewStrength = Math.Clamp(strength, 1, 3);
-            if (arg is "--preview-spells=barriers" or "--preview-spells=beams" or "--preview-spells=beam-charge"
-                or "--preview-spells=shield-elements" or "--preview-spells=shield-strength" or "--preview-spells=meteor"
-                or "--preview-spells=ground-contrast" or "--preview-spells=ground-contrast-stone") _previewSpells = arg[17..];
-            if (arg == "--sprites-smoke") _spritesSmoke = true;
-            if (arg == "--combinations-smoke") _combinationsSmoke = true;
-            if (arg == "--maps-smoke") _mapsSmoke = true;
-            if (arg == "--mobile-smoke") _mobileSmoke = true;
-            if (arg.StartsWith("--preview-map=") && Enum.TryParse<ArenaMapId>(arg[14..], true, out var map) && Enum.IsDefined(map)) _previewMap = map;
-            if (arg.StartsWith("--preview-combination=")) _previewCombination = arg[22..];
-            if (arg.StartsWith("--preview-cast=") && Enum.TryParse<CastMode>(arg[15..], true, out var castMode)) _previewCastMode = castMode;
-            if (arg.StartsWith("--preview-interaction=") && Enum.TryParse<DemonstrationKind>(arg[22..], true, out var interaction)) _previewInteraction = interaction;
-            if (arg == "--preview-wizards") _previewWizards = "front";
-            if (arg.StartsWith("--preview-wizards=")) _previewWizards = arg[18..];
-            if (arg.StartsWith("--preview-help=") && int.TryParse(arg[15..], out int page)) _previewHelp = Math.Clamp(page, 0, _helpPages.GetTabCount() - 1);
-            if (arg.StartsWith("--preview-shield=")) _previewShield = arg[17..];
-            if (arg.StartsWith("--capture=")) _capturePath = arg[10..];
-            if (arg == "--capture-review") _captureReview = true;
-            if (arg == "--map-overview") _mapOverview = true;
             if (arg.StartsWith("--server=")) _launcher.BrowseAddress(arg[9..]);
             if (arg.StartsWith("--create-room=")) _launcher.BrowseAddress(arg[14..], true);
             if (arg.StartsWith("--tab=") && int.TryParse(arg[6..], out int tab)) _launcher.ShowTab(tab);
         }
-        if (_hostSmoke) _ = HostedSmoke();
-        if (_mapsSmoke || _previewMap != null) { _localId = 1; StartGame(MapFixture(_previewMap ?? ArenaMapId.Citadel)); }
-        if (_hudSmoke || _previewShield != null || _effectsSmoke || _previewEffects || _spritesSmoke || _previewWizards != null)
+        if (ClientVerification.Requested(arguments))
         {
-            _practice = null; _localId = 1; _serverName = "Práctica · Colores y escudo";
-            if (_spritesSmoke || _previewWizards != null)
-            {
-                _localId = 3; _serverName = "Práctica · Galería de magos";
-                StartGame(VisualFixture.Wizards(0, _previewWizards));
-            }
-            else StartGame(VisualFixture.Create(_previewShield ?? "none"));
+            _verification = new ClientVerification(); AddChild(_verification);
+            _verification.Initialize(new VerificationAccess(this), arguments);
         }
-        if (_previewStrength > 0)
+        if (RenderProfiler.Requested(arguments))
         {
-            _practice = null; _localId = 1; StartGame(VisualFixture.Strength(0, _previewStrength));
-            _hud!.Visible = false;
-            _renderer.SetPreviewZoom(24); _renderer.ShowControlPoints = false;
-            _ui.AddChild(Ui.Label($"{_previewStrength} {(_previewStrength == 1 ? "carga" : "cargas")}", 28));
-        }
-        if (_previewSpells != null)
-        {
-            _practice = null; _localId = 1; StartGame(VisualFixture.Spells(0, _previewSpells));
-            _hud!.Visible = false; _renderer.ShowControlPoints = _previewSpells.StartsWith("ground-contrast"); _renderer.SetPreviewZoom(24);
-            if (_previewSpells == "ground-contrast-stone") _renderer.SetPreviewZoom(32);
-            if (_previewSpells == "shield-strength")
-            {
-                var legend = Ui.Label("ARRIBA: E · E+Q · E+Q+Q\nABAJO: E+D · E+D+D · E+D+F", 20);
-                legend.Position = new(24, 24); _ui.AddChild(legend);
-            }
-            GD.Print($"SPELL_PREVIEW_READY: {_previewSpells}");
-        }
-        if (_previewHelp >= 0) { ToggleHelp(); _helpPages.CurrentTab = _previewHelp; }
-        if (_combinationsSmoke || _previewCombination != null || _previewInteraction != DemonstrationKind.Combination)
-        {
-            _help.Visible = true; _helpPages.CurrentTab = _helpPages.GetTabIdxFromControl(_spellBook);
-            _spellBook.FixedStepForVerification = _combinationsSmoke || _capturePath != null;
-            _spellBook.SelectCombination(_previewCombination ?? "SS", _previewCastMode, _previewInteraction);
-        }
-        if (_smoke)
-        {
-            StartPractice("Aprendiz", 0, GameMode.Warfare, 3);
-            var players = _practice!.Players.Values.ToArray();
-            players[0].Position = new(-4, 0); players[1].Position = new(4, 0);
-            players[2].Position = new(0, -4); players[3].Position = new(3, 4);
-        }
-        if (_mobileSmoke || OS.GetCmdlineUserArgs().Contains("--mobile-fixture"))
-        {
-            StartPractice("Mago móvil", 0, GameMode.Warfare, 1);
-            _practice!.Players[_localId].Position = V2.Zero;
+            if (_verification != null) throw new ArgumentException("El perfilado y las verificaciones se ejecutan por separado.");
+            StartRenderProfile();
         }
     }
     public bool Post(Action action)
     { if (Volatile.Read(ref _exiting) != 0) return false; _posted.Enqueue(action); return true; }
-    private async Task HostedSmoke()
+    public void StartRenderProfile(ArenaMapId map = ArenaMapId.Classic)
     {
-        try
+        if (_profiler != null) return;
+        ReturnToLauncher(); _launcher.Visible = false;
+        _profiler = new RenderProfiler(); AddChild(_profiler);
+        try { _profiler.Initialize(_renderer, _ui, _engineLog, OS.GetCmdlineUserArgs(), map, (status, report) =>
         {
-            var room = await _launcher.StartSmokeRoom();
-            _holdPostedForVerification = true;
-            var canceled = ConnectOnline("127.0.0.1:29025", "Cancelado", -1, "", room.Id);
-            CancelPendingConnection(); await canceled;
-            await ConnectOnline("127.0.0.1:29025", "Respuesta tardía", -1, "", room.Id);
-            ReturnToLauncher();
-            while (_posted.TryDequeue(out var action)) action();
-            if (_connection != null || _playing) throw new InvalidOperationException("Se entró en una conexión cancelada.");
-            await ConnectOnline("127.0.0.1:29025", "Anterior", -1, "", room.Id);
-            var previous = _pendingConnection!;
-            await ConnectOnline("127.0.0.1:29025", "Launcher", -1, "", room.Id);
-            var current = _pendingConnection;
-            while (_posted.TryDequeue(out var action)) action();
-            if (current == null || _connection != current || !_playing)
-                throw new InvalidOperationException("Una respuesta anterior sustituyó la conexión actual.");
-            await previous.DisposeAsync();
-            GD.Print("CONNECTION_LIFECYCLE_OK: cancelación antes del saludo, respuesta tardía y sustitución de conexión.");
+            if (report.ValueKind != JsonValueKind.Undefined) _lastRenderProfile = report;
+            var completed = _profiler; _profiler = null; completed?.QueueFree();
+            ReturnToLauncher(); _launcher.ShowStatus(status);
+        }); }
+        catch (Exception error)
+        {
+            _profiler.QueueFree(); _profiler = null; ReturnToLauncher();
+            Diagnostics.Error("render.profile_failed", "No se pudo iniciar la medición gráfica.", error, Context());
+            _launcher.ShowError("No se pudo iniciar la medición gráfica: " + error.Message);
+            if (RenderProfiler.Requested(OS.GetCmdlineUserArgs())) { GD.PushError("PROFILE_FAILED: " + error.Message); GetTree().Quit(1); }
         }
-        catch (Exception e) { Post(() => { GD.PushError("HOST_SMOKE_FAILED: " + e.Message); GetTree().Quit(1); }); }
-        finally { _holdPostedForVerification = false; }
     }
-
     public async Task ConnectOnline(string address, string name, int team, string password,
         string roomId = "default", string roomPassword = "", WizardType wizardType = WizardType.Balanced)
     {
@@ -311,54 +197,29 @@ public partial class Main : Node
 
     public override void _Process(double delta)
     {
-        if (CheckSmokeErrors()) return;
+        if (_verification?.CheckSmokeErrors() == true) return;
         try { ProcessFrame(delta); }
         catch (Exception e)
         {
             Diagnostics.Error("client.frame_failed", "Fallo al actualizar el cliente.", e, Context());
-            if (SmokeMode)
-            {
-                _smokeFailed = true;
-                GD.PushError("SMOKE_FAILED: " + e.Message);
-                GetTree().Quit(1);
-                return;
-            }
+            if (_verification?.FailFrame(e) == true) return;
             throw;
         }
     }
 
     private void ProcessFrame(double delta)
     {
-        if (CheckSmokeErrors()) return;
-        while (!_holdPostedForVerification && _posted.TryDequeue(out var action))
+        if (_verification?.CheckSmokeErrors() == true) return;
+        while (_verification?.HoldPosted != true && _posted.TryDequeue(out var action))
             try { action(); }
             catch (Exception e)
             {
                 Diagnostics.Error("client.callback_failed", "Fallo en una operación de interfaz.", e, Context());
-                if (SmokeMode) { GD.PushError("SMOKE_FAILED: " + e.Message); GetTree().Quit(1); return; }
+                if (_verification?.FailFrame(e) == true) return;
             }
         _renderFrames++;
-        if (_mapOverview && _previewMap != null && _renderFrames == 2)
-        {
-            var overview = ArenaMap.Get(_previewMap.Value);
-            _renderer.SetPreviewZoom(Math.Max(overview.HalfWidth * 2 / (GetViewport().GetVisibleRect().Size.X / GetViewport().GetVisibleRect().Size.Y),
-                overview.HalfHeight * 1.58f) + 6);
-        }
-        if (_mapsSmoke && _renderFrames <= 150 && _renderFrames % 30 == 1)
-            _snapshot = MapFixture(_renderFrames <= 30 || _renderFrames > 120 ? ArenaMapId.Citadel
-                : _renderFrames <= 60 ? ArenaMapId.Classic : _renderFrames <= 90 ? ArenaMapId.Ascension : ArenaMapId.Relics);
-        if (_mapsSmoke && _renderFrames == 76)
-            _snapshot = _snapshot! with { Pickups = _snapshot!.Pickups!.Select(i => i.Id == 1 ? i with { Position = new V2(0, 20) } : i).ToArray() };
-        if (_combinationsSmoke) CheckCombinations();
-        if (_effectsSmoke || _previewEffects) _snapshot = VisualFixture.Effects(_renderFrames);
-        if (_previewStrength > 0) _snapshot = VisualFixture.Strength(_renderFrames, _previewStrength);
-        if (_previewSpells != null) _snapshot = VisualFixture.Spells(_renderFrames, _previewSpells);
-        if (_spritesSmoke || _previewWizards != null) _snapshot = VisualFixture.Wizards(_renderFrames, _previewWizards);
-        if (_hudSmoke && _renderFrames <= HudCases.Length * 3 && _renderFrames % 3 == 1)
-        {
-            _snapshot = VisualFixture.Create(HudCases[(_renderFrames - 1) / 3].State);
-            _snapshot = _snapshot with { Players = _snapshot.Players.Select(p => p with { Charge = 0.5f, Casting = false }).ToArray() };
-        }
+        if (_profiler?.Running == true) return;
+        _verification?.BeforeFrame(delta);
         _metricsTime += delta;
         if (_metricsTime >= 30)
         {
@@ -383,24 +244,20 @@ public partial class Main : Node
                 ReturnToLauncher("El servidor ha dejado de enviar el estado de la partida. Puedes exportar el diagnóstico desde el launcher."); return;
             }
             _renderer.InterpolationDelay = _connection != null ? 0.075 : 1 / 60.0;
-            _renderer.Render(latest, _localId, _effectsSmoke || _spritesSmoke || _previewStrength > 0 || _previewSpells != null ? 1 / 60.0 : delta, true);
+            _renderer.Render(latest, _localId, _verification?.FixedRenderStep == true ? 1 / 60.0 : delta, true);
             _hud?.Update(latest, _localId, _serverName, delta);
             _touch?.Update(latest.Players.FirstOrDefault(p => p.Id == _localId));
-            if (_mapsSmoke && _renderFrames % 30 == 0) CheckMaps(latest);
-            if (_previewMap != null && !_mapOverview && _renderFrames == 1) _renderer.SetPreviewZoom(72);
-            if (_hudSmoke && _renderFrames <= HudCases.Length * 3 && _renderFrames % 3 == 2) CheckHudCase();
-            if (_effectsSmoke) CheckEffects();
-            if (_spritesSmoke) CheckSprites(latest);
+            _verification?.AfterRender(latest);
         }
         else _renderer.Render(_backdropSnapshot ??= _backdrop.Snapshot(), 0, delta, false);
-        if (_diagnosticsSmoke && _renderFrames == 30) ExportDiagnostics();
-        if (_capturePath != null && _renderFrames == 90) _ = Capture(_capturePath);
+        _verification?.AfterFrame();
     }
 
     public override void _PhysicsProcess(double delta)
     {
-        if (CheckSmokeErrors()) return;
-        if (_hudSmoke || _previewShield != null || _effectsSmoke || _previewEffects || _previewStrength > 0 || _previewSpells != null || _spritesSmoke || _previewWizards != null || _combinationsSmoke || _mapsSmoke || _previewMap != null) return;
+        if (_verification?.CheckSmokeErrors() == true) return;
+        if (_verification?.FreezeSimulation == true) return;
+        if (_profiler?.Running == true) return;
         if (!_playing) { _backdrop.Step(); _backdropSnapshot = _backdrop.Snapshot(); return; }
         _inputTime += delta;
         if (_practice != null)
@@ -411,219 +268,7 @@ public partial class Main : Node
             }
         }
         else if (_inputTime >= 1.0 / 30) { Submit(InputMessage()); _inputTime = 0; }
-        if (_smoke)
-        {
-            _smokeFrames++;
-            if (_smokeFrames == 30)
-            {
-                _aim = new(5, 0);
-                Submit(new() { Type = "input", AimX = 5, AimY = 0 });
-                foreach (var e in new[] { Element.Arcane, Element.Arcane, Element.Fire }) Submit(new() { Type = "element", Element = e });
-                Submit(new() { Type = "cast" });
-            }
-            if (_smokeFrames == 140) { Submit(new() { Type = "release" }); Submit(new() { Type = "element", Element = Element.Shield }); Submit(new() { Type = "self" }); }
-            if (_smokeFrames >= 240 && _capturePath == null)
-            CompleteSmoke($"SMOKE_OK: {_snapshot?.Players.Length} jugadores, tick {_snapshot?.Tick}");
-        }
-        if (_hostSmoke && _connection?.Connected == true && ++_smokeFrames >= 180)
-        CompleteSmoke($"HOST_SMOKE_OK: {_connection.Room?.Name}, {_snapshot?.Players.Length} jugadores");
-        if (_mobileSmoke && _renderFrames >= 2) CheckMobile();
-    }
-    private WorldSnapshot MapFixture(ArenaMapId id)
-    {
-        var map = ArenaMap.Get(id); _serverName = map.Name;
-        var source = VisualFixture.Create("none");
-        bool hold = id == ArenaMapId.Citadel;
-        var items = map.HasPickups ? new GameWorld(new() { Map = id, PickupSeed = 271 }).Snapshot().Pickups!
-            .Select(i => i.Id == 1 ? i with { Active = false, Respawn = 6 } : i).ToArray() : [];
-        return source with { Map = id, HoldingTeam = hold ? 0 : -1, HoldSeconds = hold ? 7.5f : 0,
-            Players = source.Players.Select(p => p with { Position = _previewMap != null ? new V2(0, -1) : map.Spawn(p.Team, p.Id),
-                MaxHealth = id == ArenaMapId.Ascension ? 1030 : id == ArenaMapId.Relics && p.Id == 1 ? 1100 : 1000,
-                Health = id == ArenaMapId.Ascension ? 1020 : p.Health,
-                Buffs = id == ArenaMapId.Relics && p.Id == 1 ? [new(BuffKind.Power, 2), new(BuffKind.Vitality, 1)] : [] }).ToArray(),
-            Pickups = items,
-            Points = map.ControlPoints.Select((p, i) => new PointSnapshot(i, p, hold ? 0 : -1, hold ? -1 : 0)).ToArray() };
-    }
-    private void CheckMaps(WorldSnapshot snapshot)
-    {
-        var choice = (OptionButton)_launcher.FindChild("PracticeMapChoice", true, false);
-        var objective = (Label)_hud!.FindChild("MatchObjective", true, false);
-        var map = ArenaMap.Get(snapshot.Map);
-        bool valid = choice.ItemCount == Enum.GetValues<ArenaMapId>().Length && _renderer.CurrentMap == snapshot.Map && _renderer.Points.Count == 3 &&
-            _renderer.SceneryTheme == map.Theme && (map.Theme == ArenaTheme.City ? _renderer.SceneryBuildings >= 12 : _renderer.SceneryTrees >= 20) &&
-            _renderer.GetChildren().Count(n => n.Name == "MapGeometry") == 1 &&
-            snapshot.Points.All(p => _renderer.Points[p.Id].Position == ArenaRenderer.World(p.Position));
-        if (snapshot.Map == ArenaMapId.Citadel) valid &= objective.Text.Contains($"{snapshot.HoldSeconds:0.0} / 15 s") && Math.Abs(_renderer.Camera.Position.X) > 40;
-        else valid &= objective.Text.Contains("tickets");
-        if (snapshot.Map == ArenaMapId.Ascension)
-        {
-            var health = (ProgressBar)_hud.FindChild("HealthBar", true, false);
-            valid &= objective.Text.Contains("+10") && objective.Text.Contains("10 s") && health.MaxValue == 1030 && health.Value == 1020;
-        }
-        if (map.HasPickups)
-            valid &= _renderer.Pickups.Count == 14 && !_renderer.Pickups[1].Available && _renderer.Pickups.Values.Count(i => i.Available) == 13
-                && snapshot.Pickups!.All(i => _renderer.Pickups[i.Id].Position == ArenaRenderer.World(i.Position));
-        else valid &= _renderer.Pickups.Count == 0;
-        if (snapshot.Map == ArenaMapId.Relics)
-        {
-            var buffs = (Label)_hud.FindChild("ActiveBuffs", true, false);
-            valid &= buffs.Text.Contains("Potencia ×2") && buffs.Text.Contains("Vitalidad ×1") && objective.Text.Contains("hasta morir");
-        }
-        var local = snapshot.Players.Single(p => p.Id == _localId);
-        valid &= _renderer.Wizards[_localId].ElementSlotCount == 3 && _renderer.Wizards[_localId].DisplayedElements.SequenceEqual(local.DisplayElements);
-        if (!valid) { GD.PushError($"MAPS_SMOKE_FAILED: {map.Name}, cámara, selector, contador o geometría incorrectos"); GetTree().Quit(1); return; }
-        GD.Print($"MAP_CASE_OK: {map.Name}, {map.Area} unidades²");
-        if (_renderFrames >= 150) CompleteSmoke("MAPS_SMOKE_OK: bosque, ciudad, ruinas, santuario, objetos móviles, mejoras y tres casillas");
-    }
-    private void CheckHudCase()
-    {
-        var expected = HudCases[(_renderFrames - 1) / 3];
-        var health = (ProgressBar)_hud!.FindChild("HealthBar", true, false);
-        var charge = (ProgressBar)_hud.FindChild("ChargeBar", true, false);
-        var shield = (ProgressBar)_hud.FindChild("ShieldBar", true, false);
-        var text = (Label)_hud.FindChild("ShieldValue", true, false);
-        var playerPanel = (Control)_hud.FindChild("PlayerStatusPanel", true, false);
-        bool correct = _hud.Scale.IsEqualApprox(Vector2.One * Hud.GameplayScale) && (_hud.Size * Hud.GameplayScale).IsEqualApprox(GetViewport().GetVisibleRect().Size) &&
-            playerPanel.GetGlobalTransform().Scale.IsEqualApprox(Vector2.One) && playerPanel.GetGlobalRect().Size.X >= 310 &&
-            Math.Abs(playerPanel.GetGlobalRect().Position.X - 24) < 0.01f &&
-            health.Value == 830 && health.MaxValue == 1000 && charge.Value == 0 && shield.Value == expected.Shield && shield.MaxValue == expected.Maximum &&
-            (expected.Shield == 0 ? text.Text.Contains("INACTIVO") : text.Text.Contains($"{expected.Shield:0} / {expected.Maximum:0}") && text.Text.Contains(" s"));
-        if (!correct) { GD.PushError($"HUD_SMOKE_FAILED: {expected.State}, {shield.Value}/{shield.MaxValue}, {text.Text}"); GetTree().Quit(1); return; }
-        GD.Print($"HUD_CASE_OK: {expected.State}, {shield.Value}/{shield.MaxValue}");
-        if (expected.State == HudCases[^1].State) CompleteSmoke("HUD_SMOKE_OK: 6 estados de escudo, vida, capacidad y duración");
-    }
-    private void CheckCombinations()
-    {
-        int index = (_renderFrames - 1) / 200;
-        if (index >= CombinationCases.Length) return;
-        var item = CombinationCases[index];
-        if ((_renderFrames - 1) % 200 == 0) _spellBook.SelectCombination(item.Keys, item.Mode, item.Kind);
-        if (_renderFrames % 200 != 0) return;
-        try
-        {
-            var state = _spellBook.Demo.World.Snapshot(); SnapshotValidation.Check(state);
-            if (!_spellBook.IsVisibleInTree() || state.Tick < 180)
-                throw new InvalidDataException("La pestaña de combinaciones está oculta o la demostración no avanza.");
-            if (item.Kind == DemonstrationKind.Combination)
-            {
-                var damageText = (Label)_spellBook.FindChild("SpellDamageValues", true, false);
-                if (!damageText.IsVisibleInTree() || damageText.Text != SpellBalance.Format(SpellCatalogue.FromKeys(item.Keys)!.Recipe, item.Mode))
-                    throw new InvalidDataException("F1 no muestra los valores de daño de la combinación y forma de lanzamiento.");
-            }
-            var effects = _spellBook.Preview.Effects;
-            bool valid = effects.PooledCount <= CombatEffects.ParticleLimit + CombatEffects.RingLimit;
-            if (index == 0) valid &= !effects.SeenKinds.Contains("splash");
-            if (index is >= 1 and <= 3) valid &= effects.SeenKinds.Contains("splash") && state.Fields.Length > 0;
-            if (index == 4) valid &= state.Players[0].RegenerationRate == 38 && state.Players[0].Health > 500;
-            if (index == 5) valid &= effects.SeenKinds.Contains("explosion");
-            if (index == 6) valid &= effects.SeenKinds.Contains("mine_heal");
-            if (index == 7) valid &= effects.SeenKinds.Contains("beam_merge");
-            if (index == 8) valid &= effects.SeenKinds.Contains("beam_refract");
-            if (index == 9) valid &= _spellBook.Preview.Points[1].DisplayedProgress < -0.5f;
-            if (!valid) throw new InvalidDataException("No se representó el comportamiento esperado.");
-            GD.Print($"COMBINATION_CASE_OK: {item.Keys} {item.Mode} {item.Kind}");
-            if (index == CombinationCases.Length - 1)
-            CompleteSmoke($"COMBINATIONS_SMOKE_OK: {SpellCatalogue.All.Length} combinaciones y 10 escenas verificadas");
-        }
-        catch (Exception e) { GD.PushError($"COMBINATIONS_SMOKE_FAILED: {index}, {e.Message}"); GetTree().Quit(1); }
-    }
-    private void CheckEffects()
-    {
-        var effects = _renderer.Effects;
-        bool valid = effects.ActiveParticles <= CombatEffects.ParticleLimit && effects.ActiveRings <= CombatEffects.RingLimit &&
-            effects.PooledCount <= CombatEffects.ParticleLimit + CombatEffects.RingLimit && effects.EmittedLastFrame <= CombatEffects.EmissionBudget;
-        if (_renderFrames == 130) valid &= effects.ActiveCount > 0 && effects.SeenKinds.Count == 12 &&
-            ((Label)_hud!.FindChild("WizardAffinity", true, false)).Text == "Piromante";
-        if (_renderFrames == 240)
-        {
-            valid &= effects.ActiveCount == 0 && effects.SeenCharges.SetEquals([1,2,3]);
-            if (valid) valid = CheckSpellStrength();
-            if (valid) valid = CheckShieldMeteorVisuals();
-            _renderer.Clear(); valid &= effects.ActiveCount == 0 && _renderer.ActiveBeamSegments == 0;
-            if (valid) CompleteSmoke("EFFECTS_SMOKE_OK: 1/2/3 cargas, elementos repetidos, 12 eventos, límites, expiración, reutilización y limpieza");
-        }
-        if (!valid) { GD.PushError("EFFECTS_SMOKE_FAILED: efectos o tipo de mago inválidos"); GetTree().Quit(1); }
-    }
-    private bool CheckSpellStrength()
-    {
-        var probe = new CombatEffects(); AddChild(probe);
-        var empty = _snapshot! with { Players = [], Projectiles = [], Beams = [], Fields = [], Walls = [], Points = [], Events = [], Pickups = [] };
-        var impacts = new int[3]; var trails = new int[3]; var waves = new int[3];
-        bool valid = true;
-        for (int charges = 1; charges <= 3; charges++)
-        {
-            var elements = Enumerable.Repeat(Element.Earth, charges).ToArray();
-            probe.Clear(); probe.Play(new(1,"impact",V2.Zero,elements,"")); impacts[charges-1] = probe.ActiveParticles;
-            probe.Clear(); probe.Play(new(1,"nova",V2.Zero,elements,"",4)); waves[charges-1] = probe.ActiveRings;
-            probe.Clear();
-            var shot = empty with { Projectiles = [new(1,1,V2.Zero,new(1,0),elements,0.3f)] };
-            probe.Advance(shot,0.04f,true); probe.Advance(shot,0.04f,true); trails[charges-1] = probe.ActiveParticles;
-            _renderer.Render(shot,0,1/60.0,true);
-            var meshes = _renderer.ProjectileVisuals[1].GetChildren().OfType<MeshInstance3D>().ToArray();
-            valid &= meshes.Length == charges && ((SphereMesh)meshes[0].Mesh).Radius == 0.3f;
-            _renderer.Clear();
-        }
-        valid &= impacts[0] > 0 && impacts[1] > impacts[0] && impacts[2] > impacts[1] && impacts[2] >= impacts[0]*2.5f;
-        valid &= trails[0] > 0 && trails[1] > trails[0] && trails[2] > trails[1] && waves[0] == 1 && waves[1] == 1 && waves[2] == 2;
-        foreach (var shape in new[] { SpellShape.Beam, SpellShape.Spray, SpellShape.Force, SpellShape.Lightning })
-        {
-            int previous = 0;
-            for (int charges = 1; charges <= 3; charges++)
-            {
-                var elements = Enumerable.Repeat(Element.Arcane,charges).ToArray();
-                _renderer.Render(empty with { Beams = [new(1,new(-3,0),new(3,0),elements,shape)] },0,1/60.0,true);
-                valid &= _renderer.ActiveBeamSegments > previous; previous = _renderer.ActiveBeamSegments;
-            }
-        }
-        // Un hechizo ya lanzado conserva su nivel aunque se preparen tres elementos para el siguiente.
-        probe.Clear();
-        var caster = _snapshot!.Players[0] with { Burning=0,Wet=0,Chill=0,Frozen=0,Haste=0,RegenerationRate=0,
-            Casting=true,Charge=0,Selected=[Element.Fire,Element.Fire,Element.Fire],CastingElements=[Element.Arcane] };
-        for (int i=0;i<3;i++) probe.Advance(empty with { Players=[caster] },0.05f,true);
-        valid &= probe.ActiveParticles == 1;
-        probe.Clear();
-        for (int frame=0;frame<40;frame++)
-        {
-            for (int i=0;i<20;i++) probe.Play(new(frame*20+i,"nova",V2.Zero,[Element.Fire,Element.Fire,Element.Fire],"",4));
-            probe.Advance(empty,0.05f,true);
-            valid &= probe.ActiveParticles <= CombatEffects.ParticleLimit && probe.ActiveRings <= CombatEffects.RingLimit &&
-                probe.EmittedLastFrame <= CombatEffects.EmissionBudget;
-        }
-        int allocated = probe.PooledCount; probe.Clear(); probe.Play(new(1,"impact",V2.Zero,[Element.Fire],""));
-        valid &= probe.ActiveParticles > 0 && probe.PooledCount == allocated;
-        for (int i=0;i<25;i++) probe.Advance(empty,0.05f,false);
-        valid &= probe.ActiveCount == 0; probe.QueueFree();
-        if (valid) GD.Print($"SPELL_STRENGTH_OK: impactos {string.Join('/',impacts)}, estelas {string.Join('/',trails)}, anillos {string.Join('/',waves)}, 4 formas y saturación comprobadas");
-        return valid;
-    }
-    private void CheckSprites(WorldSnapshot snapshot)
-    {
-        bool valid = _renderer.Wizards.Count == 10;
-        foreach (var player in snapshot.Players)
-        {
-            if (!_renderer.Wizards.TryGetValue(player.Id, out var wizard)) { valid = false; continue; }
-            var sprite = wizard.Sprite;
-            var atlas = WizardSprites.Load(player.WizardType);
-            valid &= sprite.Texture == atlas.Texture && sprite.IsVisibleInTree() == player.Alive &&
-                sprite.Frame is >= 0 and < 16 && sprite.Offset == atlas.Offset(sprite.Frame);
-            valid &= wizard.ElementSlotCount == 3 && wizard.ElementSlotsVisible == player.Alive;
-            if (player.Alive && player.Frozen <= 0) _spriteCoverage.Add((player.WizardType, player.Team, sprite.Frame / 4, sprite.Frame % 4));
-            if (player.Frozen > 0) valid &= sprite.Frame % 4 == 0;
-            if (_renderFrames == 7) valid &= sprite.Frame % 4 == 3; // Evento instantáneo, sin Casting en el snapshot.
-            var material = (ShaderMaterial)sprite.MaterialOverride;
-            valid &= material.GetShaderParameter("team_color").AsColor() == (player.Team == 0 ? Ui.Blue : Ui.Red);
-        }
-        if (_renderFrames == 270)
-        {
-            // Cinco atlas compartidos, ambos equipos, cuatro direcciones y tres poses usadas.
-            valid &= _spriteCoverage.Count == 120;
-            valid &= CheckWizardMotion();
-            valid &= CheckTranslationInput();
-            valid &= CheckRespawnInput();
-            _renderer.Clear(); valid &= _renderer.Wizards.Count == 0;
-            if (valid) CompleteSmoke("SPRITES_SMOKE_OK: 5 atlas, 120 combinaciones, equipos, anclajes, congelación, muerte, reaparición y limpieza");
-        }
-        if (!valid) { GD.PushError($"SPRITES_SMOKE_FAILED: frame {_renderFrames}, cobertura {_spriteCoverage.Count}"); GetTree().Quit(1); }
+        _verification?.AfterPhysics();
     }
     private void UpdateMouseMovement(bool leftPressed, bool shiftPressed)
     {
@@ -678,6 +323,11 @@ public partial class Main : Node
     }
     public override void _UnhandledInput(InputEvent input)
     {
+        if (_profiler?.Running == true)
+        {
+            if (input is InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.Escape }) _profiler.Cancel();
+            return;
+        }
         if (input is InputEventKey { Pressed: true, Echo: false } key)
         {
             if (key.PhysicalKeycode == Key.F1) { ToggleHelp(); GetViewport().SetInputAsHandled(); return; }
@@ -838,19 +488,6 @@ public partial class Main : Node
         box.AddChild(Ui.Button("Salir del juego", () => GetTree().Quit()));
         return root;
     }
-    private async Task Capture(string path)
-    {
-        if (DisplayServer.GetName() == "headless") { GD.Print("CAPTURE_SKIPPED: headless"); GetTree().Quit(); return; }
-        await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
-        var captured = GetViewport().GetTexture().GetImage(); var error = captured.SavePng(path);
-        if (_captureReview)
-        {
-            captured.Resize(_previewStrength > 0 ? 960 : 640, _previewStrength > 0 ? 600 : 400, Image.Interpolation.Lanczos);
-            string marker = _previewStrength > 0 ? "EFFECT_REVIEW_BASE64:" + _previewStrength : "MAP_REVIEW_BASE64:" + _previewMap;
-            GD.Print(marker + ":" + Convert.ToBase64String(captured.SaveJpgToBuffer(0.8f)));
-        }
-        GD.Print($"CAPTURE: {error} {path}"); GetTree().Quit(error == Error.Ok ? 0 : 1);
-    }
     private Dictionary<string, object?> Context() => new()
     {
         ["room"] = _connection?.Room?.Id, ["player"] = _localId, ["tick"] = _snapshot?.Tick,
@@ -858,7 +495,8 @@ public partial class Main : Node
         ["managedBytes"] = GC.GetTotalMemory(false), ["gen0Collections"] = GC.CollectionCount(0), ["frames"] = _renderFrames,
         ["logError"] = _log?.LastError,
         ["wizardType"] = _snapshot?.Players.FirstOrDefault(p => p.Id == _localId)?.WizardType,
-        ["activeEffects"] = _renderer?.Effects.ActiveCount, ["pooledEffects"] = _renderer?.Effects.PooledCount
+        ["activeEffects"] = _renderer?.Effects.ActiveCount, ["pooledEffects"] = _renderer?.Effects.PooledCount,
+        ["renderProfile"] = _lastRenderProfile
     };
     public async void ExportDiagnostics()
     {
@@ -869,23 +507,15 @@ public partial class Main : Node
         context["os"] = System.Runtime.InteropServices.RuntimeInformation.OSDescription;
         context["runtime"] = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription;
         string directory = ProjectSettings.GlobalizePath("user://reports");
-        bool smoke = _diagnosticsSmoke;
-        if (smoke) GD.PushWarning("DIAGNOSTICS_SMOKE_MARKER: aviso de prueba controlado.");
+        bool smoke = _verification?.DiagnosticsSmoke == true;
+        _verification?.BeforeDiagnosticExport();
         try
         {
             Diagnostics.Info("diagnostic.export", "Exportando diagnóstico.", context);
             string path = await _log.ExportReportAsync(directory, context, _lifetime.Token).ConfigureAwait(false);
             if (smoke)
             {
-                using var zip = System.IO.Compression.ZipFile.OpenRead(path);
-                bool marker = false;
-                foreach (var entry in zip.Entries.Where(e => e.Name.StartsWith("client-") && e.Name.EndsWith(".jsonl")))
-                {
-                    using var reader = new StreamReader(entry.Open());
-                    if ((await reader.ReadToEndAsync().ConfigureAwait(false)).Contains("DIAGNOSTICS_SMOKE_MARKER")) marker = true;
-                }
-                if (!marker || zip.GetEntry("report.json") == null) throw new IOException("El informe no incluye el aviso del motor o los metadatos.");
-                Post(() => CompleteSmoke("DIAGNOSTICS_SMOKE_OK: " + path));
+                await _verification!.CheckDiagnosticReport(path).ConfigureAwait(false);
             }
             else Post(() => { string status = "Diagnóstico guardado en: " + path;
                 _launcher.ShowStatus(status); _diagnosticStatus.Text = status; OS.ShellOpen(directory); });

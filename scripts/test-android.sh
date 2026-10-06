@@ -52,4 +52,17 @@ for i in {1..90}; do
 done
 if ! $passed; then cat artifacts/android/device.log; exit 1; fi
 if grep -E 'MOBILE_SMOKE_FAILED|FATAL EXCEPTION|Unhandled exception|SMOKE_FAILED' artifacts/android/device.log; then exit 1; fi
-echo 'ANDROID_DEVICE_OK: APK instalada; C#, Godot, controles y práctica ejecutados en Android 15.'
+adb -s "$serial" shell am force-stop com.arcana.arena
+adb -s "$serial" logcat -c
+adb -s "$serial" shell am start -n com.arcana.arena/com.godot.game.GodotApp --esa command_line_params '--,--profile-render,--profile-warmup=0,--profile-seconds=3,--profile-environment=ci-android15-emulator-swangle'
+profiled=false
+for i in {1..120}; do
+  adb -s "$serial" logcat -d > artifacts/android/profile-device.log
+  if rg -n 'PROFILE_FAILED|FATAL EXCEPTION|Unhandled exception' artifacts/android/profile-device.log; then break; fi
+  if rg -n 'PROFILE_OK:' artifacts/android/profile-device.log; then profiled=true; break; fi
+  sleep 2
+done
+$profiled || { cat artifacts/android/profile-device.log; exit 1; }
+adb -s "$serial" shell run-as com.arcana.arena cat files/profiles/latest.json > artifacts/android/render-profile.json
+python3 scripts/check-render-profile.py artifacts/android/render-profile.json
+echo 'ANDROID_DEVICE_OK: APK instalada; C#, Godot, joystick de área, controles, práctica y perfil gráfico ejecutados en Android 15.'

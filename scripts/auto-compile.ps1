@@ -14,6 +14,8 @@ $sdkVersion = '8.0.425'
 $godotVersion = '4.5.2'
 $templateVersion = "$godotVersion.stable.mono"
 . (Join-Path $PSScriptRoot 'build-support.ps1')
+. (Join-Path $PSScriptRoot 'build-lock.ps1')
+$buildLease = $null
 
 function Download-Tool {
     param([string]$Url, [string]$Target)
@@ -34,6 +36,7 @@ function Download-Tool {
 
 Start-Transcript -Path $log | Out-Null
 try {
+    $buildLease = Enter-ArcanaBuildLock -RepositoryRoot $repo
     Write-Host 'Compilando Arcana Arena. La primera vez se descargan las herramientas oficiales.'
     Write-Host 'La carpeta Juego se sustituye despues de compilar correctamente. Cierra el juego antes de compilar.'
     $sdkRoot = Join-Path $cache 'dotnet'
@@ -77,11 +80,11 @@ try {
         } finally { $archive.Dispose() }
         Remove-Item -LiteralPath $archiveFile -Force
     }
-    & (Join-Path $PSScriptRoot 'package-windows.ps1') -GodotPath $GodotPath
+    & (Join-Path $PSScriptRoot 'package-windows.ps1') -GodotPath $GodotPath -BuildLease $buildLease
     Publish-GamePackage -RepositoryRoot $repo -Package (Join-Path $artifactRoot 'windows')
     Write-Host "Registro: $log"
 } catch {
     Write-Host "ERROR: $($_.Exception.Message)" -ForegroundColor Red
     Write-Host "Registro: $log"
     exit 1
-} finally { Stop-Transcript | Out-Null }
+} finally { Exit-ArcanaBuildLock -Lease $buildLease; Stop-Transcript | Out-Null }

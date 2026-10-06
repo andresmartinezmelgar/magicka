@@ -5,6 +5,13 @@ public static class SnapshotValidation
 {
     private static bool Elements(Element[]? values, int maximum = 3) => values != null && values.Length <= maximum && values.All(Enum.IsDefined);
     private static bool NonNegative(params float[] values) => values.All(v => float.IsFinite(v) && v >= 0);
+    // La tolerancia cubre extremos de rayos en la frontera y pequeños desplazamientos
+    // de rebote. El bastón puede emitir un destello hasta una unidad fuera del suelo.
+    private static bool Position(ArenaDefinition map, V2 at, float margin = 0.1f) => at.IsFinite &&
+        Math.Abs(at.X) <= map.HalfWidth + margin && Math.Abs(at.Y) <= map.HalfHeight + margin &&
+        (map.Inside(at) || map.Boundary.Any(e => Geometry.DistanceToSegment(at, e.A, e.B) <= margin));
+    private static bool Direction(V2 value) => value.IsFinite && value.LengthSquared <= 1.002f;
+    private static bool Size(float value, float maximum) => float.IsFinite(value) && value >= 0 && value <= maximum;
     public static void Check(WorldSnapshot state)
     {
         if (!Enum.IsDefined(state.Mode) || !Enum.IsDefined(state.Map) || state.Tick < 0 || !double.IsFinite(state.Time) || state.Time < 0 || !NonNegative(state.RestartIn) ||
@@ -16,12 +23,13 @@ public static class SnapshotValidation
             state.Players is not { Length: <= 16 } || state.Projectiles is not { Length: <= 160 } ||
             state.Walls is not { Length: <= 40 } || state.Fields is not { Length: <= 40 } ||
             state.Beams is not { Length: <= 64 } || state.Points is not { Length: 3 } || state.Events is not { Length: <= 160 }) Invalid();
-        bool hasPickups = ArenaMap.Get(state.Map).HasPickups;
+        var map = ArenaMap.Get(state.Map);
+        bool hasPickups = map.HasPickups;
         var ids = new HashSet<int>();
         foreach (var p in state.Players!)
         {
             if (p == null || p.Id <= 0 || !ids.Add(p.Id) || p.Team is < 0 or > 1 || !Enum.IsDefined(p.WizardType) || p.Name == null || p.Name.Length > 24 ||
-                !p.Position.IsFinite || !p.Facing.IsFinite || !Elements(p.Selected) || !Elements(p.Ward, 8) ||
+                !Position(map, p.Position) || !Direction(p.Facing) || !Elements(p.Selected) || !Elements(p.Ward, 8) ||
                 p.Cooldowns is not { Length: 4 } || !NonNegative(p.Cooldowns) ||
                 !NonNegative(p.Health, p.MaxHealth, p.Shield, p.Energy, p.Respawn, p.Wet, p.Burning, p.Chill, p.Frozen, p.Haste, p.Charge) ||
                 !NonNegative(p.ShieldMax, p.ShieldSeconds, p.RegenerationRate, p.InvulnerableSeconds) || p.InvulnerableSeconds > 1.2f ||
@@ -41,18 +49,23 @@ public static class SnapshotValidation
         var itemIds = new HashSet<int>();
         foreach (var item in state.Pickups ?? [])
             if (item == null || item.Id <= 0 || !itemIds.Add(item.Id) || !Enum.IsDefined(item.Kind) ||
-                !ArenaMap.Get(state.Map).Walkable(item.Position) || !NonNegative(item.Respawn) || item.Respawn > RelicBuffs.RespawnSeconds || item.Active != (item.Respawn == 0)) Invalid();
+                !map.Walkable(item.Position) || !NonNegative(item.Respawn) || item.Respawn > RelicBuffs.RespawnSeconds || item.Active != (item.Respawn == 0)) Invalid();
         ids.Clear();
-        foreach (var p in state.Projectiles!) if (p == null || p.Id <= 0 || !ids.Add(p.Id) || !p.Position.IsFinite || !p.Direction.IsFinite || !Elements(p.Elements) || !NonNegative(p.Radius)) Invalid();
-        foreach (var w in state.Walls!) if (w == null || w.Id <= 0 || !ids.Add(w.Id) || !w.A.IsFinite || !w.B.IsFinite || !Elements(w.Elements) || !NonNegative(w.Health, w.Lifetime)) Invalid();
-        foreach (var f in state.Fields!) if (f == null || f.Id <= 0 || !ids.Add(f.Id) || !f.Position.IsFinite || !Elements(f.Elements) || !NonNegative(f.Radius, f.Lifetime, f.TriggerRadius) || f.Kind is not ("meteor" or "mine" or "healing_mine" or "burning_ground" or "frost_ground" or "water_pool")) Invalid();
-        foreach (var b in state.Beams!) if (b == null || !b.From.IsFinite || !b.To.IsFinite || !Enum.IsDefined(b.Shape) || !Elements(b.Elements, 10) || !NonNegative(b.Power) || b.Power > 4 || b.Interaction is not ("direct" or "merged" or "reflected" or "refracted")) Invalid();
+        foreach (var p in state.Projectiles!) if (p == null || p.Id <= 0 || !ids.Add(p.Id) || !Position(map, p.Position) || !Direction(p.Direction) || !Elements(p.Elements) || !Size(p.Radius, 1)) Invalid();
+        foreach (var w in state.Walls!) if (w == null || w.Id <= 0 || !ids.Add(w.Id) || !Position(map, w.A) || !Position(map, w.B) ||
+            V2.Distance(w.A, w.B) is < 0.01f or > 5 || !Elements(w.Elements) || !Size(w.Health, 1300) || !Size(w.Lifetime, 10.01f)) Invalid();
+        foreach (var f in state.Fields!) if (f == null || f.Id <= 0 || !ids.Add(f.Id) || !Position(map, f.Position) || !Elements(f.Elements) ||
+            !Size(f.Radius, SpellBalance.MeteorRadius) || !Size(f.Lifetime, 12.01f) || !Size(f.TriggerRadius, 1) || f.Kind is not ("meteor" or "mine" or "healing_mine" or "burning_ground" or "frost_ground" or "water_pool")) Invalid();
+        foreach (var b in state.Beams!) if (b == null || !Position(map, b.From) || !Position(map, b.To) ||
+            // Una cadena eléctrica puede unir dos objetivos a lados distintos del cono.
+            !Size(V2.Distance(b.From, b.To), b.Shape switch { SpellShape.Beam => 17.1f, SpellShape.Spray => 6.6f, SpellShape.Lightning => 17.2f, SpellShape.Force => 4.1f, _ => -1 }) ||
+            !Elements(b.Elements, 10) || !Size(b.Power, 4) || b.Interaction is not ("direct" or "merged" or "reflected" or "refracted")) Invalid();
         ids.Clear();
-        foreach (var p in state.Points!) if (p == null || p.Id is < 0 or > 2 || !ids.Add(p.Id) || !p.Position.IsFinite || p.Owner is < -1 or > 1 || !float.IsFinite(p.Progress) || Math.Abs(p.Progress) > 1) Invalid();
+        foreach (var p in state.Points!) if (p == null || p.Id is < 0 or > 2 || !ids.Add(p.Id) || !Position(map, p.Position) || p.Owner is < -1 or > 1 || !float.IsFinite(p.Progress) || Math.Abs(p.Progress) > 1) Invalid();
         long previousEvent = 0;
         foreach (var e in state.Events!)
         {
-            if (e == null || e.Id <= previousEvent || !e.Position.IsFinite || !Elements(e.Elements, 10) || !NonNegative(e.Radius) || e.Radius > 20 || e.Text == null || e.Text.Length > 128 || e.Kind == null || e.Kind.Length > 24) Invalid();
+            if (e == null || e.Id <= previousEvent || !Position(map, e.Position, 1.1f) || !Elements(e.Elements, 10) || !Size(e.Radius, 20) || e.Text == null || e.Text.Length > 128 || e.Kind == null || e.Kind.Length > 24) Invalid();
             previousEvent = e!.Id;
         }
     }

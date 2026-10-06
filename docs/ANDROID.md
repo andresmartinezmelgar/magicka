@@ -1,8 +1,10 @@
 # Arcana Arena para Android
 
-Descargar el [código de main](https://github.com/andresmartinezmelgar/magicka/archive/refs/heads/main.zip), extraerlo y abrir **`Compilar-APK.cmd`** desde Windows. Instalar `artifacts/android/ArcanaArena-v0.12.12-Android-arm64.apk` cuando termine. Android puede pedir autorización a la aplicación usada para abrir la APK. Requiere Android 8 o posterior y procesador ARM64. En el móvil no hace falta instalar Godot ni .NET. Si Android rechaza actualizar una APK de desarrollo anterior porque tiene otra firma, desinstalar la anterior antes de instalar esta versión.
+Descargar el [código de main](https://github.com/andresmartinezmelgar/magicka/archive/refs/heads/main.zip), extraerlo y abrir **`Compilar-APK.cmd`** desde Windows. Instalar `artifacts/android/ArcanaArena-v0.12.13-Android-arm64.apk` cuando termine. Android puede pedir autorización a la aplicación usada para abrir la APK. Requiere Android 8 o posterior y procesador ARM64. En el móvil no hace falta instalar Godot ni .NET. Si Android rechaza actualizar una APK de desarrollo anterior porque tiene otra firma, desinstalar la anterior antes de instalar esta versión.
 
 El juego se abre en horizontal. **Práctica** funciona sin conexión y permite elegir los cuatro mapas, el modo y el tipo de mago. La APK incluye el motor, los sprites, los sonidos y el runtime C#.
+
+En v0.12.13, tocar y arrastrar desde cualquier punto libre de la mitad izquierda activa el movimiento. Los botones tienen prioridad; el primer dedo conserva el joystick hasta soltarse. [Perfil gráfico y medición por USB](RENDIMIENTO.md).
 
 En v0.12.12, el joystick conserva la intensidad del gesto y Traslación usa el último destino. Las barreras reducen sus mallas y la compilación Bash conserva la APK anterior si falla la validación.
 
@@ -14,7 +16,7 @@ En v0.12.9, agua azul, frío turquesa, rayo violeta y arcano magenta usan tonos 
 
 | Control | Acción |
 | --- | --- |
-| Joystick izquierdo | Mover. Soltar detiene al mago. |
+| Mitad izquierda | Tocar y arrastrar para mover. El joystick aparece donde apoyas el dedo; soltar detiene al mago. |
 | Ocho botones de elementos en el borde derecho | Preparar hasta tres cargas, incluidos elementos repetidos. |
 | Joystick derecho | Apuntar y lanzar mientras se mantiene el dedo. Soltar interrumpe los rayos o lanza la roca cargada. |
 | Sobre ti | Curación, escudo, guarda o secado. |
@@ -26,7 +28,7 @@ En v0.12.9, agua azul, frío turquesa, rayo violeta y arcano magenta usan tonos 
 | Tabla | Clasificación. |
 | Menú / Atrás | Pausa y salida de la partida. |
 
-Los elementos se muestran en dos columnas y cuatro filas encima del joystick derecho, con botones más grandes y el minimapa a su izquierda. Las tres casillas de elementos preparados y la barra de carga quedan justo encima de los cuatro hechizos, alineados al borde inferior para dejar libre el centro. Los controles admiten varios dedos simultáneos. Soltar fuera del joystick también detiene la acción. Abrir la ayuda, abrir el menú o enviar la app a segundo plano cancela los movimientos y las cargas activos.
+Los elementos se muestran en dos columnas y cuatro filas encima del joystick derecho, con botones más grandes y el minimapa a su izquierda. Las tres casillas de elementos preparados y la barra de carga quedan justo encima de los cuatro hechizos, alineados al borde inferior para dejar libre el centro. Los controles admiten varios dedos simultáneos. La zona izquierda excluye los botones; cruzar al lado derecho con el dedo de movimiento no cambia su función. Soltar fuera del joystick también detiene la acción. Abrir la ayuda, abrir el menú o enviar la app a segundo plano cancela los movimientos y las cargas activos.
 
 El láser ofensivo empieza con el 30 % del daño original. Mantener el joystick durante 2 s completa la carga y eleva el daño al 150 %. La barra inferior se llena del 0 al 100 %; el daño permanece al máximo mientras se mantiene el lanzamiento. Soltar, cambiar de hechizo, congelarse o morir reinicia la carga. Curación, quemadura y frío mantienen sus valores.
 
@@ -44,7 +46,7 @@ La APK puede consultar, crear y entrar en las salas del servidor. Usa protocolo 
 
 Extraer el código completo y abrir **`Compilar-APK.cmd`** en la raíz desde Windows 10/11 x64. El script descarga las herramientas oficiales que falten en `.tools/`, sin necesitar Android Studio, Visual Studio ni permisos de administrador. La primera vez necesita Internet y varios GB libres; el SDK muestra sus licencias para aceptarlas con `y`.
 
-La APK ARM64 queda en **`artifacts/android/ArcanaArena-v0.12.12-Android-arm64.apk`**, junto con `SHA256SUMS-Android.txt` y el manifest comprobado. El script verifica firma, versión, paquete, Android 8+, permiso de red y bibliotecas Godot/C#. Solo sustituye la APK después de comprobarla; si falla, conserva la anterior. Los registros se guardan en `artifacts/compilacion-apk-*.log`.
+La APK ARM64 queda en **`artifacts/android/ArcanaArena-v0.12.13-Android-arm64.apk`**, junto con `SHA256SUMS-Android.txt` y el manifest comprobado. El script verifica firma, versión, paquete, Android 8+, permiso de red y bibliotecas Godot/C#. Solo sustituye la APK después de comprobarla; si falla, conserva la anterior. Los registros se guardan en `artifacts/compilacion-apk-*.log`. Los scripts Windows y Bash comparten un bloqueo por carpeta de proyecto: una segunda compilación se rechaza antes de modificar presets o herramientas. El archivo `.tools/arcana-build.lock` permanece; el bloqueo se libera al terminar el proceso.
 
 La firma de desarrollo se conserva en **`.tools/android-debug.keystore`**, excluida de Git. Mantener ese archivo permite actualizar las APK generadas en este equipo sin desinstalar el juego. Una APK de la Release puede usar otra firma. El script restaura los presets del proyecto y usa una configuración de Godot temporal.
 

@@ -1,5 +1,14 @@
 # Cambios
 
+## v0.12.13
+
+- Joystick móvil flotante desde cualquier punto libre de la mitad izquierda. Prioridad de botones, intensidad proporcional, propiedad de cada dedo y cancelación al soltar, morir o usar Traslación.
+- Bloqueo de compilación compartido entre PowerShell y Bash/Python para proteger presets y herramientas. Pruebas de concurrencia, liberación y fallos.
+- Snapshots acotados por contorno, tamaño y valores de los hechizos antes de representar estado remoto; pruebas con dimensiones gigantes y combate en los cuatro mapas.
+- Coordinador de CI, escenas, capturas y verificaciones extraídos de `Main` a `Scripts/Verification`, conservando una interfaz interna de acceso al juego.
+- Perfil gráfico de 16 magos y efectos máximos: CPU/GPU, draw calls, primitivas y memoria, con procedencia y contadores no disponibles explícitos. Acceso desde Práctica, exportación a diagnóstico y script ADB para medir en móvil.
+- Perfiles automáticos en OpenGL por software y Android 15 emulado. La medición de un móvil físico requiere ejecutar la escena en ese dispositivo. [Detalles](docs/RENDIMIENTO.md).
+
 ## v0.12.12
 
 - Traslación calcula dirección y orientación con el último destino aunque la intención llegue justo antes del salto. Mantiene los límites, colisiones y cancelación de la ruta anterior.

@@ -46,6 +46,12 @@ El proyecto de pruebas es una aplicación de consola sin paquetes externos. Devu
 
 `SnapshotValidation` comprueba la estructura y los límites antes de representar estado remoto. El núcleo copia las entradas y recetas del snapshot; modificar un mensaje o una copia no modifica una partida ya aceptada. `ArenaConnection` serializa envíos y cierre, y espera a que se cancele un saludo pendiente antes de liberar recursos.
 
+Las coordenadas se acotan por el contorno del mapa, con tolerancias pequeñas para extremos de rayos y destellos. Radios, longitudes, direcciones y potencia se acotan antes de crear nodos; las cadenas eléctricas admiten el tramo entre dos objetivos dentro del alcance.
+
+`Scripts/Verification/ClientVerification` administra argumentos de CI, escenas, comprobaciones y capturas. Solo se crea al solicitar esas verificaciones. `Main.VerificationAccess` expone un acceso interno explícito al estado privado; `Main` conserva el flujo de entrada, juego, conexión y diagnóstico.
+
+`Scripts/Profiling/RenderProfiler` mide una escena artificial de 16 magos y efectos máximos mediante el renderer normal, sin simulación ni red. Guarda percentiles de tiempos y contadores con dispositivo, backend y procedencia; los contadores no disponibles son `null`. El último informe se incorpora al diagnóstico. [Alcance y ejecución en móvil](RENDIMIENTO.md).
+
 Las salas sin humanos se pausan. El servidor reutiliza contenedores temporales y serializa solo el último estado de un lote de pasos. Los bots reutilizan recetas y buscan el rival más cercano sin ordenar listas. El cliente conserva el HUD entre snapshots y reutiliza celdas de clasificación, materiales y colecciones de limpieza; la interpolación y las animaciones continúan en cada fotograma. Las voces de audio se detienen y liberan al cerrar.
 
 ## Vida y escudo
@@ -69,6 +75,8 @@ En guerra de Ciudadela, `GameWorld` suma ticks de control total sin disputa. Al 
 El servidor emite `shield_hit`, `shield_break` y `hurt`; limita los impactos continuos a uno por mago cada 0,14 s, y siempre emite la rotura. `CombatEffects` mantiene pools de hasta 320 partículas y 24 ondas, con mallas y materiales compartidos y un presupuesto de 64 partículas nuevas por fotograma. Procesa eventos por ID, crea estelas y partículas de estado a intervalos y limpia los efectos al salir. `SpellVisualStrength` gradúa el detalle por cantidad de elementos, incluidos los repetidos, con brillo contenido y partículas cortas. `--effects-smoke` comprueba doce eventos, los tres niveles de detalle, cuatro formas de canal, radio de proyectil, el canal frente a la siguiente selección, saturación, reutilización y limpieza. [Escala de efectos y capturas](EFECTOS.md).
 
 `Compilar-Juego.cmd` ejecuta `auto-compile.ps1` en Windows PowerShell 5.1. Las herramientas se almacenan en `.tools/`; `package-windows.ps1` construye `artifacts/windows`. `Publish-GamePackage` valida el paquete, copia a una carpeta temporal y sustituye `Juego/` mediante movimientos, con restauración si falla el movimiento. La prueba `test-build-output.ps1` verifica reemplazo, segunda publicación, rutas con espacios y preservación del juego ante un paquete incompleto.
+
+Los compiladores Windows y Android mantienen un bloqueo del mismo byte de `.tools/arcana-build.lock`, mediante `FileStream.Lock` en PowerShell y `msvcrt.locking`/`fcntl.lockf` en Python. Protege herramientas, importaciones y modificaciones temporales de presets durante toda la compilación. No se borra el archivo; hacerlo permitiría bloquear dos archivos distintos. El script Windows anidado recibe el bloqueo del padre. Los tests comprueban exclusión y liberación, incluido el cruce PowerShell/Python en Windows.
 
 ## Interacciones y catálogo
 

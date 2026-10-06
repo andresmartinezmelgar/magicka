@@ -3,7 +3,7 @@ using Godot;
 
 namespace Arcana.Client;
 
-public partial class Main
+public partial class ClientVerification
 {
     private bool CheckWizardMotion()
     {

@@ -80,6 +80,7 @@ public partial class ArenaRenderer : Node3D
     }
     public void Zoom(float delta) => _zoom = Math.Clamp(_zoom + delta, 17, 34);
     internal void SetPreviewZoom(float size) => _zoom = Math.Clamp(size, 10, Math.Max(34, _map.HalfHeight * 2 + 10));
+    internal float CurrentZoom => _zoom;
     public void Clear()
     {
         _audio.StopAll();
