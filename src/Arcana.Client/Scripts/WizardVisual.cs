@@ -125,10 +125,13 @@ public partial class WizardVisual : Node3D
             ((StandardMaterial3D)_ghost.MaterialOverride).AlbedoColor = new(_color.R, _color.G, _color.B, 0.14f);
             _name.Modulate = _local ? Ui.Text : _color;
         }
-        _facingRow = WizardSprites.FacingRow(p.Facing, _facingRow);
         bool moving = p.Alive && p.Frozen <= 0 && _motion.Moving;
         _castPose = Math.Max(0, _castPose - dt);
-        int pose = !p.Alive || p.Frozen > 0 ? 0 : p.Casting || _castPose > 0 ? 3 : moving ? (int)(_motion.WalkCycle * 2) : 0;
+        bool casting = p.Casting || _castPose > 0;
+        // El apuntado de combate no determina hacia dónde camina el sprite.
+        var facing = moving && !casting ? _motion.Direction : p.Facing;
+        _facingRow = WizardSprites.FacingRow(facing, _facingRow);
+        int pose = !p.Alive || p.Frozen > 0 ? 0 : casting ? 3 : moving ? (int)(_motion.WalkCycle * 2) : 0;
         int frame = _facingRow * WizardSprites.Columns + pose;
         if (_sprite.Frame != frame) _sprite.Frame = frame;
         Vector2 offset = _atlas.Offset(frame);

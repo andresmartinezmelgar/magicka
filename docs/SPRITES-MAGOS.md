@@ -18,9 +18,11 @@ Cada PNG tiene **1254 × 1254 píxeles**, canal alfa y una cuadrícula de **4 ×
 
 Filas: frente/sur, izquierda/oeste, espalda/norte y derecha/este. Columnas: reposo, paso A, paso B y lanzamiento. Esta primera versión reproduce el movimiento alternando reposo y paso A, con balanceo suave. El paso B queda fuera del ciclo mientras se corrige la continuidad del bastón en esas cuatro celdas. La carga y el lanzamiento continuo usan la cuarta columna; los eventos instantáneos también activan brevemente esa pose. La congelación detiene los pasos. Al morir se oculta el cuerpo y aparece el fantasma; al reaparecer se restaura el sprite.
 
-`atlases.json` guarda el anclaje de los pies para cada celda y la escala. `WizardSprites.cs` carga y comparte las cinco texturas; `WizardVisual.cs` elige la fila según el apuntado, con histéresis en las diagonales, y la pose según movimiento y lanzamiento. El cambio de fotograma no vuelve a cargar la imagen. Los sprites se orientan hacia la cámara y respetan la profundidad del escenario.
+`atlases.json` guarda el anclaje de los pies para cada celda y la escala. `WizardSprites.cs` carga y comparte las cinco texturas; `WizardVisual.cs` elige la fila según el desplazamiento real al caminar y según el apuntado al lanzar, con histéresis en las diagonales. La pose depende del movimiento y del lanzamiento. El cambio de fotograma no vuelve a cargar la imagen. Los sprites se orientan hacia la cámara y respetan la profundidad del escenario.
 
 Desde v0.12.9, `WizardMotion.cs` interpola posiciones confirmadas y sincroniza la alternancia de pasos y el balanceo con la distancia recorrida. La cámara sigue al sprite visible. El reposo mantiene los pies estables; parada, congelación, reaparición, teletransporte y reanudación de una práctica no conservan el arrastre anterior. `--sprites-smoke` comprueba velocidades y fases a 30, 60 y 120 FPS, con muestras de red a 20 Hz y fluctuación de llegada.
+
+Desde v0.12.16, la marcha usa la dirección de ese desplazamiento interpolado, aunque el ratón o el joystick de apuntado miren hacia otro lado. Durante la carga, la canalización o una pose instantánea se conserva el apuntado. Cuando el lanzamiento termina, la orientación y los pasos vuelven al recorrido. La verificación comprueba las cuatro direcciones, apuntado opuesto, ambos tipos de lanzamiento y parada con los márgenes de interpolación de práctica y red.
 
 ## Colores y combate
 

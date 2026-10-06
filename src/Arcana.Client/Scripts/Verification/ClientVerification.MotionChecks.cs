@@ -5,6 +5,69 @@ namespace Arcana.Client;
 
 public partial class ClientVerification
 {
+    private bool CheckWizardFacing()
+    {
+        void Require(bool condition, string detail)
+        { if (!condition) throw new InvalidDataException("Orientación: " + detail); }
+        foreach (int fps in new[] { 30, 60, 120 })
+        foreach (double delay in new[] { 1 / 60.0, 0.075 })
+        {
+            var player = VisualFixture.Create("none").Players[0] with
+            { Position = V2.Zero, Facing = new(-1, 0), Casting = false, Frozen = 0, Alive = true };
+            var wizard = new WizardVisual(); _runtime.Renderer.AddChild(wizard); wizard.Build(player, false);
+            float dt = 1f / fps; double time = 0;
+            void Render(V2 movement, bool casting = false)
+            {
+                time += dt;
+                player = player with { Position = player.Position + movement * (6.2f * dt), Casting = casting };
+                wizard.Update(player, dt, (float)time, _runtime.Renderer.Camera, time, delay);
+            }
+            try
+            {
+                wizard.Update(player, 0, 0, _runtime.Renderer.Camera, 0, delay);
+                foreach (var (direction, row) in new (V2, int)[]
+                    { (new(1, 0), 3), (new(-1, 0), 1), (new(0, -1), 2), (new(0, 1), 0) })
+                {
+                    player = player with { Facing = direction * -1 };
+                    var poses = new HashSet<int>();
+                    for (int frame = 0; frame < fps; frame++)
+                    {
+                        Render(direction);
+                        if (frame < fps / 4) continue;
+                        Require(wizard.Sprite.Frame / 4 == row, $"caminar y apuntar en sentidos opuestos a {fps} FPS.");
+                        poses.Add(wizard.Sprite.Frame % 4);
+                    }
+                    Require(poses.SetEquals(new[] { 0, 1 }), "la marcha no alterna sus dos pasos.");
+                }
+                player = player with { Facing = new(-1, 0) };
+                for (int frame = 0; frame < fps / 2; frame++)
+                {
+                    Render(new(1, 0), casting: true);
+                    Require(wizard.Sprite.Frame / 4 == 1 && wizard.Sprite.Frame % 4 == 3,
+                        "el lanzamiento deja de mirar al objetivo al desplazarse.");
+                }
+                Render(new(1, 0));
+                Require(wizard.Sprite.Frame / 4 == 3 && wizard.Sprite.Frame % 4 < 2,
+                    "soltar el hechizo no devuelve la orientación y los pasos de marcha.");
+                wizard.PlayCastPose([Element.Earth]);
+                for (int frame = 0; frame < fps / 8; frame++)
+                {
+                    Render(new(1, 0));
+                    Require(wizard.Sprite.Frame / 4 == 1 && wizard.Sprite.Frame % 4 == 3,
+                        "el lanzamiento instantáneo pierde su orientación o su pose.");
+                }
+                for (int frame = 0; frame < fps / 2; frame++) Render(new(1, 0));
+                Require(wizard.Sprite.Frame / 4 == 3 && wizard.Sprite.Frame % 4 < 2,
+                    "la pose instantánea deja al mago mirando en la dirección anterior.");
+                for (int frame = 0; frame < fps / 2; frame++) Render(V2.Zero);
+                Require(wizard.Sprite.Frame % 4 == 0, "la animación sigue caminando después de parar.");
+            }
+            finally { wizard.QueueFree(); }
+        }
+        GD.Print("FACING_OK: cuatro direcciones, 30/60/120 FPS, práctica y red, apuntado opuesto, marcha, lanzamiento, soltar, pose instantánea y parada");
+        return true;
+    }
+
     private bool CheckWizardMotion()
     {
         void Require(bool condition, string detail)
@@ -24,6 +87,7 @@ public partial class ClientVerification
                 var target = new V2(speed * (float)Math.Min(sample, 2), 0);
                 var before = motion.Position;
                 motion.Advance(target, sample, 1f / fps, 0.075);
+                Require(!motion.Moving || motion.Direction == new V2(1, 0), "dirección de marcha distinta del recorrido confirmado.");
                 Require(motion.Position.X >= before.X - 0.00001f && motion.Position.X <= target.X + 0.00001f,
                     $"retroceso o extrapolación a {fps} FPS.");
                 if (now is > 0.2 and < 1.8)
@@ -34,13 +98,14 @@ public partial class ClientVerification
                     Require(Math.Abs(motion.Position.X - expected) < 0.002f, "dependencia de la tasa de fotogramas.");
                     Require(Math.Abs(motion.WalkCycle - expected / 1.55f % 1) < 0.002f, "pasos desligados de la distancia.");
                 }
-                if (now > 2.12) Require(!motion.Moving && motion.WalkCycle == 0, "pasos o deslizamiento después de parar.");
+                if (now > 2.12) Require(!motion.Moving && motion.WalkCycle == 0 && motion.Direction == V2.Zero,
+                    "pasos o deslizamiento después de parar.");
             }
             // Falta prolongada de paquetes: permanecer en la última posición confirmada.
             for (int i = 0; i < fps; i++) motion.Advance(motion.Position, packet * 0.05, 1f / fps, 0.075);
             Require(!motion.Moving, "movimiento inventado sin paquetes.");
             motion.Advance(new(-10, 3), 4, 1f / fps, 0.075);
-            Require(motion.Position == new V2(-10, 3) && !motion.Moving, "teletransporte interpolado.");
+            Require(motion.Position == new V2(-10, 3) && !motion.Moving && motion.Direction == V2.Zero, "teletransporte interpolado.");
             motion.Advance(new(-9, 3), 4.05, 1f / fps, 0.075, snap: true);
             Require(motion.Position == new V2(-9, 3) && motion.WalkCycle == 0, "reaparición cercana o congelación interpolada.");
             motion.Advance(new(1, 1), 0, 1f / fps, 0.075);

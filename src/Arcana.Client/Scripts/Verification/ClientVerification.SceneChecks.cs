@@ -229,6 +229,7 @@ public partial class ClientVerification
             // Cinco atlas compartidos, ambos equipos, cuatro direcciones y tres poses usadas.
             valid &= _spriteCoverage.Count == 120;
             valid &= CheckWizardMotion();
+            valid &= CheckWizardFacing();
             valid &= CheckTranslationInput();
             valid &= CheckRespawnInput();
             _runtime.Renderer.Clear(); valid &= _runtime.Renderer.Wizards.Count == 0;

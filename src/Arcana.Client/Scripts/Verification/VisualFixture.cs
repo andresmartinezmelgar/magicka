@@ -105,10 +105,11 @@ internal static class VisualFixture
         int row = view switch { "front" => 0, "west" => 1, "back" => 2, "east" => 3, _ => frame / 60 % 4 };
         V2 facing = row switch { 1 => new(-1, 0), 2 => new(0, -1), 3 => new(1, 0), _ => new(0, 1) };
         int phase = frame % 60;
+        var movement = facing * (view == null && phase is >= 20 and < 45 ? (phase - 20) * 0.05f : 0);
         var players = state.Players.Select((p, index) => p with
         {
             Team = index < 5 ? 0 : 1,
-            Position = new(-9 + (index % 5) * 4.5f + (view == null && phase is >= 20 and < 45 ? (phase - 20) * 0.05f : 0), index < 5 ? -2.5f : 4.5f),
+            Position = new V2(-9 + (index % 5) * 4.5f, index < 5 ? -2.5f : 4.5f) + movement,
             Facing = facing, Health = 830, Shield = index is 2 or 8 ? 210 : 0, ShieldMax = 420, ShieldSeconds = 6.4f,
             Casting = view == null ? phase >= 45 : index is 1 or 8,
             Frozen = view == null && frame is >= 242 and <= 250 ? 1 : 0,

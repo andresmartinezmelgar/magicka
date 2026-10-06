@@ -10,6 +10,7 @@ internal sealed class WizardMotion
     private double _clock;
     private float _sampleAge;
     public V2 Position { get; private set; }
+    public V2 Direction { get; private set; }
     public float DistanceMoved { get; private set; }
     public float WalkCycle { get; private set; }
     public bool Moving => DistanceMoved > 0.00001f;
@@ -18,6 +19,7 @@ internal sealed class WizardMotion
     public void Advance(V2 target, double sampleTime, float dt, double delay, bool snap = false)
     {
         DistanceMoved = 0;
+        Direction = V2.Zero;
         _sampleAge += Math.Max(dt, 0);
         if (_samples.Count == 0 || snap || dt > 0.25f || sampleTime < _samples[^1].Time ||
             sampleTime > _samples[^1].Time && _sampleAge > 0.25f ||
@@ -47,7 +49,9 @@ internal sealed class WizardMotion
                     rendered = V2.Lerp(a.Position, b.Position, (float)((_clock - a.Time) / (b.Time - a.Time)));
                     break;
                 }
-        DistanceMoved = V2.Distance(Position, rendered); Position = rendered;
+        var movement = rendered - Position;
+        DistanceMoved = movement.Length; Position = rendered;
+        if (Moving) Direction = movement.Normalized;
         if (Moving) WalkCycle = (WalkCycle + DistanceMoved / Stride) % 1;
         else WalkCycle = 0;
     }

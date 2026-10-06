@@ -1,5 +1,11 @@
 # Cambios
 
+## v0.12.16
+
+- Orientación de marcha según el desplazamiento interpolado, aunque el ratón o el joystick de apuntado sigan señalando en sentido contrario. Al terminar un hechizo, el sprite recupera la dirección y los pasos del movimiento.
+- Dirección de apuntado conservada durante la carga, la canalización y las poses de lanzamiento instantáneo; las reglas de combate y el protocolo 9 se mantienen.
+- Regresión reproducida antes de la corrección y comprobaciones en Godot de las cuatro direcciones a 30/60/120 FPS, interpolación local/de red, lanzamiento, fin de lanzamiento y parada. Galería de los cinco atlas adaptada al recorrido de cada orientación.
+
 ## v0.12.15
 
 - Nuevo Frente de conquista: pasillo irregular de 480 unidades y cinco puntos consecutivos. Cada equipo solo captura el primer punto libre o enemigo desde su base; el servidor bloquea saltos e infiltraciones posteriores.
