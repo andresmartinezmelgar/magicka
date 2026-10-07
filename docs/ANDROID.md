@@ -1,6 +1,6 @@
 # Arcana Arena para Android
 
-Descargar el [código de main](https://github.com/andresmartinezmelgar/magicka/archive/refs/heads/main.zip), extraerlo y abrir **`Compilar-APK.cmd`** desde Windows. Instalar `artifacts/android/ArcanaArena-v0.12.14-Android-arm64.apk` cuando termine. Android puede pedir autorización a la aplicación usada para abrir la APK. Requiere Android 8 o posterior y procesador ARM64. En el móvil no hace falta instalar Godot ni .NET. Si Android rechaza actualizar una APK de desarrollo anterior porque tiene otra firma, desinstalar la anterior antes de instalar esta versión.
+Descargar el [código de main](https://github.com/andresmartinezmelgar/magicka/archive/refs/heads/main.zip), extraerlo y abrir **`Compilar-APK.cmd`** desde Windows. Instalar `artifacts/android/ArcanaArena-v0.12.19-Android-arm64.apk` cuando termine. Android puede pedir autorización a la aplicación usada para abrir la APK. Requiere Android 8 o posterior y procesador ARM64. En el móvil no hace falta instalar Godot ni .NET. Si Android rechaza actualizar una APK de desarrollo anterior porque tiene otra firma, desinstalar la anterior antes de instalar esta versión.
 
 El juego se abre en horizontal. **Práctica** funciona sin conexión y permite elegir los cuatro mapas, el modo y el tipo de mago. La APK incluye el motor, los sprites, los sonidos y el runtime C#.
 
@@ -40,7 +40,7 @@ Las barreras combinadas muestran sus elementos: roca con llamas, cascadas de agu
 
 Iniciar el servidor en Windows o Docker. Conectar el móvil a la misma red y usar **Por IP** con la dirección del PC, por ejemplo `192.168.1.20:27015`. **LAN** busca servidores por UDP 27016; si la red bloquea descubrimiento, sigue disponible la dirección IP.
 
-La APK puede consultar, crear y entrar en las salas del servidor. Usa protocolo 8, compatible con los clientes y servidores v0.10.0, v0.11.0, v0.11.1, v0.12.0, v0.12.1, v0.12.2, v0.12.3, v0.12.4 y v0.12.5. El daño progresivo del láser requiere un servidor v0.12.5 o posterior. El alojamiento del proceso de servidor se mantiene en PC y Docker; el móvil ejecuta las prácticas localmente.
+La APK puede consultar, crear y entrar en las salas del servidor. Usa protocolo 9, compatible con los clientes y servidores v0.12.15 o posteriores. El alojamiento del proceso de servidor se mantiene en PC y Docker; el móvil ejecuta las prácticas localmente.
 
 ## Compilación y comprobaciones
 
@@ -48,7 +48,9 @@ La APK puede consultar, crear y entrar en las salas del servidor. Usa protocolo 
 
 Extraer el código completo y abrir **`Compilar-APK.cmd`** en la raíz desde Windows 10/11 x64. El script descarga las herramientas oficiales que falten en `.tools/`, sin necesitar Android Studio, Visual Studio ni permisos de administrador. La primera vez necesita Internet y varios GB libres; el SDK muestra sus licencias en la consola para aceptarlas con `y` y Enter, primero en la revisión y después en cada licencia. Una comprobación final confirma que no queda ninguna pendiente.
 
-La APK ARM64 queda en **`artifacts/android/ArcanaArena-v0.12.14-Android-arm64.apk`**, junto con `SHA256SUMS-Android.txt` y el manifest comprobado. El script verifica firma, versión, paquete, Android 8+, permiso de red y bibliotecas Godot/C#. Solo sustituye la APK después de comprobarla; si falla, conserva la anterior. Los registros se guardan en `artifacts/compilacion-apk-*.log`. Los scripts Windows y Bash comparten un bloqueo por carpeta de proyecto: una segunda compilación se rechaza antes de modificar presets o herramientas. El archivo `.tools/arcana-build.lock` permanece; el bloqueo se libera al terminar el proceso.
+La APK ARM64 queda en **`artifacts/android/ArcanaArena-v0.12.19-Android-arm64.apk`**, junto con `SHA256SUMS-Android.txt` y el manifest comprobado. El script verifica firma, versión, paquete, Android 8+, permiso de red y bibliotecas Godot/C#. Solo sustituye la APK después de comprobarla; si falla, conserva la anterior. Los registros se guardan en `artifacts/compilacion-apk-*.log`. Los scripts Windows y Bash comparten un bloqueo por carpeta de proyecto: una segunda compilación se rechaza antes de modificar presets o herramientas. El archivo `.tools/arcana-build.lock` permanece; el bloqueo se libera al terminar el proceso.
+
+`VERSION` determina el nombre de la APK, la versión C#, `version/name` y `version/code` de Android. Los scripts actualizan los presets temporalmente antes de exportar y comprueban ambos valores en la APK generada. El código se calcula como `major × 1.000.000 + minor × 1.000 + patch`, con minor y patch entre 0 y 999; v0.12.19 usa el código 12019, superior al 134 anterior.
 
 La firma de desarrollo se conserva en **`.tools/android-debug.keystore`**, excluida de Git. Mantener ese archivo permite actualizar las APK generadas en este equipo sin desinstalar el juego. Una APK de la Release puede usar otra firma. El script restaura los presets del proyecto y usa una configuración de Godot temporal.
 

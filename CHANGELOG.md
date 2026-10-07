@@ -1,5 +1,12 @@
 # Cambios
 
+## v0.12.19
+
+- Corregida la discrepancia entre VERSION y los presets Windows/Android que seguían en 0.12.14. C# deriva su versión de VERSION; los empaquetadores sincronizan los metadatos antes de exportar y restauran los presets originales al terminar.
+- Código Android creciente derivado de la versión y comprobado junto al nombre del paquete. Los errores finales muestran las versiones esperada y encontrada; se conserva la validación del ejecutable o APK real.
+- Pruebas de presets antiguos, versión futura, PowerShell/Python equivalentes, lectura real de MSBuild, saltos CRLF y metadatos inválidos. Exportación Android simulada en ambas arquitecturas que conserva APK, checksum y presets si fallan la versión, el código, la firma o Godot.
+- Comprobaciones de versiones incorporadas a CI, incluidas Windows PowerShell 5.1. [Causa y validación](docs/RELEASE-v0.12.19.md).
+
 ## v0.12.18
 
 - Movimiento barrido hasta el primer contacto y deslizamiento según la normal de columnas, paredes y límites. El personaje aprovecha el avance disponible en lugar de descartar todo un eje.

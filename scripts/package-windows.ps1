@@ -3,18 +3,24 @@ $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $godot = (Resolve-Path -LiteralPath $GodotPath).Path
 $package = Join-Path $repo 'artifacts/windows'
-$version = (Get-Content (Join-Path $repo 'VERSION') -Raw).Trim()
 . (Join-Path $PSScriptRoot 'build-support.ps1')
 . (Join-Path $PSScriptRoot 'tool-support.ps1')
 . (Join-Path $PSScriptRoot 'build-lock.ps1')
+. (Join-Path $PSScriptRoot 'version-support.ps1')
 $ownsLease = $null -eq $BuildLease
 if ($ownsLease) { $BuildLease = Enter-ArcanaBuildLock -RepositoryRoot $repo }
 $locationPushed = $false
 $previousSharedCompilation = $env:UseSharedCompilation
+$presetPath = Join-Path $repo 'src/Arcana.Client/export_presets.cfg'
+$presetBackup = $null
 # El wrapper de consola Godot 4.5 espera también a sus procesos hijos.
 # El servidor Roslyn persistente puede impedir que termine una exportación ya completada.
 try {
     Push-Location $repo; $locationPushed = $true
+    $buildVersion = Get-ArcanaBuildVersion -RepositoryRoot $repo
+    $presetBackup = [IO.File]::ReadAllBytes($presetPath)
+    $presets = Update-ArcanaExportVersion -Presets ([IO.File]::ReadAllText($presetPath)) -Version $buildVersion
+    [IO.File]::WriteAllText($presetPath, $presets, (New-Object System.Text.UTF8Encoding($false)))
     $env:UseSharedCompilation = 'false'
     if (Test-Path $package) { Remove-Item $package -Recurse -Force }
     New-Item -ItemType Directory -Path $package -Force | Out-Null
@@ -26,9 +32,7 @@ try {
     Invoke-Tool $godot @('--headless', '--path', 'src/Arcana.Client', '--export-release', 'Windows Desktop', "$package/ArcanaArena.exe") -CheckGodotErrors | Out-Null
     Test-GamePackage -Package $package
     $metadata = [Diagnostics.FileVersionInfo]::GetVersionInfo("$package/ArcanaArena.exe")
-    if ($metadata.FileVersion -ne "$version.0" -or $metadata.ProductVersion -ne "$version.0") {
-        throw 'La version del ejecutable Windows no coincide con VERSION.'
-    }
+    Assert-ArcanaWindowsVersion -Metadata $metadata -Version $buildVersion
     Copy-Item scripts/Configurar-LAN.ps1 "$package/Configurar-LAN.ps1"
     Copy-Item docs/JUGAR-WINDOWS.txt "$package/LEEME.txt"
     Copy-Item docs/COMO-GANAR.md "$package/COMO-GANAR.md"
@@ -39,6 +43,10 @@ try {
     Copy-Item VERSION "$package/VERSION.txt"
     Write-Host "PAQUETE_LISTO: $package"
 } finally {
-    try { $env:UseSharedCompilation = $previousSharedCompilation; if ($locationPushed) { Pop-Location } }
+    try {
+        if ($null -ne $presetBackup) { [IO.File]::WriteAllBytes($presetPath, $presetBackup) }
+        $env:UseSharedCompilation = $previousSharedCompilation
+        if ($locationPushed) { Pop-Location }
+    }
     finally { if ($ownsLease) { Exit-ArcanaBuildLock -Lease $BuildLease } }
 }

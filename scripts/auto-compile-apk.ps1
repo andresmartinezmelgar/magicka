@@ -34,6 +34,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 . (Join-Path $PSScriptRoot 'android-tools-support.ps1')
 . (Join-Path $PSScriptRoot 'tool-support.ps1')
 . (Join-Path $PSScriptRoot 'build-lock.ps1')
+. (Join-Path $PSScriptRoot 'version-support.ps1')
 
 function Download-Tool {
     param([string]$Url, [string]$Target)
@@ -66,10 +67,9 @@ try {
     $buildLease = Enter-ArcanaBuildLock -RepositoryRoot $repo
     $presetBackup = [IO.File]::ReadAllBytes($presetPath)
     Write-Host 'Compilando la APK de Arcana Arena. La primera vez necesita Internet y varios GB libres.'
-    $version = (Get-Content -LiteralPath (Join-Path $repo 'VERSION') -Raw).Trim()
-    if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'VERSION debe contener una version como 0.12.7.' }
-    $presets = [IO.File]::ReadAllText($presetPath)
-    if ($presets -notmatch ('(?m)^version/name="' + [regex]::Escape($version) + '"\r?$')) { throw 'La version del preset Android no coincide con VERSION.' }
+    $buildVersion = Get-ArcanaBuildVersion -RepositoryRoot $repo
+    $version = $buildVersion.Name
+    $presets = Update-ArcanaExportVersion -Presets ([IO.File]::ReadAllText($presetPath)) -Version $buildVersion
     New-Item -ItemType Directory -Path $temp -Force | Out-Null
     $dotnetRoot = Join-Path $cache 'dotnet'
     $dotnet = Join-Path $dotnetRoot 'dotnet.exe'
@@ -199,7 +199,8 @@ try {
     if (!(Test-Path -LiteralPath $stagedApk)) { throw 'Godot no genero la APK.' }
     Invoke-Tool (Join-Path $buildTools 'apksigner.bat') @('verify', '--verbose', $stagedApk) | Out-Null
     $manifest = (Invoke-Tool (Join-Path $buildTools 'aapt.exe') @('dump', 'badging', $stagedApk)) -join "`n"
-    foreach ($expected in @("package: name='com.arcana.arena'", "versionName='$version'", "sdkVersion:'26'", "targetSdkVersion:'35'", 'android.permission.INTERNET')) {
+    Assert-ArcanaAndroidVersion -Manifest $manifest -Version $buildVersion
+    foreach ($expected in @("package: name='com.arcana.arena'", "sdkVersion:'26'", "targetSdkVersion:'35'", 'android.permission.INTERNET')) {
         if (!$manifest.Contains($expected)) { throw "Manifest Android incorrecto: falta $expected." }
     }
     $archive = [IO.Compression.ZipFile]::OpenRead($stagedApk)

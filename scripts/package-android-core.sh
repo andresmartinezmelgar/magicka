@@ -9,13 +9,15 @@ test -d "$android_sdk" || { echo 'Falta el SDK Android.' >&2; exit 1; }
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 source "$root/scripts/tool-support.sh"
-version=$(tr -d '\r\n' < VERSION)
+build_version=$(python3 "$root/scripts/version-support.py" info "$root")
+read -r version version_code <<< "$build_version"
 output="$root/artifacts/android/ArcanaArena-v$version-Android-$architecture.apk"
 mkdir -p "$root/artifacts/android"
 temp=$(mktemp -d "$root/artifacts/android/.build-XXXXXXXX")
 staged_apk="$temp/$(basename "$output")"
 cp src/Arcana.Client/export_presets.cfg "$temp/export_presets.cfg"
 trap 'cp "$temp/export_presets.cfg" "$root/src/Arcana.Client/export_presets.cfg"; rm -rf "$temp"' EXIT
+python3 "$root/scripts/version-support.py" sync "$root"
 if [ "$architecture" = x86_64 ]; then
   python3 - <<'PY'
 from pathlib import Path
@@ -43,14 +45,17 @@ invoke_godot "$root/artifacts/android/import.log" "$godot" --headless --editor -
 invoke_godot "$root/artifacts/android/export.log" "$godot" --headless --path src/Arcana.Client --install-android-build-template --export-debug Android "$staged_apk"
 "$android_sdk/build-tools/35.0.0/apksigner" verify --verbose "$staged_apk"
 "$android_sdk/build-tools/35.0.0/aapt" dump badging "$staged_apk" > "$temp/manifest.txt"
-python3 - "$staged_apk" "$version" "$temp/manifest.txt" "$architecture" <<'PY'
-import sys,zipfile
+python3 - "$staged_apk" "$version" "$temp/manifest.txt" "$architecture" "$version_code" <<'PY'
+import re,sys,zipfile
 from pathlib import Path
-apk,version,manifest,arch=sys.argv[1:]
+apk,version,manifest,arch,code=sys.argv[1:]
 abi='arm64-v8a' if arch=='arm64' else 'x86_64'
 text=Path(manifest).read_text()
 assert "package: name='com.arcana.arena'" in text
-assert f"versionName='{version}'" in text
+actual_name=re.search(r"versionName='([^']*)'", text)
+actual_code=re.search(r"versionCode='([0-9]+)'", text)
+assert actual_name and actual_name[1]==version, f'Version APK incorrecta: esperada {version}, encontrada {actual_name[1] if actual_name else "ausente"}.'
+assert actual_code and actual_code[1]==code, f'Codigo APK incorrecto: esperado {code}, encontrado {actual_code[1] if actual_code else "ausente"}.'
 assert "sdkVersion:'26'" in text and "targetSdkVersion:'35'" in text
 assert "android.permission.INTERNET" in text
 with zipfile.ZipFile(apk) as z:

@@ -29,6 +29,10 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+      - name: Verificar VERSION, presets y versiones futuras
+        run: |
+          python3 scripts/version-support.py check .
+          ARCANA_TEST_PWSH=pwsh python3 scripts/test-version-support.py -v
       - name: Compilar cliente, servidor, núcleo y pruebas
         run: dotnet build ArcanaArena.sln -c Release --nologo
       - name: Verificar bloqueo de compilaciones entre procesos
@@ -207,6 +211,9 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+      - name: Verificar metadatos de version en Windows PowerShell 5.1
+        shell: powershell
+        run: ./scripts/test-version-support.ps1
       - name: Descargar Godot .NET y plantillas de exportacion Windows
         shell: pwsh
         run: |
@@ -402,7 +409,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: apk build
-      - name: Verificar bloqueo compartido entre PowerShell 5.1 y Python
+      - name: Verificar versiones y bloqueo compartido entre PowerShell 5.1 y Python
         shell: powershell
         run: |
           Get-ChildItem scripts/*.ps1 | ForEach-Object {
@@ -411,6 +418,7 @@ jobs:
             if ($errors) { throw ($errors | Out-String) }
           }
           ./scripts/test-build-lock.ps1
+          ./scripts/test-version-support.ps1
       - name: Verificar extraccion y reparacion del SDK y errores de Godot en PowerShell 5.1
         run: |
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/test-build-tools.ps1

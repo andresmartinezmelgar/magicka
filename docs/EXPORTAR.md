@@ -12,6 +12,8 @@ La primera ejecución descarga el SDK .NET **8.0.425 x64**, Godot **4.5.2 .NET**
 
 Cada compilación correcta **sustituye completamente `Juego/`**, incluidos archivos y carpetas sobrantes. Primero se genera y valida el paquete en `artifacts/windows/`; después se publica la nueva carpeta. Si falla la compilación, permanece el juego anterior. No guardar archivos personales en `Juego/`. Los registros quedan en `artifacts/compilacion-*.log` y la ventana permanece abierta para leer el resultado.
 
+La versión se toma de `VERSION`. Los ensamblados C# y los metadatos del ejecutable Windows se generan a partir de ese archivo. El script sincroniza los presets antes de exportar y restaura su contenido original al terminar, también si falla. La comprobación final compara la versión real del ejecutable y muestra la esperada y la encontrada.
+
 ## Compilación manual
 
 Para crear la distribución con herramientas ya instaladas:
