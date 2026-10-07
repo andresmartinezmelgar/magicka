@@ -1,5 +1,13 @@
 # Cambios
 
+## v0.12.18
+
+- Movimiento barrido hasta el primer contacto y deslizamiento según la normal de columnas, paredes y límites. El personaje aprovecha el avance disponible en lugar de descartar todo un eje.
+- Rodeo asistido al mantener la dirección, también en choques frontales. El lado se conserva durante el contacto; en paredes planas se prefiere un extremo accesible y próximo.
+- Presupuesto de desplazamiento conservado: el roce no aumenta la velocidad ni la intensidad del joystick. Soltar o cambiar el mando cancela el rodeo; el empuje y la congelación no lo activan.
+- Estado de deslizamiento reiniciado al reaparecer o trasladarse. Se mantienen las colisiones de esquinas, zonas sin suelo y muros que sellan un pasillo completo.
+- Quince regresiones de movimiento, incluidos los pilares de los cinco mapas, uniones de muros, paredes oblicuas, extremos cerrados, caminar al cursor y empujes. [Detalles y validación](docs/RELEASE-v0.12.18.md). Protocolo 9.
+
 ## v0.12.17
 
 - Apuntado actualizado antes de ejecutar acciones del mismo lote: fragmentos, barreras, cuerpo a cuerpo y liberación de rocas usan el último destino recibido, sin esperar al siguiente paso de simulación.

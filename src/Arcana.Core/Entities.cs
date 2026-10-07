@@ -49,6 +49,10 @@ public sealed class Wizard
     public float ChargeTime { get; set; }
     public float BotDecision { get; set; }
     internal int BotWallTarget { get; set; }
+    internal int SlideSurface { get; set; }
+    internal int SlideSide { get; set; }
+    internal V2 SlideIntent { get; set; }
+    internal V2 SlideTangent { get; set; }
     public V2 Knockback { get; set; }
 }
 

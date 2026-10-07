@@ -218,13 +218,10 @@ public sealed partial class GameWorld
         if (p.Ward.Contains(Element.Earth)) speed *= 0.78f;
         if (p.Frozen > 0) { speed = 0; CancelCast(p); }
         // El joystick conserva su intensidad; flechas diagonales y rutas no superan la velocidad máxima.
-        var delta = move * (speed * dt) + p.Knockback * dt;
+        var walking = move * (speed * dt);
+        var delta = walking + p.Knockback * dt;
         p.Knockback *= MathF.Max(0, 1 - 8 * dt);
-        // Dos ejes: el mago se desliza por los obstáculos en vez de atravesarlos.
-        var x = p.Position + new V2(delta.X, 0);
-        if (ClearMovement(p.Position, x)) p.Position = x;
-        var y = p.Position + new V2(0, delta.Y);
-        if (ClearMovement(p.Position, y)) p.Position = y;
+        MoveWithCollisions(p, delta, walking);
     }
 
     private bool ClearMovement(V2 from, V2 to) => Map.ClearPath(from, to) && ClearWalls(from, to);
@@ -486,6 +483,7 @@ public sealed partial class GameWorld
             if (V2.Distance(last, p.Position) < 0.4f) return;
             Emit("blink", p.Position, [], "");
             p.Position = last; p.Facing = direction; p.Input.MoveTo = false;
+            ResetSlide(p);
             _routes.Remove(p.Id);
             Emit("blink_arrive", p.Position, [], "");
         }
@@ -758,6 +756,7 @@ public sealed partial class GameWorld
     private void Respawn(Wizard p)
     {
         _routes.Remove(p.Id);
+        ResetSlide(p);
         p.Position = RespawnPosition(p); p.Health = p.MaxHealth;
         p.Wet = p.Burning = p.Chill = p.Frozen = p.Haste = p.Shield = p.ShieldMax = p.ShieldTime = 0;
         p.RegenerationRate = 0;

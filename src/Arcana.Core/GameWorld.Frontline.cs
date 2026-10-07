@@ -50,6 +50,7 @@ public sealed partial class GameWorld
                 player.Position = destination; player.TeleportCooldown = 2;
                 player.TeleportNeedsExit = true;
                 player.Knockback = V2.Zero; player.Input.MoveTo = false;
+                ResetSlide(player);
                 _routes.Remove(player.Id);
                 Emit("blink_arrive", destination, [], "");
                 break;

@@ -34,6 +34,7 @@ void Select(GameWorld w, Wizard p, params Element[] elements)
 
 FrontlineTests.Run(Test);
 GameplayRegressionTests.Run(Test);
+MovementCollisionTests.Run(Test);
 
 Test("Límite de tres elementos y cancelación de incompatibles", () =>
 {
