@@ -1,5 +1,14 @@
 # Cambios
 
+## v0.12.20
+
+- Laboratorio local sin captura, tickets ni victoria; un único punto de reaparición del jugador, al cabo de un segundo.
+- Catorce objetivos quietos: sin estados, mojado, quemado, enfriado, congelado, celeridad, escudo, armadura, regeneración y guardas de agua, frío, rayo, arcano y fuego. Reciben daño normal, reaparecen en su sitio al morir y recuperan su estado inicial. Los estados no caducan por tiempo, pero conservan las interacciones elementales.
+- Las 32 combinaciones de barreras y minas del catálogo, con teclas y elementos señalados. Resistencia y efectos normales, restitución tras destrucción/activación a los dos segundos y espera si un jugador ocupa una pared.
+- Lanzador configurable de dirección fija: rayos, conos y cadenas sin cortes; rocas cargadas y fragmentos cada 120 ticks. Pausar o cambiar receta cancela el lanzamiento anterior.
+- Medición independiente de daño a vida, absorción y curación efectiva, incluido daño y curación simultáneos. Restablecer objetivo o preparar al jugador con el 40 % de vida para medir curación.
+- Trece pruebas de reglas del laboratorio y comprobación Godot de estaciones, geometría sin puntos, controles reales del selector y curación del lanzador. Incluido en CI de Linux y del ejecutable Windows. [Detalles](docs/RELEASE-v0.12.20.md).
+
 ## v0.12.19
 
 - Corregida la discrepancia entre VERSION y los presets Windows/Android que seguían en 0.12.14. C# deriva su versión de VERSION; los empaquetadores sincronizan los metadatos antes de exportar y restauran los presets originales al terminar.

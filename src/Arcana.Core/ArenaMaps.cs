@@ -1,6 +1,6 @@
 namespace Arcana.Core;
 
-public enum ArenaMapId { Classic, Citadel, Ascension, Relics, Frontline }
+public enum ArenaMapId { Classic, Citadel, Ascension, Relics, Frontline, Practice }
 public enum ArenaTheme { Forest, City, Ruins, Sanctuary }
 public sealed record FloorSection(V2 Center, float Width, float Height);
 public sealed record MapEdge(V2 A, V2 B);
@@ -21,6 +21,7 @@ public sealed class ArenaDefinition
     public IReadOnlyList<TeleportPair> Teleports { get; }
     public IReadOnlyList<MapEdge> EventGates { get; }
     public bool SequentialCapture => Id == ArenaMapId.Frontline;
+    public bool IsPractice => Id == ArenaMapId.Practice;
     public bool SupportsMode(GameMode mode) => !SequentialCapture || mode == GameMode.Warfare;
     public bool HasPickups => Id is ArenaMapId.Ascension or ArenaMapId.Relics;
     public bool RandomPickups => Id == ArenaMapId.Ascension;
@@ -30,7 +31,7 @@ public sealed class ArenaDefinition
     public int HoldSeconds => Id == ArenaMapId.Citadel ? 15 : 0;
     public float KillHealthBonus => Id == ArenaMapId.Ascension ? 10 : 0;
     public float RespawnDeathPenalty => Id == ArenaMapId.Ascension ? 0.5f : 0;
-    public float RespawnSeconds(GameMode mode, int deaths) => Math.Min(10,
+    public float RespawnSeconds(GameMode mode, int deaths) => IsPractice ? 1 : Math.Min(10,
         (mode == GameMode.Duel ? 2.5f : 4) + RespawnDeathPenalty * Math.Max(0, deaths));
     private readonly float _spawnX;
     private readonly Lazy<(V2[] Positions, int[][] Neighbors)> _navigation;
@@ -49,6 +50,7 @@ public sealed class ArenaDefinition
 
     public V2 Spawn(int team, int index, int capturedPoints = 0)
     {
+        if (IsPractice) return PracticeLayout.Respawn;
         if (SequentialCapture && capturedPoints > 0)
         {
             int count = Math.Clamp(capturedPoints, 1, ControlPoints.Count);
@@ -150,6 +152,14 @@ public sealed class ArenaDefinition
 
 internal static class ArenaMaps
 {
+    private static readonly ArenaDefinition Practice = CreatePractice();
+    private static ArenaDefinition CreatePractice()
+    {
+        float height = Math.Max(48, 28 + (PracticeLayout.Barriers.Count - 1) / 7 * 12);
+        return new(ArenaMapId.Practice, "Laboratorio de hechizos", 60, height,
+            [new(V2.Zero, 120, height * 2)], [new(-60, -height), new(60, -height), new(60, height), new(-60, height)],
+            [], [], 48);
+    }
     private static readonly ArenaDefinition Frontline = CreateFrontline();
     private static ArenaDefinition CreateFrontline()
     {
@@ -208,7 +218,7 @@ internal static class ArenaMaps
     public static ArenaDefinition Get(ArenaMapId id) => id switch
     {
         ArenaMapId.Classic => Classic, ArenaMapId.Citadel => Citadel, ArenaMapId.Ascension => Ascension, ArenaMapId.Relics => Relics,
-        ArenaMapId.Frontline => Frontline,
+        ArenaMapId.Frontline => Frontline, ArenaMapId.Practice => Practice,
         _ => throw new ArgumentOutOfRangeException(nameof(id))
     };
 }

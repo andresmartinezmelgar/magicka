@@ -19,6 +19,12 @@ public partial class MiniMap : Control
                 new Vector2(floor.Width, floor.Height) * scale), new("293c43"));
         foreach (var edge in map.Boundary) DrawLine(Point(edge.A), Point(edge.B), new("718784"), 1, true);
         foreach (var obstacle in map.Obstacles) DrawCircle(Point(obstacle.Position), Math.Max(1, obstacle.Radius * scale), new("526a70"));
+        if (map.IsPractice)
+        {
+            DrawArc(Point(PracticeLayout.Respawn), 5, 0, Mathf.Tau, 16, Ui.Blue, 2, true);
+            foreach (var station in PracticeLayout.Barriers)
+                DrawRect(new(Point(station.Position) - new Vector2(1.5f, 1.5f), new(3, 3)), Ui.Gold);
+        }
         for (int i = 0; i < map.Teleports.Count; i++)
         {
             var pair = map.Teleports[i]; var color = i == 0 ? new Color("59ddd0") : i == 1 ? new Color("cea1ff") : new Color("ffd080");

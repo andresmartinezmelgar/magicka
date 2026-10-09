@@ -29,6 +29,8 @@ public partial class Main : Node
     private Hud? _hud;
     private ArenaConnection? _connection;
     private GameWorld? _practice;
+    private PracticeSession? _practiceSession;
+    private PracticePanel? _practicePanel;
     private readonly GameWorld _backdrop = new(new WorldOptions { Mode = GameMode.Arena, Bots = 4 });
     private WorldSnapshot? _snapshot;
     private int _localId;
@@ -122,7 +124,7 @@ public partial class Main : Node
                 }
                 if (!connection.Connected) { _ = connection.DisposeAsync(); _launcher.ShowError("La conexión se cerró antes de entrar en la partida."); return; }
                 if (_connection != null) _ = _connection.DisposeAsync();
-                _connection = connection; _practice = null; _localId = connection.PlayerId;
+                _connection = connection; _practice = null; _practiceSession = null; _localId = connection.PlayerId;
                 _serverName = (connection.Server?.Name ?? address) + " / " + (connection.Room?.Name ?? "Sala principal");
                 StartGame(connection.Latest!);
             })) await connection.DisposeAsync().ConfigureAwait(false);
@@ -159,6 +161,13 @@ public partial class Main : Node
         CancelPendingConnection();
         var old = _connection; _connection = null;
         if (old != null) _ = old.DisposeAsync();
+        _practiceSession = map == ArenaMapId.Practice ? new PracticeSession(name, wizardType) : null;
+        if (_practiceSession != null)
+        {
+            _practice = _practiceSession.World; _localId = _practiceSession.Player.Id; _localSequence = 0;
+            _serverName = "Práctica · " + _practice.Map.Name;
+            StartGame(_practice.Snapshot()); return;
+        }
         _practice = new(new WorldOptions { Mode = mode, Map = map, MaxPlayers = mode == GameMode.Duel ? 2 : 8,
             FriendlyFire = true, ScoreLimit = mode == GameMode.Duel ? 5 : 15, Tickets = 75 });
         var player = _practice.AddPlayer(name, team, wizardType: wizardType)!; _localId = player.Id;
@@ -179,6 +188,11 @@ public partial class Main : Node
         var local = snapshot.Players.FirstOrDefault(p => p.Id == _localId);
         _localWasAlive = local?.Alive ?? false; _localDeaths = local?.Deaths ?? 0;
         _hud?.QueueFree(); _hud = new Hud(); _ui.AddChild(_hud); _hud.Build();
+        _practicePanel?.QueueFree(); _practicePanel = null;
+        if (_practiceSession != null)
+        {
+            _practicePanel = new PracticePanel(); _ui.AddChild(_practicePanel); _practicePanel.Build(_practiceSession);
+        }
         BuildTouchControls();
         _ui.MoveChild(_help, -1); _ui.MoveChild(_pause, -1);
     }
@@ -186,7 +200,8 @@ public partial class Main : Node
     {
         CancelPendingConnection();
         if (_playing) Diagnostics.Info("game.leave", "Vuelta al launcher.", Context());
-        _playing = false; _paused = false; _practice = null; _snapshot = null;
+        _playing = false; _paused = false; _practice = null; _practiceSession = null; _snapshot = null;
+        _practicePanel?.QueueFree(); _practicePanel = null;
         var old = _connection; _connection = null;
         if (old != null) _ = old.DisposeAsync();
         _hud?.QueueFree(); _hud = null; _pause.Visible = false; _help.Visible = false;
@@ -235,7 +250,9 @@ public partial class Main : Node
             else
             {
                 _aim = _renderer.Cursor(GetViewport().GetMousePosition());
-                UpdateMouseMovement(Input.IsMouseButtonPressed(MouseButton.Left), Input.IsPhysicalKeyPressed(Key.Shift));
+                bool practiceUi = _practicePanel?.PointerOverPanel == true;
+                if (practiceUi && Input.IsMouseButtonPressed(MouseButton.Left)) _moveTo = false;
+                UpdateMouseMovement(!practiceUi && Input.IsMouseButtonPressed(MouseButton.Left), Input.IsPhysicalKeyPressed(Key.Shift));
             }
             if (latest.Tick != _lastTick) { _lastTick = latest.Tick; _snapshotAge = 0; } else _snapshotAge += delta;
             if (_connection != null && _snapshotAge > 8)
@@ -244,8 +261,11 @@ public partial class Main : Node
                 ReturnToLauncher("El servidor ha dejado de enviar el estado de la partida. Puedes exportar el diagnóstico desde el launcher."); return;
             }
             _renderer.InterpolationDelay = _connection != null ? 0.075 : 1 / 60.0;
+            if (_practiceSession != null) _renderer.PracticeCasterDescription = _practiceSession.CasterDescription;
             _renderer.Render(latest, _localId, _verification?.FixedRenderStep == true ? 1 / 60.0 : delta, true);
             _hud?.Update(latest, _localId, _serverName, delta);
+            if (_practicePanel != null)
+            { _practicePanel.Visible = !_paused && !_help.Visible; _practicePanel.Update(_aim); }
             _touch?.Update(latest.Players.FirstOrDefault(p => p.Id == _localId));
             _verification?.AfterRender(latest);
         }
@@ -264,7 +284,9 @@ public partial class Main : Node
         {
             if (!_paused && !_help.Visible)
             {
-                Submit(InputMessage()); _practice.Step(); _snapshot = _practice.Snapshot();
+                Submit(InputMessage());
+                if (_practiceSession != null) _practiceSession.Step(); else _practice.Step();
+                _snapshot = _practice.Snapshot();
             }
         }
         else if (_inputTime >= 1.0 / 30) { Submit(InputMessage()); _inputTime = 0; }

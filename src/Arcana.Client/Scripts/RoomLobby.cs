@@ -55,7 +55,7 @@ public partial class RoomLobby : Control
         _mode.AddItem("Guerra de puntos", (int)GameMode.Warfare); _mode.AddItem("Todos contra todos", (int)GameMode.Arena);
         _mode.AddItem("Duelo", (int)GameMode.Duel); Row(grid, "Modo", _mode);
         _map = new OptionButton { Name = "RoomMapChoice", CustomMinimumSize = new(0, 42) };
-        foreach (var map in Enum.GetValues<ArenaMapId>()) _map.AddItem(ArenaMap.Get(map).Name + (map == ArenaMapId.Citadel ? " · 4×" : ""), (int)map);
+        foreach (var map in Enum.GetValues<ArenaMapId>().Where(m => !ArenaMap.Get(m).IsPractice)) _map.AddItem(ArenaMap.Get(map).Name + (map == ArenaMapId.Citadel ? " · 4×" : ""), (int)map);
         Row(grid, "Mapa", _map);
         _capacity = Number(2, 16, 8); Row(grid, "Plazas (incluidos los bots)", _capacity);
         _bots = Number(0, 7, 0); Row(grid, "Bots", _bots);

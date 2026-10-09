@@ -10,6 +10,7 @@ public partial class Hud : Control
     private ProgressBar _health = null!, _shield = null!, _energy = null!, _charge = null!;
     private Label _healthText = null!, _shieldText = null!, _energyText = null!;
     private Label _objective = null!, _affinity = null!, _buffs = null!;
+    private Label _controls = null!;
     private HBoxContainer _teams = null!;
     private Label _blueScore = null!, _redScore = null!;
     private StyleBoxFlat _shieldFill = null!, _shieldTrack = null!;
@@ -34,6 +35,7 @@ public partial class Hud : Control
         Scale = Vector2.One * GameplayScale; ResizeLayout(); GetViewport().SizeChanged += ResizeLayout;
         _server = Ui.Label("", 15, Ui.Gold); _server.Position = new(28, 24); AddChild(_server);
         var controls = Ui.Label("F1  Controles     TAB  Clasificación     ESC  Menú", 14, Ui.Muted);
+        _controls = controls;
         controls.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight); controls.Position = new(-440, 24); controls.Size = new(420, 24); AddChild(controls);
         controls.Visible = !Ui.IsMobile;
         _match = Ui.Label("", 24); _match.HorizontalAlignment = HorizontalAlignment.Center;
@@ -148,7 +150,7 @@ public partial class Hud : Control
     public void Update(WorldSnapshot snapshot, int id, string serverName, double delta)
     {
         _feedTime -= (float)delta; _feed.Text = _feedTime > 0 ? _feedText : "";
-        bool showScore = ScoreOpen || Input.IsPhysicalKeyPressed(Key.Tab);
+        bool showScore = snapshot.Map != ArenaMapId.Practice && (ScoreOpen || Input.IsPhysicalKeyPressed(Key.Tab));
         bool opened = !_scorePanel.Visible && showScore;
         _scorePanel.Visible = showScore; _scoreClock += (float)delta;
         if (_scorePanel.Visible && (opened || _scoreClock >= 0.25f))
@@ -156,7 +158,7 @@ public partial class Hud : Control
         if (ReferenceEquals(snapshot, _lastSnapshot)) return;
         _lastSnapshot = snapshot;
         var player = snapshot.Players.FirstOrDefault(p => p.Id == id); if (player == null) return;
-        _server.Text = serverName.ToUpperInvariant() + "  /  " + Ui.ModeName(snapshot.Mode).ToUpperInvariant();
+        _server.Text = serverName.ToUpperInvariant() + (snapshot.Map == ArenaMapId.Practice ? "" : "  /  " + Ui.ModeName(snapshot.Mode).ToUpperInvariant());
         _name.Text = player.Name + (player.Team == 0 ? "  /  AZUL" : "  /  ROJO");
         _name.AddThemeColorOverride("font_color", player.Team == 0 ? Ui.Blue : Ui.Red);
         _affinity.Text = WizardTypes.Name(player.WizardType);
@@ -165,6 +167,8 @@ public partial class Hud : Control
         _buffs.Text = RelicBuffs.Summary(player.Buffs); _buffs.Visible = _buffs.Text.Length > 0;
         _buffs.TooltipText = string.Join("\n", (player.Buffs ?? []).Select(b => RelicBuffs.Name(b.Kind) + " ×" + b.Stacks + ": " + RelicBuffs.Description(b.Kind)));
         _objective.Text = MatchRules.Objective(snapshot.Mode, snapshot.ScoreLimit, snapshot.StartingTickets, snapshot.Map);
+        _controls.Text = snapshot.Map == ArenaMapId.Practice ? "F1  Controles     ESC  Menú"
+            : "F1  Controles     TAB  Clasificación     ESC  Menú";
         bool hold = snapshot.Mode == GameMode.Warfare && snapshot.Map == ArenaMapId.Citadel;
         bool conquest = snapshot.Map == ArenaMapId.Frontline;
         if (hold) _objective.Text += snapshot.HoldingTeam >= 0
@@ -202,6 +206,7 @@ public partial class Hud : Control
             _magicks[i].AddThemeColorOverride("font_color", player.Cooldowns[i] > 0 || player.Energy < magick.Cost ? Ui.Muted : Ui.Gold);
         }
         _match.Visible = snapshot.Mode == GameMode.Arena; _teams.Visible = !_match.Visible;
+        if (snapshot.Map == ArenaMapId.Practice) _match.Visible = _teams.Visible = false;
         if (_match.Visible)
             _match.Text = "ARENA  ·  " + snapshot.Players.Max(p => p.Kills) + " BAJAS";
         else

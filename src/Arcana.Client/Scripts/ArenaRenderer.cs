@@ -135,6 +135,8 @@ public partial class ArenaRenderer : Node3D
         _points.Clear();
         var rootMap = new Node3D { Name = "MapGeometry" }; _mapRoot = rootMap; AddChild(rootMap);
         BuildScenery(rootMap);
+        _practiceCasterLabel = null;
+        if (_map.IsPractice) { BuildPracticeMap(rootMap); return; }
         for (int team = 0; team < 2; team++)
         {
             var color = team == 0 ? Ui.Blue : Ui.Red;
@@ -190,6 +192,7 @@ public partial class ArenaRenderer : Node3D
             visual.Update(point, dt, (float)_time);
         }
         UpdateFrontline(snapshot, (float)_time);
+        if (_practiceCasterLabel != null) _practiceCasterLabel.Text = PracticeCasterDescription;
         DrawProjectiles(snapshot, dt);
         DrawWalls(snapshot, dt);
         DrawFields(snapshot, dt);

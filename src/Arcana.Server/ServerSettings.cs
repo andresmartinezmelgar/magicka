@@ -20,6 +20,7 @@ public sealed class ServerSettings
             && Enum.IsDefined(value) ? value : GameMode.Warfare;
         var map = Enum.TryParse<ArenaMapId>(Environment.GetEnvironmentVariable("ARENA_MAP"), true, out var mapValue)
             && Enum.IsDefined(mapValue) ? mapValue : ArenaMapId.Classic;
+        if (ArenaMap.Get(map).IsPractice) throw new ArgumentException("El laboratorio se inicia sin conexión desde Práctica, no mediante ARENA_MAP.");
         int maxPlayers = mode == GameMode.Duel ? 2 : Number("MAX_PLAYERS", 8, 2, 16);
         string name = new((Environment.GetEnvironmentVariable("SERVER_NAME") ?? "Arcana Arena")
             .Where(c => !char.IsControl(c)).Take(64).ToArray());

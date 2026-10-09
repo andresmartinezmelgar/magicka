@@ -18,6 +18,7 @@ public partial class Main
         internal ArenaConnection? Connection { get => owner._connection; }
         internal ArenaConnection? PendingConnection { get => owner._pendingConnection; }
         internal GameWorld? Practice { get => owner._practice; set => owner._practice = value; }
+        internal PracticeSession? PracticeSession => owner._practiceSession;
         internal WorldSnapshot? Snapshot { get => owner._snapshot; set => owner._snapshot = value; }
         internal int LocalId { get => owner._localId; set => owner._localId = value; }
         internal long LocalSequence { get => owner._localSequence; set => owner._localSequence = value; }
@@ -33,7 +34,7 @@ public partial class Main
         internal MobileControls? Touch { get => owner._touch; }
         internal EngineLogBridge EngineLog { get => owner._engineLog; }
         internal void StartGame(WorldSnapshot snapshot) => owner.StartGame(snapshot);
-        internal void StartPractice(string name, int team, GameMode mode, int bots) => owner.StartPractice(name, team, mode, bots);
+        internal void StartPractice(string name, int team, GameMode mode, int bots, ArenaMapId map = ArenaMapId.Classic) => owner.StartPractice(name, team, mode, bots, map: map);
         internal Task ConnectOnline(string address, string name, int team, string password, string room) => owner.ConnectOnline(address, name, team, password, room);
         internal void CancelPendingConnection() => owner.CancelPendingConnection();
         internal void ReturnToLauncher(string error = "") => owner.ReturnToLauncher(error);

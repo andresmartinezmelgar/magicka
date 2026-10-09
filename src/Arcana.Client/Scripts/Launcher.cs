@@ -101,15 +101,22 @@ public partial class Launcher : Control
         void Objective()
         {
             var map = ArenaMap.Get((ArenaMapId)_practiceMap.GetSelectedId());
+            _practiceMode.Disabled = map.IsPractice;
+            if (map.IsPractice) _practiceMode.Select(_practiceMode.GetItemIndex((int)GameMode.Warfare));
             for (int i = 0; i < _practiceMode.ItemCount; i++) _practiceMode.SetItemDisabled(i, !map.SupportsMode((GameMode)_practiceMode.GetItemId(i)));
             if (!map.SupportsMode((GameMode)_practiceMode.GetSelectedId())) _practiceMode.Select(_practiceMode.GetItemIndex((int)GameMode.Warfare));
             practiceObjective.Text = MatchRules.Objective((GameMode)_practiceMode.GetSelectedId(),
                 (GameMode)_practiceMode.GetSelectedId() == GameMode.Duel ? 5 : 15, 75, map.Id);
         }
-        _practiceMode.ItemSelected += _ => Objective(); _practiceMap.ItemSelected += _ => Objective(); Objective();
+        _practiceMode.ItemSelected += _ => Objective(); _practiceMap.ItemSelected += _ => Objective();
         var botRow = new HBoxContainer(); practice.AddChild(botRow);
         botRow.AddChild(Ui.Label("Bots", 16));
         _bots = new SpinBox { MinValue = 1, MaxValue = 7, Value = 3, SizeFlagsHorizontal = SizeFlags.ExpandFill }; botRow.AddChild(_bots);
+        _practiceMap.ItemSelected += _ => { _bots.Editable = (ArenaMapId)_practiceMap.GetSelectedId() != ArenaMapId.Practice; };
+        _bots.Editable = (ArenaMapId)_practiceMap.GetSelectedId() != ArenaMapId.Practice; Objective();
+        var laboratory = Ui.Button("Entrar en laboratorio de hechizos", () =>
+            _main.StartPractice(_name.Text, 0, GameMode.Warfare, 0, (WizardType)_wizardType.GetSelectedId(), ArenaMapId.Practice));
+        laboratory.Name = "PracticeLaboratoryButton"; practice.AddChild(laboratory);
         practice.AddChild(Ui.Label("El duelo usa un bot. No requiere iniciar un servidor.", 13, Ui.Muted));
         practice.AddChild(Ui.Button("Medir rendimiento gráfico", () => _main.StartRenderProfile((ArenaMapId)_practiceMap.GetSelectedId())));
         var hosting = TabBox("Alojar");

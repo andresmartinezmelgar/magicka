@@ -60,11 +60,12 @@ public sealed partial class GameWorld
         if (!Enum.IsDefined(wizardType) || _players.Count >= Options.MaxPlayers || Options.Mode == GameMode.Duel && _players.Count >= 2) return null;
         int blue = _players.Values.Count(p => p.Team == 0), red = _players.Count - blue;
         // No se puede llenar un solo equipo mediante el campo del saludo.
-        int team = blue == red && preferredTeam is 0 or 1 ? preferredTeam : blue <= red ? 0 : 1;
+        int team = Map.IsPractice ? preferredTeam == 1 ? 1 : 0
+            : blue == red && preferredTeam is 0 or 1 ? preferredTeam : blue <= red ? 0 : 1;
         string cleanName = new((name ?? "Mago").Where(c => !char.IsControl(c) && c != '[' && c != ']').Take(24).ToArray());
         if (string.IsNullOrWhiteSpace(cleanName)) cleanName = "Mago";
         var wizard = new Wizard { Id = _nextPlayer++, Name = cleanName.Trim(), Team = team, Bot = bot, WizardType = wizardType };
-        wizard.Position = Options.Mode == GameMode.Arena ? ArenaSpawnPosition(wizard, null)
+        wizard.Position = Map.IsPractice ? PracticeLayout.Respawn : Options.Mode == GameMode.Arena ? ArenaSpawnPosition(wizard, null)
             : TeamSpawn(team, _players.Values.Count(p => p.Team == team));
         if (ConquestToWin && !Walkable(wizard.Position)) wizard.Position = RespawnPosition(wizard);
         wizard.Facing = new(team == 0 ? 1 : -1, 0);
@@ -78,6 +79,7 @@ public sealed partial class GameWorld
     {
         if (!_players.Remove(id, out var wizard)) return;
         _routes.Remove(id);
+        _practiceSpawns.Remove(id); _practiceReadings.Remove(id);
         _projectiles.RemoveAll(p => p.Owner == id);
         _walls.RemoveAll(p => p.Owner == id);
         _fields.RemoveAll(p => p.Owner == id);
@@ -168,7 +170,7 @@ public sealed partial class GameWorld
         TickChannels(dt);
         TickProjectiles(dt);
         TickWallsAndFields(dt);
-        if (Options.Mode == GameMode.Warfare) TickCapture(dt);
+        if (Options.Mode == GameMode.Warfare && !Map.IsPractice) TickCapture(dt);
         CheckVictory();
     }
 
@@ -183,7 +185,7 @@ public sealed partial class GameWorld
         p.WardTime -= dt;
         if (p.ShieldTime <= 0) p.Shield = p.ShieldMax = p.RegenerationRate = 0;
         if (p.Shield <= 0) p.RegenerationRate = 0;
-        p.Health = Math.Min(p.MaxHealth, p.Health + (p.RegenerationRate * RelicBuffs.Healing(p) + RelicBuffs.Regeneration(p)) * dt);
+        Heal(p, (p.RegenerationRate * RelicBuffs.Healing(p) + RelicBuffs.Regeneration(p)) * dt);
         if (p.WardTime <= 0) p.Ward = [];
         if (p.Burning > 0)
         {
@@ -386,7 +388,7 @@ public sealed partial class GameWorld
         }
         else if (spell.Healing)
         {
-            p.Health = Math.Min(p.MaxHealth, p.Health + SpellBalance.SelfHeal * spell.Count(Element.Life) * RelicBuffs.Healing(p));
+            Heal(p, SpellBalance.SelfHeal * spell.Count(Element.Life) * RelicBuffs.Healing(p));
         }
         else if (spell.Has(Element.Fire) && (p.Wet > 0 || p.Frozen > 0 || p.Chill > 0))
         {
@@ -512,7 +514,7 @@ public sealed partial class GameWorld
     private void Hit(Wizard target, SpellRecipe spell, float scale, int owner, V2 force, float damageMultiplier = 1)
     {
         if (!target.Alive) return;
-        if (spell.Healing) target.Health = Math.Min(target.MaxHealth, target.Health + SpellBalance.Heal * spell.Count(Element.Life) * scale * HealingPower(owner));
+        if (spell.Healing) Heal(target, SpellBalance.Heal * spell.Count(Element.Life) * scale * HealingPower(owner));
         if (target.Invulnerable > 0) return;
         if (_players.TryGetValue(owner, out var source) && source.Id != target.Id && Allied(source, target) && !Options.FriendlyFire) return;
         float damage = 0;
@@ -550,6 +552,11 @@ public sealed partial class GameWorld
         amount *= DamagePower(owner) * RelicBuffs.Incoming(target);
         float absorbed = Math.Min(target.Shield, amount);
         target.Shield -= absorbed; amount -= absorbed;
+        if (Map.IsPractice)
+        {
+            var reading = PracticeReading(target.Id);
+            reading.Absorbed += absorbed; reading.Damage += Math.Min(target.Health, amount);
+        }
         target.Health = Math.Max(0, target.Health - amount);
         // Un rayo golpea a 60 Hz; limita sus impactos, pero nunca omite la rotura del escudo.
         bool broken = absorbed > 0 && target.Shield <= 0;
@@ -564,7 +571,7 @@ public sealed partial class GameWorld
         target.Deaths++; target.Respawn = Map.RespawnSeconds(Options.Mode, target.Deaths);
         RelicBuffs.Clear(target);
         CancelCast(target); target.Selection.Clear(); target.Shield = target.ShieldMax = target.ShieldTime = target.RegenerationRate = 0;
-        if (Options.Mode == GameMode.Warfare && !HoldToWin && !ConquestToWin) Scores[target.Team] = Math.Max(0, Scores[target.Team] - 1);
+        if (Options.Mode == GameMode.Warfare && !Map.IsPractice && !HoldToWin && !ConquestToWin) Scores[target.Team] = Math.Max(0, Scores[target.Team] - 1);
         string text = $"{target.Name} ha caído";
         if (_players.TryGetValue(owner, out var killer) && killer.Id != target.Id)
         {
@@ -656,7 +663,7 @@ public sealed partial class GameWorld
                 if (f.Kind == "healing_mine")
                 {
                     if (_players.TryGetValue(f.Owner, out var owner) && Allied(owner, p))
-                        p.Health = Math.Min(p.MaxHealth, p.Health + SpellBalance.MineHeal * f.Recipe.Count(Element.Life) * RelicBuffs.Healing(owner));
+                        Heal(p, SpellBalance.MineHeal * f.Recipe.Count(Element.Life) * RelicBuffs.Healing(owner));
                 }
                 else Hit(p, f.Recipe, f.Kind == "meteor" ? SpellBalance.MeteorPower : SpellBalance.MinePower, f.Owner, (p.Position - f.Position).Normalized);
             }
@@ -706,6 +713,7 @@ public sealed partial class GameWorld
 
     private void CheckVictory()
     {
+        if (Map.IsPractice) return;
         int winner = -1;
         if (Options.Mode == GameMode.Warfare)
         {
@@ -739,7 +747,7 @@ public sealed partial class GameWorld
 
     private void ResetScores()
     {
-        Scores[0] = Scores[1] = Options.Mode == GameMode.Warfare && !ConquestToWin ? Options.Tickets : 0;
+        Scores[0] = Scores[1] = Options.Mode == GameMode.Warfare && !Map.IsPractice && !ConquestToWin ? Options.Tickets : 0;
         _ticketClock = 0;
         _holdTicks = 0; HoldingTeam = -1; _routes.Clear();
     }
@@ -758,6 +766,8 @@ public sealed partial class GameWorld
         _routes.Remove(p.Id);
         ResetSlide(p);
         p.Position = RespawnPosition(p); p.Health = p.MaxHealth;
+        if (Map.IsPractice)
+            _walls.RemoveAll(w => Geometry.DistanceToSegment(p.Position, w.A, w.B) < ArenaMap.WizardRadius + 0.18f);
         p.Wet = p.Burning = p.Chill = p.Frozen = p.Haste = p.Shield = p.ShieldMax = p.ShieldTime = 0;
         p.RegenerationRate = 0;
         p.Ward = []; p.Knockback = V2.Zero; p.Selection.Clear(); CancelCast(p);
@@ -766,11 +776,12 @@ public sealed partial class GameWorld
         p.TeleportNeedsExit = false;
         p.Input.MoveTo = false; p.Input.MoveX = p.Input.MoveY = 0; p.Respawn = 0;
         p.ShieldCharges = 1;
-        p.Invulnerable = Options.Mode == GameMode.Arena ? 1 : 1.2f; p.ActionCooldown = 0;
+        p.Invulnerable = _practiceSpawns.ContainsKey(p.Id) ? 0 : Options.Mode == GameMode.Arena ? 1 : 1.2f; p.ActionCooldown = 0;
     }
 
     private V2 RespawnPosition(Wizard p)
     {
+        if (Map.IsPractice) return _practiceSpawns.GetValueOrDefault(p.Id, PracticeLayout.Respawn);
         if (Options.Mode == GameMode.Arena) return ArenaSpawnPosition(p, p.Deaths > 0 ? p.Position : null);
         var preferred = TeamSpawn(p.Team, p.Id % 4);
         for (int offset = 0; offset < 4; offset++)

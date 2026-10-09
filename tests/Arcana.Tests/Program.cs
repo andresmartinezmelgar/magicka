@@ -35,6 +35,7 @@ void Select(GameWorld w, Wizard p, params Element[] elements)
 FrontlineTests.Run(Test);
 GameplayRegressionTests.Run(Test);
 MovementCollisionTests.Run(Test);
+PracticeTests.Run(Test);
 
 Test("Límite de tres elementos y cancelación de incompatibles", () =>
 {
@@ -1212,7 +1213,7 @@ Test("La reaparición encuentra suelo libre aunque los cuatro puestos estén cub
 });
 Test("Todos contra todos reparte entradas y reapariciones por los cuatro mapas", () =>
 {
-    foreach (var map in Enum.GetValues<ArenaMapId>().Where(m => ArenaMap.Get(m).SupportsMode(GameMode.Arena)))
+    foreach (var map in Enum.GetValues<ArenaMapId>().Where(m => !ArenaMap.Get(m).IsPractice && ArenaMap.Get(m).SupportsMode(GameMode.Arena)))
     {
         var world = new GameWorld(new() { Mode = GameMode.Arena, Map = map, MaxPlayers = 16, SpawnSeed = 902, PickupSeed = 1 });
         var players = Enumerable.Range(0, 16).Select(i => world.AddPlayer("Mago " + i, i % 2)!).ToArray();
@@ -1371,7 +1372,7 @@ Test("Validación de snapshots acepta combates y rechaza estado parcial o no fin
 });
 Test("Snapshots: límites espaciales antes del renderer y combate válido en los cinco mapas", () =>
 {
-    foreach (var id in Enum.GetValues<ArenaMapId>())
+    foreach (var id in Enum.GetValues<ArenaMapId>().Where(m => !ArenaMap.Get(m).IsPractice))
     {
         var world = new GameWorld(new() { Map = id, Mode = ArenaMap.Get(id).SequentialCapture ? GameMode.Warfare : GameMode.Arena,
             MaxPlayers = 16, Bots = 16, Seed = 41, SpawnSeed = 27, PickupSeed = 31, EnvironmentSeed = 21 });

@@ -89,7 +89,11 @@ public partial class ArenaRenderer
         {
             var floor = Mesh(root, new PlaneMesh { Size = new(section.Width, section.Height) }, World(section.Center), Colors.White);
             var material = new ShaderMaterial { Shader = shader };
-            for (int i = 0; i < 3; i++) material.SetShaderParameter("point_" + (char)('a' + i), new Vector2(_map.ControlPoints[i].X, _map.ControlPoints[i].Y));
+            for (int i = 0; i < 3; i++)
+            {
+                var point = i < _map.ControlPoints.Count ? _map.ControlPoints[i] : new V2(-48 + i * 48, -5);
+                material.SetShaderParameter("point_" + (char)('a' + i), new Vector2(point.X, point.Y));
+            }
             material.SetShaderParameter("theme", (int)_map.Theme); floor.MaterialOverride = material;
             material.SetShaderParameter("ground_contrast", Ui.IsMobile ? 1 : 0.75f);
             Box(root, new(section.Width + 0.3f, 0.18f, section.Height + 0.3f), World(section.Center, -0.11f), new("4c5140"));

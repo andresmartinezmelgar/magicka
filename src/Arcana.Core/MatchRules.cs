@@ -3,7 +3,9 @@ namespace Arcana.Core;
 /// <summary>Textos compartidos por la ayuda, las salas y el HUD; los límites vienen de la simulación.</summary>
 public static class MatchRules
 {
-    public static string Objective(GameMode mode, int scoreLimit, int tickets, ArenaMapId map = ArenaMapId.Classic) => (mode switch
+    public static string Objective(GameMode mode, int scoreLimit, int tickets, ArenaMapId map = ArenaMapId.Classic) => map == ArenaMapId.Practice
+        ? "Práctica libre: estados, barreras y lanzador. Sin puntos de control ni victoria."
+        : (mode switch
     {
         GameMode.Warfare when map == ArenaMapId.Frontline => "Conquista los cinco puntos en orden para ganar. Tu reaparición avanza con el terreno controlado.",
         GameMode.Duel => $"Gana el primer equipo que consigue {scoreLimit} bajas enemigas.",
@@ -13,7 +15,9 @@ public static class MatchRules
     }) + (map == ArenaMapId.Ascension
         ? "\nAscensión: +10 de vida por baja; +0,5 s al morir (máx. 10 s). Objetos aleatorios hasta morir."
         : map == ArenaMapId.Relics ? "\nRecoge reliquias: sus mejoras se acumulan y duran hasta morir." : "");
-    public static string Details(GameMode mode, ArenaMapId map = ArenaMapId.Classic) => (mode switch
+    public static string Details(GameMode mode, ArenaMapId map = ArenaMapId.Classic) => map == ArenaMapId.Practice
+        ? "Los objetivos reciben daño y curación reales y reaparecen en su estación al morir. Los estados no caducan por tiempo, pero puedes neutralizarlos con hechizos. Restablece una estación para recuperar su estado y escudo iniciales. Todas las combinaciones de barrera y mina están indicadas junto a cada estación y se reconstruyen a los 2 segundos si las destruyes. El lanzador apunta siempre a la derecha: rayos, cadenas y conos continuos; rocas y fragmentos cada 2 segundos. Puedes cambiar su combinación, pausarlo y preparar tu vida al 40 % para medir curación. Al morir reapareces en el único círculo azul al cabo de 1 segundo."
+        : (mode switch
     {
         GameMode.Warfare when map == ArenaMapId.Frontline => "Cada equipo solo puede capturar el primer punto libre o enemigo desde su extremo. No puedes saltarte puntos, tampoco usando los portales. La reaparición se sitúa detrás del último punto conectado a tu base y retrocede si lo pierdes. Gana quien controla los cinco puntos. Las bajas y los tickets no deciden la victoria. Hay tres pares de portales; caminar sobre uno te traslada al otro. De forma aleatoria caen meteoros con aviso previo o aparecen muros de piedra que puedes destruir con hechizos; desaparecen tras 30 segundos.",
         GameMode.Duel => "Dos magos, uno por equipo. Cada baja enemiga suma un punto.",

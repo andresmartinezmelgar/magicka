@@ -1,8 +1,10 @@
-# Arcana Arena — v0.12.19
+# Arcana Arena — v0.12.20
 
 Primera recreación jugable en C# del combate elemental de **Magicka: Wizard Wars**. Cliente 3D de escritorio con **Godot 4.5.2 .NET**, servidor independiente **ASP.NET Core / .NET 8**, Docker, launcher con conexión por IP/LAN, salas independientes y paquete Windows para abrir con doble clic y APK Android con controles táctiles.
 
 El código, las mallas y los sonidos son propios. Los sprites de los magos se han generado para este proyecto. Esta versión reproduce la estructura del combate; los gráficos, mapas, magicks y valores de daño son una aproximación, no una reproducción exacta del original.
+
+**v0.12.20:** Laboratorio local de hechizos: 14 objetivos con estados y protecciones, las 32 combinaciones de barreras y minas con sus teclas y elementos indicados, y un mago lanzador configurable que apunta siempre a la derecha. Canales continuos y proyectiles cada 2 segundos; medición de daño, escudo absorbido y curación efectiva. Sin captura ni victoria y con un solo respawn. Entra desde **Práctica → Entrar en laboratorio de hechizos**. [Funcionamiento y validación](docs/RELEASE-v0.12.20.md).
 
 **v0.12.19:** Corregido el error final de compilación por versiones desactualizadas en los presets. C#, el ejecutable Windows y la APK toman la versión de `VERSION`; los scripts sincronizan los metadatos antes de exportar y verifican la versión real del paquete. [Corrección y pruebas](docs/RELEASE-v0.12.19.md).
 
@@ -59,7 +61,7 @@ El código, las mallas y los sonidos son propios. Los sprites de los magos se ha
 - Cinco mapas seleccionables: Arena clásica, Ciudadela de los pasillos (4× de suelo y victoria por control total), Coliseo de la ascensión, Santuario de las reliquias y Frente de conquista (pasillo irregular de 480 unidades, cinco capturas consecutivas y reaparición según el terreno). Solo en Ascensión, cada baja añade 10 de vida permanente y cada muerte añade 0,5 segundos de reaparición, hasta 10 segundos.
 - En Santuario y Coliseo, catorce objetos dan mejoras acumulables de daño, protección, vida/s, vida máxima, velocidad, energía/s y curación. En el Coliseo sus posiciones son aleatorias y cambian al reaparecer a los doce segundos. Las mejoras temporales duran hasta morir. Ayuda en **F1 → Objetos**.
 - Escenarios de bosque con senderos, ciudad con calles y casas, ruinas cubiertas de vegetación y santuario forestal. Decoración procedural y plantas agrupadas para limitar el coste gráfico.
-- Bots que combaten, se curan y capturan puntos. Práctica local sin iniciar Docker.
+- Bots que combaten, se curan y capturan puntos. Práctica local sin iniciar Docker, con partidas contra bots o laboratorio libre de estados, barreras y daño/curación.
 - Launcher: IP/dominio, búsqueda LAN, servidor incluido, configuración gráfica y creación de salas con modo, bots, aforo y contraseñas.
 - Distribución Windows x64 autónoma: motor, cliente, servidor y runtimes incluidos. No necesita instalar Godot, .NET ni Docker para jugar o alojar.
 - Servidor autoritativo a 60 pasos/s, envío de estado a 20 Hz y representación interpolada en el cliente.
@@ -96,7 +98,7 @@ Descargar el código con **Code → Download ZIP** y extraer todo, o actualizar 
 
 El resultado queda en **`Juego/ArcanaArena.exe`**. Cada compilación correcta **sustituye completamente `Juego/`**, incluidos los archivos antiguos. Cerrar el juego antes de recompilar. Si la compilación falla, se conserva el resultado anterior. Registro: `artifacts/compilacion-*.log`. No requiere Visual Studio ni instalación de administrador. [Proceso y compilación manual](docs/EXPORTAR.md).
 
-Para **Android**, abrir **`Compilar-APK.cmd`**. Prepara .NET 8, Godot 4.5.2 .NET, OpenJDK 17 y el SDK Android 35 en `.tools/`; la primera ejecución necesita Internet, varios GB libres y aceptar las licencias que muestra el SDK. Genera **`artifacts/android/ArcanaArena-v0.12.19-Android-arm64.apk`**, lista para instalar en un móvil ARM64 con Android 8 o posterior. Reutiliza la firma local en las siguientes compilaciones y conserva la APK anterior si falla. Registro: `artifacts/compilacion-apk-*.log`. [Opciones y compilación manual](docs/ANDROID.md#compilación-y-comprobaciones).
+Para **Android**, abrir **`Compilar-APK.cmd`**. Prepara .NET 8, Godot 4.5.2 .NET, OpenJDK 17 y el SDK Android 35 en `.tools/`; la primera ejecución necesita Internet, varios GB libres y aceptar las licencias que muestra el SDK. Genera **`artifacts/android/ArcanaArena-v0.12.20-Android-arm64.apk`**, lista para instalar en un móvil ARM64 con Android 8 o posterior. Reutiliza la firma local en las siguientes compilaciones y conserva la APK anterior si falla. Registro: `artifacts/compilacion-apk-*.log`. [Opciones y compilación manual](docs/ANDROID.md#compilación-y-comprobaciones).
 
 La CI comprueba las compilaciones al actualizar `main`. Publicar los ejecutables como una Release requiere iniciar manualmente **Arcana Arena CI** en `main` y activar **`publish_release`**; por defecto queda desactivado.
 

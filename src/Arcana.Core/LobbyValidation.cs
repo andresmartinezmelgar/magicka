@@ -14,7 +14,7 @@ public static class LobbyValidation
     {
         if (room == null || string.IsNullOrWhiteSpace(room.Id) || room.Id.Length > 64 ||
             string.IsNullOrWhiteSpace(room.Name) || room.Name.Length > 32 || !Enum.IsDefined(room.Mode) ||
-            !Enum.IsDefined(room.Map) || !ArenaMap.Get(room.Map).SupportsMode(room.Mode) || room.MaxPlayers is < 2 or > 16 || room.Players < 0 || room.Players > room.MaxPlayers ||
+            !Enum.IsDefined(room.Map) || ArenaMap.Get(room.Map).IsPractice || !ArenaMap.Get(room.Map).SupportsMode(room.Mode) || room.MaxPlayers is < 2 or > 16 || room.Players < 0 || room.Players > room.MaxPlayers ||
             room.Bots < 0 || room.Bots >= room.MaxPlayers || room.Bots > room.Players ||
             room.ScoreLimit is < 1 or > 200 || room.Tickets is < 5 or > 1000 ||
             room.Mode == GameMode.Duel && room.MaxPlayers != 2)

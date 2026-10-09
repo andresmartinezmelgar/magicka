@@ -17,6 +17,8 @@ public partial class ClientVerification : Node
     private bool _spritesSmoke;
     private bool _combinationsSmoke;
     private bool _mapsSmoke;
+    private bool _practiceSmoke;
+    private string? _previewPractice;
     private ArenaMapId? _previewMap;
     private string? _previewCombination;
     private CastMode _previewCastMode;
@@ -39,7 +41,7 @@ public partial class ClientVerification : Node
     private string? _capturePath;
     private bool _captureReview, _mapOverview;
     private bool _smokeFailed;
-    private bool SmokeMode => _smoke || _hostSmoke || _diagnosticsSmoke || _hudSmoke || _effectsSmoke || _spritesSmoke || _combinationsSmoke || _mapsSmoke || _mobileSmoke;
+    private bool SmokeMode => _smoke || _hostSmoke || _diagnosticsSmoke || _hudSmoke || _effectsSmoke || _spritesSmoke || _combinationsSmoke || _mapsSmoke || _mobileSmoke || _practiceSmoke;
 
     internal bool CheckSmokeErrors()
     {
@@ -65,7 +67,7 @@ public partial class ClientVerification : Node
 
     internal static bool Requested(string[] arguments) => arguments.Any(a => a is "--smoke" or "--host-smoke" or "--diagnostics-smoke" or
         "--hud-smoke" or "--effects-smoke" or "--preview-effects" or "--sprites-smoke" or "--combinations-smoke" or "--maps-smoke" or
-        "--mobile-smoke" or "--mobile-fixture" or "--preview-wizards" or "--capture-review" or "--map-overview" ||
+        "--mobile-smoke" or "--mobile-fixture" or "--practice-smoke" or "--preview-wizards" or "--capture-review" or "--map-overview" ||
         a.StartsWith("--preview-") || a.StartsWith("--capture="));
 
     internal void Initialize(Main.VerificationAccess runtime, string[] arguments)
@@ -86,6 +88,8 @@ public partial class ClientVerification : Node
             if (arg == "--sprites-smoke") _spritesSmoke = true;
             if (arg == "--combinations-smoke") _combinationsSmoke = true;
             if (arg == "--maps-smoke") _mapsSmoke = true;
+            if (arg == "--practice-smoke") _practiceSmoke = true;
+            if (arg.StartsWith("--preview-practice=")) _previewPractice = arg[19..];
             if (arg == "--mobile-smoke") _mobileSmoke = true;
             if (arg.StartsWith("--preview-map=") && Enum.TryParse<ArenaMapId>(arg[14..], true, out var map) && Enum.IsDefined(map)) _previewMap = map;
             if (arg.StartsWith("--preview-combination=")) _previewCombination = arg[22..];
@@ -100,6 +104,13 @@ public partial class ClientVerification : Node
             if (arg == "--map-overview") _mapOverview = true;
         }
         if (_hostSmoke) _ = HostedSmoke();
+        if (_practiceSmoke || _previewPractice != null)
+        {
+            _runtime.StartPractice("Mago de prácticas", 0, GameMode.Warfare, 0, ArenaMapId.Practice);
+            if (_previewPractice != null)
+                _runtime.PracticeSession!.Player.Position = _previewPractice == "states" ? new(0, -31)
+                    : _previewPractice == "barriers" ? new(-14, 35) : PracticeLayout.CasterPosition + new V2(3, 0);
+        }
         if (_mapsSmoke || _previewMap != null) { _runtime.LocalId = 1; _runtime.StartGame(MapFixture(_previewMap ?? ArenaMapId.Citadel)); }
         if (_hudSmoke || _previewShield != null || _effectsSmoke || _previewEffects || _spritesSmoke || _previewWizards != null)
         {
@@ -214,6 +225,7 @@ public partial class ClientVerification : Node
         if (_hudSmoke && _renderFrames <= HudCases.Length * 3 && _renderFrames % 3 == 2) CheckHudCase();
         if (_effectsSmoke) CheckEffects();
         if (_spritesSmoke) CheckSprites(latest);
+        if (_practiceSmoke) CheckPractice(latest);
     }
     internal void AfterFrame()
     {
@@ -222,6 +234,7 @@ public partial class ClientVerification : Node
     }
     internal void AfterPhysics()
     {
+        if (_practiceSmoke) StepPracticeSmoke();
         if (_smoke)
         {
             _smokeFrames++;
