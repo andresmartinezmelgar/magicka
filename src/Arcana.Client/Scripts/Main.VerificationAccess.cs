@@ -23,6 +23,10 @@ public partial class Main
         internal int LocalId { get => owner._localId; set => owner._localId = value; }
         internal long LocalSequence { get => owner._localSequence; set => owner._localSequence = value; }
         internal bool Playing { get => owner._playing; set => owner._playing = value; }
+        internal bool Loading => owner.Loading;
+        internal double LoadingProgress => owner._loadingScreen?.Progress ?? 100;
+        internal long DrawnFrames => Volatile.Read(ref owner._drawnFrames);
+        internal int LoadingStep => owner._loadingIndex;
         internal bool Paused { get => owner._paused; set => owner._paused = value; }
         internal bool MoveTo { get => owner._moveTo; set => owner._moveTo = value; }
         internal bool IgnoreLeftUntilRelease { get => owner._ignoreLeftUntilRelease; set => owner._ignoreLeftUntilRelease = value; }
@@ -33,7 +37,8 @@ public partial class Main
         internal string ServerName { get => owner._serverName; set => owner._serverName = value; }
         internal MobileControls? Touch { get => owner._touch; }
         internal EngineLogBridge EngineLog { get => owner._engineLog; }
-        internal void StartGame(WorldSnapshot snapshot) => owner.StartGame(snapshot);
+        internal void StartGame(WorldSnapshot snapshot) => owner.ActivateGame(snapshot);
+        internal void StartGameLoading(WorldSnapshot snapshot) => owner.StartGame(snapshot);
         internal void StartPractice(string name, int team, GameMode mode, int bots, ArenaMapId map = ArenaMapId.Classic) => owner.StartPractice(name, team, mode, bots, map: map);
         internal Task ConnectOnline(string address, string name, int team, string password, string room) => owner.ConnectOnline(address, name, team, password, room);
         internal void CancelPendingConnection() => owner.CancelPendingConnection();

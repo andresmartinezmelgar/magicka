@@ -62,9 +62,15 @@ public sealed partial class GameWorld
     {
         if (!Enum.IsDefined(wizardType) || _players.Count >= Options.MaxPlayers || Options.Mode == GameMode.Duel && _players.Count >= 2) return null;
         int blue = _players.Values.Count(p => p.Team == 0), red = _players.Count - blue;
-        // No se puede llenar un solo equipo mediante el campo del saludo.
         int team = Map.IsPractice ? preferredTeam == 1 ? 1 : 0
-            : blue == red && preferredTeam is 0 or 1 ? preferredTeam : blue <= red ? 0 : 1;
+            : preferredTeam is 0 or 1 ? preferredTeam : blue <= red ? 0 : 1;
+        if (Options.Mode == GameMode.Duel && _players.Values.FirstOrDefault(p => p.Team == team) is { } opponent)
+        {
+            if (!opponent.Bot) return null;
+            // Al crear un duelo con un bot, el creador también puede elegir su lado.
+            opponent.Team = 1 - team;
+            opponent.Position = TeamSpawn(opponent.Team, 0); opponent.Facing = new(opponent.Team == 0 ? 1 : -1, 0);
+        }
         string cleanName = new((name ?? "Mago").Where(c => !char.IsControl(c) && c != '[' && c != ']').Take(24).ToArray());
         if (string.IsNullOrWhiteSpace(cleanName)) cleanName = "Mago";
         var wizard = new Wizard { Id = _nextPlayer++, Name = cleanName.Trim(), Team = team, Bot = bot, WizardType = wizardType };

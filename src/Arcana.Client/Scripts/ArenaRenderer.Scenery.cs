@@ -12,7 +12,17 @@ public partial class ArenaRenderer
     private static readonly Color[] Facades = [new("bda990"), new("c5b9a4"), new("8fa2a1"), new("c6a180")];
     private static readonly Color[] Roofs = [new("713f39"), new("8f5040"), new("496778"), new("665c67")];
 
-    private void BuildScenery(Node3D root)
+    private IEnumerable<Action> PrepareScenery(Func<Node3D> root, ArenaDefinition definition)
+    {
+        yield return () => PrepareSceneryBase(root());
+        yield return () => BuildTerrain(root());
+        yield return () => BuildBorders(root());
+        foreach (var obstacle in definition.Obstacles) yield return () => BuildLandscapeObstacle(root(), obstacle);
+        yield return () => BuildOutskirts(root());
+        yield return () => BuildGroundPlants(root());
+        yield return () => BatchScenery(root());
+    }
+    private void PrepareSceneryBase(Node3D root)
     {
         SceneryTrees = SceneryBuildings = 0;
         bool city = _map.Theme == ArenaTheme.City;
@@ -23,12 +33,6 @@ public partial class ArenaRenderer
         _sun.LightEnergy = Ui.IsMobile ? 0.90f : 0.95f;
         Mesh(root, new PlaneMesh { Size = new(Math.Max(240, _map.HalfWidth * 2 + 50), Math.Max(200, _map.HalfHeight * 2 + 50)) },
             new(0, -0.18f, 0), new(city ? "4a5952" : "233f2c"));
-        BuildTerrain(root);
-        BuildBorders(root);
-        foreach (var obstacle in _map.Obstacles) BuildLandscapeObstacle(root, obstacle);
-        BuildOutskirts(root);
-        BuildGroundPlants(root);
-        BatchScenery(root);
     }
     private void BuildTerrain(Node3D root)
     {

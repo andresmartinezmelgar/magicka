@@ -36,6 +36,21 @@ public partial class CombatEffects : Node3D
     private float _trailClock, _statusClock;
     public int ActiveCount => _sparks.Count + _waves.Count;
     public int PooledCount => _sparkCount + _waveCount;
+    internal void PreparePoolBatch()
+    {
+        for (int i = 0; i < 32 && _sparkCount < ParticleLimit; i++)
+        {
+            var node = new MeshInstance3D { Mesh = _shapes[0], Visible = false,
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+            AddChild(node); _freeSparks.Push(new(node)); _sparkCount++;
+        }
+        for (int i = 0; i < 8 && _waveCount < RingLimit; i++)
+        {
+            var node = new MeshInstance3D { Mesh = _ring, Visible = false,
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+            AddChild(node); _freeWaves.Push(new(node)); _waveCount++;
+        }
+    }
     internal int ActiveParticles => _sparks.Count;
     internal int ActiveRings => _waves.Count;
     internal int EmittedLastFrame { get; private set; }

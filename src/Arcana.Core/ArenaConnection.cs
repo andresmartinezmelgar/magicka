@@ -23,11 +23,15 @@ public sealed class ArenaConnection : IAsyncDisposable
     private WorldSnapshot? _latest;
     private Task? _reader, _writer, _disposal, _connecting;
     private int _disposing, _connected, _notified;
+    private int _ready, _readyRequested, _preparingPlayers;
+    private bool _requiresReady;
     public int PlayerId { get; private set; }
     public ServerInfo? Server { get; private set; }
     public RoomInfo? Room { get; private set; }
     public WorldSnapshot? Latest => Volatile.Read(ref _latest);
     public bool Connected => Volatile.Read(ref _connected) == 1 && Volatile.Read(ref _disposing) == 0;
+    public bool Ready => !_requiresReady || Volatile.Read(ref _ready) == 1;
+    public int PreparingPlayers => Volatile.Read(ref _preparingPlayers);
     public event Action<string>? Disconnected;
     private Dictionary<string, object?> Context() => new() { ["connection"] = _connectionId, ["roomId"] = Room?.Id,
         ["playerId"] = PlayerId, ["tick"] = Latest?.Tick };
@@ -62,18 +66,18 @@ public sealed class ArenaConnection : IAsyncDisposable
         return uri.AbsolutePath == "/" ? new UriBuilder(uri) { Path = "/play" }.Uri : uri;
     }
     public Task ConnectAsync(string address, string name, int team, string password, CancellationToken token = default,
-        string roomId = "default", string roomPassword = "", WizardType wizardType = WizardType.Balanced)
+        string roomId = "default", string roomPassword = "", WizardType wizardType = WizardType.Balanced, bool deferReady = false)
     {
         lock (_disposeGate)
         {
             ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposing) != 0, this);
             if (_connecting != null) throw new InvalidOperationException("Esta conexión ya se ha iniciado.");
             if (!Enum.IsDefined(wizardType)) throw new ArgumentOutOfRangeException(nameof(wizardType));
-            return _connecting = ConnectCore(address, name, team, password, token, roomId, roomPassword, wizardType);
+            return _connecting = ConnectCore(address, name, team, password, token, roomId, roomPassword, wizardType, deferReady);
         }
     }
     private async Task ConnectCore(string address, string name, int team, string password, CancellationToken token,
-        string roomId, string roomPassword, WizardType wizardType)
+        string roomId, string roomPassword, WizardType wizardType, bool deferReady)
     {
         Diagnostics.Log.ProtectSecret(password); Diagnostics.Log.ProtectSecret(roomPassword);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token, _lifetime.Token);
@@ -98,15 +102,32 @@ public sealed class ArenaConnection : IAsyncDisposable
                 welcome.Room.Players != welcome.Snapshot.Players.Length)
                 throw new InvalidDataException("El saludo no corresponde a la sala solicitada.");
             PlayerId = welcome.PlayerId; Server = welcome.Server; Room = welcome.Room;
+            _requiresReady = welcome.RequiresReady;
+            ApplyReadiness(welcome);
             Volatile.Write(ref _latest, welcome.Snapshot); Volatile.Write(ref _connected, 1);
             Diagnostics.Info("network.connected", "Conexión establecida.", Context());
             _writer = WriteLoop(); _reader = ReadLoop();
+            if (!deferReady && !CompleteLoading()) throw new IOException("No se pudo confirmar la preparación del cliente.");
         }
         catch (Exception e)
         {
             Diagnostics.Warn("network.connect_failed", "No se pudo establecer la conexión.", e, Context());
             Volatile.Write(ref _connected, 0); _socket.Abort(); throw;
         }
+    }
+    public bool CompleteLoading()
+    {
+        if (!Connected) return false;
+        if (!_requiresReady || Interlocked.Exchange(ref _readyRequested, 1) != 0) return true;
+        if (Send(new() { Type = "ready" })) return true;
+        Volatile.Write(ref _readyRequested, 0); return false;
+    }
+    private void ApplyReadiness(ServerMessage message)
+    {
+        if (!_requiresReady) return;
+        if (message.ReadyPlayerIds == null) throw new InvalidDataException("Falta el estado de preparación de la sala.");
+        Volatile.Write(ref _preparingPlayers, message.PreparingPlayers);
+        Volatile.Write(ref _ready, message.ReadyPlayerIds.Contains(PlayerId) ? 1 : 0);
     }
     public bool Send(ClientMessage message)
     {
@@ -146,7 +167,8 @@ public sealed class ArenaConnection : IAsyncDisposable
             {
                 var message = await Read(_lifetime.Token).ConfigureAwait(false);
                 if (message == null) { Fail("El servidor ha cerrado la conexión.", null, "network.server_closed"); break; }
-                if (message.Type == "snapshot" && message.Snapshot != null) Volatile.Write(ref _latest, message.Snapshot);
+                if (message.Type == "snapshot" && message.Snapshot != null)
+                { ApplyReadiness(message); Volatile.Write(ref _latest, message.Snapshot); }
                 else if (message.Type == "error") throw new IOException(message.Error);
             }
         }
@@ -178,8 +200,24 @@ public sealed class ArenaConnection : IAsyncDisposable
             if (!result.EndOfMessage) continue;
             var message = Protocol.Deserialize<ServerMessage>(stream.GetBuffer().AsSpan(0, (int)stream.Length));
             if (message?.Snapshot != null) SnapshotValidation.Check(message.Snapshot);
+            if (message?.Snapshot != null) CheckReadiness(message);
             if (message?.Type == "snapshot" && message.Snapshot == null) throw new InvalidDataException("Estado de partida ausente.");
             return message;
+        }
+    }
+    private static void CheckReadiness(ServerMessage message)
+    {
+        var players = message.Snapshot!.Players;
+        if (message.PreparingPlayers is < 0 or > 16 || message.PreparingPlayers > players.Length ||
+            message.ReadyPlayerIds is { Length: > 16 })
+            throw new InvalidDataException("Estado de preparación de sala inválido.");
+        if (message.ReadyPlayerIds is not { } ids) return;
+        for (int i = 0; i < ids.Length; i++)
+        {
+            bool found = false;
+            foreach (var player in players) if (player.Id == ids[i]) { found = true; break; }
+            if (!found) throw new InvalidDataException("Jugador preparado desconocido.");
+            for (int j = 0; j < i; j++) if (ids[j] == ids[i]) throw new InvalidDataException("Jugador preparado repetido.");
         }
     }
     public ValueTask DisposeAsync()

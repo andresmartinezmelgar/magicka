@@ -28,6 +28,10 @@ public partial class SpellAudio : Node
     {
         foreach (var voice in _voices) if (GodotObject.IsInstanceValid(voice)) { voice.Stop(); voice.Stream = null; }
     }
+    internal void Prepare(string key)
+    {
+        if (_voices.Count > 0 && !_sounds.ContainsKey(key)) _sounds[key] = Synthesize(key);
+    }
     public override void _ExitTree()
     {
         StopAll();

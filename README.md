@@ -1,8 +1,10 @@
-# Arcana Arena — v0.12.22
+# Arcana Arena — v0.12.23
 
 Primera recreación jugable en C# del combate elemental de **Magicka: Wizard Wars**. Cliente 3D de escritorio con **Godot 4.5.2 .NET**, servidor independiente **ASP.NET Core / .NET 8**, Docker, launcher con conexión por IP/LAN, salas independientes y paquete Windows para abrir con doble clic y APK Android con controles táctiles.
 
 El código, las mallas y los sonidos son propios. Los sprites de los magos se han generado para este proyecto. Esta versión reproduce la estructura del combate; los gráficos, mapas, magicks y valores de daño son una aproximación, no una reproducción exacta del original.
+
+**v0.12.23:** Elección de Azul, Rojo o Automático al crear o entrar en una sala. Barra de carga mientras se preparan el mapa, las texturas, los sonidos y los efectos; una sala nueva espera a que sus jugadores terminen antes de iniciar la simulación. Cliente y servidor deben actualizarse juntos al protocolo 10. [Cambios y comprobaciones](docs/RELEASE-v0.12.23.md).
 
 **v0.12.22:** Optimización de simulación, combate, snapshots, red y renderizado. Menos memoria temporal, buffers reutilizados, rayos sin reconstruir geometría por longitud y bloques de barrera agrupados sin perder vértices ni sombras. [Mediciones y comprobaciones](docs/RELEASE-v0.12.22.md).
 
@@ -102,7 +104,7 @@ Descargar el código con **Code → Download ZIP** y extraer todo, o actualizar 
 
 El resultado queda en **`Juego/ArcanaArena.exe`**. Cada compilación correcta **sustituye completamente `Juego/`**, incluidos los archivos antiguos. Cerrar el juego antes de recompilar. Si la compilación falla, se conserva el resultado anterior. Registro: `artifacts/compilacion-*.log`. No requiere Visual Studio ni instalación de administrador. [Proceso y compilación manual](docs/EXPORTAR.md).
 
-Para **Android**, abrir **`Compilar-APK.cmd`**. Prepara .NET 8, Godot 4.5.2 .NET, OpenJDK 17 y el SDK Android 35 en `.tools/`; la primera ejecución necesita Internet, varios GB libres y aceptar las licencias que muestra el SDK. Genera **`artifacts/android/ArcanaArena-v0.12.22-Android-arm64.apk`**, lista para instalar en un móvil ARM64 con Android 8 o posterior. Reutiliza la firma local en las siguientes compilaciones y conserva la APK anterior si falla. Registro: `artifacts/compilacion-apk-*.log`. [Opciones y compilación manual](docs/ANDROID.md#compilación-y-comprobaciones).
+Para **Android**, abrir **`Compilar-APK.cmd`**. Prepara .NET 8, Godot 4.5.2 .NET, OpenJDK 17 y el SDK Android 35 en `.tools/`; la primera ejecución necesita Internet, varios GB libres y aceptar las licencias que muestra el SDK. Genera **`artifacts/android/ArcanaArena-v0.12.23-Android-arm64.apk`**, lista para instalar en un móvil ARM64 con Android 8 o posterior. Reutiliza la firma local en las siguientes compilaciones y conserva la APK anterior si falla. Registro: `artifacts/compilacion-apk-*.log`. [Opciones y compilación manual](docs/ANDROID.md#compilación-y-comprobaciones).
 
 La CI comprueba las compilaciones al actualizar `main`. Publicar los ejecutables como una Release requiere iniciar manualmente **Arcana Arena CI** en `main` y activar **`publish_release`**; por defecto queda desactivado.
 

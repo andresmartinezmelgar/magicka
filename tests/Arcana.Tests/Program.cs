@@ -48,6 +48,7 @@ GameplayRegressionTests.Run(Test);
 MovementCollisionTests.Run(Test);
 PracticeTests.Run(Test);
 PerformanceRegressionTests.Run(Test);
+LoadingTests.Run(Test);
 
 Test("Límite de tres elementos y cancelación de incompatibles", () =>
 {
@@ -1586,6 +1587,7 @@ if (server != null)
 {
     string password = Environment.GetEnvironmentVariable("TEST_PASSWORD") ?? "";
     await FrontlineTests.RunNetwork(server, password, AsyncTest);
+    await LoadingTests.RunNetwork(server, password, AsyncTest);
     await AsyncTest("Crear salas con opciones, enumerarlas y aislar estado aunque los IDs coincidan", async () =>
     {
         var roomA = await RoomBrowser.CreateAsync(server, new() { Name = "Prueba aislamiento A", ServerPassword = password,

@@ -41,7 +41,7 @@ public partial class ClientVerification : Node
     private string? _capturePath;
     private bool _captureReview, _mapOverview;
     private bool _smokeFailed;
-    private bool SmokeMode => _smoke || _hostSmoke || _diagnosticsSmoke || _hudSmoke || _effectsSmoke || _spritesSmoke || _combinationsSmoke || _mapsSmoke || _mobileSmoke || _practiceSmoke;
+    private bool SmokeMode => _smoke || _hostSmoke || _diagnosticsSmoke || _hudSmoke || _effectsSmoke || _spritesSmoke || _combinationsSmoke || _mapsSmoke || _mobileSmoke || _practiceSmoke || _loadingSmoke || _lobbySmoke != null;
 
     internal bool CheckSmokeErrors()
     {
@@ -67,8 +67,8 @@ public partial class ClientVerification : Node
 
     internal static bool Requested(string[] arguments) => arguments.Any(a => a is "--smoke" or "--host-smoke" or "--diagnostics-smoke" or
         "--hud-smoke" or "--effects-smoke" or "--preview-effects" or "--sprites-smoke" or "--combinations-smoke" or "--maps-smoke" or
-        "--mobile-smoke" or "--mobile-fixture" or "--practice-smoke" or "--preview-wizards" or "--capture-review" or "--map-overview" ||
-        a.StartsWith("--preview-") || a.StartsWith("--capture="));
+        "--mobile-smoke" or "--mobile-fixture" or "--practice-smoke" or "--loading-smoke" or "--preview-loading" or "--preview-wizards" or "--capture-review" or "--map-overview" ||
+        a.StartsWith("--preview-") || a.StartsWith("--capture=") || a.StartsWith("--lobby-smoke="));
 
     internal void Initialize(Main.VerificationAccess runtime, string[] arguments)
     {
@@ -91,6 +91,10 @@ public partial class ClientVerification : Node
             if (arg == "--practice-smoke") _practiceSmoke = true;
             if (arg.StartsWith("--preview-practice=")) _previewPractice = arg[19..];
             if (arg == "--mobile-smoke") _mobileSmoke = true;
+            if (arg == "--loading-smoke") _loadingSmoke = true;
+            if (arg == "--preview-loading") _previewLoading = true;
+            if (arg.StartsWith("--lobby-smoke=")) _lobbySmoke = arg[14..];
+            if (arg.StartsWith("--preview-rooms=")) _previewRooms = arg[16..];
             if (arg.StartsWith("--preview-map=") && Enum.TryParse<ArenaMapId>(arg[14..], true, out var map) && Enum.IsDefined(map)) _previewMap = map;
             if (arg.StartsWith("--preview-combination=")) _previewCombination = arg[22..];
             if (arg.StartsWith("--preview-cast=") && Enum.TryParse<CastMode>(arg[15..], true, out var castMode)) _previewCastMode = castMode;
@@ -103,7 +107,11 @@ public partial class ClientVerification : Node
             if (arg == "--capture-review") _captureReview = true;
             if (arg == "--map-overview") _mapOverview = true;
         }
+        if (_lobbySmoke != null || _previewRooms != null)
+        { _runtime.Launcher.BrowseAddress(_lobbySmoke ?? _previewRooms!, true); return; }
         if (_hostSmoke) _ = HostedSmoke();
+        if (_loadingSmoke || _previewLoading)
+            _runtime.StartPractice("Carga móvil", 1, GameMode.Warfare, 2, ArenaMapId.Citadel);
         if (_practiceSmoke || _previewPractice != null)
         {
             _runtime.StartPractice("Mago de prácticas", 0, GameMode.Warfare, 0, ArenaMapId.Practice);
@@ -178,7 +186,7 @@ public partial class ClientVerification : Node
             await _runtime.ConnectOnline("127.0.0.1:29025", "Launcher", -1, "", room.Id);
             var current = _runtime.PendingConnection;
             _runtime.DrainPosted();
-            if (current == null || _runtime.Connection != current || !_runtime.Playing)
+            if (current == null || _runtime.Connection != current || !_runtime.Loading || _runtime.Playing)
                 throw new InvalidOperationException("Una respuesta anterior sustituyó la conexión actual.");
             await previous.DisposeAsync();
             GD.Print("CONNECTION_LIFECYCLE_OK: cancelación antes del saludo, respuesta tardía y sustitución de conexión.");
@@ -195,6 +203,7 @@ public partial class ClientVerification : Node
     internal void BeforeFrame(double delta)
     {
         _renderFrames++;
+        if (_lobbySmoke != null || _previewRooms != null) CheckLobbyFrame();
         if (_mapOverview && _previewMap != null && _renderFrames == 2)
         {
             var overview = ArenaMap.Get(_previewMap.Value);

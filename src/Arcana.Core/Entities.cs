@@ -4,7 +4,7 @@ public sealed class Wizard
 {
     public required int Id { get; init; }
     public required string Name { get; init; }
-    public int Team { get; init; }
+    public int Team { get; internal set; }
     public bool Bot { get; init; }
     public WizardType WizardType { get; init; }
     public V2 Position { get; set; }

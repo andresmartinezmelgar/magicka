@@ -39,6 +39,7 @@ public partial class ArenaRenderer : Node3D
     private WorldSnapshot? _lastSnapshot;
     private ArenaDefinition _map = ArenaMap.Get(ArenaMapId.Classic);
     private Node3D? _mapRoot;
+    private bool _mapPrepared;
     internal ArenaMapId CurrentMap => _map.Id;
     private bool _fresh;
     private readonly SpellAudio _audio = new();
@@ -144,12 +145,26 @@ public partial class ArenaRenderer : Node3D
 
     private void BuildMap()
     {
-        if (_mapRoot != null) { RemoveChild(_mapRoot); _mapRoot.QueueFree(); }
-        _points.Clear();
-        var rootMap = new Node3D { Name = "MapGeometry" }; _mapRoot = rootMap; AddChild(rootMap);
-        BuildScenery(rootMap);
-        _portals.Clear(); _frontlineSpawns.Clear();
-        _practiceCasterLabel = null;
+        foreach (var step in PrepareMap(_map.Id, true)) step();
+    }
+    internal IEnumerable<Action> PrepareMap(ArenaMapId id, bool force = false)
+    {
+        if (!force && _map.Id == id && _mapPrepared) yield break;
+        var definition = ArenaMap.Get(id);
+        Node3D? rootMap = null;
+        yield return () =>
+        {
+            Clear(); _map = definition; _mapPrepared = false;
+            if (_mapRoot != null) { RemoveChild(_mapRoot); _mapRoot.QueueFree(); }
+            _points.Clear(); _portals.Clear(); _frontlineSpawns.Clear(); _practiceCasterLabel = null;
+            rootMap = new Node3D { Name = "MapGeometry" }; _mapRoot = rootMap; AddChild(rootMap);
+        };
+        // La enumeración prepara trabajos; los nodos se crean al ejecutar cada paso.
+        foreach (var step in PrepareScenery(() => rootMap!, definition)) yield return step;
+        yield return () => { BuildMapDetails(rootMap!); _mapPrepared = true; };
+    }
+    private void BuildMapDetails(Node3D rootMap)
+    {
         if (_map.IsPractice) { BuildPracticeMap(rootMap); return; }
         for (int team = 0; team < 2; team++)
         {
@@ -172,7 +187,7 @@ public partial class ArenaRenderer : Node3D
 
     public void Render(WorldSnapshot snapshot, int localId, double delta, bool playing)
     {
-        if (_map.Id != snapshot.Map) { Clear(); _map = ArenaMap.Get(snapshot.Map); BuildMap(); }
+        if (_map.Id != snapshot.Map || !_mapPrepared) { Clear(); _map = ArenaMap.Get(snapshot.Map); BuildMap(); }
         bool first = _lastSnapshot == null;
         var previous = _lastSnapshot;
         float dt = (float)delta; _time += delta;

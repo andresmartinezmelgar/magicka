@@ -17,6 +17,7 @@ internal sealed class GameRoom(string id, string name, string password, WorldOpt
     public GameWorld World { get; } = new(options);
     public Dictionary<int, PlayerSession> Sessions { get; } = [];
     public long LastOccupied { get; set; } = Environment.TickCount64;
+    public bool Started { get; set; }
     public RoomInfo Info() => new(Id, Name, Options.Mode, World.Players.Count, Options.MaxPlayers,
         Options.Bots, Options.FriendlyFire, Options.ScoreLimit, Options.Tickets, Password.Length > 0, Options.Map);
 }
@@ -27,6 +28,8 @@ internal sealed class PlayerSession(int id, GameRoom room, WebSocket socket)
     public int Id { get; } = id;
     public GameRoom Room { get; } = room;
     public WebSocket Socket { get; } = socket;
+    public bool Ready { get; set; }
+    public long LoadingStartedAt { get; } = Environment.TickCount64;
     public Channel<ClientMessage> Commands { get; } = Channel.CreateBounded<ClientMessage>(new BoundedChannelOptions(64)
     { SingleReader = true, SingleWriter = true, FullMode = BoundedChannelFullMode.Wait });
     public Channel<byte[]> Outbox { get; } = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(2)
@@ -98,7 +101,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
         var clock = Stopwatch.StartNew();
         double previous = clock.Elapsed.TotalSeconds, accumulator = 0;
         long cleanupAt = Environment.TickCount64, metricsAt = cleanupAt, lagAt = 0;
-        var snapshots = new List<(WorldSnapshot World, PlayerSession[] Recipients)>(MaxRooms);
+        var snapshots = new List<(ServerMessage Message, PlayerSession[] Recipients)>(MaxRooms);
         var dirty = new HashSet<GameRoom>();
         double maxStepMs = 0;
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(4));
@@ -125,9 +128,25 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                         {
                             // Pausa los bots y el reloj de las salas sin jugadores humanos.
                             if (room.Sessions.Count == 0) continue;
+                            int readyPlayers = 0;
                             foreach (var session in room.Sessions.Values)
+                            {
+                                if (!session.Ready && Environment.TickCount64 - session.LoadingStartedAt > Protocol.LoadingTimeoutSeconds * 1000L)
+                                    session.Socket.Abort();
                                 for (int n = 0; n < 32 && session.Commands.Reader.TryRead(out var message); n++)
-                                    if (!room.World.ApplyMessage(session.Id, message)) _ignoredCommands++;
+                                {
+                                    if (message.Type == "ready" && message.Sequence > 0) { session.Ready = true; continue; }
+                                    if (!session.Ready || !room.World.ApplyMessage(session.Id, message)) _ignoredCommands++;
+                                }
+                                if (session.Ready) readyPlayers++;
+                            }
+                            if (readyPlayers == 0 || !room.Started && readyPlayers != room.Sessions.Count)
+                            { if (CurrentTick % 3 == 0) dirty.Add(room); continue; }
+                            room.Started = true;
+                            // Entrar en una partida iniciada no la pausa: el nuevo jugador
+                            // permanece protegido y sin acciones hasta terminar su carga.
+                            foreach (var session in room.Sessions.Values)
+                                if (!session.Ready && room.World.Players.TryGetValue(session.Id, out var player)) player.Invulnerable = 1.2f;
                             room.World.Step();
                             room.LastOccupied = Environment.TickCount64;
                             if (room.World.Tick % 3 == 0) dirty.Add(room);
@@ -136,7 +155,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                         accumulator -= GameWorld.StepSeconds;
                     }
                     // Si hubo varios pasos atrasados, envía únicamente el estado más reciente.
-                    foreach (var room in dirty) snapshots.Add((room.World.Snapshot(), room.Sessions.Values.ToArray()));
+                    foreach (var room in dirty) snapshots.Add((RoomSnapshot(room), room.Sessions.Values.ToArray()));
                     if (Environment.TickCount64 - cleanupAt > 60000) { RemoveIdleRooms(); cleanupAt = Environment.TickCount64; }
                     maxStepMs = Math.Max(maxStepMs, Stopwatch.GetElapsedTime(stepStarted).TotalMilliseconds);
                     if (Environment.TickCount64 - metricsAt >= 30000)
@@ -150,7 +169,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                 }
                 foreach (var snapshot in snapshots)
                 {
-                    var bytes = Protocol.SerializeUtf8(new ServerMessage { Type = "snapshot", Snapshot = snapshot.World });
+                    var bytes = Protocol.SerializeUtf8(snapshot.Message);
                     foreach (var session in snapshot.Recipients) session.Outbox.Writer.TryWrite(bytes);
                 }
             }
@@ -190,7 +209,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             { await RejectLogged("Tipo de mago desconocido.", handshake.Token); return; }
             if (!PasswordMatches(hello.Password, settings.Password))
             { await RejectLogged("Contraseña del servidor incorrecta.", handshake.Token); return; }
-            string error = ""; WorldSnapshot? initial = null; RoomInfo? roomInfo = null;
+            string error = ""; ServerMessage? welcome = null;
             lock (_gate)
             {
                 if (hello.RoomId == null || !_rooms.TryGetValue(hello.RoomId, out var room)) error = "La sala ya no existe. Actualiza la lista.";
@@ -198,20 +217,22 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                 else
                 {
                     var player = room.World.AddPlayer(hello.Name, hello.Team, wizardType: hello.WizardType);
-                    if (player == null) error = "La sala está llena.";
+                    if (player == null) error = room.World.Players.Count >= room.Options.MaxPlayers
+                        ? "La sala está llena." : "El equipo elegido está ocupado en este duelo. Elige el otro equipo o Automático.";
                     else
                     {
                         session = new(player.Id, room, socket); room.Sessions.Add(player.Id, session);
                         _sessions[session.Key] = session; room.LastOccupied = Environment.TickCount64;
-                        initial = room.World.Snapshot(); roomInfo = room.Info();
+                        player.Invulnerable = 1.2f;
+                        welcome = RoomSnapshot(room); welcome.Type = "welcome"; welcome.PlayerId = player.Id;
+                        welcome.Server = Info(); welcome.Room = room.Info(); welcome.RequiresReady = true;
                     }
                 }
             }
             if (session == null) { await RejectLogged(error, handshake.Token); return; }
             // El límite protege solamente la fase de saludo. Las sesiones establecidas no deben ocuparlo.
             _handshakes.Release(); handshakeSlotHeld = false;
-            await Send(socket, new ServerMessage { Type = "welcome", PlayerId = session.Id, Server = Info(), Room = roomInfo,
-                Snapshot = initial }, handshake.Token);
+            await Send(socket, welcome!, handshake.Token);
             Diagnostics.Info("connection.accepted", "Jugador conectado.", Context());
             using var connection = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, _stopping.Token);
             var sendTask = SendLoop(session, connection.Token);
@@ -263,6 +284,12 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
     }
     public override Task StopAsync(CancellationToken cancellationToken)
     { _stopping.Cancel(); return base.StopAsync(cancellationToken); }
+    private static ServerMessage RoomSnapshot(GameRoom room) => new()
+    {
+        Type = "snapshot", Snapshot = room.World.Snapshot(),
+        PreparingPlayers = room.Started ? 0 : room.Sessions.Values.Count(s => !s.Ready),
+        ReadyPlayerIds = room.Sessions.Values.Where(s => s.Ready).Select(s => s.Id).ToArray()
+    };
     private static bool PasswordMatches(string? supplied, string expected)
     {
         var a = System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(supplied ?? ""));

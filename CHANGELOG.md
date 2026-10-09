@@ -1,5 +1,12 @@
 # Cambios
 
+## v0.12.23
+
+- Selector de equipo en las salas: Azul y Rojo se respetan al crear y entrar; Automático equilibra. Corregido el identificador de Automático, que coincidía con Azul. Un duelo conserva oponentes en equipos distintos y permite elegir el lado frente al bot.
+- Preparación gradual del mapa, atlas, sonidos, partículas, proyectiles, rayos, conos, barreras y efectos con barra de progreso. Los recursos se dibujan detrás de la pantalla de carga antes de habilitar los controles, para preparar también las variantes gráficas de OpenGL.
+- Una sala nueva espera la confirmación de carga de todos sus clientes. Cancelar libera la espera; una entrada tardía conserva la partida y protege al nuevo jugador hasta terminar. Protocolo 10: actualizar cliente y servidor juntos.
+- Regresiones de equipos y sincronización, carga y cancelación en Godot, y creación de sala desde el formulario con dos clientes y OpenGL. [Detalles y validación](docs/RELEASE-v0.12.23.md).
+
 ## v0.12.22
 
 - Optimización de simulación, colisiones, capturas, canales, recetas y copias de estado: un 68,7 % menos de asignaciones temporales en el recorrido medido de los seis mapas respecto a v0.12.21. Los estados finales conservan exactamente la misma huella SHA-256.

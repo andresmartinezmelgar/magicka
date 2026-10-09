@@ -48,6 +48,8 @@ public partial class Main
     public override void _Notification(int what)
     {
         if (!Ui.IsMobile || _launcher == null) return;
+        if (Loading && (long)what is NotificationWMGoBackRequest or NotificationApplicationPaused or NotificationApplicationFocusOut)
+        { ReturnToLauncher(); return; }
         if (_profiler?.Running == true && (long)what is NotificationWMGoBackRequest or NotificationApplicationPaused or NotificationApplicationFocusOut)
         { _profiler.Cancel(); return; }
         if (what == NotificationWMGoBackRequest)

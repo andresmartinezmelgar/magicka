@@ -60,9 +60,9 @@ public partial class Launcher : Control
         nameColumn.AddChild(Ui.Label("Nombre del mago", 14, Ui.Muted));
         _name = new LineEdit { Text = _config.GetValue("player", "name", "Mago").AsString(), MaxLength = 24, CustomMinimumSize = new(0, 45) }; nameColumn.AddChild(_name);
         var teamColumn = new VBoxContainer { CustomMinimumSize = new(172, 0) }; identity.AddChild(teamColumn);
-        teamColumn.AddChild(Ui.Label("Equipo preferido", 14, Ui.Muted));
-        _team = new OptionButton { CustomMinimumSize = new(0, 45) };
-        _team.AddItem("Automático", -1); _team.AddItem("Azul", 0); _team.AddItem("Rojo", 1);
+        teamColumn.AddChild(Ui.Label("Equipo", 14, Ui.Muted));
+        _team = Ui.TeamChoice(_config.GetValue("player", "team", -1).AsInt32());
+        _team.Name = "LauncherTeamChoice";
         teamColumn.AddChild(_team);
         var typeRow = new HBoxContainer(); typeRow.AddThemeConstantOverride("separation", 12); form.AddChild(typeRow);
         typeRow.AddChild(Ui.Label("Tipo de mago", 14, Ui.Muted));
@@ -191,6 +191,7 @@ public partial class Launcher : Control
     {
         _config.SetValue("player", "name", _name.Text); _config.SetValue("network", "address", _address.Text);
         _config.SetValue("player", "wizard_type", _wizardType.GetSelectedId());
+        _config.SetValue("player", "team", Ui.SelectedTeam(_team));
         _config.SetValue("practice", "map", _practiceMap.GetSelectedId());
         _config.SetValue("host", "name", _hostName.Text); _config.SetValue("host", "port", (int)_hostPort.Value);
         _config.SetValue("host", "discovery", (int)_hostDiscovery.Value);
@@ -202,7 +203,7 @@ public partial class Launcher : Control
     {
         if (_busy) return;
         Remember();
-        int team = _team.GetSelectedId();
+        int team = Ui.SelectedTeam(_team);
         if (_tabs.CurrentTab == 2)
         {
             _main.StartPractice(_name.Text, team, (GameMode)_practiceMode.GetSelectedId(), (int)_bots.Value,
@@ -221,7 +222,7 @@ public partial class Launcher : Control
     private void OpenRooms(string address, string password)
     {
         CancelSearch(); _main.CancelPendingConnection(); CloseRooms();
-        _lobby = new RoomLobby(); AddChild(_lobby); _lobby.Build(_main, address, password, _name.Text, _team.GetSelectedId(), (WizardType)_wizardType.GetSelectedId());
+        _lobby = new RoomLobby(); AddChild(_lobby); _lobby.Build(_main, address, password, _name.Text, Ui.SelectedTeam(_team), (WizardType)_wizardType.GetSelectedId());
     }
     public void CloseRooms()
     { if (GodotObject.IsInstanceValid(_lobby)) _lobby!.QueueFree(); _lobby = null; }

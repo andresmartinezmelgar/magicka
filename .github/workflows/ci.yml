@@ -66,6 +66,14 @@ jobs:
         run: bash scripts/test-client-smoke.sh smoke /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
       - name: Verificar controles multitáctiles y ciclo de vida móvil
         run: bash scripts/test-client-smoke.sh mobile-smoke /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
+      - name: Verificar carga previa, progreso y cancelación
+        run: bash scripts/test-client-smoke.sh loading-smoke /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
+      - name: Validar carga OpenGL y creación de sala con equipo elegido
+        run: bash scripts/test-multiplayer-loading.sh /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: loading-review
+          path: artifacts/loading-review/*.png
       - name: Revisar interfaz móvil con OpenGL
         env:
           LIBGL_ALWAYS_SOFTWARE: 1
@@ -277,12 +285,12 @@ jobs:
           $env:DOTNET_ROOT = Join-Path $env:RUNNER_TEMP 'sin-dotnet-global'
           $env:DOTNET_ROOT_X64 = $env:DOTNET_ROOT
           $env:DOTNET_MULTILEVEL_LOOKUP = '0'
-          foreach ($mode in @('smoke', 'host-smoke', 'diagnostics-smoke', 'hud-smoke', 'effects-smoke', 'sprites-smoke', 'combinations-smoke', 'maps-smoke', 'practice-smoke')) {
+          foreach ($mode in @('smoke', 'host-smoke', 'diagnostics-smoke', 'hud-smoke', 'effects-smoke', 'sprites-smoke', 'combinations-smoke', 'maps-smoke', 'practice-smoke', 'loading-smoke')) {
             $log = Join-Path $env:RUNNER_TEMP "arcana-$mode.log"
             $game = Start-Process "$package/ArcanaArena.exe" -ArgumentList '--headless','--audio-driver','Dummy','--log-file',"`"$log`"",'--',"--$mode" -PassThru
             if (!$game.WaitForExit(60000)) { $game.Kill(); throw "El juego no termino: $mode" }
             if ($game.ExitCode -ne 0) { if (Test-Path $log) { Get-Content $log }; throw "El juego fallo: $mode" }
-            $marker = switch ($mode) { 'smoke' { 'SMOKE_OK' }; 'host-smoke' { 'HOST_SMOKE_OK' }; 'diagnostics-smoke' { 'DIAGNOSTICS_SMOKE_OK' }; 'hud-smoke' { 'HUD_SMOKE_OK' }; 'effects-smoke' { 'EFFECTS_SMOKE_OK' }; 'sprites-smoke' { 'SPRITES_SMOKE_OK' }; 'combinations-smoke' { 'COMBINATIONS_SMOKE_OK' }; 'maps-smoke' { 'MAPS_SMOKE_OK' }; 'practice-smoke' { 'PRACTICE_SMOKE_OK' } }
+            $marker = switch ($mode) { 'smoke' { 'SMOKE_OK' }; 'host-smoke' { 'HOST_SMOKE_OK' }; 'diagnostics-smoke' { 'DIAGNOSTICS_SMOKE_OK' }; 'hud-smoke' { 'HUD_SMOKE_OK' }; 'effects-smoke' { 'EFFECTS_SMOKE_OK' }; 'sprites-smoke' { 'SPRITES_SMOKE_OK' }; 'combinations-smoke' { 'COMBINATIONS_SMOKE_OK' }; 'maps-smoke' { 'MAPS_SMOKE_OK' }; 'practice-smoke' { 'PRACTICE_SMOKE_OK' }; 'loading-smoke' { 'LOADING_SMOKE_OK' } }
             Get-Content $log
             if (!(Select-String -Path $log -SimpleMatch $marker)) { throw "Falta la confirmacion: $mode" }
             if (Select-String -Path $log -Pattern '(^ERROR:|^SCRIPT ERROR:|SMOKE_FAILED)' -Quiet) { throw "La prueba registro errores: $mode" }
@@ -377,6 +385,7 @@ jobs:
           "$ARCANA_GODOT" --headless --editor --path src/Arcana.Client --import
           bash scripts/test-client-smoke.sh mobile-smoke "$ARCANA_GODOT"
           bash scripts/test-client-smoke.sh mobile-smoke "$ARCANA_GODOT" --max-fps 2
+          bash scripts/test-client-smoke.sh loading-smoke "$ARCANA_GODOT"
       - name: Generar APK ARM64 firmada y verificar contenido
         run: bash scripts/package-android.sh "$ARCANA_GODOT"
       - uses: actions/upload-artifact@v4

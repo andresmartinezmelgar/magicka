@@ -5,10 +5,11 @@ namespace Arcana.Core;
 
 public static class Protocol
 {
-    public const int Version = 9;
+    public const int Version = 10;
     public const int GamePort = 27015;
     public const int DiscoveryPort = 27016;
-    public const string DiscoveryMagic = "ARCANA_DISCOVER_V9";
+    public const string DiscoveryMagic = "ARCANA_DISCOVER_V10";
+    public const int LoadingTimeoutSeconds = 120;
     public const int MaxMessageBytes = 4096;
     public static readonly JsonSerializerOptions Json = new()
     {
@@ -56,6 +57,9 @@ public sealed class ServerMessage
     public ServerInfo? Server { get; set; }
     public RoomInfo? Room { get; set; }
     public WorldSnapshot? Snapshot { get; set; }
+    public bool RequiresReady { get; set; }
+    public int PreparingPlayers { get; set; }
+    public int[]? ReadyPlayerIds { get; set; }
 }
 
 public sealed record WizardSnapshot(int Id, string Name, int Team, bool Bot, V2 Position,

@@ -51,6 +51,7 @@ public partial class Main : Node
     public override void _Ready()
     {
         PrepareMobileWindow();
+        RenderingServer.FramePostDraw += FrameDrawn;
         _log = new DiagnosticLog(ProjectSettings.GlobalizePath("user://logs"), "client"); Diagnostics.Log = _log;
         _processDiagnostics = new ProcessDiagnostics(_log);
         _engineLog = new EngineLogBridge(); OS.AddLogger(_engineLog);
@@ -114,7 +115,8 @@ public partial class Main : Node
         if (previous != null) _ = previous.DisposeAsync();
         try
         {
-            await connection.ConnectAsync(address, name, team, password, _lifetime.Token, roomId: roomId, roomPassword: roomPassword, wizardType: wizardType).ConfigureAwait(false);
+            await connection.ConnectAsync(address, name, team, password, _lifetime.Token, roomId: roomId, roomPassword: roomPassword,
+                wizardType: wizardType, deferReady: true).ConfigureAwait(false);
             if (!Post(() =>
             {
                 lock (_connectionGate)
@@ -177,27 +179,22 @@ public partial class Main : Node
         Diagnostics.Info("practice.start", "Práctica iniciada.", new Dictionary<string, object?> { ["mode"] = mode, ["bots"] = bots, ["wizardType"] = wizardType });
         StartGame(_practice.Snapshot());
     }
-    private void StartGame(WorldSnapshot snapshot)
+    private void ActivateGame(WorldSnapshot snapshot, bool prepared = false)
     {
         _playing = true; _paused = false; _moveTo = false; _snapshotAge = 0; _lastTick = -1;
         _inputTime = 0;
         Diagnostics.Info("game.start", "Partida iniciada.", Context());
         _ignoreLeftUntilRelease = true;
         _launcher.Visible = false; _launcher.CloseRooms(); _launcher.SetBusy(false); _help.Visible = _pause.Visible = false;
-        _renderer.Clear(); _snapshot = snapshot;
+        if (!prepared) _renderer.Clear(); _snapshot = snapshot;
         var local = snapshot.Players.FirstOrDefault(p => p.Id == _localId);
         _localWasAlive = local?.Alive ?? false; _localDeaths = local?.Deaths ?? 0;
-        _hud?.QueueFree(); _hud = new Hud(); _ui.AddChild(_hud); _hud.Build();
-        _practicePanel?.QueueFree(); _practicePanel = null;
-        if (_practiceSession != null)
-        {
-            _practicePanel = new PracticePanel(); _ui.AddChild(_practicePanel); _practicePanel.Build(_practiceSession);
-        }
-        BuildTouchControls();
+        if (!prepared) PrepareGameControls(snapshot);
         _ui.MoveChild(_help, -1); _ui.MoveChild(_pause, -1);
     }
     public void ReturnToLauncher(string error = "")
     {
+        CancelGameLoading();
         CancelPendingConnection();
         if (_playing) Diagnostics.Info("game.leave", "Vuelta al launcher.", Context());
         _playing = false; _paused = false; _practice = null; _practiceSession = null; _snapshot = null;
@@ -234,6 +231,7 @@ public partial class Main : Node
             }
         _renderFrames++;
         if (_profiler?.Running == true) return;
+        if (Loading) { ProcessLoading(); _verification?.CheckLoadingFrame(); return; }
         _verification?.BeforeFrame(delta);
         _metricsTime += delta;
         if (_metricsTime >= 30)
@@ -276,6 +274,7 @@ public partial class Main : Node
     public override void _PhysicsProcess(double delta)
     {
         if (_verification?.CheckSmokeErrors() == true) return;
+        if (Loading) return;
         if (_verification?.FreezeSimulation == true) return;
         if (_profiler?.Running == true) return;
         if (!_playing) { _backdrop.Step(); _backdropSnapshot = _backdrop.Snapshot(); return; }
@@ -340,11 +339,17 @@ public partial class Main : Node
     }
     private void Submit(ClientMessage message)
     {
+        if (Loading) return;
         if (_practice != null) { message.Sequence = ++_localSequence; _practice.ApplyMessage(_localId, message); }
         else _connection?.Send(message);
     }
     public override void _UnhandledInput(InputEvent input)
     {
+        if (Loading)
+        {
+            if (input is InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.Escape }) ReturnToLauncher();
+            GetViewport().SetInputAsHandled(); return;
+        }
         if (_profiler?.Running == true)
         {
             if (input is InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.Escape }) _profiler.Cancel();
@@ -553,6 +558,8 @@ public partial class Main : Node
     }
     public override void _ExitTree()
     {
+        RenderingServer.FramePostDraw -= FrameDrawn;
+        CancelGameLoading();
         WizardSprites.ClearCache();
         Interlocked.Exchange(ref _exiting, 1); _lifetime.Cancel();
         ArenaConnection? pending; lock (_connectionGate) pending = _pendingConnection;

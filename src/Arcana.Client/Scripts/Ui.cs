@@ -8,6 +8,15 @@ public static class Ui
     public static bool IsMobile { get; } = OS.HasFeature("mobile") || OS.GetCmdlineUserArgs().Any(a => a is "--mobile" or "--mobile-smoke" or "--mobile-fixture");
     public static readonly Color Gold = new("f1cd83"), Text = new("f4f7ff"), Muted = new("b0bfd4"), Blue = new("37b9ff"), Red = new("ff526c");
     public static readonly Color Health = new(IsMobile ? "30ed69" : "2ce273"), Shield = new(IsMobile ? "ffda00" : "ffcf00"), Energy = new(IsMobile ? "b16aff" : "aa65ff");
+    public static OptionButton TeamChoice(int team = -1)
+    {
+        // -1 es el ID automático del propio OptionButton, no un ID de equipo.
+        var choice = new OptionButton { CustomMinimumSize = new(0, 45), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        choice.AddItem("Automático", 2); choice.AddItem("Azul", 0); choice.AddItem("Rojo", 1);
+        choice.Select(choice.GetItemIndex(team is 0 or 1 ? team : 2));
+        return choice;
+    }
+    public static int SelectedTeam(OptionButton choice) => choice.GetSelectedId() is 0 or 1 ? choice.GetSelectedId() : -1;
     public static Color ElementColor(Element e) => ElementColor(e, IsMobile);
     private static readonly Color[] MobileElements = [new("2985ff"), new("30ed69"), new("ffda00"), new("1ddecb"),
         new("b16aff"), new("ff3b9d"), new("d6a252"), new("ff5d26")];

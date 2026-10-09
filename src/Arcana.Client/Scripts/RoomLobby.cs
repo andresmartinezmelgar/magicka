@@ -8,7 +8,7 @@ public partial class RoomLobby : Control
 {
     private Main _main = null!;
     private string _address = "", _serverPassword = "", _playerName = "";
-    private int _team;
+    private OptionButton _teamChoice = null!;
     private WizardType _wizardType;
     private Label _objective = null!, _creationObjective = null!;
     private RoomInfo[] _rooms = [];
@@ -25,7 +25,7 @@ public partial class RoomLobby : Control
 
     public void Build(Main main, string address, string password, string name, int team, WizardType wizardType)
     {
-        _main = main; _address = address; _serverPassword = password; _playerName = name; _team = team; _wizardType = wizardType;
+        _main = main; _address = address; _serverPassword = password; _playerName = name; _wizardType = wizardType;
         Theme = Ui.Theme(); Ui.Full(this);
         var shade = new ColorRect { Color = new(0.01f, 0.025f, 0.045f, 0.94f) }; AddChild(shade); Ui.Full(shade);
         var center = new CenterContainer(); AddChild(center); Ui.Full(center);
@@ -35,6 +35,9 @@ public partial class RoomLobby : Control
         var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; box.AddThemeConstantOverride("separation", 16); scroll.AddChild(box);
         _heading = Ui.Label("SALAS", 28, Ui.Gold); box.AddChild(_heading);
         box.AddChild(Ui.Label(address, 15, Ui.Muted));
+        var teamRow = new HBoxContainer(); teamRow.AddThemeConstantOverride("separation", 18); box.AddChild(teamRow);
+        teamRow.AddChild(Ui.Label("Tu equipo", 16, Ui.Muted));
+        _teamChoice = Ui.TeamChoice(team); _teamChoice.Name = "RoomTeamChoice"; teamRow.AddChild(_teamChoice);
         _listPane = new VBoxContainer(); _listPane.AddThemeConstantOverride("separation", 14); box.AddChild(_listPane);
         _list = new ItemList { CustomMinimumSize = new(0, 240), SelectMode = ItemList.SelectModeEnum.Single };
         _listPane.AddChild(_list); _list.ItemActivated += _ => Join();
@@ -99,7 +102,7 @@ public partial class RoomLobby : Control
         _busy = busy; foreach (var b in _buttons) b.Disabled = busy;
         _list.MouseFilter = busy ? MouseFilterEnum.Ignore : MouseFilterEnum.Stop;
         _roomName.Editable = _roomPassword.Editable = _joinPassword.Editable = !busy;
-        _mode.Disabled = _map.Disabled = _friendly.Disabled = busy;
+        _mode.Disabled = _map.Disabled = _friendly.Disabled = _teamChoice.Disabled = busy;
         _bots.Editable = _score.Editable = _tickets.Editable = !busy;
         _capacity.Editable = !busy && (GameMode)_mode.GetSelectedId() != GameMode.Duel;
         ShowCreationObjective();
@@ -152,11 +155,12 @@ public partial class RoomLobby : Control
         var room = Selected(); if (room == null) { ShowError("Selecciona una sala."); return; }
         if (room.Players >= room.MaxPlayers) { ShowError("La sala está llena. Crea otra o actualiza la lista."); return; }
         Loading("Entrando en " + room.Name + "…");
-        _ = _main.ConnectOnline(_address, _playerName, _team, _serverPassword, room.Id, _joinPassword.Text, _wizardType);
+        _ = _main.ConnectOnline(_address, _playerName, Ui.SelectedTeam(_teamChoice), _serverPassword, room.Id, _joinPassword.Text, _wizardType);
     }
     private async void Create()
     {
         if (_busy) return;
+        int team = Ui.SelectedTeam(_teamChoice);
         var request = new CreateRoomRequest { Name = _roomName.Text, Mode = (GameMode)_mode.GetSelectedId(), Map = (ArenaMapId)_map.GetSelectedId(),
             MaxPlayers = (int)_capacity.Value, Bots = (int)_bots.Value, FriendlyFire = _friendly.ButtonPressed,
             ScoreLimit = (int)_score.Value, Tickets = (int)_tickets.Value, Password = _roomPassword.Text, ServerPassword = _serverPassword };
@@ -164,7 +168,7 @@ public partial class RoomLobby : Control
         try
         {
             var room = await RoomBrowser.CreateAsync(_address, request, _lifetime.Token);
-            _main.Post(() => { if (Active) _ = _main.ConnectOnline(_address, _playerName, _team, _serverPassword, room.Id, request.Password, _wizardType); });
+            _main.Post(() => { if (Active) _ = _main.ConnectOnline(_address, _playerName, team, _serverPassword, room.Id, request.Password, _wizardType); });
         }
         catch (Exception e) { Failure(e); }
     }
