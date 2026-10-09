@@ -49,6 +49,7 @@ MovementCollisionTests.Run(Test);
 PracticeTests.Run(Test);
 PerformanceRegressionTests.Run(Test);
 LoadingTests.Run(Test);
+ElementInteractionTests.Run(Test);
 
 Test("Límite de tres elementos y cancelación de incompatibles", () =>
 {
@@ -177,7 +178,7 @@ Test("Combinaciones: el bonus no multiplica todo el hechizo ni la curación", ()
 {
     float mixed = NovaDamage(WizardType.Pyromancer, WizardType.Balanced, Element.Fire, Element.Arcane);
     Check(Math.Abs(mixed - (58 * 1.25f + 115)) < 0.01f, "El bonus de fuego multiplicó el componente arcano.");
-    Check(Math.Abs(NovaDamage(WizardType.Pyromancer, WizardType.Balanced, Element.Water, Element.Fire) - 160 * 1.25f) < 0.01f, "Vapor no usa el componente de fuego.");
+    Check(Math.Abs(NovaDamage(WizardType.Pyromancer, WizardType.Balanced, Element.Water, Element.Fire) - (80 * 1.25f + 80)) < 0.01f, "El bonus de fuego multiplicó también el agua del vapor.");
     var w = new GameWorld(); var p = w.AddPlayer("Piromante", wizardType: WizardType.Pyromancer)!; p.Health = 500;
     Select(w, p, Element.Life); Send(w, p, "self"); Check(p.Health == 645, "La afinidad alteró la curación.");
 });
@@ -506,7 +507,7 @@ Test("Reliquias: daño y protección acumulados afectan vida, escudo, bastón y 
     Check(Math.Abs(b.Health - (1000 - 115 * multiplier)) < 0.01f, "Daño o reducción no se acumulan.");
     b.Health = 1000; b.Shield = b.ShieldMax = 420; b.ShieldTime = 12; a.ActionCooldown = 0;
     Select(w, a, Element.Arcane); Send(w, a, "nova");
-    Check(b.Health == 1000 && Math.Abs(b.Shield - (420 - 115 * multiplier)) < 0.01f, "La reducción no protege el escudo.");
+    Check(b.Health == 1000 && Math.Abs(b.Shield - (420 - 115 * multiplier * 0.5f)) < 0.01f, "La reducción no protege el escudo.");
     b.Shield = 0; b.Position = new(-0.6f, 0); a.Facing = new(1, 0); a.ActionCooldown = 0; Send(w, a, "melee");
     Check(Math.Abs(b.Health - (1000 - 90 * multiplier)) < 0.01f, "El bastón ignora las mejoras.");
     b.Health = 1000; b.Burning = 1; b.BurnOwner = a.Id; b.BurnMultiplier = 1; w.Step();
@@ -977,7 +978,7 @@ Test("Láseres cruzados conservan el tiempo individual y los reflejados conserva
     float health = caster.Health, shield = defender.Shield; Run(shielded, caster, 1);
     Check(Math.Abs(shielded.Snapshot().Beams.Single(ray => ray.Interaction == "reflected").Power - 1.2f) < 0.0001f &&
         Math.Abs(health - caster.Health - 115 * 1.2f / 60) < 0.001f &&
-        Math.Abs(shield - defender.Shield - 115 * 1.5f * 0.2f / 60) < 0.001f,
+        Math.Abs(shield - defender.Shield - 115 * 1.5f * 0.5f * 0.2f / 60) < 0.001f,
         "La reflexión reinició la carga o calculó mal daño y presión.");
 });
 Test("La carga del láser aumenta solo el daño: curación y frío conservan su tasa", () =>
@@ -1012,7 +1013,7 @@ Test("Rayos y escudos: reflexión, refracción elemental y rebotes acotados", ()
 Test("Una barrera impide combinar rayos al otro lado", () =>
 {
     var (world, a, b) = Setup(); a.Position = new(-5, 0); b.Position = new(5, 0);
-    Send(world, b, "input", aim: a.Position); world.Step(); Select(world, b, Element.Shield); Send(world, b, "cast");
+    Send(world, b, "input", aim: a.Position); world.Step(); Select(world, b, Element.Shield, Element.Earth); Send(world, b, "cast");
     for (int i = 0; i < 45; i++) world.Step();
     Send(world, a, "input", aim: b.Position); Send(world, b, "input", aim: a.Position); world.Step();
     Select(world, a, Element.Arcane); Select(world, b, Element.Arcane); Send(world, a, "cast"); Send(world, b, "cast"); world.Step();
@@ -1179,8 +1180,8 @@ Test("Un muro destruido o caducado deja de aplicar efectos de contacto en ese pa
     {
         var (w, a, b) = Setup(); b.Position = new(8, 8);
         Select(w, a, Element.Shield, Element.Fire); Send(w, a, "cast"); Run(w, a, 43);
-        if (destroyed) { Select(w, a, Element.Fire, Element.Fire, Element.Fire); Send(w, a, "cast"); }
-        float pressure = 110 * new SpellRecipe([Element.Fire, Element.Fire, Element.Fire]).Power * GameWorld.StepSeconds;
+        if (destroyed) { Select(w, a, Element.Water, Element.Water, Element.Water); Send(w, a, "cast"); }
+        float pressure = 110 * 3 * 1.5f * GameWorld.StepSeconds;
         for (int i = 0; i < 450; i++)
         {
             var wall = w.Snapshot().Walls.Single();
@@ -1207,7 +1208,7 @@ Test("Cada componente de un rayo combinado conserva el bonus de daño de su auto
         Select(w, a, Element.Arcane, Element.Arcane); Select(w, b, Element.Arcane, Element.Arcane);
         Send(w, a, "cast"); Send(w, b, "cast");
         Send(w, a, "input", aim: b.Position); Send(w, b, "input", aim: a.Position); w.Step();
-        float expected = 230 * (1 + RelicBuffs.Power(firstBoosted ? a : b)) * 0.31f * 0.2f * GameWorld.StepSeconds;
+        float expected = 230 * (1 + RelicBuffs.Power(firstBoosted ? a : b)) * 0.31f * 0.5f * 0.2f * GameWorld.StepSeconds;
         Check(Math.Abs(420 - target.Shield - expected) < 0.001f, "El bonus del primer mago se aplicó a ambos rayos.");
     }
 });

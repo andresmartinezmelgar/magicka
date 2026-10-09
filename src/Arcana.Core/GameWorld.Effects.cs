@@ -28,7 +28,7 @@ public sealed partial class GameWorld
         {
             if (!target.Alive || target.Id == directTarget) continue;
             float distance = V2.Distance(target.Position, projectile.Position);
-            if (distance >= radius || !Visible(projectile.Position, target.Position)) continue;
+            if (distance >= radius || !Visible(projectile.Position, target.Position, projectile.Owner)) continue;
             float falloff = 0.65f * (1 - distance / radius);
             Hit(target, recipe, projectile.Power * falloff, projectile.Owner, (target.Position - projectile.Position).Normalized);
         }

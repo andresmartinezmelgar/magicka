@@ -54,7 +54,21 @@ public sealed class SpellRecipe
     public float Power => Math.Max(1, Elements.Length);
     public SpellRecipe(IEnumerable<Element> elements)
     {
-        Elements = elements.Take(3).ToArray();
+        Span<Element> resolved = stackalloc Element[3];
+        int count = 0;
+        foreach (var element in elements)
+        {
+            if (!Enum.IsDefined(element)) continue;
+            int opposite = -1;
+            for (int i = 0; i < count; i++) if (ElementBuffer.Opposite(resolved[i], element)) { opposite = i; break; }
+            if (opposite >= 0)
+            {
+                for (int i = opposite; i + 1 < count; i++) resolved[i] = resolved[i + 1];
+                count--;
+            }
+            else if (count < resolved.Length) resolved[count++] = element;
+        }
+        Elements = resolved[..count].ToArray();
         Shape = Has(Element.Shield) ? SpellShape.Barrier
             : Has(Element.Earth) ? SpellShape.Rock
             : Ice ? SpellShape.Shards

@@ -8,10 +8,11 @@ public static class SpellBalance
     public const float Arcane = 115, Earth = 100, Lightning = 100, Fire = 58, Cold = 24, Ice = 68, Steam = 160;
     public const float WetLightning = 1.9f, BurnPerSecond = 28, BurnDuration = 4;
     public const float Heal = 140, SelfHeal = 145, MineHeal = 252;
+    public const float UtilityPressure = 35;
     public const float RockMinimum = 1.1f, ChargeSeconds = 1.4f, ShardPower = 0.6f, MinePower = 1.8f, GroundPower = 0.4f;
     public const float BeamMinimumDamage = 0.3f, BeamMaximumDamage = 1.5f, BeamChargeSeconds = 2;
     public const float MeteorDelay = 1.4f, MeteorLifetime = 1.5f, MeteorRadius = 4, MeteorPower = 2.7f;
-    public static readonly Element[] Offensive = [Element.Arcane, Element.Earth, Element.Lightning, Element.Fire, Element.Cold];
+    public static readonly Element[] Offensive = [Element.Arcane, Element.Earth, Element.Lightning, Element.Fire, Element.Cold, Element.Water];
     public static IReadOnlyList<MagickDefinition> Magicks { get; } = Array.AsReadOnly<MagickDefinition>(
         [new("Celeridad", 25, 9), new("Traslación", 35, 12), new("Meteoro", 75, 24), new("Reanimar", 60, 22)]);
     public static float Component(SpellRecipe spell, Element element, bool wet = false) => element switch
@@ -19,10 +20,18 @@ public static class SpellBalance
         Element.Arcane => Arcane * spell.Count(element),
         Element.Earth => Earth * spell.Count(element),
         Element.Lightning => Lightning * spell.Count(element) * (wet ? WetLightning : 1),
-        Element.Fire => spell.Steam ? Steam : Fire * spell.Count(element),
-        Element.Cold => (spell.Ice ? Ice : Cold) * spell.Count(element),
+        Element.Fire => (spell.Steam ? Steam * 0.5f : Fire) * spell.Count(element),
+        Element.Cold => (spell.Ice ? Ice * 0.5f : Cold) * spell.Count(element),
+        Element.Water => (spell.Steam ? Steam * 0.5f : spell.Ice ? Ice * 0.5f : 0) * spell.Count(element),
         _ => 0
     };
+    // Los elementos de estado o curación también ejercen presión sobre una barrera, sin convertirse en daño de vida.
+    public static float ProtectionWeight(SpellRecipe spell, Element element)
+    {
+        if (element == Element.Shield && spell.Elements.Length > 1) return 0;
+        float damage = Component(spell, element);
+        return damage > 0 ? damage : UtilityPressure * spell.Count(element);
+    }
     public static float Damage(SpellRecipe spell, bool wet = false)
     {
         double damage = 0; // Sum(float) acumula en doble precisión.
@@ -44,6 +53,7 @@ public static class SpellBalance
             {
                 damage = wet = 0; healing = 38 * spell.Count(Element.Life); healingUnit = "/s"; burns = false;
                 extra = "Protección: " + (spell.Has(Element.Earth) ? "650" : spell.Elements.Length == 1 ? "420" : "180") + " de escudo; 12 s.";
+                extra += " Ventajas y debilidades según sus elementos: consulta la tabla Elementos de la ayuda.";
             }
             else if (spell.Healing) { damage = wet = 0; healing = SelfHeal * spell.Count(Element.Life); burns = false; }
             else if (spell.Has(Element.Water)) { damage = wet = 0; burns = false; }
@@ -86,6 +96,8 @@ public static class SpellBalance
                 }
             }
         }
+        if (spell.Steam || spell.Ice) extra += (extra.Length > 0 ? " " : "") +
+            "La fusión reparte su daño entre Agua y " + (spell.Steam ? "Fuego" : "Frío") + "; el tercer elemento conserva su aporte.";
         return new(damage * min, damage * max, unit, healing * healMin, healing * healMax, healingUnit,
             burns ? BurnPerSecond : 0, wet * min, wet * max, spell.Has(Element.Lightning), extra);
     }

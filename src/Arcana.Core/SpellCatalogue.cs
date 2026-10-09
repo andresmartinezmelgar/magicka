@@ -61,13 +61,15 @@ public static class SpellCatalogue
         {
             if (spell.Has(Element.Shield)) return spell.Healing ? "Seis minas de vida en anillo. Solo las activan aliados heridos, incluido el lanzador."
                 : spell.Has(Element.Arcane) ? "Seis minas ofensivas en anillo. Se arman en 0,4 s y se activan al pasar un enemigo."
-                : "Anillo de seis barreras. Bloquea el paso y desvía rayos; sus elementos añaden efectos.";
+                : spell.Elements.Length == 1 ? "Anillo de escudos básicos. Deja pasar tus hechizos; bloquea movimiento y hechizos de otros magos. Rayo causa +50 % de desgaste."
+                : "Anillo de seis barreras. Sus ventajas y debilidades dependen de la mezcla elemental.";
             return "Pulso alrededor del mago, radio de 4 m. Aplica una vez los efectos a los objetivos visibles dentro del círculo.";
         }
         if (spell.Shape == SpellShape.Barrier) return spell.Healing
             ? "Mina de vida a 3,2 m: se arma en 0,4 s, dura 12 s y cura 252 puntos por elemento de vida. Solo cura a aliados."
             : spell.Has(Element.Arcane) ? "Mina ofensiva a 3,2 m. Un enemigo debe entrar en su radio de activación de 0,85 m; la explosión alcanza 2,4 m."
-            : "Barrera frontal. Bloquea movimiento y proyectiles; refleja rayos o los refracta con los elementos de la barrera.";
+            : spell.Elements.Length == 1 ? "Escudo básico frontal. Tus hechizos lo atraviesan; los de otros magos se bloquean o reflejan. Rayo causa +50 % de desgaste."
+            : "Barrera frontal. Bloquea movimiento y proyectiles; sus elementos determinan resistencias, debilidades y refracción.";
         if (spell.Shape == SpellShape.Rock) return spell.SplashRadius > 0
             ? $"Roca cargada con splash de {spell.SplashRadius:0.0} m. Daño completo al impacto y decreciente a los vecinos. " +
                 (spell.GroundKind == "burning_ground" ? "Deja fuego en el suelo durante 4 s."

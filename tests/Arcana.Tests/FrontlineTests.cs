@@ -180,7 +180,7 @@ internal static class FrontlineTests
                 Type = type, Sequence = ++sequence, Element = element, AimX = center.X, AimY = center.Y });
             for (int attempt = 0; attempt < 8 && world.Snapshot().Walls.Any(w => w.Id == wall.Id); attempt++)
             {
-                Send("input"); Send("element", Element.Earth); Send("element", Element.Earth); Send("element", Element.Earth); Send("cast");
+                Send("input"); Send("element", Element.Life); Send("element", Element.Life); Send("element", Element.Life); Send("cast");
                 for (int tick = 0; tick < 100; tick++) { Send("input"); world.Step(); }
             }
             Check(!world.Snapshot().Walls.Any(w => w.Id == wall.Id), "Los hechizos no destruyen el muro.");

@@ -495,6 +495,24 @@ public partial class Main : Node
         }
         HelpText(types, "El bonus solo aumenta su componente elemental, incluida la quemadura. La debilidad también consume más escudo. Si atacante y defensor combinan bonus y debilidad, ese daño se multiplica por 1,5625. La clase se conserva al reaparecer.", Ui.Muted);
         _spellBook = new SpellBook { Name = "Combinaciones" }; _helpPages.AddChild(_spellBook);
+        var elementsScroll = new ScrollContainer { Name = "Elementos", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        _helpPages.AddChild(elementsScroll);
+        var elementsBox = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        elementsBox.AddThemeConstantOverride("separation", 14); elementsScroll.AddChild(elementsBox);
+        HelpText(elementsBox, "VENTAJAS Y DEBILIDADES", Ui.Gold);
+        HelpText(elementsBox, "Contra una protección elemental: +50 % al superar su elemento, −50 % si te contrarresta y −82 % contra el mismo elemento. En una mezcla, cada componente conserva su aporte de daño y se compara con los elementos de la defensa.", Ui.Muted);
+        var elementalTable = new GridContainer { Columns = 3 };
+        elementalTable.AddThemeConstantOverride("h_separation", 28); elementalTable.AddThemeConstantOverride("v_separation", 8);
+        elementsBox.AddChild(elementalTable);
+        foreach (var title in new[] { "Elemento", "Supera a", "Vulnerable a" }) elementalTable.AddChild(Ui.Label(title, 16, Ui.Gold));
+        foreach (var element in Enum.GetValues<Element>())
+        {
+            elementalTable.AddChild(Ui.Label(SpellCatalogue.Name([element]), 16));
+            elementalTable.AddChild(Ui.Label(SpellCatalogue.Name([ElementInteractions.StrongAgainst(element)]), 16));
+            elementalTable.AddChild(Ui.Label(SpellCatalogue.Name([ElementInteractions.Weakness(element)]), 16));
+        }
+        HelpText(elementsBox, "Agua moja y Vida cura. También desgastan protecciones enemigas con sus ventajas elementales; su presión no daña la salud al romper el escudo. Curar a un aliado conserva su escudo. Los bonus y debilidades propios del tipo de mago se aplican además de estas relaciones.", Ui.Muted);
+        HelpText(elementsBox, "El escudo básico deja pasar los hechizos de su propietario. Las barreras imbuidas bloquean también los propios. Todas las barreras siguen bloqueando el movimiento.", Ui.Muted);
         outer.AddChild(Ui.Button("Cerrar", () => { _help.Visible = false; UpdateTouchVisibility(); }, true));
         return root;
     }

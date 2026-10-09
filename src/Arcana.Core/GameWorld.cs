@@ -209,7 +209,6 @@ public sealed partial class GameWorld
 
     private bool Allied(Wizard a, Wizard b) => a.Id == b.Id || Options.Mode != GameMode.Arena && a.Team == b.Team;
     private bool Hostile(Wizard a, Wizard b) => !Allied(a, b);
-    private float Resistance(Wizard p, Element e) => p.Ward.Contains(e) ? 0.18f : 1;
     private float Outgoing(int owner, Element element) => _players.TryGetValue(owner, out var source)
         ? WizardTypes.Outgoing(source.WizardType, element) : 1;
     private float ElementDamage(Wizard target, int owner, Element element, float amount) =>
@@ -322,12 +321,12 @@ public sealed partial class GameWorld
             if (Geometry.SegmentCircle(caster.Position, to, obstacle.Position, obstacle.Radius + radius) is float t && (nearest == null || t < nearest))
                 nearest = t;
         foreach (var wall in _walls)
-            if (wall.Health > 0 && Geometry.SegmentCapsule(caster.Position, to, wall.A, wall.B, radius + 0.2f) is float t && (nearest == null || t < nearest))
+            if (wall.Health > 0 && !PassesOwnShield(wall, caster.Id) && Geometry.SegmentCapsule(caster.Position, to, wall.A, wall.B, radius + 0.2f) is float t && (nearest == null || t < nearest))
                 nearest = t;
         return nearest is float hit ? V2.Lerp(caster.Position, to, Math.Max(0, hit - 0.01f)) : to;
     }
 
-    private V2 RayEnd(V2 from, V2 direction, float range, out Wall? hitWall)
+    private V2 RayEnd(V2 from, V2 direction, float range, out Wall? hitWall, int owner = 0, BeamPart[]? parts = null)
     {
         hitWall = null;
         if (!Map.Inside(from)) return from;
@@ -338,7 +337,7 @@ public sealed partial class GameWorld
         // Segmento de pared contra rayo mediante productos cruzados.
         foreach (var w in _walls)
         {
-            if (!(w.Health > 0)) continue;
+            if (!(w.Health > 0) || PassesOwnShield(w, owner, parts)) continue;
             var r = to - from; var s = w.B - w.A;
             float cross = r.X * s.Y - r.Y * s.X;
             if (MathF.Abs(cross) < 0.0001f) continue;
@@ -354,8 +353,8 @@ public sealed partial class GameWorld
     {
         var spell = p.Channel!;
         var from = SpellOrigin(p, p.Facing, 0.7f);
-        var end = RayEnd(from, p.Facing, spell.Range, out var wall);
-        if (wall != null && !spell.Healing) wall.Health -= 110 * spell.Power * DamagePower(p.Id) * dt;
+        var end = RayEnd(from, p.Facing, spell.Range, out var wall, p.Id);
+        if (wall != null) wall.Health -= WallDamage(wall, spell, p.Id, 110 * spell.Power * dt);
         // Los rayos rectos se resuelven juntos en TickChannels. Este método mantiene chorros y cadenas.
         if (spell.Shape != SpellShape.Beam)
         {
@@ -369,7 +368,7 @@ public sealed partial class GameWorld
                 if (q.Id == p.Id || !q.Alive) continue;
                 float distance = V2.Distance(q.Position, from);
                 if (distance <= range && V2.Dot((q.Position - from).Normalized, p.Facing) >
-                    (spell.Shape == SpellShape.Lightning ? 0.55f : 0.74f) && Visible(from, q.Position))
+                    (spell.Shape == SpellShape.Lightning ? 0.55f : 0.74f) && Visible(from, q.Position, p.Id))
                     targets.Add((q, distance, index));
             }
             targets.Sort(static (a, b) => a.Distance != b.Distance ? a.Distance.CompareTo(b.Distance) : a.Order.CompareTo(b.Order));
@@ -393,10 +392,10 @@ public sealed partial class GameWorld
         _beams.Add(new(p.Id, from, end, spell.Elements, spell.Shape));
     }
 
-    private bool Visible(V2 from, V2 to)
+    private bool Visible(V2 from, V2 to, int owner = 0)
     {
         float distance = V2.Distance(from, to);
-        var end = RayEnd(from, (to - from).Normalized, distance, out _);
+        var end = RayEnd(from, (to - from).Normalized, distance, out _, owner);
         return V2.Distance(end, to) < 0.2f;
     }
 
@@ -455,7 +454,7 @@ public sealed partial class GameWorld
         else
         {
             foreach (var target in _players.Values.Where(q => q.Id != p.Id && q.Alive && V2.Distance(q.Position, p.Position) < 4))
-                if (Visible(p.Position, target.Position)) Hit(target, spell, 1.0f, p.Id, (target.Position - p.Position).Normalized);
+                if (Visible(p.Position, target.Position, p.Id)) Hit(target, spell, 1.0f, p.Id, (target.Position - p.Position).Normalized);
         }
         Emit("nova", p.Position, spell.Elements, "", 4);
     }
@@ -571,16 +570,22 @@ public sealed partial class GameWorld
         if (spell.Has(Element.Earth)) target.Knockback += force * (10 * scale);
         damage *= damageMultiplier;
         Damage(target, damage * scale, owner, spell.Elements);
+        if (target.Shield > 0) DamageProtection(target, UtilityPressure(target, spell, owner) * scale, owner, spell.Elements);
         if (_players.TryGetValue(owner, out var caster) && caster.Id != target.Id)
             caster.Energy = Math.Min(100, caster.Energy + damage * scale * 0.015f);
     }
 
     private void Damage(Wizard target, float amount, int owner, Element[]? elements = null)
+        => ApplyDamage(target, amount, owner, elements, false);
+    private void DamageProtection(Wizard target, float amount, int owner, Element[] elements)
+        => ApplyDamage(target, amount, owner, elements, true);
+    private void ApplyDamage(Wizard target, float amount, int owner, Element[]? elements, bool shieldOnly)
     {
         if (!target.Alive || target.Invulnerable > 0 || amount <= 0) return;
         amount *= DamagePower(owner) * RelicBuffs.Incoming(target);
         float absorbed = Math.Min(target.Shield, amount);
         target.Shield -= absorbed; amount -= absorbed;
+        if (shieldOnly) amount = 0;
         if (Map.IsPractice)
         {
             var reading = PracticeReading(target.Id);
@@ -632,7 +637,7 @@ public sealed partial class GameWorld
                 if (Geometry.SegmentCircle(from, to, o.Position, o.Radius + projectile.Radius) is float t && t < nearest)
                 { nearest = t; obstacleHit = true; target = null; wallHit = null; }
             foreach (var w in _walls)
-                if (w.Health > 0 && Geometry.SegmentCapsule(from, to, w.A, w.B, projectile.Radius + 0.2f) is float t && t < nearest)
+                if (w.Health > 0 && !PassesOwnShield(w, projectile.Owner) && Geometry.SegmentCapsule(from, to, w.A, w.B, projectile.Radius + 0.2f) is float t && t < nearest)
                 { nearest = t; wallHit = w; obstacleHit = false; target = null; }
             foreach (var q in _players.Values)
                 if (q.Alive && q.Id != projectile.Owner && Geometry.SegmentCircle(from, to, q.Position, ArenaMap.WizardRadius + projectile.Radius) is float t && t < nearest)
@@ -645,7 +650,7 @@ public sealed partial class GameWorld
             }
             if (wallHit != null)
             {
-                wallHit.Health -= 170 * projectile.Power * projectile.Recipe.Power * DamagePower(projectile.Owner);
+                wallHit.Health -= WallDamage(wallHit, projectile.Recipe, projectile.Owner, 170 * projectile.Power * projectile.Recipe.Power);
                 if (wallHit.Recipe.Elements.Length == 1)
                 {
                     var normal = (wallHit.B - wallHit.A).Perpendicular.Normalized;
@@ -670,7 +675,7 @@ public sealed partial class GameWorld
         {
             w.Lifetime -= dt;
             if (w.Health <= 0 || w.Lifetime <= 0) continue;
-            if (w.Recipe.Has(Element.Fire) || w.Recipe.Has(Element.Cold) || w.Recipe.Has(Element.Lightning))
+            if (w.Recipe.Has(Element.Fire) || w.Recipe.Has(Element.Cold) || w.Recipe.Has(Element.Lightning) || w.Recipe.Has(Element.Water))
                 foreach (var p in _players.Values)
                     if (p.Alive && Geometry.DistanceToSegment(p.Position, w.A, w.B) < 1)
                         Hit(p, w.Recipe, dt, w.Owner, (p.Position - (w.A + w.B) / 2).Normalized);
@@ -683,7 +688,7 @@ public sealed partial class GameWorld
             if (f.Kind is "burning_ground" or "frost_ground" or "water_pool")
             {
                 foreach (var p in _players.Values)
-                    if (p.Alive && V2.Distance(p.Position, f.Position) < f.Radius && Visible(f.Position, p.Position))
+                    if (p.Alive && V2.Distance(p.Position, f.Position) < f.Radius && Visible(f.Position, p.Position, f.Owner))
                         Hit(p, f.Recipe, dt * SpellBalance.GroundPower, f.Owner, (p.Position - f.Position).Normalized);
                 continue;
             }
@@ -691,7 +696,7 @@ public sealed partial class GameWorld
             if (!trigger) continue;
             foreach (var p in _players.Values)
             {
-                if (!p.Alive || !(V2.Distance(p.Position, f.Position) < f.Radius) || !Visible(f.Position, p.Position)) continue;
+                if (!p.Alive || !(V2.Distance(p.Position, f.Position) < f.Radius) || !Visible(f.Position, p.Position, f.Owner)) continue;
                 if (f.Kind == "healing_mine")
                 {
                     if (_players.TryGetValue(f.Owner, out var owner) && Allied(owner, p))
@@ -874,7 +879,7 @@ public sealed partial class GameWorld
         var direction = (goal - p.Position).Normalized;
         if (target != null && distance < 8) direction = direction.Perpendicular * MathF.Sin((float)Time * 0.65f + p.Id);
         if (target != null && distance < 3.5f) direction = (p.Position - target.Position).Normalized;
-        if (Map.Id != ArenaMapId.Classic && (target == null || distance > 12 || !Visible(p.Position, target.Position) || !Walkable(p.Position + direction * 1.4f)))
+        if (Map.Id != ArenaMapId.Classic && (target == null || distance > 12 || !Visible(p.Position, target.Position, p.Id) || !Walkable(p.Position + direction * 1.4f)))
             direction = NavigationDirection(p, goal, dt);
         foreach (var o in Map.Obstacles)
             if (V2.Distance(p.Position + direction * 1.6f, o.Position) < o.Radius + 1)
@@ -900,8 +905,8 @@ public sealed partial class GameWorld
             else for (int i = 0; i < 3; i++) p.Selection.Add(Element.Life);
             SelfCast(p); return;
         }
-        if (ConquestToWin && (target == null || distance > 12 || !Visible(p.Position, target.Position)) && TryAttackFrontlineWall(p, goal)) return;
-        if (target == null || distance > 18 || !Visible(p.Position, target.Position)) return;
+        if (ConquestToWin && (target == null || distance > 12 || !Visible(p.Position, target.Position, p.Id)) && TryAttackFrontlineWall(p, goal)) return;
+        if (target == null || distance > 18 || !Visible(p.Position, target.Position, p.Id)) return;
         if (p.Shield <= 0 && _random.Next(8) == 0)
         {
             p.Selection.Add(Element.Shield); SelfCast(p); return;

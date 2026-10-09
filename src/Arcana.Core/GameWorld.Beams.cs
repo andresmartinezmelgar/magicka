@@ -23,7 +23,7 @@ public sealed partial class GameWorld
                 multiplier = SpellBalance.BeamDamageMultiplier(player.BeamTicks * StepSeconds);
             }
             var from = SpellOrigin(player, player.Facing, 0.7f);
-            var end = BeamEnd(from, player.Facing, player.Channel.Range, player.Id, out _, out _);
+            var end = BeamEnd(from, player.Facing, player.Channel.Range, player.Id, out _, out _, player.Id);
             rays.Add(new(player, from, player.Facing, end, new(player.Id, player.Channel, DamageMultiplier: multiplier)));
         }
         rays.RemoveAll(ray => !ray.Caster.Alive || ray.Caster.Frozen > 0 || ray.Caster.Channel == null);
@@ -70,9 +70,10 @@ public sealed partial class GameWorld
             }
     }
 
-    private V2 BeamEnd(V2 from, V2 direction, float range, int ignoredWizard, out Wall? wall, out Wizard? target)
+    private V2 BeamEnd(V2 from, V2 direction, float range, int ignoredWizard, out Wall? wall, out Wizard? target,
+        int owner, BeamPart[]? parts = null)
     {
-        var end = RayEnd(from, direction, range, out wall);
+        var end = RayEnd(from, direction, range, out wall, owner, parts);
         target = null; float nearest = 1;
         foreach (var player in _players.Values)
         {
@@ -114,7 +115,7 @@ public sealed partial class GameWorld
         double damage = 0;
         foreach (var element in SpellBalance.Offensive)
             damage += ElementDamage(target, part.Owner, element, SpellBalance.Component(s, element, target.Wet > 0));
-        return part.Scale * (part.DamageMultiplier * (float)damage + 35 * s.Count(Element.Life));
+        return part.Scale * part.DamageMultiplier * (float)damage;
     }
 
     private void TraceBeam(V2 from, V2 direction, float range, BeamPart[] parts, int owner, int ignoredWizard,
@@ -122,7 +123,7 @@ public sealed partial class GameWorld
     {
         for (int bounce = 0; bounce <= 2 && range > 0.08f; bounce++)
         {
-            var end = BeamEnd(from, direction, range, ignoredWizard, out var wall, out var target);
+            var end = BeamEnd(from, direction, range, ignoredWizard, out var wall, out var target, owner, parts);
             AddBeam(owner, from, end, parts, interaction);
             range -= V2.Distance(from, end);
             V2 normal;
@@ -141,7 +142,11 @@ public sealed partial class GameWorld
                 }
                 foreach (var part in parts)
                     if (!_players.TryGetValue(part.Owner, out var source) || source.Id == target.Id || !Allied(source, target) || Options.FriendlyFire)
+                    {
                         Damage(target, BeamPressure(target, part) * 0.2f * dt, part.Owner, part.Recipe.Elements);
+                        if (target.Shield > 0) DamageProtection(target, UtilityPressure(target, part.Recipe, part.Owner) * part.Scale * 0.2f * dt,
+                            part.Owner, part.Recipe.Elements);
+                    }
                 if (target.Shield <= 0)
                 {
                     foreach (var part in parts) Hit(target, part.Recipe, dt * part.Scale * 0.8f, part.Owner, direction, part.DamageMultiplier);
@@ -154,7 +159,8 @@ public sealed partial class GameWorld
             else if (wall != null)
             {
                 double pressure = 0;
-                foreach (var part in parts) pressure += 110 * part.Recipe.Power * part.Scale * part.DamageMultiplier * DamagePower(part.Owner);
+                foreach (var part in parts) pressure += WallDamage(wall, part.Recipe, part.Owner,
+                    110 * part.Recipe.Power * part.Scale * part.DamageMultiplier);
                 wall.Health -= (float)pressure * dt * 0.2f;
                 if (wall.Health <= 0) return;
                 normal = (wall.B - wall.A).Perpendicular.Normalized;

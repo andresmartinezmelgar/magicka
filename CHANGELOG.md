@@ -1,5 +1,12 @@
 # Cambios
 
+## v0.12.24
+
+- Una tabla común relaciona los ocho elementos con una ventaja y una debilidad. Daño y presión contra protecciones: ×1,5 favorable, ×0,5 desfavorable y ×0,18 contra el mismo elemento; mezclas calculadas por componente. Los bonus de clase y objetos se conservan y se aplican además de la tabla.
+- Vapor y hielo reparten su daño entre sus dos elementos y conservan el aporte de un tercer elemento. Las recetas directas resuelven las mismas cancelaciones y el mismo límite que el teclado.
+- Escudos básicos frontales y en anillo permiten pasar a los hechizos de su propietario. Se mantiene la colisión del movimiento y el bloqueo de hechizos ajenos y de barreras imbuidas. Incluye emisión, rayos, conos, cadenas, proyectiles, áreas y splash; un rayo combinado con otros propietarios no hereda ese permiso.
+- Agua y Vida conservan sus efectos de estado y curación y aplican sus relaciones al desgaste de barreras. Ayuda con tabla de los ocho elementos. Protocolo 11: actualizar cliente y servidor juntos. [Reglas y validación](docs/RELEASE-v0.12.24.md).
+
 ## v0.12.23
 
 - Selector de equipo en las salas: Azul y Rojo se respetan al crear y entrar; Automático equilibra. Corregido el identificador de Automático, que coincidía con Azul. Un duelo conserva oponentes en equipos distintos y permite elegir el lado frente al bot.
