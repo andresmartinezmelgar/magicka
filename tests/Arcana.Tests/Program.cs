@@ -5,6 +5,11 @@ if (args.Contains("--profile-maps"))
     MapPerformanceBenchmarks.Run(args.LastOrDefault(a => a.StartsWith("--profile-output="))?[17..] ?? "artifacts/profiles/map-simulation.json");
     return 0;
 }
+if (args.Contains("--profile-protocol"))
+{
+    ProtocolPerformanceBenchmarks.Run(args.LastOrDefault(a => a.StartsWith("--profile-output="))?[17..] ?? "artifacts/profiles/protocol.json");
+    return 0;
+}
 
 int passed = 0, failed = 0;
 void Check(bool condition, string reason) { if (!condition) throw new Exception(reason); }
@@ -42,6 +47,7 @@ FrontlineTests.Run(Test);
 GameplayRegressionTests.Run(Test);
 MovementCollisionTests.Run(Test);
 PracticeTests.Run(Test);
+PerformanceRegressionTests.Run(Test);
 
 Test("Límite de tres elementos y cancelación de incompatibles", () =>
 {
@@ -1460,6 +1466,7 @@ Test("Direcciones con ruta e IPv6 entre corchetes; se rechazan credenciales en U
 });
 if (!args.Contains("--only-network"))
 {
+    await PerformanceRegressionTests.RunTransport(AsyncTest);
     async Task ReplyOnce(object value, Func<string, Task> request)
     {
         var portPicker = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);

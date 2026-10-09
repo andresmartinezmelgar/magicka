@@ -34,6 +34,9 @@ public sealed class ArenaDefinition
     public float RespawnSeconds(GameMode mode, int deaths) => IsPractice ? 1 : Math.Min(10,
         (mode == GameMode.Duel ? 2.5f : 4) + RespawnDeathPenalty * Math.Max(0, deaths));
     private readonly float _spawnX;
+    private readonly FloorSection[] _floors;
+    private readonly MapEdge[] _boundary;
+    private readonly Obstacle[] _obstacles;
     private readonly Lazy<(V2[] Positions, int[][] Neighbors)> _navigation;
 
     internal ArenaDefinition(ArenaMapId id, string name, float halfWidth, float halfHeight,
@@ -41,10 +44,12 @@ public sealed class ArenaDefinition
         TeleportPair[]? teleports = null, MapEdge[]? eventGates = null)
     {
         Id = id; Name = name; HalfWidth = halfWidth; HalfHeight = halfHeight; _spawnX = spawnX;
-        Floors = Array.AsReadOnly(floors); Obstacles = Array.AsReadOnly(obstacles); ControlPoints = Array.AsReadOnly(points);
+        _floors = floors; _obstacles = obstacles;
+        Floors = Array.AsReadOnly(_floors); Obstacles = Array.AsReadOnly(_obstacles); ControlPoints = Array.AsReadOnly(points);
         ItemSpawns = Array.AsReadOnly(itemSpawns ?? []);
         Teleports = Array.AsReadOnly(teleports ?? []); EventGates = Array.AsReadOnly(eventGates ?? []);
-        Boundary = Array.AsReadOnly(outline.Select((p, i) => new MapEdge(p, outline[(i + 1) % outline.Length])).ToArray());
+        _boundary = outline.Select((p, i) => new MapEdge(p, outline[(i + 1) % outline.Length])).ToArray();
+        Boundary = Array.AsReadOnly(_boundary);
         _navigation = new(BuildNavigation);
     }
 
@@ -59,21 +64,44 @@ public sealed class ArenaDefinition
         }
         return new(team == 0 ? -_spawnX : _spawnX, (index % 4 - 1.5f) * 2.2f);
     }
-    public bool Inside(V2 p, float radius = 0) => p.IsFinite &&
-        Floors.Any(f => MathF.Abs(p.X - f.Center.X) <= f.Width / 2 && MathF.Abs(p.Y - f.Center.Y) <= f.Height / 2) &&
-        Boundary.All(e => Geometry.DistanceToSegment(p, e.A, e.B) > radius);
-    public bool Walkable(V2 p) => Inside(p, ArenaMap.WizardRadius) &&
-        Obstacles.All(o => V2.Distance(p, o.Position) >= o.Radius + ArenaMap.WizardRadius);
+    public bool Inside(V2 p, float radius = 0)
+    {
+        if (!p.IsFinite) return false;
+        bool floor = false;
+        for (int i = 0; i < _floors.Length; i++)
+        {
+            var section = _floors[i];
+            if (MathF.Abs(p.X - section.Center.X) <= section.Width / 2 && MathF.Abs(p.Y - section.Center.Y) <= section.Height / 2)
+            { floor = true; break; }
+        }
+        if (!floor) return false;
+        foreach (var edge in _boundary)
+            if (!(Geometry.DistanceToSegment(p, edge.A, edge.B) > radius)) return false;
+        return true;
+    }
+    public bool Walkable(V2 p)
+    {
+        if (!Inside(p, ArenaMap.WizardRadius)) return false;
+        foreach (var obstacle in _obstacles)
+            if (!(V2.Distance(p, obstacle.Position) >= obstacle.Radius + ArenaMap.WizardRadius)) return false;
+        return true;
+    }
     public float? BoundaryHit(V2 from, V2 to, float radius = 0)
     {
         float? best = null;
-        foreach (var edge in Boundary)
+        foreach (var edge in _boundary)
             if (Geometry.SegmentCapsule(from, to, edge.A, edge.B, radius) is float t && (best == null || t < best)) best = t;
         return best;
     }
-    public bool ClearPath(V2 from, V2 to) => Walkable(from) && Walkable(to) &&
-        BoundaryHit(from, to, ArenaMap.WizardRadius) == null &&
-        Obstacles.All(o => Geometry.SegmentCircle(from, to, o.Position, o.Radius + ArenaMap.WizardRadius) == null);
+    public bool ClearPath(V2 from, V2 to)
+    {
+        if (!Walkable(from) || !Walkable(to) || BoundaryHit(from, to, ArenaMap.WizardRadius) != null) return false;
+        foreach (var obstacle in _obstacles)
+        {
+            if (Geometry.SegmentCircle(from, to, obstacle.Position, obstacle.Radius + ArenaMap.WizardRadius) != null) return false;
+        }
+        return true;
+    }
 
     private (V2[] Positions, int[][] Neighbors) BuildNavigation()
     {

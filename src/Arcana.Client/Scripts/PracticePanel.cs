@@ -8,6 +8,8 @@ public partial class PracticePanel : PanelContainer
     private PracticeSession _session = null!;
     private Label _reading = null!, _spell = null!;
     private int _target;
+    private SpellCombination? _lastSpell;
+    private bool? _lastEnabled;
     public bool PointerOverPanel
     {
         get
@@ -46,7 +48,11 @@ public partial class PracticePanel : PanelContainer
         _target = target.Id;
         var meter = _session.World.PracticeReading(target.Id);
         _reading.Text = $"{target.Name}\nVida {target.Health:0.0} / {target.MaxHealth:0}  ·  Escudo {target.Shield:0.0}\nDaño {meter.Damage:0.0}  ·  Absorbido {meter.Absorbed:0.0}\nCuración efectiva {meter.Healing:0.0}";
-        _spell.Text = _session.CasterEnabled ? _session.CasterDescription : "Lanzador pausado";
-        _spell.TooltipText = SpellCatalogue.Describe(_session.CasterSpell.Recipe, CastMode.Forward);
+        if (_lastSpell != _session.CasterSpell || _lastEnabled != _session.CasterEnabled)
+        {
+            _lastSpell = _session.CasterSpell; _lastEnabled = _session.CasterEnabled;
+            _spell.Text = _session.CasterEnabled ? _session.CasterDescription : "Lanzador pausado";
+            _spell.TooltipText = SpellCatalogue.Describe(_session.CasterSpell.Recipe, CastMode.Forward);
+        }
     }
 }

@@ -2,13 +2,17 @@ namespace Arcana.Core;
 
 public sealed partial class GameWorld
 {
-    private sealed record BeamPart(int Owner, SpellRecipe Recipe, float Scale = 1, float DamageMultiplier = 1);
-    private sealed record CastRay(Wizard Caster, V2 From, V2 Direction, V2 End, BeamPart Part);
+    private readonly record struct BeamPart(int Owner, SpellRecipe Recipe, float Scale = 1, float DamageMultiplier = 1);
+    private readonly record struct CastRay(Wizard Caster, V2 From, V2 Direction, V2 End, BeamPart Part);
+    private readonly List<CastRay> _castRays = [];
+    private readonly List<(int A, int B, V2 At, float Distance)> _beamMeetings = [];
+    private readonly HashSet<int> _joinedRays = [];
 
     private void TickChannels(float dt)
     {
-        var rays = new List<CastRay>();
-        foreach (var player in _players.Values.OrderBy(p => p.Id))
+        var rays = _castRays;
+        rays.Clear();
+        foreach (var player in _orderedPlayers)
         {
             if (!player.Alive || player.Frozen > 0 || player.Channel == null) continue;
             if (player.Channel.Shape != SpellShape.Beam) { Channel(player, dt); continue; }
@@ -24,7 +28,9 @@ public sealed partial class GameWorld
         }
         rays.RemoveAll(ray => !ray.Caster.Alive || ray.Caster.Frozen > 0 || ray.Caster.Channel == null);
 
-        var meetings = new List<(int A, int B, V2 At, float Distance)>();
+        if (rays.Count == 0) return;
+        var meetings = _beamMeetings;
+        meetings.Clear();
         for (int a = 0; a < rays.Count; a++)
         for (int b = a + 1; b < rays.Count; b++)
             if (Geometry.SegmentMeeting(rays[a].From, rays[a].End, rays[b].From, rays[b].End, out var at) &&
@@ -32,8 +38,11 @@ public sealed partial class GameWorld
                 meetings.Add((a, b, at, V2.Distance(at, rays[a].From) + V2.Distance(at, rays[b].From)));
 
         // Un canal participa en una unión por paso. Las refracciones tienen como máximo dos rebotes.
-        var used = new HashSet<int>();
-        foreach (var meeting in meetings.OrderBy(m => m.Distance).ThenBy(m => m.A).ThenBy(m => m.B))
+        var used = _joinedRays;
+        used.Clear();
+        meetings.Sort(static (a, b) => a.Distance != b.Distance ? a.Distance.CompareTo(b.Distance)
+            : a.A != b.A ? a.A.CompareTo(b.A) : a.B.CompareTo(b.B));
+        foreach (var meeting in meetings)
         {
             if (used.Contains(meeting.A) || used.Contains(meeting.B)) continue;
             used.Add(meeting.A); used.Add(meeting.B);
@@ -76,19 +85,36 @@ public sealed partial class GameWorld
         return end;
     }
 
-    private static Element[] BeamElements(IEnumerable<BeamPart> parts) => parts.SelectMany(p => p.Recipe.Elements).Take(10).ToArray();
+    private static Element[] BeamElements(BeamPart[] parts)
+    {
+        int count = 0;
+        foreach (var part in parts) count += part.Recipe.Elements.Length;
+        if (count == 0) return [];
+        var elements = new Element[Math.Min(10, count)];
+        int next = 0;
+        foreach (var part in parts)
+            foreach (var element in part.Recipe.Elements)
+            {
+                if (next == elements.Length) return elements;
+                elements[next++] = element;
+            }
+        return elements;
+    }
     private void AddBeam(int owner, V2 from, V2 to, BeamPart[] parts, string interaction)
     {
-        if (_beams.Count < 64 && V2.Distance(from, to) > 0.005f)
-            _beams.Add(new(owner, from, to, BeamElements(parts), SpellShape.Beam,
-                parts.Sum(p => p.Scale * p.DamageMultiplier), interaction));
+        if (_beams.Count >= 64 || !(V2.Distance(from, to) > 0.005f)) return;
+        double power = 0;
+        foreach (var part in parts) power += part.Scale * part.DamageMultiplier;
+        _beams.Add(new(owner, from, to, BeamElements(parts), SpellShape.Beam, (float)power, interaction));
     }
 
     private float BeamPressure(Wizard target, BeamPart part)
     {
         var s = part.Recipe;
-        return part.Scale * (part.DamageMultiplier * SpellBalance.Offensive.Sum(e => ElementDamage(target, part.Owner, e,
-            SpellBalance.Component(s, e, target.Wet > 0))) + 35 * s.Count(Element.Life));
+        double damage = 0;
+        foreach (var element in SpellBalance.Offensive)
+            damage += ElementDamage(target, part.Owner, element, SpellBalance.Component(s, element, target.Wet > 0));
+        return part.Scale * (part.DamageMultiplier * (float)damage + 35 * s.Count(Element.Life));
     }
 
     private void TraceBeam(V2 from, V2 direction, float range, BeamPart[] parts, int owner, int ignoredWizard,
@@ -104,15 +130,18 @@ public sealed partial class GameWorld
             int reflector;
             if (target != null)
             {
-                bool alliedHealing = parts.All(part => part.Recipe.Healing && _players.TryGetValue(part.Owner, out var source) && Allied(source, target));
+                bool alliedHealing = true;
+                foreach (var part in parts)
+                    if (!part.Recipe.Healing || !_players.TryGetValue(part.Owner, out var source) || !Allied(source, target))
+                    { alliedHealing = false; break; }
                 if (target.Shield <= 0 || target.ShieldTime <= 0 || alliedHealing)
                 {
                     foreach (var part in parts) Hit(target, part.Recipe, dt * part.Scale, part.Owner, direction, part.DamageMultiplier);
                     return;
                 }
-                foreach (var part in parts.Where(part => !_players.TryGetValue(part.Owner, out var source) ||
-                    source.Id == target.Id || !Allied(source, target) || Options.FriendlyFire))
-                    Damage(target, BeamPressure(target, part) * 0.2f * dt, part.Owner, part.Recipe.Elements);
+                foreach (var part in parts)
+                    if (!_players.TryGetValue(part.Owner, out var source) || source.Id == target.Id || !Allied(source, target) || Options.FriendlyFire)
+                        Damage(target, BeamPressure(target, part) * 0.2f * dt, part.Owner, part.Recipe.Elements);
                 if (target.Shield <= 0)
                 {
                     foreach (var part in parts) Hit(target, part.Recipe, dt * part.Scale * 0.8f, part.Owner, direction, part.DamageMultiplier);
@@ -124,7 +153,9 @@ public sealed partial class GameWorld
             }
             else if (wall != null)
             {
-                wall.Health -= parts.Sum(p => 110 * p.Recipe.Power * p.Scale * p.DamageMultiplier * DamagePower(p.Owner)) * dt * 0.2f;
+                double pressure = 0;
+                foreach (var part in parts) pressure += 110 * part.Recipe.Power * part.Scale * part.DamageMultiplier * DamagePower(part.Owner);
+                wall.Health -= (float)pressure * dt * 0.2f;
                 if (wall.Health <= 0) return;
                 normal = (wall.B - wall.A).Perpendicular.Normalized;
                 ward = wall.Recipe.Elements.Where(e => e != Element.Shield).ToArray();

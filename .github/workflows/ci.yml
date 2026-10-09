@@ -39,6 +39,16 @@ jobs:
         run: python3 scripts/test-build-lock.py
       - name: Reglas y red real
         run: bash scripts/test-network.sh
+      - name: Medir simulación de los seis mapas y serialización del protocolo
+        env:
+          DOTNET_TieredCompilation: '0'
+        run: |
+          dotnet run -c Release --no-build --project tests/Arcana.Tests -- --profile-maps --profile-output=artifacts/profiles/map-simulation.json
+          dotnet run -c Release --no-build --project tests/Arcana.Tests -- --profile-protocol --profile-output=artifacts/profiles/protocol.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: simulation-and-protocol-profiles
+          path: artifacts/profiles/*.json
       - name: Verificar que los fallos de exportación Android conservan la APK en Bash
         run: bash scripts/test-android-build-output.sh
       - name: Descargar Godot .NET de la versión fijada

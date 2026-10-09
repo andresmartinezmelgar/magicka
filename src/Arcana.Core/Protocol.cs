@@ -17,7 +17,9 @@ public static class Protocol
         MaxDepth = 16
     };
     public static string Serialize<T>(T value) => JsonSerializer.Serialize(value, Json);
+    public static byte[] SerializeUtf8<T>(T value) => JsonSerializer.SerializeToUtf8Bytes(value, Json);
     public static T? Deserialize<T>(string json) => JsonSerializer.Deserialize<T>(json, Json);
+    public static T? Deserialize<T>(ReadOnlySpan<byte> json) => JsonSerializer.Deserialize<T>(json, Json);
 }
 
 // Un mensaje contiene una intención, nunca daño, vida ni una posición impuesta por el cliente.

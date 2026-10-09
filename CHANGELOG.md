@@ -1,5 +1,13 @@
 # Cambios
 
+## v0.12.22
+
+- Optimización de simulación, colisiones, capturas, canales, recetas y copias de estado: un 68,7 % menos de asignaciones temporales en el recorrido medido de los seis mapas respecto a v0.12.21. Los estados finales conservan exactamente la misma huella SHA-256.
+- JSON enviado y leído directamente en UTF-8, con buffers de recepción reutilizados por conexión. Se mantienen los límites, la fragmentación, las colas y el protocolo 9; los snapshots conservan copias independientes de todas sus matrices mutables.
+- Rayos con longitud aplicada mediante escala, sin reconstruir sus vértices, y barreras de piedra agrupadas en tres mallas por material, conservando geometría, normales y sombras. Unas 840 llamadas de dibujo menos por fotograma en la escena medida de combate máximo.
+- Cachés de atlas, colores, textos y protecciones para evitar cambios repetidos en el motor y la interfaz cuando el estado no ha variado. Las comparaciones visuales de barreras, rayos y variantes elementales coinciden píxel a píxel con la base.
+- Medidor `--profile-protocol`, informes de simulación y protocolo en CI y regresiones de colisiones, copias independientes y recepción de mensajes fragmentados. [Cambios, mediciones y validación](docs/RELEASE-v0.12.22.md).
+
 ## v0.12.21
 
 - Verificación local: 142 pruebas de reglas, 20 de red y comprobaciones Godot de mapas, laboratorio, efectos y sprites. Entre un 73,2 % y un 77,7 % menos llamadas de dibujo en la escena fija de decoración medida.

@@ -26,6 +26,10 @@ public partial class Hud : Control
     private readonly List<string> _statuses = [];
     private readonly List<Label> _scoreCells = [];
     private WorldSnapshot? _lastSnapshot;
+    private WizardSnapshot? _lastPlayer;
+    private string? _lastServerName;
+    private readonly int[] _magickSeconds = new int[4];
+    private readonly bool?[] _magickReady = new bool?[4];
     public bool ScoreOpen { get; set; }
 
     public void Build()
@@ -156,16 +160,31 @@ public partial class Hud : Control
         if (_scorePanel.Visible && (opened || _scoreClock >= 0.25f))
         { _scoreClock = 0; UpdateScore(snapshot, id); }
         if (ReferenceEquals(snapshot, _lastSnapshot)) return;
+        var previous = _lastSnapshot;
         _lastSnapshot = snapshot;
         var player = snapshot.Players.FirstOrDefault(p => p.Id == id); if (player == null) return;
-        _server.Text = serverName.ToUpperInvariant() + (snapshot.Map == ArenaMapId.Practice ? "" : "  /  " + Ui.ModeName(snapshot.Mode).ToUpperInvariant());
-        _name.Text = player.Name + (player.Team == 0 ? "  /  AZUL" : "  /  ROJO");
-        _name.AddThemeColorOverride("font_color", player.Team == 0 ? Ui.Blue : Ui.Red);
-        _affinity.Text = WizardTypes.Name(player.WizardType);
-        _affinity.TooltipText = WizardTypes.Description(player.WizardType);
-        _affinity.AddThemeColorOverride("font_color", Ui.WizardColor(player.WizardType));
-        _buffs.Text = RelicBuffs.Summary(player.Buffs); _buffs.Visible = _buffs.Text.Length > 0;
-        _buffs.TooltipText = string.Join("\n", (player.Buffs ?? []).Select(b => RelicBuffs.Name(b.Kind) + " ×" + b.Stacks + ": " + RelicBuffs.Description(b.Kind)));
+        var old = _lastPlayer; _lastPlayer = player;
+        if (_lastServerName != serverName || previous?.Mode != snapshot.Mode || previous.Map != snapshot.Map)
+        {
+            _lastServerName = serverName;
+            _server.Text = serverName.ToUpperInvariant() + (snapshot.Map == ArenaMapId.Practice ? "" : "  /  " + Ui.ModeName(snapshot.Mode).ToUpperInvariant());
+        }
+        if (old == null || old.Name != player.Name || old.Team != player.Team)
+        {
+            _name.Text = player.Name + (player.Team == 0 ? "  /  AZUL" : "  /  ROJO");
+            _name.AddThemeColorOverride("font_color", player.Team == 0 ? Ui.Blue : Ui.Red);
+        }
+        if (old == null || old.WizardType != player.WizardType)
+        {
+            _affinity.Text = WizardTypes.Name(player.WizardType);
+            _affinity.TooltipText = WizardTypes.Description(player.WizardType);
+            _affinity.AddThemeColorOverride("font_color", Ui.WizardColor(player.WizardType));
+        }
+        if (old == null || !(old.Buffs ?? []).AsSpan().SequenceEqual(player.Buffs ?? []))
+        {
+            _buffs.Text = RelicBuffs.Summary(player.Buffs); _buffs.Visible = (player.Buffs?.Length ?? 0) > 0;
+            _buffs.TooltipText = string.Join("\n", (player.Buffs ?? []).Select(b => RelicBuffs.Name(b.Kind) + " ×" + b.Stacks + ": " + RelicBuffs.Description(b.Kind)));
+        }
         _objective.Text = MatchRules.Objective(snapshot.Mode, snapshot.ScoreLimit, snapshot.StartingTickets, snapshot.Map);
         _controls.Text = snapshot.Map == ArenaMapId.Practice ? "F1  Controles     ESC  Menú"
             : "F1  Controles     TAB  Clasificación     ESC  Menú";
@@ -179,11 +198,14 @@ public partial class Hud : Control
         if (snapshot.Map == ArenaMapId.Ascension) _healthText.Text += $"  (+{player.MaxHealth - Wizard.BaseMaxHealth - 100 * (player.Buffs ?? []).Where(b => b.Kind == BuffKind.Vitality).Sum(b => b.Stacks):0})";
         _shield.MaxValue = Ui.ShieldMaximum(player); _shield.Value = player.Shield;
         bool shielded = player.Alive && player.Shield > 0;
-        _shieldFill.BgColor = shielded ? Ui.Shield : Ui.Shield.Darkened(0.65f);
-        _shieldTrack.BorderColor = shielded ? Ui.Shield : Ui.Muted.Darkened(0.5f);
+        if (old == null || shielded != (old.Alive && old.Shield > 0))
+        {
+            _shieldFill.BgColor = shielded ? Ui.Shield : Ui.Shield.Darkened(0.65f);
+            _shieldTrack.BorderColor = shielded ? Ui.Shield : Ui.Muted.Darkened(0.5f);
+            _shieldText.AddThemeColorOverride("font_color", shielded ? Ui.Text : Ui.Muted);
+        }
         _shieldText.Text = shielded ? $"ESCUDO  {Math.Ceiling(player.Shield):0} / {_shield.MaxValue:0}"
             + (player.ShieldSeconds > 0 ? $"  ·  {player.ShieldSeconds:0.0} s" : "") : "ESCUDO  0  /  INACTIVO";
-        _shieldText.AddThemeColorOverride("font_color", shielded ? Ui.Text : Ui.Muted);
         _energy.Value = player.Energy; _charge.Value = player.Casting ? player.Charge : 0; _energyText.Text = $"ENERGÍA  {Math.Floor(player.Energy):0} / 100";
         _statuses.Clear(); var statuses = _statuses;
         if (player.Wet > 0) statuses.Add("Mojado"); if (player.Burning > 0) statuses.Add("Quemándose");
@@ -194,16 +216,25 @@ public partial class Hud : Control
         for (int i = 0; i < 3; i++)
         {
             bool selected = i < player.DisplayElements.Length;
+            Element? value = selected ? player.DisplayElements[i] : null;
+            if (old != null && _selectedIcons[i].Value == value) continue;
             _selected[i].Text = selected ? Ui.ElementKey(player.DisplayElements[i]) : "—";
             _selected[i].AddThemeColorOverride("font_color", selected ? Ui.Text : Ui.Muted);
-            _selectedIcons[i].Value = selected ? player.DisplayElements[i] : null;
+            _selectedIcons[i].Value = value;
             _selectedStyles[i].BorderColor = selected ? Ui.ElementColor(player.DisplayElements[i]) : new Color("405372");
         }
         for (int i = 0; i < 4; i++)
         {
             var magick = SpellBalance.Magicks[i];
-            _magicks[i].Text = $"{i + 1} {magick.Name} " + (player.Cooldowns[i] > 0 ? $"{Math.Ceiling(player.Cooldowns[i])}s" : $"{magick.Cost:0}");
-            _magicks[i].AddThemeColorOverride("font_color", player.Cooldowns[i] > 0 || player.Energy < magick.Cost ? Ui.Muted : Ui.Gold);
+            int seconds = (int)Math.Ceiling(player.Cooldowns[i]);
+            bool ready = player.Cooldowns[i] <= 0 && player.Energy >= magick.Cost;
+            if (_magickReady[i] == null || _magickSeconds[i] != seconds)
+            {
+                _magickSeconds[i] = seconds;
+                _magicks[i].Text = $"{i + 1} {magick.Name} " + (seconds > 0 ? $"{seconds}s" : $"{magick.Cost:0}");
+            }
+            if (_magickReady[i] != ready)
+            { _magickReady[i] = ready; _magicks[i].AddThemeColorOverride("font_color", ready ? Ui.Gold : Ui.Muted); }
         }
         _match.Visible = snapshot.Mode == GameMode.Arena; _teams.Visible = !_match.Visible;
         if (snapshot.Map == ArenaMapId.Practice) _match.Visible = _teams.Visible = false;
@@ -221,8 +252,9 @@ public partial class Hud : Control
             string winner = snapshot.Mode == GameMode.Arena ? snapshot.Players.FirstOrDefault(p => p.Id == snapshot.Winner)?.Name ?? "Mago" : snapshot.Winner == 0 ? "Equipo azul" : "Equipo rojo";
             _banner.Text = winner + $" vence\nNueva partida en {Math.Ceiling(snapshot.RestartIn)} s";
         }
-        foreach (var e in snapshot.Events.Where(e => e.Id > _lastEvent))
+        foreach (var e in snapshot.Events)
         {
+            if (e.Id <= _lastEvent) continue;
             _lastEvent = Math.Max(_lastEvent, e.Id);
             if (e.Text.Length == 0) continue;
             var lines = (_feedText + "\n" + e.Text).Split('\n').Where(t => t.Length > 0).TakeLast(4);

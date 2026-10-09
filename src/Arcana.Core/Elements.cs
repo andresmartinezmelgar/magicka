@@ -44,7 +44,12 @@ public sealed class SpellRecipe
     public string? GroundKind => Shape != SpellShape.Rock ? null
         : Has(Element.Fire) ? "burning_ground" : Has(Element.Cold) ? "frost_ground"
         : Has(Element.Water) ? "water_pool" : null;
-    public int Count(Element e) => Elements.Count(x => x == e);
+    public int Count(Element e)
+    {
+        int count = 0;
+        foreach (var element in Elements) if (element == e) count++;
+        return count;
+    }
     public bool Has(Element e) => Elements.Contains(e);
     public float Power => Math.Max(1, Elements.Length);
     public SpellRecipe(IEnumerable<Element> elements)

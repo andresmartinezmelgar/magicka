@@ -32,10 +32,10 @@ public sealed partial class GameWorld
     }
     internal bool KeepPracticeBarrier(int id)
     {
-        var wall = _walls.FirstOrDefault(w => w.Id == id);
-        if (wall != null && wall.Health > 0) { wall.Lifetime += StepSeconds; return true; }
-        var field = _fields.FirstOrDefault(f => f.Id == id);
-        if (field != null && field.Lifetime > 0) { field.Lifetime += StepSeconds; return true; }
+        foreach (var wall in _walls)
+            if (wall.Id == id && wall.Health > 0) { wall.Lifetime += StepSeconds; return true; }
+        foreach (var field in _fields)
+            if (field.Id == id && field.Lifetime > 0) { field.Lifetime += StepSeconds; return true; }
         return false;
     }
     internal int CreatePracticeBarrier(PracticeBarrierDefinition station, Wizard owner)

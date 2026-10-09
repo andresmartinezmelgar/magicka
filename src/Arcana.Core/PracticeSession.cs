@@ -15,9 +15,15 @@ public sealed class PracticeSession
     private readonly int[] _barrierIds = new int[PracticeLayout.Barriers.Count];
     private readonly long[] _barrierReady = new long[PracticeLayout.Barriers.Count];
     private long _nextCast;
-    public string CasterDescription => (CasterSpell.Keys.Length == 0 ? "Empuje" : CasterSpell.Keys + " · " + SpellCatalogue.Name(CasterSpell.Elements))
-        + (Continuous ? " · continuo" : " · cada 2 s") + " →";
-    private bool Continuous => CasterSpell.Recipe.Shape is SpellShape.Beam or SpellShape.Spray or SpellShape.Lightning;
+    public string CasterDescription { get; private set; } = "";
+    private SpellShape _casterShape;
+    private bool Continuous => _casterShape is SpellShape.Beam or SpellShape.Spray or SpellShape.Lightning;
+    private void DescribeCaster()
+    {
+        _casterShape = CasterSpell.Recipe.Shape;
+        CasterDescription = (CasterSpell.Keys.Length == 0 ? "Empuje" : CasterSpell.Keys + " · " + SpellCatalogue.Name(CasterSpell.Elements))
+            + (Continuous ? " · continuo" : " · cada 2 s") + " →";
+    }
 
     public PracticeSession(string name = "Mago", WizardType type = WizardType.Balanced)
     {
@@ -30,6 +36,7 @@ public sealed class PracticeSession
             return new PracticeTarget(d, wizard);
         }).ToArray());
         Caster = World.AddPlayer("Mago lanzador", 1)!;
+        DescribeCaster();
         World.RegisterPracticeSpawn(Caster, PracticeLayout.CasterPosition);
         _alive = new bool[Targets.Count];
         for (int i = 0; i < Targets.Count; i++) { InitializeTarget(Targets[i]); _alive[i] = true; }
@@ -75,7 +82,7 @@ public sealed class PracticeSession
     {
         var spell = PracticeLayout.CasterSpells.FirstOrDefault(c => c.Keys == keys);
         if (spell == null) throw new ArgumentException("Combinación no disponible para el lanzador.", nameof(keys));
-        World.StopPracticeCaster(Caster); CasterSpell = spell; _nextCast = World.Tick;
+        World.StopPracticeCaster(Caster); CasterSpell = spell; DescribeCaster(); _nextCast = World.Tick;
     }
     public void SetCasterEnabled(bool enabled)
     { CasterEnabled = enabled; if (!enabled) World.StopPracticeCaster(Caster); else _nextCast = World.Tick; }
@@ -124,7 +131,7 @@ public sealed class PracticeSession
                 foreach (var element in CasterSpell.Elements) Message(Caster, "element", element);
                 Message(Caster, "cast"); _nextCast = World.Tick + 120;
             }
-            else if (!Continuous && CasterSpell.Recipe.Shape == SpellShape.Force && Caster.Channel != null)
+            else if (!Continuous && _casterShape == SpellShape.Force && Caster.Channel != null)
                 Message(Caster, "release");
         }
         MaintainBarriers(); World.Step();

@@ -9,17 +9,12 @@ public static class Ui
     public static readonly Color Gold = new("f1cd83"), Text = new("f4f7ff"), Muted = new("b0bfd4"), Blue = new("37b9ff"), Red = new("ff526c");
     public static readonly Color Health = new(IsMobile ? "30ed69" : "2ce273"), Shield = new(IsMobile ? "ffda00" : "ffcf00"), Energy = new(IsMobile ? "b16aff" : "aa65ff");
     public static Color ElementColor(Element e) => ElementColor(e, IsMobile);
-    internal static Color ElementColor(Element e, bool mobile) => mobile ? e switch
-    {
-        Element.Water => new("2985ff"), Element.Life => new("30ed69"), Element.Shield => new("ffda00"),
-        Element.Cold => new("1ddecb"), Element.Lightning => new("b16aff"), Element.Arcane => new("ff3b9d"),
-        Element.Earth => new("d6a252"), _ => new("ff5d26")
-    } : e switch
-    {
-        Element.Water => new("2791ff"), Element.Life => new("2ce273"), Element.Shield => new("ffcf00"),
-        Element.Cold => new("10d7cd"), Element.Lightning => new("aa65ff"), Element.Arcane => new("ff369f"),
-        Element.Earth => new("cb903f"), _ => new("ff611c")
-    };
+    private static readonly Color[] MobileElements = [new("2985ff"), new("30ed69"), new("ffda00"), new("1ddecb"),
+        new("b16aff"), new("ff3b9d"), new("d6a252"), new("ff5d26")];
+    private static readonly Color[] DesktopElements = [new("2791ff"), new("2ce273"), new("ffcf00"), new("10d7cd"),
+        new("aa65ff"), new("ff369f"), new("cb903f"), new("ff611c")];
+    internal static Color ElementColor(Element e, bool mobile) =>
+        (mobile ? MobileElements : DesktopElements)[(uint)e < 8 ? (int)e : 7];
     private static readonly string[] ElementNames = ["Agua", "Vida", "Escudo", "Frío", "Rayo", "Arcano", "Tierra", "Fuego"];
     private static readonly string[] ElementKeys = ["Q", "W", "E", "R", "A", "S", "D", "F"];
     public static string ElementName(Element e) => ElementNames[(int)e];

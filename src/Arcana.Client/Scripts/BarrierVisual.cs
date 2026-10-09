@@ -15,6 +15,10 @@ public partial class BarrierVisual : Node3D
     internal int Charges { get; private set; }
     internal int StoneRows { get; private set; }
     internal float StoneThickness { get; private set; }
+    internal int StoneSourceMeshes { get; private set; }
+    internal int StoneDrawMeshes { get; private set; }
+    internal int StoneSourceVertices { get; private set; }
+    internal int StoneBatchedVertices { get; private set; }
     private float _reinforcement;
 
     public void Build(WallSnapshot wall)
@@ -48,26 +52,51 @@ public partial class BarrierVisual : Node3D
                 AlbedoColor = new Color("647078").Lerp(_color, 0.08f).Darkened(i * 0.09f),
                 Roughness = 0.98f
             }).ToArray();
-            // La pared básica conserva dos hiladas; una tercera carga añade masa y contrafuertes.
-            for (int row = 0; row < StoneRows; row++)
-            for (int i = 0; i < blocks + row % 2; i++)
+            var stoneTools = new SurfaceTool[stoneMaterials.Length];
+            for (int i = 0; i < stoneTools.Length; i++)
+            { stoneTools[i] = new(); stoneTools[i].Begin(Godot.Mesh.PrimitiveType.Triangles); }
+            void StonePiece(Vector3 size, int seed, Vector3 at, int material)
             {
-                float start = Math.Max(0, (i - row % 2 * 0.5f) / blocks) * length;
-                float end = Math.Min(1, (i + 1 - row % 2 * 0.5f) / blocks) * length;
-                float height = row == 0 ? 0.82f : 0.73f + 0.14f * MathF.Sin(i * 2.31f + wall.Id);
-                var block = Piece(StoneMesh(new(StoneThickness - (row == 0 ? 0 : 0.08f), height, end - start + 0.025f),
-                        i + row * 31 + wall.Id),
-                    new(0, 0.04f + row * 0.76f + height / 2, (start + end - length) / 2),
-                    stoneMaterials[(i + row) % stoneMaterials.Length]);
-                block.CastShadow = GeometryInstance3D.ShadowCastingSetting.On;
+                using var mesh = StoneMesh(size, seed);
+                using var arrays = mesh.SurfaceGetArrays(0);
+                StoneSourceVertices += arrays[(int)Godot.Mesh.ArrayType.Vertex].AsVector3Array().Length;
+                StoneSourceMeshes++;
+                stoneTools[material].AppendFrom(mesh, 0, new Transform3D(Basis.Identity, at));
             }
-            if (_reinforcement > 0)
-                foreach (int end in new[] { -1, 1 })
+            try
+            {
+                // La pared básica conserva dos hiladas; una tercera carga añade masa y contrafuertes.
+                for (int row = 0; row < StoneRows; row++)
+                for (int i = 0; i < blocks + row % 2; i++)
                 {
-                    var support = Piece(StoneMesh(new(StoneThickness + 0.24f, 1.92f, 0.44f), wall.Id + end * 41),
-                        new(0, 1, end * (length / 2 - 0.24f)), stoneMaterials[2]);
-                    support.CastShadow = GeometryInstance3D.ShadowCastingSetting.On;
+                    float start = Math.Max(0, (i - row % 2 * 0.5f) / blocks) * length;
+                    float end = Math.Min(1, (i + 1 - row % 2 * 0.5f) / blocks) * length;
+                    float height = row == 0 ? 0.82f : 0.73f + 0.14f * MathF.Sin(i * 2.31f + wall.Id);
+                    StonePiece(new(StoneThickness - (row == 0 ? 0 : 0.08f), height, end - start + 0.025f),
+                            i + row * 31 + wall.Id,
+                        new(0, 0.04f + row * 0.76f + height / 2, (start + end - length) / 2),
+                        (i + row) % stoneMaterials.Length);
                 }
+                if (_reinforcement > 0)
+                    foreach (int end in new[] { -1, 1 })
+                    {
+                        StonePiece(new(StoneThickness + 0.24f, 1.92f, 0.44f), wall.Id + end * 41,
+                            new(0, 1, end * (length / 2 - 0.24f)), 2);
+                    }
+                // Los bloques de una pared no se mueven entre sí: conserva sus
+                // vértices y sombras, dibujándolos juntos por material.
+                for (int i = 0; i < stoneTools.Length; i++)
+                {
+                    var combined = stoneTools[i].Commit();
+                    using var arrays = combined.SurfaceGetArrays(0);
+                    StoneBatchedVertices += arrays[(int)Godot.Mesh.ArrayType.Vertex].AsVector3Array().Length;
+                    var block = Piece(combined, Vector3.Zero, stoneMaterials[i]);
+                    block.Name = "StoneBatch" + i;
+                    block.CastShadow = GeometryInstance3D.ShadowCastingSetting.On;
+                    StoneDrawMeshes++;
+                }
+            }
+            finally { foreach (var tool in stoneTools) tool.Dispose(); }
         }
         else
         {
@@ -104,7 +133,7 @@ public partial class BarrierVisual : Node3D
             _surface.SetShaderParameter("barrier_color", _color);
             _surface.SetShaderParameter("span", length);
             _surface.SetShaderParameter("detail", charges);
-            var face = new SurfaceTool(); face.Begin(Godot.Mesh.PrimitiveType.Triangles);
+            using var face = new SurfaceTool(); face.Begin(Godot.Mesh.PrimitiveType.Triangles);
             const int segments = 20;
             for (int i = 0; i < segments; i++)
             {
@@ -170,7 +199,7 @@ public partial class BarrierVisual : Node3D
                 * size / 2;
         }
         int[][] faces = [[0,1,2,3],[5,4,7,6],[4,0,3,7],[1,5,6,2],[3,2,6,7],[4,5,1,0]];
-        var surface = new SurfaceTool(); surface.Begin(Godot.Mesh.PrimitiveType.Triangles);
+        using var surface = new SurfaceTool(); surface.Begin(Godot.Mesh.PrimitiveType.Triangles);
         foreach (var face in faces)
         {
             Vector3 center = (corners[face[0]] + corners[face[1]] + corners[face[2]] + corners[face[3]]) / 4;

@@ -13,6 +13,8 @@ public sealed class ArenaConnection : IAsyncDisposable
     private readonly ClientWebSocket _socket = new();
     private readonly CancellationTokenSource _lifetime = new();
     private readonly SemaphoreSlim _socketSend = new(1, 1);
+    private readonly byte[] _receiveBuffer = new byte[8192];
+    private readonly MemoryStream _receiveStream = new(8192);
     private readonly Channel<ClientMessage> _outgoing = Channel.CreateBounded<ClientMessage>(new BoundedChannelOptions(256)
     { SingleReader = true, FullMode = BoundedChannelFullMode.Wait });
     private readonly object _sendGate = new(), _disposeGate = new();
@@ -126,7 +128,7 @@ public sealed class ArenaConnection : IAsyncDisposable
         try
         {
             if (Volatile.Read(ref _disposing) != 0) return;
-            await _socket.SendAsync(Encoding.UTF8.GetBytes(Protocol.Serialize(message)), WebSocketMessageType.Text, true, token).ConfigureAwait(false);
+            await _socket.SendAsync(Protocol.SerializeUtf8(message), WebSocketMessageType.Text, true, token).ConfigureAwait(false);
         }
         finally { _socketSend.Release(); }
     }
@@ -164,7 +166,8 @@ public sealed class ArenaConnection : IAsyncDisposable
     }
     private async Task<ServerMessage?> Read(CancellationToken token)
     {
-        using var stream = new MemoryStream(); var buffer = new byte[8192];
+        var stream = _receiveStream; var buffer = _receiveBuffer;
+        stream.SetLength(0);
         while (true)
         {
             var result = await _socket.ReceiveAsync(buffer, token).ConfigureAwait(false);
@@ -173,7 +176,7 @@ public sealed class ArenaConnection : IAsyncDisposable
             if (stream.Length + result.Count > 256 * 1024) throw new IOException("Respuesta de red demasiado grande.");
             stream.Write(buffer, 0, result.Count);
             if (!result.EndOfMessage) continue;
-            var message = Protocol.Deserialize<ServerMessage>(Encoding.UTF8.GetString(stream.ToArray()));
+            var message = Protocol.Deserialize<ServerMessage>(stream.GetBuffer().AsSpan(0, (int)stream.Length));
             if (message?.Snapshot != null) SnapshotValidation.Check(message.Snapshot);
             if (message?.Type == "snapshot" && message.Snapshot == null) throw new InvalidDataException("Estado de partida ausente.");
             return message;
@@ -204,7 +207,7 @@ public sealed class ArenaConnection : IAsyncDisposable
         if (_reader != null) await _reader.ConfigureAwait(false);
         if (_writer != null) await _writer.ConfigureAwait(false);
         Diagnostics.Info("network.disposed", "Conexión cerrada.", Context());
-        _socket.Dispose(); _lifetime.Dispose(); _socketSend.Dispose();
+        _socket.Dispose(); _lifetime.Dispose(); _socketSend.Dispose(); _receiveStream.Dispose();
     }
 }
 

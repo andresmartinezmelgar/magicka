@@ -134,7 +134,7 @@ public partial class BarrierVisual
         _elementSkin.SetShaderParameter("frost", recipe.Has(Element.Cold) ? 1 : 0);
         _elementSkin.SetShaderParameter("electric", recipe.Has(Element.Lightning) ? 1 : 0);
         _elementSkin.SetShaderParameter("steam", recipe.Steam ? 1 : 0);
-        var face = new SurfaceTool(); face.Begin(Godot.Mesh.PrimitiveType.Triangles);
+        using var face = new SurfaceTool(); face.Begin(Godot.Mesh.PrimitiveType.Triangles);
         const int segments = 24;
         for (int side = stone ? -1 : 1; side <= 1; side += 2)
         for (int i = 0; i < segments; i++)

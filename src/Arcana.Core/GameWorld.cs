@@ -9,6 +9,7 @@ public sealed partial class GameWorld
 {
     public const float StepSeconds = 1f / 60;
     private readonly Dictionary<int, Wizard> _players = [];
+    private readonly List<Wizard> _orderedPlayers = [];
     private readonly List<Projectile> _projectiles = [];
     private readonly List<Wall> _walls = [];
     private readonly List<Field> _fields = [];
@@ -20,6 +21,7 @@ public sealed partial class GameWorld
     private long _nextEvent = 1;
     private float _ticketClock;
     private int _holdTicks;
+    private readonly List<(Wizard Target, float Distance, int Order)> _channelTargets = [];
     private static readonly Element[][] BotRecipes =
     [
         [Element.Arcane, Element.Arcane, Element.Fire], [Element.Fire, Element.Fire, Element.Fire],
@@ -72,6 +74,7 @@ public sealed partial class GameWorld
         wizard.Facing = new(team == 0 ? 1 : -1, 0);
         wizard.LastInput = Time;
         _players.Add(wizard.Id, wizard);
+        _orderedPlayers.Add(wizard);
         Emit("join", wizard.Position, [], $"{wizard.Name} entra en la arena");
         return wizard;
     }
@@ -79,6 +82,7 @@ public sealed partial class GameWorld
     public void RemovePlayer(int id)
     {
         if (!_players.Remove(id, out var wizard)) return;
+        _orderedPlayers.Remove(wizard);
         _routes.Remove(id);
         _practiceSpawns.Remove(id); _practiceReadings.Remove(id);
         _projectiles.RemoveAll(p => p.Owner == id);
@@ -130,7 +134,9 @@ public sealed partial class GameWorld
         Tick++;
         const float dt = StepSeconds;
         _beams.Clear();
-        _events.RemoveAll(e => Tick - e.Tick > 90);
+        int expired = 0;
+        while (expired < _events.Count && Tick - _events[expired].Tick > 90) expired++;
+        if (expired > 0) _events.RemoveRange(0, expired);
         if (MatchEnded)
         {
             RestartIn -= dt;
@@ -228,14 +234,19 @@ public sealed partial class GameWorld
     }
 
     private bool ClearMovement(V2 from, V2 to) => Map.ClearPath(from, to) && ClearWalls(from, to);
-    private bool ClearWalls(V2 from, V2 to) =>
-        !_walls.Any(w => w.Health > 0 && Geometry.SegmentCapsule(from, to, w.A, w.B, ArenaMap.WizardRadius + 0.18f) != null);
+    private bool ClearWalls(V2 from, V2 to)
+    {
+        foreach (var wall in _walls)
+            if (wall.Health > 0 && Geometry.SegmentCapsule(from, to, wall.A, wall.B, ArenaMap.WizardRadius + 0.18f) != null) return false;
+        return true;
+    }
 
     public bool Walkable(V2 position)
     {
-        float r = ArenaMap.WizardRadius;
         if (!Map.Walkable(position)) return false;
-        return !_walls.Any(w => w.Health > 0 && Geometry.DistanceToSegment(position, w.A, w.B) < r + 0.18f);
+        foreach (var wall in _walls)
+            if (wall.Health > 0 && Geometry.DistanceToSegment(position, wall.A, wall.B) < ArenaMap.WizardRadius + 0.18f) return false;
+        return true;
     }
 
     private bool Ready(Wizard p) => p.Alive && p.Frozen <= 0 && p.ActionCooldown <= 0 && !MatchEnded;
@@ -304,8 +315,8 @@ public sealed partial class GameWorld
         foreach (var obstacle in Map.Obstacles)
             if (Geometry.SegmentCircle(caster.Position, to, obstacle.Position, obstacle.Radius + radius) is float t && (nearest == null || t < nearest))
                 nearest = t;
-        foreach (var wall in _walls.Where(w => w.Health > 0))
-            if (Geometry.SegmentCapsule(caster.Position, to, wall.A, wall.B, radius + 0.2f) is float t && (nearest == null || t < nearest))
+        foreach (var wall in _walls)
+            if (wall.Health > 0 && Geometry.SegmentCapsule(caster.Position, to, wall.A, wall.B, radius + 0.2f) is float t && (nearest == null || t < nearest))
                 nearest = t;
         return nearest is float hit ? V2.Lerp(caster.Position, to, Math.Max(0, hit - 0.01f)) : to;
     }
@@ -319,8 +330,9 @@ public sealed partial class GameWorld
         foreach (var o in Map.Obstacles)
             if (Geometry.SegmentCircle(from, to, o.Position, o.Radius) is float t && t < best) best = t;
         // Segmento de pared contra rayo mediante productos cruzados.
-        foreach (var w in _walls.Where(w => w.Health > 0))
+        foreach (var w in _walls)
         {
+            if (!(w.Health > 0)) continue;
             var r = to - from; var s = w.B - w.A;
             float cross = r.X * s.Y - r.Y * s.X;
             if (MathF.Abs(cross) < 0.0001f) continue;
@@ -341,26 +353,36 @@ public sealed partial class GameWorld
         // Los rayos rectos se resuelven juntos en TickChannels. Este método mantiene chorros y cadenas.
         if (spell.Shape != SpellShape.Beam)
         {
-            var targets = _players.Values.Where(q => q.Id != p.Id && q.Alive)
-                .Where(q => V2.Distance(q.Position, from) <= V2.Distance(end, from) + 0.1f &&
-                            V2.Dot((q.Position - from).Normalized, p.Facing) >
-                            (spell.Shape == SpellShape.Lightning ? 0.55f : 0.74f))
-                .Where(q => Visible(from, q.Position)).OrderBy(q => V2.Distance(q.Position, from)).ToArray();
+            var targets = _channelTargets;
+            targets.Clear();
+            float range = V2.Distance(end, from) + 0.1f;
+            int order = 0;
+            foreach (var q in _players.Values)
+            {
+                int index = order++;
+                if (q.Id == p.Id || !q.Alive) continue;
+                float distance = V2.Distance(q.Position, from);
+                if (distance <= range && V2.Dot((q.Position - from).Normalized, p.Facing) >
+                    (spell.Shape == SpellShape.Lightning ? 0.55f : 0.74f) && Visible(from, q.Position))
+                    targets.Add((q, distance, index));
+            }
+            targets.Sort(static (a, b) => a.Distance != b.Distance ? a.Distance.CompareTo(b.Distance) : a.Order.CompareTo(b.Order));
             if (spell.Shape == SpellShape.Lightning)
             {
                 // Mojado hace peligroso incluso preparar un rayo sobre uno mismo.
                 if (p.Wet > 0) { Hit(p, spell, dt, p.Id, V2.Zero); p.Channel = null; }
                 V2 last = from;
-                foreach (var target in targets.Take(3))
+                for (int i = 0; i < Math.Min(3, targets.Count); i++)
                 {
+                    var target = targets[i].Target;
                     Hit(target, spell, dt, p.Id, p.Facing);
                     _beams.Add(new(p.Id, last, target.Position, spell.Elements, spell.Shape));
                     last = target.Position;
                 }
-                if (targets.Length == 0) _beams.Add(new(p.Id, from, end, spell.Elements, spell.Shape));
+                if (targets.Count == 0) _beams.Add(new(p.Id, from, end, spell.Elements, spell.Shape));
                 return;
             }
-            foreach (var target in targets) Hit(target, spell, dt, p.Id, p.Facing);
+            foreach (var target in targets) Hit(target.Target, spell, dt, p.Id, p.Facing);
         }
         _beams.Add(new(p.Id, from, end, spell.Elements, spell.Shape));
     }
@@ -603,11 +625,11 @@ public sealed partial class GameWorld
             foreach (var o in Map.Obstacles)
                 if (Geometry.SegmentCircle(from, to, o.Position, o.Radius + projectile.Radius) is float t && t < nearest)
                 { nearest = t; obstacleHit = true; target = null; wallHit = null; }
-            foreach (var w in _walls.Where(w => w.Health > 0))
-                if (Geometry.SegmentCapsule(from, to, w.A, w.B, projectile.Radius + 0.2f) is float t && t < nearest)
+            foreach (var w in _walls)
+                if (w.Health > 0 && Geometry.SegmentCapsule(from, to, w.A, w.B, projectile.Radius + 0.2f) is float t && t < nearest)
                 { nearest = t; wallHit = w; obstacleHit = false; target = null; }
-            foreach (var q in _players.Values.Where(q => q.Alive && q.Id != projectile.Owner))
-                if (Geometry.SegmentCircle(from, to, q.Position, ArenaMap.WizardRadius + projectile.Radius) is float t && t < nearest)
+            foreach (var q in _players.Values)
+                if (q.Alive && q.Id != projectile.Owner && Geometry.SegmentCircle(from, to, q.Position, ArenaMap.WizardRadius + projectile.Radius) is float t && t < nearest)
                 { nearest = t; target = q; obstacleHit = false; wallHit = null; }
             projectile.Position = V2.Lerp(from, to, nearest);
             if (target != null)
@@ -643,8 +665,9 @@ public sealed partial class GameWorld
             w.Lifetime -= dt;
             if (w.Health <= 0 || w.Lifetime <= 0) continue;
             if (w.Recipe.Has(Element.Fire) || w.Recipe.Has(Element.Cold) || w.Recipe.Has(Element.Lightning))
-                foreach (var p in _players.Values.Where(p => p.Alive && Geometry.DistanceToSegment(p.Position, w.A, w.B) < 1))
-                    Hit(p, w.Recipe, dt, w.Owner, (p.Position - (w.A + w.B) / 2).Normalized);
+                foreach (var p in _players.Values)
+                    if (p.Alive && Geometry.DistanceToSegment(p.Position, w.A, w.B) < 1)
+                        Hit(p, w.Recipe, dt, w.Owner, (p.Position - (w.A + w.B) / 2).Normalized);
         }
         _walls.RemoveAll(w => w.Lifetime <= 0 || w.Health <= 0);
         foreach (var f in _fields)
@@ -653,14 +676,16 @@ public sealed partial class GameWorld
             if (f.Lifetime <= 0 || f.Delay > 0) continue;
             if (f.Kind is "burning_ground" or "frost_ground" or "water_pool")
             {
-                foreach (var p in _players.Values.Where(p => p.Alive && V2.Distance(p.Position, f.Position) < f.Radius && Visible(f.Position, p.Position)))
-                    Hit(p, f.Recipe, dt * SpellBalance.GroundPower, f.Owner, (p.Position - f.Position).Normalized);
+                foreach (var p in _players.Values)
+                    if (p.Alive && V2.Distance(p.Position, f.Position) < f.Radius && Visible(f.Position, p.Position))
+                        Hit(p, f.Recipe, dt * SpellBalance.GroundPower, f.Owner, (p.Position - f.Position).Normalized);
                 continue;
             }
             bool trigger = f.Kind == "meteor" || _players.Values.Any(p => EligibleForMine(p, f) && V2.Distance(p.Position, f.Position) < f.TriggerRadius);
             if (!trigger) continue;
-            foreach (var p in _players.Values.Where(p => p.Alive && V2.Distance(p.Position, f.Position) < f.Radius && Visible(f.Position, p.Position)))
+            foreach (var p in _players.Values)
             {
+                if (!p.Alive || !(V2.Distance(p.Position, f.Position) < f.Radius) || !Visible(f.Position, p.Position)) continue;
                 if (f.Kind == "healing_mine")
                 {
                     if (_players.TryGetValue(f.Owner, out var owner) && Allied(owner, p))
@@ -681,8 +706,12 @@ public sealed partial class GameWorld
         int redTarget = ConquestToWin ? FrontierTarget(1) : -1;
         foreach (var point in _points)
         {
-            int blue = _players.Values.Count(p => p.Alive && p.Team == 0 && V2.Distance(p.Position, point.Position) < 3);
-            int red = _players.Values.Count(p => p.Alive && p.Team == 1 && V2.Distance(p.Position, point.Position) < 3);
+            int blue = 0, red = 0;
+            foreach (var player in _players.Values)
+            {
+                if (!player.Alive || !(V2.Distance(player.Position, point.Position) < 3)) continue;
+                if (player.Team == 0) blue++; else if (player.Team == 1) red++;
+            }
             point.Contested = blue > 0 && red > 0 || HoldToWin && (point.Owner == 0 && red > 0 || point.Owner == 1 && blue > 0);
             if (blue > 0 && red > 0 || blue + red == 0) continue;
             int team = red > 0 ? 1 : 0;
@@ -813,13 +842,27 @@ public sealed partial class GameWorld
         }
         V2 goal = target?.Position ?? Map.ControlPoints[p.Id % Map.ControlPoints.Count];
         if (Options.Mode == GameMode.Warfare && (target == null || V2.Distance(p.Position, target.Position) > 12))
-            goal = (ConquestToWin ? _points.Where(q => q.Id == FrontierTarget(p.Team)) : _points.Where(q => q.Owner != p.Team || q.Contested))
-                .OrderBy(q => V2.Distance(q.Position, p.Position)).FirstOrDefault()?.Position
-                ?? _points[p.Id % _points.Length].Position;
+        {
+            int frontier = ConquestToWin ? FrontierTarget(p.Team) : -1;
+            ControlPoint? point = null; float nearest = float.PositiveInfinity;
+            foreach (var candidate in _points)
+            {
+                if (ConquestToWin ? candidate.Id != frontier : candidate.Owner == p.Team && !candidate.Contested) continue;
+                float range = V2.Distance(candidate.Position, p.Position);
+                if (range < nearest) { nearest = range; point = candidate; }
+            }
+            goal = point?.Position ?? _points[p.Id % _points.Length].Position;
+        }
         float distance = target == null ? 100 : V2.Distance(p.Position, target.Position);
         if (_pickups.Length > 0 && (target == null || distance > 9))
         {
-            var item = _pickups.Where(i => i.Respawn <= 0).OrderBy(i => V2.Distance(p.Position, i.Position)).FirstOrDefault();
+            Pickup? item = null; float nearest = float.PositiveInfinity;
+            foreach (var candidate in _pickups)
+            {
+                if (!(candidate.Respawn <= 0)) continue;
+                float range = V2.Distance(p.Position, candidate.Position);
+                if (range < nearest) { nearest = range; item = candidate; }
+            }
             if (item != null && V2.Distance(p.Position, item.Position) < 12) goal = item.Position;
         }
         var direction = (goal - p.Position).Normalized;
@@ -870,19 +913,4 @@ public sealed partial class GameWorld
         if (_events.Count > 160) _events.RemoveRange(0, _events.Count - 160);
     }
 
-    /// <summary>Copia inmutable del estado. La red la serializa fuera del bloqueo de la simulación.</summary>
-    public WorldSnapshot Snapshot() => new(Tick, Time, Options.Mode, MatchEnded, Winner, Math.Max(0, RestartIn), Scores.ToArray(),
-        _players.Values.Select(p => new WizardSnapshot(p.Id, p.Name, p.Team, p.Bot, p.Position, p.Facing, p.Health,
-            p.MaxHealth, p.Shield, p.Ward.ToArray(), p.Selection.Elements.ToArray(), p.Alive, Math.Max(0, p.Respawn),
-            p.Wet, p.Burning, p.Chill, p.Frozen, p.Haste, p.Energy, p.MagickCooldowns.ToArray(), p.Kills, p.Deaths,
-            p.Charging != null ? p.ChargeTime / SpellBalance.ChargeSeconds : p.BeamCharge,
-            p.Channel != null || p.Charging != null, p.ShieldMax, p.Shield > 0 ? p.ShieldTime : 0, p.WizardType, p.RegenerationRate * RelicBuffs.Healing(p),
-            RelicBuffs.Snapshot(p), (p.Charging?.Elements ?? p.Channel?.Elements ?? []).ToArray(),
-            p.ShieldCharges, p.Alive ? Math.Max(0, p.Invulnerable) : 0)).ToArray(),
-        _projectiles.Select(p => new ProjectileSnapshot(p.Id, p.Owner, p.Position, p.Velocity.Normalized, p.Recipe.Elements.ToArray(), p.Radius)).ToArray(),
-        _walls.Select(w => new WallSnapshot(w.Id, w.Owner, w.A, w.B, w.Health, w.Lifetime, w.Recipe.Elements.ToArray())).ToArray(),
-        _fields.Select(f => new FieldSnapshot(f.Id, f.Owner, f.Position, f.Radius, f.Lifetime, f.Recipe.Elements.ToArray(), f.Kind, f.TriggerRadius, f.Delay <= 0)).ToArray(),
-        _beams.Select(b => b with { Elements = b.Elements.ToArray() }).ToArray(), _points.Select(p => new PointSnapshot(p.Id, p.Position, p.Owner, p.Progress, p.Contested)).ToArray(),
-        _events.Select(e => e.Event with { Elements = e.Event.Elements.ToArray() }).ToArray(), Options.ScoreLimit, Options.Tickets,
-        Map.Id, HoldingTeam, HoldSeconds, _pickups.Select(i => new PickupSnapshot(i.Id, i.Position, i.Kind, i.Respawn <= 0, Math.Max(0, i.Respawn))).ToArray());
 }

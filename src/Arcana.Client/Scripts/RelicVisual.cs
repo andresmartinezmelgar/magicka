@@ -7,6 +7,7 @@ public partial class RelicVisual : Node3D
 {
     private MeshInstance3D _gem = null!;
     private Label3D _label = null!;
+    private (BuffKind Kind, bool Active, double Respawn)? _labelState;
     internal bool Available => _gem.Visible;
     public static Color ColorFor(BuffKind kind) => kind switch
     {
@@ -32,7 +33,12 @@ public partial class RelicVisual : Node3D
         _gem.Visible = item.Active;
         _gem.Position = new(0, 0.85f + MathF.Sin(time * 2.2f + item.Id) * 0.13f, 0);
         _gem.Rotation = new(0, time * 1.4f, 0);
-        _label.Text = RelicBuffs.Name(item.Kind) + (item.Active ? "" : $" · {Math.Ceiling(item.Respawn):0}s");
-        _label.Modulate = item.Active ? ColorFor(item.Kind) : Ui.Muted;
+        var state = (item.Kind, item.Active, item.Active ? 0 : Math.Ceiling(item.Respawn));
+        if (_labelState != state)
+        {
+            _labelState = state;
+            _label.Text = RelicBuffs.Name(item.Kind) + (item.Active ? "" : $" · {state.Item3:0}s");
+            _label.Modulate = item.Active ? ColorFor(item.Kind) : Ui.Muted;
+        }
     }
 }

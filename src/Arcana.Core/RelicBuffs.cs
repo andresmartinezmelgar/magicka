@@ -28,8 +28,16 @@ public static class RelicBuffs
     public static float Speed(Wizard p) => 1 + Math.Min(1, p.BuffStacks[(int)BuffKind.Speed] * 0.05f);
     public static float Energy(Wizard p) => p.BuffStacks[(int)BuffKind.Energy];
     public static float Healing(Wizard p) => 1 + p.BuffStacks[(int)BuffKind.Healing] * 0.1f;
-    public static BuffSnapshot[] Snapshot(Wizard p) => Enumerable.Range(0, Count).Where(i => p.BuffStacks[i] > 0)
-        .Select(i => new BuffSnapshot((BuffKind)i, p.BuffStacks[i])).ToArray();
+    public static BuffSnapshot[] Snapshot(Wizard p)
+    {
+        int count = 0;
+        foreach (int stacks in p.BuffStacks) if (stacks > 0) count++;
+        if (count == 0) return [];
+        var result = new BuffSnapshot[count];
+        for (int i = 0, next = 0; i < Count; i++)
+            if (p.BuffStacks[i] > 0) result[next++] = new((BuffKind)i, p.BuffStacks[i]);
+        return result;
+    }
     public static string Summary(BuffSnapshot[]? buffs) => buffs is { Length: > 0 }
         ? string.Join(" · ", buffs.Select(b => Name(b.Kind) + " ×" + b.Stacks)) : "";
     internal static void Add(Wizard p, BuffKind kind)

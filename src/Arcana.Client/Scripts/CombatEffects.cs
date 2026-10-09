@@ -195,8 +195,9 @@ public partial class CombatEffects : Node3D
                         Direction() * 0.35f, 0.20f, 0, strength.SparkSize * 0.7f, 0);
                 }
             }
-            foreach (var meteor in snapshot.Fields.Where(f => f.Kind == "meteor"))
+            foreach (var meteor in snapshot.Fields)
             {
+                if (meteor.Kind != "meteor") continue;
                 var at = ArenaRenderer.World(meteor.Position) + MeteorVisual.FlightPosition(meteor.Lifetime);
                 var trail = MeteorVisual.TrailDirection(meteor.Lifetime);
                 for (int i = 0; i < 3; i++)
@@ -227,8 +228,9 @@ public partial class CombatEffects : Node3D
                             Direction() * 0.4f, 0.24f, 0, strength.SparkSize * 0.75f, 0);
                 }
             }
-            foreach (var field in snapshot.Fields.Where(f => f.Kind is "burning_ground" or "frost_ground" or "water_pool"))
+            foreach (var field in snapshot.Fields)
             {
+                if (field.Kind is not ("burning_ground" or "frost_ground" or "water_pool")) continue;
                 var strength = SpellVisualStrength.For(field.Elements);
                 for (int i = 0; i < strength.ChannelSamples; i++)
                 {
@@ -240,15 +242,16 @@ public partial class CombatEffects : Node3D
             foreach (var wall in snapshot.Walls)
             {
                 if (wall.Health <= 0 || wall.Lifetime <= 0) continue;
-                var spell = new SpellRecipe(wall.Elements);
+                bool fire = wall.Elements.Contains(Element.Fire), water = wall.Elements.Contains(Element.Water);
+                bool steam = fire && water, ice = water && wall.Elements.Contains(Element.Cold);
                 var at = ArenaRenderer.World(V2.Lerp(wall.A, wall.B, (float)_random.NextDouble()), 0.4f);
-                if (spell.Steam)
+                if (steam)
                     Emit(at + Vector3.Up * 0.6f, new Color(0.73f, 0.85f, 0.88f, 0.3f), Vector3.Up * 0.8f, 0.55f, 0, 0.22f, 0);
-                else if (spell.Has(Element.Fire))
-                    Emit(at + Vector3.Up * (spell.Has(Element.Earth) ? 1.1f : 0.4f), Ui.ElementColor(Element.Fire), Vector3.Up * 1.5f, 0.4f, 2, 0.12f, 0);
-                if (spell.Has(Element.Water) && !spell.Steam && !spell.Ice)
+                else if (fire)
+                    Emit(at + Vector3.Up * (wall.Elements.Contains(Element.Earth) ? 1.1f : 0.4f), Ui.ElementColor(Element.Fire), Vector3.Up * 1.5f, 0.4f, 2, 0.12f, 0);
+                if (water && !steam && !ice)
                     Emit(at - Vector3.Up * 0.25f, Ui.IsMobile ? Ui.ElementColor(Element.Cold) : new("a0e6ff"), Direction() * 0.75f, 0.28f, 0, 0.08f, 2);
-                if (spell.Has(Element.Lightning))
+                if (wall.Elements.Contains(Element.Lightning))
                     Emit(at + Vector3.Up * 0.6f, Ui.IsMobile ? Ui.ElementColor(Element.Lightning) : new("c9cdff"), Direction() * 1.7f, 0.16f, 1, 0.055f, 0);
             }
         }

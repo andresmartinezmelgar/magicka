@@ -18,6 +18,8 @@ public partial class ClientVerification
             var visual = _runtime.Renderer.Walls[1];
             if (visual.Stone != combination.Recipe.Has(Element.Earth) || visual.HasElementSurface != elemental ||
                 visual.Charges != combination.Elements.Length) return false;
+            if (visual.Stone && (visual.StoneDrawMeshes != 3 || visual.StoneDrawMeshes >= visual.StoneSourceMeshes ||
+                visual.StoneSourceVertices <= 0 || visual.StoneBatchedVertices != visual.StoneSourceVertices)) return false;
             if (!visual.Stone)
             {
                 var geometry = visual.GetChildren().OfType<Node3D>().First();

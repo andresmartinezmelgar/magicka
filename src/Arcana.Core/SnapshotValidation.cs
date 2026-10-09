@@ -3,8 +3,18 @@ namespace Arcana.Core;
 /// <summary>JSON válido no garantiza un estado válido. Rechaza respuestas incompletas antes de llegar al motor gráfico.</summary>
 public static class SnapshotValidation
 {
-    private static bool Elements(Element[]? values, int maximum = 3) => values != null && values.Length <= maximum && values.All(Enum.IsDefined);
-    private static bool NonNegative(params float[] values) => values.All(v => float.IsFinite(v) && v >= 0);
+    private static bool Elements(Element[]? values, int maximum = 3)
+    {
+        if (values == null || values.Length > maximum) return false;
+        foreach (var value in values) if (!Enum.IsDefined(value)) return false;
+        return true;
+    }
+    private static bool NonNegative(float value) => float.IsFinite(value) && value >= 0;
+    private static bool NonNegative(ReadOnlySpan<float> values)
+    {
+        foreach (float value in values) if (!NonNegative(value)) return false;
+        return true;
+    }
     // La tolerancia cubre extremos de rayos en la frontera y pequeños desplazamientos
     // de rebote. El bastón puede emitir un destello hasta una unidad fuera del suelo.
     private static bool Position(ArenaDefinition map, V2 at, float margin = 0.1f) => at.IsFinite &&
@@ -32,8 +42,8 @@ public static class SnapshotValidation
             if (p == null || p.Id <= 0 || !ids.Add(p.Id) || p.Team is < 0 or > 1 || !Enum.IsDefined(p.WizardType) || p.Name == null || p.Name.Length > 24 ||
                 !Position(map, p.Position) || !Direction(p.Facing) || !Elements(p.Selected) || !Elements(p.Ward, 8) ||
                 p.Cooldowns is not { Length: 4 } || !NonNegative(p.Cooldowns) ||
-                !NonNegative(p.Health, p.MaxHealth, p.Shield, p.Energy, p.Respawn, p.Wet, p.Burning, p.Chill, p.Frozen, p.Haste, p.Charge) ||
-                !NonNegative(p.ShieldMax, p.ShieldSeconds, p.RegenerationRate, p.InvulnerableSeconds) || p.InvulnerableSeconds > 1.2f ||
+                !NonNegative([p.Health, p.MaxHealth, p.Shield, p.Energy, p.Respawn, p.Wet, p.Burning, p.Chill, p.Frozen, p.Haste, p.Charge]) ||
+                !NonNegative([p.ShieldMax, p.ShieldSeconds, p.RegenerationRate, p.InvulnerableSeconds]) || p.InvulnerableSeconds > 1.2f ||
                 !p.Alive && p.InvulnerableSeconds > 0 || p.ShieldCharges is < 1 or > 3 ||
                 !hasPickups && p.RegenerationRate > 76 || p.ShieldMax > 0 && p.Shield > p.ShieldMax ||
                 p.MaxHealth <= 0 || p.Health > p.MaxHealth || p.Alive != (p.Health > 0) ||
@@ -41,15 +51,20 @@ public static class SnapshotValidation
                 p.Energy > 100 || p.Kills < 0 || p.Deaths < 0) Invalid();
             if (p!.CastingElements != null && !Elements(p.CastingElements) ||
                 p.Buffs is { Length: > RelicBuffs.Count } || hasPickups && p.Buffs == null) Invalid();
-            var kinds = new HashSet<BuffKind>();
+            int kinds = 0;
             foreach (var buff in p.Buffs ?? [])
-                if (buff == null || !Enum.IsDefined(buff.Kind) || !kinds.Add(buff.Kind) || buff.Stacks <= 0 || !p.Alive || !hasPickups) Invalid();
+            {
+                if (buff == null || !Enum.IsDefined(buff.Kind) || buff.Stacks <= 0 || !p.Alive || !hasPickups) Invalid();
+                int bit = 1 << (int)buff!.Kind;
+                if ((kinds & bit) != 0) Invalid();
+                kinds |= bit;
+            }
         }
         if (state.Pickups is { Length: > 16 } || hasPickups && state.Pickups?.Length != RelicBuffs.SpawnCount ||
             !hasPickups && state.Pickups is { Length: > 0 }) Invalid();
-        var itemIds = new HashSet<int>();
+        ids.Clear();
         foreach (var item in state.Pickups ?? [])
-            if (item == null || item.Id <= 0 || !itemIds.Add(item.Id) || !Enum.IsDefined(item.Kind) ||
+            if (item == null || item.Id <= 0 || !ids.Add(item.Id) || !Enum.IsDefined(item.Kind) ||
                 !map.Walkable(item.Position) || !NonNegative(item.Respawn) || item.Respawn > RelicBuffs.RespawnSeconds || item.Active != (item.Respawn == 0)) Invalid();
         ids.Clear();
         foreach (var p in state.Projectiles!) if (p == null || p.Id <= 0 || !ids.Add(p.Id) || !Position(map, p.Position) || !Direction(p.Direction) || !Elements(p.Elements) || !Size(p.Radius, 1)) Invalid();

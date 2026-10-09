@@ -30,6 +30,16 @@ public partial class WizardVisual : Node3D
     private readonly List<MeshInstance3D> _elementFills = [];
     private readonly List<Label3D> _elementKeys = [];
     private Element[] _lastCastElements = [];
+    private readonly Element?[] _slotElements = new Element?[3];
+    private readonly List<StandardMaterial3D> _elementMaterials = [];
+    private StandardMaterial3D _shieldMaterial = null!;
+    private Basis _billboardBasis;
+    private int _renderedFrame = -1;
+    private Vector2 _renderedOffset;
+    private float _healthFraction = -1, _shieldFraction = -1;
+    private (string? Name, WizardType Type, int Status, int Respawn) _nameState;
+    private (double Amount, float Maximum) _shieldReading = (-1, -1);
+    private Color? _shieldColor;
     internal Element[] DisplayedElements { get; private set; } = [];
     internal int ElementSlotCount => _elementFills.Count;
     internal bool ElementSlotsVisible => _elementsRoot.Visible;
@@ -57,6 +67,7 @@ public partial class WizardVisual : Node3D
             Vframes = WizardSprites.Rows, PixelSize = _atlas.Spec.PixelSize, Offset = _atlas.Offset(0),
             MaterialOverride = _spriteMaterial, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
         _body.AddChild(_sprite);
+        _renderedOffset = _atlas.Offset(0);
         _shadow = Mesh(this, new CylinderMesh { TopRadius = 0.48f, BottomRadius = 0.48f, Height = 0.01f, RadialSegments = 24 }, new(0, 0.015f, 0),
             new StandardMaterial3D { AlbedoColor = new Color(0, 0, 0, 0.28f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
                 ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
@@ -68,6 +79,7 @@ public partial class WizardVisual : Node3D
             new StandardMaterial3D { AlbedoColor = affinityColor, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
         var shieldMat = new StandardMaterial3D { AlbedoColor = new Color(Ui.Shield.R, Ui.Shield.G, Ui.Shield.B, 0.22f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
             EmissionEnabled = true, Emission = Ui.Shield, EmissionEnergyMultiplier = 0.5f, CullMode = BaseMaterial3D.CullModeEnum.Disabled };
+        _shieldMaterial = shieldMat;
         _shield = Mesh(this, new SphereMesh { Radius = 1.05f, Height = 3.1f }, new(0, 1.45f, 0), shieldMat);
         BuildProtectionBands();
         _ghost = Mesh(this, new SphereMesh { Radius = 0.4f, Height = 1.5f }, new(0, 0.7f, 0),
@@ -96,6 +108,7 @@ public partial class WizardVisual : Node3D
             var fill = Mesh(_elementsRoot, new BoxMesh { Size = new(0.29f, 0.29f, 0.04f) }, new(x, 0, 0.035f),
                 new StandardMaterial3D { AlbedoColor = new("111c2b"), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, NoDepthTest = true });
             _elementFills.Add(fill);
+            _elementMaterials.Add((StandardMaterial3D)fill.MaterialOverride);
             var key = new Label3D { Position = new(x, 0, 0.075f), FontSize = 25, PixelSize = 0.008f,
                 Modulate = new("09111e"), OutlineSize = 0, NoDepthTest = true };
             _elementsRoot.AddChild(key); _elementKeys.Add(key);
@@ -112,7 +125,8 @@ public partial class WizardVisual : Node3D
             p.Alive != _wasAlive || p.Deaths != _deaths || p.Frozen > 0);
         _wasAlive = p.Alive; _deaths = p.Deaths;
         Position = ArenaRenderer.World(_motion.Position);
-        if (_wizardType != p.WizardType || _team != p.Team)
+        bool appearanceChanged = _wizardType != p.WizardType || _team != p.Team;
+        if (appearanceChanged)
         {
             _wizardType = p.WizardType; _team = p.Team;
             _atlas = WizardSprites.Load(_wizardType); _sprite.Texture = _atlas.Texture; _sprite.PixelSize = _atlas.Spec.PixelSize;
@@ -133,11 +147,19 @@ public partial class WizardVisual : Node3D
         _facingRow = WizardSprites.FacingRow(facing, _facingRow);
         int pose = !p.Alive || p.Frozen > 0 ? 0 : casting ? 3 : moving ? (int)(_motion.WalkCycle * 2) : 0;
         int frame = _facingRow * WizardSprites.Columns + pose;
-        if (_sprite.Frame != frame) _sprite.Frame = frame;
+        if (_renderedFrame != frame) { _sprite.Frame = frame; _renderedFrame = frame; }
         Vector2 offset = _atlas.Offset(frame);
-        if (_sprite.Offset != offset) _sprite.Offset = offset;
-        _body.Basis = camera.GlobalBasis;
-        _body.Position = camera.GlobalBasis.Y * (moving ? Math.Abs(Mathf.Sin(_motion.WalkCycle * Mathf.Tau)) * 0.025f : 0) + new Vector3(0, 0.03f, 0);
+        if (_renderedOffset != offset) { _sprite.Offset = offset; _renderedOffset = offset; }
+        var basis = camera.GlobalBasis;
+        if (_billboardBasis != basis || appearanceChanged)
+        {
+            _billboardBasis = basis;
+            _body.Basis = _healthRoot.Basis = _elementsRoot.Basis = basis;
+            _healthRoot.Position = basis.Y * 2.25f;
+            _name.Position = basis.Y * (p.WizardType == WizardType.Balanced ? 3.22f : 3.54f);
+            _elementsRoot.Position = basis.Y * (p.WizardType == WizardType.Balanced ? 3.65f : 4.02f);
+        }
+        _body.Position = basis.Y * (moving ? Math.Abs(Mathf.Sin(_motion.WalkCycle * Mathf.Tau)) * 0.025f : 0) + new Vector3(0, 0.03f, 0);
         _body.Visible = p.Alive; _ghost.Visible = !p.Alive; _halo.Visible = _shadow.Visible = p.Alive;
         _hitFlash = Math.Max(0, _hitFlash - dt);
         if (p.Alive && p.Health < _previousHealth - 0.5f) _hitFlash = 0.12f;
@@ -145,46 +167,55 @@ public partial class WizardVisual : Node3D
         float flash = _hitFlash / 0.12f * 0.5f;
         if (Math.Abs(flash - _renderedFlash) > 0.001f)
         { _spriteMaterial.SetShaderParameter("hit_flash", flash); _renderedFlash = flash; }
-        _healthRoot.Position = camera.GlobalBasis.Y * 2.25f;
-        _healthRoot.Basis = camera.GlobalBasis;
-        _name.Position = camera.GlobalBasis.Y * (p.WizardType == WizardType.Balanced ? 3.22f : 3.54f);
-        _elementsRoot.Position = camera.GlobalBasis.Y * (p.WizardType == WizardType.Balanced ? 3.65f : 4.02f);
-        _elementsRoot.Basis = camera.GlobalBasis; _elementsRoot.Visible = p.Alive;
+        _elementsRoot.Visible = p.Alive;
         var elements = p.DisplayElements.Length > 0 ? p.DisplayElements : _castPose > 0 ? _lastCastElements : [];
         DisplayedElements = p.Alive ? elements : [];
         for (int i = 0; i < 3; i++)
         {
-            bool filled = p.Alive && i < elements.Length;
-            ((StandardMaterial3D)_elementFills[i].MaterialOverride).AlbedoColor = filled ? Ui.ElementColor(elements[i]) : new("111c2b");
-            _elementKeys[i].Text = filled ? Ui.ElementKey(elements[i]) : "";
+            Element? value = p.Alive && i < elements.Length ? elements[i] : null;
+            if (_slotElements[i] == value) continue;
+            _slotElements[i] = value;
+            _elementMaterials[i].AlbedoColor = value is Element selected ? Ui.ElementColor(selected) : new("111c2b");
+            _elementKeys[i].Text = value is Element key ? Ui.ElementKey(key) : "";
         }
         _affinityRing.Visible = p.Alive && p.WizardType != WizardType.Balanced;
         _affinityRing.Scale = Vector3.One * (1 + Mathf.Sin(time * 2 + p.Id) * 0.04f);
         bool spawnProtected = p.Alive && p.InvulnerableSeconds > 0;
-        _shield.Visible = p.Alive && (p.Shield > 0 || p.Frozen > 0 || spawnProtected);
-        if (_shield.MaterialOverride is StandardMaterial3D shieldMat)
+        bool protectedBody = p.Alive && (p.Shield > 0 || p.Frozen > 0 || spawnProtected);
+        _shield.Visible = protectedBody;
+        if (protectedBody)
         {
             var c = p.Frozen > 0 ? Ui.ElementColor(Element.Cold) : p.Ward.Length > 0 ? Ui.SpellColor(p.Ward) : Ui.Shield;
             c.A = p.Frozen > 0 ? 0.42f : 0.12f + 0.10f * Math.Clamp(p.Shield / Ui.ShieldMaximum(p), 0, 1);
             if (p.Shield > 0 && p.Frozen <= 0) c.A += (p.ShieldCharges - 1) * 0.035f * Math.Clamp(p.Shield / Ui.ShieldMaximum(p), 0, 1);
             if (spawnProtected) c = new Color(new Color("fff2a3"), 0.20f + 0.035f * Mathf.Sin(time * 12));
-            shieldMat.AlbedoColor = c; shieldMat.Emission = c;
+            if (_shieldColor != c) { _shieldMaterial.AlbedoColor = c; _shieldMaterial.Emission = c; _shieldColor = c; }
+            _shield.Scale = Vector3.One * (1 + Mathf.Sin(time * 3) * 0.03f);
         }
-        _shield.Scale = Vector3.One * (1 + Mathf.Sin(time * 3) * 0.03f);
         UpdateProtectionBands(p, time);
-        _name.Text = p.Name + (!p.Alive ? $"  {Mathf.CeilToInt(p.Respawn)}s" : spawnProtected ? "  INMUNE" : p.Frozen > 0 ? "  CONGELADO" : p.Burning > 0 ? "  FUEGO" : p.Wet > 0 ? "  MOJADO" : "")
-            + (p.WizardType != WizardType.Balanced ? "\n" + WizardTypes.Name(p.WizardType) : "");
+        int status = !p.Alive ? 5 : spawnProtected ? 4 : p.Frozen > 0 ? 3 : p.Burning > 0 ? 2 : p.Wet > 0 ? 1 : 0;
+        var nameState = (p.Name, p.WizardType, status, !p.Alive ? Mathf.CeilToInt(p.Respawn) : 0);
+        if (_nameState != nameState)
+        {
+            _nameState = nameState;
+            _name.Text = p.Name + (!p.Alive ? $"  {nameState.Item4}s" : spawnProtected ? "  INMUNE" : p.Frozen > 0 ? "  CONGELADO" : p.Burning > 0 ? "  FUEGO" : p.Wet > 0 ? "  MOJADO" : "")
+                + (p.WizardType != WizardType.Balanced ? "\n" + WizardTypes.Name(p.WizardType) : "");
+        }
         _healthRoot.Visible = p.Alive;
         float hp = Math.Clamp(p.Health / p.MaxHealth, 0, 1);
         _healthFill.Visible = p.Health > 0;
-        _healthFill.Scale = new(hp, 1, 1); _healthFill.Position = new(-(1 - hp) * 0.67f, 0, 0.03f);
+        if (_healthFraction != hp)
+        { _healthFill.Scale = new(hp, 1, 1); _healthFill.Position = new(-(1 - hp) * 0.67f, 0, 0.03f); _healthFraction = hp; }
         bool shielded = p.Alive && p.Shield > 0;
         _shieldTrack.Visible = _shieldFill.Visible = _shieldAmount.Visible = shielded;
         if (shielded)
         {
             float fraction = Math.Clamp(p.Shield / Ui.ShieldMaximum(p), 0, 1);
-            _shieldFill.Scale = new(fraction, 1, 1); _shieldFill.Position = new(-(1 - fraction) * 0.67f, 0.19f, 0.03f);
-            _shieldAmount.Text = $"{Math.Ceiling(p.Shield):0}/{Ui.ShieldMaximum(p):0}";
+            if (_shieldFraction != fraction)
+            { _shieldFill.Scale = new(fraction, 1, 1); _shieldFill.Position = new(-(1 - fraction) * 0.67f, 0.19f, 0.03f); _shieldFraction = fraction; }
+            var reading = (Math.Ceiling(p.Shield), Ui.ShieldMaximum(p));
+            if (_shieldReading != reading)
+            { _shieldAmount.Text = $"{reading.Item1:0}/{reading.Item2:0}"; _shieldReading = reading; }
         }
     }
     public void PlayCastPose(Element[]? elements = null)

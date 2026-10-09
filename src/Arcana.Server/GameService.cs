@@ -150,7 +150,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                 }
                 foreach (var snapshot in snapshots)
                 {
-                    var bytes = Encoding.UTF8.GetBytes(Protocol.Serialize(new ServerMessage { Type = "snapshot", Snapshot = snapshot.World }));
+                    var bytes = Protocol.SerializeUtf8(new ServerMessage { Type = "snapshot", Snapshot = snapshot.World });
                     foreach (var session in snapshot.Recipients) session.Outbox.Writer.TryWrite(bytes);
                 }
             }
@@ -180,9 +180,10 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
         try
         {
             socket = await context.WebSockets.AcceptWebSocketAsync();
+            var receiveBuffer = new byte[Protocol.MaxMessageBytes + 1];
             using var handshake = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, _stopping.Token);
             handshake.CancelAfter(TimeSpan.FromSeconds(5));
-            var hello = await Receive(socket, handshake.Token);
+            var hello = await Receive(socket, receiveBuffer, handshake.Token);
             if (hello is not { Type: "hello" } || hello.Protocol != Protocol.Version)
             { await RejectLogged("La versión del cliente no coincide con la del servidor.", handshake.Token); return; }
             if (!Enum.IsDefined(hello.WizardType))
@@ -219,7 +220,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                 long window = Environment.TickCount64; int count = 0;
                 while (socket.State == WebSocketState.Open && !connection.IsCancellationRequested)
                 {
-                    var message = await Receive(socket, connection.Token);
+                    var message = await Receive(socket, receiveBuffer, connection.Token);
                     if (message == null) break;
                     long now = Environment.TickCount64;
                     if (now - window >= 1000) { window = now; count = 0; }
@@ -274,15 +275,15 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             await session.Socket.SendAsync(data.AsMemory(), WebSocketMessageType.Text, true, token);
     }
     private static Task Send(WebSocket socket, ServerMessage message, CancellationToken token) =>
-        socket.SendAsync(Encoding.UTF8.GetBytes(Protocol.Serialize(message)), WebSocketMessageType.Text, true, token);
+        socket.SendAsync(Protocol.SerializeUtf8(message), WebSocketMessageType.Text, true, token);
     private static async Task Reject(WebSocket socket, string reason, CancellationToken token)
     {
         await Send(socket, new ServerMessage { Type = "error", Error = reason }, token);
         await socket.CloseOutputAsync(WebSocketCloseStatus.PolicyViolation, reason, token);
     }
-    private static async Task<ClientMessage?> Receive(WebSocket socket, CancellationToken token)
+    private static async Task<ClientMessage?> Receive(WebSocket socket, byte[] buffer, CancellationToken token)
     {
-        var buffer = new byte[Protocol.MaxMessageBytes + 1]; int size = 0;
+        int size = 0;
         while (true)
         {
             var result = await socket.ReceiveAsync(buffer.AsMemory(size), token);
@@ -292,7 +293,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             if (size > Protocol.MaxMessageBytes) throw new InvalidDataException("Mensaje demasiado grande.");
             if (result.EndOfMessage)
             {
-                var message = Protocol.Deserialize<ClientMessage>(Encoding.UTF8.GetString(buffer, 0, size));
+                var message = Protocol.Deserialize<ClientMessage>(buffer.AsSpan(0, size));
                 if (message != null && ((message.Name?.Length ?? 0) > 64 || (message.Password?.Length ?? 0) > 128 ||
                     (message.RoomPassword?.Length ?? 0) > 128 || (message.RoomId?.Length ?? 0) > 64))
                     throw new InvalidDataException("Datos demasiado largos.");

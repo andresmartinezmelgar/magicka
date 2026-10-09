@@ -190,6 +190,10 @@ public partial class ClientVerification
             }
         }
         // Un hechizo ya lanzado conserva su nivel aunque se preparen tres elementos para el siguiente.
+        var steady = empty with { Beams = [new(1, new(-3, 0), new(3, 0), [Element.Arcane], SpellShape.Beam)] };
+        _runtime.Renderer.Render(steady, 0, 1/60.0, true);
+        _runtime.Renderer.Render(steady with { Beams = [steady.Beams[0] with { To = new(7, 0) }] }, 0, 1/60.0, true);
+        valid &= _runtime.Renderer.BeamGeometryUpdates == 0 && _runtime.Renderer.ActiveBeamSegments > 0;
         probe.Clear();
         var caster = _runtime.Snapshot!.Players[0] with { Burning=0,Wet=0,Chill=0,Frozen=0,Haste=0,RegenerationRate=0,
             Casting=true,Charge=0,Selected=[Element.Fire,Element.Fire,Element.Fire],CastingElements=[Element.Arcane] };

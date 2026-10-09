@@ -7,7 +7,10 @@ public readonly record struct V2(float X, float Y)
     [System.Text.Json.Serialization.JsonIgnore] public float LengthSquared => X * X + Y * Y;
     [System.Text.Json.Serialization.JsonIgnore] public float Length => MathF.Sqrt(LengthSquared);
     [System.Text.Json.Serialization.JsonIgnore] public bool IsFinite => float.IsFinite(X) && float.IsFinite(Y);
-    [System.Text.Json.Serialization.JsonIgnore] public V2 Normalized => Length > 0.0001f ? this / Length : Zero;
+    [System.Text.Json.Serialization.JsonIgnore] public V2 Normalized
+    {
+        get { float length = Length; return length > 0.0001f ? this / length : Zero; }
+    }
     [System.Text.Json.Serialization.JsonIgnore] public V2 Perpendicular => new(-Y, X);
     public static V2 operator +(V2 a, V2 b) => new(a.X + b.X, a.Y + b.Y);
     public static V2 operator -(V2 a, V2 b) => new(a.X - b.X, a.Y - b.Y);
@@ -54,6 +57,7 @@ public static class Geometry
     // Devuelve la primera intersección con un círculo, normalizada entre 0 y 1.
     public static float? SegmentCircle(V2 from, V2 to, V2 center, float radius)
     {
+        if (OutsideBounds(from, to, center, center, radius)) return null;
         var d = to - from;
         var f = from - center;
         if (f.LengthSquared <= radius * radius) return 0;
@@ -70,6 +74,7 @@ public static class Geometry
     /// <summary>Primera colisión de un círculo en movimiento con un segmento y sus extremos.</summary>
     public static float? SegmentCapsule(V2 from, V2 to, V2 a, V2 b, float radius)
     {
+        if (OutsideBounds(from, to, a, b, radius)) return null;
         if (DistanceToSegment(from, a, b) <= radius) return 0;
         float? best = SegmentCircle(from, to, a, radius);
         if (SegmentCircle(from, to, b, radius) is float end && (best == null || end < best)) best = end;
@@ -86,6 +91,17 @@ public static class Geometry
             if (along >= 0 && along <= 1) best = t;
         }
         return best;
+    }
+
+    // Filtro conservador: la prueba exacta sigue resolviendo contactos y esquinas.
+    // El margen evita descartar tangencias por el redondeo de coordenadas.
+    private static bool OutsideBounds(V2 from, V2 to, V2 a, V2 b, float radius)
+    {
+        float padding = radius + 0.00001f;
+        return radius >= 0 && (Math.Min(from.X, to.X) > Math.Max(a.X, b.X) + padding ||
+            Math.Max(from.X, to.X) < Math.Min(a.X, b.X) - padding ||
+            Math.Min(from.Y, to.Y) > Math.Max(a.Y, b.Y) + padding ||
+            Math.Max(from.Y, to.Y) < Math.Min(a.Y, b.Y) - padding);
     }
 }
 

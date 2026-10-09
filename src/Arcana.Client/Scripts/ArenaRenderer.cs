@@ -15,7 +15,18 @@ public partial class ArenaRenderer : Node3D
     internal IReadOnlyDictionary<int, BarrierVisual> Walls => _walls;
     private readonly Dictionary<int, Node3D> _fields = [];
     internal IReadOnlyDictionary<int, Node3D> Fields => _fields;
-    private readonly List<(Node3D Root, MeshInstance3D Mesh, CylinderMesh Shape, ShaderMaterial Skin)> _beamPool = [];
+    private sealed class BeamVisual(Node3D root, MeshInstance3D mesh, CylinderMesh shape, ShaderMaterial skin)
+    {
+        internal readonly Node3D Root = root;
+        internal readonly MeshInstance3D Mesh = mesh;
+        internal readonly CylinderMesh Shape = shape;
+        internal readonly ShaderMaterial Skin = skin;
+        internal float Radius = -1, EndRadius = -1, Span = -1, Power = -1;
+        internal int Profile = -1, Charges = -1;
+        internal Color? Color, Accent;
+        internal Material? Material;
+    }
+    private readonly List<BeamVisual> _beamPool = [];
     private readonly CombatEffects _effects = new();
     public CombatEffects Effects => _effects;
     private readonly Dictionary<int, CapturePointVisual> _points = [];
@@ -36,6 +47,7 @@ public partial class ArenaRenderer : Node3D
     private float _zoom = 27;
     private int _beamUsed;
     internal int ActiveBeamSegments => _beamUsed;
+    internal int BeamGeometryUpdates { get; private set; }
     private Godot.Environment _environment = null!;
     private DirectionalLight3D _sun = null!;
     public bool AudioEnabled { get; set; } = true;
@@ -93,7 +105,7 @@ public partial class ArenaRenderer : Node3D
         _effects.Clear();
         foreach (var point in _points.Values) point.Reset();
         foreach (var beam in _beamPool) beam.Root.Visible = false;
-        _beamUsed = 0;
+        _beamUsed = 0; BeamGeometryUpdates = 0;
         _lastEvent = 0; _lastSnapshot = null;
     }
 
@@ -173,7 +185,7 @@ public partial class ArenaRenderer : Node3D
             }
             visual.Update(p, dt, (float)_time, Camera, snapshot.Time, InterpolationDelay);
         }
-        if (_fresh) RemoveMissing(_wizards, snapshot.Players.Select(p => p.Id));
+        if (_fresh) RemoveMissing(_wizards, snapshot.Players, static p => p.Id);
         var local = snapshot.Players.FirstOrDefault(p => p.Id == localId);
         float followX = _map.Id == ArenaMapId.Classic ? 7 : _map.HalfWidth - 8;
         float followY = _map.Id == ArenaMapId.Classic ? 4 : _map.HalfHeight - 7;
@@ -194,7 +206,8 @@ public partial class ArenaRenderer : Node3D
             visual.Update(point, dt, (float)_time);
         }
         UpdateFrontline(snapshot, (float)_time);
-        if (_practiceCasterLabel != null) _practiceCasterLabel.Text = PracticeCasterDescription;
+        if (_practiceCasterLabel != null && _practiceCasterLabel.Text != PracticeCasterDescription)
+            _practiceCasterLabel.Text = PracticeCasterDescription;
         DrawProjectiles(snapshot, dt);
         DrawWalls(snapshot, dt);
         DrawFields(snapshot, dt);
@@ -204,14 +217,15 @@ public partial class ArenaRenderer : Node3D
             { visual = new RelicVisual(); AddChild(visual); visual.Build(item); _pickups[item.Id] = visual; }
             visual.Update(item, (float)_time);
         }
-        if (_fresh) RemoveMissing(_pickups, (snapshot.Pickups ?? []).Select(i => i.Id));
-        _beamUsed = 0;
+        if (_fresh) RemoveMissing(_pickups, snapshot.Pickups ?? [], static p => p.Id);
+        _beamUsed = 0; BeamGeometryUpdates = 0;
         // Dibuja primero todos los canales; el presupuesto de detalle nunca oculta un rayo.
         foreach (var beam in snapshot.Beams) DrawBeam(beam, false);
         foreach (var beam in snapshot.Beams) DrawBeam(beam, true);
         for (int i = _beamUsed; i < _beamPool.Count; i++) _beamPool[i].Root.Visible = false;
-        foreach (var e in snapshot.Events.Where(e => e.Id > _lastEvent))
+        foreach (var e in snapshot.Events)
         {
+            if (e.Id <= _lastEvent) continue;
             if (playing)
             {
                 _effects.Play(e);
@@ -229,12 +243,12 @@ public partial class ArenaRenderer : Node3D
         _effects.Advance(snapshot, dt, playing);
     }
 
-    private void RemoveMissing<T>(Dictionary<int, T> nodes, IEnumerable<int> present) where T : Node
+    private void RemoveMissing<T, TState>(Dictionary<int, T> nodes, TState[] present, Func<TState, int> id) where T : Node
     {
         _present.Clear(); _removed.Clear();
-        foreach (int id in present) _present.Add(id);
-        foreach (int id in nodes.Keys) if (!_present.Contains(id)) _removed.Add(id);
-        foreach (int id in _removed) { nodes[id].QueueFree(); nodes.Remove(id); }
+        foreach (var item in present) _present.Add(id(item));
+        foreach (int key in nodes.Keys) if (!_present.Contains(key)) _removed.Add(key);
+        foreach (int key in _removed) { nodes[key].QueueFree(); nodes.Remove(key); }
     }
 
     private void DrawProjectiles(WorldSnapshot snapshot, float dt)
@@ -263,7 +277,7 @@ public partial class ArenaRenderer : Node3D
             root.Position = root.Position.Lerp(World(projectile.Position, 0.9f), 1 - Mathf.Exp(-35 * dt));
             root.Rotation += new Vector3(dt * 4, dt * 3, dt * 2);
         }
-        if (_fresh) RemoveMissing(_projectiles, snapshot.Projectiles.Select(p => p.Id));
+        if (_fresh) RemoveMissing(_projectiles, snapshot.Projectiles, static p => p.Id);
     }
     private void DrawWalls(WorldSnapshot snapshot, float delta)
     {
@@ -275,7 +289,7 @@ public partial class ArenaRenderer : Node3D
             }
             visual.Update(wall, delta, (float)_time);
         }
-        if (_fresh) RemoveMissing(_walls, snapshot.Walls.Select(w => w.Id));
+        if (_fresh) RemoveMissing(_walls, snapshot.Walls, static p => p.Id);
     }
     private void DrawFields(WorldSnapshot snapshot, float delta)
     {
@@ -331,7 +345,7 @@ public partial class ArenaRenderer : Node3D
             if (root.GetNodeOrNull<MeshInstance3D>("MineCore") is { } mineCore)
                 mineCore.Visible = field.Armed || (int)(_time * 10) % 2 == 0;
         }
-        if (_fresh) RemoveMissing(_fields, snapshot.Fields.Select(f => f.Id));
+        if (_fresh) RemoveMissing(_fields, snapshot.Fields, static p => p.Id);
     }
 
 }

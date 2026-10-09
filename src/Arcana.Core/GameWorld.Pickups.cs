@@ -55,8 +55,14 @@ public sealed partial class GameWorld
             if (item.Respawn > 0) continue;
             if (returning && Map.RandomPickups) RelocatePickup(item);
             // El servidor resuelve un único ganador, también si dos magos llegan en el mismo paso.
-            var player = _players.Values.Where(p => p.Alive && V2.Distance(p.Position, item.Position) < RelicBuffs.PickupRadius)
-                .OrderBy(p => (p.Position - item.Position).LengthSquared).ThenBy(p => p.Id).FirstOrDefault();
+            Wizard? player = null; float closest = float.PositiveInfinity;
+            foreach (var candidate in _players.Values)
+            {
+                if (!candidate.Alive || !(V2.Distance(candidate.Position, item.Position) < RelicBuffs.PickupRadius)) continue;
+                float distance = (candidate.Position - item.Position).LengthSquared;
+                if (distance < closest || distance == closest && (player == null || candidate.Id < player.Id))
+                { player = candidate; closest = distance; }
+            }
             if (player == null) continue;
             RelicBuffs.Add(player, item.Kind); item.Respawn = RelicBuffs.RespawnSeconds;
             Emit("pickup", item.Position, [], player.Name + ": " + RelicBuffs.Name(item.Kind) + " ×" + player.BuffStacks[(int)item.Kind]);

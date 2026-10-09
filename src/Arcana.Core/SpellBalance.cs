@@ -23,7 +23,12 @@ public static class SpellBalance
         Element.Cold => (spell.Ice ? Ice : Cold) * spell.Count(element),
         _ => 0
     };
-    public static float Damage(SpellRecipe spell, bool wet = false) => Offensive.Sum(e => Component(spell, e, wet));
+    public static float Damage(SpellRecipe spell, bool wet = false)
+    {
+        double damage = 0; // Sum(float) acumula en doble precisión.
+        foreach (var element in Offensive) damage += Component(spell, element, wet);
+        return (float)damage;
+    }
     public static float BeamDamageMultiplier(float seconds) => BeamMinimumDamage +
         (BeamMaximumDamage - BeamMinimumDamage) * Math.Clamp(seconds / BeamChargeSeconds, 0, 1);
     private static string N(float value) => value.ToString("0.##", CultureInfo.InvariantCulture);
