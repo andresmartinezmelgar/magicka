@@ -26,12 +26,15 @@ public partial class ClientVerification
         var objective = (Label)_runtime.Hud!.FindChild("MatchObjective", true, false);
         var map = ArenaMap.Get(snapshot.Map);
         bool valid = choice.ItemCount == Enum.GetValues<ArenaMapId>().Length && _runtime.Renderer.CurrentMap == snapshot.Map && _runtime.Renderer.Points.Count == map.ControlPoints.Count &&
+            _runtime.Renderer.SceneryDrawMeshes < _runtime.Renderer.ScenerySourceMeshes &&
+            _runtime.Renderer.ScenerySourceVertices > 0 && _runtime.Renderer.ScenerySourceVertices == _runtime.Renderer.SceneryBatchedVertices &&
             _runtime.Renderer.SceneryTheme == map.Theme && (map.Theme == ArenaTheme.City ? _runtime.Renderer.SceneryBuildings >= 12 : _runtime.Renderer.SceneryTrees >= 20) &&
             _runtime.Renderer.GetChildren().Count(n => n.Name == "MapGeometry") == 1 &&
             snapshot.Points.All(p => _runtime.Renderer.Points[p.Id].Position == ArenaRenderer.World(p.Position));
         if (snapshot.Map == ArenaMapId.Citadel) valid &= objective.Text.Contains($"{snapshot.HoldSeconds:0.0} / 15 s") && Math.Abs(_runtime.Renderer.Camera.Position.X) > 40;
         else if (map.SequentialCapture) valid &= objective.Text.Contains("cinco") && !objective.Text.Contains("tickets") &&
             _runtime.Renderer.FindChildren("TeleportPortal*", "", true, false).Count == map.Teleports.Count * 2;
+        else if (map.IsPractice) valid &= objective.Text.Contains("Sin puntos");
         else valid &= objective.Text.Contains("tickets");
         if (snapshot.Map == ArenaMapId.Ascension)
         {
@@ -56,10 +59,10 @@ public partial class ClientVerification
             valid &= texture != null && texture.GetWidth() == 512 && texture.GetHeight() == 512 &&
                 !point.HasNode("CaptureContrast") && !point.HasNode("CaptureLabel") && point.HasNode("CaptureProgress");
         }
-        if (_renderFrames >= 180) valid &= CheckCaptureCircleVisuals();
+        if (_renderFrames >= 210) valid &= CheckCaptureCircleVisuals();
         if (!valid) { GD.PushError($"MAPS_SMOKE_FAILED: {map.Name}, cámara, selector, contador o geometría incorrectos"); GetTree().Quit(1); return; }
         GD.Print($"MAP_CASE_OK: {map.Name}, {map.Area} unidades²");
-        if (_renderFrames >= 180) CompleteSmoke("MAPS_SMOKE_OK: cinco mapas, portales, círculos sin etiquetas, objetos móviles, mejoras y tres casillas");
+        if (_renderFrames >= 210) CompleteSmoke("MAPS_SMOKE_OK: seis mapas, cambios entre frente y laboratorio, geometría agrupada, portales, objetos y captura");
     }
 
     private bool CheckCaptureCircleVisuals()

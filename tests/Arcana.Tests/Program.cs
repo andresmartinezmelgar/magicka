@@ -1,5 +1,11 @@
 using Arcana.Core;
 
+if (args.Contains("--profile-maps"))
+{
+    MapPerformanceBenchmarks.Run(args.LastOrDefault(a => a.StartsWith("--profile-output="))?[17..] ?? "artifacts/profiles/map-simulation.json");
+    return 0;
+}
+
 int passed = 0, failed = 0;
 void Check(bool condition, string reason) { if (!condition) throw new Exception(reason); }
 void Test(string name, Action action)
@@ -1607,12 +1613,16 @@ if (server != null)
             connection.Latest.Players.Single().MaxHealth == 1000 && connection.Latest.HoldingTeam == -1 &&
             connection.Latest.Points.Select(p => p.Position).SequenceEqual(ArenaMap.Get(ArenaMapId.Ascension).ControlPoints),
             "El saludo o la geometría no coinciden con la sala.");
-        await Task.Delay(1300);
+        await WaitFor(() => connection.Latest!.Players.Single().InvulnerableSeconds <= 0, "No terminó la protección inicial.");
         for (int i = 0; i < 3; i++)
         {
+            float health = connection.Latest!.Players.Single().Health;
             for (int element = 0; element < 3; element++) connection.Send(new() { Type = "element", Element = Element.Arcane });
             connection.Send(new() { Type = "self" });
-            await Task.Delay(550);
+            await WaitFor(() => connection.Latest!.Players.Single().Health < health, "No se replicó el autodaño.");
+            if (!connection.Latest!.Players.Single().Alive) break;
+            double readyAt = connection.Latest.Time + 0.5;
+            await WaitFor(() => connection.Latest!.Time >= readyAt, "La simulación no completó el enfriamiento.");
         }
         await WaitFor(() => connection.Latest!.Players.Single().Deaths == 1, "No se replicó la muerte.");
         var dead = connection.Latest!.Players.Single();

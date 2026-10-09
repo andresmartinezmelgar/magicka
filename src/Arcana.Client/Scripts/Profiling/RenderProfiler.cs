@@ -15,6 +15,8 @@ public partial class RenderProfiler : Node
     private readonly Stopwatch _clock = new();
     private ArenaRenderer _renderer = null!;
     private RenderStressScene _scene = null!;
+    private WorldSnapshot? _scenerySnapshot;
+    private bool _scenery;
     private EngineLogBridge _engineLog = null!;
     private Label _status = null!;
     private Control _overlay = null!;
@@ -48,12 +50,15 @@ public partial class RenderProfiler : Node
         _environment = args.LastOrDefault(a => a.StartsWith("--profile-environment="))?[22..] ?? "local";
         if (_environment.Length > 64) throw new ArgumentException("Etiqueta de entorno demasiado larga.");
         _scene = new(_map); SnapshotValidation.Check(_scene.Frame(1));
+        _scenery = args.Contains("--profile-scenery");
+        if (_scenery) _scenerySnapshot = _scene.Frame(1) with
+        { Players = [], Projectiles = [], Walls = [], Fields = [], Beams = [], Events = [], Pickups = [] };
         _savedZoom = _renderer.CurrentZoom; _savedPoints = _renderer.ShowControlPoints; _savedAudio = _renderer.AudioEnabled;
         _configured = true; _renderer.AudioEnabled = false;
         _renderer.Clear(); _renderer.SetPreviewZoom(38); _renderer.ShowControlPoints = true;
         _overlay = new VBoxContainer { Position = new(24, 24) }; ui.AddChild(_overlay);
         _overlay.AddThemeConstantOverride("separation", 10);
-        _status = Ui.Label("Medición gráfica · 16 magos y carga máxima", 20, Ui.Gold); _overlay.AddChild(_status);
+        _status = Ui.Label(_scenery ? "Medición gráfica · decoración del mapa" : "Medición gráfica · 16 magos y carga máxima", 20, Ui.Gold); _overlay.AddChild(_status);
         _overlay.AddChild(Ui.Button("Cancelar medición", Cancel));
         RenderingServer.ViewportSetMeasureRenderTime(GetViewport().GetViewportRid(), true);
         _clock.Start();
@@ -85,9 +90,10 @@ public partial class RenderProfiler : Node
             else if (_frame >= 1 && now - _warmStart >= _warmup * 1000) { _measuring = true; _measureStart = now; }
             _lastTime = now;
             var began = Stopwatch.GetTimestamp();
-            _renderer.Render(_scene.Frame(++_frame), 0, 1 / 60.0, true);
+            ++_frame;
+            _renderer.Render(_scenery ? _scenerySnapshot! : _scene.Frame(_frame), 0, 1 / 60.0, true);
             _lastCpu = Stopwatch.GetElapsedTime(began).TotalMilliseconds;
-            _status.Text = $"Medición gráfica · 16 magos y carga máxima\n{(_measuring ? "Midiendo" : "Calentando")} · {_samples.Count} muestras";
+            _status.Text = $"Medición gráfica · {(_scenery ? "decoración del mapa" : "16 magos y carga máxima")}\n{(_measuring ? "Midiendo" : "Calentando")} · {_samples.Count} muestras";
         }
         catch (Exception error) { Fail(error); }
     }
@@ -105,14 +111,14 @@ public partial class RenderProfiler : Node
         var report = new
         {
             schema = 1, version = BuildInfo.Version, timestampUtc = DateTimeOffset.UtcNow, environment = _environment,
-            scope = "synthetic_local_render_scene", canceled, map = _map.ToString(), seed = 271,
+            scope = _scenery ? "static_map_render_scene" : "synthetic_local_render_scene", canceled, map = _map.ToString(), seed = 271,
             device = new { os = OS.GetName(), model = OS.GetModelName(), gpu = RenderingServer.GetVideoAdapterName(),
                 renderer = RenderingServer.GetCurrentRenderingMethod(), driver = RenderingServer.GetCurrentRenderingDriverName(),
                 editor = OS.HasFeature("editor"), mobile = Ui.IsMobile, maxFps = Engine.MaxFps,
                 windowWidth = GetWindow().Size.X, windowHeight = GetWindow().Size.Y,
                 viewportWidth = GetViewport().GetVisibleRect().Size.X, viewportHeight = GetViewport().GetVisibleRect().Size.Y },
-            scene = new { players = RenderStressScene.Players, projectiles = RenderStressScene.Projectiles, walls = RenderStressScene.Walls,
-                fields = RenderStressScene.Fields, beams = RenderStressScene.Beams, eventsPerFrame = RenderStressScene.Events },
+            scene = new { players = _scenery ? 0 : RenderStressScene.Players, projectiles = _scenery ? 0 : RenderStressScene.Projectiles, walls = _scenery ? 0 : RenderStressScene.Walls,
+                fields = _scenery ? 0 : RenderStressScene.Fields, beams = _scenery ? 0 : RenderStressScene.Beams, eventsPerFrame = _scenery ? 0 : RenderStressScene.Events },
             warmupSeconds = _warmup, requestedSeconds = _seconds, measuredSeconds = measured, samples = _samples.Count,
             averageFps = measured > 0 ? _samples.Count / measured : (double?)null,
             metrics = new { frameMs = Stats(s => s.FrameMs), clientCpuMs = Stats(s => s.ClientCpuMs), engineProcessMs = Stats(s => s.EngineProcessMs),

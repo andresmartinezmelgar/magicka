@@ -61,7 +61,8 @@ public partial class ArenaRenderer : Node3D
         var light = new DirectionalLight3D
         {
             RotationDegrees = new(-53, -28, 0), LightColor = new Color("fff0dd"),
-            LightEnergy = 1.10f, ShadowEnabled = true
+            LightEnergy = 1.10f, ShadowEnabled = true,
+            DirectionalShadowMode = DirectionalLight3D.ShadowMode.Orthogonal, DirectionalShadowMaxDistance = 70
         };
         _sun = light; AddChild(light);
         Camera = new Camera3D { Projection = Camera3D.ProjectionType.Orthogonal, Size = _zoom,
@@ -135,6 +136,7 @@ public partial class ArenaRenderer : Node3D
         _points.Clear();
         var rootMap = new Node3D { Name = "MapGeometry" }; _mapRoot = rootMap; AddChild(rootMap);
         BuildScenery(rootMap);
+        _portals.Clear(); _frontlineSpawns.Clear();
         _practiceCasterLabel = null;
         if (_map.IsPractice) { BuildPracticeMap(rootMap); return; }
         for (int team = 0; team < 2; team++)

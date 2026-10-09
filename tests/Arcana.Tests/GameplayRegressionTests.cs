@@ -104,6 +104,19 @@ internal static class GameplayRegressionTests
                 from = at;
             }
         });
+        test("Navegación: usa otro nodo cercano si un muro tapa el más próximo", () =>
+        {
+            var map = ArenaMap.Get(ArenaMapId.Citadel);
+            var from = new V2(-44, -4); var goal = new V2(44, 26);
+            var a = new V2(-44.75f, -6); var b = new V2(-44.75f, 0);
+            bool Clear(V2 x, V2 y) => Geometry.SegmentCapsule(x, y, a, b, ArenaMap.WizardRadius + 0.18f) == null;
+            Check(map.Walkable(from) && map.Walkable(goal) && !map.ClearPath(from, goal), "La prueba no requiere una ruta.");
+            Check(!Clear(from, new(-45, -5)) && Clear(from, new(-43, -5)), "El muro no tapa únicamente el ancla más próxima.");
+            var route = map.FindPath(from, goal, Clear);
+            Check(route.Length > 0 && route[^1] == goal, "No se encontró el ancla alternativa.");
+            foreach (var next in route)
+            { Check(map.ClearPath(from, next) && Clear(from, next), "La ruta atravesó el muro o salió del suelo."); from = next; }
+        });
         test("Bots: alcanzan y destruyen un muro que corta el recorrido antes de que expire", () =>
         {
             var world = EntranceWall(); int initialWalls = world.Snapshot().Walls.Length;

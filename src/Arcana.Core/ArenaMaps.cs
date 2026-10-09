@@ -94,6 +94,9 @@ public sealed class ArenaDefinition
         return (positions.ToArray(), neighbors.Select(n => n.ToArray()).ToArray());
     }
 
+    // La cuadrícula estática se prepara al cargar el mundo, antes de sus ticks.
+    internal void PrepareNavigation() => _ = _navigation.Value;
+
     /// <summary>A*: rutas por pasillos y alrededor de pilares; no permite atajos por los patios sin suelo.</summary>
     public V2[] FindPath(V2 from, V2 goal, Func<V2, V2, bool>? clearSegment = null, bool allowPartial = false)
     {
@@ -107,10 +110,18 @@ public sealed class ArenaDefinition
             for (int i = 0; i < positions.Length; i++)
             {
                 float candidate = (positions[i] - p).LengthSquared;
-                if (candidate >= distance || !Clear(p, positions[i])) continue;
+                if (candidate >= distance) continue;
                 best = i; distance = candidate;
             }
-            return best;
+            // Primero el nodo geométricamente más próximo. Recorrer la cuadrícula
+            // de oeste a este hacía miles de pruebas de colisión por cada ruta.
+            if (best < 0 || Clear(p, positions[best])) return best;
+            var candidates = new PriorityQueue<int, (float Distance, int Index)>(positions.Length);
+            for (int i = 0; i < positions.Length; i++)
+                candidates.Enqueue(i, ((positions[i] - p).LengthSquared, i));
+            while (candidates.TryDequeue(out int next, out _))
+                if (next != best && Clear(p, positions[next])) return next;
+            return -1;
         }
         int start = Nearest(from), end = Nearest(goal);
         if (start < 0 || end < 0 && !allowPartial) return [];

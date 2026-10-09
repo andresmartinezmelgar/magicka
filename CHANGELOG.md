@@ -1,5 +1,16 @@
 # Cambios
 
+## v0.12.21
+
+- Verificación local: 142 pruebas de reglas, 20 de red y comprobaciones Godot de mapas, laboratorio, efectos y sprites. Entre un 73,2 % y un 77,7 % menos llamadas de dibujo en la escena fija de decoración medida.
+- Navegación: busca primero el nodo más cercano y solo examina alternativas ordenadas si está bloqueado. Conserva la ruta, los desempates y las colisiones con obstáculos y muros temporales.
+- La cuadrícula de navegación se prepara al cargar cada mapa; el primer recálculo ya no la construye en medio de la simulación.
+- Decoración opaca agrupada por material y zonas de 12 unidades. Mantiene sus vértices, transformaciones y sombras y conserva el descarte por zonas fuera de cámara.
+- Una pasada de sombras direccionales para la vista ortográfica, con alcance de 70 unidades; se conservan las sombras durante la partida.
+- Limpieza de portales y respawns visuales al cambiar al laboratorio para evitar referencias a nodos liberados.
+- Perfilado específico de decoración con `--profile-scenery` y medición de simulación de los seis mapas con `--profile-maps`, incluyendo huella del estado final para comparar comportamiento.
+- Comprobaciones de los seis mapas, agrupación sin pérdida de vértices y transición Frente → Laboratorio → Ciudadela, más una prueba de navegación con el nodo más próximo bloqueado. [Mediciones y validación](docs/RELEASE-v0.12.21.md).
+
 ## v0.12.20
 
 - Laboratorio local sin captura, tickets ni victoria; un único punto de reaparición del jugador, al cabo de un segundo.

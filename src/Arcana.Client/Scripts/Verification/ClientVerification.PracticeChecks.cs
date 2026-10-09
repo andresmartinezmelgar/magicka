@@ -32,6 +32,7 @@ public partial class ClientVerification
         var objective = (Label)_runtime.Hud!.FindChild("MatchObjective", true, false);
         SnapshotValidation.Check(snapshot);
         bool valid = snapshot.Map == ArenaMapId.Practice && snapshot.Points.Length == 0 && renderer.Points.Count == 0 &&
+            renderer.SceneryDrawMeshes < renderer.ScenerySourceMeshes && renderer.ScenerySourceVertices == renderer.SceneryBatchedVertices &&
             renderer.FindChildren("PracticeRespawn", "", true, false).Count == 1 &&
             renderer.FindChildren("PracticeBarrierLabel*", "", true, false).Count == PracticeLayout.Barriers.Count &&
             choice.ItemCount == PracticeLayout.CasterSpells.Count && objective.Text.Contains("Sin puntos") &&

@@ -28,6 +28,7 @@ public partial class ArenaRenderer
         foreach (var obstacle in _map.Obstacles) BuildLandscapeObstacle(root, obstacle);
         BuildOutskirts(root);
         BuildGroundPlants(root);
+        BatchScenery(root);
     }
     private void BuildTerrain(Node3D root)
     {

@@ -46,6 +46,7 @@ public sealed partial class GameWorld
         Options = options ?? new();
         Map = ArenaMap.Get(Options.Map);
         if (!Map.SupportsMode(Options.Mode)) throw new ArgumentException("Frente de conquista requiere el modo Guerra.", nameof(options));
+        if (!Map.IsPractice) Map.PrepareNavigation();
         _random = new(Options.Seed);
         _points = Map.ControlPoints.Select((p, i) => new ControlPoint { Id = i, Position = p }).ToArray();
         _pickupRandom = new(Options.PickupSeed ?? Random.Shared.Next());
