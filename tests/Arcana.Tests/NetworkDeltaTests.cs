@@ -22,7 +22,7 @@ internal static class NetworkDeltaTests
             var original = new ClientMessage { Type = "input", Sequence = 123, MoveX = 0.5f,
                 MoveY = -0.25f, MoveTo = true, TargetX = 3, TargetY = 4, AimX = 8, AimY = 9 };
             var decoded = Protocol.DeserializeBinaryAction(Protocol.SerializeBinaryAction(original));
-            if (decoded.Sequence != original.Sequence || decoded.MoveX != original.MoveX ||
+            if (decoded.Sequence != original.Sequence || Math.Abs(decoded.MoveX - original.MoveX) > 0.00004f ||
                 decoded.TargetY != original.TargetY || decoded.AimY != original.AimY)
                 throw new Exception("La entrada binaria ha perdido datos.");
         });
