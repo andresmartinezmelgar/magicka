@@ -17,8 +17,6 @@ internal sealed class GameRoom(string id, string name, string password, WorldOpt
     public GameWorld World { get; } = new(options);
     public Dictionary<int, PlayerSession> Sessions { get; } = [];
     public long LastOccupied { get; set; } = Environment.TickCount64;
-    public ServerMessage? NetworkBaseline { get; set; }
-    public int NetworkFrames { get; set; }
     public bool Started { get; set; }
     public string MatchId { get; set; } = Guid.NewGuid().ToString("N");
     public bool ResultQueued { get; set; }
