@@ -43,6 +43,34 @@ void Run(GameWorld w, Wizard p, int ticks)
 void Select(GameWorld w, Wizard p, params Element[] elements)
 { foreach (var element in elements) Send(w, p, "element", element); }
 
+Test("Firebase en alojamiento local requiere activación explícita y ficheros privados", () =>
+{
+    string root = Path.Combine(Path.GetTempPath(), "arcana-firebase-local-" + Guid.NewGuid().ToString("N"));
+    try
+    {
+        var start = new System.Diagnostics.ProcessStartInfo("Arcana.Server");
+        Check(!LocalFirebaseHosting.Configure(start, root), "Firebase se activó sin configuración local.");
+        Check(!start.Environment.ContainsKey("GOOGLE_APPLICATION_CREDENTIALS"), "Se usó una credencial sin autorización local.");
+        string directory = LocalFirebaseHosting.DirectoryPath(root);
+        Directory.CreateDirectory(directory);
+        string config = Path.Combine(directory, LocalFirebaseHosting.ConfigFileName);
+        string credential = Path.Combine(directory, LocalFirebaseHosting.CredentialFileName);
+        File.WriteAllText(config, "{}");
+        bool missing = false;
+        try { LocalFirebaseHosting.Configure(start, root); }
+        catch (InvalidOperationException) { missing = true; }
+        Check(missing, "Firebase se activó sin credencial de servicio.");
+        File.WriteAllText(credential, "{}");
+        Check(LocalFirebaseHosting.Configure(start, root), "No se activó con ambas configuraciones.");
+        Check(start.Environment["ARCANA_FIREBASE_CONFIG"] == config, "Ruta pública incorrecta.");
+        Check(start.Environment["GOOGLE_APPLICATION_CREDENTIALS"] == credential, "Ruta privada incorrecta.");
+        Check(start.Environment["ARCANA_REWARD_OUTBOX"] == Path.Combine(directory, "reward-outbox"),
+            "El diario de recompensas no se guardará entre partidas.");
+        Check(!File.Exists(Path.Combine(root, "server.local.json")), "Se copió la configuración fuera de la carpeta privada.");
+    }
+    finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+});
+
 NetworkDeltaTests.Run(Test);
 FrontlineTests.Run(Test);
 GameplayRegressionTests.Run(Test);
