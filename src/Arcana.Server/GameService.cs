@@ -197,6 +197,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                     {
                         byte[] delta = Protocol.CompressSnapshotPayload(SnapshotDelta.Encode(snapshot.Message, baseline));
                         if (delta.Length < full.Length) bytes = delta;
+                        else { snapshot.Room.NetworkBaseline = snapshot.Message; snapshot.Room.NetworkFrames = 0; }
                     }
                     else
                     {
