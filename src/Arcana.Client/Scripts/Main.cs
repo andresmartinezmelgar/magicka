@@ -68,14 +68,14 @@ public partial class Main : Node
         RestoreAccountCache();
         var layer = new CanvasLayer(); AddChild(layer);
         _ui = new Control { MouseFilter = Control.MouseFilterEnum.Ignore }; layer.AddChild(_ui); Ui.Full(_ui);
-        // Panel with a real width and height: a bare right-anchored Label has zero width
-        // and renders its text across the rest of the HUD.
+        // The minimap occupies the upper right (with a different layout on mobile).
+        // Place metrics below the upper-left player/header area instead of behind it.
         var networkPanel = new PanelContainer { Name = "NetworkMetricsPanel", MouseFilter = Control.MouseFilterEnum.Ignore };
-        networkPanel.SetAnchorsPreset(Control.LayoutPreset.TopRight);
-        networkPanel.OffsetLeft = -292;
-        networkPanel.OffsetTop = 110;
-        networkPanel.OffsetRight = -12;
-        networkPanel.OffsetBottom = 166;
+        networkPanel.SetAnchorsPreset(Control.LayoutPreset.TopLeft);
+        networkPanel.OffsetLeft = 22;
+        networkPanel.OffsetTop = Ui.IsMobile ? 218 : 78;
+        networkPanel.OffsetRight = 310;
+        networkPanel.OffsetBottom = networkPanel.OffsetTop + 70;
         var networkBackground = new StyleBoxFlat { BgColor = new Color(0.05f, 0.08f, 0.12f, 0.82f) };
         networkBackground.SetCornerRadiusAll(5);
         networkBackground.ContentMarginLeft = 9;
@@ -228,6 +228,7 @@ public partial class Main : Node
         var local = snapshot.Players.FirstOrDefault(p => p.Id == _localId);
         _localWasAlive = local?.Alive ?? false; _localDeaths = local?.Deaths ?? 0;
         if (!prepared) PrepareGameControls(snapshot);
+        _ui.MoveChild(_networkPanel, -1);
         _ui.MoveChild(_help, -1); _ui.MoveChild(_pause, -1);
     }
     public void ReturnToLauncher(string error = "")
@@ -340,7 +341,7 @@ public partial class Main : Node
         double receivedRate = Math.Max(0, received - _previousReceived) / elapsed / 1024.0;
         _previousSent = sent;
         _previousReceived = received;
-        _networkStats.Text = $"FPS: {fps}  |  ↑ {sentRate:F1} KB/s  ↓ {receivedRate:F1} KB/s\\nTotal: ↑ {sent / 1024.0:F1} KB  ↓ {received / 1024.0:F1} KB";
+        _networkStats.Text = $"FPS: {fps:F0}  |  ↑ {sentRate:F1} KB/s  ↓ {receivedRate:F1} KB/s\nTotal: ↑ {sent / 1024.0:F1} KB  ↓ {received / 1024.0:F1} KB";
         _networkPanel.Visible = true;
     }
 
