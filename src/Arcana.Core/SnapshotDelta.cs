@@ -49,6 +49,8 @@ public static class SnapshotDelta
         if (previous is JsonObject a && current is JsonObject b)
         {
             var result = new JsonObject();
+            foreach (var field in a)
+                if (!b.ContainsKey(field.Key)) result[field.Key] = new JsonObject { ["$null"] = true };
             foreach (var field in b)
             {
                 var changed = Diff(a[field.Key], field.Value);
