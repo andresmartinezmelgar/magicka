@@ -103,6 +103,16 @@ public static class Protocol
     // Fotogramas comprimidos: prefijo 0xA1 + Brotli. El saludo permanece en JSON.
     // Límite descomprimido para impedir cargas excesivas de memoria.
     public const int MaxSnapshotBytes = 256 * 1024;
+    public static byte[] CompressSnapshotPayload(byte[] raw)
+    {
+        if (raw.Length < 1024) return raw;
+        using var output = new MemoryStream();
+        output.WriteByte(0xA1);
+        using (var compressor = new BrotliStream(output, CompressionLevel.Fastest, true))
+            compressor.Write(raw);
+        var compressed = output.ToArray();
+        return compressed.Length + 16 < raw.Length ? compressed : raw;
+    }
     public static byte[] SerializeSnapshot(ServerMessage message)
     {
         byte[] raw = SerializeUtf8(message);
