@@ -56,7 +56,7 @@ public static class SnapshotDelta
             return result;
         }
         // Las colecciones se sustituyen enteras: evita diferencias ambiguas de índices.
-        return current?.DeepClone();
+        return current?.DeepClone() ?? new JsonObject { ["$null"] = true };
     }
 
     private static JsonNode? Merge(JsonNode? previous, JsonNode? changes)
@@ -67,6 +67,7 @@ public static class SnapshotDelta
                 a[field.Key] = Merge(a[field.Key]?.DeepClone(), field.Value);
             return a;
         }
+        if (changes is JsonObject marker && marker.Count == 1 && marker["$null"]?.GetValue<bool>() == true) return null;
         return changes?.DeepClone();
     }
 }
