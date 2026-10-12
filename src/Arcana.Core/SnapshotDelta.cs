@@ -33,6 +33,7 @@ public static class SnapshotDelta
             throw new InvalidDataException("Keyframe incompatible.");
         var root = JsonSerializerNode(baseline);
         var patched = Merge(root, packet["changes"]) ?? throw new InvalidDataException("Delta vacío.");
+        if (patched is JsonObject result) result["type"] = "snapshot";
         return Protocol.Deserialize<ServerMessage>(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(patched, Protocol.Json))
             ?? throw new InvalidDataException("Delta no reconstruible.");
     }
