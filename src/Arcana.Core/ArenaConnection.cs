@@ -246,12 +246,12 @@ public sealed class ArenaConnection : IAsyncDisposable
             var message = Protocol.DeserializeFrame(payload, frameType == WebSocketMessageType.Binary);
             if (message?.Type == "delta")
             {
-                if (_networkBaseline == null) return null;
+                if (_networkBaseline == null) { stream.SetLength(0); frameType = null; continue; }
                 // La carga binaria puede estar comprimida; reconstruimos a partir del JSON ya validado.
                 byte[] raw = frameType == WebSocketMessageType.Binary
                     ? Protocol.DecompressSnapshotPayload(payload) : payload.ToArray();
                 try { message = SnapshotDelta.Decode(raw, _networkBaseline); }
-                catch (InvalidDataException) { continue; }
+                catch (InvalidDataException) { stream.SetLength(0); frameType = null; continue; }
             }
             else if (message?.Type == "snapshot") _networkBaseline = message;
             if (message?.Snapshot != null) SnapshotValidation.Check(message.Snapshot);
