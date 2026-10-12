@@ -173,7 +173,7 @@ public sealed class ArenaConnection : IAsyncDisposable
         try
         {
             if (Volatile.Read(ref _disposing) != 0) return;
-            await _socket.SendAsync(Protocol.SerializeUtf8(message), WebSocketMessageType.Text, true, token).ConfigureAwait(false);
+            await _socket.SendAsync(Protocol.SerializeAction(message), WebSocketMessageType.Text, true, token).ConfigureAwait(false);
         }
         finally { _socketSend.Release(); }
     }
