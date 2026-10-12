@@ -9,6 +9,9 @@ using var processDiagnostics = new ProcessDiagnostics(log);
 try
 {
     var settings = ServerSettings.FromEnvironment();
+    var accountOptions = AccountOptions.FromEnvironment();
+    await using var publicHost = await AutomaticPublicHost.Prepare(accountOptions, settings.Port);
+    if (publicHost != null) accountOptions = publicHost.Options;
     log.ProtectSecret(settings.Password);
     var builder = WebApplication.CreateBuilder(args);
     builder.WebHost.UseUrls($"http://0.0.0.0:{settings.Port}");
@@ -20,7 +23,9 @@ try
         options.SerializerOptions.MaxDepth = Protocol.Json.MaxDepth;
         foreach (var converter in Protocol.Json.Converters) options.SerializerOptions.Converters.Add(converter);
     });
-    builder.Services.AddSingleton(new AccountService(AccountOptions.FromEnvironment()));
+    builder.Services.AddSingleton(new AccountService(accountOptions));
+    if (publicHost != null)
+        builder.Services.AddHostedService(provider => new PublicAccountServerPublisher(accountOptions, settings.Port, provider.GetRequiredService<ILogger<PublicAccountServerPublisher>>()));
     builder.Services.AddSingleton<RewardService>();
     builder.Services.AddHostedService(provider => provider.GetRequiredService<RewardService>());
     builder.Services.AddSingleton<GameService>();

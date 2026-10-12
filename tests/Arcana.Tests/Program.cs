@@ -1,4 +1,5 @@
 using Arcana.Core;
+using System.Text.Json;
 
 if (args.Contains("--profile-maps"))
 {
@@ -24,6 +25,30 @@ async Task AsyncTest(string name, Func<Task> action)
     try { await action(); Console.WriteLine("PASS " + name); passed++; }
     catch (Exception e) { Console.WriteLine("FAIL " + name + ": " + e.Message); failed++; }
 }
+Test("Public account server: valid HTTPS tunnel and expiry", () =>
+{
+    var now = DateTimeOffset.UtcNow;
+    var json = JsonSerializer.Serialize(new { fields = new { url = new { stringValue = "wss://example.trycloudflare.com/play" }, expiresAt = new { timestampValue = now.AddMinutes(2).ToString("O") }, protocol = new { integerValue = Protocol.Version.ToString() } } });
+    Check(PublicAccountServer.Parse(json, now) == "wss://example.trycloudflare.com/play", "Valid endpoint rejected.");
+});
+Test("Public account server: reject unsafe URLs, stale leases and protocols", () =>
+{
+    var now = DateTimeOffset.UtcNow;
+    string Json(string url, DateTimeOffset expiry, int protocol) => JsonSerializer.Serialize(new { fields = new { url = new { stringValue = url }, expiresAt = new { timestampValue = expiry.ToString("O") }, protocol = new { integerValue = protocol.ToString() } } });
+    foreach (string url in new[] { "ws://example.trycloudflare.com/play", "wss://evil.example/play", "wss://example.trycloudflare.com.evil.example/play", "wss://user:secret@example.trycloudflare.com/play", "wss://example.trycloudflare.com/play?token=secret", "wss://example.trycloudflare.com:8443/play", "wss://example.trycloudflare.com/other" })
+    {
+        bool rejected = false;
+        try { PublicAccountServer.Parse(Json(url, now.AddMinutes(2), Protocol.Version), now); } catch (InvalidDataException) { rejected = true; }
+        Check(rejected, "Unsafe endpoint accepted: " + url);
+    }
+    foreach (var entry in new[] { (now.AddSeconds(-1), Protocol.Version), (now.AddMinutes(4), Protocol.Version), (now.AddMinutes(2), Protocol.Version + 1) })
+    {
+        bool rejected = false;
+        try { PublicAccountServer.Parse(Json("wss://example.trycloudflare.com/play", entry.Item1, entry.Item2), now); } catch (IOException) { rejected = true; }
+        Check(rejected, "Stale or incompatible announcement accepted.");
+    }
+});
+
 (GameWorld World, Wizard A, Wizard B) Setup(GameMode mode = GameMode.Arena, bool friendly = true)
 {
     var world = new GameWorld(new() { Mode = mode, FriendlyFire = friendly });

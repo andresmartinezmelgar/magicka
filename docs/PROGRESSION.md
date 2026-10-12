@@ -1,36 +1,12 @@
 # Cuentas, objetos y oro
 
-Para arrancar servidor y HTTPS juntos desde Windows, consulta [Pruebas Firebase y Android](FIREBASE-ANDROID-TESTS.md). Los scripts y las instrucciones estan en el repositorio; las credenciales permanecen en el portatil.
+Desde la versión 0.16.1, el móvil descubre automáticamente el servidor configurado en Firebase. Pulsa **Entrar o registrarse con Google**: el primer acceso crea el perfil y los siguientes recuperan la cuenta y el inventario.
 
-El código incluye la integración, pero no ha creado ninguna cuenta ni proyecto Firebase y no incluye contraseñas de Google. El acceso utiliza la cuenta Google del jugador. El botón «Entrar con Google» está en el launcher y en la equipación. La página permite elegir cuenta, mantiene la sesión Firebase en memoria y la cierra tras verificar el acceso en el servidor. El alojamiento del servidor continúa sin cambios.
+## Pruebas con el servidor en el PC
 
-## Prueba gratis alojando en el portátil (Windows)
+El PC ejecuta el servidor y Firebase guarda las cuentas y el inventario. Configura los archivos privados una sola vez y activa `autoPublicHosting`. Al pulsar **Alojar**, el servidor prepara HTTPS, autoriza su dominio y publica su dirección temporal en Firestore. En Android no hay que copiar direcciones ni ejecutar scripts por usuario.
 
-**No necesitas contratar un servidor ni pasar al plan Blaze.** Para probar cuentas de Google, inventario y recompensas, mantén Arcana Arena alojado con **Alojar** en el portátil y utiliza tu proyecto Firebase con plan **Spark (sin facturación)**. Firebase Authentication con Google y Cloud Firestore admiten un uso gratuito con cuotas. El portátil debe permanecer encendido mientras se juegue.
-
-### Primera prueba: cuenta Google en el propio portátil
-
-1. En [Firebase Console](https://console.firebase.google.com/), entra en tu proyecto existente. En **Authentication → Sign-in method**, activa **Google**. En **Firestore Database**, crea la base de datos si aún no existe (edición Standard). En **Firestore → Rules**, publica el contenido de `firebase/firestore.rules` de este repositorio: las cuentas y el inventario solo se gestionan desde el servidor.
-2. En **Configuración del proyecto → General**, registra o abre una **app web** y toma los valores públicos `projectId`, `apiKey` y `authDomain`. No hace falta registrar una app Android adicional para este flujo: Godot abre la página de acceso web en el navegador.
-3. En **Authentication → Settings → Authorized domains**, agrega manualmente `localhost` si aún no aparece. Los proyectos Firebase recientes no lo autorizan automáticamente.
-4. En Arcana Arena para Windows, ve a **Alojar → Configurar Firebase gratis (archivos privados)**. Se abre la carpeta de datos del juego `user://firebase/`; se crea el archivo de ejemplo `server.example.json`. **Copia** ese ejemplo como `server.local.json` y sustituye los tres valores públicos, manteniendo `"publicUrl": "http://localhost:27015"` si el puerto TCP de Alojar es 27015 (usa tu puerto si lo cambiaste).
-5. En **Configuración del proyecto → Cuentas de servicio** de Firebase, genera una clave privada de una cuenta de servicio autorizada, o utiliza una cuenta de servicio con los permisos adecuados. Guarda el JSON original **solo en el portátil**, con nombre **`service-account.json`** dentro de la misma carpeta `user://firebase/`. Es una clave privada: **nunca la subas al repositorio, a la APK ni al chat**. Evita crear claves si tu organización dispone de un mecanismo de credenciales más seguro.
-6. Detén el servidor si ya estaba iniciado y pulsa **Alojar**. El lanzador solo habilita Firebase al encontrar **ambos archivos**. El navegador y el juego utilizarán `localhost` para la prueba en ese PC. Pulsa **Entrar con Google** y comprueba que aparecen el perfil y el inventario. Cierra el juego, vuelve a iniciarlo e inicia sesión de nuevo: el inventario y el oro se conservan en Firestore.
-
-El directorio de recompensas se guarda de forma persistente en `user://firebase/reward-outbox/`, separado de los archivos del juego. La sesión temporal de Google caduca o desaparece al reiniciar el servidor, pero no se borra el perfil de Firestore. Sin los archivos opcionales, **Firebase permanece desactivado y LAN/PvP funcionan como antes**.
-
-### Segunda prueba: Google Login y PvP desde el móvil, sin pagar alojamiento
-
-**La IP privada del portátil por HTTP no es válida para el inicio de sesión web seguro desde Android.** Para probar el login del móvil, necesitas una dirección pública **HTTPS** que apunte temporalmente al mismo servidor del portátil. Puedes utilizar un **Cloudflare Quick Tunnel**, gratuito y pensado para desarrollo:
-
-1. Instala `cloudflared` en el portátil y, desde PowerShell, ejecuta `cloudflared tunnel --url http://127.0.0.1:27015` (cambia el puerto si corresponde). No necesita dominio propio ni contratar un servidor.
-2. Copia la dirección `https://nombre-aleatorio.trycloudflare.com` que se genera. En Firebase **Authentication → Settings → Authorized domains**, agrega **solo el nombre del host** `nombre-aleatorio.trycloudflare.com`, sin `https://`.
-3. Cambia `publicUrl` de `server.local.json` a esa URL HTTPS. **Reinicia** el servidor alojado en el portátil.
-4. Tanto en Windows como en Android, usa **Por IP → `wss://nombre-aleatorio.trycloudflare.com/play`** para entrar en las salas, iniciar sesión y jugar con la misma cuenta y equipación. La conexión HTTPS/WSS se usa para que el token de cuenta nunca se envíe a una IP distinta de la que lo emitió.
-
-El túnel temporal expone ese servidor a Internet mientras se ejecuta; utiliza una contraseña de servidor/sala, no lo emplees para producción, y no compartas el enlace ni los secretos. Cuando termines, detén `cloudflared` y retira el dominio temporal de la lista autorizada de Firebase. Un nuevo túnel suele generar otra URL: hay que actualizar `publicUrl` y el dominio autorizado. **Este método no arregla por sí mismo un fallo de descubrimiento LAN**: permite comprobar Firebase y el juego por una conexión alternativa.
-
-Consulta siempre los límites del plan Spark en [precios oficiales de Firebase](https://firebase.google.com/pricing). Si alcanzas sus límites, las operaciones gratuitas pueden dejar de estar disponibles; el juego no pasa automáticamente a un plan de pago.
+Consulta [la configuración y el flujo completo](FIREBASE-ANDROID-TESTS.md). El PC y el juego deben permanecer abiertos durante el registro y las partidas.
 
 ## Activar el servidor central
 

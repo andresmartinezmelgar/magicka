@@ -1,6 +1,16 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Only address, expiry and protocol are public. Clients cannot list or write.
+    match /publicAccountServer/current {
+      allow get: if resource.data.keys().hasOnly(['url', 'expiresAt', 'protocol'])
+        && resource.data.url is string && resource.data.url.size() <= 256
+        && resource.data.url.matches('wss://[a-z0-9-]+[.]trycloudflare[.]com/play')
+        && resource.data.expiresAt is timestamp && resource.data.expiresAt > request.time
+        && resource.data.expiresAt <= request.time + duration.value(3, 'm')
+        && resource.data.protocol is int;
+      allow list, write: if false;
+    }
     // Inventario, oro y resultados se gestionan por la API del servidor con su cuenta de servicio.
     match /{document=**} {
       allow read, write: if false;

@@ -59,9 +59,10 @@ public partial class Launcher : Control
         var nameColumn = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; identity.AddChild(nameColumn);
         nameColumn.AddChild(Ui.Label("Nombre del mago", 14, Ui.Muted));
         _name = new LineEdit { Text = _config.GetValue("player", "name", "Mago").AsString(), MaxLength = 24, CustomMinimumSize = new(0, 45) }; nameColumn.AddChild(_name);
-        var accountButtons = new HBoxContainer(); accountButtons.AddThemeConstantOverride("separation", 8); nameColumn.AddChild(accountButtons);
-        accountButtons.AddChild(Ui.Button("Inventario", () => _main.OpenEquipment(_address.Text)));
-        accountButtons.AddChild(Ui.Button("Entrar con Google", () => _main.OpenEquipment(_address.Text, googleLogin: true)));
+        var accountButtons = new VBoxContainer(); accountButtons.AddThemeConstantOverride("separation", 8); nameColumn.AddChild(accountButtons);
+        accountButtons.AddChild(Ui.Button("Inventario", () => _main.OpenEquipment("automatic")));
+        accountButtons.AddChild(Ui.Button("Entrar o registrarse con Google", () => _main.OpenEquipment("automatic", googleLogin: true)));
+        accountButtons.AddChild(Ui.Button("Jugar online", () => _ = OpenPublicRooms()));
         var teamColumn = new VBoxContainer { CustomMinimumSize = new(172, 0) }; identity.AddChild(teamColumn);
         teamColumn.AddChild(Ui.Label("Equipo", 14, Ui.Muted));
         _team = Ui.TeamChoice(_config.GetValue("player", "team", -1).AsInt32());
@@ -237,6 +238,19 @@ public partial class Launcher : Control
         }
         OpenRooms(address, _password.Text);
     }
+    private async Task OpenPublicRooms()
+    {
+        if (_busy) return;
+        SetBusy(true, "Buscando el servidor…");
+        try
+        {
+            using var settings = System.Text.Json.JsonDocument.Parse(Godot.FileAccess.GetFileAsString("res://account-server.json"));
+            string address = await PublicAccountServer.Resolve(settings.RootElement.GetProperty("projectId").GetString() ?? "");
+            _main.Post(() => { if (!IsInsideTree()) return; SetBusy(false); _address.Text = address; Remember(); OpenRooms(address, _password.Text); });
+        }
+        catch (Exception error) { _main.Post(() => { if (IsInsideTree()) ShowError(error.Message); }); }
+    }
+
     private void OpenRooms(string address, string password)
     {
         CancelSearch(); _main.CancelPendingConnection(); CloseRooms();
@@ -317,10 +331,11 @@ public partial class Launcher : Control
                     projectId = "ID-DE-TU-PROYECTO",
                     apiKey = "API-KEY-PUBLICA-DE-TU-APP-WEB",
                     authDomain = "ID-DE-TU-PROYECTO.firebaseapp.com",
-                    publicUrl = "http://localhost:" + (int)_hostPort.Value
+                    publicUrl = "http://localhost:" + (int)_hostPort.Value,
+                    autoPublicHosting = true
                 }));
             OS.ShellOpen(directory);
-            ShowStatus("Firebase: copia server.example.json como server.local.json y coloca service-account.json en esta carpeta. Reinicia Alojar. Google Login en móvil necesitará HTTPS.");
+            ShowStatus("Configuración inicial: copia server.example.json como server.local.json, completa el proyecto y coloca service-account.json aquí. Alojar preparará HTTPS automáticamente.");
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
         { ShowError("No se pudo preparar la carpeta privada de Firebase: " + error.Message); }
