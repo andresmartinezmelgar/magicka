@@ -17,6 +17,7 @@ public partial class MobileControls : Control
     public Vector2 Movement => _move;
     public Vector2 AimDirection => _aim;
     public event Action<ClientMessage>? ActionRequested;
+    public event Action? AimChanged;
     public event Action? MenuRequested, HelpRequested, ScoreRequested;
 
     public override void _Ready()
@@ -136,7 +137,7 @@ public partial class MobileControls : Control
         { _moveFinger = finger; _moveCenter = point; _move = Vector2.Zero; QueueRedraw(); return true; }
         if (_aimFinger < 0 && point.DistanceTo(_aimCenter) <= Radius + 20)
         {
-            _aimFinger = finger; Aim(point); ActionRequested?.Invoke(new() { Type = "cast" }); return true;
+            _aimFinger = finger; Aim(point); AimChanged?.Invoke(); ActionRequested?.Invoke(new() { Type = "cast" }); return true;
         }
         return false;
     }
@@ -145,7 +146,7 @@ public partial class MobileControls : Control
         if (!IsVisibleInTree()) return false;
         point -= GlobalPosition;
         if (finger == _moveFinger) { Move(point); return true; }
-        if (finger == _aimFinger) { Aim(point); return true; }
+        if (finger == _aimFinger) { Aim(point); AimChanged?.Invoke(); return true; }
         return _pressed.ContainsKey(finger);
     }
     private static Vector2 Stick(Vector2 offset)
