@@ -29,6 +29,14 @@ internal static class ProtocolPerformanceBenchmarks
                 meanMs = samples.Average(), p95Ms = samples[949], allocatedBytesPerMessage = total / samples.Length };
             Console.WriteLine(JsonSerializer.Serialize(result)); return result;
         }
+        var baseline = new ServerMessage { Type = "snapshot", Snapshot = session.World.Snapshot() };
+        session.Step();
+        var changed = new ServerMessage { Type = "snapshot", Snapshot = session.World.Snapshot() };
+        byte[] compressed = Protocol.SerializeSnapshot(changed);
+        byte[] delta = Protocol.CompressSnapshotPayload(SnapshotDelta.Encode(changed, baseline));
+        Console.WriteLine(JsonSerializer.Serialize(new { measurement = "snapshot_payload", fullBytes = Protocol.SerializeUtf8(changed).Length,
+            compressedBytes = compressed.Length, deltaBytes = delta.Length,
+            chosenBytes = Math.Min(compressed.Length, delta.Length) }));
         var reports = new[]
         {
             Measure("encode_text_then_utf8", () => _ = Encoding.UTF8.GetBytes(Protocol.Serialize(message))),
