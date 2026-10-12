@@ -18,6 +18,10 @@ public partial class Main : Node
     private int _exiting;
     private bool _exporting;
     private double _metricsTime;
+    private Label _networkStats = null!;
+    private double _networkStatsTime;
+    private long _previousSent, _previousReceived;
+    private ArenaConnection? _statsConnection;
     private WorldSnapshot? _backdropSnapshot;
     private ArenaRenderer _renderer = null!;
     private Control _ui = null!, _help = null!, _pause = null!;
@@ -63,6 +67,14 @@ public partial class Main : Node
         RestoreAccountCache();
         var layer = new CanvasLayer(); AddChild(layer);
         _ui = new Control { MouseFilter = Control.MouseFilterEnum.Ignore }; layer.AddChild(_ui); Ui.Full(_ui);
+        _networkStats = Ui.Label("", 14, Ui.Muted);
+        _networkStats.MouseFilter = Control.MouseFilterEnum.Ignore;
+        _networkStats.SetAnchorsPreset(Control.LayoutPreset.TopRight);
+        _networkStats.GrowHorizontal = Control.GrowDirection.Begin;
+        _networkStats.Position = new Vector2(-12, 12);
+        _networkStats.HorizontalAlignment = HorizontalAlignment.Right;
+        _ui.AddChild(_networkStats);
+        _networkStats.Visible = false;
         _launcher = new Launcher(); _ui.AddChild(_launcher); _launcher.Build(this);
         _help = BuildHelp(); _ui.AddChild(_help); _help.Visible = false;
         _pause = BuildPause(); _ui.AddChild(_pause); _pause.Visible = false;
@@ -192,6 +204,7 @@ public partial class Main : Node
         _playing = true; _paused = false; _moveTo = false; _snapshotAge = 0; _lastTick = -1;
         ClosePlayerEquipment();
         _inputTime = 0;
+        _networkStatsTime = 0; _statsConnection = null; _previousSent = _previousReceived = 0;
         Diagnostics.Info("game.start", "Partida iniciada.", Context());
         _ignoreLeftUntilRelease = true;
         _launcher.Visible = false; _launcher.CloseRooms(); _launcher.SetBusy(false); _help.Visible = _pause.Visible = false;
@@ -213,6 +226,7 @@ public partial class Main : Node
         var old = _connection; _connection = null;
         if (old != null) _ = old.DisposeAsync();
         _hud?.QueueFree(); _hud = null; _pause.Visible = false; _help.Visible = false;
+        _networkStats.Visible = false; _statsConnection = null; _networkStatsTime = 0;
         _touch?.Reset(); _touch?.QueueFree(); _touch = null;
         _renderer.Clear(); _launcher.Visible = true; _launcher.SetBusy(false);
         if (error.Length > 0) _launcher.ShowError(error);
@@ -253,6 +267,7 @@ public partial class Main : Node
         }
         if (_playing)
         {
+            UpdateNetworkStats(delta);
             var latest = _connection?.Latest ?? _snapshot;
             if (latest == null) return;
             _snapshot = latest;
@@ -282,6 +297,36 @@ public partial class Main : Node
         }
         else _renderer.Render(_backdropSnapshot ??= _backdrop.Snapshot(), 0, delta, false);
         _verification?.AfterFrame();
+    }
+
+    private void UpdateNetworkStats(double delta)
+    {
+        if (_networkStats == null) return;
+        _networkStatsTime += delta;
+        if (_networkStatsTime < 0.5) return;
+        double elapsed = _networkStatsTime;
+        _networkStatsTime = 0;
+        int fps = Engine.GetFramesPerSecond();
+        if (_connection is not { Connected: true } connection)
+        {
+            _networkStats.Text = $"FPS: {fps}  |  Red: sin conexión";
+            _networkStats.Visible = true;
+            _statsConnection = null;
+            return;
+        }
+        long sent = connection.BytesSent, received = connection.BytesReceived;
+        if (!ReferenceEquals(_statsConnection, connection))
+        {
+            _statsConnection = connection;
+            _previousSent = sent;
+            _previousReceived = received;
+        }
+        double sentRate = Math.Max(0, sent - _previousSent) / elapsed / 1024.0;
+        double receivedRate = Math.Max(0, received - _previousReceived) / elapsed / 1024.0;
+        _previousSent = sent;
+        _previousReceived = received;
+        _networkStats.Text = $"FPS: {fps}  |  ↑ {sentRate:F1} KB/s  ↓ {receivedRate:F1} KB/s\\nTotal: ↑ {sent / 1024.0:F1} KB  ↓ {received / 1024.0:F1} KB";
+        _networkStats.Visible = true;
     }
 
     public override void _PhysicsProcess(double delta)
