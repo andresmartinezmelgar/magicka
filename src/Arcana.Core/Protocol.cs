@@ -6,10 +6,10 @@ namespace Arcana.Core;
 
 public static class Protocol
 {
-    public const int Version = 15;
+    public const int Version = 16;
     public const int GamePort = 27015;
     public const int DiscoveryPort = 27016;
-    public const string DiscoveryMagic = "ARCANA_DISCOVER_V15";
+    public const string DiscoveryMagic = "ARCANA_DISCOVER_V16";
     public const int LoadingTimeoutSeconds = 120;
     public const int MaxMessageBytes = 4096;
     public static readonly JsonSerializerOptions Json = new()
@@ -20,6 +20,53 @@ public static class Protocol
     };
     // Los mensajes de combate no incluyen datos del saludo ni campos de otras acciones.
     // Los nombres se mantienen para que el servidor pueda deserializar con el protocolo actual.
+    private static readonly string[] BinaryActionNames =
+        ["input", "element", "magick", "inspect", "cast", "release", "clear", "melee", "self", "nova", "ready"];
+    public static byte[] SerializeBinaryAction(ClientMessage message)
+    {
+        int code = Array.IndexOf(BinaryActionNames, message.Type);
+        if (code < 0) return SerializeAction(message);
+        using var stream = new MemoryStream(48);
+        using var writer = new BinaryWriter(stream);
+        writer.Write((byte)0xB1); writer.Write((byte)code); writer.Write(message.Sequence);
+        switch (message.Type)
+        {
+            case "input":
+                writer.Write(message.MoveX); writer.Write(message.MoveY); writer.Write(message.MoveTo);
+                writer.Write(message.TargetX); writer.Write(message.TargetY);
+                writer.Write(message.AimX); writer.Write(message.AimY); break;
+            case "element": writer.Write((byte)message.Element); break;
+            case "magick": writer.Write((byte)message.Slot); break;
+            case "inspect": writer.Write(message.InspectionRequestId); writer.Write(message.InspectPlayerId); break;
+        }
+        return stream.ToArray();
+    }
+    public static ClientMessage DeserializeBinaryAction(ReadOnlySpan<byte> bytes)
+    {
+        if (bytes.Length < 10 || bytes[0] != 0xB1 || bytes[1] >= BinaryActionNames.Length)
+            throw new InvalidDataException("Acción binaria inválida.");
+        using var stream = new MemoryStream(bytes.ToArray(), false);
+        using var reader = new BinaryReader(stream);
+        reader.ReadByte();
+        var message = new ClientMessage { Type = BinaryActionNames[reader.ReadByte()], Sequence = reader.ReadInt64() };
+        try
+        {
+            switch (message.Type)
+            {
+                case "input":
+                    message.MoveX = reader.ReadSingle(); message.MoveY = reader.ReadSingle();
+                    message.MoveTo = reader.ReadBoolean(); message.TargetX = reader.ReadSingle();
+                    message.TargetY = reader.ReadSingle(); message.AimX = reader.ReadSingle();
+                    message.AimY = reader.ReadSingle(); break;
+                case "element": message.Element = (Element)reader.ReadByte(); break;
+                case "magick": message.Slot = reader.ReadByte(); break;
+                case "inspect": message.InspectionRequestId = reader.ReadInt64(); message.InspectPlayerId = reader.ReadInt32(); break;
+            }
+        }
+        catch (EndOfStreamException e) { throw new InvalidDataException("Acción binaria truncada.", e); }
+        if (stream.Position != stream.Length) throw new InvalidDataException("Acción binaria con datos adicionales.");
+        return message;
+    }
     public static byte[] SerializeAction(ClientMessage message) => message.Type switch
     {
         "input" => SerializeInput(message),
