@@ -107,7 +107,7 @@ public partial class Hud : Control
         magicks.Visible = !Ui.IsMobile;
         _feed = Ui.Label("", 15); _feed.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight);
         _feed.Position = new(-450, 245); _feed.Size = new(420, 100); _feed.HorizontalAlignment = HorizontalAlignment.Right; AddChild(_feed);
-        var mapPanel = new PanelContainer { CustomMinimumSize = new(205, 151), MouseFilter = MouseFilterEnum.Ignore };
+        var mapPanel = new PanelContainer { Name = "MiniMapPanel", CustomMinimumSize = new(205, 151), MouseFilter = MouseFilterEnum.Ignore };
         mapPanel.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight); mapPanel.Position = new(-235, 72); AddChild(mapPanel);
         mapPanel.AddThemeStyleboxOverride("panel", Ui.Panel(new Color(0.025f, 0.05f, 0.08f, 0.90f), 10));
         _map = new MiniMap { CustomMinimumSize = new(165, 119), MouseFilter = MouseFilterEnum.Ignore }; mapPanel.AddChild(_map);
