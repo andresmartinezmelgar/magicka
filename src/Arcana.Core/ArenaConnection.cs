@@ -25,6 +25,7 @@ public sealed class ArenaConnection : IAsyncDisposable
     private readonly string _connectionId = Guid.NewGuid().ToString("N");
     private long _sequence;
     private WorldSnapshot? _latest;
+    private ServerMessage? _networkBaseline;
     private Task? _reader, _writer, _disposal, _connecting;
     private int _disposing, _connected, _notified;
     private int _ready, _readyRequested, _preparingPlayers;
@@ -110,6 +111,7 @@ public sealed class ArenaConnection : IAsyncDisposable
             PlayerId = welcome.PlayerId; Server = welcome.Server; Room = welcome.Room;
             _requiresReady = welcome.RequiresReady;
             ApplyReadiness(welcome);
+            _networkBaseline = welcome;
             Volatile.Write(ref _latest, welcome.Snapshot); Volatile.Write(ref _connected, 1);
             Diagnostics.Info("network.connected", "Conexión establecida.", Context());
             _writer = WriteLoop(); _reader = ReadLoop();
@@ -240,7 +242,18 @@ public sealed class ArenaConnection : IAsyncDisposable
             if (stream.Length + result.Count > 256 * 1024) throw new IOException("Respuesta de red demasiado grande.");
             stream.Write(buffer, 0, result.Count);
             if (!result.EndOfMessage) continue;
-            var message = Protocol.DeserializeFrame(stream.GetBuffer().AsSpan(0, (int)stream.Length), frameType == WebSocketMessageType.Binary);
+            var payload = stream.GetBuffer().AsSpan(0, (int)stream.Length);
+            var message = Protocol.DeserializeFrame(payload, frameType == WebSocketMessageType.Binary);
+            if (message?.Type == "delta")
+            {
+                if (_networkBaseline == null) return null;
+                // La carga binaria puede estar comprimida; reconstruimos a partir del JSON ya validado.
+                byte[] raw = frameType == WebSocketMessageType.Binary
+                    ? Protocol.DecompressSnapshotPayload(payload) : payload.ToArray();
+                try { message = SnapshotDelta.Decode(raw, _networkBaseline); }
+                catch (InvalidDataException) { continue; }
+            }
+            else if (message?.Type == "snapshot") _networkBaseline = message;
             if (message?.Snapshot != null) SnapshotValidation.Check(message.Snapshot);
             if (message?.Snapshot != null) CheckReadiness(message);
             if (message?.Type == "snapshot" && message.Snapshot == null) throw new InvalidDataException("Estado de partida ausente.");
