@@ -183,7 +183,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                 }
                 foreach (var snapshot in snapshots)
                 {
-                    var bytes = Protocol.SerializeUtf8(snapshot.Message);
+                    var bytes = Protocol.SerializeSnapshot(snapshot.Message);
                     foreach (var session in snapshot.Recipients) session.Outbox.Writer.TryWrite(bytes);
                 }
             }
@@ -406,7 +406,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
     private static async Task SendSession(PlayerSession session, byte[] data, CancellationToken token)
     {
         await session.SendGate.WaitAsync(token);
-        try { await session.Socket.SendAsync(data.AsMemory(), WebSocketMessageType.Text, true, token); }
+        try { await session.Socket.SendAsync(data.AsMemory(), data.Length > 0 && data[0] == 0xA1 ? WebSocketMessageType.Binary : WebSocketMessageType.Text, true, token); }
         finally { session.SendGate.Release(); }
     }
     private static Task Send(WebSocket socket, ServerMessage message, CancellationToken token) =>
