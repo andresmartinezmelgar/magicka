@@ -1,6 +1,6 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
-COPY global.json Directory.Build.props ./
+COPY global.json Directory.Build.props VERSION ./
 COPY src/Arcana.Core/Arcana.Core.csproj src/Arcana.Core/
 COPY src/Arcana.Server/Arcana.Server.csproj src/Arcana.Server/
 RUN dotnet restore src/Arcana.Server/Arcana.Server.csproj
