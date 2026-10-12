@@ -1,5 +1,7 @@
 # Cuentas, objetos y oro
 
+Para arrancar servidor y HTTPS juntos desde Windows, consulta [Pruebas Firebase y Android](FIREBASE-ANDROID-TESTS.md). Los scripts y las instrucciones estan en el repositorio; las credenciales permanecen en el portatil.
+
 El código incluye la integración, pero no ha creado ninguna cuenta ni proyecto Firebase y no incluye contraseñas de Google. El acceso utiliza la cuenta Google del jugador. El botón «Entrar con Google» está en el launcher y en la equipación. La página permite elegir cuenta, mantiene la sesión Firebase en memoria y la cierra tras verificar el acceso en el servidor. El alojamiento del servidor continúa sin cambios.
 
 ## Prueba gratis alojando en el portátil (Windows)

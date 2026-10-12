@@ -18,3 +18,8 @@ Juego/
 src/Arcana.Client/android/
 *.keystore
 *.jks
+
+# Local Firebase test tools and private service credentials
+**/node_modules/
+**/service-account.json
+**/*firebase-adminsdk*.json
