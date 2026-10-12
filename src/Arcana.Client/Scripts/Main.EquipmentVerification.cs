@@ -7,23 +7,51 @@ public partial class Main
 {
     private bool _equipmentSmoke;
     private bool _equipmentRestoreSmoke;
-    private void EquipmentFixture(bool smoke)
+    private bool _equipmentElementsSmoke;
+    private void EquipmentFixture(bool smoke, EquipmentFamily family = EquipmentFamily.Life)
     {
         _equipmentSmoke = smoke;
         var random = new Random(91); var items = Enum.GetValues<ItemTier>().SelectMany(t => Enum.GetValues<EquipmentSlot>()
-            .Select(s => EquipmentCatalogue.Generate(random, tier: t, slot: s, family: EquipmentFamily.Life))).ToArray();
+            .Select(s => EquipmentCatalogue.Generate(random, tier: t, slot: s, family: family))).ToArray();
         string Id(EquipmentSlot s) => items.Single(i => i.Tier == ItemTier.Mythic && i.Slot == s).Id;
-        Accounts.RestoreOfflineProfile(new("fixture-user", "Mago de Vida", 1250, 24, 7,
+        Accounts.RestoreOfflineProfile(new("fixture-user", "Mago de " + EquipmentCatalogue.FamilyName(family), 1250, 24, 7,
             new(Id(EquipmentSlot.Boots), Id(EquipmentSlot.Hat), Id(EquipmentSlot.Chest), Id(EquipmentSlot.Weapon)), items));
         OpenEquipment("wss://servidor-central.example");
     }
     private bool CheckEquipmentSmoke()
     {
-        if ((!_equipmentSmoke && !_equipmentRestoreSmoke) || _renderFrames < 12) return false;
+        if ((!_equipmentSmoke && !_equipmentRestoreSmoke && !_equipmentElementsSmoke) || _renderFrames < 12) return false;
         _equipmentSmoke = false;
         void Check(bool value, string message) { if (!value) throw new InvalidOperationException(message); }
         try
         {
+            if (_equipmentElementsSmoke)
+            {
+                _equipmentElementsSmoke = false;
+                foreach (var family in EquipmentCatalogue.FocusedFamilies)
+                {
+                    EquipmentFixture(false, family); var view = _equipmentPanel!;
+                    view.PressInspect(EquipmentSlot.Weapon);
+                    var before = Accounts.Profile!; var modifiers = EquipmentModifiers.Calculate(before);
+                    var weapon = before.Items.Single(i => i.Id == before.Loadout.Weapon);
+                    Check(view.Sets.Contains(EquipmentCatalogue.FamilyName(family) + " 4/4") && modifiers.Pieces(family) == 4 &&
+                        view.Details.Contains(EquipmentCatalogue.Percent(weapon.Bonuses[0].Current)) &&
+                        view.Totals.Contains(EquipmentCatalogue.Percent(modifiers.Bonus(weapon.Bonuses[0].Stat))), "La interfaz omite los atributos o el conjunto de " + family);
+                    view.PressArrow(EquipmentSlot.Weapon, 1);
+                    var after = Accounts.Profile!;
+                    Check(EquipmentModifiers.Calculate(after).Pieces(family) == 3 && after.Loadout.Weapon != before.Loadout.Weapon,
+                        "La flecha no cambió el conjunto de " + family);
+                    var saved = Protocol.Deserialize<AccountProfile>(System.IO.File.ReadAllText(AccountCache))!;
+                    Check(saved.Loadout == after.Loadout && saved.Items.All(i => i.Bonuses.SequenceEqual(after.Items.Single(old => old.Id == i.Id).Bonuses)),
+                        "La caché perdió el elemento o la tirada de " + family);
+                    StartPractice("Equipo " + family, 0, GameMode.Duel, 1);
+                    Check(_practice!.Players[_localId].Equipment.Pieces(family) == 3, "La partida contra IA no aplicó la familia " + family);
+                    SnapshotValidation.Check(_practice.Snapshot()); ReturnToLauncher();
+                }
+                Check(_engineLog.ErrorCount == 0, "Godot registró errores con las familias nuevas.");
+                GD.Print("EQUIPMENT_ELEMENTS_SMOKE_OK: ocho familias, estadísticas individuales y totales, conjuntos, flechas, caché y equipo aplicado contra IA.");
+                GetTree().Quit(); return true;
+            }
             if (_equipmentRestoreSmoke)
             {
                 _equipmentRestoreSmoke = false;

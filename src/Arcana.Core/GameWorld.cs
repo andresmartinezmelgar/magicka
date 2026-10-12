@@ -179,7 +179,7 @@ public sealed partial class GameWorld
             Move(p, dt);
             if (p.Charging != null && p.Frozen <= 0)
             {
-                p.ChargeTime = Math.Min(SpellBalance.ChargeSeconds, p.ChargeTime + dt);
+                p.ChargeTime = Math.Min(SpellBalance.ChargeSeconds, p.ChargeTime + dt * p.Equipment.RockChargeSpeed);
                 if (p.ChargeTime >= SpellBalance.ChargeSeconds) Release(p);
             }
         }
@@ -216,9 +216,10 @@ public sealed partial class GameWorld
     private bool Allied(Wizard a, Wizard b) => a.Id == b.Id || Options.Mode != GameMode.Arena && a.Team == b.Team;
     private bool Hostile(Wizard a, Wizard b) => !Allied(a, b);
     private float Outgoing(int owner, Element element) => _players.TryGetValue(owner, out var source)
-        ? WizardTypes.Outgoing(source.WizardType, element) * (element == Element.Fire ? source.Equipment.Fire : 1) : 1;
+        ? WizardTypes.Outgoing(source.WizardType, element) * source.Equipment.ElementPower(element) : 1;
     private float ElementDamage(Wizard target, int owner, Element element, float amount) =>
-        amount * Outgoing(owner, element) * WizardTypes.Incoming(target.WizardType, element) * Resistance(target, element);
+        amount * Outgoing(owner, element) * WizardTypes.Incoming(target.WizardType, element) * Resistance(target, element) *
+        (element == Element.Lightning && target.Wet > 0 && _players.TryGetValue(owner, out var source) ? source.Equipment.WetLightningPower : 1);
 
     private void Move(Wizard p, float dt)
     {
@@ -430,7 +431,7 @@ public sealed partial class GameWorld
         }
         else if (spell.Has(Element.Water))
         {
-            p.Wet = 6; p.Burning = 0;
+            p.Wet = 6 * p.Equipment.WetDuration; p.Burning = 0;
         }
         else if (spell.Elements.Length > 0) Hit(p, spell, 1, p.Id, V2.Zero);
         Emit("self", p.Position, spell.Elements, "");
@@ -550,6 +551,7 @@ public sealed partial class GameWorld
     private void Hit(Wizard target, SpellRecipe spell, float scale, int owner, V2 force, float damageMultiplier = 1)
     {
         if (!target.Alive) return;
+        var equipment = _players.TryGetValue(owner, out var attacker) ? attacker.Equipment : EquipmentModifiers.None;
         if (spell.Healing) Heal(target, SpellBalance.Heal * spell.Count(Element.Life) * scale * HealingPower(owner));
         if (target.Invulnerable > 0) return;
         if (_players.TryGetValue(owner, out var source) && source.Id != target.Id && Allied(source, target) && !Options.FriendlyFire) return;
@@ -558,8 +560,8 @@ public sealed partial class GameWorld
             damage += ElementDamage(target, owner, element, SpellBalance.Component(spell, element, target.Wet > 0));
         if (spell.Has(Element.Water) && !spell.Steam && !spell.Ice && Resistance(target, Element.Water) > 0.5f)
         {
-            target.Wet = 6; target.Burning = 0;
-            target.Knockback += force * (18 * scale);
+            target.Wet = 6 * equipment.WetDuration; target.Burning = 0;
+            target.Knockback += force * (18 * scale * equipment.Water);
         }
         if (spell.Shape == SpellShape.Force) target.Knockback += force * (45 * scale);
         if (spell.Has(Element.Fire) && !spell.Steam && Resistance(target, Element.Fire) > 0.5f)
@@ -573,8 +575,8 @@ public sealed partial class GameWorld
         if (spell.Has(Element.Cold) && Resistance(target, Element.Cold) > 0.5f)
         {
             target.Burning = 0;
-            target.Chill = Math.Min(100, target.Chill + 38 * spell.Count(Element.Cold) * (target.Wet > 0 ? 2 : 1) * scale);
-            if (target.Chill >= 99) { target.Frozen = 1.4f; target.Wet = 0; }
+            target.Chill = Math.Min(100, target.Chill + 38 * spell.Count(Element.Cold) * (target.Wet > 0 ? 2 : 1) * scale * equipment.ChillPower);
+            if (target.Chill >= 99) { target.Frozen = 1.4f * equipment.FreezeDuration; target.Wet = 0; }
         }
         if (spell.Has(Element.Earth)) target.Knockback += force * (10 * scale);
         damage *= damageMultiplier;

@@ -1,6 +1,6 @@
-# Arcana Arena — v0.13.1
+# Arcana Arena — v0.14.0
 
-**v0.13.1:** Selección de botas, gorro, pecho y arma con flechas izquierda/derecha y guardado automático. La pantalla muestra atributos individuales, mínimos y máximos, suma de piezas, bonus de conjunto y valores aplicados en combate. Se conservan los sprites actuales. Cuentas Google con Firebase, inventario persistente, cinco calidades de objetos procedurales, bonus Míticos de dos y cuatro piezas y recompensas por victorias PvP. Botas, gorro, pecho y arma modifican el combate y también funcionan contra IA. Eliminar objetos entrega oro y conserva los mínimos, máximos y valores de las piezas restantes para futuras mejoras. Protocolo 12. [Funcionamiento y configuración del servidor central](docs/PROGRESSION.md).
+**v0.14.0:** Equipación para Agua, Vida, Escudo, Frío, Rayo, Arcano, Tierra y Fuego. Cinco calidades, atributos aleatorios y conjuntos Míticos de dos y cuatro piezas por elemento. Las bonificaciones modifican el combate, los estados y las cargas de haces y rocas. La selección con flechas muestra valores individuales y totales y se conserva entre partidas. Los objetos anteriores mantienen sus valores. Protocolo 13. [Bonificaciones y persistencia](docs/PROGRESSION.md).
 
 Primera recreación jugable en C# del combate elemental de **Magicka: Wizard Wars**. Cliente 3D de escritorio con **Godot 4.5.2 .NET**, servidor independiente **ASP.NET Core / .NET 8**, Docker, launcher con conexión por IP/LAN, salas independientes y paquete Windows para abrir con doble clic y APK Android con controles táctiles.
 
@@ -108,7 +108,7 @@ Descargar el código con **Code → Download ZIP** y extraer todo, o actualizar 
 
 El resultado queda en **`Juego/ArcanaArena.exe`**. Cada compilación correcta **sustituye completamente `Juego/`**, incluidos los archivos antiguos. Cerrar el juego antes de recompilar. Si la compilación falla, se conserva el resultado anterior. Registro: `artifacts/compilacion-*.log`. No requiere Visual Studio ni instalación de administrador. [Proceso y compilación manual](docs/EXPORTAR.md).
 
-Para **Android**, abrir **`Compilar-APK.cmd`**. Prepara .NET 8, Godot 4.5.2 .NET, OpenJDK 17 y el SDK Android 35 en `.tools/`; la primera ejecución necesita Internet, varios GB libres y aceptar las licencias que muestra el SDK. Genera **`artifacts/android/ArcanaArena-v0.13.1-Android-arm64.apk`**, lista para instalar en un móvil ARM64 con Android 8 o posterior. Reutiliza la firma local en las siguientes compilaciones y conserva la APK anterior si falla. Registro: `artifacts/compilacion-apk-*.log`. [Opciones y compilación manual](docs/ANDROID.md#compilación-y-comprobaciones).
+Para **Android**, abrir **`Compilar-APK.cmd`**. Prepara .NET 8, Godot 4.5.2 .NET, OpenJDK 17 y el SDK Android 35 en `.tools/`; la primera ejecución necesita Internet, varios GB libres y aceptar las licencias que muestra el SDK. Genera **`artifacts/android/ArcanaArena-v0.14.0-Android-arm64.apk`**, lista para instalar en un móvil ARM64 con Android 8 o posterior. Reutiliza la firma local en las siguientes compilaciones y conserva la APK anterior si falla. Registro: `artifacts/compilacion-apk-*.log`. [Opciones y compilación manual](docs/ANDROID.md#compilación-y-comprobaciones).
 
 La CI comprueba las compilaciones al actualizar `main`. Publicar los ejecutables como una Release requiere iniciar manualmente **Arcana Arena CI** en `main` y activar **`publish_release`**; por defecto queda desactivado.
 
@@ -119,7 +119,7 @@ La CI comprueba las compilaciones al actualizar `main`. Publicar los ejecutables
 - **Guerra en Arena clásica:** reducir a cero los tickets rivales; controlar más puntos los desgasta cada segundo y cada muerte cuesta un ticket.
 - **Guerra en Ciudadela:** controlar los tres puntos sin disputa durante **15 segundos consecutivos**. Disputar o neutralizar cualquiera reinicia el contador; no hay victoria por tickets o bajas.
 
-Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). El combate usa **protocolo 9**. Actualiza cliente y servidor a v0.12.15 o posterior: los protocolos anteriores se rechazan en el saludo porque no admiten el nuevo mapa ni sus cinco puntos de control.
+Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). El combate usa **protocolo 13**. Cliente y servidor deben actualizarse juntos a v0.14.0 para reconocer las familias y estadísticas de los ocho elementos; las versiones de protocolo anteriores se rechazan en el saludo.
 
 ## Mapas
 

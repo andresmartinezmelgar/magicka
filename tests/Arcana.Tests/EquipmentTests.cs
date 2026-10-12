@@ -20,6 +20,7 @@ internal static class EquipmentTests
     }
     public static void Run(Action<string, Action> test)
     {
+        EquipmentElementTests.Run(test);
         test("Equipo: 20.000 tiradas válidas con cinco calidades, rangos y posición principal", () =>
         {
             var random = new Random(441); bool penalty = false;

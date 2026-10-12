@@ -20,7 +20,8 @@ public sealed partial class GameWorld
             if (SpellBalance.Damage(player.Channel) > 0)
             {
                 player.BeamTicks = Math.Min((int)(SpellBalance.BeamChargeSeconds / StepSeconds + 0.5f), player.BeamTicks + 1);
-                multiplier = SpellBalance.BeamDamageMultiplier(player.BeamTicks * StepSeconds);
+                multiplier = SpellBalance.BeamDamageMultiplier(player.BeamTicks * StepSeconds *
+                    (player.Channel.Has(Element.Arcane) ? player.Equipment.BeamChargeSpeed : 1));
             }
             var from = SpellOrigin(player, player.Facing, 0.7f);
             var end = BeamEnd(from, player.Facing, player.Channel.Range * player.Equipment.Range, player.Id, out _, out _, player.Id);

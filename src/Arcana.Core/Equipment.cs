@@ -5,8 +5,10 @@ namespace Arcana.Core;
 
 public enum EquipmentSlot { Boots, Hat, Chest, Weapon }
 public enum ItemTier { Silver, Gold, Platinum, Diamond, Mythic }
-public enum EquipmentFamily { Mixed, Life, Shield, Fire }
-public enum EquipmentStat { MovementSpeed, SpellRange, Defense, Power, HealingPower, FirePower, ShieldCapacity, ShieldDuration, EnergyRegeneration, LifeEfficiency, BurnDuration }
+// Se añaden valores al final: las instancias existentes conservan sus identificadores.
+public enum EquipmentFamily { Mixed = 0, Life = 1, Shield = 2, Fire = 3, Water = 4, Cold = 5, Lightning = 6, Arcane = 7, Earth = 8 }
+public enum EquipmentStat { MovementSpeed, SpellRange, Defense, Power, HealingPower, FirePower, ShieldCapacity, ShieldDuration, EnergyRegeneration, LifeEfficiency, BurnDuration,
+    WaterPower, ColdPower, LightningPower, ArcanePower, EarthPower, WetDuration, ChillPower, FreezeDuration, WetLightningPower, BeamChargeSpeed, RockChargeSpeed }
 
 // Los intervalos pertenecen a la instancia: una nueva versión del catálogo no vuelve a sortear un objeto.
 public sealed record ItemBonus(EquipmentStat Stat, float Minimum, float Maximum, float Current);
@@ -46,19 +48,55 @@ public sealed record EquipmentModifiers
     public float EnergyRegeneration { get; init; } = 1;
     public float LifeCost { get; init; } = 1;
     public float BurnDuration { get; init; } = 1;
+    public float Water { get; init; } = 1;
+    public float Cold { get; init; } = 1;
+    public float Lightning { get; init; } = 1;
+    public float Arcane { get; init; } = 1;
+    public float Earth { get; init; } = 1;
+    public float WetDuration { get; init; } = 1;
+    public float ChillPower { get; init; } = 1;
+    public float FreezeDuration { get; init; } = 1;
+    public float WetLightningPower { get; init; } = 1;
+    public float BeamChargeSpeed { get; init; } = 1;
+    public float RockChargeSpeed { get; init; } = 1;
     public int LifePieces { get; init; }
     public int ShieldPieces { get; init; }
     public int FirePieces { get; init; }
+    public int WaterPieces { get; init; }
+    public int ColdPieces { get; init; }
+    public int LightningPieces { get; init; }
+    public int ArcanePieces { get; init; }
+    public int EarthPieces { get; init; }
     public EquipmentAppearance Appearance { get; init; } = new();
+    public int Pieces(EquipmentFamily family) => family switch
+    {
+        EquipmentFamily.Life => LifePieces, EquipmentFamily.Shield => ShieldPieces, EquipmentFamily.Fire => FirePieces,
+        EquipmentFamily.Water => WaterPieces, EquipmentFamily.Cold => ColdPieces, EquipmentFamily.Lightning => LightningPieces,
+        EquipmentFamily.Arcane => ArcanePieces, EquipmentFamily.Earth => EarthPieces, _ => 0
+    };
+    public float ElementPower(Element element) => element switch
+    { Element.Water => Water, Element.Cold => Cold, Element.Lightning => Lightning, Element.Arcane => Arcane, Element.Earth => Earth, Element.Fire => Fire, _ => 1 };
+    public float Bonus(EquipmentStat stat) => stat switch
+    {
+        EquipmentStat.MovementSpeed => Speed - 1, EquipmentStat.SpellRange => Range - 1, EquipmentStat.Defense => 1 - Incoming,
+        EquipmentStat.Power => Power - 1, EquipmentStat.HealingPower => Healing - 1, EquipmentStat.FirePower => Fire - 1,
+        EquipmentStat.ShieldCapacity => ShieldCapacity - 1, EquipmentStat.ShieldDuration => ShieldDuration - 1,
+        EquipmentStat.EnergyRegeneration => EnergyRegeneration - 1, EquipmentStat.LifeEfficiency => 1 - LifeCost,
+        EquipmentStat.BurnDuration => BurnDuration - 1, EquipmentStat.WaterPower => Water - 1, EquipmentStat.ColdPower => Cold - 1,
+        EquipmentStat.LightningPower => Lightning - 1, EquipmentStat.ArcanePower => Arcane - 1, EquipmentStat.EarthPower => Earth - 1,
+        EquipmentStat.WetDuration => WetDuration - 1, EquipmentStat.ChillPower => ChillPower - 1, EquipmentStat.FreezeDuration => FreezeDuration - 1,
+        EquipmentStat.WetLightningPower => WetLightningPower - 1, EquipmentStat.BeamChargeSpeed => BeamChargeSpeed - 1,
+        EquipmentStat.RockChargeSpeed => RockChargeSpeed - 1, _ => throw new ArgumentOutOfRangeException(nameof(stat))
+    };
     public static EquipmentModifiers Calculate(AccountProfile profile) => Summarize(profile).Modifiers;
     public static EquipmentSummary Summarize(AccountProfile profile)
     {
         if (profile.Items.Length > EquipmentCatalogue.InventoryLimit) throw new InvalidDataException("Inventario demasiado grande.");
         var stats = new float[Enum.GetValues<EquipmentStat>().Length];
         var setStats = new float[stats.Length];
-        var sets = new int[4];
+        var sets = new int[Enum.GetValues<EquipmentFamily>().Length];
         var tiers = new ItemTier?[4];
-        var families = new int[4];
+        var families = new int[sets.Length];
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
             string id = profile.Loadout.Get(slot);
@@ -69,70 +107,78 @@ public sealed record EquipmentModifiers
             foreach (var b in item.Bonuses) stats[(int)b.Stat] += b.Current;
             if (item.Tier == ItemTier.Mythic) sets[(int)item.Family]++;
         }
-        if (sets[1] >= 2) setStats[(int)EquipmentStat.HealingPower] = sets[1] == 4 ? 0.15f : 0.05f;
-        if (sets[1] == 4) setStats[(int)EquipmentStat.LifeEfficiency] = 0.10f;
-        if (sets[2] >= 2)
-        {
-            setStats[(int)EquipmentStat.ShieldDuration] = sets[2] == 4 ? 0.20f : 0.10f;
-            if (sets[2] == 4) setStats[(int)EquipmentStat.ShieldCapacity] = 0.20f;
-        }
-        if (sets[3] >= 2) setStats[(int)EquipmentStat.FirePower] = sets[3] == 4 ? 0.15f : 0.05f;
-        if (sets[3] == 4) setStats[(int)EquipmentStat.BurnDuration] = 0.20f;
-        float Bonus(EquipmentStat s, float upper = 0.60f) => Math.Clamp(stats[(int)s] + setStats[(int)s], -0.25f, upper);
-        var dominant = Enumerable.Range(1, 3).OrderByDescending(i => families[i]).ThenBy(i => i).First();
+        foreach (var family in EquipmentCatalogue.FocusedFamilies)
+            if (sets[(int)family] >= 2)
+                foreach (var bonus in EquipmentCatalogue.SetBonuses(family))
+                    setStats[(int)bonus.Stat] += sets[(int)family] == 4 ? bonus.FourPieces : bonus.TwoPieces;
+        float Bonus(EquipmentStat s) => Math.Clamp(stats[(int)s] + setStats[(int)s], -0.25f, EquipmentCatalogue.Maximum(s));
+        var dominant = Enumerable.Range(1, families.Length - 1).OrderByDescending(i => families[i]).ThenBy(i => i).First();
         var modifiers = new EquipmentModifiers
         {
-            Speed = 1 + Bonus(EquipmentStat.MovementSpeed, 0.30f), Range = 1 + Bonus(EquipmentStat.SpellRange, 0.35f),
-            Incoming = 1 - Bonus(EquipmentStat.Defense, 0.35f), Power = 1 + Bonus(EquipmentStat.Power, 0.40f),
-            Healing = 1 + Bonus(EquipmentStat.HealingPower), Fire = 1 + Bonus(EquipmentStat.FirePower, 0.50f),
+            Speed = 1 + Bonus(EquipmentStat.MovementSpeed), Range = 1 + Bonus(EquipmentStat.SpellRange),
+            Incoming = 1 - Bonus(EquipmentStat.Defense), Power = 1 + Bonus(EquipmentStat.Power),
+            Healing = 1 + Bonus(EquipmentStat.HealingPower), Fire = 1 + Bonus(EquipmentStat.FirePower),
             ShieldCapacity = 1 + Bonus(EquipmentStat.ShieldCapacity), ShieldDuration = 1 + Bonus(EquipmentStat.ShieldDuration),
-            EnergyRegeneration = 1 + Bonus(EquipmentStat.EnergyRegeneration), LifeCost = 1 - Bonus(EquipmentStat.LifeEfficiency, 0.35f),
+            EnergyRegeneration = 1 + Bonus(EquipmentStat.EnergyRegeneration), LifeCost = 1 - Bonus(EquipmentStat.LifeEfficiency),
             BurnDuration = 1 + Bonus(EquipmentStat.BurnDuration), LifePieces = sets[1], ShieldPieces = sets[2], FirePieces = sets[3],
+            Water = 1 + Bonus(EquipmentStat.WaterPower), Cold = 1 + Bonus(EquipmentStat.ColdPower), Lightning = 1 + Bonus(EquipmentStat.LightningPower),
+            Arcane = 1 + Bonus(EquipmentStat.ArcanePower), Earth = 1 + Bonus(EquipmentStat.EarthPower), WetDuration = 1 + Bonus(EquipmentStat.WetDuration),
+            ChillPower = 1 + Bonus(EquipmentStat.ChillPower), FreezeDuration = 1 + Bonus(EquipmentStat.FreezeDuration),
+            WetLightningPower = 1 + Bonus(EquipmentStat.WetLightningPower), BeamChargeSpeed = 1 + Bonus(EquipmentStat.BeamChargeSpeed),
+            RockChargeSpeed = 1 + Bonus(EquipmentStat.RockChargeSpeed), WaterPieces = sets[4], ColdPieces = sets[5],
+            LightningPieces = sets[6], ArcanePieces = sets[7], EarthPieces = sets[8],
             Appearance = new(tiers[0], tiers[1], tiers[2], tiers[3], families[dominant] > 0 ? (EquipmentFamily)dominant : EquipmentFamily.Mixed)
         };
-        float Effective(EquipmentStat stat) => stat switch
-        {
-            EquipmentStat.MovementSpeed => modifiers.Speed - 1, EquipmentStat.SpellRange => modifiers.Range - 1,
-            EquipmentStat.Defense => 1 - modifiers.Incoming, EquipmentStat.Power => modifiers.Power - 1,
-            EquipmentStat.HealingPower => modifiers.Healing - 1, EquipmentStat.FirePower => modifiers.Fire - 1,
-            EquipmentStat.ShieldCapacity => modifiers.ShieldCapacity - 1, EquipmentStat.ShieldDuration => modifiers.ShieldDuration - 1,
-            EquipmentStat.EnergyRegeneration => modifiers.EnergyRegeneration - 1, EquipmentStat.LifeEfficiency => 1 - modifiers.LifeCost,
-            _ => modifiers.BurnDuration - 1
-        };
-        return new(modifiers, Enum.GetValues<EquipmentStat>().Select(s => new EquipmentStatTotal(s, stats[(int)s], setStats[(int)s], Effective(s))).ToArray());
+        return new(modifiers, Enum.GetValues<EquipmentStat>().Select(s => new EquipmentStatTotal(s, stats[(int)s], setStats[(int)s], modifiers.Bonus(s))).ToArray());
     }
 }
 
-public static class EquipmentCatalogue
+public static partial class EquipmentCatalogue
 {
-    public const int GenerationVersion = 1, InventoryLimit = 500;
+    public const int GenerationVersion = 2, InventoryLimit = 500;
     private static readonly int[] Sales = [10, 25, 60, 150, 400];
     private static readonly float[] MainMin = [0.01f, 0.02f, 0.03f, 0.06f, 0.08f], MainMax = [0.05f, 0.07f, 0.09f, 0.11f, 0.13f];
     private static readonly float[] ExtraMin = [-0.04f, -0.03f, -0.02f, 0.04f, 0.07f], ExtraMax = [0.06f, 0.08f, 0.10f, 0.10f, 0.14f];
     private static readonly float[] RollBudget = [0.10f, 0.19f, 0.25f, 0.30f, 0.46f];
     public static string SlotName(EquipmentSlot slot) => slot switch { EquipmentSlot.Boots => "Botas", EquipmentSlot.Hat => "Gorro", EquipmentSlot.Chest => "Pecho", _ => "Arma" };
     public static string TierName(ItemTier tier) => tier switch { ItemTier.Silver => "Plata", ItemTier.Gold => "Oro", ItemTier.Platinum => "Platino", ItemTier.Diamond => "Diamante", _ => "Mítico" };
-    public static string FamilyName(EquipmentFamily family) => family switch { EquipmentFamily.Life => "Vida", EquipmentFamily.Shield => "Escudo", EquipmentFamily.Fire => "Fuego", _ => "Mixto" };
+    public static string FamilyName(EquipmentFamily family) => family switch
+    { EquipmentFamily.Life => "Vida", EquipmentFamily.Shield => "Escudo", EquipmentFamily.Fire => "Fuego", EquipmentFamily.Water => "Agua",
+        EquipmentFamily.Cold => "Frío", EquipmentFamily.Lightning => "Rayo", EquipmentFamily.Arcane => "Arcano", EquipmentFamily.Earth => "Tierra", _ => "Mixto" };
     public static string StatName(EquipmentStat stat) => stat switch
     {
         EquipmentStat.MovementSpeed => "Velocidad", EquipmentStat.SpellRange => "Alcance", EquipmentStat.Defense => "Defensa",
         EquipmentStat.Power => "Potencia de ataque", EquipmentStat.HealingPower => "Curación", EquipmentStat.FirePower => "Daño de fuego",
         EquipmentStat.ShieldCapacity => "Absorción del escudo", EquipmentStat.ShieldDuration => "Duración del escudo",
-        EquipmentStat.EnergyRegeneration => "Regeneración de energía", EquipmentStat.LifeEfficiency => "Ahorro de energía al reanimar", _ => "Duración de quemaduras"
+        EquipmentStat.EnergyRegeneration => "Regeneración de energía", EquipmentStat.LifeEfficiency => "Ahorro de energía al reanimar",
+        EquipmentStat.BurnDuration => "Duración de quemaduras", EquipmentStat.WaterPower => "Potencia de agua", EquipmentStat.ColdPower => "Daño de frío",
+        EquipmentStat.LightningPower => "Daño de rayo", EquipmentStat.ArcanePower => "Daño arcano", EquipmentStat.EarthPower => "Daño de tierra",
+        EquipmentStat.WetDuration => "Duración de mojado", EquipmentStat.ChillPower => "Potencia de enfriamiento", EquipmentStat.FreezeDuration => "Duración de congelación",
+        EquipmentStat.WetLightningPower => "Rayo contra mojados", EquipmentStat.BeamChargeSpeed => "Velocidad de carga del haz", EquipmentStat.RockChargeSpeed => "Velocidad de carga de rocas",
+        _ => throw new ArgumentOutOfRangeException(nameof(stat))
     };
-    public static string Percent(float value) => value.ToString("+0.#%;-0.#%;0%", CultureInfo.InvariantCulture);
+    public static string Percent(float value) => MathF.Round(value * 100, 1).ToString("+0.#;-0.#;0", CultureInfo.InvariantCulture) + "%";
     public static string ItemName(EquipmentItem item) => SlotName(item.Slot) + " · " + TierName(item.Tier) + " · " + FamilyName(item.Family);
     public static EquipmentStat MainStat(EquipmentSlot slot, EquipmentFamily family) => slot switch
     {
         EquipmentSlot.Boots => EquipmentStat.MovementSpeed, EquipmentSlot.Hat => EquipmentStat.SpellRange, EquipmentSlot.Chest => EquipmentStat.Defense,
-        _ => family == EquipmentFamily.Life ? EquipmentStat.HealingPower : family == EquipmentFamily.Shield ? EquipmentStat.ShieldCapacity
-            : family == EquipmentFamily.Fire ? EquipmentStat.FirePower : EquipmentStat.Power
+        _ => family switch
+        {
+            EquipmentFamily.Life => EquipmentStat.HealingPower, EquipmentFamily.Shield => EquipmentStat.ShieldCapacity, EquipmentFamily.Fire => EquipmentStat.FirePower,
+            EquipmentFamily.Water => EquipmentStat.WaterPower, EquipmentFamily.Cold => EquipmentStat.ColdPower, EquipmentFamily.Lightning => EquipmentStat.LightningPower,
+            EquipmentFamily.Arcane => EquipmentStat.ArcanePower, EquipmentFamily.Earth => EquipmentStat.EarthPower, _ => EquipmentStat.Power
+        }
     };
     public static EquipmentStat[] Pool(EquipmentFamily family) => family switch
     {
         EquipmentFamily.Life => [EquipmentStat.HealingPower, EquipmentStat.EnergyRegeneration, EquipmentStat.LifeEfficiency, EquipmentStat.ShieldDuration],
         EquipmentFamily.Shield => [EquipmentStat.ShieldCapacity, EquipmentStat.ShieldDuration, EquipmentStat.Defense, EquipmentStat.EnergyRegeneration],
         EquipmentFamily.Fire => [EquipmentStat.FirePower, EquipmentStat.BurnDuration, EquipmentStat.Power, EquipmentStat.EnergyRegeneration],
+        EquipmentFamily.Water => [EquipmentStat.WaterPower, EquipmentStat.WetDuration, EquipmentStat.SpellRange, EquipmentStat.EnergyRegeneration],
+        EquipmentFamily.Cold => [EquipmentStat.ColdPower, EquipmentStat.ChillPower, EquipmentStat.FreezeDuration, EquipmentStat.EnergyRegeneration],
+        EquipmentFamily.Lightning => [EquipmentStat.LightningPower, EquipmentStat.WetLightningPower, EquipmentStat.SpellRange, EquipmentStat.EnergyRegeneration],
+        EquipmentFamily.Arcane => [EquipmentStat.ArcanePower, EquipmentStat.BeamChargeSpeed, EquipmentStat.SpellRange, EquipmentStat.EnergyRegeneration],
+        EquipmentFamily.Earth => [EquipmentStat.EarthPower, EquipmentStat.RockChargeSpeed, EquipmentStat.Defense, EquipmentStat.ShieldCapacity],
         _ => Enum.GetValues<EquipmentStat>()
     };
     public static IEnumerable<(string Id, object Data)> Definitions()
@@ -153,7 +199,9 @@ public static class EquipmentCatalogue
         int roll = random.Next(100);
         var quality = tier ?? (roll < 48 ? ItemTier.Silver : roll < 75 ? ItemTier.Gold : roll < 90 ? ItemTier.Platinum : roll < 98 ? ItemTier.Diamond : ItemTier.Mythic);
         var position = slot ?? (EquipmentSlot)random.Next(4);
-        var identity = quality >= ItemTier.Diamond ? family is > EquipmentFamily.Mixed and <= EquipmentFamily.Fire ? family.Value : (EquipmentFamily)random.Next(1, 4) : EquipmentFamily.Mixed;
+        if (family.HasValue && !Enum.IsDefined(family.Value)) throw new ArgumentException("Familia de objeto inválida.");
+        var identity = quality >= ItemTier.Diamond ? family.HasValue && family != EquipmentFamily.Mixed ? family.Value
+            : FocusedFamilies[random.Next(FocusedFamilies.Count)] : EquipmentFamily.Mixed;
         if (!Enum.IsDefined(quality) || !Enum.IsDefined(position)) throw new ArgumentException("Tipo de objeto inválido.");
         var primary = MainStat(position, identity);
         float Value(float min, float max) => MathF.Round(min + (float)random.NextDouble() * (max - min), 4);

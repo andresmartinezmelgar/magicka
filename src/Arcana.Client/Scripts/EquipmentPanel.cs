@@ -12,6 +12,7 @@ public partial class EquipmentPanel : Control
     private GridContainer _details = null!, _totals = null!;
     private Button _sell = null!;
     private ConfirmationDialog _confirm = null!;
+    private AcceptDialog _setsInfo = null!;
     private readonly SlotControls[] _slots = new SlotControls[4];
     private readonly CancellationTokenSource _lifetime = new();
     private readonly List<Button> _actions = [];
@@ -23,6 +24,7 @@ public partial class EquipmentPanel : Control
     internal string Details => string.Join("\n", _details.GetChildren().OfType<Label>().Select(l => l.Text));
     internal string Totals => string.Join("\n", _totals.GetChildren().OfType<Label>().Select(l => l.Text));
     internal bool Saving => _busy;
+    internal string Sets => _sets.Text;
 
     public void Build(Main main, string address)
     {
@@ -72,9 +74,11 @@ public partial class EquipmentPanel : Control
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         columns.AddChild(totalsScroll);
         var summary = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; summary.AddThemeConstantOverride("separation", 8); totalsScroll.AddChild(summary);
-        var summaryTitle = Ui.Label("SUMA DE TODO EL EQUIPO", 22, Ui.Gold);
+        var summaryHeading = new HBoxContainer(); summaryHeading.AddThemeConstantOverride("separation", 10); summary.AddChild(summaryHeading);
+        var summaryTitle = Ui.Label("SUMA DE TODO EL EQUIPO", 22, Ui.Gold); summaryTitle.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         summaryTitle.TooltipText = "Suma = piezas + conjunto. Aplicado incluye los límites de combate. Valores respecto al mago base.";
-        summary.AddChild(summaryTitle);
+        summaryHeading.AddChild(summaryTitle);
+        Action(summaryHeading, "Conjuntos", () => _setsInfo.PopupCentered());
         _sets = Ui.Label("", 16, Ui.Gold); _sets.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_sets);
         _totals = new GridContainer { Columns = 5 }; _totals.AddThemeConstantOverride("h_separation", 12);
         _totals.AddThemeConstantOverride("v_separation", 3); summary.AddChild(_totals);
@@ -85,6 +89,13 @@ public partial class EquipmentPanel : Control
         var close = Action(footer, "Volver", () => { _lifetime.Cancel(); QueueFree(); }); _actions.Remove(close);
         _confirm = new ConfirmationDialog { Title = "Eliminar objeto", OkButtonText = "Eliminar y recibir oro", CancelButtonText = "Cancelar" };
         AddChild(_confirm); _confirm.Confirmed += () => _ = Sell();
+        _setsInfo = new AcceptDialog { Title = "Conjuntos Míticos de los ocho elementos", OkButtonText = "Cerrar" }; AddChild(_setsInfo);
+        var setsScroll = new ScrollContainer { CustomMinimumSize = new(920, Math.Min(480, GetViewport().GetVisibleRect().Size.Y - 180)),
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; _setsInfo.AddChild(setsScroll);
+        var descriptions = Ui.Label(string.Join("\n\n", EquipmentCatalogue.FocusedFamilies.Select(f => EquipmentCatalogue.FamilyName(f) + "\n"
+            + "2 o 3 piezas: " + SetDescription(f, false) + "\n4 piezas: " + SetDescription(f, true)))
+            + "\n\nEl bono de cuatro sustituye al de dos. Se pueden combinar dos conjuntos de dos piezas.", 17);
+        descriptions.AutowrapMode = TextServer.AutowrapMode.WordSmart; descriptions.SizeFlagsHorizontal = SizeFlags.ExpandFill; setsScroll.AddChild(descriptions);
         Render();
         if (_main.Accounts.SignedIn) _ = Refresh();
     }
@@ -106,8 +117,13 @@ public partial class EquipmentPanel : Control
     {
         EquipmentStat.Power => "Ataque", EquipmentStat.FirePower => "Daño de fuego", EquipmentStat.ShieldCapacity => "Absorción escudo",
         EquipmentStat.ShieldDuration => "Duración escudo", EquipmentStat.EnergyRegeneration => "Regen. energía",
-        EquipmentStat.LifeEfficiency => "Ahorro reanimar", EquipmentStat.BurnDuration => "Quemaduras", _ => EquipmentCatalogue.StatName(stat)
+        EquipmentStat.LifeEfficiency => "Ahorro reanimar", EquipmentStat.BurnDuration => "Quemaduras", EquipmentStat.WetDuration => "Mojado",
+        EquipmentStat.ChillPower => "Enfriamiento", EquipmentStat.FreezeDuration => "Congelación", EquipmentStat.WetLightningPower => "Rayo a mojados",
+        EquipmentStat.BeamChargeSpeed => "Carga del haz", EquipmentStat.RockChargeSpeed => "Carga de rocas", _ => EquipmentCatalogue.StatName(stat)
     };
+    private static string SetDescription(EquipmentFamily family, bool four) => string.Join(", ", EquipmentCatalogue.SetBonuses(family)
+        .Where(b => (four ? b.FourPieces : b.TwoPieces) != 0)
+        .Select(b => StatName(b.Stat) + " " + EquipmentCatalogue.Percent(four ? b.FourPieces : b.TwoPieces)));
     private static void Clear(Node parent)
     { foreach (var child in parent.GetChildren()) { parent.RemoveChild(child); child.QueueFree(); } }
     private static Label Cell(GridContainer grid, string text, bool number = false, Color? color = null)
@@ -129,6 +145,7 @@ public partial class EquipmentPanel : Control
         var button = direction < 0 ? _slots[(int)slot].Previous : _slots[(int)slot].Next;
         if (!button.Disabled) button.EmitSignal(Button.SignalName.Pressed);
     }
+    internal void PressInspect(EquipmentSlot slot) => _slots[(int)slot].Inspect.EmitSignal(Button.SignalName.Pressed);
     private void Cycle(EquipmentSlot slot, int direction)
     {
         if (_busy || _main.Accounts.Profile == null || direction is not (-1 or 1)) return;
@@ -158,7 +175,8 @@ public partial class EquipmentPanel : Control
         Clear(_totals);
         foreach (string heading in new[] { "Atributo", "Piezas", "Conjunto", "Suma", "Aplicado" }) Cell(_totals, heading, heading != "Atributo", Ui.Muted);
         var breakdown = EquipmentModifiers.Summarize(account ?? new("", "", 0, 0, 0, new(), []));
-        foreach (var stat in breakdown.Stats)
+        var equippedStats = account?.Items.Where(i => account.Loadout.Get(i.Slot) == i.Id).SelectMany(i => i.Bonuses).Select(b => b.Stat).ToHashSet() ?? [];
+        foreach (var stat in breakdown.Stats.Where(s => (int)s.Stat <= (int)EquipmentStat.Power || s.Items != 0 || s.Set != 0 || equippedStats.Contains(s.Stat)))
         {
             Cell(_totals, StatName(stat.Stat)).TooltipText = EquipmentCatalogue.StatName(stat.Stat);
             Cell(_totals, EquipmentCatalogue.Percent(stat.Items), true);
@@ -168,11 +186,10 @@ public partial class EquipmentPanel : Control
             if (stat.Limited) applied.TooltipText = "La suma supera el límite de este atributo. Este es el valor que se aplica en combate.";
         }
         var m = breakdown.Modifiers;
-        _sets.Text = $"Míticos · Vida {m.LifePieces}/4 · Escudo {m.ShieldPieces}/4 · Fuego {m.FirePieces}/4";
+        var activeSets = EquipmentCatalogue.FocusedFamilies.Where(f => m.Pieces(f) > 0).ToArray();
+        _sets.Text = "Míticos · " + (activeSets.Length == 0 ? "sin piezas" : string.Join(" · ", activeSets.Select(f => EquipmentCatalogue.FamilyName(f) + " " + m.Pieces(f) + "/4")));
         _sets.TooltipText = "Solo cuentan las piezas Míticas de la misma familia. Con 3 piezas sigue activo el bonus de 2. El bonus de 4 sustituye al de 2.\n"
-            + Set("Vida", m.LifePieces, "+5 % curación", "+15 % curación, +10 % ahorro al reanimar") + "\n"
-            + Set("Escudo", m.ShieldPieces, "+10 % duración", "+20 % duración, +20 % absorción") + "\n"
-            + Set("Fuego", m.FirePieces, "+5 % daño de fuego", "+15 % daño de fuego, +20 % quemaduras");
+            + string.Join("\n", EquipmentCatalogue.FocusedFamilies.Select(f => Set(EquipmentCatalogue.FamilyName(f), m.Pieces(f), SetDescription(f, false), SetDescription(f, true))));
         if (!_busy && _status.Text.Length == 0) _status.Text = account == null ? "Inicia sesión con Google para recuperar tu inventario y conseguir objetos en PvP." :
             _main.Accounts.SignedIn ? "Elige con las flechas: se guarda automáticamente en tu cuenta para PvP y contra IA." : "Elige con las flechas: se guarda en este dispositivo para jugar contra IA.";
     }

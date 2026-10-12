@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.14.0
+
+- Equipación ampliada a los ocho elementos: Agua, Vida, Escudo, Frío, Rayo, Arcano, Tierra y Fuego.
+- Once atributos nuevos: potencia de los cinco elementos incorporados, duración de mojado, enfriamiento, congelación, Rayo contra mojados y rapidez de carga del haz y de rocas.
+- Cada familia tiene un conjunto Mítico de dos o tres piezas y otro de cuatro; se conservan los bonos de Vida, Escudo y Fuego.
+- Daño elemental aplicado por componente en fusiones, barreras, reflejos y estados; las cargas aceleradas conservan la potencia máxima.
+- El selector muestra los atributos usados por las piezas y los conjuntos, incluidos los que se compensan hasta cero. Un botón permite consultar los ocho conjuntos en móvil y escritorio.
+- Catálogo de generación 2 y esquema de cuenta 1: las tiradas, IDs, mínimos, máximos y selecciones existentes no se modifican. Protocolo 13 para impedir partidas con clientes que desconocen las familias nuevas.
+
 ## 0.13.1
 
 - Selector independiente de botas, gorro, pecho y arma mediante flechas izquierda/derecha, con opción Sin equipo y selección circular.
