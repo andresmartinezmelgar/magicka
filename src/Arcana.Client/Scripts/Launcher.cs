@@ -272,9 +272,9 @@ public partial class Launcher : Control
                     if (list.Length > 0) addresses = "IP para compartir: " + list;
                 }
                 catch (System.Net.Sockets.SocketException) { }
-                _hostInfo.Text = $"Servidor activo · Juego TCP {options.Port} · LAN UDP {options.DiscoveryPort}\\n{addresses}"
+                _hostInfo.Text = $"Servidor activo · Juego TCP {options.Port} · LAN UDP {options.DiscoveryPort}\n{addresses}"
                     + (System.IO.File.Exists(System.IO.Path.Combine(LocalFirebaseHosting.DirectoryPath(ProjectSettings.GlobalizePath("user://")), LocalFirebaseHosting.ConfigFileName))
-                        ? "\\nFirebase local: configuración detectada (usa Entrar con Google para comprobarla)." : "\\nFirebase: desactivado; las partidas LAN siguen disponibles.");
+                        ? "\nFirebase local: configuración detectada (usa Entrar con Google para comprobarla)." : "\nFirebase: desactivado; las partidas LAN siguen disponibles.");
                 _address.Text = _host.Address;
                 UpdateConnectLabel(); OpenRooms(_host.Address, _hostPassword);
             });
