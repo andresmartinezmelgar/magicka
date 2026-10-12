@@ -29,9 +29,10 @@ public partial class RoomLobby : Control
         Theme = Ui.Theme(); Ui.Full(this);
         var shade = new ColorRect { Color = new(0.01f, 0.025f, 0.045f, 0.94f) }; AddChild(shade); Ui.Full(shade);
         var center = new CenterContainer(); AddChild(center); Ui.Full(center);
-        var panel = new PanelContainer { CustomMinimumSize = new(860, 0) }; center.AddChild(panel);
-        var scroll = new ScrollContainer { CustomMinimumSize = new(820, Math.Min(740, GetViewport().GetVisibleRect().Size.Y - 120)),
-            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; panel.AddChild(scroll);
+        var panel = new PanelContainer { CustomMinimumSize = new(Ui.IsMobile ? 0 : 860, 0) }; center.AddChild(panel);
+        var scroll = new ScrollContainer { CustomMinimumSize = new(Ui.IsMobile ? 0 : 820, Ui.IsMobile ? 0 : Math.Min(740, GetViewport().GetVisibleRect().Size.Y - 120)),
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            VerticalScrollMode = Ui.IsMobile ? ScrollContainer.ScrollMode.Disabled : ScrollContainer.ScrollMode.Auto }; panel.AddChild(scroll);
         var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; box.AddThemeConstantOverride("separation", 16); scroll.AddChild(box);
         _heading = Ui.Label("SALAS", 28, Ui.Gold); box.AddChild(_heading);
         box.AddChild(Ui.Label(address, 15, Ui.Muted));
@@ -53,7 +54,7 @@ public partial class RoomLobby : Control
         _createPane = new VBoxContainer { Visible = false }; _createPane.AddThemeConstantOverride("separation", 12); box.AddChild(_createPane);
         var grid = new GridContainer { Columns = 2 }; grid.AddThemeConstantOverride("h_separation", 18);
         grid.AddThemeConstantOverride("v_separation", 10); _createPane.AddChild(grid);
-        _roomName = new LineEdit { Text = "Sala de " + (name.Length > 24 ? name[..24] : name), MaxLength = 32, CustomMinimumSize = new(460, 42) };
+        _roomName = new LineEdit { Text = "Sala de " + (name.Length > 24 ? name[..24] : name), MaxLength = 32, CustomMinimumSize = new(Ui.IsMobile ? 0 : 460, 42) };
         Row(grid, "Nombre", _roomName);
         _mode = new OptionButton { CustomMinimumSize = new(0, 42) };
         _mode.AddItem("Guerra de puntos", (int)GameMode.Warfare); _mode.AddItem("Todos contra todos", (int)GameMode.Arena);
@@ -62,7 +63,10 @@ public partial class RoomLobby : Control
         foreach (var map in Enum.GetValues<ArenaMapId>().Where(m => !ArenaMap.Get(m).IsPractice)) _map.AddItem(ArenaMap.Get(map).Name + (map == ArenaMapId.Citadel ? " · 4×" : ""), (int)map);
         Row(grid, "Mapa", _map);
         _capacity = Number(2, 16, 8); Row(grid, "Plazas (incluidos los bots)", _capacity);
-        _bots = Number(0, 7, 0); Row(grid, "Bots", _bots);
+        _bots = Number(0, 7, 0); Row(grid, "IA (desactiva premios)", _bots);
+        var rewardHint = Ui.Label("Recompensas PvP: solo equipos humanos equilibrados (1v1 hasta 4v4).", 14, Ui.Gold);
+        rewardHint.AutowrapMode = TextServer.AutowrapMode.WordSmart; _createPane.AddChild(rewardHint);
+        _bots.ValueChanged += count => rewardHint.Text = count > 0 ? "SIN RECOMPENSAS: hay IA en la partida." : "Recompensas PvP disponibles únicamente con equipos humanos equilibrados.";
         _friendly = new CheckBox { Text = "Permitir daño entre aliados", ButtonPressed = true }; Row(grid, "Fuego amigo", _friendly);
         _score = Number(1, 200, 15); Row(grid, "Puntos para ganar (arena / duelo)", _score);
         _tickets = Number(5, 1000, 75); Row(grid, "Tickets por equipo (guerra)", _tickets);
