@@ -4,6 +4,20 @@ internal static class NetworkDeltaTests
 {
     internal static void Run(Action<string, Action> test)
     {
+        test("Delta desde saludo permite pérdida de fotogramas", () =>
+        {
+            var world = new GameWorld(new WorldOptions());
+            world.AddPlayer("Mago", 0);
+            var welcome = new ServerMessage { Type = "welcome", PlayerId = 1, Snapshot = world.Snapshot(),
+                RequiresReady = true, ReadyPlayerIds = [1] };
+            world.Step();
+            world.Step();
+            var latest = new ServerMessage { Type = "snapshot", Snapshot = world.Snapshot(),
+                ReadyPlayerIds = [1] };
+            var rebuilt = SnapshotDelta.Decode(SnapshotDelta.Encode(latest, welcome), welcome);
+            if (Protocol.Serialize(rebuilt.Snapshot) != Protocol.Serialize(latest.Snapshot))
+                throw new Exception("Delta no independiente.");
+        });
         test("Delta conserva estado completo tras movimiento", () =>
         {
             var world = new GameWorld(new WorldOptions());
