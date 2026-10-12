@@ -6,10 +6,10 @@ namespace Arcana.Core;
 
 public static class Protocol
 {
-    public const int Version = 18;
+    public const int Version = 19;
     public const int GamePort = 27015;
     public const int DiscoveryPort = 27016;
-    public const string DiscoveryMagic = "ARCANA_DISCOVER_V18";
+    public const string DiscoveryMagic = "ARCANA_DISCOVER_V19";
     public const int LoadingTimeoutSeconds = 120;
     public const int MaxMessageBytes = 4096;
     public static readonly JsonSerializerOptions Json = new()
@@ -38,7 +38,7 @@ public static class Protocol
         {
             case "input":
                 writer.Write(QuantizeAxis(message.MoveX)); writer.Write(QuantizeAxis(message.MoveY)); writer.Write(message.MoveTo);
-                writer.Write(message.TargetX); writer.Write(message.TargetY);
+                if (message.MoveTo) { writer.Write(message.TargetX); writer.Write(message.TargetY); }
                 writer.Write(message.AimX); writer.Write(message.AimY); break;
             case "element": writer.Write((byte)message.Element); break;
             case "magick": writer.Write((byte)message.Slot); break;
@@ -60,8 +60,9 @@ public static class Protocol
             {
                 case "input":
                     message.MoveX = reader.ReadInt16() / 32767f; message.MoveY = reader.ReadInt16() / 32767f;
-                    message.MoveTo = reader.ReadBoolean(); message.TargetX = reader.ReadSingle();
-                    message.TargetY = reader.ReadSingle(); message.AimX = reader.ReadSingle();
+                    message.MoveTo = reader.ReadBoolean();
+                    if (message.MoveTo) { message.TargetX = reader.ReadSingle(); message.TargetY = reader.ReadSingle(); }
+                    message.AimX = reader.ReadSingle();
                     message.AimY = reader.ReadSingle(); break;
                 case "element": message.Element = (Element)reader.ReadByte(); break;
                 case "magick": message.Slot = reader.ReadByte(); break;
