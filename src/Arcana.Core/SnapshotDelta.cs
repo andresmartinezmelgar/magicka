@@ -73,6 +73,7 @@ public static class SnapshotDelta
 
     private static JsonNode? Merge(JsonNode? previous, JsonNode? changes)
     {
+        if (changes is JsonObject nullMarker && nullMarker.Count == 1 && nullMarker["$null"]?.GetValue<bool>() == true) return null;
         if (previous is JsonArray array && changes is JsonObject arrayPatch &&
             arrayPatch["$array"] is JsonObject positions)
         {
