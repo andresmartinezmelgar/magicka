@@ -196,9 +196,14 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                     byte[]? full = null;
                     foreach (var session in snapshot.Recipients)
                     {
-                        byte[] bytes = session.NetworkBaseline is { } baseline
-                            ? Protocol.CompressSnapshotPayload(SnapshotDelta.Encode(snapshot.Message, baseline))
-                            : full ??= Protocol.SerializeSnapshot(snapshot.Message);
+                        byte[] bytes;
+                        if (session.NetworkBaseline is { } baseline)
+                        {
+                            byte[] delta = Protocol.CompressSnapshotPayload(SnapshotDelta.Encode(snapshot.Message, baseline));
+                            full ??= Protocol.SerializeSnapshot(snapshot.Message);
+                            bytes = delta.Length < full.Length ? delta : full;
+                        }
+                        else bytes = full ??= Protocol.SerializeSnapshot(snapshot.Message);
                         if (session.Outbox.Writer.TryWrite(bytes))
                         {
                             Interlocked.Add(ref snapshotBytes, bytes.Length);
