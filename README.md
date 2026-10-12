@@ -1,6 +1,6 @@
-# Arcana Arena — v0.15.0
+# Arcana Arena — v0.16.0
 
-**v0.15.0:** Fichas de otros magos desde la clasificación: piezas, bonificaciones individuales, conjuntos, suma y valores reales en combate. Consulta puntual al servidor, sin ampliar los snapshots. Acceso directo con Google en el launcher y configuración Firebase desde archivo externo. Protocolo 14. [Cambios y configuración](docs/RELEASE-v0.15.0.md).
+**v0.16.0:** Optimización del protocolo PvP (versión 19): acciones binarias, deltas respecto al estado inicial, compresión selectiva y medición de bytes. [Cambios y validación](docs/RELEASE-v0.16.0.md).\n\n**v0.15.0:** Fichas de otros magos desde la clasificación: piezas, bonificaciones individuales, conjuntos, suma y valores reales en combate. Consulta puntual al servidor, sin ampliar los snapshots. Acceso directo con Google en el launcher y configuración Firebase desde archivo externo. Protocolo 14. [Cambios y configuración](docs/RELEASE-v0.15.0.md).
 
 **v0.14.0:** Equipación para Agua, Vida, Escudo, Frío, Rayo, Arcano, Tierra y Fuego. Cinco calidades, atributos aleatorios y conjuntos Míticos de dos y cuatro piezas por elemento. Las bonificaciones modifican el combate, los estados y las cargas de haces y rocas. La selección con flechas muestra valores individuales y totales y se conserva entre partidas. Los objetos anteriores mantienen sus valores. Protocolo 13. [Bonificaciones y persistencia](docs/PROGRESSION.md).
 
