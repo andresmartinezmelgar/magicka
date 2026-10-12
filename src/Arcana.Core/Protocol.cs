@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.IO.Compression;
 using System.Text.Json.Serialization;
 
 namespace Arcana.Core;
@@ -45,6 +46,36 @@ public static class Protocol
             JsonSerializer.SerializeToUtf8Bytes(new { type = message.Type, sequence = message.Sequence }, Json),
         _ => SerializeUtf8(message) // Saludo y extensiones futuras conservan el formato completo.
     };
+    // Fotogramas comprimidos: prefijo 0xA1 + Brotli. El saludo permanece en JSON.
+    // Límite descomprimido para impedir cargas excesivas de memoria.
+    public const int MaxSnapshotBytes = 256 * 1024;
+    public static byte[] SerializeSnapshot(ServerMessage message)
+    {
+        byte[] raw = SerializeUtf8(message);
+        if (raw.Length < 1024) return raw;
+        using var output = new MemoryStream();
+        output.WriteByte(0xA1);
+        using (var compressor = new BrotliStream(output, CompressionLevel.Fastest, true))
+            compressor.Write(raw);
+        byte[] compressed = output.ToArray();
+        return compressed.Length + 16 < raw.Length ? compressed : raw;
+    }
+    public static ServerMessage? DeserializeFrame(ReadOnlySpan<byte> bytes, bool binary)
+    {
+        if (!binary) return Deserialize<ServerMessage>(bytes);
+        if (bytes.Length < 2 || bytes[0] != 0xA1) throw new InvalidDataException("Formato binario desconocido.");
+        using var source = new MemoryStream(bytes[1..].ToArray());
+        using var decompressor = new BrotliStream(source, CompressionMode.Decompress);
+        using var output = new MemoryStream();
+        byte[] buffer = new byte[8192];
+        int count;
+        while ((count = decompressor.Read(buffer)) > 0)
+        {
+            if (output.Length + count > MaxSnapshotBytes) throw new InvalidDataException("Snapshot descomprimido demasiado grande.");
+            output.Write(buffer, 0, count);
+        }
+        return Deserialize<ServerMessage>(output.GetBuffer().AsSpan(0, (int)output.Length));
+    }
     public static string Serialize<T>(T value) => JsonSerializer.Serialize(value, Json);
     public static byte[] SerializeUtf8<T>(T value) => JsonSerializer.SerializeToUtf8Bytes(value, Json);
     public static T? Deserialize<T>(string json) => JsonSerializer.Deserialize<T>(json, Json);
