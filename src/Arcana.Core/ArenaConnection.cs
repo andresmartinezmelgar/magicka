@@ -228,15 +228,18 @@ public sealed class ArenaConnection : IAsyncDisposable
     {
         var stream = _receiveStream; var buffer = _receiveBuffer;
         stream.SetLength(0);
+        WebSocketMessageType? frameType = null;
         while (true)
         {
             var result = await _socket.ReceiveAsync(buffer, token).ConfigureAwait(false);
             if (result.MessageType == WebSocketMessageType.Close) return null;
-            if (result.MessageType != WebSocketMessageType.Text) throw new IOException("Respuesta de red inválida.");
+            if (result.MessageType is not (WebSocketMessageType.Text or WebSocketMessageType.Binary) ||
+                frameType != null && frameType != result.MessageType) throw new IOException("Respuesta de red inválida.");
+            frameType = result.MessageType;
             if (stream.Length + result.Count > 256 * 1024) throw new IOException("Respuesta de red demasiado grande.");
             stream.Write(buffer, 0, result.Count);
             if (!result.EndOfMessage) continue;
-            var message = Protocol.Deserialize<ServerMessage>(stream.GetBuffer().AsSpan(0, (int)stream.Length));
+            var message = Protocol.DeserializeFrame(stream.GetBuffer().AsSpan(0, (int)stream.Length), frameType == WebSocketMessageType.Binary);
             if (message?.Snapshot != null) SnapshotValidation.Check(message.Snapshot);
             if (message?.Snapshot != null) CheckReadiness(message);
             if (message?.Type == "snapshot" && message.Snapshot == null) throw new InvalidDataException("Estado de partida ausente.");
