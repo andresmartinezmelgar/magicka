@@ -56,10 +56,17 @@ Test("Firebase en alojamiento local requiere activación explícita y ficheros p
         string config = Path.Combine(directory, LocalFirebaseHosting.ConfigFileName);
         string credential = Path.Combine(directory, LocalFirebaseHosting.CredentialFileName);
         File.WriteAllText(config, "{}");
+        Check(LocalFirebaseHosting.PublicGameAddress(root) == null, "Un JSON sin URL produjo una dirección de cuenta.");
         bool missing = false;
         try { LocalFirebaseHosting.Configure(start, root); }
         catch (InvalidOperationException) { missing = true; }
         Check(missing, "Firebase se activó sin credencial de servicio.");
+        File.WriteAllText(config, "{\"publicUrl\":\"http://localhost:29015\"}");
+        Check(LocalFirebaseHosting.PublicGameAddress(root) == "ws://localhost:29015/play",
+            "La dirección local no coincide con el origen de Google Login.");
+        File.WriteAllText(config, "{\"publicUrl\":\"https://demo.trycloudflare.com\"}");
+        Check(LocalFirebaseHosting.PublicGameAddress(root) == "wss://demo.trycloudflare.com/play",
+            "La URL HTTPS no se transformó en conexión WSS.");
         File.WriteAllText(credential, "{}");
         Check(LocalFirebaseHosting.Configure(start, root), "No se activó con ambas configuraciones.");
         Check(start.Environment["ARCANA_FIREBASE_CONFIG"] == config, "Ruta pública incorrecta.");
