@@ -431,16 +431,19 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
     private static async Task<ClientMessage?> Receive(WebSocket socket, byte[] buffer, CancellationToken token)
     {
         int size = 0;
+        bool binary = false;
         while (true)
         {
             var result = await socket.ReceiveAsync(buffer.AsMemory(size), token);
             if (result.MessageType == WebSocketMessageType.Close) return null;
-            if (result.MessageType != WebSocketMessageType.Text) throw new InvalidDataException("Solo se permite JSON UTF-8.");
+            if (result.MessageType is not (WebSocketMessageType.Text or WebSocketMessageType.Binary)) throw new InvalidDataException("Tipo de mensaje no admitido.");
+            if (size > 0 && binary != (result.MessageType == WebSocketMessageType.Binary)) throw new InvalidDataException("Fragmentos incompatibles.");
+            binary = result.MessageType == WebSocketMessageType.Binary;
             size += result.Count;
             if (size > Protocol.MaxMessageBytes) throw new InvalidDataException("Mensaje demasiado grande.");
             if (result.EndOfMessage)
             {
-                var message = Protocol.Deserialize<ClientMessage>(buffer.AsSpan(0, size));
+                var message = binary ? Protocol.DeserializeBinaryAction(buffer.AsSpan(0, size)) : Protocol.Deserialize<ClientMessage>(buffer.AsSpan(0, size));
                 if (message != null && ((message.Name?.Length ?? 0) > 64 || (message.Password?.Length ?? 0) > 128 ||
                     (message.RoomPassword?.Length ?? 0) > 128 || (message.RoomId?.Length ?? 0) > 64 ||
                     message.AccountToken == null || message.AccountToken.Length > 128))
