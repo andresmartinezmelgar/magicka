@@ -5,6 +5,7 @@ public static class BalancedMatchRules
 {
     public const int MaxHumansPerTeam = 4;
 
+    /// <summary>El equilibrio se calcula solo con humanos; los bots desactivan premios.</summary>
     public static bool CanStart(int teamOneHumans, int teamTwoHumans,
         int teamOneReady, int teamTwoReady)
         => teamOneHumans >= 1
@@ -12,6 +13,12 @@ public static class BalancedMatchRules
            && teamOneHumans == teamTwoHumans
            && teamOneReady == teamOneHumans
            && teamTwoReady == teamTwoHumans;
+
+    public static bool CanStart(IReadOnlyCollection<int> teamOneIds, IReadOnlyCollection<int> teamTwoIds, IReadOnlySet<int> readyIds)
+        => teamOneIds.Count is >= 1 and <= MaxHumansPerTeam
+           && teamOneIds.Count == teamTwoIds.Count
+           && teamOneIds.All(readyIds.Contains)
+           && teamTwoIds.All(readyIds.Contains);
 
     /// <summary>Una IA en cualquiera de los equipos invalida las recompensas.</summary>
     public static bool RewardsEnabled(int teamOneHumans, int teamTwoHumans,
