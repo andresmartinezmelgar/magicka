@@ -97,7 +97,12 @@ public partial class ClientVerification
         var shield = (ProgressBar)_runtime.Hud.FindChild("ShieldBar", true, false);
         var text = (Label)_runtime.Hud.FindChild("ShieldValue", true, false);
         var playerPanel = (Control)_runtime.Hud.FindChild("PlayerStatusPanel", true, false);
-        bool correct = _runtime.Hud.Scale.IsEqualApprox(Vector2.One * Hud.GameplayScale) && (_runtime.Hud.Size * Hud.GameplayScale).IsEqualApprox(GetViewport().GetVisibleRect().Size) &&
+        var minimap = (Control)_runtime.Hud.FindChild("MiniMapPanel", true, false);
+        var metrics = (Control)_runtime.UiRoot.FindChild("NetworkMetricsPanel", true, false);
+        bool correct = !metrics.GetGlobalRect().Intersects(minimap.GetGlobalRect()) &&
+            GetViewport().GetVisibleRect().Encloses(metrics.GetGlobalRect()) &&
+            _runtime.UiRoot.GetChildren().ToList().IndexOf(metrics) > _runtime.UiRoot.GetChildren().ToList().IndexOf(_runtime.Hud) &&
+            _runtime.Hud.Scale.IsEqualApprox(Vector2.One * Hud.GameplayScale) && (_runtime.Hud.Size * Hud.GameplayScale).IsEqualApprox(GetViewport().GetVisibleRect().Size) &&
             playerPanel.GetGlobalTransform().Scale.IsEqualApprox(Vector2.One) && playerPanel.GetGlobalRect().Size.X >= 310 &&
             Math.Abs(playerPanel.GetGlobalRect().Position.X - 24) < 0.01f &&
             health.Value == 830 && health.MaxValue == 1000 && charge.Value == 0 && shield.Value == expected.Shield && shield.MaxValue == expected.Maximum &&
