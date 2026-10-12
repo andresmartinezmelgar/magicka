@@ -22,13 +22,7 @@ public static class Protocol
     // Los nombres se mantienen para que el servidor pueda deserializar con el protocolo actual.
     public static byte[] SerializeAction(ClientMessage message) => message.Type switch
     {
-        "input" => JsonSerializer.SerializeToUtf8Bytes(new
-        {
-            type = message.Type, sequence = message.Sequence,
-            moveX = message.MoveX, moveY = message.MoveY, moveTo = message.MoveTo,
-            targetX = message.TargetX, targetY = message.TargetY,
-            aimX = message.AimX, aimY = message.AimY
-        }, Json),
+        "input" => SerializeInput(message),
         "element" => JsonSerializer.SerializeToUtf8Bytes(new
         {
             type = message.Type, sequence = message.Sequence, element = message.Element
@@ -46,6 +40,19 @@ public static class Protocol
             JsonSerializer.SerializeToUtf8Bytes(new { type = message.Type, sequence = message.Sequence }, Json),
         _ => SerializeUtf8(message) // Saludo y extensiones futuras conservan el formato completo.
     };
+    private static byte[] SerializeInput(ClientMessage message)
+    {
+        // Los ejes del joystick ya están normalizados; los objetivos se transmiten solo si están activos.
+        // El apuntado sigue siendo preciso y no se redondea en esta fase.
+        if (message.MoveTo)
+            return JsonSerializer.SerializeToUtf8Bytes(new { type = "input", sequence = message.Sequence,
+                moveX = message.MoveX, moveY = message.MoveY, moveTo = true,
+                targetX = message.TargetX, targetY = message.TargetY,
+                aimX = message.AimX, aimY = message.AimY }, Json);
+        return JsonSerializer.SerializeToUtf8Bytes(new { type = "input", sequence = message.Sequence,
+            moveX = message.MoveX, moveY = message.MoveY,
+            aimX = message.AimX, aimY = message.AimY }, Json);
+    }
     // Fotogramas comprimidos: prefijo 0xA1 + Brotli. El saludo permanece en JSON.
     // Límite descomprimido para impedir cargas excesivas de memoria.
     public const int MaxSnapshotBytes = 256 * 1024;
