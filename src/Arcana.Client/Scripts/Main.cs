@@ -19,6 +19,7 @@ public partial class Main : Node
     private bool _exporting;
     private double _metricsTime;
     private Label _networkStats = null!;
+    private PanelContainer _networkPanel = null!;
     private double _networkStatsTime;
     private long _previousSent, _previousReceived;
     private ArenaConnection? _statsConnection;
@@ -67,14 +68,28 @@ public partial class Main : Node
         RestoreAccountCache();
         var layer = new CanvasLayer(); AddChild(layer);
         _ui = new Control { MouseFilter = Control.MouseFilterEnum.Ignore }; layer.AddChild(_ui); Ui.Full(_ui);
-        _networkStats = Ui.Label("", 14, Ui.Muted);
+        // Panel with a real width and height: a bare right-anchored Label has zero width
+        // and renders its text across the rest of the HUD.
+        var networkPanel = new PanelContainer { Name = "NetworkMetricsPanel", MouseFilter = Control.MouseFilterEnum.Ignore };
+        networkPanel.SetAnchorsPreset(Control.LayoutPreset.TopRight);
+        networkPanel.OffsetLeft = -292;
+        networkPanel.OffsetTop = 110;
+        networkPanel.OffsetRight = -12;
+        networkPanel.OffsetBottom = 166;
+        var networkBackground = new StyleBoxFlat { BgColor = new Color(0.05f, 0.08f, 0.12f, 0.82f) };
+        networkBackground.SetCornerRadiusAll(5);
+        networkBackground.ContentMarginLeft = 9;
+        networkBackground.ContentMarginRight = 9;
+        networkBackground.ContentMarginTop = 5;
+        networkBackground.ContentMarginBottom = 5;
+        networkPanel.AddThemeStyleboxOverride("panel", networkBackground);
+        _networkStats = Ui.Label("", 13, Ui.Muted);
         _networkStats.MouseFilter = Control.MouseFilterEnum.Ignore;
-        _networkStats.SetAnchorsPreset(Control.LayoutPreset.TopRight);
-        _networkStats.GrowHorizontal = Control.GrowDirection.Begin;
-        _networkStats.Position = new Vector2(-12, 12);
         _networkStats.HorizontalAlignment = HorizontalAlignment.Right;
-        _ui.AddChild(_networkStats);
-        _networkStats.Visible = false;
+        networkPanel.AddChild(_networkStats);
+        _ui.AddChild(networkPanel);
+        _networkPanel = networkPanel;
+        networkPanel.Visible = false;
         _launcher = new Launcher(); _ui.AddChild(_launcher); _launcher.Build(this);
         _help = BuildHelp(); _ui.AddChild(_help); _help.Visible = false;
         _pause = BuildPause(); _ui.AddChild(_pause); _pause.Visible = false;
@@ -226,7 +241,7 @@ public partial class Main : Node
         var old = _connection; _connection = null;
         if (old != null) _ = old.DisposeAsync();
         _hud?.QueueFree(); _hud = null; _pause.Visible = false; _help.Visible = false;
-        _networkStats.Visible = false; _statsConnection = null; _networkStatsTime = 0;
+        _networkPanel.Visible = false; _statsConnection = null; _networkStatsTime = 0;
         _touch?.Reset(); _touch?.QueueFree(); _touch = null;
         _renderer.Clear(); _launcher.Visible = true; _launcher.SetBusy(false);
         if (error.Length > 0) _launcher.ShowError(error);
@@ -310,7 +325,7 @@ public partial class Main : Node
         if (_connection is not { Connected: true } connection)
         {
             _networkStats.Text = $"FPS: {fps:F0}  |  Red: sin conexión";
-            _networkStats.Visible = true;
+            _networkPanel.Visible = true;
             _statsConnection = null;
             return;
         }
@@ -326,7 +341,7 @@ public partial class Main : Node
         _previousSent = sent;
         _previousReceived = received;
         _networkStats.Text = $"FPS: {fps}  |  ↑ {sentRate:F1} KB/s  ↓ {receivedRate:F1} KB/s\\nTotal: ↑ {sent / 1024.0:F1} KB  ↓ {received / 1024.0:F1} KB";
-        _networkStats.Visible = true;
+        _networkPanel.Visible = true;
     }
 
     public override void _PhysicsProcess(double delta)
