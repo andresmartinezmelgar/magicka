@@ -43,7 +43,16 @@ public sealed class AccountClient : IDisposable
         Token = ""; ExpiresAt = default;
         ServerAddress = address;
         using var response = await _http.PostAsJsonAsync(endpoint, new { }, Protocol.Json, token).ConfigureAwait(false);
-        return await Read<LoginChallenge>(response, token).ConfigureAwait(false);
+        var challenge = await Read<LoginChallenge>(response, token).ConfigureAwait(false);
+        var login = RoomBrowser.Endpoint(address, "account/login/" + challenge.Id);
+        if (!Guid.TryParseExact(challenge.Id, "N", out _) || challenge.PollSecret == null || challenge.PollSecret.Length is < 32 or > 128 ||
+            challenge.ExpiresAt <= DateTimeOffset.UtcNow || challenge.ExpiresAt > DateTimeOffset.UtcNow.AddMinutes(6) ||
+            !Uri.TryCreate(challenge.Url, UriKind.Absolute, out var url) || url.GetLeftPart(UriPartial.Path) != login.GetLeftPart(UriPartial.Path) ||
+            url.UserInfo.Length > 0 || url.Fragment.Length > 0 || !url.Query.StartsWith("?key=", StringComparison.Ordinal) ||
+            url.Query.Length is < 37 or > 133 || url.Query[5..].Any(c => !char.IsAsciiLetterOrDigit(c) && c != '-' && c != '_'))
+            throw new InvalidDataException("El servidor ha enviado un acceso Google inválido. Revisa la dirección del servidor.");
+        Diagnostics.Log.ProtectSecret(challenge.PollSecret); Diagnostics.Log.ProtectSecret(url.Query[5..]);
+        return challenge;
     }
     public async Task<bool> PollLogin(LoginChallenge challenge, CancellationToken token)
     {

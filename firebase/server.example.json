@@ -1,0 +1,6 @@
+{
+  "projectId": "ID-DEL-PROYECTO",
+  "apiKey": "API-KEY-PUBLICA-DE-LA-APP-WEB",
+  "authDomain": "ID-DEL-PROYECTO.firebaseapp.com",
+  "publicUrl": "https://DOMINIO-DEL-SERVIDOR"
+}

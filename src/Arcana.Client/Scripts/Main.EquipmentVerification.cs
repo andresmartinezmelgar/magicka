@@ -8,6 +8,54 @@ public partial class Main
     private bool _equipmentSmoke;
     private bool _equipmentRestoreSmoke;
     private bool _equipmentElementsSmoke;
+    private bool _equipmentPublicMode, _equipmentPublicPreview;
+    private int _equipmentPublicStage;
+    private AccountProfile? _equipmentPublicProfile;
+    private void PublicEquipmentFixture(bool smoke)
+    {
+        EquipmentFixture(false, EquipmentFamily.Water);
+        _equipmentPublicMode = true; _equipmentPublicPreview = !smoke; _equipmentPublicProfile = Accounts.Profile;
+        StartPractice("Mago de agua", 0, GameMode.Duel, 1);
+        var other = _practice!.Players.Values.Single(p => p.Id != _localId);
+        var items = Enum.GetValues<EquipmentSlot>().Select(slot => EquipmentCatalogue.Generate(new(130 + (int)slot),
+            tier: ItemTier.Mythic, slot: slot, family: EquipmentFamily.Fire)).ToArray();
+        _practice.EquipPlayer(other.Id, PublicEquipment.Prepare(new("fixture-other", "Mago de fuego", 0, 0, 0,
+            new(items[0].Id, items[1].Id, items[2].Id, items[3].Id), items)));
+    }
+    private bool CheckPublicEquipmentSmoke()
+    {
+        if (!_equipmentPublicMode || Loading || !_playing) return false;
+        void Check(bool value, string message) { if (!value) throw new InvalidOperationException(message); }
+        try
+        {
+            if (_equipmentPublicStage == 0)
+            {
+                _hud!.ScoreOpen = true;
+                _hud.GetNode<Button>("ScorePanel/ScoreContent/InspectEquipmentButton").EmitSignal(Button.SignalName.Pressed);
+                Check(InspectingEquipment && (!Ui.IsMobile || !_touch!.Visible), "La clasificación no abre la ficha o mantiene los controles táctiles.");
+                _equipmentPublicStage = 1; return false;
+            }
+            var panel = _playerEquipmentPanel!;
+            if (_equipmentPublicStage == 1)
+            {
+                if (!panel.Totals.Contains("Aplicado")) return false;
+                Check(panel.Details.Contains("Agua") && panel.Totals.Contains("Agua 4/4"), "La ficha propia omite piezas o conjunto.");
+                _moveTo = true; Check(!InputMessage().MoveTo, "Abrir la ficha permite seguir caminando detrás de la interfaz."); _moveTo = false;
+                panel.SelectPlayer(_practice!.Players.Values.Single(p => p.Id != _localId).Id); _equipmentPublicStage = 2; return false;
+            }
+            if (!panel.Totals.Contains("Aplicado")) return false;
+            Check(panel.Details.Contains("Fuego") && panel.Totals.Contains("Fuego 4/4") && panel.SelectedPlayer != _localId,
+                "Cambiar de jugador no muestra su equipo y sus bonos de conjunto.");
+            Check(ReferenceEquals(_equipmentPublicProfile, Accounts.Profile), "Consultar el equipo ajeno modificó el inventario propio.");
+            Check(_engineLog.ErrorCount == 0, "Godot registró errores al consultar las fichas.");
+            _equipmentPublicMode = false;
+            if (_equipmentPublicPreview) { GD.Print("PUBLIC_EQUIPMENT_PREVIEW_READY"); return false; }
+            ClosePlayerEquipment(); Check(!InspectingEquipment && (!Ui.IsMobile || _touch!.Visible), "Cerrar la ficha no restaura los controles.");
+            GD.Print("EQUIPMENT_PUBLIC_SMOKE_OK: clasificación, selección de mago, piezas, conjuntos, bonos reales, lectura sin cambios y bloqueo de controles.");
+            GetTree().Quit(); return true;
+        }
+        catch (Exception error) { _equipmentPublicMode = false; GD.PushError("EQUIPMENT_PUBLIC_SMOKE_FAILED: " + error.Message); GetTree().Quit(1); return true; }
+    }
     private void EquipmentFixture(bool smoke, EquipmentFamily family = EquipmentFamily.Life)
     {
         _equipmentSmoke = smoke;

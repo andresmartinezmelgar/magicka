@@ -1,4 +1,6 @@
-# Arcana Arena — v0.14.0
+# Arcana Arena — v0.15.0
+
+**v0.15.0:** Fichas de otros magos desde la clasificación: piezas, bonificaciones individuales, conjuntos, suma y valores reales en combate. Consulta puntual al servidor, sin ampliar los snapshots. Acceso directo con Google en el launcher y configuración Firebase desde archivo externo. Protocolo 14. [Cambios y configuración](docs/RELEASE-v0.15.0.md).
 
 **v0.14.0:** Equipación para Agua, Vida, Escudo, Frío, Rayo, Arcano, Tierra y Fuego. Cinco calidades, atributos aleatorios y conjuntos Míticos de dos y cuatro piezas por elemento. Las bonificaciones modifican el combate, los estados y las cargas de haces y rocas. La selección con flechas muestra valores individuales y totales y se conserva entre partidas. Los objetos anteriores mantienen sus valores. Protocolo 13. [Bonificaciones y persistencia](docs/PROGRESSION.md).
 
@@ -108,7 +110,7 @@ Descargar el código con **Code → Download ZIP** y extraer todo, o actualizar 
 
 El resultado queda en **`Juego/ArcanaArena.exe`**. Cada compilación correcta **sustituye completamente `Juego/`**, incluidos los archivos antiguos. Cerrar el juego antes de recompilar. Si la compilación falla, se conserva el resultado anterior. Registro: `artifacts/compilacion-*.log`. No requiere Visual Studio ni instalación de administrador. [Proceso y compilación manual](docs/EXPORTAR.md).
 
-Para **Android**, abrir **`Compilar-APK.cmd`**. Prepara .NET 8, Godot 4.5.2 .NET, OpenJDK 17 y el SDK Android 35 en `.tools/`; la primera ejecución necesita Internet, varios GB libres y aceptar las licencias que muestra el SDK. Genera **`artifacts/android/ArcanaArena-v0.14.0-Android-arm64.apk`**, lista para instalar en un móvil ARM64 con Android 8 o posterior. Reutiliza la firma local en las siguientes compilaciones y conserva la APK anterior si falla. Registro: `artifacts/compilacion-apk-*.log`. [Opciones y compilación manual](docs/ANDROID.md#compilación-y-comprobaciones).
+Para **Android**, abrir **`Compilar-APK.cmd`**. Prepara .NET 8, Godot 4.5.2 .NET, OpenJDK 17 y el SDK Android 35 en `.tools/`; la primera ejecución necesita Internet, varios GB libres y aceptar las licencias que muestra el SDK. Genera **`artifacts/android/ArcanaArena-v0.15.0-Android-arm64.apk`**, lista para instalar en un móvil ARM64 con Android 8 o posterior. Reutiliza la firma local en las siguientes compilaciones y conserva la APK anterior si falla. Registro: `artifacts/compilacion-apk-*.log`. [Opciones y compilación manual](docs/ANDROID.md#compilación-y-comprobaciones).
 
 La CI comprueba las compilaciones al actualizar `main`. Publicar los ejecutables como una Release requiere iniciar manualmente **Arcana Arena CI** en `main` y activar **`publish_release`**; por defecto queda desactivado.
 
@@ -119,7 +121,7 @@ La CI comprueba las compilaciones al actualizar `main`. Publicar los ejecutables
 - **Guerra en Arena clásica:** reducir a cero los tickets rivales; controlar más puntos los desgasta cada segundo y cada muerte cuesta un ticket.
 - **Guerra en Ciudadela:** controlar los tres puntos sin disputa durante **15 segundos consecutivos**. Disputar o neutralizar cualquiera reinicia el contador; no hay victoria por tickets o bajas.
 
-Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). El combate usa **protocolo 13**. Cliente y servidor deben actualizarse juntos a v0.14.0 para reconocer las familias y estadísticas de los ocho elementos; las versiones de protocolo anteriores se rechazan en el saludo.
+Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). El combate usa **protocolo 14**. Cliente y servidor deben actualizarse juntos a v0.15.0 para consultar las fichas de equipo; las versiones de protocolo anteriores se rechazan en el saludo.
 
 ## Mapas
 

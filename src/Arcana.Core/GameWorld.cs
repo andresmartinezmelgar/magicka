@@ -101,6 +101,13 @@ public sealed partial class GameWorld
     {
         if (!_players.TryGetValue(id, out var player)) throw new ArgumentException("Mago desconocido.");
         player.Equipment = equipment;
+        player.PublicEquipment = PublicEquipment.Empty;
+    }
+
+    public void EquipPlayer(int id, PreparedEquipment equipment)
+    {
+        EquipPlayer(id, equipment.Modifiers);
+        _players[id].PublicEquipment = equipment.View;
     }
 
     public bool ApplyMessage(int id, ClientMessage message)

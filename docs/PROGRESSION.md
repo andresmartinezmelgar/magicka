@@ -1,6 +1,6 @@
 # Cuentas, objetos y oro
 
-El código incluye la integración, pero no ha creado ninguna cuenta ni proyecto Firebase y no incluye contraseñas de Google. El acceso utiliza la cuenta Google del jugador. El alojamiento del servidor continúa sin cambios.
+El código incluye la integración, pero no ha creado ninguna cuenta ni proyecto Firebase y no incluye contraseñas de Google. El acceso utiliza la cuenta Google del jugador. El botón «Entrar con Google» está en el launcher y en la equipación. La página permite elegir cuenta, mantiene la sesión Firebase en memoria y la cierra tras verificar el acceso en el servidor. El alojamiento del servidor continúa sin cambios.
 
 ## Activar el servidor central
 
@@ -23,6 +23,8 @@ export ARCANA_PUBLIC_URL=https://arena.example.com
 export GOOGLE_APPLICATION_CREDENTIALS=/srv/arcana/secrets/firebase.json
 export ARCANA_REWARD_OUTBOX=/srv/arcana/data/rewards
 ```
+
+También puedes copiar `firebase/server.example.json` a un archivo local, rellenar los cuatro valores y configurar `ARCANA_FIREBASE_CONFIG=/ruta/firebase-server.json`. Las variables de entorno no vacías prevalecen sobre ese archivo. `GOOGLE_APPLICATION_CREDENTIALS` continúa separado: el JSON de la cuenta de servicio no es la configuración web. `firebase/server.local.json` está excluido de git. Para pruebas locales se admite HTTP únicamente en loopback; en un proyecto nuevo debes autorizar `localhost` o `127.0.0.1` si vas a utilizarlos.
 
 Si no se configura Firebase, el servidor conserva las partidas habituales y comunica que las cuentas están desactivadas. Un servidor local incluido en el paquete Windows no hereda credenciales Firebase del entorno. Las recompensas permanentes pertenecen al servidor central configurado.
 
@@ -103,7 +105,15 @@ Eliminar una pieza solicita confirmación y realiza una transacción: retira el 
 | `bonusDefinitions/{stat}` | Catálogo publicado por el servidor |
 | `catalogues/{generationVersion}/bonusDefinitions/{stat}` | Definiciones archivadas por versión de generación |
 
-La UID, el esquema y las versiones de generación no dependen de `VERSION`. Actualizar el juego no crea otra cuenta ni vuelve a sortear objetos. Las futuras migraciones deben añadir o transformar campos conservando las instancias y sus intervalos. La ampliación a ocho familias utiliza `EquipmentCatalogue.GenerationVersion = 2`; los objetos de generación 1 siguen siendo válidos. Las definiciones nuevas se archivan bajo `catalogues/2` y no sobrescriben `catalogues/1`. Un cambio futuro del catálogo debe aumentar esa versión. El protocolo de partida sigue exigiendo cliente y servidor compatibles: esta versión utiliza el protocolo 13.
+La UID, el esquema y las versiones de generación no dependen de `VERSION`. Actualizar el juego no crea otra cuenta ni vuelve a sortear objetos. Las futuras migraciones deben añadir o transformar campos conservando las instancias y sus intervalos. La ampliación a ocho familias utiliza `EquipmentCatalogue.GenerationVersion = 2`; los objetos de generación 1 siguen siendo válidos. Las definiciones nuevas se archivan bajo `catalogues/2` y no sobrescriben `catalogues/1`. Un cambio futuro del catálogo debe aumentar esa versión. El protocolo de partida sigue exigiendo cliente y servidor compatibles: esta versión utiliza el protocolo 14.
+
+## Bonos visibles para otros jugadores
+
+Durante una partida, abre la clasificación con TAB o con el botón del móvil y pulsa **Ver bonos de los magos**. El selector permite consultar aliados y rivales: las cuatro posiciones, calidad y familia, atributos actuales, conjuntos Míticos y las columnas Piezas / Conjunto / Suma / Aplicado. Los bots y jugadores sin equipo muestran sus posiciones vacías y bonos cero. La partida continúa y los controles de combate se detienen mientras está abierta la ficha.
+
+La ficha representa el equipo que el servidor aplica en esa ronda. Vender o cambiar el inventario no modifica los bonos de una ronda en curso. Al comenzar la siguiente se aplica el equipo preparado para ella. **Actualizar** vuelve a consultar la ficha y los jugadores presentes.
+
+Las consultas viajan por la conexión de la propia sala y solo se responden para magos de esa sala. El servidor prepara la ficha al cargar el equipo; consultarla no accede a Firestore ni añade piezas o atributos a los snapshots de 20 Hz. La respuesta utiliza un envío fiable serializado con los snapshots, aunque su cola descarte estados antiguos. No incluye UID, IDs de objetos, objetos sin equipar, oro ni recibos de premios.
 
 ## Validación
 
@@ -112,3 +122,5 @@ La UID, el esquema y las versiones de generación no dependen de `VERSION`. Actu
 `bash scripts/test-client-smoke.sh equipment-smoke RUTA_A_GODOT` comprueba las flechas, atributos y dos partidas IA, y abre un segundo proceso para verificar la recuperación del equipo desde disco. El perfil de prueba utiliza un directorio temporal aislado.
 
 Las comprobaciones cubren premios concurrentes, venta repetida, precisión de oro de 64 bits, propiedad, venta frente a equipamiento simultáneo, persistencia de tiradas y de las cuatro posiciones tras una nueva instancia y sesión, sesiones falsas, fin de partida y recuperación del diario. El acceso Google real requiere el proyecto y dominio configurados; las pruebas del emulador no sustituyen una comprobación de OAuth con las cuentas del proyecto de producción.
+
+`equipment-public-smoke` abre la ficha desde el botón real de clasificación, cambia de mago, comprueba las piezas y totales de dos familias, comprueba que el inventario no cambia y restaura los controles al cerrar. Las pruebas de red comprueban también consultas durante los snapshots, aislamiento entre salas con IDs de jugador coincidentes y equipo de la ronda frente a cambios del inventario.

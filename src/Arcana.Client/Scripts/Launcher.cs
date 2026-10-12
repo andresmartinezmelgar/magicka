@@ -59,7 +59,9 @@ public partial class Launcher : Control
         var nameColumn = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; identity.AddChild(nameColumn);
         nameColumn.AddChild(Ui.Label("Nombre del mago", 14, Ui.Muted));
         _name = new LineEdit { Text = _config.GetValue("player", "name", "Mago").AsString(), MaxLength = 24, CustomMinimumSize = new(0, 45) }; nameColumn.AddChild(_name);
-        nameColumn.AddChild(Ui.Button("Inventario y mago", () => _main.OpenEquipment(_address.Text)));
+        var accountButtons = new HBoxContainer(); accountButtons.AddThemeConstantOverride("separation", 8); nameColumn.AddChild(accountButtons);
+        accountButtons.AddChild(Ui.Button("Inventario", () => _main.OpenEquipment(_address.Text)));
+        accountButtons.AddChild(Ui.Button("Entrar con Google", () => _main.OpenEquipment(_address.Text, googleLogin: true)));
         var teamColumn = new VBoxContainer { CustomMinimumSize = new(172, 0) }; identity.AddChild(teamColumn);
         teamColumn.AddChild(Ui.Label("Equipo", 14, Ui.Muted));
         _team = Ui.TeamChoice(_config.GetValue("player", "team", -1).AsInt32());

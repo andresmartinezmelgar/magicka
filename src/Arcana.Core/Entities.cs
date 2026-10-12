@@ -8,6 +8,7 @@ public sealed class Wizard
     public bool Bot { get; init; }
     public WizardType WizardType { get; init; }
     public EquipmentModifiers Equipment { get; internal set; } = EquipmentModifiers.None;
+    public PublicEquipment PublicEquipment { get; internal set; } = PublicEquipment.Empty;
     public V2 Position { get; set; }
     public V2 Facing { get; set; } = new(1, 0);
     public const float BaseMaxHealth = 1000;

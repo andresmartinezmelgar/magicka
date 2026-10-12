@@ -33,7 +33,10 @@ internal sealed class PlayerSession(int id, GameRoom room, WebSocket socket)
     public WebSocket Socket { get; } = socket;
     public bool Ready { get; set; }
     public AccountIdentity? Account { get; init; }
-    public EquipmentModifiers Equipment { get; set; } = EquipmentModifiers.None;
+    public PreparedEquipment Equipment { get; set; } = new(EquipmentModifiers.None, PublicEquipment.Empty);
+    public SemaphoreSlim SendGate { get; } = new(1, 1);
+    public long LastInspectionAt { get; set; }
+    public int InspectionsInWindow { get; set; }
     public long LastActivityTick { get; set; }
     public long LoadingStartedAt { get; } = Environment.TickCount64;
     public Channel<ClientMessage> Commands { get; } = Channel.CreateBounded<ClientMessage>(new BoundedChannelOptions(64)
@@ -221,7 +224,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             { await RejectLogged("Tipo de mago desconocido.", handshake.Token); return; }
             if (!PasswordMatches(hello.Password, settings.Password))
             { await RejectLogged("Contraseña del servidor incorrecta.", handshake.Token); return; }
-            AccountIdentity? identity = null; EquipmentModifiers equipment = EquipmentModifiers.None;
+            AccountIdentity? identity = null; PreparedEquipment equipment = new(EquipmentModifiers.None, PublicEquipment.Empty);
             if (hello.AccountToken.Length > 0)
             {
                 handshake.CancelAfter(TimeSpan.FromSeconds(20));
@@ -229,7 +232,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                 identity = accounts.Authenticate(hello.AccountToken);
                 if (identity == null) { await RejectLogged("La sesión de cuenta ha caducado. Inicia sesión de nuevo con Google.", handshake.Token); return; }
                 var profile = await accounts.Repository!.Profile(identity.Uid, identity.Name, handshake.Token);
-                equipment = EquipmentModifiers.Calculate(profile);
+                equipment = PublicEquipment.Prepare(profile);
             }
             string error = ""; ServerMessage? welcome = null;
             lock (_gate)
@@ -270,8 +273,24 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                     if (message == null) break;
                     long now = Environment.TickCount64;
                     if (now - window >= 1000) { window = now; count = 0; }
-                    if (++count > 180 || !session.Commands.Writer.TryWrite(message))
+                    if (++count > 180)
                     { Diagnostics.Warn("connection.rate_limit", "Límite de mensajes o cola de comandos alcanzado.", context: Context()); socket.Abort(); break; }
+                    if (message.Type == "inspect")
+                    {
+                        var response = new ServerMessage { Type = "equipment", InspectionRequestId = message.InspectionRequestId };
+                        lock (_gate)
+                        {
+                            if (now - session.LastInspectionAt >= 1000) { session.LastInspectionAt = now; session.InspectionsInWindow = 0; }
+                            if (++session.InspectionsInWindow > 10) response.Error = "Espera un momento antes de consultar otra ficha.";
+                            else if (!session.Ready || message.InspectionRequestId <= 0 || !session.Room.World.Players.TryGetValue(message.InspectPlayerId, out var target))
+                                response.Error = "Este mago ya no está disponible en la sala.";
+                            else response.Inspection = new(target.Id, target.Name, target.WizardType, target.Bot, target.PublicEquipment);
+                        }
+                        // Respuesta fiable fuera de la simulación; no pasa por la cola de snapshots descartables.
+                        await SendSession(session, Protocol.SerializeUtf8(response), connection.Token);
+                    }
+                    else if (!session.Commands.Writer.TryWrite(message))
+                    { Diagnostics.Warn("connection.rate_limit", "Cola de comandos alcanzada.", context: Context()); socket.Abort(); break; }
                 }
             }
             finally
@@ -346,7 +365,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             try
             {
                 var profile = await accounts.Repository!.Profile(session.Account.Uid, session.Account.Name, _stopping.Token);
-                var equipment = EquipmentModifiers.Calculate(profile);
+                var equipment = PublicEquipment.Prepare(profile);
                 lock (_gate) session.Equipment = equipment;
             }
             catch (OperationCanceledException) when (_stopping.IsCancellationRequested) { }
@@ -382,7 +401,13 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
     private static async Task SendLoop(PlayerSession session, CancellationToken token)
     {
         await foreach (var data in session.Outbox.Reader.ReadAllAsync(token))
-            await session.Socket.SendAsync(data.AsMemory(), WebSocketMessageType.Text, true, token);
+            await SendSession(session, data, token);
+    }
+    private static async Task SendSession(PlayerSession session, byte[] data, CancellationToken token)
+    {
+        await session.SendGate.WaitAsync(token);
+        try { await session.Socket.SendAsync(data.AsMemory(), WebSocketMessageType.Text, true, token); }
+        finally { session.SendGate.Release(); }
     }
     private static Task Send(WebSocket socket, ServerMessage message, CancellationToken token) =>
         socket.SendAsync(Protocol.SerializeUtf8(message), WebSocketMessageType.Text, true, token);

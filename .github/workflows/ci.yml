@@ -78,6 +78,8 @@ jobs:
         run: bash scripts/test-client-smoke.sh equipment-smoke /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
       - name: Comprobar equipación de los ocho elementos
         run: bash scripts/test-client-smoke.sh equipment-elements-smoke /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
+      - name: Comprobar consulta de bonificaciones de otros magos
+        run: bash scripts/test-client-smoke.sh equipment-public-smoke /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
       - name: Validar carga OpenGL y creación de sala con equipo elegido
         run: bash scripts/test-multiplayer-loading.sh /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
       - uses: actions/upload-artifact@v4
@@ -90,12 +92,13 @@ jobs:
           GODOT_SILENCE_ROOT_WARNING: 1
         run: |
           mkdir -p artifacts/mobile-review
-          for screen in launcher practice help elements equipment barriers beams ground-contrast-stone; do
+          for screen in launcher practice help elements equipment public-equipment barriers beams ground-contrast-stone; do
             args=(--mobile)
             if [ "$screen" = practice ]; then args+=(--mobile-fixture); fi
             if [ "$screen" = help ]; then args+=(--preview-help=4); fi
             if [ "$screen" = elements ]; then args+=(--preview-help=5); fi
             if [ "$screen" = equipment ]; then args=(--mobile --preview-equipment); fi
+            if [ "$screen" = public-equipment ]; then args=(--mobile --preview-public-equipment); fi
             if [ "$screen" = barriers ] || [ "$screen" = beams ] || [ "$screen" = ground-contrast-stone ]; then args+=(--preview-spells="$screen"); fi
             timeout 90s xvfb-run -a /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64 --audio-driver Dummy --path src/Arcana.Client -- "${args[@]}" --capture="${{ github.workspace }}/artifacts/mobile-review/$screen.png" 2>&1 | tee "artifacts/mobile-review/$screen.log"
             test -s "artifacts/mobile-review/$screen.png"
@@ -297,7 +300,7 @@ jobs:
           $env:DOTNET_ROOT = Join-Path $env:RUNNER_TEMP 'sin-dotnet-global'
           $env:DOTNET_ROOT_X64 = $env:DOTNET_ROOT
           $env:DOTNET_MULTILEVEL_LOOKUP = '0'
-          foreach ($mode in @('smoke', 'host-smoke', 'diagnostics-smoke', 'hud-smoke', 'effects-smoke', 'sprites-smoke', 'combinations-smoke', 'maps-smoke', 'practice-smoke', 'loading-smoke', 'equipment-smoke', 'equipment-restore-smoke', 'equipment-elements-smoke')) {
+          foreach ($mode in @('smoke', 'host-smoke', 'diagnostics-smoke', 'hud-smoke', 'effects-smoke', 'sprites-smoke', 'combinations-smoke', 'maps-smoke', 'practice-smoke', 'loading-smoke', 'equipment-smoke', 'equipment-restore-smoke', 'equipment-elements-smoke', 'equipment-public-smoke')) {
             if ($mode -like 'equipment-*') {
               $env:APPDATA = Join-Path $env:RUNNER_TEMP 'arcana-equipment-profile'
               New-Item -ItemType Directory -Path $env:APPDATA -Force | Out-Null
@@ -306,7 +309,7 @@ jobs:
             $game = Start-Process "$package/ArcanaArena.exe" -ArgumentList '--headless','--audio-driver','Dummy','--log-file',"`"$log`"",'--',"--$mode" -PassThru
             if (!$game.WaitForExit(60000)) { $game.Kill(); throw "El juego no termino: $mode" }
             if ($game.ExitCode -ne 0) { if (Test-Path $log) { Get-Content $log }; throw "El juego fallo: $mode" }
-            $marker = switch ($mode) { 'smoke' { 'SMOKE_OK' }; 'host-smoke' { 'HOST_SMOKE_OK' }; 'diagnostics-smoke' { 'DIAGNOSTICS_SMOKE_OK' }; 'hud-smoke' { 'HUD_SMOKE_OK' }; 'effects-smoke' { 'EFFECTS_SMOKE_OK' }; 'sprites-smoke' { 'SPRITES_SMOKE_OK' }; 'combinations-smoke' { 'COMBINATIONS_SMOKE_OK' }; 'maps-smoke' { 'MAPS_SMOKE_OK' }; 'practice-smoke' { 'PRACTICE_SMOKE_OK' }; 'loading-smoke' { 'LOADING_SMOKE_OK' }; 'equipment-smoke' { 'EQUIPMENT_SMOKE_OK' }; 'equipment-restore-smoke' { 'EQUIPMENT_RESTORE_SMOKE_OK' }; 'equipment-elements-smoke' { 'EQUIPMENT_ELEMENTS_SMOKE_OK' } }
+            $marker = switch ($mode) { 'smoke' { 'SMOKE_OK' }; 'host-smoke' { 'HOST_SMOKE_OK' }; 'diagnostics-smoke' { 'DIAGNOSTICS_SMOKE_OK' }; 'hud-smoke' { 'HUD_SMOKE_OK' }; 'effects-smoke' { 'EFFECTS_SMOKE_OK' }; 'sprites-smoke' { 'SPRITES_SMOKE_OK' }; 'combinations-smoke' { 'COMBINATIONS_SMOKE_OK' }; 'maps-smoke' { 'MAPS_SMOKE_OK' }; 'practice-smoke' { 'PRACTICE_SMOKE_OK' }; 'loading-smoke' { 'LOADING_SMOKE_OK' }; 'equipment-smoke' { 'EQUIPMENT_SMOKE_OK' }; 'equipment-restore-smoke' { 'EQUIPMENT_RESTORE_SMOKE_OK' }; 'equipment-elements-smoke' { 'EQUIPMENT_ELEMENTS_SMOKE_OK' }; 'equipment-public-smoke' { 'EQUIPMENT_PUBLIC_SMOKE_OK' } }
             Get-Content $log
             if (!(Select-String -Path $log -SimpleMatch $marker)) { throw "Falta la confirmacion: $mode" }
             if (Select-String -Path $log -Pattern '(^ERROR:|^SCRIPT ERROR:|SMOKE_FAILED)' -Quiet) { throw "La prueba registro errores: $mode" }

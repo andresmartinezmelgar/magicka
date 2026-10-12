@@ -6,6 +6,7 @@
 .env.*
 !.env.example
 .secrets/
+firebase/server.local.json
 artifacts/
 *.user
 *.suo

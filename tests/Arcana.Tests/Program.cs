@@ -51,6 +51,7 @@ PerformanceRegressionTests.Run(Test);
 LoadingTests.Run(Test);
 ElementInteractionTests.Run(Test);
 EquipmentTests.Run(Test);
+PublicEquipmentTests.Run(Test);
 
 Test("Límite de tres elementos y cancelación de incompatibles", () =>
 {

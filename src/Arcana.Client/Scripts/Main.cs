@@ -73,6 +73,7 @@ public partial class Main : Node
             if (arg.StartsWith("--preview-equipment=") && Enum.TryParse<EquipmentFamily>(arg[20..], true, out var family) && Enum.IsDefined(family)) EquipmentFixture(false, family);
             if (arg == "--equipment-elements-smoke") { _equipmentElementsSmoke = true; EquipmentFixture(false, EquipmentFamily.Water); }
             if (arg == "--equipment-restore-smoke") { _equipmentRestoreSmoke = true; OpenEquipment("wss://servidor-central.example"); }
+            if (arg is "--equipment-public-smoke" or "--preview-public-equipment") PublicEquipmentFixture(arg == "--equipment-public-smoke");
             if (arg.StartsWith("--server=")) _launcher.BrowseAddress(arg[9..]);
             if (arg.StartsWith("--create-room=")) _launcher.BrowseAddress(arg[14..], true);
             if (arg.StartsWith("--tab=") && int.TryParse(arg[6..], out int tab)) _launcher.ShowTab(tab);
@@ -189,6 +190,7 @@ public partial class Main : Node
     private void ActivateGame(WorldSnapshot snapshot, bool prepared = false)
     {
         _playing = true; _paused = false; _moveTo = false; _snapshotAge = 0; _lastTick = -1;
+        ClosePlayerEquipment();
         _inputTime = 0;
         Diagnostics.Info("game.start", "Partida iniciada.", Context());
         _ignoreLeftUntilRelease = true;
@@ -205,6 +207,7 @@ public partial class Main : Node
         CancelGameLoading();
         CancelPendingConnection();
         if (_playing) Diagnostics.Info("game.leave", "Vuelta al launcher.", Context());
+        ClosePlayerEquipment();
         _playing = false; _paused = false; _practice = null; _practiceSession = null; _snapshot = null;
         _practicePanel?.QueueFree(); _practicePanel = null;
         var old = _connection; _connection = null;
@@ -238,6 +241,7 @@ public partial class Main : Node
                 if (_verification?.FailFrame(e) == true) return;
             }
         _renderFrames++;
+        if (CheckPublicEquipmentSmoke()) return;
         if (CheckEquipmentSmoke()) return;
         if (_profiler?.Running == true) return;
         if (Loading) { ProcessLoading(); _verification?.CheckLoadingFrame(); return; }
@@ -257,7 +261,7 @@ public partial class Main : Node
             else
             {
                 _aim = _renderer.Cursor(GetViewport().GetMousePosition());
-                bool practiceUi = _practicePanel?.PointerOverPanel == true;
+                bool practiceUi = InspectingEquipment || _practicePanel?.PointerOverPanel == true || _hud?.PointerOverPanel == true;
                 if (practiceUi && Input.IsMouseButtonPressed(MouseButton.Left)) _moveTo = false;
                 UpdateMouseMovement(!practiceUi && Input.IsMouseButtonPressed(MouseButton.Left), Input.IsPhysicalKeyPressed(Key.Shift));
             }
@@ -333,7 +337,7 @@ public partial class Main : Node
     {
         bool alive = SynchronizeLocalLife();
         float x = 0, y = 0;
-        if (alive && !_paused && !_help.Visible)
+        if (alive && !_paused && !_help.Visible && !InspectingEquipment)
         {
             if (_touch != null) { x = _touch.Movement.X; y = _touch.Movement.Y; }
             else
@@ -343,7 +347,7 @@ public partial class Main : Node
             }
         }
         if (x != 0 || y != 0) _moveTo = false;
-        return new() { Type = "input", MoveX = x, MoveY = y, MoveTo = alive && _moveTo && !_paused && !_help.Visible,
+        return new() { Type = "input", MoveX = x, MoveY = y, MoveTo = alive && _moveTo && !_paused && !_help.Visible && !InspectingEquipment,
             TargetX = _target.X, TargetY = _target.Y, AimX = _aim.X, AimY = _aim.Y };
     }
     private void Submit(ClientMessage message)
@@ -366,16 +370,17 @@ public partial class Main : Node
         }
         if (input is InputEventKey { Pressed: true, Echo: false } key)
         {
-            if (key.PhysicalKeycode == Key.F1) { ToggleHelp(); GetViewport().SetInputAsHandled(); return; }
+            if (key.PhysicalKeycode == Key.F1) { if (!InspectingEquipment) ToggleHelp(); GetViewport().SetInputAsHandled(); return; }
             if (key.PhysicalKeycode == Key.Escape)
             {
-                if (GodotObject.IsInstanceValid(_equipmentPanel)) { _equipmentPanel!.QueueFree(); _equipmentPanel = null; }
+                if (InspectingEquipment) ClosePlayerEquipment();
+                else if (GodotObject.IsInstanceValid(_equipmentPanel)) { _equipmentPanel!.QueueFree(); _equipmentPanel = null; }
                 else if (_help.Visible) { _help.Visible = false; UpdateTouchVisibility(); }
                 else if (_playing) TogglePause();
                 return;
             }
         }
-        if (!_playing || _paused || _help.Visible) return;
+        if (!_playing || _paused || _help.Visible || InspectingEquipment) return;
         if (input is InputEventKey { Pressed: true, Echo: false } press)
         {
             Element? element = press.PhysicalKeycode switch

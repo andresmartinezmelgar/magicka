@@ -25,7 +25,7 @@ public partial class Main
         _touch = new MobileControls(); _ui.AddChild(_touch);
         _touch.ActionRequested += message =>
         {
-            if (!_playing || _paused || _help.Visible) return;
+            if (!_playing || _paused || _help.Visible || InspectingEquipment) return;
             UpdateTouchAim();
             if (message.Type == "magick") UseMagick(message.Slot);
             else { Submit(InputMessage()); Submit(message); }
@@ -44,7 +44,7 @@ public partial class Main
         if (direction.Length > 0.01f) _aim = player.Position + direction.Normalized * 14;
     }
     private void UpdateTouchVisibility()
-    { if (_touch != null) _touch.Visible = _playing && !_paused && !_help.Visible; }
+    { if (_touch != null) _touch.Visible = _playing && !_paused && !_help.Visible && !InspectingEquipment; }
     public override void _Notification(int what)
     {
         if (!Ui.IsMobile || _launcher == null) return;
@@ -54,7 +54,8 @@ public partial class Main
         { _profiler.Cancel(); return; }
         if (what == NotificationWMGoBackRequest)
         {
-            if (GodotObject.IsInstanceValid(_equipmentPanel)) { _equipmentPanel!.QueueFree(); _equipmentPanel = null; }
+            if (InspectingEquipment) ClosePlayerEquipment();
+            else if (GodotObject.IsInstanceValid(_equipmentPanel)) { _equipmentPanel!.QueueFree(); _equipmentPanel = null; }
             else if (_help.Visible) { _help.Visible = false; UpdateTouchVisibility(); }
             else if (_playing) TogglePause();
             else if (!_launcher.HandleBack()) GetTree().Quit();

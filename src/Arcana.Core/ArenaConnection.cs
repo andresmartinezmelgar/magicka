@@ -13,6 +13,10 @@ public sealed class ArenaConnection : IAsyncDisposable
     private readonly ClientWebSocket _socket = new();
     private readonly CancellationTokenSource _lifetime = new();
     private readonly SemaphoreSlim _socketSend = new(1, 1);
+    private readonly SemaphoreSlim _inspectionGate = new(1, 1);
+    private sealed record PendingInspection(long Id, int PlayerId, TaskCompletionSource<EquipmentInspection> Completion);
+    private PendingInspection? _inspection;
+    private long _inspectionSequence;
     private readonly byte[] _receiveBuffer = new byte[8192];
     private readonly MemoryStream _receiveStream = new(8192);
     private readonly Channel<ClientMessage> _outgoing = Channel.CreateBounded<ClientMessage>(new BoundedChannelOptions(256)
@@ -137,6 +141,7 @@ public sealed class ArenaConnection : IAsyncDisposable
         {
             if (!Connected) return false;
             var queued = new ClientMessage { Type = message.Type, Sequence = ++_sequence,
+                InspectionRequestId = message.InspectionRequestId, InspectPlayerId = message.InspectPlayerId,
                 Element = message.Element, Slot = message.Slot, MoveX = message.MoveX, MoveY = message.MoveY,
                 MoveTo = message.MoveTo, TargetX = message.TargetX, TargetY = message.TargetY,
                 AimX = message.AimX, AimY = message.AimY };
@@ -144,6 +149,23 @@ public sealed class ArenaConnection : IAsyncDisposable
             // Perder release/input puede dejar un canal activo: no continúa una conexión saturada.
             Fail("Cola de conexión saturada. Vuelve a conectar.", null, "network.queue_full"); return false;
         }
+    }
+    public async Task<EquipmentInspection> InspectEquipmentAsync(int playerId, CancellationToken token = default)
+    {
+        if (playerId <= 0) throw new ArgumentOutOfRangeException(nameof(playerId));
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token, _lifetime.Token);
+        timeout.CancelAfter(TimeSpan.FromSeconds(7));
+        await _inspectionGate.WaitAsync(timeout.Token).ConfigureAwait(false);
+        var request = new PendingInspection(Interlocked.Increment(ref _inspectionSequence), playerId,
+            new(TaskCreationOptions.RunContinuationsAsynchronously));
+        try
+        {
+            Volatile.Write(ref _inspection, request);
+            if (!Send(new() { Type = "inspect", InspectionRequestId = request.Id, InspectPlayerId = playerId }))
+                throw new IOException("No hay conexión para consultar el equipamiento.");
+            return await request.Completion.Task.WaitAsync(timeout.Token).ConfigureAwait(false);
+        }
+        finally { Interlocked.CompareExchange(ref _inspection, null, request); _inspectionGate.Release(); }
     }
     private async Task SendFrame(ClientMessage message, CancellationToken token)
     {
@@ -172,6 +194,19 @@ public sealed class ArenaConnection : IAsyncDisposable
                 if (message.Type == "snapshot" && message.Snapshot != null)
                 { ApplyReadiness(message); Volatile.Write(ref _latest, message.Snapshot); }
                 else if (message.Type == "account" && message.AccountNotice != null) AccountChanged?.Invoke(message.AccountNotice);
+                else if (message.Type == "equipment")
+                {
+                    var pending = Volatile.Read(ref _inspection);
+                    if (pending == null || pending.Id != message.InspectionRequestId) continue;
+                    if (message.Error.Length > 0) pending.Completion.TrySetException(new InvalidOperationException(message.Error));
+                    else
+                    {
+                        if (message.Inspection == null || message.Inspection.PlayerId != pending.PlayerId)
+                            throw new InvalidDataException("La ficha no corresponde al mago solicitado.");
+                        PublicEquipment.Check(message.Inspection);
+                        pending.Completion.TrySetResult(message.Inspection);
+                    }
+                }
                 else if (message.Type == "error") throw new IOException(message.Error);
             }
         }

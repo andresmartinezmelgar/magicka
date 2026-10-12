@@ -41,7 +41,7 @@ public partial class EquipmentPanel : Control
         var connection = new HBoxContainer(); connection.AddThemeConstantOverride("separation", 8); box.AddChild(connection);
         _address = new LineEdit { Text = address, PlaceholderText = "wss://servidor-central", CustomMinimumSize = new(240, 48), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _address.AddThemeFontSizeOverride("font_size", 20); connection.AddChild(_address);
-        Action(connection, "Google", () => _ = Login(), true);
+        Action(connection, "Entrar con Google", () => _ = Login(), true);
         Action(connection, "Actualizar", () => _ = Refresh());
         Action(connection, "Cerrar sesión", () => _ = SignOut());
         var columns = new HBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
@@ -113,7 +113,7 @@ public partial class EquipmentPanel : Control
         }
         _actions.Add(button); return button;
     }
-    private static string StatName(EquipmentStat stat) => stat switch
+    internal static string StatName(EquipmentStat stat) => stat switch
     {
         EquipmentStat.Power => "Ataque", EquipmentStat.FirePower => "Daño de fuego", EquipmentStat.ShieldCapacity => "Absorción escudo",
         EquipmentStat.ShieldDuration => "Duración escudo", EquipmentStat.EnergyRegeneration => "Regen. energía",
@@ -121,7 +121,7 @@ public partial class EquipmentPanel : Control
         EquipmentStat.ChillPower => "Enfriamiento", EquipmentStat.FreezeDuration => "Congelación", EquipmentStat.WetLightningPower => "Rayo a mojados",
         EquipmentStat.BeamChargeSpeed => "Carga del haz", EquipmentStat.RockChargeSpeed => "Carga de rocas", _ => EquipmentCatalogue.StatName(stat)
     };
-    private static string SetDescription(EquipmentFamily family, bool four) => string.Join(", ", EquipmentCatalogue.SetBonuses(family)
+    internal static string SetDescription(EquipmentFamily family, bool four) => string.Join(", ", EquipmentCatalogue.SetBonuses(family)
         .Where(b => (four ? b.FourPieces : b.TwoPieces) != 0)
         .Select(b => StatName(b.Stat) + " " + EquipmentCatalogue.Percent(four ? b.FourPieces : b.TwoPieces)));
     private static void Clear(Node parent)
@@ -241,6 +241,7 @@ public partial class EquipmentPanel : Control
         }
         catch (Exception error) { Failed(error); }
     }
+    internal void BeginGoogleLogin() => _ = Login();
     private async Task Refresh()
     {
         if (_busy) return;

@@ -7,6 +7,8 @@ public partial class Main
 {
     public AccountClient Accounts { get; } = new();
     private EquipmentPanel? _equipmentPanel;
+    private PlayerEquipmentPanel? _playerEquipmentPanel;
+    private bool InspectingEquipment => GodotObject.IsInstanceValid(_playerEquipmentPanel) && !_playerEquipmentPanel!.IsQueuedForDeletion();
     private string AccountCache => ProjectSettings.GlobalizePath("user://account-profile.json");
     private void RestoreAccountCache()
     {
@@ -33,16 +35,38 @@ public partial class Main
         catch (Exception error) when (error is System.IO.IOException or UnauthorizedAccessException)
         { Diagnostics.Warn("account.cache_failed", "No se pudo guardar el inventario para práctica.", error); return false; }
     }
-    public void OpenEquipment(string address)
+    public void OpenEquipment(string address, bool googleLogin = false)
     {
         if (_playing) return;
         if (GodotObject.IsInstanceValid(_equipmentPanel)) _equipmentPanel!.QueueFree();
         _equipmentPanel = new EquipmentPanel(); _ui.AddChild(_equipmentPanel);
         _equipmentPanel.Build(this, address);
+        if (googleLogin && !Accounts.SignedIn) _equipmentPanel.BeginGoogleLogin();
     }
     private void ApplyPracticeEquipment()
     {
-        if (_practice != null && Accounts.Profile != null) _practice.EquipPlayer(_localId, EquipmentModifiers.Calculate(Accounts.Profile));
+        if (_practice != null && Accounts.Profile != null) _practice.EquipPlayer(_localId, PublicEquipment.Prepare(Accounts.Profile));
+    }
+    private void OpenPlayerEquipment()
+    {
+        if (!_playing || InspectingEquipment) return;
+        StopInput();
+        var connection = _connection; var practice = _practice;
+        _playerEquipmentPanel = new PlayerEquipmentPanel(); _ui.AddChild(_playerEquipmentPanel);
+        _playerEquipmentPanel.Closed += () => { _playerEquipmentPanel = null; _ignoreLeftUntilRelease = true; UpdateTouchVisibility(); };
+        _playerEquipmentPanel.Build(this, () => (_connection?.Latest ?? _snapshot)?.Players ?? [], _localId, (id, token) =>
+        {
+            if (connection != null) return connection.InspectEquipmentAsync(id, token);
+            if (practice != null && practice.Players.TryGetValue(id, out var player))
+                return Task.FromResult(new EquipmentInspection(id, player.Name, player.WizardType, player.Bot, player.PublicEquipment));
+            throw new InvalidOperationException("Este mago ya no está disponible en la sala.");
+        });
+        UpdateTouchVisibility();
+    }
+    private void ClosePlayerEquipment()
+    {
+        if (GodotObject.IsInstanceValid(_playerEquipmentPanel)) _playerEquipmentPanel!.Close();
+        _playerEquipmentPanel = null;
     }
     private async Task RefreshRewardAccount(string message)
     {

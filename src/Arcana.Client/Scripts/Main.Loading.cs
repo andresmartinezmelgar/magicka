@@ -93,6 +93,7 @@ public partial class Main
     private void PrepareGameControls(WorldSnapshot snapshot)
     {
         _hud?.QueueFree(); _hud = new Hud(); _ui.AddChild(_hud); _hud.Build(); _hud.Update(snapshot, _localId, _serverName, 0);
+        _hud.EquipmentRequested += OpenPlayerEquipment;
         _practicePanel?.QueueFree(); _practicePanel = null;
         if (_practiceSession != null)
         { _practicePanel = new PracticePanel(); _ui.AddChild(_practicePanel); _practicePanel.Build(_practiceSession); }

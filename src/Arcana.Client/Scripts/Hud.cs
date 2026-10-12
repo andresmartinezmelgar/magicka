@@ -21,6 +21,7 @@ public partial class Hud : Control
     private readonly List<StyleBoxFlat> _selectedStyles = [];
     private PanelContainer _scorePanel = null!;
     private GridContainer _scoreRows = null!;
+    private ScrollContainer _scoreScroll = null!;
     private MiniMap _map = null!;
     private long _lastEvent;
     private string _feedText = "";
@@ -34,6 +35,8 @@ public partial class Hud : Control
     private readonly float[] _magickCosts = new float[4];
     private readonly bool?[] _magickReady = new bool?[4];
     public bool ScoreOpen { get; set; }
+    public event Action? EquipmentRequested;
+    public bool PointerOverPanel => _scorePanel.Visible && _scorePanel.GetGlobalRect().HasPoint(GetGlobalMousePosition());
     public void RewardNotice(string message) { _reward.Text = message; _rewardSeconds = 12; _reward.Visible = true; }
 
     public void Build()
@@ -113,10 +116,16 @@ public partial class Hud : Control
         _reward = Ui.Label("", 18, Ui.Gold); _reward.HorizontalAlignment = HorizontalAlignment.Center;
         _reward.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterTop); _reward.Position = new(-400, 150); _reward.Size = new(800, 45);
         _reward.Visible = false; AddChild(_reward);
-        _scorePanel = new PanelContainer { Visible = false, CustomMinimumSize = new(700, 200), MouseFilter = MouseFilterEnum.Ignore };
+        _scorePanel = new PanelContainer { Name = "ScorePanel", Visible = false, CustomMinimumSize = new(700, 200), MouseFilter = MouseFilterEnum.Stop };
         _scorePanel.SetAnchorsAndOffsetsPreset(LayoutPreset.Center); _scorePanel.Position = new(-350, -160); AddChild(_scorePanel);
-        _scoreRows = new GridContainer { Columns = 5 }; _scoreRows.AddThemeConstantOverride("h_separation", 30); _scoreRows.AddThemeConstantOverride("v_separation", 12); _scorePanel.AddChild(_scoreRows);
+        var scoreBox = new VBoxContainer { Name = "ScoreContent" }; scoreBox.AddThemeConstantOverride("separation", 16); _scorePanel.AddChild(scoreBox);
+        _scoreScroll = new ScrollContainer { CustomMinimumSize = new(0, 120), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        scoreBox.AddChild(_scoreScroll);
+        _scoreRows = new GridContainer { Columns = 5 }; _scoreRows.AddThemeConstantOverride("h_separation", 30); _scoreRows.AddThemeConstantOverride("v_separation", 12); _scoreScroll.AddChild(_scoreRows);
         foreach (string text in new[] { "MAGO", "EQUIPO", "BAJAS", "MUERTES", "VIDA" }) _scoreRows.AddChild(Ui.Label(text, 14, Ui.Gold));
+        var equipmentButton = Ui.Button("Ver bonos de los magos", () => EquipmentRequested?.Invoke());
+        equipmentButton.Name = "InspectEquipmentButton"; scoreBox.AddChild(equipmentButton);
+        scoreBox.MoveChild(equipmentButton, 0);
         if (Ui.IsMobile)
         {
             _server.Visible = _status.Visible = _affinity.Visible = false;
@@ -136,7 +145,8 @@ public partial class Hud : Control
     }
     private static void IgnoreChildren(Node root)
     {
-        foreach (var child in root.GetChildren()) { if (child is Control c) c.MouseFilter = MouseFilterEnum.Ignore; IgnoreChildren(child); }
+        foreach (var child in root.GetChildren())
+        { if (child is Control c && child is not (Button or ScrollContainer or ScrollBar)) c.MouseFilter = MouseFilterEnum.Ignore; IgnoreChildren(child); }
     }
     private void ResizeLayout() => Size = GetViewportRect().Size / GameplayScale;
     public override void _ExitTree() => GetViewport().SizeChanged -= ResizeLayout;
@@ -274,6 +284,7 @@ public partial class Hud : Control
     }
     private void UpdateScore(WorldSnapshot snapshot, int id)
     {
+        _scoreScroll.CustomMinimumSize = new(0, Math.Clamp((snapshot.Players.Length + 1) * 33, 120, 330));
         int cell = 0;
         foreach (var p in snapshot.Players.OrderByDescending(p => p.Kills))
         {

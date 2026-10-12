@@ -5,10 +5,10 @@ namespace Arcana.Core;
 
 public static class Protocol
 {
-    public const int Version = 13;
+    public const int Version = 14;
     public const int GamePort = 27015;
     public const int DiscoveryPort = 27016;
-    public const string DiscoveryMagic = "ARCANA_DISCOVER_V13";
+    public const string DiscoveryMagic = "ARCANA_DISCOVER_V14";
     public const int LoadingTimeoutSeconds = 120;
     public const int MaxMessageBytes = 4096;
     public static readonly JsonSerializerOptions Json = new()
@@ -28,6 +28,8 @@ public sealed class ClientMessage
 {
     public string Type { get; set; } = "";
     public long Sequence { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public long InspectionRequestId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public int InspectPlayerId { get; set; }
     public int Protocol { get; set; } = Core.Protocol.Version;
     public string Name { get; set; } = "Mago";
     public string Password { get; set; } = "";
@@ -62,6 +64,8 @@ public sealed class ServerMessage
     public int PreparingPlayers { get; set; }
     public int[]? ReadyPlayerIds { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? AccountNotice { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public long InspectionRequestId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public EquipmentInspection? Inspection { get; set; }
 }
 
 public sealed record WizardSnapshot(int Id, string Name, int Team, bool Bot, V2 Position,
