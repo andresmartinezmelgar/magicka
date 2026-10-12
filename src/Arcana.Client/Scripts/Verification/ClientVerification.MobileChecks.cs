@@ -43,6 +43,14 @@ public partial class ClientVerification
                             "Un control móvil no muestra su símbolo elemental.");
                     }
                     var viewport = GetViewport().GetVisibleRect();
+                    var metrics = (Control)_runtime.UiRoot.FindChild("NetworkMetricsPanel", true, false);
+                    var map = (Control)_runtime.Hud!.FindChild("MiniMapPanel", true, false);
+                    Require(viewport.Encloses(metrics.GetGlobalRect()), "El contador de FPS y datos está fuera de pantalla.");
+                    Require(!metrics.GetGlobalRect().Intersects(map.GetGlobalRect()),
+                        "Las métricas de FPS y datos quedan detrás del minimapa.");
+                    var playerHud = (Control)_runtime.Hud.FindChild("PlayerStatusPanel", true, false);
+                    Require(!metrics.GetGlobalRect().Intersects(playerHud.GetGlobalRect()),
+                        "Las métricas de FPS y datos quedan detrás del panel del jugador.");
                     foreach (string name in new[] { "PlayerStatusPanel", "SpellControlsPanel" })
                         Require(viewport.Encloses(((Control)_runtime.Hud!.FindChild(name, true, false)).GetGlobalRect()), "Un panel del HUD móvil queda fuera de pantalla: " + name);
                     _mobileStart = player.Position;
@@ -74,6 +82,36 @@ public partial class ClientVerification
                         "El control táctil no crea la barrera de piedra y fuego.");
                     ReadyForSpell(); Down(2, new(width / 2 + 61, height - 54)); Up(2);
                     Require(_runtime.Practice.Snapshot().Fields.Any(f => f.Kind == "meteor"), "El toque no lanza el meteorito.");
+                    break;
+                case 65:
+                    // Regression: placing a directional shield used to happen on touch-down,
+                    // before the finger had a chance to select its final direction.
+                    ReadyForSpell();
+                    _runtime.Submit(new() { Type = "clear" });
+                    Tap(Element.Shield); Tap(Element.Earth); Tap(Element.Fire);
+                    var existingWalls = _runtime.Practice.Snapshot().Walls.Select(w => w.Id).ToHashSet();
+                    Vector2 aimCenter = new(width - 142, height - 125);
+                    Down(1, aimCenter);
+                    Require(touch.BarrierAimPending && player.Selection.Elements.Contains(Element.Shield)
+                        && !_runtime.Practice.Snapshot().Walls.Any(w => !existingWalls.Contains(w.Id)),
+                        "El escudo se crea antes de terminar de apuntar con el dedo.");
+                    touch.Drag(1, global + aimCenter + new Vector2(-75, -25));
+                    V2 direction = (_runtime.Aim - player.Position).Normalized;
+                    Up(1);
+                    var placed = _runtime.Practice.Snapshot().Walls.FirstOrDefault(w => !existingWalls.Contains(w.Id));
+                    Require(placed != null && V2.Dot(((placed.A + placed.B) * 0.5f - player.Position).Normalized, direction) > 0.95f
+                        && !touch.BarrierAimPending, "El escudo no se coloca en la dirección final del gesto.");
+                    ReadyForSpell();
+                    _runtime.Submit(new() { Type = "clear" });
+                    Tap(Element.Shield); Tap(Element.Earth);
+                    var countBeforeCancel = _runtime.Practice.Snapshot().Walls.Length;
+                    Down(1, aimCenter); touch.Drag(1, global + aimCenter + Vector2.Up * 65);
+                    Up(1, true);
+                    Require(!touch.BarrierAimPending && _runtime.Practice.Snapshot().Walls.Length == countBeforeCancel
+                        && player.Selection.Elements.Contains(Element.Shield),
+                        "Cancelar un gesto coloca un escudo o consume los elementos.");
+                    _runtime.Submit(new() { Type = "clear" });
+                    GD.Print("MOBILE_SHIELD_AIM_OK: el escudo espera al gesto completo, respeta la dirección final y se cancela sin lanzar.");
                     break;
                 case 70:
                     Require(_runtime.Renderer.Walls.Values.Any(w => w.Stone && w.HasElementSurface) && _runtime.Renderer.Fields.Values.OfType<MeteorVisual>().Any(),
