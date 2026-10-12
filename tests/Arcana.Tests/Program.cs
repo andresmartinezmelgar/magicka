@@ -43,6 +43,7 @@ void Run(GameWorld w, Wizard p, int ticks)
 void Select(GameWorld w, Wizard p, params Element[] elements)
 { foreach (var element in elements) Send(w, p, "element", element); }
 
+NetworkDeltaTests.Run(Test);
 FrontlineTests.Run(Test);
 GameplayRegressionTests.Run(Test);
 MovementCollisionTests.Run(Test);
