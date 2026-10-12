@@ -20,17 +20,23 @@ public static class LocalFirebaseHosting
     {
         string config = Path.Combine(DirectoryPath(userDirectory), ConfigFileName);
         if (!File.Exists(config)) return null;
-        using var document = JsonDocument.Parse(File.ReadAllText(config));
-        if (!document.RootElement.TryGetProperty("publicUrl", out var value) ||
-            !Uri.TryCreate(value.GetString(), UriKind.Absolute, out var url) ||
-            !(url.Scheme == "https" || url.Scheme == "http" && url.IsLoopback))
-            return null;
-        var address = new UriBuilder(url)
+        try
         {
-            Scheme = url.Scheme == "https" ? "wss" : "ws",
-            Path = url.AbsolutePath.TrimEnd('/') + "/play"
-        };
-        return address.Uri.ToString();
+            using var document = JsonDocument.Parse(File.ReadAllText(config));
+            if (!document.RootElement.TryGetProperty("publicUrl", out var value) ||
+                value.ValueKind != JsonValueKind.String ||
+                !Uri.TryCreate(value.GetString(), UriKind.Absolute, out var url) ||
+                !(url.Scheme == "https" || url.Scheme == "http" && url.IsLoopback))
+                return null;
+            var address = new UriBuilder(url)
+            {
+                Scheme = url.Scheme == "https" ? "wss" : "ws",
+                Path = url.AbsolutePath.TrimEnd('/') + "/play"
+            };
+            return address.Uri.ToString();
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException)
+        { return null; }
     }
 
     public static bool Configure(ProcessStartInfo process, string userDirectory)
