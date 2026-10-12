@@ -114,7 +114,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
         var snapshots = new List<(ServerMessage Message, PlayerSession[] Recipients, GameRoom Room)>(MaxRooms);
         var dirty = new HashSet<GameRoom>();
         double maxStepMs = 0;
-        long snapshotBytes = 0, snapshotFrames = 0, compressedFrames = 0;
+        long snapshotBytes = 0, snapshotFrames = 0, compressedFrames = 0, fullEquivalentBytes = 0;
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(4));
         rewards.Delivered += NotifyAccounts;
         try
@@ -180,12 +180,14 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                         { ["tick"] = CurrentTick, ["rooms"] = _rooms.Count, ["connections"] = _sessions.Count,
                             ["activeRooms"] = _rooms.Values.Count(r => r.Sessions.Count > 0), ["maxStepMs"] = maxStepMs,
                             ["ignoredCommands"] = _ignoredCommands, ["managedBytes"] = GC.GetTotalMemory(false),
-                             ["snapshotPayloadBytes"] = Interlocked.Read(ref snapshotBytes),
+                             ["queuedSnapshotPayloadBytes"] = Interlocked.Read(ref snapshotBytes),
+                             ["fullSnapshotEquivalentBytes"] = Interlocked.Read(ref fullEquivalentBytes),
                              ["snapshotRecipientFrames"] = Interlocked.Read(ref snapshotFrames),
                              ["compressedSnapshotFrames"] = Interlocked.Read(ref compressedFrames) });
                         metricsAt = Environment.TickCount64; maxStepMs = 0; _ignoredCommands = 0;
                         Interlocked.Exchange(ref snapshotBytes, 0); Interlocked.Exchange(ref snapshotFrames, 0);
                         Interlocked.Exchange(ref compressedFrames, 0);
+                        Interlocked.Exchange(ref fullEquivalentBytes, 0);
                     }
                 }
                 foreach (var snapshot in snapshots)
@@ -207,6 +209,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                         if (session.Outbox.Writer.TryWrite(bytes))
                         {
                             Interlocked.Add(ref snapshotBytes, bytes.Length);
+                            Interlocked.Add(ref fullEquivalentBytes, (full ??= Protocol.SerializeSnapshot(snapshot.Message)).Length);
                             Interlocked.Increment(ref snapshotFrames);
                             if (bytes.Length > 0 && bytes[0] == 0xA1) Interlocked.Increment(ref compressedFrames);
                         }
