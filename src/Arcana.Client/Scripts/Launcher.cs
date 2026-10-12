@@ -114,7 +114,18 @@ public partial class Launcher : Control
         _practiceMode.ItemSelected += _ => Objective(); _practiceMap.ItemSelected += _ => Objective();
         var botRow = new HBoxContainer(); practice.AddChild(botRow);
         botRow.AddChild(Ui.Label("Bots", 16));
-        _bots = new SpinBox { MinValue = 1, MaxValue = 7, Value = 3, SizeFlagsHorizontal = SizeFlags.ExpandFill }; botRow.AddChild(_bots);
+        var botControls = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        botControls.AddThemeConstantOverride("separation", 12);
+        botRow.AddChild(botControls);
+        var fewerBots = Ui.Button("−", () => _bots.Value = Math.Max(_bots.MinValue, _bots.Value - 1));
+        fewerBots.CustomMinimumSize = new Vector2(64, 56);
+        botControls.AddChild(fewerBots);
+        _bots = new SpinBox { MinValue = 1, MaxValue = 7, Step = 1, Value = 3,
+            Rounded = true, CustomMinimumSize = new Vector2(85, 56), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        botControls.AddChild(_bots);
+        var moreBots = Ui.Button("+", () => _bots.Value = Math.Min(_bots.MaxValue, _bots.Value + 1));
+        moreBots.CustomMinimumSize = new Vector2(64, 56);
+        botControls.AddChild(moreBots);
         _practiceMap.ItemSelected += _ => { _bots.Editable = (ArenaMapId)_practiceMap.GetSelectedId() != ArenaMapId.Practice; };
         _bots.Editable = (ArenaMapId)_practiceMap.GetSelectedId() != ArenaMapId.Practice; Objective();
         var laboratory = Ui.Button("Entrar en laboratorio de hechizos", () =>
