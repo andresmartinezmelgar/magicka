@@ -24,6 +24,9 @@ public sealed class ArenaConnection : IAsyncDisposable
     private readonly object _sendGate = new(), _disposeGate = new();
     private readonly string _connectionId = Guid.NewGuid().ToString("N");
     private long _sequence;
+    private long _bytesSent, _bytesReceived;
+    public long BytesSent => Interlocked.Read(ref _bytesSent);
+    public long BytesReceived => Interlocked.Read(ref _bytesReceived);
     private WorldSnapshot? _latest;
     private ServerMessage? _networkBaseline;
     private Task? _reader, _writer, _disposal, _connecting;
@@ -177,6 +180,7 @@ public sealed class ArenaConnection : IAsyncDisposable
             if (Volatile.Read(ref _disposing) != 0) return;
             var data = message.Type == "hello" ? Protocol.SerializeAction(message) : Protocol.SerializeBinaryAction(message);
             await _socket.SendAsync(data, data.Length > 0 && data[0] == 0xB1 ? WebSocketMessageType.Binary : WebSocketMessageType.Text, true, token).ConfigureAwait(false);
+            Interlocked.Add(ref _bytesSent, data.Length);
         }
         finally { _socketSend.Release(); }
     }
@@ -241,6 +245,7 @@ public sealed class ArenaConnection : IAsyncDisposable
             frameType = result.MessageType;
             if (stream.Length + result.Count > 256 * 1024) throw new IOException("Respuesta de red demasiado grande.");
             stream.Write(buffer, 0, result.Count);
+            Interlocked.Add(ref _bytesReceived, result.Count);
             if (!result.EndOfMessage) continue;
             byte[] payload = stream.ToArray();
             var message = Protocol.DeserializeFrame(payload, frameType == WebSocketMessageType.Binary);
