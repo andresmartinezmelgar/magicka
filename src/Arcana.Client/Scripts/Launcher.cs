@@ -252,7 +252,7 @@ public partial class Launcher : Control
     private string _hostPassword = "";
     private async Task Host()
     {
-        if (_host.Running) { OpenRooms(_host.Address, _hostPassword); return; }
+        if (_host.Running) { OpenRooms(LocalFirebaseHosting.PublicGameAddress(ProjectSettings.GlobalizePath("user://")) ?? _host.Address, _hostPassword); return; }
         var options = new LocalServerOptions(_hostName.Text.Trim(), (int)_hostPort.Value, (int)_hostDiscovery.Value, _password.Text);
         if (options.Name.Length == 0) { ShowError("Escribe un nombre para el servidor."); return; }
         SetBusy(true, "Iniciando el servidor incluido…");
@@ -275,8 +275,9 @@ public partial class Launcher : Control
                 _hostInfo.Text = $"Servidor activo · Juego TCP {options.Port} · LAN UDP {options.DiscoveryPort}\n{addresses}"
                     + (System.IO.File.Exists(System.IO.Path.Combine(LocalFirebaseHosting.DirectoryPath(ProjectSettings.GlobalizePath("user://")), LocalFirebaseHosting.ConfigFileName))
                         ? "\nFirebase local: configuración detectada (usa Entrar con Google para comprobarla)." : "\nFirebase: desactivado; las partidas LAN siguen disponibles.");
-                _address.Text = _host.Address;
-                UpdateConnectLabel(); OpenRooms(_host.Address, _hostPassword);
+                string roomAddress = LocalFirebaseHosting.PublicGameAddress(ProjectSettings.GlobalizePath("user://")) ?? _host.Address;
+                _address.Text = roomAddress;
+                UpdateConnectLabel(); OpenRooms(roomAddress, _hostPassword);
             });
         }
         catch (Exception e)
@@ -309,7 +310,7 @@ public partial class Launcher : Control
                     projectId = "ID-DE-TU-PROYECTO",
                     apiKey = "API-KEY-PUBLICA-DE-TU-APP-WEB",
                     authDomain = "ID-DE-TU-PROYECTO.firebaseapp.com",
-                    publicUrl = "http://127.0.0.1:" + (int)_hostPort.Value
+                    publicUrl = "http://localhost:" + (int)_hostPort.Value
                 }));
             OS.ShellOpen(directory);
             ShowStatus("Firebase: copia server.example.json como server.local.json y coloca service-account.json en esta carpeta. Reinicia Alojar. Google Login en móvil necesitará HTTPS.");
