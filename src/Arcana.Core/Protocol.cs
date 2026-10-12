@@ -6,10 +6,10 @@ namespace Arcana.Core;
 
 public static class Protocol
 {
-    public const int Version = 17;
+    public const int Version = 18;
     public const int GamePort = 27015;
     public const int DiscoveryPort = 27016;
-    public const string DiscoveryMagic = "ARCANA_DISCOVER_V17";
+    public const string DiscoveryMagic = "ARCANA_DISCOVER_V18";
     public const int LoadingTimeoutSeconds = 120;
     public const int MaxMessageBytes = 4096;
     public static readonly JsonSerializerOptions Json = new()
@@ -22,6 +22,11 @@ public static class Protocol
     // Los nombres se mantienen para que el servidor pueda deserializar con el protocolo actual.
     private static readonly string[] BinaryActionNames =
         ["input", "element", "magick", "inspect", "cast", "release", "clear", "melee", "self", "nova", "ready"];
+    private static short QuantizeAxis(float value)
+    {
+        if (!float.IsFinite(value)) throw new InvalidDataException("Eje no finito.");
+        return (short)MathF.Round(Math.Clamp(value, -1f, 1f) * 32767f);
+    }
     public static byte[] SerializeBinaryAction(ClientMessage message)
     {
         int code = Array.IndexOf(BinaryActionNames, message.Type);
@@ -32,7 +37,7 @@ public static class Protocol
         switch (message.Type)
         {
             case "input":
-                writer.Write(message.MoveX); writer.Write(message.MoveY); writer.Write(message.MoveTo);
+                writer.Write(QuantizeAxis(message.MoveX)); writer.Write(QuantizeAxis(message.MoveY)); writer.Write(message.MoveTo);
                 writer.Write(message.TargetX); writer.Write(message.TargetY);
                 writer.Write(message.AimX); writer.Write(message.AimY); break;
             case "element": writer.Write((byte)message.Element); break;
@@ -54,7 +59,7 @@ public static class Protocol
             switch (message.Type)
             {
                 case "input":
-                    message.MoveX = reader.ReadSingle(); message.MoveY = reader.ReadSingle();
+                    message.MoveX = reader.ReadInt16() / 32767f; message.MoveY = reader.ReadInt16() / 32767f;
                     message.MoveTo = reader.ReadBoolean(); message.TargetX = reader.ReadSingle();
                     message.TargetY = reader.ReadSingle(); message.AimX = reader.ReadSingle();
                     message.AimY = reader.ReadSingle(); break;
