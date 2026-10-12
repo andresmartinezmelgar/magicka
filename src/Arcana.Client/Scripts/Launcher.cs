@@ -201,6 +201,11 @@ public partial class Launcher : Control
         _page = page;
         _homeMenu.Visible = page == 0;
         _playBody.Visible = page != 0;
+        _name.GetParent().Visible = page == 3;
+        _team.GetParent().Visible = page == 1;
+        _wizardType.GetParent().Visible = page == 3;
+        _status.Visible = page is 1 or 2;
+
         _menuBack.Visible = page != 0;
         _tabs.Visible = page is 1 or 2;
         _connect.Visible = page is 1 or 2;
