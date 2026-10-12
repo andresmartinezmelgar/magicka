@@ -242,7 +242,7 @@ public sealed class ArenaConnection : IAsyncDisposable
             if (stream.Length + result.Count > 256 * 1024) throw new IOException("Respuesta de red demasiado grande.");
             stream.Write(buffer, 0, result.Count);
             if (!result.EndOfMessage) continue;
-            var payload = stream.GetBuffer().AsSpan(0, (int)stream.Length);
+            byte[] payload = stream.ToArray();
             var message = Protocol.DeserializeFrame(payload, frameType == WebSocketMessageType.Binary);
             if (message?.Type == "delta")
             {
