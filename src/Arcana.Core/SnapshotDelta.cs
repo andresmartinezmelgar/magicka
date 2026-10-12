@@ -55,12 +55,35 @@ public static class SnapshotDelta
             }
             return result;
         }
-        // Las colecciones se sustituyen enteras: evita diferencias ambiguas de índices.
+        if (previous is JsonArray oldArray && current is JsonArray newArray &&
+            oldArray.Count == newArray.Count)
+        {
+            var changes = new JsonObject();
+            for (int i = 0; i < newArray.Count; i++)
+            {
+                var changed = Diff(oldArray[i], newArray[i]);
+                if (changed != null) changes[i.ToString(System.Globalization.CultureInfo.InvariantCulture)] = changed;
+            }
+            return new JsonObject { ["$array"] = changes };
+        }
+        // Al cambiar el número de entidades, sustituir la colección completa.
+
         return current?.DeepClone() ?? new JsonObject { ["$null"] = true };
     }
 
     private static JsonNode? Merge(JsonNode? previous, JsonNode? changes)
     {
+        if (previous is JsonArray array && changes is JsonObject arrayPatch &&
+            arrayPatch["$array"] is JsonObject positions)
+        {
+            foreach (var position in positions)
+            {
+                int index = int.Parse(position.Key, System.Globalization.CultureInfo.InvariantCulture);
+                if ((uint)index >= (uint)array.Count) throw new InvalidDataException("Índice de delta inválido.");
+                array[index] = Merge(array[index]?.DeepClone(), position.Value);
+            }
+            return array;
+        }
         if (previous is JsonObject a && changes is JsonObject b)
         {
             foreach (var field in b)
