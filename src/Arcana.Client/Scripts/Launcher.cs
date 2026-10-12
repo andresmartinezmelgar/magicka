@@ -20,6 +20,10 @@ public partial class Launcher : Control
     private CancellationTokenSource? _search;
     private readonly ConfigFile _config = new();
     private bool _busy;
+    private VBoxContainer _homeMenu = null!;
+    private VBoxContainer _playBody = null!;
+    private Button _menuBack = null!;
+    private int _page;
 
     public void Build(Main main)
     {
@@ -56,7 +60,15 @@ public partial class Launcher : Control
         var form = new VBoxContainer(); form.AddThemeConstantOverride("separation", 6); panel.AddChild(form);
         form.AddChild(Ui.Label(Ui.IsMobile ? "ARCANA ARENA  /  " + BuildInfo.Version : "ENTRAR EN LA ARENA", 27, Ui.Gold));
         form.AddChild(Ui.Label(Ui.IsMobile ? "Entrena sin conexión o entra en un servidor por IP o LAN." : "Entra por IP o LAN, aloja salas o entrena con bots.", 16, Ui.Muted));
-        var identity = new HBoxContainer(); identity.AddThemeConstantOverride("separation", 12); form.AddChild(identity);
+        _homeMenu = new VBoxContainer();
+        _homeMenu.AddThemeConstantOverride("separation", 10);
+        form.AddChild(_homeMenu);
+        _homeMenu.AddChild(Ui.Button("PvP", () => OpenPage(1), true));
+        _homeMenu.AddChild(Ui.Button("Versus IA", () => OpenPage(2), true));
+        _homeMenu.AddChild(Ui.Button("Perfil", () => OpenPage(3)));
+        _playBody = new VBoxContainer(); _playBody.AddThemeConstantOverride("separation", 6); form.AddChild(_playBody);
+        _menuBack = Ui.Button("Volver", () => OpenPage(0)); form.AddChild(_menuBack);
+        var identity = new HBoxContainer(); identity.AddThemeConstantOverride("separation", 12); _playBody.AddChild(identity);
         var nameColumn = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; identity.AddChild(nameColumn);
         nameColumn.AddChild(Ui.Label("Nombre del mago", 14, Ui.Muted));
         _name = new LineEdit { Text = _config.GetValue("player", "name", "Mago").AsString(), MaxLength = 24, CustomMinimumSize = new(0, 45) }; nameColumn.AddChild(_name);
@@ -69,16 +81,16 @@ public partial class Launcher : Control
         _team = Ui.TeamChoice(_config.GetValue("player", "team", -1).AsInt32());
         _team.Name = "LauncherTeamChoice";
         teamColumn.AddChild(_team);
-        var typeRow = new HBoxContainer(); typeRow.AddThemeConstantOverride("separation", 12); form.AddChild(typeRow);
+        var typeRow = new HBoxContainer(); typeRow.AddThemeConstantOverride("separation", 12); _playBody.AddChild(typeRow);
         typeRow.AddChild(Ui.Label("Tipo de mago", 14, Ui.Muted));
         _wizardType = new OptionButton { Name = "WizardTypeChoice", CustomMinimumSize = new(0, 40), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         foreach (var type in Enum.GetValues<WizardType>()) _wizardType.AddItem(WizardTypes.Name(type), (int)type);
         int savedType = _config.GetValue("player", "wizard_type", 0).AsInt32();
         _wizardType.Select(Enum.IsDefined((WizardType)savedType) ? savedType : 0); typeRow.AddChild(_wizardType);
         var typeInfo = Ui.Label(WizardTypes.Description((WizardType)_wizardType.GetSelectedId()), 14, Ui.Gold);
-        typeInfo.AutowrapMode = TextServer.AutowrapMode.WordSmart; form.AddChild(typeInfo);
+        typeInfo.AutowrapMode = TextServer.AutowrapMode.WordSmart; _playBody.AddChild(typeInfo);
         _wizardType.ItemSelected += _ => typeInfo.Text = WizardTypes.Description((WizardType)_wizardType.GetSelectedId());
-        _tabs = new TabContainer(); form.AddChild(_tabs);
+        _tabs = new TabContainer(); _playBody.AddChild(_tabs);
         var ip = TabBox("Por IP");
         ip.AddChild(Ui.Label("IP o nombre del servidor", 14, Ui.Muted));
         _address = new LineEdit { Text = _config.GetValue("network", "address", "127.0.0.1:27015").AsString(),
@@ -158,11 +170,11 @@ public partial class Launcher : Control
         firebaseSetup.TooltipText = "Prepara los archivos de Firebase fuera del paquete del juego; sin cuenta de pago.";
         hosting.AddChild(firebaseSetup);
         form.AddChild(Ui.Label("Contraseña del servidor (si tiene)", 14, Ui.Muted));
-        _password = new LineEdit { Secret = true, MaxLength = 128, PlaceholderText = "Opcional", CustomMinimumSize = new(0, 42) }; form.AddChild(_password);
-        _connect = Ui.Button("Ver salas por IP", Connect, true); form.AddChild(_connect);
+        _password = new LineEdit { Secret = true, MaxLength = 128, PlaceholderText = "Opcional", CustomMinimumSize = new(0, 42) }; _playBody.AddChild(_password);
+        _connect = Ui.Button("Ver salas por IP", Connect, true); _playBody.AddChild(_connect);
         _status = Ui.Label("El servidor usa TCP 27015. LAN usa UDP 27016.", 14, Ui.Muted);
-        _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; _status.CustomMinimumSize = new(0, 45); form.AddChild(_status);
-        var footer = new HBoxContainer(); form.AddChild(footer);
+        _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; _status.CustomMinimumSize = new(0, 45); _playBody.AddChild(_status);
+        var footer = new HBoxContainer(); _playBody.AddChild(footer);
         var help = Ui.Button("Cómo jugar", () => _main.ToggleHelp()); help.SizeFlagsHorizontal = SizeFlags.ExpandFill; footer.AddChild(help);
         var diagnostic = Ui.Button("Diagnóstico", _main.ExportDiagnostics); diagnostic.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         diagnostic.TooltipText = "Exporta registros y contexto de la partida a un ZIP para investigar errores."; footer.AddChild(diagnostic);
@@ -181,6 +193,22 @@ public partial class Launcher : Control
             ShowError("El servidor local ha terminado inesperadamente. Consulta los registros o exporta el diagnóstico.");
         });
         if (Ui.IsMobile) { _tabs.SetTabHidden(3, true); _tabs.SetTabDisabled(3, true); _tabs.CurrentTab = 2; UpdateConnectLabel(); }
+        OpenPage(0);
+    }
+
+    private void OpenPage(int page)
+    {
+        _page = page;
+        _homeMenu.Visible = page == 0;
+        _playBody.Visible = page != 0;
+        _menuBack.Visible = page != 0;
+        _tabs.Visible = page is 1 or 2;
+        _connect.Visible = page is 1 or 2;
+        _password.Visible = page == 1;
+        if (page == 2) _tabs.CurrentTab = 2;
+        if (page == 1 && _tabs.CurrentTab == 2) _tabs.CurrentTab = 1;
+        if (page == 3) { Remember(); _main.OpenEquipment("automatic"); }
+        UpdateConnectLabel();
     }
 
     private VBoxContainer TabBox(string name)
@@ -261,7 +289,7 @@ public partial class Launcher : Control
     { if (GodotObject.IsInstanceValid(_lobby)) _lobby!.QueueFree(); _lobby = null; }
     public bool HandleBack()
     {
-        if (!GodotObject.IsInstanceValid(_lobby)) return false;
+        if (!GodotObject.IsInstanceValid(_lobby)) { if (_page == 0) return false; OpenPage(0); return true; }
         _main.CancelPendingConnection(); CloseRooms(); SetBusy(false); return true;
     }
     private string _hostPassword = "";
