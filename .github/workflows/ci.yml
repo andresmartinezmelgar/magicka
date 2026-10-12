@@ -555,3 +555,37 @@ jobs:
           else
             gh release create "v$version" "artifacts/ArcanaArena-v$version-Windows-x64.zip" "artifacts/ArcanaArena-v$version-Android-arm64.apk" artifacts/SHA256SUMS.txt artifacts/SHA256SUMS-Android.txt --target "$GITHUB_SHA" --title "Arcana Arena v$version" --notes-file "docs/RELEASE-v$version.md"
           fi
+
+  tag-validated-version:
+    name: Etiquetar versión tras validación completa
+    needs: [build-and-test, package-windows, package-android, package-android-windows]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Crear tag solo si CI ha validado el HEAD de main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(tr -d '\r\n' < VERSION)
+          tag="v$version"
+          head_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          if [ "$head_sha" != "$GITHUB_SHA" ]; then
+            echo "main cambió durante la validación: no se etiqueta un commit antiguo."
+            exit 0
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" > /tmp/arcana-tag.json 2>/dev/null; then
+            existing=$(python3 -c 'import json;print(json.load(open("/tmp/arcana-tag.json"))["object"]["sha"])')
+            if [ "$existing" != "$GITHUB_SHA" ]; then
+              echo "El tag $tag ya existe en otro commit. No se modifica."
+              exit 1
+            fi
+            echo "El tag $tag ya corresponde al commit validado."
+          else
+            gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref="refs/tags/$tag" -f sha="$GITHUB_SHA"
+            echo "Tag $tag creado tras completar todas las validaciones."
+          fi
