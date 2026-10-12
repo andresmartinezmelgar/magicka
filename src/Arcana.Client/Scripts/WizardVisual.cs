@@ -40,8 +40,6 @@ public partial class WizardVisual : Node3D
     private (string? Name, WizardType Type, int Status, int Respawn) _nameState;
     private (double Amount, float Maximum) _shieldReading = (-1, -1);
     private Color? _shieldColor;
-    private EquipmentAppearance? _equipmentAppearance;
-    private Node3D? _equipmentRoot;
     internal Element[] DisplayedElements { get; private set; } = [];
     internal int ElementSlotCount => _elementFills.Count;
     internal bool ElementSlotsVisible => _elementsRoot.Visible;
@@ -69,7 +67,6 @@ public partial class WizardVisual : Node3D
             Vframes = WizardSprites.Rows, PixelSize = _atlas.Spec.PixelSize, Offset = _atlas.Offset(0),
             MaterialOverride = _spriteMaterial, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
         _body.AddChild(_sprite);
-        UpdateEquipment(p.Equipment);
         _renderedOffset = _atlas.Offset(0);
         _shadow = Mesh(this, new CylinderMesh { TopRadius = 0.48f, BottomRadius = 0.48f, Height = 0.01f, RadialSegments = 24 }, new(0, 0.015f, 0),
             new StandardMaterial3D { AlbedoColor = new Color(0, 0, 0, 0.28f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
@@ -124,7 +121,6 @@ public partial class WizardVisual : Node3D
     }
     public void Update(WizardSnapshot p, float dt, float time, Camera3D camera, double sampleTime, double interpolationDelay)
     {
-        UpdateEquipment(p.Equipment);
         _motion.Advance(p.Position, sampleTime, dt, interpolationDelay,
             p.Alive != _wasAlive || p.Deaths != _deaths || p.Frozen > 0);
         _wasAlive = p.Alive; _deaths = p.Deaths;

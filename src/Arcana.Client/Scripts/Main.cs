@@ -70,6 +70,7 @@ public partial class Main : Node
         foreach (string arg in arguments)
         {
             if (arg is "--preview-equipment" or "--equipment-smoke") EquipmentFixture(arg == "--equipment-smoke");
+            if (arg == "--equipment-restore-smoke") { _equipmentRestoreSmoke = true; OpenEquipment("wss://servidor-central.example"); }
             if (arg.StartsWith("--server=")) _launcher.BrowseAddress(arg[9..]);
             if (arg.StartsWith("--create-room=")) _launcher.BrowseAddress(arg[14..], true);
             if (arg.StartsWith("--tab=") && int.TryParse(arg[6..], out int tab)) _launcher.ShowTab(tab);

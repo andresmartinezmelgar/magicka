@@ -1,6 +1,6 @@
-# Arcana Arena — v0.13.0
+# Arcana Arena — v0.13.1
 
-**v0.13.0:** Cuentas Google con Firebase, inventario persistente, cinco calidades de objetos procedurales, bonus Míticos de dos y cuatro piezas y recompensas por victorias PvP. Botas, gorro, pecho y arma modifican el combate y también funcionan contra IA. Eliminar objetos entrega oro y conserva los mínimos, máximos y valores de las piezas restantes para futuras mejoras. Protocolo 12. [Funcionamiento y configuración del servidor central](docs/PROGRESSION.md).
+**v0.13.1:** Selección de botas, gorro, pecho y arma con flechas izquierda/derecha y guardado automático. La pantalla muestra atributos individuales, mínimos y máximos, suma de piezas, bonus de conjunto y valores aplicados en combate. Se conservan los sprites actuales. Cuentas Google con Firebase, inventario persistente, cinco calidades de objetos procedurales, bonus Míticos de dos y cuatro piezas y recompensas por victorias PvP. Botas, gorro, pecho y arma modifican el combate y también funcionan contra IA. Eliminar objetos entrega oro y conserva los mínimos, máximos y valores de las piezas restantes para futuras mejoras. Protocolo 12. [Funcionamiento y configuración del servidor central](docs/PROGRESSION.md).
 
 Primera recreación jugable en C# del combate elemental de **Magicka: Wizard Wars**. Cliente 3D de escritorio con **Godot 4.5.2 .NET**, servidor independiente **ASP.NET Core / .NET 8**, Docker, launcher con conexión por IP/LAN, salas independientes y paquete Windows para abrir con doble clic y APK Android con controles táctiles.
 
@@ -108,7 +108,7 @@ Descargar el código con **Code → Download ZIP** y extraer todo, o actualizar 
 
 El resultado queda en **`Juego/ArcanaArena.exe`**. Cada compilación correcta **sustituye completamente `Juego/`**, incluidos los archivos antiguos. Cerrar el juego antes de recompilar. Si la compilación falla, se conserva el resultado anterior. Registro: `artifacts/compilacion-*.log`. No requiere Visual Studio ni instalación de administrador. [Proceso y compilación manual](docs/EXPORTAR.md).
 
-Para **Android**, abrir **`Compilar-APK.cmd`**. Prepara .NET 8, Godot 4.5.2 .NET, OpenJDK 17 y el SDK Android 35 en `.tools/`; la primera ejecución necesita Internet, varios GB libres y aceptar las licencias que muestra el SDK. Genera **`artifacts/android/ArcanaArena-v0.13.0-Android-arm64.apk`**, lista para instalar en un móvil ARM64 con Android 8 o posterior. Reutiliza la firma local en las siguientes compilaciones y conserva la APK anterior si falla. Registro: `artifacts/compilacion-apk-*.log`. [Opciones y compilación manual](docs/ANDROID.md#compilación-y-comprobaciones).
+Para **Android**, abrir **`Compilar-APK.cmd`**. Prepara .NET 8, Godot 4.5.2 .NET, OpenJDK 17 y el SDK Android 35 en `.tools/`; la primera ejecución necesita Internet, varios GB libres y aceptar las licencias que muestra el SDK. Genera **`artifacts/android/ArcanaArena-v0.13.1-Android-arm64.apk`**, lista para instalar en un móvil ARM64 con Android 8 o posterior. Reutiliza la firma local en las siguientes compilaciones y conserva la APK anterior si falla. Registro: `artifacts/compilacion-apk-*.log`. [Opciones y compilación manual](docs/ANDROID.md#compilación-y-comprobaciones).
 
 La CI comprueba las compilaciones al actualizar `main`. Publicar los ejecutables como una Release requiere iniciar manualmente **Arcana Arena CI** en `main` y activar **`publish_release`**; por defecto queda desactivado.
 
@@ -255,7 +255,7 @@ El workflow compila y prueba en Linux, valida Docker con IP y LAN, y genera el p
 
 ## Alcance de esta primera versión
 
-El núcleo PvP, el launcher y el servidor están implementados. El mapa, los modelos, la animación y el balance son propios. Esta versión usa WebSocket sobre TCP y suavizado del estado; no incorpora predicción con reconciliación, compensación de latencia, matchmaking público, cuentas, persistencia de estadísticas ni las tablas completas de balance y equipo del original. La preferencia de equipo se respeta cuando permite mantener equipos equilibrados.
+El núcleo PvP, el launcher y el servidor están implementados. El mapa, los modelos, la animación y el balance son propios. Esta versión usa WebSocket sobre TCP y suavizado del estado; no incorpora predicción con reconciliación, compensación de latencia, matchmaking público ni las tablas completas de balance y equipo del original. Las cuentas Google, el inventario y el oro persistentes requieren configurar un proyecto Firebase; el repositorio no crea ninguna cuenta ni proyecto y no incluye credenciales. La preferencia de equipo se respeta cuando permite mantener equipos equilibrados.
 
 Combate y demostraciones: [efectos, minas, rayos y captura](docs/COMBINACIONES.md) · [detalle visual por cargas](docs/EFECTOS.md).
 

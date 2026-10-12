@@ -103,6 +103,24 @@ await Test("Firestore: práctica, IA y cuenta repetida no conceden objetos ni vi
     var after = await repository.Profile(alice, "Alice");
     Check(after.Wins == before.Wins && after.Items.Length == before.Items.Length, "Se concedió una recompensa inválida.");
 });
+await Test("Firestore: las cuatro piezas elegidas sobreviven a otro repositorio, nueva sesión y cambio de versión", async () =>
+{
+    string user = "loadout_" + suffix;
+    _ = await repository.Profile(user, "Equipo persistente");
+    var items = Enum.GetValues<EquipmentSlot>().Select(s => EquipmentCatalogue.Generate(new(30 + (int)s),
+        tier: ItemTier.Mythic, slot: s, family: EquipmentFamily.Fire)).ToArray();
+    foreach (var item in items) { await Seed(user, item); await repository.Equip(user, new(item.Id, item.Slot)); }
+    var original = await repository.Profile(user, "Equipo persistente");
+    var restored = await new FirestoreAccountRepository(database).Profile(user, "Otra versión del cliente");
+    Check(restored.Loadout == original.Loadout && restored.SchemaVersion == original.SchemaVersion &&
+        restored.Items.All(i => i.Bonuses.SequenceEqual(items.Single(old => old.Id == i.Id).Bonuses)), "La nueva instancia perdió las piezas o sus valores.");
+    var login = await Login(user); Check(login.Profile!.Loadout == original.Loadout, "Una nueva sesión eliminó el equipo guardado.");
+    await repository.Equip(user, new("", EquipmentSlot.Hat));
+    restored = await new FirestoreAccountRepository(database).Profile(user, "Equipo persistente");
+    Check(restored.Loadout.Hat == "" && restored.Loadout.Boots == original.Loadout.Boots && restored.Loadout.Chest == original.Loadout.Chest &&
+        restored.Loadout.Weapon == original.Loadout.Weapon, "Quitar un gorro alteró otra posición.");
+    accounts.Logout(login.AccessToken);
+});
 await Test("Acceso: secretos separados para navegador y juego; token inválido y polling ajeno rechazados", async () =>
 {
     var challenge = accounts.StartLogin(); var browser = new Uri(challenge.Url).Query[5..];

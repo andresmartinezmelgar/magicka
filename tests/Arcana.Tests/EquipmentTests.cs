@@ -57,6 +57,26 @@ internal static class EquipmentTests
             var diamond = Item(slots[0], EquipmentStat.EnergyRegeneration, 0.01f, EquipmentFamily.Life, ItemTier.Diamond);
             Check(EquipmentModifiers.Calculate(Profile(diamond, Piece(1, EquipmentFamily.Life))).LifePieces == 1, "Diamante contó como Mítico.");
         });
+        test("Equipo: desglose suma piezas y conjunto y distingue los límites reales del combate", () =>
+        {
+            var items = Enum.GetValues<EquipmentSlot>().Select(s => new EquipmentItem(Guid.NewGuid().ToString("N"), s,
+                ItemTier.Mythic, EquipmentFamily.Life, [new(EquipmentStat.HealingPower, 0, 0.5f, 0.2f),
+                    new(EquipmentStat.MovementSpeed, -0.1f, 0.1f, s == EquipmentSlot.Boots ? -0.04f : 0.01f)], 400)).ToArray();
+            var summary = EquipmentModifiers.Summarize(Profile(items));
+            var heal = summary.Stats.Single(s => s.Stat == EquipmentStat.HealingPower);
+            Near(heal.Items, 0.8f); Near(heal.Set, 0.15f); Near(heal.Sum, 0.95f); Near(heal.Effective, 0.6f);
+            Check(heal.Limited, "No se indicó el límite de curación."); Near(summary.Modifiers.Healing, 1.6f);
+            var speed = summary.Stats.Single(s => s.Stat == EquipmentStat.MovementSpeed);
+            Near(speed.Items, -0.01f); Check(!speed.Limited && speed.Set == 0, "Se perdió una penalización o se añadió un conjunto ajeno.");
+            var saved = Protocol.Deserialize<AccountProfile>(Protocol.Serialize(Profile(items)))!;
+            using var account = new AccountClient(); account.RestoreOfflineProfile(saved);
+            Check(account.Profile!.Loadout == saved.Loadout && account.Profile.Items.SelectMany(i => i.Bonuses).SequenceEqual(items.SelectMany(i => i.Bonuses)),
+                "Restaurar el inventario perdió la selección o volvió a sortear los valores.");
+            account.EquipOffline(EquipmentSlot.Boots, "");
+            var three = EquipmentModifiers.Summarize(account.Profile!);
+            Near(three.Stats.Single(s => s.Stat == EquipmentStat.HealingPower).Set, 0.05f);
+            Check(three.Modifiers.LifePieces == 3 && saved.Loadout.Boots == items[0].Id, "Quitar una pieza alteró la selección guardada original.");
+        });
         test("Equipo: vender desequipa, paga oro y rechaza ventas repetidas o ajenas", () =>
         {
             var item = EquipmentCatalogue.Generate(new(5)); var profile = Profile(item) with { Gold = 9007199254740993L };

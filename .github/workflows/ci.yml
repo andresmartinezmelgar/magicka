@@ -295,12 +295,16 @@ jobs:
           $env:DOTNET_ROOT = Join-Path $env:RUNNER_TEMP 'sin-dotnet-global'
           $env:DOTNET_ROOT_X64 = $env:DOTNET_ROOT
           $env:DOTNET_MULTILEVEL_LOOKUP = '0'
-          foreach ($mode in @('smoke', 'host-smoke', 'diagnostics-smoke', 'hud-smoke', 'effects-smoke', 'sprites-smoke', 'combinations-smoke', 'maps-smoke', 'practice-smoke', 'loading-smoke', 'equipment-smoke')) {
+          foreach ($mode in @('smoke', 'host-smoke', 'diagnostics-smoke', 'hud-smoke', 'effects-smoke', 'sprites-smoke', 'combinations-smoke', 'maps-smoke', 'practice-smoke', 'loading-smoke', 'equipment-smoke', 'equipment-restore-smoke')) {
+            if ($mode -like 'equipment-*') {
+              $env:APPDATA = Join-Path $env:RUNNER_TEMP 'arcana-equipment-profile'
+              New-Item -ItemType Directory -Path $env:APPDATA -Force | Out-Null
+            }
             $log = Join-Path $env:RUNNER_TEMP "arcana-$mode.log"
             $game = Start-Process "$package/ArcanaArena.exe" -ArgumentList '--headless','--audio-driver','Dummy','--log-file',"`"$log`"",'--',"--$mode" -PassThru
             if (!$game.WaitForExit(60000)) { $game.Kill(); throw "El juego no termino: $mode" }
             if ($game.ExitCode -ne 0) { if (Test-Path $log) { Get-Content $log }; throw "El juego fallo: $mode" }
-            $marker = switch ($mode) { 'smoke' { 'SMOKE_OK' }; 'host-smoke' { 'HOST_SMOKE_OK' }; 'diagnostics-smoke' { 'DIAGNOSTICS_SMOKE_OK' }; 'hud-smoke' { 'HUD_SMOKE_OK' }; 'effects-smoke' { 'EFFECTS_SMOKE_OK' }; 'sprites-smoke' { 'SPRITES_SMOKE_OK' }; 'combinations-smoke' { 'COMBINATIONS_SMOKE_OK' }; 'maps-smoke' { 'MAPS_SMOKE_OK' }; 'practice-smoke' { 'PRACTICE_SMOKE_OK' }; 'loading-smoke' { 'LOADING_SMOKE_OK' }; 'equipment-smoke' { 'EQUIPMENT_SMOKE_OK' } }
+            $marker = switch ($mode) { 'smoke' { 'SMOKE_OK' }; 'host-smoke' { 'HOST_SMOKE_OK' }; 'diagnostics-smoke' { 'DIAGNOSTICS_SMOKE_OK' }; 'hud-smoke' { 'HUD_SMOKE_OK' }; 'effects-smoke' { 'EFFECTS_SMOKE_OK' }; 'sprites-smoke' { 'SPRITES_SMOKE_OK' }; 'combinations-smoke' { 'COMBINATIONS_SMOKE_OK' }; 'maps-smoke' { 'MAPS_SMOKE_OK' }; 'practice-smoke' { 'PRACTICE_SMOKE_OK' }; 'loading-smoke' { 'LOADING_SMOKE_OK' }; 'equipment-smoke' { 'EQUIPMENT_SMOKE_OK' }; 'equipment-restore-smoke' { 'EQUIPMENT_RESTORE_SMOKE_OK' } }
             Get-Content $log
             if (!(Select-String -Path $log -SimpleMatch $marker)) { throw "Falta la confirmacion: $mode" }
             if (Select-String -Path $log -Pattern '(^ERROR:|^SCRIPT ERROR:|SMOKE_FAILED)' -Quiet) { throw "La prueba registro errores: $mode" }

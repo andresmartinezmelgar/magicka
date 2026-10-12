@@ -7,26 +7,6 @@ public partial class Main
 {
     public AccountClient Accounts { get; } = new();
     private EquipmentPanel? _equipmentPanel;
-    private bool _equipmentSmoke;
-    private void EquipmentFixture(bool smoke)
-    {
-        _equipmentSmoke = smoke;
-        var random = new Random(91); var items = Enum.GetValues<ItemTier>().SelectMany(t => Enum.GetValues<EquipmentSlot>()
-            .Select(s => EquipmentCatalogue.Generate(random, tier: t, slot: s, family: EquipmentFamily.Life))).ToArray();
-        string Id(EquipmentSlot s) => items.Single(i => i.Tier == ItemTier.Mythic && i.Slot == s).Id;
-        Accounts.RestoreOfflineProfile(new("fixture-user", "Mago de Vida", 1250, 24, 7,
-            new(Id(EquipmentSlot.Boots), Id(EquipmentSlot.Hat), Id(EquipmentSlot.Chest), Id(EquipmentSlot.Weapon)), items));
-        OpenEquipment("wss://servidor-central.example");
-    }
-    private bool CheckEquipmentSmoke()
-    {
-        if (!_equipmentSmoke || _renderFrames < 12) return false;
-        bool valid = _engineLog.ErrorCount == 0 && _equipmentPanel?.VisibleItems == 20 && _equipmentPanel.Details.Contains("Límites:") &&
-            Accounts.Profile != null && EquipmentModifiers.Calculate(Accounts.Profile).LifePieces == 4;
-        if (valid) GD.Print("EQUIPMENT_SMOKE_OK: inventario, cinco calidades, límites y conjunto completo.");
-        else GD.PushError("EQUIPMENT_SMOKE_FAILED: interfaz incompleta o errores de Godot.");
-        GetTree().Quit(valid ? 0 : 1); return true;
-    }
     private string AccountCache => ProjectSettings.GlobalizePath("user://account-profile.json");
     private void RestoreAccountCache()
     {
@@ -40,17 +20,18 @@ public partial class Main
         }
         catch (Exception error) { Diagnostics.Warn("account.cache_invalid", "No se pudo recuperar el inventario para práctica.", error); }
     }
-    public void SaveAccountCache()
+    public bool SaveAccountCache()
     {
         try
         {
-            if (Accounts.Profile == null) { System.IO.File.Delete(AccountCache); return; }
+            if (Accounts.Profile == null) { System.IO.File.Delete(AccountCache); return true; }
             string temporary = AccountCache + ".tmp";
             System.IO.File.WriteAllText(temporary, Protocol.Serialize(Accounts.Profile));
             System.IO.File.Move(temporary, AccountCache, true);
+            return true;
         }
         catch (Exception error) when (error is System.IO.IOException or UnauthorizedAccessException)
-        { Diagnostics.Warn("account.cache_failed", "No se pudo guardar el inventario para práctica.", error); }
+        { Diagnostics.Warn("account.cache_failed", "No se pudo guardar el inventario para práctica.", error); return false; }
     }
     public void OpenEquipment(string address)
     {

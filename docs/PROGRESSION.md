@@ -1,5 +1,7 @@
 # Cuentas, objetos y oro
 
+El código incluye la integración, pero no ha creado ninguna cuenta ni proyecto Firebase y no incluye contraseñas de Google. El acceso utiliza la cuenta Google del jugador. El alojamiento del servidor continúa sin cambios.
+
 ## Activar el servidor central
 
 El cliente Godot de Android y Windows abre el navegador del sistema para entrar con Google. La página de acceso la sirve el propio servidor; utiliza Firebase Authentication y el SDK web fijado en 12.4.0. El servidor verifica la firma, caducidad, proyecto, revocación y proveedor Google mediante Firebase Admin 3.7.0. El juego recibe una sesión opaca de ocho horas, conservada solo en memoria. Al reiniciar el servidor o el cliente es necesario iniciar sesión otra vez; la UID y los datos permanecen.
@@ -52,11 +54,11 @@ El bonus de cuatro sustituye al de dos. Se pueden activar dos conjuntos de dos p
 
 ## Uso y recompensas
 
-El equipamiento se selecciona desde **Inventario y mago**, en el launcher, o **Personalizar mago e inventario**, en la sala. Se puede usar en PvP del servidor central, partidas contra bots de ese servidor y práctica local. La última cuenta cargada conserva una caché de objetos para jugar contra IA sin conexión y permite seleccionar piezas para esa práctica. El servidor central siempre recupera su propio equipamiento guardado antes de admitir al jugador: no acepta estadísticas enviadas por el cliente.
+El equipamiento se selecciona desde **Inventario y mago**, en el launcher, o **Personalizar mago e inventario**, en la sala. Las flechas de cada posición recorren sus objetos y la opción **Sin equipo**; pasar del final al inicio funciona en ambos sentidos. Pulsar el nombre de una posición permite ver sus atributos individuales: valor actual, mínimo y máximo. La tabla **Suma de todo el equipo** separa las piezas, el conjunto, la suma y el valor aplicado después de los límites. Cada cambio se guarda automáticamente. Se puede usar en PvP del servidor central, partidas contra bots de ese servidor y práctica local. La última cuenta cargada conserva una caché de objetos para jugar contra IA sin conexión y permite seleccionar piezas para esa práctica. El servidor central siempre recupera su propio equipamiento guardado antes de admitir al jugador: no acepta estadísticas enviadas por el cliente.
 
 Una victoria PvP válida entrega un objeto. Debe haber cuentas distintas de humanos rivales con al menos 15 segundos de participación activa; lanzar continuamente y disputar puntos también cuentan. Una partida contra bots, práctica, cuentas repetidas o participantes inactivos no concede progresión. Los perdedores elegibles registran su derrota. El diario de resultados se entrega fuera del bucle de simulación y se reintenta tras fallos o reinicios. La partida no espera a Firestore para avanzar. Si el inventario alcanza 500 objetos, el premio se convierte automáticamente en su valor de oro.
 
-El equipo de una partida permanece fijado hasta la siguiente ronda. Morir o reaparecer conserva las piezas. El cliente recibe una notificación al guardar el resultado y actualiza su inventario. Las apariencias indican calidad y familia conservando los colores de equipo.
+El equipo de una partida permanece fijado hasta la siguiente ronda. Morir o reaparecer conserva las piezas. El cliente recibe una notificación al guardar el resultado y actualiza su inventario. Los sprites y la apariencia del mago no cambian al equipar objetos. La calidad y la familia se indican con texto en el selector; los cambios visuales de indumentaria quedan para otra versión. La selección en la cuenta permanece al cambiar de partida, de sesión y de versión; la selección sin conexión permanece en la caché del dispositivo para las partidas locales contra IA.
 
 Eliminar una pieza solicita confirmación y realiza una transacción: retira el objeto, lo desequipa si corresponde, aumenta el oro y registra un recibo de venta. Un reintento no paga dos veces. El oro se conserva para versiones futuras; no hay compra, mejora ni fabricación en esta versión.
 
@@ -79,4 +81,6 @@ La UID, el esquema y las versiones de generación no dependen de `VERSION`. Actu
 
 `bash scripts/test-accounts.sh` descarga el emulador oficial Firestore 1.19.8, verifica su SHA256 y ejecuta pruebas sobre el proyecto local `demo-arcana-accounts`. No utiliza la base real. El verificador Google se sustituye solo dentro del proyecto de pruebas; el servidor distribuido utiliza Firebase Admin.
 
-Las comprobaciones cubren premios concurrentes, venta repetida, precisión de oro de 64 bits, propiedad, venta frente a equipamiento simultáneo, persistencia de tiradas, sesiones falsas, fin de partida y recuperación del diario. El acceso Google real requiere el proyecto y dominio configurados; las pruebas del emulador no sustituyen una comprobación de OAuth con las cuentas del proyecto de producción.
+`bash scripts/test-client-smoke.sh equipment-smoke RUTA_A_GODOT` comprueba las flechas, atributos y dos partidas IA, y abre un segundo proceso para verificar la recuperación del equipo desde disco. El perfil de prueba utiliza un directorio temporal aislado.
+
+Las comprobaciones cubren premios concurrentes, venta repetida, precisión de oro de 64 bits, propiedad, venta frente a equipamiento simultáneo, persistencia de tiradas y de las cuatro posiciones tras una nueva instancia y sesión, sesiones falsas, fin de partida y recuperación del diario. El acceso Google real requiere el proyecto y dominio configurados; las pruebas del emulador no sustituyen una comprobación de OAuth con las cuentas del proyecto de producción.

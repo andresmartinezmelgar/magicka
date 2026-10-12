@@ -24,6 +24,12 @@ public sealed record InventoryRequest(string ItemId, EquipmentSlot Slot = Equipm
 public sealed record InventoryResult(AccountProfile Profile, string Message);
 public sealed record EquipmentAppearance(ItemTier? Boots = null, ItemTier? Hat = null, ItemTier? Chest = null, ItemTier? Weapon = null,
     EquipmentFamily Family = EquipmentFamily.Mixed);
+public sealed record EquipmentStatTotal(EquipmentStat Stat, float Items, float Set, float Effective)
+{
+    public float Sum => Items + Set;
+    public bool Limited => Math.Abs(Sum - Effective) > 0.00001f;
+}
+public sealed record EquipmentSummary(EquipmentModifiers Modifiers, EquipmentStatTotal[] Stats);
 
 /// <summary>Calculado una vez al equipar. La simulación no recorre el inventario ni consulta servicios.</summary>
 public sealed record EquipmentModifiers
@@ -44,10 +50,12 @@ public sealed record EquipmentModifiers
     public int ShieldPieces { get; init; }
     public int FirePieces { get; init; }
     public EquipmentAppearance Appearance { get; init; } = new();
-    public static EquipmentModifiers Calculate(AccountProfile profile)
+    public static EquipmentModifiers Calculate(AccountProfile profile) => Summarize(profile).Modifiers;
+    public static EquipmentSummary Summarize(AccountProfile profile)
     {
         if (profile.Items.Length > EquipmentCatalogue.InventoryLimit) throw new InvalidDataException("Inventario demasiado grande.");
         var stats = new float[Enum.GetValues<EquipmentStat>().Length];
+        var setStats = new float[stats.Length];
         var sets = new int[4];
         var tiers = new ItemTier?[4];
         var families = new int[4];
@@ -61,18 +69,18 @@ public sealed record EquipmentModifiers
             foreach (var b in item.Bonuses) stats[(int)b.Stat] += b.Current;
             if (item.Tier == ItemTier.Mythic) sets[(int)item.Family]++;
         }
-        if (sets[(int)EquipmentFamily.Life] >= 2) stats[(int)EquipmentStat.HealingPower] += sets[1] == 4 ? 0.15f : 0.05f;
-        if (sets[1] == 4) stats[(int)EquipmentStat.LifeEfficiency] += 0.10f;
+        if (sets[1] >= 2) setStats[(int)EquipmentStat.HealingPower] = sets[1] == 4 ? 0.15f : 0.05f;
+        if (sets[1] == 4) setStats[(int)EquipmentStat.LifeEfficiency] = 0.10f;
         if (sets[2] >= 2)
         {
-            stats[(int)EquipmentStat.ShieldDuration] += sets[2] == 4 ? 0.20f : 0.10f;
-            if (sets[2] == 4) stats[(int)EquipmentStat.ShieldCapacity] += 0.20f;
+            setStats[(int)EquipmentStat.ShieldDuration] = sets[2] == 4 ? 0.20f : 0.10f;
+            if (sets[2] == 4) setStats[(int)EquipmentStat.ShieldCapacity] = 0.20f;
         }
-        if (sets[3] >= 2) stats[(int)EquipmentStat.FirePower] += sets[3] == 4 ? 0.15f : 0.05f;
-        if (sets[3] == 4) stats[(int)EquipmentStat.BurnDuration] += 0.20f;
-        float Bonus(EquipmentStat s, float upper = 0.60f) => Math.Clamp(stats[(int)s], -0.25f, upper);
+        if (sets[3] >= 2) setStats[(int)EquipmentStat.FirePower] = sets[3] == 4 ? 0.15f : 0.05f;
+        if (sets[3] == 4) setStats[(int)EquipmentStat.BurnDuration] = 0.20f;
+        float Bonus(EquipmentStat s, float upper = 0.60f) => Math.Clamp(stats[(int)s] + setStats[(int)s], -0.25f, upper);
         var dominant = Enumerable.Range(1, 3).OrderByDescending(i => families[i]).ThenBy(i => i).First();
-        return new()
+        var modifiers = new EquipmentModifiers
         {
             Speed = 1 + Bonus(EquipmentStat.MovementSpeed, 0.30f), Range = 1 + Bonus(EquipmentStat.SpellRange, 0.35f),
             Incoming = 1 - Bonus(EquipmentStat.Defense, 0.35f), Power = 1 + Bonus(EquipmentStat.Power, 0.40f),
@@ -82,6 +90,16 @@ public sealed record EquipmentModifiers
             BurnDuration = 1 + Bonus(EquipmentStat.BurnDuration), LifePieces = sets[1], ShieldPieces = sets[2], FirePieces = sets[3],
             Appearance = new(tiers[0], tiers[1], tiers[2], tiers[3], families[dominant] > 0 ? (EquipmentFamily)dominant : EquipmentFamily.Mixed)
         };
+        float Effective(EquipmentStat stat) => stat switch
+        {
+            EquipmentStat.MovementSpeed => modifiers.Speed - 1, EquipmentStat.SpellRange => modifiers.Range - 1,
+            EquipmentStat.Defense => 1 - modifiers.Incoming, EquipmentStat.Power => modifiers.Power - 1,
+            EquipmentStat.HealingPower => modifiers.Healing - 1, EquipmentStat.FirePower => modifiers.Fire - 1,
+            EquipmentStat.ShieldCapacity => modifiers.ShieldCapacity - 1, EquipmentStat.ShieldDuration => modifiers.ShieldDuration - 1,
+            EquipmentStat.EnergyRegeneration => modifiers.EnergyRegeneration - 1, EquipmentStat.LifeEfficiency => 1 - modifiers.LifeCost,
+            _ => modifiers.BurnDuration - 1
+        };
+        return new(modifiers, Enum.GetValues<EquipmentStat>().Select(s => new EquipmentStatTotal(s, stats[(int)s], setStats[(int)s], Effective(s))).ToArray());
     }
 }
 

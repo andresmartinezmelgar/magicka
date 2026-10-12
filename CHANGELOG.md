@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.13.1
+
+- Selector independiente de botas, gorro, pecho y arma mediante flechas izquierda/derecha, con opción Sin equipo y selección circular.
+- Atributos individuales con valor actual e intervalo; tabla de piezas, conjunto, suma y valor aplicado con límites compartidos con la simulación.
+- Guardado automático de cada selección en la cuenta o en la caché local para IA; comprobación de recuperación al cambiar de partida y al volver a abrir el juego.
+- Se retiran los adornos de equipación del mago: los sprites permanecen como estaban. La configuración de alojamiento y de Firebase no cambia.
+- Pruebas de flechas reales en Godot, caché, dos partidas IA, sumas y límites, y recuperación de las cuatro posiciones desde Firestore y una nueva sesión.
+
 ## 0.13.0
 
 - Cuentas Google verificadas por Firebase Admin y persistencia en Cloud Firestore, con UID independiente de la versión del juego.
