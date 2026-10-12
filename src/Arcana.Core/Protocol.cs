@@ -17,6 +17,34 @@ public static class Protocol
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
         MaxDepth = 16
     };
+    // Los mensajes de combate no incluyen datos del saludo ni campos de otras acciones.
+    // Los nombres se mantienen para que el servidor pueda deserializar con el protocolo actual.
+    public static byte[] SerializeAction(ClientMessage message) => message.Type switch
+    {
+        "input" => JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            type = message.Type, sequence = message.Sequence,
+            moveX = message.MoveX, moveY = message.MoveY, moveTo = message.MoveTo,
+            targetX = message.TargetX, targetY = message.TargetY,
+            aimX = message.AimX, aimY = message.AimY
+        }, Json),
+        "element" => JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            type = message.Type, sequence = message.Sequence, element = message.Element
+        }, Json),
+        "magick" => JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            type = message.Type, sequence = message.Sequence, slot = message.Slot
+        }, Json),
+        "inspect" => JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            type = message.Type, sequence = message.Sequence,
+            inspectionRequestId = message.InspectionRequestId, inspectPlayerId = message.InspectPlayerId
+        }, Json),
+        "cast" or "release" or "clear" or "melee" or "self" or "nova" or "ready" =>
+            JsonSerializer.SerializeToUtf8Bytes(new { type = message.Type, sequence = message.Sequence }, Json),
+        _ => SerializeUtf8(message) // Saludo y extensiones futuras conservan el formato completo.
+    };
     public static string Serialize<T>(T value) => JsonSerializer.Serialize(value, Json);
     public static byte[] SerializeUtf8<T>(T value) => JsonSerializer.SerializeToUtf8Bytes(value, Json);
     public static T? Deserialize<T>(string json) => JsonSerializer.Deserialize<T>(json, Json);
