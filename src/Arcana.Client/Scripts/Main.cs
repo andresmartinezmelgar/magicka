@@ -116,7 +116,7 @@ public partial class Main : Node
         }); }
         catch (Exception error)
         {
-            _profiler.QueueFree(); _profiler = null; ReturnToLauncher();
+            _profiler?.QueueFree(); _profiler = null; ReturnToLauncher();
             Diagnostics.Error("render.profile_failed", "No se pudo iniciar la medición gráfica.", error, Context());
             _launcher.ShowError("No se pudo iniciar la medición gráfica: " + error.Message);
             if (RenderProfiler.Requested(OS.GetCmdlineUserArgs())) { GD.PushError("PROFILE_FAILED: " + error.Message); GetTree().Quit(1); }
@@ -306,10 +306,10 @@ public partial class Main : Node
         if (_networkStatsTime < 0.5) return;
         double elapsed = _networkStatsTime;
         _networkStatsTime = 0;
-        int fps = Engine.GetFramesPerSecond();
+        double fps = Engine.GetFramesPerSecond();
         if (_connection is not { Connected: true } connection)
         {
-            _networkStats.Text = $"FPS: {fps}  |  Red: sin conexión";
+            _networkStats.Text = $"FPS: {fps:F0}  |  Red: sin conexión";
             _networkStats.Visible = true;
             _statsConnection = null;
             return;
