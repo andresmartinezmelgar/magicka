@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'android-tools-support.ps1')
 . (Join-Path $PSScriptRoot 'tool-support.ps1')
-$testRoot = Join-Path ([IO.Path]::GetTempPath()) ("Arcana herramientas [prueba] " + [Guid]::NewGuid().ToString('N'))
+$testRoot = Join-Path ([IO.Path]::GetTempPath()) ("Arcana herramientas (1) [prueba] & ! " + [Guid]::NewGuid().ToString('N'))
 [IO.Directory]::CreateDirectory($testRoot) | Out-Null
 function Assert([bool]$Condition, [string]$Reason) { if (!$Condition) { throw $Reason } }
 function Write-TestArchive {
@@ -76,13 +76,51 @@ try {
         try { Assert-AndroidSdkLicenses -Lines $case.Lines -ExitCode $case.Code } catch { $rejected = $true }
         Assert $rejected 'Se permitio continuar sin comprobar las licencias Android.'
     }
-    $fakeManager = Join-Path $testRoot 'sdk manager.bat'
-    [IO.File]::WriteAllText($fakeManager, "@echo off`r`necho All SDK package licenses accepted.`r`nexit /b 0`r`n", [Text.Encoding]::ASCII)
-    Confirm-AndroidSdkLicenses -SdkManager $fakeManager -SdkPath $sdk -WorkDirectory $testRoot -Accept
-    Confirm-AndroidSdkLicenses -SdkManager $fakeManager -SdkPath $sdk -WorkDirectory $testRoot
-    [IO.File]::WriteAllText($fakeManager, "@echo off`r`necho 7 of 7 SDK package licenses not accepted.`r`nexit /b 0`r`n", [Text.Encoding]::ASCII)
-    $rejected = $false
-    try { Confirm-AndroidSdkLicenses -SdkManager $fakeManager -SdkPath $sdk -WorkDirectory $testRoot -Accept } catch { $rejected = $true }
-    Assert $rejected 'sdkmanager con codigo cero y licencias pendientes permitio seguir compilando.'
-    Write-Host 'ANDROID_LICENSES_TEST_OK: aceptacion explicita, consola heredada, rutas con espacios, consulta final y licencias pendientes con codigo cero rechazadas.'
+    # Un ejecutable real comprueba argv/stdin sin pasar por cmd.exe. El .bat trampa
+    # fallaria si las licencias o la instalacion volvieran al lanzador defectuoso.
+    $fakeManager = Join-Path $latest 'bin/sdkmanager.bat'
+    [IO.File]::WriteAllText($fakeManager, "@echo off`r`nexit /b 91`r`n", [Text.Encoding]::ASCII)
+    $javaHome = Join-Path $testRoot 'jdk 17 (local)'
+    $javaBin = Join-Path $javaHome 'bin'
+    [IO.Directory]::CreateDirectory($javaBin) | Out-Null
+    Add-Type -OutputAssembly (Join-Path $javaBin 'java.exe') -OutputType ConsoleApplication -TypeDefinition @'
+using System;
+using System.IO;
+public static class AndroidJavaStub {
+    public static int Main(string[] args) {
+        string root = AppDomain.CurrentDomain.BaseDirectory;
+        File.WriteAllLines(Path.Combine(root, "arguments.txt"), args);
+        string mode = File.ReadAllText(Path.Combine(root, "mode.txt"));
+        if (mode == "input") {
+            File.AppendAllText(Path.Combine(root, "answers.txt"), Console.ReadLine() + "\n");
+        }
+        if (mode == "error") { Console.Error.WriteLine("Java fallo"); return 23; }
+        Console.WriteLine(mode == "pending" ? "7 of 7 SDK package licenses not accepted." : "All SDK package licenses accepted.");
+        return 0;
+    }
+}
+'@
+    $modeFile = Join-Path $javaBin 'mode.txt'
+    [IO.File]::WriteAllText($modeFile, 'input')
+    Confirm-AndroidSdkLicenses -SdkManager $fakeManager -SdkPath $sdk -JavaHome $javaHome -Accept
+    Assert (([IO.File]::ReadAllText((Join-Path $javaBin 'answers.txt'))) -eq "y`nn`n") 'La aceptacion debe enviar y y la comprobacion posterior n.'
+    $received = [IO.File]::ReadAllLines((Join-Path $javaBin 'arguments.txt'))
+    $expected = @("-Dcom.android.sdklib.toolsdir=$latest", '-classpath', (Join-Path $latest 'lib/sdkmanager-classpath.jar'),
+        'com.android.sdklib.tool.sdkmanager.SdkManagerCli', "--sdk_root=$sdk", '--licenses')
+    Assert (($received -join "`n") -eq ($expected -join "`n")) 'Java recibio rutas o argumentos alterados.'
+    [IO.File]::WriteAllText($modeFile, 'accepted')
+    Confirm-AndroidSdkLicenses -SdkManager $fakeManager -SdkPath $sdk -JavaHome $javaHome
+    # La misma entrada Java sirve para instalar paquetes con punto y coma literal.
+    $command = Get-AndroidSdkManagerCommand -SdkManager $fakeManager -JavaHome $javaHome
+    Invoke-Tool $command.FilePath ($command.Arguments + @("--sdk_root=$sdk", 'platform-tools', 'build-tools;35.0.0', 'platforms;android-35')) | Out-Null
+    $received = [IO.File]::ReadAllLines((Join-Path $javaBin 'arguments.txt'))
+    Assert ($received.Count -eq 8 -and $received[4] -eq "--sdk_root=$sdk" -and $received[6] -eq 'build-tools;35.0.0') 'La instalacion recibio argumentos alterados.'
+    foreach ($mode in @('pending', 'error')) {
+        [IO.File]::WriteAllText($modeFile, $mode)
+        $rejected = $false
+        try { Confirm-AndroidSdkLicenses -SdkManager $fakeManager -SdkPath $sdk -JavaHome $javaHome -Accept } catch { $rejected = $true }
+        Assert $rejected "Se permitio seguir compilando en el caso $mode."
+    }
+    Write-Host 'ANDROID_LICENSES_TEST_OK: Java sin cmd, rutas con parentesis y metacaracteres, argv literal, consola heredada, respuestas y/n, licencias pendientes y errores rechazados.'
+
 } finally { Remove-Item -LiteralPath $testRoot -Recurse -Force }

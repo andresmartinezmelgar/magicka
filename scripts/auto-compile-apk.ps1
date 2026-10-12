@@ -139,8 +139,9 @@ try {
     $env:ANDROID_HOME = $AndroidSdkPath
     $env:ANDROID_SDK_ROOT = $AndroidSdkPath
     Write-Host 'Comprobando las licencias del SDK Android. Responde y si aceptas los terminos mostrados.'
-    Confirm-AndroidSdkLicenses -SdkManager $sdkManager -SdkPath $AndroidSdkPath -WorkDirectory $temp -Accept:$AcceptAndroidLicenses
-    Invoke-Tool $sdkManager @("--sdk_root=$AndroidSdkPath", 'platform-tools', 'build-tools;35.0.0', 'platforms;android-35') | Out-Null
+    Confirm-AndroidSdkLicenses -SdkManager $sdkManager -SdkPath $AndroidSdkPath -JavaHome $JavaHome -Accept:$AcceptAndroidLicenses
+    $sdkCommand = Get-AndroidSdkManagerCommand -SdkManager $sdkManager -JavaHome $JavaHome
+    Invoke-Tool $sdkCommand.FilePath ($sdkCommand.Arguments + @("--sdk_root=$AndroidSdkPath", 'platform-tools', 'build-tools;35.0.0', 'platforms;android-35')) | Out-Null
     $buildTools = Join-Path $AndroidSdkPath 'build-tools/35.0.0'
     if (!(Test-Path -LiteralPath (Join-Path $buildTools 'apksigner.bat')) -or !(Test-Path -LiteralPath (Join-Path $AndroidSdkPath 'platforms/android-35/android.jar'))) {
         throw 'Faltan herramientas Android 35. Comprueba que aceptaste las licencias.'

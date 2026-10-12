@@ -54,6 +54,8 @@ La APK ARM64 queda en **`artifacts/android/ArcanaArena-v0.15.0-Android-arm64.apk
 
 La firma de desarrollo se conserva en **`.tools/android-debug.keystore`**, excluida de Git. Mantener ese archivo permite actualizar las APK generadas en este equipo sin desinstalar el juego. Una APK de la Release puede usar otra firma. El script restaura los presets del proyecto y usa una configuración de Godot temporal.
 
+Las rutas con espacios y paréntesis, como `magicka-main (1)`, se admiten también al comprobar licencias e instalar paquetes. El script ejecuta directamente la clase Java oficial de `sdkmanager`: evita el fallo `No se esperaba ... java.exe` del lanzador `.bat`. Si se usa una copia anterior, actualizar `scripts/auto-compile-apk.ps1` y `scripts/android-tools-support.ps1` juntos. Se conserva `.tools/` y su firma de desarrollo.
+
 Si una instalación anterior dejó incompleto `cmdline-tools/latest`, el script la repara automáticamente. Un ZIP dañado en la caché se vuelve a descargar. No hace falta borrar `.tools/` ni la firma local. Las herramientas se extraen creando cada carpeta, sin usar copias con comodines.
 
 La consulta conocida de `EditorSettings` al cerrar Godot .NET se muestra como `AVISO GODOT`; no implica por sí sola un fallo de exportación ([incidencia del motor](https://github.com/godotengine/godot/issues/84839)). Otros errores, las salidas no válidas y los códigos distintos de cero detienen la compilación.

@@ -444,11 +444,11 @@ jobs:
     defaults:
       run:
         shell: pwsh
-        working-directory: apk build
+        working-directory: apk build (1)
     steps:
       - uses: actions/checkout@v4
         with:
-          path: apk build
+          path: apk build (1)
       - name: Verificar versiones y bloqueo compartido entre PowerShell 5.1 y Python
         shell: powershell
         run: |
@@ -466,7 +466,7 @@ jobs:
       - name: Generar APK con doble clic y herramientas locales en Windows PowerShell 5.1
         timeout-minutes: 12
         run: |
-          # Fuerza el bootstrap de Java y usa rutas con espacios.
+          # Fuerza el bootstrap de Java y usa rutas con espacios y parentesis.
           $env:JAVA_HOME = ''
           $env:APPDATA = Join-Path $env:RUNNER_TEMP 'preferencias Godot usuario'
           $settings = Join-Path $env:APPDATA 'Godot/editor_settings-4.5.tres'
@@ -514,14 +514,14 @@ jobs:
         with:
           name: ArcanaArena-Android-Windows-script
           path: |
-            apk build/artifacts/android/*-Android-arm64.apk
-            apk build/artifacts/android/SHA256SUMS-Android.txt
-            apk build/artifacts/android/manifest-arm64.txt
+            apk build (1)/artifacts/android/*-Android-arm64.apk
+            apk build (1)/artifacts/android/SHA256SUMS-Android.txt
+            apk build (1)/artifacts/android/manifest-arm64.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: windows-apk-diagnostics
-          path: apk build/artifacts/compilacion-apk-*.log
+          path: apk build (1)/artifacts/compilacion-apk-*.log
           if-no-files-found: ignore
 
   release:
