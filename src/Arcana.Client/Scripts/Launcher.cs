@@ -210,8 +210,10 @@ public partial class Launcher : Control
         }
         _playBody.Visible = page != 0;
         _name.GetParent().Visible = page == 3;
+        _name.GetParent().GetParent().Visible = page is 1 or 3;
         _team.GetParent().Visible = page == 1;
         _wizardType.GetParent().Visible = page == 3;
+        _wizardType.GetParent().GetParent().GetChild<Label>(2).Visible = page == 3;
         _status.Visible = page is 1 or 2;
 
         _menuBack.Visible = page != 0;
@@ -221,9 +223,10 @@ public partial class Launcher : Control
         _tabs.SetTabHidden(0, page != 1);
         _tabs.SetTabHidden(1, page != 1);
         _tabs.SetTabHidden(2, page != 2);
+        _tabs.SetTabHidden(3, Ui.IsMobile || page != 1);
         if (page == 2) _tabs.CurrentTab = 2;
         if (page == 1 && _tabs.CurrentTab == 2) _tabs.CurrentTab = 1;
-        if (page == 3) { Remember(); _main.OpenEquipment("automatic"); }
+        if (page == 3) Remember();
         UpdateConnectLabel();
     }
 
