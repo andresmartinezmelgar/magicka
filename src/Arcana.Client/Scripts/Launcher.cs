@@ -59,7 +59,7 @@ public partial class Launcher : Control
         formStyle.ContentMarginTop = formStyle.ContentMarginBottom = 12; panel.AddThemeStyleboxOverride("panel", formStyle);
         var form = new VBoxContainer(); form.AddThemeConstantOverride("separation", 6); panel.AddChild(form);
         form.AddChild(Ui.Label(Ui.IsMobile ? "ARCANA ARENA  /  " + BuildInfo.Version : "ENTRAR EN LA ARENA", 27, Ui.Gold));
-        form.AddChild(Ui.Label(Ui.IsMobile ? "Entrena sin conexión o entra en un servidor por IP o LAN." : "Entra por IP o LAN, aloja salas o entrena con bots.", 16, Ui.Muted));
+        if (!Ui.IsMobile) form.AddChild(Ui.Label("Elige PvP, Versus IA o Perfil.", 16, Ui.Muted));
         _homeMenu = new VBoxContainer();
         _homeMenu.AddThemeConstantOverride("separation", 10);
         form.AddChild(_homeMenu);
@@ -205,6 +205,9 @@ public partial class Launcher : Control
         _tabs.Visible = page is 1 or 2;
         _connect.Visible = page is 1 or 2;
         _password.Visible = page == 1;
+        _tabs.SetTabHidden(0, page != 1);
+        _tabs.SetTabHidden(1, page != 1);
+        _tabs.SetTabHidden(2, page != 2);
         if (page == 2) _tabs.CurrentTab = 2;
         if (page == 1 && _tabs.CurrentTab == 2) _tabs.CurrentTab = 1;
         if (page == 3) { Remember(); _main.OpenEquipment("automatic"); }
