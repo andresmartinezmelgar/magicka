@@ -44,7 +44,7 @@ public static class SnapshotDelta
 
     private static JsonNode? Diff(JsonNode? previous, JsonNode? current)
     {
-        if (System.Text.Json.JsonSerializer.Serialize(previous) == System.Text.Json.JsonSerializer.Serialize(current))
+        if (JsonNode.DeepEquals(previous, current))
             return null;
         if (previous is JsonObject a && current is JsonObject b)
         {
