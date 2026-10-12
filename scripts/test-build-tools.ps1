@@ -83,7 +83,11 @@ try {
     $javaHome = Join-Path $testRoot 'jdk 17 (local)'
     $javaBin = Join-Path $javaHome 'bin'
     [IO.Directory]::CreateDirectory($javaBin) | Out-Null
-    Add-Type -OutputAssembly (Join-Path $javaBin 'java.exe') -OutputType ConsoleApplication -TypeDefinition @'
+    # PowerShell 5.1 treats brackets and wildcard characters in -OutputAssembly as
+    # wildcard paths. Compile into a safe temp filename, then copy to the unusual
+    # test directory to exercise those filenames through the actual SDK launcher.
+    $javaStub = Join-Path ([IO.Path]::GetTempPath()) ("arcana-java-stub-" + [Guid]::NewGuid().ToString('N') + '.exe')
+    Add-Type -OutputAssembly $javaStub -OutputType ConsoleApplication -TypeDefinition @'
 using System;
 using System.IO;
 public static class AndroidJavaStub {
@@ -100,6 +104,8 @@ public static class AndroidJavaStub {
     }
 }
 '@
+    try { [IO.File]::Copy($javaStub, (Join-Path $javaBin 'java.exe')) }
+    finally { if (Test-Path -LiteralPath $javaStub) { Remove-Item -LiteralPath $javaStub -Force } }
     $modeFile = Join-Path $javaBin 'mode.txt'
     [IO.File]::WriteAllText($modeFile, 'input')
     Confirm-AndroidSdkLicenses -SdkManager $fakeManager -SdkPath $sdk -JavaHome $javaHome -Accept
