@@ -1,0 +1,9 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Inventario, oro y resultados se gestionan por la API del servidor con su cuenta de servicio.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

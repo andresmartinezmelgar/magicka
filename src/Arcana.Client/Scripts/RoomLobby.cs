@@ -35,6 +35,7 @@ public partial class RoomLobby : Control
         var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; box.AddThemeConstantOverride("separation", 16); scroll.AddChild(box);
         _heading = Ui.Label("SALAS", 28, Ui.Gold); box.AddChild(_heading);
         box.AddChild(Ui.Label(address, 15, Ui.Muted));
+        box.AddChild(Ui.Button("Personalizar mago e inventario", () => _main.OpenEquipment(_address)));
         var teamRow = new HBoxContainer(); teamRow.AddThemeConstantOverride("separation", 18); box.AddChild(teamRow);
         teamRow.AddChild(Ui.Label("Tu equipo", 16, Ui.Muted));
         _teamChoice = Ui.TeamChoice(team); _teamChoice.Name = "RoomTeamChoice"; teamRow.AddChild(_teamChoice);

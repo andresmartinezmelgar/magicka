@@ -23,7 +23,7 @@ public sealed partial class GameWorld
                 multiplier = SpellBalance.BeamDamageMultiplier(player.BeamTicks * StepSeconds);
             }
             var from = SpellOrigin(player, player.Facing, 0.7f);
-            var end = BeamEnd(from, player.Facing, player.Channel.Range, player.Id, out _, out _, player.Id);
+            var end = BeamEnd(from, player.Facing, player.Channel.Range * player.Equipment.Range, player.Id, out _, out _, player.Id);
             rays.Add(new(player, from, player.Facing, end, new(player.Id, player.Channel, DamageMultiplier: multiplier)));
         }
         rays.RemoveAll(ray => !ray.Caster.Alive || ray.Caster.Frozen > 0 || ray.Caster.Channel == null);
@@ -56,8 +56,8 @@ public sealed partial class GameWorld
                 direction = axis.Perpendicular;
             }
             direction = direction.Normalized;
-            float range = Math.Max(0, Math.Min(a.Part.Recipe.Range - V2.Distance(a.From, meeting.At),
-                b.Part.Recipe.Range - V2.Distance(b.From, meeting.At)));
+            float range = Math.Max(0, Math.Min(a.Part.Recipe.Range * a.Caster.Equipment.Range - V2.Distance(a.From, meeting.At),
+                b.Part.Recipe.Range * b.Caster.Equipment.Range - V2.Distance(b.From, meeting.At)));
             BeamPart[] parts = [a.Part, b.Part];
             TraceBeam(meeting.At + direction * 0.02f, direction, range, parts, a.Caster.Id, -1, dt, "merged");
             if (Tick % 12 == 0) Emit("beam_merge", meeting.At, BeamElements(parts), "");
@@ -66,7 +66,7 @@ public sealed partial class GameWorld
             if (!used.Contains(i))
             {
                 var ray = rays[i];
-                TraceBeam(ray.From, ray.Direction, ray.Part.Recipe.Range, [ray.Part], ray.Caster.Id, ray.Caster.Id, dt, "direct");
+                TraceBeam(ray.From, ray.Direction, ray.Part.Recipe.Range * ray.Caster.Equipment.Range, [ray.Part], ray.Caster.Id, ray.Caster.Id, dt, "direct");
             }
     }
 

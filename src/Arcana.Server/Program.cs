@@ -14,6 +14,15 @@ try
     builder.WebHost.UseUrls($"http://0.0.0.0:{settings.Port}");
     builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = Protocol.MaxMessageBytes);
     builder.Services.AddSingleton(settings);
+    builder.Services.ConfigureHttpJsonOptions(options =>
+    {
+        options.SerializerOptions.PropertyNamingPolicy = Protocol.Json.PropertyNamingPolicy;
+        options.SerializerOptions.MaxDepth = Protocol.Json.MaxDepth;
+        foreach (var converter in Protocol.Json.Converters) options.SerializerOptions.Converters.Add(converter);
+    });
+    builder.Services.AddSingleton(new AccountService(AccountOptions.FromEnvironment()));
+    builder.Services.AddSingleton<RewardService>();
+    builder.Services.AddHostedService(provider => provider.GetRequiredService<RewardService>());
     builder.Services.AddSingleton<GameService>();
     builder.Services.AddHostedService(provider => provider.GetRequiredService<GameService>());
     builder.Services.AddHostedService<DiscoveryService>();
@@ -38,6 +47,7 @@ try
         }
     });
     app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(15) });
+    app.MapAccounts();
     app.MapGet("/health", (GameService game) => Results.Ok(new { status = "ok", version = BuildInfo.Version, tick = game.CurrentTick }));
     app.MapGet("/info", (GameService game) => Results.Json(game.Info(), Protocol.Json));
     app.MapGet("/rooms", (GameService game) => Results.Json(game.ListRooms(), Protocol.Json));

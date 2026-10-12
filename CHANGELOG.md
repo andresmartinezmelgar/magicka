@@ -1,5 +1,16 @@
 # Cambios
 
+## 0.13.0
+
+- Cuentas Google verificadas por Firebase Admin y persistencia en Cloud Firestore, con UID independiente de la versión del juego.
+- Objetos procedurales en cinco calidades; velocidad, alcance, defensa y potencia por posición; familias Vida, Escudo y Fuego en los dos niveles superiores.
+- Mínimo, máximo y valor actual conservados por atributo. Conjuntos Míticos de dos o cuatro piezas, utilizables en PvP y contra IA.
+- Inventario y personalización desde launcher y sala; caché de práctica sin conexión, vista previa, comparación de límites y totales.
+- Recompensa por victoria PvP entre humanos activos, diario recuperable, recibos sin duplicados y aviso al cliente.
+- Eliminar objetos abona oro y desequipa mediante una transacción; el oro queda reservado para futuras mejoras.
+- Pruebas de Firestore con emulador oficial, sesiones, concurrencia, fin de partida y conservación de tiradas. Protocolo 12, Android 13000.
+
+
 ## v0.12.24
 
 - Una tabla común relaciona los ocho elementos con una ventaja y una debilidad. Daño y presión contra protecciones: ×1,5 favorable, ×0,5 desfavorable y ×0,18 contra el mismo elemento; mezclas calculadas por componente. Los bonus de clase y objetos se conservan y se aplican además de la tabla.

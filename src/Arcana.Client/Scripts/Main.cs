@@ -60,6 +60,7 @@ public partial class Main : Node
             ["runtime"] = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
             ["display"] = DisplayServer.GetName(), ["editor"] = OS.HasFeature("editor") });
         _renderer = new ArenaRenderer(); AddChild(_renderer);
+        RestoreAccountCache();
         var layer = new CanvasLayer(); AddChild(layer);
         _ui = new Control { MouseFilter = Control.MouseFilterEnum.Ignore }; layer.AddChild(_ui); Ui.Full(_ui);
         _launcher = new Launcher(); _ui.AddChild(_launcher); _launcher.Build(this);
@@ -68,6 +69,7 @@ public partial class Main : Node
         var arguments = OS.GetCmdlineUserArgs();
         foreach (string arg in arguments)
         {
+            if (arg is "--preview-equipment" or "--equipment-smoke") EquipmentFixture(arg == "--equipment-smoke");
             if (arg.StartsWith("--server=")) _launcher.BrowseAddress(arg[9..]);
             if (arg.StartsWith("--create-room=")) _launcher.BrowseAddress(arg[14..], true);
             if (arg.StartsWith("--tab=") && int.TryParse(arg[6..], out int tab)) _launcher.ShowTab(tab);
@@ -109,6 +111,7 @@ public partial class Main : Node
     {
         if (Volatile.Read(ref _exiting) != 0) return;
         var connection = new ArenaConnection();
+        connection.AccountChanged += message => _ = RefreshRewardAccount(message);
         connection.Disconnected += reason => Post(() => { if (_connection == connection) ReturnToLauncher(reason); });
         ArenaConnection? previous;
         lock (_connectionGate) { previous = _pendingConnection; _pendingConnection = connection; }
@@ -116,7 +119,7 @@ public partial class Main : Node
         try
         {
             await connection.ConnectAsync(address, name, team, password, _lifetime.Token, roomId: roomId, roomPassword: roomPassword,
-                wizardType: wizardType, deferReady: true).ConfigureAwait(false);
+                wizardType: wizardType, deferReady: true, accountToken: Accounts.TokenFor(address)).ConfigureAwait(false);
             if (!Post(() =>
             {
                 lock (_connectionGate)
@@ -168,11 +171,12 @@ public partial class Main : Node
         {
             _practice = _practiceSession.World; _localId = _practiceSession.Player.Id; _localSequence = 0;
             _serverName = "Práctica · " + _practice.Map.Name;
-            StartGame(_practice.Snapshot()); return;
+            ApplyPracticeEquipment(); StartGame(_practice.Snapshot()); return;
         }
         _practice = new(new WorldOptions { Mode = mode, Map = map, MaxPlayers = mode == GameMode.Duel ? 2 : 8,
             FriendlyFire = true, ScoreLimit = mode == GameMode.Duel ? 5 : 15, Tickets = 75 });
         var player = _practice.AddPlayer(name, team, wizardType: wizardType)!; _localId = player.Id;
+        ApplyPracticeEquipment();
         for (int i = 0; i < (mode == GameMode.Duel ? 1 : Math.Clamp(bots, 1, 7)); i++)
             _practice.AddPlayer($"Bot {i + 1}", -1, true, (WizardType)(i % 5));
         _serverName = "Práctica · " + _practice.Map.Name; _localSequence = 0;
@@ -186,6 +190,7 @@ public partial class Main : Node
         Diagnostics.Info("game.start", "Partida iniciada.", Context());
         _ignoreLeftUntilRelease = true;
         _launcher.Visible = false; _launcher.CloseRooms(); _launcher.SetBusy(false); _help.Visible = _pause.Visible = false;
+        if (GodotObject.IsInstanceValid(_equipmentPanel)) _equipmentPanel!.QueueFree(); _equipmentPanel = null;
         if (!prepared) _renderer.Clear(); _snapshot = snapshot;
         var local = snapshot.Players.FirstOrDefault(p => p.Id == _localId);
         _localWasAlive = local?.Alive ?? false; _localDeaths = local?.Deaths ?? 0;
@@ -230,6 +235,7 @@ public partial class Main : Node
                 if (_verification?.FailFrame(e) == true) return;
             }
         _renderFrames++;
+        if (CheckEquipmentSmoke()) return;
         if (_profiler?.Running == true) return;
         if (Loading) { ProcessLoading(); _verification?.CheckLoadingFrame(); return; }
         _verification?.BeforeFrame(delta);
@@ -360,7 +366,8 @@ public partial class Main : Node
             if (key.PhysicalKeycode == Key.F1) { ToggleHelp(); GetViewport().SetInputAsHandled(); return; }
             if (key.PhysicalKeycode == Key.Escape)
             {
-                if (_help.Visible) { _help.Visible = false; UpdateTouchVisibility(); }
+                if (GodotObject.IsInstanceValid(_equipmentPanel)) { _equipmentPanel!.QueueFree(); _equipmentPanel = null; }
+                else if (_help.Visible) { _help.Visible = false; UpdateTouchVisibility(); }
                 else if (_playing) TogglePause();
                 return;
             }
@@ -580,6 +587,7 @@ public partial class Main : Node
         CancelGameLoading();
         WizardSprites.ClearCache();
         Interlocked.Exchange(ref _exiting, 1); _lifetime.Cancel();
+        Accounts.Dispose();
         ArenaConnection? pending; lock (_connectionGate) pending = _pendingConnection;
         try
         {

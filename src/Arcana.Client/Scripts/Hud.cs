@@ -11,6 +11,8 @@ public partial class Hud : Control
     private Label _healthText = null!, _shieldText = null!, _energyText = null!;
     private Label _objective = null!, _affinity = null!, _buffs = null!;
     private Label _controls = null!;
+    private Label _reward = null!;
+    private float _rewardSeconds;
     private HBoxContainer _teams = null!;
     private Label _blueScore = null!, _redScore = null!;
     private StyleBoxFlat _shieldFill = null!, _shieldTrack = null!;
@@ -29,8 +31,10 @@ public partial class Hud : Control
     private WizardSnapshot? _lastPlayer;
     private string? _lastServerName;
     private readonly int[] _magickSeconds = new int[4];
+    private readonly float[] _magickCosts = new float[4];
     private readonly bool?[] _magickReady = new bool?[4];
     public bool ScoreOpen { get; set; }
+    public void RewardNotice(string message) { _reward.Text = message; _rewardSeconds = 12; _reward.Visible = true; }
 
     public void Build()
     {
@@ -106,6 +110,9 @@ public partial class Hud : Control
         _map = new MiniMap { CustomMinimumSize = new(165, 119), MouseFilter = MouseFilterEnum.Ignore }; mapPanel.AddChild(_map);
         _banner = Ui.Label("", 32, Ui.Gold); _banner.HorizontalAlignment = HorizontalAlignment.Center;
         _banner.SetAnchorsAndOffsetsPreset(LayoutPreset.Center); _banner.Position = new(-400, -72); _banner.Size = new(800, 144); AddChild(_banner);
+        _reward = Ui.Label("", 18, Ui.Gold); _reward.HorizontalAlignment = HorizontalAlignment.Center;
+        _reward.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterTop); _reward.Position = new(-400, 150); _reward.Size = new(800, 45);
+        _reward.Visible = false; AddChild(_reward);
         _scorePanel = new PanelContainer { Visible = false, CustomMinimumSize = new(700, 200), MouseFilter = MouseFilterEnum.Ignore };
         _scorePanel.SetAnchorsAndOffsetsPreset(LayoutPreset.Center); _scorePanel.Position = new(-350, -160); AddChild(_scorePanel);
         _scoreRows = new GridContainer { Columns = 5 }; _scoreRows.AddThemeConstantOverride("h_separation", 30); _scoreRows.AddThemeConstantOverride("v_separation", 12); _scorePanel.AddChild(_scoreRows);
@@ -153,6 +160,7 @@ public partial class Hud : Control
     }
     public void Update(WorldSnapshot snapshot, int id, string serverName, double delta)
     {
+        _rewardSeconds = Math.Max(0, _rewardSeconds - (float)delta); _reward.Visible = _rewardSeconds > 0;
         _feedTime -= (float)delta; _feed.Text = _feedTime > 0 ? _feedText : "";
         bool showScore = snapshot.Map != ArenaMapId.Practice && (ScoreOpen || Input.IsPhysicalKeyPressed(Key.Tab));
         bool opened = !_scorePanel.Visible && showScore;
@@ -226,12 +234,13 @@ public partial class Hud : Control
         for (int i = 0; i < 4; i++)
         {
             var magick = SpellBalance.Magicks[i];
+            float cost = i == 3 ? player.ReanimationCost : magick.Cost;
             int seconds = (int)Math.Ceiling(player.Cooldowns[i]);
-            bool ready = player.Cooldowns[i] <= 0 && player.Energy >= magick.Cost;
-            if (_magickReady[i] == null || _magickSeconds[i] != seconds)
+            bool ready = player.Cooldowns[i] <= 0 && player.Energy >= cost;
+            if (_magickReady[i] == null || _magickSeconds[i] != seconds || _magickCosts[i] != cost)
             {
-                _magickSeconds[i] = seconds;
-                _magicks[i].Text = $"{i + 1} {magick.Name} " + (seconds > 0 ? $"{seconds}s" : $"{magick.Cost:0}");
+                _magickSeconds[i] = seconds; _magickCosts[i] = cost;
+                _magicks[i].Text = $"{i + 1} {magick.Name} " + (seconds > 0 ? $"{seconds}s" : $"{cost:0}");
             }
             if (_magickReady[i] != ready)
             { _magickReady[i] = ready; _magicks[i].AddThemeColorOverride("font_color", ready ? Ui.Gold : Ui.Muted); }

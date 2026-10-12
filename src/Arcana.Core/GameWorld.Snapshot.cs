@@ -23,8 +23,9 @@ public sealed partial class GameWorld
                 p.Wet, p.Burning, p.Chill, p.Frozen, p.Haste, p.Energy, Copy(p.MagickCooldowns), p.Kills, p.Deaths,
                 p.Charging != null ? p.ChargeTime / SpellBalance.ChargeSeconds : p.BeamCharge,
                 p.Channel != null || p.Charging != null, p.ShieldMax, p.Shield > 0 ? p.ShieldTime : 0, p.WizardType,
-                p.RegenerationRate * RelicBuffs.Healing(p), RelicBuffs.Snapshot(p), Copy(p.Charging?.Elements ?? p.Channel?.Elements ?? []),
-                p.ShieldCharges, p.Alive ? Math.Max(0, p.Invulnerable) : 0);
+                p.RegenerationRate * RelicBuffs.Healing(p) * p.Equipment.Healing, RelicBuffs.Snapshot(p), Copy(p.Charging?.Elements ?? p.Channel?.Elements ?? []),
+                p.ShieldCharges, p.Alive ? Math.Max(0, p.Invulnerable) : 0, p.Equipment == EquipmentModifiers.None ? null : p.Equipment.Appearance,
+                SpellBalance.Magicks[3].Cost * p.Equipment.LifeCost);
         var projectiles = Allocate<ProjectileSnapshot>(_projectiles.Count);
         for (int i = 0; i < projectiles.Length; i++)
         {

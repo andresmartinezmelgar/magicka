@@ -18,6 +18,9 @@ internal sealed class GameRoom(string id, string name, string password, WorldOpt
     public Dictionary<int, PlayerSession> Sessions { get; } = [];
     public long LastOccupied { get; set; } = Environment.TickCount64;
     public bool Started { get; set; }
+    public string MatchId { get; set; } = Guid.NewGuid().ToString("N");
+    public bool ResultQueued { get; set; }
+    public Dictionary<string, MatchParticipant> Participants { get; } = new(StringComparer.Ordinal);
     public RoomInfo Info() => new(Id, Name, Options.Mode, World.Players.Count, Options.MaxPlayers,
         Options.Bots, Options.FriendlyFire, Options.ScoreLimit, Options.Tickets, Password.Length > 0, Options.Map);
 }
@@ -29,6 +32,9 @@ internal sealed class PlayerSession(int id, GameRoom room, WebSocket socket)
     public GameRoom Room { get; } = room;
     public WebSocket Socket { get; } = socket;
     public bool Ready { get; set; }
+    public AccountIdentity? Account { get; init; }
+    public EquipmentModifiers Equipment { get; set; } = EquipmentModifiers.None;
+    public long LastActivityTick { get; set; }
     public long LoadingStartedAt { get; } = Environment.TickCount64;
     public Channel<ClientMessage> Commands { get; } = Channel.CreateBounded<ClientMessage>(new BoundedChannelOptions(64)
     { SingleReader = true, SingleWriter = true, FullMode = BoundedChannelFullMode.Wait });
@@ -36,7 +42,7 @@ internal sealed class PlayerSession(int id, GameRoom room, WebSocket socket)
     { SingleReader = true, SingleWriter = true, FullMode = BoundedChannelFullMode.DropOldest });
 }
 
-public sealed class GameService(ServerSettings settings, ILogger<GameService> logger) : BackgroundService
+public sealed class GameService(ServerSettings settings, ILogger<GameService> logger, AccountService accounts, RewardService rewards) : BackgroundService
 {
     private readonly object _gate = new();
     private readonly Dictionary<string, GameRoom> _rooms = new(StringComparer.Ordinal)
@@ -105,6 +111,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
         var dirty = new HashSet<GameRoom>();
         double maxStepMs = 0;
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(4));
+        rewards.Delivered += NotifyAccounts;
         try
         {
             while (await timer.WaitForNextTickAsync(stoppingToken))
@@ -137,6 +144,8 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                                 {
                                     if (message.Type == "ready" && message.Sequence > 0) { session.Ready = true; continue; }
                                     if (!session.Ready || !room.World.ApplyMessage(session.Id, message)) _ignoredCommands++;
+                                    else if (message.Type != "input" || message.MoveTo || Math.Abs(message.MoveX) + Math.Abs(message.MoveY) > 0.05f)
+                                        session.LastActivityTick = room.World.Tick;
                                 }
                                 if (session.Ready) readyPlayers++;
                             }
@@ -147,7 +156,9 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                             // permanece protegido y sin acciones hasta terminar su carga.
                             foreach (var session in room.Sessions.Values)
                                 if (!session.Ready && room.World.Players.TryGetValue(session.Id, out var player)) player.Invulnerable = 1.2f;
+                            bool endedBefore = room.World.MatchEnded;
                             room.World.Step();
+                            TrackAccounts(room, endedBefore);
                             room.LastOccupied = Environment.TickCount64;
                             if (room.World.Tick % 3 == 0) dirty.Add(room);
                         }
@@ -177,6 +188,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { }
         finally
         {
+            rewards.Delivered -= NotifyAccounts;
             foreach (var session in _sessions.Values) { session.Outbox.Writer.TryComplete(); session.Socket.Abort(); }
         }
     }
@@ -209,10 +221,21 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             { await RejectLogged("Tipo de mago desconocido.", handshake.Token); return; }
             if (!PasswordMatches(hello.Password, settings.Password))
             { await RejectLogged("Contraseña del servidor incorrecta.", handshake.Token); return; }
+            AccountIdentity? identity = null; EquipmentModifiers equipment = EquipmentModifiers.None;
+            if (hello.AccountToken.Length > 0)
+            {
+                handshake.CancelAfter(TimeSpan.FromSeconds(20));
+                Diagnostics.Log.ProtectSecret(hello.AccountToken);
+                identity = accounts.Authenticate(hello.AccountToken);
+                if (identity == null) { await RejectLogged("La sesión de cuenta ha caducado. Inicia sesión de nuevo con Google.", handshake.Token); return; }
+                var profile = await accounts.Repository!.Profile(identity.Uid, identity.Name, handshake.Token);
+                equipment = EquipmentModifiers.Calculate(profile);
+            }
             string error = ""; ServerMessage? welcome = null;
             lock (_gate)
             {
-                if (hello.RoomId == null || !_rooms.TryGetValue(hello.RoomId, out var room)) error = "La sala ya no existe. Actualiza la lista.";
+                if (identity != null && _sessions.Values.Any(s => s.Account?.Uid == identity.Uid)) error = "Tu cuenta ya está jugando en este servidor.";
+                else if (hello.RoomId == null || !_rooms.TryGetValue(hello.RoomId, out var room)) error = "La sala ya no existe. Actualiza la lista.";
                 else if (!PasswordMatches(hello.RoomPassword, room.Password)) error = "Contraseña de la sala incorrecta.";
                 else
                 {
@@ -221,7 +244,9 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                         ? "La sala está llena." : "El equipo elegido está ocupado en este duelo. Elige el otro equipo o Automático.";
                     else
                     {
-                        session = new(player.Id, room, socket); room.Sessions.Add(player.Id, session);
+                        room.World.EquipPlayer(player.Id, equipment);
+                        session = new(player.Id, room, socket) { Account = identity, Equipment = equipment, LastActivityTick = room.World.Tick };
+                        room.Sessions.Add(player.Id, session);
                         _sessions[session.Key] = session; room.LastOccupied = Environment.TickCount64;
                         player.Invulnerable = 1.2f;
                         welcome = RoomSnapshot(room); welcome.Type = "welcome"; welcome.PlayerId = player.Id;
@@ -284,6 +309,64 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
     }
     public override Task StopAsync(CancellationToken cancellationToken)
     { _stopping.Cancel(); return base.StopAsync(cancellationToken); }
+    private void TrackAccounts(GameRoom room, bool endedBefore)
+    {
+        if (endedBefore && !room.World.MatchEnded)
+        {
+            room.MatchId = Guid.NewGuid().ToString("N"); room.ResultQueued = false; room.Participants.Clear();
+            foreach (var session in room.Sessions.Values) room.World.EquipPlayer(session.Id, session.Equipment);
+        }
+        if (!room.World.MatchEnded)
+        {
+            foreach (var session in room.Sessions.Values)
+            {
+                if (session.Account == null || !session.Ready || !room.World.Players.TryGetValue(session.Id, out var player)) continue;
+                var account = session.Account;
+                if (!room.Participants.TryGetValue(account.Uid, out var entry)) entry = new(account.Uid, session.Id, player.Team, 0, false);
+                room.Participants[account.Uid] = entry with { PlayerId = player.Id, Team = player.Team,
+                    ActiveSeconds = entry.ActiveSeconds + (room.World.Tick - session.LastActivityTick < 300 ||
+                        player.Alive && (player.Channel != null || player.Charging != null || room.Options.Mode == GameMode.Warfare &&
+                            room.World.Map.ControlPoints.Any(point => V2.Distance(player.Position, point) < 3)) ? GameWorld.StepSeconds : 0) };
+            }
+        }
+        else if (!room.ResultQueued)
+        {
+            room.ResultQueued = true;
+            var participants = room.Participants.Values.Select(p => p with
+            { Winner = room.Options.Mode == GameMode.Arena ? p.PlayerId == room.World.Winner : p.Team == room.World.Winner }).ToArray();
+            rewards.Enqueue(new(room.MatchId, settings.InstanceId, room.Options.Mode, room.Options.Map, DateTimeOffset.UtcNow, participants));
+            _ = RefreshEquipment(room.Sessions.Values.ToArray());
+        }
+    }
+    private async Task RefreshEquipment(PlayerSession[] sessions)
+    {
+        foreach (var session in sessions)
+        {
+            if (session.Account == null) continue;
+            try
+            {
+                var profile = await accounts.Repository!.Profile(session.Account.Uid, session.Account.Name, _stopping.Token);
+                var equipment = EquipmentModifiers.Calculate(profile);
+                lock (_gate) session.Equipment = equipment;
+            }
+            catch (OperationCanceledException) when (_stopping.IsCancellationRequested) { }
+            catch (Exception error) { logger.LogWarning(error, "No se pudo actualizar el equipo para la siguiente partida."); }
+        }
+    }
+    private void NotifyAccounts(RewardMatch match)
+    {
+        var eligible = RewardRules.Eligible(match);
+        lock (_gate)
+        {
+            foreach (var session in _sessions.Values)
+            {
+                var participant = eligible.FirstOrDefault(p => p.Uid == session.Account?.Uid);
+                if (participant == null) continue;
+                session.Outbox.Writer.TryWrite(Protocol.SerializeUtf8(new ServerMessage { Type = "account",
+                    AccountNotice = participant.Winner ? "Recompensa PvP guardada. Revisa tu inventario." : "Resultado PvP guardado." }));
+            }
+        }
+    }
     private static ServerMessage RoomSnapshot(GameRoom room) => new()
     {
         Type = "snapshot", Snapshot = room.World.Snapshot(),
@@ -322,7 +405,8 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             {
                 var message = Protocol.Deserialize<ClientMessage>(buffer.AsSpan(0, size));
                 if (message != null && ((message.Name?.Length ?? 0) > 64 || (message.Password?.Length ?? 0) > 128 ||
-                    (message.RoomPassword?.Length ?? 0) > 128 || (message.RoomId?.Length ?? 0) > 64))
+                    (message.RoomPassword?.Length ?? 0) > 128 || (message.RoomId?.Length ?? 0) > 64 ||
+                    message.AccountToken == null || message.AccountToken.Length > 128))
                     throw new InvalidDataException("Datos demasiado largos.");
                 return message;
             }

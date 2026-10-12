@@ -54,7 +54,8 @@ public partial class Main
         { _profiler.Cancel(); return; }
         if (what == NotificationWMGoBackRequest)
         {
-            if (_help.Visible) { _help.Visible = false; UpdateTouchVisibility(); }
+            if (GodotObject.IsInstanceValid(_equipmentPanel)) { _equipmentPanel!.QueueFree(); _equipmentPanel = null; }
+            else if (_help.Visible) { _help.Visible = false; UpdateTouchVisibility(); }
             else if (_playing) TogglePause();
             else if (!_launcher.HandleBack()) GetTree().Quit();
         }

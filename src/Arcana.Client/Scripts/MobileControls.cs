@@ -91,8 +91,9 @@ public partial class MobileControls : Control
         for (int i = 0; i < _magicks.Count; i++)
         {
             var magick = SpellBalance.Magicks[i];
-            _magicks[i].Text.Text = magick.Name + "\n" + (player.Cooldowns[i] > 0 ? $"{Math.Ceiling(player.Cooldowns[i])}s" : $"{magick.Cost:0}");
-            _magicks[i].Text.AddThemeColorOverride("font_color", player.Cooldowns[i] > 0 || player.Energy < magick.Cost ? Ui.Muted : Ui.Gold);
+            float cost = i == 3 ? player.ReanimationCost : magick.Cost;
+            _magicks[i].Text.Text = magick.Name + "\n" + (player.Cooldowns[i] > 0 ? $"{Math.Ceiling(player.Cooldowns[i])}s" : $"{cost:0}");
+            _magicks[i].Text.AddThemeColorOverride("font_color", player.Cooldowns[i] > 0 || player.Energy < cost ? Ui.Muted : Ui.Gold);
         }
     }
     public override void _Input(InputEvent input)

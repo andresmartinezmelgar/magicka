@@ -10,6 +10,7 @@ public static class SnapshotValidation
         return true;
     }
     private static bool NonNegative(float value) => float.IsFinite(value) && value >= 0;
+    private static bool Tier(ItemTier? value) => !value.HasValue || Enum.IsDefined(value.Value);
     private static bool NonNegative(ReadOnlySpan<float> values)
     {
         foreach (float value in values) if (!NonNegative(value)) return false;
@@ -45,12 +46,14 @@ public static class SnapshotValidation
                 !NonNegative([p.Health, p.MaxHealth, p.Shield, p.Energy, p.Respawn, p.Wet, p.Burning, p.Chill, p.Frozen, p.Haste, p.Charge]) ||
                 !NonNegative([p.ShieldMax, p.ShieldSeconds, p.RegenerationRate, p.InvulnerableSeconds]) || p.InvulnerableSeconds > 1.2f ||
                 !p.Alive && p.InvulnerableSeconds > 0 || p.ShieldCharges is < 1 or > 3 ||
-                !hasPickups && p.RegenerationRate > 76 || p.ShieldMax > 0 && p.Shield > p.ShieldMax ||
+                !hasPickups && p.RegenerationRate > (p.Equipment == null ? 76 : 121.61f) || p.ShieldMax > 0 && p.Shield > p.ShieldMax ||
                 p.MaxHealth <= 0 || p.Health > p.MaxHealth || p.Alive != (p.Health > 0) ||
                 p.Charge > 1 || !p.Alive && p.Casting ||
-                p.Energy > 100 || p.Kills < 0 || p.Deaths < 0) Invalid();
+                p.Energy > 100 || !float.IsFinite(p.ReanimationCost) || p.ReanimationCost is < 38.99f or > 75.01f || p.Kills < 0 || p.Deaths < 0) Invalid();
             if (p!.CastingElements != null && !Elements(p.CastingElements) ||
                 p.Buffs is { Length: > RelicBuffs.Count } || hasPickups && p.Buffs == null) Invalid();
+            if (p.Equipment is { } gear && (!Enum.IsDefined(gear.Family) ||
+                !Tier(gear.Boots) || !Tier(gear.Hat) || !Tier(gear.Chest) || !Tier(gear.Weapon))) Invalid();
             int kinds = 0;
             foreach (var buff in p.Buffs ?? [])
             {
@@ -69,13 +72,15 @@ public static class SnapshotValidation
         ids.Clear();
         foreach (var p in state.Projectiles!) if (p == null || p.Id <= 0 || !ids.Add(p.Id) || !Position(map, p.Position) || !Direction(p.Direction) || !Elements(p.Elements) || !Size(p.Radius, 1)) Invalid();
         foreach (var w in state.Walls!) if (w == null || w.Id <= 0 || !ids.Add(w.Id) || !Position(map, w.A) || !Position(map, w.B) ||
-            V2.Distance(w.A, w.B) is < 0.01f or > 5 || !Elements(w.Elements) || !Size(w.Health, 1300) ||
-            !Size(w.Lifetime, map.SequentialCapture && w.Owner == 0 ? 30.01f : 10.01f)) Invalid();
+            V2.Distance(w.A, w.B) is < 0.01f or > 5 || !Elements(w.Elements) ||
+            !Size(w.Health, state.Players!.Any(p => p.Id == w.Owner && p.Equipment != null) ? 2080.01f : 1300) ||
+            !Size(w.Lifetime, map.SequentialCapture && w.Owner == 0 ? 30.01f : state.Players!.Any(p => p.Id == w.Owner && p.Equipment != null) ? 16.01f : 10.01f)) Invalid();
         foreach (var f in state.Fields!) if (f == null || f.Id <= 0 || !ids.Add(f.Id) || !Position(map, f.Position) || !Elements(f.Elements) ||
             !Size(f.Radius, SpellBalance.MeteorRadius) || !Size(f.Lifetime, 12.01f) || !Size(f.TriggerRadius, 1) || f.Kind is not ("meteor" or "mine" or "healing_mine" or "burning_ground" or "frost_ground" or "water_pool")) Invalid();
         foreach (var b in state.Beams!) if (b == null || !Position(map, b.From) || !Position(map, b.To) ||
             // Una cadena eléctrica puede unir dos objetivos a lados distintos del cono.
-            !Size(V2.Distance(b.From, b.To), b.Shape switch { SpellShape.Beam => 17.1f, SpellShape.Spray => 6.6f, SpellShape.Lightning => 17.2f, SpellShape.Force => 4.1f, _ => -1 }) ||
+            !Size(V2.Distance(b.From, b.To), (b.Shape switch { SpellShape.Beam => 17.1f, SpellShape.Spray => 6.6f, SpellShape.Lightning => 17.2f, SpellShape.Force => 4.1f, _ => -1 }) *
+                (state.Players!.Any(p => p.Id == b.Owner && p.Equipment != null) ? 1.35f : 1)) ||
             !Elements(b.Elements, 10) || !Size(b.Power, 4) || b.Interaction is not ("direct" or "merged" or "reflected" or "refracted")) Invalid();
         ids.Clear();
         foreach (var p in state.Points!) if (p == null || p.Id < 0 || p.Id >= map.ControlPoints.Count || !ids.Add(p.Id) ||

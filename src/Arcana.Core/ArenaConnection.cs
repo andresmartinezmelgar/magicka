@@ -33,6 +33,7 @@ public sealed class ArenaConnection : IAsyncDisposable
     public bool Ready => !_requiresReady || Volatile.Read(ref _ready) == 1;
     public int PreparingPlayers => Volatile.Read(ref _preparingPlayers);
     public event Action<string>? Disconnected;
+    public event Action<string>? AccountChanged;
     private Dictionary<string, object?> Context() => new() { ["connection"] = _connectionId, ["roomId"] = Room?.Id,
         ["playerId"] = PlayerId, ["tick"] = Latest?.Tick };
 
@@ -66,22 +67,23 @@ public sealed class ArenaConnection : IAsyncDisposable
         return uri.AbsolutePath == "/" ? new UriBuilder(uri) { Path = "/play" }.Uri : uri;
     }
     public Task ConnectAsync(string address, string name, int team, string password, CancellationToken token = default,
-        string roomId = "default", string roomPassword = "", WizardType wizardType = WizardType.Balanced, bool deferReady = false)
+        string roomId = "default", string roomPassword = "", WizardType wizardType = WizardType.Balanced, bool deferReady = false, string accountToken = "")
     {
         lock (_disposeGate)
         {
             ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposing) != 0, this);
             if (_connecting != null) throw new InvalidOperationException("Esta conexión ya se ha iniciado.");
             if (!Enum.IsDefined(wizardType)) throw new ArgumentOutOfRangeException(nameof(wizardType));
-            return _connecting = ConnectCore(address, name, team, password, token, roomId, roomPassword, wizardType, deferReady);
+            return _connecting = ConnectCore(address, name, team, password, token, roomId, roomPassword, wizardType, deferReady, accountToken);
         }
     }
     private async Task ConnectCore(string address, string name, int team, string password, CancellationToken token,
-        string roomId, string roomPassword, WizardType wizardType, bool deferReady)
+        string roomId, string roomPassword, WizardType wizardType, bool deferReady, string accountToken)
     {
         Diagnostics.Log.ProtectSecret(password); Diagnostics.Log.ProtectSecret(roomPassword);
+        Diagnostics.Log.ProtectSecret(accountToken);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token, _lifetime.Token);
-        timeout.CancelAfter(TimeSpan.FromSeconds(7));
+        timeout.CancelAfter(TimeSpan.FromSeconds(accountToken.Length > 0 ? 25 : 7));
         try
         {
             var endpoint = Address(address);
@@ -89,7 +91,7 @@ public sealed class ArenaConnection : IAsyncDisposable
             _socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(10);
             await _socket.ConnectAsync(endpoint, timeout.Token).ConfigureAwait(false);
             var hello = new ClientMessage { Type = "hello", Name = name, Team = team, Password = password,
-                RoomId = roomId, RoomPassword = roomPassword, Protocol = Protocol.Version, WizardType = wizardType };
+                RoomId = roomId, RoomPassword = roomPassword, Protocol = Protocol.Version, WizardType = wizardType, AccountToken = accountToken };
             await SendFrame(hello, timeout.Token).ConfigureAwait(false);
             var welcome = await Read(timeout.Token).ConfigureAwait(false);
             if (welcome?.Type == "error") throw new InvalidOperationException(welcome.Error);
@@ -169,6 +171,7 @@ public sealed class ArenaConnection : IAsyncDisposable
                 if (message == null) { Fail("El servidor ha cerrado la conexión.", null, "network.server_closed"); break; }
                 if (message.Type == "snapshot" && message.Snapshot != null)
                 { ApplyReadiness(message); Volatile.Write(ref _latest, message.Snapshot); }
+                else if (message.Type == "account" && message.AccountNotice != null) AccountChanged?.Invoke(message.AccountNotice);
                 else if (message.Type == "error") throw new IOException(message.Error);
             }
         }

@@ -5,10 +5,10 @@ namespace Arcana.Core;
 
 public static class Protocol
 {
-    public const int Version = 11;
+    public const int Version = 12;
     public const int GamePort = 27015;
     public const int DiscoveryPort = 27016;
-    public const string DiscoveryMagic = "ARCANA_DISCOVER_V11";
+    public const string DiscoveryMagic = "ARCANA_DISCOVER_V12";
     public const int LoadingTimeoutSeconds = 120;
     public const int MaxMessageBytes = 4096;
     public static readonly JsonSerializerOptions Json = new()
@@ -35,6 +35,7 @@ public sealed class ClientMessage
     public string RoomPassword { get; set; } = "";
     public int Team { get; set; } = -1;
     public WizardType WizardType { get; set; }
+    public string AccountToken { get; set; } = "";
     public Element Element { get; set; }
     public int Slot { get; set; }
     public float MoveX { get; set; }
@@ -60,6 +61,7 @@ public sealed class ServerMessage
     public bool RequiresReady { get; set; }
     public int PreparingPlayers { get; set; }
     public int[]? ReadyPlayerIds { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? AccountNotice { get; set; }
 }
 
 public sealed record WizardSnapshot(int Id, string Name, int Team, bool Bot, V2 Position,
@@ -67,7 +69,8 @@ public sealed record WizardSnapshot(int Id, string Name, int Team, bool Bot, V2 
     bool Alive, float Respawn, float Wet, float Burning, float Chill, float Frozen, float Haste,
     float Energy, float[] Cooldowns, int Kills, int Deaths, float Charge, bool Casting,
     float ShieldMax = 0, float ShieldSeconds = 0, WizardType WizardType = WizardType.Balanced, float RegenerationRate = 0,
-    BuffSnapshot[]? Buffs = null, Element[]? CastingElements = null, int ShieldCharges = 1, float InvulnerableSeconds = 0)
+    BuffSnapshot[]? Buffs = null, Element[]? CastingElements = null, int ShieldCharges = 1, float InvulnerableSeconds = 0,
+    EquipmentAppearance? Equipment = null, float ReanimationCost = 60)
 {
     [JsonIgnore] public Element[] DisplayElements => Selected.Length > 0 ? Selected : CastingElements ?? [];
 }

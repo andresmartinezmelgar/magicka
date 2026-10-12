@@ -3,6 +3,9 @@
 **/.godot/
 **/.vs/
 .env
+.env.*
+!.env.example
+.secrets/
 artifacts/
 *.user
 *.suo

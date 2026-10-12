@@ -68,6 +68,6 @@ public sealed partial class GameWorld
             Emit("pickup", item.Position, [], player.Name + ": " + RelicBuffs.Name(item.Kind) + " ×" + player.BuffStacks[(int)item.Kind]);
         }
     }
-    private float DamagePower(int owner) => _players.TryGetValue(owner, out var source) ? RelicBuffs.Power(source) : 1;
-    private float HealingPower(int owner) => _players.TryGetValue(owner, out var source) ? RelicBuffs.Healing(source) : 1;
+    private float DamagePower(int owner) => _players.TryGetValue(owner, out var source) ? RelicBuffs.Power(source) * source.Equipment.Power : 1;
+    private float HealingPower(int owner) => _players.TryGetValue(owner, out var source) ? RelicBuffs.Healing(source) * source.Equipment.Healing : 1;
 }

@@ -1,0 +1,82 @@
+# Cuentas, objetos y oro
+
+## Activar el servidor central
+
+El cliente Godot de Android y Windows abre el navegador del sistema para entrar con Google. La página de acceso la sirve el propio servidor; utiliza Firebase Authentication y el SDK web fijado en 12.4.0. El servidor verifica la firma, caducidad, proyecto, revocación y proveedor Google mediante Firebase Admin 3.7.0. El juego recibe una sesión opaca de ocho horas, conservada solo en memoria. Al reiniciar el servidor o el cliente es necesario iniciar sesión otra vez; la UID y los datos permanecen.
+
+1. Crea un proyecto Firebase con Cloud Firestore en modo nativo. Activa Google en Authentication → Sign-in method.
+2. Registra una aplicación web de Firebase y copia su `projectId`, `apiKey` y `authDomain`. Añade el dominio público del juego a los dominios autorizados de Authentication.
+3. Configura una cuenta de servicio del servidor con permisos de lectura de usuarios Firebase Authentication y de lectura/escritura Firestore. Utiliza credenciales de aplicación de Google Cloud o guarda su JSON privado fuera del repositorio y señala su ruta con `GOOGLE_APPLICATION_CREDENTIALS`. El cliente y la APK no incluyen esa credencial.
+4. Publica el servidor detrás de un proxy HTTPS que también permita WebSockets. `ARCANA_PUBLIC_URL` debe contener la dirección HTTPS pública. El cliente utiliza su equivalente `wss://…/play`. El puerto HTTP interno del servidor se utiliza entre el proxy y el proceso del juego.
+5. Despliega `firebase/firestore.rules`: las aplicaciones cliente no acceden directamente a la base de datos. La API del servidor administra las operaciones con su cuenta de servicio.
+6. Mantén `ARCANA_REWARD_OUTBOX` en un volumen persistente, compartido por los reinicios de esa instancia. Cada servidor debe tener su propio directorio. Los reintentos contra la misma base de datos no duplican premios.
+
+Ejemplo de entorno (valores públicos de ejemplo; la credencial privada se configura mediante una ruta):
+
+```bash
+export FIREBASE_PROJECT_ID=mi-proyecto
+export FIREBASE_API_KEY=clave-publica-de-la-aplicacion-web
+export FIREBASE_AUTH_DOMAIN=mi-proyecto.firebaseapp.com
+export ARCANA_PUBLIC_URL=https://arena.example.com
+export GOOGLE_APPLICATION_CREDENTIALS=/srv/arcana/secrets/firebase.json
+export ARCANA_REWARD_OUTBOX=/srv/arcana/data/rewards
+```
+
+Si no se configura Firebase, el servidor conserva las partidas habituales y comunica que las cuentas están desactivadas. Un servidor local incluido en el paquete Windows no hereda credenciales Firebase del entorno. Las recompensas permanentes pertenecen al servidor central configurado.
+
+## Objetos procedurales
+
+Cada objeto es una instancia con ID propio. Botas: velocidad; gorro: alcance; pecho: defensa; arma: ataque, curación o absorción según su familia. El atributo principal es positivo. Plata, Oro y Platino admiten atributos secundarios variados y penalizaciones. Diamante y Mítico tienen una familia —Vida, Escudo o Fuego— y secundarios positivos de esa familia.
+
+| Calidad | Probabilidad | Atributos secundarios | Oro al eliminar |
+| --- | ---: | ---: | ---: |
+| Plata | 48 % | 1 | 10 |
+| Oro | 27 % | 2 | 25 |
+| Platino | 15 % | 2 | 60 |
+| Diamante | 8 % | 2 | 150 |
+| Mítico | 2 % | 3 | 400 |
+
+El catálogo define mínimos, máximos, posiciones y familias permitidas. Cada instancia guarda `minimum`, `maximum` y `current` para cada atributo, además de `generationVersion`. El sorteo inicial tiene un presupuesto por calidad; los intervalos originales se conservan para permitir futuras mejoras con oro. La mejora todavía no está habilitada en esta versión.
+
+Las cuatro posiciones suman atributos y el núcleo calcula una sola vez los modificadores efectivos. Límites del equipo: +30 % velocidad, +35 % alcance, 35 % reducción de daño, +40 % ataque, +50 % fuego y +60 % curación, absorción, duración, energía y quemaduras. El ahorro al reanimar alcanza el 35 %. Las penalizaciones agregadas se limitan al 25 %. Las reliquias temporales y las afinidades de clase mantienen sus reglas y se combinan con el equipo.
+
+## Conjuntos Míticos
+
+| Familia | 2 o 3 piezas | 4 piezas |
+| --- | --- | --- |
+| Vida | +5 % curación | +15 % curación y +10 % ahorro al reanimar |
+| Escudo | +10 % duración | +20 % duración y +20 % absorción |
+| Fuego | +5 % daño de fuego | +15 % daño de fuego y +20 % duración de quemadura |
+
+El bonus de cuatro sustituye al de dos. Se pueden activar dos conjuntos de dos piezas. Vida reduce el coste de Reanimar: los hechizos normales de curación ya son gratuitos. Los botones de PC y móvil muestran el coste efectivo.
+
+## Uso y recompensas
+
+El equipamiento se selecciona desde **Inventario y mago**, en el launcher, o **Personalizar mago e inventario**, en la sala. Se puede usar en PvP del servidor central, partidas contra bots de ese servidor y práctica local. La última cuenta cargada conserva una caché de objetos para jugar contra IA sin conexión y permite seleccionar piezas para esa práctica. El servidor central siempre recupera su propio equipamiento guardado antes de admitir al jugador: no acepta estadísticas enviadas por el cliente.
+
+Una victoria PvP válida entrega un objeto. Debe haber cuentas distintas de humanos rivales con al menos 15 segundos de participación activa; lanzar continuamente y disputar puntos también cuentan. Una partida contra bots, práctica, cuentas repetidas o participantes inactivos no concede progresión. Los perdedores elegibles registran su derrota. El diario de resultados se entrega fuera del bucle de simulación y se reintenta tras fallos o reinicios. La partida no espera a Firestore para avanzar. Si el inventario alcanza 500 objetos, el premio se convierte automáticamente en su valor de oro.
+
+El equipo de una partida permanece fijado hasta la siguiente ronda. Morir o reaparecer conserva las piezas. El cliente recibe una notificación al guardar el resultado y actualiza su inventario. Las apariencias indican calidad y familia conservando los colores de equipo.
+
+Eliminar una pieza solicita confirmación y realiza una transacción: retira el objeto, lo desequipa si corresponde, aumenta el oro y registra un recibo de venta. Un reintento no paga dos veces. El oro se conserva para versiones futuras; no hay compra, mejora ni fabricación en esta versión.
+
+## Documentos y compatibilidad
+
+| Ruta | Datos |
+| --- | --- |
+| `users/{uid}` | Perfil, oro entero de 64 bits, victorias, derrotas, número de objetos y `schemaVersion` |
+| `users/{uid}/items/{itemId}` | Posición, calidad, familia, tiradas con mínimo/máximo/actual, valor de venta, origen y versión de generación |
+| `users/{uid}/loadouts/active` | IDs de las cuatro piezas seleccionadas |
+| `users/{uid}/rewards/{matchId}` | Resultado y premio ya entregado |
+| `users/{uid}/sales/{itemId}` | Oro entregado por una eliminación |
+| `matches/{matchId}` | Resultado del servidor y participantes elegibles |
+| `bonusDefinitions/{stat}` | Catálogo publicado por el servidor |
+| `catalogues/{generationVersion}/bonusDefinitions/{stat}` | Definiciones archivadas por versión de generación |
+
+La UID, el esquema y las versiones de generación no dependen de `VERSION`. Actualizar el juego no crea otra cuenta ni vuelve a sortear objetos. Las futuras migraciones deben añadir o transformar campos conservando las instancias y sus intervalos. Un cambio de rangos debe aumentar `EquipmentCatalogue.GenerationVersion`. El protocolo de partida sigue exigiendo cliente y servidor compatibles: esta versión utiliza el protocolo 12.
+
+## Validación
+
+`bash scripts/test-accounts.sh` descarga el emulador oficial Firestore 1.19.8, verifica su SHA256 y ejecuta pruebas sobre el proyecto local `demo-arcana-accounts`. No utiliza la base real. El verificador Google se sustituye solo dentro del proyecto de pruebas; el servidor distribuido utiliza Firebase Admin.
+
+Las comprobaciones cubren premios concurrentes, venta repetida, precisión de oro de 64 bits, propiedad, venta frente a equipamiento simultáneo, persistencia de tiradas, sesiones falsas, fin de partida y recuperación del diario. El acceso Google real requiere el proyecto y dominio configurados; las pruebas del emulador no sustituyen una comprobación de OAuth con las cuentas del proyecto de producción.

@@ -57,12 +57,20 @@ class VersionSupportTests(unittest.TestCase):
             path = root / 'src/Arcana.Client/export_presets.cfg'
             path.parent.mkdir(parents=True)
             path.write_text(self.presets)
-            (root / 'VERSION').write_text('0.13.0\n')
+            major, minor, patch = map(int, (ROOT / 'VERSION').read_text().strip().split('.'))
+            if patch < 999:
+                patch += 1
+            elif minor < 999:
+                minor += 1; patch = 0
+            else:
+                major += 1; minor = patch = 0
+            target_version = f'{major}.{minor}.{patch}\n'
+            (root / 'VERSION').write_text(target_version)
             command = ['python3', str(ROOT / 'scripts/version-support.py')]
             self.assertNotEqual(subprocess.run(command + ['check', folder], capture_output=True).returncode, 0)
             subprocess.run(command + ['sync', folder], check=True)
             subprocess.run(command + ['check', folder], check=True, capture_output=True)
-            self.assertEqual((root / 'VERSION').read_text(), '0.13.0\n')
+            self.assertEqual((root / 'VERSION').read_text(), target_version)
 
     @unittest.skipUnless(os.environ.get('ARCANA_TEST_DOTNET') or shutil.which('dotnet'), 'Requiere SDK .NET')
     def test_msbuild_reads_version_from_file(self):
