@@ -1,28 +1,18 @@
-# Optimización de tráfico PvP
+# Optimización de comunicaciones PvP — protocolo 19
 
-## Implementado
+## Código implementado
+- Acciones cliente-servidor en binario (0xB1) con código de acción, secuencia y campos específicos.
+- Ejes de movimiento cuantizados a int16; objetivos de movimiento omitidos si MoveTo es falso. El apuntado conserva float32.
+- Un estado base por jugador se transmite en el saludo (welcome). Los siguientes snapshots se codifican como deltas independientes frente a esa base durante toda la conexión.
+- El delta incluye cambios de campos y, si el tamaño de la colección se conserva, solo índices modificados. Si cambia el tamaño se transmite la colección.
+- Los fotogramas se comprimen opcionalmente con Brotli y viajan como WebSocket Binary (0xA1); la descompresión se limita a 256 KiB.
+- La cola DropOldest es segura para estos deltas porque no dependen de fotogramas intermedios.
+- La precarga estática de partida se realiza mediante el estado inicial del saludo; nombres, equipación y demás datos sin cambios se omiten en los deltas.
+- Instrumentación de bytes y número de snapshots en el servidor; benchmarks y pruebas de roundtrip añadidos.
 
-- Los mensajes de acciones del cliente usan `Protocol.SerializeAction`, que omite los campos de saludo y los de acciones distintas.
-- Los snapshots de sala se serializan una vez por sala y, si superan 1024 bytes, se comprimen con Brotli en nivel Fastest.
-- Solo se envía la versión comprimida si ahorra al menos 16 bytes; en otro caso se conserva JSON.
-- Los fotogramas comprimidos llevan prefijo 0xA1 y viajan como WebSocket Binary; el cliente acepta también Text JSON.
-- La descompresión está limitada a 256 KiB y el resultado sigue pasando por `SnapshotValidation`.
-- Los mensajes de control, saludo y consulta de equipamiento siguen usando JSON.
-- La simulación y la frecuencia de snapshots permanecen sin cambios.
-
-## Trabajo pendiente para alcanzar la arquitectura objetivo
-
-1. Instrumentar bytes reales por tipo de mensaje, jugadores y escenarios de carga.
-2. Separar datos de sala y jugador inmutables, enviarlos durante la carga PvP y versionarlos por hash.
-3. Introducir un protocolo binario tipado para posiciones, vectores, elementos y máscaras de cambios.
-4. Implementar deltas con secuencia base y ACK por cliente; la cola actual `DropOldest` no admite deltas dependientes sin resincronización.
-5. Dar entrega fiable a creación/destrucción de entidades y eventos importantes.
-6. Cuantizar coordenadas tras pruebas de precisión de apuntado, colisiones e interpolación.
-7. Evitar acumulación de inputs de movimiento sin eliminar comandos discretos (cast/release).
-8. Añadir pruebas de regresión y benchmarks reales antes de establecer porcentajes de ahorro.
-
-## Compatibilidad
-
-El cambio de transporte es bilateral: cliente y servidor deben actualizarse juntos. La compatibilidad de mensajes de texto JSON no implica que un cliente anterior admita fotogramas binarios. Antes del despliegue de producción debe incrementarse `Protocol.Version` y actualizarse la documentación de versiones, descubrimiento y exportación Android.
-
-No se han medido porcentajes de reducción ni compilado el código en el entorno de edición GitHub.
+## Consideraciones
+- Los clientes y el servidor deben actualizarse conjuntamente a la versión 19.
+- La codificación de snapshots sigue siendo JSON delta comprimido, no un esquema binario tipado completo.
+- La comparación de estados por cliente aumenta el trabajo de CPU; medirlo en servidores con múltiples salas.
+- No se han ejecutado las pruebas ni compilado la solución desde esta conexión. No se garantiza aún funcionamiento en producción.
+- Para una reducción adicional, sustituir los campos dinámicos del delta por un esquema binario versionado, cuantizar posiciones tras medir tolerancias y añadir pruebas de estrés reales.
