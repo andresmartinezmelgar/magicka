@@ -178,7 +178,7 @@ try {
     foreach ($name in $templateNames) { Copy-Item -LiteralPath (Join-Path $templateCache $name) -Destination $templates }
     $javaSetting = $JavaHome.Replace('\', '/') | ConvertTo-Json -Compress
     $sdkSetting = $AndroidSdkPath.Replace('\', '/') | ConvertTo-Json -Compress
-    [IO.File]::WriteAllText((Join-Path $godotConfig 'editor_settings-4.5.tres'), "[gd_resource type=`"EditorSettings`" format=3]`n`n[resource]`nexport/android/java_sdk_path=$javaSetting`nexport/android/android_sdk_path=$sdkSetting`n", $utf8)
+    [IO.File]::WriteAllText((Join-Path $godotConfig 'editor_settings-4.5.tres'), "[gd_resource type=`"EditorSettings`" format=3]`n`n[resource]`nfilesystem/on_save/safe_save_on_backup_then_rename=false`nexport/android/java_sdk_path=$javaSetting`nexport/android/android_sdk_path=$sdkSetting`n", $utf8)
     $key = Join-Path $cache 'android-debug.keystore'
     $keytool = Join-Path $JavaHome 'bin/keytool.exe'
     if (!(Test-Path -LiteralPath $key)) {
