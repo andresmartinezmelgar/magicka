@@ -33,6 +33,7 @@ internal sealed class PlayerSession(int id, GameRoom room, WebSocket socket)
     public int Id { get; } = id;
     public GameRoom Room { get; } = room;
     public WebSocket Socket { get; } = socket;
+    public ServerMessage? NetworkBaseline { get; set; }
     public bool Ready { get; set; }
     public AccountIdentity? Account { get; init; }
     public PreparedEquipment Equipment { get; set; } = new(EquipmentModifiers.None, PublicEquipment.Empty);
@@ -191,27 +192,22 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                 }
                 foreach (var snapshot in snapshots)
                 {
-                    byte[] full = Protocol.SerializeSnapshot(snapshot.Message);
-                    byte[] bytes = full;
-                    if (snapshot.Room.NetworkBaseline is { } baseline && snapshot.Room.NetworkFrames < 19)
-                    {
-                        byte[] delta = Protocol.CompressSnapshotPayload(SnapshotDelta.Encode(snapshot.Message, baseline));
-                        if (delta.Length < full.Length) bytes = delta;
-                        else { snapshot.Room.NetworkBaseline = snapshot.Message; snapshot.Room.NetworkFrames = 0; }
-                    }
-                    else
-                    {
-                        snapshot.Room.NetworkBaseline = snapshot.Message;
-                        snapshot.Room.NetworkFrames = 0;
-                    }
-                    snapshot.Room.NetworkFrames++;
+                    // Cada jugador recibe el estado de referencia en el saludo, una sola vez.
+                    // Los deltas posteriores son independientes entre sí y se comparan siempre
+                    // contra ese estado; DropOldest no invalida los siguientes fotogramas.
+                    byte[]? full = null;
                     foreach (var session in snapshot.Recipients)
+                    {
+                        byte[] bytes = session.NetworkBaseline is { } baseline
+                            ? Protocol.CompressSnapshotPayload(SnapshotDelta.Encode(snapshot.Message, baseline))
+                            : full ??= Protocol.SerializeSnapshot(snapshot.Message);
                         if (session.Outbox.Writer.TryWrite(bytes))
                         {
                             Interlocked.Add(ref snapshotBytes, bytes.Length);
                             Interlocked.Increment(ref snapshotFrames);
                             if (bytes.Length > 0 && bytes[0] == 0xA1) Interlocked.Increment(ref compressedFrames);
                         }
+                    }
                 }
             }
         }
@@ -281,6 +277,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                         player.Invulnerable = 1.2f;
                         welcome = RoomSnapshot(room); welcome.Type = "welcome"; welcome.PlayerId = player.Id;
                         welcome.Server = Info(); welcome.Room = room.Info(); welcome.RequiresReady = true;
+                        session.NetworkBaseline = welcome;
                     }
                 }
             }
