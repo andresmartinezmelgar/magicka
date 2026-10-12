@@ -110,7 +110,10 @@ public partial class ClientVerification
                     Require(!touch.BarrierAimPending && _runtime.Practice.Snapshot().Walls.Length == countBeforeCancel
                         && player.Selection.Elements.Contains(Element.Shield),
                         "Cancelar un gesto coloca un escudo o consume los elementos.");
-                    _runtime.Submit(new() { Type = "clear" });
+                    // Use the real touch button so the optimistic local selection and
+                    // the authoritative server selection are cleared together.
+                    Down(2, new(310, height - 117)); Up(2);
+                    Require(player.Selection.Elements.Count == 0, "Vaciar no restablece la selección tras cancelar el escudo.");
                     GD.Print("MOBILE_SHIELD_AIM_OK: el escudo espera al gesto completo, respeta la dirección final y se cancela sin lanzar.");
                     break;
                 case 70:
