@@ -29,7 +29,7 @@ public partial class EquipmentPanel : Control
 
     public void Build(Main main, string address)
     {
-        _automaticServer = address == "automatic";
+        _automaticServer = PublicAccountServer.NeedsDiscovery(address, Ui.IsMobile);
         _main = main; Name = "EquipmentPanel"; Theme = Ui.Theme(); Ui.Full(this);
         AddChild(new ColorRect { Color = new(0.01f, 0.025f, 0.045f, 0.98f), LayoutMode = 1, AnchorRight = 1, AnchorBottom = 1 });
         var margin = new MarginContainer(); AddChild(margin); Ui.Full(margin);
@@ -47,6 +47,7 @@ public partial class EquipmentPanel : Control
         Action(connection, "Entrar con Google", () => _ = Login(), true);
         Action(connection, "Actualizar", () => _ = Refresh());
         Action(connection, "Cerrar sesión", () => _ = SignOut());
+        _status = Ui.Label("", 18, Ui.Gold); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_status);
         var columns = new HBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
         columns.AddThemeConstantOverride("separation", 24); box.AddChild(columns);
         var inventoryScroll = new ScrollContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
@@ -85,7 +86,6 @@ public partial class EquipmentPanel : Control
         _sets = Ui.Label("", 16, Ui.Gold); _sets.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_sets);
         _totals = new GridContainer { Columns = 5 }; _totals.AddThemeConstantOverride("h_separation", 12);
         _totals.AddThemeConstantOverride("v_separation", 3); summary.AddChild(_totals);
-        _status = Ui.Label("", 15, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_status);
         var footer = new HBoxContainer(); footer.AddThemeConstantOverride("separation", 14); box.AddChild(footer);
         var hint = Ui.Label("Suma = piezas + conjunto. Aplicado = valor real en combate.", 14, Ui.Muted);
         hint.AutowrapMode = TextServer.AutowrapMode.WordSmart; hint.SizeFlagsHorizontal = SizeFlags.ExpandFill; footer.AddChild(hint);

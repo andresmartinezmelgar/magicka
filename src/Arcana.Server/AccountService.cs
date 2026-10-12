@@ -20,11 +20,19 @@ public sealed class GoogleAccountVerifier(FirebaseAuth auth) : IAccountIdentityV
     public async Task<AccountIdentity> Verify(string idToken, CancellationToken token)
     {
         var result = await auth.VerifyIdTokenAsync(idToken, true, token);
-        var claims = JsonSerializer.SerializeToElement(result.Claims);
-        if (!claims.TryGetProperty("firebase", out var firebase) || !firebase.TryGetProperty("sign_in_provider", out var provider) || provider.GetString() != "google.com")
+        return ReadVerifiedIdentity(result.Uid, result.Claims);
+    }
+    internal static AccountIdentity ReadVerifiedIdentity(string uid, IReadOnlyDictionary<string, object> verifiedClaims)
+    {
+        // Firebase Admin decodes nested claims with Newtonsoft. System.Text.Json
+        // directly serializes its JValue strings as arrays rather than strings.
+        using var document = JsonDocument.Parse(Newtonsoft.Json.JsonConvert.SerializeObject(verifiedClaims));
+        var claims = document.RootElement;
+        if (!claims.TryGetProperty("firebase", out var firebase) || firebase.ValueKind != JsonValueKind.Object ||
+            !firebase.TryGetProperty("sign_in_provider", out var provider) || provider.ValueKind != JsonValueKind.String || provider.GetString() != "google.com")
             throw new UnauthorizedAccessException("Inicia sesión con una cuenta de Google.");
-        string name = claims.TryGetProperty("name", out var display) ? display.GetString() ?? "Mago" : "Mago";
-        return new(result.Uid, new string(name.Where(c => !char.IsControl(c)).Take(64).ToArray()));
+        string name = claims.TryGetProperty("name", out var display) && display.ValueKind == JsonValueKind.String ? display.GetString() ?? "Mago" : "Mago";
+        return new(uid, new string(name.Where(c => !char.IsControl(c)).Take(64).ToArray()));
     }
 }
 public sealed record AccountOptions(string ProjectId, string ApiKey, string AuthDomain, string PublicUrl)
@@ -117,8 +125,9 @@ public sealed class AccountService
         try
         {
             if (challenge.Identity != null) return;
-            challenge.Identity = await _verifier!.Verify(request.IdToken, token);
-            _ = await Repository!.Profile(challenge.Identity.Uid, challenge.Identity.Name, token);
+            var identity = await _verifier!.Verify(request.IdToken, token);
+            _ = await Repository!.Profile(identity.Uid, identity.Name, token);
+            challenge.Identity = identity;
         }
         finally { challenge.Gate.Release(); }
     }

@@ -94,6 +94,7 @@ public partial class Main : Node
         _help = BuildHelp(); _ui.AddChild(_help); _help.Visible = false;
         _pause = BuildPause(); _ui.AddChild(_pause); _pause.Visible = false;
         var arguments = OS.GetCmdlineUserArgs();
+        _accountEntrySmoke = arguments.Contains("--account-entry-smoke");
         foreach (string arg in arguments)
         {
             if (arg is "--preview-equipment" or "--equipment-smoke") EquipmentFixture(arg == "--equipment-smoke");
@@ -271,6 +272,7 @@ public partial class Main : Node
                 if (_verification?.FailFrame(e) == true) return;
             }
         _renderFrames++;
+        if (CheckAccountEntrySmoke()) return;
         if (CheckPublicEquipmentSmoke()) return;
         if (CheckEquipmentSmoke()) return;
         if (_profiler?.Running == true) return;

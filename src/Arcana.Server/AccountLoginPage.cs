@@ -34,7 +34,7 @@ internal static class AccountLoginPage
           button.onclick=async()=>{button.disabled=true;status.textContent='Abriendo Google…';try{
           const result=await signInWithPopup(auth,provider);
           const response=await fetch({{{endpoint}}},{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({idToken:await result.user.getIdToken(),browserSecret:{{{secret}}}})});
-          if(!response.ok)throw new Error('El servidor no pudo completar el acceso. Inícialo de nuevo desde el juego.');
+          if(!response.ok){const error=await response.json().catch(()=>null);throw new Error(error?.error||'El servidor no pudo completar el acceso. Inícialo de nuevo desde el juego.');}
           await signOut(auth);
           status.textContent='Acceso completado. Puedes volver a Arcana Arena.';button.textContent='Sesión iniciada';
           history.replaceState(null,'',location.pathname);

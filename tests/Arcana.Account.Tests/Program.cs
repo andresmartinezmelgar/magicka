@@ -12,6 +12,9 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Reflection;
 
+VerifiedGoogleClaimsTests.Run();
+if (args.Contains("--verified-claims-only")) return;
+
 string emulator = Environment.GetEnvironmentVariable("FIRESTORE_EMULATOR_HOST") ?? "";
 if (!Uri.TryCreate("http://" + emulator, UriKind.Absolute, out var emulatorUri) || !emulatorUri.IsLoopback)
     throw new InvalidOperationException("Estas pruebas requieren FIRESTORE_EMULATOR_HOST apuntando a un emulador local; nunca usan la base real.");

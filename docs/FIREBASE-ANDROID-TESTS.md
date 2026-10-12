@@ -1,6 +1,6 @@
 # Registro desde Android con el servidor en el PC
 
-Requiere Arcana Arena 0.16.1 en Windows y Android. El servidor se ejecuta en el PC; Firebase Authentication identifica al jugador y Firestore conserva su perfil, inventario y equipamiento.
+Requiere Arcana Arena 0.16.2 en Windows y Android. El servidor se ejecuta en el PC; Firebase Authentication identifica al jugador y Firestore conserva su perfil, inventario y equipamiento.
 
 ## Uso habitual
 
@@ -35,4 +35,8 @@ No distribuyas `service-account.json`, archivos `*-firebase-adminsdk-*.json` ni 
 
 Las pruebas de `Arcana.Tests` cubren la dirección WSS esperada, caducidad, protocolo incompatible, dominios falsos, credenciales en URL y rutas alternativas. El acceso Google completo debe comprobarse en un móvil con una cuenta real; las pruebas de análisis de URL no sustituyen ese recorrido.
 
-El script `scripts/start-firebase-android-tests.ps1` queda como alternativa manual de diagnóstico; no es necesario para el flujo automático de la versión 0.16.1.
+El script `scripts/start-firebase-android-tests.ps1` queda como alternativa manual de diagnóstico; no es necesario para el flujo automático de la versión 0.16.2.
+
+La versión 0.16.2 corrige la lectura de los claims de Firebase Admin al completar Google Login. En Android, una dirección local guardada (127.0.0.1, localhost o ::1) se sustituye automáticamente por el descubrimiento público para iniciar sesión. El estado del acceso aparece junto al botón.
+
+`dotnet run --project tests/Arcana.Account.Tests -- --verified-claims-only` verifica el formato real de los claims sin acceder a Firebase. `account-entry-smoke` prueba el toque sobre el botón y el reemplazo de la dirección local en móvil.

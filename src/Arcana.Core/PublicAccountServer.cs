@@ -6,6 +6,9 @@ namespace Arcana.Core;
 /// <summary>Only the public, short-lived server address is read without authentication.</summary>
 public static class PublicAccountServer
 {
+    public static bool NeedsDiscovery(string address, bool mobile) => address == "automatic" || mobile &&
+        Uri.TryCreate(address.Contains("://") ? address : "ws://" + address, UriKind.Absolute, out var uri) && uri.IsLoopback;
+
     public static async Task<string> Resolve(string projectId, CancellationToken token = default)
     {
         if (projectId.Length is < 6 or > 30 || projectId.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '-'))
