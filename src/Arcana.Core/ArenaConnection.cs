@@ -174,7 +174,7 @@ public sealed class ArenaConnection : IAsyncDisposable
         {
             if (Volatile.Read(ref _disposing) != 0) return;
             var data = message.Type == "hello" ? Protocol.SerializeAction(message) : Protocol.SerializeBinaryAction(message);
-            await _socket.SendAsync(data, message.Type == "hello" ? WebSocketMessageType.Text : WebSocketMessageType.Binary, true, token).ConfigureAwait(false);
+            await _socket.SendAsync(data, data.Length > 0 && data[0] == 0xB1 ? WebSocketMessageType.Binary : WebSocketMessageType.Text, true, token).ConfigureAwait(false);
         }
         finally { _socketSend.Release(); }
     }
