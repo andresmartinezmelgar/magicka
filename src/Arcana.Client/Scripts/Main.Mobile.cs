@@ -30,6 +30,7 @@ public partial class Main
             if (message.Type == "magick") UseMagick(message.Slot);
             else { Submit(InputMessage()); Submit(message); }
         };
+        _touch.AimChanged += () => { if (_playing && !_paused && !_help.Visible && !InspectingEquipment) { UpdateTouchAim(); Submit(InputMessage()); } };
         _touch.HelpRequested += ToggleHelp;
         _touch.MenuRequested += TogglePause;
         _touch.ScoreRequested += () => { if (_hud != null) { StopInput(); _hud.ScoreOpen = !_hud.ScoreOpen; } };
