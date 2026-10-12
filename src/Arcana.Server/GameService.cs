@@ -17,6 +17,8 @@ internal sealed class GameRoom(string id, string name, string password, WorldOpt
     public GameWorld World { get; } = new(options);
     public Dictionary<int, PlayerSession> Sessions { get; } = [];
     public long LastOccupied { get; set; } = Environment.TickCount64;
+    public ServerMessage? NetworkBaseline { get; set; }
+    public int NetworkFrames { get; set; }
     public bool Started { get; set; }
     public string MatchId { get; set; } = Guid.NewGuid().ToString("N");
     public bool ResultQueued { get; set; }
@@ -110,7 +112,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
         var clock = Stopwatch.StartNew();
         double previous = clock.Elapsed.TotalSeconds, accumulator = 0;
         long cleanupAt = Environment.TickCount64, metricsAt = cleanupAt, lagAt = 0;
-        var snapshots = new List<(ServerMessage Message, PlayerSession[] Recipients)>(MaxRooms);
+        var snapshots = new List<(ServerMessage Message, PlayerSession[] Recipients, GameRoom Room)>(MaxRooms);
         var dirty = new HashSet<GameRoom>();
         double maxStepMs = 0;
         long snapshotBytes = 0, snapshotFrames = 0, compressedFrames = 0;
@@ -170,7 +172,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                         accumulator -= GameWorld.StepSeconds;
                     }
                     // Si hubo varios pasos atrasados, envía únicamente el estado más reciente.
-                    foreach (var room in dirty) snapshots.Add((RoomSnapshot(room), room.Sessions.Values.ToArray()));
+                    foreach (var room in dirty) snapshots.Add((RoomSnapshot(room), room.Sessions.Values.ToArray(), room));
                     if (Environment.TickCount64 - cleanupAt > 60000) { RemoveIdleRooms(); cleanupAt = Environment.TickCount64; }
                     maxStepMs = Math.Max(maxStepMs, Stopwatch.GetElapsedTime(stepStarted).TotalMilliseconds);
                     if (Environment.TickCount64 - metricsAt >= 30000)
@@ -189,7 +191,19 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                 }
                 foreach (var snapshot in snapshots)
                 {
-                    var bytes = Protocol.SerializeSnapshot(snapshot.Message);
+                    byte[] full = Protocol.SerializeSnapshot(snapshot.Message);
+                    byte[] bytes = full;
+                    if (snapshot.Room.NetworkBaseline is { } baseline && snapshot.Room.NetworkFrames < 19)
+                    {
+                        byte[] delta = Protocol.CompressSnapshotPayload(SnapshotDelta.Encode(snapshot.Message, baseline));
+                        if (delta.Length < full.Length) bytes = delta;
+                    }
+                    else
+                    {
+                        snapshot.Room.NetworkBaseline = snapshot.Message;
+                        snapshot.Room.NetworkFrames = 0;
+                    }
+                    snapshot.Room.NetworkFrames++;
                     foreach (var session in snapshot.Recipients)
                         if (session.Outbox.Writer.TryWrite(bytes))
                         {
