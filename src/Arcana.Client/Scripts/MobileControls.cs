@@ -13,7 +13,11 @@ public partial class MobileControls : Control
     private int _moveFinger = -1, _aimFinger = -1;
     private Vector2 _move, _aim = Vector2.Right, _aimKnob;
     private Vector2 _moveCenter, _moveHome, _aimCenter;
+    private readonly ElementBuffer _selected = new();
+    private bool _awaitingSelectionEcho, _barrierAimPending;
+    private int _selectionEchoFrames;
     private const float Radius = 82;
+    internal bool BarrierAimPending => _barrierAimPending;
     public Vector2 Movement => _move;
     public Vector2 AimDirection => _aim;
     public event Action<ClientMessage>? ActionRequested;
@@ -83,12 +87,25 @@ public partial class MobileControls : Control
     public void Reset()
     {
         _moveFinger = _aimFinger = -1; _move = _aimKnob = Vector2.Zero; _moveCenter = _moveHome;
+        _barrierAimPending = false;
+        _awaitingSelectionEcho = false;
         foreach (var action in _pressed.Values) action.Panel.Modulate = Colors.White;
         _pressed.Clear(); QueueRedraw();
     }
     public void Update(WizardSnapshot? player)
     {
         if (player == null) return;
+        // Local element taps are immediate, whereas a PvP snapshot can arrive a frame later.
+        // Keep the optimistic selection until the server echoes it, then resynchronize.
+        if (_awaitingSelectionEcho && player.Selected.SequenceEqual(_selected.Elements))
+            _awaitingSelectionEcho = false;
+        if (!_awaitingSelectionEcho || ++_selectionEchoFrames > 120)
+        {
+            _selected.Clear();
+            foreach (var element in player.Selected) _selected.Add(element);
+            _awaitingSelectionEcho = false;
+            _selectionEchoFrames = 0;
+        }
         for (int i = 0; i < _magicks.Count; i++)
         {
             var magick = SpellBalance.Magicks[i];
@@ -117,8 +134,17 @@ public partial class MobileControls : Control
             if (finger == _moveFinger) { _moveFinger = -1; _move = Vector2.Zero; _moveCenter = _moveHome; QueueRedraw(); return true; }
             if (finger == _aimFinger)
             {
-                _aimFinger = -1; _aimKnob = Vector2.Zero; QueueRedraw();
-                ActionRequested?.Invoke(new() { Type = "release" }); return true;
+                _aimFinger = -1; _aimKnob = Vector2.Zero;
+                bool placeBarrier = _barrierAimPending && !canceled;
+                _barrierAimPending = false; QueueRedraw();
+                // Barriers are instantaneous: send cast only once the drag's final
+                // direction has been submitted. A canceled touch must never cast.
+                if (placeBarrier)
+                {
+                    AimChanged?.Invoke();
+                    Request(new() { Type = "cast" });
+                }
+                Request(new() { Type = "release" }); return true;
             }
             if (_pressed.Remove(finger, out var previous)) { previous.Panel.Modulate = Colors.White; return true; }
             return false;
@@ -128,7 +154,8 @@ public partial class MobileControls : Control
         if (action != null)
         {
             _pressed[finger] = action; action.Panel.Modulate = new Color(1.2f, 1.2f, 1.2f);
-            if (action.Message != null) ActionRequested?.Invoke(new() { Type = action.Message.Type, Element = action.Message.Element, Slot = action.Message.Slot });
+            if (action.Message != null)
+                Request(new() { Type = action.Message.Type, Element = action.Message.Element, Slot = action.Message.Slot });
             action.Run?.Invoke(); return true;
         }
         // El primer contacto fija el origen. Un dedo ya asignado conserva su función
@@ -137,7 +164,12 @@ public partial class MobileControls : Control
         { _moveFinger = finger; _moveCenter = point; _move = Vector2.Zero; QueueRedraw(); return true; }
         if (_aimFinger < 0 && point.DistanceTo(_aimCenter) <= Radius + 20)
         {
-            _aimFinger = finger; Aim(point); AimChanged?.Invoke(); ActionRequested?.Invoke(new() { Type = "cast" }); return true;
+            _aimFinger = finger;
+            _barrierAimPending = new SpellRecipe(_selected.Elements).Shape == SpellShape.Barrier;
+            Aim(point); AimChanged?.Invoke();
+            if (!_barrierAimPending) Request(new() { Type = "cast" });
+            QueueRedraw();
+            return true;
         }
         return false;
     }
@@ -148,6 +180,27 @@ public partial class MobileControls : Control
         if (finger == _moveFinger) { Move(point); return true; }
         if (finger == _aimFinger) { Aim(point); AimChanged?.Invoke(); return true; }
         return _pressed.ContainsKey(finger);
+    }
+    private void Request(ClientMessage message)
+    {
+        switch (message.Type)
+        {
+            case "element":
+                _selected.Add(message.Element);
+                break;
+            case "clear":
+            case "cast":
+            case "self":
+            case "nova":
+                _selected.Clear();
+                break;
+            default:
+                ActionRequested?.Invoke(message);
+                return;
+        }
+        _awaitingSelectionEcho = true;
+        _selectionEchoFrames = 0;
+        ActionRequested?.Invoke(message);
     }
     private static Vector2 Stick(Vector2 offset)
     {
@@ -160,7 +213,7 @@ public partial class MobileControls : Control
     public override void _Draw()
     {
         DrawStick(_moveCenter, _move, "MOVER", Ui.Blue);
-        DrawStick(_aimCenter, _aimKnob, "APUNTAR / LANZAR", Ui.Gold);
+        DrawStick(_aimCenter, _aimKnob, _barrierAimPending ? "SUELTA: ESCUDO" : "APUNTAR / LANZAR", Ui.Gold);
     }
     private void DrawStick(Vector2 center, Vector2 direction, string caption, Color color)
     {
