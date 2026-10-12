@@ -253,7 +253,8 @@ public sealed class ArenaConnection : IAsyncDisposable
                 try { message = SnapshotDelta.Decode(raw, _networkBaseline); }
                 catch (InvalidDataException) { stream.SetLength(0); frameType = null; continue; }
             }
-            else if (message?.Type == "snapshot") _networkBaseline = message;
+            // El baseline es el welcome inicial y no cambia aunque llegue un snapshot completo.
+            // Así los deltas independientes siguen siendo válidos tras descartes de la cola.
             if (message?.Snapshot != null) SnapshotValidation.Check(message.Snapshot);
             if (message?.Snapshot != null) CheckReadiness(message);
             if (message?.Type == "snapshot" && message.Snapshot == null) throw new InvalidDataException("Estado de partida ausente.");
