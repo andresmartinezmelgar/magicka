@@ -151,6 +151,10 @@ public partial class Launcher : Control
         _firewall = Ui.Button("Permitir LAN", ConfigureLan); _firewall.SizeFlagsHorizontal = SizeFlags.ExpandFill; hostActions.AddChild(_firewall);
         _firewall.Disabled = !OperatingSystem.IsWindows();
         _firewall.TooltipText = "Windows pedirá permiso de administrador para permitir estos dos puertos al servidor en redes privadas.";
+        var firebaseSetup = Ui.Button("Configurar Firebase gratis (archivos privados)", OpenLocalFirebaseFolder);
+        firebaseSetup.Disabled = !OperatingSystem.IsWindows();
+        firebaseSetup.TooltipText = "Prepara los archivos de Firebase fuera del paquete del juego; sin cuenta de pago.";
+        hosting.AddChild(firebaseSetup);
         form.AddChild(Ui.Label("Contraseña del servidor (si tiene)", 14, Ui.Muted));
         _password = new LineEdit { Secret = true, MaxLength = 128, PlaceholderText = "Opcional", CustomMinimumSize = new(0, 42) }; form.AddChild(_password);
         _connect = Ui.Button("Ver salas por IP", Connect, true); form.AddChild(_connect);
@@ -268,7 +272,10 @@ public partial class Launcher : Control
                     if (list.Length > 0) addresses = "IP para compartir: " + list;
                 }
                 catch (System.Net.Sockets.SocketException) { }
-                _hostInfo.Text = $"Servidor activo · Juego TCP {options.Port} · LAN UDP {options.DiscoveryPort}\n{addresses}";
+                _hostInfo.Text = $"Servidor activo · Juego TCP {options.Port} · LAN UDP {options.DiscoveryPort}\\n{addresses}"
+                    + (System.IO.File.Exists(System.IO.Path.Combine(LocalFirebaseHosting.DirectoryPath(ProjectSettings.GlobalizePath("user://")), LocalFirebaseHosting.ConfigFileName))
+                        ? "\\nFirebase local: configuración detectada (usa Entrar con Google para comprobarla)." : "\\nFirebase: desactivado; las partidas LAN siguen disponibles.");
+                _address.Text = _host.Address;
                 UpdateConnectLabel(); OpenRooms(_host.Address, _hostPassword);
             });
         }
@@ -288,6 +295,29 @@ public partial class Launcher : Control
         await _host.StartAsync(PackageDirectory(), ProjectSettings.GlobalizePath("user://"), new("Prueba de launcher", 29025, 29026, ""));
         return await RoomBrowser.CreateAsync(_host.Address, new() { Name = "Sala del launcher", Bots = 1 });
     }
+    private void OpenLocalFirebaseFolder()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        try
+        {
+            string directory = LocalFirebaseHosting.DirectoryPath(ProjectSettings.GlobalizePath("user://"));
+            System.IO.Directory.CreateDirectory(directory);
+            string template = System.IO.Path.Combine(directory, "server.example.json");
+            if (!System.IO.File.Exists(template))
+                System.IO.File.WriteAllText(template, Protocol.Serialize(new
+                {
+                    projectId = "ID-DE-TU-PROYECTO",
+                    apiKey = "API-KEY-PUBLICA-DE-TU-APP-WEB",
+                    authDomain = "ID-DE-TU-PROYECTO.firebaseapp.com",
+                    publicUrl = "http://127.0.0.1:" + (int)_hostPort.Value
+                }));
+            OS.ShellOpen(directory);
+            ShowStatus("Firebase: copia server.example.json como server.local.json y coloca service-account.json en esta carpeta. Reinicia Alojar. Google Login en móvil necesitará HTTPS.");
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        { ShowError("No se pudo preparar la carpeta privada de Firebase: " + error.Message); }
+    }
+
     private async void ConfigureLan()
     {
         if (_busy || !OperatingSystem.IsWindows()) return;
