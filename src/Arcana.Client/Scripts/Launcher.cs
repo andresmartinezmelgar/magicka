@@ -24,7 +24,7 @@ public partial class Launcher : Control
     private VBoxContainer _playBody = null!;
     private Button _menuBack = null!;
     private int _page;
-    private Label _profileSummary = null!;
+    private Label _profileSummary = null!, _wizardDescription = null!;
 
     public void Build(Main main)
     {
@@ -91,6 +91,7 @@ public partial class Launcher : Control
         _wizardType.Select(Enum.IsDefined((WizardType)savedType) ? savedType : 0); typeRow.AddChild(_wizardType);
         var typeInfo = Ui.Label(WizardTypes.Description((WizardType)_wizardType.GetSelectedId()), 14, Ui.Gold);
         typeInfo.AutowrapMode = TextServer.AutowrapMode.WordSmart; _playBody.AddChild(typeInfo);
+        _wizardDescription = typeInfo;
         _wizardType.ItemSelected += _ => typeInfo.Text = WizardTypes.Description((WizardType)_wizardType.GetSelectedId());
         _tabs = new TabContainer(); _playBody.AddChild(_tabs);
         var ip = TabBox("Por IP");
@@ -213,7 +214,7 @@ public partial class Launcher : Control
         _name.GetParent().GetParent().Visible = page is 1 or 3;
         _team.GetParent().Visible = page == 1;
         _wizardType.GetParent().Visible = page == 3;
-        _wizardType.GetParent().GetParent().GetChild<Label>(2).Visible = page == 3;
+        _wizardDescription.Visible = page == 3;
         _status.Visible = page is 1 or 2;
 
         _menuBack.Visible = page != 0;
