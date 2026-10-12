@@ -16,6 +16,9 @@ verify() {
     local log="$check_mode-test.log"
     local seconds=30
     if [ "$check_mode" = combinations-smoke ]; then seconds=50; fi
+    # A 2 FPS las comprobaciones móviles que esperan varios frames pueden superar 30 s
+    # aunque el cliente funcione correctamente.
+    if [ "$check_mode" = mobile-smoke ]; then seconds=60; fi
     local marker="${check_mode^^}"
     marker="${marker//-/_}_OK"
     timeout "${seconds}s" "$godot" --headless --audio-driver Dummy --path src/Arcana.Client "$@" -- "--$check_mode" 2>&1 | tee "$log"
