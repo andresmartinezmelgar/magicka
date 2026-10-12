@@ -69,7 +69,7 @@ public partial class Launcher : Control
         _homeMenu.AddChild(Ui.Button("Perfil", () => OpenPage(3)));
         _profileSummary = Ui.Label("", 15, Ui.Muted); _homeMenu.AddChild(_profileSummary);
         _playBody = new VBoxContainer(); _playBody.AddThemeConstantOverride("separation", 6); form.AddChild(_playBody);
-        _menuBack = Ui.Button("Volver", () => OpenPage(0)); form.AddChild(_menuBack);
+        _menuBack = Ui.Button("Volver", () => { if (_page == 3) Remember(); OpenPage(0); }); form.AddChild(_menuBack);
         var identity = new HBoxContainer(); identity.AddThemeConstantOverride("separation", 12); _playBody.AddChild(identity);
         var nameColumn = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; identity.AddChild(nameColumn);
         nameColumn.AddChild(Ui.Label("Nombre del mago", 14, Ui.Muted));
