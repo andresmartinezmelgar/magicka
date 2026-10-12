@@ -113,6 +113,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
         var snapshots = new List<(ServerMessage Message, PlayerSession[] Recipients)>(MaxRooms);
         var dirty = new HashSet<GameRoom>();
         double maxStepMs = 0;
+        long snapshotBytes = 0, snapshotFrames = 0, compressedFrames = 0;
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(4));
         rewards.Delivered += NotifyAccounts;
         try
@@ -177,14 +178,25 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                         Diagnostics.Info("server.metrics", "Estado periódico de la simulación.", new Dictionary<string, object?>
                         { ["tick"] = CurrentTick, ["rooms"] = _rooms.Count, ["connections"] = _sessions.Count,
                             ["activeRooms"] = _rooms.Values.Count(r => r.Sessions.Count > 0), ["maxStepMs"] = maxStepMs,
-                            ["ignoredCommands"] = _ignoredCommands, ["managedBytes"] = GC.GetTotalMemory(false) });
+                            ["ignoredCommands"] = _ignoredCommands, ["managedBytes"] = GC.GetTotalMemory(false),
+                             ["snapshotPayloadBytes"] = Interlocked.Read(ref snapshotBytes),
+                             ["snapshotRecipientFrames"] = Interlocked.Read(ref snapshotFrames),
+                             ["compressedSnapshotFrames"] = Interlocked.Read(ref compressedFrames) });
                         metricsAt = Environment.TickCount64; maxStepMs = 0; _ignoredCommands = 0;
+                        Interlocked.Exchange(ref snapshotBytes, 0); Interlocked.Exchange(ref snapshotFrames, 0);
+                        Interlocked.Exchange(ref compressedFrames, 0);
                     }
                 }
                 foreach (var snapshot in snapshots)
                 {
                     var bytes = Protocol.SerializeSnapshot(snapshot.Message);
-                    foreach (var session in snapshot.Recipients) session.Outbox.Writer.TryWrite(bytes);
+                    foreach (var session in snapshot.Recipients)
+                        if (session.Outbox.Writer.TryWrite(bytes))
+                        {
+                            Interlocked.Add(ref snapshotBytes, bytes.Length);
+                            Interlocked.Increment(ref snapshotFrames);
+                            if (bytes.Length > 0 && bytes[0] == 0xA1) Interlocked.Increment(ref compressedFrames);
+                        }
                 }
             }
         }
