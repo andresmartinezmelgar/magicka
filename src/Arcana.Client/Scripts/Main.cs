@@ -667,6 +667,7 @@ public partial class Main : Node
         WizardSprites.ClearCache();
         Interlocked.Exchange(ref _exiting, 1); _lifetime.Cancel();
         _google?.Dispose();
+        _desktopGoogle?.Dispose();
         Accounts.Dispose();
         ArenaConnection? pending; lock (_connectionGate) pending = _pendingConnection;
         try

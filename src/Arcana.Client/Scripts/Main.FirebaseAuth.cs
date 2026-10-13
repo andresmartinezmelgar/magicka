@@ -7,6 +7,7 @@ public partial class Main
 {
     private const string FirebaseProjectId = "arcana-arena-f2997";
     private FirebaseAndroidBridge? _google;
+    private FirebaseDesktopBridge? _desktopGoogle;
     private long _sessionGeneration;
     private double _sessionCheckTimer;
     private DateTimeOffset _lastRenewRequest;
@@ -16,7 +17,7 @@ public partial class Main
     /// <summary>Autenticación SDK completada aunque Firestore haya denegado los permisos.</summary>
     public bool GoogleIdentityKnown => _googleIdentityKnown;
     public string GoogleIdentityName => _googleIdentityName;
-    public bool GoogleLoginAvailable => _google?.Available == true;
+    public bool GoogleLoginAvailable => _google?.Available == true || _desktopGoogle?.Available == true;
     public string GoogleLoginStatus => _googleStatus;
 
     private void InitializeGoogleAuthentication()
@@ -37,6 +38,15 @@ public partial class Main
         }
         else if (OS.HasFeature("android"))
             GoogleStatus("No se ha cargado el plugin nativo de Firebase. Reinstala la APK oficial.");
+        else
+        {
+            _desktopGoogle = new FirebaseDesktopBridge(ProjectSettings.GlobalizePath("user://"));
+            _desktopGoogle.SessionReceived += OnGoogleSession;
+            _desktopGoogle.Error += error => Post(() => GoogleStatus("Error de Google: " + error));
+            GoogleStatus(_desktopGoogle.Configured
+                ? "Google disponible en Windows. Entra con tu navegador."
+                : "Configura el ID OAuth de aplicación de escritorio para activar Google en Windows.");
+        }
     }
 
     public void StartGoogleLogin()
@@ -48,8 +58,16 @@ public partial class Main
                 : "Google Sign-In directo está disponible en Android. En Windows se conserva la práctica sin conexión.");
             return;
         }
-        GoogleStatus("Selecciona tu cuenta de Google en la ventana de Android…", true);
-        _google!.Login();
+        if (_desktopGoogle != null)
+        {
+            GoogleStatus("Abriendo Google en el navegador del ordenador…", true);
+            _ = _desktopGoogle.LoginAsync();
+        }
+        else
+        {
+            GoogleStatus("Selecciona tu cuenta de Google en la ventana de Android…", true);
+            _google!.Login();
+        }
     }
 
     /// <summary>Reintenta Firestore con la sesión guardada, sin volver a mostrar el selector Google.</summary>
@@ -61,7 +79,8 @@ public partial class Main
             return;
         }
         GoogleStatus("Renovando la sesión y reintentando el acceso a Firestore…", true);
-        _google!.Renew();
+        if (_desktopGoogle != null) _ = _desktopGoogle.RenewAsync();
+        else _google!.Renew();
     }
 
     private async void OnGoogleSession(FirebaseAndroidBridge.Session session)
@@ -103,6 +122,7 @@ public partial class Main
         _googleIdentityKnown = false;
         _googleIdentityName = "";
         _google?.Logout();
+        _desktopGoogle?.SignOut();
         await Accounts.SignOut(_lifetime.Token);
         SaveAccountCache();
         GoogleStatus("Sesión cerrada. No se necesita ningún servidor de cuentas para entrar.");
@@ -119,7 +139,7 @@ public partial class Main
 
     private void TickGoogleAuth(double delta)
     {
-        if (_google?.Available != true || !Accounts.HasDirectFirebaseSession) return;
+        if (!GoogleLoginAvailable || !Accounts.HasDirectFirebaseSession) return;
         _sessionCheckTimer += delta;
         if (_sessionCheckTimer < 15) return;
         _sessionCheckTimer = 0;
@@ -127,7 +147,8 @@ public partial class Main
             DateTimeOffset.UtcNow - _lastRenewRequest > TimeSpan.FromMinutes(1))
         {
             _lastRenewRequest = DateTimeOffset.UtcNow;
-            _google.Renew();
+            if (_desktopGoogle != null) _ = _desktopGoogle.RenewAsync();
+            else _google?.Renew();
         }
     }
 }
