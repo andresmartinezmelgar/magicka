@@ -50,7 +50,9 @@ public partial class AccountProfilePanel : Control
         _identity.Text = signedIn && profile != null
             ? profile.Name + "\nCuenta de Google conectada\n" +
               profile.Wins + " victorias · " + profile.Losses + " derrotas · " + profile.Gold + " oro"
-            : "No has iniciado sesión con Google.";
+            : profile != null
+                ? profile.Name + "\nPerfil e inventario guardados en este dispositivo. Modo sin conexión disponible."
+                : "Sin sesión de Google. Puedes practicar contra IA sin conexión.";
         _login.Visible = !signedIn;
         _logout.Visible = signedIn;
         _login.Disabled = _logout.Disabled = _busy;
@@ -75,10 +77,10 @@ public partial class AccountProfilePanel : Control
         {
             using var settings = System.Text.Json.JsonDocument.Parse(
                 Godot.FileAccess.GetFileAsString("res://account-server.json"));
-            string projectId = settings.RootElement.GetProperty("projectId").GetString() ?? "";
-            string address = settings.RootElement.TryGetProperty("accountUrl", out var configuredUrl) &&
-                !string.IsNullOrWhiteSpace(configuredUrl.GetString())
-                ? configuredUrl.GetString()! : await PublicAccountServer.Resolve(projectId, _lifetime.Token);
+            string address = settings.RootElement.TryGetProperty("accountUrl", out var configuredUrl)
+                ? configuredUrl.GetString()?.Trim() ?? "" : "";
+            if (address.Length == 0)
+                throw new InvalidOperationException("Google requiere el servidor independiente de cuentas. Configura accountUrl en account-server.json. Puedes jugar contra IA y consultar el inventario guardado sin conexión.");
             var config = await _main.Accounts.Configuration(address, _lifetime.Token);
             if (!config.Enabled) throw new InvalidOperationException(config.Message);
             var challenge = await _main.Accounts.BeginLogin(address, _lifetime.Token);
