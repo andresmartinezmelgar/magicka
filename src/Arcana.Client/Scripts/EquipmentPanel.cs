@@ -43,10 +43,8 @@ public partial class EquipmentPanel : Control
         var connection = new HBoxContainer(); connection.AddThemeConstantOverride("separation", 8); box.AddChild(connection);
         _address = new LineEdit { Text = address, PlaceholderText = "wss://servidor-central", CustomMinimumSize = new(240, 48), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _address.AddThemeFontSizeOverride("font_size", 20); connection.AddChild(_address);
-        _address.Visible = !_automaticServer;
-        Action(connection, "Entrar con Google", () => _ = Login(), true);
+        _address.Visible = false;
         Action(connection, "Actualizar", () => _ = Refresh());
-        Action(connection, "Cerrar sesión", () => _ = SignOut());
         _status = Ui.Label("", 18, Ui.Gold); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_status);
         var columns = new HBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
         columns.AddThemeConstantOverride("separation", 24); box.AddChild(columns);
@@ -225,32 +223,6 @@ public partial class EquipmentPanel : Control
         }
         _sell.Disabled = value || Selected() == null || !_main.Accounts.SignedIn;
     }
-    private async Task Login()
-    {
-        if (_busy) return; Busy(true, "Preparando el acceso con Google…");
-        string address = _address.Text;
-        try
-        {
-            if (_automaticServer)
-            {
-                using var settings = System.Text.Json.JsonDocument.Parse(Godot.FileAccess.GetFileAsString("res://account-server.json"));
-                address = await PublicAccountServer.Resolve(settings.RootElement.GetProperty("projectId").GetString() ?? "", _lifetime.Token);
-                _main.Post(() => { if (!_lifetime.IsCancellationRequested) _address.Text = address; });
-            }
-            var config = await _main.Accounts.Configuration(address, _lifetime.Token);
-            if (!config.Enabled) throw new InvalidOperationException(config.Message);
-            var challenge = await _main.Accounts.BeginLogin(address, _lifetime.Token);
-            _main.Post(() => { if (_lifetime.IsCancellationRequested) return; OS.ShellOpen(challenge.Url); _status.Text = "Completa el acceso con Google en el navegador y vuelve al juego."; });
-            while (DateTimeOffset.UtcNow < challenge.ExpiresAt)
-            {
-                if (await _main.Accounts.PollLogin(challenge, _lifetime.Token)) { Done("Cuenta cargada. Puedes elegir tu equipo con las flechas."); return; }
-                await Task.Delay(1000, _lifetime.Token);
-            }
-            throw new InvalidOperationException("El acceso ha caducado. Inícialo de nuevo.");
-        }
-        catch (Exception error) { Failed(error); }
-    }
-    internal void BeginGoogleLogin() => _ = Login();
     private async Task Refresh()
     {
         if (_busy) return;
@@ -287,20 +259,6 @@ public partial class EquipmentPanel : Control
         try { var result = await _main.Accounts.Sell(_selling, _lifetime.Token); Done(result.Message); }
         catch (Exception error) { Failed(error); }
         finally { _selling = ""; }
-    }
-    private async Task SignOut()
-    {
-        if (_busy) return; Busy(true);
-        try { await _main.Accounts.SignOut(_lifetime.Token); Done("Sesión cerrada."); }
-        catch (Exception error)
-        {
-            _main.Post(() =>
-            {
-                _main.SaveAccountCache();
-                if (_lifetime.IsCancellationRequested) return;
-                Render(); Busy(false, "Sesión cerrada en este dispositivo. " + error.Message);
-            });
-        }
     }
     private void Done(string message) => _main.Post(() =>
     {
