@@ -75,7 +75,7 @@ internal static class PerformanceRegressionTests
         for (int i = 0; i < 16; i++) world.AddPlayer("Mago ñ " + i);
         var state = world.Snapshot();
         var welcome = new ServerMessage { Type = "welcome", PlayerId = 1, Snapshot = state,
-            Server = new("Prueba", 27015, 27016, GameMode.Arena, 16, 16, Protocol.Version, false),
+            Server = new("Prueba", 27015, 27016, GameMode.Arena, 16, 16, Protocol.Version, false, GameVersion: BuildInfo.Version),
             Room = new("default", "Prueba", GameMode.Arena, 16, 16, 0, true, 15, 75, false) };
         var picker = new TcpListener(IPAddress.Loopback, 0);
         picker.Start(); int port = ((IPEndPoint)picker.LocalEndpoint).Port; picker.Stop();

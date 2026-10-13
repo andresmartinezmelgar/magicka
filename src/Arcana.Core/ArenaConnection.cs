@@ -249,14 +249,16 @@ public sealed class ArenaConnection : IAsyncDisposable
             stream.Write(buffer, 0, result.Count);
             Interlocked.Add(ref _bytesReceived, result.Count);
             if (!result.EndOfMessage) continue;
-            byte[] payload = stream.ToArray();
-            var message = Protocol.DeserializeFrame(payload, frameType == WebSocketMessageType.Binary);
+            // El buffer de MemoryStream ya contiene la trama completa: evitar ToArray()
+            // por snapshot. El objeto deserializado no retiene referencias al buffer.
+            ReadOnlyMemory<byte> payload = stream.GetBuffer().AsMemory(0, (int)stream.Length);
+            var message = Protocol.DeserializeFrame(payload.Span, frameType == WebSocketMessageType.Binary);
             if (message?.Type == "delta")
             {
                 if (_networkBaseline == null) { stream.SetLength(0); frameType = null; continue; }
                 // La carga binaria puede estar comprimida; reconstruimos a partir del JSON ya validado.
                 byte[] raw = frameType == WebSocketMessageType.Binary
-                    ? Protocol.DecompressSnapshotPayload(payload) : payload.ToArray();
+                    ? Protocol.DecompressSnapshotPayload(payload.Span) : payload.ToArray();
                 try { message = SnapshotDelta.Decode(raw, _networkBaseline); }
                 catch (InvalidDataException) { stream.SetLength(0); frameType = null; continue; }
             }

@@ -37,6 +37,7 @@ public partial class Main : Node
     private PracticeSession? _practiceSession;
     private PracticePanel? _practicePanel;
     private readonly GameWorld _backdrop = new(new WorldOptions { Mode = GameMode.Arena, Bots = 4 });
+    private int _backdropSnapshotFrames;
     private WorldSnapshot? _snapshot;
     private int _localId;
     private long _localSequence;
@@ -358,7 +359,18 @@ public partial class Main : Node
         if (Loading) return;
         if (_verification?.FreezeSimulation == true) return;
         if (_profiler?.Running == true) return;
-        if (!_playing) { _backdrop.Step(); _backdropSnapshot = _backdrop.Snapshot(); return; }
+        if (!_playing)
+        {
+            _backdrop.Step();
+            // Menú: mantener la simulación suave, pero evitar generar 60 snapshots/segundo
+            // de un mundo que solo sirve como fondo decorativo.
+            if (++_backdropSnapshotFrames >= (Ui.IsMobile ? 3 : 2) || _backdropSnapshot == null)
+            {
+                _backdropSnapshotFrames = 0;
+                _backdropSnapshot = _backdrop.Snapshot();
+            }
+            return;
+        }
         _inputTime += delta;
         if (_practice != null)
         {

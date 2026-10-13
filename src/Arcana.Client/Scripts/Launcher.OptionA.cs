@@ -17,12 +17,11 @@ public partial class Launcher
     private Label? _optionAPasswordLabel;
     private GridContainer? _optionAHomeCards, _optionASettingsGrid, _optionAPracticeGrid, _optionAElements;
 
-    private void ApplyOptionALayout(MarginContainer margin, HBoxContainer columns, VBoxContainer left,
+    private void ApplyOptionALayout(MarginContainer margin, HBoxContainer columns,
         VBoxContainer rightColumn, ScrollContainer scroll, CenterContainer rightCenter,
         PanelContainer panel, VBoxContainer form, HBoxContainer identity, HBoxContainer typeRow,
         Label typeInfo, HBoxContainer obsoleteFooter, Button oldHelp, Button oldExit)
     {
-        left.Visible = false;
         columns.AddThemeConstantOverride("separation", 0);
         columns.SizeFlagsVertical = SizeFlags.ExpandFill;
         columns.SizeFlagsHorizontal = SizeFlags.ExpandFill;

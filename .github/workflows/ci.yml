@@ -27,7 +27,7 @@ jobs:
       - name: Compilar cliente, servidor y pruebas
         run: dotnet build ArcanaArena.sln -c Release --nologo
       - name: Ejecutar pruebas funcionales y regresiones del motor
-        run: dotnet run --project tests/Arcana.Tests/Arcana.Tests.csproj -c Release --no-build --nologo
+        run: dotnet run --project tests/Arcana.Tests/Arcana.Tests.csproj -c Release --no-build
       - name: Compilar servidor de cuentas heredado
         run: dotnet build src/Arcana.AccountServer/Arcana.AccountServer.csproj -c Release --nologo
 

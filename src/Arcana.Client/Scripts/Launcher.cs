@@ -37,22 +37,8 @@ public partial class Launcher : Control
         var margin = new MarginContainer(); AddChild(margin); Ui.Full(margin);
         foreach (string side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, Ui.IsMobile ? 8 : 32);
         var columns = new HBoxContainer(); columns.AddThemeConstantOverride("separation", 52); margin.AddChild(columns);
-        var left = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new(410, 0) };
-        left.AddThemeConstantOverride("separation", 20); columns.AddChild(left);
-        left.AddChild(Ui.Label("ARCANA ARENA  /  " + BuildInfo.Version, 16, Ui.Gold));
-        left.AddChild(new Control { CustomMinimumSize = new(0, 80) });
-        left.AddChild(Ui.Label("ARCANA\nARENA", 68));
-        left.AddChild(Ui.Label("EL COMBATE SE ESCRIBE CON ELEMENTOS", 16, Ui.Gold));
-        var description = Ui.Label("Combina tres elementos. Lanza, protégete y cambia de magia en pleno combate.\n\nDuelo, todos contra todos y guerra por el control de la arena.", 20, Ui.Text);
-        description.AutowrapMode = TextServer.AutowrapMode.WordSmart; left.AddChild(description);
-        left.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
-        var keyboard = new GridContainer { Columns = 4 }; keyboard.AddThemeConstantOverride("h_separation", 10); keyboard.AddThemeConstantOverride("v_separation", 10); left.AddChild(keyboard);
-        foreach (var e in Enum.GetValues<Element>())
-        {
-            keyboard.AddChild(Ui.ElementTile(e));
-        }
-        left.AddChild(Ui.Label("F1 · CONTROLES, OBJETIVOS Y TIPOS DE MAGO", 13, Ui.Muted));
-        left.Visible = !Ui.IsMobile; // Same navigation on desktop and Android; only the decorative column is hidden.
+        // La columna decorativa del diseño antiguo permanecía siempre oculta.
+        // Se elimina su construcción para no cargar nodos, etiquetas y ocho iconos innecesarios.
         // En móvil, el formulario se desplaza, pero sus acciones quedan siempre al alcance del pulgar.
         var rightColumn = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
         columns.AddChild(rightColumn);
@@ -241,7 +227,7 @@ public partial class Launcher : Control
             _tabs.CurrentTab = 2;
             UpdateConnectLabel();
         }
-        ApplyOptionALayout(margin, columns, left, rightColumn, rightScroll, rightCenter, panel, form,
+        ApplyOptionALayout(margin, columns, rightColumn, rightScroll, rightCenter, panel, form,
             identity, typeRow, typeInfo, footer, help, exit);
         OpenPage(0);
     }
