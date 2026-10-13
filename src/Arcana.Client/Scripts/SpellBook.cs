@@ -12,6 +12,9 @@ public partial class SpellBook : VBoxContainer
     private ArenaRenderer _arena = null!;
     private ProgressBar _timeline = null!;
     private Button _pause = null!;
+    private GridContainer? _responsiveTop, _responsiveContent;
+    private VBoxContainer? _choicesColumn;
+    private SubViewportContainer? _responsivePreview;
     private readonly List<SpellCombination> _shown = [];
     private SpellCombination _combination = SpellCatalogue.All[0];
     private SpellDemonstration _demo = null!;
@@ -25,15 +28,21 @@ public partial class SpellBook : VBoxContainer
     public override void _Ready()
     {
         AddThemeConstantOverride("separation", 9);
-        var top = new HBoxContainer(); top.AddThemeConstantOverride("separation", 12); AddChild(top);
+        var top = new GridContainer { Columns = 2 }; _responsiveTop = top;
+        top.AddThemeConstantOverride("h_separation", 12); AddChild(top);
         _scenario = new OptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         foreach (string text in new[] { "Combinaciones", "Cruce de rayos", "Escudo prismático", "Captura de punto" }) _scenario.AddItem(text);
         top.AddChild(_scenario);
         _mode = new OptionButton();
         foreach (string text in Ui.IsMobile ? new[] { "Frontal", "Sobre ti", "Área" } : new[] { "Frontal · derecho", "Sobre ti · central", "Pulso · Mayús + derecho" }) _mode.AddItem(text);
         top.AddChild(_mode);
-        var row = new HBoxContainer(); row.AddThemeConstantOverride("separation", 14); AddChild(row);
-        var choices = new VBoxContainer { CustomMinimumSize = new(188, 0) }; row.AddChild(choices);
+        var row = new GridContainer { Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _responsiveContent = row;
+        row.AddThemeConstantOverride("h_separation", 14);
+        row.AddThemeConstantOverride("v_separation", 10); AddChild(row);
+        var choices = new VBoxContainer { CustomMinimumSize = new(188, 0) };
+        _choicesColumn = choices;
+        choices.SizeFlagsHorizontal = SizeFlags.ExpandFill; row.AddChild(choices);
         _search = new LineEdit { PlaceholderText = "EW, fuego…", Name = "SpellSearch", MaxLength = 64 }; choices.AddChild(_search);
         _list = new ItemList { CustomMinimumSize = new(188, 310), SizeFlagsVertical = SizeFlags.ExpandFill, Name = "SpellCombinations" };
         choices.AddChild(_list);
@@ -44,6 +53,7 @@ public partial class SpellBook : VBoxContainer
         _damage.AutowrapMode = TextServer.AutowrapMode.WordSmart; view.AddChild(_damage);
         var container = new SubViewportContainer { CustomMinimumSize = new(640, 230), Stretch = true,
             SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore };
+        _responsivePreview = container;
         view.AddChild(container);
         var viewport = new SubViewport { Size = new(640, 230), OwnWorld3D = true,
             RenderTargetUpdateMode = SubViewport.UpdateMode.WhenParentVisible, HandleInputLocally = false };
@@ -63,8 +73,31 @@ public partial class SpellBook : VBoxContainer
         _search.TextChanged += _ => Refresh();
         _mode.ItemSelected += _ => Restart();
         _scenario.ItemSelected += _ => Restart();
+        GetViewport().SizeChanged += UpdateResponsiveSpellBook;
+        UpdateResponsiveSpellBook();
         Refresh();
     }
+
+    private void UpdateResponsiveSpellBook()
+    {
+        float screenWidth = GetViewport().GetVisibleRect().Size.X;
+        float width = Math.Max(260, screenWidth - (Ui.IsMobile ? 95 : 145));
+        int columns = ResponsiveLayout.Columns(width, 445, 2, 14);
+        if (_responsiveTop != null) _responsiveTop.Columns = ResponsiveLayout.Columns(width, 290, 2, 12);
+        if (_responsiveContent != null) _responsiveContent.Columns = columns;
+        if (_choicesColumn != null) _choicesColumn.CustomMinimumSize = new Vector2(columns == 2 ? 188 : 0, 0);
+        if (_list != null)
+            _list.CustomMinimumSize = new Vector2(columns == 2 ? 188 : 0, columns == 2 ? 310 : 140);
+        if (_responsivePreview != null)
+        {
+            float previewWidth = Math.Max(260, Math.Min(640, columns == 2 ? width - 210 : width));
+            _responsivePreview.CustomMinimumSize = new Vector2(previewWidth, 230);
+            if (_description != null) _description.CustomMinimumSize = new Vector2(previewWidth, 55);
+        }
+    }
+
+    public override void _ExitTree() => GetViewport().SizeChanged -= UpdateResponsiveSpellBook;
+
     private void Refresh()
     {
         string query = _search.Text.Trim().ToUpperInvariant();

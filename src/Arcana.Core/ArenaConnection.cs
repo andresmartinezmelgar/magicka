@@ -245,7 +245,7 @@ public sealed class ArenaConnection : IAsyncDisposable
             if (result.MessageType is not (WebSocketMessageType.Text or WebSocketMessageType.Binary) ||
                 frameType != null && frameType != result.MessageType) throw new IOException("Respuesta de red inválida.");
             frameType = result.MessageType;
-            if (stream.Length + result.Count > 256 * 1024) throw new IOException("Respuesta de red demasiado grande.");
+            if (stream.Length + result.Count > Protocol.MaxSnapshotBytes) throw new IOException("Respuesta de red demasiado grande.");
             stream.Write(buffer, 0, result.Count);
             Interlocked.Add(ref _bytesReceived, result.Count);
             if (!result.EndOfMessage) continue;
