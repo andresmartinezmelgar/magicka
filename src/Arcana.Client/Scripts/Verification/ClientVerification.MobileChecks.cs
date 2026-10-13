@@ -121,7 +121,28 @@ public partial class ClientVerification
                     Require(_runtime.Renderer.Walls.Values.Any(w => w.Stone && w.HasElementSurface) && _runtime.Renderer.Fields.Values.OfType<MeteorVisual>().Any(),
                         "Los nuevos escudos y el meteorito no llegaron al renderer móvil.");
                     break;
-                case 72:
+                case 75:
+                    ReadyForSpell(); Tap(Element.Earth); Down(0, move); Down(1, aim);
+                    Require(player.Charging != null, "No empieza la carga antes de abrir ayuda."); _runtime.ToggleHelp();
+                    Require(!touch.Visible && touch.Movement.IsZeroApprox() && player.Charging == null, "Abrir ayuda no cancela todos los dedos.");
+                    Require(!touch.Touch(3, global + move, true), "La ayuda permite que un toque alcance la partida.");
+                    _runtime.ToggleHelp(); Require(touch.Visible, "Cerrar ayuda no restaura los controles.");
+                    break;
+                case 90:
+                    ReadyForSpell(); Tap(Element.Earth); Down(0, move); Down(1, aim);
+                    Require(player.Charging != null, "No empieza la carga antes de pasar a segundo plano.");
+                    _runtime.Notify((int)NotificationApplicationPaused);
+                    Require(_runtime.Paused && !touch.Visible && touch.Movement.IsZeroApprox() && player.Charging == null, "Pasar a segundo plano no detiene la entrada.");
+                    _runtime.Notify((int)NotificationWMGoBackRequest);
+                    Require(!_runtime.Paused && touch.Visible, "Atrás no cierra la pausa.");
+                    _runtime.Hud!.ScoreOpen = true; _runtime.Hud.Update(_runtime.Practice.Snapshot(), _runtime.LocalId, "Prueba móvil", 0.1);
+                    Require(_runtime.Hud.ScoreOpen, "No se puede abrir la tabla sin teclado.");
+                    _runtime.Hud.ScoreOpen = false;
+                    break;
+                case 160:
+                    Require(_runtime.Practice.Snapshot().Events.Any(e => e.Kind == "explosion" && e.Text == "Meteoro") &&
+                        _runtime.Renderer.Effects.SeenKinds.Contains("explosion") && !_runtime.Renderer.Fields.Values.OfType<MeteorVisual>().Any(),
+                        "El meteorito no completó su caída e impacto en el renderer móvil.");
                     // Agua + frío también es instantáneo: antes se disparaba al
                     // apoyar el dedo con una dirección anterior o arbitraria.
                     ReadyForSpell();
@@ -154,29 +175,6 @@ public partial class ClientVerification
                         "Cancelar el gesto de hielo ha lanzado el hechizo o consumido elementos.");
                     _runtime.Submit(new() { Type = "clear" });
                     GD.Print("MOBILE_ICE_AIM_OK: agua y frío esperan a soltar y respetan la dirección final.");
-                    break;
-                case 75:
-                    ReadyForSpell(); Tap(Element.Earth); Down(0, move); Down(1, aim);
-                    Require(player.Charging != null, "No empieza la carga antes de abrir ayuda."); _runtime.ToggleHelp();
-                    Require(!touch.Visible && touch.Movement.IsZeroApprox() && player.Charging == null, "Abrir ayuda no cancela todos los dedos.");
-                    Require(!touch.Touch(3, global + move, true), "La ayuda permite que un toque alcance la partida.");
-                    _runtime.ToggleHelp(); Require(touch.Visible, "Cerrar ayuda no restaura los controles.");
-                    break;
-                case 90:
-                    ReadyForSpell(); Tap(Element.Earth); Down(0, move); Down(1, aim);
-                    Require(player.Charging != null, "No empieza la carga antes de pasar a segundo plano.");
-                    _runtime.Notify((int)NotificationApplicationPaused);
-                    Require(_runtime.Paused && !touch.Visible && touch.Movement.IsZeroApprox() && player.Charging == null, "Pasar a segundo plano no detiene la entrada.");
-                    _runtime.Notify((int)NotificationWMGoBackRequest);
-                    Require(!_runtime.Paused && touch.Visible, "Atrás no cierra la pausa.");
-                    _runtime.Hud!.ScoreOpen = true; _runtime.Hud.Update(_runtime.Practice.Snapshot(), _runtime.LocalId, "Prueba móvil", 0.1);
-                    Require(_runtime.Hud.ScoreOpen, "No se puede abrir la tabla sin teclado.");
-                    _runtime.Hud.ScoreOpen = false;
-                    break;
-                case 160:
-                    Require(_runtime.Practice.Snapshot().Events.Any(e => e.Kind == "explosion" && e.Text == "Meteoro") &&
-                        _runtime.Renderer.Effects.SeenKinds.Contains("explosion") && !_runtime.Renderer.Fields.Values.OfType<MeteorVisual>().Any(),
-                        "El meteorito no completó su caída e impacto en el renderer móvil.");
                     Require(CheckTranslationInput(), "Traslación conserva el destino anterior o no continúa desde la llegada.");
                     Require(CheckRespawnInput(), "La reaparición conserva la entrada de la vida anterior.");
                     CompleteSmoke("MOBILE_SMOKE_OK: multitáctil, roca, escudo personal, piedra y fuego, caída e impacto del meteorito, cancelación, ayuda, pausa y Atrás");
