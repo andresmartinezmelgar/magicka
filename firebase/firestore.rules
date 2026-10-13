@@ -14,7 +14,21 @@ service cloud.firestore {
     // Lectura exclusiva del propietario; escrituras solo mediante Admin SDK.
     match /users/{uid} {
       allow get: if request.auth != null && request.auth.uid == uid;
-      allow list, create, update, delete: if false;
+      // Alta autónoma: se permite exclusivamente el perfil vacío del propietario.
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['uid', 'name', 'gold', 'wins', 'losses', 'itemCount', 'schemaVersion'])
+        && request.resource.data.keys().hasAll(['uid', 'name', 'gold', 'wins', 'losses', 'itemCount', 'schemaVersion'])
+        && request.resource.data.uid == uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 64
+        && request.resource.data.gold == 0
+        && request.resource.data.wins == 0
+        && request.resource.data.losses == 0
+        && request.resource.data.itemCount == 0
+        && request.resource.data.schemaVersion == 1;
+      allow list, update, delete: if false;
       match /items/{itemId} {
         allow get, list: if request.auth != null && request.auth.uid == uid;
         allow write: if false;
