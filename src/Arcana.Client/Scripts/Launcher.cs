@@ -25,6 +25,7 @@ public partial class Launcher : Control
     private Button _menuBack = null!;
     private int _page;
     private Label _profileSummary = null!, _wizardDescription = null!;
+    private Button _accountButton = null!;
 
     public void Build(Main main)
     {
@@ -76,8 +77,8 @@ public partial class Launcher : Control
         _name = new LineEdit { Text = _config.GetValue("player", "name", "Mago").AsString(), MaxLength = 24, CustomMinimumSize = new(0, 45) }; nameColumn.AddChild(_name);
         var accountButtons = new VBoxContainer(); accountButtons.AddThemeConstantOverride("separation", 8); nameColumn.AddChild(accountButtons);
         accountButtons.AddChild(Ui.Button("Inventario", () => _main.OpenEquipment("automatic")));
-        accountButtons.AddChild(Ui.Button("Entrar o registrarse con Google", () => _main.OpenEquipment("automatic", googleLogin: true)));
-        accountButtons.AddChild(Ui.Button("Jugar online", () => _ = OpenPublicRooms()));
+        _accountButton = Ui.Button("Mi cuenta de Google", () => _main.OpenAccountProfile());
+        accountButtons.AddChild(_accountButton);
         var teamColumn = new VBoxContainer { CustomMinimumSize = new(172, 0) }; identity.AddChild(teamColumn);
         teamColumn.AddChild(Ui.Label("Equipo", 14, Ui.Muted));
         _team = Ui.TeamChoice(_config.GetValue("player", "team", -1).AsInt32());
@@ -96,9 +97,9 @@ public partial class Launcher : Control
         _tabs = new TabContainer(); _playBody.AddChild(_tabs);
         var ip = TabBox("Por IP");
         ip.AddChild(Ui.Label("IP o nombre del servidor", 14, Ui.Muted));
-        _address = new LineEdit { Text = _config.GetValue("network", "address", "127.0.0.1:27015").AsString(),
+        _address = new LineEdit { Text = DefaultServerAddress(),
             PlaceholderText = "192.168.1.20:27015", CustomMinimumSize = new(0, 45) }; ip.AddChild(_address);
-        ip.AddChild(Ui.Label("También admite ws:// y wss:// con ruta personalizada.", 14, Ui.Muted));
+        ip.AddChild(Ui.Label("Introduce la IP local del ordenador que aloja la partida. Ejemplo: 192.168.1.20:27015. Para servidores públicos se admite wss://.", 14, Ui.Muted));
         var lan = TabBox("LAN");
         var lanActions = new HBoxContainer(); lanActions.AddThemeConstantOverride("separation", 10); lan.AddChild(lanActions);
         _refresh = Ui.Button("Buscar servidores", StartSearch); _refresh.SizeFlagsHorizontal = SizeFlags.ExpandFill; lanActions.AddChild(_refresh);
@@ -139,6 +140,9 @@ public partial class Launcher : Control
         botControls.AddChild(fewerBots);
         _bots = new SpinBox { MinValue = 1, MaxValue = 7, Step = 1, Value = 3,
             Rounded = true, CustomMinimumSize = new Vector2(85, 56), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _bots.GetLineEdit().ContextMenuEnabled = false;
+        _bots.GetLineEdit().Editable = false;
+        _bots.GetLineEdit().MouseFilter = MouseFilterEnum.Ignore;
         botControls.AddChild(_bots);
         var moreBots = Ui.Button("+", () => _bots.Value = Math.Min(_bots.MaxValue, _bots.Value + 1));
         moreBots.CustomMinimumSize = new Vector2(64, 56);
@@ -149,7 +153,7 @@ public partial class Launcher : Control
             _main.StartPractice(_name.Text, 0, GameMode.Warfare, 0, (WizardType)_wizardType.GetSelectedId(), ArenaMapId.Practice));
         laboratory.Name = "PracticeLaboratoryButton"; practice.AddChild(laboratory);
         practice.AddChild(Ui.Label("El duelo usa un bot. No requiere iniciar un servidor.", 13, Ui.Muted));
-        practice.AddChild(Ui.Button("Medir rendimiento gráfico", () => _main.StartRenderProfile((ArenaMapId)_practiceMap.GetSelectedId())));
+        
         var hosting = TabBox("Alojar");
         _hostName = new LineEdit { Text = _config.GetValue("host", "name", "Partida local").AsString(),
             MaxLength = 32, PlaceholderText = "Nombre del servidor", CustomMinimumSize = new(0, 42) }; hosting.AddChild(_hostName);
@@ -168,10 +172,6 @@ public partial class Launcher : Control
         _firewall = Ui.Button("Permitir LAN", ConfigureLan); _firewall.SizeFlagsHorizontal = SizeFlags.ExpandFill; hostActions.AddChild(_firewall);
         _firewall.Disabled = !OperatingSystem.IsWindows();
         _firewall.TooltipText = "Windows pedirá permiso de administrador para permitir estos dos puertos al servidor en redes privadas.";
-        var firebaseSetup = Ui.Button("Configurar Firebase gratis (archivos privados)", OpenLocalFirebaseFolder);
-        firebaseSetup.Disabled = !OperatingSystem.IsWindows();
-        firebaseSetup.TooltipText = "Prepara los archivos de Firebase fuera del paquete del juego; sin cuenta de pago.";
-        hosting.AddChild(firebaseSetup);
         form.AddChild(Ui.Label("Contraseña del servidor (si tiene)", 14, Ui.Muted));
         _password = new LineEdit { Secret = true, MaxLength = 128, PlaceholderText = "Opcional", CustomMinimumSize = new(0, 42) }; _playBody.AddChild(_password);
         _connect = Ui.Button("Ver salas por IP", Connect, true); _playBody.AddChild(_connect);
@@ -179,8 +179,6 @@ public partial class Launcher : Control
         _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; _status.CustomMinimumSize = new(0, 45); _playBody.AddChild(_status);
         var footer = new HBoxContainer(); _playBody.AddChild(footer);
         var help = Ui.Button("Cómo jugar", () => _main.ToggleHelp()); help.SizeFlagsHorizontal = SizeFlags.ExpandFill; footer.AddChild(help);
-        var diagnostic = Ui.Button("Diagnóstico", _main.ExportDiagnostics); diagnostic.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        diagnostic.TooltipText = "Exporta registros y contexto de la partida a un ZIP para investigar errores."; footer.AddChild(diagnostic);
         var exit = Ui.Button("Salir", () => GetTree().Quit()); exit.SizeFlagsHorizontal = SizeFlags.ExpandFill; footer.AddChild(exit);
         _tabs.TabChanged += tab =>
         {
@@ -192,8 +190,8 @@ public partial class Launcher : Control
         _host.UnexpectedExit += code => _main.Post(() =>
         {
             SetBusy(false); _hostPassword = ""; UpdateConnectLabel();
-            _hostInfo.Text = $"El servidor terminó (código {code}). Puedes iniciarlo otra vez y exportar el diagnóstico.";
-            ShowError("El servidor local ha terminado inesperadamente. Consulta los registros o exporta el diagnóstico.");
+            _hostInfo.Text = $"El servidor terminó (código {code}). Puedes iniciarlo otra vez.";
+            ShowError("El servidor local ha terminado inesperadamente. Consulta los registros.");
         });
         if (Ui.IsMobile) { _tabs.SetTabHidden(3, true); _tabs.SetTabDisabled(3, true); _tabs.CurrentTab = 2; UpdateConnectLabel(); }
         OpenPage(0);
@@ -206,8 +204,10 @@ public partial class Launcher : Control
         if (page == 0)
         {
             var profile = _main.Accounts.Profile;
-            _profileSummary.Text = profile == null ? _name.Text + " · Sin iniciar sesión"
-                : $"{_name.Text} · {profile.Wins} victorias · {profile.Losses} derrotas · {profile.Gold} oro";
+            _profileSummary.Text = _main.Accounts.SignedIn && profile != null
+                ? $"🧙 {profile.Name} · Google conectado\\n{profile.Wins} victorias · {profile.Losses} derrotas · {profile.Gold} oro"
+                : "🧙 " + _name.Text + " · Sin iniciar sesión";
+            _accountButton.Text = _main.Accounts.SignedIn ? "Mi cuenta de Google · Conectado" : "Entrar o registrarse con Google";
         }
         _playBody.Visible = page != 0;
         ((Control)_name.GetParent()).Visible = page == 3;
@@ -231,6 +231,13 @@ public partial class Launcher : Control
         if (page == 1 && _tabs.CurrentTab == 2) _tabs.CurrentTab = 1;
         if (page == 3) Remember();
         UpdateConnectLabel();
+    }
+
+    private string DefaultServerAddress()
+    {
+        string saved = _config.GetValue("network", "address", "127.0.0.1:27015").AsString();
+        return saved.Contains("system-create-specifically-brunette.traycloudfire.com", StringComparison.OrdinalIgnoreCase)
+            ? "127.0.0.1:27015" : saved;
     }
 
     private VBoxContainer TabBox(string name)
@@ -289,19 +296,6 @@ public partial class Launcher : Control
         }
         OpenRooms(address, _password.Text);
     }
-    private async Task OpenPublicRooms()
-    {
-        if (_busy) return;
-        SetBusy(true, "Buscando el servidor…");
-        try
-        {
-            using var settings = System.Text.Json.JsonDocument.Parse(Godot.FileAccess.GetFileAsString("res://account-server.json"));
-            string address = await PublicAccountServer.Resolve(settings.RootElement.GetProperty("projectId").GetString() ?? "");
-            _main.Post(() => { if (!IsInsideTree()) return; SetBusy(false); _address.Text = address; Remember(); OpenRooms(address, _password.Text); });
-        }
-        catch (Exception error) { _main.Post(() => { if (IsInsideTree()) ShowError(error.Message); }); }
-    }
-
     private void OpenRooms(string address, string password)
     {
         CancelSearch(); _main.CancelPendingConnection(); CloseRooms();
@@ -355,7 +349,7 @@ public partial class Launcher : Control
         catch (Exception e)
         {
             Diagnostics.Warn("launcher.host_failed", "No se pudo iniciar el servidor incluido.", e);
-            _main.Post(() => ShowError(e is InvalidOperationException or ArgumentException or IOException ? e.Message : "No se pudo iniciar el servidor incluido. Exporta el diagnóstico para revisar el error."));
+            _main.Post(() => ShowError(e is InvalidOperationException or ArgumentException or IOException ? e.Message : "No se pudo iniciar el servidor incluido. Consulta los registros."));
         }
     }
     public static string PackageDirectory() => OS.HasFeature("editor") ? ProjectSettings.GlobalizePath("res://../../artifacts/windows")
@@ -368,30 +362,6 @@ public partial class Launcher : Control
         await _host.StartAsync(PackageDirectory(), ProjectSettings.GlobalizePath("user://"), new("Prueba de launcher", 29025, 29026, ""));
         return await RoomBrowser.CreateAsync(_host.Address, new() { Name = "Sala del launcher", Bots = 1 });
     }
-    private void OpenLocalFirebaseFolder()
-    {
-        if (!OperatingSystem.IsWindows()) return;
-        try
-        {
-            string directory = LocalFirebaseHosting.DirectoryPath(ProjectSettings.GlobalizePath("user://"));
-            System.IO.Directory.CreateDirectory(directory);
-            string template = System.IO.Path.Combine(directory, "server.example.json");
-            if (!System.IO.File.Exists(template))
-                System.IO.File.WriteAllText(template, Protocol.Serialize(new
-                {
-                    projectId = "ID-DE-TU-PROYECTO",
-                    apiKey = "API-KEY-PUBLICA-DE-TU-APP-WEB",
-                    authDomain = "ID-DE-TU-PROYECTO.firebaseapp.com",
-                    publicUrl = "http://localhost:" + (int)_hostPort.Value,
-                    autoPublicHosting = true
-                }));
-            OS.ShellOpen(directory);
-            ShowStatus("Configuración inicial: copia server.example.json como server.local.json, completa el proyecto y coloca service-account.json aquí. Alojar preparará HTTPS automáticamente.");
-        }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
-        { ShowError("No se pudo preparar la carpeta privada de Firebase: " + error.Message); }
-    }
-
     private async void ConfigureLan()
     {
         if (_busy || !OperatingSystem.IsWindows()) return;
