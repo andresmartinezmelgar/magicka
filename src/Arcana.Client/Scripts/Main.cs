@@ -91,6 +91,7 @@ public partial class Main : Node
         _networkPanel = networkPanel;
         networkPanel.Visible = false;
         _launcher = new Launcher(); _ui.AddChild(_launcher); _launcher.Build(this);
+        InitializeGoogleAuthentication();
         AddChild(new ReleaseUpdateNotice());
         _help = BuildHelp(); _ui.AddChild(_help); _help.Visible = false;
         _pause = BuildPause(); _ui.AddChild(_pause); _pause.Visible = false;
@@ -272,6 +273,7 @@ public partial class Main : Node
                 Diagnostics.Error("client.callback_failed", "Fallo en una operación de interfaz.", e, Context());
                 if (_verification?.FailFrame(e) == true) return;
             }
+        TickGoogleAuth(delta);
         _renderFrames++;
         if (CheckAccountEntrySmoke()) return;
         if (CheckPublicEquipmentSmoke()) return;
@@ -659,6 +661,7 @@ public partial class Main : Node
         CancelGameLoading();
         WizardSprites.ClearCache();
         Interlocked.Exchange(ref _exiting, 1); _lifetime.Cancel();
+        _google?.Dispose();
         Accounts.Dispose();
         ArenaConnection? pending; lock (_connectionGate) pending = _pendingConnection;
         try
