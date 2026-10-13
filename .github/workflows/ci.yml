@@ -92,6 +92,270 @@ jobs:
           $version = (Get-Content VERSION -Raw).Trim()
           New-Item -ItemType Directory -Path artifacts -Force | Out-Null
           Compress-Archive -Path Juego/* -DestinationPath "artifacts/ArcanaArena-v$version-Windows-x64.zip"
+      - name: Verificar OAuth dentro del ZIP Windows
+        shell: pwsh
+        env:
+          ARCANA_GOOGLE_DESKTOP_OAUTH_BASE64: ${{ secrets.ARCANA_GOOGLE_DESKTOP_OAUTH_BASE64 }}
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          $zip = "artifacts/ArcanaArena-v$version-Windows-x64.zip"
+          Add-Type -AssemblyName System.IO.Compression
+          $archive = [IO.Compression.ZipFile]::OpenRead((Resolve-Path $zip))
+          try {
+            $entry = $archive.Entries | Where-Object { $_.FullName -eq 'google-desktop-oauth.json' } | Select-Object -First 1
+            if ([string]::IsNullOrWhiteSpace($env:ARCANA_GOOGLE_DESKTOP_OAUTH_BASE64)) {
+              if ($entry) { throw 'El ZIP contiene OAuth sin secreto configurado: revisar el empaquetado.' }
+              Write-Host '::warning::Windows Google OAuth NO incluido: configurar ARCANA_GOOGLE_DESKTOP_OAUTH_BASE64 en GitHub Actions.'
+            } else {
+              if (!$entry -or $entry.Length -lt 30) { throw 'El ZIP final no contiene google-desktop-oauth.json a pesar del secreto configurado.' }
+              $reader = [IO.StreamReader]::new($entry.Open())
+              try { $json = $reader.ReadToEnd() | ConvertFrom-Json } finally { $reader.Dispose() }
+              if (!$json.installed.client_id -or $json.installed.client_id -notmatch '^[a-zA-Z0-9_-]+[.]apps[.]googleusercontent[.]com
+          path: artifacts/ArcanaArena-*-Windows-x64.zip
+          retention-days: 14
+
+  package-android:
+    name: Generar APK Android sin emulador
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Preparar Android SDK
+        run: |
+          sdk="$RUNNER_TEMP/android-sdk"
+          mkdir -p "$sdk/cmdline-tools"
+          curl --retry 5 --retry-delay 3 --retry-all-errors --http1.1 -fL https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip -o "$RUNNER_TEMP/android-cli.zip"
+          unzip -q "$RUNNER_TEMP/android-cli.zip" -d "$sdk/cmdline-tools"
+          mv "$sdk/cmdline-tools/cmdline-tools" "$sdk/cmdline-tools/latest"
+          yes | "$sdk/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$sdk" --licenses >/dev/null || true
+          "$sdk/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$sdk" 'platform-tools' 'build-tools;35.0.0' 'platforms;android-35'
+          echo "ANDROID_HOME=$sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$sdk" >> "$GITHUB_ENV"
+      - name: Preparar Godot y plantillas
+        run: |
+          curl -fL https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_mono_linux_x86_64.zip -o /tmp/godot.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
+          curl -fL https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_mono_export_templates.tpz -o /tmp/templates.tpz
+          python3 - <<'PY'
+          import zipfile
+          from pathlib import Path
+          with zipfile.ZipFile('/tmp/templates.tpz') as z:
+              version=z.read('templates/version.txt').decode().strip()
+              target=Path.home()/'.local/share/godot/export_templates'/version
+              target.mkdir(parents=True,exist_ok=True)
+              for name in ('android_debug.apk','android_release.apk','android_source.zip','version.txt'):
+                  (target/name).write_bytes(z.read('templates/'+name))
+          PY
+          echo "ARCANA_GODOT=/tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64" >> "$GITHUB_ENV"
+      - name: Compilar plugin nativo Firebase para Android
+        run: |
+          gradle -p android/firebase-plugin :plugin:assembleRelease --no-daemon
+          mkdir -p src/Arcana.Client/addons/arcana_firebase
+          cp android/firebase-plugin/plugin/build/outputs/aar/plugin-release.aar src/Arcana.Client/addons/arcana_firebase/ArcanaFirebase.aar
+          test -s src/Arcana.Client/addons/arcana_firebase/ArcanaFirebase.aar
+      - name: Compilar cliente e importar recursos
+        run: |
+          dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
+          "$ARCANA_GODOT" --headless --editor --path src/Arcana.Client --import
+      - name: Verificar visibilidad de botones PvP y versus IA en modo móvil
+        run: |
+          set -o pipefail
+          "$ARCANA_GODOT" --headless --path src/Arcana.Client -- --mobile-menu-smoke 2>&1 | tee "$RUNNER_TEMP/mobile-menu-smoke.log"
+          grep -q 'MOBILE_MENU_LAYOUT_OK' "$RUNNER_TEMP/mobile-menu-smoke.log"
+      - name: Verificar ventana de actualización y botones en pantalla
+        run: |
+          set -o pipefail
+          "$ARCANA_GODOT" --headless --path src/Arcana.Client -- --update-ui-smoke 2>&1 | tee "$RUNNER_TEMP/update-ui-desktop.log"
+          grep -q 'UPDATE_NOTICE_LAYOUT_OK' "$RUNNER_TEMP/update-ui-desktop.log"
+          "$ARCANA_GODOT" --headless --path src/Arcana.Client -- --mobile --update-ui-smoke 2>&1 | tee "$RUNNER_TEMP/update-ui-mobile.log"
+          grep -q 'UPDATE_NOTICE_LAYOUT_OK' "$RUNNER_TEMP/update-ui-mobile.log"
+      - name: Verificar en simulación táctil el apuntado de hielo y escudos
+        run: |
+          set -o pipefail
+          timeout 160s "$ARCANA_GODOT" --headless --audio-driver Dummy --path src/Arcana.Client -- --mobile-smoke 2>&1 | tee "$RUNNER_TEMP/mobile-spell-smoke.log"
+          grep -q 'MOBILE_ICE_AIM_OK' "$RUNNER_TEMP/mobile-spell-smoke.log"
+          grep -q 'MOBILE_SMOKE_OK' "$RUNNER_TEMP/mobile-spell-smoke.log"
+          ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/mobile-spell-smoke.log"
+      - name: Generar APK ARM64
+        run: bash scripts/package-android.sh "$ARCANA_GODOT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ArcanaArena-Android-arm64
+          path: |
+            artifacts/android/*-Android-arm64.apk
+            artifacts/android/SHA256SUMS-Android.txt
+          retention-days: 14
+
+  publish-android-first:
+    name: Publicar APK Android firmada sin esperar a Windows
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build, firestore-rules, package-android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ArcanaArena-Android-arm64
+          path: dist
+      - name: Instalar herramientas de firma Android
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq apksigner
+      - name: Firmar Android con el certificado permanente y verificar
+        env:
+          ARCANA_KEYSTORE_BASE64: ${{ secrets.ARCANA_KEYSTORE_BASE64 }}
+          ARCANA_KEYSTORE_PASSWORD: ${{ secrets.ARCANA_KEYSTORE_PASSWORD }}
+          ARCANA_KEY_ALIAS: ${{ secrets.ARCANA_KEY_ALIAS }}
+          ARCANA_KEY_PASSWORD: ${{ secrets.ARCANA_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for key in ARCANA_KEYSTORE_BASE64 ARCANA_KEYSTORE_PASSWORD ARCANA_KEY_ALIAS ARCANA_KEY_PASSWORD; do
+            test -n "${!key}" || { echo "::error::Falta la clave de firma: $key"; exit 1; }
+          done
+          version=$(tr -d '\r\n' < VERSION)
+          apk="dist/ArcanaArena-v$version-Android-arm64.apk"
+          test -s "$apk"
+          printf '%s' "$ARCANA_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/arcana-release.jks"
+          chmod 600 "$RUNNER_TEMP/arcana-release.jks"
+          printf '%s' "$ARCANA_KEYSTORE_PASSWORD" > "$RUNNER_TEMP/storepass"
+          printf '%s' "$ARCANA_KEY_PASSWORD" > "$RUNNER_TEMP/keypass"
+          chmod 600 "$RUNNER_TEMP/storepass" "$RUNNER_TEMP/keypass"
+          apksigner sign --ks "$RUNNER_TEMP/arcana-release.jks" --ks-key-alias "$ARCANA_KEY_ALIAS" --ks-pass "file:$RUNNER_TEMP/storepass" --key-pass "file:$RUNNER_TEMP/keypass" "$apk"
+          apksigner verify --verbose --print-certs "$apk"
+          (cd dist && sha256sum "ArcanaArena-v$version-Android-arm64.apk" > SHA256SUMS-Android.txt)
+          rm -f "$RUNNER_TEMP/arcana-release.jks" "$RUNNER_TEMP/storepass" "$RUNNER_TEMP/keypass"
+      - name: Publicar APK firmada antes que Windows
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(tr -d '\r\n' < VERSION)
+          tag="v$version"
+          apk="dist/ArcanaArena-v$version-Android-arm64.apk"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$apk" dist/SHA256SUMS-Android.txt --clobber
+          elif ! gh release create "$tag" "$apk" dist/SHA256SUMS-Android.txt --target "$GITHUB_SHA" \
+              --title "Arcana Arena $tag" \
+              --notes "APK Android firmada y verificada. Windows se adjuntará al terminar su empaquetado."; then
+            gh release upload "$tag" "$apk" dist/SHA256SUMS-Android.txt --clobber
+          fi
+
+  release-on-tag:
+    name: Publicar artefactos al crear un tag
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    needs: [build, firestore-rules, package-windows, package-android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Comprobar version del tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(tr -d '\r\n' < VERSION)
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            test "$GITHUB_REF_NAME" = "v$version" || { echo "::error::El tag no coincide con VERSION ($version)."; exit 1; }
+          fi
+      - uses: actions/download-artifact@v4
+        with:
+          name: ArcanaArena-Windows-x64
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: ArcanaArena-Android-arm64
+          path: dist
+      - name: Validar artefactos y generar hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(tr -d '\r\n' < VERSION)
+          test -s "dist/ArcanaArena-v$version-Windows-x64.zip"
+          test -s "dist/ArcanaArena-v$version-Android-arm64.apk"
+          cd dist
+          sha256sum "ArcanaArena-v$version-Windows-x64.zip" "ArcanaArena-v$version-Android-arm64.apk" > SHA256SUMS.txt
+      - name: Instalar herramientas de firma Android
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq apksigner
+      - name: Firmar APK con clave permanente y verificarla
+        if: github.ref != 'refs/heads/main'
+        env:
+          ARCANA_KEYSTORE_BASE64: ${{ secrets.ARCANA_KEYSTORE_BASE64 }}
+          ARCANA_KEYSTORE_PASSWORD: ${{ secrets.ARCANA_KEYSTORE_PASSWORD }}
+          ARCANA_KEY_ALIAS: ${{ secrets.ARCANA_KEY_ALIAS }}
+          ARCANA_KEY_PASSWORD: ${{ secrets.ARCANA_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in ARCANA_KEYSTORE_BASE64 ARCANA_KEYSTORE_PASSWORD ARCANA_KEY_ALIAS ARCANA_KEY_PASSWORD; do
+            if [ -z "${!key}" ]; then
+              echo "::error::Falta el secreto $key; no se publicara ninguna APK con firma temporal."
+              exit 1
+            fi
+          done
+          version=$(tr -d '\r\n' < VERSION)
+          apk="dist/ArcanaArena-v$version-Android-arm64.apk"
+          printf '%s' "$ARCANA_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/arcana-release.jks"
+          chmod 600 "$RUNNER_TEMP/arcana-release.jks"
+          printf '%s' "$ARCANA_KEYSTORE_PASSWORD" > "$RUNNER_TEMP/storepass"
+          printf '%s' "$ARCANA_KEY_PASSWORD" > "$RUNNER_TEMP/keypass"
+          chmod 600 "$RUNNER_TEMP/storepass" "$RUNNER_TEMP/keypass"
+          apksigner sign --ks "$RUNNER_TEMP/arcana-release.jks" --ks-key-alias "$ARCANA_KEY_ALIAS" --ks-pass "file:$RUNNER_TEMP/storepass" --key-pass "file:$RUNNER_TEMP/keypass" "$apk"
+          apksigner verify --verbose --print-certs "$apk"
+          (cd dist && sha256sum "ArcanaArena-v$version-Windows-x64.zip" "ArcanaArena-v$version-Android-arm64.apk" > SHA256SUMS.txt)
+          rm -f "$RUNNER_TEMP/arcana-release.jks" "$RUNNER_TEMP/storepass" "$RUNNER_TEMP/keypass"
+      - name: Crear Release de GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(tr -d '\r\n' < VERSION)
+          tag="v$version"
+          if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
+            # APK firmada: solo publish-android-first. Este job solo publica Windows.
+            # Así no compiten dos trabajos por el mismo asset y nunca se borra la APK.
+            (cd dist && sha256sum "ArcanaArena-v$version-Windows-x64.zip" > SHA256SUMS-Windows.txt)
+            if gh release view "$tag" >/dev/null 2>&1; then
+              gh release upload "$tag" dist/*.zip dist/SHA256SUMS-Windows.txt --clobber
+            elif ! gh release create "$tag" dist/*.zip dist/SHA256SUMS-Windows.txt \
+                --target "$GITHUB_SHA" \
+                --title "Arcana Arena $tag" \
+                --notes "Windows y Android se publican de forma independiente con verificación de firma APK."; then
+              # El trabajo Android puede haber creado la Release simultáneamente.
+              sleep 3
+              gh release view "$tag" >/dev/null
+              gh release upload "$tag" dist/*.zip dist/SHA256SUMS-Windows.txt --clobber
+            fi
+          elif gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/*.zip dist/*.apk dist/SHA256SUMS.txt --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/*.zip dist/*.apk dist/SHA256SUMS.txt \
+              --title "Arcana Arena $GITHUB_REF_NAME" \
+              --notes "Compilacion automatica desde tag. Validacion funcional en dispositivos a cargo del usuario." \
+              --verify-tag
+          fi
+) {
+                throw 'El ZIP tiene un cliente OAuth de escritorio invalido.'
+              }
+              Write-Host 'WINDOWS_OAUTH_BUNDLED_OK'
+            }
+          } finally { $archive.Dispose() }
       - uses: actions/upload-artifact@v4
         with:
           name: ArcanaArena-Windows-x64

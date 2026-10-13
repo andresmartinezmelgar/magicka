@@ -52,6 +52,23 @@ No requiere levantar el servidor de partidas o de cuentas. La sesión
 se conserva en memoria mientras se ejecuta el juego; al cerrar el proceso
 se requiere una nueva autenticación.
 
+## Que incluye cada paquete
+
+- **Android (APK)**: la configuracion publica de Firebase se compila en
+  `ArcanaFirebasePlugin` (identificador de aplicacion, identificador de
+  proyecto, clave API publica e identificador de cliente OAuth web). No es
+  necesario ni conveniente copiar `google-services.json` como fichero
+  independiente a la APK. La prueba del empaquetado verifica esos valores
+  directamente en `classes.dex`.
+- **Windows (ZIP)**: incluye `google-desktop-oauth.json` junto al ejecutable
+  **solo si** GitHub Actions recibe el secreto
+  `ARCANA_GOOGLE_DESKTOP_OAUTH_BASE64`. La compilacion comprueba la presencia
+  y formato del archivo dentro del ZIP y publica un aviso si falta el secreto.
+  Si no esta configurado, el juego solicita importar el JSON al entrar con
+  Google por primera vez.
+- **No incluir** ficheros de Firebase Admin, cuentas de servicio ni claves
+  privadas en ninguno de los paquetes.
+
 ## Error 403 en Android y Windows
 
 La pantalla puede indicar «Google conectado» mientras Firestore devuelve

@@ -63,8 +63,19 @@ with zipfile.ZipFile(apk) as z:
     assert f'lib/{abi}/libgodot_android.so' in names
     assert any(f'lib/{abi}/' in n and 'mono' in n for n in names), 'Falta el runtime C# Android'
     assert all(n.split('/')[1]==abi for n in names if n.startswith('lib/') and n.endswith('.so'))
-    assert any('ArcanaFirebasePlugin'.encode() in z.read(n) for n in names if n.endswith('.dex')), 'Falta el plugin nativo Google/Firebase en la APK'
-print(f'ANDROID_PACKAGE_OK: firma, identidad, versión, Android 8+, red, Godot y C# {arch}.')
+    dex=b''.join(z.read(n) for n in names if n.endswith('.dex'))
+    assert b'ArcanaFirebasePlugin' in dex, 'Falta el plugin nativo Google/Firebase en la APK'
+    # El archivo google-services.json no se distribuye como fichero legible.
+    # Su configuracion publica esta compilada dentro del plugin Android.
+    for key, value in {
+        'Firebase project ID': 'arcana-arena-f2997',
+        'Firebase Android app ID': '1:876144133098:android:64fc3b983abf939fcce893',
+        'Google OAuth web client ID': '876144133098-agbajvvsg9uv3bbjn8t861tpb37gfh3e.apps.googleusercontent.com',
+        'Firebase API key': 'AIzaSyAq5LTlzFLFswFdfPAlvPtkbkjqUj3yM4M',
+    }.items():
+        assert value.encode() in dex, f'Falta {key} en el plugin de la APK final'
+print(f'ANDROID_FIREBASE_CONFIG_OK: identificadores publicos compilados en la APK {arch}.')
+print(f'ANDROID_PACKAGE_OK: firma, identidad, version, Android 8+, red, Godot y C# {arch}.')
 PY
 hash_file=SHA256SUMS-Android.txt
 if [ "$architecture" = x86_64 ]; then hash_file=SHA256SUMS-Android-x86_64.txt; fi
