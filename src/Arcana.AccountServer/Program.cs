@@ -19,6 +19,36 @@ builder.Services.ConfigureHttpJsonOptions(json =>
 builder.Services.AddSingleton(new AccountService(options));
 var app = builder.Build();
 app.MapAccounts();
+
+// Solo el servidor de juego, mediante una clave compartida, puede consultar sesiones,
+// perfiles de jugadores o entregar recompensas. No exponer esta clave al cliente.
+bool Authorized(HttpContext context)
+{
+    string configured = Environment.GetEnvironmentVariable("ARCANA_ACCOUNT_SERVICE_KEY") ?? "";
+    string supplied = context.Request.Headers["X-Arcana-Service-Key"].ToString();
+    return configured.Length >= 32 && supplied.Length == configured.Length &&
+        System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+            System.Text.Encoding.UTF8.GetBytes(supplied), System.Text.Encoding.UTF8.GetBytes(configured));
+}
+app.MapPost("/internal/session", (HttpContext context, AccountService accounts) =>
+{
+    if (!Authorized(context)) return Results.Unauthorized();
+    string auth = context.Request.Headers.Authorization.ToString();
+    var identity = auth.StartsWith("Bearer ", StringComparison.Ordinal) ? accounts.Authenticate(auth[7..]) : null;
+    return identity == null ? Results.Unauthorized() : Results.Json(identity, Protocol.Json);
+});
+app.MapPost("/internal/profile", async (HttpContext context, AccountService accounts, AccountIdentity identity) =>
+{
+    if (!Authorized(context)) return Results.Unauthorized();
+    return Results.Json(await accounts.Repository!.Profile(identity.Uid, identity.Name, context.RequestAborted), Protocol.Json);
+});
+app.MapPost("/internal/award", async (HttpContext context, AccountService accounts, RewardMatch match) =>
+{
+    if (!Authorized(context)) return Results.Unauthorized();
+    await accounts.Repository!.Award(match, context.RequestAborted);
+    return Results.Json(new ApiError(""), Protocol.Json);
+});
+
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "accounts", version = BuildInfo.Version }));
 app.MapGet("/", () => Results.Text("Arcana Arena · servicio independiente de cuentas"));
 await app.RunAsync();
