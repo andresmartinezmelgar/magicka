@@ -3,6 +3,7 @@ name: Arcana Arena - compilacion automatica
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -131,3 +132,46 @@ jobs:
             artifacts/android/*-Android-arm64.apk
             artifacts/android/SHA256SUMS-Android.txt
           retention-days: 14
+
+  release-on-tag:
+    name: Publicar artefactos al crear un tag
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, package-windows, package-android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Comprobar version del tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(tr -d '\r\n' < VERSION)
+          test "$GITHUB_REF_NAME" = "v$version" || { echo "::error::El tag no coincide con VERSION ($version)."; exit 1; }
+      - uses: actions/download-artifact@v4
+        with:
+          name: ArcanaArena-Windows-x64
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: ArcanaArena-Android-arm64
+          path: dist
+      - name: Validar artefactos y generar hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(tr -d '\r\n' < VERSION)
+          test -s "dist/ArcanaArena-v$version-Windows-x64.zip"
+          test -s "dist/ArcanaArena-v$version-Android-arm64.apk"
+          cd dist
+          sha256sum "ArcanaArena-v$version-Windows-x64.zip" "ArcanaArena-v$version-Android-arm64.apk" > SHA256SUMS.txt
+      - name: Crear Release de GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$GITHUB_REF_NAME" dist/*.zip dist/*.apk dist/SHA256SUMS.txt \
+            --title "Arcana Arena $GITHUB_REF_NAME" \
+            --notes "Compilacion automatica desde tag. Validacion funcional en dispositivos a cargo del usuario." \
+            --verify-tag
