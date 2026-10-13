@@ -1,0 +1,14 @@
+plugins { id 'com.android.library' }
+android {
+    namespace 'com.arcana.firebase'
+    compileSdk 35
+    defaultConfig { minSdk 26 }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+dependencies {
+    compileOnly 'org.godotengine:godot:4.5.2.stable'
+    implementation 'com.google.firebase:firebase-auth:23.2.1'
+    implementation 'androidx.credentials:credentials:1.5.0'
+    implementation 'androidx.credentials:credentials-play-services-auth:1.5.0'
+    implementation 'com.google.android.libraries.identity.googleid:googleid:1.1.1'
+}
