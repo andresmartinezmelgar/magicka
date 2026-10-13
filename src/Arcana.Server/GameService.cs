@@ -62,7 +62,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
     {
         lock (_gate) return new(settings.Name, settings.Port, settings.DiscoveryPort,
             settings.World.Mode, _rooms.Values.Sum(r => r.World.Players.Count),
-            _rooms.Values.Sum(r => r.Options.MaxPlayers), Protocol.Version, settings.Password.Length > 0, settings.InstanceId);
+            _rooms.Values.Sum(r => r.Options.MaxPlayers), Protocol.Version, settings.Password.Length > 0, settings.InstanceId, BuildInfo.Version);
     }
     public long CurrentTick => Interlocked.Read(ref _tick);
     public RoomDirectory ListRooms()
@@ -259,6 +259,8 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             var hello = await Receive(socket, receiveBuffer, handshake.Token);
             if (hello is not { Type: "hello" } || hello.Protocol != Protocol.Version)
             { await RejectLogged("La versión del cliente no coincide con la del servidor.", handshake.Token); return; }
+            if (!string.Equals(hello.GameVersion, BuildInfo.Version, StringComparison.Ordinal))
+            { await RejectLogged($"Versión incompatible. Servidor: {BuildInfo.Version}; cliente: {hello.GameVersion}. Actualiza el juego.", handshake.Token); return; }
             if (!Enum.IsDefined(hello.WizardType))
             { await RejectLogged("Tipo de mago desconocido.", handshake.Token); return; }
             if (!PasswordMatches(hello.Password, settings.Password))
