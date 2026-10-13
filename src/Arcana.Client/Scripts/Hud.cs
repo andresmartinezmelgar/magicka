@@ -119,7 +119,7 @@ public partial class Hud : Control
         _scorePanel = new PanelContainer { Name = "ScorePanel", Visible = false, CustomMinimumSize = new(700, 200), MouseFilter = MouseFilterEnum.Stop };
         _scorePanel.SetAnchorsAndOffsetsPreset(LayoutPreset.Center); _scorePanel.Position = new(-350, -160); AddChild(_scorePanel);
         var scoreBox = new VBoxContainer { Name = "ScoreContent" }; scoreBox.AddThemeConstantOverride("separation", 16); _scorePanel.AddChild(scoreBox);
-        _scoreScroll = new ScrollContainer { CustomMinimumSize = new(0, 120), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        _scoreScroll = new ScrollContainer { CustomMinimumSize = new(0, 120), HorizontalScrollMode = ScrollContainer.ScrollMode.Auto };
         scoreBox.AddChild(_scoreScroll);
         _scoreRows = new GridContainer { Columns = 5 }; _scoreRows.AddThemeConstantOverride("h_separation", 30); _scoreRows.AddThemeConstantOverride("v_separation", 12); _scoreScroll.AddChild(_scoreRows);
         foreach (string text in new[] { "MAGO", "EQUIPO", "BAJAS", "MUERTES", "VIDA" }) _scoreRows.AddChild(Ui.Label(text, 14, Ui.Gold));
@@ -142,13 +142,31 @@ public partial class Hud : Control
             mapPanel.OffsetTop = 136; mapPanel.OffsetBottom = 287;
         }
         IgnoreChildren(this);
+        ResizeLayout();
     }
     private static void IgnoreChildren(Node root)
     {
         foreach (var child in root.GetChildren())
         { if (child is Control c && child is not (Button or ScrollContainer or ScrollBar)) c.MouseFilter = MouseFilterEnum.Ignore; IgnoreChildren(child); }
     }
-    private void ResizeLayout() => Size = GetViewportRect().Size / GameplayScale;
+    private void ResizeLayout()
+    {
+        Size = GetViewportRect().Size / GameplayScale;
+        // Los avisos y la clasificación deben seguir centrados al cambiar la ventana.
+        if (_scorePanel == null) return; // Build invoca ResizeLayout antes de crear los hijos.
+        float available = Math.Max(350, Size.X - 64);
+        float tableWidth = Math.Min(700, available);
+        _scorePanel.CustomMinimumSize = new(tableWidth, 200);
+        _scorePanel.Position = new(-tableWidth / 2, -Math.Min(160, Size.Y * 0.22f));
+        float messageWidth = Math.Min(800, available);
+        _banner.Position = new(-messageWidth / 2, -72);
+        _banner.Size = new(messageWidth, 144);
+        _reward.Position = new(-messageWidth / 2, 150);
+        _reward.Size = new(messageWidth, 45);
+        float objectiveWidth = Math.Min(690, available);
+        _objective.Position = new(-objectiveWidth / 2, 60);
+        _objective.Size = new(objectiveWidth, 46);
+    }
     public override void _ExitTree() => GetViewport().SizeChanged -= ResizeLayout;
     private static ProgressBar Bar(Color color, float max, int height)
     {
