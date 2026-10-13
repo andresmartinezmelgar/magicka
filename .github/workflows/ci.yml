@@ -45,6 +45,9 @@ jobs:
           java-version: '17'
       - name: Cuentas, oro y recompensas en el emulador Firestore
         run: bash scripts/test-accounts.sh
+      - name: Verificar integración de Firebase Authentication (sin credenciales)
+        run: python3 scripts/check-firebase-auth.py
+
       - name: Medir simulación de los seis mapas y serialización del protocolo
         env:
           DOTNET_TieredCompilation: '0'

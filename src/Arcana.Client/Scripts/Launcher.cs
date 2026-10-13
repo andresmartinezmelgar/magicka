@@ -20,6 +20,11 @@ public partial class Launcher : Control
     private CancellationTokenSource? _search;
     private readonly ConfigFile _config = new();
     private bool _busy;
+    private VBoxContainer _homeMenu = null!;
+    private VBoxContainer _playBody = null!;
+    private Button _menuBack = null!;
+    private int _page;
+    private Label _profileSummary = null!, _wizardDescription = null!;
 
     public void Build(Main main)
     {
@@ -27,7 +32,7 @@ public partial class Launcher : Control
         _config.Load("user://launcher.cfg");
         var shade = new ColorRect { Color = new Color(0.025f, 0.045f, 0.075f, 0.64f), MouseFilter = MouseFilterEnum.Ignore }; AddChild(shade); Ui.Full(shade);
         var margin = new MarginContainer(); AddChild(margin); Ui.Full(margin);
-        foreach (string side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, 48);
+        foreach (string side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, Ui.IsMobile ? 8 : 32);
         var columns = new HBoxContainer(); columns.AddThemeConstantOverride("separation", 52); margin.AddChild(columns);
         var left = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new(410, 0) };
         left.AddThemeConstantOverride("separation", 20); columns.AddChild(left);
@@ -45,17 +50,27 @@ public partial class Launcher : Control
         }
         left.AddChild(Ui.Label("F1 · CONTROLES, OBJETIVOS Y TIPOS DE MAGO", 13, Ui.Muted));
         left.Visible = !Ui.IsMobile;
-        var rightScroll = new ScrollContainer { CustomMinimumSize = new(570, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill,
-            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; columns.AddChild(rightScroll);
+        var rightScroll = new ScrollContainer { CustomMinimumSize = new(Ui.IsMobile ? 0 : 570, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            VerticalScrollMode = Ui.IsMobile ? ScrollContainer.ScrollMode.Disabled : ScrollContainer.ScrollMode.Auto }; columns.AddChild(rightScroll);
         var rightCenter = new CenterContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
         rightScroll.AddChild(rightCenter);
-        var panel = new PanelContainer { CustomMinimumSize = new(Ui.IsMobile ? 920 : 560, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill }; rightCenter.AddChild(panel);
+        var panel = new PanelContainer { CustomMinimumSize = new(Ui.IsMobile ? 0 : 560, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill }; rightCenter.AddChild(panel);
         var formStyle = Ui.Panel(new Color(0.035f, 0.057f, 0.093f, 0.97f), 16);
         formStyle.ContentMarginTop = formStyle.ContentMarginBottom = 12; panel.AddThemeStyleboxOverride("panel", formStyle);
         var form = new VBoxContainer(); form.AddThemeConstantOverride("separation", 6); panel.AddChild(form);
         form.AddChild(Ui.Label(Ui.IsMobile ? "ARCANA ARENA  /  " + BuildInfo.Version : "ENTRAR EN LA ARENA", 27, Ui.Gold));
-        form.AddChild(Ui.Label(Ui.IsMobile ? "Entrena sin conexión o entra en un servidor por IP o LAN." : "Entra por IP o LAN, aloja salas o entrena con bots.", 16, Ui.Muted));
-        var identity = new HBoxContainer(); identity.AddThemeConstantOverride("separation", 12); form.AddChild(identity);
+        if (!Ui.IsMobile) form.AddChild(Ui.Label("Elige PvP, Versus IA o Perfil.", 16, Ui.Muted));
+        _homeMenu = new VBoxContainer();
+        _homeMenu.AddThemeConstantOverride("separation", 10);
+        form.AddChild(_homeMenu);
+        _homeMenu.AddChild(Ui.Button("PvP", () => OpenPage(1), true));
+        _homeMenu.AddChild(Ui.Button("Versus IA", () => OpenPage(2), true));
+        _homeMenu.AddChild(Ui.Button("Perfil", () => OpenPage(3)));
+        _profileSummary = Ui.Label("", 15, Ui.Muted); _homeMenu.AddChild(_profileSummary);
+        _playBody = new VBoxContainer(); _playBody.AddThemeConstantOverride("separation", 6); form.AddChild(_playBody);
+        _menuBack = Ui.Button("Volver", () => { if (_page == 3) Remember(); OpenPage(0); }); form.AddChild(_menuBack);
+        var identity = new HBoxContainer(); identity.AddThemeConstantOverride("separation", 12); _playBody.AddChild(identity);
         var nameColumn = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; identity.AddChild(nameColumn);
         nameColumn.AddChild(Ui.Label("Nombre del mago", 14, Ui.Muted));
         _name = new LineEdit { Text = _config.GetValue("player", "name", "Mago").AsString(), MaxLength = 24, CustomMinimumSize = new(0, 45) }; nameColumn.AddChild(_name);
@@ -68,16 +83,17 @@ public partial class Launcher : Control
         _team = Ui.TeamChoice(_config.GetValue("player", "team", -1).AsInt32());
         _team.Name = "LauncherTeamChoice";
         teamColumn.AddChild(_team);
-        var typeRow = new HBoxContainer(); typeRow.AddThemeConstantOverride("separation", 12); form.AddChild(typeRow);
+        var typeRow = new HBoxContainer(); typeRow.AddThemeConstantOverride("separation", 12); _playBody.AddChild(typeRow);
         typeRow.AddChild(Ui.Label("Tipo de mago", 14, Ui.Muted));
         _wizardType = new OptionButton { Name = "WizardTypeChoice", CustomMinimumSize = new(0, 40), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         foreach (var type in Enum.GetValues<WizardType>()) _wizardType.AddItem(WizardTypes.Name(type), (int)type);
         int savedType = _config.GetValue("player", "wizard_type", 0).AsInt32();
         _wizardType.Select(Enum.IsDefined((WizardType)savedType) ? savedType : 0); typeRow.AddChild(_wizardType);
         var typeInfo = Ui.Label(WizardTypes.Description((WizardType)_wizardType.GetSelectedId()), 14, Ui.Gold);
-        typeInfo.AutowrapMode = TextServer.AutowrapMode.WordSmart; form.AddChild(typeInfo);
+        typeInfo.AutowrapMode = TextServer.AutowrapMode.WordSmart; _playBody.AddChild(typeInfo);
+        _wizardDescription = typeInfo;
         _wizardType.ItemSelected += _ => typeInfo.Text = WizardTypes.Description((WizardType)_wizardType.GetSelectedId());
-        _tabs = new TabContainer(); form.AddChild(_tabs);
+        _tabs = new TabContainer(); _playBody.AddChild(_tabs);
         var ip = TabBox("Por IP");
         ip.AddChild(Ui.Label("IP o nombre del servidor", 14, Ui.Muted));
         _address = new LineEdit { Text = _config.GetValue("network", "address", "127.0.0.1:27015").AsString(),
@@ -157,11 +173,11 @@ public partial class Launcher : Control
         firebaseSetup.TooltipText = "Prepara los archivos de Firebase fuera del paquete del juego; sin cuenta de pago.";
         hosting.AddChild(firebaseSetup);
         form.AddChild(Ui.Label("Contraseña del servidor (si tiene)", 14, Ui.Muted));
-        _password = new LineEdit { Secret = true, MaxLength = 128, PlaceholderText = "Opcional", CustomMinimumSize = new(0, 42) }; form.AddChild(_password);
-        _connect = Ui.Button("Ver salas por IP", Connect, true); form.AddChild(_connect);
+        _password = new LineEdit { Secret = true, MaxLength = 128, PlaceholderText = "Opcional", CustomMinimumSize = new(0, 42) }; _playBody.AddChild(_password);
+        _connect = Ui.Button("Ver salas por IP", Connect, true); _playBody.AddChild(_connect);
         _status = Ui.Label("El servidor usa TCP 27015. LAN usa UDP 27016.", 14, Ui.Muted);
-        _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; _status.CustomMinimumSize = new(0, 45); form.AddChild(_status);
-        var footer = new HBoxContainer(); form.AddChild(footer);
+        _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; _status.CustomMinimumSize = new(0, 45); _playBody.AddChild(_status);
+        var footer = new HBoxContainer(); _playBody.AddChild(footer);
         var help = Ui.Button("Cómo jugar", () => _main.ToggleHelp()); help.SizeFlagsHorizontal = SizeFlags.ExpandFill; footer.AddChild(help);
         var diagnostic = Ui.Button("Diagnóstico", _main.ExportDiagnostics); diagnostic.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         diagnostic.TooltipText = "Exporta registros y contexto de la partida a un ZIP para investigar errores."; footer.AddChild(diagnostic);
@@ -180,6 +196,41 @@ public partial class Launcher : Control
             ShowError("El servidor local ha terminado inesperadamente. Consulta los registros o exporta el diagnóstico.");
         });
         if (Ui.IsMobile) { _tabs.SetTabHidden(3, true); _tabs.SetTabDisabled(3, true); _tabs.CurrentTab = 2; UpdateConnectLabel(); }
+        OpenPage(0);
+    }
+
+    private void OpenPage(int page)
+    {
+        _page = page;
+        _homeMenu.Visible = page == 0;
+        if (page == 0)
+        {
+            var profile = _main.Accounts.Profile;
+            _profileSummary.Text = profile == null ? _name.Text + " · Sin iniciar sesión"
+                : $"{_name.Text} · {profile.Wins} victorias · {profile.Losses} derrotas · {profile.Gold} oro";
+        }
+        _playBody.Visible = page != 0;
+        ((Control)_name.GetParent()).Visible = page == 3;
+        ((Control)_name.GetParent().GetParent()).Visible = page is 1 or 3;
+        ((Control)_team.GetParent()).Visible = page == 1;
+        ((Control)_wizardType.GetParent()).Visible = page == 3;
+        _wizardDescription.Visible = page == 3;
+        _status.Visible = page is 1 or 2;
+
+        _menuBack.Visible = page != 0;
+        _menuBack.Text = page == 3 ? "Guardar y volver" : "Volver";
+        _tabs.Visible = page is 1 or 2;
+        _connect.Visible = page is 1 or 2;
+        _password.Visible = page == 1;
+        _tabs.SetTabHidden(0, page != 1);
+        _tabs.SetTabHidden(1, page != 1);
+        _tabs.SetTabHidden(2, page != 2);
+        _tabs.SetTabHidden(3, Ui.IsMobile || page != 1);
+        if (page == 0) _menuBack.Visible = false;
+        if (page == 2) _tabs.CurrentTab = 2;
+        if (page == 1 && _tabs.CurrentTab == 2) _tabs.CurrentTab = 1;
+        if (page == 3) Remember();
+        UpdateConnectLabel();
     }
 
     private VBoxContainer TabBox(string name)
@@ -260,7 +311,7 @@ public partial class Launcher : Control
     { if (GodotObject.IsInstanceValid(_lobby)) _lobby!.QueueFree(); _lobby = null; }
     public bool HandleBack()
     {
-        if (!GodotObject.IsInstanceValid(_lobby)) return false;
+        if (!GodotObject.IsInstanceValid(_lobby)) { if (_page == 0) return false; OpenPage(0); return true; }
         _main.CancelPendingConnection(); CloseRooms(); SetBusy(false); return true;
     }
     private string _hostPassword = "";

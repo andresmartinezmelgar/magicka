@@ -20,6 +20,7 @@ internal sealed class GameRoom(string id, string name, string password, WorldOpt
     public bool Started { get; set; }
     public string MatchId { get; set; } = Guid.NewGuid().ToString("N");
     public bool ResultQueued { get; set; }
+    public bool RewardsAllowed { get; set; }
     public Dictionary<string, MatchParticipant> Participants { get; } = new(StringComparer.Ordinal);
     public RoomInfo Info() => new(Id, Name, Options.Mode, World.Players.Count, Options.MaxPlayers,
         Options.Bots, Options.FriendlyFire, Options.ScoreLimit, Options.Tickets, Password.Length > 0, Options.Map);
@@ -156,6 +157,15 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                             }
                             if (readyPlayers == 0 || !room.Started && readyPlayers != room.Sessions.Count)
                             { if (CurrentTick % 3 == 0) dirty.Add(room); continue; }
+                            if (!room.Started)
+                            {
+                                int blue = room.World.Players.Values.Count(p => !p.Bot && p.Team == 0);
+                                int red = room.World.Players.Values.Count(p => !p.Bot && p.Team == 1);
+                                int blueBots = room.World.Players.Values.Count(p => p.Bot && p.Team == 0);
+                                int redBots = room.World.Players.Values.Count(p => p.Bot && p.Team == 1);
+                                room.RewardsAllowed = room.Options.Mode != GameMode.Arena &&
+                                    BalancedMatchRules.RewardsEnabled(blue, red, blueBots, redBots);
+                            }
                             room.Started = true;
                             // Entrar en una partida iniciada no la pausa: el nuevo jugador
                             // permanece protegido y sin acciones hasta terminar su carga.
@@ -383,7 +393,12 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             room.ResultQueued = true;
             var participants = room.Participants.Values.Select(p => p with
             { Winner = room.Options.Mode == GameMode.Arena ? p.PlayerId == room.World.Winner : p.Team == room.World.Winner }).ToArray();
-            rewards.Enqueue(new(room.MatchId, settings.InstanceId, room.Options.Mode, room.Options.Map, DateTimeOffset.UtcNow, participants));
+            // La elegibilidad se decide en el servidor, nunca a partir de un dato del cliente.
+            if (room.RewardsAllowed && room.World.Players.Values.All(p => !p.Bot) &&
+                BalancedMatchRules.RewardsEnabled(
+                    room.World.Players.Values.Count(p => !p.Bot && p.Team == 0),
+                    room.World.Players.Values.Count(p => !p.Bot && p.Team == 1), 0, 0))
+                rewards.Enqueue(new(room.MatchId, settings.InstanceId, room.Options.Mode, room.Options.Map, DateTimeOffset.UtcNow, participants));
             _ = RefreshEquipment(room.Sessions.Values.ToArray());
         }
     }
