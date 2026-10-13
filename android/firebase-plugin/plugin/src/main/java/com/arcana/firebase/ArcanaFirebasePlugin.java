@@ -45,7 +45,7 @@ public final class ArcanaFirebasePlugin extends GodotPlugin {
 
     @NonNull @Override public Set<SignalInfo> getPluginSignals() {
         return new HashSet<>(Arrays.asList(
-            new SignalInfo(SESSION_READY, String.class, String.class, String.class),
+            new SignalInfo(SESSION_READY, String.class, String.class, String.class, String.class),
             new SignalInfo(LOGIN_FAILED, String.class),
             new SignalInfo(SESSION_CLEARED)));
     }
@@ -83,7 +83,7 @@ public final class ArcanaFirebasePlugin extends GodotPlugin {
                 return;
             }
             String expiry = String.valueOf(task.getResult().getExpirationTimestamp());
-            emitSignal(SESSION_READY, user.getUid(), task.getResult().getToken(), expiry);
+            emitSignal(SESSION_READY, user.getUid(), user.getDisplayName() == null ? "Mago" : user.getDisplayName(), task.getResult().getToken(), expiry);
         });
     }
 
