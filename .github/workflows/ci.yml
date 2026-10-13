@@ -29,6 +29,24 @@ jobs:
       - name: Compilar servidor de cuentas heredado
         run: dotnet build src/Arcana.AccountServer/Arcana.AccountServer.csproj -c Release --nologo
 
+  firestore-rules:
+    name: Validar reglas Firestore con emulador
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Instalar Firebase CLI y bibliotecas de pruebas
+        run: npm install --prefix tests/firebase-rules --no-audit --no-fund
+      - name: Probar seguridad de cuentas y equipamiento sin credenciales reales
+        run: tests/firebase-rules/node_modules/.bin/firebase emulators:exec --only firestore --project demo-arcana-arena --config firebase.json -- 'node tests/firebase-rules/verify.cjs'
+
   package-windows:
     name: Generar distribucion Windows
     runs-on: windows-latest
@@ -91,6 +109,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
       - name: Preparar Android SDK
         run: |
           sdk="$RUNNER_TEMP/android-sdk"
@@ -119,6 +140,12 @@ jobs:
                   (target/name).write_bytes(z.read('templates/'+name))
           PY
           echo "ARCANA_GODOT=/tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64" >> "$GITHUB_ENV"
+      - name: Compilar plugin nativo Firebase para Android
+        run: |
+          gradle -p android/firebase-plugin :plugin:assembleRelease --no-daemon
+          mkdir -p src/Arcana.Client/addons/arcana_firebase
+          cp android/firebase-plugin/plugin/build/outputs/aar/plugin-release.aar src/Arcana.Client/addons/arcana_firebase/ArcanaFirebase.aar
+          test -s src/Arcana.Client/addons/arcana_firebase/ArcanaFirebase.aar
       - name: Compilar cliente e importar recursos
         run: |
           dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
@@ -135,8 +162,8 @@ jobs:
 
   release-on-tag:
     name: Publicar artefactos al crear un tag
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build, package-windows, package-android]
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    needs: [build, firestore-rules, package-windows, package-android]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -147,7 +174,9 @@ jobs:
         run: |
           set -euo pipefail
           version=$(tr -d '\r\n' < VERSION)
-          test "$GITHUB_REF_NAME" = "v$version" || { echo "::error::El tag no coincide con VERSION ($version)."; exit 1; }
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            test "$GITHUB_REF_NAME" = "v$version" || { echo "::error::El tag no coincide con VERSION ($version)."; exit 1; }
+          fi
       - uses: actions/download-artifact@v4
         with:
           name: ArcanaArena-Windows-x64
@@ -201,7 +230,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+          version=$(tr -d '\r\n' < VERSION)
+          tag="v$version"
+          if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
+            if gh release view "$tag" >/dev/null 2>&1; then
+              echo "La release $tag ya existe; no se modifica desde main."
+            else
+              gh release create "$tag" dist/*.zip dist/*.apk dist/SHA256SUMS.txt \
+                --target "$GITHUB_SHA" \
+                --title "Arcana Arena $tag" \
+                --notes "APK Android firmada con la clave permanente, compilada y verificada en GitHub Actions. Probar Google Sign-In en dispositivo real tras publicar las reglas de Firestore."
+            fi
+          elif gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" dist/*.zip dist/*.apk dist/SHA256SUMS.txt --clobber
           else
             gh release create "$GITHUB_REF_NAME" dist/*.zip dist/*.apk dist/SHA256SUMS.txt \

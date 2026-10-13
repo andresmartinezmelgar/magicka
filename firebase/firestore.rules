@@ -1,7 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Only address, expiry and protocol are public. Clients cannot list or write.
+    function googleOwner(uid) {
+      return request.auth != null && request.auth.uid == uid
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+
+    // Aviso publico del antiguo servicio, conservado para compatibilidad.
     match /publicAccountServer/current {
       allow get: if resource.data.keys().hasOnly(['url', 'expiresAt', 'protocol'])
         && resource.data.url is string && resource.data.url.size() <= 256
@@ -11,23 +16,57 @@ service cloud.firestore {
         && resource.data.protocol is int;
       allow list, write: if false;
     }
-    // Lectura exclusiva del propietario; escrituras solo mediante Admin SDK.
+
     match /users/{uid} {
-      allow get: if request.auth != null && request.auth.uid == uid;
-      allow list, create, update, delete: if false;
+      allow get: if googleOwner(uid);
+      // Los usuarios nuevos solo pueden crear su cabecera vacia.
+      allow create: if googleOwner(uid)
+        && request.resource.data.keys().hasOnly(['uid', 'name', 'gold', 'wins', 'losses', 'itemCount', 'schemaVersion'])
+        && request.resource.data.keys().hasAll(['uid', 'name', 'gold', 'wins', 'losses', 'itemCount', 'schemaVersion'])
+        && request.resource.data.uid == uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 64
+        && request.resource.data.gold == 0
+        && request.resource.data.wins == 0
+        && request.resource.data.losses == 0
+        && request.resource.data.itemCount == 0
+        && request.resource.data.schemaVersion == 1;
+      allow list, update, delete: if false;
+
       match /items/{itemId} {
-        allow get, list: if request.auth != null && request.auth.uid == uid;
+        allow get, list: if googleOwner(uid);
         allow write: if false;
       }
+
       match /loadouts/{loadoutId} {
-        allow get, list: if request.auth != null && request.auth.uid == uid;
-        allow write: if false;
+        allow get, list: if googleOwner(uid);
+
+        function slotValid(itemId, expectedSlot) {
+          return itemId is string
+            && (itemId == '' || (itemId.matches('^[0-9a-f]{32}$')
+              && exists(/databases/$(database)/documents/users/$(uid)/items/$(itemId))
+              && get(/databases/$(database)/documents/users/$(uid)/items/$(itemId)).data.slot == expectedSlot));
+        }
+
+        // Una unica selección de hasta cuatro piezas propias. Oro y objetos no cambian.
+        allow create, update: if googleOwner(uid)
+          && loadoutId == 'active'
+          && request.resource.data.keys().hasOnly(['boots', 'hat', 'chest', 'weapon'])
+          && request.resource.data.keys().hasAll(['boots', 'hat', 'chest', 'weapon'])
+          && slotValid(request.resource.data.boots, 'boots')
+          && slotValid(request.resource.data.hat, 'hat')
+          && slotValid(request.resource.data.chest, 'chest')
+          && slotValid(request.resource.data.weapon, 'weapon');
+        allow delete: if false;
       }
-      match /{subcollection=**}/{document=**} {
+
+      match /{document=**} {
         allow read, write: if false;
       }
     }
-    // Inventario, oro y resultados se modifican exclusivamente desde el servidor de confianza.
+
+    // El SDK Admin del servidor usa IAM, no estas reglas.
     match /{document=**} {
       allow read, write: if false;
     }

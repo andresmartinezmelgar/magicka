@@ -63,6 +63,7 @@ with zipfile.ZipFile(apk) as z:
     assert f'lib/{abi}/libgodot_android.so' in names
     assert any(f'lib/{abi}/' in n and 'mono' in n for n in names), 'Falta el runtime C# Android'
     assert all(n.split('/')[1]==abi for n in names if n.startswith('lib/') and n.endswith('.so'))
+    assert any('ArcanaFirebasePlugin'.encode() in z.read(n) for n in names if n.endswith('.dex')), 'Falta el plugin nativo Google/Firebase en la APK'
 print(f'ANDROID_PACKAGE_OK: firma, identidad, versión, Android 8+, red, Godot y C# {arch}.')
 PY
 hash_file=SHA256SUMS-Android.txt

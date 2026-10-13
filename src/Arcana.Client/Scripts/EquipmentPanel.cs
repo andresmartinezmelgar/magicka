@@ -41,9 +41,18 @@ public partial class EquipmentPanel : Control
         _profile = Ui.Label("", 16); _profile.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _profile.HorizontalAlignment = HorizontalAlignment.Right; heading.AddChild(_profile);
         var connection = new HBoxContainer(); connection.AddThemeConstantOverride("separation", 8); box.AddChild(connection);
-        _address = new LineEdit { Text = address, PlaceholderText = "wss://servidor-central", CustomMinimumSize = new(240, 48), SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        _address.AddThemeFontSizeOverride("font_size", 20); connection.AddChild(_address);
-        _address.Visible = false;
+        var operationsConfig = new ConfigFile();
+        if (operationsConfig.Load("user://protected-account-service.cfg") == Error.Ok)
+        {
+            try { _main.Accounts.SetProtectedActionsServer(operationsConfig.GetValue("operations", "url", "").AsString()); }
+            catch (ArgumentException) { /* El usuario puede corregir la dirección en esta pantalla. */ }
+        }
+        _address = new LineEdit { Text = _main.Accounts.ServerAddress, PlaceholderText = "https://servidor-cuentas (solo ventas)",
+            CustomMinimumSize = new(240, 48), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _address.AddThemeFontSizeOverride("font_size", 18); connection.AddChild(_address);
+        _address.Visible = _main.Accounts.IsDirectFirebaseSession;
+        var operationsButton = Action(connection, "Servidor ventas", ConfigureOperations);
+        operationsButton.Visible = _address.Visible;
         Action(connection, "Actualizar", () => _ = Refresh());
         _status = Ui.Label("", 18, Ui.Gold); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_status);
         var columns = new HBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
@@ -209,7 +218,7 @@ public partial class EquipmentPanel : Control
         _empty.Text = item == null ? "Sin pieza equipada. Usa las flechas para recorrer los objetos de esta posición o pulsa otra pieza para ver sus atributos." :
             "Pulsa otra pieza para ver sus atributos. El oro se guarda para futuras mejoras.";
         _sell.Text = item == null ? "Eliminar pieza por oro" : $"Eliminar esta pieza · +{item.SaleGold} oro";
-        _sell.Disabled = _busy || item == null || !_main.Accounts.SignedIn;
+        _sell.Disabled = _busy || item == null || !_main.Accounts.SignedIn || (_main.Accounts.IsDirectFirebaseSession && _main.Accounts.ServerAddress.Length == 0);
     }
     public static Color TierColor(ItemTier tier) => tier switch
     { ItemTier.Silver => new("c4cbd7"), ItemTier.Gold => new("e8c574"), ItemTier.Platinum => new("82dfd6"), ItemTier.Diamond => new("73bfff"), _ => new("cf9cff") };
@@ -221,8 +230,25 @@ public partial class EquipmentPanel : Control
         {
             var view = _slots[(int)slot]; view.Previous.Disabled = view.Next.Disabled = value || Choices(slot).Length == 0;
         }
-        _sell.Disabled = value || Selected() == null || !_main.Accounts.SignedIn;
+        _sell.Disabled = value || Selected() == null || !_main.Accounts.SignedIn || (_main.Accounts.IsDirectFirebaseSession && _main.Accounts.ServerAddress.Length == 0);
     }
+    private void ConfigureOperations()
+    {
+        try
+        {
+            _main.Accounts.SetProtectedActionsServer(_address.Text.Trim());
+            var file = new ConfigFile();
+            file.SetValue("operations", "url", _main.Accounts.ServerAddress);
+            if (file.Save("user://protected-account-service.cfg") != Error.Ok)
+                throw new InvalidOperationException("No se pudo guardar el servidor de operaciones.");
+            _status.Text = _main.Accounts.ServerAddress.Length > 0
+                ? "Servidor de operaciones protegido configurado. El login y las lecturas siguen siendo directos a Firebase."
+                : "Las ventas requieren el servidor de operaciones; Google y equipación funcionan sin él.";
+            Render();
+        }
+        catch (Exception error) { _status.Text = error.Message; }
+    }
+
     private async Task Refresh()
     {
         if (_busy) return;
@@ -248,7 +274,7 @@ public partial class EquipmentPanel : Control
     }
     private void ConfirmSale()
     {
-        var item = Selected(); if (_busy || item == null || !_main.Accounts.SignedIn) return;
+        var item = Selected(); if (_busy || item == null || !_main.Accounts.SignedIn || (_main.Accounts.IsDirectFirebaseSession && _main.Accounts.ServerAddress.Length == 0)) return;
         _selling = item.Id;
         _confirm.DialogText = "PIEZA QUE VAS A ELIMINAR:\n" + EquipmentCatalogue.ItemName(item) +
             $"\n\nORO QUE RECIBIRÁS: +{item.SaleGold}\n\nLa pieza desaparecerá definitivamente de tu inventario y dejará de estar equipada. Esta acción no se puede deshacer.\n\n¿Confirmas la venta?";

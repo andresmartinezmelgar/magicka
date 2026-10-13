@@ -31,3 +31,7 @@ renderer/rendering_method.mobile="gl_compatibility"
 textures/default_filters/use_nearest_mipmap_filter=false
 textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0.025, 0.038, 0.064, 1)
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/arcana_firebase/plugin.cfg")

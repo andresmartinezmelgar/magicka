@@ -21,17 +21,17 @@ public sealed class AccountClient : IDisposable
     public string TokenFor(string address) => SignedIn ? Token : "";
     private FirebaseProfileReader? _firebaseReader;
     private string _firebaseUid = "";
-    public bool IsDirectFirebaseSession => SignedIn && _firebaseReader != null;
-    public async Task SetFirebaseSession(string projectId, string uid, string idToken, DateTimeOffset expiresAt, CancellationToken cancellationToken = default)
+    public bool IsDirectFirebaseSession => _firebaseReader != null && SignedIn;
+    public bool HasDirectFirebaseSession => _firebaseReader != null;
+    public async Task SetFirebaseSession(string projectId, string uid, string displayName, string idToken, DateTimeOffset expiresAt, CancellationToken cancellationToken = default)
     {
         if (expiresAt <= DateTimeOffset.UtcNow || string.IsNullOrWhiteSpace(idToken))
             throw new UnauthorizedAccessException("Token Firebase caducado o vacío.");
         using var reader = new FirebaseProfileReader(projectId);
-        var profile = await reader.Read(uid, idToken, cancellationToken).ConfigureAwait(false);
+        var profile = await reader.Read(uid, idToken, displayName, cancellationToken).ConfigureAwait(false);
         _firebaseReader?.Dispose();
         _firebaseReader = new FirebaseProfileReader(projectId);
         _firebaseUid = uid;
-        ServerAddress = "";
         Token = idToken;
         ExpiresAt = expiresAt;
         Profile = profile;
@@ -86,11 +86,20 @@ public sealed class AccountClient : IDisposable
     }
     public async Task<AccountProfile> Refresh(CancellationToken token = default)
     {
-        Profile = IsDirectFirebaseSession ? await _firebaseReader!.Read(_firebaseUid, Token, token).ConfigureAwait(false) : await Request<AccountProfile>(HttpMethod.Get, "account/profile", null, token).ConfigureAwait(false);
+        Profile = IsDirectFirebaseSession ? await _firebaseReader!.Read(_firebaseUid, Token, token: token).ConfigureAwait(false) : await Request<AccountProfile>(HttpMethod.Get, "account/profile", null, token).ConfigureAwait(false);
         _ = EquipmentModifiers.Calculate(Profile); return Profile;
     }
     public async Task<InventoryResult> Equip(EquipmentSlot slot, string itemId, CancellationToken token = default)
     {
+        if (IsDirectFirebaseSession)
+        {
+            if (Profile == null) throw new InvalidOperationException("El inventario todavía no se ha cargado.");
+            var updated = AccountInventory.Equip(Profile, new InventoryRequest(itemId, slot));
+            await _firebaseReader!.SaveLoadout(_firebaseUid, Token, updated.Loadout, token).ConfigureAwait(false);
+            _ = EquipmentModifiers.Calculate(updated);
+            Profile = updated;
+            return new InventoryResult(updated, "Equipamiento guardado en Firebase.");
+        }
         var result = await Request<InventoryResult>(HttpMethod.Post, "account/equip", new InventoryRequest(itemId, slot), token).ConfigureAwait(false);
         _ = EquipmentModifiers.Calculate(result.Profile); Profile = result.Profile; return result;
     }
@@ -107,6 +116,8 @@ public sealed class AccountClient : IDisposable
     private async Task<T> Request<T>(HttpMethod method, string path, object? body, CancellationToken token)
     {
         if (!SignedIn) throw new InvalidOperationException("Inicia sesión con Google para gestionar tu inventario.");
+        if (ServerAddress.Length == 0)
+            throw new InvalidOperationException("Esta acción requiere un servidor de cuentas disponible para verificarla; tu sesión Google sigue conectada.");
         using var request = new HttpRequestMessage(method, RoomBrowser.Endpoint(ServerAddress, path));
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Token);
         if (body != null) request.Content = JsonContent.Create(body, options: Protocol.Json);
@@ -119,6 +130,15 @@ public sealed class AccountClient : IDisposable
         string text = await RoomBrowser.ReadBoundedAsync(response.Content, 1024 * 1024, token).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode) throw new InvalidOperationException(Protocol.Deserialize<ApiError>(text)?.Error ?? "No se pudo gestionar la cuenta.");
         return Protocol.Deserialize<T>(text) ?? throw new InvalidDataException("Respuesta de cuenta incompleta.");
+    }
+    /// <summary>Dirección opcional HTTPS únicamente para acciones de escritura verificadas.</summary>
+    public void SetProtectedActionsServer(string address)
+    {
+        if (string.IsNullOrWhiteSpace(address)) { ServerAddress = ""; return; }
+        if (!Uri.TryCreate(address, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps ||
+            uri.UserInfo.Length > 0 || uri.Query.Length > 0 || uri.Fragment.Length > 0)
+            throw new ArgumentException("Las operaciones protegidas necesitan un servidor HTTPS.");
+        ServerAddress = address.TrimEnd('/');
     }
     public void Dispose() { _firebaseReader?.Dispose(); _http.Dispose(); }
 }

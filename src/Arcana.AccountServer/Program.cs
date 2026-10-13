@@ -30,11 +30,12 @@ bool Authorized(HttpContext context)
         System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
             System.Text.Encoding.UTF8.GetBytes(supplied), System.Text.Encoding.UTF8.GetBytes(configured));
 }
-app.MapPost("/internal/session", (HttpContext context, AccountService accounts) =>
+app.MapPost("/internal/session", async (HttpContext context, AccountService accounts) =>
 {
     if (!Authorized(context)) return Results.Unauthorized();
     string auth = context.Request.Headers.Authorization.ToString();
-    var identity = auth.StartsWith("Bearer ", StringComparison.Ordinal) ? accounts.Authenticate(auth[7..]) : null;
+    var identity = auth.StartsWith("Bearer ", StringComparison.Ordinal)
+        ? await accounts.AuthenticateGame(auth[7..], context.RequestAborted) : null;
     return identity == null ? Results.Unauthorized() : Results.Json(identity, Protocol.Json);
 });
 app.MapPost("/internal/profile", async (HttpContext context, AccountService accounts, AccountIdentity identity) =>

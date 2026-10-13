@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace Arcana.Core;
@@ -29,6 +30,36 @@ public sealed class FirebaseProfileReader : IDisposable
         using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
         return doc.RootElement.Clone();
     }
+    /// <summary>Alta sin servidor: solo los campos iniciales permitidos por las reglas de Firestore.</summary>
+    private async Task CreateInitialProfile(string uid, string displayName, string idToken, CancellationToken token)
+    {
+        string name = new string((displayName.Length == 0 ? "Mago" : displayName)
+            .Where(ch => !char.IsControl(ch)).Take(64).ToArray());
+        if (name.Length == 0) name = "Mago";
+        var fields = new
+        {
+            fields = new
+            {
+                uid = new { stringValue = uid },
+                name = new { stringValue = name },
+                gold = new { integerValue = "0" },
+                wins = new { integerValue = "0" },
+                losses = new { integerValue = "0" },
+                itemCount = new { integerValue = "0" },
+                schemaVersion = new { integerValue = "1" }
+            }
+        };
+        using var request = new HttpRequestMessage(HttpMethod.Post,
+            $"https://firestore.googleapis.com/v1/projects/{_projectId}/databases/(default)/documents/users?documentId={Uri.EscapeDataString(uid)}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", idToken);
+        request.Content = JsonContent.Create(fields);
+        using var response = await _http.SendAsync(request, token).ConfigureAwait(false);
+        if (response.StatusCode == HttpStatusCode.Conflict) return; // Otro dispositivo creó la cuenta.
+        if (response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized)
+            throw new UnauthorizedAccessException("Firestore no permite crear el perfil inicial. Publica las reglas del proyecto.");
+        response.EnsureSuccessStatusCode();
+    }
+
     private static object? Value(JsonElement value)
     {
         if (value.TryGetProperty("stringValue", out var s)) return s.GetString();
@@ -52,12 +83,17 @@ public sealed class FirebaseProfileReader : IDisposable
             ?? throw new InvalidDataException("Datos Firestore inválidos.");
     }
     private sealed record Header(string Uid, string Name, long Gold, int Wins, int Losses, int ItemCount, int SchemaVersion);
-    public async Task<AccountProfile?> Read(string uid, string idToken, CancellationToken token = default)
+    public async Task<AccountProfile> Read(string uid, string idToken, string displayName = "Mago", CancellationToken token = default)
     {
         if (uid.Length is < 1 or > 128 || uid.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not '-' and not '_'))
             throw new ArgumentException("UID inválido.", nameof(uid));
         var user = await Document("users/" + uid, idToken, token).ConfigureAwait(false);
-        if (user is null) return null; // Primera cuenta: creación pendiente de un flujo seguro.
+        if (user is null)
+        {
+            await CreateInitialProfile(uid, displayName, idToken, token).ConfigureAwait(false);
+            user = await Document("users/" + uid, idToken, token).ConfigureAwait(false)
+                ?? throw new InvalidDataException("El perfil inicial no aparece en Firestore.");
+        }
         var header = Parse<Header>(user.Value);
         if (header.Uid != uid || header.SchemaVersion != 1 || header.Gold < 0 ||
             header.ItemCount is < 0 or > EquipmentCatalogue.InventoryLimit)
@@ -89,6 +125,30 @@ public sealed class FirebaseProfileReader : IDisposable
             loadout.HasValue ? Parse<EquipmentLoadout>(loadout.Value) : new(), items.ToArray());
         _ = EquipmentModifiers.Calculate(profile);
         return profile;
+    }
+    /// <summary>Solo el equipamiento se escribe desde el cliente: reglas verifican propiedad y ranuras.</summary>
+    public async Task SaveLoadout(string uid, string idToken, EquipmentLoadout equipment, CancellationToken token = default)
+    {
+        if (uid.Length is < 1 or > 128 || uid.Any(ch => !char.IsAsciiLetterOrDigit(ch) && ch is not '-' and not '_'))
+            throw new ArgumentException("UID inválido.");
+        var fields = new
+        {
+            fields = new
+            {
+                boots = new { stringValue = equipment.Boots },
+                hat = new { stringValue = equipment.Hat },
+                chest = new { stringValue = equipment.Chest },
+                weapon = new { stringValue = equipment.Weapon }
+            }
+        };
+        using var request = new HttpRequestMessage(HttpMethod.Patch,
+            $"https://firestore.googleapis.com/v1/projects/{_projectId}/databases/(default)/documents/users/{uid}/loadouts/active");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", idToken);
+        request.Content = JsonContent.Create(fields);
+        using var response = await _http.SendAsync(request, token).ConfigureAwait(false);
+        if (response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized)
+            throw new UnauthorizedAccessException("No puedes equipar esa pieza. Comprueba que sea tuya y que las reglas de Firestore estén publicadas.");
+        response.EnsureSuccessStatusCode();
     }
     public void Dispose() => _http.Dispose();
 }
