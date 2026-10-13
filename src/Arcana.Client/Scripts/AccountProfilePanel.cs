@@ -25,20 +25,30 @@ public partial class AccountProfilePanel : Control
         foreach (string side in new[] { "left", "right", "top", "bottom" })
             margin.AddThemeConstantOverride("margin_" + side, Ui.IsMobile ? 12 : 32);
         var center = new CenterContainer(); margin.AddChild(center);
-        var panel = new PanelContainer { CustomMinimumSize = new(Ui.IsMobile ? 0 : 440, 0) };
+        var panel = new PanelContainer
+        {
+            CustomMinimumSize = new(Ui.IsMobile ? 560 : 440, 0),
+            SizeFlagsHorizontal = SizeFlags.ExpandFill
+        };
         center.AddChild(panel);
-        var content = new VBoxContainer(); content.AddThemeConstantOverride("separation", 18); panel.AddChild(content);
+        var content = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        content.AddThemeConstantOverride("separation", Ui.IsMobile ? 14 : 18);
+        panel.AddChild(content);
         content.AddChild(Ui.Label("MI PERFIL", 27, Ui.Gold));
-        content.AddChild(Ui.Label("🧙", 42, Ui.Gold));
-        _identity = Ui.Label("", 20); _identity.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        content.AddChild(Ui.Label("🧙", Ui.IsMobile ? 32 : 42, Ui.Gold));
+        _identity = Ui.Label("", Ui.IsMobile ? 22 : 20); _identity.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         content.AddChild(_identity);
-        _status = Ui.Label("", 15, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _status = Ui.Label("", Ui.IsMobile ? 17 : 15, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         content.AddChild(_status);
         _login = Ui.Button("Entrar o registrarse con Google", () => _ = Login(), true);
+        _login.CustomMinimumSize = new(0, Ui.IsMobile ? 64 : 48);
         content.AddChild(_login);
         _logout = Ui.Button("Cerrar sesión", () => _ = Logout());
+        _logout.CustomMinimumSize = new(0, Ui.IsMobile ? 64 : 48);
         content.AddChild(_logout);
-        content.AddChild(Ui.Button("Volver", () => { _lifetime.Cancel(); QueueFree(); }));
+        var back = Ui.Button("Volver", () => { _lifetime.Cancel(); QueueFree(); });
+        back.CustomMinimumSize = new(0, Ui.IsMobile ? 64 : 48);
+        content.AddChild(back);
         Render();
     }
 
@@ -80,7 +90,7 @@ public partial class AccountProfilePanel : Control
             string address = settings.RootElement.TryGetProperty("accountUrl", out var configuredUrl)
                 ? configuredUrl.GetString()?.Trim() ?? "" : "";
             if (address.Length == 0)
-                throw new InvalidOperationException("Google requiere el servidor independiente de cuentas. Configura accountUrl en account-server.json. Puedes jugar contra IA y consultar el inventario guardado sin conexión.");
+                throw new InvalidOperationException("El acceso con Google todavía no está disponible. Falta configurar la dirección del servidor de cuentas. Puedes seguir jugando sin conexión.");
             var config = await _main.Accounts.Configuration(address, _lifetime.Token);
             if (!config.Enabled) throw new InvalidOperationException(config.Message);
             var challenge = await _main.Accounts.BeginLogin(address, _lifetime.Token);
