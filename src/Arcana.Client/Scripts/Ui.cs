@@ -81,7 +81,7 @@ public static class Ui
     }
     public static Theme Theme()
     {
-        var theme = new Theme { DefaultFontSize = IsMobile ? 24 : 17 };
+        var theme = new Theme { DefaultFontSize = IsMobile ? 18 : 17 };
         theme.SetColor("font_color", "Label", Text);
         theme.SetColor("font_color", "Button", Text);
         theme.SetColor("font_hover_color", "Button", Gold);
@@ -103,14 +103,14 @@ public static class Ui
     public static Label Label(string text, int size = 17, Color? color = null)
     {
         var label = new Label { Text = text };
-        label.AddThemeFontSizeOverride("font_size", IsMobile ? Math.Max(size, 20) : size);
+        label.AddThemeFontSizeOverride("font_size", IsMobile ? Math.Max(size, 16) : size);
         label.AddThemeColorOverride("font_outline_color", new Color("070c16")); label.AddThemeConstantOverride("outline_size", 2);
         if (color != null) label.AddThemeColorOverride("font_color", color.Value);
         return label;
     }
     public static Button Button(string text, Action pressed, bool primary = false)
     {
-        var button = new Button { Text = text, CustomMinimumSize = new(0, IsMobile ? 64 : 45), MouseDefaultCursorShape = Control.CursorShape.PointingHand };
+        var button = new Button { Text = text, CustomMinimumSize = new(0, IsMobile ? 48 : 45), MouseDefaultCursorShape = Control.CursorShape.PointingHand };
         if (primary)
         {
             button.AddThemeStyleboxOverride("normal", Panel(new("a6874e"), 8, Gold));
