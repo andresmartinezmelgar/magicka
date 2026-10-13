@@ -17,7 +17,7 @@ public sealed class FirebaseDesktopBridge : IDisposable
 {
     // Firebase Web API key: identificador público del proyecto, no credencial Admin.
     private const string FirebaseApiKey = "AIzaSyAq5LTlzFLFswFdfPAlvPtkbkjqUj3yM4M";
-    private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(20) };
+    private readonly System.Net.Http.HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(20) };
     private readonly CancellationTokenSource _lifetime = new();
     private CancellationTokenSource? _loginCancellation;
     private readonly string _clientId;
