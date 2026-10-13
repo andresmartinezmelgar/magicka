@@ -14,7 +14,7 @@ checks = {
     "src/Arcana.Core/LocalFirebaseHosting.cs": [
         "GOOGLE_APPLICATION_CREDENTIALS",
     ],
-    "src/Arcana.Client/Scripts/Launcher.cs": [
+    "src/Arcana.Client/Scripts/AccountProfilePanel.cs": [
         "Entrar o registrarse con Google",
     ],
     "scripts/test-accounts.sh": ["Arcana.Account.Tests"],
