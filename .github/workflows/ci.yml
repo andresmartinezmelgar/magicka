@@ -201,7 +201,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh release create "$GITHUB_REF_NAME" dist/*.zip dist/*.apk dist/SHA256SUMS.txt \
-            --title "Arcana Arena $GITHUB_REF_NAME" \
-            --notes "Compilacion automatica desde tag. Validacion funcional en dispositivos a cargo del usuario." \
-            --verify-tag
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/*.zip dist/*.apk dist/SHA256SUMS.txt --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/*.zip dist/*.apk dist/SHA256SUMS.txt \
+              --title "Arcana Arena $GITHUB_REF_NAME" \
+              --notes "Compilacion automatica desde tag. Validacion funcional en dispositivos a cargo del usuario." \
+              --verify-tag
+          fi
