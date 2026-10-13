@@ -48,17 +48,8 @@ try {
         $bytes = [Convert]::FromBase64String($desktopOauth)
         if ($bytes.Length -gt 8192) { throw 'JSON OAuth de escritorio demasiado grande.' }
         $json = [Text.Encoding]::UTF8.GetString($bytes) | ConvertFrom-Json
-        if (!$json.installed.client_id -or $json.installed.client_id -notmatch '^[a-zA-Z0-9_-]+[.]apps[.]googleusercontent[.]com
-} finally {
-    try {
-        if ($null -ne $presetBackup) { [IO.File]::WriteAllBytes($presetPath, $presetBackup) }
-        $env:UseSharedCompilation = $previousSharedCompilation
-        if ($locationPushed) { Pop-Location }
-    }
-    finally { if ($ownsLease) { Exit-ArcanaBuildLock -Lease $BuildLease } }
-}
-) {
-            throw 'El JSON OAuth no tiene installed.client_id válido.'
+        if (!$json.installed.client_id -or $json.installed.client_id -notmatch '^[a-zA-Z0-9_-]+[.]apps[.]googleusercontent[.]com$') {
+            throw 'El JSON OAuth no contiene un installed.client_id valido.'
         }
         if ($json.installed.project_id -and $json.installed.project_id -ne 'arcana-arena-f2997') {
             throw 'El cliente OAuth de Windows pertenece a otro proyecto.'
@@ -66,7 +57,7 @@ try {
         [IO.File]::WriteAllBytes((Join-Path $package 'google-desktop-oauth.json'), $bytes)
         Write-Host 'GOOGLE_DESKTOP_OAUTH_PACKAGED'
     } else {
-        Write-Host 'GOOGLE_DESKTOP_OAUTH_NOT_CONFIGURED: se importará desde el juego'
+        Write-Host 'GOOGLE_DESKTOP_OAUTH_NOT_CONFIGURED: se importara desde el juego'
     }
     Write-Host "PAQUETE_LISTO: $package"
 } finally {
