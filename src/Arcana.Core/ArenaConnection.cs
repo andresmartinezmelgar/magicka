@@ -99,7 +99,7 @@ public sealed class ArenaConnection : IAsyncDisposable
             _socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(10);
             await _socket.ConnectAsync(endpoint, timeout.Token).ConfigureAwait(false);
             var hello = new ClientMessage { Type = "hello", Name = name, Team = team, Password = password,
-                RoomId = roomId, RoomPassword = roomPassword, Protocol = Protocol.Version, WizardType = wizardType, AccountToken = accountToken };
+                RoomId = roomId, RoomPassword = roomPassword, Protocol = Protocol.Version, GameVersion = BuildInfo.Version, WizardType = wizardType, AccountToken = accountToken };
             await SendFrame(hello, timeout.Token).ConfigureAwait(false);
             var welcome = await Read(timeout.Token).ConfigureAwait(false);
             if (welcome?.Type == "error") throw new InvalidOperationException(welcome.Error);
@@ -111,6 +111,8 @@ public sealed class ArenaConnection : IAsyncDisposable
                 welcome.Room.ScoreLimit != welcome.Snapshot.ScoreLimit || welcome.Room.Tickets != welcome.Snapshot.StartingTickets ||
                 welcome.Room.Players != welcome.Snapshot.Players.Length)
                 throw new InvalidDataException("El saludo no corresponde a la sala solicitada.");
+            if (!string.Equals(welcome.Server!.GameVersion, BuildInfo.Version, StringComparison.Ordinal))
+                throw new InvalidOperationException($"Versión incompatible. Servidor: {welcome.Server.GameVersion ?? "desconocida"}; cliente: {BuildInfo.Version}.");
             PlayerId = welcome.PlayerId; Server = welcome.Server; Room = welcome.Room;
             _requiresReady = welcome.RequiresReady;
             ApplyReadiness(welcome);
