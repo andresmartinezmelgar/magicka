@@ -44,13 +44,12 @@ public partial class Main
         _ui.AddChild(_accountProfilePanel);
         _accountProfilePanel.Build(this);
     }
-    public void OpenEquipment(string address, bool googleLogin = false)
+    public void OpenEquipment(string address)
     {
         if (_playing) return;
         if (GodotObject.IsInstanceValid(_equipmentPanel)) _equipmentPanel!.QueueFree();
         _equipmentPanel = new EquipmentPanel(); _ui.AddChild(_equipmentPanel);
         _equipmentPanel.Build(this, address);
-        if (googleLogin && !Accounts.SignedIn) _equipmentPanel.BeginGoogleLogin();
     }
     private void ApplyPracticeEquipment()
     {
