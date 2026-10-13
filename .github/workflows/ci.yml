@@ -547,6 +547,35 @@ jobs:
         with:
           name: ArcanaArena-Android-arm64
           path: artifacts
+      - name: Firmar APK de distribución con clave persistente
+        env:
+          ARCANA_KEYSTORE_BASE64: ${{ secrets.ARCANA_KEYSTORE_BASE64 }}
+          ARCANA_KEYSTORE_PASSWORD: ${{ secrets.ARCANA_KEYSTORE_PASSWORD }}
+          ARCANA_KEY_ALIAS: ${{ secrets.ARCANA_KEY_ALIAS }}
+          ARCANA_KEY_PASSWORD: ${{ secrets.ARCANA_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for key in ARCANA_KEYSTORE_BASE64 ARCANA_KEYSTORE_PASSWORD ARCANA_KEY_ALIAS ARCANA_KEY_PASSWORD; do
+            if [ -z "${!key}" ]; then
+              echo "::error::Falta el secreto $key. No se publicará una APK con firma temporal."
+              exit 1
+            fi
+          done
+          version=$(tr -d '\r\n' < VERSION)
+          apk="artifacts/ArcanaArena-v$version-Android-arm64.apk"
+          test -s "$apk"
+          printf '%s' "$ARCANA_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/arcana-release.keystore"
+          chmod 600 "$RUNNER_TEMP/arcana-release.keystore"
+          signer=$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools" -maxdepth 2 -name apksigner -type f | sort -V | tail -1)
+          test -x "$signer"
+          printf '%s' "$ARCANA_KEYSTORE_PASSWORD" > "$RUNNER_TEMP/storepass"
+          printf '%s' "$ARCANA_KEY_PASSWORD" > "$RUNNER_TEMP/keypass"
+          chmod 600 "$RUNNER_TEMP/storepass" "$RUNNER_TEMP/keypass"
+          "$signer" sign --ks "$RUNNER_TEMP/arcana-release.keystore" --ks-key-alias "$ARCANA_KEY_ALIAS" \
+            --ks-pass "file:$RUNNER_TEMP/storepass" --key-pass "file:$RUNNER_TEMP/keypass" "$apk"
+          "$signer" verify --verbose "$apk"
+          (cd artifacts && sha256sum "$(basename "$apk")" > SHA256SUMS-Android.txt)
+          rm -f "$RUNNER_TEMP/arcana-release.keystore" "$RUNNER_TEMP/storepass" "$RUNNER_TEMP/keypass"
       - name: Publicar version descargable validada
         env:
           GH_TOKEN: ${{ github.token }}
