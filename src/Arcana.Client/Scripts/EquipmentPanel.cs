@@ -106,6 +106,7 @@ public partial class EquipmentPanel : Control
             + "2 o 3 piezas: " + SetDescription(f, false) + "\n4 piezas: " + SetDescription(f, true)))
             + "\n\nEl bono de cuatro sustituye al de dos. Se pueden combinar dos conjuntos de dos piezas.", 17);
         descriptions.AutowrapMode = TextServer.AutowrapMode.WordSmart; descriptions.SizeFlagsHorizontal = SizeFlags.ExpandFill; setsScroll.AddChild(descriptions);
+        ApplyOptionAEquipment(margin, panel, box, columns, inventoryScroll, totalsScroll, footer);
         Render();
         if (_main.Accounts.SignedIn) _ = Refresh();
     }
