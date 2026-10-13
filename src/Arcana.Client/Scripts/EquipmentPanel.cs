@@ -250,7 +250,8 @@ public partial class EquipmentPanel : Control
     {
         var item = Selected(); if (_busy || item == null || !_main.Accounts.SignedIn) return;
         _selling = item.Id;
-        _confirm.DialogText = "Eliminar " + EquipmentCatalogue.ItemName(item) + $" por {item.SaleGold} de oro.\nSe quitará de tu mago. Esta eliminación es permanente.";
+        _confirm.DialogText = "PIEZA QUE VAS A ELIMINAR:\n" + EquipmentCatalogue.ItemName(item) +
+            $"\n\nORO QUE RECIBIRÁS: +{item.SaleGold}\n\nLa pieza desaparecerá definitivamente de tu inventario y dejará de estar equipada. Esta acción no se puede deshacer.\n\n¿Confirmas la venta?";
         _confirm.PopupCentered(new(640, 220));
     }
     private async Task Sell()
