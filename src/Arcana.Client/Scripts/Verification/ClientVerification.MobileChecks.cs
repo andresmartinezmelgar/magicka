@@ -145,15 +145,16 @@ public partial class ClientVerification
                         "El meteorito no completó su caída e impacto en el renderer móvil.");
                     // Agua + frío también es instantáneo: antes se disparaba al
                     // apoyar el dedo con una dirección anterior o arbitraria.
+                    Vector2 iceAimCenter = new(width - 142, height - 125);
                     ReadyForSpell();
                     _runtime.Submit(new() { Type = "clear" });
                     Tap(Element.Water); Tap(Element.Cold);
                     var projectilesBeforeIce = _runtime.Practice.Snapshot().Projectiles.Select(p => p.Id).ToHashSet();
-                    Down(1, aimCenter);
+                    Down(1, iceAimCenter);
                     Require(touch.IceAimPending &&
                         !_runtime.Practice.Snapshot().Projectiles.Any(p => !projectilesBeforeIce.Contains(p.Id)),
                         "El hielo se ha disparado al tocar, antes de terminar de apuntar.");
-                    touch.Drag(1, global + aimCenter + new Vector2(-74, -30));
+                    touch.Drag(1, global + iceAimCenter + new Vector2(-74, -30));
                     V2 iceDirection = (_runtime.Aim - player.Position).Normalized;
                     Up(1);
                     var iceShards = _runtime.Practice.Snapshot().Projectiles
@@ -166,7 +167,7 @@ public partial class ClientVerification
                     _runtime.Submit(new() { Type = "clear" });
                     Tap(Element.Water); Tap(Element.Cold);
                     var projectileCountOnCancel = _runtime.Practice.Snapshot().Projectiles.Length;
-                    Down(1, aimCenter); touch.Drag(1, global + aimCenter + Vector2.Up * 60);
+                    Down(1, iceAimCenter); touch.Drag(1, global + iceAimCenter + Vector2.Up * 60);
                     Up(1, true);
                     Require(!touch.IceAimPending &&
                         _runtime.Practice.Snapshot().Projectiles.Length == projectileCountOnCancel &&
