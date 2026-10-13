@@ -71,14 +71,15 @@ public partial class RoomLobby : Control
         _heading.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         teamRow.AddChild(Ui.Label("Tu equipo", 16, Ui.Muted));
         _teamChoice = Ui.TeamChoice(team); _teamChoice.Name = "RoomTeamChoice"; teamRow.AddChild(_teamChoice);
-        _listPane = new VBoxContainer(); _listPane.AddThemeConstantOverride("separation", 14); box.AddChild(_listPane);
-        _list = new ItemList { CustomMinimumSize = new(0, Ui.IsMobile ? 150 : 190), SelectMode = ItemList.SelectModeEnum.Single };
+        _listPane = new VBoxContainer(); _listPane.AddThemeConstantOverride("separation", Ui.IsMobile ? 4 : 8); box.AddChild(_listPane);
+        _list = new ItemList { CustomMinimumSize = new(0, Ui.IsMobile ? 100 : 160), SelectMode = ItemList.SelectModeEnum.Single };
         _listPane.AddChild(_list); _list.ItemActivated += _ => Join();
         var pages = new HBoxContainer();
         pages.AddThemeConstantOverride("separation", 10);
         _listPane.AddChild(pages);
         _roomPagePrevious = Ui.Button("◀  Anteriores", () => ShowRoomPage(_roomPageStart - VisibleRoomsPerPage));
         _roomPagePrevious.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _roomPagePrevious.CustomMinimumSize = new(0, Ui.IsMobile ? 48 : 44);
         pages.AddChild(_roomPagePrevious);
         _roomPageLabel = Ui.Label("", 15, Ui.Gold);
         _roomPageLabel.HorizontalAlignment = HorizontalAlignment.Center;
@@ -86,6 +87,7 @@ public partial class RoomLobby : Control
         pages.AddChild(_roomPageLabel);
         _roomPageNext = Ui.Button("Siguientes  ▶", () => ShowRoomPage(_roomPageStart + VisibleRoomsPerPage));
         _roomPageNext.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _roomPageNext.CustomMinimumSize = new(0, Ui.IsMobile ? 48 : 44);
         pages.AddChild(_roomPageNext);
         _objective = Ui.Label("", 15, Ui.Gold); _objective.AutowrapMode = TextServer.AutowrapMode.WordSmart; _listPane.AddChild(_objective);
         _list.ItemSelected += _ => ShowObjective();
@@ -96,7 +98,7 @@ public partial class RoomLobby : Control
         ActionButton(actions, "Entrar", Join, true); ActionButton(actions, "Crear sala", () => SwitchPane(true));
         ActionButton(actions, "Actualizar", Refresh);
         _createPane = new VBoxContainer { Visible = false }; _createPane.AddThemeConstantOverride("separation", 12); box.AddChild(_createPane);
-        var grid = new GridContainer { Columns = 6 }; grid.AddThemeConstantOverride("h_separation", 18);
+        var grid = new GridContainer { Columns = Ui.IsMobile ? 8 : 6 }; grid.AddThemeConstantOverride("h_separation", 18);
         grid.AddThemeConstantOverride("v_separation", Ui.IsMobile ? 5 : 7); _createPane.AddChild(grid);
         _roomName = new LineEdit { Text = "Sala de " + (name.Length > 24 ? name[..24] : name), MaxLength = 32, CustomMinimumSize = new(0, 42) };
         Row(grid, "Nombre", _roomName);
@@ -130,7 +132,7 @@ public partial class RoomLobby : Control
         _capacity.ValueChanged += value => _bots.MaxValue = value - 1;
         var creation = new HBoxContainer(); creation.AddThemeConstantOverride("separation", 12); _createPane.AddChild(creation);
         ActionButton(creation, "Crear y entrar", Create, true); ActionButton(creation, "Volver a salas", () => SwitchPane(false));
-        box.AddChild(Ui.Label("Cada sala tiene su propia partida. Las salas vacías se retiran a los 15 minutos.", 14, Ui.Muted));
+        _heading.TooltipText = "Cada sala tiene su propia partida. Las salas vacías se retiran a los 15 minutos.";
         _status = Ui.Label("Cargando salas…", 15, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _status.CustomMinimumSize = new(0, 36); box.AddChild(_status);
         var back = Ui.Button("Volver al launcher", Close);
@@ -150,7 +152,7 @@ public partial class RoomLobby : Control
         foreach (var control in new Control[] { _teamChoice, _joinPassword, _roomName, _roomPassword,
             _mode, _map, _capacity, _bots, _score, _tickets, _friendly })
             Ui.TouchTarget(control, Ui.IsMobile ? 56 : 46);
-        _list.CustomMinimumSize = new Vector2(0, Ui.IsMobile ? 150 : 190);
+        _list.CustomMinimumSize = new Vector2(0, Ui.IsMobile ? 100 : 160);
         ArcanaMenuChrome.Attach(this, safeMargin, _main, "Salas PvP", 1, _main.NavigateOptionAMenu);
         Refresh();
     }
