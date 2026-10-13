@@ -92,6 +92,15 @@ public sealed class AccountClient : IDisposable
     }
     public async Task<InventoryResult> Equip(EquipmentSlot slot, string itemId, CancellationToken token = default)
     {
+        if (IsDirectFirebaseSession)
+        {
+            if (Profile == null) throw new InvalidOperationException("El inventario todavía no se ha cargado.");
+            var updated = AccountInventory.Equip(Profile, new InventoryRequest(itemId, slot));
+            await _firebaseReader!.SaveLoadout(_firebaseUid, Token, updated.Loadout, token).ConfigureAwait(false);
+            _ = EquipmentModifiers.Calculate(updated);
+            Profile = updated;
+            return new InventoryResult(updated, "Equipamiento guardado en Firebase.");
+        }
         var result = await Request<InventoryResult>(HttpMethod.Post, "account/equip", new InventoryRequest(itemId, slot), token).ConfigureAwait(false);
         _ = EquipmentModifiers.Calculate(result.Profile); Profile = result.Profile; return result;
     }
