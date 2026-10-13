@@ -123,6 +123,8 @@ public partial class Launcher
         _tabs.AddThemeStyleboxOverride("panel", Ui.Panel(new Color("0b1e34"), 7, new Color("2a5676")));
         _tabs.AddThemeStyleboxOverride("tab_selected", Ui.Panel(new Color("144c7c"), 7, Ui.Blue));
         _tabs.AddThemeStyleboxOverride("tab_unselected", Ui.Panel(new Color("122943"), 7, new Color("244968")));
+        CompactPracticeTab();
+
 
         _optionAPreview = new VBoxContainer { Visible = false, SizeFlagsVertical = SizeFlags.ExpandFill };
         _optionAPreview.AddThemeConstantOverride("separation", 16);
@@ -169,6 +171,36 @@ public partial class Launcher
 
         _optionAChrome = ArcanaMenuChrome.Attach(this, margin, _main,
             "Inicio", 0, NavigateOptionA);
+    }
+
+    /// <summary>IA en dos columnas: conserva todos los ajustes pero evita desbordamientos a 720p.</summary>
+    private void CompactPracticeTab()
+    {
+        if (_tabs.GetChild(2) is not VBoxContainer practice) return;
+        var parts = practice.GetChildren().OfType<Control>().ToArray();
+        if (parts.Length < 8) return;
+        practice.AddThemeConstantOverride("separation", 6);
+        var row = new HBoxContainer { Name = "OptionAIaSettingsColumns",
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill };
+        row.AddThemeConstantOverride("separation", Ui.IsMobile ? 14 : 22);
+        practice.AddChild(row);
+        practice.MoveChild(row, 0);
+        var maps = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsStretchRatio = 1.1f };
+        maps.AddThemeConstantOverride("separation", 7);
+        row.AddChild(maps);
+        var bots = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsStretchRatio = 1.0f };
+        bots.AddThemeConstantOverride("separation", 10);
+        row.AddChild(bots);
+        // El mapa, la modalidad y su objetivo a la izquierda; bots y laboratorio a la derecha.
+        foreach (int index in new[] { 0, 1, 2, 3, 4 }) parts[index].Reparent(maps);
+        foreach (int index in new[] { 5, 6, 7 }) parts[index].Reparent(bots);
+        if (parts[0] is Label explanation)
+            explanation.AddThemeFontSizeOverride("font_size", 14);
+        if (parts[4] is Label objective)
+            objective.AddThemeFontSizeOverride("font_size", 14);
     }
 
     private static StyleBoxFlat WidePanel()
