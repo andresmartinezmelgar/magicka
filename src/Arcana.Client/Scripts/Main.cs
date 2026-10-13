@@ -443,6 +443,7 @@ public partial class Main : Node
             {
                 if (InspectingEquipment) ClosePlayerEquipment();
                 else if (GodotObject.IsInstanceValid(_equipmentPanel)) { _equipmentPanel!.QueueFree(); _equipmentPanel = null; }
+                else if (GodotObject.IsInstanceValid(_optionAHelp)) CloseOptionAHelp();
                 else if (_help.Visible) { _help.Visible = false; UpdateTouchVisibility(); }
                 else if (_playing) TogglePause();
                 return;
@@ -481,6 +482,8 @@ public partial class Main : Node
 
     public void ToggleHelp()
     {
+        // Solo rediseño de menú. En combate se conserva el libro y los controles originales.
+        if (!_playing && !_help.Visible) { ToggleOptionAHelp(); return; }
         _help.Visible = !_help.Visible;
         _currentObjective.Text = _playing && _snapshot != null
             ? "ESTA PARTIDA: " + MatchRules.Objective(_snapshot.Mode, _snapshot.ScoreLimit, _snapshot.StartingTickets, _snapshot.Map)

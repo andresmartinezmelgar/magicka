@@ -12,8 +12,13 @@ public partial class RoomLobby : Control
     private WizardType _wizardType;
     private Label _objective = null!, _creationObjective = null!;
     private RoomInfo[] _rooms = [];
+    private int _roomPageStart;
+    private const int VisibleRoomsPerPage = 3;
+    private Label? _roomPageLabel;
+    private Button? _roomPagePrevious, _roomPageNext;
     private ItemList _list = null!;
     private Label _status = null!, _heading = null!;
+    private Label? _serverAddressLabel;
     private LineEdit _joinPassword = null!, _roomName = null!, _roomPassword = null!;
     private OptionButton _mode = null!, _map = null!;
     private SpinBox _capacity = null!, _bots = null!, _score = null!, _tickets = null!;
@@ -30,56 +35,62 @@ public partial class RoomLobby : Control
         _main = main; _address = address; _serverPassword = password; _playerName = name; _wizardType = wizardType;
         Theme = Ui.Theme(); Ui.Full(this);
         var shade = new ColorRect { Color = new(0.01f, 0.025f, 0.045f, 0.94f) }; AddChild(shade); Ui.Full(shade);
-        PanelContainer panel;
-        ScrollContainer scroll;
-        VBoxContainer? fixedActions = null;
-        if (Ui.IsMobile)
-        {
-            // Antes se desactivaba el scroll móvil: las acciones de crear/entrar quedaban fuera de pantalla.
-            var safeMargin = new MarginContainer();
-            AddChild(safeMargin); Ui.Full(safeMargin);
-            foreach (string side in new[] { "left", "right", "top", "bottom" })
-                safeMargin.AddThemeConstantOverride("margin_" + side, 12);
-            panel = new PanelContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
-                SizeFlagsVertical = SizeFlags.ExpandFill };
-            safeMargin.AddChild(panel);
-            var layout = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
-                SizeFlagsVertical = SizeFlags.ExpandFill };
-            layout.AddThemeConstantOverride("separation", 10);
-            panel.AddChild(layout);
-            scroll = new ScrollContainer { Name = "MobileRoomSettingsScroll",
-                SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
-                HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
-                VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
-            layout.AddChild(scroll);
-            _mobileScroll = scroll;
-            fixedActions = new VBoxContainer { Name = "MobileRoomActions" };
-            fixedActions.AddThemeConstantOverride("separation", 9);
-            layout.AddChild(fixedActions);
-        }
-        else
-        {
-            var center = new CenterContainer(); AddChild(center); Ui.Full(center);
-            panel = new PanelContainer { CustomMinimumSize = new(860, 0) };
-            center.AddChild(panel);
-            scroll = new ScrollContainer {
-                CustomMinimumSize = new(820, Math.Min(740, GetViewport().GetVisibleRect().Size.Y - 120)),
-                HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
-                VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
-            panel.AddChild(scroll);
-        }
-        var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; box.AddThemeConstantOverride("separation", 16); scroll.AddChild(box);
+        // Opción A: ancho completo, navegación constante y contenido por secciones sin scroll.
+        var safeMargin = new MarginContainer();
+        AddChild(safeMargin); Ui.Full(safeMargin);
+        foreach (string side in new[] { "left", "right", "top", "bottom" })
+            safeMargin.AddThemeConstantOverride("margin_" + side, Ui.IsMobile ? 8 : 15);
+        var panel = new PanelContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill };
+        panel.AddThemeStyleboxOverride("panel", Ui.Panel(new Color("091a2c"), 10, new Color("2876a3")));
+        safeMargin.AddChild(panel);
+        var layout = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill };
+        layout.AddThemeConstantOverride("separation", 5);
+        panel.AddChild(layout);
+        var scroll = new ScrollContainer { Name = "OptionALobbyContent",
+            SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            VerticalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        layout.AddChild(scroll);
+        var fixedActions = new VBoxContainer { Name = "OptionALobbyActions" };
+        fixedActions.AddThemeConstantOverride("separation", 6);
+        layout.AddChild(fixedActions);
+        _mobileScroll = scroll;
+        var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; box.AddThemeConstantOverride("separation", Ui.IsMobile ? 6 : 9); scroll.AddChild(box);
         _heading = Ui.Label("SALAS", 28, Ui.Gold); box.AddChild(_heading);
         var addressInfo = Ui.Label(address, 15, Ui.Muted);
         addressInfo.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
         box.AddChild(addressInfo);
-        box.AddChild(Ui.Button("Personalizar mago e inventario", () => _main.OpenEquipment(_address)));
-        var teamRow = new HBoxContainer(); teamRow.AddThemeConstantOverride("separation", 18); box.AddChild(teamRow);
+        _serverAddressLabel = addressInfo;
+        // El inventario siempre queda disponible en la barra inferior fija de la opción A.
+        var teamRow = new HBoxContainer(); teamRow.AddThemeConstantOverride("separation", 12); box.AddChild(teamRow);
+        var headerRow = new HBoxContainer();
+        headerRow.AddThemeConstantOverride("separation", 22);
+        box.AddChild(headerRow); box.MoveChild(headerRow, 0);
+        _heading.Reparent(headerRow);
+        teamRow.Reparent(headerRow);
+        _heading.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         teamRow.AddChild(Ui.Label("Tu equipo", 16, Ui.Muted));
         _teamChoice = Ui.TeamChoice(team); _teamChoice.Name = "RoomTeamChoice"; teamRow.AddChild(_teamChoice);
-        _listPane = new VBoxContainer(); _listPane.AddThemeConstantOverride("separation", 14); box.AddChild(_listPane);
-        _list = new ItemList { CustomMinimumSize = new(0, 240), SelectMode = ItemList.SelectModeEnum.Single };
+        _listPane = new VBoxContainer(); _listPane.AddThemeConstantOverride("separation", Ui.IsMobile ? 4 : 8); box.AddChild(_listPane);
+        _list = new ItemList { CustomMinimumSize = new(0, Ui.IsMobile ? 100 : 160), SelectMode = ItemList.SelectModeEnum.Single };
         _listPane.AddChild(_list); _list.ItemActivated += _ => Join();
+        var pages = new HBoxContainer();
+        pages.AddThemeConstantOverride("separation", 10);
+        _listPane.AddChild(pages);
+        _roomPagePrevious = Ui.Button("◀  Anteriores", () => ShowRoomPage(_roomPageStart - VisibleRoomsPerPage));
+        _roomPagePrevious.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _roomPagePrevious.CustomMinimumSize = new(0, Ui.IsMobile ? 48 : 44);
+        pages.AddChild(_roomPagePrevious);
+        _roomPageLabel = Ui.Label("", 15, Ui.Gold);
+        _roomPageLabel.HorizontalAlignment = HorizontalAlignment.Center;
+        _roomPageLabel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        pages.AddChild(_roomPageLabel);
+        _roomPageNext = Ui.Button("Siguientes  ▶", () => ShowRoomPage(_roomPageStart + VisibleRoomsPerPage));
+        _roomPageNext.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _roomPageNext.CustomMinimumSize = new(0, Ui.IsMobile ? 48 : 44);
+        pages.AddChild(_roomPageNext);
         _objective = Ui.Label("", 15, Ui.Gold); _objective.AutowrapMode = TextServer.AutowrapMode.WordSmart; _listPane.AddChild(_objective);
         _list.ItemSelected += _ => ShowObjective();
         _listPane.AddChild(Ui.Label("Contraseña de la sala (si tiene)", 14, Ui.Muted));
@@ -89,9 +100,9 @@ public partial class RoomLobby : Control
         ActionButton(actions, "Entrar", Join, true); ActionButton(actions, "Crear sala", () => SwitchPane(true));
         ActionButton(actions, "Actualizar", Refresh);
         _createPane = new VBoxContainer { Visible = false }; _createPane.AddThemeConstantOverride("separation", 12); box.AddChild(_createPane);
-        var grid = new GridContainer { Columns = 2 }; grid.AddThemeConstantOverride("h_separation", 18);
-        grid.AddThemeConstantOverride("v_separation", 10); _createPane.AddChild(grid);
-        _roomName = new LineEdit { Text = "Sala de " + (name.Length > 24 ? name[..24] : name), MaxLength = 32, CustomMinimumSize = new(Ui.IsMobile ? 0 : 460, 42) };
+        var grid = new GridContainer { Columns = 6 }; grid.AddThemeConstantOverride("h_separation", 18);
+        grid.AddThemeConstantOverride("v_separation", Ui.IsMobile ? 5 : 7); _createPane.AddChild(grid);
+        _roomName = new LineEdit { Text = "Sala de " + (name.Length > 24 ? name[..24] : name), MaxLength = 32, CustomMinimumSize = new(0, 42) };
         Row(grid, "Nombre", _roomName);
         _mode = new OptionButton { CustomMinimumSize = new(0, 42) };
         _mode.AddItem("Guerra de puntos", (int)GameMode.Warfare); _mode.AddItem("Todos contra todos", (int)GameMode.Arena);
@@ -123,32 +134,34 @@ public partial class RoomLobby : Control
         _capacity.ValueChanged += value => _bots.MaxValue = value - 1;
         var creation = new HBoxContainer(); creation.AddThemeConstantOverride("separation", 12); _createPane.AddChild(creation);
         ActionButton(creation, "Crear y entrar", Create, true); ActionButton(creation, "Volver a salas", () => SwitchPane(false));
-        box.AddChild(Ui.Label("Cada sala tiene su propia partida. Las salas vacías se retiran a los 15 minutos.", 14, Ui.Muted));
+        _heading.TooltipText = "Cada sala tiene su propia partida. Las salas vacías se retiran a los 15 minutos.";
         _status = Ui.Label("Cargando salas…", 15, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _status.CustomMinimumSize = new(0, 46); box.AddChild(_status);
+        _status.CustomMinimumSize = new(0, 36); box.AddChild(_status);
         var back = Ui.Button("Volver al launcher", Close);
         box.AddChild(back);
-        if (Ui.IsMobile)
-        {
-            // Acciones permanentemente visibles mientras se recorren listas o el formulario de creación.
-            _mobileListActions = actions;
-            _mobileCreateActions = creation;
-            actions.Reparent(fixedActions!);
-            creation.Reparent(fixedActions);
-            _status.Reparent(fixedActions);
-            back.Reparent(fixedActions);
-            _mobileCreateActions.Visible = false;
-            foreach (var control in new Control[] { _teamChoice, _joinPassword, _roomName, _roomPassword,
-                _mode, _map, _capacity, _bots, _score, _tickets, _friendly })
-                Ui.TouchTarget(control);
-            _list.CustomMinimumSize = new Vector2(0, 240);
-        }
+        // Acciones en el mismo lugar en lista y creación; el botón de volver
+        // está en la misma barra inferior de cada sección.
+        _mobileListActions = actions;
+        _mobileCreateActions = creation;
+        _status.Reparent(fixedActions);
+        back.Reparent(actions);
+        var backCreate = Ui.Button("Volver al launcher", Close);
+        backCreate.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        creation.AddChild(backCreate);
+        actions.Reparent(fixedActions);
+        creation.Reparent(fixedActions);
+        _mobileCreateActions.Visible = false;
+        foreach (var control in new Control[] { _teamChoice, _joinPassword, _roomName, _roomPassword,
+            _mode, _map, _capacity, _bots, _score, _tickets, _friendly })
+            Ui.TouchTarget(control, Ui.IsMobile ? 48 : 46);
+        _list.CustomMinimumSize = new Vector2(0, Ui.IsMobile ? 100 : 160);
+        ArcanaMenuChrome.Attach(this, safeMargin, _main, "Salas PvP", 1, _main.NavigateOptionAMenu);
         Refresh();
     }
     internal Button[] MobileRoomButtons => (_createPane.Visible ? _mobileCreateActions : _mobileListActions)?
         .GetChildren().OfType<Button>().Where(button => button.Visible).ToArray() ?? [];
     internal Button? MobileBackButton => FindChildren("*", "Button", true, false)
-        .OfType<Button>().FirstOrDefault(button => button.Text == "Volver al launcher");
+        .OfType<Button>().FirstOrDefault(button => button.Text == "Volver al launcher" && button.IsVisibleInTree());
 
     private static SpinBox Number(int min, int max, int value) => new() { MinValue = min, MaxValue = max,
         Value = value, Step = 1, CustomMinimumSize = new(0, 40), SizeFlagsHorizontal = SizeFlags.ExpandFill };
@@ -163,6 +176,7 @@ public partial class RoomLobby : Control
     {
         _listPane.Visible = !create;
         _createPane.Visible = create;
+        if (_serverAddressLabel != null) _serverAddressLabel.Visible = !create;
         if (_mobileListActions != null) _mobileListActions.Visible = !create;
         if (_mobileCreateActions != null) _mobileCreateActions.Visible = create;
         if (_mobileScroll != null) _mobileScroll.ScrollVertical = 0;
@@ -193,19 +207,40 @@ public partial class RoomLobby : Control
             {
                 if (!Active) return;
                 _heading.Text = "SALAS  /  " + directory.Server.Name;
-                string? previous = Selected()?.Id; _rooms = directory.Rooms; _list.Clear();
-                foreach (var room in _rooms)
-                    _list.AddItem($"{room.Name}{(room.PasswordRequired ? " · CON CLAVE" : "")}  ·  {Ui.ModeName(room.Mode)}  ·  {ArenaMap.Get(room.Map).Name}  ·  {room.Players}/{room.MaxPlayers} plazas");
+                string? previous = Selected()?.Id; _rooms = directory.Rooms;
                 int at = Array.FindIndex(_rooms, r => r.Id == previous);
-                if (_rooms.Length > 0) _list.Select(Math.Max(0, at));
+                if (at >= 0) _roomPageStart = at / VisibleRoomsPerPage * VisibleRoomsPerPage;
+                else _roomPageStart = 0;
+                ShowRoomPage(_roomPageStart);
+                if (at >= 0) _list.Select(at - _roomPageStart);
+                ShowObjective();
                 ShowObjective();
                 SetBusy(false); _status.Text = $"{_rooms.Length} sala(s). Selecciona una o crea tu propia partida.";
             });
         }
         catch (Exception e) { Failure(e); }
     }
+    private void ShowRoomPage(int requestedStart)
+    {
+        _roomPageStart = Math.Clamp(requestedStart, 0,
+            Math.Max(0, (_rooms.Length - 1) / VisibleRoomsPerPage * VisibleRoomsPerPage));
+        _list.Clear();
+        foreach (var room in _rooms.Skip(_roomPageStart).Take(VisibleRoomsPerPage))
+            _list.AddItem($"{room.Name}{(room.PasswordRequired ? " · CON CLAVE" : "")}  ·  {Ui.ModeName(room.Mode)}  ·  {ArenaMap.Get(room.Map).Name}  ·  {room.Players}/{room.MaxPlayers} plazas");
+        if (_list.ItemCount > 0) _list.Select(0);
+        if (_roomPagePrevious != null) _roomPagePrevious.Disabled = _roomPageStart == 0;
+        if (_roomPageNext != null) _roomPageNext.Disabled = _roomPageStart + VisibleRoomsPerPage >= _rooms.Length;
+        if (_roomPageLabel != null) _roomPageLabel.Text = _rooms.Length == 0
+            ? "0 salas"
+            : $"{_roomPageStart + 1}–{Math.Min(_rooms.Length, _roomPageStart + VisibleRoomsPerPage)} / {_rooms.Length}";
+        ShowObjective();
+    }
     private RoomInfo? Selected()
-    { var selected = _list.GetSelectedItems(); return selected.Length > 0 && selected[0] < _rooms.Length ? _rooms[selected[0]] : null; }
+    {
+        var selected = _list.GetSelectedItems();
+        int index = selected.Length > 0 ? _roomPageStart + selected[0] : -1;
+        return index >= 0 && index < _rooms.Length ? _rooms[index] : null;
+    }
     private void ShowObjective() => _objective.Text = Selected() is { } room
         ? MatchRules.Objective(room.Mode, room.ScoreLimit, room.Tickets, room.Map) : "Selecciona una sala para ver su objetivo.";
     private void ShowCreationObjective()

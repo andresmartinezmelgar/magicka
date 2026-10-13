@@ -57,6 +57,7 @@ public partial class Main
         {
             if (InspectingEquipment) ClosePlayerEquipment();
             else if (GodotObject.IsInstanceValid(_equipmentPanel)) { _equipmentPanel!.QueueFree(); _equipmentPanel = null; }
+            else if (GodotObject.IsInstanceValid(_optionAHelp)) CloseOptionAHelp();
             else if (_help.Visible) { _help.Visible = false; UpdateTouchVisibility(); }
             else if (_playing) TogglePause();
             else if (!_launcher.HandleBack()) GetTree().Quit();
