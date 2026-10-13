@@ -7,6 +7,8 @@ export DISCOVERY_PORT="${DISCOVERY_PORT:-27016}"
 export SERVER_PASSWORD="${SERVER_PASSWORD:-arcana-ci-test}"
 export TEST_PASSWORD="$SERVER_PASSWORD"
 export BOTS=0
+# Fixture aislado: únicamente se admiten invitados en loopback durante CI.
+export ARCANA_CI_LOOPBACK_GUESTS=1
 dotnet src/Arcana.Server/bin/Release/net8.0/Arcana.Server.dll > server-test.log 2>&1 &
 server_pid=$!
 trap 'kill "$server_pid" 2>/dev/null || true' EXIT
