@@ -286,7 +286,11 @@ public partial class Launcher : Control
         _tabs.SetTabHidden(3, Ui.IsMobile || page != 1);
         if (page == 0) _menuBack.Visible = false;
         if (page == 2) _tabs.CurrentTab = 2;
-        if (page == 1 && _tabs.CurrentTab == 2) _tabs.CurrentTab = 1;
+        // Godot puede conservar una pestaña oculta al volver de práctica. En Android,
+        // nunca se debe ejecutar la acción Alojar desde la pantalla PvP.
+        if (page == 1 && (_tabs.CurrentTab == 2 ||
+            (Ui.IsMobile && _tabs.CurrentTab is not (0 or 1))))
+            _tabs.CurrentTab = 1;
         if (page == 3) Remember();
         if (_mobilePrimaryActions != null) _mobilePrimaryActions.Visible = page != 0;
         if (_mobileScroll != null) _mobileScroll.ScrollVertical = 0;
