@@ -3,15 +3,14 @@ using Godot;
 
 namespace Arcana.Client;
 
-/// <summary>Identidad de Google separada del inventario y del juego online.</summary>
+/// <summary>Google y Firestore funcionan sin servidores de juego; las transacciones siguen protegidas.</summary>
 public partial class AccountProfilePanel : Control
 {
     private Main _main = null!;
     private Label _identity = null!, _status = null!;
     private Button _login = null!, _logout = null!;
-    private LineEdit _accountUrl = null!;
-    private readonly CancellationTokenSource _lifetime = new();
     private bool _busy;
+    private readonly CancellationTokenSource _lifetime = new();
 
     public void Build(Main main)
     {
@@ -25,10 +24,14 @@ public partial class AccountProfilePanel : Control
         AddChild(margin); Ui.Full(margin);
         foreach (string side in new[] { "left", "right", "top", "bottom" })
             margin.AddThemeConstantOverride("margin_" + side, Ui.IsMobile ? 12 : 32);
-        var center = new CenterContainer(); margin.AddChild(center);
+        var scroll = new ScrollContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        margin.AddChild(scroll);
+        var center = new CenterContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        scroll.AddChild(center);
         var panel = new PanelContainer
         {
-            CustomMinimumSize = new(Ui.IsMobile ? 560 : 440, 0),
+            CustomMinimumSize = new(Ui.IsMobile ? 520 : 440, 0),
             SizeFlagsHorizontal = SizeFlags.ExpandFill
         };
         center.AddChild(panel);
@@ -37,18 +40,16 @@ public partial class AccountProfilePanel : Control
         panel.AddChild(content);
         content.AddChild(Ui.Label("MI PERFIL", 27, Ui.Gold));
         content.AddChild(Ui.Label("🧙", Ui.IsMobile ? 32 : 42, Ui.Gold));
-        _identity = Ui.Label("", Ui.IsMobile ? 22 : 20); _identity.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _identity = Ui.Label("", Ui.IsMobile ? 22 : 20);
+        _identity.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         content.AddChild(_identity);
-        _status = Ui.Label("", Ui.IsMobile ? 17 : 15, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _status = Ui.Label(main.GoogleLoginStatus, Ui.IsMobile ? 17 : 15, Ui.Muted);
+        _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         content.AddChild(_status);
-        _accountUrl = new LineEdit { PlaceholderText = "https://cuentas.tu-dominio.com",
-            SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new(0, Ui.IsMobile ? 58 : 44) };
-        var saved = new ConfigFile();
-        if (saved.Load("user://account-service.cfg") == Error.Ok)
-            _accountUrl.Text = saved.GetValue("account", "url", "").AsString();
-        content.AddChild(Ui.Label("Servidor de cuentas (sistema heredado)", Ui.IsMobile ? 16 : 14, Ui.Muted));
-        content.AddChild(_accountUrl);
-        _login = Ui.Button("Entrar o registrarse con Google", () => _ = Login(), true);
+        var info = Ui.Label("Google identifica al jugador y Firebase guarda su perfil. No necesitas iniciar el servidor C# para entrar y consultar tus objetos. Las ventas, las recompensas y las demás operaciones protegidas siguen requiriendo validación del servidor.", 15, Ui.Muted);
+        info.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        content.AddChild(info);
+        _login = Ui.Button("Entrar o registrarse con Google", Login, true);
         _login.CustomMinimumSize = new(0, Ui.IsMobile ? 64 : 48);
         content.AddChild(_login);
         _logout = Ui.Button("Cerrar sesión", () => _ = Logout());
@@ -60,6 +61,14 @@ public partial class AccountProfilePanel : Control
         Render();
     }
 
+    public void UpdateGoogleStatus(string message, bool busy = false)
+    {
+        if (_lifetime.IsCancellationRequested || !IsInsideTree()) return;
+        _status.Text = message;
+        _busy = busy;
+        Render();
+    }
+
     private void Render()
     {
         if (!IsInsideTree()) return;
@@ -67,84 +76,36 @@ public partial class AccountProfilePanel : Control
         bool signedIn = _main.Accounts.SignedIn;
         _identity.Text = signedIn && profile != null
             ? profile.Name + "\nCuenta de Google conectada\n" +
-              profile.Wins + " victorias · " + profile.Losses + " derrotas · " + profile.Gold + " oro"
+              profile.Wins + " victorias · " + profile.Losses + " derrotas · " + profile.Gold + " oro\n" +
+              profile.Items.Length + " objetos en inventario"
+            : signedIn ? "Google conectado. Esperando datos de Firestore…"
             : profile != null
-                ? profile.Name + "\nPerfil e inventario guardados en este dispositivo. Modo sin conexión disponible."
+                ? profile.Name + "\nPerfil guardado en este dispositivo para practicar sin conexión."
                 : "Sin sesión de Google. Puedes practicar contra IA sin conexión.";
         _login.Visible = !signedIn;
         _logout.Visible = signedIn;
         _login.Disabled = _logout.Disabled = _busy;
     }
 
-    private void Message(string message)
-    {
-        _main.Post(() =>
-        {
-            if (_lifetime.IsCancellationRequested || !IsInsideTree()) return;
-            _busy = false;
-            _status.Text = message;
-            Render();
-        });
-    }
-
-    private async Task Login()
+    private void Login()
     {
         if (_busy) return;
-        _busy = true; _status.Text = "Preparando el acceso con Google…"; Render();
-        try
-        {
-            using var settings = System.Text.Json.JsonDocument.Parse(
-                Godot.FileAccess.GetFileAsString("res://account-server.json"));
-            string address = settings.RootElement.TryGetProperty("accountUrl", out var configuredUrl)
-                ? configuredUrl.GetString()?.Trim() ?? "" : "";
-            if (!string.IsNullOrWhiteSpace(_accountUrl.Text)) address = _accountUrl.Text.Trim();
-            if (address.Length > 0)
-            {
-                if (!Uri.TryCreate(address, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
-                    throw new InvalidOperationException("Introduce la dirección HTTPS del servidor de cuentas.");
-                var local = new ConfigFile();
-                local.SetValue("account", "url", address);
-                local.Save("user://account-service.cfg");
-            }
-            if (address.Length == 0)
-                throw new InvalidOperationException("Esta compilación todavía utiliza el inicio de sesión heredado. El acceso directo con Firebase Google requiere integrar el SDK nativo Android y configurar el cliente OAuth. No introduzcas una dirección inventada.");
-            var config = await _main.Accounts.Configuration(address, _lifetime.Token);
-            if (!config.Enabled) throw new InvalidOperationException(config.Message);
-            var challenge = await _main.Accounts.BeginLogin(address, _lifetime.Token);
-            _main.Post(() =>
-            {
-                if (_lifetime.IsCancellationRequested) return;
-                OS.ShellOpen(challenge.Url);
-                _status.Text = "Completa el acceso en el navegador y vuelve al juego.";
-            });
-            while (DateTimeOffset.UtcNow < challenge.ExpiresAt)
-            {
-                if (await _main.Accounts.PollLogin(challenge, _lifetime.Token))
-                {
-                    _main.SaveAccountCache();
-                    Message("Sesión iniciada correctamente.");
-                    return;
-                }
-                await Task.Delay(1000, _lifetime.Token);
-            }
-            throw new InvalidOperationException("El acceso ha caducado. Inténtalo de nuevo.");
-        }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
-        catch (Exception error) { Message(error.Message); }
+        _main.StartGoogleLogin();
     }
 
     private async Task Logout()
     {
         if (_busy) return;
-        _busy = true; _status.Text = "Cerrando sesión…"; Render();
+        _busy = true;
+        _status.Text = "Cerrando sesión…";
+        Render();
         try
         {
-            await _main.Accounts.SignOut(_lifetime.Token);
-            _main.SaveAccountCache();
-            Message("Sesión cerrada.");
+            await _main.StopGoogleSession();
+            UpdateGoogleStatus("Sesión de Google cerrada.");
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
-        catch (Exception error) { Message(error.Message); }
+        catch (Exception error) { UpdateGoogleStatus("No se pudo cerrar sesión: " + error.Message); }
     }
 
     public override void _ExitTree()
