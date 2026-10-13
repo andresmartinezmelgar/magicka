@@ -98,6 +98,14 @@ public partial class Main
             if (frame == 45) _launcher.OpenMobileSmokePage(2);
             if (frame == 55)
             {
+                foreach (string nodeName in new[] { "OptionAFullWidthPanel", "OptionASettingsColumns",
+                    "OptionAPrimaryActions", "LauncherSettingsScroll", "OptionAHomeCards", "OptionAIaSettingsColumns" })
+                {
+                    if (_launcher.FindChild(nodeName, true, false) is Control part)
+                        GD.Print($"RESPONSIVE_DEBUG:{nodeName}: minimum={part.GetCombinedMinimumSize()} size={part.Size} rect={part.GetGlobalRect()}");
+                }
+                foreach (TabContainer tab in _launcher.FindChildren("*", "TabContainer", true, false).OfType<TabContainer>())
+                    GD.Print($"RESPONSIVE_DEBUG:TABS: minimum={tab.GetCombinedMinimumSize()} size={tab.Size} rect={tab.GetGlobalRect()}");
                 AssertMobileActions("VERSUS_IA", _launcher.MobilePrimaryButtons, 2);
                 AssertOptionAScreen("VERSUS_IA", _launcher);
             }
