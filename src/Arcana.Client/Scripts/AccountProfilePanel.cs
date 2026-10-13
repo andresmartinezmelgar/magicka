@@ -76,7 +76,9 @@ public partial class AccountProfilePanel : Control
             using var settings = System.Text.Json.JsonDocument.Parse(
                 Godot.FileAccess.GetFileAsString("res://account-server.json"));
             string projectId = settings.RootElement.GetProperty("projectId").GetString() ?? "";
-            string address = await PublicAccountServer.Resolve(projectId, _lifetime.Token);
+            string address = settings.RootElement.TryGetProperty("accountUrl", out var configuredUrl) &&
+                !string.IsNullOrWhiteSpace(configuredUrl.GetString())
+                ? configuredUrl.GetString()! : await PublicAccountServer.Resolve(projectId, _lifetime.Token);
             var config = await _main.Accounts.Configuration(address, _lifetime.Token);
             if (!config.Enabled) throw new InvalidOperationException(config.Message);
             var challenge = await _main.Accounts.BeginLogin(address, _lifetime.Token);
