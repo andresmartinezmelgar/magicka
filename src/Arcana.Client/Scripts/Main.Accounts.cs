@@ -65,6 +65,7 @@ public partial class Main
             _equipmentPanel!.QueueFree();
             _equipmentPanel = null;
         }
+        CloseOptionAHelp();
         _launcher.CloseRooms();
         _launcher.NavigateOptionA(page);
     }
