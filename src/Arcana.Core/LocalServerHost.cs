@@ -58,7 +58,7 @@ public sealed class LocalServerHost : IDisposable
             var start = new ProcessStartInfo(executable) { WorkingDirectory = Path.GetDirectoryName(executable)!,
                 UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
             foreach (string key in new[] { "GAME_MODE", "ARENA_MAP", "MAX_PLAYERS", "BOTS", "FRIENDLY_FIRE", "SCORE_LIMIT", "TICKETS" }) start.Environment.Remove(key);
-            foreach (string key in new[] { "ARCANA_FIREBASE_CONFIG", "FIREBASE_PROJECT_ID", "FIREBASE_API_KEY", "FIREBASE_AUTH_DOMAIN", "ARCANA_PUBLIC_URL", "GOOGLE_APPLICATION_CREDENTIALS", "ARCANA_REWARD_OUTBOX" }) start.Environment.Remove(key);
+            foreach (string key in new[] { "ARCANA_FIREBASE_CONFIG", "FIREBASE_PROJECT_ID", "FIREBASE_API_KEY", "FIREBASE_AUTH_DOMAIN", "ARCANA_PUBLIC_URL", "GOOGLE_APPLICATION_CREDENTIALS", "ARCANA_REWARD_OUTBOX", "ARCANA_AUTO_PUBLIC_HOST" }) start.Environment.Remove(key);
             bool localFirebase = LocalFirebaseHosting.Configure(start, userDirectory);
             start.Environment["SERVER_NAME"] = options.Name;
             start.Environment["GAME_PORT"] = options.Port.ToString(CultureInfo.InvariantCulture);
@@ -93,7 +93,8 @@ public sealed class LocalServerHost : IDisposable
             Diagnostics.Info("host.start", "Arrancando servidor incluido.", new Dictionary<string, object?>
                 { ["instance"] = instance, ["port"] = options.Port, ["discoveryPort"] = options.DiscoveryPort, ["firebase"] = localFirebase });
             using var poll = new HttpClient { Timeout = TimeSpan.FromSeconds(1) };
-            for (int i = 0; i < 60; i++)
+            bool automaticHost = start.Environment.TryGetValue("ARCANA_AUTO_PUBLIC_HOST", out var automatic) && automatic == "true";
+            for (int i = 0; i < (automaticHost ? 1200 : 60); i++)
             {
                 startup.Token.ThrowIfCancellationRequested();
                 lock (_gate) if (process.HasExited) throw new IOException("El servidor no ha podido arrancar. Revisa los puertos y el registro.");

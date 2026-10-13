@@ -60,6 +60,8 @@ public static class LocalFirebaseHosting
         process.Environment["ARCANA_FIREBASE_CONFIG"] = config;
         process.Environment["GOOGLE_APPLICATION_CREDENTIALS"] = credential;
         process.Environment["ARCANA_REWARD_OUTBOX"] = Path.Combine(directory, "reward-outbox");
+        using var settings = JsonDocument.Parse(File.ReadAllText(config));
+        process.Environment["ARCANA_AUTO_PUBLIC_HOST"] = settings.RootElement.TryGetProperty("autoPublicHosting", out var automatic) && automatic.ValueKind == JsonValueKind.True ? "true" : "false";
         return true;
     }
 }

@@ -23,7 +23,7 @@ $presetPath = Join-Path $client 'export_presets.cfg'
 $presetBackup = $null
 $buildLease = $null
 $environmentBackup = @{}
-foreach ($name in @('PATH', 'APPDATA', 'JAVA_HOME', 'ANDROID_HOME', 'ANDROID_SDK_ROOT', 'DOTNET_ROOT', 'DOTNET_ROOT_X64', 'UseSharedCompilation', 'MSBUILDDISABLENODEREUSE', 'DOTNET_CLI_USE_MSBUILD_SERVER', 'GRADLE_OPTS', 'GODOT_ANDROID_KEYSTORE_DEBUG_PATH', 'GODOT_ANDROID_KEYSTORE_DEBUG_USER', 'GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD')) {
+foreach ($name in @('PATH', 'APPDATA', 'LOCALAPPDATA', 'JAVA_HOME', 'ANDROID_HOME', 'ANDROID_SDK_ROOT', 'DOTNET_ROOT', 'DOTNET_ROOT_X64', 'UseSharedCompilation', 'MSBUILDDISABLENODEREUSE', 'DOTNET_CLI_USE_MSBUILD_SERVER', 'GRADLE_OPTS', 'GODOT_ANDROID_KEYSTORE_DEBUG_PATH', 'GODOT_ANDROID_KEYSTORE_DEBUG_USER', 'GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD')) {
     $environmentBackup[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
 }
 $sdkVersion = '8.0.425'
@@ -171,13 +171,14 @@ try {
         Remove-Item -LiteralPath $zip -Force
     }
     $env:APPDATA = Join-Path $temp 'config'
+    $env:LOCALAPPDATA = $env:APPDATA
     $godotConfig = Join-Path $env:APPDATA 'Godot'
     $templates = Join-Path $godotConfig "export_templates/$templateVersion"
     New-Item -ItemType Directory -Path $templates -Force | Out-Null
     foreach ($name in $templateNames) { Copy-Item -LiteralPath (Join-Path $templateCache $name) -Destination $templates }
     $javaSetting = $JavaHome.Replace('\', '/') | ConvertTo-Json -Compress
     $sdkSetting = $AndroidSdkPath.Replace('\', '/') | ConvertTo-Json -Compress
-    [IO.File]::WriteAllText((Join-Path $godotConfig 'editor_settings-4.5.tres'), "[gd_resource type=`"EditorSettings`" format=3]`n`n[resource]`nexport/android/java_sdk_path=$javaSetting`nexport/android/android_sdk_path=$sdkSetting`n", $utf8)
+    [IO.File]::WriteAllText((Join-Path $godotConfig 'editor_settings-4.5.tres'), "[gd_resource type=`"EditorSettings`" format=3]`n`n[resource]`nfilesystem/on_save/safe_save_on_backup_then_rename=false`nexport/android/java_sdk_path=$javaSetting`nexport/android/android_sdk_path=$sdkSetting`n", $utf8)
     $key = Join-Path $cache 'android-debug.keystore'
     $keytool = Join-Path $JavaHome 'bin/keytool.exe'
     if (!(Test-Path -LiteralPath $key)) {
