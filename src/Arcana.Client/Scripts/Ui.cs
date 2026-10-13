@@ -11,7 +11,7 @@ public static class Ui
     public static OptionButton TeamChoice(int team = -1)
     {
         // -1 es el ID automático del propio OptionButton, no un ID de equipo.
-        var choice = new OptionButton { CustomMinimumSize = new(0, 45), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        var choice = new OptionButton { CustomMinimumSize = new(0, IsMobile ? 66 : 45), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         choice.AddItem("Automático", 2); choice.AddItem("Azul", 0); choice.AddItem("Rojo", 1);
         choice.Select(choice.GetItemIndex(team is 0 or 1 ? team : 2));
         return choice;
@@ -81,7 +81,7 @@ public static class Ui
     }
     public static Theme Theme()
     {
-        var theme = new Theme { DefaultFontSize = IsMobile ? 18 : 17 };
+        var theme = new Theme { DefaultFontSize = IsMobile ? 21 : 17 };
         theme.SetColor("font_color", "Label", Text);
         theme.SetColor("font_color", "Button", Text);
         theme.SetColor("font_hover_color", "Button", Gold);
@@ -110,7 +110,9 @@ public static class Ui
     }
     public static Button Button(string text, Action pressed, bool primary = false)
     {
-        var button = new Button { Text = text, CustomMinimumSize = new(0, IsMobile ? 48 : 45), MouseDefaultCursorShape = Control.CursorShape.PointingHand };
+        var button = new Button { Text = text, CustomMinimumSize = new(0, IsMobile ? 68 : 45),
+            MouseDefaultCursorShape = Control.CursorShape.PointingHand };
+        if (IsMobile) button.AddThemeFontSizeOverride("font_size", 21);
         if (primary)
         {
             button.AddThemeStyleboxOverride("normal", Panel(new("a6874e"), 8, Gold));
@@ -121,5 +123,13 @@ public static class Ui
         button.Pressed += pressed;
         return button;
     }
+    /// <summary>Tamaño táctil coherente para inputs, selectores y botones en Android.</summary>
+    public static void TouchTarget(Control control, float mobileHeight = 66)
+    {
+        if (!IsMobile) return;
+        control.CustomMinimumSize = new Vector2(control.CustomMinimumSize.X,
+            Math.Max(control.CustomMinimumSize.Y, mobileHeight));
+    }
+
     public static void Full(Control control) => control.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
 }
