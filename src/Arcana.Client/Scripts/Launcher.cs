@@ -50,10 +50,10 @@ public partial class Launcher : Control
             keyboard.AddChild(Ui.ElementTile(e));
         }
         left.AddChild(Ui.Label("F1 · CONTROLES, OBJETIVOS Y TIPOS DE MAGO", 13, Ui.Muted));
-        left.Visible = !Ui.IsMobile;
+        left.Visible = !Ui.IsMobile; // Same navigation on desktop and Android; only the decorative column is hidden.
         var rightScroll = new ScrollContainer { CustomMinimumSize = new(Ui.IsMobile ? 0 : 570, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
-            VerticalScrollMode = Ui.IsMobile ? ScrollContainer.ScrollMode.Disabled : ScrollContainer.ScrollMode.Auto }; columns.AddChild(rightScroll);
+            VerticalScrollMode = ScrollContainer.ScrollMode.Auto }; columns.AddChild(rightScroll);
         var rightCenter = new CenterContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
         rightScroll.AddChild(rightCenter);
         var panel = new PanelContainer { CustomMinimumSize = new(Ui.IsMobile ? 0 : 560, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill }; rightCenter.AddChild(panel);
@@ -61,7 +61,7 @@ public partial class Launcher : Control
         formStyle.ContentMarginTop = formStyle.ContentMarginBottom = 12; panel.AddThemeStyleboxOverride("panel", formStyle);
         var form = new VBoxContainer(); form.AddThemeConstantOverride("separation", 6); panel.AddChild(form);
         form.AddChild(Ui.Label(Ui.IsMobile ? "ARCANA ARENA  /  " + BuildInfo.Version : "ENTRAR EN LA ARENA", 27, Ui.Gold));
-        if (!Ui.IsMobile) form.AddChild(Ui.Label("Elige PvP, Versus IA o Perfil.", 16, Ui.Muted));
+        form.AddChild(Ui.Label("Elige PvP, Versus IA o Perfil.", Ui.IsMobile ? 13 : 16, Ui.Muted));
         _homeMenu = new VBoxContainer();
         _homeMenu.AddThemeConstantOverride("separation", 10);
         form.AddChild(_homeMenu);
@@ -143,6 +143,7 @@ public partial class Launcher : Control
         _bots.GetLineEdit().ContextMenuEnabled = false;
         _bots.GetLineEdit().Editable = false;
         _bots.GetLineEdit().MouseFilter = MouseFilterEnum.Ignore;
+        _bots.GetLineEdit().FocusMode = FocusModeEnum.None;
         botControls.AddChild(_bots);
         var moreBots = Ui.Button("+", () => _bots.Value = Math.Min(_bots.MaxValue, _bots.Value + 1));
         moreBots.CustomMinimumSize = new Vector2(64, 56);
@@ -193,7 +194,7 @@ public partial class Launcher : Control
             _hostInfo.Text = $"El servidor terminó (código {code}). Puedes iniciarlo otra vez.";
             ShowError("El servidor local ha terminado inesperadamente. Consulta los registros.");
         });
-        if (Ui.IsMobile) { _tabs.SetTabHidden(3, true); _tabs.SetTabDisabled(3, true); _tabs.CurrentTab = 2; UpdateConnectLabel(); }
+        if (Ui.IsMobile) { _tabs.CurrentTab = 2; UpdateConnectLabel(); }
         OpenPage(0);
     }
 
@@ -225,7 +226,7 @@ public partial class Launcher : Control
         _tabs.SetTabHidden(0, page != 1);
         _tabs.SetTabHidden(1, page != 1);
         _tabs.SetTabHidden(2, page != 2);
-        _tabs.SetTabHidden(3, Ui.IsMobile || page != 1);
+        _tabs.SetTabHidden(3, page != 1);
         if (page == 0) _menuBack.Visible = false;
         if (page == 2) _tabs.CurrentTab = 2;
         if (page == 1 && _tabs.CurrentTab == 2) _tabs.CurrentTab = 1;
@@ -248,7 +249,7 @@ public partial class Launcher : Control
     public void SetBusy(bool busy, string message = "")
     {
         if (busy) CancelSearch();
-        _busy = busy; _connect.Disabled = busy; for (int i = 0; i < 4; i++) _tabs.SetTabDisabled(i, busy || Ui.IsMobile && i == 3);
+        _busy = busy; _connect.Disabled = busy; for (int i = 0; i < 4; i++) _tabs.SetTabDisabled(i, busy);
         _name.Editable = _address.Editable = !busy; _team.Disabled = _wizardType.Disabled = busy;
         _hostName.Editable = _hostPort.Editable = _hostDiscovery.Editable = !busy && !_host.Running;
         _password.Editable = !busy && _tabs.CurrentTab != 2 && !(_tabs.CurrentTab == 3 && _host.Running);
