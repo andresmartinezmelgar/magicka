@@ -266,13 +266,15 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             if (!PasswordMatches(hello.Password, settings.Password))
             { await RejectLogged("Contraseña del servidor incorrecta.", handshake.Token); return; }
             AccountIdentity? identity = null; PreparedEquipment equipment = new(EquipmentModifiers.None, PublicEquipment.Empty);
+            if (hello.AccountToken.Length == 0)
+            { await RejectLogged("Debes iniciar sesión con Google para jugar online.", handshake.Token); return; }
             if (hello.AccountToken.Length > 0)
             {
                 handshake.CancelAfter(TimeSpan.FromSeconds(20));
                 Diagnostics.Log.ProtectSecret(hello.AccountToken);
-                identity = accounts.Authenticate(hello.AccountToken);
+                identity = await accounts.AuthenticateGame(hello.AccountToken, handshake.Token);
                 if (identity == null) { await RejectLogged("La sesión de cuenta ha caducado. Inicia sesión de nuevo con Google.", handshake.Token); return; }
-                var profile = await accounts.Repository!.Profile(identity.Uid, identity.Name, handshake.Token);
+                var profile = await accounts.ProfileGame(identity, handshake.Token);
                 equipment = PublicEquipment.Prepare(profile);
             }
             string error = ""; ServerMessage? welcome = null;
@@ -411,7 +413,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             if (session.Account == null) continue;
             try
             {
-                var profile = await accounts.Repository!.Profile(session.Account.Uid, session.Account.Name, _stopping.Token);
+                var profile = await accounts.ProfileGame(session.Account, _stopping.Token);
                 var equipment = PublicEquipment.Prepare(profile);
                 lock (_gate) session.Equipment = equipment;
             }
