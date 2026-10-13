@@ -9,6 +9,7 @@ public partial class AccountProfilePanel : Control
     private Main _main = null!;
     private Label _identity = null!, _status = null!;
     private Button _login = null!, _logout = null!;
+    private LineEdit _accountUrl = null!;
     private readonly CancellationTokenSource _lifetime = new();
     private bool _busy;
 
@@ -40,6 +41,13 @@ public partial class AccountProfilePanel : Control
         content.AddChild(_identity);
         _status = Ui.Label("", Ui.IsMobile ? 17 : 15, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         content.AddChild(_status);
+        _accountUrl = new LineEdit { PlaceholderText = "https://cuentas.tu-dominio.com",
+            SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new(0, Ui.IsMobile ? 58 : 44) };
+        var saved = new ConfigFile();
+        if (saved.Load("user://account-service.cfg") == Error.Ok)
+            _accountUrl.Text = saved.GetValue("account", "url", "").AsString();
+        content.AddChild(Ui.Label("Servidor independiente de cuentas", Ui.IsMobile ? 16 : 14, Ui.Muted));
+        content.AddChild(_accountUrl);
         _login = Ui.Button("Entrar o registrarse con Google", () => _ = Login(), true);
         _login.CustomMinimumSize = new(0, Ui.IsMobile ? 64 : 48);
         content.AddChild(_login);
@@ -89,6 +97,15 @@ public partial class AccountProfilePanel : Control
                 Godot.FileAccess.GetFileAsString("res://account-server.json"));
             string address = settings.RootElement.TryGetProperty("accountUrl", out var configuredUrl)
                 ? configuredUrl.GetString()?.Trim() ?? "" : "";
+            if (!string.IsNullOrWhiteSpace(_accountUrl.Text)) address = _accountUrl.Text.Trim();
+            if (address.Length > 0)
+            {
+                if (!Uri.TryCreate(address, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+                    throw new InvalidOperationException("Introduce la dirección HTTPS del servidor de cuentas.");
+                var local = new ConfigFile();
+                local.SetValue("account", "url", address);
+                local.Save("user://account-service.cfg");
+            }
             if (address.Length == 0)
                 throw new InvalidOperationException("El acceso con Google todavía no está disponible. Falta configurar la dirección del servidor de cuentas. Puedes seguir jugando sin conexión.");
             var config = await _main.Accounts.Configuration(address, _lifetime.Token);
