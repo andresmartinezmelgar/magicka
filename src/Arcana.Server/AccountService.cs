@@ -113,6 +113,8 @@ public sealed class AccountService
     {
         if (Enabled)
         {
+            var legacySession = Authenticate(accessToken);
+            if (legacySession != null) return legacySession;
             try { return await _verifier!.Verify(accessToken, token); }
             catch (FirebaseAuthException) { return null; }
             catch (UnauthorizedAccessException) { return null; }
