@@ -42,12 +42,12 @@ public static class AccountEndpoints
         string header = context.Request.Headers.Authorization.ToString();
         return header.StartsWith("Bearer ", StringComparison.Ordinal) ? header[7..] : "";
     }
-    private static Task<IResult> Auth(AccountService accounts, HttpContext context, Func<AccountIdentity, Task<object>> action)
+    private static async Task<IResult> Auth(AccountService accounts, HttpContext context, Func<AccountIdentity, Task<object>> action)
     {
         context.Response.Headers.CacheControl = "no-store";
-        var identity = accounts.Authenticate(Bearer(context));
-        return identity == null ? Task.FromResult<IResult>(Results.Json(new ApiError("Inicia sesión con Google para acceder a tu cuenta."), Protocol.Json, statusCode: 401))
-            : Try(() => action(identity));
+        var identity = await accounts.AuthenticateGame(Bearer(context), context.RequestAborted);
+        return identity == null ? Results.Json(new ApiError("Inicia sesión con Google para acceder a tu cuenta."), Protocol.Json, statusCode: 401)
+            : await Try(() => action(identity));
     }
     private static async Task<IResult> Try(Func<Task<object>> action)
     {
