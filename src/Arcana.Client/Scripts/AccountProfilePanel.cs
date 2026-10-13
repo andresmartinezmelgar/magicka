@@ -58,13 +58,13 @@ public partial class AccountProfilePanel : Control
         _retryFirebase.Visible = false;
         content.AddChild(_retryFirebase);
         _login = Ui.Button("Entrar o registrarse con Google", Login, true);
-        _login.CustomMinimumSize = new(0, Ui.IsMobile ? 64 : 48);
+        _login.CustomMinimumSize = new(0, Ui.IsMobile ? 70 : 48);
         content.AddChild(_login);
         _logout = Ui.Button("Cerrar sesión", () => _ = Logout());
-        _logout.CustomMinimumSize = new(0, Ui.IsMobile ? 64 : 48);
+        _logout.CustomMinimumSize = new(0, Ui.IsMobile ? 70 : 48);
         content.AddChild(_logout);
         var back = Ui.Button("Volver", () => { _lifetime.Cancel(); QueueFree(); });
-        back.CustomMinimumSize = new(0, Ui.IsMobile ? 64 : 48);
+        back.CustomMinimumSize = new(0, Ui.IsMobile ? 70 : 48);
         content.AddChild(back);
         Render();
     }
