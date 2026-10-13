@@ -11,7 +11,23 @@ service cloud.firestore {
         && resource.data.protocol is int;
       allow list, write: if false;
     }
-    // Inventario, oro y resultados se gestionan por la API del servidor con su cuenta de servicio.
+    // Lectura exclusiva del propietario; escrituras solo mediante Admin SDK.
+    match /users/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list, create, update, delete: if false;
+      match /items/{itemId} {
+        allow get, list: if request.auth != null && request.auth.uid == uid;
+        allow write: if false;
+      }
+      match /loadouts/{loadoutId} {
+        allow get, list: if request.auth != null && request.auth.uid == uid;
+        allow write: if false;
+      }
+      match /{subcollection=**}/{document=**} {
+        allow read, write: if false;
+      }
+    }
+    // Inventario, oro y resultados se modifican exclusivamente desde el servidor de confianza.
     match /{document=**} {
       allow read, write: if false;
     }
