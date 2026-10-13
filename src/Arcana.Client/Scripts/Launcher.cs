@@ -26,6 +26,8 @@ public partial class Launcher : Control
     private int _page;
     private Label _profileSummary = null!, _wizardDescription = null!;
     private Button _accountButton = null!;
+    private HBoxContainer? _mobilePrimaryActions;
+    private ScrollContainer? _mobileScroll;
 
     public void Build(Main main)
     {
@@ -51,10 +53,17 @@ public partial class Launcher : Control
         }
         left.AddChild(Ui.Label("F1 · CONTROLES, OBJETIVOS Y TIPOS DE MAGO", 13, Ui.Muted));
         left.Visible = !Ui.IsMobile; // Same navigation on desktop and Android; only the decorative column is hidden.
-        var rightScroll = new ScrollContainer { CustomMinimumSize = new(Ui.IsMobile ? 0 : 570, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill,
+        // En móvil, el formulario se desplaza, pero sus acciones quedan siempre al alcance del pulgar.
+        var rightColumn = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
+        columns.AddChild(rightColumn);
+        var rightScroll = new ScrollContainer { CustomMinimumSize = new(Ui.IsMobile ? 0 : 570, 0),
+            SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
-            VerticalScrollMode = ScrollContainer.ScrollMode.Auto }; columns.AddChild(rightScroll);
-        var rightCenter = new CenterContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
+            VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
+        rightColumn.AddChild(rightScroll);
+        if (Ui.IsMobile) _mobileScroll = rightScroll;
+        var rightCenter = new CenterContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = Ui.IsMobile ? SizeFlags.ShrinkBegin : SizeFlags.ExpandFill };
         rightScroll.AddChild(rightCenter);
         var panel = new PanelContainer { CustomMinimumSize = new(Ui.IsMobile ? 0 : 560, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill }; rightCenter.AddChild(panel);
         var formStyle = Ui.Panel(new Color(0.035f, 0.057f, 0.093f, 0.97f), 16);
@@ -141,17 +150,17 @@ public partial class Launcher : Control
         botControls.AddThemeConstantOverride("separation", 12);
         botRow.AddChild(botControls);
         var fewerBots = Ui.Button("−", () => _bots.Value = Math.Max(_bots.MinValue, _bots.Value - 1));
-        fewerBots.CustomMinimumSize = new Vector2(64, 56);
+        fewerBots.CustomMinimumSize = new Vector2(Ui.IsMobile ? 88 : 64, Ui.IsMobile ? 70 : 56);
         botControls.AddChild(fewerBots);
         _bots = new SpinBox { MinValue = 1, MaxValue = 7, Step = 1, Value = 3,
-            Rounded = true, CustomMinimumSize = new Vector2(85, 56), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            Rounded = true, CustomMinimumSize = new Vector2(90, Ui.IsMobile ? 70 : 56), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _bots.GetLineEdit().ContextMenuEnabled = false;
         _bots.GetLineEdit().Editable = false;
         _bots.GetLineEdit().MouseFilter = MouseFilterEnum.Ignore;
         _bots.GetLineEdit().FocusMode = FocusModeEnum.None;
         botControls.AddChild(_bots);
         var moreBots = Ui.Button("+", () => _bots.Value = Math.Min(_bots.MaxValue, _bots.Value + 1));
-        moreBots.CustomMinimumSize = new Vector2(64, 56);
+        moreBots.CustomMinimumSize = new Vector2(Ui.IsMobile ? 88 : 64, Ui.IsMobile ? 70 : 56);
         botControls.AddChild(moreBots);
         _practiceMap.ItemSelected += _ => { _bots.Editable = (ArenaMapId)_practiceMap.GetSelectedId() != ArenaMapId.Practice; };
         _bots.Editable = (ArenaMapId)_practiceMap.GetSelectedId() != ArenaMapId.Practice; Objective();
@@ -186,6 +195,29 @@ public partial class Launcher : Control
         var footer = new HBoxContainer(); _playBody.AddChild(footer);
         var help = Ui.Button("Cómo jugar", () => _main.ToggleHelp()); help.SizeFlagsHorizontal = SizeFlags.ExpandFill; footer.AddChild(help);
         var exit = Ui.Button("Salir", () => GetTree().Quit()); exit.SizeFlagsHorizontal = SizeFlags.ExpandFill; footer.AddChild(exit);
+        if (Ui.IsMobile)
+        {
+            // Volver, jugar y las utilidades NO se esconden al desplazarse el formulario.
+            var bar = new PanelContainer();
+            bar.AddThemeStyleboxOverride("panel", Ui.Panel(new Color("0c192c"), 9, new Color("426488")));
+            rightColumn.AddChild(bar);
+            var buttonRows = new VBoxContainer();
+            buttonRows.AddThemeConstantOverride("separation", 7);
+            bar.AddChild(buttonRows);
+            _mobilePrimaryActions = new HBoxContainer();
+            _mobilePrimaryActions.AddThemeConstantOverride("separation", 9);
+            buttonRows.AddChild(_mobilePrimaryActions);
+            _menuBack.Reparent(_mobilePrimaryActions);
+            _connect.Reparent(_mobilePrimaryActions);
+            _menuBack.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            _connect.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            var utilities = new HBoxContainer();
+            utilities.AddThemeConstantOverride("separation", 9);
+            buttonRows.AddChild(utilities);
+            help.Reparent(utilities);
+            exit.Reparent(utilities);
+            footer.QueueFree();
+        }
         _tabs.TabChanged += tab =>
         {
             UpdateConnectLabel();
@@ -247,6 +279,8 @@ public partial class Launcher : Control
         if (page == 2) _tabs.CurrentTab = 2;
         if (page == 1 && _tabs.CurrentTab == 2) _tabs.CurrentTab = 1;
         if (page == 3) Remember();
+        if (_mobilePrimaryActions != null) _mobilePrimaryActions.Visible = page != 0;
+        if (_mobileScroll != null) _mobileScroll.ScrollVertical = 0;
         UpdateConnectLabel();
     }
 
