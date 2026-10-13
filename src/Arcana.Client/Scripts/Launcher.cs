@@ -241,6 +241,8 @@ public partial class Launcher : Control
             _tabs.CurrentTab = 2;
             UpdateConnectLabel();
         }
+        ApplyOptionALayout(margin, columns, left, rightColumn, rightScroll, rightCenter, panel, form,
+            identity, typeRow, typeInfo, footer, help, exit);
         OpenPage(0);
     }
 
@@ -294,6 +296,7 @@ public partial class Launcher : Control
         if (page == 3) Remember();
         if (_mobilePrimaryActions != null) _mobilePrimaryActions.Visible = page != 0;
         if (_mobileScroll != null) _mobileScroll.ScrollVertical = 0;
+        UpdateOptionAPage(page);
         UpdateConnectLabel();
     }
 
