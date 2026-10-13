@@ -19,6 +19,25 @@ public sealed class AccountClient : IDisposable
     public AccountProfile? Profile { get; private set; }
     public bool SignedIn => Token.Length > 0 && ExpiresAt > DateTimeOffset.UtcNow;
     public string TokenFor(string address) => SignedIn ? Token : "";
+    private FirebaseProfileReader? _firebaseReader;
+    private string _firebaseUid = "";
+    public bool IsDirectFirebaseSession => SignedIn && _firebaseReader != null;
+    public async Task SetFirebaseSession(string projectId, string uid, string idToken, DateTimeOffset expiresAt, CancellationToken cancellationToken = default)
+    {
+        if (expiresAt <= DateTimeOffset.UtcNow || string.IsNullOrWhiteSpace(idToken))
+            throw new UnauthorizedAccessException("Token Firebase caducado o vacío.");
+        using var reader = new FirebaseProfileReader(projectId);
+        var profile = await reader.Read(uid, idToken, cancellationToken).ConfigureAwait(false);
+        _firebaseReader?.Dispose();
+        _firebaseReader = new FirebaseProfileReader(projectId);
+        _firebaseUid = uid;
+        ServerAddress = "";
+        Token = idToken;
+        ExpiresAt = expiresAt;
+        Profile = profile;
+        Diagnostics.Log.ProtectSecret(Token);
+    }
+
     public void RestoreOfflineProfile(AccountProfile profile)
     {
         _ = EquipmentModifiers.Calculate(profile);
@@ -67,7 +86,7 @@ public sealed class AccountClient : IDisposable
     }
     public async Task<AccountProfile> Refresh(CancellationToken token = default)
     {
-        Profile = await Request<AccountProfile>(HttpMethod.Get, "account/profile", null, token).ConfigureAwait(false);
+        Profile = IsDirectFirebaseSession ? await _firebaseReader!.Read(_firebaseUid, Token, token).ConfigureAwait(false) : await Request<AccountProfile>(HttpMethod.Get, "account/profile", null, token).ConfigureAwait(false);
         _ = EquipmentModifiers.Calculate(Profile); return Profile;
     }
     public async Task<InventoryResult> Equip(EquipmentSlot slot, string itemId, CancellationToken token = default)
@@ -82,8 +101,8 @@ public sealed class AccountClient : IDisposable
     }
     public async Task SignOut(CancellationToken token = default)
     {
-        try { if (SignedIn) _ = await Request<ApiError>(HttpMethod.Post, "account/logout", new { }, token).ConfigureAwait(false); }
-        finally { Token = ""; ExpiresAt = default; Profile = null; }
+        try { if (SignedIn && !IsDirectFirebaseSession) _ = await Request<ApiError>(HttpMethod.Post, "account/logout", new { }, token).ConfigureAwait(false); }
+        finally { Token = ""; ExpiresAt = default; Profile = null; _firebaseReader?.Dispose(); _firebaseReader = null; _firebaseUid = ""; }
     }
     private async Task<T> Request<T>(HttpMethod method, string path, object? body, CancellationToken token)
     {
@@ -101,5 +120,5 @@ public sealed class AccountClient : IDisposable
         if (!response.IsSuccessStatusCode) throw new InvalidOperationException(Protocol.Deserialize<ApiError>(text)?.Error ?? "No se pudo gestionar la cuenta.");
         return Protocol.Deserialize<T>(text) ?? throw new InvalidDataException("Respuesta de cuenta incompleta.");
     }
-    public void Dispose() => _http.Dispose();
+    public void Dispose() { _firebaseReader?.Dispose(); _http.Dispose(); }
 }
