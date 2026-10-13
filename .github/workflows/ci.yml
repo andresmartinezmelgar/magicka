@@ -144,7 +144,7 @@ jobs:
 
   release-on-tag:
     name: Publicar artefactos al crear un tag
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     needs: [build, package-windows, package-android]
     runs-on: ubuntu-latest
     permissions:
@@ -156,7 +156,9 @@ jobs:
         run: |
           set -euo pipefail
           version=$(tr -d '\r\n' < VERSION)
-          test "$GITHUB_REF_NAME" = "v$version" || { echo "::error::El tag no coincide con VERSION ($version)."; exit 1; }
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            test "$GITHUB_REF_NAME" = "v$version" || { echo "::error::El tag no coincide con VERSION ($version)."; exit 1; }
+          fi
       - uses: actions/download-artifact@v4
         with:
           name: ArcanaArena-Windows-x64
@@ -210,7 +212,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+          version=$(tr -d '\r\n' < VERSION)
+          tag="v$version"
+          if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
+            if gh release view "$tag" >/dev/null 2>&1; then
+              echo "La release $tag ya existe; no se modifica desde main."
+            else
+              gh release create "$tag" dist/*.zip dist/*.apk dist/SHA256SUMS.txt \
+                --target "$GITHUB_SHA" \
+                --title "Arcana Arena $tag" \
+                --notes "APK Android firmada con la clave permanente, compilada y verificada en GitHub Actions. Probar Google Sign-In en dispositivo real tras publicar las reglas de Firestore."
+            fi
+          elif gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" dist/*.zip dist/*.apk dist/SHA256SUMS.txt --clobber
           else
             gh release create "$GITHUB_REF_NAME" dist/*.zip dist/*.apk dist/SHA256SUMS.txt \
