@@ -20,7 +20,11 @@ try
         options.SerializerOptions.MaxDepth = Protocol.Json.MaxDepth;
         foreach (var converter in Protocol.Json.Converters) options.SerializerOptions.Converters.Add(converter);
     });
-    builder.Services.AddSingleton(new AccountService(new AccountOptions("", "", "", "")));
+    // Firebase Admin verifica tokens y realiza las escrituras sin servidor HTTP intermedio.
+    string firebaseProject = Environment.GetEnvironmentVariable("FIREBASE_PROJECT_ID")?.Trim() ?? "";
+    builder.Services.AddSingleton(new AccountService(firebaseProject.Length == 0
+        ? new AccountOptions("", "", "", "")
+        : new AccountOptions(firebaseProject, "", "", "")));
     builder.Services.AddSingleton<RewardService>();
     builder.Services.AddHostedService(provider => provider.GetRequiredService<RewardService>());
     builder.Services.AddSingleton<GameService>();
