@@ -20,8 +20,9 @@ public sealed class FirebaseDesktopBridge : IDisposable
     private readonly System.Net.Http.HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(20) };
     private readonly CancellationTokenSource _lifetime = new();
     private CancellationTokenSource? _loginCancellation;
-    private readonly string _clientId;
-    private readonly string _clientSecret;
+    private string _clientId;
+    private string _clientSecret;
+    private readonly string _userDirectory;
     private string _refreshToken = "", _uid = "", _name = "";
     private int _loginBusy;
     private int _generation;
@@ -32,7 +33,64 @@ public sealed class FirebaseDesktopBridge : IDisposable
     public bool Configured => _clientId.Length > 0;
     public FirebaseDesktopBridge(string userDirectory)
     {
+        _userDirectory = userDirectory;
         (_clientId, _clientSecret) = ReadConfiguration(userDirectory);
+    }
+
+    // En exportaciones Godot, AppContext.BaseDirectory puede ser distinto al
+    // directorio que contiene el ejecutable Windows.
+    private static IEnumerable<string> ConfigurationDirectories(string userDirectory)
+    {
+        string executableDirectory = Path.GetDirectoryName(OS.GetExecutablePath()) ?? "";
+        return new[] { executableDirectory, AppContext.BaseDirectory, userDirectory }
+            .Where(dir => !string.IsNullOrWhiteSpace(dir))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
+    public bool TryImportConfiguration(string source, out string error)
+    {
+        error = "";
+        try
+        {
+            var file = new FileInfo(source);
+            if (!file.Exists || file.Length is <= 0 or > 8192)
+                throw new InvalidDataException("Selecciona el JSON OAuth descargado desde Google Cloud.");
+            string json = File.ReadAllText(source);
+            using var document = JsonDocument.Parse(json);
+            if (!document.RootElement.TryGetProperty("installed", out var installed))
+                throw new InvalidDataException("No es una credencial OAuth de Aplicación de escritorio.");
+            string id = installed.GetProperty("client_id").GetString() ?? "";
+            string secret = installed.TryGetProperty("client_secret", out var secretField)
+                ? secretField.GetString() ?? "" : "";
+            if (!IsDesktopClientId(id) || secret.Length > 256)
+                throw new InvalidDataException("El cliente OAuth de escritorio no es válido.");
+            string project = installed.TryGetProperty("project_id", out var projectField)
+                ? projectField.GetString() ?? "" : "";
+            if (project.Length > 0 && project != "arcana-arena-f2997")
+                throw new InvalidDataException("El cliente OAuth pertenece a otro proyecto.");
+            Directory.CreateDirectory(_userDirectory);
+            string destination = Path.Combine(_userDirectory, "google-desktop-oauth.json");
+            string temporary = destination + ".tmp";
+            try
+            {
+                File.WriteAllText(temporary, json);
+                File.Move(temporary, destination, true);
+            }
+            finally
+            {
+                if (File.Exists(temporary)) File.Delete(temporary);
+            }
+            _clientId = id;
+            _clientSecret = secret;
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+            or JsonException or InvalidDataException or KeyNotFoundException)
+        {
+            error = exception is InvalidDataException ? exception.Message
+                : "No se pudo importar el archivo OAuth. Comprueba que sea el JSON de escritorio.";
+            return false;
+        }
     }
 
     private static (string Id, string Secret) ReadConfiguration(string userDirectory)
@@ -43,7 +101,7 @@ public sealed class FirebaseDesktopBridge : IDisposable
 
         // El JSON «Aplicación de escritorio» descargado de Google Cloud es la opción
         // más compatible. Se mantiene fuera del repositorio y nunca se registra.
-        foreach (string directory in new[] { AppContext.BaseDirectory, userDirectory })
+        foreach (string directory in ConfigurationDirectories(userDirectory))
         {
             string file = Path.Combine(directory, "google-desktop-oauth.json");
             try
@@ -61,7 +119,7 @@ public sealed class FirebaseDesktopBridge : IDisposable
             catch (JsonException) { }
             catch (KeyNotFoundException) { }
         }
-        foreach (string directory in new[] { AppContext.BaseDirectory, userDirectory })
+        foreach (string directory in ConfigurationDirectories(userDirectory))
         {
             string file = Path.Combine(directory, "google-desktop-client-id.txt");
             try

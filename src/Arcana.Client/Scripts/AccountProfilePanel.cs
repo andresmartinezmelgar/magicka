@@ -11,6 +11,7 @@ public partial class AccountProfilePanel : Control
     private bool _busy;
     private string _message = "";
     private readonly CancellationTokenSource _lifetime = new();
+    private FileDialog? _googleFileDialog;
 
     internal Button[] VisibleFooterButtons => new[] { _login, _logout }
         .Where(b => GodotObject.IsInstanceValid(b) && b.IsVisibleInTree()).ToArray();
@@ -69,6 +70,25 @@ public partial class AccountProfilePanel : Control
         Render();
     }
 
+    /// <summary>Selecciona el JSON OAuth sin copiarlo ni renombrarlo manualmente.</summary>
+    public void OpenDesktopGoogleConfiguration()
+    {
+        if (_lifetime.IsCancellationRequested || !IsInsideTree()) return;
+        if (!GodotObject.IsInstanceValid(_googleFileDialog))
+        {
+            _googleFileDialog = new FileDialog
+            {
+                Title = "Seleccionar JSON OAuth (Aplicación de escritorio)",
+                FileMode = FileDialog.FileModeEnum.OpenFile,
+                Access = FileDialog.AccessEnum.Filesystem,
+                Filters = new[] { "*.json ; Credenciales OAuth de Google (*.json)" }
+            };
+            AddChild(_googleFileDialog);
+            _googleFileDialog.FileSelected += path => _main.ImportDesktopGoogleConfiguration(path);
+        }
+        _googleFileDialog!.PopupCentered(new Vector2I(880, 540));
+    }
+
     public void UpdateGoogleStatus(string message, bool busy = false)
     {
         if (_lifetime.IsCancellationRequested || !IsInsideTree()) return;
@@ -93,10 +113,12 @@ public partial class AccountProfilePanel : Control
                 ? "Cuenta e inventario sincronizados con Firebase."
                 : google ? "Google autenticado. Esperando datos de Firebase."
                 : _message.StartsWith("Error", StringComparison.OrdinalIgnoreCase) ||
-                  _message.Contains("configur", StringComparison.OrdinalIgnoreCase)
+                  _message.Contains("configur", StringComparison.OrdinalIgnoreCase) ||
+                  _message.Contains("JSON OAuth", StringComparison.OrdinalIgnoreCase)
                     ? _message
                     : "Inicia sesión para sincronizar tu perfil.";
         _login.Visible = !google;
+        _login.Text = _main.DesktopGoogleNeedsConfiguration ? "Configurar y entrar con Google" : "Entrar con Google";
         _logout.Visible = google;
         _login.Disabled = _busy;
         _logout.Disabled = _busy;

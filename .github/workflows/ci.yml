@@ -80,6 +80,8 @@ jobs:
           "ARCANA_GODOT=$($editor.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Compilar juego y servidor con el script del proyecto
         shell: pwsh
+        env:
+          ARCANA_GOOGLE_DESKTOP_OAUTH_BASE64: ${{ secrets.ARCANA_GOOGLE_DESKTOP_OAUTH_BASE64 }}
         run: |
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/auto-compile.ps1 -GodotPath $env:ARCANA_GODOT
           if ($LASTEXITCODE -ne 0) { throw 'Error al generar Windows.' }

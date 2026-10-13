@@ -18,6 +18,19 @@ public partial class Main
     public bool GoogleIdentityKnown => _googleIdentityKnown;
     public string GoogleIdentityName => _googleIdentityName;
     public bool GoogleLoginAvailable => _google?.Available == true || _desktopGoogle?.Available == true;
+    public bool DesktopGoogleNeedsConfiguration => _desktopGoogle is { Configured: false };
+
+    public void ImportDesktopGoogleConfiguration(string path)
+    {
+        if (_desktopGoogle == null) return;
+        if (!_desktopGoogle.TryImportConfiguration(path, out string error))
+        {
+            GoogleStatus("Error de configuración: " + error);
+            return;
+        }
+        GoogleStatus("Configuración de Google guardada. Abriendo el navegador…", true);
+        _ = _desktopGoogle.LoginAsync();
+    }
     public string GoogleLoginStatus => _googleStatus;
 
     private void InitializeGoogleAuthentication()
@@ -45,7 +58,7 @@ public partial class Main
             _desktopGoogle.Error += error => Post(() => GoogleStatus("Error de Google: " + error));
             GoogleStatus(_desktopGoogle.Configured
                 ? "Google disponible en Windows. Entra con tu navegador."
-                : "Configura el ID OAuth de aplicación de escritorio para activar Google en Windows.");
+                : "Para activar Google en Windows, importa una vez el JSON OAuth de escritorio.");
         }
     }
 
@@ -60,6 +73,14 @@ public partial class Main
         }
         if (_desktopGoogle != null)
         {
+            if (!_desktopGoogle.Configured)
+            {
+                GoogleStatus("Selecciona el JSON OAuth de Aplicación de escritorio descargado de Google Cloud.");
+                if (GodotObject.IsInstanceValid(_accountProfilePanel) &&
+                    !_accountProfilePanel!.IsQueuedForDeletion())
+                    _accountProfilePanel.OpenDesktopGoogleConfiguration();
+                return;
+            }
             GoogleStatus("Abriendo Google en el navegador del ordenador…", true);
             _ = _desktopGoogle.LoginAsync();
         }
