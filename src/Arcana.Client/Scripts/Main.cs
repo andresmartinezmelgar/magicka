@@ -38,6 +38,7 @@ public partial class Main : Node
     private PracticePanel? _practicePanel;
     private readonly GameWorld _backdrop = new(new WorldOptions { Mode = GameMode.Arena, Bots = 4 });
     private int _backdropSnapshotFrames;
+    private GridContainer? _inGameHelpControls;
     private WorldSnapshot? _snapshot;
     private int _localId;
     private long _localSequence;
@@ -516,12 +517,17 @@ public partial class Main : Node
         var root = new Control { Theme = Ui.Theme() }; Ui.Full(root);
         var shade = new ColorRect { Color = new Color(0.018f, 0.03f, 0.05f, 0.86f) }; root.AddChild(shade); Ui.Full(shade);
         var center = new CenterContainer(); root.AddChild(center); Ui.Full(center);
-        var panel = new PanelContainer { CustomMinimumSize = new(750, 0) }; center.AddChild(panel);
+        float available = GetViewport().GetVisibleRect().Size.X;
+        var panel = new PanelContainer { CustomMinimumSize = new(Math.Max(280, Math.Min(750, available - 50)), 0) };
+        center.AddChild(panel);
         content = new VBoxContainer(); content.AddThemeConstantOverride("separation", 16);
         if (Ui.IsMobile)
         {
-            var scroll = new ScrollContainer { CustomMinimumSize = new(1080, GetViewport().GetVisibleRect().Size.Y - 64),
-                HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+            var scroll = new ScrollContainer {
+                CustomMinimumSize = new(Math.Max(270, Math.Min(1080, available - 50)),
+                    Math.Max(240, GetViewport().GetVisibleRect().Size.Y - 64)),
+                HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+                VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
             panel.AddChild(scroll); content.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill; scroll.AddChild(content);
         }
         else panel.AddChild(content);
@@ -531,9 +537,13 @@ public partial class Main : Node
     {
         var root = Modal(out var outer);
         outer.AddChild(Ui.Label("CÓMO JUGAR", 27, Ui.Gold));
-        _helpPages = new TabContainer { CustomMinimumSize = new(960, 510) }; outer.AddChild(_helpPages);
+        _helpPages = new TabContainer { CustomMinimumSize = new(0, 400),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+        outer.AddChild(_helpPages);
         var box = new VBoxContainer { Name = "Controles" }; box.AddThemeConstantOverride("separation", 16); _helpPages.AddChild(box);
-        var table = new GridContainer { Columns = 2 }; table.AddThemeConstantOverride("h_separation", 30); table.AddThemeConstantOverride("v_separation", 9); box.AddChild(table);
+        var table = new GridContainer { Columns = 2 }; _inGameHelpControls = table;
+        table.AddThemeConstantOverride("h_separation", 30); table.AddThemeConstantOverride("v_separation", 9); box.AddChild(table);
         string[,] rows =
         {
             { "Q W E R / A S D F", "Agua, vida, escudo, frío / rayo, arcano, tierra, fuego" },
@@ -612,7 +622,21 @@ public partial class Main : Node
         HelpText(elementsBox, "Agua moja y Vida cura. También desgastan protecciones enemigas con sus ventajas elementales; su presión no daña la salud al romper el escudo. Curar a un aliado conserva su escudo. Los bonus y debilidades propios del tipo de mago se aplican además de estas relaciones.", Ui.Muted);
         HelpText(elementsBox, "El escudo básico deja pasar los hechizos de su propietario. Las barreras imbuidas bloquean también los propios. Todas las barreras siguen bloqueando el movimiento.", Ui.Muted);
         outer.AddChild(Ui.Button("Cerrar", () => { _help.Visible = false; UpdateTouchVisibility(); }, true));
+        GetViewport().SizeChanged += UpdateInGameHelpResponsive;
+        UpdateInGameHelpResponsive();
         return root;
+    }
+
+    private void UpdateInGameHelpResponsive()
+    {
+        float width = GetViewport().GetVisibleRect().Size.X;
+        float height = GetViewport().GetVisibleRect().Size.Y;
+        _helpPages.CustomMinimumSize = new Vector2(
+            Math.Max(260, Math.Min(960, width - (Ui.IsMobile ? 80 : 120))),
+            Math.Max(260, Math.Min(510, height - 175)));
+        if (_inGameHelpControls != null)
+            _inGameHelpControls.Columns = ResponsiveLayout.Columns(
+                Math.Max(250, width - (Ui.IsMobile ? 105 : 140)), 325, 2, 20);
     }
     private static Label HelpText(Node parent, string text, Color? color = null)
     {
@@ -675,6 +699,7 @@ public partial class Main : Node
     public override void _ExitTree()
     {
         RenderingServer.FramePostDraw -= FrameDrawn;
+        GetViewport().SizeChanged -= UpdateInGameHelpResponsive;
         CancelGameLoading();
         WizardSprites.ClearCache();
         Interlocked.Exchange(ref _exiting, 1); _lifetime.Cancel();
