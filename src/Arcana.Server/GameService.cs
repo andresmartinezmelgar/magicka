@@ -485,7 +485,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                 var message = binary ? Protocol.DeserializeBinaryAction(buffer.AsSpan(0, size)) : Protocol.Deserialize<ClientMessage>(buffer.AsSpan(0, size));
                 if (message != null && ((message.Name?.Length ?? 0) > 64 || (message.Password?.Length ?? 0) > 128 ||
                     (message.RoomPassword?.Length ?? 0) > 128 || (message.RoomId?.Length ?? 0) > 64 ||
-                    message.AccountToken == null || message.AccountToken.Length > 128))
+                    message.AccountToken == null || message.AccountToken.Length > 8192))
                     throw new InvalidDataException("Datos demasiado largos.");
                 return message;
             }
