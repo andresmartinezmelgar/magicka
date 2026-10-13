@@ -32,7 +32,6 @@ public sealed class AccountClient : IDisposable
         _firebaseReader?.Dispose();
         _firebaseReader = new FirebaseProfileReader(projectId);
         _firebaseUid = uid;
-        ServerAddress = "";
         Token = idToken;
         ExpiresAt = expiresAt;
         Profile = profile;
