@@ -34,7 +34,13 @@ public partial class Main
         try
         {
             if (frame == 25) _launcher.OpenMobileSmokePage(1);
-            if (frame == 35) AssertMobileActions("PVP", _launcher.MobilePrimaryButtons, 2);
+            if (frame == 35)
+            {
+                var buttons = _launcher.MobilePrimaryButtons;
+                AssertMobileActions("PVP", buttons, 2);
+                if (!buttons.Any(button => button.Text == "Ver salas del servidor LAN" || button.Text == "Ver salas por IP"))
+                    throw new InvalidOperationException("PVP: la acción principal apunta a una pestaña oculta o a Alojar.");
+            }
             if (frame == 45) _launcher.OpenMobileSmokePage(2);
             if (frame == 55) AssertMobileActions("VERSUS_IA", _launcher.MobilePrimaryButtons, 2);
             if (frame == 65)
