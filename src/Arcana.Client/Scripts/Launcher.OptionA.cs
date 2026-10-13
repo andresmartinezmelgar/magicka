@@ -10,7 +10,7 @@ namespace Arcana.Client;
 public partial class Launcher
 {
     private ArcanaMenuChrome? _optionAChrome;
-    private GridContainer? _optionAPrimaryActions;
+    private Container? _optionAPrimaryActions;
     private VBoxContainer? _optionAPreview;
     private VBoxContainer? _optionAMagic;
     private Label? _optionAHeading;
@@ -200,8 +200,8 @@ public partial class Launcher
     {
         float viewportWidth = GetViewport().GetVisibleRect().Size.X;
         float available = Math.Max(280, viewportWidth - (Ui.IsMobile ? 55 : 120));
-        if (_optionAPrimaryActions != null)
-            _optionAPrimaryActions.Columns = ResponsiveLayout.Columns(available, 415, 2, 12);
+        if (_optionAPrimaryActions is GridContainer primary)
+            primary.Columns = ResponsiveLayout.Columns(available, 415, 2, 12);
         if (_optionAHomeCards != null)
         {
             int columns = ResponsiveLayout.Columns(available, 182, 4, Ui.IsMobile ? 10 : 18);
