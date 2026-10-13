@@ -301,8 +301,8 @@ public partial class Launcher : Control
     }
 
     internal void OpenMobileSmokePage(int page) => OpenPage(page);
-    internal Button[] MobilePrimaryButtons => _mobilePrimaryActions?.GetChildren().OfType<Button>()
-        .Where(button => button.Visible).ToArray() ?? [];
+    internal Button[] MobilePrimaryButtons => (_optionAPrimaryActions ?? _mobilePrimaryActions)?
+        .GetChildren().OfType<Button>().Where(button => button.Visible).ToArray() ?? [];
 
     private string DefaultServerAddress()
     {
