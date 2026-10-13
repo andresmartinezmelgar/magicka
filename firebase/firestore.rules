@@ -35,7 +35,35 @@ service cloud.firestore {
       }
       match /loadouts/{loadoutId} {
         allow get, list: if request.auth != null && request.auth.uid == uid;
-        allow write: if false;
+        // Solo la selección de piezas ya adquiridas; sin alterar oro, ítems o estadísticas.
+        function slotValid(itemId, expectedSlot) {
+          return itemId is string &&
+            (itemId == '' ||
+              (itemId.matches('^[0-9a-f]{32}
+      match /{subcollection=**}/{document=**} {
+        allow read, write: if false;
+      }
+    }
+    // Inventario, oro y resultados se modifican exclusivamente desde el servidor de confianza.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+)
+                && exists(/databases/$(database)/documents/users/$(uid)/items/$(itemId))
+                && get(/databases/$(database)/documents/users/$(uid)/items/$(itemId)).data.slot == expectedSlot));
+        }
+        allow create, update: if request.auth != null
+          && request.auth.uid == uid
+          && loadoutId == 'active'
+          && request.resource.data.keys().hasOnly(['boots', 'hat', 'chest', 'weapon'])
+          && request.resource.data.keys().hasAll(['boots', 'hat', 'chest', 'weapon'])
+          && slotValid(request.resource.data.boots, 'boots')
+          && slotValid(request.resource.data.hat, 'hat')
+          && slotValid(request.resource.data.chest, 'chest')
+          && slotValid(request.resource.data.weapon, 'weapon');
+        allow delete: if false;
       }
       match /{subcollection=**}/{document=**} {
         allow read, write: if false;
