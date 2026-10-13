@@ -24,7 +24,7 @@ public partial class RoomLobby : Control
     private SpinBox _capacity = null!, _bots = null!, _score = null!, _tickets = null!;
     private CheckBox _friendly = null!;
     private VBoxContainer _listPane = null!, _createPane = null!;
-    private HBoxContainer? _mobileListActions, _mobileCreateActions;
+    private GridContainer? _mobileListActions, _mobileCreateActions;
     private ScrollContainer? _mobileScroll;
     private GridContainer? _roomFormGrid;
     private readonly List<Button> _buttons = [];
@@ -97,7 +97,8 @@ public partial class RoomLobby : Control
         _listPane.AddChild(Ui.Label("Contraseña de la sala (si tiene)", 14, Ui.Muted));
         _joinPassword = new LineEdit { Secret = true, MaxLength = 128, PlaceholderText = "Opcional", CustomMinimumSize = new(0, 42) };
         _listPane.AddChild(_joinPassword);
-        var actions = new HBoxContainer(); actions.AddThemeConstantOverride("separation", 12); _listPane.AddChild(actions);
+        var actions = new GridContainer { Columns = 4 }; actions.AddThemeConstantOverride("h_separation", 12);
+        actions.AddThemeConstantOverride("v_separation", 6); _listPane.AddChild(actions);
         ActionButton(actions, "Entrar", Join, true); ActionButton(actions, "Crear sala", () => SwitchPane(true));
         ActionButton(actions, "Actualizar", Refresh);
         _createPane = new VBoxContainer { Visible = false }; _createPane.AddThemeConstantOverride("separation", 12); box.AddChild(_createPane);
@@ -134,7 +135,8 @@ public partial class RoomLobby : Control
         _map.ItemSelected += _ => ShowCreationObjective();
         ShowCreationObjective();
         _capacity.ValueChanged += value => _bots.MaxValue = value - 1;
-        var creation = new HBoxContainer(); creation.AddThemeConstantOverride("separation", 12); _createPane.AddChild(creation);
+        var creation = new GridContainer { Columns = 3 }; creation.AddThemeConstantOverride("h_separation", 12);
+        creation.AddThemeConstantOverride("v_separation", 6); _createPane.AddChild(creation);
         ActionButton(creation, "Crear y entrar", Create, true); ActionButton(creation, "Volver a salas", () => SwitchPane(false));
         _heading.TooltipText = "Cada sala tiene su propia partida. Las salas vacías se retiran a los 15 minutos.";
         _status = Ui.Label("Cargando salas…", 15, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -167,6 +169,10 @@ public partial class RoomLobby : Control
         if (_roomFormGrid == null) return;
         float width = GetViewport().GetVisibleRect().Size.X - (Ui.IsMobile ? 65 : 115);
         _roomFormGrid.Columns = ResponsiveLayout.Columns(width, 550, 3, 18) * 2;
+        if (_mobileListActions != null)
+            _mobileListActions.Columns = ResponsiveLayout.Columns(width, 175, 4, 12);
+        if (_mobileCreateActions != null)
+            _mobileCreateActions.Columns = ResponsiveLayout.Columns(width, 175, 3, 12);
     }
     internal Button[] MobileRoomButtons => (_createPane.Visible ? _mobileCreateActions : _mobileListActions)?
         .GetChildren().OfType<Button>().Where(button => button.Visible).ToArray() ?? [];
