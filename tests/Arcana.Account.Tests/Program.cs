@@ -291,7 +291,11 @@ await Test("PvP completo: fin de partida, diario y recompensa llegan a la cuenta
     var rooms = (Dictionary<string, GameRoom>)typeof(GameService).GetField("_rooms", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(game)!;
     lock (gate) rooms["default"].World.Scores[0] = 5; // Fixture de victoria; el servidor resuelve el fin y toda la entrega.
     AccountProfile after = before;
-    for (int n = 0; n < 40 && after.Wins == before.Wins; n++) { await Task.Delay(100); after = await repository.Profile(alice, "Alice"); }
+    for (int n = 0; n < 120 && (after.Wins == before.Wins || after.Items.Length == before.Items.Length); n++)
+    {
+        await Task.Delay(100);
+        after = await repository.Profile(alice, "Alice");
+    }
     Check(a.Latest!.MatchEnded && after.Wins == before.Wins + 1 && after.Items.Length == before.Items.Length + 1,
         "El fin de la partida no entregó una única recompensa.");
     long tick = game.CurrentTick; await Task.Delay(150); Check(game.CurrentTick > tick, "La persistencia bloqueó el reloj de simulación.");
