@@ -194,7 +194,7 @@ public partial class Launcher : Control
             _hostInfo.Text = $"El servidor terminó (código {code}). Puedes iniciarlo otra vez.";
             ShowError("El servidor local ha terminado inesperadamente. Consulta los registros.");
         });
-        if (Ui.IsMobile) { _tabs.CurrentTab = 2; UpdateConnectLabel(); }
+        if (Ui.IsMobile) { _tabs.SetTabHidden(3, true); _tabs.SetTabDisabled(3, true); _tabs.CurrentTab = 2; UpdateConnectLabel(); }
         OpenPage(0);
     }
 
@@ -226,7 +226,7 @@ public partial class Launcher : Control
         _tabs.SetTabHidden(0, page != 1);
         _tabs.SetTabHidden(1, page != 1);
         _tabs.SetTabHidden(2, page != 2);
-        _tabs.SetTabHidden(3, page != 1);
+        _tabs.SetTabHidden(3, Ui.IsMobile || page != 1);
         if (page == 0) _menuBack.Visible = false;
         if (page == 2) _tabs.CurrentTab = 2;
         if (page == 1 && _tabs.CurrentTab == 2) _tabs.CurrentTab = 1;
@@ -249,7 +249,7 @@ public partial class Launcher : Control
     public void SetBusy(bool busy, string message = "")
     {
         if (busy) CancelSearch();
-        _busy = busy; _connect.Disabled = busy; for (int i = 0; i < 4; i++) _tabs.SetTabDisabled(i, busy);
+        _busy = busy; _connect.Disabled = busy; for (int i = 0; i < 4; i++) _tabs.SetTabDisabled(i, busy || Ui.IsMobile && i == 3);
         _name.Editable = _address.Editable = !busy; _team.Disabled = _wizardType.Disabled = busy;
         _hostName.Editable = _hostPort.Editable = _hostDiscovery.Editable = !busy && !_host.Running;
         _password.Editable = !busy && _tabs.CurrentTab != 2 && !(_tabs.CurrentTab == 3 && _host.Running);
