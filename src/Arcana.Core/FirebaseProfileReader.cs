@@ -126,5 +126,29 @@ public sealed class FirebaseProfileReader : IDisposable
         _ = EquipmentModifiers.Calculate(profile);
         return profile;
     }
+    /// <summary>Solo el equipamiento se escribe desde el cliente: reglas verifican propiedad y ranuras.</summary>
+    public async Task SaveLoadout(string uid, string idToken, EquipmentLoadout equipment, CancellationToken token = default)
+    {
+        if (uid.Length is < 1 or > 128 || uid.Any(ch => !char.IsAsciiLetterOrDigit(ch) && ch is not '-' and not '_'))
+            throw new ArgumentException("UID inválido.");
+        var fields = new
+        {
+            fields = new
+            {
+                boots = new { stringValue = equipment.Boots },
+                hat = new { stringValue = equipment.Hat },
+                chest = new { stringValue = equipment.Chest },
+                weapon = new { stringValue = equipment.Weapon }
+            }
+        };
+        using var request = new HttpRequestMessage(HttpMethod.Patch,
+            $"https://firestore.googleapis.com/v1/projects/{_projectId}/databases/(default)/documents/users/{uid}/loadouts/active");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", idToken);
+        request.Content = JsonContent.Create(fields);
+        using var response = await _http.SendAsync(request, token).ConfigureAwait(false);
+        if (response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized)
+            throw new UnauthorizedAccessException("No puedes equipar esa pieza. Comprueba que sea tuya y que las reglas de Firestore estén publicadas.");
+        response.EnsureSuccessStatusCode();
+    }
     public void Dispose() => _http.Dispose();
 }
