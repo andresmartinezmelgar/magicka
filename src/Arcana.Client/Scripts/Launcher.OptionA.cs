@@ -216,7 +216,7 @@ public partial class Launcher
             if (_optionAPracticeGrid != null)
             {
                 float practiceWidth = columns == 2 ? (available - 24) / 2 : available;
-                _optionAPracticeGrid.Columns = ResponsiveLayout.Columns(practiceWidth, 290, 2, 14);
+                _optionAPracticeGrid.Columns = ResponsiveLayout.Columns(practiceWidth, 385, 2, 14);
             }
         }
         if (_optionAElements != null)
