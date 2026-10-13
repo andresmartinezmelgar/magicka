@@ -203,6 +203,17 @@ public partial class Launcher : Control
         OpenPage(0);
     }
 
+    public void UpdateAccountStatus()
+    {
+        if (_page != 0) return;
+        var profile = _main.Accounts.Profile;
+        _profileSummary.Text = _main.Accounts.SignedIn && profile != null
+            ? $"🧙 {profile.Name} · Google conectado\\n{profile.Wins} victorias · {profile.Losses} derrotas · {profile.Gold} oro"
+            : profile != null ? $"🧙 {profile.Name} · Datos guardados para práctica sin conexión"
+            : "🧙 Sin iniciar sesión";
+        _accountButton.Text = _main.Accounts.SignedIn ? "Mi cuenta de Google · Conectado" : "Entrar o registrarse con Google";
+    }
+
     private void OpenPage(int page)
     {
         _page = page;
