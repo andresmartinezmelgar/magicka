@@ -231,7 +231,16 @@ public partial class Launcher : Control
             _hostInfo.Text = $"El servidor terminó (código {code}). Puedes iniciarlo otra vez.";
             ShowError("El servidor local ha terminado inesperadamente. Consulta los registros.");
         });
-        if (Ui.IsMobile) { _tabs.SetTabHidden(3, true); _tabs.SetTabDisabled(3, true); _tabs.CurrentTab = 2; UpdateConnectLabel(); }
+        if (Ui.IsMobile)
+        {
+            foreach (var control in new Control[] { _name, _address, _team, _wizardType,
+                _practiceMode, _practiceMap, _discoveryPort, _password, _hostName })
+                Ui.TouchTarget(control);
+            _tabs.SetTabHidden(3, true);
+            _tabs.SetTabDisabled(3, true);
+            _tabs.CurrentTab = 2;
+            UpdateConnectLabel();
+        }
         OpenPage(0);
     }
 
