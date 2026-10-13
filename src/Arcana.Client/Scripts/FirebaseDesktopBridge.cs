@@ -36,7 +36,7 @@ public sealed class FirebaseDesktopBridge : IDisposable
 
     private static string ReadClientId(string userDirectory)
     {
-        string? fromEnvironment = Environment.GetEnvironmentVariable("ARCANA_GOOGLE_DESKTOP_CLIENT_ID");
+        string? fromEnvironment = System.Environment.GetEnvironmentVariable("ARCANA_GOOGLE_DESKTOP_CLIENT_ID");
         string[] candidates =
         [
             fromEnvironment ?? "",
@@ -64,7 +64,7 @@ public sealed class FirebaseDesktopBridge : IDisposable
             char.IsAsciiLetterOrDigit(c) || c is '-' or '_');
 
     private static string RandomUrlToken() =>
-        Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
     private static string Param(string query, string name)
     {
