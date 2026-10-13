@@ -131,6 +131,7 @@ public partial class AccountProfilePanel : Control
             Ui.TouchTarget(button, 70);
         }
         _message = main.GoogleLoginStatus;
+        ApplyOptionAProfile(margin, panel, layout, scroll, details);
         Render();
     }
 
@@ -219,6 +220,7 @@ public partial class AccountProfilePanel : Control
         _technical.Visible = firestoreError && _showTechnical;
         _technical.Text = _technical.Visible ? _message : "";
         _details.Text = _showTechnical ? "Ocultar diagnóstico técnico" : "Mostrar diagnóstico técnico";
+        UpdateOptionAProfile();
     }
 
     private void Login()
