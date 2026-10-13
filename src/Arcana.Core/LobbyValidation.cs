@@ -26,6 +26,9 @@ public static class LobbyValidation
         if (directory?.Server == null) throw new InvalidDataException("Directorio de salas inválido.");
         if (directory.Server.Protocol != Protocol.Version)
             throw new InvalidOperationException("Actualiza el juego: la versión del servidor es diferente.");
+        if (directory.Server.GameVersion is { Length: > 0 } gameVersion &&
+            !string.Equals(gameVersion, BuildInfo.Version, StringComparison.Ordinal))
+            throw new InvalidOperationException($"La versión del servidor ({gameVersion}) no coincide con tu juego ({BuildInfo.Version}). Actualiza Arcana Arena.");
         if (!IsValid(directory.Server) || directory.Rooms is not { Length: <= 16 })
             throw new InvalidDataException("Directorio de salas inválido.");
         var ids = new HashSet<string>(StringComparer.Ordinal);
