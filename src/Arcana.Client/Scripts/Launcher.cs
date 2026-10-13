@@ -497,5 +497,5 @@ public partial class Launcher : Control
     }
     private void CancelSearch()
     { var search = _search; _search = null; search?.Cancel(); search?.Dispose(); _refresh.Disabled = false; }
-    public override void _ExitTree() { _search?.Cancel(); _search?.Dispose(); _host.Dispose(); }
+    public override void _ExitTree() { GetViewport().SizeChanged -= UpdateResponsiveMenu; _search?.Cancel(); _search?.Dispose(); _host.Dispose(); }
 }

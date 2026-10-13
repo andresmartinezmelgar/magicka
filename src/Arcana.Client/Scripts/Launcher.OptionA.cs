@@ -15,6 +15,7 @@ public partial class Launcher
     private VBoxContainer? _optionAMagic;
     private Label? _optionAHeading;
     private Label? _optionAPasswordLabel;
+    private GridContainer? _optionAHomeCards, _optionASettingsGrid, _optionAPracticeGrid, _optionAElements;
 
     private void ApplyOptionALayout(MarginContainer margin, HBoxContainer columns, VBoxContainer left,
         VBoxContainer rightColumn, ScrollContainer scroll, CenterContainer rightCenter,
@@ -62,7 +63,8 @@ public partial class Launcher
 
         // Accesos anchos en una única fila con tamaños y lugares coherentes.
         _homeMenu.AddThemeConstantOverride("separation", 12);
-        var choices = new HBoxContainer { Name = "OptionAHomeCards", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        var choices = new GridContainer { Name = "OptionAHomeCards", Columns = 4, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _optionAHomeCards = choices;
         choices.AddThemeConstantOverride("separation", Ui.IsMobile ? 10 : 18);
         _homeMenu.AddChild(choices);
         _homeMenu.MoveChild(choices, 0);
@@ -90,8 +92,9 @@ public partial class Launcher
         _playBody.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _playBody.SizeFlagsVertical = SizeFlags.ExpandFill;
         _playBody.AddThemeConstantOverride("separation", 7);
-        var controls = new HBoxContainer { Name = "OptionASettingsColumns",
+        var controls = new GridContainer { Name = "OptionASettingsColumns", Columns = 2,
             SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
+        _optionASettingsGrid = controls;
         controls.AddThemeConstantOverride("separation", Ui.IsMobile ? 10 : 18);
         _playBody.AddChild(controls);
         _playBody.MoveChild(controls, 0);
@@ -151,6 +154,7 @@ public partial class Launcher
         settings.AddChild(_optionAMagic);
         _optionAMagic.AddChild(Ui.Label("LOS OCHO ELEMENTOS", 18, Ui.Gold));
         var elementGrid = new GridContainer { Columns = 4 };
+        _optionAElements = elementGrid;
         elementGrid.AddThemeConstantOverride("h_separation", 5);
         elementGrid.AddThemeConstantOverride("v_separation", 5);
         _optionAMagic.AddChild(elementGrid);
@@ -187,18 +191,47 @@ public partial class Launcher
 
         _optionAChrome = ArcanaMenuChrome.Attach(this, margin, _main,
             "Inicio", 0, NavigateOptionA);
+        GetViewport().SizeChanged += UpdateResponsiveMenu;
+        UpdateResponsiveMenu();
     }
 
-    /// <summary>IA en dos columnas: conserva todos los ajustes pero evita desbordamientos a 720p.</summary>
+    private void UpdateResponsiveMenu()
+    {
+        float viewportWidth = GetViewport().GetVisibleRect().Size.X;
+        float available = Math.Max(280, viewportWidth - (Ui.IsMobile ? 55 : 120));
+        if (_optionAHomeCards != null)
+        {
+            int columns = ResponsiveLayout.Columns(available, 182, 4, Ui.IsMobile ? 10 : 18);
+            _optionAHomeCards.Columns = columns;
+            foreach (Button card in _optionAHomeCards.GetChildren().OfType<Button>())
+                card.CustomMinimumSize = new Vector2(0, columns >= 3 ? (Ui.IsMobile ? 160 : 200) : 112);
+        }
+        if (_optionASettingsGrid != null)
+        {
+            int columns = ResponsiveLayout.Columns(available, 415, 2, Ui.IsMobile ? 10 : 18);
+            _optionASettingsGrid.Columns = columns;
+            if (_optionAPracticeGrid != null)
+            {
+                float practiceWidth = columns == 2 ? (available - 24) / 2 : available;
+                _optionAPracticeGrid.Columns = ResponsiveLayout.Columns(practiceWidth, 290, 2, 14);
+            }
+        }
+        if (_optionAElements != null)
+            _optionAElements.Columns = ResponsiveLayout.Columns(
+                _optionASettingsGrid?.Columns == 2 ? (available - 24) / 2 : available, 85, 4, 5);
+    }
+
+    /// <summary>La modalidad IA se reordena según el espacio; no pierde controles.</summary>
     private void CompactPracticeTab()
     {
         if (_tabs.GetChild(2) is not VBoxContainer practice) return;
         var parts = practice.GetChildren().OfType<Control>().ToArray();
         if (parts.Length < 8) return;
         practice.AddThemeConstantOverride("separation", 6);
-        var row = new HBoxContainer { Name = "OptionAIaSettingsColumns",
+        var row = new GridContainer { Name = "OptionAIaSettingsColumns", Columns = 2,
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill };
+        _optionAPracticeGrid = row;
         row.AddThemeConstantOverride("separation", Ui.IsMobile ? 14 : 22);
         practice.AddChild(row);
         practice.MoveChild(row, 0);

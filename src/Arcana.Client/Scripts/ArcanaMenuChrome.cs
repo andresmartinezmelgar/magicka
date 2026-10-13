@@ -13,6 +13,11 @@ public partial class ArcanaMenuChrome : Control
     private Main _main = null!;
     private Label _player = null!, _gold = null!;
     private double _refreshTimer;
+    private MarginContainer? _reservedContent;
+    private float _originalContentTop, _originalContentBottom;
+    private GridContainer? _navigationGrid;
+    private PanelContainer? _footer;
+    private Label? _sectionLabel, _logoLabel;
 
     public const int HeaderHeight = 68;
     public const int FooterHeight = 72;
@@ -25,14 +30,19 @@ public partial class ArcanaMenuChrome : Control
         string section, int selected, Action<int> navigate)
     {
         // Reservamos espacio real: la barra no se superpone a los menús, al HUD ni a los botones.
-        content.OffsetTop += HeaderHeight + 5;
-        content.OffsetBottom -= FooterHeight + 5;
-        var chrome = new ArcanaMenuChrome();
+        var chrome = new ArcanaMenuChrome
+        {
+            _reservedContent = content,
+            _originalContentTop = content.OffsetTop,
+            _originalContentBottom = content.OffsetBottom
+        };
         root.AddChild(chrome);
         Ui.Full(chrome);
         chrome.MouseFilter = MouseFilterEnum.Ignore;
         chrome._main = main;
         chrome.Build(section, selected, navigate);
+        chrome.GetViewport().SizeChanged += chrome.UpdateResponsive;
+        chrome.UpdateResponsive();
         return chrome;
     }
 
@@ -47,12 +57,12 @@ public partial class ArcanaMenuChrome : Control
         var heading = new HBoxContainer();
         heading.AddThemeConstantOverride("separation", Ui.IsMobile ? 10 : 20);
         header.AddChild(heading);
-        var logo = Ui.Label("✦  ARCANA ARENA", Ui.IsMobile ? 24 : 27, Ui.Gold);
-        heading.AddChild(logo);
+        _logoLabel = Ui.Label("✦  ARCANA ARENA", Ui.IsMobile ? 24 : 27, Ui.Gold);
+        heading.AddChild(_logoLabel);
         var line = new VSeparator();
         heading.AddChild(line);
-        var screen = Ui.Label(section.ToUpperInvariant(), Ui.IsMobile ? 17 : 20, Ui.Text);
-        heading.AddChild(screen);
+        _sectionLabel = Ui.Label(section.ToUpperInvariant(), Ui.IsMobile ? 17 : 20, Ui.Text);
+        heading.AddChild(_sectionLabel);
         heading.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
         _player = Ui.Label("", Ui.IsMobile ? 15 : 16, Ui.Muted);
         heading.AddChild(_player);
@@ -60,12 +70,16 @@ public partial class ArcanaMenuChrome : Control
         heading.AddChild(_gold);
 
         var footer = new PanelContainer { Name = "OptionAFooter", MouseFilter = MouseFilterEnum.Stop };
+        _footer = footer;
         footer.AnchorTop = footer.AnchorBottom = footer.AnchorRight = 1;
         footer.OffsetTop = -FooterHeight;
         footer.AddThemeStyleboxOverride("panel", BarStyle());
         AddChild(footer);
-        var nav = new HBoxContainer();
-        nav.AddThemeConstantOverride("separation", Ui.IsMobile ? 7 : 12);
+        var nav = new GridContainer { Columns = 7, SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill };
+        _navigationGrid = nav;
+        nav.AddThemeConstantOverride("h_separation", Ui.IsMobile ? 7 : 12);
+        nav.AddThemeConstantOverride("v_separation", 7);
         footer.AddChild(nav);
         string[] pages = ["⌂  Inicio", "⚔  PvP", "✧  Versus IA", "♙  Perfil", "◇  Inventario", "?  Ayuda", "Salir"];
         for (int i = 0; i < pages.Length; i++)
@@ -82,6 +96,26 @@ public partial class ArcanaMenuChrome : Control
         Select(selected);
         RefreshAccount();
     }
+
+    private void UpdateResponsive()
+    {
+        if (_reservedContent == null || _footer == null || _navigationGrid == null) return;
+        float viewportWidth = GetViewport().GetVisibleRect().Size.X;
+        int columns = ResponsiveLayout.Columns(Math.Max(1, viewportWidth - (Ui.IsMobile ? 24 : 50)),
+            Ui.IsMobile ? 110 : 108, _navigation.Count, Ui.IsMobile ? 7 : 12);
+        _navigationGrid.Columns = columns;
+        int rows = ResponsiveLayout.Rows(_navigation.Count, columns);
+        int height = Math.Max(FooterHeight, rows * (Ui.IsMobile ? 58 : 48) + (rows - 1) * 7 + 14);
+        _footer.OffsetTop = -height;
+        _reservedContent.OffsetTop = _originalContentTop + HeaderHeight + 5;
+        _reservedContent.OffsetBottom = _originalContentBottom - height - 5;
+        if (_sectionLabel != null) _sectionLabel.Visible = viewportWidth >= 1120;
+        if (_logoLabel != null) _logoLabel.Text = viewportWidth < 680 ? "✦ ARCANA" : "✦  ARCANA ARENA";
+        if (_player != null) _player.Visible = viewportWidth >= 1330;
+        if (_gold != null) _gold.Visible = viewportWidth >= 920;
+    }
+
+    public override void _ExitTree() => GetViewport().SizeChanged -= UpdateResponsive;
 
     private static StyleBoxFlat BarStyle()
     {
