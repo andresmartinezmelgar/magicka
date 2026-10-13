@@ -29,6 +29,24 @@ jobs:
       - name: Compilar servidor de cuentas heredado
         run: dotnet build src/Arcana.AccountServer/Arcana.AccountServer.csproj -c Release --nologo
 
+  firestore-rules:
+    name: Validar reglas Firestore con emulador
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Instalar Firebase CLI y bibliotecas de pruebas
+        run: npm install --prefix tests/firebase-rules --no-audit --no-fund
+      - name: Probar seguridad de cuentas y equipamiento sin credenciales reales
+        run: tests/firebase-rules/node_modules/.bin/firebase emulators:exec --only firestore --project demo-arcana-arena --config firebase.json -- 'node tests/firebase-rules/verify.cjs'
+
   package-windows:
     name: Generar distribucion Windows
     runs-on: windows-latest
@@ -145,7 +163,7 @@ jobs:
   release-on-tag:
     name: Publicar artefactos al crear un tag
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    needs: [build, package-windows, package-android]
+    needs: [build, firestore-rules, package-windows, package-android]
     runs-on: ubuntu-latest
     permissions:
       contents: write
