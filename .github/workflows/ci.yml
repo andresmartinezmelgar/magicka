@@ -116,7 +116,7 @@ jobs:
         run: |
           sdk="$RUNNER_TEMP/android-sdk"
           mkdir -p "$sdk/cmdline-tools"
-          curl -fL https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip -o "$RUNNER_TEMP/android-cli.zip"
+          curl --retry 5 --retry-delay 3 --retry-all-errors --http1.1 -fL https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip -o "$RUNNER_TEMP/android-cli.zip"
           unzip -q "$RUNNER_TEMP/android-cli.zip" -d "$sdk/cmdline-tools"
           mv "$sdk/cmdline-tools/cmdline-tools" "$sdk/cmdline-tools/latest"
           yes | "$sdk/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$sdk" --licenses >/dev/null || true
@@ -261,6 +261,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq apksigner
       - name: Firmar APK con clave permanente y verificarla
+        if: github.ref != 'refs/heads/main'
         env:
           ARCANA_KEYSTORE_BASE64: ${{ secrets.ARCANA_KEYSTORE_BASE64 }}
           ARCANA_KEYSTORE_PASSWORD: ${{ secrets.ARCANA_KEYSTORE_PASSWORD }}
@@ -295,13 +296,19 @@ jobs:
           version=$(tr -d '\r\n' < VERSION)
           tag="v$version"
           if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
+            # APK firmada: solo publish-android-first. Este job solo publica Windows.
+            # Así no compiten dos trabajos por el mismo asset y nunca se borra la APK.
+            (cd dist && sha256sum "ArcanaArena-v$version-Windows-x64.zip" > SHA256SUMS-Windows.txt)
             if gh release view "$tag" >/dev/null 2>&1; then
-              echo "La release $tag ya existe; no se modifica desde main."
-            else
-              gh release create "$tag" dist/*.zip dist/*.apk dist/SHA256SUMS.txt \
+              gh release upload "$tag" dist/*.zip dist/SHA256SUMS-Windows.txt --clobber
+            elif ! gh release create "$tag" dist/*.zip dist/SHA256SUMS-Windows.txt \
                 --target "$GITHUB_SHA" \
                 --title "Arcana Arena $tag" \
-                --notes "APK Android firmada con la clave permanente, compilada y verificada en GitHub Actions. Probar Google Sign-In en dispositivo real tras publicar las reglas de Firestore."
+                --notes "Windows y Android se publican de forma independiente con verificación de firma APK."; then
+              # El trabajo Android puede haber creado la Release simultáneamente.
+              sleep 3
+              gh release view "$tag" >/dev/null
+              gh release upload "$tag" dist/*.zip dist/SHA256SUMS-Windows.txt --clobber
             fi
           elif gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" dist/*.zip dist/*.apk dist/SHA256SUMS.txt --clobber
