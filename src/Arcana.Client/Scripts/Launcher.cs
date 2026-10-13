@@ -293,6 +293,10 @@ public partial class Launcher : Control
         UpdateConnectLabel();
     }
 
+    internal void OpenMobileSmokePage(int page) => OpenPage(page);
+    internal Button[] MobilePrimaryButtons => _mobilePrimaryActions?.GetChildren().OfType<Button>()
+        .Where(button => button.Visible).ToArray() ?? [];
+
     private string DefaultServerAddress()
     {
         string saved = _config.GetValue("network", "address", "127.0.0.1:27015").AsString();
