@@ -262,8 +262,8 @@ await Test("Bonos públicos: las fichas se limitan a la sala y llegan junto a sn
     var one = game.CreateRoom(new() { Name = "Fichas uno", Mode = GameMode.Duel, MaxPlayers = 2 });
     var two = game.CreateRoom(new() { Name = "Fichas dos", Mode = GameMode.Duel, MaxPlayers = 2 });
     await using var a = new ArenaConnection(); await using var b = new ArenaConnection();
-    await a.ConnectAsync("127.0.0.1:28339", "Uno", 0, "", roomId: one.Room!.Id);
-    await b.ConnectAsync("127.0.0.1:28339", "Dos", 0, "", roomId: two.Room!.Id);
+    await a.ConnectAsync("127.0.0.1:28339", "Uno", 0, "", roomId: one.Room!.Id, accountToken: aliceLogin.AccessToken);
+    await b.ConnectAsync("127.0.0.1:28339", "Dos", 0, "", roomId: two.Room!.Id, accountToken: bobLogin.AccessToken);
     await Task.Delay(150);
     Check(a.PlayerId == b.PlayerId, "La prueba no tiene IDs coincidentes de salas distintas.");
     long before = a.Latest!.Tick;
