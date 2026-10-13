@@ -14,12 +14,12 @@ public sealed class RewardService(AccountService accounts, ILogger<RewardService
     public event Action<RewardMatch>? Delivered;
     public void Enqueue(RewardMatch match)
     {
-        if (accounts.Enabled && RewardRules.Eligible(match).Length > 0 && !_pending.Writer.TryWrite(match))
+        if (accounts.GameEnabled && RewardRules.Eligible(match).Length > 0 && !_pending.Writer.TryWrite(match))
             logger.LogError("No se pudo encolar el resultado {MatchId}", match.Id);
     }
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!accounts.Enabled) return;
+        if (!accounts.GameEnabled) return;
         Directory.CreateDirectory(_directory);
         if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(_directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         _persistTask = Persist(stoppingToken);
@@ -60,7 +60,7 @@ public sealed class RewardService(AccountService accounts, ILogger<RewardService
                     try
                     {
                         var match = Protocol.Deserialize<RewardMatch>(await File.ReadAllTextAsync(path, token)) ?? throw new InvalidDataException("Resultado vacío.");
-                        await accounts.Repository!.Award(match, token);
+                        await accounts.AwardGame(match, token);
                         File.Delete(path); retry.Remove(path);
                         try { Delivered?.Invoke(match); }
                         catch (Exception error) { logger.LogWarning(error, "La recompensa se guardó pero no se pudo notificar en la partida."); }
