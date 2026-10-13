@@ -9,7 +9,7 @@ public partial class ReleaseUpdateNotice : Node
 {
     private const string Latest = "https://api.github.com/repos/andresmartinezmelgar/magicka/releases/latest";
     private const string Releases = "https://github.com/andresmartinezmelgar/magicka/releases/latest";
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(8) };
+    private static readonly System.Net.Http.HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(8) };
     private readonly CancellationTokenSource _stop = new();
     private AcceptDialog? _dialog;
 
