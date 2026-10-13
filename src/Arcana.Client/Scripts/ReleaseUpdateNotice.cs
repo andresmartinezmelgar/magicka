@@ -273,7 +273,7 @@ public partial class ReleaseUpdateNotice : Node
 
     private void UpdateProgress(int generation, long downloaded, long total, double bytesPerSecond)
     {
-        if (generation != _progressGeneration || !_downloading || !IsInstanceValid(_overlay)) return;
+        if (generation != _progressGeneration || !_downloading || !GodotObject.IsInstanceValid(_overlay)) return;
         bool known = total > 0;
         double fraction = known ? Math.Clamp((double)downloaded / total, 0, 1) : 0;
         _progress!.Indeterminate = !known;
@@ -285,7 +285,7 @@ public partial class ReleaseUpdateNotice : Node
 
     private void ShowDownloaded(int generation, string path)
     {
-        if (generation != _progressGeneration || !IsInstanceValid(_overlay) || _stop.IsCancellationRequested) return;
+        if (generation != _progressGeneration || !GodotObject.IsInstanceValid(_overlay) || _stop.IsCancellationRequested) return;
         _downloading = false;
         _completed = true;
         _downloadPath = path;
@@ -307,7 +307,7 @@ public partial class ReleaseUpdateNotice : Node
 
     private void ShowFailure(int generation, string reason)
     {
-        if (generation != _progressGeneration || !IsInstanceValid(_overlay) || _stop.IsCancellationRequested) return;
+        if (generation != _progressGeneration || !GodotObject.IsInstanceValid(_overlay) || _stop.IsCancellationRequested) return;
         _downloading = false;
         _downloadStop?.Dispose();
         _downloadStop = null;
@@ -336,7 +336,8 @@ public partial class ReleaseUpdateNotice : Node
             _downloadStop?.Cancel();
             _downloading = false;
         }
-        if (IsInstanceValid(_overlay)) _overlay!.QueueFree();
+        if (GodotObject.IsInstanceValid(_canvas)) _canvas!.QueueFree();
+        _canvas = null;
         _overlay = null;
     }
 
