@@ -1,6 +1,10 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function googleOwner(uid) {
+      return request.auth != null && request.auth.uid == uid
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
     // Only address, expiry and protocol are public. Clients cannot list or write.
     match /publicAccountServer/current {
       allow get: if resource.data.keys().hasOnly(['url', 'expiresAt', 'protocol'])
@@ -13,10 +17,9 @@ service cloud.firestore {
     }
     // Lectura exclusiva del propietario; escrituras solo mediante Admin SDK.
     match /users/{uid} {
-      allow get: if request.auth != null && request.auth.uid == uid;
+      allow get: if googleOwner(uid);
       // Alta autónoma: se permite exclusivamente el perfil vacío del propietario.
-      allow create: if request.auth != null
-        && request.auth.uid == uid
+      allow create: if googleOwner(uid)
         && request.resource.data.keys().hasOnly(['uid', 'name', 'gold', 'wins', 'losses', 'itemCount', 'schemaVersion'])
         && request.resource.data.keys().hasAll(['uid', 'name', 'gold', 'wins', 'losses', 'itemCount', 'schemaVersion'])
         && request.resource.data.uid == uid
@@ -30,11 +33,11 @@ service cloud.firestore {
         && request.resource.data.schemaVersion == 1;
       allow list, update, delete: if false;
       match /items/{itemId} {
-        allow get, list: if request.auth != null && request.auth.uid == uid;
+        allow get, list: if googleOwner(uid);
         allow write: if false;
       }
       match /loadouts/{loadoutId} {
-        allow get, list: if request.auth != null && request.auth.uid == uid;
+        allow get, list: if googleOwner(uid);
         // Solo la selección de piezas ya adquiridas; sin alterar oro, ítems o estadísticas.
         function slotValid(itemId, expectedSlot) {
           return itemId is string &&
@@ -54,8 +57,7 @@ service cloud.firestore {
                 && exists(/databases/$(database)/documents/users/$(uid)/items/$(itemId))
                 && get(/databases/$(database)/documents/users/$(uid)/items/$(itemId)).data.slot == expectedSlot));
         }
-        allow create, update: if request.auth != null
-          && request.auth.uid == uid
+        allow create, update: if googleOwner(uid)
           && loadoutId == 'active'
           && request.resource.data.keys().hasOnly(['boots', 'hat', 'chest', 'weapon'])
           && request.resource.data.keys().hasAll(['boots', 'hat', 'chest', 'weapon'])
