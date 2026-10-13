@@ -58,12 +58,13 @@ public partial class Launcher : Control
         rightScroll.AddChild(rightCenter);
         var panel = new PanelContainer { CustomMinimumSize = new(Ui.IsMobile ? 0 : 560, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill }; rightCenter.AddChild(panel);
         var formStyle = Ui.Panel(new Color(0.035f, 0.057f, 0.093f, 0.97f), 16);
-        formStyle.ContentMarginTop = formStyle.ContentMarginBottom = 12; panel.AddThemeStyleboxOverride("panel", formStyle);
-        var form = new VBoxContainer(); form.AddThemeConstantOverride("separation", 6); panel.AddChild(form);
-        form.AddChild(Ui.Label(Ui.IsMobile ? "ARCANA ARENA  /  " + BuildInfo.Version : "ENTRAR EN LA ARENA", 27, Ui.Gold));
+        formStyle.ContentMarginTop = formStyle.ContentMarginBottom = Ui.IsMobile ? 5 : 12;
+        if (Ui.IsMobile) formStyle.ContentMarginLeft = formStyle.ContentMarginRight = 7; panel.AddThemeStyleboxOverride("panel", formStyle);
+        var form = new VBoxContainer(); form.AddThemeConstantOverride("separation", Ui.IsMobile ? 3 : 6); panel.AddChild(form);
+        form.AddChild(Ui.Label(Ui.IsMobile ? "ARCANA ARENA" : "ENTRAR EN LA ARENA", Ui.IsMobile ? 22 : 27, Ui.Gold));
         form.AddChild(Ui.Label("Elige PvP, Versus IA o Perfil.", Ui.IsMobile ? 13 : 16, Ui.Muted));
         _homeMenu = new VBoxContainer();
-        _homeMenu.AddThemeConstantOverride("separation", 10);
+        _homeMenu.AddThemeConstantOverride("separation", Ui.IsMobile ? 5 : 10);
         form.AddChild(_homeMenu);
         _homeMenu.AddChild(Ui.Button("PvP", () => OpenPage(1), true));
         _homeMenu.AddChild(Ui.Button("Versus IA", () => OpenPage(2), true));
