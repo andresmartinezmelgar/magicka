@@ -35,6 +35,8 @@ jobs:
           ARCANA_TEST_PWSH=pwsh python3 scripts/test-version-support.py -v
       - name: Compilar cliente, servidor, núcleo y pruebas
         run: dotnet build ArcanaArena.sln -c Release --nologo
+      - name: Compilar servidor de cuentas independiente
+        run: dotnet build src/Arcana.AccountServer/Arcana.AccountServer.csproj -c Release --nologo
       - name: Verificar bloqueo de compilaciones entre procesos
         run: python3 scripts/test-build-lock.py
       - name: Reglas y red real
