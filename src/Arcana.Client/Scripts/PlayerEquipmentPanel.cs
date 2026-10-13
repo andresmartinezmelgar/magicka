@@ -31,7 +31,7 @@ public partial class PlayerEquipmentPanel : Control
         var box = new VBoxContainer(); box.AddThemeConstantOverride("separation", 10); panel.AddChild(box);
         box.AddChild(Ui.Label("BONOS DE LOS MAGOS", 25, Ui.Gold));
         var header = new HBoxContainer(); header.AddThemeConstantOverride("separation", 12); box.AddChild(header);
-        _choice = new OptionButton { Name = "InspectedPlayerChoice", CustomMinimumSize = new(240, 48), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _choice = new OptionButton { Name = "InspectedPlayerChoice", CustomMinimumSize = new(240, Ui.IsMobile ? 66 : 48), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _choice.AddThemeFontSizeOverride("font_size", 20); header.AddChild(_choice);
         _choice.ItemSelected += index => { _selected = _choice.GetItemId((int)index); _ = Load(); };
         header.AddChild(Ui.Button("Actualizar", Refresh)); header.AddChild(Ui.Button("Volver", Close));

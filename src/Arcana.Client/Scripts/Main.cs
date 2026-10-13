@@ -97,6 +97,7 @@ public partial class Main : Node
         _pause = BuildPause(); _ui.AddChild(_pause); _pause.Visible = false;
         var arguments = OS.GetCmdlineUserArgs();
         _accountEntrySmoke = arguments.Contains("--account-entry-smoke");
+        _mobileMenuSmoke = arguments.Contains("--mobile-menu-smoke");
         foreach (string arg in arguments)
         {
             if (arg is "--preview-equipment" or "--equipment-smoke") EquipmentFixture(arg == "--equipment-smoke");
@@ -275,6 +276,7 @@ public partial class Main : Node
             }
         TickGoogleAuth(delta);
         _renderFrames++;
+        if (CheckMobileMenuSmoke()) return;
         if (CheckAccountEntrySmoke()) return;
         if (CheckPublicEquipmentSmoke()) return;
         if (CheckEquipmentSmoke()) return;

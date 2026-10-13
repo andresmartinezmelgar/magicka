@@ -16,6 +16,37 @@ public sealed class FirebaseProfileReader : IDisposable
             throw new ArgumentException("Proyecto Firebase inválido.", nameof(projectId));
         _projectId = projectId;
     }
+    private static async Task EnsureAllowed(HttpResponseMessage response, string action, CancellationToken token)
+    {
+        if (response.IsSuccessStatusCode) return;
+        // Leer solo el código normalizado: jamás registrar ID tokens ni respuestas crudas del proveedor.
+        string status = "";
+        try
+        {
+            var body = await response.Content.ReadAsStringAsync(token).ConfigureAwait(false);
+            if (body.Length <= 8192)
+            {
+                using var doc = JsonDocument.Parse(body);
+                if (doc.RootElement.TryGetProperty("error", out var error) &&
+                    error.TryGetProperty("status", out var value) &&
+                    value.ValueKind == JsonValueKind.String)
+                    status = value.GetString() ?? "";
+            }
+        }
+        catch (JsonException) { }
+        if (response.StatusCode == HttpStatusCode.Unauthorized || status == "UNAUTHENTICATED")
+            throw new UnauthorizedAccessException("Firestore (401 UNAUTHENTICATED) rechaza la sesión de Google. Cierra sesión y vuelve a entrar.");
+        if (response.StatusCode == HttpStatusCode.Forbidden || status == "PERMISSION_DENIED")
+            throw new UnauthorizedAccessException(
+                $"Firestore (403 PERMISSION_DENIED) ha denegado {action}. " +
+                "El acceso de Google funciona, pero el proyecto no permite esa lectura/escritura. " +
+                "Comprueba que las reglas de firebase/firestore.rules estén PUBLICADAS en Firebase Console → Firestore Database → Reglas, " +
+                "y que el proveedor Google pertenezca al proyecto arcana-arena-f2997.");
+        if (response.StatusCode == HttpStatusCode.NotFound)
+            throw new InvalidOperationException($"Firestore (404 NOT_FOUND) no encuentra {action}. Comprueba que la base de datos (default) exista en arcana-arena-f2997.");
+        response.EnsureSuccessStatusCode();
+    }
+
     private async Task<JsonElement?> Document(string path, string idToken, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(idToken)) throw new UnauthorizedAccessException("Falta la sesión de Firebase.");
@@ -24,9 +55,8 @@ public sealed class FirebaseProfileReader : IDisposable
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", idToken);
         using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
-        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
-            throw new UnauthorizedAccessException("Firestore ha rechazado la lectura. Comprueba las reglas y la sesión.");
-        response.EnsureSuccessStatusCode();
+        await EnsureAllowed(response, "la lectura de " + path.Split('/')[0] + "/{tu cuenta}" +
+            (path.Contains("/loadouts/", StringComparison.Ordinal) ? "/loadouts/active" : ""), cancellationToken).ConfigureAwait(false);
         using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
         return doc.RootElement.Clone();
     }
@@ -55,9 +85,7 @@ public sealed class FirebaseProfileReader : IDisposable
         request.Content = JsonContent.Create(fields);
         using var response = await _http.SendAsync(request, token).ConfigureAwait(false);
         if (response.StatusCode == HttpStatusCode.Conflict) return; // Otro dispositivo creó la cuenta.
-        if (response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized)
-            throw new UnauthorizedAccessException("Firestore no permite crear el perfil inicial. Publica las reglas del proyecto.");
-        response.EnsureSuccessStatusCode();
+        await EnsureAllowed(response, "la creación del perfil inicial", token).ConfigureAwait(false);
     }
 
     private static object? Value(JsonElement value)
@@ -108,9 +136,7 @@ public sealed class FirebaseProfileReader : IDisposable
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", idToken);
             using var response = await _http.SendAsync(request, token).ConfigureAwait(false);
-            if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
-                throw new UnauthorizedAccessException("No se permite consultar el inventario.");
-            response.EnsureSuccessStatusCode();
+            await EnsureAllowed(response, "la lista de objetos de tu inventario", token).ConfigureAwait(false);
             using var result = JsonDocument.Parse(await response.Content.ReadAsStringAsync(token).ConfigureAwait(false));
             if (result.RootElement.TryGetProperty("documents", out var docs))
                 foreach (var doc in docs.EnumerateArray())
@@ -146,9 +172,7 @@ public sealed class FirebaseProfileReader : IDisposable
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", idToken);
         request.Content = JsonContent.Create(fields);
         using var response = await _http.SendAsync(request, token).ConfigureAwait(false);
-        if (response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized)
-            throw new UnauthorizedAccessException("No puedes equipar esa pieza. Comprueba que sea tuya y que las reglas de Firestore estén publicadas.");
-        response.EnsureSuccessStatusCode();
+        await EnsureAllowed(response, "la escritura de tu equipamiento", token).ConfigureAwait(false);
     }
     public void Dispose() => _http.Dispose();
 }

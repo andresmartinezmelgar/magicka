@@ -9,6 +9,7 @@ public partial class AccountProfilePanel : Control
     private Main _main = null!;
     private Label _identity = null!, _status = null!;
     private Button _login = null!, _logout = null!;
+    private Button _rulesHelp = null!, _retryFirebase = null!;
     private bool _busy;
     private readonly CancellationTokenSource _lifetime = new();
 
@@ -49,14 +50,21 @@ public partial class AccountProfilePanel : Control
         var info = Ui.Label("Google identifica al jugador y Firebase guarda su perfil. No necesitas iniciar el servidor C# para entrar y consultar tus objetos. Las ventas, las recompensas y las demás operaciones protegidas siguen requiriendo validación del servidor.", 15, Ui.Muted);
         info.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         content.AddChild(info);
+        _rulesHelp = Ui.Button("Abrir reglas de Firestore", () =>
+            OS.ShellOpen("https://console.firebase.google.com/project/arcana-arena-f2997/firestore/rules"));
+        _rulesHelp.Visible = false;
+        content.AddChild(_rulesHelp);
+        _retryFirebase = Ui.Button("Reintentar acceso a Firebase", _main.RetryGoogleSession, true);
+        _retryFirebase.Visible = false;
+        content.AddChild(_retryFirebase);
         _login = Ui.Button("Entrar o registrarse con Google", Login, true);
-        _login.CustomMinimumSize = new(0, Ui.IsMobile ? 64 : 48);
+        _login.CustomMinimumSize = new(0, Ui.IsMobile ? 70 : 48);
         content.AddChild(_login);
         _logout = Ui.Button("Cerrar sesión", () => _ = Logout());
-        _logout.CustomMinimumSize = new(0, Ui.IsMobile ? 64 : 48);
+        _logout.CustomMinimumSize = new(0, Ui.IsMobile ? 70 : 48);
         content.AddChild(_logout);
         var back = Ui.Button("Volver", () => { _lifetime.Cancel(); QueueFree(); });
-        back.CustomMinimumSize = new(0, Ui.IsMobile ? 64 : 48);
+        back.CustomMinimumSize = new(0, Ui.IsMobile ? 70 : 48);
         content.AddChild(back);
         Render();
     }
@@ -65,6 +73,11 @@ public partial class AccountProfilePanel : Control
     {
         if (_lifetime.IsCancellationRequested || !IsInsideTree()) return;
         _status.Text = message;
+        bool denied = message.Contains("PERMISSION_DENIED", StringComparison.OrdinalIgnoreCase);
+        bool firestoreError = message.StartsWith("Error al leer Firestore:", StringComparison.Ordinal);
+        _rulesHelp.Visible = denied;
+        _retryFirebase.Visible = firestoreError && _main.GoogleLoginAvailable;
+        _retryFirebase.Disabled = busy;
         _busy = busy;
         Render();
     }

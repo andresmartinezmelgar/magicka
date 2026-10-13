@@ -150,6 +150,11 @@ jobs:
         run: |
           dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
           "$ARCANA_GODOT" --headless --editor --path src/Arcana.Client --import
+      - name: Verificar visibilidad de botones PvP y versus IA en modo móvil
+        run: |
+          set -o pipefail
+          "$ARCANA_GODOT" --headless --path src/Arcana.Client -- --mobile-menu-smoke 2>&1 | tee "$RUNNER_TEMP/mobile-menu-smoke.log"
+          grep -q 'MOBILE_MENU_LAYOUT_OK' "$RUNNER_TEMP/mobile-menu-smoke.log"
       - name: Generar APK ARM64
         run: bash scripts/package-android.sh "$ARCANA_GODOT"
       - uses: actions/upload-artifact@v4
