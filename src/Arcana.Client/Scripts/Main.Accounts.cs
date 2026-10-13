@@ -7,6 +7,7 @@ public partial class Main
 {
     public AccountClient Accounts { get; } = new();
     private EquipmentPanel? _equipmentPanel;
+    private AccountProfilePanel? _accountProfilePanel;
     private PlayerEquipmentPanel? _playerEquipmentPanel;
     private bool InspectingEquipment => GodotObject.IsInstanceValid(_playerEquipmentPanel) && !_playerEquipmentPanel!.IsQueuedForDeletion();
     private string AccountCache => ProjectSettings.GlobalizePath("user://account-profile.json");
@@ -34,6 +35,14 @@ public partial class Main
         }
         catch (Exception error) when (error is System.IO.IOException or UnauthorizedAccessException)
         { Diagnostics.Warn("account.cache_failed", "No se pudo guardar el inventario para práctica.", error); return false; }
+    }
+    public void OpenAccountProfile()
+    {
+        if (_playing) return;
+        if (GodotObject.IsInstanceValid(_accountProfilePanel)) _accountProfilePanel!.QueueFree();
+        _accountProfilePanel = new AccountProfilePanel();
+        _ui.AddChild(_accountProfilePanel);
+        _accountProfilePanel.Build(this);
     }
     public void OpenEquipment(string address, bool googleLogin = false)
     {
