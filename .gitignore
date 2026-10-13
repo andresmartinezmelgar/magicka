@@ -23,3 +23,7 @@ src/Arcana.Client/android/
 **/node_modules/
 **/service-account.json
 **/*firebase-adminsdk*.json
+
+# Configuracion OAuth de escritorio local (no subir al repositorio)
+google-desktop-oauth.json
+google-desktop-client-id.txt

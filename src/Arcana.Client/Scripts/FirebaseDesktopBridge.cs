@@ -21,6 +21,7 @@ public sealed class FirebaseDesktopBridge : IDisposable
     private readonly CancellationTokenSource _lifetime = new();
     private CancellationTokenSource? _loginCancellation;
     private readonly string _clientId;
+    private readonly string _clientSecret;
     private string _refreshToken = "", _uid = "", _name = "";
     private int _loginBusy;
     private int _generation;
@@ -31,30 +32,48 @@ public sealed class FirebaseDesktopBridge : IDisposable
     public bool Configured => _clientId.Length > 0;
     public FirebaseDesktopBridge(string userDirectory)
     {
-        _clientId = ReadClientId(userDirectory);
+        (_clientId, _clientSecret) = ReadConfiguration(userDirectory);
     }
 
-    private static string ReadClientId(string userDirectory)
+    private static (string Id, string Secret) ReadConfiguration(string userDirectory)
     {
-        string? fromEnvironment = System.Environment.GetEnvironmentVariable("ARCANA_GOOGLE_DESKTOP_CLIENT_ID");
-        string[] candidates =
-        [
-            fromEnvironment ?? "",
-            ReadOptionalFile(Path.Combine(AppContext.BaseDirectory, "google-desktop-client-id.txt")),
-            ReadOptionalFile(Path.Combine(userDirectory, "google-desktop-client-id.txt"))
-        ];
-        return candidates.Select(s => s.Trim()).FirstOrDefault(IsDesktopClientId) ?? "";
-    }
+        string envId = System.Environment.GetEnvironmentVariable("ARCANA_GOOGLE_DESKTOP_CLIENT_ID")?.Trim() ?? "";
+        string envSecret = System.Environment.GetEnvironmentVariable("ARCANA_GOOGLE_DESKTOP_CLIENT_SECRET")?.Trim() ?? "";
+        if (IsDesktopClientId(envId)) return (envId, envSecret);
 
-    private static string ReadOptionalFile(string path)
-    {
-        try
+        // El JSON «Aplicación de escritorio» descargado de Google Cloud es la opción
+        // más compatible. Se mantiene fuera del repositorio y nunca se registra.
+        foreach (string directory in new[] { AppContext.BaseDirectory, userDirectory })
         {
-            var info = new FileInfo(path);
-            return info.Exists && info.Length < 512 ? File.ReadAllText(path) : "";
+            string file = Path.Combine(directory, "google-desktop-oauth.json");
+            try
+            {
+                if (!File.Exists(file) || new FileInfo(file).Length > 8192) continue;
+                using var json = JsonDocument.Parse(File.ReadAllText(file));
+                if (!json.RootElement.TryGetProperty("installed", out var installed)) continue;
+                string id = installed.GetProperty("client_id").GetString() ?? "";
+                string secret = installed.TryGetProperty("client_secret", out var value)
+                    ? value.GetString() ?? "" : "";
+                if (IsDesktopClientId(id)) return (id, secret);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            catch (JsonException) { }
+            catch (KeyNotFoundException) { }
         }
-        catch (IOException) { return ""; }
-        catch (UnauthorizedAccessException) { return ""; }
+        foreach (string directory in new[] { AppContext.BaseDirectory, userDirectory })
+        {
+            string file = Path.Combine(directory, "google-desktop-client-id.txt");
+            try
+            {
+                if (!File.Exists(file) || new FileInfo(file).Length > 512) continue;
+                string id = File.ReadAllText(file).Trim();
+                if (IsDesktopClientId(id)) return (id, envSecret);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+        return ("", "");
     }
 
     private static bool IsDesktopClientId(string value) =>
@@ -123,7 +142,7 @@ public sealed class FirebaseDesktopBridge : IDisposable
             if (!Configured)
                 throw new InvalidOperationException(
                     "Falta configurar el ID OAuth de tipo Aplicación de escritorio en Google Cloud. " +
-                    "Establece ARCANA_GOOGLE_DESKTOP_CLIENT_ID o google-desktop-client-id.txt junto al juego.");
+                    "Descarga google-desktop-oauth.json desde Google Cloud y colócalo junto al juego.");
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
             timeout.CancelAfter(TimeSpan.FromMinutes(3));
             _loginCancellation = timeout;
@@ -146,17 +165,21 @@ public sealed class FirebaseDesktopBridge : IDisposable
                 if (OS.ShellOpen(authorize) != Godot.Error.Ok)
                     throw new InvalidOperationException("No se pudo abrir el navegador predeterminado.");
                 string code = await WaitForCode(listener, redirect, state, timeout.Token).ConfigureAwait(false);
+                var tokenFields = new Dictionary<string, string>
+                {
+                    ["client_id"] = _clientId,
+                    ["code"] = code,
+                    ["code_verifier"] = verifier,
+                    ["redirect_uri"] = redirect,
+                    ["grant_type"] = "authorization_code"
+                };
+                // En los clientes OAuth de escritorio el client_secret no es
+                // confidencial; Google puede exigirlo incluso con PKCE.
+                if (_clientSecret.Length > 0) tokenFields["client_secret"] = _clientSecret;
                 using var googleResponse = await _http.PostAsync("https://oauth2.googleapis.com/token",
-                    new FormUrlEncodedContent(new Dictionary<string, string>
-                    {
-                        ["client_id"] = _clientId,
-                        ["code"] = code,
-                        ["code_verifier"] = verifier,
-                        ["redirect_uri"] = redirect,
-                        ["grant_type"] = "authorization_code"
-                    }), timeout.Token).ConfigureAwait(false);
+                    new FormUrlEncodedContent(tokenFields), timeout.Token).ConfigureAwait(false);
                 if (!googleResponse.IsSuccessStatusCode)
-                    throw new InvalidOperationException("Google rechazó el código OAuth. Comprueba el tipo de cliente de escritorio.");
+                    throw new InvalidOperationException("Google rechazó el código OAuth. Utiliza el JSON descargado de un cliente de tipo Aplicación de escritorio.");
                 using var google = JsonDocument.Parse(await googleResponse.Content.ReadAsStringAsync(timeout.Token).ConfigureAwait(false));
                 string googleIdToken = google.RootElement.GetProperty("id_token").GetString()
                     ?? throw new InvalidOperationException("Google no devolvió un ID token.");

@@ -10,15 +10,20 @@ En **Google Cloud Console > APIs y servicios > Credenciales**, dentro del proyec
 `arcana-arena-f2997`, crea un **ID de cliente OAuth 2.0** de tipo
 **Aplicación de escritorio** (no «Aplicación web»).
 
-El ID público (sufijo `.apps.googleusercontent.com`) se facilita al ejecutable por
-uno de estos medios:
+En la pantalla de credenciales, selecciona **Descargar JSON** y guarda el fichero
+como `google-desktop-oauth.json` junto a `ArcanaArena.exe` (también sirve el
+directorio de datos de usuario Godot). El juego leerá los campos
+`installed.client_id` y `installed.client_secret`; el JSON no debe
+subirse a GitHub y está excluido por `.gitignore`.
 
-- Variable de entorno `ARCANA_GOOGLE_DESKTOP_CLIENT_ID`.
-- Fichero de texto `google-desktop-client-id.txt` al lado de `ArcanaArena.exe`.
-- Fichero homónimo en el directorio de datos de usuario Godot.
-
-Contenido del fichero: únicamente el ID público. No incluir claves privadas,
-archivos de servicio, tokens ni `client_secret`. No es necesario cambiar el APK.
+Alternativas de configuración: variables de entorno
+`ARCANA_GOOGLE_DESKTOP_CLIENT_ID` y `ARCANA_GOOGLE_DESKTOP_CLIENT_SECRET`,
+o `google-desktop-client-id.txt` con solo el ID público. Google documenta
+el secreto de aplicación instalada como opcional, pero algunos clientes
+de escritorio lo requieren al intercambiar el código; por eso se recomienda
+el JSON completo. Los clientes OAuth instalados no pueden mantener secreto
+este dato y **no debe confundirse** con una cuenta de servicio, clave privada
+de Firebase Admin ni token de usuario. No es necesario cambiar el APK.
 
 El botón «Entrar con Google» ya no está desactivado en Windows. Sin un ID de
 escritorio configurado muestra el requisito; después de configurarlo abre el
