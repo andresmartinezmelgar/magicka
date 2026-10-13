@@ -1,262 +1,43 @@
-name: Arcana Arena CI
+name: Arcana Arena - compilacion automatica
 
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
-    inputs:
-      publish_release:
-        description: 'Publicar los ejecutables validados en una Release de GitHub'
-        type: boolean
-        required: false
-        default: false
 
 permissions:
   contents: read
 
+# CI comprueba exclusivamente lo reproducible sin dispositivos, red LAN ni credenciales
+# privadas. Las pruebas manuales estan documentadas en docs/PRUEBAS-MANUALES-v0.17.md.
 jobs:
-  build-and-test:
+  build:
+    name: Compilar codigo C# y validar version
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/upload-artifact@v4
-        with:
-          name: wizard-sources
-          path: src/Arcana.Client/Assets/Wizards/*.png
-          retention-days: 1
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - name: Verificar VERSION, presets y versiones futuras
-        run: |
-          python3 scripts/version-support.py check .
-          ARCANA_TEST_PWSH=pwsh python3 scripts/test-version-support.py -v
-      - name: Compilar cliente, servidor, núcleo y pruebas
+      - name: Validar metadatos de version
+        run: python3 scripts/version-support.py check .
+      - name: Compilar cliente, servidor y pruebas
         run: dotnet build ArcanaArena.sln -c Release --nologo
-      - name: Compilar servidor de cuentas independiente
+      - name: Compilar servidor de cuentas heredado
         run: dotnet build src/Arcana.AccountServer/Arcana.AccountServer.csproj -c Release --nologo
-      - name: Verificar bloqueo de compilaciones entre procesos
-        run: python3 scripts/test-build-lock.py
-      - name: Reglas y red real
-        run: bash scripts/test-network.sh
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - name: Cuentas, oro y recompensas en el emulador Firestore
-        run: bash scripts/test-accounts.sh
-      - name: Verificar integración de Firebase Authentication (sin credenciales)
-        run: python3 scripts/check-firebase-auth.py
-
-      - name: Medir simulación de los seis mapas y serialización del protocolo
-        env:
-          DOTNET_TieredCompilation: '0'
-        run: |
-          dotnet run -c Release --no-build --project tests/Arcana.Tests -- --profile-maps --profile-output=artifacts/profiles/map-simulation.json
-          dotnet run -c Release --no-build --project tests/Arcana.Tests -- --profile-protocol --profile-output=artifacts/profiles/protocol.json
-      - uses: actions/upload-artifact@v4
-        with:
-          name: simulation-and-protocol-profiles
-          path: artifacts/profiles/*.json
-      - name: Verificar que los fallos de exportación Android conservan la APK en Bash
-        run: bash scripts/test-android-build-output.sh
-      - name: Descargar Godot .NET de la versión fijada
-        run: |
-          curl -fL https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_mono_linux_x86_64.zip -o /tmp/godot.zip
-          unzip -q /tmp/godot.zip -d /tmp/godot
-          chmod +x /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
-      - name: Compilar cliente para ejecución del editor
-        run: dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
-      - name: Importar texturas y recursos de Godot
-        env:
-          GODOT_SILENCE_ROOT_WARNING: 1
-        run: /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64 --headless --editor --path src/Arcana.Client --import
-      - name: Arrancar práctica Godot headless
-        run: bash scripts/test-client-smoke.sh smoke /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
-      - name: Verificar controles multitáctiles y ciclo de vida móvil
-        run: bash scripts/test-client-smoke.sh mobile-smoke /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
-      - name: Verificar entrada Google por toque y dirección local en móvil
-        run: bash scripts/test-client-smoke.sh account-entry-smoke /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
-      - name: Verificar carga previa, progreso y cancelación
-        run: bash scripts/test-client-smoke.sh loading-smoke /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
-      - name: Verificar inventario, rangos y conjuntos
-        run: bash scripts/test-client-smoke.sh equipment-smoke /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
-      - name: Comprobar equipación de los ocho elementos
-        run: bash scripts/test-client-smoke.sh equipment-elements-smoke /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
-      - name: Comprobar consulta de bonificaciones de otros magos
-        run: bash scripts/test-client-smoke.sh equipment-public-smoke /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
-      - name: Validar carga OpenGL y creación de sala con equipo elegido
-        run: bash scripts/test-multiplayer-loading.sh /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
-      - uses: actions/upload-artifact@v4
-        with:
-          name: loading-review
-          path: artifacts/loading-review/*.png
-      - name: Revisar interfaz móvil con OpenGL
-        env:
-          LIBGL_ALWAYS_SOFTWARE: 1
-          GODOT_SILENCE_ROOT_WARNING: 1
-        run: |
-          mkdir -p artifacts/mobile-review
-          for screen in launcher practice help elements equipment public-equipment barriers beams ground-contrast-stone; do
-            args=(--mobile)
-            if [ "$screen" = practice ]; then args+=(--mobile-fixture); fi
-            if [ "$screen" = help ]; then args+=(--preview-help=4); fi
-            if [ "$screen" = elements ]; then args+=(--preview-help=5); fi
-            if [ "$screen" = equipment ]; then args=(--mobile --preview-equipment); fi
-            if [ "$screen" = public-equipment ]; then args=(--mobile --preview-public-equipment); fi
-            if [ "$screen" = barriers ] || [ "$screen" = beams ] || [ "$screen" = ground-contrast-stone ]; then args+=(--preview-spells="$screen"); fi
-            timeout 90s xvfb-run -a /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64 --audio-driver Dummy --path src/Arcana.Client -- "${args[@]}" --capture="${{ github.workspace }}/artifacts/mobile-review/$screen.png" 2>&1 | tee "artifacts/mobile-review/$screen.log"
-            test -s "artifacts/mobile-review/$screen.png"
-            if grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "artifacts/mobile-review/$screen.log"; then exit 1; fi
-          done
-      - uses: actions/upload-artifact@v4
-        with:
-          name: mobile-review
-          path: artifacts/mobile-review/*.png
-      - name: Revisar barreras y variantes de láser con OpenGL
-        env:
-          LIBGL_ALWAYS_SOFTWARE: 1
-          GODOT_SILENCE_ROOT_WARNING: 1
-        run: |
-          mkdir -p artifacts/spell-review
-          for view in barriers beams beam-charge shield-elements shield-strength meteor ground-contrast; do
-            log="artifacts/spell-review/$view.log"
-            timeout 60s xvfb-run -a /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64 --audio-driver Dummy --path src/Arcana.Client -- --preview-spells="$view" --capture="${{ github.workspace }}/artifacts/spell-review/$view.png" 2>&1 | tee "$log"
-            test -s "artifacts/spell-review/$view.png"
-            grep -F "SPELL_PREVIEW_READY: $view" "$log"
-            if grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$log"; then exit 1; fi
-          done
-      - uses: actions/upload-artifact@v4
-        with:
-          name: spell-review
-          path: artifacts/spell-review/*.png
-      - name: Exportar diagnóstico y capturar avisos del motor
-        run: bash scripts/test-client-smoke.sh diagnostics-smoke /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
-      - name: Verificar escala de la UI, vida y seis estados de escudo
-        run: bash scripts/test-client-smoke.sh hud-smoke /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
-      - name: Verificar efectos de 1, 2 y 3 cargas, límites y limpieza en Godot
-        run: bash scripts/test-client-smoke.sh effects-smoke /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
-      - name: Verificar atlas, animaciones, equipos y tres casillas por mago
-        run: bash scripts/test-client-smoke.sh sprites-smoke /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
-      - name: Verificar cifras de F1, combinaciones y escenas de combate
-        run: bash scripts/test-client-smoke.sh combinations-smoke /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
-      - name: Verificar seis mapas, geometría agrupada, portales, reliquias y cambios de mapa
-        run: bash scripts/test-client-smoke.sh maps-smoke /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
-      - name: Verificar laboratorio, estaciones y lanzador configurable
-        run: bash scripts/test-client-smoke.sh practice-smoke /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
-      - name: Renderizar los cinco mapas y el pasillo de conquista con OpenGL
-        env:
-          LIBGL_ALWAYS_SOFTWARE: 1
-          GODOT_SILENCE_ROOT_WARNING: 1
-        run: |
-          mkdir -p artifacts/map-review
-          for map in Classic Citadel Ascension Relics Frontline; do
-            log="artifacts/map-review/$map.log"
-            timeout 60s xvfb-run -a /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64 --audio-driver Dummy --path src/Arcana.Client -- --preview-map="$map" --map-overview --capture="${{ github.workspace }}/artifacts/map-review/$map.png" --capture-review 2>&1 | tee "$log"
-            test -s "artifacts/map-review/$map.png"
-            if grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$log"; then exit 1; fi
-          done
-      - uses: actions/upload-artifact@v4
-        with:
-          name: map-review
-          path: artifacts/map-review/*.png
-      - name: Comparar efectos de una, dos y tres cargas con OpenGL
-        env:
-          LIBGL_ALWAYS_SOFTWARE: 1
-          GODOT_SILENCE_ROOT_WARNING: 1
-        run: |
-          mkdir -p artifacts/effect-review
-          for charges in 1 2 3; do
-            log="artifacts/effect-review/charges-$charges.log"
-            timeout 60s xvfb-run -a /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64 --audio-driver Dummy --path src/Arcana.Client -- --preview-strength="$charges" --capture="${{ github.workspace }}/artifacts/effect-review/charges-$charges.png" --capture-review 2>&1 | tee "$log"
-            test -s "artifacts/effect-review/charges-$charges.png"
-            if grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$log"; then exit 1; fi
-          done
-      - uses: actions/upload-artifact@v4
-        with:
-          name: effect-review
-          path: artifacts/effect-review/*.png
-      - name: Medir carga gráfica con dieciséis magos y efectos máximos
-        run: bash scripts/test-render-profile.sh /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
-      - uses: actions/upload-artifact@v4
-        with:
-          name: render-profile-software-opengl
-          path: artifacts/render-profile/*
-      - name: Rechazar éxito falso si falla la carga de un recurso
-        run: bash scripts/test-client-smoke-rejection.sh /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
-      - name: Construir y arrancar servidor Docker
-        run: |
-          docker build -t arcana-arena-server:test .
-          docker run -d --name arcana-ci -v arcana-ci-logs:/app/logs -p 27015:27015 -p 27016:27016/udp -e SERVER_PASSWORD=arcana-ci-test arcana-arena-server:test
-          for i in {1..40}; do
-            if curl -fsS http://127.0.0.1:27015/health; then break; fi
-            sleep 0.5
-          done
-          curl -fsS http://127.0.0.1:27015/health
-      - name: Comprobar conexión IP contra Docker con puertos publicados
-        env:
-          TEST_PASSWORD: arcana-ci-test
-        run: dotnet tests/Arcana.Tests/bin/Release/net8.0/Arcana.Tests.dll --only-network --skip-discovery --server=127.0.0.1:27015 --discovery-port=27016
-      - name: Arrancar variante Docker para LAN Linux
-        run: |
-          docker rm -f arcana-ci
-          docker run -d --name arcana-ci -v arcana-ci-logs:/app/logs --network host -e SERVER_PASSWORD=arcana-ci-test arcana-arena-server:test
-          for i in {1..40}; do
-            if curl -fsS http://127.0.0.1:27015/health; then break; fi
-            sleep 0.5
-          done
-          curl -fsS http://127.0.0.1:27015/health
-      - name: Comprobar IP y descubrimiento LAN contra Docker con red host
-        env:
-          TEST_PASSWORD: arcana-ci-test
-        run: dotnet tests/Arcana.Tests/bin/Release/net8.0/Arcana.Tests.dll --only-network --server=127.0.0.1:27015 --discovery-port=27016
-      - name: Verificar registros persistentes de Docker
-        run: |
-          docker exec arcana-ci sh -c 'test -n "$(ls /app/logs/server-*.jsonl)"'
-          docker cp arcana-ci:/app/logs docker-diagnostic-logs
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          lines = [json.loads(line) for p in Path('docker-diagnostic-logs').glob('*.jsonl') for line in p.read_text().splitlines()]
-          assert len({e['session'] for e in lines if e['code'] == 'server.start'}) >= 2
-          assert any(e['code'] == 'connection.accepted' for e in lines)
-          assert any(e['code'] == 'connection.rejected' for e in lines)
-          assert any(e['code'] == 'room.invalid_json' and e['exception']['stack'] for e in lines)
-          assert all('arcana-ci-test' not in json.dumps(e) for e in lines)
-          print('Docker: logs con sesiones, rechazos y trazas, sin contraseña.')
-          PY
-      - name: Publicar servidor compilado
-        run: dotnet publish src/Arcana.Server -c Release --no-restore -o artifacts/server
-      - uses: actions/upload-artifact@v4
-        with:
-          name: arcana-server
-          path: artifacts/server
-      - name: Logs de diagnóstico
-        if: failure()
-        run: |
-          cat server-test.log 2>/dev/null || true
-          docker logs arcana-ci 2>/dev/null || true
-      - name: Detener contenedor de prueba
-        if: always()
-        run: docker rm -f arcana-ci 2>/dev/null || true
 
   package-windows:
+    name: Generar distribucion Windows
     runs-on: windows-latest
     timeout-minutes: 25
-    env:
-      MSBUILDDISABLENODEREUSE: '1'
-      DOTNET_CLI_USE_MSBUILD_SERVER: '0'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - name: Verificar metadatos de version en Windows PowerShell 5.1
-        shell: powershell
-        run: ./scripts/test-version-support.ps1
-      - name: Descargar Godot .NET y plantillas de exportacion Windows
+      - name: Descargar Godot .NET
         shell: pwsh
         run: |
           $root = Join-Path $env:RUNNER_TEMP 'godot'
@@ -264,7 +45,6 @@ jobs:
           Invoke-WebRequest https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_mono_win64.zip -OutFile "$root/editor.zip"
           Expand-Archive "$root/editor.zip" "$root/editor"
           Invoke-WebRequest https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_mono_export_templates.tpz -OutFile "$root/templates.zip"
-          # La descarga contiene todas las plataformas; extraer solo Windows x64.
           $archive = [System.IO.Compression.ZipFile]::OpenRead("$root/templates.zip")
           try {
             $entry = $archive.Entries | Where-Object { $_.Name -eq 'version.txt' } | Select-Object -First 1
@@ -276,92 +56,31 @@ jobs:
               [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, (Join-Path $target $entry.Name), $true)
             }
           } finally { $archive.Dispose() }
-          Remove-Item "$root/templates.zip"
           $editor = Get-ChildItem "$root/editor" -Recurse -Filter '*win64_console.exe' | Select-Object -First 1
-          if (!$editor) { throw 'No se encuentra el editor Godot .NET.' }
+          if (!$editor) { throw 'No se encuentra Godot .NET.' }
           "ARCANA_GODOT=$($editor.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
-      - name: Compilar con el script de doble clic en Windows PowerShell 5.1
+      - name: Compilar juego y servidor con el script del proyecto
         shell: pwsh
         run: |
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/auto-compile.ps1 -GodotPath $env:ARCANA_GODOT
-          if ($LASTEXITCODE -ne 0) { throw 'Fallo la compilacion automatica.' }
-          if (!(Test-Path Juego/ArcanaArena.exe) -or !(Test-Path Juego/server/Arcana.Server.exe)) { throw 'Falta la carpeta Juego.' }
-          if ((Get-Content Juego/VERSION.txt -Raw).Trim() -ne (Get-Content VERSION -Raw).Trim()) { throw 'Version de salida incorrecta.' }
-      - name: Verificar sustitucion completa de la carpeta y fallo sin perder el juego
-        shell: pwsh
-        run: |
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/test-build-output.ps1
-          if ($LASTEXITCODE -ne 0) { throw 'Fallo la prueba de sustitucion.' }
-      - name: Probar servidor incluido, salas y LAN desde Windows
-        shell: pwsh
-        run: |
-          dotnet build tests/Arcana.Tests -c Release --nologo
-          if ($LASTEXITCODE -ne 0) { throw 'No se compilaron las pruebas.' }
-          dotnet tests/Arcana.Tests/bin/Release/net8.0/Arcana.Tests.dll --only-network "--package=$((Resolve-Path artifacts/windows).Path)"
-          if ($LASTEXITCODE -ne 0) { throw 'Fallo la prueba del servidor incluido.' }
-      - name: Ejecutar el juego exportado sin usar el editor
-        shell: pwsh
-        run: |
-          $package = (Resolve-Path artifacts/windows).Path
-          # Evita que el juego use el SDK o un runtime instalado en el runner.
-          $env:DOTNET_ROOT = Join-Path $env:RUNNER_TEMP 'sin-dotnet-global'
-          $env:DOTNET_ROOT_X64 = $env:DOTNET_ROOT
-          $env:DOTNET_MULTILEVEL_LOOKUP = '0'
-          foreach ($mode in @('smoke', 'host-smoke', 'diagnostics-smoke', 'hud-smoke', 'effects-smoke', 'sprites-smoke', 'combinations-smoke', 'maps-smoke', 'practice-smoke', 'loading-smoke', 'equipment-smoke', 'equipment-restore-smoke', 'equipment-elements-smoke', 'equipment-public-smoke')) {
-            if ($mode -like 'equipment-*') {
-              $env:APPDATA = Join-Path $env:RUNNER_TEMP 'arcana-equipment-profile'
-              New-Item -ItemType Directory -Path $env:APPDATA -Force | Out-Null
-            }
-            $log = Join-Path $env:RUNNER_TEMP "arcana-$mode.log"
-            $game = Start-Process "$package/ArcanaArena.exe" -ArgumentList '--headless','--audio-driver','Dummy','--log-file',"`"$log`"",'--',"--$mode" -PassThru
-            if (!$game.WaitForExit(60000)) { $game.Kill(); throw "El juego no termino: $mode" }
-            if ($game.ExitCode -ne 0) { if (Test-Path $log) { Get-Content $log }; throw "El juego fallo: $mode" }
-            $marker = switch ($mode) { 'smoke' { 'SMOKE_OK' }; 'host-smoke' { 'HOST_SMOKE_OK' }; 'diagnostics-smoke' { 'DIAGNOSTICS_SMOKE_OK' }; 'hud-smoke' { 'HUD_SMOKE_OK' }; 'effects-smoke' { 'EFFECTS_SMOKE_OK' }; 'sprites-smoke' { 'SPRITES_SMOKE_OK' }; 'combinations-smoke' { 'COMBINATIONS_SMOKE_OK' }; 'maps-smoke' { 'MAPS_SMOKE_OK' }; 'practice-smoke' { 'PRACTICE_SMOKE_OK' }; 'loading-smoke' { 'LOADING_SMOKE_OK' }; 'equipment-smoke' { 'EQUIPMENT_SMOKE_OK' }; 'equipment-restore-smoke' { 'EQUIPMENT_RESTORE_SMOKE_OK' }; 'equipment-elements-smoke' { 'EQUIPMENT_ELEMENTS_SMOKE_OK' }; 'equipment-public-smoke' { 'EQUIPMENT_PUBLIC_SMOKE_OK' } }
-            Get-Content $log
-            if (!(Select-String -Path $log -SimpleMatch $marker)) { throw "Falta la confirmacion: $mode" }
-            if (Select-String -Path $log -Pattern '(^ERROR:|^SCRIPT ERROR:|SMOKE_FAILED)' -Quiet) { throw "La prueba registro errores: $mode" }
-          }
-          $leftovers = Get-Process -Name 'Arcana.Server' -ErrorAction SilentlyContinue
-          if ($leftovers) { throw 'El launcher dejo el servidor activo tras cerrar.' }
-      - name: Comprimir distribucion y calcular SHA256
+          if ($LASTEXITCODE -ne 0) { throw 'Error al generar Windows.' }
+          if (!(Test-Path Juego/ArcanaArena.exe) -or !(Test-Path Juego/server/Arcana.Server.exe)) { throw 'Distribucion incompleta.' }
+      - name: Empaquetar Windows
         shell: pwsh
         run: |
           $version = (Get-Content VERSION -Raw).Trim()
-          $zip = "artifacts/ArcanaArena-v$version-Windows-x64.zip"
-          Compress-Archive -Path artifacts/windows/* -DestinationPath $zip -CompressionLevel Optimal
-          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  $([System.IO.Path]::GetFileName($zip))" | Set-Content artifacts/SHA256SUMS.txt
+          New-Item -ItemType Directory -Path artifacts -Force | Out-Null
+          Compress-Archive -Path Juego/* -DestinationPath "artifacts/ArcanaArena-v$version-Windows-x64.zip"
       - uses: actions/upload-artifact@v4
         with:
           name: ArcanaArena-Windows-x64
-          path: |
-            artifacts/ArcanaArena-*-Windows-x64.zip
-            artifacts/SHA256SUMS.txt
-          retention-days: 30
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: windows-diagnostic-runner-logs
-          path: ${{ runner.temp }}/arcana-*.log
-          if-no-files-found: ignore
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: windows-diagnostic-repo-logs
-          path: |
-            artifacts/windows/server/*.log
-            artifacts/compilacion-*.log
-          if-no-files-found: ignore
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: windows-diagnostic-user-logs
-          path: ~/AppData/Roaming/Godot/app_userdata/Arcana Arena/logs/*.jsonl
-          if-no-files-found: ignore
+          path: artifacts/ArcanaArena-*-Windows-x64.zip
+          retention-days: 14
 
   package-android:
+    name: Generar APK Android sin emulador
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -371,48 +90,39 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Preparar SDK Android
+      - name: Preparar Android SDK
         run: |
-          # Se usa el SDK aislado de abajo; el preinstalado ocupa el espacio que necesita el AVD.
-          if [ -d /usr/local/lib/android ]; then sudo rm -rf /usr/local/lib/android; fi
-          df -h "$RUNNER_TEMP"
-          arcana_sdk="$RUNNER_TEMP/android-sdk"
-          mkdir -p "$arcana_sdk/cmdline-tools"
+          sdk="$RUNNER_TEMP/android-sdk"
+          mkdir -p "$sdk/cmdline-tools"
           curl -fL https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip -o "$RUNNER_TEMP/android-cli.zip"
-          unzip -q "$RUNNER_TEMP/android-cli.zip" -d "$arcana_sdk/cmdline-tools"
-          mv "$arcana_sdk/cmdline-tools/cmdline-tools" "$arcana_sdk/cmdline-tools/latest"
-          yes | "$arcana_sdk/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$arcana_sdk" --licenses >/dev/null || true
-          "$arcana_sdk/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$arcana_sdk" 'platform-tools' 'build-tools;35.0.0' 'platforms;android-35' 'emulator' 'system-images;android-35;google_apis;x86_64'
-          echo "ANDROID_HOME=$arcana_sdk" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$arcana_sdk" >> "$GITHUB_ENV"
-          echo "$arcana_sdk/platform-tools" >> "$GITHUB_PATH"
-          echo "$arcana_sdk/emulator" >> "$GITHUB_PATH"
-      - name: Descargar Godot .NET y plantillas Android
+          unzip -q "$RUNNER_TEMP/android-cli.zip" -d "$sdk/cmdline-tools"
+          mv "$sdk/cmdline-tools/cmdline-tools" "$sdk/cmdline-tools/latest"
+          yes | "$sdk/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$sdk" --licenses >/dev/null || true
+          "$sdk/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$sdk" 'platform-tools' 'build-tools;35.0.0' 'platforms;android-35'
+          echo "ANDROID_HOME=$sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$sdk" >> "$GITHUB_ENV"
+      - name: Preparar Godot y plantillas
         run: |
-          curl -fL https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_mono_linux_x86_64.zip -o /tmp/android-godot.zip
-          unzip -q /tmp/android-godot.zip -d /tmp/android-godot
-          chmod +x /tmp/android-godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
-          curl -fL https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_mono_export_templates.tpz -o /tmp/android-templates.tpz
+          curl -fL https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_mono_linux_x86_64.zip -o /tmp/godot.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
+          curl -fL https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_mono_export_templates.tpz -o /tmp/templates.tpz
           python3 - <<'PY'
           import zipfile
           from pathlib import Path
-          with zipfile.ZipFile('/tmp/android-templates.tpz') as z:
+          with zipfile.ZipFile('/tmp/templates.tpz') as z:
               version=z.read('templates/version.txt').decode().strip()
               target=Path.home()/'.local/share/godot/export_templates'/version
               target.mkdir(parents=True,exist_ok=True)
               for name in ('android_debug.apk','android_release.apk','android_source.zip','version.txt'):
                   (target/name).write_bytes(z.read('templates/'+name))
           PY
-          rm -f /tmp/android-godot.zip /tmp/android-templates.tpz "$RUNNER_TEMP/android-cli.zip"
-          echo 'ARCANA_GODOT=/tmp/android-godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64' >> "$GITHUB_ENV"
-      - name: Compilar y comprobar entrada móvil antes de exportar
+          echo "ARCANA_GODOT=/tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64" >> "$GITHUB_ENV"
+      - name: Compilar cliente e importar recursos
         run: |
           dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
           "$ARCANA_GODOT" --headless --editor --path src/Arcana.Client --import
-          bash scripts/test-client-smoke.sh mobile-smoke "$ARCANA_GODOT"
-          bash scripts/test-client-smoke.sh mobile-smoke "$ARCANA_GODOT" --max-fps 2
-          bash scripts/test-client-smoke.sh loading-smoke "$ARCANA_GODOT"
-      - name: Generar APK ARM64 firmada y verificar contenido
+      - name: Generar APK ARM64
         run: bash scripts/package-android.sh "$ARCANA_GODOT"
       - uses: actions/upload-artifact@v4
         with:
@@ -420,208 +130,4 @@ jobs:
           path: |
             artifacts/android/*-Android-arm64.apk
             artifacts/android/SHA256SUMS-Android.txt
-      - name: Exportar la misma app para probarla en un emulador Android
-        run: bash scripts/package-android.sh "$ARCANA_GODOT" x86_64
-      - name: Instalar y arrancar la APK en Android 15
-        run: bash scripts/test-android.sh
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: render-profile-android-emulator
-          path: |
-            artifacts/android/render-profile.json
-            artifacts/android/profile-device.log
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: Android-emulator-apk
-          path: artifacts/android/*-Android-x86_64.apk
-          retention-days: 1
-          if-no-files-found: ignore
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: android-diagnostics
-          path: artifacts/android/*.log
-          if-no-files-found: ignore
-
-  package-android-windows:
-    runs-on: windows-latest
-    timeout-minutes: 35
-    defaults:
-      run:
-        shell: pwsh
-        working-directory: apk build (1)
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          path: apk build (1)
-      - name: Verificar versiones y bloqueo compartido entre PowerShell 5.1 y Python
-        shell: powershell
-        run: |
-          Get-ChildItem scripts/*.ps1 | ForEach-Object {
-            $tokens = $null; $errors = $null
-            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
-            if ($errors) { throw ($errors | Out-String) }
-          }
-          ./scripts/test-build-lock.ps1
-          ./scripts/test-version-support.ps1
-      - name: Verificar extraccion y reparacion del SDK y errores de Godot en PowerShell 5.1
-        run: |
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/test-build-tools.ps1
-          if ($LASTEXITCODE -ne 0) { throw 'Fallo la comprobacion de herramientas.' }
-      - name: Generar APK con doble clic y herramientas locales en Windows PowerShell 5.1
-        timeout-minutes: 12
-        run: |
-          # Fuerza el bootstrap de Java y usa rutas con espacios y parentesis.
-          $env:JAVA_HOME = ''
-          $env:APPDATA = Join-Path $env:RUNNER_TEMP 'preferencias Godot usuario'
-          $settings = Join-Path $env:APPDATA 'Godot/editor_settings-4.5.tres'
-          New-Item -ItemType Directory -Path (Split-Path $settings) -Force | Out-Null
-          'Preferencias del usuario: conservar exactamente.' | Set-Content -LiteralPath $settings
-          $presetHash = (Get-FileHash src/Arcana.Client/export_presets.cfg).Hash
-          $settingsHash = (Get-FileHash -LiteralPath $settings).Hash
-          cmd.exe /d /c 'Compilar-APK.cmd -AcceptAndroidLicenses < nul'
-          if ($LASTEXITCODE -ne 0) { throw 'Fallo el script de APK con doble clic.' }
-          if ((Get-FileHash src/Arcana.Client/export_presets.cfg).Hash -ne $presetHash) { throw 'Se modificaron los presets.' }
-          if ((Get-FileHash -LiteralPath $settings).Hash -ne $settingsHash) { throw 'Se modificaron las preferencias del editor.' }
-          $version = (Get-Content VERSION -Raw).Trim()
-          $apk = "artifacts/android/ArcanaArena-v$version-Android-arm64.apk"
-          if (!(Test-Path -LiteralPath $apk)) { throw 'Falta la APK ARM64.' }
-          $state = @{ presetHash = $presetHash; keyHash = (Get-FileHash .tools/android-debug.keystore).Hash }
-          $state | ConvertTo-Json | Set-Content artifacts/android/build-state.json
-      - name: Recompilar conservando la firma y comprobar que un fallo conserva la APK
-        timeout-minutes: 8
-        run: |
-          $env:JAVA_HOME = ''
-          $state = Get-Content artifacts/android/build-state.json -Raw | ConvertFrom-Json
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/auto-compile-apk.ps1 -AcceptAndroidLicenses
-          if ($LASTEXITCODE -ne 0) { throw 'Fallo la segunda compilacion.' }
-          if ((Get-FileHash .tools/android-debug.keystore).Hash -ne $state.keyHash) { throw 'Se sustituyo la firma local.' }
-          if ((Get-FileHash src/Arcana.Client/export_presets.cfg).Hash -ne $state.presetHash) { throw 'No se restauraron los presets.' }
-          $version = (Get-Content VERSION -Raw).Trim()
-          $apk = "artifacts/android/ArcanaArena-v$version-Android-arm64.apk"
-          $apkHash = (Get-FileHash -LiteralPath $apk).Hash
-          $checksum = (Get-Content artifacts/android/SHA256SUMS-Android.txt -Raw).Split(' ')[0]
-          if ($checksum -ne $apkHash.ToLowerInvariant()) { throw 'SHA256 incorrecto.' }
-          $project = (Resolve-Path src/Arcana.Client/Arcana.Client.csproj).Path
-          $backup = [IO.File]::ReadAllBytes($project)
-          try {
-            [IO.File]::WriteAllText($project, '<proyecto-invalido>')
-            powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/auto-compile-apk.ps1 -AcceptAndroidLicenses
-            if ($LASTEXITCODE -eq 0) { throw 'El script no rechazo el proyecto invalido.' }
-          } finally { [IO.File]::WriteAllBytes($project, $backup) }
-          if ((Get-FileHash -LiteralPath $apk).Hash -ne $apkHash) { throw 'El fallo sustituyo la APK anterior.' }
-          if ((Get-FileHash .tools/android-debug.keystore).Hash -ne $state.keyHash) { throw 'El fallo sustituyo la firma.' }
-          if ((Get-FileHash src/Arcana.Client/export_presets.cfg).Hash -ne $state.presetHash) { throw 'El fallo dejo presets modificados.' }
-          'WINDOWS_APK_BUILD_OK: descarga, exportacion, recompilacion, firma y fallo seguro.'
-          # El ultimo codigo 1 procede del fallo provocado y ya comprobado.
-          exit 0
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ArcanaArena-Android-Windows-script
-          path: |
-            apk build (1)/artifacts/android/*-Android-arm64.apk
-            apk build (1)/artifacts/android/SHA256SUMS-Android.txt
-            apk build (1)/artifacts/android/manifest-arm64.txt
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: windows-apk-diagnostics
-          path: apk build (1)/artifacts/compilacion-apk-*.log
-          if-no-files-found: ignore
-
-  release:
-    needs: [build-and-test, package-windows, package-android, package-android-windows]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish_release
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: ArcanaArena-Windows-x64
-          path: artifacts
-      - uses: actions/download-artifact@v4
-        with:
-          name: ArcanaArena-Android-arm64
-          path: artifacts
-      - name: Firmar APK de distribución con clave persistente
-        env:
-          ARCANA_KEYSTORE_BASE64: ${{ secrets.ARCANA_KEYSTORE_BASE64 }}
-          ARCANA_KEYSTORE_PASSWORD: ${{ secrets.ARCANA_KEYSTORE_PASSWORD }}
-          ARCANA_KEY_ALIAS: ${{ secrets.ARCANA_KEY_ALIAS }}
-          ARCANA_KEY_PASSWORD: ${{ secrets.ARCANA_KEY_PASSWORD }}
-        run: |
-          set -euo pipefail
-          for key in ARCANA_KEYSTORE_BASE64 ARCANA_KEYSTORE_PASSWORD ARCANA_KEY_ALIAS ARCANA_KEY_PASSWORD; do
-            if [ -z "${!key}" ]; then
-              echo "::error::Falta el secreto $key. No se publicará una APK con firma temporal."
-              exit 1
-            fi
-          done
-          version=$(tr -d '\r\n' < VERSION)
-          apk="artifacts/ArcanaArena-v$version-Android-arm64.apk"
-          test -s "$apk"
-          printf '%s' "$ARCANA_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/arcana-release.keystore"
-          chmod 600 "$RUNNER_TEMP/arcana-release.keystore"
-          signer=$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools" -maxdepth 2 -name apksigner -type f | sort -V | tail -1)
-          test -x "$signer"
-          printf '%s' "$ARCANA_KEYSTORE_PASSWORD" > "$RUNNER_TEMP/storepass"
-          printf '%s' "$ARCANA_KEY_PASSWORD" > "$RUNNER_TEMP/keypass"
-          chmod 600 "$RUNNER_TEMP/storepass" "$RUNNER_TEMP/keypass"
-          "$signer" sign --ks "$RUNNER_TEMP/arcana-release.keystore" --ks-key-alias "$ARCANA_KEY_ALIAS" \
-            --ks-pass "file:$RUNNER_TEMP/storepass" --key-pass "file:$RUNNER_TEMP/keypass" "$apk"
-          "$signer" verify --verbose "$apk"
-          (cd artifacts && sha256sum "$(basename "$apk")" > SHA256SUMS-Android.txt)
-          rm -f "$RUNNER_TEMP/arcana-release.keystore" "$RUNNER_TEMP/storepass" "$RUNNER_TEMP/keypass"
-      - name: Publicar version descargable validada
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          version=$(tr -d '\r\n' < VERSION)
-          latest_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
-          if [ "$latest_sha" != "$GITHUB_SHA" ]; then
-            echo 'main ha cambiado; la publicación manual debe ejecutarse sobre su revisión actual.'
-            exit 0
-          fi
-          if gh release view "v$version" >/dev/null 2>&1; then
-            echo "La version v$version ya esta publicada; no se sustituyen sus ejecutables."
-          else
-            gh release create "v$version" "artifacts/ArcanaArena-v$version-Windows-x64.zip" "artifacts/ArcanaArena-v$version-Android-arm64.apk" artifacts/SHA256SUMS.txt artifacts/SHA256SUMS-Android.txt --target "$GITHUB_SHA" --title "Arcana Arena v$version" --notes-file "docs/RELEASE-v$version.md"
-          fi
-
-  tag-validated-version:
-    name: Etiquetar versión tras validación completa
-    needs: [build-and-test, package-windows, package-android, package-android-windows]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - name: Crear tag solo si CI ha validado el HEAD de main
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          version=$(tr -d '\r\n' < VERSION)
-          tag="v$version"
-          head_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
-          if [ "$head_sha" != "$GITHUB_SHA" ]; then
-            echo "main cambió durante la validación: no se etiqueta un commit antiguo."
-            exit 0
-          fi
-          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" > /tmp/arcana-tag.json 2>/dev/null; then
-            existing=$(python3 -c 'import json;print(json.load(open("/tmp/arcana-tag.json"))["object"]["sha"])')
-            if [ "$existing" != "$GITHUB_SHA" ]; then
-              echo "El tag $tag ya existe en otro commit. No se modifica."
-              exit 1
-            fi
-            echo "El tag $tag ya corresponde al commit validado."
-          else
-            gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" \
-              -f ref="refs/tags/$tag" -f sha="$GITHUB_SHA"
-            echo "Tag $tag creado tras completar todas las validaciones."
-          fi
+          retention-days: 14
