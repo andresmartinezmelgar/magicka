@@ -18,6 +18,7 @@ public partial class RoomLobby : Control
     private Button? _roomPagePrevious, _roomPageNext;
     private ItemList _list = null!;
     private Label _status = null!, _heading = null!;
+    private Label? _serverAddressLabel;
     private LineEdit _joinPassword = null!, _roomName = null!, _roomPassword = null!;
     private OptionButton _mode = null!, _map = null!;
     private SpinBox _capacity = null!, _bots = null!, _score = null!, _tickets = null!;
@@ -61,6 +62,7 @@ public partial class RoomLobby : Control
         var addressInfo = Ui.Label(address, 15, Ui.Muted);
         addressInfo.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
         box.AddChild(addressInfo);
+        _serverAddressLabel = addressInfo;
         // El inventario siempre queda disponible en la barra inferior fija de la opción A.
         var teamRow = new HBoxContainer(); teamRow.AddThemeConstantOverride("separation", 12); box.AddChild(teamRow);
         var headerRow = new HBoxContainer();
@@ -98,7 +100,7 @@ public partial class RoomLobby : Control
         ActionButton(actions, "Entrar", Join, true); ActionButton(actions, "Crear sala", () => SwitchPane(true));
         ActionButton(actions, "Actualizar", Refresh);
         _createPane = new VBoxContainer { Visible = false }; _createPane.AddThemeConstantOverride("separation", 12); box.AddChild(_createPane);
-        var grid = new GridContainer { Columns = Ui.IsMobile ? 8 : 6 }; grid.AddThemeConstantOverride("h_separation", 18);
+        var grid = new GridContainer { Columns = 6 }; grid.AddThemeConstantOverride("h_separation", 18);
         grid.AddThemeConstantOverride("v_separation", Ui.IsMobile ? 5 : 7); _createPane.AddChild(grid);
         _roomName = new LineEdit { Text = "Sala de " + (name.Length > 24 ? name[..24] : name), MaxLength = 32, CustomMinimumSize = new(0, 42) };
         Row(grid, "Nombre", _roomName);
@@ -151,7 +153,7 @@ public partial class RoomLobby : Control
         _mobileCreateActions.Visible = false;
         foreach (var control in new Control[] { _teamChoice, _joinPassword, _roomName, _roomPassword,
             _mode, _map, _capacity, _bots, _score, _tickets, _friendly })
-            Ui.TouchTarget(control, Ui.IsMobile ? 56 : 46);
+            Ui.TouchTarget(control, Ui.IsMobile ? 48 : 46);
         _list.CustomMinimumSize = new Vector2(0, Ui.IsMobile ? 100 : 160);
         ArcanaMenuChrome.Attach(this, safeMargin, _main, "Salas PvP", 1, _main.NavigateOptionAMenu);
         Refresh();
@@ -174,6 +176,7 @@ public partial class RoomLobby : Control
     {
         _listPane.Visible = !create;
         _createPane.Visible = create;
+        if (_serverAddressLabel != null) _serverAddressLabel.Visible = !create;
         if (_mobileListActions != null) _mobileListActions.Visible = !create;
         if (_mobileCreateActions != null) _mobileCreateActions.Visible = create;
         if (_mobileScroll != null) _mobileScroll.ScrollVertical = 0;
