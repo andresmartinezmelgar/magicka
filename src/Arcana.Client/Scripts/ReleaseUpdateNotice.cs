@@ -11,8 +11,8 @@ public partial class ReleaseUpdateNotice : Node
 {
     private const string Latest = "https://api.github.com/repos/andresmartinezmelgar/magicka/releases/latest";
     private const long MaximumDownloadBytes = 1024L * 1024 * 1024 * 2;
-    private static readonly HttpClient MetadataHttp = new() { Timeout = TimeSpan.FromSeconds(12) };
-    private static readonly HttpClient DownloadHttp = new() { Timeout = Timeout.InfiniteTimeSpan };
+    private static readonly System.Net.Http.HttpClient MetadataHttp = new() { Timeout = TimeSpan.FromSeconds(12) };
+    private static readonly System.Net.Http.HttpClient DownloadHttp = new() { Timeout = Timeout.InfiniteTimeSpan };
     private readonly CancellationTokenSource _stop = new();
     private CancellationTokenSource? _downloadStop;
     private CanvasLayer? _canvas;
