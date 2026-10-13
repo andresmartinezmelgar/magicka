@@ -194,7 +194,22 @@ try {
         $presets = [regex]::Replace($presets, ('(?m)^architectures/' + [regex]::Escape($candidate) + '=(true|false)'), "architectures/$candidate=$enabled")
     }
     [IO.File]::WriteAllText($presetPath, $presets, $utf8)
-    Invoke-Tool $dotnet @('build', (Join-Path $client 'Arcana.Client.csproj'), '-c', 'Debug', '--nologo') | Out-Null
+    # Plugin Android v2 requerido para Google Login directo. Compilarlo también al usar doble clic.
+    $gradleDir = Join-Path $cache 'gradle-8.9'
+    $gradleCmd = Join-Path $gradleDir 'gradle-8.9/bin/gradle.bat'
+    if (!(Test-Path -LiteralPath $gradleCmd)) {
+        $gradleZip = Join-Path $cache 'gradle-8.9-bin.zip'
+        Download-Tool 'https://services.gradle.org/distributions/gradle-8.9-bin.zip' $gradleZip
+        Expand-Archive -LiteralPath $gradleZip -DestinationPath $gradleDir -Force
+    }
+    if (!(Test-Path -LiteralPath $gradleCmd)) { throw 'No se pudo instalar Gradle 8.9 para el acceso Google.' }
+    Write-Host 'Compilando plugin Firebase de Android (Google Credential Manager)...'
+    Invoke-Tool $gradleCmd @('-p', (Join-Path $repo 'android/firebase-plugin'), ':plugin:assembleRelease', '--no-daemon') | Out-Null
+    $pluginAar = Join-Path $repo 'android/firebase-plugin/plugin/build/outputs/aar/plugin-release.aar'
+    $pluginDest = Join-Path $client 'addons/arcana_firebase/ArcanaFirebase.aar'
+    if (!(Test-Path -LiteralPath $pluginAar)) { throw 'Gradle no ha generado el plugin de Firebase.' }
+    Copy-Item -LiteralPath $pluginAar -Destination $pluginDest -Force
+        Invoke-Tool $dotnet @('build', (Join-Path $client 'Arcana.Client.csproj'), '-c', 'Debug', '--nologo') | Out-Null
     Invoke-Tool $GodotPath @('--headless', '--editor', '--path', $client, '--import') -CheckGodotErrors | Out-Null
     $stagedApk = Join-Path $temp 'ArcanaArena.apk'
     Invoke-Tool $GodotPath @('--headless', '--path', $client, '--install-android-build-template', '--export-debug', 'Android', $stagedApk) -CheckGodotErrors | Out-Null
