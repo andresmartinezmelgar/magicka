@@ -13,9 +13,22 @@ public partial class Main
         GetTree().AutoAcceptQuit = false;
         if (!OS.HasFeature("mobile"))
         {
-            GetWindow().ContentScaleSize = new(1440, 720);
+            int logicalWidth = 1440, logicalHeight = 720, physicalWidth = 1600;
+            // Solo pruebas headless: simular pantallas más estrechas sin alterar la APK.
+            string? requested = OS.GetCmdlineUserArgs().FirstOrDefault(a =>
+                a.StartsWith("--smoke-viewport=", StringComparison.Ordinal));
+            if (requested != null && OS.GetCmdlineUserArgs().Contains("--mobile-menu-smoke"))
+            {
+                string[] parts = requested["--smoke-viewport=".Length..].Split('x');
+                if (parts.Length != 2 || !int.TryParse(parts[0], out logicalWidth) ||
+                    !int.TryParse(parts[1], out logicalHeight) ||
+                    logicalWidth is < 640 or > 2560 || logicalHeight is < 450 or > 1440)
+                    throw new ArgumentException("Tamaño de pantalla de prueba inválido.");
+                physicalWidth = logicalWidth;
+            }
+            GetWindow().ContentScaleSize = new(logicalWidth, logicalHeight);
             GetWindow().ContentScaleAspect = Window.ContentScaleAspectEnum.Expand;
-            GetWindow().Size = new(1600, 720);
+            GetWindow().Size = new(physicalWidth, logicalHeight);
         }
     }
     private void BuildTouchControls()

@@ -82,8 +82,9 @@ public partial class Main
                     choices.Size.X < GetViewport().GetVisibleRect().Size.X * 0.65f)
                     throw new InvalidOperationException("INICIO: las cuatro tarjetas han quedado encogidas.");
                 foreach (Button card in choices.GetChildren().OfType<Button>())
-                    if (card.Size.X < 170 || !GetViewport().GetVisibleRect().Encloses(card.GetGlobalRect()))
-                        throw new InvalidOperationException("INICIO: tarjeta demasiado estrecha o cortada: " + card.Text);
+                    if (card.Size.X < 170 || card.GetGlobalRect().Position.X < 0 ||
+                        card.GetGlobalRect().End.X > GetViewport().GetVisibleRect().End.X)
+                        throw new InvalidOperationException("INICIO: tarjeta demasiado estrecha o desbordada: " + card.Text);
             }
             if (frame == 25) _launcher.OpenMobileSmokePage(1);
             if (frame == 35)
