@@ -1,0 +1,105 @@
+using Arcana.Core;
+using Godot;
+
+namespace Arcana.Client;
+
+public partial class Main
+{
+    private const string FirebaseProjectId = "arcana-arena-f2997";
+    private FirebaseAndroidBridge? _google;
+    private long _sessionGeneration;
+    private double _sessionCheckTimer;
+    private DateTimeOffset _lastRenewRequest;
+    private string _googleStatus = "";
+    public bool GoogleLoginAvailable => _google?.Available == true;
+    public string GoogleLoginStatus => _googleStatus;
+
+    private void InitializeGoogleAuthentication()
+    {
+        _google = new FirebaseAndroidBridge();
+        _google.SessionReceived += OnGoogleSession;
+        _google.Error += error => Post(() => GoogleStatus("Error de Google: " + error));
+        _google.SignedOut += () => Post(() =>
+        {
+            if (!Accounts.SignedIn) GoogleStatus("Sin sesión de Google. Puedes practicar sin conexión.");
+        });
+        if (_google.Available)
+        {
+            GoogleStatus("Comprobando la sesión guardada de Google…");
+            _google.Restore();
+        }
+        else if (OS.HasFeature("android"))
+            GoogleStatus("No se ha cargado el plugin nativo de Firebase. Reinstala la APK oficial.");
+    }
+
+    public void StartGoogleLogin()
+    {
+        if (!GoogleLoginAvailable)
+        {
+            GoogleStatus(OS.HasFeature("android")
+                ? "La APK no contiene el plugin Firebase de Android."
+                : "Google Sign-In directo está disponible en Android. En Windows se conserva la práctica sin conexión.");
+            return;
+        }
+        GoogleStatus("Selecciona tu cuenta de Google en la ventana de Android…", true);
+        _google!.Login();
+    }
+
+    private async void OnGoogleSession(FirebaseAndroidBridge.Session session)
+    {
+        long generation = Interlocked.Read(ref _sessionGeneration);
+        try
+        {
+            await Accounts.SetFirebaseSession(FirebaseProjectId, session.Uid, session.Name,
+                session.IdToken, session.ExpiresAt, _lifetime.Token).ConfigureAwait(false);
+            Post(() =>
+            {
+                if (generation != Interlocked.Read(ref _sessionGeneration)) return;
+                SaveAccountCache();
+                GoogleStatus("Google conectado. Perfil e inventario cargados desde Firebase.");
+            });
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch (Exception error)
+        {
+            Post(() =>
+            {
+                if (generation != Interlocked.Read(ref _sessionGeneration)) return;
+                GoogleStatus("Error al leer Firestore: " + error.Message);
+                Diagnostics.Warn("firebase.profile_failed", "La autenticación o lectura de Firestore ha fallado.", error);
+            });
+        }
+    }
+
+    public async Task StopGoogleSession()
+    {
+        Interlocked.Increment(ref _sessionGeneration);
+        _google?.Logout();
+        await Accounts.SignOut(_lifetime.Token);
+        SaveAccountCache();
+        GoogleStatus("Sesión cerrada. No se necesita ningún servidor de cuentas para entrar.");
+    }
+
+    private void GoogleStatus(string message, bool busy = false)
+    {
+        _googleStatus = message;
+        if (GodotObject.IsInstanceValid(_accountProfilePanel) && !_accountProfilePanel!.IsQueuedForDeletion())
+            _accountProfilePanel!.UpdateGoogleStatus(message, busy);
+        if (GodotObject.IsInstanceValid(_launcher) && !_launcher.IsQueuedForDeletion())
+            _launcher.UpdateAccountStatus();
+    }
+
+    private void TickGoogleAuth(double delta)
+    {
+        if (_google?.Available != true || !Accounts.HasDirectFirebaseSession) return;
+        _sessionCheckTimer += delta;
+        if (_sessionCheckTimer < 15) return;
+        _sessionCheckTimer = 0;
+        if (Accounts.ExpiresAt < DateTimeOffset.UtcNow.AddMinutes(12) &&
+            DateTimeOffset.UtcNow - _lastRenewRequest > TimeSpan.FromMinutes(1))
+        {
+            _lastRenewRequest = DateTimeOffset.UtcNow;
+            _google.Renew();
+        }
+    }
+}
