@@ -155,6 +155,13 @@ jobs:
           set -o pipefail
           "$ARCANA_GODOT" --headless --path src/Arcana.Client -- --mobile-menu-smoke 2>&1 | tee "$RUNNER_TEMP/mobile-menu-smoke.log"
           grep -q 'MOBILE_MENU_LAYOUT_OK' "$RUNNER_TEMP/mobile-menu-smoke.log"
+      - name: Verificar ventana de actualización y botones en pantalla
+        run: |
+          set -o pipefail
+          "$ARCANA_GODOT" --headless --path src/Arcana.Client -- --update-ui-smoke 2>&1 | tee "$RUNNER_TEMP/update-ui-desktop.log"
+          grep -q 'UPDATE_NOTICE_LAYOUT_OK' "$RUNNER_TEMP/update-ui-desktop.log"
+          "$ARCANA_GODOT" --headless --path src/Arcana.Client -- --mobile --update-ui-smoke 2>&1 | tee "$RUNNER_TEMP/update-ui-mobile.log"
+          grep -q 'UPDATE_NOTICE_LAYOUT_OK' "$RUNNER_TEMP/update-ui-mobile.log"
       - name: Generar APK ARM64
         run: bash scripts/package-android.sh "$ARCANA_GODOT"
       - uses: actions/upload-artifact@v4

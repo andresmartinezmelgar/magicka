@@ -27,6 +27,11 @@ public partial class ReleaseUpdateNotice : Node
 
     public override void _Ready()
     {
+        if (OS.GetCmdlineUserArgs().Contains("--update-ui-smoke"))
+        {
+            Callable.From(RunUpdateLayoutSmoke).CallDeferred();
+            return;
+        }
         if (OS.HasFeature("editor") || OS.GetCmdlineUserArgs().Any(a => a.Contains("smoke") || a.Contains("preview"))) return;
         _ = Check();
     }
@@ -99,7 +104,15 @@ public partial class ReleaseUpdateNotice : Node
         _expectedBytes = size;
         _canvas = new CanvasLayer { Layer = 90 };
         AddChild(_canvas);
-        _overlay = new Control { MouseFilter = Control.MouseFilterEnum.Stop, Theme = Ui.Theme() };
+        // Ocultar mientras se construye: un fallo intermedio nunca deja un fondo
+        // oscuro bloqueando el menú sin botones utilizables.
+        _overlay = new Control
+        {
+            Name = "ReleaseUpdateOverlay",
+            Visible = false,
+            MouseFilter = Control.MouseFilterEnum.Stop,
+            Theme = Ui.Theme()
+        };
         _canvas.AddChild(_overlay);
         _overlay.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
 
@@ -107,24 +120,41 @@ public partial class ReleaseUpdateNotice : Node
         _overlay.AddChild(dim);
         Ui.Full(dim);
 
-        var center = new CenterContainer { MouseFilter = Control.MouseFilterEnum.Stop };
+        var center = new CenterContainer { Name = "CenterContainer", MouseFilter = Control.MouseFilterEnum.Stop };
         _overlay.AddChild(center);
         Ui.Full(center);
 
+        // El antiguo ScrollContainer era hijo directo del CenterContainer y su
+        // altura mínima de 0 podía contraerse a cero: solo quedaba el fondo negro.
+        // Ahora la tarjeta tiene medidas acotadas por la pantalla y las acciones
+        // están FUERA del scroll, siempre visibles y pulsables.
+        Vector2 viewport = GetViewport().GetVisibleRect().Size;
+        float width = Math.Max(240, Math.Min(Ui.IsMobile ? 710 : 680, viewport.X - 24));
+        float height = Math.Max(210, Math.Min(Ui.IsMobile ? 570 : 550, viewport.Y - 24));
+        var card = Card();
+        card.Name = "ReleaseUpdateCard";
+        card.CustomMinimumSize = new Vector2(width, height);
+        center.AddChild(card);
+
+        var layout = new VBoxContainer
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill
+        };
+        layout.AddThemeConstantOverride("separation", 10);
+        card.AddChild(layout);
         var scroll = new ScrollContainer
         {
-            CustomMinimumSize = new Vector2(Ui.IsMobile ? 520 : 550, 0),
-            SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter,
-            SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
-            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled
+            Name = "ReleaseUpdateDetails",
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            VerticalScrollMode = ScrollContainer.ScrollMode.Auto
         };
-        center.AddChild(scroll);
-        var card = Card();
-        card.CustomMinimumSize = new Vector2(Ui.IsMobile ? 510 : 530, 0);
-        scroll.AddChild(card);
-        var body = new VBoxContainer();
+        layout.AddChild(scroll);
+        var body = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         body.AddThemeConstantOverride("separation", Ui.IsMobile ? 15 : 12);
-        card.AddChild(body);
+        scroll.AddChild(body);
 
         var top = new HBoxContainer();
         top.AddThemeConstantOverride("separation", 12);
@@ -175,15 +205,53 @@ public partial class ReleaseUpdateNotice : Node
             : "Al terminar, cierra el juego y extrae el ZIP para sustituir la versión anterior.", 15, Ui.Muted);
         AddText(body, _note);
 
-        var actions = new HBoxContainer();
+        layout.AddChild(new HSeparator());
+        BoxContainer actions = width < 600 ? new VBoxContainer() : new HBoxContainer();
+        actions.Name = "ReleaseUpdateActions";
         actions.AddThemeConstantOverride("separation", 12);
-        body.AddChild(actions);
+        actions.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        layout.AddChild(actions);
         _secondary = Ui.Button("Ahora no", Close);
         _secondary.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         actions.AddChild(_secondary);
         _primary = Ui.Button("Descargar actualización", PrimaryAction, true);
         _primary.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         actions.AddChild(_primary);
+        _overlay.Visible = true;
+    }
+
+    // Prueba de geometría real sin consultar GitHub: verifica que el aviso es
+    // visible y que sus acciones no quedan fuera del viewport ni colapsadas.
+    private async void RunUpdateLayoutSmoke()
+    {
+        try
+        {
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            ShowNotice("v99.0.0", "https://github.com/andresmartinezmelgar/magicka/releases", 12345678);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            Rect2 viewport = GetViewport().GetVisibleRect();
+            if (_overlay == null || !_overlay.Visible || _overlay.Size.X < 100 || _overlay.Size.Y < 100)
+                throw new InvalidOperationException("El overlay de actualización no ocupa el viewport.");
+            var card = _overlay.GetNode<PanelContainer>("CenterContainer/ReleaseUpdateCard");
+            if (!viewport.Encloses(card.GetGlobalRect()))
+                throw new InvalidOperationException("La tarjeta de actualización queda fuera de pantalla.");
+            foreach (var button in new[] { _primary, _secondary })
+            {
+                if (button == null || !button.IsVisibleInTree() || button.Size.X < 90 ||
+                    button.Size.Y < 40 || !viewport.Encloses(button.GetGlobalRect()))
+                    throw new InvalidOperationException("Los botones del actualizador no son accesibles.");
+            }
+            GD.Print("UPDATE_NOTICE_LAYOUT_OK");
+            _secondary!.EmitSignal(BaseButton.SignalName.Pressed);
+            if (_overlay != null) throw new InvalidOperationException("Ahora no no libera el overlay.");
+            GetTree().Quit(0);
+        }
+        catch (Exception error)
+        {
+            GD.PushError("UPDATE_NOTICE_LAYOUT_FAILED: " + error);
+            GetTree().Quit(1);
+        }
     }
 
     private void PrimaryAction()
