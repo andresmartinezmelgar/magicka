@@ -11,6 +11,7 @@ public partial class PlayerEquipmentPanel : Control
     private readonly CancellationTokenSource _lifetime = new();
     private CancellationTokenSource? _request;
     private OptionButton _choice = null!;
+    private GridContainer? _headerGrid, _contentGrid;
     private VBoxContainer _pieces = null!, _summary = null!;
     private Label _status = null!, _name = null!;
     private int _selected;
@@ -30,17 +31,29 @@ public partial class PlayerEquipmentPanel : Control
         var panel = new PanelContainer(); margin.AddChild(panel);
         var box = new VBoxContainer(); box.AddThemeConstantOverride("separation", 10); panel.AddChild(box);
         box.AddChild(Ui.Label("BONOS DE LOS MAGOS", 25, Ui.Gold));
-        var header = new HBoxContainer(); header.AddThemeConstantOverride("separation", 12); box.AddChild(header);
+        var header = new GridContainer { Columns = 3 }; _headerGrid = header;
+        header.AddThemeConstantOverride("h_separation", 12); box.AddChild(header);
         _choice = new OptionButton { Name = "InspectedPlayerChoice", CustomMinimumSize = new(240, Ui.IsMobile ? 66 : 48), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _choice.AddThemeFontSizeOverride("font_size", 20); header.AddChild(_choice);
         _choice.ItemSelected += index => { _selected = _choice.GetItemId((int)index); _ = Load(); };
         header.AddChild(Ui.Button("Actualizar", Refresh)); header.AddChild(Ui.Button("Volver", Close));
         _name = Ui.Label("", 20, Ui.Gold); box.AddChild(_name);
-        var columns = new HBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill }; columns.AddThemeConstantOverride("separation", 24); box.AddChild(columns);
+        var columns = new GridContainer { Columns = 2, SizeFlagsVertical = SizeFlags.ExpandFill,
+            SizeFlagsHorizontal = SizeFlags.ExpandFill }; _contentGrid = columns;
+        columns.AddThemeConstantOverride("h_separation", 24); columns.AddThemeConstantOverride("v_separation", 8); box.AddChild(columns);
         _pieces = Column(columns); _summary = Column(columns);
         _status = Ui.Label("", 16, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_status);
+        GetViewport().SizeChanged += UpdateResponsivePlayerEquipment;
+        UpdateResponsivePlayerEquipment();
         Refresh();
     }
+    private void UpdateResponsivePlayerEquipment()
+    {
+        float width = GetViewport().GetVisibleRect().Size.X;
+        if (_headerGrid != null) _headerGrid.Columns = ResponsiveLayout.Columns(Math.Max(250, width - 85), 250, 3, 12);
+        if (_contentGrid != null) _contentGrid.Columns = ResponsiveLayout.Columns(Math.Max(250, width - 100), 480, 2, 24);
+    }
+
     private static VBoxContainer Column(Node parent)
     {
         var scroll = new ScrollContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
@@ -120,5 +133,5 @@ public partial class PlayerEquipmentPanel : Control
         _status.Text = "Equipo de la ronda actual. Aplicado muestra el bono real después de los límites. La partida continúa mientras consultas.";
     }
     public void Close() { _lifetime.Cancel(); Closed?.Invoke(); QueueFree(); }
-    public override void _ExitTree() { _lifetime.Cancel(); _request?.Cancel(); _request?.Dispose(); _lifetime.Dispose(); }
+    public override void _ExitTree() { GetViewport().SizeChanged -= UpdateResponsivePlayerEquipment; _lifetime.Cancel(); _request?.Cancel(); _request?.Dispose(); _lifetime.Dispose(); }
 }

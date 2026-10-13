@@ -38,9 +38,9 @@ public partial class EquipmentPanel
         _optionAItems = items;
         _optionAStats = totals;
         items.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
-        items.VerticalScrollMode = ScrollContainer.ScrollMode.Disabled;
+        items.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
         totals.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
-        totals.VerticalScrollMode = ScrollContainer.ScrollMode.Disabled;
+        totals.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
         items.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         totals.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         columns.AddThemeConstantOverride("separation", 0);
