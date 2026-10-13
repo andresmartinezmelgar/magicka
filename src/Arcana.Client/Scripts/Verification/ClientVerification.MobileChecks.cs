@@ -116,6 +116,12 @@ public partial class ClientVerification
                     Require(player.Selection.Elements.Count == 0, "Vaciar no restablece la selección tras cancelar el escudo.");
                     GD.Print("MOBILE_SHIELD_AIM_OK: el escudo espera al gesto completo, respeta la dirección final y se cancela sin lanzar.");
 
+                    break;
+                case 70:
+                    Require(_runtime.Renderer.Walls.Values.Any(w => w.Stone && w.HasElementSurface) && _runtime.Renderer.Fields.Values.OfType<MeteorVisual>().Any(),
+                        "Los nuevos escudos y el meteorito no llegaron al renderer móvil.");
+                    break;
+                case 72:
                     // Agua + frío también es instantáneo: antes se disparaba al
                     // apoyar el dedo con una dirección anterior o arbitraria.
                     ReadyForSpell();
@@ -148,10 +154,6 @@ public partial class ClientVerification
                         "Cancelar el gesto de hielo ha lanzado el hechizo o consumido elementos.");
                     _runtime.Submit(new() { Type = "clear" });
                     GD.Print("MOBILE_ICE_AIM_OK: agua y frío esperan a soltar y respetan la dirección final.");
-                    break;
-                case 70:
-                    Require(_runtime.Renderer.Walls.Values.Any(w => w.Stone && w.HasElementSurface) && _runtime.Renderer.Fields.Values.OfType<MeteorVisual>().Any(),
-                        "Los nuevos escudos y el meteorito no llegaron al renderer móvil.");
                     break;
                 case 75:
                     ReadyForSpell(); Tap(Element.Earth); Down(0, move); Down(1, aim);
