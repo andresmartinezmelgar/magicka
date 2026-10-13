@@ -42,7 +42,17 @@ $booted || { cat artifacts/android/emulator.log; exit 1; }
 adb -s "$serial" shell input keyevent 82
 adb -s "$serial" install -r "$apk"
 adb -s "$serial" logcat -c
-adb -s "$serial" shell am start -n com.arcana.arena/com.godot.game.GodotApp --esa command_line_params '--,--mobile-smoke'
+# Android 15 puede bloquear "am start" durante la inicialización del emulador.
+# Limitar el tiempo de la orden ADB y conservar siempre logcat para diagnóstico.
+start_app() {
+  local args="$1"
+  if ! timeout --signal=TERM --kill-after=3s 25s adb -s "$serial" shell am start -n com.arcana.arena/com.godot.game.GodotApp --esa command_line_params "$args"; then
+    echo "ANDROID_START_WARNING: am start no respondió; comprobando si la actividad se inició."
+    adb -s "$serial" logcat -d > artifacts/android/device.log || true
+    adb -s "$serial" shell pidof com.arcana.arena || true
+  fi
+}
+start_app '--,--mobile-smoke'
 passed=false
 for i in {1..90}; do
   adb -s "$serial" logcat -d > artifacts/android/device.log
@@ -50,11 +60,17 @@ for i in {1..90}; do
   if grep -E 'MOBILE_SMOKE_FAILED|FATAL EXCEPTION|Unhandled exception|SMOKE_FAILED' artifacts/android/device.log; then break; fi
   sleep 2
 done
-if ! $passed; then cat artifacts/android/device.log; exit 1; fi
+if ! $passed; then
+  echo "ANDROID_SMOKE_TIMEOUT: no se recibió MOBILE_SMOKE_OK; estado de la actividad:"
+  timeout 10s adb -s "$serial" shell dumpsys activity activities | grep -E "mResumed|topResumed|com.arcana.arena" | tail -20 || true
+  tail -n 300 artifacts/android/device.log
+  tail -n 80 artifacts/android/emulator.log
+  exit 1
+fi
 if grep -E 'MOBILE_SMOKE_FAILED|FATAL EXCEPTION|Unhandled exception|SMOKE_FAILED' artifacts/android/device.log; then exit 1; fi
 adb -s "$serial" shell am force-stop com.arcana.arena
 adb -s "$serial" logcat -c
-adb -s "$serial" shell am start -n com.arcana.arena/com.godot.game.GodotApp --esa command_line_params '--,--profile-render,--profile-warmup=0,--profile-seconds=3,--profile-environment=ci-android15-emulator-swangle'
+start_app '--,--profile-render,--profile-warmup=0,--profile-seconds=3,--profile-environment=ci-android15-emulator-swangle'
 profiled=false
 for i in {1..120}; do
   adb -s "$serial" logcat -d > artifacts/android/profile-device.log
