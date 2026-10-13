@@ -1,0 +1,51 @@
+name: Publicar APK firmada existente
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    name: Firmar y adjuntar APK v0.17.1
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar artefacto de compilacion verificada
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh run download 38379331509 -R "${{ github.repository }}" -n ArcanaArena-Android-arm64 -D dist
+          test -s dist/ArcanaArena-v0.17.1-Android-arm64.apk
+      - name: Instalar herramienta de firma
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq apksigner
+      - name: Firmar y verificar con certificado permanente
+        env:
+          ARCANA_KEYSTORE_BASE64: ${{ secrets.ARCANA_KEYSTORE_BASE64 }}
+          ARCANA_KEYSTORE_PASSWORD: ${{ secrets.ARCANA_KEYSTORE_PASSWORD }}
+          ARCANA_KEY_ALIAS: ${{ secrets.ARCANA_KEY_ALIAS }}
+          ARCANA_KEY_PASSWORD: ${{ secrets.ARCANA_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for key in ARCANA_KEYSTORE_BASE64 ARCANA_KEYSTORE_PASSWORD ARCANA_KEY_ALIAS ARCANA_KEY_PASSWORD; do
+            test -n "${!key}" || { echo "::error::Falta el secreto $key"; exit 1; }
+          done
+          printf '%s' "$ARCANA_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/arcana-release.jks"
+          printf '%s' "$ARCANA_KEYSTORE_PASSWORD" > "$RUNNER_TEMP/storepass"
+          printf '%s' "$ARCANA_KEY_PASSWORD" > "$RUNNER_TEMP/keypass"
+          chmod 600 "$RUNNER_TEMP/arcana-release.jks" "$RUNNER_TEMP/storepass" "$RUNNER_TEMP/keypass"
+          apk=dist/ArcanaArena-v0.17.1-Android-arm64.apk
+          apksigner sign --ks "$RUNNER_TEMP/arcana-release.jks" --ks-key-alias "$ARCANA_KEY_ALIAS" --ks-pass "file:$RUNNER_TEMP/storepass" --key-pass "file:$RUNNER_TEMP/keypass" "$apk"
+          apksigner verify --verbose --print-certs "$apk"
+          (cd dist && sha256sum ArcanaArena-v0.17.1-Android-arm64.apk > SHA256SUMS-Android.txt)
+          rm -f "$RUNNER_TEMP/arcana-release.jks" "$RUNNER_TEMP/storepass" "$RUNNER_TEMP/keypass"
+      - name: Adjuntar APK firmada a Release existente
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload v0.17.1 dist/ArcanaArena-v0.17.1-Android-arm64.apk dist/SHA256SUMS-Android.txt --clobber -R "${{ github.repository }}"
