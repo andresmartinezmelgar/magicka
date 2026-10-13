@@ -10,6 +10,7 @@ namespace Arcana.Client;
 public partial class Launcher
 {
     private ArcanaMenuChrome? _optionAChrome;
+    private HBoxContainer? _optionAPrimaryActions;
     private VBoxContainer? _optionAPreview;
     private VBoxContainer? _optionAMagic;
     private Label? _optionAHeading;
@@ -150,6 +151,7 @@ public partial class Launcher
         var actions = new HBoxContainer { Name = "OptionAPrimaryActions" };
         actions.AddThemeConstantOverride("separation", 12);
         form.AddChild(actions);
+        _optionAPrimaryActions = actions;
         _menuBack.Reparent(actions);
         _connect.Reparent(actions);
         _menuBack.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -203,13 +205,13 @@ public partial class Launcher
 
     private void UpdateOptionAPage(int page)
     {
-        _optionAHeading?.Set("text", page switch
+        if (_optionAHeading != null) _optionAHeading.Text = page switch
         {
             1 => "PARTIDAS MULTIJUGADOR",
             2 => "ENTRENAMIENTO CONTRA IA",
             3 => "TU PERFIL Y PERSONAJE",
             _ => "ELIGE TU AVENTURA"
-        });
+        };
         if (_optionAPreview != null) _optionAPreview.Visible = page == 3;
         if (_optionAMagic != null) _optionAMagic.Visible = page == 2;
         _optionAChrome?.Select(page switch { 1 => 1, 2 => 2, 3 => 3, _ => 0 });
