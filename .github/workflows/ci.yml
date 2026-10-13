@@ -26,6 +26,8 @@ jobs:
         run: python3 scripts/version-support.py check .
       - name: Compilar cliente, servidor y pruebas
         run: dotnet build ArcanaArena.sln -c Release --nologo
+      - name: Ejecutar pruebas funcionales y regresiones del motor
+        run: dotnet run --project tests/Arcana.Tests/Arcana.Tests.csproj -c Release --no-build --nologo
       - name: Compilar servidor de cuentas heredado
         run: dotnet build src/Arcana.AccountServer/Arcana.AccountServer.csproj -c Release --nologo
 
@@ -35,6 +37,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -44,8 +49,10 @@ jobs:
           java-version: '17'
       - name: Instalar Firebase CLI y bibliotecas de pruebas
         run: npm install --prefix tests/firebase-rules --no-audit --no-fund
-      - name: Probar seguridad de cuentas y equipamiento sin credenciales reales
-        run: tests/firebase-rules/node_modules/.bin/firebase emulators:exec --only firestore --project demo-arcana-arena --config firebase.json -- 'node tests/firebase-rules/verify.cjs'
+      - name: Compilar pruebas de cuentas y transacciones contra emulador
+        run: dotnet build tests/Arcana.Account.Tests/Arcana.Account.Tests.csproj -c Release --nologo
+      - name: Probar reglas y transacciones sin conectarse a Firebase real
+        run: tests/firebase-rules/node_modules/.bin/firebase emulators:exec --only firestore --project demo-arcana-arena --config firebase.json -- 'node tests/firebase-rules/verify.cjs && dotnet run --project tests/Arcana.Account.Tests/Arcana.Account.Tests.csproj -c Release --no-build'
 
   package-windows:
     name: Generar distribucion Windows

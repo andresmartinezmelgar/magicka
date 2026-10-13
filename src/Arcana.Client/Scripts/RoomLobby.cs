@@ -26,6 +26,7 @@ public partial class RoomLobby : Control
     private VBoxContainer _listPane = null!, _createPane = null!;
     private HBoxContainer? _mobileListActions, _mobileCreateActions;
     private ScrollContainer? _mobileScroll;
+    private GridContainer? _roomFormGrid;
     private readonly List<Button> _buttons = [];
     private bool _busy;
     private readonly CancellationTokenSource _lifetime = new();
@@ -51,7 +52,7 @@ public partial class RoomLobby : Control
         var scroll = new ScrollContainer { Name = "OptionALobbyContent",
             SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
-            VerticalScrollMode = ScrollContainer.ScrollMode.Disabled };
+            VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
         layout.AddChild(scroll);
         var fixedActions = new VBoxContainer { Name = "OptionALobbyActions" };
         fixedActions.AddThemeConstantOverride("separation", 6);
@@ -100,7 +101,8 @@ public partial class RoomLobby : Control
         ActionButton(actions, "Entrar", Join, true); ActionButton(actions, "Crear sala", () => SwitchPane(true));
         ActionButton(actions, "Actualizar", Refresh);
         _createPane = new VBoxContainer { Visible = false }; _createPane.AddThemeConstantOverride("separation", 12); box.AddChild(_createPane);
-        var grid = new GridContainer { Columns = 6 }; grid.AddThemeConstantOverride("h_separation", 18);
+        var grid = new GridContainer { Columns = 6 }; _roomFormGrid = grid;
+        grid.AddThemeConstantOverride("h_separation", 18);
         grid.AddThemeConstantOverride("v_separation", Ui.IsMobile ? 5 : 7); _createPane.AddChild(grid);
         _roomName = new LineEdit { Text = "Sala de " + (name.Length > 24 ? name[..24] : name), MaxLength = 32, CustomMinimumSize = new(0, 42) };
         Row(grid, "Nombre", _roomName);
@@ -156,7 +158,15 @@ public partial class RoomLobby : Control
             Ui.TouchTarget(control, Ui.IsMobile ? 48 : 46);
         _list.CustomMinimumSize = new Vector2(0, Ui.IsMobile ? 100 : 160);
         ArcanaMenuChrome.Attach(this, safeMargin, _main, "Salas PvP", 1, _main.NavigateOptionAMenu);
+        GetViewport().SizeChanged += UpdateRoomResponsive;
+        UpdateRoomResponsive();
         Refresh();
+    }
+    private void UpdateRoomResponsive()
+    {
+        if (_roomFormGrid == null) return;
+        float width = GetViewport().GetVisibleRect().Size.X - (Ui.IsMobile ? 65 : 115);
+        _roomFormGrid.Columns = ResponsiveLayout.Columns(width, 270, 3, 18) * 2;
     }
     internal Button[] MobileRoomButtons => (_createPane.Visible ? _mobileCreateActions : _mobileListActions)?
         .GetChildren().OfType<Button>().Where(button => button.Visible).ToArray() ?? [];
@@ -213,7 +223,6 @@ public partial class RoomLobby : Control
                 else _roomPageStart = 0;
                 ShowRoomPage(_roomPageStart);
                 if (at >= 0) _list.Select(at - _roomPageStart);
-                ShowObjective();
                 ShowObjective();
                 SetBusy(false); _status.Text = $"{_rooms.Length} sala(s). Selecciona una o crea tu propia partida.";
             });
@@ -287,5 +296,5 @@ public partial class RoomLobby : Control
         _main.Post(() => { if (Active) ShowError(message); });
     }
     private void Close() { _lifetime.Cancel(); _main.CancelPendingConnection(); QueueFree(); }
-    public override void _ExitTree() { _lifetime.Cancel(); _lifetime.Dispose(); }
+    public override void _ExitTree() { GetViewport().SizeChanged -= UpdateRoomResponsive; _lifetime.Cancel(); _lifetime.Dispose(); }
 }

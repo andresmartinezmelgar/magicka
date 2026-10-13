@@ -103,6 +103,7 @@ Test("Firebase en alojamiento local requiere activación explícita y ficheros p
     finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
 });
 
+ResponsiveLayoutTests.Run(Test);
 NetworkDeltaTests.Run(Test);
 FrontlineTests.Run(Test);
 GameplayRegressionTests.Run(Test);

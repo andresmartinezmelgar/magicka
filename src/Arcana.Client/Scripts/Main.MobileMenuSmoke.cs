@@ -36,12 +36,8 @@ public partial class Main
         foreach (var control in root.FindChildren("*", "Control", true, false).OfType<Control>())
         {
             if (!control.IsVisibleInTree()) continue;
-            if (control is ScrollContainer sc &&
-                (sc.Name != "LauncherSettingsScroll" ||
-                 sc.HorizontalScrollMode != ScrollContainer.ScrollMode.Disabled))
-                if (sc.VerticalScrollMode != ScrollContainer.ScrollMode.Disabled ||
-                    sc.HorizontalScrollMode != ScrollContainer.ScrollMode.Disabled)
-                    throw new InvalidOperationException($"{stage}: desplazamiento inesperado en {sc.Name}.");
+            if (control is ScrollContainer sc && sc.HorizontalScrollMode != ScrollContainer.ScrollMode.Disabled)
+                throw new InvalidOperationException($"{stage}: el panel {sc.Name} permite desbordamiento horizontal.");
             if (control is not BaseButton && control is not LineEdit &&
                 control is not SpinBox && control is not ItemList) continue;
             var rect = control.GetGlobalRect();
@@ -52,7 +48,7 @@ public partial class Main
                 // por separado y siempre deben quedar dentro de pantalla.
                 bool inVerticalScroll = false;
                 for (Node? parent = control.GetParent(); parent != null; parent = parent.GetParent())
-                    if (parent is ScrollContainer container && container.Name == "LauncherSettingsScroll")
+                    if (parent is ScrollContainer container && container.VerticalScrollMode != ScrollContainer.ScrollMode.Disabled)
                     { inVerticalScroll = true; break; }
                 if (inVerticalScroll && rect.Position.X >= screen.Position.X &&
                     rect.End.X <= screen.End.X) continue;
