@@ -98,7 +98,7 @@ public partial class Main
             }
             if (frame == 115)
             {
-                AssertMobileActions("PERFIL_403", _accountProfilePanel!.VisibleFooterButtons, 3);
+                AssertMobileActions("PERFIL_403", _accountProfilePanel!.VisibleFooterButtons, 1);
                 AssertOptionAScreen("PERFIL_403", _accountProfilePanel);
                 string[] labels = _accountProfilePanel.FindChildren("*", "Label", true, false)
                     .OfType<Label>().Select(label => label.Text).ToArray();
@@ -115,6 +115,14 @@ public partial class Main
             }
             if (frame == 135)
                 AssertOptionAScreen("AYUDA", _optionAHelp!);
+            if (frame == 135 && _optionAHelp!.ContentWidthFraction < 0.78f)
+                throw new InvalidOperationException("AYUDA: las tarjetas no ocupan el ancho disponible.");
+            if (frame == 136) _optionAHelp!.SelectForSmoke(2);
+            if (frame == 138) AssertOptionAScreen("AYUDA_MAGOS", _optionAHelp!);
+            if (frame == 139) _optionAHelp!.SelectForSmoke(3);
+            if (frame == 141) AssertOptionAScreen("AYUDA_ELEMENTOS", _optionAHelp!);
+            if (frame == 142) _optionAHelp!.SelectForSmoke(4);
+            if (frame == 144) AssertOptionAScreen("AYUDA_RELIQUIAS", _optionAHelp!);
             if (frame == 145)
             {
                 CloseOptionAHelp();
