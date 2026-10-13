@@ -10,7 +10,7 @@ namespace Arcana.Client;
 public partial class Launcher
 {
     private ArcanaMenuChrome? _optionAChrome;
-    private HBoxContainer? _optionAPrimaryActions;
+    private GridContainer? _optionAPrimaryActions;
     private VBoxContainer? _optionAPreview;
     private VBoxContainer? _optionAMagic;
     private Label? _optionAHeading;
@@ -163,12 +163,14 @@ public partial class Launcher
         _optionAMagic.AddChild(aiHint);
 
         // Acción primaria y Volver juntos, anclados al mismo lugar en PvP y contra IA.
-        var actions = new HBoxContainer
+        var actions = new GridContainer
         {
             Name = "OptionAPrimaryActions",
+            Columns = 2,
             SizeFlagsHorizontal = SizeFlags.ExpandFill
         };
-        actions.AddThemeConstantOverride("separation", 12);
+        actions.AddThemeConstantOverride("h_separation", 12);
+        actions.AddThemeConstantOverride("v_separation", 8);
         // Fuera de la zona desplazable: Volver y Jugar no quedan tapados por el
         // pie de navegación a 720p ni en pantallas panorámicas más pequeñas.
         rightColumn.AddChild(actions);
@@ -198,6 +200,8 @@ public partial class Launcher
     {
         float viewportWidth = GetViewport().GetVisibleRect().Size.X;
         float available = Math.Max(280, viewportWidth - (Ui.IsMobile ? 55 : 120));
+        if (_optionAPrimaryActions != null)
+            _optionAPrimaryActions.Columns = ResponsiveLayout.Columns(available, 415, 2, 12);
         if (_optionAHomeCards != null)
         {
             int columns = ResponsiveLayout.Columns(available, 182, 4, Ui.IsMobile ? 10 : 18);
