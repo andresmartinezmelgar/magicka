@@ -166,6 +166,7 @@ public sealed class ClientMessage
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public long InspectionRequestId { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public int InspectPlayerId { get; set; }
     public int Protocol { get; set; } = Core.Protocol.Version;
+    public string GameVersion { get; set; } = BuildInfo.Version;
     public string Name { get; set; } = "Mago";
     public string Password { get; set; } = "";
     public string RoomId { get; set; } = "default";
@@ -185,7 +186,7 @@ public sealed class ClientMessage
 }
 
 public sealed record ServerInfo(string Name, int Port, int DiscoveryPort, GameMode Mode,
-    int Players, int MaxPlayers, int Protocol, bool PasswordRequired, string? InstanceId = null);
+    int Players, int MaxPlayers, int Protocol, bool PasswordRequired, string? InstanceId = null, string? GameVersion = null);
 public sealed record DiscoveryReply(string Magic, string Nonce, ServerInfo Server);
 public sealed class ServerMessage
 {
