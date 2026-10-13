@@ -115,6 +115,39 @@ public partial class ClientVerification
                     Down(2, new(310, height - 117)); Up(2);
                     Require(player.Selection.Elements.Count == 0, "Vaciar no restablece la selección tras cancelar el escudo.");
                     GD.Print("MOBILE_SHIELD_AIM_OK: el escudo espera al gesto completo, respeta la dirección final y se cancela sin lanzar.");
+
+                    // Agua + frío también es instantáneo: antes se disparaba al
+                    // apoyar el dedo con una dirección anterior o arbitraria.
+                    ReadyForSpell();
+                    _runtime.Submit(new() { Type = "clear" });
+                    Tap(Element.Water); Tap(Element.Cold);
+                    var projectilesBeforeIce = _runtime.Practice.Snapshot().Projectiles.Select(p => p.Id).ToHashSet();
+                    Down(1, aimCenter);
+                    Require(touch.IceAimPending &&
+                        !_runtime.Practice.Snapshot().Projectiles.Any(p => !projectilesBeforeIce.Contains(p.Id)),
+                        "El hielo se ha disparado al tocar, antes de terminar de apuntar.");
+                    touch.Drag(1, global + aimCenter + new Vector2(-74, -30));
+                    V2 iceDirection = (_runtime.Aim - player.Position).Normalized;
+                    Up(1);
+                    var iceShards = _runtime.Practice.Snapshot().Projectiles
+                        .Where(p => !projectilesBeforeIce.Contains(p.Id)).ToArray();
+                    Require(iceShards.Length >= 3 &&
+                        V2.Dot(iceShards.Aggregate(V2.Zero, (sum, p) => sum + p.Direction).Normalized, iceDirection) > 0.96f &&
+                        !touch.IceAimPending,
+                        "Los fragmentos de hielo no siguen la dirección final del gesto.");
+                    ReadyForSpell();
+                    _runtime.Submit(new() { Type = "clear" });
+                    Tap(Element.Water); Tap(Element.Cold);
+                    var projectileCountOnCancel = _runtime.Practice.Snapshot().Projectiles.Length;
+                    Down(1, aimCenter); touch.Drag(1, global + aimCenter + Vector2.Up * 60);
+                    Up(1, true);
+                    Require(!touch.IceAimPending &&
+                        _runtime.Practice.Snapshot().Projectiles.Length == projectileCountOnCancel &&
+                        player.Selection.Elements.Contains(Element.Water) &&
+                        player.Selection.Elements.Contains(Element.Cold),
+                        "Cancelar el gesto de hielo ha lanzado el hechizo o consumido elementos.");
+                    _runtime.Submit(new() { Type = "clear" });
+                    GD.Print("MOBILE_ICE_AIM_OK: agua y frío esperan a soltar y respetan la dirección final.");
                     break;
                 case 70:
                     Require(_runtime.Renderer.Walls.Values.Any(w => w.Stone && w.HasElementSurface) && _runtime.Renderer.Fields.Values.OfType<MeteorVisual>().Any(),

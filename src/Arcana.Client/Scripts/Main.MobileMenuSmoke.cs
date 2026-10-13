@@ -37,14 +37,27 @@ public partial class Main
         {
             if (!control.IsVisibleInTree()) continue;
             if (control is ScrollContainer sc &&
-                (sc.VerticalScrollMode != ScrollContainer.ScrollMode.Disabled ||
+                (sc.Name != "LauncherSettingsScroll" ||
                  sc.HorizontalScrollMode != ScrollContainer.ScrollMode.Disabled))
-                throw new InvalidOperationException($"{stage}: scroll no permitido en {sc.Name}.");
+                if (sc.VerticalScrollMode != ScrollContainer.ScrollMode.Disabled ||
+                    sc.HorizontalScrollMode != ScrollContainer.ScrollMode.Disabled)
+                    throw new InvalidOperationException($"{stage}: desplazamiento inesperado en {sc.Name}.");
             if (control is not BaseButton && control is not LineEdit &&
                 control is not SpinBox && control is not ItemList) continue;
             var rect = control.GetGlobalRect();
             if (!screen.Encloses(rect))
+            {
+                // El contenido puede desplazarse verticalmente, pero nunca
+                // desbordarse horizontalmente. Las acciones fijas se prueban
+                // por separado y siempre deben quedar dentro de pantalla.
+                bool inVerticalScroll = false;
+                for (Node? parent = control.GetParent(); parent != null; parent = parent.GetParent())
+                    if (parent is ScrollContainer container && container.Name == "LauncherSettingsScroll")
+                    { inVerticalScroll = true; break; }
+                if (inVerticalScroll && rect.Position.X >= screen.Position.X &&
+                    rect.End.X <= screen.End.X) continue;
                 throw new InvalidOperationException($"{stage}: control fuera de pantalla: {control.Name} {rect} / {screen}");
+            }
         }
         GD.Print($"OPTION_A_SCREEN_OK:{stage}");
     }
@@ -63,6 +76,18 @@ public partial class Main
                 if (visibleLabels.Any(text => text.Contains("O P C I Ó N", StringComparison.OrdinalIgnoreCase)
                     || text.Contains("OPCIÓN A", StringComparison.OrdinalIgnoreCase)))
                     throw new InvalidOperationException("INICIO: se muestra una etiqueta interna de diseño.");
+            }
+            if (frame == 20)
+            {
+                var fullPanel = _launcher.FindChild("OptionAFullWidthPanel", true, false) as Control;
+                var choices = _launcher.FindChild("OptionAHomeCards", true, false) as Control;
+                if (fullPanel == null || choices == null ||
+                    fullPanel.Size.X < GetViewport().GetVisibleRect().Size.X * 0.75f ||
+                    choices.Size.X < GetViewport().GetVisibleRect().Size.X * 0.65f)
+                    throw new InvalidOperationException("INICIO: las cuatro tarjetas han quedado encogidas.");
+                foreach (Button card in choices.GetChildren().OfType<Button>())
+                    if (card.Size.X < 170 || !GetViewport().GetVisibleRect().Encloses(card.GetGlobalRect()))
+                        throw new InvalidOperationException("INICIO: tarjeta demasiado estrecha o cortada: " + card.Text);
             }
             if (frame == 25) _launcher.OpenMobileSmokePage(1);
             if (frame == 35)

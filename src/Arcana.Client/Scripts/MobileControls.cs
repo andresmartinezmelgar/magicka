@@ -14,10 +14,12 @@ public partial class MobileControls : Control
     private Vector2 _move, _aim = Vector2.Right, _aimKnob;
     private Vector2 _moveCenter, _moveHome, _aimCenter;
     private readonly ElementBuffer _selected = new();
-    private bool _awaitingSelectionEcho, _barrierAimPending;
+    private bool _awaitingSelectionEcho, _directionalAimPending;
+    private SpellShape _aimedSpellShape;
     private int _selectionEchoFrames;
     private const float Radius = 82;
-    internal bool BarrierAimPending => _barrierAimPending;
+    internal bool BarrierAimPending => _directionalAimPending && _aimedSpellShape == SpellShape.Barrier;
+    internal bool IceAimPending => _directionalAimPending && _aimedSpellShape == SpellShape.Shards;
     public Vector2 Movement => _move;
     public Vector2 AimDirection => _aim;
     public event Action<ClientMessage>? ActionRequested;
@@ -87,7 +89,7 @@ public partial class MobileControls : Control
     public void Reset()
     {
         _moveFinger = _aimFinger = -1; _move = _aimKnob = Vector2.Zero; _moveCenter = _moveHome;
-        _barrierAimPending = false;
+        _directionalAimPending = false;
         _awaitingSelectionEcho = false;
         foreach (var action in _pressed.Values) action.Panel.Modulate = Colors.White;
         _pressed.Clear(); QueueRedraw();
@@ -135,11 +137,12 @@ public partial class MobileControls : Control
             if (finger == _aimFinger)
             {
                 _aimFinger = -1; _aimKnob = Vector2.Zero;
-                bool placeBarrier = _barrierAimPending && !canceled;
-                _barrierAimPending = false; QueueRedraw();
-                // Barriers are instantaneous: send cast only once the drag's final
-                // direction has been submitted. A canceled touch must never cast.
-                if (placeBarrier)
+                bool castOnRelease = _directionalAimPending && !canceled;
+                _directionalAimPending = false; QueueRedraw();
+                // Escudos y fragmentos de hielo son instantáneos: el lanzamiento
+                // espera la dirección FINAL del gesto, nunca el primer contacto.
+                // Un toque cancelado no debe gastar los elementos.
+                if (castOnRelease)
                 {
                     AimChanged?.Invoke();
                     Request(new() { Type = "cast" });
@@ -165,9 +168,10 @@ public partial class MobileControls : Control
         if (_aimFinger < 0 && point.DistanceTo(_aimCenter) <= Radius + 20)
         {
             _aimFinger = finger;
-            _barrierAimPending = new SpellRecipe(_selected.Elements).Shape == SpellShape.Barrier;
+            _aimedSpellShape = new SpellRecipe(_selected.Elements).Shape;
+            _directionalAimPending = _aimedSpellShape is SpellShape.Barrier or SpellShape.Shards;
             Aim(point); AimChanged?.Invoke();
-            if (!_barrierAimPending) Request(new() { Type = "cast" });
+            if (!_directionalAimPending) Request(new() { Type = "cast" });
             QueueRedraw();
             return true;
         }
@@ -213,7 +217,9 @@ public partial class MobileControls : Control
     public override void _Draw()
     {
         DrawStick(_moveCenter, _move, "MOVER", Ui.Blue);
-        DrawStick(_aimCenter, _aimKnob, _barrierAimPending ? "SUELTA: ESCUDO" : "APUNTAR / LANZAR", Ui.Gold);
+        DrawStick(_aimCenter, _aimKnob, _directionalAimPending
+            ? _aimedSpellShape == SpellShape.Shards ? "SUELTA: HIELO" : "SUELTA: ESCUDO"
+            : "APUNTAR / LANZAR", Ui.Gold);
     }
     private void DrawStick(Vector2 center, Vector2 direction, string caption, Color color)
     {

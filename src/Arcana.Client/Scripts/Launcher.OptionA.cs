@@ -14,6 +14,7 @@ public partial class Launcher
     private VBoxContainer? _optionAPreview;
     private VBoxContainer? _optionAMagic;
     private Label? _optionAHeading;
+    private Label? _optionAPasswordLabel;
 
     private void ApplyOptionALayout(MarginContainer margin, HBoxContainer columns, VBoxContainer left,
         VBoxContainer rightColumn, ScrollContainer scroll, CenterContainer rightCenter,
@@ -26,10 +27,17 @@ public partial class Launcher
         columns.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         rightColumn.SizeFlagsVertical = SizeFlags.ExpandFill;
         rightColumn.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        // El CenterContainer encogía Inicio a su ancho mínimo (cuatro botones estrechos).
+        // ScrollContainer asigna ahora al panel todo el ancho del área central.
+        panel.Reparent(scroll);
+        rightCenter.QueueFree();
+        scroll.Name = "LauncherSettingsScroll";
         scroll.CustomMinimumSize = Vector2.Zero;
-        scroll.VerticalScrollMode = ScrollContainer.ScrollMode.Disabled;
+        scroll.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        scroll.SizeFlagsVertical = SizeFlags.ExpandFill;
+        scroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
         scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
-        rightCenter.SizeFlagsVertical = SizeFlags.ExpandFill;
+        panel.Name = "OptionAFullWidthPanel";
         panel.CustomMinimumSize = Vector2.Zero;
         panel.SizeFlagsVertical = SizeFlags.ExpandFill;
         panel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -103,6 +111,9 @@ public partial class Launcher
         identity.Reparent(settings);
         typeRow.Reparent(settings);
         typeInfo.Reparent(settings);
+        _optionAPasswordLabel = form.GetChildren().OfType<Label>()
+            .FirstOrDefault(label => label.Text == "Contraseña del servidor (si tiene)");
+        _optionAPasswordLabel?.Reparent(settings);
         _password.Reparent(settings);
         _status.Reparent(settings);
         _status.CustomMinimumSize = Vector2.Zero;
@@ -149,9 +160,15 @@ public partial class Launcher
         _optionAMagic.AddChild(aiHint);
 
         // Acción primaria y Volver juntos, anclados al mismo lugar en PvP y contra IA.
-        var actions = new HBoxContainer { Name = "OptionAPrimaryActions" };
+        var actions = new HBoxContainer
+        {
+            Name = "OptionAPrimaryActions",
+            SizeFlagsHorizontal = SizeFlags.ExpandFill
+        };
         actions.AddThemeConstantOverride("separation", 12);
-        form.AddChild(actions);
+        // Fuera de la zona desplazable: Volver y Jugar no quedan tapados por el
+        // pie de navegación a 720p ni en pantallas panorámicas más pequeñas.
+        rightColumn.AddChild(actions);
         _optionAPrimaryActions = actions;
         _menuBack.Reparent(actions);
         _connect.Reparent(actions);
@@ -245,6 +262,7 @@ public partial class Launcher
         };
         if (_optionAPreview != null) _optionAPreview.Visible = page == 3;
         if (_optionAMagic != null) _optionAMagic.Visible = page == 2;
+        if (_optionAPasswordLabel != null) _optionAPasswordLabel.Visible = page == 1;
         _optionAChrome?.Select(page switch { 1 => 1, 2 => 2, 3 => 3, _ => 0 });
     }
 

@@ -162,6 +162,13 @@ jobs:
           grep -q 'UPDATE_NOTICE_LAYOUT_OK' "$RUNNER_TEMP/update-ui-desktop.log"
           "$ARCANA_GODOT" --headless --path src/Arcana.Client -- --mobile --update-ui-smoke 2>&1 | tee "$RUNNER_TEMP/update-ui-mobile.log"
           grep -q 'UPDATE_NOTICE_LAYOUT_OK' "$RUNNER_TEMP/update-ui-mobile.log"
+      - name: Verificar en simulación táctil el apuntado de hielo y escudos
+        run: |
+          set -o pipefail
+          timeout 160s "$ARCANA_GODOT" --headless --audio-driver Dummy --path src/Arcana.Client -- --mobile-smoke 2>&1 | tee "$RUNNER_TEMP/mobile-spell-smoke.log"
+          grep -q 'MOBILE_ICE_AIM_OK' "$RUNNER_TEMP/mobile-spell-smoke.log"
+          grep -q 'MOBILE_SMOKE_OK' "$RUNNER_TEMP/mobile-spell-smoke.log"
+          ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/mobile-spell-smoke.log"
       - name: Generar APK ARM64
         run: bash scripts/package-android.sh "$ARCANA_GODOT"
       - uses: actions/upload-artifact@v4

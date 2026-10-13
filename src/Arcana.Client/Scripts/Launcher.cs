@@ -275,7 +275,7 @@ public partial class Launcher : Control
         ((Control)_team.GetParent()).Visible = page == 1;
         ((Control)_wizardType.GetParent()).Visible = page == 3;
         _wizardDescription.Visible = page == 3;
-        _status.Visible = page is 1 or 2;
+        _status.Visible = page == 1;
 
         _menuBack.Visible = page != 0;
         _menuBack.Text = page == 3 ? "Guardar y volver" : "Volver";
