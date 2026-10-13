@@ -30,55 +30,45 @@ public partial class RoomLobby : Control
         _main = main; _address = address; _serverPassword = password; _playerName = name; _wizardType = wizardType;
         Theme = Ui.Theme(); Ui.Full(this);
         var shade = new ColorRect { Color = new(0.01f, 0.025f, 0.045f, 0.94f) }; AddChild(shade); Ui.Full(shade);
-        PanelContainer panel;
-        ScrollContainer scroll;
-        VBoxContainer? fixedActions = null;
-        if (Ui.IsMobile)
-        {
-            // Antes se desactivaba el scroll móvil: las acciones de crear/entrar quedaban fuera de pantalla.
-            var safeMargin = new MarginContainer();
-            AddChild(safeMargin); Ui.Full(safeMargin);
-            foreach (string side in new[] { "left", "right", "top", "bottom" })
-                safeMargin.AddThemeConstantOverride("margin_" + side, 12);
-            panel = new PanelContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
-                SizeFlagsVertical = SizeFlags.ExpandFill };
-            safeMargin.AddChild(panel);
-            var layout = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
-                SizeFlagsVertical = SizeFlags.ExpandFill };
-            layout.AddThemeConstantOverride("separation", 10);
-            panel.AddChild(layout);
-            scroll = new ScrollContainer { Name = "MobileRoomSettingsScroll",
-                SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
-                HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
-                VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
-            layout.AddChild(scroll);
-            _mobileScroll = scroll;
-            fixedActions = new VBoxContainer { Name = "MobileRoomActions" };
-            fixedActions.AddThemeConstantOverride("separation", 9);
-            layout.AddChild(fixedActions);
-        }
-        else
-        {
-            var center = new CenterContainer(); AddChild(center); Ui.Full(center);
-            panel = new PanelContainer { CustomMinimumSize = new(860, 0) };
-            center.AddChild(panel);
-            scroll = new ScrollContainer {
-                CustomMinimumSize = new(820, Math.Min(740, GetViewport().GetVisibleRect().Size.Y - 120)),
-                HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
-                VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
-            panel.AddChild(scroll);
-        }
-        var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; box.AddThemeConstantOverride("separation", 16); scroll.AddChild(box);
+        // Opción A: ancho completo, navegación constante y contenido por secciones sin scroll.
+        var safeMargin = new MarginContainer();
+        AddChild(safeMargin); Ui.Full(safeMargin);
+        foreach (string side in new[] { "left", "right", "top", "bottom" })
+            safeMargin.AddThemeConstantOverride("margin_" + side, Ui.IsMobile ? 8 : 15);
+        var panel = new PanelContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill };
+        panel.AddThemeStyleboxOverride("panel", Ui.Panel(new Color("091a2c"), 10, new Color("2876a3")));
+        safeMargin.AddChild(panel);
+        var layout = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill };
+        layout.AddThemeConstantOverride("separation", 5);
+        panel.AddChild(layout);
+        var scroll = new ScrollContainer { Name = "OptionALobbyContent",
+            SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            VerticalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        layout.AddChild(scroll);
+        var fixedActions = new VBoxContainer { Name = "OptionALobbyActions" };
+        fixedActions.AddThemeConstantOverride("separation", 6);
+        layout.AddChild(fixedActions);
+        _mobileScroll = scroll;
+        var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; box.AddThemeConstantOverride("separation", Ui.IsMobile ? 6 : 9); scroll.AddChild(box);
         _heading = Ui.Label("SALAS", 28, Ui.Gold); box.AddChild(_heading);
         var addressInfo = Ui.Label(address, 15, Ui.Muted);
         addressInfo.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
         box.AddChild(addressInfo);
-        box.AddChild(Ui.Button("Personalizar mago e inventario", () => _main.OpenEquipment(_address)));
-        var teamRow = new HBoxContainer(); teamRow.AddThemeConstantOverride("separation", 18); box.AddChild(teamRow);
+        // El inventario siempre queda disponible en la barra inferior fija de la opción A.
+        var teamRow = new HBoxContainer(); teamRow.AddThemeConstantOverride("separation", 12); box.AddChild(teamRow);
+        var headerRow = new HBoxContainer();
+        headerRow.AddThemeConstantOverride("separation", 22);
+        box.AddChild(headerRow); box.MoveChild(headerRow, 0);
+        _heading.Reparent(headerRow);
+        teamRow.Reparent(headerRow);
+        _heading.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         teamRow.AddChild(Ui.Label("Tu equipo", 16, Ui.Muted));
         _teamChoice = Ui.TeamChoice(team); _teamChoice.Name = "RoomTeamChoice"; teamRow.AddChild(_teamChoice);
         _listPane = new VBoxContainer(); _listPane.AddThemeConstantOverride("separation", 14); box.AddChild(_listPane);
-        _list = new ItemList { CustomMinimumSize = new(0, 240), SelectMode = ItemList.SelectModeEnum.Single };
+        _list = new ItemList { CustomMinimumSize = new(0, Ui.IsMobile ? 150 : 190), SelectMode = ItemList.SelectModeEnum.Single };
         _listPane.AddChild(_list); _list.ItemActivated += _ => Join();
         _objective = Ui.Label("", 15, Ui.Gold); _objective.AutowrapMode = TextServer.AutowrapMode.WordSmart; _listPane.AddChild(_objective);
         _list.ItemSelected += _ => ShowObjective();
@@ -89,8 +79,8 @@ public partial class RoomLobby : Control
         ActionButton(actions, "Entrar", Join, true); ActionButton(actions, "Crear sala", () => SwitchPane(true));
         ActionButton(actions, "Actualizar", Refresh);
         _createPane = new VBoxContainer { Visible = false }; _createPane.AddThemeConstantOverride("separation", 12); box.AddChild(_createPane);
-        var grid = new GridContainer { Columns = 2 }; grid.AddThemeConstantOverride("h_separation", 18);
-        grid.AddThemeConstantOverride("v_separation", 10); _createPane.AddChild(grid);
+        var grid = new GridContainer { Columns = 6 }; grid.AddThemeConstantOverride("h_separation", 18);
+        grid.AddThemeConstantOverride("v_separation", Ui.IsMobile ? 5 : 7); _createPane.AddChild(grid);
         _roomName = new LineEdit { Text = "Sala de " + (name.Length > 24 ? name[..24] : name), MaxLength = 32, CustomMinimumSize = new(Ui.IsMobile ? 0 : 460, 42) };
         Row(grid, "Nombre", _roomName);
         _mode = new OptionButton { CustomMinimumSize = new(0, 42) };
@@ -125,30 +115,32 @@ public partial class RoomLobby : Control
         ActionButton(creation, "Crear y entrar", Create, true); ActionButton(creation, "Volver a salas", () => SwitchPane(false));
         box.AddChild(Ui.Label("Cada sala tiene su propia partida. Las salas vacías se retiran a los 15 minutos.", 14, Ui.Muted));
         _status = Ui.Label("Cargando salas…", 15, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _status.CustomMinimumSize = new(0, 46); box.AddChild(_status);
+        _status.CustomMinimumSize = new(0, 36); box.AddChild(_status);
         var back = Ui.Button("Volver al launcher", Close);
         box.AddChild(back);
-        if (Ui.IsMobile)
-        {
-            // Acciones permanentemente visibles mientras se recorren listas o el formulario de creación.
-            _mobileListActions = actions;
-            _mobileCreateActions = creation;
-            actions.Reparent(fixedActions!);
-            creation.Reparent(fixedActions);
-            _status.Reparent(fixedActions);
-            back.Reparent(fixedActions);
-            _mobileCreateActions.Visible = false;
-            foreach (var control in new Control[] { _teamChoice, _joinPassword, _roomName, _roomPassword,
-                _mode, _map, _capacity, _bots, _score, _tickets, _friendly })
-                Ui.TouchTarget(control);
-            _list.CustomMinimumSize = new Vector2(0, 240);
-        }
+        // Acciones en el mismo lugar en lista y creación; el botón de volver
+        // está en la misma barra inferior de cada sección.
+        _mobileListActions = actions;
+        _mobileCreateActions = creation;
+        _status.Reparent(fixedActions);
+        back.Reparent(actions);
+        var backCreate = Ui.Button("Volver al launcher", Close);
+        backCreate.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        creation.AddChild(backCreate);
+        actions.Reparent(fixedActions);
+        creation.Reparent(fixedActions);
+        _mobileCreateActions.Visible = false;
+        foreach (var control in new Control[] { _teamChoice, _joinPassword, _roomName, _roomPassword,
+            _mode, _map, _capacity, _bots, _score, _tickets, _friendly })
+            Ui.TouchTarget(control, Ui.IsMobile ? 56 : 46);
+        _list.CustomMinimumSize = new Vector2(0, Ui.IsMobile ? 150 : 190);
+        ArcanaMenuChrome.Attach(this, safeMargin, _main, "Salas PvP", 1, _main.NavigateOptionAMenu);
         Refresh();
     }
     internal Button[] MobileRoomButtons => (_createPane.Visible ? _mobileCreateActions : _mobileListActions)?
         .GetChildren().OfType<Button>().Where(button => button.Visible).ToArray() ?? [];
     internal Button? MobileBackButton => FindChildren("*", "Button", true, false)
-        .OfType<Button>().FirstOrDefault(button => button.Text == "Volver al launcher");
+        .OfType<Button>().FirstOrDefault(button => button.Text == "Volver al launcher" && button.IsVisibleInTree());
 
     private static SpinBox Number(int min, int max, int value) => new() { MinValue = min, MaxValue = max,
         Value = value, Step = 1, CustomMinimumSize = new(0, 40), SizeFlagsHorizontal = SizeFlags.ExpandFill };
