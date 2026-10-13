@@ -199,6 +199,10 @@ public partial class ReleaseUpdateNotice : Node
         _downloadStop = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);
         _primary!.Disabled = true;
         _primary.Text = "Descargando…";
+        _progress!.Indeterminate = false;
+        _progress.Value = 0;
+        _percentLabel!.Text = "0 %";
+        _progressLabel!.Text = _expectedBytes > 0 ? "0 B de " + Size(_expectedBytes) : "0 B descargados";
         _secondary!.Text = "Cancelar descarga";
         _headline!.Text = "Descargando actualización";
         _subtitle!.Text = "Puedes comprobar el progreso en tiempo real.";
@@ -317,15 +321,6 @@ public partial class ReleaseUpdateNotice : Node
         _primary!.Disabled = false;
         _primary.Text = "Reintentar";
         _secondary!.Text = "Ahora no";
-        _primary.Pressed -= StartDownload;
-        _primary.Pressed += RetryDownload;
-    }
-
-    private void RetryDownload()
-    {
-        _primary!.Pressed -= RetryDownload;
-        _primary.Pressed += StartDownload;
-        StartDownload();
     }
 
     private void Close()
