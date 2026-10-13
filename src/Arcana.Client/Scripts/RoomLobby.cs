@@ -166,7 +166,7 @@ public partial class RoomLobby : Control
     {
         if (_roomFormGrid == null) return;
         float width = GetViewport().GetVisibleRect().Size.X - (Ui.IsMobile ? 65 : 115);
-        _roomFormGrid.Columns = ResponsiveLayout.Columns(width, 270, 3, 18) * 2;
+        _roomFormGrid.Columns = ResponsiveLayout.Columns(width, 550, 3, 18) * 2;
     }
     internal Button[] MobileRoomButtons => (_createPane.Visible ? _mobileCreateActions : _mobileListActions)?
         .GetChildren().OfType<Button>().Where(button => button.Visible).ToArray() ?? [];
