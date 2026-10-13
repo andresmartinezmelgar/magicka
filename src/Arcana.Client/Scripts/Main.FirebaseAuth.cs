@@ -45,6 +45,18 @@ public partial class Main
         _google!.Login();
     }
 
+    /// <summary>Reintenta Firestore con la sesión guardada, sin volver a mostrar el selector Google.</summary>
+    public void RetryGoogleSession()
+    {
+        if (!GoogleLoginAvailable)
+        {
+            GoogleStatus("Firebase Android no está disponible.");
+            return;
+        }
+        GoogleStatus("Renovando la sesión y reintentando el acceso a Firestore…", true);
+        _google!.Renew();
+    }
+
     private async void OnGoogleSession(FirebaseAndroidBridge.Session session)
     {
         long generation = Interlocked.Read(ref _sessionGeneration);
