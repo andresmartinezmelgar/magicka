@@ -25,6 +25,16 @@ static class ResponsiveLayoutTests
                     throw new Exception("Las etiquetas han quedado separadas de sus controles.");
             }
         });
+        test("Responsive: la rejilla IA no fuerza doble columna en móvil estrecho", () =>
+        {
+            foreach (float width in new[] { 665f, 745f, 969f })
+            {
+                int outer = ResponsiveLayout.Columns(width, 415, 2, 10);
+                float innerWidth = outer == 2 ? (width - 24) / 2 : width;
+                if (ResponsiveLayout.Columns(innerWidth, 385, 2, 14) != 1)
+                    throw new Exception("Los ajustes IA desbordan el ancho disponible.");
+            }
+        });
         test("Responsive: navegación contempla filas incompletas", () =>
         {
             if (ResponsiveLayout.Rows(7, 7) != 1 || ResponsiveLayout.Rows(7, 4) != 2 ||
