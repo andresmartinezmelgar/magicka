@@ -74,6 +74,35 @@ try
             return Results.Json(new ApiError("Solicitud de sala inválida o demasiado grande."), Protocol.Json, statusCode: 400);
         }
     });
+    // Mutaciones de cuenta: exclusivamente a través del servidor autoritativo.
+    // El cliente presenta un Firebase ID token; nunca se acepta un UID enviado por el cliente.
+    async Task<IResult> AccountMutation(HttpContext context, AccountService accounts,
+        Func<AccountIdentity, CancellationToken, Task<InventoryResult>> operation)
+    {
+        if (!accounts.Enabled)
+            return Results.Json(new ApiError("Firebase no está configurado en este servidor."), Protocol.Json, statusCode: 503);
+        string authorization = context.Request.Headers.Authorization.ToString();
+        if (!authorization.StartsWith("Bearer ", StringComparison.Ordinal))
+            return Results.Unauthorized();
+        var identity = await accounts.AuthenticateGame(authorization[7..], context.RequestAborted);
+        if (identity == null) return Results.Unauthorized();
+        try { return Results.Json(await operation(identity, context.RequestAborted), Protocol.Json); }
+        catch (ArgumentException error) { return Results.Json(new ApiError(error.Message), Protocol.Json, statusCode: 400); }
+        catch (InvalidOperationException error) { return Results.Json(new ApiError(error.Message), Protocol.Json, statusCode: 409); }
+    }
+    app.MapPost("/account/equip", (InventoryRequest request, HttpContext context, AccountService accounts) =>
+        AccountMutation(context, accounts, async (identity, token) =>
+        {
+            await accounts.Repository!.Equip(identity.Uid, request, token);
+            return new InventoryResult(await accounts.Repository.Profile(identity.Uid, identity.Name, token), "Equipamiento guardado.");
+        }));
+    app.MapPost("/account/sell", (InventoryRequest request, HttpContext context, AccountService accounts) =>
+        AccountMutation(context, accounts, async (identity, token) =>
+        {
+            int gold = await accounts.Repository!.Sell(identity.Uid, request.ItemId, token);
+            return new InventoryResult(await accounts.Repository.Profile(identity.Uid, identity.Name, token),
+                gold > 0 ? $"Objeto vendido: +{gold} de oro." : "Esta venta ya estaba registrada.");
+        }));
     app.Map("/play", async (HttpContext context, GameService game) => await game.HandleConnection(context));
     app.MapGet("/", () => $"Arcana Arena v{BuildInfo.Version}. Cliente: /play. Salas: /rooms. Estado: /health.");
     Diagnostics.Info("server.start", "Iniciando servidor.", new Dictionary<string, object?>
