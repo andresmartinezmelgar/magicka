@@ -68,11 +68,11 @@ public partial class EquipmentPanel : Control
         {
             var current = slot;
             var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; row.AddThemeConstantOverride("separation", 4); selectors.AddChild(row);
-            var previous = Action(row, "‹", () => Cycle(current, -1)); previous.CustomMinimumSize = new(54, 54);
+            var previous = Action(row, "‹", () => Cycle(current, -1)); previous.CustomMinimumSize = new(Ui.IsMobile ? 78 : 54, Ui.IsMobile ? 72 : 54);
             previous.TooltipText = "Pieza anterior: " + EquipmentCatalogue.SlotName(slot);
             var inspect = Action(row, "", () => SelectSlot(current)); inspect.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             inspect.TooltipText = "Ver los atributos individuales de " + EquipmentCatalogue.SlotName(slot).ToLowerInvariant();
-            var next = Action(row, "›", () => Cycle(current, 1)); next.CustomMinimumSize = new(54, 54);
+            var next = Action(row, "›", () => Cycle(current, 1)); next.CustomMinimumSize = new(Ui.IsMobile ? 78 : 54, Ui.IsMobile ? 72 : 54);
             next.TooltipText = "Pieza siguiente: " + EquipmentCatalogue.SlotName(slot);
             _slots[(int)slot] = new(previous, inspect, next);
         }
@@ -112,7 +112,7 @@ public partial class EquipmentPanel : Control
 
     private Button Action(Node parent, string text, Action action, bool primary = false)
     {
-        var button = Ui.Button(text, action, primary); button.CustomMinimumSize = new(0, 48);
+        var button = Ui.Button(text, action, primary); button.CustomMinimumSize = new(0, Ui.IsMobile ? 68 : 48);
         parent.AddChild(button);
         button.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 20 : 17);
         foreach (string state in new[] { "normal", "hover", "pressed", "disabled" })
