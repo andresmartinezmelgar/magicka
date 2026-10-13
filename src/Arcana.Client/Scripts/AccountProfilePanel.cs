@@ -46,7 +46,7 @@ public partial class AccountProfilePanel : Control
         var saved = new ConfigFile();
         if (saved.Load("user://account-service.cfg") == Error.Ok)
             _accountUrl.Text = saved.GetValue("account", "url", "").AsString();
-        content.AddChild(Ui.Label("Servidor independiente de cuentas", Ui.IsMobile ? 16 : 14, Ui.Muted));
+        content.AddChild(Ui.Label("Servidor de cuentas (sistema heredado)", Ui.IsMobile ? 16 : 14, Ui.Muted));
         content.AddChild(_accountUrl);
         _login = Ui.Button("Entrar o registrarse con Google", () => _ = Login(), true);
         _login.CustomMinimumSize = new(0, Ui.IsMobile ? 64 : 48);
@@ -107,7 +107,7 @@ public partial class AccountProfilePanel : Control
                 local.Save("user://account-service.cfg");
             }
             if (address.Length == 0)
-                throw new InvalidOperationException("El acceso con Google todavía no está disponible. Falta configurar la dirección del servidor de cuentas. Puedes seguir jugando sin conexión.");
+                throw new InvalidOperationException("Esta compilación todavía utiliza el inicio de sesión heredado. El acceso directo con Firebase Google requiere integrar el SDK nativo Android y configurar el cliente OAuth. No introduzcas una dirección inventada.");
             var config = await _main.Accounts.Configuration(address, _lifetime.Token);
             if (!config.Enabled) throw new InvalidOperationException(config.Message);
             var challenge = await _main.Accounts.BeginLogin(address, _lifetime.Token);
