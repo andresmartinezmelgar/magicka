@@ -178,9 +178,15 @@ public partial class ReleaseUpdateNotice : Node
         _secondary = Ui.Button("Ahora no", Close);
         _secondary.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         actions.AddChild(_secondary);
-        _primary = Ui.Button("Descargar actualización", StartDownload, true);
+        _primary = Ui.Button("Descargar actualización", PrimaryAction, true);
         _primary.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         actions.AddChild(_primary);
+    }
+
+    private void PrimaryAction()
+    {
+        if (_completed) OpenDownloaded();
+        else StartDownload();
     }
 
     private void StartDownload()
