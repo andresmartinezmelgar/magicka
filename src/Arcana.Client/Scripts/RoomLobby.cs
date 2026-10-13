@@ -12,6 +12,10 @@ public partial class RoomLobby : Control
     private WizardType _wizardType;
     private Label _objective = null!, _creationObjective = null!;
     private RoomInfo[] _rooms = [];
+    private int _roomPageStart;
+    private const int VisibleRoomsPerPage = 3;
+    private Label? _roomPageLabel;
+    private Button? _roomPagePrevious, _roomPageNext;
     private ItemList _list = null!;
     private Label _status = null!, _heading = null!;
     private LineEdit _joinPassword = null!, _roomName = null!, _roomPassword = null!;
@@ -70,6 +74,19 @@ public partial class RoomLobby : Control
         _listPane = new VBoxContainer(); _listPane.AddThemeConstantOverride("separation", 14); box.AddChild(_listPane);
         _list = new ItemList { CustomMinimumSize = new(0, Ui.IsMobile ? 150 : 190), SelectMode = ItemList.SelectModeEnum.Single };
         _listPane.AddChild(_list); _list.ItemActivated += _ => Join();
+        var pages = new HBoxContainer();
+        pages.AddThemeConstantOverride("separation", 10);
+        _listPane.AddChild(pages);
+        _roomPagePrevious = Ui.Button("◀  Anteriores", () => ShowRoomPage(_roomPageStart - VisibleRoomsPerPage));
+        _roomPagePrevious.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        pages.AddChild(_roomPagePrevious);
+        _roomPageLabel = Ui.Label("", 15, Ui.Gold);
+        _roomPageLabel.HorizontalAlignment = HorizontalAlignment.Center;
+        _roomPageLabel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        pages.AddChild(_roomPageLabel);
+        _roomPageNext = Ui.Button("Siguientes  ▶", () => ShowRoomPage(_roomPageStart + VisibleRoomsPerPage));
+        _roomPageNext.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        pages.AddChild(_roomPageNext);
         _objective = Ui.Label("", 15, Ui.Gold); _objective.AutowrapMode = TextServer.AutowrapMode.WordSmart; _listPane.AddChild(_objective);
         _list.ItemSelected += _ => ShowObjective();
         _listPane.AddChild(Ui.Label("Contraseña de la sala (si tiene)", 14, Ui.Muted));
@@ -185,19 +202,40 @@ public partial class RoomLobby : Control
             {
                 if (!Active) return;
                 _heading.Text = "SALAS  /  " + directory.Server.Name;
-                string? previous = Selected()?.Id; _rooms = directory.Rooms; _list.Clear();
-                foreach (var room in _rooms)
-                    _list.AddItem($"{room.Name}{(room.PasswordRequired ? " · CON CLAVE" : "")}  ·  {Ui.ModeName(room.Mode)}  ·  {ArenaMap.Get(room.Map).Name}  ·  {room.Players}/{room.MaxPlayers} plazas");
+                string? previous = Selected()?.Id; _rooms = directory.Rooms;
                 int at = Array.FindIndex(_rooms, r => r.Id == previous);
-                if (_rooms.Length > 0) _list.Select(Math.Max(0, at));
+                if (at >= 0) _roomPageStart = at / VisibleRoomsPerPage * VisibleRoomsPerPage;
+                else _roomPageStart = 0;
+                ShowRoomPage(_roomPageStart);
+                if (at >= 0) _list.Select(at - _roomPageStart);
+                ShowObjective();
                 ShowObjective();
                 SetBusy(false); _status.Text = $"{_rooms.Length} sala(s). Selecciona una o crea tu propia partida.";
             });
         }
         catch (Exception e) { Failure(e); }
     }
+    private void ShowRoomPage(int requestedStart)
+    {
+        _roomPageStart = Math.Clamp(requestedStart, 0,
+            Math.Max(0, (_rooms.Length - 1) / VisibleRoomsPerPage * VisibleRoomsPerPage));
+        _list.Clear();
+        foreach (var room in _rooms.Skip(_roomPageStart).Take(VisibleRoomsPerPage))
+            _list.AddItem($"{room.Name}{(room.PasswordRequired ? " · CON CLAVE" : "")}  ·  {Ui.ModeName(room.Mode)}  ·  {ArenaMap.Get(room.Map).Name}  ·  {room.Players}/{room.MaxPlayers} plazas");
+        if (_list.ItemCount > 0) _list.Select(0);
+        if (_roomPagePrevious != null) _roomPagePrevious.Disabled = _roomPageStart == 0;
+        if (_roomPageNext != null) _roomPageNext.Disabled = _roomPageStart + VisibleRoomsPerPage >= _rooms.Length;
+        if (_roomPageLabel != null) _roomPageLabel.Text = _rooms.Length == 0
+            ? "0 salas"
+            : $"{_roomPageStart + 1}–{Math.Min(_rooms.Length, _roomPageStart + VisibleRoomsPerPage)} / {_rooms.Length}";
+        ShowObjective();
+    }
     private RoomInfo? Selected()
-    { var selected = _list.GetSelectedItems(); return selected.Length > 0 && selected[0] < _rooms.Length ? _rooms[selected[0]] : null; }
+    {
+        var selected = _list.GetSelectedItems();
+        int index = selected.Length > 0 ? _roomPageStart + selected[0] : -1;
+        return index >= 0 && index < _rooms.Length ? _rooms[index] : null;
+    }
     private void ShowObjective() => _objective.Text = Selected() is { } room
         ? MatchRules.Objective(room.Mode, room.ScoreLimit, room.Tickets, room.Map) : "Selecciona una sala para ver su objetivo.";
     private void ShowCreationObjective()
