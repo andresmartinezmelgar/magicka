@@ -53,7 +53,7 @@ public partial class ReleaseUpdateNotice : Node
             }
             if (url == null) return;
             string download = url;
-            CallDeferred(MethodName.ShowNotice, version, download);
+            Callable.From(() => ShowNotice(version, download)).CallDeferred();
         }
         catch (OperationCanceledException) { }
         catch (Exception) { /* No interrumpir nunca el modo sin conexión. */ }
