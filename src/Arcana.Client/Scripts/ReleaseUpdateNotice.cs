@@ -15,6 +15,7 @@ public partial class ReleaseUpdateNotice : Node
     private static readonly HttpClient DownloadHttp = new() { Timeout = Timeout.InfiniteTimeSpan };
     private readonly CancellationTokenSource _stop = new();
     private CancellationTokenSource? _downloadStop;
+    private CanvasLayer? _canvas;
     private Control? _overlay;
     private Label? _headline, _subtitle, _sizeLabel, _progressLabel, _percentLabel, _speedLabel, _note;
     private ProgressBar? _progress;
@@ -96,9 +97,11 @@ public partial class ReleaseUpdateNotice : Node
         _version = version;
         _downloadUrl = download;
         _expectedBytes = size;
+        _canvas = new CanvasLayer { Layer = 90 };
+        AddChild(_canvas);
         _overlay = new Control { MouseFilter = Control.MouseFilterEnum.Stop, Theme = Ui.Theme() };
+        _canvas.AddChild(_overlay);
         _overlay.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
-        AddChild(_overlay);
 
         var dim = new ColorRect { Color = new Color(0.015f, 0.03f, 0.055f, 0.94f), MouseFilter = Control.MouseFilterEnum.Stop };
         _overlay.AddChild(dim);
