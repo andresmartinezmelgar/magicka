@@ -11,6 +11,11 @@ public partial class Main
     private double _sessionCheckTimer;
     private DateTimeOffset _lastRenewRequest;
     private string _googleStatus = "";
+    private bool _googleIdentityKnown;
+    private string _googleIdentityName = "";
+    /// <summary>Autenticación SDK completada aunque Firestore haya denegado los permisos.</summary>
+    public bool GoogleIdentityKnown => _googleIdentityKnown;
+    public string GoogleIdentityName => _googleIdentityName;
     public bool GoogleLoginAvailable => _google?.Available == true;
     public string GoogleLoginStatus => _googleStatus;
 
@@ -21,6 +26,8 @@ public partial class Main
         _google.Error += error => Post(() => GoogleStatus("Error de Google: " + error));
         _google.SignedOut += () => Post(() =>
         {
+            _googleIdentityKnown = false;
+            _googleIdentityName = "";
             if (!Accounts.SignedIn) GoogleStatus("Sin sesión de Google. Puedes practicar sin conexión.");
         });
         if (_google.Available)
@@ -60,6 +67,13 @@ public partial class Main
     private async void OnGoogleSession(FirebaseAndroidBridge.Session session)
     {
         long generation = Interlocked.Read(ref _sessionGeneration);
+        Post(() =>
+        {
+            if (generation != Interlocked.Read(ref _sessionGeneration)) return;
+            _googleIdentityKnown = true;
+            _googleIdentityName = session.Name;
+            GoogleStatus("Google autenticado. Comprobando el acceso al perfil…", true);
+        });
         try
         {
             await Accounts.SetFirebaseSession(FirebaseProjectId, session.Uid, session.Name,
@@ -86,6 +100,8 @@ public partial class Main
     public async Task StopGoogleSession()
     {
         Interlocked.Increment(ref _sessionGeneration);
+        _googleIdentityKnown = false;
+        _googleIdentityName = "";
         _google?.Logout();
         await Accounts.SignOut(_lifetime.Token);
         SaveAccountCache();
