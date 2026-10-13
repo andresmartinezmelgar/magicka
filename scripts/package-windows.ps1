@@ -13,8 +13,8 @@ $locationPushed = $false
 $previousSharedCompilation = $env:UseSharedCompilation
 $presetPath = Join-Path $repo 'src/Arcana.Client/export_presets.cfg'
 $presetBackup = $null
-# El wrapper de consola Godot 4.5 espera también a sus procesos hijos.
-# El servidor Roslyn persistente puede impedir que termine una exportación ya completada.
+# El wrapper de consola Godot 4.5 espera tambien a sus procesos hijos.
+# El servidor Roslyn persistente puede impedir que termine una exportacion ya completada.
 try {
     Push-Location $repo; $locationPushed = $true
     $buildVersion = Get-ArcanaBuildVersion -RepositoryRoot $repo
@@ -41,8 +41,8 @@ try {
     Copy-Item docs/GODOT-COPYRIGHT.txt "$package/GODOT-COPYRIGHT.txt"
     Copy-Item docs/DOTNET-NOTICES.txt "$package/DOTNET-NOTICES.txt"
     Copy-Item VERSION "$package/VERSION.txt"
-    # Configuración OAuth de una aplicación instalada (no Firebase Admin).
-    # Se incluye automáticamente si se ha provisionado en GitHub Actions.
+    # Configuracion OAuth de una aplicacion instalada (no Firebase Admin).
+    # Se incluye automaticamente si se ha provisionado en GitHub Actions.
     $desktopOauth = $env:ARCANA_GOOGLE_DESKTOP_OAUTH_BASE64
     if (![string]::IsNullOrWhiteSpace($desktopOauth)) {
         $bytes = [Convert]::FromBase64String($desktopOauth)
