@@ -91,6 +91,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
       - name: Preparar Android SDK
         run: |
           sdk="$RUNNER_TEMP/android-sdk"
@@ -119,6 +122,12 @@ jobs:
                   (target/name).write_bytes(z.read('templates/'+name))
           PY
           echo "ARCANA_GODOT=/tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64" >> "$GITHUB_ENV"
+      - name: Compilar plugin nativo Firebase para Android
+        run: |
+          gradle -p android/firebase-plugin :plugin:assembleRelease --no-daemon
+          mkdir -p src/Arcana.Client/addons/arcana_firebase
+          cp android/firebase-plugin/plugin/build/outputs/aar/plugin-release.aar src/Arcana.Client/addons/arcana_firebase/ArcanaFirebase.aar
+          test -s src/Arcana.Client/addons/arcana_firebase/ArcanaFirebase.aar
       - name: Compilar cliente e importar recursos
         run: |
           dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
