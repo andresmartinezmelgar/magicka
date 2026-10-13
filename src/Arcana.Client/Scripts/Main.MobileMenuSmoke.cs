@@ -54,8 +54,28 @@ public partial class Main
             if (frame == 85) _smokeLobby!.OpenCreation();
             if (frame == 95)
                 AssertMobileActions("CREAR_SALA", _smokeLobby!.MobileRoomButtons.Append(_smokeLobby.MobileBackButton!), 3);
-            if (frame < 100) return false;
-            GD.Print("MOBILE_MENU_LAYOUT_OK: PvP, versus IA, lista y creación de salas: acciones visibles.");
+            if (frame == 105)
+            {
+                _smokeLobby!.QueueFree();
+                _googleIdentityKnown = true; // Simula Google autenticado sin tocar cuentas reales.
+                _googleIdentityName = "Mago de pruebas";
+                OpenAccountProfile();
+                _accountProfilePanel!.UpdateGoogleStatus(
+                    "Error al leer Firestore: Firestore (403 PERMISSION_DENIED) ha denegado la lectura de users/{tu cuenta}.");
+            }
+            if (frame == 115)
+            {
+                AssertMobileActions("PERFIL_403", _accountProfilePanel!.VisibleFooterButtons, 3);
+                string[] labels = _accountProfilePanel.FindChildren("*", "Label", true, false)
+                    .OfType<Label>().Select(label => label.Text).ToArray();
+                if (!labels.Any(t => t.Contains("Google conectado", StringComparison.Ordinal)) ||
+                    !labels.Any(t => t.Contains("403", StringComparison.Ordinal)))
+                    throw new InvalidOperationException(
+                        "El perfil oculta que Google está autenticado cuando Firestore rechaza sus permisos.");
+            }
+            if (frame < 125) return false;
+            _googleIdentityKnown = false;
+            GD.Print("MOBILE_MENU_LAYOUT_OK: PvP, versus IA, salas y perfil 403 visibles sin recortes.");
             _mobileMenuSmoke = false;
             GetTree().Quit(0);
             return true;
