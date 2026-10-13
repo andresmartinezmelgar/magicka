@@ -51,6 +51,23 @@ public partial class Main
         _equipmentPanel = new EquipmentPanel(); _ui.AddChild(_equipmentPanel);
         _equipmentPanel.Build(this, address);
     }
+    /// <summary>Navegación uniforme de menús; nunca modifica la interfaz en partida.</summary>
+    public void NavigateOptionAMenu(int page)
+    {
+        if (_playing) return;
+        if (GodotObject.IsInstanceValid(_accountProfilePanel))
+        {
+            _accountProfilePanel!.QueueFree();
+            _accountProfilePanel = null;
+        }
+        if (GodotObject.IsInstanceValid(_equipmentPanel))
+        {
+            _equipmentPanel!.QueueFree();
+            _equipmentPanel = null;
+        }
+        _launcher.CloseRooms();
+        _launcher.NavigateOptionA(page);
+    }
     private void ApplyPracticeEquipment()
     {
         if (_practice != null && Accounts.Profile != null) _practice.EquipPlayer(_localId, PublicEquipment.Prepare(Accounts.Profile));
