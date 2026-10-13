@@ -143,6 +143,11 @@ public partial class RoomLobby : Control
         }
         Refresh();
     }
+    internal Button[] MobileRoomButtons => (_createPane.Visible ? _mobileCreateActions : _mobileListActions)?
+        .GetChildren().OfType<Button>().Where(button => button.Visible).ToArray() ?? [];
+    internal Button? MobileBackButton => FindChildren("*", "Button", true, false)
+        .OfType<Button>().FirstOrDefault(button => button.Text == "Volver al launcher");
+
     private static SpinBox Number(int min, int max, int value) => new() { MinValue = min, MaxValue = max,
         Value = value, Step = 1, CustomMinimumSize = new(0, 40), SizeFlagsHorizontal = SizeFlags.ExpandFill };
     private static void Row(GridContainer grid, string title, Control control)
