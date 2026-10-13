@@ -266,7 +266,9 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             if (!PasswordMatches(hello.Password, settings.Password))
             { await RejectLogged("Contraseña del servidor incorrecta.", handshake.Token); return; }
             AccountIdentity? identity = null; PreparedEquipment equipment = new(EquipmentModifiers.None, PublicEquipment.Empty);
-            if (hello.AccountToken.Length == 0)
+            bool testGuest = Environment.GetEnvironmentVariable("ARCANA_CI_LOOPBACK_GUESTS") == "1" &&
+                System.Net.IPAddress.IsLoopback(context.Connection.RemoteIpAddress ?? System.Net.IPAddress.None);
+            if (hello.AccountToken.Length == 0 && !testGuest)
             { await RejectLogged("Debes iniciar sesión con Google para jugar online.", handshake.Token); return; }
             if (hello.AccountToken.Length > 0)
             {
