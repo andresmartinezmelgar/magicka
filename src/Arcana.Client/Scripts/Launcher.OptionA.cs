@@ -51,7 +51,6 @@ public partial class Launcher
         _optionAHeading = Ui.Label("ELIGE TU AVENTURA", Ui.IsMobile ? 21 : 26, Ui.Gold);
         titles.AddChild(_optionAHeading);
         titles.AddChild(Ui.Label("Hechizos, estrategia y duelos elementales", Ui.IsMobile ? 14 : 16, Ui.Muted));
-        heroRow.AddChild(Ui.Label("✦  O P C I Ó N   A", Ui.IsMobile ? 14 : 15, Ui.Blue));
 
         // Accesos anchos en una única fila con tamaños y lugares coherentes.
         _homeMenu.AddThemeConstantOverride("separation", 12);

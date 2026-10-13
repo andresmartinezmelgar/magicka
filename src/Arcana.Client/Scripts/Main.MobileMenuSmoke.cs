@@ -55,6 +55,15 @@ public partial class Main
         int frame = ++_mobileMenuSmokeFrame;
         try
         {
+            if (frame == 15)
+            {
+                // La etiqueta interna «Opción A» no debe mostrarse al jugador.
+                var visibleLabels = _launcher.FindChildren("*", "Label", true, false).OfType<Label>()
+                    .Where(label => label.IsVisibleInTree()).Select(label => label.Text);
+                if (visibleLabels.Any(text => text.Contains("O P C I Ó N", StringComparison.OrdinalIgnoreCase)
+                    || text.Contains("OPCIÓN A", StringComparison.OrdinalIgnoreCase)))
+                    throw new InvalidOperationException("INICIO: se muestra una etiqueta interna de diseño.");
+            }
             if (frame == 25) _launcher.OpenMobileSmokePage(1);
             if (frame == 35)
             {
