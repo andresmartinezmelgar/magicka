@@ -18,7 +18,7 @@ public sealed class AccountClient : IDisposable
     public DateTimeOffset ExpiresAt { get; private set; }
     public AccountProfile? Profile { get; private set; }
     public bool SignedIn => Token.Length > 0 && ExpiresAt > DateTimeOffset.UtcNow;
-    public string TokenFor(string address) => SignedIn && RoomBrowser.Endpoint(address, "account/profile") == RoomBrowser.Endpoint(ServerAddress, "account/profile") ? Token : "";
+    public string TokenFor(string address) => SignedIn ? Token : "";
     public void RestoreOfflineProfile(AccountProfile profile)
     {
         _ = EquipmentModifiers.Calculate(profile);
