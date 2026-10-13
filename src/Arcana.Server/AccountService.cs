@@ -111,13 +111,12 @@ public sealed class AccountService
     }
     public async Task<AccountIdentity?> AuthenticateGame(string accessToken, CancellationToken token)
     {
-        if (Enabled && Environment.GetEnvironmentVariable("ARCANA_FIREBASE_DIRECT") == "1")
+        if (Enabled)
         {
             try { return await _verifier!.Verify(accessToken, token); }
             catch (FirebaseAuthException) { return null; }
             catch (UnauthorizedAccessException) { return null; }
         }
-        if (Enabled) return Authenticate(accessToken);
         if (!GameEnabled) return null;
         try { return await GameRequest<AccountIdentity>("session", null, accessToken, token); }
         catch (UnauthorizedAccessException) { return null; }
