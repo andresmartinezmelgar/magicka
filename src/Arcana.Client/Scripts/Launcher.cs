@@ -210,10 +210,10 @@ public partial class Launcher : Control
                 : $"{_name.Text} · {profile.Wins} victorias · {profile.Losses} derrotas · {profile.Gold} oro";
         }
         _playBody.Visible = page != 0;
-        _name.GetParent().Visible = page == 3;
-        _name.GetParent().GetParent().Visible = page is 1 or 3;
-        _team.GetParent().Visible = page == 1;
-        _wizardType.GetParent().Visible = page == 3;
+        ((Control)_name.GetParent()).Visible = page == 3;
+        ((Control)_name.GetParent().GetParent()).Visible = page is 1 or 3;
+        ((Control)_team.GetParent()).Visible = page == 1;
+        ((Control)_wizardType.GetParent()).Visible = page == 3;
         _wizardDescription.Visible = page == 3;
         _status.Visible = page is 1 or 2;
 
