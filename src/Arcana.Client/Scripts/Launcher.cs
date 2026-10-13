@@ -97,10 +97,14 @@ public partial class Launcher : Control
         _wizardType.ItemSelected += _ => typeInfo.Text = WizardTypes.Description((WizardType)_wizardType.GetSelectedId());
         _tabs = new TabContainer(); _playBody.AddChild(_tabs);
         var ip = TabBox("Por IP");
+        // La pestaña IP no debe ensanchar el formulario cuando cambia la selección.
+        ip.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         ip.AddChild(Ui.Label("IP o nombre del servidor", 14, Ui.Muted));
         _address = new LineEdit { Text = DefaultServerAddress(),
             PlaceholderText = "192.168.1.20:27015", CustomMinimumSize = new(0, 45) }; ip.AddChild(_address);
-        ip.AddChild(Ui.Label("Introduce la IP local del ordenador que aloja la partida. Ejemplo: 192.168.1.20:27015. Para servidores públicos se admite wss://.", 14, Ui.Muted));
+        var ipHelp = Ui.Label("IP local del ordenador anfitrión (ej.: 192.168.1.20:27015). También admite wss://.", 14, Ui.Muted);
+        ipHelp.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        ip.AddChild(ipHelp);
         var lan = TabBox("LAN");
         var lanActions = new HBoxContainer(); lanActions.AddThemeConstantOverride("separation", 10); lan.AddChild(lanActions);
         _refresh = Ui.Button("Buscar servidores", StartSearch); _refresh.SizeFlagsHorizontal = SizeFlags.ExpandFill; lanActions.AddChild(_refresh);
@@ -244,7 +248,7 @@ public partial class Launcher : Control
 
     private VBoxContainer TabBox(string name)
     {
-        var box = new VBoxContainer { Name = name, CustomMinimumSize = new(0, 226) };
+        var box = new VBoxContainer { Name = name, CustomMinimumSize = new(0, 226), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         box.AddThemeConstantOverride("separation", 7); _tabs.AddChild(box); return box;
     }
     public void SetBusy(bool busy, string message = "")
