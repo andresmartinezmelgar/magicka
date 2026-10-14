@@ -68,6 +68,21 @@ public partial class RoomLobby : Control
         addressInfo.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
         box.AddChild(addressInfo);
         _serverAddressLabel = addressInfo;
+        // Al alojar en PC, se muestra el enlace WSS renovado que los móviles
+        // deben usar para enviar la sesión Google y cobrar recompensas.
+        if (!Ui.IsMobile && address.StartsWith("127.0.0.1:", StringComparison.Ordinal))
+        {
+            string? publicAddress = LocalFirebaseHosting.PublicGameAddress(ProjectSettings.GlobalizePath("user://"));
+            if (publicAddress?.StartsWith("wss://", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                var publicLabel = Ui.Label("ENLACE SEGURO PARA MÓVIL Y RECOMPENSAS:\n" + publicAddress, 13, Ui.Gold);
+                publicLabel.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
+                box.AddChild(publicLabel);
+                var copyPublic = Ui.Button("Copiar enlace WSS para el móvil",
+                    () => DisplayServer.ClipboardSet(publicAddress));
+                box.AddChild(copyPublic);
+            }
+        }
         // El inventario siempre queda disponible en la barra inferior fija de la opción A.
         var teamRow = new HBoxContainer(); teamRow.AddThemeConstantOverride("separation", 12); box.AddChild(teamRow);
         var headerRow = new HBoxContainer();
