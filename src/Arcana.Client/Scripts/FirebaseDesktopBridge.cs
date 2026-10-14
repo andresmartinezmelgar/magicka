@@ -382,7 +382,13 @@ public sealed class FirebaseDesktopBridge : IDisposable
     }
     public void Dispose()
     {
-        SignOut();
+        // Cerrar Arcana Arena NO equivale a cerrar sesión: conservar el token
+        // cifrado en DPAPI para restaurarlo en el siguiente arranque.
+        Interlocked.Increment(ref _generation);
+        _loginCancellation?.Cancel();
+        _refreshToken = "";
+        _uid = "";
+        _name = "";
         _lifetime.Cancel();
         _lifetime.Dispose();
         _http.Dispose();
