@@ -11,7 +11,7 @@ public partial class RoomWaitingPanel : Control
     private VBoxContainer _blue = null!, _red = null!;
     private Label _headline = null!, _status = null!, _prizes = null!;
     private Button _ready = null!, _start = null!;
-    private int _lastPlayer = -1;
+    private string _lastRoster = "";
     private Action<ClientMessage>? _submit;
 
     public void Build(Action<ClientMessage> submit)
@@ -96,9 +96,13 @@ public partial class RoomWaitingPanel : Control
         Visible = snapshot.WaitingForPlayers;
         if (!Visible) return;
         var ready = snapshot.LobbyReadyPlayerIds ?? [];
-        _lastPlayer = localId;
-        RenderTeam(_blue, "AZUL", Ui.Blue, snapshot.Players.Where(p => p.Team == 0), ready);
-        RenderTeam(_red, "ROJO", Ui.Red, snapshot.Players.Where(p => p.Team == 1), ready);
+        string roster = string.Join("|", snapshot.Players.Select(p => $"{p.Id}:{p.Team}:{p.Name}:{p.Bot}:{ready.Contains(p.Id)}"));
+        if (roster != _lastRoster)
+        {
+            _lastRoster = roster;
+            RenderTeam(_blue, "AZUL", Ui.Blue, snapshot.Players.Where(p => p.Team == 0), ready);
+            RenderTeam(_red, "ROJO", Ui.Red, snapshot.Players.Where(p => p.Team == 1), ready);
+        }
         bool ownReady = ready.Contains(localId);
         bool host = snapshot.LobbyHostId == localId;
         bool enough = snapshot.Players.Length >= 2 && snapshot.Players.All(p => p.Bot || ready.Contains(p.Id));
