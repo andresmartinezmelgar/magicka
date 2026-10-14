@@ -58,6 +58,7 @@ public partial class RoomLobby : Control
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
             VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
         layout.AddChild(scroll);
+        Ui.VisibleVerticalScroll(scroll);
         var fixedActions = new VBoxContainer { Name = "OptionALobbyActions" };
         fixedActions.AddThemeConstantOverride("separation", 6);
         layout.AddChild(fixedActions);
