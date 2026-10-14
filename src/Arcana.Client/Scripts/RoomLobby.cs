@@ -22,7 +22,9 @@ public partial class RoomLobby : Control
     private Label _status = null!, _heading = null!;
     private Label? _serverAddressLabel;
     private LineEdit _joinPassword = null!, _serverPasswordEntry = null!, _roomName = null!, _roomPassword = null!;
-    private OptionButton _mode = null!, _map = null!;
+    private OptionButton _mode = null!, _map = null!, _bestOf = null!;
+    private Label _rewardHint = null!;
+    private bool _rewardsConfigured;
     private SpinBox _capacity = null!, _bots = null!, _score = null!, _tickets = null!;
     private CheckBox _friendly = null!;
     private VBoxContainer _listPane = null!, _createPane = null!;
@@ -129,9 +131,17 @@ public partial class RoomLobby : Control
         Row(grid, "Mapa", _map);
         _capacity = Number(2, 16, 8); Row(grid, "Plazas (incluidos los bots)", _capacity);
         _bots = Number(0, 7, 0); Row(grid, "IA (desactiva premios)", _bots);
-        var rewardHint = Ui.Label("Recompensas PvP: solo equipos humanos equilibrados (1v1 hasta 4v4).", 14, Ui.Gold);
-        rewardHint.AutowrapMode = TextServer.AutowrapMode.WordSmart; _createPane.AddChild(rewardHint);
-        _bots.ValueChanged += count => rewardHint.Text = count > 0 ? "SIN RECOMPENSAS: hay IA en la partida." : "Recompensas PvP disponibles únicamente con equipos humanos equilibrados.";
+        _bestOf = new OptionButton { CustomMinimumSize = new(0, 42) };
+        _bestOf.AddItem("Partida única (sin sala de espera)", 1);
+        _bestOf.AddItem("Mejor de 5 · gana 3", 5);
+        _bestOf.AddItem("Mejor de 7 · gana 4", 7);
+        _bestOf.AddItem("Mejor de 9 · gana 5", 9);
+        _bestOf.Select(1);
+        Row(grid, "Formato de serie", _bestOf);
+        _rewardHint = Ui.Label("", 14, Ui.Gold);
+        _rewardHint.AutowrapMode = TextServer.AutowrapMode.WordSmart; _createPane.AddChild(_rewardHint);
+        _bots.ValueChanged += _ => UpdateRewardsHint();
+        _bestOf.ItemSelected += _ => UpdateRewardsHint();
         _friendly = new CheckBox { Text = "Permitir daño entre aliados", ButtonPressed = true }; Row(grid, "Fuego amigo", _friendly);
         _score = Number(1, 200, 15); Row(grid, "Puntos para ganar (arena / duelo)", _score);
         _tickets = Number(5, 1000, 75); Row(grid, "Tickets por equipo (guerra)", _tickets);
@@ -141,6 +151,8 @@ public partial class RoomLobby : Control
         _mode.ItemSelected += _ =>
         {
             bool duel = (GameMode)_mode.GetSelectedId() == GameMode.Duel;
+            _bestOf.Disabled = (GameMode)_mode.GetSelectedId() == GameMode.Arena;
+            UpdateRewardsHint();
             _capacity.Editable = !duel; if (duel) _capacity.Value = 2;
             _bots.MaxValue = _capacity.Value - 1;
             ShowCreationObjective();
@@ -148,6 +160,7 @@ public partial class RoomLobby : Control
         _score.ValueChanged += _ => ShowCreationObjective(); _tickets.ValueChanged += _ => ShowCreationObjective();
         _map.ItemSelected += _ => ShowCreationObjective();
         ShowCreationObjective();
+        UpdateRewardsHint();
         _capacity.ValueChanged += value => _bots.MaxValue = value - 1;
         var creation = new GridContainer { Columns = 3 }; creation.AddThemeConstantOverride("h_separation", 12);
         creation.AddThemeConstantOverride("v_separation", 6); _createPane.AddChild(creation);
@@ -170,7 +183,7 @@ public partial class RoomLobby : Control
         creation.Reparent(fixedActions);
         _mobileCreateActions.Visible = false;
         foreach (var control in new Control[] { _teamChoice, _serverPasswordEntry, _joinPassword, _roomName, _roomPassword,
-            _mode, _map, _capacity, _bots, _score, _tickets, _friendly })
+            _mode, _map, _bestOf, _capacity, _bots, _score, _tickets, _friendly })
             Ui.TouchTarget(control, Ui.IsMobile ? 48 : 46);
         _list.CustomMinimumSize = new Vector2(0, Ui.IsMobile ? 100 : 160);
         ArcanaMenuChrome.Attach(this, safeMargin, _main, "Salas PvP", 1, _main.NavigateOptionAMenu);
@@ -221,6 +234,7 @@ public partial class RoomLobby : Control
         _roomName.Editable = _roomPassword.Editable = _joinPassword.Editable =
             _serverPasswordEntry.Editable = !busy;
         _mode.Disabled = _map.Disabled = _friendly.Disabled = _teamChoice.Disabled = busy;
+        _bestOf.Disabled = busy || (GameMode)_mode.GetSelectedId() == GameMode.Arena;
         _bots.Editable = _score.Editable = _tickets.Editable = !busy;
         _capacity.Editable = !busy && (GameMode)_mode.GetSelectedId() != GameMode.Duel;
         ShowCreationObjective();
@@ -251,6 +265,8 @@ public partial class RoomLobby : Control
                 _heading.Text = "SALAS  /  " + directory.Server.Name;
                 string? previous = Selected()?.Id; _rooms = directory.Rooms;
                 _serverPasswordRequired = directory.Server.PasswordRequired;
+                _rewardsConfigured = directory.Server.RewardsAvailable;
+                UpdateRewardsHint();
                 int at = Array.FindIndex(_rooms, r => r.Id == previous);
                 if (at >= 0) _roomPageStart = at / VisibleRoomsPerPage * VisibleRoomsPerPage;
                 else _roomPageStart = 0;
@@ -296,6 +312,18 @@ public partial class RoomLobby : Control
             : MatchRules.Objective(room.Mode, room.ScoreLimit, room.Tickets, room.Map) +
                 (room.PasswordRequired ? "\nEsta sala tiene una clave propia; no es la del servidor." : "\nSala sin contraseña propia.");
     }
+    private void UpdateRewardsHint()
+    {
+        if (_rewardHint == null) return;
+        _rewardHint.Text = !_rewardsConfigured
+            ? "SIN RECOMPENSAS: el servidor no tiene Firebase habilitado. Configura el servidor con cuentas para probar premios."
+            : _bots.Value > 0
+                ? "SIN RECOMPENSAS: las partidas con IA no conceden premios."
+                : (GameMode)_mode.GetSelectedId() == GameMode.Arena
+                    ? "Sin premios por equipos: selecciona Guerra o Duelo para recompensas PvP."
+                    : "Recompensas al ganar la serie: todos con Google, equipos humanos equilibrados (1v1–4v4), actividad mínima de 15 s.";
+    }
+
     private void ShowCreationObjective()
     {
         var mode = (GameMode)_mode.GetSelectedId(); var map = (ArenaMapId)_map.GetSelectedId();
@@ -335,7 +363,9 @@ public partial class RoomLobby : Control
         int team = Ui.SelectedTeam(_teamChoice);
         var request = new CreateRoomRequest { Name = _roomName.Text, Mode = (GameMode)_mode.GetSelectedId(), Map = (ArenaMapId)_map.GetSelectedId(),
             MaxPlayers = (int)_capacity.Value, Bots = (int)_bots.Value, FriendlyFire = _friendly.ButtonPressed,
-            ScoreLimit = (int)_score.Value, Tickets = (int)_tickets.Value, Password = _roomPassword.Text, ServerPassword = _serverPassword };
+            ScoreLimit = (int)_score.Value, Tickets = (int)_tickets.Value,
+            BestOf = (GameMode)_mode.GetSelectedId() == GameMode.Arena ? 1 : _bestOf.GetSelectedId(),
+            Password = _roomPassword.Text, ServerPassword = _serverPassword };
         Loading("Creando sala…");
         try
         {
