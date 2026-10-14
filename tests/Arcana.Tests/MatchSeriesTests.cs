@@ -27,6 +27,25 @@ static class MatchSeriesTests
                     throw new Exception("Se alteró el resultado después de haber terminado la serie.");
             });
         }
+
+        test("Duelo LAN: dos preferencias azules ocupan equipos opuestos", () =>
+        {
+            var world = new GameWorld(new WorldOptions { Mode = GameMode.Duel, MaxPlayers = 2, Bots = 0 });
+            var host = world.AddPlayer("Anfitrion", 0) ?? throw new Exception("No pudo entrar el anfitrión.");
+            var guest = world.AddPlayer("Invitado", 0) ?? throw new Exception("Se rechazó el segundo jugador.");
+            if (host.Team != 0 || guest.Team != 1)
+                throw new Exception("El segundo jugador quedó en el equipo incorrecto.");
+        });
+        test("Premios: nunca se entrega resultado incompleto ni con actividad insuficiente", () =>
+        {
+            RewardMatch Match(float a, float b) => new(Guid.NewGuid().ToString("N"), "servidor", GameMode.Duel,
+                ArenaMapId.Classic, DateTimeOffset.UtcNow,
+                [new("u-1", 1, 0, a, true), new("u-2", 2, 1, b, false)]);
+            if (RewardRules.Eligible(Match(14.9f, 20)).Length != 0)
+                throw new Exception("Un duelo con participante inactivo recibió premio.");
+            if (RewardRules.Eligible(Match(15, 15)).Length != 2)
+                throw new Exception("No se reconoció una serie válida de dos participantes.");
+        });
         test("PvP: formatos de series inválidos son rechazados", () =>
         {
             foreach (var invalid in new[] { 0, 2, 4, 6, 8, 11 })
