@@ -298,9 +298,9 @@ public partial class Main
                         card.GetGlobalRect().End.X > GetViewport().GetVisibleRect().End.X)
                         throw new InvalidOperationException("INICIO: tarjeta demasiado estrecha o desbordada: " + card.Text);
                 if (_launcher.FindChild("OptionAAccountSummary", true, false) is not Label accountHeader ||
-                    !accountHeader.IsVisibleInTree() || !accountHeader.Text.Contains("V:") ||
-                    !accountHeader.Text.Contains("D:"))
-                    throw new InvalidOperationException("INICIO: faltan nombre, Google o resultados en la esquina superior derecha.");
+                    !accountHeader.IsVisibleInTree() || accountHeader.Text.Length < 3 ||
+                    accountHeader.Text.Contains("V:") || accountHeader.Text.Contains("D:"))
+                    throw new InvalidOperationException("INICIO: falta el estado de Google o se duplican los resultados del perfil.");
                 if (_launcher.FindChildren("*", "Label", true, false).OfType<Label>()
                     .Any(label => label.IsVisibleInTree() && label.Text.Contains("victorias ·") &&
                         label.Name != "OptionAAccountSummary"))
@@ -406,8 +406,16 @@ public partial class Main
             if (frame == 141) AssertOptionAScreen("AYUDA_ELEMENTOS", _optionAHelp!);
             if (frame == 142) _optionAHelp!.SelectForSmoke(4);
             if (frame == 144) AssertOptionAScreen("AYUDA_RELIQUIAS", _optionAHelp!);
+            if (frame == 144) _optionAHelp!.SelectForSmoke(6);
             if (frame == 145)
             {
+                AssertOptionAScreen("AYUDA_BONIFICACIONES", _optionAHelp!);
+                var bonusLabels = _optionAHelp.FindChildren("*", "Label", true, false).OfType<Label>()
+                    .Select(l => l.Text).ToArray();
+                if (!bonusLabels.Any(t => t.Contains("DEFENSA NO ES CAPACIDAD")) ||
+                    !bonusLabels.Any(t => t.Contains("100 de daño")) ||
+                    !bonusLabels.Any(t => t.Contains("Absorción del escudo")))
+                    throw new InvalidOperationException("Ayuda no documenta defensa y capacidad del escudo.");
                 CloseOptionAHelp();
                 OpenEquipment("automatic");
             }
