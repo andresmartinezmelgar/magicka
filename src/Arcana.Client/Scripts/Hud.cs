@@ -37,6 +37,7 @@ public partial class Hud : Control
     private readonly float[] _magickCosts = new float[4];
     private readonly bool?[] _magickReady = new bool?[4];
     public bool ScoreOpen { get; set; }
+    internal Rect2 ScoreboardRectForSmoke => _scorePanel.GetGlobalRect();
     public event Action? EquipmentRequested;
     public bool PointerOverPanel => _scorePanel.Visible && _scorePanel.GetGlobalRect().HasPoint(GetGlobalMousePosition());
     public void RewardNotice(string message) { _reward.Text = message; _rewardSeconds = 12; _reward.Visible = true; }

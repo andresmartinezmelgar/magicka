@@ -9,6 +9,7 @@ public partial class Main
     private bool _mobileMenuSmoke;
     private int _mobileMenuSmokeFrame;
     private RoomLobby? _smokeLobby;
+    private Hud? _smokeScoreHud;
 
     private void AssertMobileActions(string stage, IEnumerable<Button> buttons, int minimumCount)
     {
@@ -64,8 +65,25 @@ public partial class Main
         int frame = ++_mobileMenuSmokeFrame;
         try
         {
+            if (frame == 9)
+            {
+                _smokeScoreHud = new Hud();
+                _ui.AddChild(_smokeScoreHud);
+                _smokeScoreHud.Build();
+                var simulated = new GameWorld(new WorldOptions { Mode = GameMode.Warfare, Bots = 0 });
+                var player = simulated.AddPlayer("Mago de prueba", 0)!;
+                _smokeScoreHud.ScoreOpen = true;
+                _smokeScoreHud.Update(simulated.Snapshot(), player.Id, "Servidor de prueba", 0.016);
+            }
             if (frame == 15)
             {
+                var tableRect = _smokeScoreHud!.ScoreboardRectForSmoke;
+                if (!GetViewport().GetVisibleRect().Encloses(tableRect))
+                    throw new InvalidOperationException("Clasificación fuera de la pantalla: " + tableRect +
+                        " pantalla=" + GetViewport().GetVisibleRect());
+                GD.Print("MOBILE_SCOREBOARD_LAYOUT_OK");
+                _smokeScoreHud.QueueFree();
+                _smokeScoreHud = null;
                 // La etiqueta interna «Opción A» no debe mostrarse al jugador.
                 var visibleLabels = _launcher.FindChildren("*", "Label", true, false).OfType<Label>()
                     .Where(label => label.IsVisibleInTree()).Select(label => label.Text);
