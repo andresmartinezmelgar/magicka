@@ -156,6 +156,20 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                                 for (int n = 0; n < 32 && session.Commands.Reader.TryRead(out var message); n++)
                                 {
                                     if (message.Type == "ready" && message.Sequence > 0) { session.Ready = true; continue; }
+                                    if (room.Id != "default" && !room.Started && session.Ready)
+                                    {
+                                        if (message.Type == "lobby-team" && message.Team is 0 or 1)
+                                        {
+                                            if (room.World.SetPlayerTeam(session.Id, message.Team))
+                                            { session.LobbyReady = false; room.StartRequested = false; }
+                                            continue;
+                                        }
+                                        if (message.Type == "lobby-ready")
+                                        { session.LobbyReady = !session.LobbyReady; room.StartRequested = false; continue; }
+                                        if (message.Type == "lobby-start" && session.Id == room.HostPlayerId)
+                                        { room.StartRequested = true; continue; }
+                                    }
+                                    if (!room.Started && room.Id != "default") { _ignoredCommands++; continue; }
                                     if (!session.Ready || !room.World.ApplyMessage(session.Id, message)) _ignoredCommands++;
                                     else if (message.Type != "input" || message.MoveTo || Math.Abs(message.MoveX) + Math.Abs(message.MoveY) > 0.05f)
                                         session.LastActivityTick = room.World.Tick;
@@ -164,6 +178,16 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                             }
                             if (readyPlayers == 0 || !room.Started && readyPlayers != room.Sessions.Count)
                             { if (CurrentTick % 3 == 0) dirty.Add(room); continue; }
+                            if (room.Id != "default" && !room.Started)
+                            {
+                                bool enoughPlayers = room.World.Players.Count >= 2;
+                                bool everyoneReady = room.Sessions.Values.All(s => s.LobbyReady);
+                                bool teamsReady = room.Options.Mode == GameMode.Arena ||
+                                    room.World.Players.Values.Any(p => p.Team == 0) &&
+                                    room.World.Players.Values.Any(p => p.Team == 1);
+                                if (!room.StartRequested || !enoughPlayers || !everyoneReady || !teamsReady)
+                                { if (CurrentTick % 3 == 0) dirty.Add(room); continue; }
+                            }
                             room.Started = true;
                             // Entrar en una partida iniciada no la pausa: el nuevo jugador
                             // permanece protegido y sin acciones hasta terminar su carga.
@@ -386,38 +410,68 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
     {
         if (endedBefore && !room.World.MatchEnded)
         {
-            room.MatchId = Guid.NewGuid().ToString("N"); room.ResultQueued = false; room.Participants.Clear();
-            foreach (var session in room.Sessions.Values) room.World.EquipPlayer(session.Id, session.Equipment);
+            room.ResultQueued = false;
+            if (room.SeriesFinished)
+            {
+                room.SeriesWins[0] = room.SeriesWins[1] = 0;
+                room.SeriesFinished = false;
+                room.MatchId = Guid.NewGuid().ToString("N");
+                room.Participants.Clear();
+            }
+            foreach (var session in room.Sessions.Values)
+                room.World.EquipPlayer(session.Id, session.Equipment);
         }
+
         if (!room.World.MatchEnded)
         {
             foreach (var session in room.Sessions.Values)
             {
-                if (session.Account == null || !session.Ready || !room.World.Players.TryGetValue(session.Id, out var player)) continue;
+                if (session.Account == null || !session.Ready ||
+                    !room.World.Players.TryGetValue(session.Id, out var player)) continue;
                 var account = session.Account;
-                if (!room.Participants.TryGetValue(account.Uid, out var entry)) entry = new(account.Uid, session.Id, player.Team, 0, false);
-                room.Participants[account.Uid] = entry with { PlayerId = player.Id, Team = player.Team,
+                if (!room.Participants.TryGetValue(account.Uid, out var entry))
+                    entry = new(account.Uid, session.Id, player.Team, 0, false);
+                room.Participants[account.Uid] = entry with
+                {
+                    PlayerId = player.Id, Team = player.Team,
                     ActiveSeconds = entry.ActiveSeconds + (room.World.Tick - session.LastActivityTick < 300 ||
-                        player.Alive && (player.Channel != null || player.Charging != null || room.Options.Mode == GameMode.Warfare &&
-                            room.World.Map.ControlPoints.Any(point => V2.Distance(player.Position, point) < 3)) ? GameWorld.StepSeconds : 0) };
+                        player.Alive && (player.Channel != null || player.Charging != null ||
+                        room.Options.Mode == GameMode.Warfare &&
+                        room.World.Map.ControlPoints.Any(point => V2.Distance(player.Position, point) < 3))
+                        ? GameWorld.StepSeconds : 0)
+                };
             }
+            return;
         }
-        else if (!room.ResultQueued)
+
+        if (room.ResultQueued) return;
+        room.ResultQueued = true;
+        int roundWinner = room.World.Winner;
+        int winningTeam = room.Options.Mode == GameMode.Arena
+            ? room.World.Players.Values.FirstOrDefault(p => p.Id == roundWinner)?.Team ?? -1
+            : roundWinner;
+        if (winningTeam is 0 or 1) room.SeriesWins[winningTeam]++;
+        int needed = room.BestOf / 2 + 1;
+        room.SeriesFinished = winningTeam is 0 or 1 && room.SeriesWins[winningTeam] >= needed;
+        if (!room.SeriesFinished) return;
+
+        var participants = room.Participants.Values.Select(p => p with
         {
-            room.ResultQueued = true;
-            var participants = room.Participants.Values.Select(p => p with
-            { Winner = room.Options.Mode == GameMode.Arena ? p.PlayerId == room.World.Winner : p.Team == room.World.Winner }).ToArray();
-            // La elegibilidad se decide en el servidor, nunca a partir de un dato del cliente.
-            // La sala puede empezar con un solo jugador y completarse después.
-            // La elegibilidad final se decide por humanos equilibrados y >=15 s
-            // de actividad verificada; no conservar el valor del primer instante.
-            if (room.World.Players.Values.All(p => !p.Bot) &&
-                BalancedMatchRules.RewardsEnabled(
-                    room.World.Players.Values.Count(p => !p.Bot && p.Team == 0),
-                    room.World.Players.Values.Count(p => !p.Bot && p.Team == 1), 0, 0))
-                rewards.Enqueue(new(room.MatchId, settings.InstanceId, room.Options.Mode, room.Options.Map, DateTimeOffset.UtcNow, participants));
-            _ = RefreshEquipment(room.Sessions.Values.ToArray());
-        }
+            Winner = room.Options.Mode == GameMode.Arena
+                ? p.PlayerId == roundWinner
+                : p.Team == winningTeam
+        }).ToArray();
+        int humans = room.World.Players.Values.Count(p => !p.Bot);
+        // Premios solo al terminar toda la serie; ambos equipos humanos, mismo número,
+        // sin bots, y cada participante autenticado con al menos 15 s de actividad.
+        if (accounts.GameEnabled && humans == participants.Length &&
+            room.World.Players.Values.All(p => !p.Bot) &&
+            BalancedMatchRules.RewardsEnabled(
+                room.World.Players.Values.Count(p => !p.Bot && p.Team == 0),
+                room.World.Players.Values.Count(p => !p.Bot && p.Team == 1), 0, 0))
+            rewards.Enqueue(new(room.MatchId, settings.InstanceId, room.Options.Mode,
+                room.Options.Map, DateTimeOffset.UtcNow, participants));
+        _ = RefreshEquipment(room.Sessions.Values.ToArray());
     }
     private async Task RefreshEquipment(PlayerSession[] sessions)
     {
