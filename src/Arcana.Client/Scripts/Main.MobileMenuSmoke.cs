@@ -167,6 +167,23 @@ public partial class Main
                     throw new InvalidOperationException("Clasificación fuera de la pantalla: " + tableRect +
                         " pantalla=" + GetViewport().GetVisibleRect());
                 GD.Print("MOBILE_SCOREBOARD_LAYOUT_OK");
+                _smokeScoreHud.ScoreOpen = false;
+                var simulated = new GameWorld(new WorldOptions { Mode = GameMode.Warfare, Bots = 0 });
+                var player = simulated.AddPlayer("Mago de prueba", 0)!;
+                var won = simulated.Snapshot() with
+                {
+                    BestOf = 5, SeriesWins = [3, 2], Winner = 0, MatchEnded = true,
+                    RestartIn = 8, RewardStatus = "Recompensa pendiente de confirmar en Firebase."
+                };
+                _smokeScoreHud.Update(won, player.Id, "Servidor LAN", 0.016);
+                Rect2 screen = GetViewport().GetVisibleRect();
+                var banner = (Label)_smokeScoreHud.FindChild("MatchBanner", true, false);
+                var reward = (Label)_smokeScoreHud.FindChild("MatchRewardNotice", true, false);
+                if (!banner.Text.Contains("HAS GANADO LA SERIE", StringComparison.Ordinal) ||
+                    !reward.Text.Contains("pendiente", StringComparison.OrdinalIgnoreCase) ||
+                    !screen.Encloses(banner.GetGlobalRect()) || !screen.Encloses(reward.GetGlobalRect()))
+                    throw new InvalidOperationException("Resultado de la serie o aviso de recompensa fuera de pantalla.");
+                GD.Print("MOBILE_SERIES_REWARD_LAYOUT_OK");
                 _smokeScoreHud.QueueFree();
                 _smokeScoreHud = null;
                 // La etiqueta interna «Opción A» no debe mostrarse al jugador.
