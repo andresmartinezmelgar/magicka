@@ -281,6 +281,12 @@ jobs:
           grep -q 'MOBILE_ICE_AIM_OK' "$RUNNER_TEMP/mobile-spell-smoke.log"
           grep -q 'MOBILE_SMOKE_OK' "$RUNNER_TEMP/mobile-spell-smoke.log"
           ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/mobile-spell-smoke.log"
+      - name: Simular HUD, mapas, efectos, magos, combinaciones y práctica
+        run: |
+          set -euo pipefail
+          for mode in hud-smoke maps-smoke effects-smoke sprites-smoke combinations-smoke practice-smoke; do
+            bash scripts/test-client-smoke.sh "$mode" "$ARCANA_GODOT"
+          done
       - name: Generar APK ARM64
         run: bash scripts/package-android.sh "$ARCANA_GODOT"
       - name: Usar firma Android permanente cuando esta disponible (Google OAuth)
