@@ -27,8 +27,8 @@ internal static class LoadingTests
             }
             var humans = new GameWorld(new() { Mode = GameMode.Duel, MaxPlayers = 2 });
             humans.AddPlayer("Rojo", 1);
-            Check(humans.AddPlayer("Otro rojo", 1) == null && humans.AddPlayer("Azul", 0)?.Team == 0,
-                "Un duelo permitió dos humanos en el mismo equipo o rechazó al rival.");
+            Check(humans.AddPlayer("Otro rojo", 1)?.Team == 0 && humans.AddPlayer("Azul", 0) == null,
+                "El duelo no asignó automáticamente al segundo humano el equipo libre.");
         });
     }
 
