@@ -374,13 +374,9 @@ public partial class Launcher : Control
         if (_host.Running) { OpenRooms(_host.Address, _hostPassword); return; }
         var options = new LocalServerOptions(_hostName.Text.Trim(), (int)_hostPort.Value, (int)_hostDiscovery.Value, _password.Text);
         if (options.Name.Length == 0) { ShowError("Escribe un nombre para el servidor."); return; }
-        string? firebaseGameAddress = LocalFirebaseHosting.PublicGameAddress(ProjectSettings.GlobalizePath("user://"));
-        if (firebaseGameAddress?.StartsWith("wss://", StringComparison.OrdinalIgnoreCase) == true &&
-            string.IsNullOrWhiteSpace(options.Password))
-        {
-            ShowError("Para exponer tu servidor mediante un túnel HTTPS, establece una contraseña en Alojar.");
-            return;
-        }
+        // Alojar inicia siempre el servidor local. No exigir contraseña por
+        // una publicUrl antigua: protegerlo será decisión explícita del usuario.
+        // Una URL WSS pública no debe activarse implícitamente desde este botón.
         SetBusy(true, "Iniciando el servidor incluido…");
         try
         {
