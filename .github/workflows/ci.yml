@@ -98,6 +98,9 @@ jobs:
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/auto-compile.ps1 -GodotPath $env:ARCANA_GODOT
           if ($LASTEXITCODE -ne 0) { throw 'Error al generar Windows.' }
           if (!(Test-Path Juego/ArcanaArena.exe) -or !(Test-Path Juego/server/Arcana.Server.exe)) { throw 'Distribucion incompleta.' }
+      - name: Verificar cifrado DPAPI de la sesion Google en Windows
+        shell: pwsh
+        run: dotnet run --project tests/Arcana.Tests/Arcana.Tests.csproj -c Release -- --desktop-session-only
       - name: Empaquetar Windows
         shell: pwsh
         run: |

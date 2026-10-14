@@ -25,6 +25,13 @@ async Task AsyncTest(string name, Func<Task> action)
     try { await action(); Console.WriteLine("PASS " + name); passed++; }
     catch (Exception e) { Console.WriteLine("FAIL " + name + ": " + e.Message); failed++; }
 }
+if (args.Contains("--desktop-session-only"))
+{
+    DesktopSessionStoreTests.Run(Test);
+    Console.WriteLine($"RESULTADO SESION WINDOWS: {passed} correctas, {failed} fallidas.");
+    return failed == 0 ? 0 : 1;
+}
+
 Test("Public account server: valid HTTPS tunnel and expiry", () =>
 {
     var now = DateTimeOffset.UtcNow;
@@ -103,6 +110,7 @@ Test("Firebase en alojamiento local requiere activación explícita y ficheros p
     finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
 });
 
+DesktopSessionStoreTests.Run(Test);
 ResponsiveLayoutTests.Run(Test);
 NetworkEndpointTests.Run(Test);
 NetworkDeltaTests.Run(Test);
