@@ -1783,7 +1783,7 @@ if (server != null)
         const string roomSecret = "ClaveSALA-2026-é";
         var room = await RoomBrowser.CreateAsync(server, new()
         {
-            Name = "Sala protegida con claves distintas", ServerPassword = password, Password = roomSecret,
+            Name = "Sala de claves distintas", ServerPassword = password, Password = roomSecret,
             Mode = GameMode.Arena, MaxPlayers = 4, Bots = 0
         });
         var list = await RoomBrowser.ListAsync(server);
