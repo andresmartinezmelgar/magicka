@@ -170,6 +170,11 @@ jobs:
       - name: Verificar cifrado DPAPI de la sesion Google en Windows
         shell: pwsh
         run: dotnet run --project tests/Arcana.Tests/Arcana.Tests.csproj -c Release -- --desktop-session-only
+      - name: Probar instalacion automatica y recuperacion real en Windows
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/test-windows-update.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Fallo la regresion del actualizador Windows.' }
       - name: Empaquetar Windows
         shell: pwsh
         run: |
@@ -326,6 +331,15 @@ jobs:
           printf 'Tipo de firma: %s\n%s\nPaquete: com.arcana.arena\nProyecto Firebase: arcana-arena-f2997\n' "$status" "$fingerprint" > artifacts/android/FIRMA-ANDROID.txt
           cat artifacts/android/FIRMA-ANDROID.txt
           (cd artifacts/android && sha256sum "ArcanaArena-v$version-Android-arm64.apk" > SHA256SUMS-Android.txt)
+      - name: Verificar instalador y permisos dentro de la APK final
+        run: |
+          set -euo pipefail
+          version=$(tr -d '\r\n' < VERSION)
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "artifacts/android/ArcanaArena-v$version-Android-arm64.apk" AndroidManifest.xml > "$RUNNER_TEMP/update-manifest.txt"
+          for required in android.permission.REQUEST_INSTALL_PACKAGES android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION org.godotengine.plugin.v2.ArcanaUpdates com.arcana.firebase.ArcanaUpdateResultActivity; do
+            grep -Fq "$required" "$RUNNER_TEMP/update-manifest.txt"
+          done
+          echo ANDROID_UPDATE_INSTALLER_PACKAGED_OK
       - uses: actions/upload-artifact@v4
         with:
           name: ArcanaArena-Android-arm64

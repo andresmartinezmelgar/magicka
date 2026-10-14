@@ -15,6 +15,7 @@ public partial class Launcher : Control
     private Label _hostInfo = null!;
     private RoomLobby? _lobby;
     private readonly LocalServerHost _host = new();
+    internal bool Hosting => _host.Running || _busy;
     private TabContainer _tabs = null!;
     private LanServer[] _lan = [];
     private CancellationTokenSource? _search;

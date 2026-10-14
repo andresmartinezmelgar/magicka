@@ -11,7 +11,7 @@ namespace Arcana.Client;
 public partial class ReleaseUpdateNotice : Node
 {
     private const string Latest = "https://api.github.com/repos/andresmartinezmelgar/magicka/releases/latest";
-    private const long MaximumDownloadBytes = 1024L * 1024 * 1024 * 2;
+    private const long MaximumDownloadBytes = ReleaseUpdatePlan.MaximumBytes;
     private static readonly System.Net.Http.HttpClient MetadataHttp = new() { Timeout = TimeSpan.FromSeconds(12) };
     private static readonly System.Net.Http.HttpClient DownloadHttp = new() { Timeout = Timeout.InfiniteTimeSpan };
     private readonly CancellationTokenSource _stop = new();
@@ -25,7 +25,11 @@ public partial class ReleaseUpdateNotice : Node
     private Button? _primary, _secondary;
     private string _version = "", _downloadUrl = "", _downloadPath = "", _checksumUrl = "", _assetName = "";
     private long _expectedBytes;
-    private bool _downloading, _completed;
+    private bool _downloading, _completed, _installing, _checking, _disabled;
+    private string _expectedHash = "", _dismissedVersion = "";
+    private ReleaseUpdatePlan? _pendingUpdate;
+    private AndroidUpdateBridge? _androidInstaller;
+    private double _checkClock;
     private int _progressGeneration;
 
     public override void _Ready()
@@ -33,16 +37,36 @@ public partial class ReleaseUpdateNotice : Node
         GetViewport().SizeChanged += ResizeUpdateCard;
         if (OS.GetCmdlineUserArgs().Contains("--update-ui-smoke"))
         {
+            _disabled = true;
             Callable.From(RunUpdateLayoutSmoke).CallDeferred();
             return;
         }
-        if (OS.HasFeature("editor") || OS.GetCmdlineUserArgs().Any(a => a.Contains("smoke") || a.Contains("preview"))) return;
+        _disabled = OS.HasFeature("editor") || !OS.HasFeature("windows") && !OS.HasFeature("android") ||
+            OS.GetCmdlineUserArgs().Any(a => a.Contains("smoke") || a.Contains("preview"));
+        if (_disabled) return;
+        if (OS.HasFeature("android"))
+        {
+            _androidInstaller = new AndroidUpdateBridge();
+            _androidInstaller.Status += (status, message) =>
+                Callable.From(() => AndroidInstallStatus(status, message)).CallDeferred();
+        }
         _ = Check();
     }
 
-    private static bool Newer(string remote, string local) =>
-        Version.TryParse(remote.TrimStart('v', 'V'), out var available) &&
-        Version.TryParse(local.TrimStart('v', 'V'), out var installed) && available > installed;
+    public override void _Process(double delta)
+    {
+        if (_disabled) return;
+        _checkClock += delta;
+        if (_pendingUpdate != null && _overlay == null && GetParent<Main>().CanApplyUpdates)
+        {
+            var pending = _pendingUpdate;
+            _pendingUpdate = null;
+            if (pending.Version != _dismissedVersion)
+                ShowNotice(pending.Version, pending.DownloadUrl, pending.Bytes, pending.ChecksumUrl, pending.Filename);
+        }
+        if (_checkClock >= 60 && !_checking && _overlay == null && _pendingUpdate == null)
+        { _checkClock = 0; _ = Check(); }
+    }
 
     private static string Size(long bytes)
     {
@@ -56,6 +80,8 @@ public partial class ReleaseUpdateNotice : Node
 
     private async Task Check()
     {
+        if (_checking || _stop.IsCancellationRequested) return;
+        _checking = true;
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, Latest);
@@ -63,42 +89,13 @@ public partial class ReleaseUpdateNotice : Node
             request.Headers.Accept.ParseAdd("application/vnd.github+json");
             using var response = await MetadataHttp.SendAsync(request, _stop.Token);
             if (!response.IsSuccessStatusCode) return;
-            using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(_stop.Token));
-            var release = document.RootElement;
-            string version = release.GetProperty("tag_name").GetString() ?? "";
-            if (!Newer(version, BuildInfo.Version)) return;
-            bool android = OS.HasFeature("android");
-            string expected = android ? "-Android-arm64.apk" : "-Windows-x64.zip";
-            foreach (var asset in release.GetProperty("assets").EnumerateArray())
-            {
-                string name = asset.GetProperty("name").GetString() ?? "";
-                if (!name.EndsWith(expected, StringComparison.OrdinalIgnoreCase)) continue;
-                string? candidate = asset.GetProperty("browser_download_url").GetString();
-                if (!Uri.TryCreate(candidate, UriKind.Absolute, out var uri) ||
-                    uri.Scheme != Uri.UriSchemeHttps || !uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase))
-                    continue;
-                long size = asset.TryGetProperty("size", out var field) && field.TryGetInt64(out long parsed) ? parsed : -1;
-                if (size > MaximumDownloadBytes) return;
-                var checksums = release.GetProperty("assets").EnumerateArray()
-                    .Select(item => new {
-                        Name = item.GetProperty("name").GetString() ?? "",
-                        Url = item.GetProperty("browser_download_url").GetString() ?? ""
-                    }).FirstOrDefault(item =>
-                        item.Name == (android ? "SHA256SUMS-Android.txt" : "SHA256SUMS-Windows.txt"))
-                    ?? release.GetProperty("assets").EnumerateArray()
-                        .Select(item => new {
-                            Name = item.GetProperty("name").GetString() ?? "",
-                            Url = item.GetProperty("browser_download_url").GetString() ?? ""
-                        }).FirstOrDefault(item => item.Name == "SHA256SUMS.txt");
-                if (checksums == null || !Uri.TryCreate(checksums.Url, UriKind.Absolute, out var checksumUri) ||
-                    checksumUri.Scheme != Uri.UriSchemeHttps ||
-                    !checksumUri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase)) return;
-                Callable.From(() => ShowNotice(version, candidate!, size, checksums.Url, name)).CallDeferred();
-                return;
-            }
+            using var document = JsonDocument.Parse(await RoomBrowser.ReadBoundedAsync(response.Content, 256 * 1024, _stop.Token));
+            var plan = ReleaseUpdatePlan.Read(document.RootElement, BuildInfo.Version, OS.HasFeature("android"));
+            if (plan != null) Callable.From(() => { if (!_stop.IsCancellationRequested) _pendingUpdate = plan; }).CallDeferred();
         }
         catch (OperationCanceledException) { }
         catch (Exception) { /* Sin red, se puede seguir jugando. */ }
+        finally { _checking = false; }
     }
 
     private static PanelContainer Card()
@@ -115,7 +112,7 @@ public partial class ReleaseUpdateNotice : Node
     }
 
     private void ShowNotice(string version, string download, long size,
-        string checksumUrl = "", string assetName = "")
+        string checksumUrl = "", string assetName = "", bool automatic = true)
     {
         if (!IsInsideTree() || _stop.IsCancellationRequested || _overlay != null) return;
         _version = version;
@@ -123,6 +120,7 @@ public partial class ReleaseUpdateNotice : Node
         _checksumUrl = checksumUrl;
         _assetName = assetName;
         _expectedBytes = size;
+        _completed = false;
         _canvas = new CanvasLayer { Layer = 90 };
         AddChild(_canvas);
         // Ocultar mientras se construye: un fallo intermedio nunca deja un fondo
@@ -186,7 +184,7 @@ public partial class ReleaseUpdateNotice : Node
         topCopy.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         top.AddChild(topCopy);
         AddText(topCopy, Ui.Label("ARCANA ARENA", 15, Ui.Gold));
-        _headline = Ui.Label("Una nueva versión te espera", Ui.IsMobile ? 24 : 25, Ui.Text);
+        _headline = Ui.Label("Actualización disponible", Ui.IsMobile ? 24 : 25, Ui.Text);
         AddText(topCopy, _headline);
 
         _subtitle = Ui.Label("Mejoras y novedades disponibles para tu aventura.", 16, Ui.Muted);
@@ -223,8 +221,8 @@ public partial class ReleaseUpdateNotice : Node
         AddText(body, _speedLabel);
 
         _note = Ui.Label(OS.HasFeature("android")
-            ? "Al terminar, podrás abrir el instalador de Android y confirmar la actualización."
-            : "Al terminar, cierra el juego y extrae el ZIP para sustituir la versión anterior.", 15, Ui.Muted);
+            ? "Se instalará automáticamente cuando Android lo permita. El sistema puede solicitar autorización."
+            : "La actualización se instalará y el juego se reiniciará automáticamente.", 15, Ui.Muted);
         AddText(body, _note);
 
         layout.AddChild(new HSeparator());
@@ -242,6 +240,10 @@ public partial class ReleaseUpdateNotice : Node
         actions.AddChild(_primary);
         ResizeUpdateCard();
         _overlay.Visible = true;
+        string? previousFailure = OS.HasFeature("windows") ? WindowsUpdateInstaller.PreviousFailure(
+            System.IO.Path.Combine(OS.GetUserDataDir(), "updates"), _version) : null;
+        if (automatic && previousFailure == null) StartDownload();
+        else if (automatic) ShowFailure(_progressGeneration, previousFailure!);
     }
 
     private void ResizeUpdateCard()
@@ -261,7 +263,7 @@ public partial class ReleaseUpdateNotice : Node
         try
         {
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-            ShowNotice("v99.0.0", "https://github.com/andresmartinezmelgar/magicka/releases", 12345678);
+            ShowNotice("99.0.0", "https://github.com/andresmartinezmelgar/magicka/releases", 12345678, automatic: false);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             Rect2 viewport = GetViewport().GetVisibleRect();
@@ -290,7 +292,7 @@ public partial class ReleaseUpdateNotice : Node
 
     private void PrimaryAction()
     {
-        if (_completed) OpenDownloaded();
+        if (_completed) _ = InstallDownloaded();
         else StartDownload();
     }
 
@@ -299,6 +301,7 @@ public partial class ReleaseUpdateNotice : Node
         if (_downloading || _completed || _stop.IsCancellationRequested) return;
         _downloading = true;
         _downloadStop = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);
+        _downloadStop.CancelAfter(TimeSpan.FromMinutes(10));
         _primary!.Disabled = true;
         _primary.Text = "Descargando…";
         _progress!.Indeterminate = false;
@@ -326,17 +329,25 @@ public partial class ReleaseUpdateNotice : Node
             string manifest = await RoomBrowser.ReadBoundedAsync(checksumsResponse.Content, 64 * 1024, token);
             byte[] expectedHash = ReleaseDownloadVerifier.ReadExpectedHash(manifest, _assetName);
 
+            _expectedHash = Convert.ToHexString(expectedHash);
+            string folder = System.IO.Path.Combine(OS.GetUserDataDir(), "updates");
+            System.IO.Directory.CreateDirectory(folder);
+            string target = System.IO.Path.Combine(folder, _assetName);
+            if (await ReleaseDownloadVerifier.IsVerifiedFileAsync(target, _expectedBytes, expectedHash, token))
+            {
+                Callable.From(() => ShowDownloaded(generation, target)).CallDeferred();
+                return;
+            }
+
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.UserAgent.ParseAdd("ArcanaArena-Updater/2.0");
             using var response = await DownloadHttp.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
             response.EnsureSuccessStatusCode();
             long? headerLength = response.Content.Headers.ContentLength;
             if (headerLength > MaximumDownloadBytes) throw new InvalidDataException("La actualización supera el límite de 2 GB.");
-            long expected = headerLength is > 0 ? headerLength.Value : _expectedBytes;
-            string extension = OS.HasFeature("android") ? ".apk" : ".zip";
-            string folder = System.IO.Path.Combine(OS.GetUserDataDir(), "updates");
-            System.IO.Directory.CreateDirectory(folder);
-            string target = System.IO.Path.Combine(folder, "ArcanaArena-" + _version + extension);
+            if (headerLength.HasValue && headerLength.Value != _expectedBytes)
+                throw new InvalidDataException("El tamaño descargado no coincide con la Release.");
+            long expected = _expectedBytes;
             temporary = target + ".part";
 
             await using (var input = await response.Content.ReadAsStreamAsync(token))
@@ -365,7 +376,7 @@ public partial class ReleaseUpdateNotice : Node
                     }
                 }
                 await output.FlushAsync(token);
-                if (headerLength is > 0 && received != headerLength.Value)
+                if (received != expected)
                     throw new InvalidDataException("La descarga está incompleta.");
                 if (!CryptographicOperations.FixedTimeEquals(hasher.GetHashAndReset(), expectedHash))
                     throw new InvalidDataException("El SHA-256 descargado no coincide con GitHub Releases. No se instalará el archivo.");
@@ -376,7 +387,11 @@ public partial class ReleaseUpdateNotice : Node
             temporary = null;
             Callable.From(() => ShowDownloaded(generation, target)).CallDeferred();
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException)
+        {
+            if (!_stop.IsCancellationRequested)
+                Callable.From(() => ShowFailure(generation, "Se ha agotado el tiempo de descarga. Puedes volver a intentarlo.")).CallDeferred();
+        }
         catch (Exception error)
         {
             Callable.From(() => ShowFailure(generation, error.Message)).CallDeferred();
@@ -413,15 +428,13 @@ public partial class ReleaseUpdateNotice : Node
         _progress!.Indeterminate = false;
         _progress.Value = 100;
         _percentLabel!.Text = "100 %";
-        _headline!.Text = "¡Actualización descargada!";
-        _subtitle!.Text = "La nueva versión ya está guardada en tu dispositivo.";
+        _headline!.Text = "Actualización verificada";
+        _subtitle!.Text = "Preparando la instalación automática.";
         _speedLabel!.Text = "Descarga completada";
-        _note!.Text = OS.HasFeature("android")
-            ? "Abre el APK descargado con el instalador de Android para actualizar. Si Android no permite abrirlo directamente, búscalo en la carpeta de datos de la aplicación."
-            : "Cierra Arcana Arena, extrae el archivo ZIP y sustituye la carpeta de la versión anterior.";
         _secondary!.Text = "Volver al juego";
         _primary!.Disabled = false;
-        _primary.Text = OS.HasFeature("android") ? "Abrir APK" : "Abrir archivo ZIP";
+        _primary.Text = "Instalar actualización";
+        _ = InstallDownloaded();
     }
 
     private void ShowFailure(int generation, string reason)
@@ -430,9 +443,11 @@ public partial class ReleaseUpdateNotice : Node
         _downloading = false;
         _downloadStop?.Dispose();
         _downloadStop = null;
-        _headline!.Text = "No se ha completado la descarga";
+        _installing = false;
+        _secondary!.Disabled = false;
+        _headline!.Text = _completed ? "No se ha completado la instalación" : "No se ha completado la descarga";
         _subtitle!.Text = reason.Length > 140 ? reason[..140] + "…" : reason;
-        _speedLabel!.Text = "Comprueba la conexión y vuelve a intentarlo.";
+        _speedLabel!.Text = "La versión actual sigue disponible.";
         _primary!.Disabled = false;
         _primary.Text = "Reintentar";
         _secondary!.Text = "Ahora no";
@@ -440,10 +455,14 @@ public partial class ReleaseUpdateNotice : Node
 
     private void Close()
     {
+        if (_installing) return;
+        _dismissedVersion = _version;
         if (_downloading)
         {
             _progressGeneration++;
             _downloadStop?.Cancel();
+            _downloadStop?.Dispose();
+            _downloadStop = null;
             _downloading = false;
         }
         if (GodotObject.IsInstanceValid(_canvas)) _canvas!.QueueFree();
@@ -453,14 +472,42 @@ public partial class ReleaseUpdateNotice : Node
         _responsiveButtons = null;
     }
 
-    private void OpenDownloaded()
+    private async Task InstallDownloaded()
     {
-        if (_downloadPath.Length == 0) return;
-        var result = OS.ShellOpen(_downloadPath);
-        if (result != Error.Ok)
+        if (_downloadPath.Length == 0 || _installing || _stop.IsCancellationRequested) return;
+        _installing = true;
+        _primary!.Disabled = _secondary!.Disabled = true;
+        _primary.Text = "Instalando…";
+        try
         {
-            _note!.Text = "El sistema no ha podido abrir el archivo directamente. Se guardó en: " + _downloadPath;
+            while (!GetParent<Main>().CanApplyUpdates)
+            {
+                _subtitle!.Text = "La instalación comenzará al terminar la partida y detener el alojamiento local.";
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                _stop.Token.ThrowIfCancellationRequested();
+            }
+            if (OS.HasFeature("android"))
+            {
+                (_androidInstaller ?? throw new InvalidOperationException("No se ha iniciado el instalador Android."))
+                    .Install(_downloadPath, _version, _expectedHash);
+            }
+            else
+            {
+                _subtitle!.Text = "Preparando los archivos y la copia de recuperación.";
+                await WindowsUpdateInstaller.PrepareAsync(_downloadPath, Launcher.PackageDirectory(), _version,
+                    _expectedHash, System.IO.Path.Combine(OS.GetUserDataDir(), "updates"), _stop.Token);
+                GetTree().Quit();
+            }
         }
+        catch (OperationCanceledException) { }
+        catch (Exception error) { ShowFailure(_progressGeneration, error.Message); }
+    }
+
+    private void AndroidInstallStatus(string status, string message)
+    {
+        if (!GodotObject.IsInstanceValid(_overlay) || _stop.IsCancellationRequested) return;
+        if (status == "failed") { ShowFailure(_progressGeneration, message); return; }
+        _subtitle!.Text = message;
     }
 
     public override void _ExitTree()
@@ -469,6 +516,7 @@ public partial class ReleaseUpdateNotice : Node
         _stop.Cancel();
         _downloadStop?.Cancel();
         _downloadStop?.Dispose();
+        _androidInstaller?.Dispose();
         _stop.Dispose();
     }
 }

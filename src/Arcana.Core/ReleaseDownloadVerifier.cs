@@ -5,6 +5,19 @@ namespace Arcana.Core;
 /// <summary>Valida entradas de SHA256SUMS de Releases sin aceptar rutas ni duplicados.</summary>
 public static class ReleaseDownloadVerifier
 {
+    public static async Task<bool> IsVerifiedFileAsync(string path, long expectedBytes, byte[] expectedHash,
+        CancellationToken token = default)
+    {
+        try
+        {
+            await using var file = File.OpenRead(path);
+            if (file.Length != expectedBytes || expectedHash.Length != SHA256.HashSizeInBytes) return false;
+            return CryptographicOperations.FixedTimeEquals(await SHA256.HashDataAsync(file, token), expectedHash);
+        }
+        catch (IOException) { return false; }
+        catch (UnauthorizedAccessException) { return false; }
+    }
+
     public static byte[] ReadExpectedHash(string manifest, string assetFilename)
     {
         if (string.IsNullOrWhiteSpace(assetFilename) || assetFilename.IndexOfAny(['/', '\\', '\r', '\n']) >= 0 ||

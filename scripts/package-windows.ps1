@@ -59,6 +59,7 @@ try {
     } else {
         Write-Host 'GOOGLE_DESKTOP_OAUTH_NOT_CONFIGURED: se importara desde el juego'
     }
+    & (Join-Path $PSScriptRoot 'write-update-manifest.ps1') -Package $package -Version $buildVersion.Name
     Write-Host "PAQUETE_LISTO: $package"
 } finally {
     try {

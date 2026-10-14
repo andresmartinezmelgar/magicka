@@ -112,6 +112,7 @@ Test("Firebase en alojamiento local requiere activación explícita y ficheros p
 
 DesktopSessionStoreTests.Run(Test);
 ReleaseDownloadVerifierTests.Run(Test);
+ReleaseUpdatePlanTests.Run(Test);
 MatchSeriesTests.Run(Test);
 ResponsiveLayoutTests.Run(Test);
 NetworkEndpointTests.Run(Test);
