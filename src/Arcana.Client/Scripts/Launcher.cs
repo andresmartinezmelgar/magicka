@@ -394,9 +394,15 @@ public partial class Launcher : Control
                     if (list.Length > 0) addresses = "IP para compartir: " + list;
                 }
                 catch (System.Net.Sockets.SocketException) { }
-                _hostInfo.Text = $"Servidor activo · Juego TCP {options.Port} · LAN UDP {options.DiscoveryPort}\n{addresses}"
-                    + (System.IO.File.Exists(System.IO.Path.Combine(LocalFirebaseHosting.DirectoryPath(ProjectSettings.GlobalizePath("user://")), LocalFirebaseHosting.ConfigFileName))
-                        ? "\nFirebase local: configuración detectada (usa Entrar con Google para comprobarla)." : "\nFirebase: desactivado; las partidas LAN siguen disponibles.");
+                string firebaseDir = LocalFirebaseHosting.DirectoryPath(ProjectSettings.GlobalizePath("user://"));
+                bool firebasePresent = System.IO.File.Exists(System.IO.Path.Combine(firebaseDir, LocalFirebaseHosting.ConfigFileName));
+                string? publicGame = LocalFirebaseHosting.PublicGameAddress(ProjectSettings.GlobalizePath("user://"));
+                string firebaseStatus = !firebasePresent
+                    ? "\nFirebase: desactivado; las partidas LAN siguen disponibles."
+                    : publicGame?.StartsWith("wss://", StringComparison.OrdinalIgnoreCase) == true
+                        ? "\nFirebase configurado. Para jugar con recompensas desde el móvil, usa Por IP con:\n" + publicGame
+                        : "\nFirebase local configurado, pero falta la dirección WSS pública para el móvil.";
+                _hostInfo.Text = $"Servidor activo · Juego TCP {options.Port} · LAN UDP {options.DiscoveryPort}\n{addresses}" + firebaseStatus;
                 // El anfitrión siempre gestiona sus propias salas por loopback.
                 // Un túnel trycloudflare es temporal y su publicUrl puede quedar caducado.
                 // La dirección pública se comparte por separado con jugadores externos.
