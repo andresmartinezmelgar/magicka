@@ -282,7 +282,11 @@ public partial class Launcher : Control
         _tabs.SetTabHidden(1, page != 1);
         _tabs.SetTabHidden(2, page != 2);
         _tabs.SetTabHidden(3, Ui.IsMobile || page != 1);
-        if (page != 1) CancelOnlineSearch();
+        if (page != 1 && _onlineSearch != null)
+        {
+            CancelOnlineSearch();
+            SetBusy(false);
+        }
         if (page == 0) _menuBack.Visible = false;
         if (page == 2) _tabs.CurrentTab = 2;
         // Godot puede conservar una pestaña oculta al volver de práctica. En Android,
