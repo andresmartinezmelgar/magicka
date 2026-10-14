@@ -102,6 +102,8 @@ public partial class Main : Node
         var arguments = OS.GetCmdlineUserArgs();
         _accountEntrySmoke = arguments.Contains("--account-entry-smoke");
         _mobileMenuSmoke = arguments.Contains("--mobile-menu-smoke");
+        _visualReview = arguments.Contains("--visual-review");
+        _visualReviewDirectory = arguments.FirstOrDefault(a => a.StartsWith("--visual-directory=", StringComparison.Ordinal))?["--visual-directory=".Length..];
         _desktopHeaderSmoke = arguments.Contains("--desktop-header-smoke");
         foreach (string arg in arguments)
         {
