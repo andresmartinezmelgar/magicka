@@ -201,7 +201,7 @@ public partial class Hud : Control
         _feed.Position = new(Size.X - feedWidth - 30, Math.Min(245, Math.Max(80, Size.Y - 110)));
         _feed.Size = new(feedWidth, 100);
         _mapPanel.Visible = Size.X >= (Ui.IsMobile ? 850 : 700);
-        _mapPanel.Position = Ui.IsMobile ? new(Size.X - 555, 136) : new(Size.X - 235, 72);
+        _mapPanel.Position = Ui.IsMobile ? new(Size.X - 235, 136) : new(Size.X - 235, 72);
         float spellsWidth = Math.Min(Ui.IsMobile ? 320 : 690, Math.Max(100, Size.X - 36));
         float spellsHeight = Math.Max(54, _spellsPanel.GetCombinedMinimumSize().Y);
         float spellsBottom = Ui.IsMobile ? 150 / GameplayScale : 26 / GameplayScale;
