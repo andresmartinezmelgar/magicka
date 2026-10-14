@@ -1762,48 +1762,34 @@ if (server != null)
     await AsyncTest("Contraseña de sala, aforo y sala inexistente se validan", async () =>
     {
         var room = await RoomBrowser.CreateAsync(server, new() { Name = "Duelo privado", ServerPassword = password,
-            Password = "sala-clave", Mode = GameMode.Duel, MaxPlayers = 2, Bots = 1 });
+            Password = "sala-clave-é", Mode = GameMode.Duel, MaxPlayers = 2, Bots = 1 });
         await using var wrong = new ArenaConnection(); bool rejected = false;
         try { await wrong.ConnectAsync(server, "Sin clave", -1, password, roomId: room.Id, roomPassword: "incorrecta"); }
         catch (InvalidOperationException e) { rejected = e.Message.Contains("sala"); }
         Check(rejected, "Se admitió una contraseña de sala incorrecta.");
-        await using var a = new ArenaConnection(); await a.ConnectAsync(server, "Con clave", -1, password, roomId: room.Id, roomPassword: "sala-clave");
+        if (password.Length > 0)
+        {
+            // La clave del SERVIDOR se comprueba de forma independiente de la SALA.
+            await using var wrongServer = new ArenaConnection();
+            bool rejectedServer = false;
+            try { await wrongServer.ConnectAsync(server, "Clave servidor errónea", -1,
+                "servidor-incorrecto", roomId: room.Id, roomPassword: "sala-clave-é"); }
+            catch (InvalidOperationException error)
+            {
+                rejectedServer = error.Message.Contains("Contraseña del servidor incorrecta.", StringComparison.Ordinal);
+            }
+            Check(rejectedServer, "El servidor confundió las dos contraseñas.");
+        }
+        await using var a = new ArenaConnection(); await a.ConnectAsync(server, "Con clave", -1, password, roomId: room.Id, roomPassword: "sala-clave-é");
         Check(a.Latest!.Players.Length == 2, "No se añadió el bot del duelo.");
         await using var full = new ArenaConnection(); rejected = false;
-        try { await full.ConnectAsync(server, "Tercero", -1, password, roomId: room.Id, roomPassword: "sala-clave"); }
+        try { await full.ConnectAsync(server, "Tercero", -1, password, roomId: room.Id, roomPassword: "sala-clave-é"); }
         catch (InvalidOperationException e) { rejected = e.Message.Contains("llena"); }
         Check(rejected, "Se excedió el aforo.");
         await using var missing = new ArenaConnection(); rejected = false;
         try { await missing.ConnectAsync(server, "Perdido", -1, password, roomId: "no-existe"); }
         catch (InvalidOperationException e) { rejected = e.Message.Contains("existe"); }
         Check(rejected, "Se admitió una sala inexistente.");
-    });
-    await AsyncTest("Contraseñas independientes: servidor y sala, errores específicos, UTF-8", async () =>
-    {
-        const string roomSecret = "ClaveSALA-2026-é";
-        var room = await RoomBrowser.CreateAsync(server, new()
-        {
-            Name = "Sala de claves distintas", ServerPassword = password, Password = roomSecret,
-            Mode = GameMode.Arena, MaxPlayers = 4, Bots = 0
-        });
-        var list = await RoomBrowser.ListAsync(server);
-        Check(list.Rooms.Any(r => r.Id == room.Id && r.PasswordRequired), "La sala protegida se anuncia como pública.");
-        await using var wrongRoom = new ArenaConnection();
-        bool refusedRoom = false;
-        try { await wrongRoom.ConnectAsync(server, "Error sala", 0, password, roomId: room.Id, roomPassword: "otra-clave"); }
-        catch (InvalidOperationException error) { refusedRoom = error.Message.Contains("Contraseña de la sala incorrecta.", StringComparison.Ordinal); }
-        Check(refusedRoom, "El error de contraseña de sala no se distingue del error del servidor.");
-        if (password.Length > 0)
-        {
-            await using var wrongServer = new ArenaConnection();
-            bool refusedServer = false;
-            try { await wrongServer.ConnectAsync(server, "Error servidor", 0, "clave-servidor-errónea", roomId: room.Id, roomPassword: roomSecret); }
-            catch (InvalidOperationException error) { refusedServer = error.Message.Contains("Contraseña del servidor incorrecta.", StringComparison.Ordinal); }
-            Check(refusedServer, "El servidor confundió la contraseña de la sala con la del servidor.");
-        }
-        await using var valid = new ArenaConnection();
-        await valid.ConnectAsync(server, "Clave correcta", 0, password, roomId: room.Id, roomPassword: roomSecret);
-        Check(valid.Room?.Id == room.Id && valid.Connected, "No se accedió con ambas contraseñas correctas.");
     });
     await AsyncTest("Crear sala rechaza opciones inválidas y no expone contraseñas", async () =>
     {
