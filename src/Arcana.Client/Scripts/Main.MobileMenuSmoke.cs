@@ -99,10 +99,37 @@ public partial class Main
                     fullPanel.Size.X < GetViewport().GetVisibleRect().Size.X * 0.75f ||
                     choices.Size.X < GetViewport().GetVisibleRect().Size.X * 0.65f)
                     throw new InvalidOperationException("INICIO: las cuatro tarjetas han quedado encogidas.");
-                foreach (Button card in choices.GetChildren().OfType<Button>())
+                if (choices is not GridContainer home || home.Columns != 2)
+                    throw new InvalidOperationException("INICIO: las cuatro tarjetas deben organizarse 2×2.");
+                var cards = choices.GetChildren().OfType<Button>().ToArray();
+                if (cards.Length != 4)
+                    throw new InvalidOperationException("INICIO: faltan tarjetas principales.");
+                foreach (Button card in cards)
                     if (card.Size.X < 170 || card.GetGlobalRect().Position.X < 0 ||
                         card.GetGlobalRect().End.X > GetViewport().GetVisibleRect().End.X)
                         throw new InvalidOperationException("INICIO: tarjeta demasiado estrecha o desbordada: " + card.Text);
+                if (_launcher.FindChild("OptionAAccountSummary", true, false) is not Label accountHeader ||
+                    !accountHeader.IsVisibleInTree() || !accountHeader.Text.Contains("V:") ||
+                    !accountHeader.Text.Contains("D:"))
+                    throw new InvalidOperationException("INICIO: faltan nombre, Google o resultados en la esquina superior derecha.");
+                if (_launcher.FindChildren("*", "Label", true, false).OfType<Label>()
+                    .Any(label => label.IsVisibleInTree() && label.Text.Contains("victorias ·") &&
+                        label.Name != "OptionAAccountSummary"))
+                    throw new InvalidOperationException("INICIO: se muestra el resumen de cuenta dentro del menú.");
+            }
+            if (frame == 22)
+            {
+                // Verificación de la salida visible en sala de espera sin un servidor real.
+                bool left = false;
+                var wait = new RoomWaitingPanel();
+                _ui.AddChild(wait);
+                wait.Build(_ => { }, () => left = true);
+                var exit = wait.FindChild("WaitingRoomExit", true, false) as Button;
+                if (exit == null || !exit.IsVisibleInTree() || exit.Text != "Salir de la sala")
+                    throw new InvalidOperationException("SALA DE ESPERA: no hay botón Salir visible.");
+                exit.EmitSignal(Button.SignalName.Pressed);
+                if (!left) throw new InvalidOperationException("SALA DE ESPERA: el botón Salir no responde.");
+                wait.QueueFree();
             }
             if (frame == 25) _launcher.OpenMobileSmokePage(1);
             if (frame == 35)

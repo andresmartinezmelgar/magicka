@@ -60,9 +60,9 @@ public partial class Launcher
         titles.AddChild(_optionAHeading);
         titles.AddChild(Ui.Label("Hechizos, estrategia y duelos elementales", Ui.IsMobile ? 14 : 16, Ui.Muted));
 
-        // Accesos anchos en una única fila con tamaños y lugares coherentes.
+        // Cuatro accesos principales organizados siempre en 2 filas por 2 columnas.
         _homeMenu.AddThemeConstantOverride("separation", 12);
-        var choices = new GridContainer { Name = "OptionAHomeCards", Columns = 4, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        var choices = new GridContainer { Name = "OptionAHomeCards", Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _optionAHomeCards = choices;
         choices.AddThemeConstantOverride("separation", Ui.IsMobile ? 10 : 18);
         _homeMenu.AddChild(choices);
@@ -84,9 +84,7 @@ public partial class Launcher
         var helpTile = Ui.Button("▤\nCÓMO JUGAR\nControles y objetivos", () => _main.ToggleHelp());
         choices.AddChild(helpTile);
         CardStyle(helpTile, 3);
-        _profileSummary.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 15 : 17);
-        _profileSummary.AddThemeColorOverride("font_color", Ui.Gold);
-
+ 
         // Paneles de opciones de 2 columnas: no se necesita desplazamiento vertical ni horizontal.
         _playBody.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _playBody.SizeFlagsVertical = SizeFlags.ExpandFill;
@@ -204,10 +202,16 @@ public partial class Launcher
             primary.Columns = ResponsiveLayout.Columns(available, 415, 2, 12);
         if (_optionAHomeCards != null)
         {
-            int columns = ResponsiveLayout.Columns(available, 182, 4, Ui.IsMobile ? 10 : 18);
-            _optionAHomeCards.Columns = columns;
+            // Mantener estrictamente 2×2 en móvil y escritorio; altura ajustada
+            // al área útil para no esconder la segunda fila bajo la barra inferior.
+            _optionAHomeCards.Columns = 2;
+            float height = GetViewport().GetVisibleRect().Size.Y;
+            float free = height - ArcanaMenuChrome.HeaderHeight - ArcanaMenuChrome.FooterHeight -
+                (Ui.IsMobile ? 135 : 175);
+            float tileHeight = Math.Clamp((free - (Ui.IsMobile ? 10 : 18)) / 2f,
+                Ui.IsMobile ? 125 : 150, Ui.IsMobile ? 210 : 245);
             foreach (Button card in _optionAHomeCards.GetChildren().OfType<Button>())
-                card.CustomMinimumSize = new Vector2(0, columns >= 3 ? (Ui.IsMobile ? 160 : 200) : 112);
+                card.CustomMinimumSize = new Vector2(0, tileHeight);
         }
         if (_optionASettingsGrid != null)
         {
@@ -284,7 +288,7 @@ public partial class Launcher
         button.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 21 : 24);
         button.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        button.CustomMinimumSize = new(0, Ui.IsMobile ? 192 : 234);
+        button.CustomMinimumSize = new(0, Ui.IsMobile ? 165 : 195);
     }
 
     private void UpdateOptionAPage(int page)

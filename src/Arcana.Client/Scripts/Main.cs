@@ -144,6 +144,11 @@ public partial class Main : Node
             if (RenderProfiler.Requested(OS.GetCmdlineUserArgs())) { GD.PushError("PROFILE_FAILED: " + error.Message); GetTree().Quit(1); }
         }
     }
+    private string GoogleConnectionMessage() =>
+        GoogleIdentityKnown
+            ? "Google aparece conectado, pero la sesión Firebase no está disponible para jugar. Abre Perfil y comprueba que Firestore haya cargado sin errores; después reintenta Google."
+            : "Debes iniciar sesión con Google en Perfil antes de entrar a una sala con recompensas.";
+
     public async Task ConnectOnline(string address, string name, int team, string password,
         string roomId = "default", string roomPassword = "", WizardType wizardType = WizardType.Balanced,
         Action<string>? onError = null)
@@ -157,22 +162,44 @@ public partial class Main : Node
         if (previous != null) _ = previous.DisposeAsync();
         try
         {
-            string accountToken = Accounts.TokenFor(address);
-            // Una cuenta directa de Firebase solo puede entregar su ID token a
-            // una dirección pública anunciada por el propio proyecto Firestore.
-            // Un servidor WSS arbitrario no debe recibir credenciales de Google.
-            if (accountToken.Length == 0 && Accounts.IsDirectFirebaseSession)
+            string destination = address;
+            Uri endpoint = ArenaConnection.Address(destination);
+
+            // La búsqueda LAN descubre salas mediante ws://, pero NO debe enviar
+            // el ID token Firebase por un transporte sin cifrar. Si el servidor
+            // LAN exige Google, localizar su misma instancia pública en Firestore
+            // y cambiar a WSS antes de enviar cualquier credencial.
+            if (endpoint.Scheme == "ws" && !endpoint.IsLoopback)
             {
-                Uri endpoint = ArenaConnection.Address(address);
-                if (endpoint.Scheme == "wss")
+                var localRooms = await RoomBrowser.ListAsync(destination, _lifetime.Token).ConfigureAwait(false);
+                if (localRooms.Server.RewardsAvailable)
                 {
-                    string verified = await PublicAccountServer.Resolve("arcana-arena-f2997", _lifetime.Token).ConfigureAwait(false);
-                    accountToken = Accounts.TokenForVerifiedServer(address, verified);
-                    if (accountToken.Length == 0)
-                        throw new InvalidOperationException("Este servidor no coincide con el servidor oficial anunciado en Firebase.");
+                    if (!Accounts.IsDirectFirebaseSession)
+                        throw new InvalidOperationException(GoogleConnectionMessage());
+                    string officialUrl = await PublicAccountServer.Resolve(FirebaseProjectId, _lifetime.Token).ConfigureAwait(false);
+                    var officialRooms = await RoomBrowser.ListAsync(officialUrl, _lifetime.Token).ConfigureAwait(false);
+                    if (!PublicAccountServer.SameInstance(localRooms.Server, officialRooms.Server) ||
+                        !officialRooms.Rooms.Any(room => room.Id == roomId))
+                        throw new InvalidOperationException("Esta sala LAN no coincide con el servidor seguro anunciado en Firebase. Usa «Servidor online con Google».");
+                    destination = officialUrl;
+                    Diagnostics.Info("client.secure_route", "Sala LAN redirigida al mismo servidor por WSS.");
                 }
             }
-            await connection.ConnectAsync(address, name, team, password, _lifetime.Token, roomId: roomId, roomPassword: roomPassword,
+
+            string accountToken = Accounts.TokenFor(destination);
+            // Las sesiones directas de Firebase solo se entregan a la dirección
+            // WSS anunciada actualmente por Firestore; nunca a otros destinos.
+            if (accountToken.Length == 0 && Accounts.IsDirectFirebaseSession &&
+                ArenaConnection.Address(destination).Scheme == "wss")
+            {
+                string verified = await PublicAccountServer.Resolve(FirebaseProjectId, _lifetime.Token).ConfigureAwait(false);
+                accountToken = Accounts.TokenForVerifiedServer(destination, verified);
+                if (accountToken.Length == 0)
+                    throw new InvalidOperationException("Este servidor no coincide con el servidor oficial anunciado en Firebase.");
+            }
+            if (accountToken.Length == 0 && ArenaConnection.Address(destination).Scheme == "wss")
+                throw new InvalidOperationException(GoogleConnectionMessage());
+            await connection.ConnectAsync(destination, name, team, password, _lifetime.Token, roomId: roomId, roomPassword: roomPassword,
                 wizardType: wizardType, deferReady: true, accountToken: accountToken).ConfigureAwait(false);
             if (!Post(() =>
             {
@@ -259,7 +286,7 @@ public partial class Main : Node
             _waitingPanel?.QueueFree();
             _waitingPanel = new RoomWaitingPanel();
             _ui.AddChild(_waitingPanel);
-            _waitingPanel.Build(Submit);
+            _waitingPanel.Build(Submit, () => ReturnToLauncher());
             _waitingPanel.Update(snapshot, _localId, _connection.Server?.RewardsAvailable == true);
             _ui.MoveChild(_waitingPanel, -1);
         }

@@ -9,6 +9,13 @@ public static class PublicAccountServer
     public static bool NeedsDiscovery(string address, bool mobile) => address == "automatic" || mobile &&
         Uri.TryCreate(address.Contains("://") ? address : "ws://" + address, UriKind.Absolute, out var uri) && uri.IsLoopback;
 
+    /// <summary>Never replace a LAN server with another publicly announced instance.</summary>
+    public static bool SameInstance(ServerInfo selected, ServerInfo official) =>
+        !string.IsNullOrWhiteSpace(selected.InstanceId) &&
+        string.Equals(selected.InstanceId, official.InstanceId, StringComparison.Ordinal) &&
+        selected.Protocol == official.Protocol &&
+        string.Equals(selected.GameVersion, official.GameVersion, StringComparison.Ordinal);
+
     public static async Task<string> Resolve(string projectId, CancellationToken token = default)
     {
         if (projectId.Length is < 6 or > 30 || projectId.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '-'))

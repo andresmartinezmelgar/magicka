@@ -11,7 +11,7 @@ public partial class ArcanaMenuChrome : Control
 {
     private readonly List<Button> _navigation = [];
     private Main _main = null!;
-    private Label _player = null!, _gold = null!;
+    private Label _player = null!;
     private double _refreshTimer;
     private MarginContainer? _reservedContent;
     private float _originalContentTop, _originalContentBottom;
@@ -64,10 +64,13 @@ public partial class ArcanaMenuChrome : Control
         _sectionLabel = Ui.Label(section.ToUpperInvariant(), Ui.IsMobile ? 17 : 20, Ui.Text);
         heading.AddChild(_sectionLabel);
         heading.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
-        _player = Ui.Label("", Ui.IsMobile ? 15 : 16, Ui.Muted);
+        _player = Ui.Label("", Ui.IsMobile ? 13 : 16, Ui.Gold);
+        _player.Name = "OptionAAccountSummary";
+        _player.HorizontalAlignment = HorizontalAlignment.Right;
+        _player.VerticalAlignment = VerticalAlignment.Center;
+        _player.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _player.CustomMinimumSize = new Vector2(0, 44);
         heading.AddChild(_player);
-        _gold = Ui.Label("", Ui.IsMobile ? 17 : 18, Ui.Gold);
-        heading.AddChild(_gold);
 
         var footer = new PanelContainer { Name = "OptionAFooter", MouseFilter = MouseFilterEnum.Stop };
         _footer = footer;
@@ -111,8 +114,9 @@ public partial class ArcanaMenuChrome : Control
         _reservedContent.OffsetBottom = _originalContentBottom - height - 5;
         if (_sectionLabel != null) _sectionLabel.Visible = viewportWidth >= 1120;
         if (_logoLabel != null) _logoLabel.Text = viewportWidth < 680 ? "✦ ARCANA" : "✦  ARCANA ARENA";
-        if (_player != null) _player.Visible = viewportWidth >= 1330;
-        if (_gold != null) _gold.Visible = viewportWidth >= 920;
+        // Los datos de cuenta son visibles también en móvil, alineados a la
+        // derecha del encabezado. La sección se oculta antes si falta espacio.
+        if (_player != null) _player.Visible = true;
     }
 
     public override void _ExitTree() => GetViewport().SizeChanged -= UpdateResponsive;
@@ -142,10 +146,14 @@ public partial class ArcanaMenuChrome : Control
     public void RefreshAccount()
     {
         var profile = _main.Accounts.Profile;
-        _player.Text = profile == null
-            ? (_main.GoogleIdentityKnown ? "Google conectado" : "Mago invitado")
-            : profile.Name;
-        _gold.Text = "● " + (profile?.Gold.ToString("N0") ?? "0") + " oro";
+        bool synced = _main.Accounts.IsDirectFirebaseSession;
+        bool google = _main.GoogleIdentityKnown || synced;
+        string name = profile?.Name ?? (google ? _main.GoogleIdentityName : "Mago invitado");
+        if (string.IsNullOrWhiteSpace(name)) name = "Mago";
+        int maxLength = Ui.IsMobile ? 13 : 22;
+        if (name.Length > maxLength) name = name[..(maxLength - 1)] + "…";
+        string state = synced ? "Google ✓" : google ? "Google · sin sincronizar" : "Sin Google";
+        _player.Text = $"{name} · {state}\nV: {profile?.Wins ?? 0} · D: {profile?.Losses ?? 0} · {profile?.Gold ?? 0} oro";
     }
 
     public override void _Process(double delta)

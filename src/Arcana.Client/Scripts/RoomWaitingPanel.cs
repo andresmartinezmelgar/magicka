@@ -10,11 +10,11 @@ public partial class RoomWaitingPanel : Control
     private GridContainer _teams = null!;
     private VBoxContainer _blue = null!, _red = null!;
     private Label _headline = null!, _status = null!, _prizes = null!;
-    private Button _ready = null!, _start = null!;
+    private Button _ready = null!, _start = null!, _exit = null!;
     private string _lastRoster = "";
     private Action<ClientMessage>? _submit;
 
-    public void Build(Action<ClientMessage> submit)
+    public void Build(Action<ClientMessage> submit, Action exit)
     {
         _submit = submit;
         Name = "PvPWaitingRoom";
@@ -30,9 +30,13 @@ public partial class RoomWaitingPanel : Control
         _panel = new PanelContainer();
         _panel.AddThemeStyleboxOverride("panel", Ui.Panel(new Color("10243b"), 12, new Color("3975aa")));
         center.AddChild(_panel);
+        var content = new VBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
+        content.AddThemeConstantOverride("separation", 8);
+        _panel.AddChild(content);
         var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
-            VerticalScrollMode = ScrollContainer.ScrollMode.Auto, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        _panel.AddChild(scroll);
+            VerticalScrollMode = ScrollContainer.ScrollMode.Auto, SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill };
+        content.AddChild(scroll);
         var body = new VBoxContainer();
         body.AddThemeConstantOverride("separation", 12); scroll.AddChild(body);
         _headline = Ui.Label("SALA DE ESPERA", 24, Ui.Gold);
@@ -63,6 +67,12 @@ public partial class RoomWaitingPanel : Control
         _status.HorizontalAlignment = HorizontalAlignment.Center; body.AddChild(_status);
         _prizes = Ui.Label("", 15, Ui.Muted); _prizes.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _prizes.HorizontalAlignment = HorizontalAlignment.Center; body.AddChild(_prizes);
+        // Siempre visible, incluso cuando en Android el listado necesita scroll.
+        _exit = Ui.Button("Salir de la sala", exit);
+        _exit.Name = "WaitingRoomExit";
+        _exit.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _exit.CustomMinimumSize = new Vector2(0, Ui.IsMobile ? 58 : 48);
+        content.AddChild(_exit);
         GetViewport().SizeChanged += Reflow;
         Reflow();
     }

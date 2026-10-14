@@ -24,6 +24,18 @@ static class NetworkEndpointTests
                 client.TokenForVerifiedServer("wss://example.org/play", "wss://example.org/play").Length != 0)
                 throw new Exception("Se admitió un token de cuenta sin sesión válida.");
         });
+        test("Red: una sala LAN solo usa WSS de la misma instancia", () =>
+        {
+            var official = new ServerInfo("Arena", 27014, 27016, GameMode.Duel, 0, 8,
+                Protocol.Version, false, "instancia-1", BuildInfo.Version, true);
+            var same = official with { Name = "Otro nombre" };
+            var different = official with { InstanceId = "instancia-2" };
+            if (!PublicAccountServer.SameInstance(official, same) ||
+                PublicAccountServer.SameInstance(official, different) ||
+                PublicAccountServer.SameInstance(official with { InstanceId = null }, same) ||
+                PublicAccountServer.SameInstance(official, official with { Protocol = Protocol.Version + 1 }))
+                throw new Exception("La comprobación de identidad del servidor WSS es insegura.");
+        });
         test("Red: rechaza credenciales y parámetros de URL", () =>
         {
             foreach (string address in new[]

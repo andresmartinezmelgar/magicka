@@ -26,7 +26,7 @@ public partial class Launcher : Control
     private VBoxContainer _playBody = null!;
     private Button _menuBack = null!;
     private int _page;
-    private Label _profileSummary = null!, _wizardDescription = null!;
+    private Label _wizardDescription = null!;
     private Button _accountButton = null!;
     private HBoxContainer? _mobilePrimaryActions;
     private ScrollContainer? _mobileScroll;
@@ -66,8 +66,7 @@ public partial class Launcher : Control
         _homeMenu.AddChild(Ui.Button("PvP", () => OpenPage(1), true));
         _homeMenu.AddChild(Ui.Button("Versus IA", () => OpenPage(2), true));
         _homeMenu.AddChild(Ui.Button("Perfil", () => OpenPage(3)));
-        _profileSummary = Ui.Label("", 15, Ui.Muted); _homeMenu.AddChild(_profileSummary);
-        _playBody = new VBoxContainer(); _playBody.AddThemeConstantOverride("separation", 6); form.AddChild(_playBody);
+         _playBody = new VBoxContainer(); _playBody.AddThemeConstantOverride("separation", 6); form.AddChild(_playBody);
         _menuBack = Ui.Button("Volver", () => { if (_page == 3) Remember(); OpenPage(0); }); form.AddChild(_menuBack);
         var identity = new HBoxContainer(); identity.AddThemeConstantOverride("separation", 12); _playBody.AddChild(identity);
         var nameColumn = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; identity.AddChild(nameColumn);
@@ -244,27 +243,16 @@ public partial class Launcher : Control
 
     public void UpdateAccountStatus()
     {
-        if (_page != 0) return;
-        var profile = _main.Accounts.Profile;
-        _profileSummary.Text = _main.Accounts.SignedIn && profile != null
-            ? $"🧙 {profile.Name} · Google conectado\n{profile.Wins} victorias · {profile.Losses} derrotas · {profile.Gold} oro"
-            : profile != null ? $"🧙 {profile.Name} · Datos guardados para práctica sin conexión"
-            : "🧙 Sin iniciar sesión";
-        _accountButton.Text = _main.Accounts.SignedIn ? "Mi cuenta de Google · Conectado" : "Entrar o registrarse con Google";
+        _accountButton.Text = _main.Accounts.IsDirectFirebaseSession
+            ? "Mi cuenta de Google · Conectado" : "Entrar o registrarse con Google";
+        _optionAChrome?.RefreshAccount();
     }
 
     private void OpenPage(int page)
     {
         _page = page;
         _homeMenu.Visible = page == 0;
-        if (page == 0)
-        {
-            var profile = _main.Accounts.Profile;
-            _profileSummary.Text = _main.Accounts.SignedIn && profile != null
-                ? $"🧙 {profile.Name} · Google conectado\n{profile.Wins} victorias · {profile.Losses} derrotas · {profile.Gold} oro"
-                : "🧙 " + _name.Text + " · Sin iniciar sesión";
-            _accountButton.Text = _main.Accounts.SignedIn ? "Mi cuenta de Google · Conectado" : "Entrar o registrarse con Google";
-        }
+        if (page == 0) UpdateAccountStatus();
         _playBody.Visible = page != 0;
         ((Control)_name.GetParent()).Visible = page == 3;
         ((Control)_name.GetParent().GetParent()).Visible = page is 1 or 3;
