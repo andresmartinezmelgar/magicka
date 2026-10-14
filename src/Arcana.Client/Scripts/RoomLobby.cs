@@ -273,14 +273,33 @@ public partial class RoomLobby : Control
         Loading("Consultando salas…");
         try
         {
-            var directory = await RoomBrowser.ListAsync(_address, _lifetime.Token);
+            string target = _address;
+            RoomDirectory directory = await RoomBrowser.ListAsync(target, _lifetime.Token);
+            // Al descubrir por LAN un servidor que requiere Firebase, sustituir
+            // automáticamente su ws:// por la WSS publicada. Así tanto Entrar
+            // como Crear sala usan HTTPS y no transmiten claves por LAN.
+            var endpoint = ArenaConnection.Address(target);
+            if (directory.Server.RewardsAvailable && endpoint.Scheme == "ws" && !endpoint.IsLoopback &&
+                _main.Accounts.IsDirectFirebaseSession)
+            {
+                string official = await PublicAccountServer.Resolve("arcana-arena-f2997", _lifetime.Token);
+                RoomDirectory verified = await RoomBrowser.ListAsync(official, _lifetime.Token);
+                if (!PublicAccountServer.SameInstance(directory.Server, verified.Server))
+                    throw new InvalidOperationException("La sala LAN no coincide con el servidor oficial de Firebase. Revisa el alojamiento.");
+                directory = verified;
+                target = official;
+            }
+            string secureTarget = target;
+            RoomDirectory result = directory;
             _main.Post(() =>
             {
                 if (!Active) return;
-                _heading.Text = "SALAS  /  " + directory.Server.Name;
-                string? previous = Selected()?.Id; _rooms = directory.Rooms;
-                _serverPasswordRequired = directory.Server.PasswordRequired;
-                _rewardsConfigured = directory.Server.RewardsAvailable;
+                _address = secureTarget;
+                if (_serverAddressLabel != null) _serverAddressLabel.Text = secureTarget;
+                _heading.Text = "SALAS  /  " + result.Server.Name;
+                string? previous = Selected()?.Id; _rooms = result.Rooms;
+                _serverPasswordRequired = result.Server.PasswordRequired;
+                _rewardsConfigured = result.Server.RewardsAvailable;
                 UpdateRewardsHint();
                 int at = Array.FindIndex(_rooms, r => r.Id == previous);
                 if (at >= 0) _roomPageStart = at / VisibleRoomsPerPage * VisibleRoomsPerPage;
@@ -288,7 +307,8 @@ public partial class RoomLobby : Control
                 ShowRoomPage(_roomPageStart);
                 if (at >= 0) _list.Select(at - _roomPageStart);
                 ShowObjective();
-                SetBusy(false); _status.Text = $"{_rooms.Length} sala(s). Selecciona una o crea tu propia partida.";
+                SetBusy(false); _status.Text = $"{_rooms.Length} sala(s). Selecciona una o crea tu propia partida." +
+                    (secureTarget.StartsWith("wss://", StringComparison.OrdinalIgnoreCase) ? " · Conexión segura" : "");
             });
         }
         catch (Exception e) { Failure(e); }

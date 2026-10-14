@@ -148,12 +148,17 @@ public partial class ArcanaMenuChrome : Control
         var profile = _main.Accounts.Profile;
         bool synced = _main.Accounts.IsDirectFirebaseSession;
         bool google = _main.GoogleIdentityKnown || synced;
+        bool compact = GetViewport().GetVisibleRect().Size.X < 720;
         string name = profile?.Name ?? (google ? _main.GoogleIdentityName : "Mago invitado");
         if (string.IsNullOrWhiteSpace(name)) name = "Mago";
-        int maxLength = Ui.IsMobile ? 13 : 22;
+        int maxLength = compact ? 9 : Ui.IsMobile ? 13 : 22;
         if (name.Length > maxLength) name = name[..(maxLength - 1)] + "…";
-        string state = synced ? "Google ✓" : google ? "Google · sin sincronizar" : "Sin Google";
-        _player.Text = $"{name} · {state}\nV: {profile?.Wins ?? 0} · D: {profile?.Losses ?? 0} · {profile?.Gold ?? 0} oro";
+        string state = synced ? (compact ? "G ✓" : "Google ✓")
+            : google ? (compact ? "G !" : "Google · sin sincronizar")
+            : compact ? "Sin G" : "Sin Google";
+        _player.Text = compact
+            ? $"{name} · {state}\nV:{profile?.Wins ?? 0} · D:{profile?.Losses ?? 0}"
+            : $"{name} · {state}\nV: {profile?.Wins ?? 0} · D: {profile?.Losses ?? 0} · {profile?.Gold ?? 0} oro";
     }
 
     public override void _Process(double delta)
