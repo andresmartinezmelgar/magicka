@@ -406,6 +406,22 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                     session.Room.World.RemovePlayer(session.Id);
                     if (session.Room.HostPlayerId == session.Id)
                         session.Room.HostPlayerId = session.Room.Sessions.Keys.FirstOrDefault();
+                    if (session.Room.BestOf > 1 && session.Room.Started && !session.Room.SeriesFinished)
+                    {
+                        // Una serie incompleta no puede continuar sin un rival.
+                        // Permite recibir sustitutos sin regalar puntos ni recompensas.
+                        session.Room.World.ResetForWaitingRoom();
+                        session.Room.Started = false;
+                        session.Room.StartRequested = false;
+                        session.Room.SeriesWins[0] = session.Room.SeriesWins[1] = 0;
+                        session.Room.SeriesFinished = false;
+                        session.Room.ResultQueued = false;
+                        session.Room.MatchId = Guid.NewGuid().ToString("N");
+                        session.Room.Participants.Clear();
+                        session.Room.AwaitingRematch = true;
+                        session.Room.RewardStatus = "La serie se canceló al desconectarse un jugador. Preparad otra partida.";
+                        foreach (var remaining in session.Room.Sessions.Values) remaining.LobbyReady = false;
+                    }
                     if (!session.Room.Started) session.Room.StartRequested = false;
                 }
                 Diagnostics.Info("connection.closed", "Jugador desconectado.", Context());
