@@ -1992,7 +1992,8 @@ if (package != null) await AsyncTest("Paquete autónomo: alojar, crear, entrar y
     }
     finally { Environment.SetEnvironmentVariable("ARENA_MAP", inheritedMap); }
     Check(host.Running, "No arrancó el servidor incluido.");
-    Check((await RoomBrowser.ListAsync(host.Address)).Rooms.Single().Map == ArenaMapId.Classic, "El servidor alojado heredó un mapa ajeno al launcher.");
+    Check((await RoomBrowser.ListAsync(host.Address)).Rooms.Length == 0,
+        "Alojar muestra una sala automática antes de que el usuario configure la suya.");
     var room = await RoomBrowser.CreateAsync(host.Address, new() { Name = "Sala desde paquete", Bots = 1, ServerPassword = "paquete-clave" });
     await using var player = new ArenaConnection();
     await player.ConnectAsync(host.Address, "Doble clic", -1, "paquete-clave", roomId: room.Id);
