@@ -368,7 +368,7 @@ public partial class Launcher : Control
     private string _hostPassword = "";
     private async Task Host()
     {
-        if (_host.Running) { OpenRooms(LocalFirebaseHosting.PublicGameAddress(ProjectSettings.GlobalizePath("user://")) ?? _host.Address, _hostPassword); return; }
+        if (_host.Running) { OpenRooms(_host.Address, _hostPassword); return; }
         var options = new LocalServerOptions(_hostName.Text.Trim(), (int)_hostPort.Value, (int)_hostDiscovery.Value, _password.Text);
         if (options.Name.Length == 0) { ShowError("Escribe un nombre para el servidor."); return; }
         string? firebaseGameAddress = LocalFirebaseHosting.PublicGameAddress(ProjectSettings.GlobalizePath("user://"));
@@ -398,7 +398,10 @@ public partial class Launcher : Control
                 _hostInfo.Text = $"Servidor activo · Juego TCP {options.Port} · LAN UDP {options.DiscoveryPort}\n{addresses}"
                     + (System.IO.File.Exists(System.IO.Path.Combine(LocalFirebaseHosting.DirectoryPath(ProjectSettings.GlobalizePath("user://")), LocalFirebaseHosting.ConfigFileName))
                         ? "\nFirebase local: configuración detectada (usa Entrar con Google para comprobarla)." : "\nFirebase: desactivado; las partidas LAN siguen disponibles.");
-                string roomAddress = LocalFirebaseHosting.PublicGameAddress(ProjectSettings.GlobalizePath("user://")) ?? _host.Address;
+                // El anfitrión siempre gestiona sus propias salas por loopback.
+                // Un túnel trycloudflare es temporal y su publicUrl puede quedar caducado.
+                // La dirección pública se comparte por separado con jugadores externos.
+                string roomAddress = _host.Address;
                 _address.Text = roomAddress;
                 UpdateConnectLabel(); OpenRooms(roomAddress, _hostPassword);
             });
