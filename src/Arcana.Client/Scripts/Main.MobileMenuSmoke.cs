@@ -119,6 +119,10 @@ public partial class Main
             {
                 AssertMobileActions("SALAS_PVP", _smokeLobby!.MobileRoomButtons.Append(_smokeLobby.MobileBackButton!), 4);
                 AssertOptionAScreen("SALAS_PVP", _smokeLobby);
+                _smokeLobby!.SetBusy(true);
+                _smokeLobby.ShowError("Contraseña de la sala incorrecta.");
+                if (_smokeLobby.IsBusyForSmoke || _smokeLobby.StatusForSmoke != "Contraseña de la sala incorrecta.")
+                    throw new InvalidOperationException("SALAS_PVP: un error de clave no permite reintentar o no aparece en pantalla.");
             }
             if (frame == 85) _smokeLobby!.OpenCreation();
             if (frame == 95)

@@ -1778,6 +1778,33 @@ if (server != null)
         catch (InvalidOperationException e) { rejected = e.Message.Contains("existe"); }
         Check(rejected, "Se admitió una sala inexistente.");
     });
+    await AsyncTest("Contraseñas independientes: servidor y sala, errores específicos, UTF-8", async () =>
+    {
+        const string roomSecret = "ClaveSALA-2026-é";
+        var room = await RoomBrowser.CreateAsync(server, new()
+        {
+            Name = "Sala protegida con claves distintas", ServerPassword = password, Password = roomSecret,
+            Mode = GameMode.Arena, MaxPlayers = 4, Bots = 0
+        });
+        var list = await RoomBrowser.ListAsync(server);
+        Check(list.Rooms.Any(r => r.Id == room.Id && r.PasswordRequired), "La sala protegida se anuncia como pública.");
+        await using var wrongRoom = new ArenaConnection();
+        bool refusedRoom = false;
+        try { await wrongRoom.ConnectAsync(server, "Error sala", 0, password, roomId: room.Id, roomPassword: "otra-clave"); }
+        catch (InvalidOperationException error) { refusedRoom = error.Message.Contains("Contraseña de la sala incorrecta.", StringComparison.Ordinal); }
+        Check(refusedRoom, "El error de contraseña de sala no se distingue del error del servidor.");
+        if (password.Length > 0)
+        {
+            await using var wrongServer = new ArenaConnection();
+            bool refusedServer = false;
+            try { await wrongServer.ConnectAsync(server, "Error servidor", 0, "clave-servidor-errónea", roomId: room.Id, roomPassword: roomSecret); }
+            catch (InvalidOperationException error) { refusedServer = error.Message.Contains("Contraseña del servidor incorrecta.", StringComparison.Ordinal); }
+            Check(refusedServer, "El servidor confundió la contraseña de la sala con la del servidor.");
+        }
+        await using var valid = new ArenaConnection();
+        await valid.ConnectAsync(server, "Clave correcta", 0, password, roomId: room.Id, roomPassword: roomSecret);
+        Check(valid.Room?.Id == room.Id && valid.Connected, "No se accedió con ambas contraseñas correctas.");
+    });
     await AsyncTest("Crear sala rechaza opciones inválidas y no expone contraseñas", async () =>
     {
         bool rejected = false;

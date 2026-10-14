@@ -144,7 +144,8 @@ public partial class Main : Node
         }
     }
     public async Task ConnectOnline(string address, string name, int team, string password,
-        string roomId = "default", string roomPassword = "", WizardType wizardType = WizardType.Balanced)
+        string roomId = "default", string roomPassword = "", WizardType wizardType = WizardType.Balanced,
+        Action<string>? onError = null)
     {
         if (Volatile.Read(ref _exiting) != 0) return;
         var connection = new ArenaConnection();
@@ -202,7 +203,8 @@ public partial class Main : Node
                     if (_pendingConnection != connection) return;
                     _pendingConnection = null;
                 }
-                _launcher.ShowError(message);
+                if (onError != null) onError(message);
+                else _launcher.ShowError(message);
             });
         }
     }
