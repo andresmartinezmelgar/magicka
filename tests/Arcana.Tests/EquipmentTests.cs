@@ -114,6 +114,41 @@ internal static class EquipmentTests
             a.Selection.Add(Element.Shield); Call(world, "SelfCast", a); Near(a.Shield, 504); Near(a.ShieldTime, 15);
             SnapshotValidation.Check(world.Snapshot());
         });
+        test("Equipo: Defensa +3,1 % reduce daño al escudo sin aumentar su capacidad", () =>
+        {
+            var (world, attacker, target) = Arena();
+            target.Shield = target.ShieldMax = 420;
+            target.ShieldTime = 12;
+            var defense = Item(EquipmentSlot.Chest, EquipmentStat.Defense, 0.031f);
+            world.EquipPlayer(target.Id, EquipmentModifiers.Calculate(Profile(defense)));
+            Near(target.Equipment.Incoming, 0.969f);
+            Near(target.ShieldMax, 420f);
+            Call(world, "Damage", target, 100f, attacker.Id, null);
+            Near(target.Shield, 420f - 96.9f);
+            Near(target.Health, 1000f);
+            var (otherWorld, otherAttacker, otherTarget) = Arena();
+            otherTarget.Shield = otherTarget.ShieldMax = 420;
+            otherTarget.ShieldTime = 12;
+            otherWorld.EquipPlayer(otherTarget.Id,
+                EquipmentModifiers.Calculate(Profile(Item(EquipmentSlot.Weapon, EquipmentStat.ShieldCapacity, 0.031f))));
+            otherTarget.Selection.Add(Element.Shield);
+            Call(otherWorld, "SelfCast", otherTarget);
+            Near(otherTarget.ShieldMax, 420f * 1.031f);
+            Check(otherTarget.ShieldMax > target.ShieldMax, "La capacidad del escudo no cambió.");
+        });
+        test("Ayuda: todos los atributos tienen significado coherente y ejemplos de escudo diferenciados", () =>
+        {
+            foreach (var stat in Enum.GetValues<EquipmentStat>())
+            {
+                Check(!string.IsNullOrWhiteSpace(EquipmentCatalogue.StatDescription(stat)) &&
+                    EquipmentCatalogue.StatDescription(stat).Length > 35, "Falta documentación para " + stat);
+                Check(!string.IsNullOrWhiteSpace(EquipmentCatalogue.StatExample(stat)), "Falta ejemplo " + stat);
+            }
+            Check(EquipmentCatalogue.StatDescription(EquipmentStat.Defense).Contains("No aumenta"),
+                "Se confunde defensa con capacidad del escudo.");
+            Check(EquipmentCatalogue.StatDescription(EquipmentStat.ShieldCapacity).Contains("máximos"),
+                "No se aclara la capacidad del escudo.");
+        });
         test("Equipo: las piezas permanecen al morir y al reiniciar la partida", () =>
         {
             var (world, a, b) = Arena(); var gear = EquipmentModifiers.Calculate(Profile(Item(EquipmentSlot.Boots, EquipmentStat.MovementSpeed, 0.12f)));
