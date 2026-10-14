@@ -121,7 +121,8 @@ public partial class RoomWaitingPanel : Control
         _ready.Text = ownReady ? "Cancelar preparado" : "Estoy preparado";
         _start.Visible = host;
         _start.Disabled = !enough || !teams;
-        _headline.Text = snapshot.BestOf > 1 ? $"SALA DE ESPERA · MEJOR DE {snapshot.BestOf}" : "SALA DE ESPERA";
+        _headline.Text = snapshot.AwaitingRematch ? $"NUEVA SERIE · MEJOR DE {snapshot.BestOf}" :
+            snapshot.BestOf > 1 ? $"SALA DE ESPERA · MEJOR DE {snapshot.BestOf}" : "SALA DE ESPERA";
         _status.Text = !teams ? "Debe haber jugadores en los dos equipos." :
             !enough ? "Esperando al menos dos jugadores y que todos estén preparados." :
             host ? "Todos preparados: puedes comenzar." : "Esperando a que el anfitrión inicie la partida.";
@@ -134,8 +135,8 @@ public partial class RoomWaitingPanel : Control
     {
         if (_panel == null) return;
         Vector2 size = GetViewport().GetVisibleRect().Size;
-        float width = Math.Max(260, Math.Min(950, size.X - 28));
-        float height = Math.Max(200, Math.Min(650, size.Y - 28));
+        float width = Math.Max(0, Math.Min(950, size.X - 28));
+        float height = Math.Max(0, Math.Min(650, size.Y - 28));
         _panel.CustomMinimumSize = new Vector2(width, height);
         _teams.Columns = width < 610 ? 1 : 2;
     }
