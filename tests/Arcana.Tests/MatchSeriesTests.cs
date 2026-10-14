@@ -57,7 +57,7 @@ static class MatchSeriesTests
                 throw new Exception("El aviso de fin de ronda no se oculta al reiniciar.");
             var simulatedWire = new ServerMessage { Type = "snapshot", Snapshot = round };
             var serialized = Protocol.SerializeSnapshot(simulatedWire);
-            var restored = Protocol.DeserializeFrame(serialized, binary: false)?.Snapshot
+            var restored = Protocol.DeserializeFrame(serialized, binary: serialized.Length > 0 && serialized[0] == 0xA1)?.Snapshot
                 ?? throw new Exception("El estado final no llegó por el protocolo.");
             if (RoundPresentation.Message(restored, blue.Id) != a ||
                 RoundPresentation.Message(restored, red.Id) != b)
