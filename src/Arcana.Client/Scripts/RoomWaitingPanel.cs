@@ -126,9 +126,11 @@ public partial class RoomWaitingPanel : Control
         _status.Text = !teams ? "Debe haber jugadores en los dos equipos." :
             !enough ? "Esperando al menos dos jugadores y que todos estén preparados." :
             host ? "Todos preparados: puedes comenzar." : "Esperando a que el anfitrión inicie la partida.";
-        _prizes.Text = awardsConfigured
-            ? "Recompensas: se conceden al ganar la serie, solo con Google en el servidor, equipos humanos equilibrados y actividad suficiente."
-            : "SIN RECOMPENSAS: este servidor no tiene habilitado el servicio de cuentas Firebase.";
+        _prizes.Text = !string.IsNullOrWhiteSpace(snapshot.RewardStatus)
+            ? snapshot.RewardStatus
+            : awardsConfigured
+                ? "Recompensas: se conceden al ganar la serie, solo con Google en el servidor, equipos humanos equilibrados y actividad suficiente."
+                : "SIN RECOMPENSAS: este servidor no tiene habilitado el servicio de cuentas Firebase.";
     }
 
     private void Reflow()
