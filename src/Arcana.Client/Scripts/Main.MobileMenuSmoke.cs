@@ -261,11 +261,8 @@ public partial class Main
                 var banner = (Label)_smokeScoreHud.FindChild("MatchBanner", true, false);
                 var reward = (Label)_smokeScoreHud.FindChild("MatchRewardNotice", true, false);
                 if (!banner.Text.Contains("HAS GANADO LA SERIE", StringComparison.Ordinal) ||
-                    !reward.Text.Contains("pendiente", StringComparison.OrdinalIgnoreCase) ||
-                    !screen.Encloses(banner.GetGlobalRect()) || !screen.Encloses(reward.GetGlobalRect()))
-                    throw new InvalidOperationException($"Resultado/recompensa fuera de pantalla: banner={banner.Text} rect={banner.GetGlobalRect()}, reward={reward.Text} rect={reward.GetGlobalRect()}, viewport={screen}.");
-                GD.Print("MOBILE_SERIES_REWARD_LAYOUT_OK");
-                AssertHudBounds(_smokeScoreHud, "victoria");
+                    !reward.Text.Contains("pendiente", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException("El resultado de la serie o la recompensa no tienen el texto correcto.");
                 // La etiqueta interna «Opción A» no debe mostrarse al jugador.
                 var visibleLabels = _launcher.FindChildren("*", "Label", true, false).OfType<Label>()
                     .Where(label => label.IsVisibleInTree()).Select(label => label.Text);
@@ -278,6 +275,18 @@ public partial class Main
                 _smokeScoreHud?.QueueFree();
                 _smokeScoreHud = null;
                 _launcher.Modulate = new Color(1, 1, 1, 1);
+            }
+            if (frame == 16)
+            {
+                // Los Container de Godot distribuyen a sus hijos en el siguiente fotograma;
+                // comprobar tamaños en el mismo _Process genera falsas posiciones de 1 píxel.
+                var banner = (Label)_smokeScoreHud!.FindChild("MatchBanner", true, false);
+                var reward = (Label)_smokeScoreHud.FindChild("MatchRewardNotice", true, false);
+                Rect2 screen = GetViewport().GetVisibleRect();
+                if (!screen.Encloses(banner.GetGlobalRect()) || !screen.Encloses(reward.GetGlobalRect()))
+                    throw new InvalidOperationException($"Resultado/recompensa fuera de pantalla: banner={banner.GetGlobalRect()}, recompensa={reward.GetGlobalRect()}, pantalla={screen}");
+                GD.Print("MOBILE_SERIES_REWARD_LAYOUT_OK");
+                AssertHudBounds(_smokeScoreHud, "victoria");
             }
             if (frame == 20)
             {
