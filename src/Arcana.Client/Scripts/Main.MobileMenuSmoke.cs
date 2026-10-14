@@ -182,7 +182,7 @@ public partial class Main
                 if (!banner.Text.Contains("HAS GANADO LA SERIE", StringComparison.Ordinal) ||
                     !reward.Text.Contains("pendiente", StringComparison.OrdinalIgnoreCase) ||
                     !screen.Encloses(banner.GetGlobalRect()) || !screen.Encloses(reward.GetGlobalRect()))
-                    throw new InvalidOperationException("Resultado de la serie o aviso de recompensa fuera de pantalla.");
+                    throw new InvalidOperationException($"Resultado/recompensa fuera de pantalla: banner={banner.Text} rect={banner.GetGlobalRect()}, reward={reward.Text} rect={reward.GetGlobalRect()}, viewport={screen}.");
                 GD.Print("MOBILE_SERIES_REWARD_LAYOUT_OK");
                 _smokeScoreHud.QueueFree();
                 _smokeScoreHud = null;
