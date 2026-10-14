@@ -11,6 +11,7 @@ public partial class Main
     private int _desktopHeaderSmokeFrame;
     private int _mobileMenuSmokeFrame;
     private bool _visualReview;
+    private long _lastVisualDraw = -1;
     private string? _visualReviewDirectory;
 
     private void CaptureVisualReview(string stage)
@@ -20,6 +21,24 @@ public partial class Main
         if (screenshot.IsEmpty()) throw new InvalidOperationException("Captura gráfica vacía: " + stage);
         if (screenshot.GetWidth() < 640 || screenshot.GetHeight() < 450)
             throw new InvalidOperationException("Captura gráfica incompleta: " + stage);
+        // Rechaza fotogramas antiguos del combate usados por error como capturas del menú.
+        // En los menús predomina el azul oscuro; el mapa del juego es mayoritariamente verde.
+        if (stage.StartsWith("03-", StringComparison.Ordinal) ||
+            stage.StartsWith("04-", StringComparison.Ordinal) ||
+            stage.StartsWith("05-", StringComparison.Ordinal))
+        {
+            int green = 0, samples = 0;
+            for (int row = 2; row < 18; row++)
+                for (int col = 2; col < 18; col++)
+                {
+                    var pixel = screenshot.GetPixel(col * screenshot.GetWidth() / 20,
+                        row * screenshot.GetHeight() / 20);
+                    if (pixel.G > pixel.R * 1.3f && pixel.G > pixel.B * 1.3f && pixel.G > 0.12f) green++;
+                    samples++;
+                }
+            if (green > samples / 5)
+                throw new InvalidOperationException($"VISUAL_STALE_FRAME: {stage} parece mostrar el combate en vez del menú ({green}/{samples} píxeles verdes).");
+        }
         if (!string.IsNullOrWhiteSpace(_visualReviewDirectory))
         {
             DirAccess.MakeDirRecursiveAbsolute(_visualReviewDirectory);
@@ -186,6 +205,14 @@ public partial class Main
     private bool CheckMobileMenuSmoke()
     {
         if (!_mobileMenuSmoke) return false;
+        if (_visualReview)
+        {
+            // Xvfb+OpenGL por software puede dibujar menos fotogramas que _Process.
+            // El escenario avanza exclusivamente tras un FramePostDraw completado.
+            long drawn = Interlocked.Read(ref _drawnFrames);
+            if (drawn <= _lastVisualDraw) return true;
+            _lastVisualDraw = drawn;
+        }
         int frame = ++_mobileMenuSmokeFrame;
         try
         {
