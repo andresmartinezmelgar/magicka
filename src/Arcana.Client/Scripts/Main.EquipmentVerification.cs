@@ -31,7 +31,7 @@ public partial class Main
             if (_equipmentPublicStage == 0)
             {
                 _hud!.ScoreOpen = true;
-                _hud.GetNode<Button>("ScorePanel/ScoreContent/InspectEquipmentButton").EmitSignal(Button.SignalName.Pressed);
+                _hud.GetNode<Button>("ScoreCenter/ScorePanel/ScoreContent/InspectEquipmentButton").EmitSignal(Button.SignalName.Pressed);
                 Check(InspectingEquipment && (!Ui.IsMobile || !_touch!.Visible), "La clasificación no abre la ficha o mantiene los controles táctiles.");
                 _equipmentPublicStage = 1; return false;
             }
