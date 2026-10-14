@@ -81,7 +81,7 @@ public partial class Main
         if (!summary.IsVisibleInTree() || summary.AutowrapMode != TextServer.AutowrapMode.Off ||
             account.Size.X < 140 || account.Size.Y > 56 || account.Position.Y < head.Position.Y ||
             account.End.Y > head.End.Y || account.End.X > screen.End.X)
-            throw new InvalidOperationException($"{mode}: el perfil se ha convertido en texto vertical: {account}, header={head}");
+            throw new InvalidOperationException($"{mode}: perfil inválido: rect={account}, header={head}, visible={summary.IsVisibleInTree()}, wrap={summary.AutowrapMode}, screen={screen}");
         if (home.Columns != 2 || buttons.Length != 4 ||
             cards.Position.Y < head.End.Y || cards.Position.X < 0 ||
             cards.End.X > screen.End.X || cards.Position.Y > screen.End.Y - 80)
