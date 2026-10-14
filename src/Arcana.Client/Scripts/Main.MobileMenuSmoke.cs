@@ -41,6 +41,11 @@ public partial class Main
             if (!screen.Encloses(rect))
                 throw new InvalidOperationException($"HUD {stage}: {name} fuera de pantalla: {rect}, viewport={screen}");
         }
+        var status = (Control)hud.FindChild("PlayerStatusPanel", true, false);
+        var minimap = (Control)hud.FindChild("MiniMapPanel", true, false);
+        if (status.IsVisibleInTree() && minimap.IsVisibleInTree() &&
+            status.GetGlobalRect().Intersects(minimap.GetGlobalRect()))
+            throw new InvalidOperationException($"HUD {stage}: el minimapa tapa la vida del jugador: {minimap.GetGlobalRect()} / {status.GetGlobalRect()}");
     }
 
     // En CI no basta con simular los controles móviles: hay que comprobar
@@ -221,7 +226,7 @@ public partial class Main
                     throw new InvalidOperationException("Clasificación fuera de la pantalla: " + tableRect +
                         " pantalla=" + GetViewport().GetVisibleRect());
                 GD.Print("MOBILE_SCOREBOARD_LAYOUT_OK");
-                if (_visualReview) AssertHudBounds(_smokeScoreHud, "clasificacion");
+                AssertHudBounds(_smokeScoreHud, "clasificacion");
                 _smokeScoreHud.ScoreOpen = false;
                 var simulated = new GameWorld(new WorldOptions { Mode = GameMode.Warfare, Bots = 0 });
                 var player = simulated.AddPlayer("Mago de prueba", 0)!;
@@ -239,7 +244,7 @@ public partial class Main
                     !screen.Encloses(banner.GetGlobalRect()) || !screen.Encloses(reward.GetGlobalRect()))
                     throw new InvalidOperationException($"Resultado/recompensa fuera de pantalla: banner={banner.Text} rect={banner.GetGlobalRect()}, reward={reward.Text} rect={reward.GetGlobalRect()}, viewport={screen}.");
                 GD.Print("MOBILE_SERIES_REWARD_LAYOUT_OK");
-                if (_visualReview) AssertHudBounds(_smokeScoreHud, "victoria");
+                AssertHudBounds(_smokeScoreHud, "victoria");
                 // La etiqueta interna «Opción A» no debe mostrarse al jugador.
                 var visibleLabels = _launcher.FindChildren("*", "Label", true, false).OfType<Label>()
                     .Where(label => label.IsVisibleInTree()).Select(label => label.Text);
