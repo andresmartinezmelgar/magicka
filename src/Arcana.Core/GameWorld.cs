@@ -85,6 +85,20 @@ public sealed partial class GameWorld
         return wizard;
     }
 
+    /// <summary>Solo se permite cambiar de equipo antes de iniciar una sala competitiva.</summary>
+    public bool SetPlayerTeam(int id, int team)
+    {
+        if (team is not (0 or 1) || !_players.TryGetValue(id, out var wizard) || wizard.Bot ||
+            Map.IsPractice || MatchEnded) return false;
+        if (Options.Mode == GameMode.Duel && _players.Values.Any(p => p.Id != id && p.Team == team)) return false;
+        if (wizard.Team == team) return true;
+        wizard.Team = team;
+        wizard.Position = TeamSpawn(team, _players.Values.Count(p => p.Team == team) - 1);
+        wizard.Facing = new(team == 0 ? 1 : -1, 0);
+        CancelCast(wizard);
+        return true;
+    }
+
     public void RemovePlayer(int id)
     {
         if (!_players.Remove(id, out var wizard)) return;

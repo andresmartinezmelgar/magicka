@@ -20,9 +20,14 @@ internal sealed class GameRoom(string id, string name, string password, WorldOpt
     public bool Started { get; set; }
     public string MatchId { get; set; } = Guid.NewGuid().ToString("N");
     public bool ResultQueued { get; set; }
+    public bool SeriesFinished { get; set; }
+    public int[] SeriesWins { get; } = new int[2];
+    public int BestOf { get; set; } = 1;
+    public int HostPlayerId { get; set; }
+    public bool StartRequested { get; set; }
     public Dictionary<string, MatchParticipant> Participants { get; } = new(StringComparer.Ordinal);
     public RoomInfo Info() => new(Id, Name, Options.Mode, World.Players.Count, Options.MaxPlayers,
-        Options.Bots, Options.FriendlyFire, Options.ScoreLimit, Options.Tickets, Password.Length > 0, Options.Map);
+        Options.Bots, Options.FriendlyFire, Options.ScoreLimit, Options.Tickets, Password.Length > 0, Options.Map, BestOf);
 }
 internal sealed class PlayerSession(int id, GameRoom room, WebSocket socket)
 {
@@ -33,6 +38,7 @@ internal sealed class PlayerSession(int id, GameRoom room, WebSocket socket)
     public WebSocket Socket { get; } = socket;
     public ServerMessage? NetworkBaseline { get; set; }
     public bool Ready { get; set; }
+    public bool LobbyReady { get; set; }
     public AccountIdentity? Account { get; init; }
     public PreparedEquipment Equipment { get; set; } = new(EquipmentModifiers.None, PublicEquipment.Empty);
     public SemaphoreSlim SendGate { get; } = new(1, 1);
@@ -61,11 +67,11 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
     {
         lock (_gate) return new(settings.Name, settings.Port, settings.DiscoveryPort,
             settings.World.Mode, _rooms.Values.Sum(r => r.World.Players.Count),
-            _rooms.Values.Sum(r => r.Options.MaxPlayers), Protocol.Version, settings.Password.Length > 0, settings.InstanceId, BuildInfo.Version);
+            _rooms.Values.Sum(r => r.Options.MaxPlayers), Protocol.Version, settings.Password.Length > 0, settings.InstanceId, BuildInfo.Version, accounts.GameEnabled);
     }
     public long CurrentTick => Interlocked.Read(ref _tick);
     public RoomDirectory ListRooms()
-    { lock (_gate) return new(Info(), _rooms.Values.Select(r => r.Info()).ToArray()); }
+    { lock (_gate) return new(Info(), _rooms.Values.Where(r => r.Id != "default").Select(r => r.Info()).ToArray()); }
 
     public (RoomInfo? Room, string Error, int Status) CreateRoom(CreateRoomRequest? request)
     {
@@ -77,6 +83,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             request.Password == null || request.Password.Length > 128 || !Enum.IsDefined(request.Mode) || !Enum.IsDefined(request.Map) ||
             request.MaxPlayers is < 2 or > 16 || request.Bots < 0 || request.Bots >= request.MaxPlayers ||
             request.ScoreLimit is < 1 or > 200 || request.Tickets is < 5 or > 1000 ||
+            request.BestOf is not (1 or 5 or 7 or 9) ||
             (request.Mode == GameMode.Duel && request.MaxPlayers != 2))
             return (null, "Datos inválidos. Duelo requiere 2 plazas; deja al menos una plaza libre de bots.", 400);
         if (!ArenaMap.Get(request.Map).SupportsMode(request.Mode))
@@ -90,6 +97,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             var options = new WorldOptions { Mode = request.Mode, Map = request.Map, MaxPlayers = request.MaxPlayers, Bots = request.Bots,
                 FriendlyFire = request.FriendlyFire, ScoreLimit = request.ScoreLimit, Tickets = request.Tickets };
             var room = new GameRoom(Guid.NewGuid().ToString("N"), request.Name.Trim(), request.Password, options);
+            room.BestOf = request.BestOf;
             _rooms.Add(room.Id, room);
             logger.LogInformation("Sala creada: {Name}, {Id}", room.Name, room.Id);
             return (room.Info(), "", 201);
@@ -286,6 +294,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                     {
                         room.World.EquipPlayer(player.Id, equipment);
                         session = new(player.Id, room, socket) { Account = identity, Equipment = equipment, LastActivityTick = room.World.Tick };
+                        if (room.HostPlayerId == 0) room.HostPlayerId = player.Id;
                         room.Sessions.Add(player.Id, session);
                         _sessions[session.Key] = session; room.LastOccupied = Environment.TickCount64;
                         player.Invulnerable = 1.2f;
@@ -351,7 +360,14 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             if (session != null)
             {
                 _sessions.TryRemove(session.Key, out _);
-                lock (_gate) { session.Room.Sessions.Remove(session.Id); session.Room.World.RemovePlayer(session.Id); }
+                lock (_gate)
+                {
+                    session.Room.Sessions.Remove(session.Id);
+                    session.Room.World.RemovePlayer(session.Id);
+                    if (session.Room.HostPlayerId == session.Id)
+                        session.Room.HostPlayerId = session.Room.Sessions.Keys.FirstOrDefault();
+                    if (!session.Room.Started) session.Room.StartRequested = false;
+                }
                 Diagnostics.Info("connection.closed", "Jugador desconectado.", Context());
             }
             if (socket?.State == WebSocketState.Open)
@@ -434,8 +450,15 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
     }
     private static ServerMessage RoomSnapshot(GameRoom room) => new()
     {
-        Type = "snapshot", Snapshot = room.World.Snapshot(),
-        PreparingPlayers = room.Started ? 0 : room.Sessions.Values.Count(s => !s.Ready),
+        Type = "snapshot", Snapshot = room.World.Snapshot() with
+        {
+            WaitingForPlayers = room.Id != "default" && !room.Started,
+            LobbyHostId = room.HostPlayerId,
+            LobbyReadyPlayerIds = room.Sessions.Values.Where(s => s.LobbyReady).Select(s => s.Id).ToArray(),
+            BestOf = room.BestOf,
+            SeriesWins = room.SeriesWins.ToArray()
+        },
+        PreparingPlayers = room.Sessions.Values.Count(s => !s.Ready),
         ReadyPlayerIds = room.Sessions.Values.Where(s => s.Ready).Select(s => s.Id).ToArray()
     };
     private static bool PasswordMatches(string? supplied, string expected)
