@@ -20,15 +20,19 @@ public sealed class AccountClient : IDisposable
     public bool SignedIn => Token.Length > 0 && ExpiresAt > DateTimeOffset.UtcNow;
     public string TokenFor(string address) => SignedIn ? Token : "";
     private FirebaseProfileReader? _firebaseReader;
+    private long _identityGeneration;
     private string _firebaseUid = "";
     public bool IsDirectFirebaseSession => _firebaseReader != null && SignedIn;
     public bool HasDirectFirebaseSession => _firebaseReader != null;
     public async Task SetFirebaseSession(string projectId, string uid, string displayName, string idToken, DateTimeOffset expiresAt, CancellationToken cancellationToken = default)
     {
+        long generation = Interlocked.Increment(ref _identityGeneration);
         if (expiresAt <= DateTimeOffset.UtcNow || string.IsNullOrWhiteSpace(idToken))
             throw new UnauthorizedAccessException("Token Firebase caducado o vacío.");
         using var reader = new FirebaseProfileReader(projectId);
         var profile = await reader.Read(uid, idToken, displayName, cancellationToken).ConfigureAwait(false);
+        if (generation != Interlocked.Read(ref _identityGeneration))
+            throw new OperationCanceledException("El inicio de sesión Google ya no está vigente.");
         _firebaseReader?.Dispose();
         _firebaseReader = new FirebaseProfileReader(projectId);
         _firebaseUid = uid;
@@ -110,6 +114,7 @@ public sealed class AccountClient : IDisposable
     }
     public async Task SignOut(CancellationToken token = default)
     {
+        Interlocked.Increment(ref _identityGeneration);
         try { if (SignedIn && !IsDirectFirebaseSession) _ = await Request<ApiError>(HttpMethod.Post, "account/logout", new { }, token).ConfigureAwait(false); }
         finally { Token = ""; ExpiresAt = default; Profile = null; _firebaseReader?.Dispose(); _firebaseReader = null; _firebaseUid = ""; }
     }
