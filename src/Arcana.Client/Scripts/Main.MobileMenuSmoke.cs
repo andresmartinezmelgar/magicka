@@ -128,12 +128,6 @@ public partial class Main
                 _googleIdentityName = "andresmartinez";
                 _launcher.UpdateAccountStatus();
             }
-            if (frame == 17)
-            {
-                _smokeScoreHud?.QueueFree();
-                _smokeScoreHud = null;
-                _launcher.Modulate = new Color(1, 1, 1, 1);
-            }
             if (frame == 20)
             {
                 AssertHeaderAndHome(_launcher, GetViewport().GetVisibleRect(), "DESKTOP");
@@ -278,6 +272,12 @@ public partial class Main
                 if (visibleLabels.Any(text => text.Contains("O P C I Ó N", StringComparison.OrdinalIgnoreCase)
                     || text.Contains("OPCIÓN A", StringComparison.OrdinalIgnoreCase)))
                     throw new InvalidOperationException("INICIO: se muestra una etiqueta interna de diseño.");
+            }
+            if (frame == 17)
+            {
+                _smokeScoreHud?.QueueFree();
+                _smokeScoreHud = null;
+                _launcher.Modulate = new Color(1, 1, 1, 1);
             }
             if (frame == 20)
             {
