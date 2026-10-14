@@ -15,6 +15,7 @@ public partial class ArcanaMenuChrome : Control
     private double _refreshTimer;
     private MarginContainer? _reservedContent;
     private VBoxContainer _shell = null!;
+    private Control _contentHost = null!;
     private GridContainer? _navigationGrid;
     private PanelContainer? _footer;
     private Label? _sectionLabel, _logoLabel;
@@ -39,10 +40,10 @@ public partial class ArcanaMenuChrome : Control
         chrome.MouseFilter = MouseFilterEnum.Ignore;
         chrome._main = main;
         chrome.Build(section, selected, navigate);
-        content.Reparent(chrome._shell);
-        chrome._shell.MoveChild(content, 1);
-        content.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        content.SizeFlagsVertical = SizeFlags.ExpandFill;
+        // El host aísla el tamaño mínimo de los formularios: un hijo extenso
+        // no debe aumentar el ancho de la navegación de toda la aplicación.
+        content.Reparent(chrome._contentHost);
+        Ui.Full(content);
         content.CustomMinimumSize = Vector2.Zero;
         chrome.GetViewport().SizeChanged += chrome.UpdateResponsive;
         chrome.UpdateResponsive();
@@ -88,6 +89,12 @@ public partial class ArcanaMenuChrome : Control
         _player.CustomMinimumSize = new Vector2(Ui.IsMobile ? 210 : 300, 44);
         heading.AddChild(_player);
 
+        _contentHost = new Control { Name = "ResponsiveContentHost",
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+            CustomMinimumSize = Vector2.Zero,
+            ClipContents = true };
+        _shell.AddChild(_contentHost);
         var footer = new PanelContainer { Name = "OptionAFooter", MouseFilter = MouseFilterEnum.Stop };
         _footer = footer;
         footer.CustomMinimumSize = new Vector2(0, FooterHeight);
