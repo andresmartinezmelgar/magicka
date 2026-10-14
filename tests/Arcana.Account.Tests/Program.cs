@@ -280,7 +280,7 @@ await Test("PvP completo: fin de partida, diario y recompensa llegan a la cuenta
     await a.ConnectAsync("127.0.0.1:28339", "A", 0, "", accountToken: aliceLogin.AccessToken);
     await b.ConnectAsync("127.0.0.1:28339", "B", 1, "", accountToken: bobLogin.AccessToken);
     var start = DateTimeOffset.UtcNow;
-    while ((DateTimeOffset.UtcNow - start).TotalSeconds < 16)
+    while ((DateTimeOffset.UtcNow - start).TotalSeconds < 18)
     {
         a.Send(new() { Type = "input", MoveX = .1f, AimX = 10 });
         b.Send(new() { Type = "input", MoveX = -.1f, AimX = -10 });

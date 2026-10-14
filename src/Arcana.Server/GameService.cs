@@ -20,7 +20,6 @@ internal sealed class GameRoom(string id, string name, string password, WorldOpt
     public bool Started { get; set; }
     public string MatchId { get; set; } = Guid.NewGuid().ToString("N");
     public bool ResultQueued { get; set; }
-    public bool RewardsAllowed { get; set; }
     public Dictionary<string, MatchParticipant> Participants { get; } = new(StringComparer.Ordinal);
     public RoomInfo Info() => new(Id, Name, Options.Mode, World.Players.Count, Options.MaxPlayers,
         Options.Bots, Options.FriendlyFire, Options.ScoreLimit, Options.Tickets, Password.Length > 0, Options.Map);
@@ -157,15 +156,6 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                             }
                             if (readyPlayers == 0 || !room.Started && readyPlayers != room.Sessions.Count)
                             { if (CurrentTick % 3 == 0) dirty.Add(room); continue; }
-                            if (!room.Started)
-                            {
-                                int blue = room.World.Players.Values.Count(p => !p.Bot && p.Team == 0);
-                                int red = room.World.Players.Values.Count(p => !p.Bot && p.Team == 1);
-                                int blueBots = room.World.Players.Values.Count(p => p.Bot && p.Team == 0);
-                                int redBots = room.World.Players.Values.Count(p => p.Bot && p.Team == 1);
-                                room.RewardsAllowed = room.Options.Mode != GameMode.Arena &&
-                                    BalancedMatchRules.RewardsEnabled(blue, red, blueBots, redBots);
-                            }
                             room.Started = true;
                             // Entrar en una partida iniciada no la pausa: el nuevo jugador
                             // permanece protegido y sin acciones hasta terminar su carga.

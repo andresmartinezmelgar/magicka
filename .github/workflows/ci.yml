@@ -55,8 +55,7 @@ jobs:
         run: dotnet build tests/Arcana.Account.Tests/Arcana.Account.Tests.csproj -c Release --nologo
       - name: Probar reglas de Firestore sin credenciales reales
         run: tests/firebase-rules/node_modules/.bin/firebase emulators:exec --only firestore --project demo-arcana-arena --config firebase.json -- 'node tests/firebase-rules/verify.cjs'
-      - name: Diagnosticar integración de cuentas y recompensas (fase de auth pendiente)
-        continue-on-error: true
+      - name: Validar integración de cuentas, sala PvP y recompensas (obligatorio)
         run: tests/firebase-rules/node_modules/.bin/firebase emulators:exec --only firestore --project demo-arcana-arena --config firebase.json -- 'dotnet run --project tests/Arcana.Account.Tests/Arcana.Account.Tests.csproj -c Release --no-build'
 
   package-windows:
