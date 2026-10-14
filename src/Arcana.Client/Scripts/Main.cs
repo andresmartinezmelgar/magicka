@@ -59,6 +59,7 @@ public partial class Main : Node
     public override void _Ready()
     {
         PrepareMobileWindow();
+        PrepareDesktopHeaderSmokeWindow();
         RenderingServer.FramePostDraw += FrameDrawn;
         _log = new DiagnosticLog(ProjectSettings.GlobalizePath("user://logs"), "client"); Diagnostics.Log = _log;
         _processDiagnostics = new ProcessDiagnostics(_log);
@@ -101,6 +102,7 @@ public partial class Main : Node
         var arguments = OS.GetCmdlineUserArgs();
         _accountEntrySmoke = arguments.Contains("--account-entry-smoke");
         _mobileMenuSmoke = arguments.Contains("--mobile-menu-smoke");
+        _desktopHeaderSmoke = arguments.Contains("--desktop-header-smoke");
         foreach (string arg in arguments)
         {
             if (arg is "--preview-equipment" or "--equipment-smoke") EquipmentFixture(arg == "--equipment-smoke");
@@ -340,6 +342,7 @@ public partial class Main : Node
             }
         TickGoogleAuth(delta);
         _renderFrames++;
+        if (CheckDesktopHeaderSmoke()) return;
         if (CheckMobileMenuSmoke()) return;
         if (CheckAccountEntrySmoke()) return;
         if (CheckPublicEquipmentSmoke()) return;

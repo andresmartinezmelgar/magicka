@@ -185,6 +185,14 @@ jobs:
         run: |
           dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
           "$ARCANA_GODOT" --headless --editor --path src/Arcana.Client --import
+      - name: Verificar cabecera de perfil y tarjetas 2x2 en escritorio (geometría real)
+        run: |
+          set -o pipefail
+          for viewport in 1600x900 1440x900 1280x720 1024x720; do
+            "$ARCANA_GODOT" --headless --path src/Arcana.Client -- --desktop-header-smoke "--smoke-viewport=$viewport" 2>&1 | tee "$RUNNER_TEMP/desktop-header-$viewport.log"
+            grep -q 'DESKTOP_HEADER_LAYOUT_OK' "$RUNNER_TEMP/desktop-header-$viewport.log"
+            ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED|DESKTOP_HEADER_LAYOUT_FAILED' "$RUNNER_TEMP/desktop-header-$viewport.log"
+          done
       - name: Verificar visibilidad de botones PvP y versus IA en modo móvil
         run: |
           set -o pipefail

@@ -52,6 +52,8 @@ public partial class ArcanaMenuChrome : Control
         header.AnchorRight = 1;
         header.OffsetBottom = HeaderHeight;
         header.AddThemeStyleboxOverride("panel", BarStyle());
+        // Si un texto cambia, la barra nunca debe ocupar la zona de juego.
+        header.ClipContents = true;
         AddChild(header);
 
         var heading = new HBoxContainer();
@@ -68,8 +70,14 @@ public partial class ArcanaMenuChrome : Control
         _player.Name = "OptionAAccountSummary";
         _player.HorizontalAlignment = HorizontalAlignment.Right;
         _player.VerticalAlignment = VerticalAlignment.Center;
-        _player.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _player.CustomMinimumSize = new Vector2(0, 44);
+        // El texto del perfil no puede alterar el alto de la cabecera.
+        // El bug anterior permitía un ancho casi nulo y una letra por fila,
+        // agrandando la cabecera hasta tapar el launcher.
+        _player.AutowrapMode = TextServer.AutowrapMode.Off;
+        _player.ClipText = true;
+        _player.SizeFlagsHorizontal = SizeFlags.ShrinkEnd;
+        _player.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        _player.CustomMinimumSize = new Vector2(Ui.IsMobile ? 210 : 300, 44);
         heading.AddChild(_player);
 
         var footer = new PanelContainer { Name = "OptionAFooter", MouseFilter = MouseFilterEnum.Stop };
@@ -116,7 +124,15 @@ public partial class ArcanaMenuChrome : Control
         if (_logoLabel != null) _logoLabel.Text = viewportWidth < 680 ? "✦ ARCANA" : "✦  ARCANA ARENA";
         // Los datos de cuenta son visibles también en móvil, alineados a la
         // derecha del encabezado. La sección se oculta antes si falta espacio.
-        if (_player != null) _player.Visible = true;
+        if (_player != null)
+        {
+            // Ancho explícito: nunca dejar que HBoxContainer encoja el perfil
+            // a unos pocos píxeles y convierta su contenido en texto vertical.
+            float width = Math.Clamp(viewportWidth * (Ui.IsMobile ? 0.31f : 0.28f),
+                Ui.IsMobile ? 150 : 190, Ui.IsMobile ? 260 : 320);
+            _player.CustomMinimumSize = new Vector2(width, 44);
+            _player.Visible = true;
+        }
     }
 
     public override void _ExitTree() => GetViewport().SizeChanged -= UpdateResponsive;

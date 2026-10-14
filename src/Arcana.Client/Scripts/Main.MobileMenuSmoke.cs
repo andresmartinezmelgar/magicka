@@ -7,7 +7,88 @@ namespace Arcana.Client;
 public partial class Main
 {
     private bool _mobileMenuSmoke;
+    private bool _desktopHeaderSmoke;
+    private int _desktopHeaderSmokeFrame;
     private int _mobileMenuSmokeFrame;
+
+    // En CI no basta con simular los controles móviles: hay que comprobar
+    // la geometría Godot del escritorio real en 1600×900 y 1280×720.
+    private void PrepareDesktopHeaderSmokeWindow()
+    {
+        var args = OS.GetCmdlineUserArgs();
+        if (!args.Contains("--desktop-header-smoke") || Ui.IsMobile) return;
+        string? size = args.FirstOrDefault(arg => arg.StartsWith("--smoke-viewport=", StringComparison.Ordinal));
+        if (size == null) return;
+        var parts = size["--smoke-viewport=".Length..].Split('x');
+        if (parts.Length != 2 || !int.TryParse(parts[0], out int width) ||
+            !int.TryParse(parts[1], out int height) ||
+            width is < 800 or > 2560 || height is < 600 or > 1440)
+            throw new ArgumentException("Resolución del smoke de escritorio inválida.");
+        GetWindow().ContentScaleSize = new Vector2I(width, height);
+        GetWindow().ContentScaleAspect = Window.ContentScaleAspectEnum.Expand;
+        GetWindow().Size = new Vector2I(width, height);
+    }
+
+    private static void AssertHeaderAndHome(Launcher launcher, Rect2 screen, string mode)
+    {
+        if (launcher.FindChild("OptionAHeader", true, false) is not Control header ||
+            launcher.FindChild("OptionAAccountSummary", true, false) is not Label summary ||
+            launcher.FindChild("OptionAHomeCards", true, false) is not GridContainer home)
+            throw new InvalidOperationException($"{mode}: faltan cabecera, resumen o tarjetas.");
+        Rect2 head = header.GetGlobalRect();
+        Rect2 account = summary.GetGlobalRect();
+        Rect2 cards = home.GetGlobalRect();
+        var buttons = home.GetChildren().OfType<Button>().ToArray();
+        if (head.Size.Y is < 55 or > 80 || head.Position.Y < -1 || !screen.Encloses(head))
+            throw new InvalidOperationException($"{mode}: la cabecera invade la pantalla: {head}");
+        if (!summary.IsVisibleInTree() || summary.AutowrapMode != TextServer.AutowrapMode.Off ||
+            account.Size.X < 140 || account.Size.Y > 56 || account.Position.Y < head.Position.Y ||
+            account.End.Y > head.End.Y || account.End.X > screen.End.X)
+            throw new InvalidOperationException($"{mode}: el perfil se ha convertido en texto vertical: {account}, header={head}");
+        if (home.Columns != 2 || buttons.Length != 4 ||
+            cards.Position.Y < head.End.Y || cards.Position.X < 0 ||
+            cards.End.X > screen.End.X || cards.Position.Y > screen.End.Y - 80)
+            throw new InvalidOperationException($"{mode}: tarjetas 2×2 fuera del área central: {cards}, header={head}");
+        foreach (var button in buttons)
+        {
+            var rect = button.GetGlobalRect();
+            if (!button.IsVisibleInTree() || rect.Size.X < 120 || rect.Size.Y < 90 ||
+                rect.Position.Y < head.End.Y || rect.Position.X < 0 || rect.End.X > screen.End.X ||
+                rect.Position.Y > screen.End.Y - 65)
+                throw new InvalidOperationException($"{mode}: tarjeta del inicio fuera de pantalla: {button.Text}, {rect}");
+        }
+        GD.Print($"HEADER_AND_HOME_OK:{mode}: header={head}, summary={account}, cards={cards}");
+    }
+
+    private bool CheckDesktopHeaderSmoke()
+    {
+        if (!_desktopHeaderSmoke) return false;
+        int frame = ++_desktopHeaderSmokeFrame;
+        try
+        {
+            if (frame == 2)
+            {
+                _googleIdentityKnown = true;
+                _googleIdentityName = "andresmartinez";
+                _launcher.UpdateAccountStatus();
+            }
+            if (frame == 20)
+            {
+                AssertHeaderAndHome(_launcher, GetViewport().GetVisibleRect(), "DESKTOP");
+                GD.Print("DESKTOP_HEADER_LAYOUT_OK");
+                _desktopHeaderSmoke = false;
+                GetTree().Quit(0);
+            }
+            return true;
+        }
+        catch (Exception error)
+        {
+            GD.PushError("DESKTOP_HEADER_LAYOUT_FAILED: " + error);
+            _desktopHeaderSmoke = false;
+            GetTree().Quit(1);
+            return true;
+        }
+    }
     private RoomLobby? _smokeLobby;
     private Hud? _smokeScoreHud;
 
@@ -77,6 +158,10 @@ public partial class Main
             }
             if (frame == 15)
             {
+                // Nombre similar al que provocó el error real en Windows.
+                _googleIdentityKnown = true;
+                _googleIdentityName = "andresmartinez";
+                _launcher.UpdateAccountStatus();
                 var tableRect = _smokeScoreHud!.ScoreboardRectForSmoke;
                 if (!GetViewport().GetVisibleRect().Encloses(tableRect))
                     throw new InvalidOperationException("Clasificación fuera de la pantalla: " + tableRect +
@@ -93,6 +178,7 @@ public partial class Main
             }
             if (frame == 20)
             {
+                AssertHeaderAndHome(_launcher, GetViewport().GetVisibleRect(), "MOBILE");
                 var fullPanel = _launcher.FindChild("OptionAFullWidthPanel", true, false) as Control;
                 var choices = _launcher.FindChild("OptionAHomeCards", true, false) as Control;
                 if (fullPanel == null || choices == null ||
@@ -119,6 +205,9 @@ public partial class Main
             }
             if (frame == 22)
             {
+                _googleIdentityKnown = false;
+                _googleIdentityName = "";
+                _launcher.UpdateAccountStatus();
                 // Verificación de la salida visible en sala de espera sin un servidor real.
                 bool left = false;
                 var wait = new RoomWaitingPanel();
