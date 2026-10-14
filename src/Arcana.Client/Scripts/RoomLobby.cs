@@ -8,6 +8,8 @@ public partial class RoomLobby : Control
 {
     private Main _main = null!;
     private string _address = "", _serverPassword = "", _playerName = "";
+    private bool _serverPasswordRequired;
+    private string _selectedRoomId = "";
     private OptionButton _teamChoice = null!;
     private WizardType _wizardType;
     private Label _objective = null!, _creationObjective = null!;
@@ -17,15 +19,18 @@ public partial class RoomLobby : Control
     private Label? _roomPageLabel;
     private Button? _roomPagePrevious, _roomPageNext;
     private ItemList _list = null!;
-    private Label _status = null!, _heading = null!;
+    private Label _status = null!, _heading = null!, _emptyRooms = null!;
     private Label? _serverAddressLabel;
-    private LineEdit _joinPassword = null!, _roomName = null!, _roomPassword = null!;
-    private OptionButton _mode = null!, _map = null!;
+    private LineEdit _joinPassword = null!, _serverPasswordEntry = null!, _roomName = null!, _roomPassword = null!;
+    private OptionButton _mode = null!, _map = null!, _bestOf = null!;
+    private Label _rewardHint = null!;
+    private bool _rewardsConfigured;
     private SpinBox _capacity = null!, _bots = null!, _score = null!, _tickets = null!;
     private CheckBox _friendly = null!;
     private VBoxContainer _listPane = null!, _createPane = null!;
-    private HBoxContainer? _mobileListActions, _mobileCreateActions;
+    private GridContainer? _mobileListActions, _mobileCreateActions;
     private ScrollContainer? _mobileScroll;
+    private GridContainer? _roomFormGrid;
     private readonly List<Button> _buttons = [];
     private bool _busy;
     private readonly CancellationTokenSource _lifetime = new();
@@ -51,18 +56,33 @@ public partial class RoomLobby : Control
         var scroll = new ScrollContainer { Name = "OptionALobbyContent",
             SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
-            VerticalScrollMode = ScrollContainer.ScrollMode.Disabled };
+            VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
         layout.AddChild(scroll);
         var fixedActions = new VBoxContainer { Name = "OptionALobbyActions" };
         fixedActions.AddThemeConstantOverride("separation", 6);
         layout.AddChild(fixedActions);
         _mobileScroll = scroll;
         var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; box.AddThemeConstantOverride("separation", Ui.IsMobile ? 6 : 9); scroll.AddChild(box);
-        _heading = Ui.Label("SALAS", 28, Ui.Gold); box.AddChild(_heading);
+        _heading = Ui.Label("SALAS", 28, Ui.Gold); _heading.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_heading);
         var addressInfo = Ui.Label(address, 15, Ui.Muted);
         addressInfo.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
         box.AddChild(addressInfo);
         _serverAddressLabel = addressInfo;
+        // Al alojar en PC, se muestra el enlace WSS renovado que los móviles
+        // deben usar para enviar la sesión Google y cobrar recompensas.
+        if (!Ui.IsMobile && address.StartsWith("127.0.0.1:", StringComparison.Ordinal))
+        {
+            string? publicAddress = LocalFirebaseHosting.PublicGameAddress(ProjectSettings.GlobalizePath("user://"));
+            if (publicAddress?.StartsWith("wss://", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                var publicLabel = Ui.Label("ENLACE SEGURO PARA MÓVIL Y RECOMPENSAS:\n" + publicAddress, 13, Ui.Gold);
+                publicLabel.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
+                box.AddChild(publicLabel);
+                var copyPublic = Ui.Button("Copiar enlace WSS para el móvil",
+                    () => DisplayServer.ClipboardSet(publicAddress));
+                box.AddChild(copyPublic);
+            }
+        }
         // El inventario siempre queda disponible en la barra inferior fija de la opción A.
         var teamRow = new HBoxContainer(); teamRow.AddThemeConstantOverride("separation", 12); box.AddChild(teamRow);
         var headerRow = new HBoxContainer();
@@ -76,6 +96,10 @@ public partial class RoomLobby : Control
         _listPane = new VBoxContainer(); _listPane.AddThemeConstantOverride("separation", Ui.IsMobile ? 4 : 8); box.AddChild(_listPane);
         _list = new ItemList { CustomMinimumSize = new(0, Ui.IsMobile ? 100 : 160), SelectMode = ItemList.SelectModeEnum.Single };
         _listPane.AddChild(_list); _list.ItemActivated += _ => Join();
+        _emptyRooms = Ui.Label("No hay salas disponibles. Pulsa «Crear sala» para abrir una partida.", 15, Ui.Muted);
+        _emptyRooms.HorizontalAlignment = HorizontalAlignment.Center;
+        _emptyRooms.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _listPane.AddChild(_emptyRooms);
         var pages = new HBoxContainer();
         pages.AddThemeConstantOverride("separation", 10);
         _listPane.AddChild(pages);
@@ -93,14 +117,28 @@ public partial class RoomLobby : Control
         pages.AddChild(_roomPageNext);
         _objective = Ui.Label("", 15, Ui.Gold); _objective.AutowrapMode = TextServer.AutowrapMode.WordSmart; _listPane.AddChild(_objective);
         _list.ItemSelected += _ => ShowObjective();
-        _listPane.AddChild(Ui.Label("Contraseña de la sala (si tiene)", 14, Ui.Muted));
-        _joinPassword = new LineEdit { Secret = true, MaxLength = 128, PlaceholderText = "Opcional", CustomMinimumSize = new(0, 42) };
+        _listPane.AddChild(Ui.Label("1. Contraseña del SERVIDOR (solo si está protegido)", 14, Ui.Muted));
+        _serverPasswordEntry = new LineEdit
+        {
+            Name = "ServerPasswordInput",
+            Secret = true, MaxLength = 128, Text = password,
+            PlaceholderText = "Clave del anfitrión, distinta de la clave de la sala",
+            CustomMinimumSize = new(0, 42)
+        };
+        _serverPasswordEntry.TextChanged += value => _serverPassword = value;
+        _listPane.AddChild(_serverPasswordEntry);
+        _listPane.AddChild(Ui.Label("2. Contraseña de la SALA seleccionada (si tiene)", 14, Ui.Muted));
+        _joinPassword = new LineEdit { Name = "RoomPasswordInput", Secret = true, MaxLength = 128,
+            PlaceholderText = "Clave utilizada al crear la sala",
+            CustomMinimumSize = new(0, 42) };
         _listPane.AddChild(_joinPassword);
-        var actions = new HBoxContainer(); actions.AddThemeConstantOverride("separation", 12); _listPane.AddChild(actions);
+        var actions = new GridContainer { Columns = 4 }; actions.AddThemeConstantOverride("h_separation", 12);
+        actions.AddThemeConstantOverride("v_separation", 6); _listPane.AddChild(actions);
         ActionButton(actions, "Entrar", Join, true); ActionButton(actions, "Crear sala", () => SwitchPane(true));
         ActionButton(actions, "Actualizar", Refresh);
         _createPane = new VBoxContainer { Visible = false }; _createPane.AddThemeConstantOverride("separation", 12); box.AddChild(_createPane);
-        var grid = new GridContainer { Columns = 6 }; grid.AddThemeConstantOverride("h_separation", 18);
+        var grid = new GridContainer { Columns = 6 }; _roomFormGrid = grid;
+        grid.AddThemeConstantOverride("h_separation", 18);
         grid.AddThemeConstantOverride("v_separation", Ui.IsMobile ? 5 : 7); _createPane.AddChild(grid);
         _roomName = new LineEdit { Text = "Sala de " + (name.Length > 24 ? name[..24] : name), MaxLength = 32, CustomMinimumSize = new(0, 42) };
         Row(grid, "Nombre", _roomName);
@@ -112,18 +150,28 @@ public partial class RoomLobby : Control
         Row(grid, "Mapa", _map);
         _capacity = Number(2, 16, 8); Row(grid, "Plazas (incluidos los bots)", _capacity);
         _bots = Number(0, 7, 0); Row(grid, "IA (desactiva premios)", _bots);
-        var rewardHint = Ui.Label("Recompensas PvP: solo equipos humanos equilibrados (1v1 hasta 4v4).", 14, Ui.Gold);
-        rewardHint.AutowrapMode = TextServer.AutowrapMode.WordSmart; _createPane.AddChild(rewardHint);
-        _bots.ValueChanged += count => rewardHint.Text = count > 0 ? "SIN RECOMPENSAS: hay IA en la partida." : "Recompensas PvP disponibles únicamente con equipos humanos equilibrados.";
+        _bestOf = new OptionButton { CustomMinimumSize = new(0, 42) };
+        _bestOf.AddItem("Partida única (sin sala de espera)", 1);
+        _bestOf.AddItem("Mejor de 5 · gana 3", 5);
+        _bestOf.AddItem("Mejor de 7 · gana 4", 7);
+        _bestOf.AddItem("Mejor de 9 · gana 5", 9);
+        _bestOf.Select(1);
+        Row(grid, "Formato de serie", _bestOf);
+        _rewardHint = Ui.Label("", 14, Ui.Gold);
+        _rewardHint.AutowrapMode = TextServer.AutowrapMode.WordSmart; _createPane.AddChild(_rewardHint);
+        _bots.ValueChanged += _ => UpdateRewardsHint();
+        _bestOf.ItemSelected += _ => UpdateRewardsHint();
         _friendly = new CheckBox { Text = "Permitir daño entre aliados", ButtonPressed = true }; Row(grid, "Fuego amigo", _friendly);
         _score = Number(1, 200, 15); Row(grid, "Puntos para ganar (arena / duelo)", _score);
         _tickets = Number(5, 1000, 75); Row(grid, "Tickets por equipo (guerra)", _tickets);
         _roomPassword = new LineEdit { Secret = true, MaxLength = 128, PlaceholderText = "Dejar vacío para sala abierta", CustomMinimumSize = new(0, 42) };
-        Row(grid, "Contraseña de esta sala", _roomPassword);
+        Row(grid, "Clave de la SALA", _roomPassword);
         _creationObjective = Ui.Label("", 14, Ui.Gold); _creationObjective.AutowrapMode = TextServer.AutowrapMode.WordSmart; _createPane.AddChild(_creationObjective);
         _mode.ItemSelected += _ =>
         {
             bool duel = (GameMode)_mode.GetSelectedId() == GameMode.Duel;
+            _bestOf.Disabled = (GameMode)_mode.GetSelectedId() == GameMode.Arena;
+            UpdateRewardsHint();
             _capacity.Editable = !duel; if (duel) _capacity.Value = 2;
             _bots.MaxValue = _capacity.Value - 1;
             ShowCreationObjective();
@@ -131,10 +179,12 @@ public partial class RoomLobby : Control
         _score.ValueChanged += _ => ShowCreationObjective(); _tickets.ValueChanged += _ => ShowCreationObjective();
         _map.ItemSelected += _ => ShowCreationObjective();
         ShowCreationObjective();
+        UpdateRewardsHint();
         _capacity.ValueChanged += value => _bots.MaxValue = value - 1;
-        var creation = new HBoxContainer(); creation.AddThemeConstantOverride("separation", 12); _createPane.AddChild(creation);
+        var creation = new GridContainer { Columns = 3 }; creation.AddThemeConstantOverride("h_separation", 12);
+        creation.AddThemeConstantOverride("v_separation", 6); _createPane.AddChild(creation);
         ActionButton(creation, "Crear y entrar", Create, true); ActionButton(creation, "Volver a salas", () => SwitchPane(false));
-        _heading.TooltipText = "Cada sala tiene su propia partida. Las salas vacías se retiran a los 15 minutos.";
+        _heading.TooltipText = "Cada sala tiene su partida. Las salas vacías se retiran tras 2 minutos; si el servidor se llena, se sustituyen las salas abandonadas.";
         _status = Ui.Label("Cargando salas…", 15, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _status.CustomMinimumSize = new(0, 36); box.AddChild(_status);
         var back = Ui.Button("Volver al launcher", Close);
@@ -151,13 +201,27 @@ public partial class RoomLobby : Control
         actions.Reparent(fixedActions);
         creation.Reparent(fixedActions);
         _mobileCreateActions.Visible = false;
-        foreach (var control in new Control[] { _teamChoice, _joinPassword, _roomName, _roomPassword,
-            _mode, _map, _capacity, _bots, _score, _tickets, _friendly })
+        foreach (var control in new Control[] { _teamChoice, _serverPasswordEntry, _joinPassword, _roomName, _roomPassword,
+            _mode, _map, _bestOf, _capacity, _bots, _score, _tickets, _friendly })
             Ui.TouchTarget(control, Ui.IsMobile ? 48 : 46);
         _list.CustomMinimumSize = new Vector2(0, Ui.IsMobile ? 100 : 160);
         ArcanaMenuChrome.Attach(this, safeMargin, _main, "Salas PvP", 1, _main.NavigateOptionAMenu);
+        GetViewport().SizeChanged += UpdateRoomResponsive;
+        UpdateRoomResponsive();
         Refresh();
     }
+    private void UpdateRoomResponsive()
+    {
+        if (_roomFormGrid == null) return;
+        float width = GetViewport().GetVisibleRect().Size.X - (Ui.IsMobile ? 65 : 115);
+        _roomFormGrid.Columns = ResponsiveLayout.Columns(width, 550, 3, 18) * 2;
+        if (_mobileListActions != null)
+            _mobileListActions.Columns = ResponsiveLayout.Columns(width, 175, 4, 12);
+        if (_mobileCreateActions != null)
+            _mobileCreateActions.Columns = ResponsiveLayout.Columns(width, 230, 3, 12);
+    }
+    internal bool IsBusyForSmoke => _busy;
+    internal string StatusForSmoke => _status.Text;
     internal Button[] MobileRoomButtons => (_createPane.Visible ? _mobileCreateActions : _mobileListActions)?
         .GetChildren().OfType<Button>().Where(button => button.Visible).ToArray() ?? [];
     internal Button? MobileBackButton => FindChildren("*", "Button", true, false)
@@ -186,15 +250,26 @@ public partial class RoomLobby : Control
     {
         _busy = busy; foreach (var b in _buttons) b.Disabled = busy;
         _list.MouseFilter = busy ? MouseFilterEnum.Ignore : MouseFilterEnum.Stop;
-        _roomName.Editable = _roomPassword.Editable = _joinPassword.Editable = !busy;
+        _roomName.Editable = _roomPassword.Editable = _joinPassword.Editable =
+            _serverPasswordEntry.Editable = !busy;
         _mode.Disabled = _map.Disabled = _friendly.Disabled = _teamChoice.Disabled = busy;
+        _bestOf.Disabled = busy || (GameMode)_mode.GetSelectedId() == GameMode.Arena;
         _bots.Editable = _score.Editable = _tickets.Editable = !busy;
         _capacity.Editable = !busy && (GameMode)_mode.GetSelectedId() != GameMode.Duel;
         ShowCreationObjective();
     }
     private bool Active => GodotObject.IsInstanceValid(this) && IsInsideTree() && !IsQueuedForDeletion();
     public void ShowError(string error)
-    { SetBusy(false); _status.Text = error; _status.AddThemeColorOverride("font_color", Ui.Red); }
+    {
+        SetBusy(false);
+        _status.Text = error;
+        _status.AddThemeColorOverride("font_color", Ui.Red);
+        // El error de conexión se muestra AQUÍ, no en el launcher oculto detrás.
+        if (!Ui.IsMobile && error.Contains("Contraseña de la sala", StringComparison.OrdinalIgnoreCase))
+            _joinPassword.GrabFocus();
+        else if (!Ui.IsMobile && error.Contains("Contraseña del servidor", StringComparison.OrdinalIgnoreCase))
+            _serverPasswordEntry.GrabFocus();
+    }
     private void Loading(string text) { SetBusy(true); _status.Text = text; _status.AddThemeColorOverride("font_color", Ui.Muted); }
     private async void Refresh()
     {
@@ -202,20 +277,42 @@ public partial class RoomLobby : Control
         Loading("Consultando salas…");
         try
         {
-            var directory = await RoomBrowser.ListAsync(_address, _lifetime.Token);
+            string target = _address;
+            RoomDirectory directory = await RoomBrowser.ListAsync(target, _lifetime.Token);
+            // Al descubrir por LAN un servidor que requiere Firebase, sustituir
+            // automáticamente su ws:// por la WSS publicada. Así tanto Entrar
+            // como Crear sala usan HTTPS y no transmiten claves por LAN.
+            var endpoint = ArenaConnection.Address(target);
+            if (directory.Server.RewardsAvailable && endpoint.Scheme == "ws" && !endpoint.IsLoopback &&
+                _main.Accounts.IsDirectFirebaseSession)
+            {
+                string official = await PublicAccountServer.Resolve("arcana-arena-f2997", _lifetime.Token);
+                RoomDirectory verified = await RoomBrowser.ListAsync(official, _lifetime.Token);
+                if (!PublicAccountServer.SameInstance(directory.Server, verified.Server))
+                    throw new InvalidOperationException("La sala LAN no coincide con el servidor oficial de Firebase. Revisa el alojamiento.");
+                directory = verified;
+                target = official;
+            }
+            string secureTarget = target;
+            RoomDirectory result = directory;
             _main.Post(() =>
             {
                 if (!Active) return;
-                _heading.Text = "SALAS  /  " + directory.Server.Name;
-                string? previous = Selected()?.Id; _rooms = directory.Rooms;
+                _address = secureTarget;
+                if (_serverAddressLabel != null) _serverAddressLabel.Text = secureTarget;
+                _heading.Text = "SALAS  /  " + result.Server.Name;
+                string? previous = Selected()?.Id; _rooms = result.Rooms;
+                _serverPasswordRequired = result.Server.PasswordRequired;
+                _rewardsConfigured = result.Server.RewardsAvailable;
+                UpdateRewardsHint();
                 int at = Array.FindIndex(_rooms, r => r.Id == previous);
                 if (at >= 0) _roomPageStart = at / VisibleRoomsPerPage * VisibleRoomsPerPage;
                 else _roomPageStart = 0;
                 ShowRoomPage(_roomPageStart);
                 if (at >= 0) _list.Select(at - _roomPageStart);
                 ShowObjective();
-                ShowObjective();
-                SetBusy(false); _status.Text = $"{_rooms.Length} sala(s). Selecciona una o crea tu propia partida.";
+                SetBusy(false); _status.Text = $"{_rooms.Length} sala(s). Selecciona una o crea tu propia partida." +
+                    (secureTarget.StartsWith("wss://", StringComparison.OrdinalIgnoreCase) ? " · Conexión segura" : "");
             });
         }
         catch (Exception e) { Failure(e); }
@@ -225,8 +322,10 @@ public partial class RoomLobby : Control
         _roomPageStart = Math.Clamp(requestedStart, 0,
             Math.Max(0, (_rooms.Length - 1) / VisibleRoomsPerPage * VisibleRoomsPerPage));
         _list.Clear();
+        _emptyRooms.Visible = _rooms.Length == 0;
         foreach (var room in _rooms.Skip(_roomPageStart).Take(VisibleRoomsPerPage))
-            _list.AddItem($"{room.Name}{(room.PasswordRequired ? " · CON CLAVE" : "")}  ·  {Ui.ModeName(room.Mode)}  ·  {ArenaMap.Get(room.Map).Name}  ·  {room.Players}/{room.MaxPlayers} plazas");
+            _list.AddItem($"{room.Name}{(room.PasswordRequired ? " · CON CLAVE" : "")}  ·  {Ui.ModeName(room.Mode)}  ·  {ArenaMap.Get(room.Map).Name}  ·  {room.Players}/{room.MaxPlayers} plazas" +
+                (room.InProgress && room.BestOf > 1 ? " · EN PARTIDA" : " · DISPONIBLE"));
         if (_list.ItemCount > 0) _list.Select(0);
         if (_roomPagePrevious != null) _roomPagePrevious.Disabled = _roomPageStart == 0;
         if (_roomPageNext != null) _roomPageNext.Disabled = _roomPageStart + VisibleRoomsPerPage >= _rooms.Length;
@@ -241,8 +340,31 @@ public partial class RoomLobby : Control
         int index = selected.Length > 0 ? _roomPageStart + selected[0] : -1;
         return index >= 0 && index < _rooms.Length ? _rooms[index] : null;
     }
-    private void ShowObjective() => _objective.Text = Selected() is { } room
-        ? MatchRules.Objective(room.Mode, room.ScoreLimit, room.Tickets, room.Map) : "Selecciona una sala para ver su objetivo.";
+    private void ShowObjective()
+    {
+        var room = Selected();
+        // Evita reutilizar sin querer la clave de otra sala tras cambiar de selección.
+        if ((room?.Id ?? "") != _selectedRoomId)
+        {
+            _selectedRoomId = room?.Id ?? "";
+            if (_joinPassword != null) _joinPassword.Text = "";
+        }
+        _objective.Text = room == null ? "Selecciona una sala para ver su objetivo."
+            : MatchRules.Objective(room.Mode, room.ScoreLimit, room.Tickets, room.Map) +
+                (room.PasswordRequired ? "\nEsta sala tiene una clave propia; no es la del servidor." : "\nSala sin contraseña propia.");
+    }
+    private void UpdateRewardsHint()
+    {
+        if (_rewardHint == null) return;
+        _rewardHint.Text = !_rewardsConfigured
+            ? "SIN RECOMPENSAS: el servidor no tiene Firebase habilitado. Configura el servidor con cuentas para probar premios."
+            : _bots.Value > 0
+                ? "SIN RECOMPENSAS: las partidas con IA no conceden premios."
+                : (GameMode)_mode.GetSelectedId() == GameMode.Arena
+                    ? "Sin premios por equipos: selecciona Guerra o Duelo para recompensas PvP."
+                    : "Recompensas al ganar la serie: todos con Google, equipos humanos equilibrados (1v1–4v4), actividad mínima de 15 s.";
+    }
+
     private void ShowCreationObjective()
     {
         var mode = (GameMode)_mode.GetSelectedId(); var map = (ArenaMapId)_map.GetSelectedId();
@@ -259,9 +381,23 @@ public partial class RoomLobby : Control
     {
         if (_busy) return;
         var room = Selected(); if (room == null) { ShowError("Selecciona una sala."); return; }
+        if (room.InProgress && room.BestOf > 1) { ShowError("Esta serie está en curso. Actualiza las salas para entrar en la siguiente."); return; }
         if (room.Players >= room.MaxPlayers) { ShowError("La sala está llena. Crea otra o actualiza la lista."); return; }
+        if (_serverPasswordRequired && _serverPassword.Length == 0)
+        {
+            ShowError("Falta la contraseña del SERVIDOR (campo 1). Es distinta de la de la sala.");
+            return;
+        }
+        string roomPassword = _joinPassword.Text;
+        if (room.PasswordRequired && roomPassword.Length == 0)
+        {
+            ShowError("Falta la contraseña de la SALA (campo 2). Usa la clave con la que se creó.");
+            return;
+        }
+        string serverPassword = _serverPasswordEntry.Text;
         Loading("Entrando en " + room.Name + "…");
-        _ = _main.ConnectOnline(_address, _playerName, Ui.SelectedTeam(_teamChoice), _serverPassword, room.Id, _joinPassword.Text, _wizardType);
+        _ = _main.ConnectOnline(_address, _playerName, Ui.SelectedTeam(_teamChoice),
+            serverPassword, room.Id, roomPassword, _wizardType, error => { if (Active) ShowError(error); });
     }
     private async void Create()
     {
@@ -269,12 +405,20 @@ public partial class RoomLobby : Control
         int team = Ui.SelectedTeam(_teamChoice);
         var request = new CreateRoomRequest { Name = _roomName.Text, Mode = (GameMode)_mode.GetSelectedId(), Map = (ArenaMapId)_map.GetSelectedId(),
             MaxPlayers = (int)_capacity.Value, Bots = (int)_bots.Value, FriendlyFire = _friendly.ButtonPressed,
-            ScoreLimit = (int)_score.Value, Tickets = (int)_tickets.Value, Password = _roomPassword.Text, ServerPassword = _serverPassword };
+            ScoreLimit = (int)_score.Value, Tickets = (int)_tickets.Value,
+            BestOf = (GameMode)_mode.GetSelectedId() == GameMode.Arena ? 1 : _bestOf.GetSelectedId(),
+            Password = _roomPassword.Text, ServerPassword = _serverPasswordEntry.Text };
         Loading("Creando sala…");
         try
         {
             var room = await RoomBrowser.CreateAsync(_address, request, _lifetime.Token);
-            _main.Post(() => { if (Active) _ = _main.ConnectOnline(_address, _playerName, team, _serverPassword, room.Id, request.Password, _wizardType); });
+            _main.Post(() =>
+            {
+                if (!Active) return;
+                _ = _main.ConnectOnline(_address, _playerName, team, request.ServerPassword,
+                    room.Id, request.Password, _wizardType,
+                    error => { if (Active) ShowError("Sala creada, pero no se pudo entrar: " + error); });
+            });
         }
         catch (Exception e) { Failure(e); }
     }
@@ -287,5 +431,5 @@ public partial class RoomLobby : Control
         _main.Post(() => { if (Active) ShowError(message); });
     }
     private void Close() { _lifetime.Cancel(); _main.CancelPendingConnection(); QueueFree(); }
-    public override void _ExitTree() { _lifetime.Cancel(); _lifetime.Dispose(); }
+    public override void _ExitTree() { GetViewport().SizeChanged -= UpdateRoomResponsive; _lifetime.Cancel(); _lifetime.Dispose(); }
 }

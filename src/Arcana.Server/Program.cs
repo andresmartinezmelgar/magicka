@@ -10,6 +10,15 @@ try
 {
     var settings = ServerSettings.FromEnvironment();
     log.ProtectSecret(settings.Password);
+    // El launcher pasa ARCANA_FIREBASE_CONFIG y GOOGLE_APPLICATION_CREDENTIALS
+    // al proceso servidor. Las cuentas y recompensas estaban desconectadas
+    // porque este punto de arranque solo consultaba FIREBASE_PROJECT_ID.
+    var configuredAccounts = AccountOptions.FromEnvironment();
+    await using var publicHost = await AutomaticPublicHost.Prepare(configuredAccounts, settings.Port);
+    var activeAccounts = publicHost?.Options ?? configuredAccounts;
+    Diagnostics.Info("firebase.hosting", activeAccounts.Enabled
+        ? publicHost != null ? "Firebase y túnel público preparados." : "Firebase activo sin túnel público automático."
+        : "Firebase desactivado; partidas LAN sin recompensas.");
     var builder = WebApplication.CreateBuilder(args);
     builder.WebHost.UseUrls($"http://0.0.0.0:{settings.Port}");
     builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = Protocol.MaxMessageBytes);
@@ -20,11 +29,11 @@ try
         options.SerializerOptions.MaxDepth = Protocol.Json.MaxDepth;
         foreach (var converter in Protocol.Json.Converters) options.SerializerOptions.Converters.Add(converter);
     });
-    // Firebase Admin verifica tokens y realiza las escrituras sin servidor HTTP intermedio.
-    string firebaseProject = Environment.GetEnvironmentVariable("FIREBASE_PROJECT_ID")?.Trim() ?? "";
-    builder.Services.AddSingleton(new AccountService(firebaseProject.Length == 0
-        ? new AccountOptions("", "", "", "")
-        : new AccountOptions(firebaseProject, "", "", "")));
+    // Firebase Admin valida tokens Google y escribe resultados en Firestore.
+    builder.Services.AddSingleton(new AccountService(activeAccounts));
+    if (publicHost != null)
+        builder.Services.AddHostedService(service => new PublicAccountServerPublisher(activeAccounts,
+            settings.Port, service.GetRequiredService<ILogger<PublicAccountServerPublisher>>()));
     builder.Services.AddSingleton<RewardService>();
     builder.Services.AddHostedService(provider => provider.GetRequiredService<RewardService>());
     builder.Services.AddSingleton<GameService>();

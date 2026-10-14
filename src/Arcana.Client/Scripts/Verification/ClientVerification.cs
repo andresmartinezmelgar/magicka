@@ -232,6 +232,24 @@ public partial class ClientVerification : Node
         if (_mapsSmoke && _renderFrames % 30 == 0) CheckMaps(latest);
         if (_previewMap != null && !_mapOverview && _renderFrames == 1) _runtime.Renderer.SetPreviewZoom(72);
         if (_hudSmoke && _renderFrames <= HudCases.Length * 3 && _renderFrames % 3 == 2) CheckHudCase();
+        if (_capturePath != null && _previewShield != null && _renderFrames == 75)
+        {
+            // Prueba visual real del HUD de Windows antes de capturar el framebuffer.
+            var hud = _runtime.Hud ?? throw new InvalidOperationException("HUD no inicializado.");
+            Rect2 screen = GetViewport().GetVisibleRect();
+            foreach (var name in new[] { "PlayerStatusPanel", "SpellControlsPanel", "MiniMapPanel", "MatchObjective" })
+            {
+                if (hud.FindChild(name, true, false) is not Control panel)
+                    throw new InvalidOperationException("Falta el panel de escritorio: " + name);
+                if (panel.IsVisibleInTree() && !screen.Encloses(panel.GetGlobalRect()))
+                    throw new InvalidOperationException($"Desktop HUD: {name} desborda {screen}: {panel.GetGlobalRect()}");
+            }
+            var health = (Control)hud.FindChild("PlayerStatusPanel", true, false);
+            var map = (Control)hud.FindChild("MiniMapPanel", true, false);
+            if (map.IsVisibleInTree() && health.GetGlobalRect().Intersects(map.GetGlobalRect()))
+                throw new InvalidOperationException("Desktop HUD: minimapa y vida superpuestos.");
+            GD.Print("DESKTOP_HUD_LAYOUT_OK:" + screen);
+        }
         if (_effectsSmoke) CheckEffects();
         if (_spritesSmoke) CheckSprites(latest);
         if (_practiceSmoke) CheckPractice(latest);

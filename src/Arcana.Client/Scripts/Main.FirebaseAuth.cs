@@ -57,8 +57,9 @@ public partial class Main
             _desktopGoogle.SessionReceived += OnGoogleSession;
             _desktopGoogle.Error += error => Post(() => GoogleStatus("Error de Google: " + error));
             GoogleStatus(_desktopGoogle.Configured
-                ? "Google disponible en Windows. Entra con tu navegador."
+                ? "Google disponible en Windows. Recuperando la sesión anterior si existe…"
                 : "Para activar Google en Windows, importa una vez el JSON OAuth de escritorio.");
+            if (_desktopGoogle.Configured) _ = _desktopGoogle.RestoreAsync();
         }
     }
 
@@ -125,7 +126,7 @@ public partial class Main
                 GoogleStatus("Google conectado. Perfil e inventario cargados desde Firebase.");
             });
         }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch (OperationCanceledException) { /* Cierre de sesión o intento de inicio sustituido. */ }
         catch (Exception error)
         {
             Post(() =>

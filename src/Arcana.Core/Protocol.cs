@@ -6,10 +6,10 @@ namespace Arcana.Core;
 
 public static class Protocol
 {
-    public const int Version = 19;
+    public const int Version = 20;
     public const int GamePort = 27015;
     public const int DiscoveryPort = 27016;
-    public const string DiscoveryMagic = "ARCANA_DISCOVER_V19";
+    public const string DiscoveryMagic = "ARCANA_DISCOVER_V20";
     public const int LoadingTimeoutSeconds = 120;
     public const int MaxMessageBytes = 4096;
     public static readonly JsonSerializerOptions Json = new()
@@ -186,7 +186,7 @@ public sealed class ClientMessage
 }
 
 public sealed record ServerInfo(string Name, int Port, int DiscoveryPort, GameMode Mode,
-    int Players, int MaxPlayers, int Protocol, bool PasswordRequired, string? InstanceId = null, string? GameVersion = null);
+    int Players, int MaxPlayers, int Protocol, bool PasswordRequired, string? InstanceId = null, string? GameVersion = null, bool RewardsAvailable = false);
 public sealed record DiscoveryReply(string Magic, string Nonce, ServerInfo Server);
 public sealed class ServerMessage
 {
@@ -229,4 +229,6 @@ public sealed record WorldSnapshot(long Tick, double Time, GameMode Mode, bool M
     int Winner, float RestartIn, int[] Scores, WizardSnapshot[] Players, ProjectileSnapshot[] Projectiles,
     WallSnapshot[] Walls, FieldSnapshot[] Fields, BeamSnapshot[] Beams, PointSnapshot[] Points, GameEvent[] Events,
     int ScoreLimit = 15, int StartingTickets = 75, ArenaMapId Map = ArenaMapId.Classic,
-    int HoldingTeam = -1, float HoldSeconds = 0, PickupSnapshot[]? Pickups = null);
+    int HoldingTeam = -1, float HoldSeconds = 0, PickupSnapshot[]? Pickups = null,
+    bool WaitingForPlayers = false, int LobbyHostId = 0, int[]? LobbyReadyPlayerIds = null,
+    int BestOf = 1, int[]? SeriesWins = null, string RewardStatus = "", bool AwaitingRematch = false);

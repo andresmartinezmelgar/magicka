@@ -27,8 +27,8 @@ internal static class LoadingTests
             }
             var humans = new GameWorld(new() { Mode = GameMode.Duel, MaxPlayers = 2 });
             humans.AddPlayer("Rojo", 1);
-            Check(humans.AddPlayer("Otro rojo", 1) == null && humans.AddPlayer("Azul", 0)?.Team == 0,
-                "Un duelo permitió dos humanos en el mismo equipo o rechazó al rival.");
+            Check(humans.AddPlayer("Otro rojo", 1)?.Team == 0 && humans.AddPlayer("Azul", 0) == null,
+                "El duelo no asignó automáticamente al segundo humano el equipo libre.");
         });
     }
 
@@ -75,7 +75,9 @@ internal static class LoadingTests
             var player = late.Latest!.Players.Single(p => p.Id == late.PlayerId);
             Check(!late.Ready && late.PreparingPlayers == 0 && player.Position == position &&
                 player.Selected.Length == 0 && player.InvulnerableSeconds > 1 && player.Health == player.MaxHealth,
-                "El jugador que carga recibió daño o pudo actuar.");
+                $"El jugador que carga recibió daño o pudo actuar: ready={late.Ready}, pendientes={late.PreparingPlayers}, " +
+                $"position=({player.Position.X:F3},{player.Position.Y:F3}), initial=({position.X:F3},{position.Y:F3}), selected={player.Selected.Length}, " +
+                $"invulnerability={player.InvulnerableSeconds:F3}, health={player.Health}/{player.MaxHealth}.");
             Check(late.CompleteLoading(), "No se confirmó la entrada tardía.");
             await WaitFor(() => late.Ready, "Se perdió la confirmación de preparación.");
             late.Send(new() { Type = "element", Element = Element.Fire });

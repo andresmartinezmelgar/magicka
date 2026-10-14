@@ -149,7 +149,8 @@ public sealed class ArenaConnection : IAsyncDisposable
             if (!Connected) return false;
             var queued = new ClientMessage { Type = message.Type, Sequence = ++_sequence,
                 InspectionRequestId = message.InspectionRequestId, InspectPlayerId = message.InspectPlayerId,
-                Element = message.Element, Slot = message.Slot, MoveX = message.MoveX, MoveY = message.MoveY,
+                Element = message.Element, Slot = message.Slot, Team = message.Team,
+                MoveX = message.MoveX, MoveY = message.MoveY,
                 MoveTo = message.MoveTo, TargetX = message.TargetX, TargetY = message.TargetY,
                 AimX = message.AimX, AimY = message.AimY };
             if (_outgoing.Writer.TryWrite(queued)) return true;
@@ -245,18 +246,20 @@ public sealed class ArenaConnection : IAsyncDisposable
             if (result.MessageType is not (WebSocketMessageType.Text or WebSocketMessageType.Binary) ||
                 frameType != null && frameType != result.MessageType) throw new IOException("Respuesta de red inválida.");
             frameType = result.MessageType;
-            if (stream.Length + result.Count > 256 * 1024) throw new IOException("Respuesta de red demasiado grande.");
+            if (stream.Length + result.Count > Protocol.MaxSnapshotBytes) throw new IOException("Respuesta de red demasiado grande.");
             stream.Write(buffer, 0, result.Count);
             Interlocked.Add(ref _bytesReceived, result.Count);
             if (!result.EndOfMessage) continue;
-            byte[] payload = stream.ToArray();
-            var message = Protocol.DeserializeFrame(payload, frameType == WebSocketMessageType.Binary);
+            // El buffer de MemoryStream ya contiene la trama completa: evitar ToArray()
+            // por snapshot. El objeto deserializado no retiene referencias al buffer.
+            ReadOnlyMemory<byte> payload = stream.GetBuffer().AsMemory(0, (int)stream.Length);
+            var message = Protocol.DeserializeFrame(payload.Span, frameType == WebSocketMessageType.Binary);
             if (message?.Type == "delta")
             {
                 if (_networkBaseline == null) { stream.SetLength(0); frameType = null; continue; }
                 // La carga binaria puede estar comprimida; reconstruimos a partir del JSON ya validado.
                 byte[] raw = frameType == WebSocketMessageType.Binary
-                    ? Protocol.DecompressSnapshotPayload(payload) : payload.ToArray();
+                    ? Protocol.DecompressSnapshotPayload(payload.Span) : payload.ToArray();
                 try { message = SnapshotDelta.Decode(raw, _networkBaseline); }
                 catch (InvalidDataException) { stream.SetLength(0); frameType = null; continue; }
             }
@@ -318,7 +321,7 @@ public static class LanDiscovery
     public static async Task<LanServer[]> FindAsync(int port = Protocol.DiscoveryPort, CancellationToken token = default)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
-        timeout.CancelAfter(TimeSpan.FromSeconds(2));
+        timeout.CancelAfter(TimeSpan.FromSeconds(3));
         using var udp = new UdpClient(new IPEndPoint(IPAddress.Any, 0)) { EnableBroadcast = true };
         string nonce = Guid.NewGuid().ToString("N")[..16];
         byte[] query = Encoding.UTF8.GetBytes(Protocol.DiscoveryMagic + " " + nonce);
@@ -338,15 +341,46 @@ public static class LanDiscovery
             }
         }
         catch (NetworkInformationException) { }
+        int queriesSent = 0;
         foreach (var target in targets)
-            try { await udp.SendAsync(query, new IPEndPoint(target, port), token).ConfigureAwait(false); }
-            catch (SocketException) { }
+        {
+            try { await udp.SendAsync(query, new IPEndPoint(target, port), token).ConfigureAwait(false); queriesSent++; }
+            catch (SocketException) { /* Una interfaz bloqueada no debe impedir consultar las demás. */ }
+        }
+        if (queriesSent == 0) throw new IOException("No se pudieron enviar consultas LAN; revisa la tarjeta de red y el cortafuegos.");
+        // UDP puede perder la primera difusión (Wi-Fi, red recién reconectada, ahorro de energía).
+        // Reintenta sobre las mismas interfaces sin bloquear la recepción ni duplicar servidores.
+        async Task RetryQueries()
+        {
+            try
+            {
+                for (int attempt = 0; attempt < 2; attempt++)
+                {
+                    await Task.Delay(750, timeout.Token).ConfigureAwait(false);
+                    foreach (var target in targets)
+                    {
+                        try { await udp.SendAsync(query, new IPEndPoint(target, port), timeout.Token).ConfigureAwait(false); }
+                        catch (SocketException) { /* Una interfaz caída no invalida las respuestas de las demás. */ }
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (timeout.IsCancellationRequested) { }
+        }
+        Task retries = RetryQueries();
         var found = new Dictionary<string, LanServer>();
         try
         {
             while (!timeout.IsCancellationRequested)
             {
-                var response = await udp.ReceiveAsync(timeout.Token).ConfigureAwait(false);
+                UdpReceiveResult response;
+                try { response = await udp.ReceiveAsync(timeout.Token).ConfigureAwait(false); }
+                catch (SocketException)
+                {
+                    // El cambio de Wi-Fi/interfaz puede invalidar temporalmente
+                    // la recepción. Conservar las respuestas ya descubiertas.
+                    await Task.Delay(150, timeout.Token).ConfigureAwait(false);
+                    continue;
+                }
                 if (response.Buffer.Length > 4096) continue;
                 DiscoveryReply? reply;
                 try { reply = Protocol.Deserialize<DiscoveryReply>(Encoding.UTF8.GetString(response.Buffer)); }
@@ -358,6 +392,7 @@ public static class LanDiscovery
             }
         }
         catch (OperationCanceledException) when (!token.IsCancellationRequested) { }
+        finally { timeout.Cancel(); await retries.ConfigureAwait(false); }
         Diagnostics.Info("lan.search", "Búsqueda LAN finalizada.", new Dictionary<string, object?> { ["port"] = port, ["servers"] = found.Count });
         return found.Values.OrderBy(s => s.Info.Name).ToArray();
     }

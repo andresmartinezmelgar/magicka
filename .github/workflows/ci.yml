@@ -26,6 +26,14 @@ jobs:
         run: python3 scripts/version-support.py check .
       - name: Compilar cliente, servidor y pruebas
         run: dotnet build ArcanaArena.sln -c Release --nologo
+      - name: Ejecutar pruebas funcionales y regresiones del motor
+        run: dotnet run --project tests/Arcana.Tests/Arcana.Tests.csproj -c Release --no-build
+      - name: Probar servidor LAN real, creación de salas e invitados sin atajos de CI
+        run: bash scripts/test-network.sh
+      - name: Probar sala vacía, equipos y comienzo manual de serie PvP
+        run: bash scripts/test-series-lobby.sh
+      - name: Validar reglas de verificación de identidad sin conexión externa
+        run: dotnet run --project tests/Arcana.Account.Tests/Arcana.Account.Tests.csproj -c Release --no-build -- --verified-claims-only
       - name: Compilar servidor de cuentas heredado
         run: dotnet build src/Arcana.AccountServer/Arcana.AccountServer.csproj -c Release --nologo
 
@@ -35,6 +43,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -44,8 +55,76 @@ jobs:
           java-version: '17'
       - name: Instalar Firebase CLI y bibliotecas de pruebas
         run: npm install --prefix tests/firebase-rules --no-audit --no-fund
-      - name: Probar seguridad de cuentas y equipamiento sin credenciales reales
+      - name: Compilar pruebas de cuentas y transacciones contra emulador
+        run: dotnet build tests/Arcana.Account.Tests/Arcana.Account.Tests.csproj -c Release --nologo
+      - name: Probar reglas de Firestore sin credenciales reales
         run: tests/firebase-rules/node_modules/.bin/firebase emulators:exec --only firestore --project demo-arcana-arena --config firebase.json -- 'node tests/firebase-rules/verify.cjs'
+      - name: Validar integración de cuentas, sala PvP y recompensas (obligatorio)
+        run: tests/firebase-rules/node_modules/.bin/firebase emulators:exec --only firestore --project demo-arcana-arena --config firebase.json -- 'dotnet run --project tests/Arcana.Account.Tests/Arcana.Account.Tests.csproj -c Release --no-build'
+
+  visual-audit:
+    name: Simulaciones visuales reales con Xvfb
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Preparar Godot .NET y recursos gráficos
+        run: |
+          set -euo pipefail
+          curl --retry 4 --retry-delay 2 -fL https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_mono_linux_x86_64.zip -o "$RUNNER_TEMP/godot-visual.zip"
+          unzip -q "$RUNNER_TEMP/godot-visual.zip" -d "$RUNNER_TEMP/godot-visual"
+          GODOT="$RUNNER_TEMP/godot-visual/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64"
+          chmod +x "$GODOT"
+          echo "ARCANA_GODOT=$GODOT" >> "$GITHUB_ENV"
+          dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
+          "$GODOT" --headless --editor --path src/Arcana.Client --import
+      - name: Renderizar 32 capturas de móvil y escritorio y validar los límites
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          for viewport in 1440x900 1024x640 720x540; do
+            target="$PWD/artifacts/visual-review/$viewport"
+            mkdir -p "$target"
+            xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client --               --mobile-menu-smoke "--smoke-viewport=$viewport" --visual-review "--visual-directory=$target"               2>&1 | tee "$RUNNER_TEMP/visual-$viewport.log"
+            grep -q 'MOBILE_MENU_LAYOUT_OK' "$RUNNER_TEMP/visual-$viewport.log"
+            grep -q 'MOBILE_SERIES_REWARD_LAYOUT_OK' "$RUNNER_TEMP/visual-$viewport.log"
+            grep -q 'VISUAL_CAPTURE_OK:02-victoria-3-de-5' "$RUNNER_TEMP/visual-$viewport.log"
+            ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED|LAYOUT_FAILED' "$RUNNER_TEMP/visual-$viewport.log"
+          done
+          for viewport in 1440x900 1024x720; do
+            target="$PWD/artifacts/visual-review/desktop-$viewport"
+            mkdir -p "$target"
+            xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --visual-desktop "--smoke-viewport=$viewport" --preview-shield=stone "--capture=$target/11-hud-escritorio.png" 2>&1 | tee "$RUNNER_TEMP/desktop-render-$viewport.log"
+            grep -q 'CAPTURE:' "$RUNNER_TEMP/desktop-render-$viewport.log"
+            test -s "$target/11-hud-escritorio.png"
+          done
+          python3 - <<'PY'
+          import glob, struct, pathlib, hashlib
+          files = sorted(glob.glob('artifacts/visual-review/*/*.png'))
+          if len(files) != 32:
+              raise SystemExit(f'Faltan capturas: {len(files)}/32')
+          for name in files:
+              raw = pathlib.Path(name).read_bytes()
+              if len(raw) < 12000 or raw[:8] != b'\x89PNG\r\n\x1a\n':
+                  raise SystemExit(f'PNG vacío o inválido: {name}: {len(raw)} bytes')
+              w, h = struct.unpack('>II', raw[16:24])
+              if (w, h) not in ((1440, 900), (1024, 640), (720, 540), (1024, 720)):
+                  raise SystemExit(f'Tamaño inesperado {w}x{h}: {name}')
+          unique = len({hashlib.sha256(pathlib.Path(p).read_bytes()).digest() for p in files})
+          if unique < 26: raise SystemExit(f'Escenas indistinguibles: {unique}/32')
+          print(f'VISUAL_QA_OK: 32 PNG válidos, {unique} fotogramas distintos, 5 escenarios de tamaño.')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ArcanaArena-Capturas-QA
+          path: artifacts/visual-review/
+          if-no-files-found: warn
+          retention-days: 14
 
   package-windows:
     name: Generar distribucion Windows
@@ -86,6 +165,9 @@ jobs:
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/auto-compile.ps1 -GodotPath $env:ARCANA_GODOT
           if ($LASTEXITCODE -ne 0) { throw 'Error al generar Windows.' }
           if (!(Test-Path Juego/ArcanaArena.exe) -or !(Test-Path Juego/server/Arcana.Server.exe)) { throw 'Distribucion incompleta.' }
+      - name: Verificar cifrado DPAPI de la sesion Google en Windows
+        shell: pwsh
+        run: dotnet run --project tests/Arcana.Tests/Arcana.Tests.csproj -c Release -- --desktop-session-only
       - name: Empaquetar Windows
         shell: pwsh
         run: |
@@ -167,11 +249,24 @@ jobs:
         run: |
           dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
           "$ARCANA_GODOT" --headless --editor --path src/Arcana.Client --import
+      - name: Verificar cabecera de perfil y tarjetas 2x2 en escritorio (geometría real)
+        run: |
+          set -o pipefail
+          for viewport in 1600x900 1440x900 1280x720 1024x720; do
+            "$ARCANA_GODOT" --headless --path src/Arcana.Client -- --desktop-header-smoke "--smoke-viewport=$viewport" 2>&1 | tee "$RUNNER_TEMP/desktop-header-$viewport.log"
+            grep -q 'DESKTOP_HEADER_LAYOUT_OK' "$RUNNER_TEMP/desktop-header-$viewport.log"
+            ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED|DESKTOP_HEADER_LAYOUT_FAILED' "$RUNNER_TEMP/desktop-header-$viewport.log"
+          done
       - name: Verificar visibilidad de botones PvP y versus IA en modo móvil
         run: |
           set -o pipefail
           "$ARCANA_GODOT" --headless --path src/Arcana.Client -- --mobile-menu-smoke 2>&1 | tee "$RUNNER_TEMP/mobile-menu-smoke.log"
           grep -q 'MOBILE_MENU_LAYOUT_OK' "$RUNNER_TEMP/mobile-menu-smoke.log"
+          for viewport in 1024x640 800x600 720x540; do
+            "$ARCANA_GODOT" --headless --path src/Arcana.Client -- --mobile-menu-smoke "--smoke-viewport=$viewport" 2>&1 | tee "$RUNNER_TEMP/mobile-menu-$viewport.log"
+            grep -q 'MOBILE_MENU_LAYOUT_OK' "$RUNNER_TEMP/mobile-menu-$viewport.log"
+            ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/mobile-menu-$viewport.log"
+          done
       - name: Verificar ventana de actualización y botones en pantalla
         run: |
           set -o pipefail
@@ -186,14 +281,56 @@ jobs:
           grep -q 'MOBILE_ICE_AIM_OK' "$RUNNER_TEMP/mobile-spell-smoke.log"
           grep -q 'MOBILE_SMOKE_OK' "$RUNNER_TEMP/mobile-spell-smoke.log"
           ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/mobile-spell-smoke.log"
+      - name: Simular HUD, mapas, efectos, magos, combinaciones y práctica
+        run: |
+          set -euo pipefail
+          for mode in hud-smoke maps-smoke effects-smoke sprites-smoke combinations-smoke practice-smoke; do
+            bash scripts/test-client-smoke.sh "$mode" "$ARCANA_GODOT"
+          done
       - name: Generar APK ARM64
         run: bash scripts/package-android.sh "$ARCANA_GODOT"
+      - name: Usar firma Android permanente cuando esta disponible (Google OAuth)
+        shell: bash
+        env:
+          ARCANA_KEYSTORE_BASE64: ${{ secrets.ARCANA_KEYSTORE_BASE64 }}
+          ARCANA_KEYSTORE_PASSWORD: ${{ secrets.ARCANA_KEYSTORE_PASSWORD }}
+          ARCANA_KEY_ALIAS: ${{ secrets.ARCANA_KEY_ALIAS }}
+          ARCANA_KEY_PASSWORD: ${{ secrets.ARCANA_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          version=$(tr -d '\r\n' < VERSION)
+          apk="artifacts/android/ArcanaArena-v$version-Android-arm64.apk"
+          test -s "$apk"
+          signer="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          status="TEMPORAL"
+          if [[ -n "${ARCANA_KEYSTORE_BASE64:-}" && -n "${ARCANA_KEYSTORE_PASSWORD:-}" && -n "${ARCANA_KEY_ALIAS:-}" && -n "${ARCANA_KEY_PASSWORD:-}" ]]; then
+            keystore="$RUNNER_TEMP/arcana-google-signin.jks"
+            storepass="$RUNNER_TEMP/arcana-google-storepass"
+            keypass="$RUNNER_TEMP/arcana-google-keypass"
+            trap 'rm -f "$keystore" "$storepass" "$keypass" "$apk.signed"' EXIT
+            printf '%s' "$ARCANA_KEYSTORE_BASE64" | base64 -d > "$keystore"
+            printf '%s' "$ARCANA_KEYSTORE_PASSWORD" > "$storepass"
+            printf '%s' "$ARCANA_KEY_PASSWORD" > "$keypass"
+            chmod 600 "$keystore" "$storepass" "$keypass"
+            "$signer" sign --ks "$keystore" --ks-key-alias "$ARCANA_KEY_ALIAS" --ks-pass "file:$storepass" --key-pass "file:$keypass" --out "$apk.signed" "$apk"
+            "$signer" verify --verbose "$apk.signed"
+            mv -f "$apk.signed" "$apk"
+            status="PERMANENTE"
+            echo 'APK firmada con el certificado estable para Google OAuth.'
+          else
+            echo '::warning::Esta APK usa certificado aleatorio nuevo. Google Login Android probablemente fallará hasta firmarla con el certificado registrado en Firebase.'
+          fi
+          fingerprint=$("$signer" verify --print-certs "$apk" | grep 'Signer #1 certificate SHA-1 digest:' | head -n1)
+          printf 'Tipo de firma: %s\n%s\nPaquete: com.arcana.arena\nProyecto Firebase: arcana-arena-f2997\n' "$status" "$fingerprint" > artifacts/android/FIRMA-ANDROID.txt
+          cat artifacts/android/FIRMA-ANDROID.txt
+          (cd artifacts/android && sha256sum "ArcanaArena-v$version-Android-arm64.apk" > SHA256SUMS-Android.txt)
       - uses: actions/upload-artifact@v4
         with:
           name: ArcanaArena-Android-arm64
           path: |
             artifacts/android/*-Android-arm64.apk
             artifacts/android/SHA256SUMS-Android.txt
+            artifacts/android/FIRMA-ANDROID.txt
           retention-days: 14
 
   publish-android-first:

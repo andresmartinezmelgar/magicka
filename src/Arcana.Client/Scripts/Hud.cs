@@ -20,9 +20,15 @@ public partial class Hud : Control
     private readonly List<ElementIcon> _selectedIcons = [];
     private readonly List<StyleBoxFlat> _selectedStyles = [];
     private PanelContainer _scorePanel = null!;
+    private CenterContainer _scoreCenter = null!;
+    private Label _seriesStatus = null!;
     private GridContainer _scoreRows = null!;
     private ScrollContainer _scoreScroll = null!;
     private MiniMap _map = null!;
+    private PanelContainer _playerPanel = null!, _spellsPanel = null!;
+    private PanelContainer _bannerBackdrop = null!, _rewardBackdrop = null!;
+    private PanelContainer _mapPanel = null!;
+    private string _lastRewardStatus = "";
     private long _lastEvent;
     private string _feedText = "";
     private float _feedTime, _scoreClock;
@@ -35,33 +41,36 @@ public partial class Hud : Control
     private readonly float[] _magickCosts = new float[4];
     private readonly bool?[] _magickReady = new bool?[4];
     public bool ScoreOpen { get; set; }
+    internal Rect2 ScoreboardRectForSmoke => _scorePanel.GetGlobalRect();
     public event Action? EquipmentRequested;
     public bool PointerOverPanel => _scorePanel.Visible && _scorePanel.GetGlobalRect().HasPoint(GetGlobalMousePosition());
-    public void RewardNotice(string message) { _reward.Text = message; _rewardSeconds = 12; _reward.Visible = true; }
+    public void RewardNotice(string message) { _reward.Text = message; _rewardSeconds = 12; _reward.Visible = true; _rewardBackdrop.Visible = true; }
 
     public void Build()
     {
         Theme = Ui.Theme(); MouseFilter = MouseFilterEnum.Ignore;
         SetAnchorsPreset(LayoutPreset.TopLeft); Position = Vector2.Zero;
         Scale = Vector2.One * GameplayScale; ResizeLayout(); GetViewport().SizeChanged += ResizeLayout;
-        _server = Ui.Label("", 15, Ui.Gold); _server.Position = new(28, 24); AddChild(_server);
+        _server = Ui.Label("", 15, Ui.Gold); _server.Position = new(28, 24);
+        _server.AutowrapMode = TextServer.AutowrapMode.WordSmart; AddChild(_server);
         var controls = Ui.Label("F1  Controles     TAB  Clasificación     ESC  Menú", 14, Ui.Muted);
         _controls = controls;
-        controls.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight); controls.Position = new(-440, 24); controls.Size = new(420, 24); AddChild(controls);
+        controls.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft); controls.Position = new(0, 24); controls.Size = new(420, 24); AddChild(controls);
         controls.Visible = !Ui.IsMobile;
         _match = Ui.Label("", 24); _match.HorizontalAlignment = HorizontalAlignment.Center;
-        _match.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterTop); _match.Position = new(-240, 18); _match.Size = new(480, 42); AddChild(_match);
+        _match.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft); _match.Position = new(0, 18); _match.Size = new(480, 42); AddChild(_match);
         _teams = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center, MouseFilter = MouseFilterEnum.Ignore };
-        _teams.AddThemeConstantOverride("separation", 18); _teams.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterTop);
-        _teams.Position = new(-240, 18); _teams.Size = new(480, 42); AddChild(_teams);
+        _teams.AddThemeConstantOverride("separation", 18); _teams.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft);
+        _teams.Position = new(0, 18); _teams.Size = new(480, 42); AddChild(_teams);
         _blueScore = Ui.Label("", 24, Ui.Blue); _redScore = Ui.Label("", 24, Ui.Red);
         _teams.AddChild(_blueScore); _teams.AddChild(Ui.Label("·", 24, Ui.Muted)); _teams.AddChild(_redScore);
         _objective = Ui.Label("", 14, Ui.Gold); _objective.Name = "MatchObjective"; _objective.HorizontalAlignment = HorizontalAlignment.Center;
-        _objective.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterTop); _objective.Position = new(-345, 60); _objective.Size = new(690, 46);
+        _objective.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft); _objective.Position = new(0, 60); _objective.Size = new(690, 46);
         _objective.AutowrapMode = TextServer.AutowrapMode.WordSmart; AddChild(_objective);
         var playerPanel = new PanelContainer { Name = "PlayerStatusPanel", CustomMinimumSize = new(310, 254), MouseFilter = MouseFilterEnum.Ignore };
-        playerPanel.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomLeft);
-        playerPanel.Position = new Vector2(24, -282) / GameplayScale; playerPanel.Scale = Vector2.One / GameplayScale; AddChild(playerPanel);
+        playerPanel.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft);
+        playerPanel.Position = new Vector2(24, 18) / GameplayScale; playerPanel.Scale = Vector2.One / GameplayScale; AddChild(playerPanel);
+        _playerPanel = playerPanel;
         var info = new VBoxContainer(); info.AddThemeConstantOverride("separation", 7); playerPanel.AddChild(info);
         _name = Ui.Label("", 19); info.AddChild(_name);
         _affinity = Ui.Label("", 13); _affinity.Name = "WizardAffinity"; info.AddChild(_affinity);
@@ -75,8 +84,9 @@ public partial class Hud : Control
         _status = Ui.Label("", 13, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; info.AddChild(_status);
         var spells = new PanelContainer { Name = "SpellControlsPanel", CustomMinimumSize = new(690, 0), MouseFilter = MouseFilterEnum.Ignore };
         _buffs = Ui.Label("", 13, Ui.Gold); _buffs.Name = "ActiveBuffs"; _buffs.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _buffs.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterBottom); _buffs.Position = new(-282, -273); _buffs.Size = new(690, 44); AddChild(_buffs);
-        spells.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterBottom); spells.Position = new(-282, -225); AddChild(spells);
+        _buffs.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft); _buffs.Position = Vector2.Zero; _buffs.Size = new(690, 44); AddChild(_buffs);
+        spells.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft); spells.Position = Vector2.Zero; AddChild(spells);
+        _spellsPanel = spells;
         var stack = new VBoxContainer(); stack.AddThemeConstantOverride("separation", 9); spells.AddChild(stack);
         var first = new HBoxContainer(); first.AddThemeConstantOverride("separation", 14); stack.AddChild(first);
         var queue = new HBoxContainer(); queue.AddThemeConstantOverride("separation", 8); first.AddChild(queue);
@@ -105,23 +115,44 @@ public partial class Hud : Control
             var label = Ui.Label(text, 13, Ui.Gold); label.SizeFlagsHorizontal = SizeFlags.ExpandFill; magicks.AddChild(label); _magicks.Add(label);
         }
         magicks.Visible = !Ui.IsMobile;
-        _feed = Ui.Label("", 15); _feed.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight);
-        _feed.Position = new(-450, 245); _feed.Size = new(420, 100); _feed.HorizontalAlignment = HorizontalAlignment.Right; AddChild(_feed);
+        _feed = Ui.Label("", 15); _feed.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft);
+        _feed.Position = new(0, 245); _feed.Size = new(420, 100); _feed.HorizontalAlignment = HorizontalAlignment.Right; AddChild(_feed);
         var mapPanel = new PanelContainer { Name = "MiniMapPanel", CustomMinimumSize = new(205, 151), MouseFilter = MouseFilterEnum.Ignore };
-        mapPanel.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight); mapPanel.Position = new(-235, 72); AddChild(mapPanel);
+        mapPanel.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft); mapPanel.Position = new(0, 72); AddChild(mapPanel);
+        _mapPanel = mapPanel;
         mapPanel.AddThemeStyleboxOverride("panel", Ui.Panel(new Color(0.025f, 0.05f, 0.08f, 0.90f), 10));
         _map = new MiniMap { CustomMinimumSize = new(165, 119), MouseFilter = MouseFilterEnum.Ignore }; mapPanel.AddChild(_map);
-        _banner = Ui.Label("", 32, Ui.Gold); _banner.HorizontalAlignment = HorizontalAlignment.Center;
-        _banner.SetAnchorsAndOffsetsPreset(LayoutPreset.Center); _banner.Position = new(-400, -72); _banner.Size = new(800, 144); AddChild(_banner);
-        _reward = Ui.Label("", 18, Ui.Gold); _reward.HorizontalAlignment = HorizontalAlignment.Center;
-        _reward.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterTop); _reward.Position = new(-400, 150); _reward.Size = new(800, 45);
+        _bannerBackdrop = new PanelContainer { Name = "MatchBannerBackground", Visible = false,
+            MouseFilter = MouseFilterEnum.Ignore };
+        _bannerBackdrop.AddThemeStyleboxOverride("panel", Ui.Panel(new Color(0.025f, 0.045f, 0.075f, 0.90f), 14, Ui.Gold.Darkened(0.45f)));
+        AddChild(_bannerBackdrop);
+        _rewardBackdrop = new PanelContainer { Name = "MatchRewardBackground", Visible = false,
+            MouseFilter = MouseFilterEnum.Ignore };
+        _rewardBackdrop.AddThemeStyleboxOverride("panel", Ui.Panel(new Color(0.025f, 0.05f, 0.09f, 0.94f), 10));
+        AddChild(_rewardBackdrop);
+        _banner = Ui.Label("", 34, Ui.Gold); _banner.Name = "MatchBanner"; _banner.HorizontalAlignment = HorizontalAlignment.Center;
+        _banner.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft); _banner.Position = Vector2.Zero; _banner.Size = new(800, 144);
+        _banner.AutowrapMode = TextServer.AutowrapMode.WordSmart; AddChild(_banner);
+        _reward = Ui.Label("", 24, Ui.Gold); _reward.Name = "MatchRewardNotice"; _reward.HorizontalAlignment = HorizontalAlignment.Center;
+        _reward.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft); _reward.Position = Vector2.Zero; _reward.Size = new(800, 60);
+        _reward.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _reward.Visible = false; AddChild(_reward);
-        _scorePanel = new PanelContainer { Name = "ScorePanel", Visible = false, CustomMinimumSize = new(700, 200), MouseFilter = MouseFilterEnum.Stop };
-        _scorePanel.SetAnchorsAndOffsetsPreset(LayoutPreset.Center); _scorePanel.Position = new(-350, -160); AddChild(_scorePanel);
-        var scoreBox = new VBoxContainer { Name = "ScoreContent" }; scoreBox.AddThemeConstantOverride("separation", 16); _scorePanel.AddChild(scoreBox);
-        _scoreScroll = new ScrollContainer { CustomMinimumSize = new(0, 120), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        // El CenterContainer ocupa el viewport escalado completo y centra la
+        // tabla por su tamaño real; los anclajes anteriores podían dejarla
+        // desplazada a la esquina superior izquierda al redimensionar.
+        _scoreCenter = new CenterContainer { Name = "ScoreCenter", MouseFilter = MouseFilterEnum.Ignore };
+        AddChild(_scoreCenter); Ui.Full(_scoreCenter);
+        _scorePanel = new PanelContainer { Name = "ScorePanel", Visible = false,
+            CustomMinimumSize = new(700, 200), MouseFilter = MouseFilterEnum.Stop };
+        _scoreCenter.AddChild(_scorePanel);
+        var scoreBox = new VBoxContainer { Name = "ScoreContent" }; scoreBox.AddThemeConstantOverride("separation", 10); _scorePanel.AddChild(scoreBox);
+        _seriesStatus = Ui.Label("", 18, Ui.Gold);
+        _seriesStatus.HorizontalAlignment = HorizontalAlignment.Center;
+        _seriesStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        scoreBox.AddChild(_seriesStatus);
+        _scoreScroll = new ScrollContainer { CustomMinimumSize = new(0, 120), HorizontalScrollMode = ScrollContainer.ScrollMode.Auto };
         scoreBox.AddChild(_scoreScroll);
-        _scoreRows = new GridContainer { Columns = 5 }; _scoreRows.AddThemeConstantOverride("h_separation", 30); _scoreRows.AddThemeConstantOverride("v_separation", 12); _scoreScroll.AddChild(_scoreRows);
+        _scoreRows = new GridContainer { Columns = 5 }; _scoreRows.AddThemeConstantOverride("h_separation", Ui.IsMobile ? 10 : 18); _scoreRows.AddThemeConstantOverride("v_separation", 12); _scoreScroll.AddChild(_scoreRows);
         foreach (string text in new[] { "MAGO", "EQUIPO", "BAJAS", "MUERTES", "VIDA" }) _scoreRows.AddChild(Ui.Label(text, 14, Ui.Gold));
         var equipmentButton = Ui.Button("Ver bonos de los magos", () => EquipmentRequested?.Invoke());
         equipmentButton.Name = "InspectEquipmentButton"; scoreBox.AddChild(equipmentButton);
@@ -133,22 +164,74 @@ public partial class Hud : Control
             playerPanel.Position = new Vector2(22, 18) / GameplayScale;
             playerPanel.CustomMinimumSize = new(310, 176); playerPanel.Size = new(310, 176);
             spells.CustomMinimumSize = new(320, 0);
-            spells.OffsetLeft = -120 / GameplayScale; spells.OffsetRight = 120 / GameplayScale;
-            spells.OffsetTop = -174 / GameplayScale; spells.OffsetBottom = spells.OffsetTop + spells.GetCombinedMinimumSize().Y;
-            _buffs.OffsetLeft = -260 / GameplayScale; _buffs.OffsetRight = 260 / GameplayScale;
-            _buffs.OffsetTop = -214 / GameplayScale; _buffs.OffsetBottom = -179 / GameplayScale;
             _feed.Visible = false;
-            mapPanel.OffsetLeft = -555; mapPanel.OffsetRight = -350;
-            mapPanel.OffsetTop = 136; mapPanel.OffsetBottom = 287;
         }
         IgnoreChildren(this);
+        ResizeLayout();
     }
     private static void IgnoreChildren(Node root)
     {
         foreach (var child in root.GetChildren())
         { if (child is Control c && child is not (Button or ScrollContainer or ScrollBar)) c.MouseFilter = MouseFilterEnum.Ignore; IgnoreChildren(child); }
     }
-    private void ResizeLayout() => Size = GetViewportRect().Size / GameplayScale;
+    private void ResizeLayout()
+    {
+        Size = GetViewportRect().Size / GameplayScale;
+        // Los avisos y la clasificación deben seguir centrados al cambiar la ventana.
+        if (_scorePanel == null) return; // Build invoca ResizeLayout antes de crear los hijos.
+        float available = Math.Max(240, Size.X - 36);
+        float tableWidth = Math.Min(760, available);
+        _scorePanel.CustomMinimumSize = new(tableWidth, 0);
+        _scorePanel.Size = new Vector2(tableWidth, Math.Max(150, Math.Min(430, Size.Y - 60)));
+        // FullRect ajusta el centrador cuando cambia el viewport; no forzar Size.
+        _scoreScroll.CustomMinimumSize = new(0, Math.Max(72, Math.Min(300, Size.Y - 145)));
+        float messageWidth = Math.Min(800, available);
+        float bannerHeight = Math.Min(180, Math.Max(90, Size.Y * 0.42f));
+        // Todos estos controles tienen anclaje arriba-izquierda: las posiciones
+        // son absolutas en el HUD escalado y se mantienen dentro del viewport.
+        float centerX = (Size.X - messageWidth) / 2;
+        float centerY = (Size.Y - bannerHeight) / 2;
+        _banner.Position = new(centerX, centerY);
+        _banner.Size = new(messageWidth, bannerHeight);
+        _bannerBackdrop.Position = _banner.Position;
+        _bannerBackdrop.Size = _banner.Size;
+        _reward.Position = new(centerX, centerY + bannerHeight + 8);
+        _reward.Size = new(messageWidth, Math.Min(80, Math.Max(40, Size.Y / 5)));
+        _rewardBackdrop.Position = _reward.Position;
+        _rewardBackdrop.Size = _reward.Size;
+        float topWidth = Math.Min(480, available);
+        _match.Position = new((Size.X - topWidth) / 2, 18);
+        _match.Size = new(topWidth, 42);
+        _teams.Position = new((Size.X - topWidth) / 2, 18);
+        _teams.Size = new(topWidth, 42);
+        float objectiveWidth = Math.Min(690, available);
+        _objective.Position = new((Size.X - objectiveWidth) / 2, 62);
+        _objective.Size = new(objectiveWidth, Size.X < 800 ? 76 : 46);
+        _server.Size = new(Math.Max(70, Math.Min(300, (Size.X - 60) / 3)), 58);
+        _controls.Visible = !Ui.IsMobile && Size.X >= 1250;
+        _controls.Position = new(Size.X - 440, 24);
+        float feedWidth = Math.Min(420, available);
+        _feed.Position = new(Size.X - feedWidth - 30, Math.Min(245, Math.Max(80, Size.Y - 110)));
+        _feed.Size = new(feedWidth, 100);
+        _mapPanel.Visible = Size.X >= (Ui.IsMobile ? 850 : 700);
+        _mapPanel.Position = Ui.IsMobile ? new(Size.X - 235, 136) : new(Size.X - 235, 72);
+        float spellsWidth = Math.Min(Ui.IsMobile ? 320 : 690, Math.Max(100, Size.X - 36));
+        float spellsHeight = Math.Max(54, _spellsPanel.GetCombinedMinimumSize().Y);
+        float spellsBottom = Ui.IsMobile ? 150 / GameplayScale : 26 / GameplayScale;
+        float spellsLeft = (Size.X - spellsWidth) / 2;
+        if (!Ui.IsMobile && Size.X >= 1250)
+            spellsLeft = Math.Max(spellsLeft, 345 / GameplayScale);
+        float spellsTop = Math.Max(120, Size.Y - spellsHeight - spellsBottom);
+        _spellsPanel.Position = new(spellsLeft, spellsTop);
+        _spellsPanel.Size = new(spellsWidth, spellsHeight);
+        float buffsWidth = Math.Min(690, available);
+        _buffs.Position = new((Size.X - buffsWidth) / 2, Math.Max(100, spellsTop - 52));
+        _buffs.Size = new(buffsWidth, 44);
+        if (!Ui.IsMobile)
+            _playerPanel.Position = Size.X < 1250
+                ? new Vector2(24, 145) / GameplayScale
+                : new Vector2(24, Size.Y * GameplayScale - 282) / GameplayScale;
+    }
     public override void _ExitTree() => GetViewport().SizeChanged -= ResizeLayout;
     private static ProgressBar Bar(Color color, float max, int height)
     {
@@ -171,6 +254,7 @@ public partial class Hud : Control
     public void Update(WorldSnapshot snapshot, int id, string serverName, double delta)
     {
         _rewardSeconds = Math.Max(0, _rewardSeconds - (float)delta); _reward.Visible = _rewardSeconds > 0;
+        _rewardBackdrop.Visible = _reward.Visible;
         _feedTime -= (float)delta; _feed.Text = _feedTime > 0 ? _feedText : "";
         bool showScore = snapshot.Map != ArenaMapId.Practice && (ScoreOpen || Input.IsPhysicalKeyPressed(Key.Tab));
         bool opened = !_scorePanel.Visible && showScore;
@@ -269,7 +353,25 @@ public partial class Hud : Control
         if (snapshot.MatchEnded)
         {
             string winner = snapshot.Mode == GameMode.Arena ? snapshot.Players.FirstOrDefault(p => p.Id == snapshot.Winner)?.Name ?? "Mago" : snapshot.Winner == 0 ? "Equipo azul" : "Equipo rojo";
-            _banner.Text = winner + $" vence\nNueva partida en {Math.Ceiling(snapshot.RestartIn)} s";
+            string summary = snapshot.BestOf > 1 && snapshot.SeriesWins is { Length: >= 2 } wins
+                ? $"\nSerie al mejor de {snapshot.BestOf}: {wins[0]}–{wins[1]}" : "";
+            bool seriesCompleted = snapshot.BestOf > 1 && snapshot.SeriesWins is { Length: >= 2 } score &&
+                (score[0] >= MatchSeries.WinsNeeded(snapshot.BestOf) || score[1] >= MatchSeries.WinsNeeded(snapshot.BestOf));
+            if (seriesCompleted)
+            {
+                int champion = snapshot.SeriesWins![0] >= MatchSeries.WinsNeeded(snapshot.BestOf) ? 0 : 1;
+                _banner.Text = (player.Team == champion ? "HAS GANADO LA SERIE" : "HAS PERDIDO LA SERIE") +
+                    $"\n{winner} vence {snapshot.SeriesWins[0]}–{snapshot.SeriesWins[1]}" +
+                    $"\nPreparación de la siguiente serie en {Math.Ceiling(snapshot.RestartIn)} s";
+            }
+            else
+                _banner.Text = winner + $" vence{summary}\nSiguiente ronda en {Math.Ceiling(snapshot.RestartIn)} s";
+        }
+        _bannerBackdrop.Visible = _banner.Text.Length > 0;
+        if (snapshot.RewardStatus != _lastRewardStatus)
+        {
+            _lastRewardStatus = snapshot.RewardStatus;
+            if (!string.IsNullOrWhiteSpace(snapshot.RewardStatus)) RewardNotice(snapshot.RewardStatus);
         }
         foreach (var e in snapshot.Events)
         {
@@ -284,7 +386,11 @@ public partial class Hud : Control
     }
     private void UpdateScore(WorldSnapshot snapshot, int id)
     {
-        _scoreScroll.CustomMinimumSize = new(0, Math.Clamp((snapshot.Players.Length + 1) * 33, 120, 330));
+        _scoreScroll.CustomMinimumSize = new(0, Math.Clamp((snapshot.Players.Length + 1) * 33, 65,
+            Math.Max(100, (int)Size.Y - 145)));
+        _seriesStatus.Text = snapshot.BestOf > 1 && snapshot.SeriesWins is { Length: >= 2 } wins
+            ? $"{(wins[0] >= MatchSeries.WinsNeeded(snapshot.BestOf) || wins[1] >= MatchSeries.WinsNeeded(snapshot.BestOf) ? "SERIE FINALIZADA" : $"MEJOR DE {snapshot.BestOf}")} · AZUL {wins[0]} — {wins[1]} ROJO"
+            : "CLASIFICACIÓN DE LA PARTIDA";
         int cell = 0;
         foreach (var p in snapshot.Players.OrderByDescending(p => p.Kills))
         {

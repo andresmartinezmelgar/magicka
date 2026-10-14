@@ -9,8 +9,10 @@ import androidx.credentials.CustomCredential;
 import androidx.credentials.GetCredentialRequest;
 import androidx.credentials.GetCredentialResponse;
 import androidx.credentials.exceptions.GetCredentialException;
+import androidx.credentials.exceptions.NoCredentialException;
 import androidx.credentials.CredentialManagerCallback;
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption;
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
@@ -97,43 +99,67 @@ public final class ArcanaFirebasePlugin extends GodotPlugin {
         try { sendSession(true); } catch (Exception error) { failed(error); }
     }
 
-    /** Show native Google chooser via Credential Manager, then exchange token with Firebase Auth. */
+    /**
+     * Explicit Google sign-in button: first use the dedicated Sign in with Google
+     * option. Some providers return NoCredentialException for passive discovery
+     * despite the phone having Google accounts; retry using unrestricted selection.
+     */
+    private void requestGoogleCredential(Activity activity, boolean explicitButton) {
+        GetCredentialRequest.Builder builder = new GetCredentialRequest.Builder();
+        if (explicitButton) {
+            builder.addCredentialOption(new GetSignInWithGoogleOption.Builder(WEB_CLIENT_ID).build());
+        } else {
+            builder.addCredentialOption(new GetGoogleIdOption.Builder()
+                .setServerClientId(WEB_CLIENT_ID)
+                .setFilterByAuthorizedAccounts(false)
+                .setAutoSelectEnabled(false)
+                .build());
+        }
+        CredentialManager.create(activity).getCredentialAsync(activity, builder.build(), new CancellationSignal(),
+            command -> activity.runOnUiThread(command),
+            new CredentialManagerCallback<GetCredentialResponse, GetCredentialException>() {
+                @Override public void onResult(GetCredentialResponse response) {
+                    try {
+                        Credential credential = response.getCredential();
+                        if (!(credential instanceof CustomCredential)
+                                || !GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL.equals(credential.getType()))
+                            throw new IllegalArgumentException("Google no devolvió una credencial válida.");
+                        GoogleIdTokenCredential googleToken = GoogleIdTokenCredential.createFrom(credential.getData());
+                        firebase().signInWithCredential(GoogleAuthProvider.getCredential(googleToken.getIdToken(), null))
+                            .addOnCompleteListener(activity, result -> {
+                                loginBusy = false;
+                                if (!result.isSuccessful()) {
+                                    failed(result.getException() == null
+                                        ? new IllegalStateException("Error de Firebase Auth.") : result.getException());
+                                    return;
+                                }
+                                sendSession(false);
+                            });
+                    } catch (Exception error) { failed(error); }
+                }
+                @Override public void onError(@NonNull GetCredentialException error) {
+                    if (error instanceof NoCredentialException && explicitButton) {
+                        try { requestGoogleCredential(activity, false); }
+                        catch (Exception retryError) { failed(retryError); }
+                        return;
+                    }
+                    if (error instanceof NoCredentialException) {
+                        failed(new IllegalStateException(
+                            "Google no ofrece cuentas a esta APK. Comprueba que tenga una firma SHA-1 " +
+                            "registrada en Firebase para com.arcana.arena y que Google Play Services esté actualizado."));
+                    } else failed(error);
+                }
+            });
+    }
+
+    /** Show the native account chooser, then exchange the Google ID token with Firebase Auth. */
     @UsedByGodot public void signIn() {
         if (loginBusy) return;
         Activity activity = getActivity();
         if (activity == null) { failed(new IllegalStateException("Android no está preparado.")); return; }
         loginBusy = true;
-        try {
-            GetGoogleIdOption google = new GetGoogleIdOption.Builder()
-                .setServerClientId(WEB_CLIENT_ID)
-                .setFilterByAuthorizedAccounts(false)
-                .setAutoSelectEnabled(false)
-                .build();
-            GetCredentialRequest request = new GetCredentialRequest.Builder().addCredentialOption(google).build();
-            CredentialManager.create(activity).getCredentialAsync(activity, request, new CancellationSignal(),
-                command -> activity.runOnUiThread(command),
-                new CredentialManagerCallback<GetCredentialResponse, GetCredentialException>() {
-                    @Override public void onResult(GetCredentialResponse response) {
-                        try {
-                            Credential credential = response.getCredential();
-                            if (!(credential instanceof CustomCredential)
-                                    || !GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL.equals(credential.getType()))
-                                throw new IllegalArgumentException("Google no devolvió una credencial válida.");
-                            GoogleIdTokenCredential googleToken = GoogleIdTokenCredential.createFrom(credential.getData());
-                            firebase().signInWithCredential(GoogleAuthProvider.getCredential(googleToken.getIdToken(), null))
-                                .addOnCompleteListener(activity, result -> {
-                                    loginBusy = false;
-                                    if (!result.isSuccessful()) {
-                                        failed(result.getException() == null ? new IllegalStateException("Error de Firebase Auth.") : result.getException());
-                                        return;
-                                    }
-                                    sendSession(false);
-                                });
-                        } catch (Exception error) { failed(error); }
-                    }
-                    @Override public void onError(@NonNull GetCredentialException error) { failed(error); }
-                });
-        } catch (Exception error) { failed(error); }
+        try { requestGoogleCredential(activity, true); }
+        catch (Exception error) { failed(error); }
     }
 
     @UsedByGodot public void signOut() {

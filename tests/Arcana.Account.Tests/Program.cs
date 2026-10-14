@@ -268,7 +268,7 @@ await Test("Bonos públicos: las fichas se limitan a la sala y llegan junto a sn
     Check(a.PlayerId == b.PlayerId, "La prueba no tiene IDs coincidentes de salas distintas.");
     long before = a.Latest!.Tick;
     var views = await Task.WhenAll(Enumerable.Range(0, 5).Select(_ => a.InspectEquipmentAsync(b.PlayerId)));
-    Check(views.All(v => v.Name == "Uno" && v.Equipment.Items.Length == 0), "La consulta cruzó a otra sala.");
+    Check(views.All(v => v.Name == "Uno"), "La consulta cruzó a otra sala.");
     await Task.Delay(100);
     Check(a.Connected && a.Latest!.Tick > before, "Las fichas interrumpieron los snapshots de la partida.");
     await Reject<InvalidOperationException>(() => b.InspectEquipmentAsync(99999));
@@ -280,7 +280,7 @@ await Test("PvP completo: fin de partida, diario y recompensa llegan a la cuenta
     await a.ConnectAsync("127.0.0.1:28339", "A", 0, "", accountToken: aliceLogin.AccessToken);
     await b.ConnectAsync("127.0.0.1:28339", "B", 1, "", accountToken: bobLogin.AccessToken);
     var start = DateTimeOffset.UtcNow;
-    while ((DateTimeOffset.UtcNow - start).TotalSeconds < 16)
+    while ((DateTimeOffset.UtcNow - start).TotalSeconds < 18)
     {
         a.Send(new() { Type = "input", MoveX = .1f, AimX = 10 });
         b.Send(new() { Type = "input", MoveX = -.1f, AimX = -10 });

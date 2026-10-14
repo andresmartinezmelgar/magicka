@@ -12,6 +12,8 @@ public partial class AccountProfilePanel : Control
     private string _message = "";
     private readonly CancellationTokenSource _lifetime = new();
     private FileDialog? _googleFileDialog;
+    private PanelContainer? _responsiveCard;
+    private int _responsivePadding;
 
     internal Button[] VisibleFooterButtons => new[] { _login, _logout }
         .Where(b => GodotObject.IsInstanceValid(b) && b.IsVisibleInTree()).ToArray();
@@ -30,6 +32,7 @@ public partial class AccountProfilePanel : Control
         AddChild(margin);
         Ui.Full(margin);
         int padding = Ui.IsMobile ? 12 : 24;
+        _responsivePadding = padding;
         foreach (string side in new[] { "left", "right", "top", "bottom" })
             margin.AddThemeConstantOverride("margin_" + side, padding);
 
@@ -42,6 +45,7 @@ public partial class AccountProfilePanel : Control
             CustomMinimumSize = new Vector2(Math.Max(300, Math.Min(Ui.IsMobile ? 1050 : 860,
                 GetViewport().GetVisibleRect().Size.X - 2 * padding)), 0)
         };
+        _responsiveCard = card;
         card.AddThemeStyleboxOverride("panel", Ui.Panel(new Color("10263f"), 12, new Color("3375a6")));
         center.AddChild(card);
         var content = new VBoxContainer();
@@ -67,7 +71,17 @@ public partial class AccountProfilePanel : Control
         }
         ArcanaMenuChrome.Attach(this, margin, main, "Mi perfil", 3, main.NavigateOptionAMenu);
         _message = main.GoogleLoginStatus;
+        GetViewport().SizeChanged += ResizeProfileCard;
+        ResizeProfileCard();
         Render();
+    }
+
+    private void ResizeProfileCard()
+    {
+        if (_responsiveCard == null) return;
+        float width = GetViewport().GetVisibleRect().Size.X;
+        _responsiveCard.CustomMinimumSize = new Vector2(
+            Math.Max(220, Math.Min(Ui.IsMobile ? 1050 : 860, width - 2 * _responsivePadding - 12)), 0);
     }
 
     /// <summary>Selecciona el JSON OAuth sin copiarlo ni renombrarlo manualmente.</summary>
@@ -140,6 +154,7 @@ public partial class AccountProfilePanel : Control
 
     public override void _ExitTree()
     {
+        GetViewport().SizeChanged -= ResizeProfileCard;
         _lifetime.Cancel();
         _lifetime.Dispose();
     }

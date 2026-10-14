@@ -11,20 +11,22 @@ public partial class Launcher : Control
     private SpinBox _bots = null!, _discoveryPort = null!, _hostPort = null!, _hostDiscovery = null!;
     private Label _status = null!;
     private ItemList _servers = null!;
-    private Button _connect = null!, _refresh = null!, _stopHost = null!, _firewall = null!;
+    private Button _connect = null!, _refresh = null!, _stopHost = null!, _firewall = null!, _officialOnline = null!;
     private Label _hostInfo = null!;
     private RoomLobby? _lobby;
     private readonly LocalServerHost _host = new();
     private TabContainer _tabs = null!;
     private LanServer[] _lan = [];
     private CancellationTokenSource? _search;
+    private CancellationTokenSource? _onlineSearch;
+    private const string FirebaseProjectId = "arcana-arena-f2997";
     private readonly ConfigFile _config = new();
     private bool _busy;
     private VBoxContainer _homeMenu = null!;
     private VBoxContainer _playBody = null!;
     private Button _menuBack = null!;
     private int _page;
-    private Label _profileSummary = null!, _wizardDescription = null!;
+    private Label _wizardDescription = null!;
     private Button _accountButton = null!;
     private HBoxContainer? _mobilePrimaryActions;
     private ScrollContainer? _mobileScroll;
@@ -37,22 +39,8 @@ public partial class Launcher : Control
         var margin = new MarginContainer(); AddChild(margin); Ui.Full(margin);
         foreach (string side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, Ui.IsMobile ? 8 : 32);
         var columns = new HBoxContainer(); columns.AddThemeConstantOverride("separation", 52); margin.AddChild(columns);
-        var left = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new(410, 0) };
-        left.AddThemeConstantOverride("separation", 20); columns.AddChild(left);
-        left.AddChild(Ui.Label("ARCANA ARENA  /  " + BuildInfo.Version, 16, Ui.Gold));
-        left.AddChild(new Control { CustomMinimumSize = new(0, 80) });
-        left.AddChild(Ui.Label("ARCANA\nARENA", 68));
-        left.AddChild(Ui.Label("EL COMBATE SE ESCRIBE CON ELEMENTOS", 16, Ui.Gold));
-        var description = Ui.Label("Combina tres elementos. Lanza, protégete y cambia de magia en pleno combate.\n\nDuelo, todos contra todos y guerra por el control de la arena.", 20, Ui.Text);
-        description.AutowrapMode = TextServer.AutowrapMode.WordSmart; left.AddChild(description);
-        left.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
-        var keyboard = new GridContainer { Columns = 4 }; keyboard.AddThemeConstantOverride("h_separation", 10); keyboard.AddThemeConstantOverride("v_separation", 10); left.AddChild(keyboard);
-        foreach (var e in Enum.GetValues<Element>())
-        {
-            keyboard.AddChild(Ui.ElementTile(e));
-        }
-        left.AddChild(Ui.Label("F1 · CONTROLES, OBJETIVOS Y TIPOS DE MAGO", 13, Ui.Muted));
-        left.Visible = !Ui.IsMobile; // Same navigation on desktop and Android; only the decorative column is hidden.
+        // La columna decorativa del diseño antiguo permanecía siempre oculta.
+        // Se elimina su construcción para no cargar nodos, etiquetas y ocho iconos innecesarios.
         // En móvil, el formulario se desplaza, pero sus acciones quedan siempre al alcance del pulgar.
         var rightColumn = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
         columns.AddChild(rightColumn);
@@ -78,8 +66,7 @@ public partial class Launcher : Control
         _homeMenu.AddChild(Ui.Button("PvP", () => OpenPage(1), true));
         _homeMenu.AddChild(Ui.Button("Versus IA", () => OpenPage(2), true));
         _homeMenu.AddChild(Ui.Button("Perfil", () => OpenPage(3)));
-        _profileSummary = Ui.Label("", 15, Ui.Muted); _homeMenu.AddChild(_profileSummary);
-        _playBody = new VBoxContainer(); _playBody.AddThemeConstantOverride("separation", 6); form.AddChild(_playBody);
+         _playBody = new VBoxContainer(); _playBody.AddThemeConstantOverride("separation", 6); form.AddChild(_playBody);
         _menuBack = Ui.Button("Volver", () => { if (_page == 3) Remember(); OpenPage(0); }); form.AddChild(_menuBack);
         var identity = new HBoxContainer(); identity.AddThemeConstantOverride("separation", 12); _playBody.AddChild(identity);
         var nameColumn = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; identity.AddChild(nameColumn);
@@ -117,6 +104,14 @@ public partial class Launcher : Control
         var lan = TabBox("LAN");
         var lanActions = new HBoxContainer(); lanActions.AddThemeConstantOverride("separation", 10); lan.AddChild(lanActions);
         _refresh = Ui.Button("Buscar servidores", StartSearch); _refresh.SizeFlagsHorizontal = SizeFlags.ExpandFill; lanActions.AddChild(_refresh);
+        // El servidor Windows publica la URL WSS efímera en Firestore. El móvil
+        // la descubre en cada pulsación: nunca hay que copiar la URL de Cloudflare.
+        _officialOnline = Ui.Button("Servidor online con Google · conexión automática", ConnectOfficialOnline, true);
+        _officialOnline.Name = "OnlineFirebaseButton";
+        _officialOnline.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _officialOnline.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _officialOnline.CustomMinimumSize = new(0, Ui.IsMobile ? 60 : 46);
+        lan.AddChild(_officialOnline);
         _discoveryPort = new SpinBox { MinValue = 1024, MaxValue = 65535, Value = Protocol.DiscoveryPort, CustomMinimumSize = new(120, 45) }; lanActions.AddChild(_discoveryPort);
         _servers = new ItemList { CustomMinimumSize = new(0, 126), SelectMode = ItemList.SelectModeEnum.Single }; lan.AddChild(_servers);
         _servers.ItemActivated += _ => Connect();
@@ -241,34 +236,23 @@ public partial class Launcher : Control
             _tabs.CurrentTab = 2;
             UpdateConnectLabel();
         }
-        ApplyOptionALayout(margin, columns, left, rightColumn, rightScroll, rightCenter, panel, form,
+        ApplyOptionALayout(margin, columns, rightColumn, rightScroll, rightCenter, panel, form,
             identity, typeRow, typeInfo, footer, help, exit);
         OpenPage(0);
     }
 
     public void UpdateAccountStatus()
     {
-        if (_page != 0) return;
-        var profile = _main.Accounts.Profile;
-        _profileSummary.Text = _main.Accounts.SignedIn && profile != null
-            ? $"🧙 {profile.Name} · Google conectado\n{profile.Wins} victorias · {profile.Losses} derrotas · {profile.Gold} oro"
-            : profile != null ? $"🧙 {profile.Name} · Datos guardados para práctica sin conexión"
-            : "🧙 Sin iniciar sesión";
-        _accountButton.Text = _main.Accounts.SignedIn ? "Mi cuenta de Google · Conectado" : "Entrar o registrarse con Google";
+        _accountButton.Text = _main.Accounts.IsDirectFirebaseSession
+            ? "Mi cuenta de Google · Conectado" : "Entrar o registrarse con Google";
+        _optionAChrome?.RefreshAccount();
     }
 
     private void OpenPage(int page)
     {
         _page = page;
         _homeMenu.Visible = page == 0;
-        if (page == 0)
-        {
-            var profile = _main.Accounts.Profile;
-            _profileSummary.Text = _main.Accounts.SignedIn && profile != null
-                ? $"🧙 {profile.Name} · Google conectado\n{profile.Wins} victorias · {profile.Losses} derrotas · {profile.Gold} oro"
-                : "🧙 " + _name.Text + " · Sin iniciar sesión";
-            _accountButton.Text = _main.Accounts.SignedIn ? "Mi cuenta de Google · Conectado" : "Entrar o registrarse con Google";
-        }
+        if (page == 0) UpdateAccountStatus();
         _playBody.Visible = page != 0;
         ((Control)_name.GetParent()).Visible = page == 3;
         ((Control)_name.GetParent().GetParent()).Visible = page is 1 or 3;
@@ -286,6 +270,11 @@ public partial class Launcher : Control
         _tabs.SetTabHidden(1, page != 1);
         _tabs.SetTabHidden(2, page != 2);
         _tabs.SetTabHidden(3, Ui.IsMobile || page != 1);
+        if (page != 1 && _onlineSearch != null)
+        {
+            CancelOnlineSearch();
+            SetBusy(false);
+        }
         if (page == 0) _menuBack.Visible = false;
         if (page == 2) _tabs.CurrentTab = 2;
         // Godot puede conservar una pestaña oculta al volver de práctica. En Android,
@@ -307,7 +296,10 @@ public partial class Launcher : Control
     private string DefaultServerAddress()
     {
         string saved = _config.GetValue("network", "address", "127.0.0.1:27015").AsString();
-        return saved.Contains("system-create-specifically-brunette.traycloudfire.com", StringComparison.OrdinalIgnoreCase)
+        // Los subdominios trycloudflare.com son temporales; no reutilizarlos
+        // automáticamente en una nueva sesión como si fueran el servidor local.
+        return saved.Contains(".trycloudflare.com", StringComparison.OrdinalIgnoreCase) ||
+            saved.Contains(".traycloudfire.com", StringComparison.OrdinalIgnoreCase)
             ? "127.0.0.1:27015" : saved;
     }
 
@@ -319,7 +311,8 @@ public partial class Launcher : Control
     public void SetBusy(bool busy, string message = "")
     {
         if (busy) CancelSearch();
-        _busy = busy; _connect.Disabled = busy; for (int i = 0; i < 4; i++) _tabs.SetTabDisabled(i, busy || Ui.IsMobile && i == 3);
+        _busy = busy; _connect.Disabled = busy; _officialOnline.Disabled = busy;
+        for (int i = 0; i < 4; i++) _tabs.SetTabDisabled(i, busy || Ui.IsMobile && i == 3);
         _name.Editable = _address.Editable = !busy; _team.Disabled = _wizardType.Disabled = busy;
         _hostName.Editable = _hostPort.Editable = _hostDiscovery.Editable = !busy && !_host.Running;
         _password.Editable = !busy && _tabs.CurrentTab != 2 && !(_tabs.CurrentTab == 3 && _host.Running);
@@ -367,9 +360,69 @@ public partial class Launcher : Control
         }
         OpenRooms(address, _password.Text);
     }
+    /// <summary>
+    /// La dirección pública cambia al reiniciar Cloudflare, pero el anuncio
+    /// de Firestore se renueva. Se valida el anuncio y se comprueba que el
+    /// servidor real responde antes de abrir las salas. No se guardan tokens
+    /// Google ni se entregan credenciales a direcciones no verificadas.
+    /// </summary>
+    private async void ConnectOfficialOnline()
+    {
+        if (_busy || _page != 1) return;
+        if (!_main.Accounts.IsDirectFirebaseSession)
+        {
+            ShowError("Inicia sesión con Google en Perfil antes de entrar al servidor online con recompensas.");
+            return;
+        }
+        CancelOnlineSearch();
+        var pending = new CancellationTokenSource();
+        _onlineSearch = pending;
+        SetBusy(true, "Buscando el servidor seguro anunciado en Firebase…");
+        try
+        {
+            string address = await PublicAccountServer.Resolve(FirebaseProjectId, pending.Token);
+            RoomDirectory rooms = await RoomBrowser.ListAsync(address, pending.Token);
+            if (!rooms.Server.RewardsAvailable)
+                throw new InvalidOperationException("El servidor online no tiene las recompensas activadas.");
+            _main.Post(() =>
+            {
+                if (_onlineSearch != pending || pending.IsCancellationRequested || _page != 1) return;
+                _onlineSearch = null;
+                SetBusy(false);
+                _address.Text = address;
+                Remember();
+                OpenRooms(address, "");
+            });
+        }
+        catch (OperationCanceledException) when (pending.IsCancellationRequested) { }
+        catch (Exception error)
+        {
+            Diagnostics.Warn("launcher.online_discovery_failed", "No se pudo encontrar el servidor online.", error);
+            _main.Post(() =>
+            {
+                if (_onlineSearch != pending || pending.IsCancellationRequested || _page != 1) return;
+                _onlineSearch = null;
+                ShowError(error is InvalidOperationException or IOException or InvalidDataException
+                    ? error.Message
+                    : "No se pudo abrir el servidor online. Comprueba Internet y que el anfitrión tenga Firebase y Cloudflare activos.");
+            });
+        }
+        finally { pending.Dispose(); }
+    }
+    private void CancelOnlineSearch()
+    {
+        var pending = _onlineSearch;
+        _onlineSearch = null;
+        if (pending == null) return;
+        // La tarea de búsqueda puede haber terminado y dispuesto su CTS
+        // mientras el resultado espera a ser procesado en el hilo de Godot.
+        try { pending.Cancel(); }
+        catch (ObjectDisposedException) { }
+    }
+
     private void OpenRooms(string address, string password)
     {
-        CancelSearch(); _main.CancelPendingConnection(); CloseRooms();
+        CancelOnlineSearch(); CancelSearch(); _main.CancelPendingConnection(); CloseRooms();
         _lobby = new RoomLobby(); AddChild(_lobby); _lobby.Build(_main, address, password, _name.Text, Ui.SelectedTeam(_team), (WizardType)_wizardType.GetSelectedId());
     }
     public void CloseRooms()
@@ -377,21 +430,17 @@ public partial class Launcher : Control
     public bool HandleBack()
     {
         if (!GodotObject.IsInstanceValid(_lobby)) { if (_page == 0) return false; OpenPage(0); return true; }
-        _main.CancelPendingConnection(); CloseRooms(); SetBusy(false); return true;
+        CancelOnlineSearch(); _main.CancelPendingConnection(); CloseRooms(); SetBusy(false); return true;
     }
     private string _hostPassword = "";
     private async Task Host()
     {
-        if (_host.Running) { OpenRooms(LocalFirebaseHosting.PublicGameAddress(ProjectSettings.GlobalizePath("user://")) ?? _host.Address, _hostPassword); return; }
+        if (_host.Running) { OpenRooms(_host.Address, _hostPassword); return; }
         var options = new LocalServerOptions(_hostName.Text.Trim(), (int)_hostPort.Value, (int)_hostDiscovery.Value, _password.Text);
         if (options.Name.Length == 0) { ShowError("Escribe un nombre para el servidor."); return; }
-        string? firebaseGameAddress = LocalFirebaseHosting.PublicGameAddress(ProjectSettings.GlobalizePath("user://"));
-        if (firebaseGameAddress?.StartsWith("wss://", StringComparison.OrdinalIgnoreCase) == true &&
-            string.IsNullOrWhiteSpace(options.Password))
-        {
-            ShowError("Para exponer tu servidor mediante un túnel HTTPS, establece una contraseña en Alojar.");
-            return;
-        }
+        // Alojar inicia siempre el servidor local. No exigir contraseña por
+        // una publicUrl antigua: protegerlo será decisión explícita del usuario.
+        // Una URL WSS pública no debe activarse implícitamente desde este botón.
         SetBusy(true, "Iniciando el servidor incluido…");
         try
         {
@@ -409,10 +458,19 @@ public partial class Launcher : Control
                     if (list.Length > 0) addresses = "IP para compartir: " + list;
                 }
                 catch (System.Net.Sockets.SocketException) { }
-                _hostInfo.Text = $"Servidor activo · Juego TCP {options.Port} · LAN UDP {options.DiscoveryPort}\n{addresses}"
-                    + (System.IO.File.Exists(System.IO.Path.Combine(LocalFirebaseHosting.DirectoryPath(ProjectSettings.GlobalizePath("user://")), LocalFirebaseHosting.ConfigFileName))
-                        ? "\nFirebase local: configuración detectada (usa Entrar con Google para comprobarla)." : "\nFirebase: desactivado; las partidas LAN siguen disponibles.");
-                string roomAddress = LocalFirebaseHosting.PublicGameAddress(ProjectSettings.GlobalizePath("user://")) ?? _host.Address;
+                string firebaseDir = LocalFirebaseHosting.DirectoryPath(ProjectSettings.GlobalizePath("user://"));
+                bool firebasePresent = System.IO.File.Exists(System.IO.Path.Combine(firebaseDir, LocalFirebaseHosting.ConfigFileName));
+                string? publicGame = LocalFirebaseHosting.PublicGameAddress(ProjectSettings.GlobalizePath("user://"));
+                string firebaseStatus = !firebasePresent
+                    ? "\nFirebase: desactivado; las partidas LAN siguen disponibles."
+                    : publicGame?.StartsWith("wss://", StringComparison.OrdinalIgnoreCase) == true
+                        ? "\nFirebase configurado. Para jugar con recompensas desde el móvil, usa Por IP con:\n" + publicGame
+                        : "\nFirebase local configurado, pero falta la dirección WSS pública para el móvil.";
+                _hostInfo.Text = $"Servidor activo · Juego TCP {options.Port} · LAN UDP {options.DiscoveryPort}\n{addresses}" + firebaseStatus;
+                // El anfitrión siempre gestiona sus propias salas por loopback.
+                // Un túnel trycloudflare es temporal y su publicUrl puede quedar caducado.
+                // La dirección pública se comparte por separado con jugadores externos.
+                string roomAddress = _host.Address;
                 _address.Text = roomAddress;
                 UpdateConnectLabel(); OpenRooms(roomAddress, _hostPassword);
             });
@@ -497,5 +555,5 @@ public partial class Launcher : Control
     }
     private void CancelSearch()
     { var search = _search; _search = null; search?.Cancel(); search?.Dispose(); _refresh.Disabled = false; }
-    public override void _ExitTree() { _search?.Cancel(); _search?.Dispose(); _host.Dispose(); }
+    public override void _ExitTree() { GetViewport().SizeChanged -= UpdateResponsiveMenu; CancelOnlineSearch(); _search?.Cancel(); _search?.Dispose(); _host.Dispose(); }
 }

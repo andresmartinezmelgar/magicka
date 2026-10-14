@@ -11,6 +11,8 @@ public partial class EquipmentPanel : Control
     private bool _automaticServer;
     private Label _profile = null!, _detailTitle = null!, _empty = null!, _sets = null!, _status = null!;
     private GridContainer _details = null!, _totals = null!;
+    private GridContainer? _selectorsGrid;
+    private ScrollContainer? _setsScroll;
     private Button _sell = null!;
     private ConfirmationDialog _confirm = null!;
     private AcceptDialog _setsInfo = null!;
@@ -62,7 +64,8 @@ public partial class EquipmentPanel : Control
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         columns.AddChild(inventoryScroll);
         var inventory = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; inventory.AddThemeConstantOverride("separation", 6); inventoryScroll.AddChild(inventory);
-        var selectors = new GridContainer { Columns = 2 }; selectors.AddThemeConstantOverride("h_separation", 10);
+        var selectors = new GridContainer { Columns = 2 }; _selectorsGrid = selectors;
+        selectors.AddThemeConstantOverride("h_separation", 10);
         selectors.AddThemeConstantOverride("v_separation", 6); inventory.AddChild(selectors);
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
@@ -100,15 +103,30 @@ public partial class EquipmentPanel : Control
         _confirm = new ConfirmationDialog { Title = "Eliminar objeto", OkButtonText = "Eliminar y recibir oro", CancelButtonText = "Cancelar" };
         AddChild(_confirm); _confirm.Confirmed += () => _ = Sell();
         _setsInfo = new AcceptDialog { Title = "Conjuntos Míticos de los ocho elementos", OkButtonText = "Cerrar" }; AddChild(_setsInfo);
-        var setsScroll = new ScrollContainer { CustomMinimumSize = new(920, Math.Min(480, GetViewport().GetVisibleRect().Size.Y - 180)),
+        var setsScroll = new ScrollContainer { CustomMinimumSize = new(600, 300),
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; _setsInfo.AddChild(setsScroll);
+        _setsScroll = setsScroll;
         var descriptions = Ui.Label(string.Join("\n\n", EquipmentCatalogue.FocusedFamilies.Select(f => EquipmentCatalogue.FamilyName(f) + "\n"
             + "2 o 3 piezas: " + SetDescription(f, false) + "\n4 piezas: " + SetDescription(f, true)))
             + "\n\nEl bono de cuatro sustituye al de dos. Se pueden combinar dos conjuntos de dos piezas.", 17);
         descriptions.AutowrapMode = TextServer.AutowrapMode.WordSmart; descriptions.SizeFlagsHorizontal = SizeFlags.ExpandFill; setsScroll.AddChild(descriptions);
         ApplyOptionAEquipment(margin, panel, box, columns, inventoryScroll, totalsScroll, footer);
+        GetViewport().SizeChanged += UpdateEquipmentResponsive;
+        UpdateEquipmentResponsive();
         Render();
         if (_main.Accounts.SignedIn) _ = Refresh();
+    }
+
+    private void UpdateEquipmentResponsive()
+    {
+        float viewportWidth = GetViewport().GetVisibleRect().Size.X;
+        float available = Math.Max(260, viewportWidth - (Ui.IsMobile ? 65 : 110));
+        if (_selectorsGrid != null)
+            _selectorsGrid.Columns = ResponsiveLayout.Columns(available, Ui.IsMobile ? 365 : 340, 2, 10);
+        if (_setsScroll != null)
+            _setsScroll.CustomMinimumSize = new Vector2(
+                Math.Max(240, Math.Min(920, viewportWidth - (Ui.IsMobile ? 85 : 140))),
+                Math.Max(180, Math.Min(480, GetViewport().GetVisibleRect().Size.Y - 180)));
     }
 
     private Button Action(Node parent, string text, Action action, bool primary = false)
@@ -296,5 +314,5 @@ public partial class EquipmentPanel : Control
     });
     private void Failed(Exception error) => _main.Post(() =>
     { if (_lifetime.IsCancellationRequested) return; Render(); Busy(false, error is OperationCanceledException ? "Operación cancelada." : error.Message); });
-    public override void _ExitTree() { _lifetime.Cancel(); _lifetime.Dispose(); }
+    public override void _ExitTree() { GetViewport().SizeChanged -= UpdateEquipmentResponsive; _lifetime.Cancel(); _lifetime.Dispose(); }
 }

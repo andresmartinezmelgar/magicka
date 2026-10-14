@@ -32,11 +32,14 @@ public partial class Main : Node
     private Label _currentObjective = null!;
     private SpellBook _spellBook = null!;
     private Hud? _hud;
+    private RoomWaitingPanel? _waitingPanel;
     private ArenaConnection? _connection;
     private GameWorld? _practice;
     private PracticeSession? _practiceSession;
     private PracticePanel? _practicePanel;
     private readonly GameWorld _backdrop = new(new WorldOptions { Mode = GameMode.Arena, Bots = 4 });
+    private int _backdropSnapshotFrames;
+    private GridContainer? _inGameHelpControls;
     private WorldSnapshot? _snapshot;
     private int _localId;
     private long _localSequence;
@@ -56,6 +59,7 @@ public partial class Main : Node
     public override void _Ready()
     {
         PrepareMobileWindow();
+        PrepareDesktopHeaderSmokeWindow();
         RenderingServer.FramePostDraw += FrameDrawn;
         _log = new DiagnosticLog(ProjectSettings.GlobalizePath("user://logs"), "client"); Diagnostics.Log = _log;
         _processDiagnostics = new ProcessDiagnostics(_log);
@@ -98,6 +102,9 @@ public partial class Main : Node
         var arguments = OS.GetCmdlineUserArgs();
         _accountEntrySmoke = arguments.Contains("--account-entry-smoke");
         _mobileMenuSmoke = arguments.Contains("--mobile-menu-smoke");
+        _visualReview = arguments.Contains("--visual-review");
+        _visualReviewDirectory = arguments.FirstOrDefault(a => a.StartsWith("--visual-directory=", StringComparison.Ordinal))?["--visual-directory=".Length..];
+        _desktopHeaderSmoke = arguments.Contains("--desktop-header-smoke");
         foreach (string arg in arguments)
         {
             if (arg is "--preview-equipment" or "--equipment-smoke") EquipmentFixture(arg == "--equipment-smoke");
@@ -141,8 +148,14 @@ public partial class Main : Node
             if (RenderProfiler.Requested(OS.GetCmdlineUserArgs())) { GD.PushError("PROFILE_FAILED: " + error.Message); GetTree().Quit(1); }
         }
     }
+    private string GoogleConnectionMessage() =>
+        GoogleIdentityKnown
+            ? "Google aparece conectado, pero la sesión Firebase no está disponible para jugar. Abre Perfil y comprueba que Firestore haya cargado sin errores; después reintenta Google."
+            : "Debes iniciar sesión con Google en Perfil antes de entrar a una sala con recompensas.";
+
     public async Task ConnectOnline(string address, string name, int team, string password,
-        string roomId = "default", string roomPassword = "", WizardType wizardType = WizardType.Balanced)
+        string roomId = "default", string roomPassword = "", WizardType wizardType = WizardType.Balanced,
+        Action<string>? onError = null)
     {
         if (Volatile.Read(ref _exiting) != 0) return;
         var connection = new ArenaConnection();
@@ -153,8 +166,51 @@ public partial class Main : Node
         if (previous != null) _ = previous.DisposeAsync();
         try
         {
-            await connection.ConnectAsync(address, name, team, password, _lifetime.Token, roomId: roomId, roomPassword: roomPassword,
-                wizardType: wizardType, deferReady: true, accountToken: Accounts.TokenFor(address)).ConfigureAwait(false);
+            string destination = address;
+            Uri endpoint = ArenaConnection.Address(destination);
+
+            // La búsqueda LAN descubre salas mediante ws://, pero NO debe enviar
+            // el ID token Firebase por un transporte sin cifrar. Si el servidor
+            // LAN exige Google, localizar su misma instancia pública en Firestore
+            // y cambiar a WSS antes de enviar cualquier credencial.
+            if (endpoint.Scheme == "ws" && !endpoint.IsLoopback)
+            {
+                var localRooms = await RoomBrowser.ListAsync(destination, _lifetime.Token).ConfigureAwait(false);
+                if (localRooms.Server.RewardsAvailable)
+                {
+                    if (!Accounts.IsDirectFirebaseSession)
+                        throw new InvalidOperationException(GoogleConnectionMessage());
+                    string officialUrl = await PublicAccountServer.Resolve(FirebaseProjectId, _lifetime.Token).ConfigureAwait(false);
+                    var officialRooms = await RoomBrowser.ListAsync(officialUrl, _lifetime.Token).ConfigureAwait(false);
+                    if (!PublicAccountServer.SameInstance(localRooms.Server, officialRooms.Server) ||
+                        !officialRooms.Rooms.Any(room => room.Id == roomId))
+                        throw new InvalidOperationException("Esta sala LAN no coincide con el servidor seguro anunciado en Firebase. Usa «Servidor online con Google».");
+                    destination = officialUrl;
+                    Diagnostics.Info("client.secure_route", "Sala LAN redirigida al mismo servidor por WSS.");
+                }
+            }
+
+            string accountToken = Accounts.TokenFor(destination);
+            // Las sesiones directas de Firebase solo se entregan a la dirección
+            // WSS anunciada actualmente por Firestore; nunca a otros destinos.
+            if (accountToken.Length == 0 && Accounts.IsDirectFirebaseSession &&
+                ArenaConnection.Address(destination).Scheme == "wss")
+            {
+                string verified = await PublicAccountServer.Resolve(FirebaseProjectId, _lifetime.Token).ConfigureAwait(false);
+                accountToken = Accounts.TokenForVerifiedServer(destination, verified);
+                if (accountToken.Length == 0)
+                    throw new InvalidOperationException("Este servidor no coincide con el servidor oficial anunciado en Firebase.");
+            }
+            // Las salas WSS sin Firebase continúan admitiendo invitados.
+            // Solo el servidor que exige cuentas debe bloquear un token vacío.
+            if (accountToken.Length == 0 && ArenaConnection.Address(destination).Scheme == "wss")
+            {
+                var publicRooms = await RoomBrowser.ListAsync(destination, _lifetime.Token).ConfigureAwait(false);
+                if (publicRooms.Server.RewardsAvailable)
+                    throw new InvalidOperationException(GoogleConnectionMessage());
+            }
+            await connection.ConnectAsync(destination, name, team, password, _lifetime.Token, roomId: roomId, roomPassword: roomPassword,
+                wizardType: wizardType, deferReady: true, accountToken: accountToken).ConfigureAwait(false);
             if (!Post(() =>
             {
                 lock (_connectionGate)
@@ -185,7 +241,8 @@ public partial class Main : Node
                     if (_pendingConnection != connection) return;
                     _pendingConnection = null;
                 }
-                _launcher.ShowError(message);
+                if (onError != null) onError(message);
+                else _launcher.ShowError(message);
             });
         }
     }
@@ -234,6 +291,15 @@ public partial class Main : Node
         if (!prepared) PrepareGameControls(snapshot);
         _ui.MoveChild(_networkPanel, -1);
         _ui.MoveChild(_help, -1); _ui.MoveChild(_pause, -1);
+        if (_connection != null)
+        {
+            _waitingPanel?.QueueFree();
+            _waitingPanel = new RoomWaitingPanel();
+            _ui.AddChild(_waitingPanel);
+            _waitingPanel.Build(Submit, () => ReturnToLauncher());
+            _waitingPanel.Update(snapshot, _localId, _connection.Server?.RewardsAvailable == true);
+            _ui.MoveChild(_waitingPanel, -1);
+        }
     }
     public void ReturnToLauncher(string error = "")
     {
@@ -245,7 +311,9 @@ public partial class Main : Node
         _practicePanel?.QueueFree(); _practicePanel = null;
         var old = _connection; _connection = null;
         if (old != null) _ = old.DisposeAsync();
-        _hud?.QueueFree(); _hud = null; _pause.Visible = false; _help.Visible = false;
+        _hud?.QueueFree(); _hud = null;
+        _waitingPanel?.QueueFree(); _waitingPanel = null;
+        _pause.Visible = false; _help.Visible = false;
         _networkPanel.Visible = false; _statsConnection = null; _networkStatsTime = 0;
         _touch?.Reset(); _touch?.QueueFree(); _touch = null;
         _renderer.Clear(); _launcher.Visible = true; _launcher.SetBusy(false);
@@ -276,6 +344,7 @@ public partial class Main : Node
             }
         TickGoogleAuth(delta);
         _renderFrames++;
+        if (CheckDesktopHeaderSmoke()) return;
         if (CheckMobileMenuSmoke()) return;
         if (CheckAccountEntrySmoke()) return;
         if (CheckPublicEquipmentSmoke()) return;
@@ -304,7 +373,7 @@ public partial class Main : Node
                 UpdateMouseMovement(!practiceUi && Input.IsMouseButtonPressed(MouseButton.Left), Input.IsPhysicalKeyPressed(Key.Shift));
             }
             if (latest.Tick != _lastTick) { _lastTick = latest.Tick; _snapshotAge = 0; } else _snapshotAge += delta;
-            if (_connection != null && _snapshotAge > 8)
+            if (_connection != null && _snapshotAge > 8 && !latest.WaitingForPlayers)
             {
                 Diagnostics.Warn("client.stale_snapshot", "El servidor dejó de enviar el estado.", context: Context());
                 ReturnToLauncher("El servidor ha dejado de enviar el estado de la partida. Puedes exportar el diagnóstico desde el launcher."); return;
@@ -313,6 +382,7 @@ public partial class Main : Node
             if (_practiceSession != null) _renderer.PracticeCasterDescription = _practiceSession.CasterDescription;
             _renderer.Render(latest, _localId, _verification?.FixedRenderStep == true ? 1 / 60.0 : delta, true);
             _hud?.Update(latest, _localId, _serverName, delta);
+            _waitingPanel?.Update(latest, _localId, _connection?.Server?.RewardsAvailable == true);
             if (_practicePanel != null)
             { _practicePanel.Visible = !_paused && !_help.Visible; _practicePanel.Update(_aim); }
             _touch?.Update(latest.Players.FirstOrDefault(p => p.Id == _localId));
@@ -358,7 +428,18 @@ public partial class Main : Node
         if (Loading) return;
         if (_verification?.FreezeSimulation == true) return;
         if (_profiler?.Running == true) return;
-        if (!_playing) { _backdrop.Step(); _backdropSnapshot = _backdrop.Snapshot(); return; }
+        if (!_playing)
+        {
+            _backdrop.Step();
+            // Menú: mantener la simulación suave, pero evitar generar 60 snapshots/segundo
+            // de un mundo que solo sirve como fondo decorativo.
+            if (++_backdropSnapshotFrames >= (Ui.IsMobile ? 3 : 2) || _backdropSnapshot == null)
+            {
+                _backdropSnapshotFrames = 0;
+                _backdropSnapshot = _backdrop.Snapshot();
+            }
+            return;
+        }
         _inputTime += delta;
         if (_practice != null)
         {
@@ -449,7 +530,8 @@ public partial class Main : Node
                 return;
             }
         }
-        if (!_playing || _paused || _help.Visible || InspectingEquipment) return;
+        if (!_playing || _paused || _help.Visible || InspectingEquipment ||
+            _waitingPanel?.Visible == true) return;
         if (input is InputEventKey { Pressed: true, Echo: false } press)
         {
             Element? element = press.PhysicalKeycode switch
@@ -499,17 +581,28 @@ public partial class Main : Node
     }
     private void StopInput() { _moveTo = false; _touch?.Reset(); Submit(new() { Type = "release" }); Submit(InputMessage()); }
 
+    private PanelContainer? _responsiveHelpModal;
+    private ScrollContainer? _responsiveHelpScroll;
     private Control Modal(out VBoxContainer content)
     {
         var root = new Control { Theme = Ui.Theme() }; Ui.Full(root);
         var shade = new ColorRect { Color = new Color(0.018f, 0.03f, 0.05f, 0.86f) }; root.AddChild(shade); Ui.Full(shade);
         var center = new CenterContainer(); root.AddChild(center); Ui.Full(center);
-        var panel = new PanelContainer { CustomMinimumSize = new(750, 0) }; center.AddChild(panel);
+        float available = GetViewport().GetVisibleRect().Size.X;
+        var panel = new PanelContainer { CustomMinimumSize = new(Math.Max(280, Math.Min(750, available - 50)), 0) };
+        center.AddChild(panel);
+        // Solo el modal de ayuda se actualiza tras construirlo.
+        _responsiveHelpModal = panel;
+        _responsiveHelpScroll = null;
         content = new VBoxContainer(); content.AddThemeConstantOverride("separation", 16);
         if (Ui.IsMobile)
         {
-            var scroll = new ScrollContainer { CustomMinimumSize = new(1080, GetViewport().GetVisibleRect().Size.Y - 64),
-                HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+            var scroll = new ScrollContainer {
+                CustomMinimumSize = new(Math.Max(270, Math.Min(1080, available - 50)),
+                    Math.Max(240, GetViewport().GetVisibleRect().Size.Y - 64)),
+                HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+                VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
+            _responsiveHelpScroll = scroll;
             panel.AddChild(scroll); content.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill; scroll.AddChild(content);
         }
         else panel.AddChild(content);
@@ -519,9 +612,13 @@ public partial class Main : Node
     {
         var root = Modal(out var outer);
         outer.AddChild(Ui.Label("CÓMO JUGAR", 27, Ui.Gold));
-        _helpPages = new TabContainer { CustomMinimumSize = new(960, 510) }; outer.AddChild(_helpPages);
+        _helpPages = new TabContainer { CustomMinimumSize = new(0, 400),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+        outer.AddChild(_helpPages);
         var box = new VBoxContainer { Name = "Controles" }; box.AddThemeConstantOverride("separation", 16); _helpPages.AddChild(box);
-        var table = new GridContainer { Columns = 2 }; table.AddThemeConstantOverride("h_separation", 30); table.AddThemeConstantOverride("v_separation", 9); box.AddChild(table);
+        var table = new GridContainer { Columns = 2 }; _inGameHelpControls = table;
+        table.AddThemeConstantOverride("h_separation", 30); table.AddThemeConstantOverride("v_separation", 9); box.AddChild(table);
         string[,] rows =
         {
             { "Q W E R / A S D F", "Agua, vida, escudo, frío / rayo, arcano, tierra, fuego" },
@@ -600,7 +697,26 @@ public partial class Main : Node
         HelpText(elementsBox, "Agua moja y Vida cura. También desgastan protecciones enemigas con sus ventajas elementales; su presión no daña la salud al romper el escudo. Curar a un aliado conserva su escudo. Los bonus y debilidades propios del tipo de mago se aplican además de estas relaciones.", Ui.Muted);
         HelpText(elementsBox, "El escudo básico deja pasar los hechizos de su propietario. Las barreras imbuidas bloquean también los propios. Todas las barreras siguen bloqueando el movimiento.", Ui.Muted);
         outer.AddChild(Ui.Button("Cerrar", () => { _help.Visible = false; UpdateTouchVisibility(); }, true));
+        GetViewport().SizeChanged += UpdateInGameHelpResponsive;
+        UpdateInGameHelpResponsive();
         return root;
+    }
+
+    private void UpdateInGameHelpResponsive()
+    {
+        float width = GetViewport().GetVisibleRect().Size.X;
+        float height = GetViewport().GetVisibleRect().Size.Y;
+        if (_responsiveHelpModal != null)
+            _responsiveHelpModal.CustomMinimumSize = new Vector2(Math.Max(230, Math.Min(750, width - 32)), 0);
+        if (_responsiveHelpScroll != null)
+            _responsiveHelpScroll.CustomMinimumSize = new Vector2(
+                Math.Max(220, Math.Min(720, width - 52)), Math.Max(170, height - 84));
+        _helpPages.CustomMinimumSize = new Vector2(
+            Math.Max(220, Math.Min(Ui.IsMobile ? 680 : 690, width - (Ui.IsMobile ? 84 : 100))),
+            Math.Max(190, Math.Min(510, height - 180)));
+        if (_inGameHelpControls != null)
+            _inGameHelpControls.Columns = ResponsiveLayout.Columns(
+                Math.Max(250, width - (Ui.IsMobile ? 105 : 140)), 325, 2, 20);
     }
     private static Label HelpText(Node parent, string text, Color? color = null)
     {
@@ -663,6 +779,7 @@ public partial class Main : Node
     public override void _ExitTree()
     {
         RenderingServer.FramePostDraw -= FrameDrawn;
+        GetViewport().SizeChanged -= UpdateInGameHelpResponsive;
         CancelGameLoading();
         WizardSprites.ClearCache();
         Interlocked.Exchange(ref _exiting, 1); _lifetime.Cancel();

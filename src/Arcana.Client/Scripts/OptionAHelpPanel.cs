@@ -8,8 +8,11 @@ public partial class OptionAHelpPanel : Control
 {
     private Main _main = null!;
     private VBoxContainer _body = null!;
+    private ScrollContainer _bodyScroll = null!;
     private Label _topic = null!;
     private readonly List<Button> _topicButtons = [];
+    private GridContainer? _topicNavigation;
+    private readonly List<(GridContainer Grid, int MaxColumns, float MinimumWidth)> _adaptiveGrids = [];
     private int _page;
     private int _relicOffset;
 
@@ -38,12 +41,12 @@ public partial class OptionAHelpPanel : Control
         var header = Ui.Label("CÓMO JUGAR  /  GUÍA DEL MAGO", 24, Ui.Gold);
         outer.AddChild(header);
         // Las seis secciones ocupan una banda horizontal: el contenido usa todo el ancho.
-        int columns = GetViewport().GetVisibleRect().Size.X >= 1150 ? 6 : 3;
-        var navigation = new GridContainer { Name = "HelpTopics", Columns = columns,
+        var navigation = new GridContainer { Name = "HelpTopics", Columns = 6,
             SizeFlagsHorizontal = SizeFlags.ExpandFill };
         navigation.AddThemeConstantOverride("h_separation", Ui.IsMobile ? 6 : 10);
         navigation.AddThemeConstantOverride("v_separation", 6);
         outer.AddChild(navigation);
+        _topicNavigation = navigation;
         for (int i = 0; i < _topics.Length; i++)
         {
             int target = i;
@@ -65,20 +68,32 @@ public partial class OptionAHelpPanel : Control
         card.AddChild(contents);
         _topic = Ui.Label("", Ui.IsMobile ? 22 : 24, Ui.Gold);
         contents.AddChild(_topic);
+        var bodyScroll = new ScrollContainer { Name = "HelpContentScroll",
+            SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
+        contents.AddChild(bodyScroll);
+        _bodyScroll = bodyScroll;
         _body = new VBoxContainer { Name = "HelpFullWidthBody",
-            SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
+            SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _body.AddThemeConstantOverride("separation", 8);
-        contents.AddChild(_body);
+        bodyScroll.AddChild(_body);
         ArcanaMenuChrome.Attach(this, margin, main, "Cómo jugar", 5, main.NavigateOptionAMenu);
+        GetViewport().SizeChanged += UpdateResponsiveHelp;
         Select(0);
+        UpdateResponsiveHelp();
     }
+
+    public override void _ExitTree() => GetViewport().SizeChanged -= UpdateResponsiveHelp;
 
     internal void SelectForSmoke(int page) => Select(page);
     internal float ContentWidthFraction => _body.Size.X / Math.Max(1f, GetViewport().GetVisibleRect().Size.X);
 
     private void Select(int page)
     {
+        if (_bodyScroll != null) _bodyScroll.ScrollVertical = 0;
         _page = page;
+        _adaptiveGrids.Clear();
         _topic.Text = _topics[page].ToUpperInvariant();
         foreach (Node child in _body.GetChildren()) { _body.RemoveChild(child); child.QueueFree(); }
         for (int i = 0; i < _topicButtons.Count; i++)
@@ -94,6 +109,22 @@ public partial class OptionAHelpPanel : Control
             case 4: RelicPage(); break;
             case 5: SpellPage(); break;
         }
+        UpdateResponsiveHelp();
+    }
+
+    private void AddAdaptiveGrid(GridContainer grid, int maximumColumns, float minimumWidth)
+    {
+        _adaptiveGrids.Add((grid, maximumColumns, minimumWidth));
+    }
+
+    private void UpdateResponsiveHelp()
+    {
+        float width = Math.Max(260, GetViewport().GetVisibleRect().Size.X - (Ui.IsMobile ? 60 : 105));
+        if (_topicNavigation != null)
+            _topicNavigation.Columns = ResponsiveLayout.Columns(width, 146, _topics.Length, 10);
+        foreach (var (grid, maximumColumns, minimumWidth) in _adaptiveGrids)
+            if (GodotObject.IsInstanceValid(grid) && !grid.IsQueuedForDeletion())
+                grid.Columns = ResponsiveLayout.Columns(width, minimumWidth, maximumColumns, 12);
     }
 
     private void ControlsPage()
@@ -119,24 +150,23 @@ public partial class OptionAHelpPanel : Control
             { "1 / 2 / 3 / 4", "Magias especiales" },
             { "TAB / F1 / ESC", "Clasificación, ayuda y menú" }
         };
-        var list = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
-            SizeFlagsVertical = SizeFlags.ExpandFill };
-        list.AddThemeConstantOverride("separation", Ui.IsMobile ? 4 : 8);
+        var list = new GridContainer { Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        list.AddThemeConstantOverride("h_separation", Ui.IsMobile ? 12 : 20);
+        list.AddThemeConstantOverride("v_separation", Ui.IsMobile ? 4 : 8);
         _body.AddChild(list);
+        AddAdaptiveGrid(list, 2, 310);
         for (int i = 0; i < rows.GetLength(0); i++)
         {
-            var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
-                SizeFlagsVertical = SizeFlags.ExpandFill };
-            row.AddThemeConstantOverride("separation", Ui.IsMobile ? 12 : 20);
-            list.AddChild(row);
+            // Cada pareja clave/explicación ocupa dos columnas o dos filas en pantallas estrechas.
             var key = Ui.Label(rows[i, 0], Ui.IsMobile ? 16 : 18, Ui.Gold);
-            key.CustomMinimumSize = new Vector2(Ui.IsMobile ? 210 : 240, 0);
-            key.SizeFlagsHorizontal = SizeFlags.Fill;
-            row.AddChild(key);
+            key.CustomMinimumSize = Vector2.Zero;
+            key.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            key.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            list.AddChild(key);
             var description = Ui.Label(rows[i, 1], Ui.IsMobile ? 16 : 18, Ui.Text);
             description.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             description.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-            row.AddChild(description);
+            list.AddChild(description);
         }
         var note = Ui.Label("FFF: fuego  ·  E: escudo  ·  QF: vapor  ·  QR: hielo  ·  DDF: roca incendiaria", 15, Ui.Muted);
         note.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -145,10 +175,10 @@ public partial class OptionAHelpPanel : Control
 
     private void ObjectivesPage()
     {
-        var cards = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
-            SizeFlagsVertical = SizeFlags.ExpandFill };
+        var cards = new GridContainer { Columns = 3, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         cards.AddThemeConstantOverride("separation", 12);
         _body.AddChild(cards);
+        AddAdaptiveGrid(cards, 3, 290);
         foreach (var mode in new[] { GameMode.Warfare, GameMode.Duel, GameMode.Arena })
         {
             var panel = SmallCard();
@@ -164,11 +194,12 @@ public partial class OptionAHelpPanel : Control
 
     private void WizardPage()
     {
-        var grid = new GridContainer { Columns = GetViewport().GetVisibleRect().Size.X >= 1150 ? 5 : 2,
+        var grid = new GridContainer { Columns = 5,
             SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
         grid.AddThemeConstantOverride("h_separation", 12);
         grid.AddThemeConstantOverride("v_separation", 12);
         _body.AddChild(grid);
+        AddAdaptiveGrid(grid, 5, 215);
         foreach (var wizard in Enum.GetValues<WizardType>())
         {
             var panel = SmallCard();
@@ -181,11 +212,12 @@ public partial class OptionAHelpPanel : Control
 
     private void ElementPage()
     {
-        var grid = new GridContainer { Columns = GetViewport().GetVisibleRect().Size.X >= 900 ? 4 : 2,
+        var grid = new GridContainer { Columns = 4,
             SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
         grid.AddThemeConstantOverride("h_separation", 12);
         grid.AddThemeConstantOverride("v_separation", 12);
         _body.AddChild(grid);
+        AddAdaptiveGrid(grid, 4, 205);
         foreach (var element in Enum.GetValues<Element>())
         {
             var panel = SmallCard();
@@ -212,11 +244,12 @@ public partial class OptionAHelpPanel : Control
         var next = Ui.Button("Siguientes  ▶", () => { _relicOffset = Math.Min(maxOffset, _relicOffset + 6); Select(4); });
         next.Disabled = _relicOffset + 6 >= values.Length;
         controls.AddChild(next);
-        var grid = new GridContainer { Columns = GetViewport().GetVisibleRect().Size.X >= 900 ? 3 : 2,
+        var grid = new GridContainer { Columns = 3,
             SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
         grid.AddThemeConstantOverride("h_separation", 12);
         grid.AddThemeConstantOverride("v_separation", 12);
         _body.AddChild(grid);
+        AddAdaptiveGrid(grid, 3, 260);
         foreach (var buff in values.Skip(_relicOffset).Take(6))
         {
             var panel = SmallCard(); grid.AddChild(panel);
@@ -234,6 +267,7 @@ public partial class OptionAHelpPanel : Control
         _body.AddChild(button);
         var grid = new GridContainer { Columns = 4, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _body.AddChild(grid);
+        AddAdaptiveGrid(grid, 4, 105);
         foreach (var element in Enum.GetValues<Element>()) grid.AddChild(Ui.ElementTile(element, true));
     }
 

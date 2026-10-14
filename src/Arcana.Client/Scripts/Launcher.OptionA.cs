@@ -10,18 +10,18 @@ namespace Arcana.Client;
 public partial class Launcher
 {
     private ArcanaMenuChrome? _optionAChrome;
-    private HBoxContainer? _optionAPrimaryActions;
+    private Container? _optionAPrimaryActions;
     private VBoxContainer? _optionAPreview;
     private VBoxContainer? _optionAMagic;
     private Label? _optionAHeading;
     private Label? _optionAPasswordLabel;
+    private GridContainer? _optionAHomeCards, _optionASettingsGrid, _optionAPracticeGrid, _optionAElements;
 
-    private void ApplyOptionALayout(MarginContainer margin, HBoxContainer columns, VBoxContainer left,
+    private void ApplyOptionALayout(MarginContainer margin, HBoxContainer columns,
         VBoxContainer rightColumn, ScrollContainer scroll, CenterContainer rightCenter,
         PanelContainer panel, VBoxContainer form, HBoxContainer identity, HBoxContainer typeRow,
         Label typeInfo, HBoxContainer obsoleteFooter, Button oldHelp, Button oldExit)
     {
-        left.Visible = false;
         columns.AddThemeConstantOverride("separation", 0);
         columns.SizeFlagsVertical = SizeFlags.ExpandFill;
         columns.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -60,9 +60,10 @@ public partial class Launcher
         titles.AddChild(_optionAHeading);
         titles.AddChild(Ui.Label("Hechizos, estrategia y duelos elementales", Ui.IsMobile ? 14 : 16, Ui.Muted));
 
-        // Accesos anchos en una única fila con tamaños y lugares coherentes.
+        // Cuatro accesos principales organizados siempre en 2 filas por 2 columnas.
         _homeMenu.AddThemeConstantOverride("separation", 12);
-        var choices = new HBoxContainer { Name = "OptionAHomeCards", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        var choices = new GridContainer { Name = "OptionAHomeCards", Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _optionAHomeCards = choices;
         choices.AddThemeConstantOverride("separation", Ui.IsMobile ? 10 : 18);
         _homeMenu.AddChild(choices);
         _homeMenu.MoveChild(choices, 0);
@@ -83,15 +84,14 @@ public partial class Launcher
         var helpTile = Ui.Button("▤\nCÓMO JUGAR\nControles y objetivos", () => _main.ToggleHelp());
         choices.AddChild(helpTile);
         CardStyle(helpTile, 3);
-        _profileSummary.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 15 : 17);
-        _profileSummary.AddThemeColorOverride("font_color", Ui.Gold);
-
+ 
         // Paneles de opciones de 2 columnas: no se necesita desplazamiento vertical ni horizontal.
         _playBody.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _playBody.SizeFlagsVertical = SizeFlags.ExpandFill;
         _playBody.AddThemeConstantOverride("separation", 7);
-        var controls = new HBoxContainer { Name = "OptionASettingsColumns",
+        var controls = new GridContainer { Name = "OptionASettingsColumns", Columns = 2,
             SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
+        _optionASettingsGrid = controls;
         controls.AddThemeConstantOverride("separation", Ui.IsMobile ? 10 : 18);
         _playBody.AddChild(controls);
         _playBody.MoveChild(controls, 0);
@@ -151,6 +151,7 @@ public partial class Launcher
         settings.AddChild(_optionAMagic);
         _optionAMagic.AddChild(Ui.Label("LOS OCHO ELEMENTOS", 18, Ui.Gold));
         var elementGrid = new GridContainer { Columns = 4 };
+        _optionAElements = elementGrid;
         elementGrid.AddThemeConstantOverride("h_separation", 5);
         elementGrid.AddThemeConstantOverride("v_separation", 5);
         _optionAMagic.AddChild(elementGrid);
@@ -160,12 +161,14 @@ public partial class Launcher
         _optionAMagic.AddChild(aiHint);
 
         // Acción primaria y Volver juntos, anclados al mismo lugar en PvP y contra IA.
-        var actions = new HBoxContainer
+        var actions = new GridContainer
         {
             Name = "OptionAPrimaryActions",
+            Columns = 2,
             SizeFlagsHorizontal = SizeFlags.ExpandFill
         };
-        actions.AddThemeConstantOverride("separation", 12);
+        actions.AddThemeConstantOverride("h_separation", 12);
+        actions.AddThemeConstantOverride("v_separation", 8);
         // Fuera de la zona desplazable: Volver y Jugar no quedan tapados por el
         // pie de navegación a 720p ni en pantallas panorámicas más pequeñas.
         rightColumn.AddChild(actions);
@@ -187,18 +190,55 @@ public partial class Launcher
 
         _optionAChrome = ArcanaMenuChrome.Attach(this, margin, _main,
             "Inicio", 0, NavigateOptionA);
+        GetViewport().SizeChanged += UpdateResponsiveMenu;
+        UpdateResponsiveMenu();
     }
 
-    /// <summary>IA en dos columnas: conserva todos los ajustes pero evita desbordamientos a 720p.</summary>
+    private void UpdateResponsiveMenu()
+    {
+        float viewportWidth = GetViewport().GetVisibleRect().Size.X;
+        float available = Math.Max(280, viewportWidth - (Ui.IsMobile ? 55 : 120));
+        if (_optionAPrimaryActions is GridContainer primary)
+            primary.Columns = ResponsiveLayout.Columns(available, 415, 2, 12);
+        if (_optionAHomeCards != null)
+        {
+            // Mantener estrictamente 2×2 en móvil y escritorio; altura ajustada
+            // al área útil para no esconder la segunda fila bajo la barra inferior.
+            _optionAHomeCards.Columns = 2;
+            float height = GetViewport().GetVisibleRect().Size.Y;
+            float free = height - ArcanaMenuChrome.HeaderHeight - ArcanaMenuChrome.FooterHeight -
+                (Ui.IsMobile ? 135 : 175);
+            float tileHeight = Math.Clamp((free - (Ui.IsMobile ? 10 : 18)) / 2f,
+                Ui.IsMobile ? 125 : 150, Ui.IsMobile ? 210 : 245);
+            foreach (Button card in _optionAHomeCards.GetChildren().OfType<Button>())
+                card.CustomMinimumSize = new Vector2(0, tileHeight);
+        }
+        if (_optionASettingsGrid != null)
+        {
+            int columns = ResponsiveLayout.Columns(available, 415, 2, Ui.IsMobile ? 10 : 18);
+            _optionASettingsGrid.Columns = columns;
+            if (_optionAPracticeGrid != null)
+            {
+                float practiceWidth = columns == 2 ? (available - 24) / 2 : available;
+                _optionAPracticeGrid.Columns = ResponsiveLayout.Columns(practiceWidth, 385, 2, 14);
+            }
+        }
+        if (_optionAElements != null)
+            _optionAElements.Columns = ResponsiveLayout.Columns(
+                _optionASettingsGrid?.Columns == 2 ? (available - 24) / 2 : available, 85, 4, 5);
+    }
+
+    /// <summary>La modalidad IA se reordena según el espacio; no pierde controles.</summary>
     private void CompactPracticeTab()
     {
         if (_tabs.GetChild(2) is not VBoxContainer practice) return;
         var parts = practice.GetChildren().OfType<Control>().ToArray();
         if (parts.Length < 8) return;
         practice.AddThemeConstantOverride("separation", 6);
-        var row = new HBoxContainer { Name = "OptionAIaSettingsColumns",
+        var row = new GridContainer { Name = "OptionAIaSettingsColumns", Columns = 2,
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill };
+        _optionAPracticeGrid = row;
         row.AddThemeConstantOverride("separation", Ui.IsMobile ? 14 : 22);
         practice.AddChild(row);
         practice.MoveChild(row, 0);
@@ -248,7 +288,7 @@ public partial class Launcher
         button.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 21 : 24);
         button.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        button.CustomMinimumSize = new(0, Ui.IsMobile ? 192 : 234);
+        button.CustomMinimumSize = new(0, Ui.IsMobile ? 165 : 195);
     }
 
     private void UpdateOptionAPage(int page)
