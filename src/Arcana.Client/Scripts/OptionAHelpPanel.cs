@@ -123,7 +123,13 @@ public partial class OptionAHelpPanel : Control
     {
         float width = Math.Max(260, GetViewport().GetVisibleRect().Size.X - (Ui.IsMobile ? 60 : 105));
         if (_topicNavigation != null)
-            _topicNavigation.Columns = ResponsiveLayout.Columns(width, 146, _topics.Length, 10);
+        {
+            bool compact = Ui.IsMobile && GetViewport().GetVisibleRect().Size.X <= 820;
+            for (int i = 0; i < _topicButtons.Count; i++)
+                _topicButtons[i].Text = compact && i == 5 ? "Hechizos" :
+                    compact && i == 4 ? "Objetos" : _topics[i];
+            _topicNavigation.Columns = ResponsiveLayout.Columns(width, compact ? 160 : 146, _topics.Length, 10);
+        }
         foreach (var (grid, maximumColumns, minimumWidth) in _adaptiveGrids)
             if (GodotObject.IsInstanceValid(grid) && !grid.IsQueuedForDeletion())
                 grid.Columns = ResponsiveLayout.Columns(width, minimumWidth, maximumColumns, 12);
