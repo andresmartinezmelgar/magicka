@@ -198,7 +198,7 @@ public partial class ReleaseUpdateNotice : Node
         AddText(topCopy, _headline);
 
         _subtitle = Ui.Label(_activePlan?.Differential == true ? "Descargando únicamente los cambios de tu versión." :
-            "Mejoras y novedades disponibles para tu aventura.", 16, Ui.Muted);
+            "La nueva versión se descargará e instalará automáticamente.", 16, Ui.Muted);
         AddText(body, _subtitle);
 
         var versions = new HBoxContainer();
