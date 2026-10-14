@@ -352,7 +352,15 @@ public static class LanDiscovery
         {
             while (!timeout.IsCancellationRequested)
             {
-                var response = await udp.ReceiveAsync(timeout.Token).ConfigureAwait(false);
+                UdpReceiveResult response;
+                try { response = await udp.ReceiveAsync(timeout.Token).ConfigureAwait(false); }
+                catch (SocketException)
+                {
+                    // El cambio de Wi-Fi/interfaz puede invalidar temporalmente
+                    // la recepción. Conservar las respuestas ya descubiertas.
+                    await Task.Delay(150, timeout.Token).ConfigureAwait(false);
+                    continue;
+                }
                 if (response.Buffer.Length > 4096) continue;
                 DiscoveryReply? reply;
                 try { reply = Protocol.Deserialize<DiscoveryReply>(Encoding.UTF8.GetString(response.Buffer)); }
