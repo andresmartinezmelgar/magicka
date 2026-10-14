@@ -177,8 +177,7 @@ public partial class Hud : Control
         float tableWidth = Math.Min(760, available);
         _scorePanel.CustomMinimumSize = new(tableWidth, 0);
         _scorePanel.Size = new Vector2(tableWidth, Math.Max(150, Math.Min(430, Size.Y - 60)));
-        _scoreCenter.Position = Vector2.Zero;
-        _scoreCenter.Size = Size;
+        // FullRect ajusta el centrador cuando cambia el viewport; no forzar Size.
         _scoreScroll.CustomMinimumSize = new(0, Math.Max(72, Math.Min(300, Size.Y - 145)));
         float messageWidth = Math.Min(800, available);
         float bannerHeight = Math.Min(180, Math.Max(90, Size.Y * 0.42f));
