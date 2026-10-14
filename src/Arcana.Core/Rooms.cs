@@ -4,7 +4,7 @@ using System.Text;
 namespace Arcana.Core;
 
 public sealed record RoomInfo(string Id, string Name, GameMode Mode, int Players, int MaxPlayers,
-    int Bots, bool FriendlyFire, int ScoreLimit, int Tickets, bool PasswordRequired, ArenaMapId Map = ArenaMapId.Classic, int BestOf = 1);
+    int Bots, bool FriendlyFire, int ScoreLimit, int Tickets, bool PasswordRequired, ArenaMapId Map = ArenaMapId.Classic, int BestOf = 1, bool InProgress = false);
 public sealed record RoomDirectory(ServerInfo Server, RoomInfo[] Rooms);
 public sealed record ApiError(string Error);
 public sealed class CreateRoomRequest
