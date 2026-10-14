@@ -14,7 +14,7 @@ public partial class ArcanaMenuChrome : Control
     private Label _player = null!;
     private double _refreshTimer;
     private MarginContainer? _reservedContent;
-    private float _originalContentTop, _originalContentBottom;
+    private VBoxContainer _shell = null!;
     private GridContainer? _navigationGrid;
     private PanelContainer? _footer;
     private Label? _sectionLabel, _logoLabel;
@@ -30,18 +30,19 @@ public partial class ArcanaMenuChrome : Control
     public static ArcanaMenuChrome Attach(Control root, MarginContainer content, Main main,
         string section, int selected, Action<int> navigate)
     {
-        // Reservamos espacio real: la barra no se superpone a los menús, al HUD ni a los botones.
-        var chrome = new ArcanaMenuChrome
-        {
-            _reservedContent = content,
-            _originalContentTop = content.OffsetTop,
-            _originalContentBottom = content.OffsetBottom
-        };
+        // El marco ocupa tres filas administradas por VBoxContainer: cabecera,
+        // contenido flexible y navegación. No se posicionan con offsets absolutos.
+        var chrome = new ArcanaMenuChrome { _reservedContent = content };
         root.AddChild(chrome);
         Ui.Full(chrome);
         chrome.MouseFilter = MouseFilterEnum.Ignore;
         chrome._main = main;
         chrome.Build(section, selected, navigate);
+        content.Reparent(chrome._shell);
+        chrome._shell.MoveChild(content, 1);
+        content.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        content.SizeFlagsVertical = SizeFlags.ExpandFill;
+        content.CustomMinimumSize = Vector2.Zero;
         chrome.GetViewport().SizeChanged += chrome.UpdateResponsive;
         chrome.UpdateResponsive();
         return chrome;
@@ -49,13 +50,16 @@ public partial class ArcanaMenuChrome : Control
 
     private void Build(string section, int selected, Action<int> navigate)
     {
-        var header = new PanelContainer { Name = "OptionAHeader", MouseFilter = MouseFilterEnum.Stop };
-        header.AnchorRight = 1;
-        header.OffsetBottom = HeaderHeight;
+        _shell = new VBoxContainer { Name = "ResponsiveMenuShell" };
+        _shell.AddThemeConstantOverride("separation", 0);
+        AddChild(_shell); Ui.Full(_shell);
+        var header = new PanelContainer { Name = "OptionAHeader", MouseFilter = MouseFilterEnum.Stop,
+            CustomMinimumSize = new Vector2(0, HeaderHeight), SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ShrinkBegin };
         header.AddThemeStyleboxOverride("panel", BarStyle());
         // Si un texto cambia, la barra nunca debe ocupar la zona de juego.
         header.ClipContents = true;
-        AddChild(header);
+        _shell.AddChild(header);
 
         var heading = new HBoxContainer();
         heading.AddThemeConstantOverride("separation", Ui.IsMobile ? 10 : 20);
@@ -84,10 +88,11 @@ public partial class ArcanaMenuChrome : Control
 
         var footer = new PanelContainer { Name = "OptionAFooter", MouseFilter = MouseFilterEnum.Stop };
         _footer = footer;
-        footer.AnchorTop = footer.AnchorBottom = footer.AnchorRight = 1;
-        footer.OffsetTop = -FooterHeight;
+        footer.CustomMinimumSize = new Vector2(0, FooterHeight);
+        footer.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        footer.SizeFlagsVertical = SizeFlags.ShrinkEnd;
         footer.AddThemeStyleboxOverride("panel", BarStyle());
-        AddChild(footer);
+        _shell.AddChild(footer);
         var nav = new GridContainer { Columns = 7, SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill };
         _navigationGrid = nav;
@@ -119,9 +124,9 @@ public partial class ArcanaMenuChrome : Control
         _navigationGrid.Columns = columns;
         int rows = ResponsiveLayout.Rows(_navigation.Count, columns);
         int height = Math.Max(FooterHeight, rows * (Ui.IsMobile ? 58 : 48) + (rows - 1) * 7 + 14);
-        _footer.OffsetTop = -height;
-        _reservedContent.OffsetTop = _originalContentTop + HeaderHeight + 5;
-        _reservedContent.OffsetBottom = _originalContentBottom - height - 5;
+        _footer.CustomMinimumSize = new Vector2(0, height);
+        // VBoxContainer redistribuye todo el espacio vertical restante al contenido.
+        _reservedContent.CustomMinimumSize = Vector2.Zero;
         if (_sectionLabel != null) _sectionLabel.Visible = viewportWidth >= 1120;
         if (_logoLabel != null) _logoLabel.Text = viewportWidth < 680 ? "✦ ARCANA" : "✦  ARCANA ARENA";
         // Los datos de cuenta son visibles también en móvil, alineados a la
@@ -176,9 +181,10 @@ public partial class ArcanaMenuChrome : Control
         string state = synced ? (compact ? "G ✓" : "Google ✓")
             : google ? (compact ? "G !" : Ui.IsMobile ? "Google sin perfil" : "Google · sin sincronizar")
             : compact ? "Sin G" : "Sin Google";
-        _player.Text = compact
-            ? $"{name} · {state}\nV:{profile?.Wins ?? 0} · D:{profile?.Losses ?? 0}"
-            : $"{name} · {state}\nV: {profile?.Wins ?? 0} · D: {profile?.Losses ?? 0} · {profile?.Gold ?? 0} oro";
+        // Las victorias, derrotas y el oro se muestran solo en Perfil/Inventario;
+        // evitar el mismo bloque de estadísticas en todas las pantallas.
+        _player.Text = name + " · " + state;
+        _player.TooltipText = google ? "Estado de la cuenta Google. Consulta los detalles en Perfil." : "Sesión de invitado";
     }
 
     public override void _Process(double delta)
