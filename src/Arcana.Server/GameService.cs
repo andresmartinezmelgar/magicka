@@ -512,7 +512,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             BestOf = room.BestOf,
             SeriesWins = room.SeriesWins.ToArray()
         },
-        PreparingPlayers = room.Sessions.Values.Count(s => !s.Ready),
+        PreparingPlayers = room.Started ? 0 : room.Sessions.Values.Count(s => !s.Ready),
         ReadyPlayerIds = room.Sessions.Values.Where(s => s.Ready).Select(s => s.Id).ToArray()
     };
     private static bool PasswordMatches(string? supplied, string expected)
