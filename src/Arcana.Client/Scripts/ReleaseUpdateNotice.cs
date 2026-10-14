@@ -30,13 +30,13 @@ public partial class ReleaseUpdateNotice : Node
 
     public override void _Ready()
     {
+        GetViewport().SizeChanged += ResizeUpdateCard;
         if (OS.GetCmdlineUserArgs().Contains("--update-ui-smoke"))
         {
             Callable.From(RunUpdateLayoutSmoke).CallDeferred();
             return;
         }
         if (OS.HasFeature("editor") || OS.GetCmdlineUserArgs().Any(a => a.Contains("smoke") || a.Contains("preview"))) return;
-        GetViewport().SizeChanged += ResizeUpdateCard;
         _ = Check();
     }
 
