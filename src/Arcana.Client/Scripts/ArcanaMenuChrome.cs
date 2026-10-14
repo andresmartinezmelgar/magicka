@@ -18,6 +18,7 @@ public partial class ArcanaMenuChrome : Control
     private GridContainer? _navigationGrid;
     private PanelContainer? _footer;
     private Label? _sectionLabel, _logoLabel;
+    private bool _dynamicSection;
 
     public const int HeaderHeight = 68;
     public const int FooterHeight = 72;
@@ -63,6 +64,7 @@ public partial class ArcanaMenuChrome : Control
         heading.AddChild(_logoLabel);
         var line = new VSeparator();
         heading.AddChild(line);
+        _dynamicSection = string.Equals(section, "Inicio", StringComparison.OrdinalIgnoreCase);
         _sectionLabel = Ui.Label(section.ToUpperInvariant(), Ui.IsMobile ? 17 : 20, Ui.Text);
         heading.AddChild(_sectionLabel);
         heading.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
@@ -147,6 +149,8 @@ public partial class ArcanaMenuChrome : Control
 
     public void Select(int page)
     {
+        if (_dynamicSection && _sectionLabel != null)
+            _sectionLabel.Text = page switch { 0 => "INICIO", 1 => "PVP", 2 => "VERSUS IA", 3 => "PERFIL", 4 => "INVENTARIO", 5 => "AYUDA", _ => "MENÚ" };
         for (int i = 0; i < _navigation.Count; i++)
         {
             var btn = _navigation[i];
@@ -167,10 +171,10 @@ public partial class ArcanaMenuChrome : Control
         bool compact = GetViewport().GetVisibleRect().Size.X < 720;
         string name = profile?.Name ?? (google ? _main.GoogleIdentityName : "Mago invitado");
         if (string.IsNullOrWhiteSpace(name)) name = "Mago";
-        int maxLength = compact ? 9 : Ui.IsMobile ? 13 : 22;
+        int maxLength = compact ? 9 : Ui.IsMobile ? (GetViewport().GetVisibleRect().Size.X < 1000 ? 10 : 14) : 22;
         if (name.Length > maxLength) name = name[..(maxLength - 1)] + "…";
         string state = synced ? (compact ? "G ✓" : "Google ✓")
-            : google ? (compact ? "G !" : "Google · sin sincronizar")
+            : google ? (compact ? "G !" : Ui.IsMobile ? "Google sin perfil" : "Google · sin sincronizar")
             : compact ? "Sin G" : "Sin Google";
         _player.Text = compact
             ? $"{name} · {state}\nV:{profile?.Wins ?? 0} · D:{profile?.Losses ?? 0}"
