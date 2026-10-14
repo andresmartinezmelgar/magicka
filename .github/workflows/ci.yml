@@ -89,7 +89,7 @@ jobs:
           for viewport in 1440x900 1024x640 720x540; do
             target="$PWD/artifacts/visual-review/$viewport"
             mkdir -p "$target"
-            xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --path src/Arcana.Client --               --mobile-menu-smoke "--smoke-viewport=$viewport" --visual-review "--visual-directory=$target"               2>&1 | tee "$RUNNER_TEMP/visual-$viewport.log"
+            xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client --               --mobile-menu-smoke "--smoke-viewport=$viewport" --visual-review "--visual-directory=$target"               2>&1 | tee "$RUNNER_TEMP/visual-$viewport.log"
             grep -q 'MOBILE_MENU_LAYOUT_OK' "$RUNNER_TEMP/visual-$viewport.log"
             grep -q 'MOBILE_SERIES_REWARD_LAYOUT_OK' "$RUNNER_TEMP/visual-$viewport.log"
             grep -q 'VISUAL_CAPTURE_OK:02-victoria-3-de-5' "$RUNNER_TEMP/visual-$viewport.log"
