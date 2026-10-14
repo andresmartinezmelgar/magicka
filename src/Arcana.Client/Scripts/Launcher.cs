@@ -293,7 +293,10 @@ public partial class Launcher : Control
     private string DefaultServerAddress()
     {
         string saved = _config.GetValue("network", "address", "127.0.0.1:27015").AsString();
-        return saved.Contains("system-create-specifically-brunette.traycloudfire.com", StringComparison.OrdinalIgnoreCase)
+        // Los subdominios trycloudflare.com son temporales; no reutilizarlos
+        // automáticamente en una nueva sesión como si fueran el servidor local.
+        return saved.Contains(".trycloudflare.com", StringComparison.OrdinalIgnoreCase) ||
+            saved.Contains(".traycloudfire.com", StringComparison.OrdinalIgnoreCase)
             ? "127.0.0.1:27015" : saved;
     }
 
