@@ -130,8 +130,16 @@ public partial class ArcanaMenuChrome : Control
         float viewportWidth = GetViewport().GetVisibleRect().Size.X;
         // El ancho del texto más los márgenes y el scrollbar requieren holgura:
         // seis botones de 110 px excedían 720 px pese al cálculo de columnas.
+        bool compactNav = Ui.IsMobile && viewportWidth <= 820;
+        string[] fullNames = ["⌂  Inicio", "⚔  PvP", "✧  Versus IA", "♙  Perfil", "◇  Inventario", "?  Ayuda", "Salir"];
+        string[] compactNames = ["Inicio", "PvP", "IA", "Perfil", "Equipo", "Ayuda", "Salir"];
+        for (int i = 0; i < _navigation.Count; i++)
+        {
+            _navigation[i].Text = compactNav ? compactNames[i] : fullNames[i];
+            _navigation[i].AddThemeFontSizeOverride("font_size", compactNav ? 16 : Ui.IsMobile ? 17 : 16);
+        }
         int columns = ResponsiveLayout.Columns(Math.Max(1, viewportWidth - (Ui.IsMobile ? 44 : 60)),
-            Ui.IsMobile ? 180 : 140, _navigation.Count, Ui.IsMobile ? 7 : 12);
+            compactNav ? 148 : Ui.IsMobile ? 180 : 140, _navigation.Count, Ui.IsMobile ? 7 : 12);
         _navigationGrid.Columns = columns;
         int rows = ResponsiveLayout.Rows(_navigation.Count, columns);
         int height = Math.Max(FooterHeight, rows * (Ui.IsMobile ? 58 : 48) + (rows - 1) * 7 + 14);
