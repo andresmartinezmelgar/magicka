@@ -19,7 +19,7 @@ public partial class RoomLobby : Control
     private Label? _roomPageLabel;
     private Button? _roomPagePrevious, _roomPageNext;
     private ItemList _list = null!;
-    private Label _status = null!, _heading = null!;
+    private Label _status = null!, _heading = null!, _emptyRooms = null!;
     private Label? _serverAddressLabel;
     private LineEdit _joinPassword = null!, _serverPasswordEntry = null!, _roomName = null!, _roomPassword = null!;
     private OptionButton _mode = null!, _map = null!, _bestOf = null!;
@@ -96,6 +96,10 @@ public partial class RoomLobby : Control
         _listPane = new VBoxContainer(); _listPane.AddThemeConstantOverride("separation", Ui.IsMobile ? 4 : 8); box.AddChild(_listPane);
         _list = new ItemList { CustomMinimumSize = new(0, Ui.IsMobile ? 100 : 160), SelectMode = ItemList.SelectModeEnum.Single };
         _listPane.AddChild(_list); _list.ItemActivated += _ => Join();
+        _emptyRooms = Ui.Label("No hay salas disponibles. Pulsa «Crear sala» para abrir una partida.", 15, Ui.Muted);
+        _emptyRooms.HorizontalAlignment = HorizontalAlignment.Center;
+        _emptyRooms.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _listPane.AddChild(_emptyRooms);
         var pages = new HBoxContainer();
         pages.AddThemeConstantOverride("separation", 10);
         _listPane.AddChild(pages);
@@ -318,6 +322,7 @@ public partial class RoomLobby : Control
         _roomPageStart = Math.Clamp(requestedStart, 0,
             Math.Max(0, (_rooms.Length - 1) / VisibleRoomsPerPage * VisibleRoomsPerPage));
         _list.Clear();
+        _emptyRooms.Visible = _rooms.Length == 0;
         foreach (var room in _rooms.Skip(_roomPageStart).Take(VisibleRoomsPerPage))
             _list.AddItem($"{room.Name}{(room.PasswordRequired ? " · CON CLAVE" : "")}  ·  {Ui.ModeName(room.Mode)}  ·  {ArenaMap.Get(room.Map).Name}  ·  {room.Players}/{room.MaxPlayers} plazas" +
                 (room.InProgress && room.BestOf > 1 ? " · EN PARTIDA" : " · DISPONIBLE"));
