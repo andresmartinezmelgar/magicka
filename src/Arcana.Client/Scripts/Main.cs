@@ -197,8 +197,14 @@ public partial class Main : Node
                 if (accountToken.Length == 0)
                     throw new InvalidOperationException("Este servidor no coincide con el servidor oficial anunciado en Firebase.");
             }
+            // Las salas WSS sin Firebase continúan admitiendo invitados.
+            // Solo el servidor que exige cuentas debe bloquear un token vacío.
             if (accountToken.Length == 0 && ArenaConnection.Address(destination).Scheme == "wss")
-                throw new InvalidOperationException(GoogleConnectionMessage());
+            {
+                var publicRooms = await RoomBrowser.ListAsync(destination, _lifetime.Token).ConfigureAwait(false);
+                if (publicRooms.Server.RewardsAvailable)
+                    throw new InvalidOperationException(GoogleConnectionMessage());
+            }
             await connection.ConnectAsync(destination, name, team, password, _lifetime.Token, roomId: roomId, roomPassword: roomPassword,
                 wizardType: wizardType, deferReady: true, accountToken: accountToken).ConfigureAwait(false);
             if (!Post(() =>
