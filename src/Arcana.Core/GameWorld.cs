@@ -828,6 +828,9 @@ public sealed partial class GameWorld
         _ticketClock = 0;
         _holdTicks = 0; HoldingTeam = -1; _routes.Clear();
     }
+    /// <summary>El servidor puede cancelar una serie incompleta al perder jugadores.</summary>
+    public void ResetForWaitingRoom() => ResetMatch();
+
     private void ResetMatch()
     {
         MatchEnded = false; Winner = -1; RestartIn = 0;
