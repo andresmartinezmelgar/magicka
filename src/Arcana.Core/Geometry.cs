@@ -4,6 +4,9 @@ namespace Arcana.Core;
 public readonly record struct V2(float X, float Y)
 {
     public static V2 Zero => new(0, 0);
+    // El ToString generado para record struct enumera también Normalized y
+    // Perpendicular (ambos V2), provocando recursión infinita en diagnósticos.
+    public override string ToString() => $"({X:R}, {Y:R})";
     [System.Text.Json.Serialization.JsonIgnore] public float LengthSquared => X * X + Y * Y;
     [System.Text.Json.Serialization.JsonIgnore] public float Length => MathF.Sqrt(LengthSquared);
     [System.Text.Json.Serialization.JsonIgnore] public bool IsFinite => float.IsFinite(X) && float.IsFinite(Y);
