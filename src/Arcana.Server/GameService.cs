@@ -539,7 +539,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
         {
             foreach (var room in _rooms.Values)
                 if (room.MatchId == match.Id)
-                    room.RewardStatus = "Resultado y recompensa guardados en Firebase. Consulta el inventario.";
+                    room.RewardStatus = "Resultado registrado en Firebase. La recompensa del equipo ganador está guardada.";
             foreach (var session in _sessions.Values)
             {
                 var participant = eligible.FirstOrDefault(p => p.Uid == session.Account?.Uid);
