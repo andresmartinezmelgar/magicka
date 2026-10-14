@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.17.17
+
+- Mensaje del actualizador más claro: la nueva versión se descarga e instala automáticamente.
+- Actualizaciones automáticas y diferenciales en Windows y Android, con verificación SHA-256 y descarga completa si el parche no es compatible.
+- Versión Windows y Android sincronizada en 0.17.17; código Android 17017.
+
 ## 0.17.16
 
 - Integración en main de las ramas de mejoras generales, correcciones LAN/PvP/recompensas e interfaz responsive.

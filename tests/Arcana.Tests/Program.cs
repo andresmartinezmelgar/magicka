@@ -31,6 +31,13 @@ if (args.Contains("--desktop-session-only"))
     Console.WriteLine($"RESULTADO SESION WINDOWS: {passed} correctas, {failed} fallidas.");
     return failed == 0 ? 0 : 1;
 }
+var deltaFixtures = args.FirstOrDefault(a => a.StartsWith("--delta-fixtures="));
+if (deltaFixtures != null)
+{
+    BinaryUpdateDeltaTests.Interoperability(deltaFixtures["--delta-fixtures=".Length..], Test);
+    Console.WriteLine($"RESULTADO PARCHE APK: {passed} correctas, {failed} fallidas.");
+    return failed == 0 ? 0 : 1;
+}
 
 Test("Public account server: valid HTTPS tunnel and expiry", () =>
 {
@@ -112,6 +119,8 @@ Test("Firebase en alojamiento local requiere activación explícita y ficheros p
 
 DesktopSessionStoreTests.Run(Test);
 ReleaseDownloadVerifierTests.Run(Test);
+ReleaseUpdatePlanTests.Run(Test);
+BinaryUpdateDeltaTests.Run(Test);
 MatchSeriesTests.Run(Test);
 ResponsiveLayoutTests.Run(Test);
 NetworkEndpointTests.Run(Test);

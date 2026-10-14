@@ -56,6 +56,9 @@ public partial class Main : Node
     private RenderProfiler? _profiler;
     private JsonElement? _lastRenderProfile;
 
+    internal bool CanApplyUpdates => !_playing && _connection == null && _pendingConnection == null &&
+        !_exporting && !_launcher.Hosting;
+
     public override void _Ready()
     {
         PrepareMobileWindow();
