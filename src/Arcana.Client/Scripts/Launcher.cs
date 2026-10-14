@@ -425,7 +425,11 @@ public partial class Launcher : Control
     {
         var pending = _onlineSearch;
         _onlineSearch = null;
-        pending?.Cancel();
+        if (pending == null) return;
+        // La tarea de búsqueda puede haber terminado y dispuesto su CTS
+        // mientras el resultado espera a ser procesado en el hilo de Godot.
+        try { pending.Cancel(); }
+        catch (ObjectDisposedException) { }
     }
 
     private void OpenRooms(string address, string password)
