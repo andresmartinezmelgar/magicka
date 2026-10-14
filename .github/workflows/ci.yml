@@ -81,7 +81,7 @@ jobs:
           echo "ARCANA_GODOT=$GODOT" >> "$GITHUB_ENV"
           dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
           "$GODOT" --headless --editor --path src/Arcana.Client --import
-      - name: Renderizar 32 capturas de móvil y escritorio y validar los límites
+      - name: Renderizar 35 capturas de móvil y escritorio y validar los límites
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
         run: |
@@ -92,7 +92,9 @@ jobs:
             xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client --               --mobile-menu-smoke "--smoke-viewport=$viewport" --visual-review "--visual-directory=$target"               2>&1 | tee "$RUNNER_TEMP/visual-$viewport.log"
             grep -q 'MOBILE_MENU_LAYOUT_OK' "$RUNNER_TEMP/visual-$viewport.log"
             grep -q 'MOBILE_SERIES_REWARD_LAYOUT_OK' "$RUNNER_TEMP/visual-$viewport.log"
+            grep -q 'MOBILE_SERIES_LOSS_LAYOUT_OK' "$RUNNER_TEMP/visual-$viewport.log"
             grep -q 'VISUAL_CAPTURE_OK:02-victoria-3-de-5' "$RUNNER_TEMP/visual-$viewport.log"
+            grep -q 'VISUAL_CAPTURE_OK:02-derrota-3-de-5' "$RUNNER_TEMP/visual-$viewport.log"
             ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED|LAYOUT_FAILED' "$RUNNER_TEMP/visual-$viewport.log"
           done
           for viewport in 1440x900 1024x720; do
@@ -105,8 +107,8 @@ jobs:
           python3 - <<'PY'
           import glob, struct, pathlib, hashlib
           files = sorted(glob.glob('artifacts/visual-review/*/*.png'))
-          if len(files) != 32:
-              raise SystemExit(f'Faltan capturas: {len(files)}/32')
+          if len(files) != 35:
+              raise SystemExit(f'Faltan capturas: {len(files)}/35')
           for name in files:
               raw = pathlib.Path(name).read_bytes()
               if len(raw) < 12000 or raw[:8] != b'\x89PNG\r\n\x1a\n':
@@ -115,8 +117,8 @@ jobs:
               if (w, h) not in ((1440, 900), (1024, 640), (720, 540), (1024, 720)):
                   raise SystemExit(f'Tamaño inesperado {w}x{h}: {name}')
           unique = len({hashlib.sha256(pathlib.Path(p).read_bytes()).digest() for p in files})
-          if unique < 26: raise SystemExit(f'Escenas indistinguibles: {unique}/32')
-          print(f'VISUAL_QA_OK: 32 PNG válidos, {unique} fotogramas distintos, 5 escenarios de tamaño.')
+          if unique < 29: raise SystemExit(f'Escenas indistinguibles: {unique}/35')
+          print(f'VISUAL_QA_OK: 35 PNG válidos, {unique} fotogramas distintos, 5 escenarios de tamaño.')
           PY
       - uses: actions/upload-artifact@v4
         if: always()

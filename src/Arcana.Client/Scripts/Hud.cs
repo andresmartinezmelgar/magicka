@@ -27,6 +27,8 @@ public partial class Hud : Control
     private MiniMap _map = null!;
     private PanelContainer _playerPanel = null!, _spellsPanel = null!;
     private PanelContainer _bannerBackdrop = null!, _rewardBackdrop = null!;
+    private CenterContainer _noticeCenter = null!;
+    private VBoxContainer _noticeStack = null!, _topScore = null!;
     private PanelContainer _mapPanel = null!;
     private string _lastRewardStatus = "";
     private long _lastEvent;
@@ -42,6 +44,8 @@ public partial class Hud : Control
     private readonly bool?[] _magickReady = new bool?[4];
     public bool ScoreOpen { get; set; }
     internal Rect2 ScoreboardRectForSmoke => _scorePanel.GetGlobalRect();
+    internal string RoundAnnouncementForSmoke => _banner.Text;
+    internal bool RoundAnnouncementVisibleForSmoke => _banner.IsVisibleInTree() && _bannerBackdrop.IsVisibleInTree();
     public event Action? EquipmentRequested;
     public bool PointerOverPanel => _scorePanel.Visible && _scorePanel.GetGlobalRect().HasPoint(GetGlobalMousePosition());
     public void RewardNotice(string message) { _reward.Text = message; _rewardSeconds = 12; _reward.Visible = true; _rewardBackdrop.Visible = true; }
@@ -57,16 +61,31 @@ public partial class Hud : Control
         _controls = controls;
         controls.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft); controls.Position = new(0, 24); controls.Size = new(420, 24); AddChild(controls);
         controls.Visible = !Ui.IsMobile;
+        var topCenter = new HBoxContainer { Name = "HudTopCenter", MouseFilter = MouseFilterEnum.Ignore };
+        topCenter.SetAnchorsAndOffsetsPreset(LayoutPreset.TopWide);
+        topCenter.OffsetTop = 12;
+        topCenter.OffsetBottom = 120;
+        AddChild(topCenter);
+        topCenter.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore });
+        _topScore = new VBoxContainer { Name = "HudTopScore", CustomMinimumSize = new Vector2(480, 0),
+            SizeFlagsHorizontal = SizeFlags.ShrinkCenter, MouseFilter = MouseFilterEnum.Ignore };
+        _topScore.AddThemeConstantOverride("separation", 0);
+        topCenter.AddChild(_topScore);
+        topCenter.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore });
         _match = Ui.Label("", 24); _match.HorizontalAlignment = HorizontalAlignment.Center;
-        _match.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft); _match.Position = new(0, 18); _match.Size = new(480, 42); AddChild(_match);
-        _teams = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center, MouseFilter = MouseFilterEnum.Ignore };
-        _teams.AddThemeConstantOverride("separation", 18); _teams.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft);
-        _teams.Position = new(0, 18); _teams.Size = new(480, 42); AddChild(_teams);
+        _match.CustomMinimumSize = new Vector2(0, 42);
+        _topScore.AddChild(_match);
+        _teams = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center, MouseFilter = MouseFilterEnum.Ignore,
+            CustomMinimumSize = new Vector2(0, 42) };
+        _teams.AddThemeConstantOverride("separation", 18);
+        _topScore.AddChild(_teams);
         _blueScore = Ui.Label("", 24, Ui.Blue); _redScore = Ui.Label("", 24, Ui.Red);
         _teams.AddChild(_blueScore); _teams.AddChild(Ui.Label("·", 24, Ui.Muted)); _teams.AddChild(_redScore);
-        _objective = Ui.Label("", 14, Ui.Gold); _objective.Name = "MatchObjective"; _objective.HorizontalAlignment = HorizontalAlignment.Center;
-        _objective.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft); _objective.Position = new(0, 60); _objective.Size = new(690, 46);
-        _objective.AutowrapMode = TextServer.AutowrapMode.WordSmart; AddChild(_objective);
+        _objective = Ui.Label("", 14, Ui.Gold); _objective.Name = "MatchObjective";
+        _objective.HorizontalAlignment = HorizontalAlignment.Center;
+        _objective.CustomMinimumSize = new Vector2(0, 46);
+        _objective.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _topScore.AddChild(_objective);
         var playerPanel = new PanelContainer { Name = "PlayerStatusPanel", CustomMinimumSize = new(310, 254), MouseFilter = MouseFilterEnum.Ignore };
         playerPanel.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft);
         playerPanel.Position = new Vector2(24, 18) / GameplayScale; playerPanel.Scale = Vector2.One / GameplayScale; AddChild(playerPanel);
@@ -122,21 +141,36 @@ public partial class Hud : Control
         _mapPanel = mapPanel;
         mapPanel.AddThemeStyleboxOverride("panel", Ui.Panel(new Color(0.025f, 0.05f, 0.08f, 0.90f), 10));
         _map = new MiniMap { CustomMinimumSize = new(165, 119), MouseFilter = MouseFilterEnum.Ignore }; mapPanel.AddChild(_map);
+        // Los avisos comparten una columna centrada por CenterContainer.
+        // El espacio se redistribuye al cambiar el tamaño del viewport.
+        _noticeCenter = new CenterContainer { Name = "HudCenteredNotices",
+            MouseFilter = MouseFilterEnum.Ignore };
+        AddChild(_noticeCenter);
+        Ui.Full(_noticeCenter);
+        _noticeStack = new VBoxContainer { Name = "HudNoticeStack",
+            SizeFlagsHorizontal = SizeFlags.ShrinkCenter,
+            SizeFlagsVertical = SizeFlags.ShrinkCenter };
+        _noticeStack.AddThemeConstantOverride("separation", 8);
+        _noticeCenter.AddChild(_noticeStack);
         _bannerBackdrop = new PanelContainer { Name = "MatchBannerBackground", Visible = false,
             MouseFilter = MouseFilterEnum.Ignore };
         _bannerBackdrop.AddThemeStyleboxOverride("panel", Ui.Panel(new Color(0.025f, 0.045f, 0.075f, 0.90f), 14, Ui.Gold.Darkened(0.45f)));
-        AddChild(_bannerBackdrop);
+        _noticeStack.AddChild(_bannerBackdrop);
         _rewardBackdrop = new PanelContainer { Name = "MatchRewardBackground", Visible = false,
             MouseFilter = MouseFilterEnum.Ignore };
         _rewardBackdrop.AddThemeStyleboxOverride("panel", Ui.Panel(new Color(0.025f, 0.05f, 0.09f, 0.94f), 10));
-        AddChild(_rewardBackdrop);
-        _banner = Ui.Label("", 34, Ui.Gold); _banner.Name = "MatchBanner"; _banner.HorizontalAlignment = HorizontalAlignment.Center;
-        _banner.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft); _banner.Position = Vector2.Zero; _banner.Size = new(800, 144);
-        _banner.AutowrapMode = TextServer.AutowrapMode.WordSmart; AddChild(_banner);
-        _reward = Ui.Label("", 24, Ui.Gold); _reward.Name = "MatchRewardNotice"; _reward.HorizontalAlignment = HorizontalAlignment.Center;
-        _reward.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft); _reward.Position = Vector2.Zero; _reward.Size = new(800, 60);
+        _noticeStack.AddChild(_rewardBackdrop);
+        _banner = Ui.Label("", 34, Ui.Gold); _banner.Name = "MatchBanner";
+        _banner.HorizontalAlignment = HorizontalAlignment.Center;
+        _banner.VerticalAlignment = VerticalAlignment.Center;
+        _banner.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _bannerBackdrop.AddChild(_banner);
+        _reward = Ui.Label("", 24, Ui.Gold); _reward.Name = "MatchRewardNotice";
+        _reward.HorizontalAlignment = HorizontalAlignment.Center;
+        _reward.VerticalAlignment = VerticalAlignment.Center;
         _reward.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _reward.Visible = false; AddChild(_reward);
+        _reward.Visible = false;
+        _rewardBackdrop.AddChild(_reward);
         // El CenterContainer ocupa el viewport escalado completo y centra la
         // tabla por su tamaño real; los anclajes anteriores podían dejarla
         // desplazada a la esquina superior izquierda al redimensionar.
@@ -145,6 +179,9 @@ public partial class Hud : Control
         _scorePanel = new PanelContainer { Name = "ScorePanel", Visible = false,
             CustomMinimumSize = new(700, 200), MouseFilter = MouseFilterEnum.Stop };
         _scoreCenter.AddChild(_scorePanel);
+        // El aviso de fin de ronda siempre debe quedar por encima del marcador,
+        // incluso cuando un jugador mantenía abierta la clasificación con TAB.
+        MoveChild(_noticeCenter, GetChildCount() - 1);
         var scoreBox = new VBoxContainer { Name = "ScoreContent" }; scoreBox.AddThemeConstantOverride("separation", 10); _scorePanel.AddChild(scoreBox);
         _seriesStatus = Ui.Label("", 18, Ui.Gold);
         _seriesStatus.HorizontalAlignment = HorizontalAlignment.Center;
@@ -152,6 +189,7 @@ public partial class Hud : Control
         scoreBox.AddChild(_seriesStatus);
         _scoreScroll = new ScrollContainer { CustomMinimumSize = new(0, 120), HorizontalScrollMode = ScrollContainer.ScrollMode.Auto };
         scoreBox.AddChild(_scoreScroll);
+        Ui.VisibleVerticalScroll(_scoreScroll);
         _scoreRows = new GridContainer { Columns = 5 }; _scoreRows.AddThemeConstantOverride("h_separation", Ui.IsMobile ? 10 : 18); _scoreRows.AddThemeConstantOverride("v_separation", 12); _scoreScroll.AddChild(_scoreRows);
         foreach (string text in new[] { "MAGO", "EQUIPO", "BAJAS", "MUERTES", "VIDA" }) _scoreRows.AddChild(Ui.Label(text, 14, Ui.Gold));
         var equipmentButton = Ui.Button("Ver bonos de los magos", () => EquipmentRequested?.Invoke());
@@ -187,26 +225,11 @@ public partial class Hud : Control
         _scoreScroll.CustomMinimumSize = new(0, Math.Max(72, Math.Min(300, Size.Y - 145)));
         float messageWidth = Math.Min(800, available);
         float bannerHeight = Math.Min(180, Math.Max(90, Size.Y * 0.42f));
-        // Todos estos controles tienen anclaje arriba-izquierda: las posiciones
-        // son absolutas en el HUD escalado y se mantienen dentro del viewport.
-        float centerX = (Size.X - messageWidth) / 2;
-        float centerY = (Size.Y - bannerHeight) / 2;
-        _banner.Position = new(centerX, centerY);
-        _banner.Size = new(messageWidth, bannerHeight);
-        _bannerBackdrop.Position = _banner.Position;
-        _bannerBackdrop.Size = _banner.Size;
-        _reward.Position = new(centerX, centerY + bannerHeight + 8);
-        _reward.Size = new(messageWidth, Math.Min(80, Math.Max(40, Size.Y / 5)));
-        _rewardBackdrop.Position = _reward.Position;
-        _rewardBackdrop.Size = _reward.Size;
-        float topWidth = Math.Min(480, available);
-        _match.Position = new((Size.X - topWidth) / 2, 18);
-        _match.Size = new(topWidth, 42);
-        _teams.Position = new((Size.X - topWidth) / 2, 18);
-        _teams.Size = new(topWidth, 42);
-        float objectiveWidth = Math.Min(690, available);
-        _objective.Position = new((Size.X - objectiveWidth) / 2, 62);
-        _objective.Size = new(objectiveWidth, Size.X < 800 ? 76 : 46);
+        _bannerBackdrop.CustomMinimumSize = new Vector2(messageWidth, bannerHeight);
+        _rewardBackdrop.CustomMinimumSize = new Vector2(messageWidth,
+            Math.Min(80, Math.Max(40, Size.Y / 5)));
+        _topScore.CustomMinimumSize = new Vector2(Math.Min(690, available), 0);
+        _objective.CustomMinimumSize = new Vector2(0, Size.X < 800 ? 76 : 46);
         _server.Size = new(Math.Max(70, Math.Min(300, (Size.X - 60) / 3)), 58);
         _controls.Visible = !Ui.IsMobile && Size.X >= 1250;
         _controls.Position = new(Size.X - 440, 24);
@@ -348,26 +371,15 @@ public partial class Hud : Control
             _blueScore.Text = $"AZUL  {(hold || conquest ? snapshot.Points.Count(p => p.Owner == 0) + "/" + snapshot.Points.Length : snapshot.Scores[0].ToString())}";
             _redScore.Text = $"{(hold || conquest ? snapshot.Points.Count(p => p.Owner == 1) + "/" + snapshot.Points.Length : snapshot.Scores[1].ToString())}  ROJO";
         }
-        _banner.Text = !player.Alive ? "HAS CAÍDO\nReapareces en " +
-            (snapshot.Map == ArenaMapId.Ascension ? $"{player.Respawn:0.0}" : $"{Math.Ceiling(player.Respawn):0}") + " s" : "";
-        if (snapshot.MatchEnded)
-        {
-            string winner = snapshot.Mode == GameMode.Arena ? snapshot.Players.FirstOrDefault(p => p.Id == snapshot.Winner)?.Name ?? "Mago" : snapshot.Winner == 0 ? "Equipo azul" : "Equipo rojo";
-            string summary = snapshot.BestOf > 1 && snapshot.SeriesWins is { Length: >= 2 } wins
-                ? $"\nSerie al mejor de {snapshot.BestOf}: {wins[0]}–{wins[1]}" : "";
-            bool seriesCompleted = snapshot.BestOf > 1 && snapshot.SeriesWins is { Length: >= 2 } score &&
-                (score[0] >= MatchSeries.WinsNeeded(snapshot.BestOf) || score[1] >= MatchSeries.WinsNeeded(snapshot.BestOf));
-            if (seriesCompleted)
-            {
-                int champion = snapshot.SeriesWins![0] >= MatchSeries.WinsNeeded(snapshot.BestOf) ? 0 : 1;
-                _banner.Text = (player.Team == champion ? "HAS GANADO LA SERIE" : "HAS PERDIDO LA SERIE") +
-                    $"\n{winner} vence {snapshot.SeriesWins[0]}–{snapshot.SeriesWins[1]}" +
-                    $"\nPreparación de la siguiente serie en {Math.Ceiling(snapshot.RestartIn)} s";
-            }
-            else
-                _banner.Text = winner + $" vence{summary}\nSiguiente ronda en {Math.Ceiling(snapshot.RestartIn)} s";
-        }
+        // Todos los clientes ven exactamente el mismo resultado y la misma
+        // cuenta atrás, pero el titular se expresa desde su propio equipo.
+        _banner.Text = snapshot.MatchEnded
+            ? RoundPresentation.Message(snapshot, id)
+            : !player.Alive ? "HAS CAÍDO\nReapareces en " +
+                (snapshot.Map == ArenaMapId.Ascension ? $"{player.Respawn:0.0}" : $"{Math.Ceiling(player.Respawn):0}") + " s" : "";
         _bannerBackdrop.Visible = _banner.Text.Length > 0;
+        _banner.AddThemeColorOverride("font_color", snapshot.MatchEnded
+            ? RoundPresentation.IsWinner(snapshot, id) ? Ui.Gold : Ui.Red : Ui.Gold);
         if (snapshot.RewardStatus != _lastRewardStatus)
         {
             _lastRewardStatus = snapshot.RewardStatus;

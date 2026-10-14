@@ -58,6 +58,7 @@ public partial class RoomLobby : Control
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
             VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
         layout.AddChild(scroll);
+        Ui.VisibleVerticalScroll(scroll);
         var fixedActions = new VBoxContainer { Name = "OptionALobbyActions" };
         fixedActions.AddThemeConstantOverride("separation", 6);
         layout.AddChild(fixedActions);
@@ -218,7 +219,7 @@ public partial class RoomLobby : Control
         if (_mobileListActions != null)
             _mobileListActions.Columns = ResponsiveLayout.Columns(width, 175, 4, 12);
         if (_mobileCreateActions != null)
-            _mobileCreateActions.Columns = ResponsiveLayout.Columns(width, 230, 3, 12);
+            _mobileCreateActions.Columns = ResponsiveLayout.Columns(width, Ui.IsMobile ? 195 : 230, 3, 12);
     }
     internal bool IsBusyForSmoke => _busy;
     internal string StatusForSmoke => _status.Text;

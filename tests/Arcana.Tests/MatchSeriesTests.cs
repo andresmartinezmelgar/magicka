@@ -28,6 +28,41 @@ static class MatchSeriesTests
             });
         }
 
+        test("PvP: ambos equipos reciben el resultado de la ronda y la cuenta atrás", () =>
+        {
+            var world = new GameWorld(new WorldOptions { Mode = GameMode.Duel, MaxPlayers = 2, Bots = 0 });
+            var blue = world.AddPlayer("Azul", 0)!;
+            var red = world.AddPlayer("Rojo", 1)!;
+            var round = world.Snapshot() with
+            {
+                MatchEnded = true, Winner = 0, BestOf = 5,
+                SeriesWins = [1, 0], RestartIn = 8
+            };
+            string a = RoundPresentation.Message(round, blue.Id);
+            string b = RoundPresentation.Message(round, red.Id);
+            if (!a.Contains("HAS GANADO LA RONDA") || !b.Contains("HAS PERDIDO LA RONDA") ||
+                !a.Contains("AZUL 1 — 0 ROJO") || !b.Contains("AZUL 1 — 0 ROJO") ||
+                !a.Contains("Siguiente ronda en 8 s") || !b.Contains("Siguiente ronda en 8 s"))
+                throw new Exception("Un equipo no recibió el resultado y la cuenta atrás.");
+            var second = round with { Winner = 1, SeriesWins = [1, 1], RestartIn = 4 };
+            if (!RoundPresentation.Message(second, blue.Id).Contains("HAS PERDIDO LA RONDA") ||
+                !RoundPresentation.Message(second, red.Id).Contains("HAS GANADO LA RONDA"))
+                throw new Exception("El titular no cambió al ganar el equipo rojo.");
+            var final = round with { SeriesWins = [3, 2] };
+            if (!RoundPresentation.Message(final, blue.Id).Contains("HAS GANADO LA SERIE") ||
+                !RoundPresentation.Message(final, red.Id).Contains("HAS PERDIDO LA SERIE") ||
+                !RoundPresentation.Message(final, red.Id).Contains("Preparación de la siguiente serie"))
+                throw new Exception("El equipo perdedor no recibió el fin de la serie.");
+            if (RoundPresentation.Message(round with { MatchEnded = false }, red.Id) != "")
+                throw new Exception("El aviso de fin de ronda no se oculta al reiniciar.");
+            var simulatedWire = new ServerMessage { Type = "snapshot", Snapshot = round };
+            var serialized = Protocol.SerializeSnapshot(simulatedWire);
+            var restored = Protocol.DeserializeFrame(serialized, binary: serialized.Length > 0 && serialized[0] == 0xA1)?.Snapshot
+                ?? throw new Exception("El estado final no llegó por el protocolo.");
+            if (RoundPresentation.Message(restored, blue.Id) != a ||
+                RoundPresentation.Message(restored, red.Id) != b)
+                throw new Exception("Ambos clientes no reconstruyeron el mismo desenlace del servidor.");
+        });
         test("Duelo LAN: dos preferencias azules ocupan equipos opuestos", () =>
         {
             var world = new GameWorld(new WorldOptions { Mode = GameMode.Duel, MaxPlayers = 2, Bots = 0 });

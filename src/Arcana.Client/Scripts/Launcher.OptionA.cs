@@ -36,6 +36,7 @@ public partial class Launcher
         scroll.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         scroll.SizeFlagsVertical = SizeFlags.ExpandFill;
         scroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
+        Ui.VisibleVerticalScroll(scroll);
         scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
         panel.Name = "OptionAFullWidthPanel";
         panel.CustomMinimumSize = Vector2.Zero;

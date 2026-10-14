@@ -212,7 +212,11 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                             room.World.Step();
                             TrackAccounts(room, endedBefore);
                             room.LastOccupied = Environment.TickCount64;
-                            if (room.World.Tick % 3 == 0) dirty.Add(room);
+                            // Comunicar el desenlace inmediatamente a TODOS los participantes,
+                            // sin esperar al siguiente ciclo de envío periódico.
+                            // El estado se sigue replicando durante toda la cuenta atrás.
+                            if (room.World.Tick % 3 == 0 || endedBefore != room.World.MatchEnded)
+                                dirty.Add(room);
                         }
                         Interlocked.Increment(ref _tick);
                         accumulator -= GameWorld.StepSeconds;
