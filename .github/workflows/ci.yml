@@ -209,12 +209,48 @@ jobs:
           ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/mobile-spell-smoke.log"
       - name: Generar APK ARM64
         run: bash scripts/package-android.sh "$ARCANA_GODOT"
+      - name: Usar firma Android permanente cuando esta disponible (Google OAuth)
+        shell: bash
+        env:
+          ARCANA_KEYSTORE_BASE64: ${{ secrets.ARCANA_KEYSTORE_BASE64 }}
+          ARCANA_KEYSTORE_PASSWORD: ${{ secrets.ARCANA_KEYSTORE_PASSWORD }}
+          ARCANA_KEY_ALIAS: ${{ secrets.ARCANA_KEY_ALIAS }}
+          ARCANA_KEY_PASSWORD: ${{ secrets.ARCANA_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          version=$(tr -d '\r\n' < VERSION)
+          apk="artifacts/android/ArcanaArena-v$version-Android-arm64.apk"
+          test -s "$apk"
+          signer="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          status="TEMPORAL"
+          if [[ -n "${ARCANA_KEYSTORE_BASE64:-}" && -n "${ARCANA_KEYSTORE_PASSWORD:-}" && -n "${ARCANA_KEY_ALIAS:-}" && -n "${ARCANA_KEY_PASSWORD:-}" ]]; then
+            keystore="$RUNNER_TEMP/arcana-google-signin.jks"
+            storepass="$RUNNER_TEMP/arcana-google-storepass"
+            keypass="$RUNNER_TEMP/arcana-google-keypass"
+            trap 'rm -f "$keystore" "$storepass" "$keypass" "$apk.signed"' EXIT
+            printf '%s' "$ARCANA_KEYSTORE_BASE64" | base64 -d > "$keystore"
+            printf '%s' "$ARCANA_KEYSTORE_PASSWORD" > "$storepass"
+            printf '%s' "$ARCANA_KEY_PASSWORD" > "$keypass"
+            chmod 600 "$keystore" "$storepass" "$keypass"
+            "$signer" sign --ks "$keystore" --ks-key-alias "$ARCANA_KEY_ALIAS" --ks-pass "file:$storepass" --key-pass "file:$keypass" --out "$apk.signed" "$apk"
+            "$signer" verify --verbose "$apk.signed"
+            mv -f "$apk.signed" "$apk"
+            status="PERMANENTE"
+            echo 'APK firmada con el certificado estable para Google OAuth.'
+          else
+            echo '::warning::Esta APK usa certificado aleatorio nuevo. Google Login Android probablemente fallará hasta firmarla con el certificado registrado en Firebase.'
+          fi
+          fingerprint=$("$signer" verify --print-certs "$apk" | grep 'Signer #1 certificate SHA-1 digest:' | head -n1)
+          printf 'Tipo de firma: %s\n%s\nPaquete: com.arcana.arena\nProyecto Firebase: arcana-arena-f2997\n' "$status" "$fingerprint" > artifacts/android/FIRMA-ANDROID.txt
+          cat artifacts/android/FIRMA-ANDROID.txt
+          (cd artifacts/android && sha256sum "ArcanaArena-v$version-Android-arm64.apk" > SHA256SUMS-Android.txt)
       - uses: actions/upload-artifact@v4
         with:
           name: ArcanaArena-Android-arm64
           path: |
             artifacts/android/*-Android-arm64.apk
             artifacts/android/SHA256SUMS-Android.txt
+            artifacts/android/FIRMA-ANDROID.txt
           retention-days: 14
 
   publish-android-first:
