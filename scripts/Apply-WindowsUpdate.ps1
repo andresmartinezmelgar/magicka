@@ -112,6 +112,38 @@ try {
             }
         }
     } finally { $zip.Dispose() }
+    $delta = $null
+    $deltaPath = Join-Path $stage 'UPDATE-DELTA.json'
+    if (Test-Path -LiteralPath $deltaPath -PathType Leaf) {
+        if ((Get-Item -LiteralPath $deltaPath).Length -gt 2097152) { throw 'Metadatos de parche demasiado grandes.' }
+        $delta = Get-Content -LiteralPath $deltaPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($delta.format -ne 'arcana-files-1' -or $delta.targetVersion -ne $ExpectedVersion -or
+            !(Test-Path -LiteralPath $installedVersionFile) -or
+            (Get-Content -LiteralPath $installedVersionFile -Raw).Trim() -ne $delta.baseVersion -or
+            $delta.manifestSha256 -notmatch '^[a-fA-F0-9]{64}$' -or
+            (Get-FileHash -LiteralPath (Join-Path $stage 'UPDATE-MANIFEST.json') -Algorithm SHA256).Hash -ne $delta.manifestSha256) {
+            throw 'El parche no corresponde a la instalacion actual.'
+        }
+        $targetManifest = Get-Content -LiteralPath (Join-Path $stage 'UPDATE-MANIFEST.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        if (@($targetManifest.files).Count -gt 8192) { throw 'Manifiesto de parche demasiado grande.' }
+        foreach ($file in $targetManifest.files) {
+            $relative = Safe-RelativePath $file.path
+            $target = Join-Path $stage $relative
+            if (!(Test-Path -LiteralPath $target -PathType Leaf)) {
+                Check-Destination $relative
+                $existing = Join-Path $InstallDirectory $relative
+                if (!(Test-Path -LiteralPath $existing -PathType Leaf) -or
+                    $file.sha256 -notmatch '^[a-fA-F0-9]{64}$' -or
+                    (Get-Item -LiteralPath $existing).Length -ne $file.length -or
+                    (Get-FileHash -LiteralPath $existing -Algorithm SHA256).Hash -ne $file.sha256) {
+                    throw 'Falta o ha cambiado un archivo base; se necesita el paquete completo.'
+                }
+                [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)) | Out-Null
+                [IO.File]::Copy($existing, $target, $false)
+            }
+        }
+        [IO.File]::Delete($deltaPath)
+    }
     foreach ($relative in @('ArcanaArena.exe','ArcanaArena.pck','server/Arcana.Server.exe',
         'VERSION.txt','UPDATE-MANIFEST.json')) {
         if (!(Test-Path -LiteralPath (Join-Path $stage $relative) -PathType Leaf)) { throw "Falta $relative." }
@@ -123,7 +155,7 @@ try {
     $runtime = @(Get-ChildItem -LiteralPath $stage -Recurse -File -Filter coreclr.dll |
         Where-Object { !$_.FullName.StartsWith((Join-Path $stage 'server') + [IO.Path]::DirectorySeparatorChar) })
     if (!$client.Count -or !$runtime.Count) { throw 'Falta el cliente o su runtime .NET.' }
-    $manifest = Get-Content -LiteralPath (Join-Path $stage 'UPDATE-MANIFEST.json') -Raw | ConvertFrom-Json
+    $manifest = Get-Content -LiteralPath (Join-Path $stage 'UPDATE-MANIFEST.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     if ($manifest.version -ne $ExpectedVersion -or @($manifest.files).Count -gt 8192) {
         throw 'El manifiesto de archivos no corresponde a esta version.'
     }
@@ -146,6 +178,22 @@ try {
         }
     }
     Check-Destination 'UPDATE-MANIFEST.json'
+    $removed = @()
+    if ($null -ne $delta) {
+        if (@($delta.removed).Count -gt 8192) { throw 'Demasiadas eliminaciones en el parche.' }
+        $seenRemoved = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+        foreach ($file in $delta.removed) {
+            $relative = Safe-RelativePath $file.path
+            if (!$seenRemoved.Add($relative) -or $owned.Contains($relative) -or
+                $relative -in @('UPDATE-MANIFEST.json', 'UPDATE-DELTA.json') -or
+                $file.sha256 -notmatch '^[a-fA-F0-9]{64}$' -or $file.length -lt 0 -or $file.length -gt 2147483648) {
+                throw 'Lista de eliminaciones del parche no valida.'
+            }
+            if (Protected-Configuration $relative) { continue }
+            Check-Destination $relative
+            $removed += $file
+        }
+    }
     $probe = Join-Path $InstallDirectory ('.arcana-write-' + [Guid]::NewGuid().ToString('N'))
     [IO.File]::WriteAllText($probe, ''); [IO.File]::Delete($probe)
     [IO.File]::WriteAllText((Join-Path $WorkDirectory 'ready'), 'ready')
@@ -158,7 +206,25 @@ try {
                 if ($parent.StartTime.ToUniversalTime().Ticks -eq $ParentStartTicks -and !$parent.WaitForExit(60000)) {
                     throw 'El juego no se ha cerrado; la instalacion se conserva.'
                 }
+            } catch [InvalidOperationException] {
+                if (!$parent.HasExited) { throw }
             } finally { $parent.Dispose() }
+        }
+    }
+    foreach ($file in $removed) {
+        $relative = Safe-RelativePath $file.path
+        $target = Join-Path $InstallDirectory $relative
+        Check-Destination $relative
+        if ([IO.File]::Exists($target) -and (Get-Item -LiteralPath $target).Length -eq $file.length -and
+            (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash -eq $file.sha256) {
+            $previous = Join-Path $backup $relative
+            [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($previous)) | Out-Null
+            [IO.File]::Copy($target, $previous, $false)
+            $item = [pscustomobject]@{ path=$relative; existed=$true; applied=$false }
+            $changed.Add($item)
+            $changed | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $WorkDirectory 'rollback.json') -Encoding UTF8
+            [IO.File]::Delete($target)
+            $item.applied = $true
         }
     }
     $files = @($manifest.files | Sort-Object @{ Expression = { $_.path -eq 'VERSION.txt' } }, path)

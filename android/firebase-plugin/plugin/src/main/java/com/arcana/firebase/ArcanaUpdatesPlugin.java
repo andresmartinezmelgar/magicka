@@ -28,8 +28,8 @@ public final class ArcanaUpdatesPlugin extends GodotPlugin {
     static final String PREFS = "arcana-updates";
     private static final int PERMISSION_REQUEST = 43127;
     private static WeakReference<ArcanaUpdatesPlugin> current = new WeakReference<>(null);
-    private boolean busy;
-    private boolean awaitingPermission;
+    private volatile boolean busy;
+    private volatile boolean awaitingPermission;
 
     public ArcanaUpdatesPlugin(Godot godot) { super(godot); current = new WeakReference<>(this); }
     @NonNull @Override public String getPluginName() { return "ArcanaUpdates"; }
@@ -40,13 +40,17 @@ public final class ArcanaUpdatesPlugin extends GodotPlugin {
         ArcanaUpdatesPlugin plugin = current.get();
         if (plugin != null) {
             if (status.equals("failed")) plugin.busy = false;
-            plugin.emitSignal("update_status", status, message);
+            plugin.emitSignal("update_status", status, message == null ? "No se ha completado la actualizacion." : message);
         }
     }
     private Activity activity() {
         Activity activity = getActivity();
         if (activity == null) throw new IllegalStateException("Android no esta preparado para actualizar.");
         return activity;
+    }
+
+    @UsedByGodot public String installedApkPath() {
+        return activity().getApplicationInfo().sourceDir;
     }
 
     @UsedByGodot public void installUpdate(String path, String versionCode, String sha256) {

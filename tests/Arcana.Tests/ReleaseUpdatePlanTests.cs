@@ -17,6 +17,25 @@ static class ReleaseUpdatePlanTests
     }
     public static void Run(Action<string, Action> test)
     {
+        test("Actualizacion diferencial: elige la base exacta y conserva el paquete completo", () =>
+        {
+            string name = "ArcanaArena-v0.17.17-Windows-x64-from-v0.17.16.zip";
+            var plan = Plan([Asset(Windows), Asset(name, bytes: 20), Asset("SHA256SUMS-Windows.txt")]);
+            if (plan?.Differential != true || plan.Filename != name || plan.FullPackage?.Filename != Windows || plan.BaseVersion != "0.17.16")
+                throw new Exception("El parche no coincide con la version instalada.");
+            string android = "ArcanaArena-v0.17.17-Android-arm64-from-v0.17.16.delta";
+            if (Plan([Asset(Android), Asset(android, bytes: 20), Asset("SHA256SUMS-Android.txt")], true)?.Differential != true)
+                throw new Exception("No se selecciono el parche Android.");
+        });
+        test("Actualizacion diferencial: sin base compatible o ahorro se utiliza descarga completa", () =>
+        {
+            foreach (var asset in new[] {
+                Asset("ArcanaArena-v0.17.17-Windows-x64-from-v0.17.15.zip", bytes: 20),
+                Asset("ArcanaArena-v0.17.17-Windows-x64-from-v0.17.16.zip", bytes: 90),
+                Asset("ArcanaArena-v0.17.17-Windows-x64-from-v0.17.16.zip", "https://evil.example/patch.zip", 20) })
+                if (Plan([Asset(Windows), asset, Asset("SHA256SUMS.txt")])?.Filename != Windows)
+                    throw new Exception("No se conservo la alternativa completa.");
+        });
         test("Actualizacion: descarga solo el paquete de su plataforma y de la version anunciada", () =>
         {
             object[] assets = [Asset(Windows), Asset(Android), Asset("SHA256SUMS-Windows.txt"), Asset("SHA256SUMS-Android.txt")];

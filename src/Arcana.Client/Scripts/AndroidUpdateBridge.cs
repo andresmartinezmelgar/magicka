@@ -7,6 +7,7 @@ public sealed class AndroidUpdateBridge : IDisposable
     private readonly GodotObject? _plugin;
     private readonly Callable _status;
     public event Action<string, string>? Status;
+    public string InstalledApkPath => _plugin?.Call("installedApkPath").AsString() ?? "";
     public AndroidUpdateBridge()
     {
         if (!OS.HasFeature("android") || !Engine.HasSingleton("ArcanaUpdates")) return;

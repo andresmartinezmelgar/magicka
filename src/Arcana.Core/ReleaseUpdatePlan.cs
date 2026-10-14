@@ -6,17 +6,20 @@ namespace Arcana.Core;
 public sealed record ReleaseUpdatePlan(string Version, string Filename, string DownloadUrl,
     string ChecksumUrl, long Bytes)
 {
+    public ReleaseUpdatePlan? FullPackage { get; init; }
+    public string? BaseVersion { get; init; }
+    public bool Differential => FullPackage != null;
     public const long MaximumBytes = 2L * 1024 * 1024 * 1024;
     private const string Repository = "andresmartinezmelgar/magicka";
 
-    public static ReleaseUpdatePlan? Read(JsonElement release, string installed, bool android)
+    public static ReleaseUpdatePlan? Read(JsonElement release, string installed, bool android, bool preferDelta = true)
     {
-        try { return Parse(release, installed, android); }
+        try { return Parse(release, installed, android, preferDelta); }
         catch (Exception error) when (error is KeyNotFoundException or InvalidOperationException or FormatException or OverflowException)
         { return null; }
     }
 
-    private static ReleaseUpdatePlan? Parse(JsonElement release, string installed, bool android)
+    private static ReleaseUpdatePlan? Parse(JsonElement release, string installed, bool android, bool preferDelta)
     {
         if (release.TryGetProperty("draft", out var draft) && draft.GetBoolean() ||
             release.TryGetProperty("prerelease", out var preview) && preview.GetBoolean()) return null;
@@ -40,7 +43,20 @@ public sealed record ReleaseUpdatePlan(string Version, string Filename, string D
         string hashes = checksum[0].GetProperty("browser_download_url").GetString() ?? "";
         string checksumName = checksum[0].GetProperty("name").GetString()!;
         if (!Official(download, tag, filename) || !Official(hashes, tag, checksumName)) return null;
-        return new(version, filename, download, hashes, bytes);
+        var full = new ReleaseUpdatePlan(version, filename, download, hashes, bytes);
+        if (!preferDelta) return full;
+        string deltaName = $"ArcanaArena-v{version}-" + (android ? "Android-arm64" : "Windows-x64") +
+            $"-from-v{local}" + (android ? ".delta" : ".zip");
+        var deltas = assets.Where(a => a.GetProperty("name").GetString() == deltaName).ToArray();
+        if (deltas.Length != 1) return full;
+        if (!deltas[0].TryGetProperty("size", out var deltaSize) || deltaSize.ValueKind != JsonValueKind.Number ||
+            !deltaSize.TryGetInt64(out long deltaBytes) ||
+            !deltas[0].TryGetProperty("browser_download_url", out var deltaLink) || deltaLink.ValueKind != JsonValueKind.String)
+            return full;
+        string deltaUrl = deltaLink.GetString() ?? "";
+        if (deltaBytes <= 0 || deltaBytes >= bytes * 0.85 || !Official(deltaUrl, tag, deltaName)) return full;
+        return new ReleaseUpdatePlan(version, deltaName, deltaUrl, hashes, deltaBytes)
+        { FullPackage = full, BaseVersion = local.ToString() };
     }
 
     private static bool Official(string url, string tag, string filename) =>

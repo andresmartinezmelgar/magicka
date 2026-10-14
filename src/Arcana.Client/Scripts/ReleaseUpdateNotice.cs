@@ -28,6 +28,9 @@ public partial class ReleaseUpdateNotice : Node
     private bool _downloading, _completed, _installing, _checking, _disabled;
     private string _expectedHash = "", _dismissedVersion = "";
     private ReleaseUpdatePlan? _pendingUpdate;
+    private ReleaseUpdatePlan? _activePlan;
+    private bool _windowsDelta;
+    private string _androidBasePath = "";
     private AndroidUpdateBridge? _androidInstaller;
     private double _checkClock;
     private int _progressGeneration;
@@ -47,6 +50,7 @@ public partial class ReleaseUpdateNotice : Node
         if (OS.HasFeature("android"))
         {
             _androidInstaller = new AndroidUpdateBridge();
+            try { _androidBasePath = _androidInstaller.InstalledApkPath; } catch (Exception) { }
             _androidInstaller.Status += (status, message) =>
                 Callable.From(() => AndroidInstallStatus(status, message)).CallDeferred();
         }
@@ -62,7 +66,10 @@ public partial class ReleaseUpdateNotice : Node
             var pending = _pendingUpdate;
             _pendingUpdate = null;
             if (pending.Version != _dismissedVersion)
+            {
+                _activePlan = pending;
                 ShowNotice(pending.Version, pending.DownloadUrl, pending.Bytes, pending.ChecksumUrl, pending.Filename);
+            }
         }
         if (_checkClock >= 60 && !_checking && _overlay == null && _pendingUpdate == null)
         { _checkClock = 0; _ = Check(); }
@@ -91,6 +98,9 @@ public partial class ReleaseUpdateNotice : Node
             if (!response.IsSuccessStatusCode) return;
             using var document = JsonDocument.Parse(await RoomBrowser.ReadBoundedAsync(response.Content, 256 * 1024, _stop.Token));
             var plan = ReleaseUpdatePlan.Read(document.RootElement, BuildInfo.Version, OS.HasFeature("android"));
+            if (plan?.Differential == true && (OS.HasFeature("android") && _androidBasePath.Length == 0 ||
+                System.IO.File.Exists(System.IO.Path.Combine(OS.GetUserDataDir(), "updates", "skip-delta-" + plan.Version + ".txt"))))
+                plan = plan.FullPackage;
             if (plan != null) Callable.From(() => { if (!_stop.IsCancellationRequested) _pendingUpdate = plan; }).CallDeferred();
         }
         catch (OperationCanceledException) { }
@@ -187,7 +197,8 @@ public partial class ReleaseUpdateNotice : Node
         _headline = Ui.Label("Actualización disponible", Ui.IsMobile ? 24 : 25, Ui.Text);
         AddText(topCopy, _headline);
 
-        _subtitle = Ui.Label("Mejoras y novedades disponibles para tu aventura.", 16, Ui.Muted);
+        _subtitle = Ui.Label(_activePlan?.Differential == true ? "Descargando únicamente los cambios de tu versión." :
+            "Mejoras y novedades disponibles para tu aventura.", 16, Ui.Muted);
         AddText(body, _subtitle);
 
         var versions = new HBoxContainer();
@@ -310,13 +321,15 @@ public partial class ReleaseUpdateNotice : Node
         _progressLabel!.Text = _expectedBytes > 0 ? "0 B de " + Size(_expectedBytes) : "0 B descargados";
         _secondary!.Text = "Cancelar descarga";
         _headline!.Text = "Descargando actualización";
-        _subtitle!.Text = "Puedes comprobar el progreso en tiempo real.";
+        _subtitle!.Text = _activePlan?.Differential == true ? "Solo se descargan los cambios compatibles con tu versión." :
+            "Descargando el paquete completo de esta versión.";
         _speedLabel!.Text = "Conectando con GitHub…";
         _ = DownloadUpdate(_downloadUrl, _downloadStop.Token, ++_progressGeneration);
     }
 
     private async Task DownloadUpdate(string url, CancellationToken token, int generation)
     {
+        var plan = _activePlan ?? new ReleaseUpdatePlan(_version, _assetName, url, _checksumUrl, _expectedBytes);
         string? temporary = null;
         try
         {
@@ -329,13 +342,24 @@ public partial class ReleaseUpdateNotice : Node
             string manifest = await RoomBrowser.ReadBoundedAsync(checksumsResponse.Content, 64 * 1024, token);
             byte[] expectedHash = ReleaseDownloadVerifier.ReadExpectedHash(manifest, _assetName);
 
-            _expectedHash = Convert.ToHexString(expectedHash);
             string folder = System.IO.Path.Combine(OS.GetUserDataDir(), "updates");
             System.IO.Directory.CreateDirectory(folder);
             string target = System.IO.Path.Combine(folder, _assetName);
+            if (plan.Differential && OS.HasFeature("android"))
+            {
+                var full = plan.FullPackage!;
+                byte[] fullHash = ReleaseDownloadVerifier.ReadExpectedHash(manifest, full.Filename);
+                string cachedApk = System.IO.Path.Combine(folder, full.Filename);
+                if (await ReleaseDownloadVerifier.IsVerifiedFileAsync(cachedApk, full.Bytes, fullHash, token))
+                {
+                    string hash = Convert.ToHexString(fullHash);
+                    Callable.From(() => ShowDownloaded(generation, cachedApk, hash, false)).CallDeferred();
+                    return;
+                }
+            }
             if (await ReleaseDownloadVerifier.IsVerifiedFileAsync(target, _expectedBytes, expectedHash, token))
             {
-                Callable.From(() => ShowDownloaded(generation, target)).CallDeferred();
+                await CompleteTransfer(plan, target, manifest, expectedHash, token, generation);
                 return;
             }
 
@@ -385,7 +409,7 @@ public partial class ReleaseUpdateNotice : Node
             token.ThrowIfCancellationRequested();
             System.IO.File.Move(temporary, target, true);
             temporary = null;
-            Callable.From(() => ShowDownloaded(generation, target)).CallDeferred();
+            await CompleteTransfer(plan, target, manifest, expectedHash, token, generation);
         }
         catch (OperationCanceledException)
         {
@@ -394,7 +418,8 @@ public partial class ReleaseUpdateNotice : Node
         }
         catch (Exception error)
         {
-            Callable.From(() => ShowFailure(generation, error.Message)).CallDeferred();
+            if (plan.Differential) Callable.From(() => FallbackToFull(generation)).CallDeferred();
+            else Callable.From(() => ShowFailure(generation, error.Message)).CallDeferred();
         }
         finally
         {
@@ -403,6 +428,59 @@ public partial class ReleaseUpdateNotice : Node
                 try { System.IO.File.Delete(temporary); } catch (IOException) { }
             }
         }
+    }
+
+    private async Task CompleteTransfer(ReleaseUpdatePlan plan, string path, string manifest, byte[] transportHash,
+        CancellationToken token, int generation)
+    {
+        byte[] installedHash = transportHash;
+        bool windowsDelta = plan.Differential && !OS.HasFeature("android");
+        if (plan.Differential && OS.HasFeature("android"))
+        {
+            var full = plan.FullPackage!;
+            installedHash = ReleaseDownloadVerifier.ReadExpectedHash(manifest, full.Filename);
+            string destination = System.IO.Path.Combine(OS.GetUserDataDir(), "updates", full.Filename);
+            if (!await ReleaseDownloadVerifier.IsVerifiedFileAsync(destination, full.Bytes, installedHash, token))
+            {
+                Callable.From(() => {
+                    if (generation != _progressGeneration || !GodotObject.IsInstanceValid(_overlay)) return;
+                    _headline!.Text = "Reconstruyendo actualización";
+                    _subtitle!.Text = "Se están reutilizando los datos de la APK instalada.";
+                    _progress!.Indeterminate = true;
+                }).CallDeferred();
+                byte[] targetHash = installedHash;
+                await Task.Run(() => BinaryUpdateDelta.Apply(_androidBasePath, path, destination, BuildInfo.Version,
+                    full.Version, targetHash, full.Bytes, token), token);
+            }
+            try { System.IO.File.Delete(path); } catch (IOException) { }
+            path = destination;
+        }
+        token.ThrowIfCancellationRequested();
+        string completedPath = path, hash = Convert.ToHexString(installedHash);
+        Callable.From(() => ShowDownloaded(generation, completedPath, hash, windowsDelta)).CallDeferred();
+    }
+
+    private void FallbackToFull(int generation)
+    {
+        if (generation != _progressGeneration || !GodotObject.IsInstanceValid(_overlay) || _stop.IsCancellationRequested) return;
+        var full = _activePlan?.FullPackage;
+        if (full == null) { ShowFailure(generation, "No se ha podido recuperar el paquete completo."); return; }
+        string folder = System.IO.Path.Combine(OS.GetUserDataDir(), "updates");
+        try {
+            System.IO.Directory.CreateDirectory(folder);
+            System.IO.File.WriteAllText(System.IO.Path.Combine(folder, "skip-delta-" + full.Version + ".txt"), "incompatible");
+            // Un rechazo antes del cierre del cliente no es un fallo de la instalación completa.
+            System.IO.File.Delete(System.IO.Path.Combine(folder, "last-failure.json"));
+        } catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+        _downloadStop?.Cancel(); _downloadStop?.Dispose(); _downloadStop = null;
+        _activePlan = full;
+        _downloadUrl = full.DownloadUrl; _checksumUrl = full.ChecksumUrl; _assetName = full.Filename;
+        _expectedBytes = full.Bytes;
+        _downloading = _completed = _installing = _windowsDelta = false;
+        _secondary!.Disabled = false;
+        _sizeLabel!.Text = "Tamaño de descarga · " + Size(full.Bytes);
+        _note!.Text = "El parche no es compatible. Se instalará automáticamente el paquete completo.";
+        StartDownload();
     }
 
     private void UpdateProgress(int generation, long downloaded, long total, double bytesPerSecond)
@@ -417,12 +495,14 @@ public partial class ReleaseUpdateNotice : Node
         _speedLabel!.Text = bytesPerSecond > 0 ? Size((long)bytesPerSecond) + "/s" : "Finalizando descarga…";
     }
 
-    private void ShowDownloaded(int generation, string path)
+    private void ShowDownloaded(int generation, string path, string hash, bool windowsDelta)
     {
         if (generation != _progressGeneration || !GodotObject.IsInstanceValid(_overlay) || _stop.IsCancellationRequested) return;
         _downloading = false;
         _completed = true;
         _downloadPath = path;
+        _expectedHash = hash;
+        _windowsDelta = windowsDelta;
         _downloadStop?.Dispose();
         _downloadStop = null;
         _progress!.Indeterminate = false;
@@ -500,7 +580,11 @@ public partial class ReleaseUpdateNotice : Node
             }
         }
         catch (OperationCanceledException) { }
-        catch (Exception error) { ShowFailure(_progressGeneration, error.Message); }
+        catch (Exception error)
+        {
+            if (_windowsDelta) FallbackToFull(_progressGeneration);
+            else ShowFailure(_progressGeneration, error.Message);
+        }
     }
 
     private void AndroidInstallStatus(string status, string message)

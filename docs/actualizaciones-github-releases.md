@@ -6,7 +6,19 @@ Windows x64 y Android ARM64 consultan la última Release estable al arrancar y c
 
 La descarga empieza automáticamente en el menú, muestra progreso y puede cancelarse. El tamaño y el SHA-256 deben coincidir con la Release. Un archivo completo que ya se haya descargado y verificado se reutiliza; una descarga incompleta o alterada se rechaza. El instalador nunca se inicia durante una partida, una conexión en preparación o un servidor local activo. Sin red o si falla la descarga, el juego sigue disponible.
 
-Cada plataforma descarga su paquete completo: esto no implementa parches diferenciales por archivo. Las sesiones, inventario y preferencias siguen en el almacenamiento de usuario.
+El cliente prefiere un parche de su plataforma y de la versión que tiene instalada cuando reduce al menos un 15 % el tamaño de descarga. Las sesiones, inventario y preferencias siguen en el almacenamiento de usuario.
+
+## Descargas diferenciales
+
+Windows recibe un ZIP con los archivos modificados, UPDATE-MANIFEST.json completo y UPDATE-DELTA.json. Antes de cerrar el juego, el ayudante verifica versión y manifiesto y compone el paquete nuevo reutilizando los archivos locales que ya coinciden en tamaño y SHA-256. La configuración local protegida siempre tiene una copia de distribución en el parche; se conserva la configuración del usuario al aplicar la instalación. Se retiran archivos obsoletos únicamente cuando coinciden con los bytes antiguos publicados; sus copias participan en el rollback.
+
+Android recibe un archivo .delta comprimido con instrucciones de copia y datos nuevos. El generador reconoce las entradas ZIP cuyo contenido comprimido no ha cambiado y también busca fragmentos reutilizables en entradas grandes modificadas. Los offsets pueden cambiar: no se depende de que las dos APK tengan los mismos bloques en las mismas posiciones. La APK instalada se lee mediante applicationInfo.sourceDir y no se modifica.
+
+El cliente comprueba versión, tamaño y SHA-256 de la base, reconstruye en un archivo temporal y verifica los bytes finales contra el SHA-256 de la APK completa publicada. Solo entonces pasa la APK al instalador. Se conservan exactamente los bytes de la firma; el cliente nunca vuelve a firmar la APK.
+
+Si falta un parche de esa versión, no reduce suficientemente la descarga, falta la base, se ha alterado un archivo, falla la reconstrucción o falla la preparación Windows, se utiliza automáticamente el paquete completo. Un parche rechazado no vuelve a descargarse en los siguientes arranques para esa versión de destino. Los archivos completos ya descargados y verificados siguen utilizándose sin descargarlos otra vez.
+
+Los nombres de los parches indican ambas versiones: ArcanaArena-vDESTINO-Windows-x64-from-vBASE.zip y ArcanaArena-vDESTINO-Android-arm64-from-vBASE.delta. Los paquetes completos conservan sus nombres anteriores para que los clientes antiguos sigan funcionando.
 
 ## Windows
 
@@ -28,7 +40,11 @@ Referencia del API: https://developer.android.com/reference/android/content/pm/P
 
 ## Publicación y primera instalación
 
-VERSION y los presets Windows/Android se sincronizan con scripts/version-support.py. Las Releases se generan con los flujos actuales de main o de un tag vVERSION, después de sus comprobaciones de compilación, cuentas y empaquetado. La firma Android usa los secretos permanentes ya configurados. No debe publicarse una APK firmada con una clave temporal.
+VERSION y los presets Windows/Android se sincronizan con scripts/version-support.py. Los trabajos generan parches contra hasta tres versiones estables anteriores que tengan un paquete completo verificable. Cada archivo base se descarga de la Release oficial y se verifica con su SHA-256. Una base ausente, una incidencia de red o un parche sin ahorro conservan la publicación del paquete completo.
+
+Los parches Android se generan y verifican de nuevo después de la última firma permanente del trabajo de publicación. No se reutiliza un parche cuyo destino haya sido firmado otra vez. Los manifiestos SHA256SUMS-Windows.txt y SHA256SUMS-Android.txt incluyen tanto el paquete completo como los parches y evitan que la publicación independiente de ambas plataformas mezcle hashes.
+
+El generador y el cliente se prueban por separado: los parches creados en Python se reconstruyen con el lector C# del cliente. Las pruebas Windows ejecutan la instalación diferencial, retirada de archivos, conservación de datos, alternativa completa y recuperación con un PCK bloqueado. También simulan un proceso real que retiene el PCK hasta cerrar, para verificar la espera por PID y hora de inicio. Las Releases se generan con los flujos actuales de main o de un tag vVERSION, después de sus comprobaciones de compilación, cuentas y empaquetado. La firma Android usa los secretos permanentes ya configurados. No debe publicarse una APK firmada con una clave temporal.
 
 El flujo automático existe a partir de una versión que incluya este cambio. Una instalación anterior, incluida v0.17.16, conserva su actualizador antiguo hasta instalar por primera vez una distribución con el instalador integrado. Los cambios de esta rama no publican por sí solos una Release ni modifican main.
 
