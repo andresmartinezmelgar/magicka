@@ -26,6 +26,7 @@ public partial class Hud : Control
     private ScrollContainer _scoreScroll = null!;
     private MiniMap _map = null!;
     private PanelContainer _playerPanel = null!, _spellsPanel = null!;
+    private PanelContainer _bannerBackdrop = null!, _rewardBackdrop = null!;
     private PanelContainer _mapPanel = null!;
     private string _lastRewardStatus = "";
     private long _lastEvent;
@@ -43,7 +44,7 @@ public partial class Hud : Control
     internal Rect2 ScoreboardRectForSmoke => _scorePanel.GetGlobalRect();
     public event Action? EquipmentRequested;
     public bool PointerOverPanel => _scorePanel.Visible && _scorePanel.GetGlobalRect().HasPoint(GetGlobalMousePosition());
-    public void RewardNotice(string message) { _reward.Text = message; _rewardSeconds = 12; _reward.Visible = true; }
+    public void RewardNotice(string message) { _reward.Text = message; _rewardSeconds = 12; _reward.Visible = true; _rewardBackdrop.Visible = true; }
 
     public void Build()
     {
@@ -121,10 +122,18 @@ public partial class Hud : Control
         _mapPanel = mapPanel;
         mapPanel.AddThemeStyleboxOverride("panel", Ui.Panel(new Color(0.025f, 0.05f, 0.08f, 0.90f), 10));
         _map = new MiniMap { CustomMinimumSize = new(165, 119), MouseFilter = MouseFilterEnum.Ignore }; mapPanel.AddChild(_map);
-        _banner = Ui.Label("", 32, Ui.Gold); _banner.Name = "MatchBanner"; _banner.HorizontalAlignment = HorizontalAlignment.Center;
+        _bannerBackdrop = new PanelContainer { Name = "MatchBannerBackground", Visible = false,
+            MouseFilter = MouseFilterEnum.Ignore };
+        _bannerBackdrop.AddThemeStyleboxOverride("panel", Ui.Panel(new Color(0.025f, 0.045f, 0.075f, 0.90f), 14, Ui.Gold.Darkened(0.45f)));
+        AddChild(_bannerBackdrop);
+        _rewardBackdrop = new PanelContainer { Name = "MatchRewardBackground", Visible = false,
+            MouseFilter = MouseFilterEnum.Ignore };
+        _rewardBackdrop.AddThemeStyleboxOverride("panel", Ui.Panel(new Color(0.025f, 0.05f, 0.09f, 0.94f), 10));
+        AddChild(_rewardBackdrop);
+        _banner = Ui.Label("", 34, Ui.Gold); _banner.Name = "MatchBanner"; _banner.HorizontalAlignment = HorizontalAlignment.Center;
         _banner.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft); _banner.Position = Vector2.Zero; _banner.Size = new(800, 144);
         _banner.AutowrapMode = TextServer.AutowrapMode.WordSmart; AddChild(_banner);
-        _reward = Ui.Label("", 18, Ui.Gold); _reward.Name = "MatchRewardNotice"; _reward.HorizontalAlignment = HorizontalAlignment.Center;
+        _reward = Ui.Label("", 24, Ui.Gold); _reward.Name = "MatchRewardNotice"; _reward.HorizontalAlignment = HorizontalAlignment.Center;
         _reward.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft); _reward.Position = Vector2.Zero; _reward.Size = new(800, 60);
         _reward.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _reward.Visible = false; AddChild(_reward);
@@ -184,8 +193,12 @@ public partial class Hud : Control
         float centerY = (Size.Y - bannerHeight) / 2;
         _banner.Position = new(centerX, centerY);
         _banner.Size = new(messageWidth, bannerHeight);
+        _bannerBackdrop.Position = _banner.Position;
+        _bannerBackdrop.Size = _banner.Size;
         _reward.Position = new(centerX, centerY + bannerHeight + 8);
         _reward.Size = new(messageWidth, Math.Min(80, Math.Max(40, Size.Y / 5)));
+        _rewardBackdrop.Position = _reward.Position;
+        _rewardBackdrop.Size = _reward.Size;
         float topWidth = Math.Min(480, available);
         _match.Position = new((Size.X - topWidth) / 2, 18);
         _match.Size = new(topWidth, 42);
@@ -241,6 +254,7 @@ public partial class Hud : Control
     public void Update(WorldSnapshot snapshot, int id, string serverName, double delta)
     {
         _rewardSeconds = Math.Max(0, _rewardSeconds - (float)delta); _reward.Visible = _rewardSeconds > 0;
+        _rewardBackdrop.Visible = _reward.Visible;
         _feedTime -= (float)delta; _feed.Text = _feedTime > 0 ? _feedText : "";
         bool showScore = snapshot.Map != ArenaMapId.Practice && (ScoreOpen || Input.IsPhysicalKeyPressed(Key.Tab));
         bool opened = !_scorePanel.Visible && showScore;
@@ -353,6 +367,7 @@ public partial class Hud : Control
             else
                 _banner.Text = winner + $" vence{summary}\nSiguiente ronda en {Math.Ceiling(snapshot.RestartIn)} s";
         }
+        _bannerBackdrop.Visible = _banner.Text.Length > 0;
         if (snapshot.RewardStatus != _lastRewardStatus)
         {
             _lastRewardStatus = snapshot.RewardStatus;
