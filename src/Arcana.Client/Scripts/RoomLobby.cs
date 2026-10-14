@@ -108,7 +108,7 @@ public partial class RoomLobby : Control
         _listPane.AddChild(_serverPasswordEntry);
         _listPane.AddChild(Ui.Label("2. Contraseña de la SALA seleccionada (si tiene)", 14, Ui.Muted));
         _joinPassword = new LineEdit { Name = "RoomPasswordInput", Secret = true, MaxLength = 128,
-            PlaceholderText = "Escribe aquí la contraseña que se usó al CREAR la sala",
+            PlaceholderText = "Clave utilizada al crear la sala",
             CustomMinimumSize = new(0, 42) };
         _listPane.AddChild(_joinPassword);
         var actions = new GridContainer { Columns = 4 }; actions.AddThemeConstantOverride("h_separation", 12);
@@ -136,7 +136,7 @@ public partial class RoomLobby : Control
         _score = Number(1, 200, 15); Row(grid, "Puntos para ganar (arena / duelo)", _score);
         _tickets = Number(5, 1000, 75); Row(grid, "Tickets por equipo (guerra)", _tickets);
         _roomPassword = new LineEdit { Secret = true, MaxLength = 128, PlaceholderText = "Dejar vacío para sala abierta", CustomMinimumSize = new(0, 42) };
-        Row(grid, "Contraseña de esta SALA (no la del servidor)", _roomPassword);
+        Row(grid, "Clave de la SALA", _roomPassword);
         _creationObjective = Ui.Label("", 14, Ui.Gold); _creationObjective.AutowrapMode = TextServer.AutowrapMode.WordSmart; _createPane.AddChild(_creationObjective);
         _mode.ItemSelected += _ =>
         {
