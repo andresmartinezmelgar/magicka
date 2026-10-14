@@ -25,6 +25,8 @@ public partial class Hud : Control
     private GridContainer _scoreRows = null!;
     private ScrollContainer _scoreScroll = null!;
     private MiniMap _map = null!;
+    private PanelContainer _mapPanel = null!;
+    private string _lastRewardStatus = "";
     private long _lastEvent;
     private string _feedText = "";
     private float _feedTime, _scoreClock;
@@ -47,7 +49,8 @@ public partial class Hud : Control
         Theme = Ui.Theme(); MouseFilter = MouseFilterEnum.Ignore;
         SetAnchorsPreset(LayoutPreset.TopLeft); Position = Vector2.Zero;
         Scale = Vector2.One * GameplayScale; ResizeLayout(); GetViewport().SizeChanged += ResizeLayout;
-        _server = Ui.Label("", 15, Ui.Gold); _server.Position = new(28, 24); AddChild(_server);
+        _server = Ui.Label("", 15, Ui.Gold); _server.Position = new(28, 24);
+        _server.AutowrapMode = TextServer.AutowrapMode.WordSmart; AddChild(_server);
         var controls = Ui.Label("F1  Controles     TAB  Clasificación     ESC  Menú", 14, Ui.Muted);
         _controls = controls;
         controls.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight); controls.Position = new(-440, 24); controls.Size = new(420, 24); AddChild(controls);
@@ -112,12 +115,15 @@ public partial class Hud : Control
         _feed.Position = new(-450, 245); _feed.Size = new(420, 100); _feed.HorizontalAlignment = HorizontalAlignment.Right; AddChild(_feed);
         var mapPanel = new PanelContainer { Name = "MiniMapPanel", CustomMinimumSize = new(205, 151), MouseFilter = MouseFilterEnum.Ignore };
         mapPanel.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight); mapPanel.Position = new(-235, 72); AddChild(mapPanel);
+        _mapPanel = mapPanel;
         mapPanel.AddThemeStyleboxOverride("panel", Ui.Panel(new Color(0.025f, 0.05f, 0.08f, 0.90f), 10));
         _map = new MiniMap { CustomMinimumSize = new(165, 119), MouseFilter = MouseFilterEnum.Ignore }; mapPanel.AddChild(_map);
         _banner = Ui.Label("", 32, Ui.Gold); _banner.HorizontalAlignment = HorizontalAlignment.Center;
-        _banner.SetAnchorsAndOffsetsPreset(LayoutPreset.Center); _banner.Position = new(-400, -72); _banner.Size = new(800, 144); AddChild(_banner);
+        _banner.SetAnchorsAndOffsetsPreset(LayoutPreset.Center); _banner.Position = new(-400, -72); _banner.Size = new(800, 144);
+        _banner.AutowrapMode = TextServer.AutowrapMode.WordSmart; AddChild(_banner);
         _reward = Ui.Label("", 18, Ui.Gold); _reward.HorizontalAlignment = HorizontalAlignment.Center;
-        _reward.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterTop); _reward.Position = new(-400, 150); _reward.Size = new(800, 45);
+        _reward.SetAnchorsAndOffsetsPreset(LayoutPreset.Center); _reward.Position = new(-400, 85); _reward.Size = new(800, 60);
+        _reward.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _reward.Visible = false; AddChild(_reward);
         // El CenterContainer ocupa el viewport escalado completo y centra la
         // tabla por su tamaño real; los anclajes anteriores podían dejarla
@@ -175,13 +181,27 @@ public partial class Hud : Control
         _scoreCenter.Size = Size;
         _scoreScroll.CustomMinimumSize = new(0, Math.Max(72, Math.Min(300, Size.Y - 145)));
         float messageWidth = Math.Min(800, available);
-        _banner.Position = new(-messageWidth / 2, -72);
-        _banner.Size = new(messageWidth, 144);
-        _reward.Position = new(-messageWidth / 2, 150);
-        _reward.Size = new(messageWidth, 45);
+        float bannerHeight = Math.Min(180, Math.Max(90, Size.Y * 0.42f));
+        _banner.Position = new(-messageWidth / 2, -bannerHeight / 2);
+        _banner.Size = new(messageWidth, bannerHeight);
+        _reward.Position = new(-messageWidth / 2, bannerHeight / 2 + 8);
+        _reward.Size = new(messageWidth, Math.Min(80, Math.Max(40, Size.Y / 5)));
+        float topWidth = Math.Min(480, available);
+        _match.Position = new(-topWidth / 2, 18);
+        _match.Size = new(topWidth, 42);
+        _teams.Position = new(-topWidth / 2, 18);
+        _teams.Size = new(topWidth, 42);
         float objectiveWidth = Math.Min(690, available);
-        _objective.Position = new(-objectiveWidth / 2, 60);
-        _objective.Size = new(objectiveWidth, 46);
+        _objective.Position = new(-objectiveWidth / 2, 62);
+        _objective.Size = new(objectiveWidth, Size.X < 800 ? 76 : 46);
+        _server.Size = new(Math.Max(70, Math.Min(300, (Size.X - 60) / 3)), 58);
+        _controls.Visible = !Ui.IsMobile && Size.X >= 1250;
+        _feed.Position = new(-Math.Min(450, available), Math.Min(245, Math.Max(80, Size.Y - 110)));
+        _feed.Size = new(Math.Min(420, available), 100);
+        // En ventanas pequeñas el minimapa no puede tapar marcador y estadísticas.
+        _mapPanel.Visible = Size.X >= (Ui.IsMobile ? 850 : 700);
+        if (_mapPanel.Visible && !Ui.IsMobile)
+            _mapPanel.Position = new(-235, 72);
     }
     public override void _ExitTree() => GetViewport().SizeChanged -= ResizeLayout;
     private static ProgressBar Bar(Color color, float max, int height)
@@ -305,7 +325,22 @@ public partial class Hud : Control
             string winner = snapshot.Mode == GameMode.Arena ? snapshot.Players.FirstOrDefault(p => p.Id == snapshot.Winner)?.Name ?? "Mago" : snapshot.Winner == 0 ? "Equipo azul" : "Equipo rojo";
             string summary = snapshot.BestOf > 1 && snapshot.SeriesWins is { Length: >= 2 } wins
                 ? $"\nSerie al mejor de {snapshot.BestOf}: {wins[0]}–{wins[1]}" : "";
-            _banner.Text = winner + $" vence{summary}\nSiguiente ronda en {Math.Ceiling(snapshot.RestartIn)} s";
+            bool seriesCompleted = snapshot.BestOf > 1 && snapshot.SeriesWins is { Length: >= 2 } score &&
+                (score[0] >= MatchSeries.WinsNeeded(snapshot.BestOf) || score[1] >= MatchSeries.WinsNeeded(snapshot.BestOf));
+            if (seriesCompleted)
+            {
+                int champion = snapshot.SeriesWins![0] >= MatchSeries.WinsNeeded(snapshot.BestOf) ? 0 : 1;
+                _banner.Text = (player.Team == champion ? "HAS GANADO LA SERIE" : "HAS PERDIDO LA SERIE") +
+                    $"\n{winner} vence {snapshot.SeriesWins[0]}–{snapshot.SeriesWins[1]}" +
+                    $"\nPreparación de la siguiente serie en {Math.Ceiling(snapshot.RestartIn)} s";
+            }
+            else
+                _banner.Text = winner + $" vence{summary}\nSiguiente ronda en {Math.Ceiling(snapshot.RestartIn)} s";
+        }
+        if (snapshot.RewardStatus != _lastRewardStatus)
+        {
+            _lastRewardStatus = snapshot.RewardStatus;
+            if (!string.IsNullOrWhiteSpace(snapshot.RewardStatus)) RewardNotice(snapshot.RewardStatus);
         }
         foreach (var e in snapshot.Events)
         {
@@ -323,7 +358,7 @@ public partial class Hud : Control
         _scoreScroll.CustomMinimumSize = new(0, Math.Clamp((snapshot.Players.Length + 1) * 33, 65,
             Math.Max(100, (int)Size.Y - 145)));
         _seriesStatus.Text = snapshot.BestOf > 1 && snapshot.SeriesWins is { Length: >= 2 } wins
-            ? $"MEJOR DE {snapshot.BestOf} · RONDAS: AZUL {wins[0]} — {wins[1]} ROJO"
+            ? $"{(wins[0] >= MatchSeries.WinsNeeded(snapshot.BestOf) || wins[1] >= MatchSeries.WinsNeeded(snapshot.BestOf) ? "SERIE FINALIZADA" : $"MEJOR DE {snapshot.BestOf}")} · AZUL {wins[0]} — {wins[1]} ROJO"
             : "CLASIFICACIÓN DE LA PARTIDA";
         int cell = 0;
         foreach (var p in snapshot.Players.OrderByDescending(p => p.Kills))
