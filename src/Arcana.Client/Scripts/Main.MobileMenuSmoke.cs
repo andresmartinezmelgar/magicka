@@ -10,6 +10,38 @@ public partial class Main
     private bool _desktopHeaderSmoke;
     private int _desktopHeaderSmokeFrame;
     private int _mobileMenuSmokeFrame;
+    private bool _visualReview;
+    private string? _visualReviewDirectory;
+
+    private void CaptureVisualReview(string stage)
+    {
+        if (!_visualReview || DisplayServer.GetName() == "headless") return;
+        var screenshot = GetViewport().GetTexture().GetImage();
+        if (screenshot.IsEmpty()) throw new InvalidOperationException("Captura gráfica vacía: " + stage);
+        if (screenshot.GetWidth() < 640 || screenshot.GetHeight() < 450)
+            throw new InvalidOperationException("Captura gráfica incompleta: " + stage);
+        if (!string.IsNullOrWhiteSpace(_visualReviewDirectory))
+        {
+            DirAccess.MakeDirRecursiveAbsolute(_visualReviewDirectory);
+            string file = System.IO.Path.Combine(_visualReviewDirectory, stage + ".png");
+            if (screenshot.SavePng(file) != Error.Ok) throw new IOException("No se pudo guardar " + file);
+            GD.Print($"VISUAL_CAPTURE_OK:{stage}:{screenshot.GetWidth()}x{screenshot.GetHeight()}:{file}");
+        }
+        screenshot.Resize(800, 450, Image.Interpolation.Lanczos);
+        GD.Print("VISUAL_REVIEW_BASE64:" + stage + ":" + Convert.ToBase64String(screenshot.SaveJpgToBuffer(0.68f)));
+    }
+
+    private void AssertHudBounds(Hud hud, string stage)
+    {
+        Rect2 screen = GetViewport().GetVisibleRect();
+        foreach (var name in new[] { "MatchBanner", "MatchRewardNotice", "PlayerStatusPanel", "SpellControlsPanel", "MiniMapPanel", "MatchObjective" })
+        {
+            if (hud.FindChild(name, true, false) is not Control control || !control.IsVisibleInTree()) continue;
+            var rect = control.GetGlobalRect();
+            if (!screen.Encloses(rect))
+                throw new InvalidOperationException($"HUD {stage}: {name} fuera de pantalla: {rect}, viewport={screen}");
+        }
+    }
 
     // En CI no basta con simular los controles móviles: hay que comprobar
     // la geometría Godot del escritorio real en 1600×900 y 1280×720.
@@ -71,6 +103,12 @@ public partial class Main
                 _googleIdentityKnown = true;
                 _googleIdentityName = "andresmartinez";
                 _launcher.UpdateAccountStatus();
+            }
+            if (frame == 17)
+            {
+                _smokeScoreHud?.QueueFree();
+                _smokeScoreHud = null;
+                _launcher.Visible = true;
             }
             if (frame == 20)
             {
@@ -146,6 +184,22 @@ public partial class Main
         int frame = ++_mobileMenuSmokeFrame;
         try
         {
+            string? scene = frame switch
+            {
+                14 => "01-clasificacion",
+                16 => "02-victoria-3-de-5",
+                21 => "03-inicio",
+                36 => "04-pvp",
+                56 => "05-versus-ia",
+                76 => "06-lista-salas",
+                96 => "07-crear-sala",
+                116 => "08-perfil",
+                137 => "09-ayuda",
+                156 => "10-equipacion",
+                _ => null
+            };
+            if (scene != null) CaptureVisualReview(scene);
+            if (frame == 10 && _visualReview) _launcher.Visible = false;
             if (frame == 9)
             {
                 _smokeScoreHud = new Hud();
@@ -167,6 +221,7 @@ public partial class Main
                     throw new InvalidOperationException("Clasificación fuera de la pantalla: " + tableRect +
                         " pantalla=" + GetViewport().GetVisibleRect());
                 GD.Print("MOBILE_SCOREBOARD_LAYOUT_OK");
+                if (_visualReview) AssertHudBounds(_smokeScoreHud, "clasificacion");
                 _smokeScoreHud.ScoreOpen = false;
                 var simulated = new GameWorld(new WorldOptions { Mode = GameMode.Warfare, Bots = 0 });
                 var player = simulated.AddPlayer("Mago de prueba", 0)!;
@@ -184,8 +239,7 @@ public partial class Main
                     !screen.Encloses(banner.GetGlobalRect()) || !screen.Encloses(reward.GetGlobalRect()))
                     throw new InvalidOperationException($"Resultado/recompensa fuera de pantalla: banner={banner.Text} rect={banner.GetGlobalRect()}, reward={reward.Text} rect={reward.GetGlobalRect()}, viewport={screen}.");
                 GD.Print("MOBILE_SERIES_REWARD_LAYOUT_OK");
-                _smokeScoreHud.QueueFree();
-                _smokeScoreHud = null;
+                if (_visualReview) AssertHudBounds(_smokeScoreHud, "victoria");
                 // La etiqueta interna «Opción A» no debe mostrarse al jugador.
                 var visibleLabels = _launcher.FindChildren("*", "Label", true, false).OfType<Label>()
                     .Where(label => label.IsVisibleInTree()).Select(label => label.Text);
