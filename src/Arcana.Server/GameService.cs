@@ -84,6 +84,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             request.MaxPlayers is < 2 or > 16 || request.Bots < 0 || request.Bots >= request.MaxPlayers ||
             request.ScoreLimit is < 1 or > 200 || request.Tickets is < 5 or > 1000 ||
             request.BestOf is not (1 or 5 or 7 or 9) ||
+            request.Mode == GameMode.Arena && request.BestOf > 1 ||
             (request.Mode == GameMode.Duel && request.MaxPlayers != 2))
             return (null, "Datos inválidos. Duelo requiere 2 plazas; deja al menos una plaza libre de bots.", 400);
         if (!ArenaMap.Get(request.Map).SupportsMode(request.Mode))
@@ -450,9 +451,8 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
         int winningTeam = room.Options.Mode == GameMode.Arena
             ? room.World.Players.Values.FirstOrDefault(p => p.Id == roundWinner)?.Team ?? -1
             : roundWinner;
-        if (winningTeam is 0 or 1) room.SeriesWins[winningTeam]++;
-        int needed = room.BestOf / 2 + 1;
-        room.SeriesFinished = winningTeam is 0 or 1 && room.SeriesWins[winningTeam] >= needed;
+        room.SeriesFinished = winningTeam is 0 or 1 &&
+            MatchSeries.RecordRound(room.SeriesWins, room.BestOf, winningTeam);
         if (!room.SeriesFinished) return;
 
         var participants = room.Participants.Values.Select(p => p with
