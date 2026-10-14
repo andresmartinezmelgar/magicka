@@ -1659,6 +1659,54 @@ async Task WaitFor(Func<bool> ready, string reason)
     for (int i = 0; i < 150; i++) { if (ready()) return; await Task.Delay(20); }
     throw new Exception(reason);
 }
+if (server != null && args.Contains("--series-lobby-only"))
+{
+    string secret = Environment.GetEnvironmentVariable("TEST_PASSWORD") ?? "";
+    await AsyncTest("Serie PvP: sin sala automática, elección de equipos y comienzo manual", async () =>
+    {
+        var empty = await RoomBrowser.ListAsync(server);
+        Check(empty.Rooms.Length == 0, "El servidor anuncia una sala que el usuario no creó.");
+        var room = await RoomBrowser.CreateAsync(server, new()
+        {
+            Name = "Serie de prueba", ServerPassword = secret, Mode = GameMode.Warfare,
+            Map = ArenaMapId.Classic, MaxPlayers = 4, Bots = 0, BestOf = 5, Tickets = 5
+        });
+        Check(room.BestOf == 5, "La sala no conserva su formato al mejor de cinco.");
+        await using var a = new ArenaConnection();
+        await using var b = new ArenaConnection();
+        await a.ConnectAsync(server, "Anfitrión", -1, secret, roomId: room.Id);
+        await b.ConnectAsync(server, "Invitado", -1, secret, roomId: room.Id);
+        await WaitFor(() => a.Latest?.Players.Length == 2 && b.Latest?.Players.Length == 2,
+            "No se replicaron los integrantes de la sala de espera.");
+        Check(a.Latest!.WaitingForPlayers && b.Latest!.WaitingForPlayers && a.Latest.BestOf == 5,
+            "La sala empezó la partida sin confirmar equipos.");
+        long tick = a.Latest.Tick;
+        await Task.Delay(450);
+        Check(a.Latest!.Tick == tick, "Se está simulando una ronda antes de pulsar Comenzar.");
+        a.Send(new() { Type = "lobby-start" });
+        await Task.Delay(300);
+        Check(a.Latest!.WaitingForPlayers, "Se inició la partida sin jugadores preparados.");
+        a.Send(new() { Type = "lobby-team", Team = 1 });
+        await WaitFor(() => a.Latest!.Players.Single(p => p.Id == a.PlayerId).Team == 1,
+            "No se aplicó la selección de equipo en el servidor.");
+        a.Send(new() { Type = "lobby-team", Team = 0 });
+        await WaitFor(() => a.Latest!.Players.Single(p => p.Id == a.PlayerId).Team == 0,
+            "No se pudo recuperar el equipo azul.");
+        a.Send(new() { Type = "lobby-ready" });
+        b.Send(new() { Type = "lobby-ready" });
+        await WaitFor(() => a.Latest!.LobbyReadyPlayerIds?.Length == 2,
+            "No aparecen los dos jugadores preparados.");
+        Check(a.Latest!.WaitingForPlayers, "La partida comenzó antes de que el anfitrión autorizara el inicio.");
+        a.Send(new() { Type = "lobby-start" });
+        await WaitFor(() => a.Latest is { WaitingForPlayers: false, Tick: > 0 },
+            "El anfitrión no pudo comenzar la partida.");
+        Check(a.Latest!.SeriesWins is { Length: 2 } && a.Latest.SeriesWins[0] == 0 &&
+            a.Latest.SeriesWins[1] == 0, "La serie empezó con rondas ganadas.");
+    });
+    Console.WriteLine($"RESULTADO LOBBY: {passed} correctas, {failed} fallidas.");
+    return failed == 0 ? 0 : 1;
+}
+
 if (server != null)
 {
     string password = Environment.GetEnvironmentVariable("TEST_PASSWORD") ?? "";
