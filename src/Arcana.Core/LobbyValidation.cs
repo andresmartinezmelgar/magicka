@@ -17,6 +17,8 @@ public static class LobbyValidation
             !Enum.IsDefined(room.Map) || ArenaMap.Get(room.Map).IsPractice || !ArenaMap.Get(room.Map).SupportsMode(room.Mode) || room.MaxPlayers is < 2 or > 16 || room.Players < 0 || room.Players > room.MaxPlayers ||
             room.Bots < 0 || room.Bots >= room.MaxPlayers || room.Bots > room.Players ||
             room.ScoreLimit is < 1 or > 200 || room.Tickets is < 5 or > 1000 ||
+            room.BestOf is not (1 or 5 or 7 or 9) ||
+            room.Mode == GameMode.Arena && room.BestOf > 1 ||
             room.Mode == GameMode.Duel && room.MaxPlayers != 2)
             throw new InvalidDataException("El servidor devolvió una sala inválida.");
     }
