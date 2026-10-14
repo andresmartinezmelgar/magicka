@@ -63,7 +63,7 @@ public partial class RoomLobby : Control
         layout.AddChild(fixedActions);
         _mobileScroll = scroll;
         var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; box.AddThemeConstantOverride("separation", Ui.IsMobile ? 6 : 9); scroll.AddChild(box);
-        _heading = Ui.Label("SALAS", 28, Ui.Gold); box.AddChild(_heading);
+        _heading = Ui.Label("SALAS", 28, Ui.Gold); _heading.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_heading);
         var addressInfo = Ui.Label(address, 15, Ui.Muted);
         addressInfo.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
         box.AddChild(addressInfo);
@@ -180,7 +180,7 @@ public partial class RoomLobby : Control
         var creation = new GridContainer { Columns = 3 }; creation.AddThemeConstantOverride("h_separation", 12);
         creation.AddThemeConstantOverride("v_separation", 6); _createPane.AddChild(creation);
         ActionButton(creation, "Crear y entrar", Create, true); ActionButton(creation, "Volver a salas", () => SwitchPane(false));
-        _heading.TooltipText = "Cada sala tiene su propia partida. Las salas vacías se retiran a los 15 minutos.";
+        _heading.TooltipText = "Cada sala tiene su partida. Las salas vacías se retiran tras 2 minutos; si el servidor se llena, se sustituyen las salas abandonadas.";
         _status = Ui.Label("Cargando salas…", 15, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _status.CustomMinimumSize = new(0, 36); box.AddChild(_status);
         var back = Ui.Button("Volver al launcher", Close);
@@ -319,7 +319,8 @@ public partial class RoomLobby : Control
             Math.Max(0, (_rooms.Length - 1) / VisibleRoomsPerPage * VisibleRoomsPerPage));
         _list.Clear();
         foreach (var room in _rooms.Skip(_roomPageStart).Take(VisibleRoomsPerPage))
-            _list.AddItem($"{room.Name}{(room.PasswordRequired ? " · CON CLAVE" : "")}  ·  {Ui.ModeName(room.Mode)}  ·  {ArenaMap.Get(room.Map).Name}  ·  {room.Players}/{room.MaxPlayers} plazas");
+            _list.AddItem($"{room.Name}{(room.PasswordRequired ? " · CON CLAVE" : "")}  ·  {Ui.ModeName(room.Mode)}  ·  {ArenaMap.Get(room.Map).Name}  ·  {room.Players}/{room.MaxPlayers} plazas" +
+                (room.InProgress && room.BestOf > 1 ? " · EN PARTIDA" : " · DISPONIBLE"));
         if (_list.ItemCount > 0) _list.Select(0);
         if (_roomPagePrevious != null) _roomPagePrevious.Disabled = _roomPageStart == 0;
         if (_roomPageNext != null) _roomPageNext.Disabled = _roomPageStart + VisibleRoomsPerPage >= _rooms.Length;
@@ -375,6 +376,7 @@ public partial class RoomLobby : Control
     {
         if (_busy) return;
         var room = Selected(); if (room == null) { ShowError("Selecciona una sala."); return; }
+        if (room.InProgress && room.BestOf > 1) { ShowError("Esta serie está en curso. Actualiza las salas para entrar en la siguiente."); return; }
         if (room.Players >= room.MaxPlayers) { ShowError("La sala está llena. Crea otra o actualiza la lista."); return; }
         if (_serverPasswordRequired && _serverPassword.Length == 0)
         {
@@ -400,7 +402,7 @@ public partial class RoomLobby : Control
             MaxPlayers = (int)_capacity.Value, Bots = (int)_bots.Value, FriendlyFire = _friendly.ButtonPressed,
             ScoreLimit = (int)_score.Value, Tickets = (int)_tickets.Value,
             BestOf = (GameMode)_mode.GetSelectedId() == GameMode.Arena ? 1 : _bestOf.GetSelectedId(),
-            Password = _roomPassword.Text, ServerPassword = _serverPassword };
+            Password = _roomPassword.Text, ServerPassword = _serverPasswordEntry.Text };
         Loading("Creando sala…");
         try
         {
