@@ -10,6 +10,7 @@ public partial class Main
     private bool _desktopHeaderSmoke;
     private int _desktopHeaderSmokeFrame;
     private int _mobileMenuSmokeFrame;
+    private Hud? _smokeRivalHud;
     private bool _visualReview;
     private long _lastVisualDraw = -1;
     private string? _visualReviewDirectory;
@@ -214,6 +215,7 @@ public partial class Main
             {
                 14 => "01-clasificacion",
                 16 => "02-victoria-3-de-5",
+                17 => "02-derrota-3-de-5",
                 21 => "03-inicio",
                 36 => "04-pvp",
                 56 => "05-versus-ia",
@@ -270,10 +272,12 @@ public partial class Main
                     || text.Contains("OPCIÓN A", StringComparison.OrdinalIgnoreCase)))
                     throw new InvalidOperationException("INICIO: se muestra una etiqueta interna de diseño.");
             }
-            if (frame == 17)
+            if (frame == 18)
             {
                 _smokeScoreHud?.QueueFree();
                 _smokeScoreHud = null;
+                _smokeRivalHud?.QueueFree();
+                _smokeRivalHud = null;
                 _launcher.Modulate = new Color(1, 1, 1, 1);
             }
             if (frame == 16)
@@ -287,6 +291,35 @@ public partial class Main
                     throw new InvalidOperationException($"Resultado/recompensa fuera de pantalla: banner={banner.GetGlobalRect()}, recompensa={reward.GetGlobalRect()}, pantalla={screen}");
                 GD.Print("MOBILE_SERIES_REWARD_LAYOUT_OK");
                 AssertHudBounds(_smokeScoreHud, "victoria");
+                // Se representa la perspectiva del rival con un HUD distinto,
+                // como ocurre con dos móviles/PC independientes en la misma LAN.
+                var simulated = new GameWorld(new WorldOptions { Mode = GameMode.Duel, MaxPlayers = 2, Bots = 0 });
+                var blue = simulated.AddPlayer("Anfitrión", 0)!;
+                var red = simulated.AddPlayer("Invitado", 1)!;
+                var sameResult = simulated.Snapshot() with {
+                    BestOf = 5, SeriesWins = [3, 2], Winner = 0,
+                    MatchEnded = true, RestartIn = 7,
+                    RewardStatus = "Recompensa pendiente de confirmar en Firebase."
+                };
+                _smokeRivalHud = new Hud();
+                _ui.AddChild(_smokeRivalHud);
+                _smokeRivalHud.Build();
+                _smokeRivalHud.Update(sameResult, red.Id, "Servidor LAN", 0.016);
+                if (!_smokeRivalHud.RoundAnnouncementForSmoke.Contains("HAS PERDIDO LA SERIE") ||
+                    !_smokeRivalHud.RoundAnnouncementForSmoke.Contains("AZUL 3 — 2 ROJO") ||
+                    !_smokeRivalHud.RoundAnnouncementForSmoke.Contains("en 7 s"))
+                    throw new InvalidOperationException("El equipo rojo no recibe derrota, marcador y cuenta atrás.");
+            }
+            if (frame == 17)
+            {
+                var losing = _smokeRivalHud ?? throw new InvalidOperationException("HUD del perdedor ausente.");
+                if (!losing.RoundAnnouncementVisibleForSmoke)
+                    throw new InvalidOperationException("El aviso del equipo perdedor no es visible.");
+                var title = (Label)losing.FindChild("MatchBanner", true, false);
+                if (!GetViewport().GetVisibleRect().Encloses(title.GetGlobalRect()))
+                    throw new InvalidOperationException("Aviso del perdedor fuera del viewport: " + title.GetGlobalRect());
+                AssertHudBounds(losing, "derrota");
+                GD.Print("MOBILE_SERIES_LOSS_LAYOUT_OK");
             }
             if (frame == 20)
             {
