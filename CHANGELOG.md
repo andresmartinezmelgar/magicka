@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.17.16
+
+- Integración en main de las ramas de mejoras generales, correcciones LAN/PvP/recompensas e interfaz responsive.
+- Marco principal centrado con contenedores flexibles, inventario adaptable y barras de desplazamiento vertical visibles.
+- Información de cuenta y resultados concentrada en Perfil; configuración opcional del servidor de ventas en Inventario.
+- Ayuda con explicaciones de los 22 atributos de equipación y ejemplos que distinguen defensa de absorción del escudo.
+- Avisos de victoria y derrota al terminar una ronda para ambos equipos, con marcador de serie y cuenta atrás sincronizados.
+- Versión C#, Windows y Android sincronizada en 0.17.16; código Android 17016.
+
 ## 0.14.0
 
 - Equipación ampliada a los ocho elementos: Agua, Vida, Escudo, Frío, Rayo, Arcano, Tierra y Fuego.
