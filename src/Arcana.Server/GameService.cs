@@ -156,7 +156,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                                 for (int n = 0; n < 32 && session.Commands.Reader.TryRead(out var message); n++)
                                 {
                                     if (message.Type == "ready" && message.Sequence > 0) { session.Ready = true; continue; }
-                                    if (room.Id != "default" && !room.Started && session.Ready)
+                                    if (room.BestOf > 1 && !room.Started && session.Ready)
                                     {
                                         if (message.Type == "lobby-team" && message.Team is 0 or 1)
                                         {
@@ -169,7 +169,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                                         if (message.Type == "lobby-start" && session.Id == room.HostPlayerId)
                                         { room.StartRequested = true; continue; }
                                     }
-                                    if (!room.Started && room.Id != "default") { _ignoredCommands++; continue; }
+                                    if (!room.Started && room.BestOf > 1) { _ignoredCommands++; continue; }
                                     if (!session.Ready || !room.World.ApplyMessage(session.Id, message)) _ignoredCommands++;
                                     else if (message.Type != "input" || message.MoveTo || Math.Abs(message.MoveX) + Math.Abs(message.MoveY) > 0.05f)
                                         session.LastActivityTick = room.World.Tick;
@@ -178,7 +178,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                             }
                             if (readyPlayers == 0 || !room.Started && readyPlayers != room.Sessions.Count)
                             { if (CurrentTick % 3 == 0) dirty.Add(room); continue; }
-                            if (room.Id != "default" && !room.Started)
+                            if (room.BestOf > 1 && !room.Started)
                             {
                                 bool enoughPlayers = room.World.Players.Count >= 2;
                                 bool everyoneReady = room.Sessions.Values.All(s => s.LobbyReady);
@@ -506,7 +506,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
     {
         Type = "snapshot", Snapshot = room.World.Snapshot() with
         {
-            WaitingForPlayers = room.Id != "default" && !room.Started,
+            WaitingForPlayers = room.BestOf > 1 && !room.Started,
             LobbyHostId = room.HostPlayerId,
             LobbyReadyPlayerIds = room.Sessions.Values.Where(s => s.LobbyReady).Select(s => s.Id).ToArray(),
             BestOf = room.BestOf,
