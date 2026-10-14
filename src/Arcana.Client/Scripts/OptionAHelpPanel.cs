@@ -18,7 +18,7 @@ public partial class OptionAHelpPanel : Control
 
     private readonly string[] _topics =
     [
-        "Controles", "Cómo ganar", "Tipos de mago", "Elementos", "Objetos y reliquias", "Combinaciones"
+        "Controles", "Cómo ganar", "Tipos de mago", "Elementos", "Objetos y reliquias", "Combinaciones", "Bonificaciones"
     ];
 
     public void Build(Main main)
@@ -74,6 +74,7 @@ public partial class OptionAHelpPanel : Control
             VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
         contents.AddChild(bodyScroll);
         _bodyScroll = bodyScroll;
+        Ui.VisibleVerticalScroll(bodyScroll);
         _body = new VBoxContainer { Name = "HelpFullWidthBody",
             SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _body.AddThemeConstantOverride("separation", 8);
@@ -108,6 +109,7 @@ public partial class OptionAHelpPanel : Control
             case 3: ElementPage(); break;
             case 4: RelicPage(); break;
             case 5: SpellPage(); break;
+            case 6: EquipmentBonusesPage(); break;
         }
         UpdateResponsiveHelp();
     }
@@ -269,6 +271,36 @@ public partial class OptionAHelpPanel : Control
         _body.AddChild(grid);
         AddAdaptiveGrid(grid, 4, 105);
         foreach (var element in Enum.GetValues<Element>()) grid.AddChild(Ui.ElementTile(element, true));
+    }
+
+    private void EquipmentBonusesPage()
+    {
+        var introduction = Ui.Label(
+            "Las bonificaciones solo se activan si llevas la pieza equipada. En Inventario puedes comprobar cada valor en «Suma» y su porcentaje final en «Aplicado». Algunas reducen el daño recibido sin cambiar los números visibles del escudo.", 18, Ui.Text);
+        introduction.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _body.AddChild(introduction);
+        var example = SmallCard(); _body.AddChild(example);
+        var examples = new VBoxContainer(); example.AddChild(examples);
+        examples.AddChild(Ui.Label("DEFENSA NO ES CAPACIDAD DE ESCUDO", 20, Ui.Gold));
+        Wrapped(examples, EquipmentCatalogue.StatExample(EquipmentStat.Defense));
+        Wrapped(examples, EquipmentCatalogue.StatExample(EquipmentStat.ShieldCapacity));
+        var attributes = new GridContainer { Name = "HelpEquipmentStats", Columns = 3,
+            SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        attributes.AddThemeConstantOverride("h_separation", 12);
+        attributes.AddThemeConstantOverride("v_separation", 12);
+        _body.AddChild(attributes);
+        AddAdaptiveGrid(attributes, 3, Ui.IsMobile ? 310 : 350);
+        foreach (var stat in Enum.GetValues<EquipmentStat>())
+        {
+            var card = SmallCard();
+            attributes.AddChild(card);
+            var contents = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            contents.AddThemeConstantOverride("separation", 8);
+            card.AddChild(contents);
+            contents.AddChild(Ui.Label(EquipmentCatalogue.StatName(stat), 18, Ui.Gold));
+            Wrapped(contents, EquipmentCatalogue.StatDescription(stat));
+        }
+        Wrapped(_body, "Los atributos tienen límites máximos. Los negativos, si los hay, se suman a los positivos. El valor «Aplicado» es el que utiliza el servidor durante la partida.", Ui.Muted);
     }
 
     private static PanelContainer SmallCard()
