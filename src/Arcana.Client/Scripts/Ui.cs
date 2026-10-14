@@ -123,6 +123,26 @@ public static class Ui
         button.Pressed += pressed;
         return button;
     }
+    /// <summary>Barra vertical distinguible, ancha para ratón y tacto, sin desplazar el contenido.</summary>
+    public static void VisibleVerticalScroll(ScrollContainer scroll)
+    {
+        scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
+        scroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
+        var bar = scroll.GetVScrollBar();
+        bar.CustomMinimumSize = new Vector2(IsMobile ? 20 : 16, 0);
+        static StyleBoxFlat Track(Color color)
+        {
+            var box = Panel(color, 7, new Color("345572"));
+            box.ContentMarginLeft = box.ContentMarginRight = 6;
+            box.ContentMarginTop = box.ContentMarginBottom = 6;
+            return box;
+        }
+        bar.AddThemeStyleboxOverride("scroll", Track(new Color("0a1728")));
+        bar.AddThemeStyleboxOverride("grabber", Track(new Color("548fb7")));
+        bar.AddThemeStyleboxOverride("grabber_highlight", Track(new Color("75bee8")));
+        bar.AddThemeStyleboxOverride("grabber_pressed", Track(new Color("c0e7ff")));
+    }
+
     /// <summary>Tamaño táctil coherente para inputs, selectores y botones en Android.</summary>
     public static void TouchTarget(Control control, float mobileHeight = 66)
     {
