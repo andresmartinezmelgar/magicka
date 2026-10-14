@@ -1702,6 +1702,15 @@ if (server != null && args.Contains("--series-lobby-only"))
             "El anfitrión no pudo comenzar la partida.");
         Check(a.Latest!.SeriesWins is { Length: 2 } && a.Latest.SeriesWins[0] == 0 &&
             a.Latest.SeriesWins[1] == 0, "La serie empezó con rondas ganadas.");
+        var activeRooms = await RoomBrowser.ListAsync(server);
+        Check(activeRooms.Rooms.Single(r => r.Id == room.Id).InProgress,
+            "La sala no anuncia que la serie está en curso.");
+        await using var lateJoin = new ArenaConnection();
+        bool refused = false;
+        try { await lateJoin.ConnectAsync(server, "Tardío", -1, secret, roomId: room.Id); }
+        catch (InvalidOperationException e) when (e.Message.Contains("en curso", StringComparison.OrdinalIgnoreCase))
+        { refused = true; }
+        Check(refused, "Se permitió entrar en una serie de cinco ya comenzada.");
     });
     Console.WriteLine($"RESULTADO LOBBY: {passed} correctas, {failed} fallidas.");
     return failed == 0 ? 0 : 1;
