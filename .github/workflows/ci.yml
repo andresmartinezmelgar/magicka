@@ -30,6 +30,8 @@ jobs:
         run: dotnet run --project tests/Arcana.Tests/Arcana.Tests.csproj -c Release --no-build
       - name: Probar servidor LAN real, creación de salas e invitados sin atajos de CI
         run: bash scripts/test-network.sh
+      - name: Probar sala vacía, equipos y comienzo manual de serie PvP
+        run: bash scripts/test-series-lobby.sh
       - name: Validar reglas de verificación de identidad sin conexión externa
         run: dotnet run --project tests/Arcana.Account.Tests/Arcana.Account.Tests.csproj -c Release --no-build -- --verified-claims-only
       - name: Compilar servidor de cuentas heredado
