@@ -186,7 +186,7 @@ public partial class RoomLobby : Control
         if (_mobileListActions != null)
             _mobileListActions.Columns = ResponsiveLayout.Columns(width, 175, 4, 12);
         if (_mobileCreateActions != null)
-            _mobileCreateActions.Columns = ResponsiveLayout.Columns(width, 175, 3, 12);
+            _mobileCreateActions.Columns = ResponsiveLayout.Columns(width, 230, 3, 12);
     }
     internal bool IsBusyForSmoke => _busy;
     internal string StatusForSmoke => _status.Text;
