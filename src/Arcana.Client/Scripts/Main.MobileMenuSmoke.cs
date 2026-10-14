@@ -113,7 +113,7 @@ public partial class Main
             {
                 _smokeScoreHud?.QueueFree();
                 _smokeScoreHud = null;
-                _launcher.Visible = true;
+                _launcher.Modulate = new Color(1, 1, 1, 1);
             }
             if (frame == 20)
             {
@@ -204,7 +204,7 @@ public partial class Main
                 _ => null
             };
             if (scene != null) CaptureVisualReview(scene);
-            if (frame == 10 && _visualReview) _launcher.Visible = false;
+            if (frame == 10 && _visualReview) _launcher.Modulate = new Color(1, 1, 1, 0);
             if (frame == 9)
             {
                 _smokeScoreHud = new Hud();
