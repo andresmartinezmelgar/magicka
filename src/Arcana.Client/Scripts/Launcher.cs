@@ -11,13 +11,15 @@ public partial class Launcher : Control
     private SpinBox _bots = null!, _discoveryPort = null!, _hostPort = null!, _hostDiscovery = null!;
     private Label _status = null!;
     private ItemList _servers = null!;
-    private Button _connect = null!, _refresh = null!, _stopHost = null!, _firewall = null!;
+    private Button _connect = null!, _refresh = null!, _stopHost = null!, _firewall = null!, _officialOnline = null!;
     private Label _hostInfo = null!;
     private RoomLobby? _lobby;
     private readonly LocalServerHost _host = new();
     private TabContainer _tabs = null!;
     private LanServer[] _lan = [];
     private CancellationTokenSource? _search;
+    private CancellationTokenSource? _onlineSearch;
+    private const string FirebaseProjectId = "arcana-arena-f2997";
     private readonly ConfigFile _config = new();
     private bool _busy;
     private VBoxContainer _homeMenu = null!;
@@ -103,6 +105,14 @@ public partial class Launcher : Control
         var lan = TabBox("LAN");
         var lanActions = new HBoxContainer(); lanActions.AddThemeConstantOverride("separation", 10); lan.AddChild(lanActions);
         _refresh = Ui.Button("Buscar servidores", StartSearch); _refresh.SizeFlagsHorizontal = SizeFlags.ExpandFill; lanActions.AddChild(_refresh);
+        // El servidor Windows publica la URL WSS efímera en Firestore. El móvil
+        // la descubre en cada pulsación: nunca hay que copiar la URL de Cloudflare.
+        _officialOnline = Ui.Button("Servidor online con Google · conexión automática", ConnectOfficialOnline, true);
+        _officialOnline.Name = "OnlineFirebaseButton";
+        _officialOnline.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _officialOnline.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _officialOnline.CustomMinimumSize = new(0, Ui.IsMobile ? 60 : 46);
+        lan.AddChild(_officialOnline);
         _discoveryPort = new SpinBox { MinValue = 1024, MaxValue = 65535, Value = Protocol.DiscoveryPort, CustomMinimumSize = new(120, 45) }; lanActions.AddChild(_discoveryPort);
         _servers = new ItemList { CustomMinimumSize = new(0, 126), SelectMode = ItemList.SelectModeEnum.Single }; lan.AddChild(_servers);
         _servers.ItemActivated += _ => Connect();
@@ -272,6 +282,7 @@ public partial class Launcher : Control
         _tabs.SetTabHidden(1, page != 1);
         _tabs.SetTabHidden(2, page != 2);
         _tabs.SetTabHidden(3, Ui.IsMobile || page != 1);
+        if (page != 1) CancelOnlineSearch();
         if (page == 0) _menuBack.Visible = false;
         if (page == 2) _tabs.CurrentTab = 2;
         // Godot puede conservar una pestaña oculta al volver de práctica. En Android,
@@ -308,7 +319,8 @@ public partial class Launcher : Control
     public void SetBusy(bool busy, string message = "")
     {
         if (busy) CancelSearch();
-        _busy = busy; _connect.Disabled = busy; for (int i = 0; i < 4; i++) _tabs.SetTabDisabled(i, busy || Ui.IsMobile && i == 3);
+        _busy = busy; _connect.Disabled = busy; _officialOnline.Disabled = busy;
+        for (int i = 0; i < 4; i++) _tabs.SetTabDisabled(i, busy || Ui.IsMobile && i == 3);
         _name.Editable = _address.Editable = !busy; _team.Disabled = _wizardType.Disabled = busy;
         _hostName.Editable = _hostPort.Editable = _hostDiscovery.Editable = !busy && !_host.Running;
         _password.Editable = !busy && _tabs.CurrentTab != 2 && !(_tabs.CurrentTab == 3 && _host.Running);
@@ -356,9 +368,65 @@ public partial class Launcher : Control
         }
         OpenRooms(address, _password.Text);
     }
+    /// <summary>
+    /// La dirección pública cambia al reiniciar Cloudflare, pero el anuncio
+    /// de Firestore se renueva. Se valida el anuncio y se comprueba que el
+    /// servidor real responde antes de abrir las salas. No se guardan tokens
+    /// Google ni se entregan credenciales a direcciones no verificadas.
+    /// </summary>
+    private async void ConnectOfficialOnline()
+    {
+        if (_busy || _page != 1) return;
+        if (!_main.Accounts.IsDirectFirebaseSession)
+        {
+            ShowError("Inicia sesión con Google en Perfil antes de entrar al servidor online con recompensas.");
+            return;
+        }
+        CancelOnlineSearch();
+        var pending = new CancellationTokenSource();
+        _onlineSearch = pending;
+        SetBusy(true, "Buscando el servidor seguro anunciado en Firebase…");
+        try
+        {
+            string address = await PublicAccountServer.Resolve(FirebaseProjectId, pending.Token);
+            RoomDirectory rooms = await RoomBrowser.ListAsync(address, pending.Token);
+            if (!rooms.Server.RewardsAvailable)
+                throw new InvalidOperationException("El servidor online no tiene las recompensas activadas.");
+            _main.Post(() =>
+            {
+                if (_onlineSearch != pending || pending.IsCancellationRequested || _page != 1) return;
+                _onlineSearch = null;
+                SetBusy(false);
+                _address.Text = address;
+                Remember();
+                OpenRooms(address, "");
+            });
+        }
+        catch (OperationCanceledException) when (pending.IsCancellationRequested) { }
+        catch (Exception error)
+        {
+            Diagnostics.Warn("launcher.online_discovery_failed", "No se pudo encontrar el servidor online.", error);
+            _main.Post(() =>
+            {
+                if (_onlineSearch != pending || pending.IsCancellationRequested || _page != 1) return;
+                _onlineSearch = null;
+                ShowError(error is InvalidOperationException or IOException or InvalidDataException
+                    ? error.Message
+                    : "No se pudo abrir el servidor online. Comprueba Internet y que el anfitrión tenga Firebase y Cloudflare activos.");
+            });
+        }
+        finally { pending.Dispose(); }
+    }
+    private void CancelOnlineSearch()
+    {
+        var pending = _onlineSearch;
+        _onlineSearch = null;
+        pending?.Cancel();
+    }
+
     private void OpenRooms(string address, string password)
     {
-        CancelSearch(); _main.CancelPendingConnection(); CloseRooms();
+        CancelOnlineSearch(); CancelSearch(); _main.CancelPendingConnection(); CloseRooms();
         _lobby = new RoomLobby(); AddChild(_lobby); _lobby.Build(_main, address, password, _name.Text, Ui.SelectedTeam(_team), (WizardType)_wizardType.GetSelectedId());
     }
     public void CloseRooms()
@@ -366,7 +434,7 @@ public partial class Launcher : Control
     public bool HandleBack()
     {
         if (!GodotObject.IsInstanceValid(_lobby)) { if (_page == 0) return false; OpenPage(0); return true; }
-        _main.CancelPendingConnection(); CloseRooms(); SetBusy(false); return true;
+        CancelOnlineSearch(); _main.CancelPendingConnection(); CloseRooms(); SetBusy(false); return true;
     }
     private string _hostPassword = "";
     private async Task Host()
@@ -491,5 +559,5 @@ public partial class Launcher : Control
     }
     private void CancelSearch()
     { var search = _search; _search = null; search?.Cancel(); search?.Dispose(); _refresh.Disabled = false; }
-    public override void _ExitTree() { GetViewport().SizeChanged -= UpdateResponsiveMenu; _search?.Cancel(); _search?.Dispose(); _host.Dispose(); }
+    public override void _ExitTree() { GetViewport().SizeChanged -= UpdateResponsiveMenu; CancelOnlineSearch(); _search?.Cancel(); _search?.Dispose(); _host.Dispose(); }
 }

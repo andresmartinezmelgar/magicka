@@ -110,6 +110,9 @@ public partial class Main
                 var buttons = _launcher.MobilePrimaryButtons;
                 AssertMobileActions("PVP", buttons, 2);
                 AssertOptionAScreen("PVP", _launcher);
+                if (_launcher.FindChild("OnlineFirebaseButton", true, false) is not Button online ||
+                    !online.IsVisibleInTree() || online.Disabled)
+                    throw new InvalidOperationException("PVP: falta el acceso al servidor online por Firebase.");
                 if (!buttons.Any(button => button.Text == "Ver salas del servidor LAN" || button.Text == "Ver salas por IP"))
                     throw new InvalidOperationException("PVP: la acción principal apunta a una pestaña oculta o a Alojar.");
             }
