@@ -231,4 +231,4 @@ public sealed record WorldSnapshot(long Tick, double Time, GameMode Mode, bool M
     int ScoreLimit = 15, int StartingTickets = 75, ArenaMapId Map = ArenaMapId.Classic,
     int HoldingTeam = -1, float HoldSeconds = 0, PickupSnapshot[]? Pickups = null,
     bool WaitingForPlayers = false, int LobbyHostId = 0, int[]? LobbyReadyPlayerIds = null,
-    int BestOf = 1, int[]? SeriesWins = null);
+    int BestOf = 1, int[]? SeriesWins = null, string RewardStatus = "", bool AwaitingRematch = false);
