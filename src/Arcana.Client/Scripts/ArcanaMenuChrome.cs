@@ -19,6 +19,7 @@ public partial class ArcanaMenuChrome : Control
     private PanelContainer? _footer;
     private Label? _sectionLabel, _logoLabel;
     private bool _dynamicSection;
+    private bool _profileScreen;
 
     public const int HeaderHeight = 68;
     public const int FooterHeight = 72;
@@ -69,6 +70,7 @@ public partial class ArcanaMenuChrome : Control
         var line = new VSeparator();
         heading.AddChild(line);
         _dynamicSection = string.Equals(section, "Inicio", StringComparison.OrdinalIgnoreCase);
+        _profileScreen = string.Equals(section, "Mi perfil", StringComparison.OrdinalIgnoreCase);
         _sectionLabel = Ui.Label(section.ToUpperInvariant(), Ui.IsMobile ? 17 : 20, Ui.Text);
         heading.AddChild(_sectionLabel);
         heading.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
@@ -138,7 +140,7 @@ public partial class ArcanaMenuChrome : Control
             float width = Math.Clamp(viewportWidth * (Ui.IsMobile ? 0.31f : 0.28f),
                 Ui.IsMobile ? 150 : 190, Ui.IsMobile ? 260 : 320);
             _player.CustomMinimumSize = new Vector2(width, 44);
-            _player.Visible = true;
+            _player.Visible = !_profileScreen;
         }
     }
 
