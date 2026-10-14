@@ -1711,6 +1711,25 @@ if (server != null && args.Contains("--series-lobby-only"))
         catch (InvalidOperationException e) when (e.Message.Contains("en curso", StringComparison.OrdinalIgnoreCase))
         { refused = true; }
         Check(refused, "Se permitió entrar en una serie de cinco ya comenzada.");
+        // Si el rival abandona, se descarta la serie parcial: el anfitrión
+        // regresa a preparación y un sustituto puede entrar de forma normal.
+        await b.DisposeAsync();
+        await WaitFor(() => a.Latest is { WaitingForPlayers: true } waiting &&
+            waiting.RewardStatus.Contains("canceló", StringComparison.OrdinalIgnoreCase),
+            "El servidor no devolvió a la sala de preparación al desconectarse el rival.");
+        Check(a.Latest!.SeriesWins is [0, 0], "Se conservaron victorias de una serie cancelada.");
+        await using var substitute = new ArenaConnection();
+        await substitute.ConnectAsync(server, "Sustituto", -1, secret, roomId: room.Id);
+        await WaitFor(() => a.Latest!.Players.Length == 2 && substitute.Latest!.Players.Length == 2,
+            "El sustituto no pudo unirse a la sala recuperada.");
+        Check(a.Latest!.WaitingForPlayers, "La nueva serie empezó automáticamente al entrar un sustituto.");
+        a.Send(new() { Type = "lobby-ready" });
+        substitute.Send(new() { Type = "lobby-ready" });
+        await WaitFor(() => a.Latest!.LobbyReadyPlayerIds?.Length == 2,
+            "No se prepararon ambos jugadores tras la desconexión.");
+        a.Send(new() { Type = "lobby-start" });
+        await WaitFor(() => a.Latest is { WaitingForPlayers: false },
+            "El anfitrión no pudo iniciar la serie recuperada.");
     });
     Console.WriteLine($"RESULTADO LOBBY: {passed} correctas, {failed} fallidas.");
     return failed == 0 ? 0 : 1;
