@@ -62,6 +62,63 @@ jobs:
       - name: Validar integración de cuentas, sala PvP y recompensas (obligatorio)
         run: tests/firebase-rules/node_modules/.bin/firebase emulators:exec --only firestore --project demo-arcana-arena --config firebase.json -- 'dotnet run --project tests/Arcana.Account.Tests/Arcana.Account.Tests.csproj -c Release --no-build'
 
+  visual-audit:
+    name: Simulaciones visuales reales con Xvfb
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Preparar Godot .NET y recursos gráficos
+        run: |
+          set -euo pipefail
+          curl --retry 4 --retry-delay 2 -fL https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_mono_linux_x86_64.zip -o "$RUNNER_TEMP/godot-visual.zip"
+          unzip -q "$RUNNER_TEMP/godot-visual.zip" -d "$RUNNER_TEMP/godot-visual"
+          GODOT="$RUNNER_TEMP/godot-visual/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64"
+          chmod +x "$GODOT"
+          echo "ARCANA_GODOT=$GODOT" >> "$GITHUB_ENV"
+          dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
+          "$GODOT" --headless --editor --path src/Arcana.Client --import
+      - name: Renderizar 30 capturas y validar los límites de pantalla
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          for viewport in 1440x900 1024x640 720x540; do
+            target="$PWD/artifacts/visual-review/$viewport"
+            mkdir -p "$target"
+            xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --path src/Arcana.Client --               --mobile-menu-smoke "--smoke-viewport=$viewport" --visual-review "--visual-directory=$target"               2>&1 | tee "$RUNNER_TEMP/visual-$viewport.log"
+            grep -q 'MOBILE_MENU_LAYOUT_OK' "$RUNNER_TEMP/visual-$viewport.log"
+            grep -q 'MOBILE_SERIES_REWARD_LAYOUT_OK' "$RUNNER_TEMP/visual-$viewport.log"
+            grep -q 'VISUAL_CAPTURE_OK:02-victoria-3-de-5' "$RUNNER_TEMP/visual-$viewport.log"
+            ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED|LAYOUT_FAILED' "$RUNNER_TEMP/visual-$viewport.log"
+          done
+          python3 - <<'PY'
+          import glob, struct, pathlib, hashlib
+          files = sorted(glob.glob('artifacts/visual-review/*/*.png'))
+          if len(files) != 30:
+              raise SystemExit(f'Faltan capturas: {len(files)}/30')
+          for name in files:
+              raw = pathlib.Path(name).read_bytes()
+              if len(raw) < 12000 or raw[:8] != b'\x89PNG\r\n\x1a\n':
+                  raise SystemExit(f'PNG vacío o inválido: {name}: {len(raw)} bytes')
+              w, h = struct.unpack('>II', raw[16:24])
+              if (w, h) not in ((1440, 900), (1024, 640), (720, 540)):
+                  raise SystemExit(f'Tamaño inesperado {w}x{h}: {name}')
+          unique = len({hashlib.sha256(pathlib.Path(p).read_bytes()).digest() for p in files})
+          if unique < 24: raise SystemExit(f'Escenas indistinguibles: {unique}/30')
+          print(f'VISUAL_QA_OK: 30 PNG válidos, {unique} fotogramas distintos, 3 resoluciones.')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ArcanaArena-Capturas-QA
+          path: artifacts/visual-review/
+          if-no-files-found: warn
+          retention-days: 14
+
   package-windows:
     name: Generar distribucion Windows
     runs-on: windows-latest
