@@ -10,6 +10,7 @@ public partial class EquipmentPanel : Control
     private LineEdit _address = null!;
     private bool _automaticServer;
     private Label _profile = null!, _detailTitle = null!, _empty = null!, _sets = null!, _status = null!;
+    private Label _combatPreview = null!;
     private GridContainer _details = null!, _totals = null!;
     private GridContainer? _selectorsGrid;
     private ScrollContainer? _setsScroll;
@@ -103,6 +104,9 @@ public partial class EquipmentPanel : Control
         _details = new GridContainer { Columns = 3 }; _details.AddThemeConstantOverride("h_separation", 14);
         _details.AddThemeConstantOverride("v_separation", 3); inventory.AddChild(_details);
         _empty = Ui.Label("", 16, Ui.Muted); _empty.AutowrapMode = TextServer.AutowrapMode.WordSmart; inventory.AddChild(_empty);
+        _combatPreview = Ui.Label("", Ui.IsMobile ? 16 : 17, Ui.Gold);
+        _combatPreview.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        inventory.AddChild(_combatPreview);
         _sell = Action(inventory, "Eliminar pieza por oro", ConfirmSale);
         var totalsScroll = new ScrollContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
@@ -265,6 +269,13 @@ public partial class EquipmentPanel : Control
             }
         }
         var m = breakdown.Modifiers;
+        _combatPreview.Text = account == null
+            ? "Los porcentajes reales aparecen aquí cuando equipas un objeto."
+            : "PRUEBA DE EFECTO DEL EQUIPO EQUIPADO: daño recibido por un ataque de 100: " +
+              (100 * m.Incoming).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) +
+              " (sin Defensa serían 100). Escudo básico al crearlo: " +
+              (420 * m.ShieldCapacity).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) +
+              " puntos (sin Absorción serían 420). La Defensa reduce daño, no aumenta los puntos que muestra el escudo.";
         var activeSets = EquipmentCatalogue.FocusedFamilies.Where(f => m.Pieces(f) > 0).ToArray();
         _sets.Text = "Míticos · " + (activeSets.Length == 0 ? "sin piezas" : string.Join(" · ", activeSets.Select(f => EquipmentCatalogue.FamilyName(f) + " " + m.Pieces(f) + "/4")));
         _sets.TooltipText = "Solo cuentan las piezas Míticas de la misma familia. Con 3 piezas sigue activo el bonus de 2. El bonus de 4 sustituye al de 2.\n"
