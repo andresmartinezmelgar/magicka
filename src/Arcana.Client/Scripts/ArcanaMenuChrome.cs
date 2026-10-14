@@ -124,7 +124,7 @@ public partial class ArcanaMenuChrome : Control
         // El ancho del texto más los márgenes y el scrollbar requieren holgura:
         // seis botones de 110 px excedían 720 px pese al cálculo de columnas.
         int columns = ResponsiveLayout.Columns(Math.Max(1, viewportWidth - (Ui.IsMobile ? 44 : 60)),
-            Ui.IsMobile ? 132 : 122, _navigation.Count, Ui.IsMobile ? 7 : 12);
+            Ui.IsMobile ? 180 : 140, _navigation.Count, Ui.IsMobile ? 7 : 12);
         _navigationGrid.Columns = columns;
         int rows = ResponsiveLayout.Rows(_navigation.Count, columns);
         int height = Math.Max(FooterHeight, rows * (Ui.IsMobile ? 58 : 48) + (rows - 1) * 7 + 14);
