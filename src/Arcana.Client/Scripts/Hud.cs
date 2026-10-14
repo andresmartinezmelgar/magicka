@@ -44,6 +44,8 @@ public partial class Hud : Control
     private readonly bool?[] _magickReady = new bool?[4];
     public bool ScoreOpen { get; set; }
     internal Rect2 ScoreboardRectForSmoke => _scorePanel.GetGlobalRect();
+    internal string RoundAnnouncementForSmoke => _banner.Text;
+    internal bool RoundAnnouncementVisibleForSmoke => _banner.IsVisibleInTree() && _bannerBackdrop.IsVisibleInTree();
     public event Action? EquipmentRequested;
     public bool PointerOverPanel => _scorePanel.Visible && _scorePanel.GetGlobalRect().HasPoint(GetGlobalMousePosition());
     public void RewardNotice(string message) { _reward.Text = message; _rewardSeconds = 12; _reward.Visible = true; _rewardBackdrop.Visible = true; }
@@ -177,6 +179,9 @@ public partial class Hud : Control
         _scorePanel = new PanelContainer { Name = "ScorePanel", Visible = false,
             CustomMinimumSize = new(700, 200), MouseFilter = MouseFilterEnum.Stop };
         _scoreCenter.AddChild(_scorePanel);
+        // El aviso de fin de ronda siempre debe quedar por encima del marcador,
+        // incluso cuando un jugador mantenía abierta la clasificación con TAB.
+        MoveChild(_noticeCenter, GetChildCount() - 1);
         var scoreBox = new VBoxContainer { Name = "ScoreContent" }; scoreBox.AddThemeConstantOverride("separation", 10); _scorePanel.AddChild(scoreBox);
         _seriesStatus = Ui.Label("", 18, Ui.Gold);
         _seriesStatus.HorizontalAlignment = HorizontalAlignment.Center;
@@ -366,26 +371,15 @@ public partial class Hud : Control
             _blueScore.Text = $"AZUL  {(hold || conquest ? snapshot.Points.Count(p => p.Owner == 0) + "/" + snapshot.Points.Length : snapshot.Scores[0].ToString())}";
             _redScore.Text = $"{(hold || conquest ? snapshot.Points.Count(p => p.Owner == 1) + "/" + snapshot.Points.Length : snapshot.Scores[1].ToString())}  ROJO";
         }
-        _banner.Text = !player.Alive ? "HAS CAÍDO\nReapareces en " +
-            (snapshot.Map == ArenaMapId.Ascension ? $"{player.Respawn:0.0}" : $"{Math.Ceiling(player.Respawn):0}") + " s" : "";
-        if (snapshot.MatchEnded)
-        {
-            string winner = snapshot.Mode == GameMode.Arena ? snapshot.Players.FirstOrDefault(p => p.Id == snapshot.Winner)?.Name ?? "Mago" : snapshot.Winner == 0 ? "Equipo azul" : "Equipo rojo";
-            string summary = snapshot.BestOf > 1 && snapshot.SeriesWins is { Length: >= 2 } wins
-                ? $"\nSerie al mejor de {snapshot.BestOf}: {wins[0]}–{wins[1]}" : "";
-            bool seriesCompleted = snapshot.BestOf > 1 && snapshot.SeriesWins is { Length: >= 2 } score &&
-                (score[0] >= MatchSeries.WinsNeeded(snapshot.BestOf) || score[1] >= MatchSeries.WinsNeeded(snapshot.BestOf));
-            if (seriesCompleted)
-            {
-                int champion = snapshot.SeriesWins![0] >= MatchSeries.WinsNeeded(snapshot.BestOf) ? 0 : 1;
-                _banner.Text = (player.Team == champion ? "HAS GANADO LA SERIE" : "HAS PERDIDO LA SERIE") +
-                    $"\n{winner} vence {snapshot.SeriesWins[0]}–{snapshot.SeriesWins[1]}" +
-                    $"\nPreparación de la siguiente serie en {Math.Ceiling(snapshot.RestartIn)} s";
-            }
-            else
-                _banner.Text = winner + $" vence{summary}\nSiguiente ronda en {Math.Ceiling(snapshot.RestartIn)} s";
-        }
+        // Todos los clientes ven exactamente el mismo resultado y la misma
+        // cuenta atrás, pero el titular se expresa desde su propio equipo.
+        _banner.Text = snapshot.MatchEnded
+            ? RoundPresentation.Message(snapshot, id)
+            : !player.Alive ? "HAS CAÍDO\nReapareces en " +
+                (snapshot.Map == ArenaMapId.Ascension ? $"{player.Respawn:0.0}" : $"{Math.Ceiling(player.Respawn):0}") + " s" : "";
         _bannerBackdrop.Visible = _banner.Text.Length > 0;
+        _banner.AddThemeColorOverride("font_color", snapshot.MatchEnded
+            ? RoundPresentation.IsWinner(snapshot, id) ? Ui.Gold : Ui.Red : Ui.Gold);
         if (snapshot.RewardStatus != _lastRewardStatus)
         {
             _lastRewardStatus = snapshot.RewardStatus;
