@@ -41,6 +41,8 @@ public partial class EquipmentPanel
         items.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
         totals.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
         totals.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
+        Ui.VisibleVerticalScroll(items);
+        Ui.VisibleVerticalScroll(totals);
         items.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         totals.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         columns.AddThemeConstantOverride("separation", 0);
