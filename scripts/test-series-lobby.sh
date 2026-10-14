@@ -18,3 +18,5 @@ for i in {1..75}; do
 done
 if [ "$ready" != true ]; then cat "$RUNNER_TEMP/series-server.log"; exit 1; fi
 dotnet tests/Arcana.Tests/bin/Release/net8.0/Arcana.Tests.dll --server="127.0.0.1:$GAME_PORT" --series-lobby-only
+
+python3 scripts/test-lan-room-lifecycle.py
