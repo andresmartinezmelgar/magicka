@@ -155,8 +155,23 @@ public partial class Main : Node
         if (previous != null) _ = previous.DisposeAsync();
         try
         {
+            string accountToken = Accounts.TokenFor(address);
+            // Una cuenta directa de Firebase solo puede entregar su ID token a
+            // una dirección pública anunciada por el propio proyecto Firestore.
+            // Un servidor WSS arbitrario no debe recibir credenciales de Google.
+            if (accountToken.Length == 0 && Accounts.IsDirectFirebaseSession)
+            {
+                Uri endpoint = ArenaConnection.Address(address);
+                if (endpoint.Scheme == "wss")
+                {
+                    string verified = await PublicAccountServer.Resolve("arcana-arena-f2997", _lifetime.Token).ConfigureAwait(false);
+                    accountToken = Accounts.TokenForVerifiedServer(address, verified);
+                    if (accountToken.Length == 0)
+                        throw new InvalidOperationException("Este servidor no coincide con el servidor oficial anunciado en Firebase.");
+                }
+            }
             await connection.ConnectAsync(address, name, team, password, _lifetime.Token, roomId: roomId, roomPassword: roomPassword,
-                wizardType: wizardType, deferReady: true, accountToken: Accounts.TokenFor(address)).ConfigureAwait(false);
+                wizardType: wizardType, deferReady: true, accountToken: accountToken).ConfigureAwait(false);
             if (!Post(() =>
             {
                 lock (_connectionGate)
