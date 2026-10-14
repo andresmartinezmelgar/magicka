@@ -32,6 +32,7 @@ public partial class Main : Node
     private Label _currentObjective = null!;
     private SpellBook _spellBook = null!;
     private Hud? _hud;
+    private RoomWaitingPanel? _waitingPanel;
     private ArenaConnection? _connection;
     private GameWorld? _practice;
     private PracticeSession? _practiceSession;
@@ -253,6 +254,15 @@ public partial class Main : Node
         if (!prepared) PrepareGameControls(snapshot);
         _ui.MoveChild(_networkPanel, -1);
         _ui.MoveChild(_help, -1); _ui.MoveChild(_pause, -1);
+        if (_connection != null)
+        {
+            _waitingPanel?.QueueFree();
+            _waitingPanel = new RoomWaitingPanel();
+            _ui.AddChild(_waitingPanel);
+            _waitingPanel.Build(Submit);
+            _waitingPanel.Update(snapshot, _localId, _connection.Server?.RewardsAvailable == true);
+            _ui.MoveChild(_waitingPanel, -1);
+        }
     }
     public void ReturnToLauncher(string error = "")
     {
@@ -264,7 +274,9 @@ public partial class Main : Node
         _practicePanel?.QueueFree(); _practicePanel = null;
         var old = _connection; _connection = null;
         if (old != null) _ = old.DisposeAsync();
-        _hud?.QueueFree(); _hud = null; _pause.Visible = false; _help.Visible = false;
+        _hud?.QueueFree(); _hud = null;
+        _waitingPanel?.QueueFree(); _waitingPanel = null;
+        _pause.Visible = false; _help.Visible = false;
         _networkPanel.Visible = false; _statsConnection = null; _networkStatsTime = 0;
         _touch?.Reset(); _touch?.QueueFree(); _touch = null;
         _renderer.Clear(); _launcher.Visible = true; _launcher.SetBusy(false);
@@ -323,7 +335,7 @@ public partial class Main : Node
                 UpdateMouseMovement(!practiceUi && Input.IsMouseButtonPressed(MouseButton.Left), Input.IsPhysicalKeyPressed(Key.Shift));
             }
             if (latest.Tick != _lastTick) { _lastTick = latest.Tick; _snapshotAge = 0; } else _snapshotAge += delta;
-            if (_connection != null && _snapshotAge > 8)
+            if (_connection != null && _snapshotAge > 8 && !latest.WaitingForPlayers)
             {
                 Diagnostics.Warn("client.stale_snapshot", "El servidor dejó de enviar el estado.", context: Context());
                 ReturnToLauncher("El servidor ha dejado de enviar el estado de la partida. Puedes exportar el diagnóstico desde el launcher."); return;
@@ -332,6 +344,7 @@ public partial class Main : Node
             if (_practiceSession != null) _renderer.PracticeCasterDescription = _practiceSession.CasterDescription;
             _renderer.Render(latest, _localId, _verification?.FixedRenderStep == true ? 1 / 60.0 : delta, true);
             _hud?.Update(latest, _localId, _serverName, delta);
+            _waitingPanel?.Update(latest, _localId, _connection?.Server?.RewardsAvailable == true);
             if (_practicePanel != null)
             { _practicePanel.Visible = !_paused && !_help.Visible; _practicePanel.Update(_aim); }
             _touch?.Update(latest.Players.FirstOrDefault(p => p.Id == _localId));
@@ -479,7 +492,8 @@ public partial class Main : Node
                 return;
             }
         }
-        if (!_playing || _paused || _help.Visible || InspectingEquipment) return;
+        if (!_playing || _paused || _help.Visible || InspectingEquipment ||
+            _waitingPanel?.Visible == true) return;
         if (input is InputEventKey { Pressed: true, Echo: false } press)
         {
             Element? element = press.PhysicalKeycode switch
