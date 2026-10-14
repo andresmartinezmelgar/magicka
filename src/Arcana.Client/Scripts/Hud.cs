@@ -118,10 +118,10 @@ public partial class Hud : Control
         _mapPanel = mapPanel;
         mapPanel.AddThemeStyleboxOverride("panel", Ui.Panel(new Color(0.025f, 0.05f, 0.08f, 0.90f), 10));
         _map = new MiniMap { CustomMinimumSize = new(165, 119), MouseFilter = MouseFilterEnum.Ignore }; mapPanel.AddChild(_map);
-        _banner = Ui.Label("", 32, Ui.Gold); _banner.HorizontalAlignment = HorizontalAlignment.Center;
+        _banner = Ui.Label("", 32, Ui.Gold); _banner.Name = "MatchBanner"; _banner.HorizontalAlignment = HorizontalAlignment.Center;
         _banner.SetAnchorsAndOffsetsPreset(LayoutPreset.Center); _banner.Position = new(-400, -72); _banner.Size = new(800, 144);
         _banner.AutowrapMode = TextServer.AutowrapMode.WordSmart; AddChild(_banner);
-        _reward = Ui.Label("", 18, Ui.Gold); _reward.HorizontalAlignment = HorizontalAlignment.Center;
+        _reward = Ui.Label("", 18, Ui.Gold); _reward.Name = "MatchRewardNotice"; _reward.HorizontalAlignment = HorizontalAlignment.Center;
         _reward.SetAnchorsAndOffsetsPreset(LayoutPreset.Center); _reward.Position = new(-400, 85); _reward.Size = new(800, 60);
         _reward.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _reward.Visible = false; AddChild(_reward);
