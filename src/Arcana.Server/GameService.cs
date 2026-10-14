@@ -21,13 +21,15 @@ internal sealed class GameRoom(string id, string name, string password, WorldOpt
     public string MatchId { get; set; } = Guid.NewGuid().ToString("N");
     public bool ResultQueued { get; set; }
     public bool SeriesFinished { get; set; }
+    public bool AwaitingRematch { get; set; }
+    public string RewardStatus { get; set; } = "";
     public int[] SeriesWins { get; } = new int[2];
     public int BestOf { get; set; } = 1;
     public int HostPlayerId { get; set; }
     public bool StartRequested { get; set; }
     public Dictionary<string, MatchParticipant> Participants { get; } = new(StringComparer.Ordinal);
     public RoomInfo Info() => new(Id, Name, Options.Mode, World.Players.Count, Options.MaxPlayers,
-        Options.Bots, Options.FriendlyFire, Options.ScoreLimit, Options.Tickets, Password.Length > 0, Options.Map, BestOf);
+        Options.Bots, Options.FriendlyFire, Options.ScoreLimit, Options.Tickets, Password.Length > 0, Options.Map, BestOf, Started);
 }
 internal sealed class PlayerSession(int id, GameRoom room, WebSocket socket)
 {
@@ -94,7 +96,14 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
         lock (_gate)
         {
             RemoveIdleRooms();
-            if (_rooms.Count >= MaxRooms) return (null, "El servidor ha alcanzado su límite de 16 salas.", 409);
+            if (_rooms.Count >= MaxRooms)
+            {
+                var abandoned = _rooms.Values.Where(r => r.Id != "default" && r.Sessions.Count == 0)
+                    .OrderBy(r => r.LastOccupied).FirstOrDefault();
+                if (abandoned == null) return (null, "Todas las salas están ocupadas. Espera a que se libere alguna.", 409);
+                _rooms.Remove(abandoned.Id);
+                logger.LogInformation("Sala vacía sustituida: {RoomId}", abandoned.Id);
+            }
             var options = new WorldOptions { Mode = request.Mode, Map = request.Map, MaxPlayers = request.MaxPlayers, Bots = request.Bots,
                 FriendlyFire = request.FriendlyFire, ScoreLimit = request.ScoreLimit, Tickets = request.Tickets };
             var room = new GameRoom(Guid.NewGuid().ToString("N"), request.Name.Trim(), request.Password, options);
@@ -107,7 +116,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
     private void RemoveIdleRooms()
     {
         foreach (var room in _rooms.Values.Where(r => r.Id != "default" && r.Sessions.Count == 0 &&
-            Environment.TickCount64 - r.LastOccupied > 15 * 60 * 1000).ToArray())
+            Environment.TickCount64 - r.LastOccupied > 2 * 60 * 1000).ToArray())
         {
             _rooms.Remove(room.Id);
             Diagnostics.Info("room.expired", "Sala vacía retirada.", new Dictionary<string, object?> { ["room"] = room.Id });
@@ -188,6 +197,11 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                                     room.World.Players.Values.Any(p => p.Team == 1);
                                 if (!room.StartRequested || !enoughPlayers || !everyoneReady || !teamsReady)
                                 { if (CurrentTick % 3 == 0) dirty.Add(room); continue; }
+                            }
+                            if (!room.Started && room.AwaitingRematch)
+                            {
+                                room.AwaitingRematch = false;
+                                room.RewardStatus = "";
                             }
                             room.Started = true;
                             // Entrar en una partida iniciada no la pausa: el nuevo jugador
@@ -310,6 +324,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                 if (identity != null && _sessions.Values.Any(s => s.Account?.Uid == identity.Uid)) error = "Tu cuenta ya está jugando en este servidor.";
                 else if (hello.RoomId == null || !_rooms.TryGetValue(hello.RoomId, out var room)) error = "La sala ya no existe. Actualiza la lista.";
                 else if (!PasswordMatches(hello.RoomPassword, room.Password)) error = "Contraseña de la sala incorrecta.";
+                else if (room.BestOf > 1 && room.Started) error = "La serie está en curso. Espera al siguiente encuentro o crea otra sala.";
                 else
                 {
                     var player = room.World.AddPlayer(hello.Name, hello.Team, wizardType: hello.WizardType);
@@ -418,6 +433,10 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                 room.SeriesFinished = false;
                 room.MatchId = Guid.NewGuid().ToString("N");
                 room.Participants.Clear();
+                room.Started = false;
+                room.StartRequested = false;
+                room.AwaitingRematch = true;
+                foreach (var participant in room.Sessions.Values) participant.LobbyReady = false;
             }
             foreach (var session in room.Sessions.Values)
                 room.World.EquipPlayer(session.Id, session.Equipment);
@@ -464,13 +483,22 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
         int humans = room.World.Players.Values.Count(p => !p.Bot);
         // Premios solo al terminar toda la serie; ambos equipos humanos, mismo número,
         // sin bots, y cada participante autenticado con al menos 15 s de actividad.
-        if (accounts.GameEnabled && humans == participants.Length &&
-            room.World.Players.Values.All(p => !p.Bot) &&
-            BalancedMatchRules.RewardsEnabled(
-                room.World.Players.Values.Count(p => !p.Bot && p.Team == 0),
-                room.World.Players.Values.Count(p => !p.Bot && p.Team == 1), 0, 0))
-            rewards.Enqueue(new(room.MatchId, settings.InstanceId, room.Options.Mode,
-                room.Options.Map, DateTimeOffset.UtcNow, participants));
+        var match = new RewardMatch(room.MatchId, settings.InstanceId, room.Options.Mode,
+            room.Options.Map, DateTimeOffset.UtcNow, participants);
+        bool balanced = BalancedMatchRules.RewardsEnabled(
+            room.World.Players.Values.Count(p => !p.Bot && p.Team == 0),
+            room.World.Players.Values.Count(p => !p.Bot && p.Team == 1), 0, 0);
+        if (!accounts.GameEnabled)
+            room.RewardStatus = "Sin recompensa: el servidor no tiene Firebase habilitado.";
+        else if (humans != participants.Length || room.World.Players.Values.Any(p => p.Bot) || !balanced)
+            room.RewardStatus = "Sin recompensa: se requieren equipos humanos equilibrados, sin bots y con Google.";
+        else if (RewardRules.Eligible(match).Length != participants.Length)
+            room.RewardStatus = "Sin recompensa: todos deben acreditar al menos 15 s de actividad.";
+        else
+        {
+            room.RewardStatus = "Recompensa pendiente de confirmar en Firebase.";
+            rewards.Enqueue(match);
+        }
         _ = RefreshEquipment(room.Sessions.Values.ToArray());
     }
     private async Task RefreshEquipment(PlayerSession[] sessions)
@@ -493,6 +521,9 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
         var eligible = RewardRules.Eligible(match);
         lock (_gate)
         {
+            foreach (var room in _rooms.Values)
+                if (room.MatchId == match.Id)
+                    room.RewardStatus = "Resultado y recompensa guardados en Firebase. Consulta el inventario.";
             foreach (var session in _sessions.Values)
             {
                 var participant = eligible.FirstOrDefault(p => p.Uid == session.Account?.Uid);
@@ -510,7 +541,9 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             LobbyHostId = room.HostPlayerId,
             LobbyReadyPlayerIds = room.Sessions.Values.Where(s => s.LobbyReady).Select(s => s.Id).ToArray(),
             BestOf = room.BestOf,
-            SeriesWins = room.SeriesWins.ToArray()
+            SeriesWins = room.SeriesWins.ToArray(),
+            RewardStatus = room.RewardStatus,
+            AwaitingRematch = room.AwaitingRematch
         },
         PreparingPlayers = room.Started ? 0 : room.Sessions.Values.Count(s => !s.Ready),
         ReadyPlayerIds = room.Sessions.Values.Where(s => s.Ready).Select(s => s.Id).ToArray()
