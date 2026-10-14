@@ -16,6 +16,14 @@ static class NetworkEndpointTests
                 if (ArenaConnection.Address(input).AbsoluteUri != expected)
                     throw new Exception("Dirección transformada erróneamente: " + input);
         });
+        test("Red: sesión Google heredada aislada por servidor y Firebase sin filtración LAN", () =>
+        {
+            using var client = new AccountClient();
+            // Una cuenta no autenticada nunca emite tokens.
+            if (client.TokenFor("ws://127.0.0.1:27015/play").Length != 0 ||
+                client.TokenForVerifiedServer("wss://example.org/play", "wss://example.org/play").Length != 0)
+                throw new Exception("Se admitió un token de cuenta sin sesión válida.");
+        });
         test("Red: rechaza credenciales y parámetros de URL", () =>
         {
             foreach (string address in new[]

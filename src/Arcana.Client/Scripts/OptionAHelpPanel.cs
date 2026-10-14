@@ -8,6 +8,7 @@ public partial class OptionAHelpPanel : Control
 {
     private Main _main = null!;
     private VBoxContainer _body = null!;
+    private ScrollContainer _bodyScroll = null!;
     private Label _topic = null!;
     private readonly List<Button> _topicButtons = [];
     private GridContainer? _topicNavigation;
@@ -72,6 +73,7 @@ public partial class OptionAHelpPanel : Control
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
             VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
         contents.AddChild(bodyScroll);
+        _bodyScroll = bodyScroll;
         _body = new VBoxContainer { Name = "HelpFullWidthBody",
             SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _body.AddThemeConstantOverride("separation", 8);
@@ -89,6 +91,7 @@ public partial class OptionAHelpPanel : Control
 
     private void Select(int page)
     {
+        if (_bodyScroll != null) _bodyScroll.ScrollVertical = 0;
         _page = page;
         _adaptiveGrids.Clear();
         _topic.Text = _topics[page].ToUpperInvariant();

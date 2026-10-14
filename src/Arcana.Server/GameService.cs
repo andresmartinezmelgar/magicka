@@ -268,9 +268,11 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             AccountIdentity? identity = null; PreparedEquipment equipment = new(EquipmentModifiers.None, PublicEquipment.Empty);
             bool testGuest = Environment.GetEnvironmentVariable("ARCANA_CI_LOOPBACK_GUESTS") == "1" &&
                 System.Net.IPAddress.IsLoopback(context.Connection.RemoteIpAddress ?? System.Net.IPAddress.None);
-            if (hello.AccountToken.Length == 0 && !testGuest)
+            // Los servidores locales sin cuentas admiten invitados (sin recompensas
+            // ni inventario persistente). Los servidores con Firebase requieren Google.
+            if (hello.AccountToken.Length == 0 && accounts.GameEnabled && !testGuest)
             { await RejectLogged("Debes iniciar sesión con Google para jugar online.", handshake.Token); return; }
-            if (hello.AccountToken.Length > 0)
+            if (hello.AccountToken.Length > 0 && accounts.GameEnabled)
             {
                 handshake.CancelAfter(TimeSpan.FromSeconds(20));
                 Diagnostics.Log.ProtectSecret(hello.AccountToken);
@@ -400,7 +402,10 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
             var participants = room.Participants.Values.Select(p => p with
             { Winner = room.Options.Mode == GameMode.Arena ? p.PlayerId == room.World.Winner : p.Team == room.World.Winner }).ToArray();
             // La elegibilidad se decide en el servidor, nunca a partir de un dato del cliente.
-            if (room.RewardsAllowed && room.World.Players.Values.All(p => !p.Bot) &&
+            // La sala puede empezar con un solo jugador y completarse después.
+            // La elegibilidad final se decide por humanos equilibrados y >=15 s
+            // de actividad verificada; no conservar el valor del primer instante.
+            if (room.World.Players.Values.All(p => !p.Bot) &&
                 BalancedMatchRules.RewardsEnabled(
                     room.World.Players.Values.Count(p => !p.Bot && p.Team == 0),
                     room.World.Players.Values.Count(p => !p.Bot && p.Team == 1), 0, 0))

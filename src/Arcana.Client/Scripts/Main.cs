@@ -512,6 +512,8 @@ public partial class Main : Node
     }
     private void StopInput() { _moveTo = false; _touch?.Reset(); Submit(new() { Type = "release" }); Submit(InputMessage()); }
 
+    private PanelContainer? _responsiveHelpModal;
+    private ScrollContainer? _responsiveHelpScroll;
     private Control Modal(out VBoxContainer content)
     {
         var root = new Control { Theme = Ui.Theme() }; Ui.Full(root);
@@ -520,6 +522,9 @@ public partial class Main : Node
         float available = GetViewport().GetVisibleRect().Size.X;
         var panel = new PanelContainer { CustomMinimumSize = new(Math.Max(280, Math.Min(750, available - 50)), 0) };
         center.AddChild(panel);
+        // Solo el modal de ayuda se actualiza tras construirlo.
+        _responsiveHelpModal = panel;
+        _responsiveHelpScroll = null;
         content = new VBoxContainer(); content.AddThemeConstantOverride("separation", 16);
         if (Ui.IsMobile)
         {
@@ -528,6 +533,7 @@ public partial class Main : Node
                     Math.Max(240, GetViewport().GetVisibleRect().Size.Y - 64)),
                 HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
                 VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
+            _responsiveHelpScroll = scroll;
             panel.AddChild(scroll); content.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill; scroll.AddChild(content);
         }
         else panel.AddChild(content);
@@ -631,9 +637,14 @@ public partial class Main : Node
     {
         float width = GetViewport().GetVisibleRect().Size.X;
         float height = GetViewport().GetVisibleRect().Size.Y;
+        if (_responsiveHelpModal != null)
+            _responsiveHelpModal.CustomMinimumSize = new Vector2(Math.Max(230, Math.Min(750, width - 32)), 0);
+        if (_responsiveHelpScroll != null)
+            _responsiveHelpScroll.CustomMinimumSize = new Vector2(
+                Math.Max(220, Math.Min(720, width - 52)), Math.Max(170, height - 84));
         _helpPages.CustomMinimumSize = new Vector2(
-            Math.Max(260, Math.Min(960, width - (Ui.IsMobile ? 80 : 120))),
-            Math.Max(260, Math.Min(510, height - 175)));
+            Math.Max(220, Math.Min(Ui.IsMobile ? 680 : 690, width - (Ui.IsMobile ? 84 : 100))),
+            Math.Max(190, Math.Min(510, height - 180)));
         if (_inGameHelpControls != null)
             _inGameHelpControls.Columns = ResponsiveLayout.Columns(
                 Math.Max(250, width - (Ui.IsMobile ? 105 : 140)), 325, 2, 20);

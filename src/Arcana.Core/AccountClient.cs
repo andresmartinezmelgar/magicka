@@ -18,7 +18,40 @@ public sealed class AccountClient : IDisposable
     public DateTimeOffset ExpiresAt { get; private set; }
     public AccountProfile? Profile { get; private set; }
     public bool SignedIn => Token.Length > 0 && ExpiresAt > DateTimeOffset.UtcNow;
-    public string TokenFor(string address) => SignedIn ? Token : "";
+    // Solo se entrega a la misma autoridad que creó la sesión heredada, o al
+    // servidor local de confianza. No se envían ID tokens Firebase por ws:// LAN.
+    public string TokenFor(string address)
+    {
+        if (!SignedIn) return "";
+        Uri target;
+        try { target = ArenaConnection.Address(address); }
+        catch (ArgumentException) { return ""; }
+        if (IsDirectFirebaseSession)
+            return target.IsLoopback ? Token : "";
+        if (ServerAddress.Length == 0) return "";
+        try
+        {
+            var origin = ArenaConnection.Address(ServerAddress);
+            return origin.IdnHost.Equals(target.IdnHost, StringComparison.OrdinalIgnoreCase) &&
+                origin.Port == target.Port && origin.Scheme == target.Scheme ? Token : "";
+        }
+        catch (ArgumentException) { return ""; }
+    }
+
+    // Para servidores públicos directos, la URL debe haberse verificado contra
+    // el anuncio firmado por reglas de Firestore antes de entregar el ID token.
+    public string TokenForVerifiedServer(string address, string verifiedAddress)
+    {
+        if (!IsDirectFirebaseSession) return TokenFor(address);
+        try
+        {
+            var target = ArenaConnection.Address(address);
+            var verified = ArenaConnection.Address(verifiedAddress);
+            return target.Scheme == "wss" &&
+                target.AbsoluteUri.Equals(verified.AbsoluteUri, StringComparison.OrdinalIgnoreCase) ? Token : "";
+        }
+        catch (ArgumentException) { return ""; }
+    }
     private FirebaseProfileReader? _firebaseReader;
     private long _identityGeneration;
     private string _firebaseUid = "";
@@ -123,7 +156,10 @@ public sealed class AccountClient : IDisposable
         if (!SignedIn) throw new InvalidOperationException("Inicia sesión con Google para gestionar tu inventario.");
         if (ServerAddress.Length == 0)
             throw new InvalidOperationException("Esta acción requiere un servidor de cuentas disponible para verificarla; tu sesión Google sigue conectada.");
-        using var request = new HttpRequestMessage(method, RoomBrowser.Endpoint(ServerAddress, path));
+        var endpoint = RoomBrowser.Endpoint(ServerAddress, path);
+        if (endpoint.Scheme != Uri.UriSchemeHttps && !endpoint.IsLoopback)
+            throw new InvalidOperationException("No se pueden enviar credenciales Google mediante HTTP sin cifrar.");
+        using var request = new HttpRequestMessage(method, endpoint);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Token);
         if (body != null) request.Content = JsonContent.Create(body, options: Protocol.Json);
         using var response = await _http.SendAsync(request, token).ConfigureAwait(false);
@@ -141,9 +177,12 @@ public sealed class AccountClient : IDisposable
     {
         if (string.IsNullOrWhiteSpace(address)) { ServerAddress = ""; return; }
         if (!Uri.TryCreate(address, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps ||
-            uri.UserInfo.Length > 0 || uri.Query.Length > 0 || uri.Fragment.Length > 0)
-            throw new ArgumentException("Las operaciones protegidas necesitan un servidor HTTPS.");
-        ServerAddress = address.TrimEnd('/');
+            uri.UserInfo.Length > 0 || uri.Query.Length > 0 || uri.Fragment.Length > 0 ||
+            !uri.AbsolutePath.Equals("/", StringComparison.Ordinal))
+            throw new ArgumentException("Las operaciones protegidas necesitan la URL raíz HTTPS del servidor.");
+        // La autorización de este destino requiere además confirmación del
+        // usuario: no aceptar redirecciones ni credenciales en las URL.
+        ServerAddress = uri.GetLeftPart(UriPartial.Authority);
     }
     public void Dispose() { _firebaseReader?.Dispose(); _http.Dispose(); }
 }

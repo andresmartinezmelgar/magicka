@@ -20,7 +20,7 @@ static class ResponsiveLayoutTests
         {
             foreach (float width in new[] { 320f, 600f, 900f, 1300f })
             {
-                int columns = ResponsiveLayout.Columns(width, 270, 3, 18) * 2;
+                int columns = ResponsiveLayout.Columns(width, 550, 3, 18) * 2;
                 if (columns is not (2 or 4 or 6))
                     throw new Exception("Las etiquetas han quedado separadas de sus controles.");
             }

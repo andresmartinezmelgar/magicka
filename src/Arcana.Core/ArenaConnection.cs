@@ -340,9 +340,13 @@ public static class LanDiscovery
             }
         }
         catch (NetworkInformationException) { }
+        int queriesSent = 0;
         foreach (var target in targets)
-            try { await udp.SendAsync(query, new IPEndPoint(target, port), token).ConfigureAwait(false); }
-            catch (SocketException) { }
+        {
+            try { await udp.SendAsync(query, new IPEndPoint(target, port), token).ConfigureAwait(false); queriesSent++; }
+            catch (SocketException) { /* Una interfaz bloqueada no debe impedir consultar las demás. */ }
+        }
+        if (queriesSent == 0) throw new IOException("No se pudieron enviar consultas LAN; revisa la tarjeta de red y el cortafuegos.");
         var found = new Dictionary<string, LanServer>();
         try
         {
