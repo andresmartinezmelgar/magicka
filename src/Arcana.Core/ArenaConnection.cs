@@ -149,7 +149,8 @@ public sealed class ArenaConnection : IAsyncDisposable
             if (!Connected) return false;
             var queued = new ClientMessage { Type = message.Type, Sequence = ++_sequence,
                 InspectionRequestId = message.InspectionRequestId, InspectPlayerId = message.InspectPlayerId,
-                Element = message.Element, Slot = message.Slot, MoveX = message.MoveX, MoveY = message.MoveY,
+                Element = message.Element, Slot = message.Slot, Team = message.Team,
+                MoveX = message.MoveX, MoveY = message.MoveY,
                 MoveTo = message.MoveTo, TargetX = message.TargetX, TargetY = message.TargetY,
                 AimX = message.AimX, AimY = message.AimY };
             if (_outgoing.Writer.TryWrite(queued)) return true;
