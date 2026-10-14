@@ -64,6 +64,10 @@ public sealed partial class GameWorld
         int blue = _players.Values.Count(p => p.Team == 0), red = _players.Count - blue;
         int team = Map.IsPractice ? preferredTeam == 1 ? 1 : 0
             : preferredTeam is 0 or 1 ? preferredTeam : blue <= red ? 0 : 1;
+        // El segundo jugador humano de un duelo ocupa el equipo libre,
+        // incluso si ambos tienen guardada la misma preferencia.
+        if (Options.Mode == GameMode.Duel && !bot && _players.Values.FirstOrDefault(p => !p.Bot) is { } opponentHuman)
+            team = 1 - opponentHuman.Team;
         if (Options.Mode == GameMode.Duel && _players.Values.FirstOrDefault(p => p.Team == team) is { } opponent)
         {
             if (!opponent.Bot) return null;
