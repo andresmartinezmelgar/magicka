@@ -72,7 +72,7 @@ public partial class Main
     private void PrepareDesktopHeaderSmokeWindow()
     {
         var args = OS.GetCmdlineUserArgs();
-        if (!args.Contains("--desktop-header-smoke") || Ui.IsMobile) return;
+        if (!(args.Contains("--desktop-header-smoke") || args.Contains("--visual-desktop")) || Ui.IsMobile) return;
         string? size = args.FirstOrDefault(arg => arg.StartsWith("--smoke-viewport=", StringComparison.Ordinal));
         if (size == null) return;
         var parts = size["--smoke-viewport=".Length..].Split('x');
