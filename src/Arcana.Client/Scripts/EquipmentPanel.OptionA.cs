@@ -55,6 +55,8 @@ public partial class EquipmentPanel
         if (_optionAItems == null || _optionAStats == null) return;
         _optionAItems.Visible = !stats;
         _optionAStats.Visible = stats;
+        _showingTotals = stats;
+        UpdateEquipmentResponsive();
         _optionAItemsTab!.AddThemeStyleboxOverride("normal",
             Ui.Panel(stats ? new Color("12263d") : new Color("185184"), 7, stats ? new Color("294e72") : Ui.Blue));
         _optionAStatsTab!.AddThemeStyleboxOverride("normal",

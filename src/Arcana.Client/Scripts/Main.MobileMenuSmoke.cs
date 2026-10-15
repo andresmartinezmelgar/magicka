@@ -471,7 +471,19 @@ public partial class Main
                 sum.EmitSignal(Button.SignalName.Pressed);
             }
             if (frame == 162)
+            {
                 AssertOptionAScreen("SUMA_BONIFICACIONES", _equipmentPanel!);
+                var totals = _equipmentPanel!.FindChild("EquipmentTotalsTable", true, false) as GridContainer
+                    ?? throw new InvalidOperationException("SUMA: falta la tabla de bonificaciones.");
+                var cells = totals.GetChildren().OfType<Label>().ToArray();
+                Rect2 visible = GetViewport().GetVisibleRect();
+                for (Node? parent = totals.GetParent(); parent != null; parent = parent.GetParent())
+                    if (parent is ScrollContainer scroll) visible = visible.Intersection(scroll.GetGlobalRect());
+                if (cells.Length <= totals.Columns ||
+                    !visible.Encloses(cells[0].GetGlobalRect()) ||
+                    !visible.Encloses(cells[totals.Columns].GetGlobalRect()))
+                    throw new InvalidOperationException("SUMA: no se ve una fila completa de datos bajo la cabecera.");
+            }
             if (frame < 165) return false;
             _googleIdentityKnown = false;
             GD.Print("MOBILE_MENU_LAYOUT_OK: Opción A PvP, IA, salas, perfil, ayuda y equipación; todos sin scroll.");

@@ -12,6 +12,11 @@ public partial class EquipmentPanel : Control
     private Label _profile = null!, _detailTitle = null!, _empty = null!, _sets = null!, _status = null!;
     private Label _combatPreview = null!;
     private Label _totalsEmpty = null!;
+    private HBoxContainer _equipmentHeading = null!, _equipmentToolbar = null!;
+    private HBoxContainer _summaryHeading = null!;
+    private VBoxContainer _summaryContent = null!;
+    private Label _summaryTitle = null!;
+    private bool _showingTotals, _routineStatus = true;
     private GridContainer _details = null!, _totals = null!;
     private GridContainer? _selectorsGrid;
     private ScrollContainer? _setsScroll;
@@ -41,13 +46,13 @@ public partial class EquipmentPanel : Control
         foreach (string side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, 20);
         var panel = new PanelContainer(); margin.AddChild(panel);
         var box = new VBoxContainer(); box.AddThemeConstantOverride("separation", 8); panel.AddChild(box);
-        var heading = new HBoxContainer(); box.AddChild(heading);
+        var heading = _equipmentHeading = new HBoxContainer(); box.AddChild(heading);
         var title = Ui.Label("MI MAGO · EQUIPACIÓN", 25, Ui.Gold);
         title.AutowrapMode = TextServer.AutowrapMode.WordSmart; title.SizeFlagsHorizontal = SizeFlags.ExpandFill; heading.AddChild(title);
         _profile = Ui.Label("", 16); _profile.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _profile.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _profile.HorizontalAlignment = HorizontalAlignment.Right; heading.AddChild(_profile);
-        var connection = new HBoxContainer(); connection.AddThemeConstantOverride("separation", 8); box.AddChild(connection);
+        var connection = _equipmentToolbar = new HBoxContainer(); connection.AddThemeConstantOverride("separation", 8); box.AddChild(connection);
         var operationsConfig = new ConfigFile();
         if (operationsConfig.Load("user://protected-account-service.cfg") == Error.Ok)
         {
@@ -65,7 +70,7 @@ public partial class EquipmentPanel : Control
             {
                 _address.Visible = true;
                 configSales.Text = "Guardar configuración";
-                _status.Text = "Las ventas requieren un servicio HTTPS autorizado para intercambiar objetos por oro. El inventario y el equipamiento no dependen de él.";
+                SetStatus("Las ventas requieren un servicio HTTPS autorizado para intercambiar objetos por oro. El inventario y el equipamiento no dependen de él.");
             }
             else
             {
@@ -88,6 +93,7 @@ public partial class EquipmentPanel : Control
         columns.AddChild(inventoryScroll);
         Ui.VisibleVerticalScroll(inventoryScroll);
         var inventory = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; inventory.AddThemeConstantOverride("separation", 6); inventoryScroll.AddChild(inventory);
+        _salesHelp.Reparent(inventory);
         var selectors = new GridContainer { Columns = 2 }; _selectorsGrid = selectors;
         selectors.AddThemeConstantOverride("h_separation", 10);
         selectors.AddThemeConstantOverride("v_separation", 6); inventory.AddChild(selectors);
@@ -114,14 +120,16 @@ public partial class EquipmentPanel : Control
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         columns.AddChild(totalsScroll);
         Ui.VisibleVerticalScroll(totalsScroll);
-        var summary = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; summary.AddThemeConstantOverride("separation", 8); totalsScroll.AddChild(summary);
-        var summaryHeading = new HBoxContainer(); summaryHeading.AddThemeConstantOverride("separation", 10); summary.AddChild(summaryHeading);
-        var summaryTitle = Ui.Label("SUMA DE TODO EL EQUIPO", 22, Ui.Gold); summaryTitle.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        var summary = _summaryContent = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; summary.AddThemeConstantOverride("separation", 8); totalsScroll.AddChild(summary);
+        var summaryHeading = _summaryHeading = new HBoxContainer(); summaryHeading.AddThemeConstantOverride("separation", 10); summary.AddChild(summaryHeading);
+        var summaryTitle = _summaryTitle = Ui.Label("SUMA DE TODO EL EQUIPO", 22, Ui.Gold); summaryTitle.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         summaryTitle.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         summaryTitle.TooltipText = "Suma = piezas + conjunto. Aplicado incluye los límites de combate. Valores respecto al mago base.";
         summaryHeading.AddChild(summaryTitle);
-        Action(summaryHeading, "Conjuntos", () => _setsInfo.PopupCentered());
-        _sets = Ui.Label("", 16, Ui.Gold); _sets.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_sets);
+        var setsButton = Action(summaryHeading, "Conjuntos", () => _setsInfo.PopupCentered());
+        setsButton.CustomMinimumSize = new(0, 48);
+        _sets = Ui.Label("", 16, Ui.Gold); _sets.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _sets.SizeFlagsHorizontal = SizeFlags.ExpandFill; summary.AddChild(_sets);
         _totals = Ui.Table(5, "EquipmentTotalsTable"); summary.AddChild(_totals);
         _totalsEmpty = Ui.Label("No hay bonificaciones activas en el equipo actual.", 16, Ui.Muted);
         _totalsEmpty.Name = "EquipmentNoActiveBonuses";
@@ -152,11 +160,29 @@ public partial class EquipmentPanel : Control
     {
         float viewportWidth = GetViewport().GetVisibleRect().Size.X;
         float available = Math.Max(260, viewportWidth - (Ui.IsMobile ? 65 : 110));
+        bool compact = viewportWidth < 970;
+        var profileParent = compact ? _equipmentToolbar : _equipmentHeading;
+        if (_profile.GetParent() != profileParent)
+        {
+            _profile.Reparent(profileParent);
+            if (compact) profileParent.MoveChild(_profile, 0);
+        }
+        _profile.HorizontalAlignment = compact ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+        _equipmentHeading.Visible = !compact;
+        _equipmentToolbar.Visible = !_showingTotals;
+        _status.Visible = _status.Text.Length > 0 && (!_showingTotals || !_routineStatus);
+        _summaryTitle.Visible = !compact;
+        var setsParent = compact ? (Node)_summaryHeading : _summaryContent;
+        if (_sets.GetParent() != setsParent)
+        {
+            _sets.Reparent(setsParent);
+            setsParent.MoveChild(_sets, compact ? 0 : 1);
+        }
         if (_selectorsGrid != null)
             _selectorsGrid.Columns = ResponsiveLayout.Columns(available, Ui.IsMobile ? 365 : 340, 2, 10);
         // Tabla completa en escritorio; fichas de dos columnas en pantallas estrechas.
         // Su contenido se regenera solo si cambia realmente el formato.
-        int columns = viewportWidth < 970 ? 2 : 5;
+        int columns = compact ? 2 : 5;
         if (_totals != null && _totals.Columns != columns)
         {
             _totals.Columns = columns;
@@ -254,8 +280,8 @@ public partial class EquipmentPanel : Control
         _salesHelp.Text = _main.Accounts.IsDirectFirebaseSession && _main.Accounts.ServerAddress.Length == 0
             ? "Venta de objetos por oro: desactivada hasta configurar un servicio seguro. Equipar y consultar el inventario funcionan sin él."
             : "Las bonificaciones equipadas afectan al combate. Consulta «Ayuda → Bonificaciones» para ver cómo actúa cada atributo.";
-        if (!_busy && _status.Text.Length == 0) _status.Text = account == null ? "Inicia sesión con Google para recuperar tu inventario y conseguir objetos en PvP." :
-            _main.Accounts.SignedIn ? "Elige con las flechas: se guarda automáticamente en tu cuenta para PvP y contra IA." : "Elige con las flechas: se guarda en este dispositivo para jugar contra IA.";
+        if (!_busy && _status.Text.Length == 0) SetStatus(account == null ? "Inicia sesión con Google para recuperar tu inventario y conseguir objetos en PvP." :
+            _main.Accounts.SignedIn ? "Elige con las flechas: se guarda automáticamente en tu cuenta para PvP y contra IA." : "Elige con las flechas: se guarda en este dispositivo para jugar contra IA.", routine: true);
     }
     internal static bool RenderTotals(GridContainer table, IEnumerable<EquipmentStatTotal> stats)
     {
@@ -309,10 +335,15 @@ public partial class EquipmentPanel : Control
     }
     public static Color TierColor(ItemTier tier) => tier switch
     { ItemTier.Silver => new("c4cbd7"), ItemTier.Gold => new("e8c574"), ItemTier.Platinum => new("82dfd6"), ItemTier.Diamond => new("73bfff"), _ => new("cf9cff") };
+    private void SetStatus(string message, bool routine = false)
+    {
+        _status.Text = message; _routineStatus = routine;
+        _status.Visible = message.Length > 0 && (!_showingTotals || !routine);
+    }
     private void Busy(bool value, string message = "")
     {
         _busy = value; foreach (var button in _actions) button.Disabled = value;
-        _address.Editable = !value; if (message.Length > 0) _status.Text = message;
+        _address.Editable = !value; if (message.Length > 0) SetStatus(message);
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
             var view = _slots[(int)slot]; view.Previous.Disabled = view.Next.Disabled = value || Choices(slot).Length == 0;
@@ -328,12 +359,12 @@ public partial class EquipmentPanel : Control
             file.SetValue("operations", "url", _main.Accounts.ServerAddress);
             if (file.Save("user://protected-account-service.cfg") != Error.Ok)
                 throw new InvalidOperationException("No se pudo guardar el servidor de operaciones.");
-            _status.Text = _main.Accounts.ServerAddress.Length > 0
+            SetStatus(_main.Accounts.ServerAddress.Length > 0
                 ? "Servidor de operaciones protegido configurado. El login y las lecturas siguen siendo directos a Firebase."
-                : "Las ventas requieren el servidor de operaciones; Google y equipación funcionan sin él.";
+                : "Las ventas requieren el servidor de operaciones; Google y equipación funcionan sin él.");
             Render();
         }
-        catch (Exception error) { _status.Text = error.Message; }
+        catch (Exception error) { SetStatus(error.Message); }
     }
 
     private async Task Refresh()
