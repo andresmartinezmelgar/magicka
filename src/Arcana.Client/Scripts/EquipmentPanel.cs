@@ -87,7 +87,7 @@ public partial class EquipmentPanel : Control
         box.AddChild(_salesHelp);
         var columns = new HBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
         columns.AddThemeConstantOverride("separation", 24); box.AddChild(columns);
-        var inventoryScroll = new ScrollContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
+        var inventoryScroll = new ContentScrollContainer { Name = "EquipmentItemsScroll", SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 1.1f,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         columns.AddChild(inventoryScroll);
@@ -116,7 +116,7 @@ public partial class EquipmentPanel : Control
         _combatPreview.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         inventory.AddChild(_combatPreview);
         _sell = Action(inventory, "Eliminar pieza por oro", ConfirmSale);
-        var totalsScroll = new ScrollContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
+        var totalsScroll = new ContentScrollContainer { Name = "EquipmentTotalsScroll", SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         columns.AddChild(totalsScroll);
         Ui.VisibleVerticalScroll(totalsScroll);
@@ -141,7 +141,7 @@ public partial class EquipmentPanel : Control
         _confirm = new ConfirmationDialog { Title = "Eliminar objeto", OkButtonText = "Eliminar y recibir oro", CancelButtonText = "Cancelar" };
         AddChild(_confirm); _confirm.Confirmed += () => _ = Sell();
         _setsInfo = new AcceptDialog { Title = "Conjuntos Míticos de los ocho elementos", OkButtonText = "Cerrar" }; AddChild(_setsInfo);
-        var setsScroll = new ScrollContainer { CustomMinimumSize = new(600, 300),
+        var setsScroll = new ContentScrollContainer { CustomMinimumSize = new(600, 300),
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; _setsInfo.AddChild(setsScroll);
         _setsScroll = setsScroll;
         Ui.VisibleVerticalScroll(setsScroll);

@@ -53,7 +53,7 @@ public partial class RoomLobby : Control
             SizeFlagsVertical = SizeFlags.ExpandFill };
         layout.AddThemeConstantOverride("separation", 5);
         panel.AddChild(layout);
-        var scroll = new ScrollContainer { Name = "OptionALobbyContent",
+        var scroll = new ContentScrollContainer { Name = "OptionALobbyContent",
             SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
             VerticalScrollMode = ScrollContainer.ScrollMode.Auto };

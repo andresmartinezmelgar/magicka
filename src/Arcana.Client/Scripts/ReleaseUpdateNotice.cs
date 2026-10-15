@@ -173,7 +173,7 @@ public partial class ReleaseUpdateNotice : Node
         };
         layout.AddThemeConstantOverride("separation", 10);
         card.AddChild(layout);
-        var scroll = new ScrollContainer
+        var scroll = new ContentScrollContainer
         {
             Name = "ReleaseUpdateDetails",
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,

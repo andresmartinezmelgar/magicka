@@ -187,7 +187,7 @@ public partial class Hud : Control
         _seriesStatus.HorizontalAlignment = HorizontalAlignment.Center;
         _seriesStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         scoreBox.AddChild(_seriesStatus);
-        _scoreScroll = new ScrollContainer { CustomMinimumSize = new(0, 150),
+        _scoreScroll = new ContentScrollContainer { CustomMinimumSize = new(0, 150),
             SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Auto };
         scoreBox.AddChild(_scoreScroll);
         Ui.VisibleVerticalScroll(_scoreScroll);
