@@ -33,7 +33,7 @@ public partial class RoomWaitingPanel : Control
         var content = new VBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
         content.AddThemeConstantOverride("separation", 8);
         _panel.AddChild(content);
-        var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+        var scroll = new ContentScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
             VerticalScrollMode = ScrollContainer.ScrollMode.Auto, SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill };
         content.AddChild(scroll);

@@ -386,6 +386,7 @@ public partial class Main
                 var buttons = _launcher.MobilePrimaryButtons;
                 AssertMobileActions("PVP", buttons, 2);
                 AssertOptionAScreen("PVP", _launcher);
+                AssertTouchScroll(_launcher, "LauncherSettingsScroll", "PVP");
                 if (_launcher.FindChild("OnlineFirebaseButton", true, false) is not Button online ||
                     !online.IsVisibleInTree() || online.Disabled)
                     throw new InvalidOperationException("PVP: falta el acceso al servidor online por Firebase.");
@@ -405,6 +406,7 @@ public partial class Main
                     GD.Print($"RESPONSIVE_DEBUG:TABS: minimum={tab.GetCombinedMinimumSize()} size={tab.Size} rect={tab.GetGlobalRect()}");
                 AssertMobileActions("VERSUS_IA", _launcher.MobilePrimaryButtons, 2);
                 AssertOptionAScreen("VERSUS_IA", _launcher);
+                AssertTouchScroll(_launcher, "LauncherSettingsScroll", "VERSUS_IA");
             }
             if (frame == 65)
             {
@@ -457,19 +459,29 @@ public partial class Main
             {
                 AssertOptionAScreen("AYUDA", _optionAHelp!);
                 AssertVisibleTableData(_optionAHelp!, "MenuHelpControlsTable");
+                AssertTouchScroll(_optionAHelp!, "HelpContentScroll", "AYUDA_CONTROLES");
             }
             if (frame == 135 && _optionAHelp!.ContentWidthFraction < 0.78f)
                 throw new InvalidOperationException("AYUDA: las tarjetas no ocupan el ancho disponible.");
             if (frame == 136) _optionAHelp!.SelectForSmoke(2);
-            if (frame == 138) AssertOptionAScreen("AYUDA_MAGOS", _optionAHelp!);
+            if (frame == 138)
+            {
+                AssertOptionAScreen("AYUDA_MAGOS", _optionAHelp!);
+                AssertTouchScroll(_optionAHelp!, "HelpContentScroll", "AYUDA_MAGOS", overCard: true);
+            }
             if (frame == 139) _optionAHelp!.SelectForSmoke(3);
-            if (frame == 141) AssertOptionAScreen("AYUDA_ELEMENTOS", _optionAHelp!);
+            if (frame == 141)
+            {
+                AssertOptionAScreen("AYUDA_ELEMENTOS", _optionAHelp!);
+                AssertTouchScroll(_optionAHelp!, "HelpContentScroll", "AYUDA_ELEMENTOS", overCard: true);
+            }
             if (frame == 142) _optionAHelp!.SelectForSmoke(4);
             if (frame == 144) AssertOptionAScreen("AYUDA_RELIQUIAS", _optionAHelp!);
             if (frame == 144) _optionAHelp!.SelectForSmoke(6);
             if (frame == 145)
             {
                 AssertOptionAScreen("AYUDA_BONIFICACIONES", _optionAHelp!);
+                AssertTouchScroll(_optionAHelp!, "HelpContentScroll", "AYUDA_BONIFICACIONES");
                 var bonusLabels = _optionAHelp.FindChildren("*", "Label", true, false).OfType<Label>()
                     .Select(l => l.Text).ToArray();
                 if (!bonusLabels.Any(t => t.Contains("DEFENSA NO ES CAPACIDAD")) ||
@@ -480,7 +492,10 @@ public partial class Main
                 EquipmentFixture(false);
             }
             if (frame == 155)
+            {
                 AssertOptionAScreen("EQUIPACION", _equipmentPanel!);
+                AssertTouchScroll(_equipmentPanel!, "EquipmentItemsScroll", "EQUIPACION");
+            }
             if (frame == 158)
             {
                 var sum = _equipmentPanel!.FindChildren("*", "Button", true, false).OfType<Button>()
@@ -491,6 +506,7 @@ public partial class Main
             {
                 AssertOptionAScreen("SUMA_BONIFICACIONES", _equipmentPanel!);
                 AssertVisibleTableData(_equipmentPanel!, "EquipmentTotalsTable");
+                AssertTouchScroll(_equipmentPanel!, "EquipmentTotalsScroll", "SUMA_BONIFICACIONES");
             }
             if (frame < 165) return false;
             _googleIdentityKnown = false;

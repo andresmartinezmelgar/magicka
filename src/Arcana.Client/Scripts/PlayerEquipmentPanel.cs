@@ -65,7 +65,7 @@ public partial class PlayerEquipmentPanel : Control
 
     private static VBoxContainer Column(Node parent)
     {
-        var scroll = new ScrollContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
+        var scroll = new ContentScrollContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; parent.AddChild(scroll);
         Ui.VisibleVerticalScroll(scroll);
         var content = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; content.AddThemeConstantOverride("separation", 8); scroll.AddChild(content);

@@ -600,7 +600,7 @@ public partial class Main : Node
         content = new VBoxContainer(); content.AddThemeConstantOverride("separation", 16);
         if (Ui.IsMobile)
         {
-            var scroll = new ScrollContainer {
+            var scroll = new ContentScrollContainer {
                 CustomMinimumSize = new(Math.Max(270, Math.Min(1080, available - 50)),
                     Math.Max(240, GetViewport().GetVisibleRect().Size.Y - 64)),
                 HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
@@ -649,7 +649,7 @@ public partial class Main : Node
         { Ui.TableCell(table, rows[i, 0], header: true, size: 15); Ui.TableCell(table, rows[i, 1], size: 15); }
         box.AddChild(Ui.Label("FFF: fuego · SSS: rayo arcano · WW + central: curación\nE + central: escudo · EF + central: guarda de fuego · DDF: roca incendiaria\nQF: vapor · QR: hielo · agua seguida de frío congela al objetivo", 16, Ui.Muted));
         box.AddChild(Ui.Label("Fuego/frío, vida/arcano, agua/rayo, tierra/rayo y escudo/escudo se anulan.\nLas magias también pueden afectar a aliados. Tres elementos por hechizo.", 15, Ui.Muted));
-        var winsScroll = new ScrollContainer { Name = "Cómo ganar", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; _helpPages.AddChild(winsScroll);
+        var winsScroll = new ContentScrollContainer { Name = "Cómo ganar", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; _helpPages.AddChild(winsScroll);
         var wins = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; wins.AddThemeConstantOverride("separation", 13); winsScroll.AddChild(wins);
         _currentObjective = HelpText(wins, "Los límites se eligen al crear la sala. Su objetivo aparece antes de entrar.", Ui.Gold);
         foreach (var mode in new[] { GameMode.Warfare, GameMode.Duel, GameMode.Arena })
@@ -667,7 +667,7 @@ public partial class Main : Node
         HelpText(wins, MatchRules.Details(GameMode.Warfare, ArenaMapId.Ascension), Ui.Muted);
         HelpText(wins, "En duelo, la primera muerte tarda 3 segundos; las siguientes añaden 0,5 segundos hasta 10. En todos contra todos y guerra, la primera tarda 4,5 segundos.", Ui.Muted);
         HelpText(wins, "Al terminar, se muestra el ganador y empieza otra partida a los 9 segundos. Puedes consultar el marcador con TAB. En práctica, el duelo se juega a 5 bajas.", Ui.Muted);
-        var relicsScroll = new ScrollContainer { Name = "Objetos", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; _helpPages.AddChild(relicsScroll);
+        var relicsScroll = new ContentScrollContainer { Name = "Objetos", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; _helpPages.AddChild(relicsScroll);
         var relics = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; relics.AddThemeConstantOverride("separation", 14); relicsScroll.AddChild(relics);
         HelpText(relics, "En el Santuario y el Coliseo. Camina sobre un objeto para recogerlo; reaparece a los 12 s. En el Coliseo cada aparición elige una posición nueva al azar. Puedes acumular objetos iguales o distintos. Sus mejoras se pierden al morir; la vida permanente por bajas del Coliseo se conserva.", Ui.Gold);
         foreach (var kind in Enum.GetValues<BuffKind>())
@@ -681,7 +681,7 @@ public partial class Main : Node
         }
         HelpText(types, "El bonus solo aumenta su componente elemental, incluida la quemadura. La debilidad también consume más escudo. Si atacante y defensor combinan bonus y debilidad, ese daño se multiplica por 1,5625. La clase se conserva al reaparecer.", Ui.Muted);
         _spellBook = new SpellBook { Name = "Combinaciones" }; _helpPages.AddChild(_spellBook);
-        var elementsScroll = new ScrollContainer { Name = "Elementos", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        var elementsScroll = new ContentScrollContainer { Name = "Elementos", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         _helpPages.AddChild(elementsScroll);
         var elementsBox = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         elementsBox.AddThemeConstantOverride("separation", 14); elementsScroll.AddChild(elementsBox);

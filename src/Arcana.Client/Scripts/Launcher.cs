@@ -45,7 +45,7 @@ public partial class Launcher : Control
         // En móvil, el formulario se desplaza, pero sus acciones quedan siempre al alcance del pulgar.
         var rightColumn = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
         columns.AddChild(rightColumn);
-        var rightScroll = new ScrollContainer { CustomMinimumSize = new(Ui.IsMobile ? 0 : 570, 0),
+        var rightScroll = new ContentScrollContainer { CustomMinimumSize = new(Ui.IsMobile ? 0 : 570, 0),
             SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
             VerticalScrollMode = ScrollContainer.ScrollMode.Auto };

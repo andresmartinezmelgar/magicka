@@ -75,7 +75,7 @@ public partial class OptionAHelpPanel : Control
         card.AddChild(contents);
         _topic = Ui.Label("", Ui.IsMobile ? 22 : 24, Ui.Gold);
         contents.AddChild(_topic);
-        var bodyScroll = new ScrollContainer { Name = "HelpContentScroll",
+        var bodyScroll = new ContentScrollContainer { Name = "HelpContentScroll",
             SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
             VerticalScrollMode = ScrollContainer.ScrollMode.Auto };

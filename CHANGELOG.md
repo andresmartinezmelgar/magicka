@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.17.19
+
+- Desplazamiento táctil sobre el contenido en todas las pantallas con scroll, también sobre tarjetas y fondos de la ayuda y los formularios.
+- Los controles decorativos dejan pasar los gestos al scroll nativo, incluidas las secciones creadas dinámicamente; botones, campos, listas y barras mantienen su entrada.
+- Regresión con gestos táctiles emulados sobre las pantallas reales del menú, ayuda, inventario y suma de bonificaciones.
+- Versión Windows y Android sincronizada en 0.17.19; código Android 17019.
+
 ## 0.17.18
 
 - Bordes visibles entre filas y columnas en las tablas de equipación, bonificaciones, clasificación y ayuda, con cabeceras diferenciadas y texto adaptable.
