@@ -68,6 +68,19 @@ public partial class Main
             throw new InvalidOperationException($"HUD {stage}: el minimapa tapa la vida del jugador: {minimap.GetGlobalRect()} / {status.GetGlobalRect()}");
     }
 
+    private void AssertVisibleTableData(Control root, string tableName)
+    {
+        var table = root.FindChild(tableName, true, false) as GridContainer
+            ?? throw new InvalidOperationException("Falta la tabla " + tableName);
+        var cells = table.GetChildren().OfType<Label>().Where(label => label.Visible).ToArray();
+        Rect2 visible = GetViewport().GetVisibleRect();
+        for (Node? parent = table.GetParent(); parent != null; parent = parent.GetParent())
+            if (parent is ScrollContainer scroll) visible = visible.Intersection(scroll.GetGlobalRect());
+        if (cells.Length < table.Columns * 2 || new[] { 0, table.Columns - 1, table.Columns, table.Columns * 2 - 1 }
+            .Any(index => !visible.Grow(1).Encloses(cells[index].GetGlobalRect())))
+            throw new InvalidOperationException(tableName + ": no se ven la cabecera y una fila completa de datos. Área visible: " + visible);
+    }
+
     // En CI no basta con simular los controles móviles: hay que comprobar
     // la geometría Godot del escritorio real en 1600×900 y 1280×720.
     private void PrepareDesktopHeaderSmokeWindow()
@@ -251,6 +264,7 @@ public partial class Main
                         " pantalla=" + GetViewport().GetVisibleRect());
                 GD.Print("MOBILE_SCOREBOARD_LAYOUT_OK");
                 AssertHudBounds(_smokeScoreHud, "clasificacion");
+                AssertVisibleTableData(_smokeScoreHud, "ScoreTable");
                 _smokeScoreHud.ScoreOpen = false;
                 var simulated = new GameWorld(new WorldOptions { Mode = GameMode.Warfare, Bots = 0 });
                 var player = simulated.AddPlayer("Mago de prueba", 0)!;
@@ -440,7 +454,10 @@ public partial class Main
                 ToggleHelp();
             }
             if (frame == 135)
+            {
                 AssertOptionAScreen("AYUDA", _optionAHelp!);
+                AssertVisibleTableData(_optionAHelp!, "MenuHelpControlsTable");
+            }
             if (frame == 135 && _optionAHelp!.ContentWidthFraction < 0.78f)
                 throw new InvalidOperationException("AYUDA: las tarjetas no ocupan el ancho disponible.");
             if (frame == 136) _optionAHelp!.SelectForSmoke(2);
@@ -473,16 +490,7 @@ public partial class Main
             if (frame == 162)
             {
                 AssertOptionAScreen("SUMA_BONIFICACIONES", _equipmentPanel!);
-                var totals = _equipmentPanel!.FindChild("EquipmentTotalsTable", true, false) as GridContainer
-                    ?? throw new InvalidOperationException("SUMA: falta la tabla de bonificaciones.");
-                var cells = totals.GetChildren().OfType<Label>().ToArray();
-                Rect2 visible = GetViewport().GetVisibleRect();
-                for (Node? parent = totals.GetParent(); parent != null; parent = parent.GetParent())
-                    if (parent is ScrollContainer scroll) visible = visible.Intersection(scroll.GetGlobalRect());
-                if (cells.Length <= totals.Columns ||
-                    !visible.Encloses(cells[0].GetGlobalRect()) ||
-                    !visible.Encloses(cells[totals.Columns].GetGlobalRect()))
-                    throw new InvalidOperationException("SUMA: no se ve una fila completa de datos bajo la cabecera.");
+                AssertVisibleTableData(_equipmentPanel!, "EquipmentTotalsTable");
             }
             if (frame < 165) return false;
             _googleIdentityKnown = false;

@@ -187,7 +187,8 @@ public partial class Hud : Control
         _seriesStatus.HorizontalAlignment = HorizontalAlignment.Center;
         _seriesStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         scoreBox.AddChild(_seriesStatus);
-        _scoreScroll = new ScrollContainer { CustomMinimumSize = new(0, 120), HorizontalScrollMode = ScrollContainer.ScrollMode.Auto };
+        _scoreScroll = new ScrollContainer { CustomMinimumSize = new(0, 150),
+            SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Auto };
         scoreBox.AddChild(_scoreScroll);
         Ui.VisibleVerticalScroll(_scoreScroll);
         _scoreRows = Ui.Table(5, "ScoreTable"); _scoreScroll.AddChild(_scoreRows);
@@ -398,8 +399,9 @@ public partial class Hud : Control
     }
     private void UpdateScore(WorldSnapshot snapshot, int id)
     {
-        _scoreScroll.CustomMinimumSize = new(0, Math.Clamp((snapshot.Players.Length + 1) * 33, 65,
-            Math.Max(100, (int)Size.Y - 145)));
+        // El nombre puede ocupar varias líneas; el padding y los bordes también cuentan.
+        _scoreScroll.CustomMinimumSize = new(0, Math.Clamp((snapshot.Players.Length + 1) * 64, 150,
+            Math.Max(150, (int)Size.Y - 200)));
         _seriesStatus.Text = snapshot.BestOf > 1 && snapshot.SeriesWins is { Length: >= 2 } wins
             ? $"{(wins[0] >= MatchSeries.WinsNeeded(snapshot.BestOf) || wins[1] >= MatchSeries.WinsNeeded(snapshot.BestOf) ? "SERIE FINALIZADA" : $"MEJOR DE {snapshot.BestOf}")} · AZUL {wins[0]} — {wins[1]} ROJO"
             : "CLASIFICACIÓN DE LA PARTIDA";
