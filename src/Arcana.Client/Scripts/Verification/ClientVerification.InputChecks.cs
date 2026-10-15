@@ -16,7 +16,12 @@ public partial class ClientVerification
             foreach (var mode in Enum.GetValues<GameMode>())
             foreach (bool missedDeath in new[] { false, true })
             {
-                var world = new GameWorld(new() { Mode = mode, SpawnSeed = 19 });
+                var world = new GameWorld(new()
+                {
+                    Mode = mode, SpawnSeed = 19,
+                    Map = mode == GameMode.Defense ? ArenaMapId.Bastion : ArenaMapId.Classic,
+                    MaxPlayers = mode == GameMode.Defense ? DefenseRules.MaxDefenders : 16
+                });
                 var player = world.AddPlayer("Reaparición", 0)!;
                 player.Position = new(-2, 0);
                 _runtime.Practice = world; _runtime.LocalId = player.Id; _runtime.LocalSequence = 0; _runtime.Snapshot = world.Snapshot();
@@ -74,7 +79,7 @@ public partial class ClientVerification
                     "la orden nueva recupera la posición de la vida anterior.");
                 _runtime.Touch?.Reset();
             }
-            GD.Print("RESPAWN_INPUT_OK: tres modos, clic o joystick anterior, órdenes durante la muerte, snapshot de muerte perdido y nueva orden desde la reaparición");
+            GD.Print("RESPAWN_INPUT_OK: todos los modos, clic o joystick anterior, órdenes durante la muerte, snapshot de muerte perdido y nueva orden desde la reaparición");
             return true;
         }
         finally

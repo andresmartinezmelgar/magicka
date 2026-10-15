@@ -14,8 +14,10 @@ internal static class MapPerformanceBenchmarks
         {
             long loading = Stopwatch.GetTimestamp();
             var session = id == ArenaMapId.Practice ? new PracticeSession("Medición") : null;
-            var world = session?.World ?? new GameWorld(new() { Map = id, Bots = 7, MaxPlayers = 8,
-                Mode = GameMode.Warfare, Tickets = 1000, Seed = 73, SpawnSeed = 271, PickupSeed = 271, EnvironmentSeed = 271 });
+            int bots = id == ArenaMapId.Bastion ? 3 : 7;
+            var world = session?.World ?? new GameWorld(new() { Map = id, Bots = bots, MaxPlayers = bots + 1,
+                Mode = id == ArenaMapId.Bastion ? GameMode.Defense : GameMode.Warfare,
+                Tickets = 1000, Seed = 73, SpawnSeed = 271, PickupSeed = 271, EnvironmentSeed = 271 });
             if (session == null) world.AddPlayer("Medición", 0);
             double loadingMs = Stopwatch.GetElapsedTime(loading).TotalMilliseconds;
             var samples = new double[3600];
@@ -30,7 +32,7 @@ internal static class MapPerformanceBenchmarks
             }
             long allocatedBytes = GC.GetAllocatedBytesForCurrentThread() - allocated;
             var sorted = samples.Skip(120).Order().ToArray();
-            var result = new { map = id.ToString(), bots = session == null ? 7 : 0, ticks = samples.Length,
+            var result = new { map = id.ToString(), bots = session == null ? bots : 0, ticks = samples.Length,
                 loadingMs, warmupTicks = 120, coldMaximumMs = samples.Take(120).Max(), meanMs = sorted.Average(),
                 p95Ms = sorted[(int)Math.Ceiling((sorted.Length - 1) * 0.95)], maximumMs = sorted[^1],
                 overBudgetTicks = sorted.Count(t => t > 1000.0 / 60), allocatedBytes,
