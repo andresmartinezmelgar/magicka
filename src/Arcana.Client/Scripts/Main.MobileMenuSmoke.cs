@@ -224,6 +224,7 @@ public partial class Main
                 116 => "08-perfil",
                 137 => "09-ayuda",
                 156 => "10-equipacion",
+                163 => "12-suma-bonificaciones",
                 _ => null
             };
             if (scene != null) CaptureVisualReview(scene);
@@ -459,10 +460,18 @@ public partial class Main
                     !bonusLabels.Any(t => t.Contains("Absorción del escudo")))
                     throw new InvalidOperationException("Ayuda no documenta defensa y capacidad del escudo.");
                 CloseOptionAHelp();
-                OpenEquipment("automatic");
+                EquipmentFixture(false);
             }
             if (frame == 155)
                 AssertOptionAScreen("EQUIPACION", _equipmentPanel!);
+            if (frame == 158)
+            {
+                var sum = _equipmentPanel!.FindChildren("*", "Button", true, false).OfType<Button>()
+                    .Single(button => button.Text.Contains("SUMA DE BONIFICACIONES"));
+                sum.EmitSignal(Button.SignalName.Pressed);
+            }
+            if (frame == 162)
+                AssertOptionAScreen("SUMA_BONIFICACIONES", _equipmentPanel!);
             if (frame < 165) return false;
             _googleIdentityKnown = false;
             GD.Print("MOBILE_MENU_LAYOUT_OK: Opción A PvP, IA, salas, perfil, ayuda y equipación; todos sin scroll.");

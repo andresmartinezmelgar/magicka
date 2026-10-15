@@ -11,6 +11,7 @@ public partial class EquipmentPanel : Control
     private bool _automaticServer;
     private Label _profile = null!, _detailTitle = null!, _empty = null!, _sets = null!, _status = null!;
     private Label _combatPreview = null!;
+    private Label _totalsEmpty = null!;
     private GridContainer _details = null!, _totals = null!;
     private GridContainer? _selectorsGrid;
     private ScrollContainer? _setsScroll;
@@ -41,8 +42,10 @@ public partial class EquipmentPanel : Control
         var panel = new PanelContainer(); margin.AddChild(panel);
         var box = new VBoxContainer(); box.AddThemeConstantOverride("separation", 8); panel.AddChild(box);
         var heading = new HBoxContainer(); box.AddChild(heading);
-        heading.AddChild(Ui.Label("MI MAGO · EQUIPACIÓN", 25, Ui.Gold));
+        var title = Ui.Label("MI MAGO · EQUIPACIÓN", 25, Ui.Gold);
+        title.AutowrapMode = TextServer.AutowrapMode.WordSmart; title.SizeFlagsHorizontal = SizeFlags.ExpandFill; heading.AddChild(title);
         _profile = Ui.Label("", 16); _profile.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _profile.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _profile.HorizontalAlignment = HorizontalAlignment.Right; heading.AddChild(_profile);
         var connection = new HBoxContainer(); connection.AddThemeConstantOverride("separation", 8); box.AddChild(connection);
         var operationsConfig = new ConfigFile();
@@ -101,8 +104,7 @@ public partial class EquipmentPanel : Control
             _slots[(int)slot] = new(previous, inspect, next);
         }
         _detailTitle = Ui.Label("", 21, Ui.Gold); inventory.AddChild(_detailTitle);
-        _details = new GridContainer { Columns = 3 }; _details.AddThemeConstantOverride("h_separation", 14);
-        _details.AddThemeConstantOverride("v_separation", 3); inventory.AddChild(_details);
+        _details = Ui.Table(3, "EquipmentDetailsTable"); inventory.AddChild(_details);
         _empty = Ui.Label("", 16, Ui.Muted); _empty.AutowrapMode = TextServer.AutowrapMode.WordSmart; inventory.AddChild(_empty);
         _combatPreview = Ui.Label("", Ui.IsMobile ? 16 : 17, Ui.Gold);
         _combatPreview.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -115,12 +117,15 @@ public partial class EquipmentPanel : Control
         var summary = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; summary.AddThemeConstantOverride("separation", 8); totalsScroll.AddChild(summary);
         var summaryHeading = new HBoxContainer(); summaryHeading.AddThemeConstantOverride("separation", 10); summary.AddChild(summaryHeading);
         var summaryTitle = Ui.Label("SUMA DE TODO EL EQUIPO", 22, Ui.Gold); summaryTitle.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        summaryTitle.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         summaryTitle.TooltipText = "Suma = piezas + conjunto. Aplicado incluye los límites de combate. Valores respecto al mago base.";
         summaryHeading.AddChild(summaryTitle);
         Action(summaryHeading, "Conjuntos", () => _setsInfo.PopupCentered());
         _sets = Ui.Label("", 16, Ui.Gold); _sets.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_sets);
-        _totals = new GridContainer { Columns = 5 }; _totals.AddThemeConstantOverride("h_separation", 12);
-        _totals.AddThemeConstantOverride("v_separation", 3); summary.AddChild(_totals);
+        _totals = Ui.Table(5, "EquipmentTotalsTable"); summary.AddChild(_totals);
+        _totalsEmpty = Ui.Label("No hay bonificaciones activas en el equipo actual.", 16, Ui.Muted);
+        _totalsEmpty.Name = "EquipmentNoActiveBonuses";
+        _totalsEmpty.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_totalsEmpty);
         var footer = new HBoxContainer(); footer.AddThemeConstantOverride("separation", 14); box.AddChild(footer);
         var hint = Ui.Label("Suma = piezas + conjunto. Aplicado = valor real en combate.", 14, Ui.Muted);
         hint.AutowrapMode = TextServer.AutowrapMode.WordSmart; hint.SizeFlagsHorizontal = SizeFlags.ExpandFill; footer.AddChild(hint);
@@ -189,12 +194,8 @@ public partial class EquipmentPanel : Control
         .Select(b => StatName(b.Stat) + " " + EquipmentCatalogue.Percent(four ? b.FourPieces : b.TwoPieces)));
     private static void Clear(Node parent)
     { foreach (var child in parent.GetChildren()) { parent.RemoveChild(child); child.QueueFree(); } }
-    private static Label Cell(GridContainer grid, string text, bool number = false, Color? color = null)
-    {
-        var label = Ui.Label(text, 16, color); label.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        if (number) label.HorizontalAlignment = HorizontalAlignment.Right;
-        grid.AddChild(label); return label;
-    }
+    private static Label Cell(GridContainer grid, string text, bool number = false, Color? color = null, bool header = false)
+        => Ui.TableCell(grid, text, number, color, header);
     private EquipmentItem[] Choices(EquipmentSlot slot) => (_main.Accounts.Profile?.Items ?? [])
         .Where(i => i.Slot == slot).OrderByDescending(i => i.Tier).ThenBy(i => i.Id, StringComparer.Ordinal).ToArray();
     private EquipmentItem? Selected()
@@ -235,39 +236,8 @@ public partial class EquipmentPanel : Control
             view.Inspect.Disabled = _busy;
         }
         RenderDetails();
-        Clear(_totals);
-        bool compactStats = _totals.Columns == 2;
-        if (compactStats)
-        {
-            Cell(_totals, "Atributo", color: Ui.Muted);
-            Cell(_totals, "Aplicado en combate", true, Ui.Muted);
-        }
-        else foreach (string heading in new[] { "Atributo", "Piezas", "Conjunto", "Suma", "Aplicado" })
-            Cell(_totals, heading, heading != "Atributo", Ui.Muted);
         var breakdown = EquipmentModifiers.Summarize(account ?? new("", "", 0, 0, 0, new(), []));
-        var equippedStats = account?.Items.Where(i => account.Loadout.Get(i.Slot) == i.Id).SelectMany(i => i.Bonuses).Select(b => b.Stat).ToHashSet() ?? [];
-        foreach (var stat in breakdown.Stats.Where(s => (int)s.Stat <= (int)EquipmentStat.Power || s.Items != 0 || s.Set != 0 || equippedStats.Contains(s.Stat)))
-        {
-            Cell(_totals, StatName(stat.Stat)).TooltipText = EquipmentCatalogue.StatDescription(stat.Stat);
-            if (!compactStats)
-            {
-                Cell(_totals, EquipmentCatalogue.Percent(stat.Items), true);
-                Cell(_totals, EquipmentCatalogue.Percent(stat.Set), true, stat.Set > 0 ? Ui.Gold : Ui.Muted);
-                Cell(_totals, EquipmentCatalogue.Percent(stat.Sum), true);
-            }
-            var applied = Cell(_totals, EquipmentCatalogue.Percent(stat.Effective), true,
-                stat.Limited ? Ui.Gold : stat.Effective < 0 ? Ui.Red : Ui.Blue);
-            applied.TooltipText = EquipmentCatalogue.StatDescription(stat.Stat) +
-                (stat.Limited ? "\nLa suma está limitada: se aplica el valor de esta columna." : "");
-            if (compactStats)
-            {
-                Cell(_totals, "Piezas: " + EquipmentCatalogue.Percent(stat.Items) +
-                    "  ·  Conjunto: " + EquipmentCatalogue.Percent(stat.Set) +
-                    "  ·  Suma: " + EquipmentCatalogue.Percent(stat.Sum), color: Ui.Muted).TooltipText =
-                    EquipmentCatalogue.StatDescription(stat.Stat);
-                _totals.AddChild(new Control());
-            }
-        }
+        _totalsEmpty.Visible = !RenderTotals(_totals, breakdown.Stats);
         var m = breakdown.Modifiers;
         _combatPreview.Text = account == null
             ? "Los porcentajes reales aparecen aquí cuando equipas un objeto."
@@ -276,22 +246,56 @@ public partial class EquipmentPanel : Control
               " (sin Defensa serían 100). Escudo básico al crearlo: " +
               (420 * m.ShieldCapacity).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) +
               " puntos (sin Absorción serían 420). La Defensa reduce daño, no aumenta los puntos que muestra el escudo.";
-        var activeSets = EquipmentCatalogue.FocusedFamilies.Where(f => m.Pieces(f) > 0).ToArray();
-        _sets.Text = "Míticos · " + (activeSets.Length == 0 ? "sin piezas" : string.Join(" · ", activeSets.Select(f => EquipmentCatalogue.FamilyName(f) + " " + m.Pieces(f) + "/4")));
+        var activeSets = EquipmentCatalogue.FocusedFamilies.Where(f => m.Pieces(f) >= 2).ToArray();
+        _sets.Text = activeSets.Length == 0 ? "Sin conjuntos activos." : "Conjuntos activos · " +
+            string.Join(" · ", activeSets.Select(f => EquipmentCatalogue.FamilyName(f) + " " + m.Pieces(f) + "/4"));
         _sets.TooltipText = "Solo cuentan las piezas Míticas de la misma familia. Con 3 piezas sigue activo el bonus de 2. El bonus de 4 sustituye al de 2.\n"
-            + string.Join("\n", EquipmentCatalogue.FocusedFamilies.Select(f => Set(EquipmentCatalogue.FamilyName(f), m.Pieces(f), SetDescription(f, false), SetDescription(f, true))));
+            + string.Join("\n", activeSets.Select(f => Set(EquipmentCatalogue.FamilyName(f), m.Pieces(f), SetDescription(f, false), SetDescription(f, true))));
         _salesHelp.Text = _main.Accounts.IsDirectFirebaseSession && _main.Accounts.ServerAddress.Length == 0
             ? "Venta de objetos por oro: desactivada hasta configurar un servicio seguro. Equipar y consultar el inventario funcionan sin él."
             : "Las bonificaciones equipadas afectan al combate. Consulta «Ayuda → Bonificaciones» para ver cómo actúa cada atributo.";
         if (!_busy && _status.Text.Length == 0) _status.Text = account == null ? "Inicia sesión con Google para recuperar tu inventario y conseguir objetos en PvP." :
             _main.Accounts.SignedIn ? "Elige con las flechas: se guarda automáticamente en tu cuenta para PvP y contra IA." : "Elige con las flechas: se guarda en este dispositivo para jugar contra IA.";
     }
+    internal static bool RenderTotals(GridContainer table, IEnumerable<EquipmentStatTotal> stats)
+    {
+        Clear(table);
+        var active = stats.Where(s => Math.Abs(s.Effective) > 0.00001f).ToArray();
+        table.Visible = active.Length > 0;
+        if (!table.Visible) return false;
+        bool compactStats = table.Columns == 2;
+        if (compactStats)
+        {
+            Cell(table, "Atributo", header: true);
+            Cell(table, "Aplicado en combate", true, header: true);
+        }
+        else foreach (string heading in new[] { "Atributo", "Piezas", "Conjunto", "Suma", "Aplicado" })
+            Cell(table, heading, heading != "Atributo", header: true);
+        foreach (var stat in active)
+        {
+            Cell(table, StatName(stat.Stat)).TooltipText = EquipmentCatalogue.StatDescription(stat.Stat);
+            if (!compactStats)
+            {
+                Cell(table, EquipmentCatalogue.Percent(stat.Items), true);
+                Cell(table, EquipmentCatalogue.Percent(stat.Set), true, stat.Set > 0 ? Ui.Gold : Ui.Muted);
+                Cell(table, EquipmentCatalogue.Percent(stat.Sum), true);
+            }
+            string appliedText = EquipmentCatalogue.Percent(stat.Effective);
+            if (compactStats) appliedText += "\nPiezas: " + EquipmentCatalogue.Percent(stat.Items) +
+                "\nConjunto: " + EquipmentCatalogue.Percent(stat.Set) + "\nSuma: " + EquipmentCatalogue.Percent(stat.Sum);
+            var applied = Cell(table, appliedText, true,
+                stat.Limited ? Ui.Gold : stat.Effective < 0 ? Ui.Red : Ui.Blue);
+            applied.TooltipText = EquipmentCatalogue.StatDescription(stat.Stat) +
+                (stat.Limited ? "\nLa suma está limitada: se aplica el valor de esta columna." : "");
+        }
+        return true;
+    }
     private static string Set(string name, int pieces, string two, string four) => name + " " + pieces + "/4 · " + (pieces == 4 ? four : pieces >= 2 ? two : "sin bonificación");
     private void RenderDetails()
     {
         Clear(_details); var item = Selected();
         _detailTitle.Text = EquipmentCatalogue.SlotName(_selectedSlot) + " · ATRIBUTOS INDIVIDUALES";
-        foreach (string heading in new[] { "Atributo", "Actual", "Límites (mín. / máx.)" }) Cell(_details, heading, heading != "Atributo", Ui.Muted);
+        foreach (string heading in new[] { "Atributo", "Actual", "Límites (mín. / máx.)" }) Cell(_details, heading, heading != "Atributo", header: true);
         if (item != null) foreach (var bonus in item.Bonuses)
         {
             Cell(_details, StatName(bonus.Stat)).TooltipText = EquipmentCatalogue.StatDescription(bonus.Stat);

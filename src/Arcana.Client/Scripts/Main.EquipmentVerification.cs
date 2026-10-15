@@ -120,6 +120,24 @@ public partial class Main
             Check(_engineLog.ErrorCount == 0 && panel.VisibleItems == 20 && panel.Details.Contains("Límites (mín.") &&
                 panel.Totals.Contains("Suma") && panel.Totals.Contains("Aplicado"), "Faltan los atributos o los totales del inventario.");
             var original = Accounts.Profile!;
+            Accounts.RestoreOfflineProfile(original with { Loadout = new(), Items = [] });
+            panel.PressInspect(EquipmentSlot.Boots);
+            Check(panel.Totals.Length == 0 && panel.Sets == "Sin conjuntos activos.",
+                "Un equipo vacío muestra atributos o conjuntos inactivos.");
+            EquipmentItem Piece(EquipmentSlot slot, ItemTier tier, params ItemBonus[] bonuses) =>
+                new(Guid.NewGuid().ToString("N"), slot, tier, EquipmentFamily.Life, bonuses, 100);
+            var boots = Piece(EquipmentSlot.Boots, ItemTier.Mythic,
+                new(EquipmentStat.Defense, -0.5f, 0.5f, 0.031f), new(EquipmentStat.HealingPower, 0, 0.5f, 0.5f));
+            var chest = Piece(EquipmentSlot.Chest, ItemTier.Silver,
+                new(EquipmentStat.Defense, -0.5f, 0.5f, -0.031f), new(EquipmentStat.SpellRange, -0.5f, 0.5f, -0.07f),
+                new(EquipmentStat.HealingPower, 0, 0.5f, 0.5f));
+            Accounts.RestoreOfflineProfile(original with { Items = [boots, chest], Loadout = new(Boots: boots.Id, Chest: chest.Id) });
+            panel.PressInspect(EquipmentSlot.Boots);
+            Check(!panel.Totals.Contains("Defensa") && !panel.Totals.Contains("Velocidad") && !panel.Totals.Contains("Ataque") &&
+                panel.Totals.Contains("-7%") && panel.Totals.Contains("+60%") && panel.Sets == "Sin conjuntos activos.",
+                "El resumen no filtra los ceros y las cancelaciones, pierde penalizaciones o muestra conjuntos de una sola pieza.");
+            Accounts.RestoreOfflineProfile(original); panel.PressInspect(EquipmentSlot.Boots);
+            GD.Print("EQUIPMENT_ACTIVE_BONUSES_OK: sin equipo, efectos cancelados, penalización activa, límite real y conjunto inactivo.");
             Check(EquipmentModifiers.Calculate(original).LifePieces == 4, "No está activo el conjunto de cuatro piezas.");
             foreach (var slot in Enum.GetValues<EquipmentSlot>())
             {

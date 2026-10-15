@@ -190,8 +190,8 @@ public partial class Hud : Control
         _scoreScroll = new ScrollContainer { CustomMinimumSize = new(0, 120), HorizontalScrollMode = ScrollContainer.ScrollMode.Auto };
         scoreBox.AddChild(_scoreScroll);
         Ui.VisibleVerticalScroll(_scoreScroll);
-        _scoreRows = new GridContainer { Columns = 5 }; _scoreRows.AddThemeConstantOverride("h_separation", Ui.IsMobile ? 10 : 18); _scoreRows.AddThemeConstantOverride("v_separation", 12); _scoreScroll.AddChild(_scoreRows);
-        foreach (string text in new[] { "MAGO", "EQUIPO", "BAJAS", "MUERTES", "VIDA" }) _scoreRows.AddChild(Ui.Label(text, 14, Ui.Gold));
+        _scoreRows = Ui.Table(5, "ScoreTable"); _scoreScroll.AddChild(_scoreRows);
+        foreach (string text in new[] { "MAGO", "EQUIPO", "BAJAS", "MUERTES", "VIDA" }) Ui.TableCell(_scoreRows, text, header: true, size: 14);
         var equipmentButton = Ui.Button("Ver bonos de los magos", () => EquipmentRequested?.Invoke());
         equipmentButton.Name = "InspectEquipmentButton"; scoreBox.AddChild(equipmentButton);
         scoreBox.MoveChild(equipmentButton, 0);
@@ -412,8 +412,9 @@ public partial class Hud : Control
             {
                 if (cell == _scoreCells.Count)
                 {
-                    var label = Ui.Label("", 17, color); label.MouseFilter = MouseFilterEnum.Ignore;
-                    _scoreRows.AddChild(label); _scoreCells.Add(label);
+                    var label = Ui.TableCell(_scoreRows, "", cell % 5 >= 2, color, size: 17);
+                    label.MouseFilter = MouseFilterEnum.Ignore;
+                    _scoreCells.Add(label);
                 }
                 var current = _scoreCells[cell++]; current.Text = text; current.Visible = true;
                 current.AddThemeColorOverride("font_color", color);

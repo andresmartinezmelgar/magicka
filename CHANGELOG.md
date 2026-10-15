@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.17.18
+
+- Bordes visibles entre filas y columnas en las tablas de equipación, bonificaciones, clasificación y ayuda, con cabeceras diferenciadas y texto adaptable.
+- La suma propia y la consulta de otros magos muestran solo los efectos aplicados: se ocultan valores cero, efectos anulados y conjuntos sin activar; se conservan penalizaciones y límites reales.
+- Resumen compacto con desglose completo en móvil, aviso sin bonificaciones y comprobaciones de equipo vacío, cancelaciones y consulta pública.
+- Versión Windows y Android sincronizada en 0.17.18; código Android 17018.
+
 ## 0.17.17
 
 - Mensaje del actualizador más claro: la nueva versión se descarga e instala automáticamente.

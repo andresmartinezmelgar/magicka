@@ -14,6 +14,8 @@ public partial class PlayerEquipmentPanel : Control
     private GridContainer? _headerGrid, _contentGrid;
     private VBoxContainer _pieces = null!, _summary = null!;
     private Label _status = null!, _name = null!;
+    private EquipmentInspection? _view;
+    private bool _compactStats;
     private int _selected;
     public event Action? Closed;
     internal string Details => string.Join("\n", Labels(_pieces).Select(l => l.Text));
@@ -38,6 +40,7 @@ public partial class PlayerEquipmentPanel : Control
         _choice.ItemSelected += index => { _selected = _choice.GetItemId((int)index); _ = Load(); };
         header.AddChild(Ui.Button("Actualizar", Refresh)); header.AddChild(Ui.Button("Volver", Close));
         _name = Ui.Label("", 20, Ui.Gold); box.AddChild(_name);
+        _name.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         var columns = new GridContainer { Columns = 2, SizeFlagsVertical = SizeFlags.ExpandFill,
             SizeFlagsHorizontal = SizeFlags.ExpandFill }; _contentGrid = columns;
         columns.AddThemeConstantOverride("h_separation", 24); columns.AddThemeConstantOverride("v_separation", 8); box.AddChild(columns);
@@ -52,6 +55,12 @@ public partial class PlayerEquipmentPanel : Control
         float width = GetViewport().GetVisibleRect().Size.X;
         if (_headerGrid != null) _headerGrid.Columns = ResponsiveLayout.Columns(Math.Max(250, width - 85), 250, 3, 12);
         if (_contentGrid != null) _contentGrid.Columns = ResponsiveLayout.Columns(Math.Max(250, width - 100), 480, 2, 24);
+        bool compact = width < 970;
+        if (_compactStats != compact)
+        {
+            _compactStats = compact;
+            if (_view != null) Render(_view);
+        }
     }
 
     private static VBoxContainer Column(Node parent)
@@ -72,7 +81,7 @@ public partial class PlayerEquipmentPanel : Control
         int selected = _choice.GetItemIndex(_selected);
         if (selected < 0 && _choice.ItemCount > 0) { selected = 0; _selected = _choice.GetItemId(0); }
         if (selected >= 0) { _choice.Select(selected); _ = Load(); }
-        else { Clear(_pieces); Clear(_summary); _name.Text = ""; _status.Text = "No quedan magos en esta sala."; }
+        else { _view = null; Clear(_pieces); Clear(_summary); _name.Text = ""; _status.Text = "No quedan magos en esta sala."; }
     }
     internal void SelectPlayer(int id)
     {
@@ -83,7 +92,7 @@ public partial class PlayerEquipmentPanel : Control
     {
         _request?.Cancel(); _request?.Dispose();
         var request = _request = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
-        int id = _selected; Clear(_pieces); Clear(_summary); _name.Text = ""; _status.Text = "Consultando el equipo de esta partida…";
+        int id = _selected; _view = null; Clear(_pieces); Clear(_summary); _name.Text = ""; _status.Text = "Consultando el equipo de esta partida…";
         try
         {
             var view = await _load(id, request.Token).ConfigureAwait(false); PublicEquipment.Check(view);
@@ -98,14 +107,9 @@ public partial class PlayerEquipmentPanel : Control
             });
         }
     }
-    private static void Cell(GridContainer grid, string text, bool number = false, Color? color = null)
-    {
-        var label = Ui.Label(text, 16, color); label.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        if (number) label.HorizontalAlignment = HorizontalAlignment.Right;
-        grid.AddChild(label);
-    }
     private void Render(EquipmentInspection view)
     {
+        _view = view;
         Clear(_pieces); Clear(_summary);
         _name.Text = view.Name + " · " + WizardTypes.Name(view.WizardType) + (view.Bot ? " · IA" : "");
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
@@ -114,22 +118,21 @@ public partial class PlayerEquipmentPanel : Control
             _pieces.AddChild(Ui.Label(EquipmentCatalogue.SlotName(slot) + " · " + (item == null ? "Sin equipo" : EquipmentCatalogue.TierName(item.Tier)
                 + " · " + EquipmentCatalogue.FamilyName(item.Family)), 20, item == null ? Ui.Muted : EquipmentPanel.TierColor(item.Tier)));
             if (item == null) continue;
-            var grid = new GridContainer { Columns = 2 }; grid.AddThemeConstantOverride("h_separation", 14); _pieces.AddChild(grid);
+            var grid = Ui.Table(2, "PlayerPiece" + slot + "Table"); _pieces.AddChild(grid);
+            Ui.TableCell(grid, "Atributo", header: true); Ui.TableCell(grid, "Actual", true, header: true);
             foreach (var bonus in item.Bonuses)
-            { Cell(grid, EquipmentPanel.StatName(bonus.Stat)); Cell(grid, EquipmentCatalogue.Percent(bonus.Current), true, bonus.Current < 0 ? Ui.Red : Ui.Blue); }
+            { Ui.TableCell(grid, EquipmentPanel.StatName(bonus.Stat)); Ui.TableCell(grid, EquipmentCatalogue.Percent(bonus.Current), true, bonus.Current < 0 ? Ui.Red : Ui.Blue); }
         }
         _summary.AddChild(Ui.Label("TOTAL DEL EQUIPO", 22, Ui.Gold));
-        string sets = view.Equipment.Sets.Length == 0 ? "Míticos · sin piezas" : string.Join("\n", view.Equipment.Sets.Select(s =>
-            EquipmentCatalogue.FamilyName(s.Family) + " " + s.Pieces + "/4 · " + (s.Pieces < 2 ? "sin bono de conjunto" : EquipmentPanel.SetDescription(s.Family, s.Pieces == 4))));
+        var activeSets = view.Equipment.Sets.Where(s => s.Pieces >= 2).ToArray();
+        string sets = activeSets.Length == 0 ? "Sin conjuntos activos." : string.Join("\n", activeSets.Select(s =>
+            EquipmentCatalogue.FamilyName(s.Family) + " " + s.Pieces + "/4 · " + EquipmentPanel.SetDescription(s.Family, s.Pieces == 4)));
         var setLabel = Ui.Label(sets, 16, Ui.Gold); setLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart; _summary.AddChild(setLabel);
-        var totals = new GridContainer { Columns = 5 }; totals.AddThemeConstantOverride("h_separation", 12); totals.AddThemeConstantOverride("v_separation", 4); _summary.AddChild(totals);
-        foreach (string title in new[] { "Atributo", "Piezas", "Conjunto", "Suma", "Aplicado" }) Cell(totals, title, title != "Atributo", Ui.Muted);
-        var equipped = view.Equipment.Items.SelectMany(i => i.Bonuses).Select(b => b.Stat).ToHashSet();
-        foreach (var stat in view.Equipment.Stats.Where(s => (int)s.Stat <= (int)EquipmentStat.Power || s.Items != 0 || s.Set != 0 || equipped.Contains(s.Stat)))
+        var totals = Ui.Table(_compactStats ? 2 : 5, "PlayerEquipmentTotalsTable"); _summary.AddChild(totals);
+        if (!EquipmentPanel.RenderTotals(totals, view.Equipment.Stats))
         {
-            Cell(totals, EquipmentPanel.StatName(stat.Stat)); Cell(totals, EquipmentCatalogue.Percent(stat.Items), true);
-            Cell(totals, EquipmentCatalogue.Percent(stat.Set), true, stat.Set > 0 ? Ui.Gold : Ui.Muted); Cell(totals, EquipmentCatalogue.Percent(stat.Sum), true);
-            Cell(totals, EquipmentCatalogue.Percent(stat.Effective), true, stat.Limited ? Ui.Gold : stat.Effective < 0 ? Ui.Red : Ui.Blue);
+            var empty = Ui.Label("No hay bonificaciones activas en el equipo actual.", 16, Ui.Muted);
+            empty.AutowrapMode = TextServer.AutowrapMode.WordSmart; _summary.AddChild(empty);
         }
         _status.Text = "Equipo de la ronda actual. Aplicado muestra el bono real después de los límites. La partida continúa mientras consultas.";
     }

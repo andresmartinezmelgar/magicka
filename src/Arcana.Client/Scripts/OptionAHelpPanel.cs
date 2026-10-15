@@ -158,23 +158,14 @@ public partial class OptionAHelpPanel : Control
             { "1 / 2 / 3 / 4", "Magias especiales" },
             { "TAB / F1 / ESC", "Clasificación, ayuda y menú" }
         };
-        var list = new GridContainer { Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        list.AddThemeConstantOverride("h_separation", Ui.IsMobile ? 12 : 20);
-        list.AddThemeConstantOverride("v_separation", Ui.IsMobile ? 4 : 8);
+        var list = Ui.Table(2, "MenuHelpControlsTable");
         _body.AddChild(list);
         AddAdaptiveGrid(list, 2, 310);
         for (int i = 0; i < rows.GetLength(0); i++)
         {
             // Cada pareja clave/explicación ocupa dos columnas o dos filas en pantallas estrechas.
-            var key = Ui.Label(rows[i, 0], Ui.IsMobile ? 16 : 18, Ui.Gold);
-            key.CustomMinimumSize = Vector2.Zero;
-            key.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-            key.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            list.AddChild(key);
-            var description = Ui.Label(rows[i, 1], Ui.IsMobile ? 16 : 18, Ui.Text);
-            description.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            description.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-            list.AddChild(description);
+            Ui.TableCell(list, rows[i, 0], color: Ui.Gold, header: true, size: Ui.IsMobile ? 16 : 18);
+            Ui.TableCell(list, rows[i, 1], size: Ui.IsMobile ? 16 : 18);
         }
         var note = Ui.Label("FFF: fuego  ·  E: escudo  ·  QF: vapor  ·  QR: hielo  ·  DDF: roca incendiaria", 15, Ui.Muted);
         note.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -313,7 +304,7 @@ public partial class OptionAHelpPanel : Control
     {
         var panel = new PanelContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill };
-        var style = Ui.Panel(new Color("132c46"), 8, new Color("31658d"));
+        var style = Ui.Panel(new Color("132c46"), 8, Ui.TableBorder);
         style.ContentMarginLeft = style.ContentMarginRight = Ui.IsMobile ? 15 : 24;
         style.ContentMarginTop = style.ContentMarginBottom = Ui.IsMobile ? 10 : 20;
         panel.AddThemeStyleboxOverride("panel", style);
