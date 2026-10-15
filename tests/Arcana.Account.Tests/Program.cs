@@ -66,6 +66,21 @@ await Test("Firestore: premio PvP y resultado se entregan una vez, incluso con t
     Check(profile.Items[0].SourceMatchId == match.Id && EquipmentCatalogue.Valid(profile.Items[0]), "No se conservaron los valores sorteados.");
     Check((await database.Collection("matches").Document(match.Id).GetSnapshotAsync()).Exists, "Falta el registro del resultado.");
 });
+await Test("Firestore: guardar cuatro posiciones es atómico y rechaza objetos ajenos o mal colocados", async () =>
+{
+    string user = "bulk_loadout_" + suffix;
+    await repository.Profile(user, "Equipo completo");
+    var items = Enum.GetValues<EquipmentSlot>().Select(s => EquipmentCatalogue.Generate(new(80 + (int)s), slot: s)).ToArray();
+    foreach (var item in items) await Seed(user, item);
+    var loadout = new EquipmentLoadout(items[0].Id, items[1].Id, items[2].Id, items[3].Id);
+    await repository.SaveLoadout(user, loadout);
+    Check((await repository.Profile(user, "Equipo completo")).Loadout == loadout, "Se perdió una posición en el guardado conjunto.");
+    await Reject<ArgumentException>(() => repository.SaveLoadout(user, loadout with { Hat = loadout.Chest }));
+    await Reject<ArgumentException>(() => repository.SaveLoadout(bob, loadout));
+    Check((await repository.Profile(user, "Equipo completo")).Loadout == loadout, "Una selección inválida guardó parte de la configuración.");
+    await repository.SaveLoadout(user, new EquipmentLoadout());
+    Check((await repository.Profile(user, "Equipo completo")).Loadout == new EquipmentLoadout(), "No se pueden quitar las cuatro piezas juntas.");
+});
 await Test("Firestore: mínimo, máximo y valor actual sobreviven a una nueva instancia del repositorio", async () =>
 {
     var original = (await repository.Profile(alice, "Alice")).Items[0];
@@ -227,6 +242,13 @@ await Test("HTTP: inventario exige sesión y no permite vender objetos de otro u
     var equipped = await http.SendAsync(equip); Check(equipped.IsSuccessStatusCode, "La API rechazó una posición serializada por el cliente.");
     var saved = Protocol.Deserialize<InventoryResult>(await equipped.Content.ReadAsStringAsync())!;
     Check(saved.Profile.Loadout.Get(item.Slot) == item.Id, "El equipamiento HTTP no se guardó.");
+    using var bulk = new HttpRequestMessage(HttpMethod.Post, "/account/loadout") { Content = JsonContent.Create(saved.Profile.Loadout, options: Protocol.Json) };
+    bulk.Headers.Authorization = new("Bearer", aliceLogin.AccessToken);
+    using var bulkResponse = await http.SendAsync(bulk);
+    Check(bulkResponse.IsSuccessStatusCode && Protocol.Deserialize<InventoryResult>(await bulkResponse.Content.ReadAsStringAsync())!.Profile.Loadout == saved.Profile.Loadout,
+        "La API rechazó el guardado conjunto del inventario.");
+    using var noAuthBulk = await http.PostAsJsonAsync("/account/loadout", saved.Profile.Loadout, Protocol.Json);
+    Check((int)noAuthBulk.StatusCode == 401, "El guardado conjunto no exige sesión.");
 });
 await Test("Red: el servidor aplica el equipo guardado y rechaza sesiones duplicadas o inventadas", async () =>
 {

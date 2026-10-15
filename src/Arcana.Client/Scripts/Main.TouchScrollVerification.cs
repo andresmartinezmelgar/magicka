@@ -4,7 +4,7 @@ namespace Arcana.Client;
 
 public partial class Main
 {
-    private void AssertTouchScroll(Control root, string name, string stage, bool overCard = false)
+    private void AssertTouchScroll(Control root, string name, string stage, bool overCard = false, bool overButton = false)
     {
         var scroll = root.FindChild(name, true, false) as ScrollContainer
             ?? throw new InvalidOperationException(stage + ": falta " + name);
@@ -12,9 +12,9 @@ public partial class Main
         var bar = scroll.GetVScrollBar();
         if (bar.MaxValue - bar.Page < 12) return; // El contenido completo ya cabe.
         var area = scroll.GetGlobalRect().Intersection(GetViewport().GetVisibleRect()).Grow(-12);
-        if (overCard)
+        if (overCard || overButton)
         {
-            area = scroll.FindChildren("*", "PanelContainer", true, false).OfType<Control>()
+            area = scroll.FindChildren("*", overButton ? "Button" : "PanelContainer", true, false).OfType<Control>()
                 .Where(card => card.IsVisibleInTree())
                 .Select(card => card.GetGlobalRect().Intersection(area))
                 .FirstOrDefault(rect => rect.Size.X >= 60 && rect.Size.Y >= 60);
@@ -29,7 +29,8 @@ public partial class Main
             Input.EmulateTouchFromMouse = Input.EmulateMouseFromTouch = true;
             var interactive = scroll.FindChildren("*", "Control", true, false).OfType<Control>()
                 .Where(control => control.IsVisibleInTree() &&
-                    control is BaseButton or LineEdit or TextEdit or ItemList or Godot.Range or TabBar or ScrollContainer)
+                    (control is BaseButton or LineEdit or TextEdit or ItemList or Godot.Range or TabBar or ScrollContainer) &&
+                    !(overButton && control is Button))
                 .ToArray();
             Vector2 ContentPoint(bool upwards)
             {

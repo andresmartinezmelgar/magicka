@@ -2,7 +2,7 @@
 
 **Juego multijugador de combate mágico en tiempo real para Windows y Android.**
 
-**Estado del repositorio:** versión **0.17.22**, Godot **4.5.2 .NET**, **C# / .NET 8** y protocolo de red **20**. El servidor autoritativo está desarrollado con ASP.NET Core. El juego puede practicarse sin conexión, alojarse en un PC o utilizar un servidor dedicado. El acceso Google y la progresión se apoyan en Firebase, cuando están configurados.
+**Estado del repositorio:** versión **0.17.23**, Godot **4.5.2 .NET**, **C# / .NET 8** y protocolo de red **20**. El servidor autoritativo está desarrollado con ASP.NET Core. El juego puede practicarse sin conexión, alojarse en un PC o utilizar un servidor dedicado. El acceso Google y la progresión se apoyan en Firebase, cuando están configurados.
 
 Proyecto inspirado en el combate elemental de *Magicka: Wizard Wars*, con código, escenarios, animaciones, efectos y reglas propios. No es una reproducción oficial ni exacta del juego original.
 
@@ -93,6 +93,8 @@ Se utiliza el proyecto Firebase **`arcana-arena-f2997`**. La autenticación Goog
 - Si Google aparece conectado pero Firestore muestra `403 PERMISSION_DENIED`, hay que revisar las **reglas publicadas**: autenticarse no equivale a tener permiso de lectura.
 
 Las recompensas, las victorias y las operaciones que alteran oro u objetos se validan en el servidor. El cliente **no puede asignarse premios** escribiendo directamente en Firestore.
+
+En **Inventario**, pulsa Botas, Gorro, Pecho o Arma para abrir sus objetos en dos o tres columnas, ordenados de mayor a menor calidad, con desplazamiento táctil. La selección y las bonificaciones se previsualizan al instante. Las cuatro posiciones se guardan juntas al salir del inventario; salir sin cambios no escribe en Firestore.
 
 ### Recompensas PvP
 

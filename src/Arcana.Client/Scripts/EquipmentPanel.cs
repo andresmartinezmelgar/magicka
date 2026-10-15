@@ -5,7 +5,6 @@ namespace Arcana.Client;
 
 public partial class EquipmentPanel : Control
 {
-    private sealed record SlotControls(Button Previous, Button Inspect, Button Next);
     private Main _main = null!;
     private LineEdit _address = null!;
     private bool _automaticServer;
@@ -24,13 +23,19 @@ public partial class EquipmentPanel : Control
     private Button _sell = null!;
     private ConfirmationDialog _confirm = null!;
     private AcceptDialog _setsInfo = null!;
-    private readonly SlotControls[] _slots = new SlotControls[4];
+    private readonly Button[] _slots = new Button[4];
     private readonly CancellationTokenSource _lifetime = new();
     private readonly List<Button> _actions = [];
     private EquipmentSlot _selectedSlot;
     private bool _busy;
+    private bool _closing, _onlineInventory;
+    private AccountProfile? _draft;
+    private EquipmentLoadout _savedLoadout = new();
     private string _selling = "";
-    internal int VisibleItems => _main.Accounts.Profile?.Items.Length ?? 0;
+    public event Action? Closed;
+    internal int VisibleItems => _draft?.Items.Length ?? 0;
+    internal AccountProfile? PreviewProfile => _draft;
+    internal bool HasChanges => _draft != null && _draft.Loadout != _savedLoadout;
     internal EquipmentSlot SelectedSlot => _selectedSlot;
     internal string Details => string.Join("\n", _details.GetChildren().OfType<Label>().Select(l => l.Text));
     internal string Totals => string.Join("\n", _totals.GetChildren().OfType<Label>().Select(l => l.Text));
@@ -41,6 +46,9 @@ public partial class EquipmentPanel : Control
     {
         _automaticServer = PublicAccountServer.NeedsDiscovery(address, Ui.IsMobile);
         _main = main; Name = "EquipmentPanel"; Theme = Ui.Theme(); Ui.Full(this);
+        _draft = main.Accounts.Profile;
+        _savedLoadout = _draft?.Loadout ?? new();
+        _onlineInventory = main.Accounts.SignedIn || main.Accounts.HasDirectFirebaseSession;
         AddChild(new ColorRect { Color = new(0.01f, 0.025f, 0.045f, 0.98f), LayoutMode = 1, AnchorRight = 1, AnchorBottom = 1 });
         var margin = new MarginContainer(); AddChild(margin); Ui.Full(margin);
         foreach (string side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, 20);
@@ -100,14 +108,12 @@ public partial class EquipmentPanel : Control
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
             var current = slot;
-            var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; row.AddThemeConstantOverride("separation", 4); selectors.AddChild(row);
-            var previous = Action(row, "‹", () => Cycle(current, -1)); previous.CustomMinimumSize = new(Ui.IsMobile ? 78 : 54, Ui.IsMobile ? 72 : 54);
-            previous.TooltipText = "Pieza anterior: " + EquipmentCatalogue.SlotName(slot);
-            var inspect = Action(row, "", () => SelectSlot(current)); inspect.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            inspect.TooltipText = "Ver los atributos individuales de " + EquipmentCatalogue.SlotName(slot).ToLowerInvariant();
-            var next = Action(row, "›", () => Cycle(current, 1)); next.CustomMinimumSize = new(Ui.IsMobile ? 78 : 54, Ui.IsMobile ? 72 : 54);
-            next.TooltipText = "Pieza siguiente: " + EquipmentCatalogue.SlotName(slot);
-            _slots[(int)slot] = new(previous, inspect, next);
+            var inspect = Action(selectors, "", () => OpenItemPicker(current));
+            inspect.Name = "EquipmentSlot" + slot;
+            inspect.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            inspect.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            inspect.TooltipText = "Elegir " + EquipmentCatalogue.SlotName(slot).ToLowerInvariant() + " en el inventario ordenado por calidad";
+            _slots[(int)slot] = inspect;
         }
         _detailTitle = Ui.Label("", 21, Ui.Gold); inventory.AddChild(_detailTitle);
         _details = Ui.Table(3, "EquipmentDetailsTable"); inventory.AddChild(_details);
@@ -137,7 +143,7 @@ public partial class EquipmentPanel : Control
         var footer = new HBoxContainer(); footer.AddThemeConstantOverride("separation", 14); box.AddChild(footer);
         var hint = Ui.Label("Suma = piezas + conjunto. Aplicado = valor real en combate.", 14, Ui.Muted);
         hint.AutowrapMode = TextServer.AutowrapMode.WordSmart; hint.SizeFlagsHorizontal = SizeFlags.ExpandFill; footer.AddChild(hint);
-        var close = Action(footer, "Volver", () => { _lifetime.Cancel(); QueueFree(); }); _actions.Remove(close);
+        var close = Action(footer, "Volver", () => Close()); _actions.Remove(close);
         _confirm = new ConfirmationDialog { Title = "Eliminar objeto", OkButtonText = "Eliminar y recibir oro", CancelButtonText = "Cancelar" };
         AddChild(_confirm); _confirm.Confirmed += () => _ = Sell();
         _setsInfo = new AcceptDialog { Title = "Conjuntos Míticos de los ocho elementos", OkButtonText = "Cerrar" }; AddChild(_setsInfo);
@@ -150,6 +156,7 @@ public partial class EquipmentPanel : Control
             + "\n\nEl bono de cuatro sustituye al de dos. Se pueden combinar dos conjuntos de dos piezas.", 17);
         descriptions.AutowrapMode = TextServer.AutowrapMode.WordSmart; descriptions.SizeFlagsHorizontal = SizeFlags.ExpandFill; setsScroll.AddChild(descriptions);
         ApplyOptionAEquipment(margin, panel, box, columns, inventoryScroll, totalsScroll, footer);
+        BuildItemPicker();
         GetViewport().SizeChanged += UpdateEquipmentResponsive;
         UpdateEquipmentResponsive();
         Render();
@@ -192,6 +199,7 @@ public partial class EquipmentPanel : Control
             _setsScroll.CustomMinimumSize = new Vector2(
                 Math.Max(240, Math.Min(920, viewportWidth - (Ui.IsMobile ? 85 : 140))),
                 Math.Max(180, Math.Min(480, GetViewport().GetVisibleRect().Size.Y - 180)));
+        UpdatePickerColumns();
     }
 
     private Button Action(Node parent, string text, Action action, bool primary = false)
@@ -222,44 +230,27 @@ public partial class EquipmentPanel : Control
     { foreach (var child in parent.GetChildren()) { parent.RemoveChild(child); child.QueueFree(); } }
     private static Label Cell(GridContainer grid, string text, bool number = false, Color? color = null, bool header = false)
         => Ui.TableCell(grid, text, number, color, header);
-    private EquipmentItem[] Choices(EquipmentSlot slot) => (_main.Accounts.Profile?.Items ?? [])
-        .Where(i => i.Slot == slot).OrderByDescending(i => i.Tier).ThenBy(i => i.Id, StringComparer.Ordinal).ToArray();
+    private EquipmentItem[] Choices(EquipmentSlot slot) => (_draft?.Items ?? [])
+        .Where(i => i.Slot == slot).OrderByDescending(i => i.Tier).ThenBy(i => i.Family).ThenBy(i => i.Id, StringComparer.Ordinal).ToArray();
     private EquipmentItem? Selected()
     {
-        var account = _main.Accounts.Profile;
+        var account = _draft;
         return account?.Items.FirstOrDefault(i => i.Id == account.Loadout.Get(_selectedSlot));
     }
-    private void SelectSlot(EquipmentSlot slot) { _selectedSlot = slot; Render(); }
-    internal void PressArrow(EquipmentSlot slot, int direction)
-    {
-        var button = direction < 0 ? _slots[(int)slot].Previous : _slots[(int)slot].Next;
-        if (!button.Disabled) button.EmitSignal(Button.SignalName.Pressed);
-    }
-    internal void PressInspect(EquipmentSlot slot) => _slots[(int)slot].Inspect.EmitSignal(Button.SignalName.Pressed);
-    private void Cycle(EquipmentSlot slot, int direction)
-    {
-        if (_busy || _main.Accounts.Profile == null || direction is not (-1 or 1)) return;
-        _selectedSlot = slot;
-        var choices = Choices(slot); if (choices.Length == 0) { Render(); return; }
-        string old = _main.Accounts.Profile.Loadout.Get(slot);
-        int index = Array.FindIndex(choices, i => i.Id == old) + 1; // 0 permite quitar la pieza.
-        int next = (index + direction + choices.Length + 1) % (choices.Length + 1);
-        _ = Equip(slot, next == 0 ? "" : choices[next - 1].Id);
-    }
+    internal void PressInspect(EquipmentSlot slot) => _slots[(int)slot].EmitSignal(Button.SignalName.Pressed);
     private void Render()
     {
-        var account = _main.Accounts.Profile;
+        var account = _draft;
         _profile.Text = account == null ? "Sin cuenta" : $"{account.Name} · {account.Gold} oro · {account.Items.Length}/{EquipmentCatalogue.InventoryLimit} objetos";
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
             var view = _slots[(int)slot]; var choices = Choices(slot);
             int index = Array.FindIndex(choices, i => i.Id == account?.Loadout.Get(slot));
             var item = index >= 0 ? choices[index] : null;
-            view.Inspect.Text = EquipmentCatalogue.SlotName(slot) + " · " + (item == null ? "Sin equipo" : EquipmentCatalogue.TierName(item.Tier))
-                + "\n" + (choices.Length == 0 ? "Sin objetos" : (item == null ? "" : EquipmentCatalogue.FamilyName(item.Family) + " · ") + $"{index + 1}/{choices.Length}");
-            view.Inspect.AddThemeColorOverride("font_color", slot == _selectedSlot ? Ui.Gold : item == null ? Ui.Muted : TierColor(item.Tier));
-            view.Previous.Disabled = view.Next.Disabled = _busy || choices.Length == 0;
-            view.Inspect.Disabled = _busy;
+            view.Text = EquipmentCatalogue.SlotName(slot) + " · " + (item == null ? "Sin equipo" : EquipmentCatalogue.TierName(item.Tier))
+                + "\n" + (item == null ? "" : EquipmentCatalogue.FamilyName(item.Family) + " · ") + $"{choices.Length} objetos · Elegir";
+            view.AddThemeColorOverride("font_color", slot == _selectedSlot ? Ui.Gold : item == null ? Ui.Muted : TierColor(item.Tier));
+            view.Disabled = _busy;
         }
         RenderDetails();
         var breakdown = EquipmentModifiers.Summarize(account ?? new("", "", 0, 0, 0, new(), []));
@@ -281,7 +272,7 @@ public partial class EquipmentPanel : Control
             ? "Venta de objetos por oro: desactivada hasta configurar un servicio seguro. Equipar y consultar el inventario funcionan sin él."
             : "Las bonificaciones equipadas afectan al combate. Consulta «Ayuda → Bonificaciones» para ver cómo actúa cada atributo.";
         if (!_busy && _status.Text.Length == 0) SetStatus(account == null ? "Inicia sesión con Google para recuperar tu inventario y conseguir objetos en PvP." :
-            _main.Accounts.SignedIn ? "Elige con las flechas: se guarda automáticamente en tu cuenta para PvP y contra IA." : "Elige con las flechas: se guarda en este dispositivo para jugar contra IA.", routine: true);
+            "Pulsa una posición para elegir una pieza. La configuración se guarda al salir del inventario.", routine: true);
     }
     internal static bool RenderTotals(GridContainer table, IEnumerable<EquipmentStatTotal> stats)
     {
@@ -328,8 +319,8 @@ public partial class EquipmentPanel : Control
             Cell(_details, EquipmentCatalogue.Percent(bonus.Current), true, bonus.Current < 0 ? Ui.Red : Ui.Blue);
             Cell(_details, EquipmentCatalogue.Percent(bonus.Minimum) + " / " + EquipmentCatalogue.Percent(bonus.Maximum), true, Ui.Muted);
         }
-        _empty.Text = item == null ? "Sin pieza equipada. Usa las flechas para recorrer los objetos de esta posición o pulsa otra pieza para ver sus atributos." :
-            "Pulsa otra pieza para ver sus atributos. El oro se guarda para futuras mejoras.";
+        _empty.Text = item == null ? "Sin pieza equipada. Pulsa una posición para abrir sus objetos ordenados por calidad." :
+            "Pulsa una posición para comparar sus objetos. Los cambios se guardan al salir del inventario.";
         _sell.Text = item == null ? "Eliminar pieza por oro" : $"Eliminar esta pieza · +{item.SaleGold} oro";
         _sell.Disabled = _busy || item == null || !_main.Accounts.SignedIn || (_main.Accounts.IsDirectFirebaseSession && _main.Accounts.ServerAddress.Length == 0);
     }
@@ -344,10 +335,6 @@ public partial class EquipmentPanel : Control
     {
         _busy = value; foreach (var button in _actions) button.Disabled = value;
         _address.Editable = !value; if (message.Length > 0) SetStatus(message);
-        foreach (var slot in Enum.GetValues<EquipmentSlot>())
-        {
-            var view = _slots[(int)slot]; view.Previous.Disabled = view.Next.Disabled = value || Choices(slot).Length == 0;
-        }
         _sell.Disabled = value || Selected() == null || !_main.Accounts.SignedIn || (_main.Accounts.IsDirectFirebaseSession && _main.Accounts.ServerAddress.Length == 0);
     }
     private void ConfigureOperations()
@@ -375,20 +362,17 @@ public partial class EquipmentPanel : Control
         try { await _main.Accounts.Refresh(_lifetime.Token); Done("Inventario actualizado; se ha recuperado tu equipo guardado."); }
         catch (Exception error) { Failed(error); }
     }
-    private async Task Equip(EquipmentSlot slot, string id)
+    private void ChooseItem(string id)
     {
-        if (_busy) return; Busy(true, "Guardando equipo…");
+        if (_busy || _draft == null) return;
         try
         {
-            if (_main.Accounts.SignedIn) { await _main.Accounts.Equip(slot, id, _lifetime.Token); Done("Equipo guardado en tu cuenta para las siguientes partidas."); }
-            else
-            {
-                _main.Accounts.EquipOffline(slot, id);
-                bool saved = _main.SaveAccountCache(); Render();
-                Busy(false, saved ? "Equipo guardado en este dispositivo para las siguientes partidas contra IA." : "Equipo cambiado para esta sesión; no se pudo guardar en el dispositivo.");
-            }
+            _draft = AccountInventory.Equip(_draft, new InventoryRequest(id, _selectedSlot));
+            CloseItemPicker();
+            Render();
+            SetStatus(HasChanges ? "Cambios pendientes. Se guardarán al salir del inventario." : "La configuración coincide con el equipo guardado.", routine: true);
         }
-        catch (Exception error) { Failed(error); }
+        catch (Exception error) { SetStatus(error.Message); }
     }
     private void ConfirmSale()
     {
@@ -409,9 +393,15 @@ public partial class EquipmentPanel : Control
     {
         bool saved = _main.SaveAccountCache();
         if (_lifetime.IsCancellationRequested) return;
+        RebaseDraft();
         Render(); Busy(false, saved ? message : message + " No se pudo actualizar la copia del dispositivo.");
+        ContinueRequestedClose();
     });
     private void Failed(Exception error) => _main.Post(() =>
-    { if (_lifetime.IsCancellationRequested) return; Render(); Busy(false, error is OperationCanceledException ? "Operación cancelada." : error.Message); });
+    {
+        if (_lifetime.IsCancellationRequested) return;
+        Render(); Busy(false, error is OperationCanceledException ? "Operación cancelada." : error.Message);
+        ContinueRequestedClose();
+    });
     public override void _ExitTree() { GetViewport().SizeChanged -= UpdateEquipmentResponsive; _lifetime.Cancel(); _lifetime.Dispose(); }
 }

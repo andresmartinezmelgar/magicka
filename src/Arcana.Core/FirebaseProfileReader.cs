@@ -8,13 +8,16 @@ namespace Arcana.Core;
 /// <summary>Lectura Firestore con ID token Firebase, independiente del servidor de partidas/cuentas.</summary>
 public sealed class FirebaseProfileReader : IDisposable
 {
-    private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(15) };
+    private readonly HttpClient _http;
+    private readonly bool _ownsHttp;
     private readonly string _projectId;
-    public FirebaseProfileReader(string projectId)
+    public FirebaseProfileReader(string projectId, HttpClient? httpClient = null)
     {
         if (string.IsNullOrEmpty(projectId) || projectId.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '-'))
             throw new ArgumentException("Proyecto Firebase inválido.", nameof(projectId));
         _projectId = projectId;
+        _ownsHttp = httpClient == null;
+        _http = httpClient ?? new() { Timeout = TimeSpan.FromSeconds(15) };
     }
     private static async Task EnsureAllowed(HttpResponseMessage response, string action, CancellationToken token)
     {
@@ -174,5 +177,5 @@ public sealed class FirebaseProfileReader : IDisposable
         using var response = await _http.SendAsync(request, token).ConfigureAwait(false);
         await EnsureAllowed(response, "la escritura de tu equipamiento", token).ConfigureAwait(false);
     }
-    public void Dispose() => _http.Dispose();
+    public void Dispose() { if (_ownsHttp) _http.Dispose(); }
 }

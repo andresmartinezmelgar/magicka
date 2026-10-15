@@ -8,6 +8,7 @@ public interface IAccountRepository
 {
     Task<AccountProfile> Profile(string uid, string name, CancellationToken token = default);
     Task Equip(string uid, InventoryRequest request, CancellationToken token = default);
+    Task SaveLoadout(string uid, EquipmentLoadout loadout, CancellationToken token = default);
     Task<int> Sell(string uid, string itemId, CancellationToken token = default);
     Task Award(RewardMatch match, CancellationToken token = default);
 }
@@ -110,6 +111,34 @@ public sealed class FirestoreAccountRepository(FirestoreDb database) : IAccountR
                 if (value.Slot != request.Slot || !EquipmentCatalogue.Valid(value)) throw new ArgumentException("El objeto no corresponde a esta posición.");
             }
             transaction.Set(active, FirestoreData.Map(loadout.With(request.Slot, request.ItemId)));
+        }, cancellationToken: token);
+    }
+    public async Task SaveLoadout(string uid, EquipmentLoadout loadout, CancellationToken token = default)
+    {
+        ArgumentNullException.ThrowIfNull(loadout);
+        foreach (var slot in Enum.GetValues<EquipmentSlot>())
+        {
+            string id = loadout.Get(slot);
+            if (id == null || (id.Length > 0 && !Guid.TryParseExact(id, "N", out _)))
+                throw new ArgumentException("Selección inválida.");
+        }
+        var user = User(uid);
+        await database.RunTransactionAsync(async transaction =>
+        {
+            var header = await transaction.GetSnapshotAsync(user, token);
+            if (!header.Exists) throw new ArgumentException("Cuenta desconocida.");
+            _ = Header(header);
+            foreach (var slot in Enum.GetValues<EquipmentSlot>())
+            {
+                string id = loadout.Get(slot);
+                if (id.Length == 0) continue;
+                var item = await transaction.GetSnapshotAsync(user.Collection("items").Document(id), token);
+                if (!item.Exists) throw new ArgumentException("El objeto no está en tu inventario.");
+                var value = FirestoreData.Read<EquipmentItem>(item);
+                if (value.Slot != slot || !EquipmentCatalogue.Valid(value))
+                    throw new ArgumentException("El objeto no corresponde a esta posición.");
+            }
+            transaction.Set(user.Collection("loadouts").Document("active"), FirestoreData.Map(loadout));
         }, cancellationToken: token);
     }
     public async Task<int> Sell(string uid, string itemId, CancellationToken token = default)

@@ -47,23 +47,25 @@ public partial class Main
     public void OpenEquipment(string address)
     {
         if (_playing) return;
-        if (GodotObject.IsInstanceValid(_equipmentPanel)) _equipmentPanel!.QueueFree();
+        if (GodotObject.IsInstanceValid(_equipmentPanel) && !_equipmentPanel!.IsQueuedForDeletion()) return;
         _equipmentPanel = new EquipmentPanel(); _ui.AddChild(_equipmentPanel);
+        var panel = _equipmentPanel;
+        panel.Closed += () => { if (_equipmentPanel == panel) _equipmentPanel = null; };
         _equipmentPanel.Build(this, address);
     }
     /// <summary>Navegación uniforme de menús; nunca modifica la interfaz en partida.</summary>
     public void NavigateOptionAMenu(int page)
     {
         if (_playing) return;
+        if (GodotObject.IsInstanceValid(_equipmentPanel) && !_equipmentPanel!.IsQueuedForDeletion())
+        {
+            if (page != 4) _equipmentPanel.Close(() => NavigateOptionAMenu(page));
+            return;
+        }
         if (GodotObject.IsInstanceValid(_accountProfilePanel))
         {
             _accountProfilePanel!.QueueFree();
             _accountProfilePanel = null;
-        }
-        if (GodotObject.IsInstanceValid(_equipmentPanel))
-        {
-            _equipmentPanel!.QueueFree();
-            _equipmentPanel = null;
         }
         CloseOptionAHelp();
         _launcher.CloseRooms();
