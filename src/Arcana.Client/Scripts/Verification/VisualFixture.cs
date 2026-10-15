@@ -5,10 +5,24 @@ namespace Arcana.Client;
 /// <summary>Escena determinista utilizada por capturas y comprobaciones del HUD, nunca por partidas en red.</summary>
 internal static class VisualFixture
 {
+    internal static readonly Element[][] StoneAuraSamples = [[Element.Earth, Element.Fire], [Element.Earth, Element.Water],
+        [Element.Earth, Element.Cold], [Element.Earth, Element.Life], [Element.Earth, Element.Arcane],
+        [Element.Earth, Element.Water, Element.Fire]];
+    internal static readonly string[] StoneAuraNames = ["Fuego", "Agua", "Frío", "Vida", "Arcano", "Agua + fuego"];
+    internal static V2 StoneAuraPosition(int index) => new(-5.8f + index % 3 * 5.8f, -2.6f + index / 3 * 5.4f);
+
     public static WorldSnapshot Spells(int frame, string view)
     {
         var state = Create("none");
         var local = state.Players[0] with { Position = V2.Zero, Selected = [], Shield = 0, ShieldMax = 0, ShieldSeconds = 0 };
+        if (view == "stone-auras")
+            return state with { Tick = frame, Time = frame / 60.0, Mode = GameMode.Arena,
+                Players = [local with { Position = new(-20, 0) }],
+                Projectiles = StoneAuraSamples.Select((elements, i) => new ProjectileSnapshot(i + 1, 1,
+                    StoneAuraPosition(i), new(1, 0), elements, 0.3f)).ToArray(),
+                Events = StoneAuraSamples.Select((elements, i) => new GameEvent(frame / 24 * 10 + i + 1,
+                    "impact", StoneAuraPosition(i) + new V2(1.3f, 0), elements, "")).ToArray(),
+                Points = [], Walls = [], Beams = [], Fields = [], Pickups = [] };
         if (view.StartsWith("stone"))
         {
             bool close = view == "stone-close";

@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.17.22
+
+- Aura visible alrededor de las rocas imbuidas: fuego rojo, agua azul, frío cian, vida verde y arcano rosa.
+- Las mezclas de dos elementos secundarios conservan ambos colores en el halo, las grietas, los anillos, la estela y los fragmentos del impacto.
+- Mallas y materiales de aura reutilizados; efectos contenidos en los presupuestos de partículas existentes.
+- Comprobación de todas las recetas válidas de roca, colores y mezclas, estelas e impactos; capturas reales de las cinco auras y una mezcla en móvil y escritorio.
+- Versión Windows y Android sincronizada en 0.17.22; código Android 17022.
+
 ## 0.17.21
 
 - Piedra con siluetas irregulares y caras facetadas, grano mineral y grietas; las rocas imbuidas conservan su forma y muestran el elemento secundario en las vetas.

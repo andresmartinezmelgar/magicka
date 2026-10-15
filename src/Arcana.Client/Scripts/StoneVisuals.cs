@@ -8,9 +8,58 @@ internal static class StoneVisuals
 {
     private static readonly ArrayMesh?[] Shapes = new ArrayMesh?[4];
     private static readonly Dictionary<(int Elements, int Tone), ShaderMaterial> Materials = [];
-    private static Shader? _shader;
+    private static readonly Dictionary<int, Element[]> Palettes = [];
+    private static readonly Dictionary<int, ShaderMaterial> Auras = [];
+    private static Shader? _shader, _auraShader;
     private static readonly Color[] Chips = [new("a68a65"), new("78634e"), new("ccb18a")];
     internal static Color ChipColor(int index) => Chips[(int)((uint)index % Chips.Length)];
+
+    internal static Element[] Imbuements(Element[] elements)
+    {
+        int mask = 0;
+        foreach (var element in elements)
+            if (element is not (Element.Earth or Element.Shield)) mask |= 1 << (int)element;
+        if (Palettes.TryGetValue(mask, out var cached)) return cached;
+        return Palettes[mask] = Enum.GetValues<Element>().Where(e => (mask & (1 << (int)e)) != 0).ToArray();
+    }
+
+    internal static Color AuraColor(Element element) => element == Element.Fire ? new("ff3026") : Ui.ElementColor(element);
+    internal static int ParticleShape(Element element) => element == Element.Fire ? 2 : element == Element.Cold ? 1 : 0;
+
+    internal static ShaderMaterial? Aura(Element[] elements)
+    {
+        var palette = Imbuements(elements);
+        if (palette.Length == 0) return null;
+        int mask = 0; foreach (var element in palette) mask |= 1 << (int)element;
+        if (Auras.TryGetValue(mask, out var existing)) return existing;
+        _auraShader ??= new Shader { Code = """
+            shader_type spatial;
+            render_mode unshaded, cull_front, blend_mix, depth_draw_never, shadows_disabled;
+            uniform vec4 accent : source_color;
+            uniform vec4 secondary_accent : source_color;
+            uniform float mixed = 0.0;
+            varying vec3 local_position;
+            void vertex() { local_position = VERTEX; }
+            void fragment() {
+                float split = smoothstep(-0.14, 0.14, local_position.x + local_position.z * 0.65);
+                vec3 color = mix(accent.rgb, secondary_accent.rgb, split * mixed);
+                float rim = pow(1.0 - clamp(abs(dot(normalize(NORMAL), normalize(VIEW))), 0.0, 1.0), 1.4);
+                ALBEDO = color;
+                EMISSION = color * 0.55;
+                ALPHA = (0.34 + rim * 0.42) * (0.94 + sin(TIME * 4.0) * 0.06);
+            }
+            """ };
+        var material = new ShaderMaterial { Shader = _auraShader };
+        SetPalette(material, palette);
+        Auras[mask] = material; return material;
+    }
+
+    private static void SetPalette(ShaderMaterial material, Element[] palette)
+    {
+        material.SetShaderParameter("accent", palette.Length > 0 ? AuraColor(palette[0]) : Ui.ElementColor(Element.Earth));
+        material.SetShaderParameter("secondary_accent", palette.Length > 1 ? AuraColor(palette[1]) : palette.Length > 0 ? AuraColor(palette[0]) : Ui.ElementColor(Element.Earth));
+        material.SetShaderParameter("mixed", palette.Length > 1 ? 1f : 0f);
+    }
 
     internal static ArrayMesh Shape(int seed = 0)
     {
@@ -59,6 +108,8 @@ internal static class StoneVisuals
         _shader ??= new Shader { Code = """
             shader_type spatial;
             uniform vec4 accent : source_color = vec4(0.78, 0.58, 0.31, 1.0);
+            uniform vec4 secondary_accent : source_color = vec4(0.78, 0.58, 0.31, 1.0);
+            uniform float mixed = 0.0;
             uniform float imbued = 0.0;
             uniform float tone = 1.0;
             varying vec3 local_position;
@@ -78,15 +129,16 @@ internal static class StoneVisuals
                 float cracks = 1.0 - smoothstep(0.025, 0.085, seam);
                 vec3 rock = mix(vec3(0.16, 0.15, 0.13), vec3(0.39, 0.34, 0.27), mineral);
                 rock *= COLOR.rgb * tone;
-                ALBEDO = mix(rock, mix(rock * 0.32, accent.rgb, imbued * 0.8), cracks * 0.78);
+                vec3 infusion = mix(accent.rgb, secondary_accent.rgb, smoothstep(-0.14, 0.14, local_position.x + local_position.z * 0.65) * mixed);
+                ALBEDO = mix(rock, mix(rock * 0.32, infusion, imbued * 0.8), cracks * 0.78);
                 ROUGHNESS = 0.97;
                 SPECULAR = 0.12;
-                EMISSION = rock * 0.055 + accent.rgb * cracks * imbued * 0.65;
+                EMISSION = rock * 0.055 + infusion * cracks * imbued * 0.65;
             }
             """ };
-        Element[] secondary = elements.Where(e => e is not (Element.Earth or Element.Shield)).ToArray();
+        var secondary = Imbuements(elements);
         var material = new ShaderMaterial { Shader = _shader };
-        material.SetShaderParameter("accent", secondary.Length > 0 ? Ui.SpellColor(secondary) : Ui.ElementColor(Element.Earth));
+        SetPalette(material, secondary);
         material.SetShaderParameter("imbued", secondary.Length > 0 ? 1f : 0f);
         material.SetShaderParameter("tone", 1f - Math.Clamp(tone, 0, 2) * 0.08f);
         Materials[key] = material; return material;

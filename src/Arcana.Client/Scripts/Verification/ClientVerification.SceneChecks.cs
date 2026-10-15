@@ -159,6 +159,7 @@ public partial class ClientVerification
             if (valid) valid = CheckSpellStrength();
             if (valid) valid = CheckShieldMeteorVisuals();
             if (valid) valid = CheckStoneVisuals();
+            if (valid) valid = CheckStoneAuras();
             _runtime.Renderer.Clear(); valid &= effects.ActiveCount == 0 && _runtime.Renderer.ActiveBeamSegments == 0;
             if (valid) CompleteSmoke("EFFECTS_SMOKE_OK: 1/2/3 cargas, elementos repetidos, 12 eventos, límites, expiración, reutilización y limpieza");
         }
