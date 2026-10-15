@@ -1,264 +1,249 @@
-# Arcana Arena — v0.16.0
+# Arcana Arena
 
-**v0.16.0:** Optimización del protocolo PvP (versión 19): acciones binarias, deltas respecto al estado inicial, compresión selectiva y medición de bytes. [Cambios y validación](docs/RELEASE-v0.16.0.md).\n\n**v0.15.0:** Fichas de otros magos desde la clasificación: piezas, bonificaciones individuales, conjuntos, suma y valores reales en combate. Consulta puntual al servidor, sin ampliar los snapshots. Acceso directo con Google en el launcher y configuración Firebase desde archivo externo. Protocolo 14. [Cambios y configuración](docs/RELEASE-v0.15.0.md).
+**Juego multijugador de combate mágico en tiempo real para Windows y Android.**
 
-**v0.14.0:** Equipación para Agua, Vida, Escudo, Frío, Rayo, Arcano, Tierra y Fuego. Cinco calidades, atributos aleatorios y conjuntos Míticos de dos y cuatro piezas por elemento. Las bonificaciones modifican el combate, los estados y las cargas de haces y rocas. La selección con flechas muestra valores individuales y totales y se conserva entre partidas. Los objetos anteriores mantienen sus valores. Protocolo 13. [Bonificaciones y persistencia](docs/PROGRESSION.md).
+**Estado del repositorio:** versión **0.17.22**, Godot **4.5.2 .NET**, **C# / .NET 8** y protocolo de red **20**. El servidor autoritativo está desarrollado con ASP.NET Core. El juego puede practicarse sin conexión, alojarse en un PC o utilizar un servidor dedicado. El acceso Google y la progresión se apoyan en Firebase, cuando están configurados.
 
-Primera recreación jugable en C# del combate elemental de **Magicka: Wizard Wars**. Cliente 3D de escritorio con **Godot 4.5.2 .NET**, servidor independiente **ASP.NET Core / .NET 8**, Docker, launcher con conexión por IP/LAN, salas independientes y paquete Windows para abrir con doble clic y APK Android con controles táctiles.
+Proyecto inspirado en el combate elemental de *Magicka: Wizard Wars*, con código, escenarios, animaciones, efectos y reglas propios. No es una reproducción oficial ni exacta del juego original.
 
-El código, las mallas y los sonidos son propios. Los sprites de los magos se han generado para este proyecto. Esta versión reproduce la estructura del combate; los gráficos, mapas, magicks y valores de daño son una aproximación, no una reproducción exacta del original.
+**Enlaces rápidos:** [Descargar última versión](https://github.com/andresmartinezmelgar/magicka/releases/latest) · [Todas las versiones publicadas](https://github.com/andresmartinezmelgar/magicka/releases) · [Acciones y pruebas](https://github.com/andresmartinezmelgar/magicka/actions) · [Historial técnico](CHANGELOG.md)
 
-**v0.12.24:** Tabla común de ventajas y debilidades para los ocho elementos, aplicada a guardas, escudos y barreras. Vapor y hielo conservan el aporte de cada componente y del tercer elemento. El escudo básico deja pasar los hechizos de su propietario. Tabla consultable en **Ayuda → Elementos**. Protocolo 11: actualizar cliente y servidor juntos. [Reglas y validación](docs/RELEASE-v0.12.24.md).
+## Qué se puede hacer
 
-**v0.12.23:** Elección de Azul, Rojo o Automático al crear o entrar en una sala. Barra de carga mientras se preparan el mapa, las texturas, los sonidos y los efectos; una sala nueva espera a que sus jugadores terminen antes de iniciar la simulación. Cliente y servidor deben actualizarse juntos al protocolo 10. [Cambios y comprobaciones](docs/RELEASE-v0.12.23.md).
+| Funcionalidad | Estado actual |
+| --- | --- |
+| **PvP online** | Salas independientes en un servidor Windows o dedicado; conexión por LAN, IP o WSS seguro. |
+| **Versus IA** | Partidas locales contra bots sin levantar un servidor. |
+| **Laboratorio** | Práctica libre de hechizos, barreras, estados y daños contra objetivos de prueba. |
+| **Google y perfil** | Inicio de sesión con Firebase Authentication en Windows y Android; perfil e inventario en Firestore. |
+| **Inventario y equipación** | Cuatro piezas equipables, atributos, calidades y bonificaciones por conjuntos; caché para practicar sin conexión. |
+| **Recompensas PvP** | Implementadas en el servidor, **condicionadas a Firebase configurado y a una partida válida**. |
+| **Actualizaciones** | Comprobación de GitHub Releases, descarga con aceptación del jugador, instalación y parches diferenciales cuando son compatibles. |
 
-**v0.12.22:** Optimización de simulación, combate, snapshots, red y renderizado. Menos memoria temporal, buffers reutilizados, rayos sin reconstruir geometría por longitud y bloques de barrera agrupados sin perder vértices ni sombras. [Mediciones y comprobaciones](docs/RELEASE-v0.12.22.md).
+El inicio muestra cuatro accesos principales en **2 × 2**: **PvP, Versus IA, Mi perfil y Cómo jugar**. La navegación inferior permite acceder además a **Inventario** y a las demás secciones. La cabecera muestra el nombre y el estado de Google; los detalles de estadísticas y oro se consultan en el perfil o el inventario.
 
-**v0.12.21:** Corregidos tirones de los mapas: navegación precargada, búsqueda del nodo próximo sin miles de comprobaciones de colisión, decoración agrupada por zonas y sombras adaptadas a la cámara ortográfica. Verificaciones de los seis mapas y [mediciones reproducibles](docs/RELEASE-v0.12.21.md).
+### Combate
 
-**v0.12.20:** Laboratorio local de hechizos: 14 objetivos con estados y protecciones, las 32 combinaciones de barreras y minas con sus teclas y elementos indicados, y un mago lanzador configurable que apunta siempre a la derecha. Canales continuos y proyectiles cada 2 segundos; medición de daño, escudo absorbido y curación efectiva. Sin captura ni victoria y con un solo respawn. Entra desde **Práctica → Entrar en laboratorio de hechizos**. [Funcionamiento y validación](docs/RELEASE-v0.12.20.md).
+- **Ocho elementos:** agua, vida, escudo, frío, rayo, arcano, tierra y fuego; hasta tres elementos seleccionados por lanzamiento.
+- Hechizos en cono, rayos continuos, roca cargada, hielo, vapor, barreras, minas, áreas, curación, escudos y guardas. Hay afinidades, debilidades, efectos de estado e interacciones entre proyectiles y haces.
+- **Cinco tipos de mago:** equilibrado, piromante, criomante, tempestario y geomante, con especialidades y debilidades.
+- Magicks de celeridad, traslación, meteoro y reanimación, con energía y reutilización.
+- Movimiento, colisiones, reapariciones, minimapa, clasificación, indicadores de daño y efectos visuales. La simulación decisiva se ejecuta en el servidor.
+- Equipación: **botas, gorro, pecho y arma**, con estadísticas propias y bonificaciones que modifican el combate. Otros jugadores pueden consultar la equipación y las bonificaciones visibles de un mago.
 
-**v0.12.19:** Corregido el error final de compilación por versiones desactualizadas en los presets. C#, el ejecutable Windows y la APK toman la versión de `VERSION`; los scripts sincronizan los metadatos antes de exportar y verifican la versión real del paquete. [Corrección y pruebas](docs/RELEASE-v0.12.19.md).
+### Modos de juego
 
-**v0.12.18:** Movimiento con deslizamiento por columnas y paredes, incluso al chocar de frente. Mantener el mando inicia el rodeo; las paredes planas se siguen hacia un extremo accesible. Respeta la intensidad del joystick, las esquinas y los cierres completos del pasillo. [Cambios y comprobaciones](docs/RELEASE-v0.12.18.md).
+| Modo | Objetivo |
+| --- | --- |
+| **Duelo** | Dos jugadores o un jugador contra IA; ganar por bajas según el límite configurado. |
+| **Todos contra todos** | Cada mago compite por alcanzar el límite de bajas. |
+| **Guerra** | Capturar y defender puntos; las condiciones de victoria dependen del mapa. |
+| **Laboratorio** | Probar hechizos y estados sin una partida competitiva. |
 
-**v0.12.17:** Correcciones de apuntado inmediato, emisión de hechizos junto a paredes y bots bloqueados por muros. Los bots conservan su objetivo durante la carga y comprueban la línea de visión; los grupos de paredes respetan el límite ambiental. [Revisión y validación](docs/RELEASE-v0.12.17.md).
+**Mapas jugables:** Arena clásica, Ciudadela de los pasillos, Coliseo de la ascensión, Santuario de las reliquias y Frente de conquista. El laboratorio dispone de su propio escenario de pruebas. Ciudadela requiere mantener el control total; Frente de conquista obliga a capturar cinco puntos en orden y utiliza portales, meteoros y muros destructibles. [Detalles de los escenarios](docs/MAPAS.md) · [Reglas de victoria](docs/COMO-GANAR.md).
 
-**v0.12.16:** El sprite mira hacia el desplazamiento real al caminar y vuelve a la marcha después de lanzar. El apuntado conserva su dirección durante la carga, la canalización y las poses instantáneas. Comprobaciones de las cuatro orientaciones a 30, 60 y 120 FPS, con interpolación de práctica y de red.
+## Descargar e instalar
 
-**v0.12.15:** Frente de conquista: pasillo irregular de 480 unidades, cinco capturas consecutivas y reaparición que avanza o retrocede con el terreno. Tres pares de portales, meteoros aleatorios y muros destructibles. Círculos sin nombres ni etiquetas y escudos sin borde negro. Requiere cliente y servidor actualizados al protocolo 9. [Cambios](docs/RELEASE-v0.12.15.md).
+Lo más sencillo es descargar los **paquetes completos** de la [última Release](https://github.com/andresmartinezmelgar/magicka/releases/latest), no el código fuente:
 
-**v0.12.14:** Seis círculos mágicos transparentes en los puntos de control, colores originales y anillo luminoso de progreso sin borde oscuro. Comprobación final de licencias del SDK Android, incluso cuando sdkmanager devuelve cero. [Cambios](docs/RELEASE-v0.12.14.md).
+| Plataforma | Archivo | Requisitos |
+| --- | --- | --- |
+| **Windows** | `ArcanaArena-vVERSION-Windows-x64.zip` | Windows 10/11 x64 y gráficos compatibles con OpenGL 3.3. |
+| **Android** | `ArcanaArena-vVERSION-Android-arm64.apk` | Android 8 o posterior, procesador ARM64 y uso horizontal. |
 
-**v0.12.13:** Joystick flotante en toda la mitad izquierda, límites espaciales para los estados de red, bloqueo compartido de compilaciones y verificaciones separadas de `Main`. Perfil gráfico reproducible de 16 magos con CPU/GPU, draw calls y memoria, accesible desde Práctica. [Mejoras aplicadas](docs/RELEASE-v0.12.13.md) · [Mediciones y móvil](docs/RENDIMIENTO.md).
+**Windows:** extrae **todo** el ZIP en una carpeta y ejecuta `ArcanaArena.exe`. Mantén juntos el ejecutable, sus datos y la carpeta `server/`. El paquete incluye el servidor y los runtimes necesarios; no hace falta instalar Godot, .NET ni Docker para jugar.
 
-**v0.12.12:** Traslación con el último destino e intensidad proporcional del joystick. Barreras con menos mallas, rutas sin ordenaciones y compilación Android Bash que conserva la APK anterior ante fallos. [Revisión completa y mejoras pendientes](docs/AUDITORIA-v0.12.12.md).
+**Android:** instala la APK completa. Al actualizar debe conservarse la misma firma que la aplicación instalada; la versión de Release utiliza el certificado de distribución. En el primer uso Android puede solicitar permisos de instalación.
 
-**v0.12.11:** Reaparición sin recuperar el destino anterior del ratón o el joystick. Escudo básico, puntos de captura y efectos del suelo con colores más nítidos y contornos oscuros. Instalación del SDK Android reparable y aviso de EditorSettings identificado en los scripts de compilación.
+Los archivos con `from-vVERSION` o extensión `.delta` son **parches para actualizar desde una versión concreta**: normalmente los gestiona el actualizador del juego, no se instalan manualmente como una APK nueva.
 
-**v0.12.9:** movimiento interpolado, pasos sincronizados con la distancia y cámara que sigue la posición visible. En móvil, tonos elementales más definidos, símbolos y bordes en los botones, iluminación más neutra y menos brillo del terreno.
+## Jugar
 
-**v0.12.8:** los escudos y barreras muestran la cantidad de elementos: dos piedras con escudo forman un muro más grueso, con tres hiladas y contrafuertes; los escudos personales añaden bandas y las superficies elementales más detalle. En todos contra todos, entradas y reapariciones aleatorias en los cuatro mapas, con un segundo de invulnerabilidad visible.
+### Contra la IA o practicar
 
-**v0.12.7:** muros de bloques irregulares con llamas ascendentes, cascadas con espuma o electricidad con chispas. Las combinaciones conservan sus superficies elementales. Meteorito de 80 facetas con grietas incandescentes y una estela irregular orientada según la caída, con núcleo caliente, brasas y humo.
+Abre **Versus IA**, selecciona mapa, modo y número de bots y comienza. No necesitas Internet, cuenta Google ni un servidor. El **laboratorio de hechizos** también funciona localmente.
 
-**v0.12.5:** el daño del láser aumenta mientras se mantiene: empieza al 30 % del valor original y alcanza el 150 % tras 2 s. La barra inferior muestra la carga y el láser gana grosor e intensidad de forma moderada. F1 indica los valores inicial y máximo. APK Android ARM64 y controles móviles junto a los bordes. [Instalación y controles](docs/ANDROID.md).
+### Alojar una sala PvP desde Windows
 
-**v0.11.1:** correcciones de carga, colisiones, muros, rayos y conexiones; simplificación de F1 y validación de salas. [Revisión del código y comprobaciones](docs/AUDITORIA-v0.11.1.md).
+1. Abre **PvP → Alojar** y pulsa **Iniciar servidor y ver salas**. El servidor incluido se ejecuta en el propio ordenador.
+2. Pulsa **Crear sala**. Elige **Duelo, Guerra o Todos contra todos**, mapa, plazas, bots, opciones y contraseñas opcionales.
+3. En Duelo o Guerra puedes escoger **partida única** o serie **al mejor de 5, 7 o 9**.
+4. En las series se abre una **sala de espera** con equipos azul y rojo: cada jugador elige equipo y pulsa **Estoy preparado**. El anfitrión pulsa **Comenzar partida** cuando corresponde. Hay botón **Salir de la sala**.
+5. Al finalizar una serie puede prepararse una nueva en la sala, con una nueva confirmación de jugadores.
 
-![Launcher y acceso a partidas](docs/images/launcher.png)
+Las contraseñas del **servidor** y de la **sala** son independientes. Crear la sala no implica que los invitados comiencen a jugar inmediatamente.
 
-![Tipos de mago y efectos de combate](docs/images/game.png)
+### Entrar desde otro PC o desde Android
 
-![Sprites de los cinco magos en azul y rojo](docs/images/wizards.png)
+- **LAN:** busca el servidor en la misma red Wi-Fi/LAN, abre su lista de salas y selecciona una.
+- **Por IP:** escribe la IP y puerto del servidor, o una dirección segura `wss://dominio/play`.
+- **Servidor online con Google · conexión automática:** el móvil consulta Firestore para localizar la dirección WSS vigente del servidor público anunciado. No requiere copiar manualmente una URL temporal.
 
-![Escudo al 50 %, con puntos y duración restantes](docs/images/shield-half.png)
+**Importante:** si una sala LAN tiene Firebase y exige Google, el cliente intenta utilizar su **misma instancia** mediante WSS verificado antes de enviar credenciales. No transmite el token de Google mediante una conexión LAN `ws://` sin cifrar. En servidores sin Firebase puede haber juego como invitado, pero sin premios persistentes.
 
-## Qué se puede jugar
+El descubrimiento público actual está pensado para **el servidor anunciado en Firebase**, no es un buscador global de múltiples servidores ni un sistema de matchmaking.
 
-- Ocho elementos y hasta tres elementos por hechizo. Las combinaciones se resuelven por reglas, no por un catálogo de unos pocos hechizos.
-- Rayos continuos, chorros en cono, arcos eléctricos, rocas con carga, fragmentos de hielo, vapor, muros, minas y lanzamientos en área.
-- Curación, escudos, guardas elementales, empujes, mojado, quemaduras, frío y congelación. Fuego amigo configurable.
-- Colores con más contraste y símbolos por elemento. Vida y escudo separados: el escudo muestra puntos/capacidad real y segundos restantes; también aparece sobre el mago.
-- Panel de vida y escudo con su tamaño original; los demás controles mantienen la escala del 75 %. Tres cuadrados sobre cada mago muestran los elementos seleccionados y la combinación activa mientras carga o canaliza.
-- Duelo, todos contra todos y guerra por puntos de control. La victoria depende del mapa: tickets, mantenimiento de control total o cinco capturas consecutivas. Muerte, reaparición y reinicio de partidas; el objetivo y el límite real aparecen en la sala y en el HUD. Ayuda **F1 → Cómo ganar**.
-- Cinco tipos de mago: equilibrado, piromante, criomante, tempestario y geomante. Bonus elemental del 25 % y debilidad del 25 %, elegidos antes de entrar y calculados por el servidor.
-- Sprites propios para los cinco magos, con cuatro orientaciones, pasos y poses de lanzamiento. Túnicas por equipo y detalles de especialidad; barras sobre el sombrero. [Arte y código de los sprites](docs/SPRITES-MAGOS.md).
-- Estelas, ondas, impactos, fragmentos de hielo/roca, explosiones, destellos y rotura de escudo. Quemadura, mojado, frío y celeridad con partículas. Efectos con nodos reutilizados y límites fijos.
-- Cuatro magicks: celeridad, traslación, meteoro y reanimación. Coste de energía y tiempos de reutilización.
-- Splash selectivo en rocas imbuidas, suelo ardiente/helado/charcos, minas ofensivas y minas de vida que respetan equipos. Escudo de vida con regeneración gradual y cese al romperse.
-- Rayos que se unen en el cruce y suman componentes; reflexión en escudos y refracción con guardas elementales, con dos rebotes como máximo.
-- **F1 → Combinaciones:** 120 combinaciones, tres formas de lanzamiento, daño y curación con unidades reales, demostraciones animadas en bucle, pausa/repetición y escenas de cruce, escudo y captura.
-- Puntos de control con círculo que se rellena por equipo, porcentaje y estado disputado.
-- Cinco mapas seleccionables: Arena clásica, Ciudadela de los pasillos (4× de suelo y victoria por control total), Coliseo de la ascensión, Santuario de las reliquias y Frente de conquista (pasillo irregular de 480 unidades, cinco capturas consecutivas y reaparición según el terreno). Solo en Ascensión, cada baja añade 10 de vida permanente y cada muerte añade 0,5 segundos de reaparición, hasta 10 segundos.
-- En Santuario y Coliseo, catorce objetos dan mejoras acumulables de daño, protección, vida/s, vida máxima, velocidad, energía/s y curación. En el Coliseo sus posiciones son aleatorias y cambian al reaparecer a los doce segundos. Las mejoras temporales duran hasta morir. Ayuda en **F1 → Objetos**.
-- Escenarios de bosque con senderos, ciudad con calles y casas, ruinas cubiertas de vegetación y santuario forestal. Decoración procedural y plantas agrupadas para limitar el coste gráfico.
-- Bots que combaten, se curan y capturan puntos. Práctica local sin iniciar Docker, con partidas contra bots o laboratorio libre de estados, barreras y daño/curación.
-- Launcher: IP/dominio, búsqueda LAN, servidor incluido, configuración gráfica y creación de salas con modo, bots, aforo y contraseñas.
-- Distribución Windows x64 autónoma: motor, cliente, servidor y runtimes incluidos. No necesita instalar Godot, .NET ni Docker para jugar o alojar.
-- Servidor autoritativo a 60 pasos/s, envío de estado a 20 Hz y representación interpolada en el cliente.
+## Google, Firestore e inventario
 
-**Demostraciones en vídeo:** [splash, regeneración y minas](docs/videos/combination-effects.mp4) · [cruce de rayos](docs/videos/beam-interactions.mp4) · [refracción en escudos](docs/videos/shield-refraction.mp4) · [captura por equipos](docs/videos/point-capture.mp4). Dentro del juego, **F1 → Combinaciones** muestra cada receta y sus tres modos de lanzamiento. [Reglas y valores](docs/COMBINACIONES.md).
+Se utiliza el proyecto Firebase **`arcana-arena-f2997`**. La autenticación Google funciona **independientemente del servidor de partidas**:
 
-## Jugar en Android
+- **Windows:** OAuth de escritorio mediante el navegador. Si el paquete no trae su configuración pública de cliente OAuth, el juego permite importar el JSON OAuth de tipo «Aplicación de escritorio». La sesión puede recuperarse al volver a abrir el juego.
+- **Android:** inicio de sesión nativo mediante Credential Manager y Firebase Authentication.
+- **Firestore:** almacena el perfil, victorias/derrotas, oro, objetos y selección de equipación. El juego puede utilizar una **copia local del perfil** para prácticas sin conexión.
+- Si Google aparece conectado pero Firestore muestra `403 PERMISSION_DENIED`, hay que revisar las **reglas publicadas**: autenticarse no equivale a tener permiso de lectura.
 
-Descargar el [código de main](https://github.com/andresmartinezmelgar/magicka/archive/refs/heads/main.zip), extraerlo y abrir **`Compilar-APK.cmd`** desde Windows. Instalar la APK generada en un dispositivo ARM64 con Android 8 o posterior, en horizontal. Práctica sin conexión; por IP o LAN se conecta al servidor de PC o Docker. [Controles, red y compilación](docs/ANDROID.md).
+Las recompensas, las victorias y las operaciones que alteran oro u objetos se validan en el servidor. El cliente **no puede asignarse premios** escribiendo directamente en Firestore.
 
-## Jugar con doble clic en Windows
+### Recompensas PvP
 
-1. Descargar el [código de main](https://github.com/andresmartinezmelgar/magicka/archive/refs/heads/main.zip) y **extraer todo el ZIP** en una carpeta.
-2. Abrir **`Compilar-Juego.cmd`** y, cuando termine, **`Juego/ArcanaArena.exe`** con doble clic.
-3. Elegir el **tipo de mago**. Elegir **Práctica** para jugar con bots, **Alojar** para iniciar tu servidor, **LAN** para buscar servidores o **Por IP** para usar una dirección.
+Para optar a recompensas deben cumplirse, entre otras, estas condiciones:
 
-En **Práctica**, elegir el modo y el **Mapa** antes de empezar. En **Alojar**, elegir nombre del servidor, puertos y contraseña opcional. Pulsar **Iniciar servidor y ver salas**. Desde la pantalla de salas, pulsar **Crear sala**, elegir modo, **Mapa**, plazas, bots, fuego amigo y límites de victoria; finalmente, **Crear y entrar**. Otros jugadores abren el mismo ejecutable, buscan el servidor en **LAN** y eligen tu sala. La sala les envía el mapa elegido. También pueden usar la IP de tu equipo en **Por IP**.
+- Servidor con Firebase habilitado; ambos jugadores —o todos los integrantes de los equipos— con sesión Google válida.
+- **Equipos humanos equilibrados** de 1 contra 1 hasta 4 contra 4, **sin bots**.
+- Duelo o Guerra en una **serie válida**; el resultado se confirma desde el servidor.
+- Al menos **15 segundos de actividad válida por participante** antes de terminar la serie.
 
-El servidor se inicia sin consola y permanece activo durante tu partida. **Detener servidor** o cerrar el juego cierra las salas que estás alojando. El launcher recuerda nombre y puertos; las contraseñas se mantienen solo en memoria.
+El servidor registra el resultado en Firestore y concede un objeto al ganador (o su conversión en oro si corresponde). Si Firestore no está disponible temporalmente, conserva un **diario de recompensas pendientes** para reintentarlo. Que `/info` indique `rewardsAvailable: true` no garantiza por sí solo que ya se haya entregado un premio real.
 
-El botón **Permitir LAN** configura dos reglas específicas del servidor en redes privadas. Windows solicita permiso de administrador mediante UAC. Si cambias puertos o mueves la carpeta del juego, puedes volver a pulsarlo. El botón **Ver registros** abre la carpeta de logs. **Diagnóstico** exporta un ZIP con los registros del cliente, el servidor alojado y el contexto de la partida.
+### Preparar un servidor Windows con Firebase
 
-La distribución incluye todos los archivos necesarios. El `.exe`, el `.pck`, la carpeta de datos y `server/` se conservan juntos. No hace falta instalar el SDK .NET, Godot ni Docker en el PC de los jugadores. Requisitos: Windows 10/11 x64 y gráficos compatibles con OpenGL 3.3.
+Para que **tu PC aloje partidas con recompensas**, necesitas Google Authentication habilitado, Firestore `(default)`, reglas publicadas y una cuenta de servicio con permisos adecuados para Firestore y la configuración de Authentication.
 
-![Alojamiento desde el launcher](docs/images/hosting.png)
+En Windows, los archivos privados permanecen **fuera de la carpeta del juego y de GitHub**:
 
-![Directorio de salas independientes](docs/images/rooms.png)
-
-![Crear una sala desde el juego](docs/images/create-room.png)
-
-## Compilar con doble clic
-
-Descargar el código con **Code → Download ZIP** y extraer todo, o actualizar el repositorio local. Abrir **`Compilar-Juego.cmd`** en la raíz. Instala el SDK .NET 8 x64 y Godot 4.5.2 .NET en `.tools/`, descarga sus plantillas y compila cliente y servidor. La primera ejecución necesita Internet; después reutiliza las herramientas.
-
-El resultado queda en **`Juego/ArcanaArena.exe`**. Cada compilación correcta **sustituye completamente `Juego/`**, incluidos los archivos antiguos. Cerrar el juego antes de recompilar. Si la compilación falla, se conserva el resultado anterior. Registro: `artifacts/compilacion-*.log`. No requiere Visual Studio ni instalación de administrador. [Proceso y compilación manual](docs/EXPORTAR.md).
-
-Para **Android**, abrir **`Compilar-APK.cmd`**. Prepara .NET 8, Godot 4.5.2 .NET, OpenJDK 17 y el SDK Android 35 en `.tools/`; la primera ejecución necesita Internet, varios GB libres y aceptar las licencias que muestra el SDK. Genera **`artifacts/android/ArcanaArena-v0.15.0-Android-arm64.apk`**, lista para instalar en un móvil ARM64 con Android 8 o posterior. Reutiliza la firma local en las siguientes compilaciones y conserva la APK anterior si falla. Registro: `artifacts/compilacion-apk-*.log`. [Opciones y compilación manual](docs/ANDROID.md#compilación-y-comprobaciones).
-
-La CI comprueba las compilaciones al actualizar `main`. Publicar los ejecutables como una Release requiere iniciar manualmente **Arcana Arena CI** en `main` y activar **`publish_release`**; por defecto queda desactivado.
-
-## Cómo ganar y tipos de mago
-
-- **Duelo:** primer equipo que llega al límite de bajas; por defecto 15, o 5 en práctica.
-- **Todos contra todos:** primer mago que llega al límite de bajas; por defecto 15. Apariciones aleatorias por todo el mapa, con un segundo de protección visible al entrar y reaparecer.
-- **Guerra en Arena clásica:** reducir a cero los tickets rivales; controlar más puntos los desgasta cada segundo y cada muerte cuesta un ticket.
-- **Guerra en Ciudadela:** controlar los tres puntos sin disputa durante **15 segundos consecutivos**. Disputar o neutralizar cualquiera reinicia el contador; no hay victoria por tickets o bajas.
-
-Los valores de la sala prevalecen sobre los valores por defecto. [Reglas completas](docs/COMO-GANAR.md) · [Bonus y debilidades de los cinco tipos](docs/TIPOS-DE-MAGO.md). El combate usa **protocolo 14**. Cliente y servidor deben actualizarse juntos a v0.15.0 para consultar las fichas de equipo; las versiones de protocolo anteriores se rechazan en el saludo.
-
-## Mapas
-
-| Mapa | Superficie de suelo | Diseño | Guerra de puntos |
-|---|---|---|---|
-| Arena clásica | 1.408 unidades² | Claro de bosque de 44×32, árboles, flores y senderos de tierra. | Desgastar los tickets rivales. |
-| Ciudadela de los pasillos | 5.632 unidades², exactamente 4× | Ciudad con calles y plazas, fachadas, tejados, toldos y faroles. Tres salas de 22×64 y dos pasillos de 22×32. | Mantener los tres puntos durante 15 segundos consecutivos. |
-| Coliseo de la ascensión | 2.688 unidades² | Ruinas de piedra cubiertas de vegetación, suelo en cruz y catorce objetos aleatorios. | Desgastar los tickets rivales; +10 de vida por baja y +0,5 s de reaparición por muerte. |
-| Santuario de las reliquias | 4.032 unidades² | Bosque de 72×56 con menhires, cristales y catorce objetos simétricos. | Desgastar los tickets rivales; objetos con mejoras acumulables hasta morir. |
-| Frente de conquista | 11.520 unidades² | Pasillo irregular de 480 unidades, ocho tramos, pasos estrechos y tres pares de portales. Meteoros y muros de piedra aleatorios. | Conquistar los cinco puntos en orden. La reaparición avanza o retrocede con el terreno; no hay puntuación de bajas ni tickets. |
-
-La cámara sigue al mago por el escenario grande. El minimapa representa suelo, límites, objetos, portales, muros y avisos de meteoros. Los patios sin suelo bloquean caminar, rayos, proyectiles y traslación. El desplazamiento al cursor y los bots buscan una ruta por los pasillos y evitan muros; en el frente los bots atacan las paredes que bloquean el avance. Duelo y todos contra todos conservan sus condiciones de victoria en los cuatro mapas anteriores. Frente de conquista se juega exclusivamente en Guerra. En Ascensión se añaden las reglas de vida y reaparición.
-
-En **Ascensión**, cada baja de otro mago suma 10 a tu vida máxima y a la actual si sigues vivo. Se conserva al morir y al ser reanimado; curaciones y minas respetan el máximo individual. Cada muerte aumenta 0,5 segundos la espera base del modo, hasta 10: la primera tarda 3 segundos en duelo y 4,5 en arena/guerra. La siguiente partida reinicia vida y penalización. [Reglas y tiempos](docs/COMO-GANAR.md#coliseo-de-la-ascensión).
-
-En **Santuario y Coliseo**, caminar sobre un objeto lo recoge. Sus mejoras se acumulan y el HUD muestra el número de acumulaciones. Todas las mejoras de objetos se pierden al morir, incluido el suicidio, y reanimar no las restaura. El Coliseo conserva por separado la vida permanente ganada por bajas. Sus objetos cambian de posición al reaparecer y al empezar otra partida. [Objetos, efectos y límites](docs/OBJETOS.md) · [Escenarios y decoración](docs/MAPAS.md).
-
-## Diagnosticar un problema
-
-Pulsa **Diagnóstico** en el launcher o **ESC → Exportar diagnóstico** durante una partida. Se genera un ZIP y se abre su carpeta. Incluye logs JSONL y `report.json` con versión, sesión, sala, jugador, tick, memoria y estado de conexión. Los errores conservan tipo, mensaje y traza; también se capturan avisos del motor Godot. No se copian la configuración del launcher ni variables de entorno. Las contraseñas conocidas se ocultan.
-
-Cada componente (`client`, `host`, `server`) conserva hasta cinco archivos de aproximadamente 2 MiB, con nombres únicos por sesión. La escritura usa una cola acotada en segundo plano. Si el disco falla, la partida continúa y el informe indica el problema de escritura. Reiniciar el servidor conserva sus registros anteriores dentro de ese límite.
-
-En Windows: `%APPDATA%\Godot\app_userdata\Arcana Arena\logs` y `reports`. Docker guarda los logs en `/app/logs`, en el volumen `server-logs` de Compose; sobreviven a recrear el contenedor. Para interpretar eventos y extraerlos: [diagnóstico](docs/DIAGNOSTICO.md).
-
-## Abrir el código C#
-
-Para **desarrollar**, instalar el SDK .NET 8 x64 y [Godot 4.5.2 .NET](https://github.com/godotengine/godot/releases/tag/4.5.2-stable). Abrir `ArcanaArena.sln` en Visual Studio, o ejecutar:
-
-```powershell
-dotnet build ArcanaArena.sln -c Debug
+```text
+%APPDATA%\Godot\app_userdata\Arcana Arena\firebase\
+  service-account.json
+  server.local.json
 ```
 
-Importar `src/Arcana.Client/project.godot` en Godot y pulsar **F5**. [Exportar y empaquetar](docs/EXPORTAR.md) explica cómo regenerar la distribución autónoma. El paquete que publica GitHub Actions utiliza ese mismo proceso.
+Ejemplo de `server.local.json`:
 
-## Iniciar el servidor con Docker
-
-Desde la raíz del repositorio:
-
-```sh
-docker compose up -d --build
+```json
+{
+  "projectId": "arcana-arena-f2997",
+  "apiKey": "API_KEY_PUBLICA_DE_FIREBASE",
+  "authDomain": "arcana-arena-f2997.firebaseapp.com",
+  "publicUrl": "http://127.0.0.1:27015",
+  "autoPublicHosting": true
+}
 ```
 
-En el launcher, introducir la IP de ese equipo, por ejemplo `192.168.1.20:27015`. Si servidor y cliente están en el mismo PC: `127.0.0.1:27015`.
+Sustituye **solo** la API key por la del proyecto. `service-account.json` es una credencial **privada de administración**: nunca se sube al repositorio, a una Release ni a un informe. Si se cambia el puerto del servidor, el puerto de la URL local inicial debe coincidir.
 
-```sh
-docker compose logs -f server
-docker compose down
-```
+Con `autoPublicHosting: true`, **Windows** puede preparar un Cloudflare Quick Tunnel HTTPS, autorizar temporalmente su dominio y publicar la dirección `wss://…trycloudflare.com/play` en `publicAccountServer/current` de Firestore. La URL puede cambiar al reiniciar el servidor; el móvil la resuelve mediante Firebase. Es una solución **provisional para pruebas y partidas pequeñas**, no alojamiento permanente con disponibilidad garantizada.
 
-Para configurar nombre, modo, bots, contraseña o puertos, copiar `.env.example` a `.env` y editarlo. El archivo `.env` queda excluido de Git.
+[Configuración detallada de Firebase y pruebas de recompensas](docs/PROBAR-RECOMPENSAS-FIREBASE-WINDOWS.md) · [Google en Windows y reglas Firestore](docs/GOOGLE-WINDOWS-Y-FIRESTORE.md) · [Reglas del repositorio](firebase/firestore.rules).
 
-```dotenv
-SERVER_NAME=Partida de Andrés
-GAME_MODE=warfare
-BOTS=2
-MAX_PLAYERS=8
-SERVER_PASSWORD=
-```
+## Actualizaciones desde la aplicación
 
-LAN por broadcast en un servidor **Linux**:
+Windows y Android consultan las **Releases oficiales** de GitHub. Cuando hay una versión más reciente, el juego muestra un aviso y permite elegir **Descargar actualización** o continuar jugando.
 
-```sh
-docker compose -f compose.lan.yaml up -d --build
-```
+- Muestra tamaño, progreso y estado; la descarga puede cancelarse.
+- Prefiere un **parche diferencial** compatible si reduce suficientemente la descarga; en caso contrario, descarga el paquete completo.
+- Comprueba hashes SHA-256 y versión antes de instalar.
+- En Windows, el instalador sustituye los archivos del juego, conserva los datos locales compatibles y permite revertir ante fallos.
+- En Android, usa el instalador del sistema; Android puede requerir aprobación del usuario.
+- No instala mientras hay una partida o un servidor local activo.
 
-Esta variante utiliza la red del host. Ejecutar una sola variante a la vez. En Docker Desktop, la conexión por IP local funciona con `compose.yaml`; el descubrimiento por broadcast depende de cómo Docker y la red del equipo encaminen UDP.
+[Funcionamiento y formato de las actualizaciones](docs/actualizaciones-github-releases.md).
 
-## Servidor sin Docker
+## Servidor y conectividad
+
+El servidor es **autoritativo**: procesa combate, puntuación y resultados; el cliente representa los estados recibidos. La simulación funciona a **60 Hz** y el estado se transmite aproximadamente a **20 Hz**, con deltas y compresión cuando conviene.
+
+| Servicio | Puerto predeterminado | Transporte |
+| --- | ---: | --- |
+| Partidas, salas y endpoints `/health`, `/info` y `/rooms` | **27015** | TCP, HTTP y WebSocket |
+| Descubrimiento LAN | **27016** | UDP |
+
+Puedes cambiar los puertos en el alojamiento Windows. `/health` devuelve el estado básico; `/info` informa, entre otros campos, si las recompensas están habilitadas.
+
+### Servidor dedicado y Docker
+
+No necesitas abrir Godot para ejecutar el servidor .NET. Desde el código fuente:
 
 ```powershell
 dotnet run --project src/Arcana.Server -c Release
 ```
 
-No necesita Godot. El paquete Windows ya incluye `server/Arcana.Server.exe` con su runtime. Para alojar con configuración gráfica, usar **Alojar** en el juego. El estado del servidor está en `http://IP:27015/health`; el directorio de salas está en `/rooms`.
+También hay un `Dockerfile` y dos opciones de Docker Compose:
 
-| Uso | Protocolo | Puerto predeterminado |
-|---|---|---:|
-| Partida, saludo y estado | TCP / WebSocket | 27015 |
-| Descubrimiento en la misma LAN | UDP | 27016 |
+```bash
+docker compose up -d --build
+# En Linux, para permitir descubrimiento por broadcast en LAN:
+docker compose -f compose.lan.yaml up -d --build
+```
 
-Para conectar desde Internet, el puerto TCP de la partida debe ser accesible en la IP pública del servidor. El descubrimiento LAN se queda en la red local. El launcher admite `wss://dominio/play` si se configura un proxy con TLS.
+El servidor Docker **no configura automáticamente** el túnel temporal de Firebase para Windows. Para partidas con recompensas en un alojamiento dedicado hay que configurar explícitamente autenticación, credenciales y HTTPS/WSS. El descubrimiento LAN no sustituye a una dirección pública segura.
+
+[Documentación del servidor](docs/SERVIDOR.md) · [Arquitectura](docs/ARQUITECTURA.md).
 
 ## Controles
 
-| Acción | Entrada |
-|---|---|
-| Agua / vida / escudo / frío | Q / W / E / R |
-| Rayo / arcano / tierra / fuego | A / S / D / F |
-| Caminar hacia el cursor | Clic izquierdo |
-| Movimiento directo | Flechas |
-| Lanzar; mantener rayos/chorros o cargar tierra | Mantener clic derecho |
-| Interrumpir o soltar la roca cargada | Soltar clic derecho |
-| Lanzar sobre el propio mago | Botón central |
+| Acción en Windows | Control |
+| --- | --- |
+| Agua / vida / escudo / frío | **Q / W / E / R** |
+| Rayo / arcano / tierra / fuego | **A / S / D / F** |
+| Movimiento | Clic izquierdo para desplazarse; flechas para movimiento directo |
+| Lanzar, cargar o canalizar | Clic derecho (mantener/soltar según el hechizo) |
+| Lanzar sobre uno mismo | Botón central |
 | Lanzar en área | Mayús + clic derecho |
 | Golpe de bastón | Mayús + clic izquierdo |
-| Celeridad / traslación / meteoro / reanimación | 1 / 2 / 3 / 4 |
-| Vaciar elementos / zoom | Retroceso / rueda |
-| Clasificación / ayuda / menú | TAB / F1 / ESC |
+| Celeridad / traslación / meteoro / reanimación | **1 / 2 / 3 / 4** |
+| Vaciar elementos | Retroceso |
+| Clasificación / ayuda / pausa o menú | **TAB / F1 / ESC** |
 
-Ejemplos: **FFF** fuego; **SSS** rayo arcano; **DDF** roca incendiaria; **QR** hielo; **QF** vapor; **WWW + central** curación; **E + central** escudo; **EF + central** guarda de fuego.
+En Android se utilizan **joysticks y botones táctiles** para movimiento, apuntado, elementos, lanzamiento y magicks. La ayuda dentro del juego explica combinaciones, objetivos y tipos de mago. [Guía Android](docs/ANDROID.md) · [Combinaciones](docs/COMBINACIONES.md).
 
-Se anulan fuego/frío, vida/arcano, agua/rayo, tierra/rayo y dos escudos. Un mago mojado recibe más daño eléctrico; agua y frío pueden congelar; fuego sobre ti elimina mojado y frío cuando todavía puedes actuar.
+## Desarrollo y compilación
 
-## Código
+### Tecnologías y estructura
 
-| Proyecto | Responsabilidad |
-|---|---|
-| `src/Arcana.Core` | Elementos, combinaciones, simulación, geometría, protocolo, cliente de red y descubrimiento LAN |
-| `src/Arcana.Server` | Conexiones, colas, validación, temporizador autoritativo y descubrimiento UDP |
-| `src/Arcana.Client` | Launcher, entrada, escenario 3D, HUD y sonidos sintetizados |
-| `tests/Arcana.Tests` | Pruebas de reglas y pruebas con conexiones reales |
+| Ruta | Contenido |
+| --- | --- |
+| `src/Arcana.Core/` | Reglas, simulación, red, protocolo, elementos, equipo y lectura del perfil |
+| `src/Arcana.Client/` | Godot 4.5.2 .NET, menús, HUD, renderizador, controles, Google y actualizador |
+| `src/Arcana.Server/` | ASP.NET Core, partidas, salas, autoridad de combate y recompensas |
+| `src/Arcana.AccountServer/` | Servicio de cuentas heredado, mantenido en el repositorio |
+| `android/firebase-plugin/` | Plugins nativos Android para Firebase y actualizaciones |
+| `firebase/` | Reglas de Firestore y configuración de ejemplo sin secretos |
+| `tests/` | Pruebas funcionales, red, cuentas y regresiones |
+| `scripts/` | Compilación, exportación, diagnósticos y pruebas |
+| `.github/workflows/` | CI, paquetes Windows/Android y publicación |
 
-Para leer el código: `Elements.cs` → `Entities.cs` → `GameWorld.cs` → `Protocol.cs` → `GameService.cs` → `Main.cs`.
+**Requisitos para compilar:** SDK .NET 8, Godot 4.5.2 .NET, y para Android además JDK 17 y Android SDK 35. Los scripts Windows descargan y reutilizan las herramientas que falten.
 
-## Pruebas
+Desde la raíz del repositorio en Windows:
 
-```powershell
-dotnet run --project tests/Arcana.Tests -c Release
+```text
+Compilar-Juego.cmd
+Compilar-APK.cmd
 ```
 
-Pruebas con un servidor ya iniciado:
+El primero genera `Juego/ArcanaArena.exe` junto al servidor incluido. El segundo genera la APK en `artifacts/android/`. La primera compilación requiere Internet y espacio libre. **Las APK compiladas localmente pueden utilizar otra firma**: para conservar los datos instalados al actualizar, reutiliza la misma clave de firma.
+
+### Pruebas
 
 ```powershell
-dotnet run --project tests/Arcana.Tests -c Release -- --server=127.0.0.1:27015 --discovery-port=27016
+dotnet build ArcanaArena.sln -c Release
+dotnet run --project tests/Arcana.Tests/Arcana.Tests.csproj -c Release
 ```
 
-Si se usa contraseña, definir `TEST_PASSWORD` en el proceso de pruebas. El cliente y el servidor deben ejecutar la misma versión del protocolo.
+La CI de `main` comprueba código, simulación, partidas LAN, salas PvP, reglas y transacciones Firestore mediante emuladores, además de los paquetes Windows/Android, controles de interfaz y **capturas visuales automatizadas**.
 
-La batería prueba el núcleo, el diagnóstico y la red con un servidor protegido. Cubre combate, cifras de las 120 combinaciones, elementos del canal/carga, objetos y acumulaciones, límites de protección y velocidad, muerte/reanimación/reinicio, copias de estado, absorción/capacidad/caducidad del escudo, afinidades por componente, quemaduras, victoria y replicación de tipos/objetivos, respuestas acotadas, rotación y ocultación de contraseñas, aislamiento de salas y mapas, vida acumulada, reaparición progresiva, cierre simultáneo, cancelación del saludo, bots en salas vacías y errores HTTP. El cliente ejecuta una práctica de cuatro magos durante 240 pasos en modo headless.
+Los test y las capturas automatizadas **no sustituyen** una partida entre dispositivos reales ni la comprobación de permisos de un proyecto Firebase desplegado. Para diagnosticar fallos utiliza **Ver registros** en el juego; los logs locales se almacenan habitualmente en:
 
-El workflow compila y prueba en Linux, valida Docker con IP y LAN, y genera el paquete en Windows. Antes de publicarlo prueba el servidor incluido, la creación de salas y el juego **exportado**, con el runtime global deshabilitado. También arranca el servidor desde el launcher exportado, comprueba que se detiene al cerrar, exporta un informe que incluye un aviso de prueba del motor y comprueba seis estados del escudo en el HUD. Valida doce tipos de eventos visuales, su expiración y limpieza, y diez escenas del catálogo. Recorre las 360 demostraciones (120 combinaciones × 3 formas de lanzar) y valida sus snapshots y reinicios. La compilación automática se ejecuta en Windows PowerShell 5.1; comprueba la sustitución completa de la carpeta y que un fallo conserve el resultado anterior. Solo una ejecución completa satisfactoria publica una nueva versión en **Releases**.
+```text
+%APPDATA%\Godot\app_userdata\Arcana Arena\logs
+```
 
-## Alcance de esta primera versión
+## Límites actuales y documentación
 
-El núcleo PvP, el launcher y el servidor están implementados. El mapa, los modelos, la animación y el balance son propios. Esta versión usa WebSocket sobre TCP y suavizado del estado; no incorpora predicción con reconciliación, compensación de latencia, matchmaking público ni las tablas completas de balance y equipo del original. Las cuentas Google, el inventario y el oro persistentes requieren configurar un proyecto Firebase; el repositorio no crea ninguna cuenta ni proyecto y no incluye credenciales. La preferencia de equipo se respeta cuando permite mantener equipos equilibrados.
+- El proyecto es **jugable y está en desarrollo**. El equilibrio, rendimiento móvil, experiencia de red y distribución siguen sujetos a pruebas reales.
+- El **Quick Tunnel de Cloudflare es temporal**, no garantiza URL ni disponibilidad fijas y el anuncio de Firestore identifica un único servidor público.
+- **No hay matchmaking global** ni un servicio permanente de servidores públicos integrado.
+- Firebase, OAuth de escritorio, los permisos IAM y las reglas desplegadas **requieren configuración externa** para utilizar Google y recompensas.
+- Las versiones de cliente y servidor deben ser compatibles en **versión de juego y protocolo**.
 
-Combate y demostraciones: [efectos, minas, rayos y captura](docs/COMBINACIONES.md) · [detalle visual por cargas](docs/EFECTOS.md).
-
-Documentación adicional: [servidor y redes](docs/SERVIDOR.md), [arquitectura](docs/ARQUITECTURA.md), [exportar el ejecutable](docs/EXPORTAR.md), [cambios de versión](CHANGELOG.md).
+Documentación temática: [cómo ganar](docs/COMO-GANAR.md) · [mapas](docs/MAPAS.md) · [equipación y progresión](docs/PROGRESSION.md) · [red](docs/NETWORK-OPTIMIZATION.md) · [diagnóstico](docs/DIAGNOSTICO.md) · [exportar](docs/EXPORTAR.md). El historial de cambios, cuando se necesite, se mantiene separado en [CHANGELOG.md](CHANGELOG.md).
