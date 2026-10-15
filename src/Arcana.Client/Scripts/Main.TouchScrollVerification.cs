@@ -27,6 +27,10 @@ public partial class Main
         {
             // En CI no hay pantalla táctil física. La emulación habilita el mismo scroll nativo.
             Input.EmulateTouchFromMouse = Input.EmulateMouseFromTouch = true;
+            var interactive = scroll.FindChildren("*", "Control", true, false).OfType<Control>()
+                .Where(control => control.IsVisibleInTree() &&
+                    control is BaseButton or LineEdit or TextEdit or ItemList or Godot.Range or TabBar or ScrollContainer)
+                .ToArray();
             Vector2 ContentPoint(bool upwards)
             {
                 // Un gesto sobre un selector sería una interacción diferente a arrastrar el contenido.
@@ -36,14 +40,7 @@ public partial class Main
                     foreach (float fraction in new[] { 0.5f, 0.25f, 0.75f })
                     {
                         var point = new Vector2(area.Position.X + area.Size.X * fraction, y);
-                        GetViewport().PushInput(new InputEventMouseMotion { Position = point, GlobalPosition = point });
-                        Node? target = GetViewport().GuiGetHoveredControl();
-                        while (target != null && target != scroll)
-                        {
-                            if (target is BaseButton or LineEdit or TextEdit or ItemList or Godot.Range or TabBar or ScrollContainer) break;
-                            target = target.GetParent();
-                        }
-                        if (target == scroll) return point;
+                        if (!interactive.Any(control => control.GetGlobalRect().HasPoint(point))) return point;
                     }
                 throw new InvalidOperationException(stage + ": no hay una zona pasiva visible para el gesto.");
             }
