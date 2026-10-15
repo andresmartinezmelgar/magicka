@@ -143,7 +143,11 @@ public partial class Launcher : Control
             if (_bots != null)
             { _bots.MinValue = map.Id == ArenaMapId.Bastion ? 0 : 1; _bots.MaxValue = map.Id == ArenaMapId.Bastion ? 3 : 7; }
             if (map.IsPractice) _practiceMode.Select(_practiceMode.GetItemIndex((int)GameMode.Warfare));
-            for (int i = 0; i < _practiceMode.ItemCount; i++) _practiceMode.SetItemDisabled(i, !map.SupportsMode((GameMode)_practiceMode.GetItemId(i)));
+            for (int i = 0; i < _practiceMode.ItemCount; i++)
+            {
+                var choice = (GameMode)_practiceMode.GetItemId(i);
+                _practiceMode.SetItemDisabled(i, map.Id != ArenaMapId.Bastion && choice != GameMode.Defense && !map.SupportsMode(choice));
+            }
             if (!map.SupportsMode((GameMode)_practiceMode.GetSelectedId())) _practiceMode.Select(_practiceMode.GetItemIndex((int)GameMode.Warfare));
             practiceObjective.Text = MatchRules.Objective((GameMode)_practiceMode.GetSelectedId(),
                 (GameMode)_practiceMode.GetSelectedId() == GameMode.Duel ? 5 : 15, 75, map.Id);

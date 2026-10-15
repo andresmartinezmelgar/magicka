@@ -378,7 +378,11 @@ public partial class RoomLobby : Control
         var mode = (GameMode)_mode.GetSelectedId(); var map = (ArenaMapId)_map.GetSelectedId();
         var definition = ArenaMap.Get(map);
         if (map == ArenaMapId.Bastion) { _mode.Select(_mode.GetItemIndex((int)GameMode.Defense)); mode = GameMode.Defense; }
-        for (int i = 0; i < _mode.ItemCount; i++) _mode.SetItemDisabled(i, !definition.SupportsMode((GameMode)_mode.GetItemId(i)));
+        for (int i = 0; i < _mode.ItemCount; i++)
+        {
+            var choice = (GameMode)_mode.GetItemId(i);
+            _mode.SetItemDisabled(i, map != ArenaMapId.Bastion && choice != GameMode.Defense && !definition.SupportsMode(choice));
+        }
         if (!definition.SupportsMode(mode)) { mode = GameMode.Warfare; _mode.Select(_mode.GetItemIndex((int)mode)); }
         _capacity.MinValue = mode == GameMode.Defense ? 1 : 2;
         _capacity.MaxValue = mode == GameMode.Defense ? 4 : 16;

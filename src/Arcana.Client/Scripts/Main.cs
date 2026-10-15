@@ -99,7 +99,9 @@ public partial class Main : Node
         networkPanel.Visible = false;
         _launcher = new Launcher(); _ui.AddChild(_launcher); _launcher.Build(this);
         InitializeGoogleAuthentication();
-        if (!BuildInfo.DefensePreview) AddChild(new ReleaseUpdateNotice());
+        // La rama experimental conserva la prueba del panel sin consultar actualizaciones estables.
+        if (!BuildInfo.DefensePreview || OS.GetCmdlineUserArgs().Contains("--update-ui-smoke"))
+            AddChild(new ReleaseUpdateNotice());
         _help = BuildHelp(); _ui.AddChild(_help); _help.Visible = false;
         _pause = BuildPause(); _ui.AddChild(_pause); _pause.Visible = false;
         var arguments = OS.GetCmdlineUserArgs();
