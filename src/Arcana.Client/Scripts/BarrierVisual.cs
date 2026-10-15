@@ -47,11 +47,7 @@ public partial class BarrierVisual : Node3D
         if (stone)
         {
             int blocks = Math.Clamp((int)MathF.Ceiling(length / 0.72f), 3, 16);
-            var stoneMaterials = Enumerable.Range(0, 3).Select(i => new StandardMaterial3D
-            {
-                AlbedoColor = new Color("647078").Lerp(_color, 0.08f).Darkened(i * 0.09f),
-                Roughness = 0.98f
-            }).ToArray();
+            var stoneMaterials = Enumerable.Range(0, 3).Select(i => StoneVisuals.Surface(wall.Elements, i)).ToArray();
             var stoneTools = new SurfaceTool[stoneMaterials.Length];
             for (int i = 0; i < stoneTools.Length; i++)
             { stoneTools[i] = new(); stoneTools[i].Begin(Godot.Mesh.PrimitiveType.Triangles); }

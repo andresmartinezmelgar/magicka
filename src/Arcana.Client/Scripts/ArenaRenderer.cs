@@ -95,6 +95,7 @@ public partial class ArenaRenderer : Node3D
     public void Zoom(float delta) => _zoom = Math.Clamp(_zoom + delta, 17, 34);
     internal void SetPreviewZoom(float size) => _zoom = Math.Clamp(size, 10, Math.Max(34, Math.Max(_map.HalfHeight * 2, _map.HalfWidth * 2) + 10));
     internal float CurrentZoom => _zoom;
+    internal Vector3? PreviewFocus { get; set; }
     public void Clear()
     {
         _audio.StopAll();
@@ -205,8 +206,8 @@ public partial class ArenaRenderer : Node3D
         float followX = _map.Id == ArenaMapId.Classic ? 7 : _map.HalfWidth - 8;
         float followY = _map.Id == ArenaMapId.Classic ? 4 : _map.HalfHeight - 7;
         var visiblePosition = local != null ? _wizards[local.Id].Position : Vector3.Zero;
-        var focus = playing && local != null ? new Vector3(Math.Clamp(visiblePosition.X, -followX, followX), 0,
-            Math.Clamp(visiblePosition.Z, -followY, followY)) : new Vector3(-4, 0, 0);
+        var focus = PreviewFocus ?? (playing && local != null ? new Vector3(Math.Clamp(visiblePosition.X, -followX, followX), 0,
+            Math.Clamp(visiblePosition.Z, -followY, followY)) : new Vector3(-4, 0, 0));
         var desired = focus + new Vector3(0, 27, 21);
         var previousLocal = previous?.Players.FirstOrDefault(p => p.Id == localId);
         bool respawned = local is { Alive: true } && previousLocal != null &&
@@ -273,9 +274,13 @@ public partial class ArenaRenderer : Node3D
             if (!_projectiles.TryGetValue(projectile.Id, out var root))
             {
                 root = new Node3D { Position = World(projectile.Position, 0.9f) }; AddChild(root);
-                bool ice = projectile.Elements.Contains(Element.Cold);
+                bool stone = projectile.Elements.Contains(Element.Earth);
+                bool ice = !stone && projectile.Elements.Contains(Element.Cold);
                 var color = Ui.SpellColor(projectile.Elements);
-                Mesh(root, ice ? new PrismMesh { Size = new(0.3f, 0.9f, 0.3f) }
+                if (stone)
+                    root.AddChild(new MeshInstance3D { Name = "StoneCore", Mesh = StoneVisuals.Shape(projectile.Id),
+                        Scale = Vector3.One * projectile.Radius, MaterialOverride = StoneVisuals.Surface(projectile.Elements) });
+                else Mesh(root, ice ? new PrismMesh { Size = new(0.3f, 0.9f, 0.3f) }
                     : new SphereMesh { Radius = projectile.Radius, Height = projectile.Radius * 2 }, Vector3.Zero, color, 0.35f);
                 var strength = SpellVisualStrength.For(projectile.Elements);
                 color.A = 0.3f;

@@ -9,6 +9,28 @@ internal static class VisualFixture
     {
         var state = Create("none");
         var local = state.Players[0] with { Position = V2.Zero, Selected = [], Shield = 0, ShieldMax = 0, ShieldSeconds = 0 };
+        if (view.StartsWith("stone"))
+        {
+            bool close = view == "stone-close";
+            Element[][] rocks = close ? [[Element.Earth], [Element.Earth, Element.Fire]] :
+                [[Element.Earth], [Element.Earth, Element.Earth, Element.Earth], [Element.Earth, Element.Fire], [Element.Earth, Element.Cold]];
+            string[] stoneNames = close ? ["Armadura de piedra", "Piedra + fuego"] : ["Tierra", "Tierra · 3 cargas", "Tierra + fuego", "Tierra + frío"];
+            float Column(int i) => close ? -3.5f + i * 7 : -7 + i % 2 * 10;
+            float Row(int i) => close ? 3 : -4 + i / 2 * 9;
+            V2 Impact(int i) => new(Column(i) + (close ? 1.4f : 4.5f), close ? -1.5f : Row(i));
+            int burst = frame / 24;
+            return state with { Tick = frame, Time = frame / 60.0, Mode = GameMode.Arena,
+                Players = rocks.Select((elements, i) => local with { Id = i + 1, Name = stoneNames[i],
+                    WizardType = WizardType.Geomancer, Team = i % 2, Position = new(Column(i), Row(i)),
+                    Facing = new(1, 0), Ward = [Element.Earth], Shield = i == 1 ? 180 : 650, ShieldMax = 650,
+                    ShieldSeconds = 8, ShieldCharges = i == 1 ? 3 : 2, Selected = elements }).ToArray(),
+                Projectiles = rocks.Select((elements, i) => new ProjectileSnapshot(i + 1, i + 1,
+                    new(Column(i) + (close ? 0 : 2.5f), close ? -1.5f : Row(i)), new(1, 0), elements, 0.3f)).ToArray(),
+                Walls = close ? [] : [new(1, 1, new(-7, -8), new(-2, -8), 1300, 8, [Element.Shield, Element.Earth]),
+                    new(2, 1, new(3, -8), new(8, -8), 1300, 8, [Element.Shield, Element.Earth, Element.Fire])],
+                Events = rocks.Select((elements, i) => new GameEvent(burst * 10 + i + 1, "impact", Impact(i), elements, "")).ToArray(),
+                Points = [], Beams = [], Fields = [], Pickups = [] };
+        }
         if (view.StartsWith("ground-contrast"))
         {
             var map = ArenaMap.Get(view.EndsWith("stone") ? ArenaMapId.Ascension : ArenaMapId.Classic);

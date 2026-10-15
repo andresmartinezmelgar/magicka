@@ -17,7 +17,8 @@ public partial class Main
             // Solo pruebas headless: simular pantallas más estrechas sin alterar la APK.
             string? requested = OS.GetCmdlineUserArgs().FirstOrDefault(a =>
                 a.StartsWith("--smoke-viewport=", StringComparison.Ordinal));
-            if (requested != null && OS.GetCmdlineUserArgs().Contains("--mobile-menu-smoke"))
+            if (requested != null && OS.GetCmdlineUserArgs().Any(a => a is "--mobile-menu-smoke"
+                or "--preview-spells=stone" or "--preview-spells=stone-close"))
             {
                 string[] parts = requested["--smoke-viewport=".Length..].Split('x');
                 if (parts.Length != 2 || !int.TryParse(parts[0], out logicalWidth) ||

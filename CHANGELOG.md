@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.17.21
+
+- Piedra con siluetas irregulares y caras facetadas, grano mineral y grietas; las rocas imbuidas conservan su forma y muestran el elemento secundario en las vetas.
+- Icono de Tierra con volumen y contorno, muros con superficie pétrea y armadura con placas visibles que disminuyen al perder escudo.
+- Fragmentos de roca y polvo en impactos, estelas y carga; mallas compartidas y límites de partículas conservados.
+- Comprobaciones del radio visual, normales, reutilización, combinaciones con frío y ciclo de la armadura; cuatro capturas reales adicionales de piedra en móvil y escritorio.
+- Versión Windows y Android sincronizada en 0.17.21; código Android 17021.
+
 ## 0.17.20
 
 - El aviso de actualización espera a que se elija Descargar actualización o Ahora no; al aceptar, la instalación continúa automáticamente.

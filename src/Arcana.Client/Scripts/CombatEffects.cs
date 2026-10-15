@@ -22,13 +22,14 @@ public partial class CombatEffects : Node3D
     private readonly Stack<Spark> _freeSparks = [];
     private readonly List<Wave> _waves = [];
     private readonly Stack<Wave> _freeWaves = [];
-    private readonly Dictionary<Color, StandardMaterial3D> _materials = [];
+    private readonly Dictionary<(Color Color, bool Stone), StandardMaterial3D> _materials = [];
     private readonly Random _random = new(37);
     private readonly Godot.Mesh[] _shapes =
     [
         new SphereMesh { Radius = 0.5f, Height = 1, RadialSegments = 8, Rings = 4 },
         new PrismMesh { Size = Vector3.One },
-        new CylinderMesh { TopRadius = 0, BottomRadius = 0.5f, Height = 1, RadialSegments = 6 }
+        new CylinderMesh { TopRadius = 0, BottomRadius = 0.5f, Height = 1, RadialSegments = 6 },
+        StoneVisuals.Shape()
     ];
     private readonly TorusMesh _ring = new() { InnerRadius = 0.94f, OuterRadius = 1, Rings = 32, RingSegments = 6 };
     private readonly SphereMesh _blast = new() { Radius = 1, Height = 0.8f, RadialSegments = 20, Rings = 8 };
@@ -57,16 +58,18 @@ public partial class CombatEffects : Node3D
     public HashSet<string> SeenKinds { get; } = [];
     internal HashSet<int> SeenCharges { get; } = [];
 
-    private StandardMaterial3D Material(Color color)
+    private StandardMaterial3D Material(Color color, bool stone = false)
     {
-        if (_materials.TryGetValue(color, out var material)) return material;
+        var key = (color, stone);
+        if (_materials.TryGetValue(key, out var material)) return material;
         material = new StandardMaterial3D
         {
-            AlbedoColor = color, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-            EmissionEnabled = true, Emission = color, EmissionEnergyMultiplier = 0.35f,
+            AlbedoColor = color, ShadingMode = stone ? BaseMaterial3D.ShadingModeEnum.PerPixel : BaseMaterial3D.ShadingModeEnum.Unshaded,
+            Roughness = 0.97f, VertexColorUseAsAlbedo = stone,
+            EmissionEnabled = !stone, Emission = color, EmissionEnergyMultiplier = 0.35f,
             Transparency = color.A < 1 ? BaseMaterial3D.TransparencyEnum.Alpha : BaseMaterial3D.TransparencyEnum.Disabled
         };
-        _materials.Add(color, material); return material;
+        _materials.Add(key, material); return material;
     }
     private void Emit(Vector3 position, Color color, Vector3 velocity, float duration = 0.45f,
         int shape = 0, float size = 0.18f, float gravity = 2)
@@ -80,9 +83,9 @@ public partial class CombatEffects : Node3D
             var node = new MeshInstance3D { CastShadow = GeometryInstance3D.ShadowCastingSetting.Off }; AddChild(node);
             spark = new(node); _sparkCount++;
         }
-        spark.Node.Mesh = _shapes[shape]; spark.Node.MaterialOverride = Material(color);
+        spark.Node.Mesh = _shapes[shape]; spark.Node.MaterialOverride = Material(color, shape == 3);
         spark.Node.Position = position; spark.Node.Rotation = Vector3.Zero; spark.Node.Visible = true;
-        spark.Size = shape == 0 ? Vector3.One * size : new(size, size * 2.2f, size);
+        spark.Size = shape is 0 or 3 ? Vector3.One * size : new(size, size * 2.2f, size);
         spark.Node.Scale = spark.Size; spark.Velocity = velocity; spark.Gravity = gravity;
         spark.Life = spark.Duration = duration; _sparks.Add(spark); _emittedThisFrame++;
     }
@@ -123,11 +126,18 @@ public partial class CombatEffects : Node3D
         int basis = e.Kind switch { "explosion" => 12, "nova" => 10, "shield_break" => 14, "death" => 14, "impact" => 6, "hurt" => 3, _ => 4 };
         int count = (int)MathF.Round(basis * strength.BurstDensity);
         float speed = e.Kind is "explosion" or "nova" or "shield_break" ? 3.6f : 2.1f;
-        int shape = shield || ice || e.Elements.Contains(Element.Earth) ? 1 : fire ? 2 : 0;
+        bool stone = !shield && e.Elements.Contains(Element.Earth);
+        int shape = stone ? 3 : shield || ice ? 1 : fire ? 2 : 0;
         var origin = ArenaRenderer.World(e.Position, e.Kind == "explosion" ? 0.3f : 1.1f);
         color.A = 0.88f;
-        for (int i = 0; i < count; i++) Emit(origin, color, Direction() * speed,
-            strength.Lifetime + (float)_random.NextDouble() * 0.08f, shape, strength.SparkSize * (e.Kind == "explosion" ? 1.2f : 1));
+        for (int i = 0; i < count; i++)
+        {
+            bool dust = stone && (e.Kind is "impact" or "splash") && i % 4 == 0;
+            Emit(origin, dust ? new Color(0.61f, 0.50f, 0.36f, 0.28f) : stone ? StoneVisuals.ChipColor(i) : color,
+                Direction() * speed * (dust ? 0.4f : 1),
+                strength.Lifetime + (float)_random.NextDouble() * 0.08f, dust ? 0 : shape,
+                strength.SparkSize * (dust ? 2.4f : e.Kind == "explosion" ? 1.2f : 1), stone && !dust ? 5 : 2);
+        }
         color.A = 0.42f;
         if (e.Kind is "nova" or "explosion" or "splash" or "mine_heal")
         {
@@ -145,7 +155,7 @@ public partial class CombatEffects : Node3D
     {
         var origin = ArenaRenderer.World(e.Position, 0.25f);
         for (int i = 0; i < 10; i++)
-            Emit(origin, new("665044"), Direction() * 4.3f, 0.65f, 1, 0.19f, 7);
+            Emit(origin, StoneVisuals.ChipColor(i), Direction() * 4.3f, 0.65f, 3, 0.19f, 7);
         for (int i = 0; i < 14; i++)
             Emit(origin, i % 3 == 0 ? new("ffe1a3") : Ui.ElementColor(Element.Fire),
                 Direction() * 4.8f, 0.48f, 2, 0.14f, 3);
@@ -188,6 +198,7 @@ public partial class CombatEffects : Node3D
             _trailClock %= 0.065f;
             foreach (var p in snapshot.Projectiles)
             {
+                bool stone = p.Elements.Contains(Element.Earth);
                 var strength = SpellVisualStrength.For(p.Elements); SeenCharges.Add(strength.Charges);
                 var color = Ui.SpellColor(p.Elements);
                 var forward = ArenaRenderer.World(p.Direction);
@@ -195,9 +206,9 @@ public partial class CombatEffects : Node3D
                 for (int i = 0; i < strength.TrailSamples; i++)
                 {
                     float offset = (i - (strength.TrailSamples - 1) * 0.5f) * 0.085f;
-                    Emit(ArenaRenderer.World(p.Position, 0.9f) + side * offset, color,
+                    Emit(ArenaRenderer.World(p.Position, 0.9f) + side * offset, stone ? StoneVisuals.ChipColor(i) : color,
                         forward * -1.3f + side * offset, strength.Lifetime,
-                        p.Elements.Contains(Element.Cold) ? 1 : 0, strength.SparkSize, 0);
+                        stone ? 3 : p.Elements.Contains(Element.Cold) ? 1 : 0, strength.SparkSize, stone ? 3 : 0);
                 }
             }
             foreach (var b in snapshot.Beams)
@@ -239,8 +250,9 @@ public partial class CombatEffects : Node3D
                     if (elements.Length == 0) continue;
                     var strength = SpellVisualStrength.For(elements); SeenCharges.Add(strength.Charges);
                     for (int i = 0; i < strength.ChannelSamples; i++)
-                        Emit(at + Vector3.Up * 0.55f + Direction() * 0.22f, Ui.SpellColor(elements),
-                            Direction() * 0.4f, 0.24f, 0, strength.SparkSize * 0.75f, 0);
+                        Emit(at + Vector3.Up * 0.55f + Direction() * 0.22f,
+                            elements.Contains(Element.Earth) ? StoneVisuals.ChipColor(i) : Ui.SpellColor(elements),
+                            Direction() * 0.4f, 0.24f, elements.Contains(Element.Earth) ? 3 : 0, strength.SparkSize * 0.75f, 0);
                 }
             }
             foreach (var field in snapshot.Fields)
