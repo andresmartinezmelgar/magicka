@@ -14,12 +14,12 @@ internal static class VisualFixture
             bool close = view == "stone-close";
             Element[][] rocks = close ? [[Element.Earth], [Element.Earth, Element.Fire]] :
                 [[Element.Earth], [Element.Earth, Element.Earth, Element.Earth], [Element.Earth, Element.Fire], [Element.Earth, Element.Cold]];
-            string[] names = close ? ["Armadura de piedra", "Piedra + fuego"] : ["Tierra", "Tierra · 3 cargas", "Tierra + fuego", "Tierra + frío"];
+            string[] stoneNames = close ? ["Armadura de piedra", "Piedra + fuego"] : ["Tierra", "Tierra · 3 cargas", "Tierra + fuego", "Tierra + frío"];
             float Row(int i) => close ? -1.5f + i * 4 : -6 + i * 4;
             V2 Impact(int i) => new(close ? 3 : 4, Row(i));
             int burst = frame / 24;
             return state with { Tick = frame, Time = frame / 60.0, Mode = GameMode.Arena,
-                Players = rocks.Select((elements, i) => local with { Id = i + 1, Name = names[i],
+                Players = rocks.Select((elements, i) => local with { Id = i + 1, Name = stoneNames[i],
                     WizardType = WizardType.Geomancer, Team = i % 2, Position = new(close ? -2.5f : -5, Row(i)),
                     Facing = new(1, 0), Ward = [Element.Earth], Shield = i == 1 ? 180 : 650, ShieldMax = 650,
                     ShieldSeconds = 8, ShieldCharges = i == 1 ? 3 : 2, Selected = elements }).ToArray(),

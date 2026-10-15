@@ -140,7 +140,8 @@ public partial class ClientVerification : Node
         }
         if (_previewSpells != null)
         {
-            _runtime.Practice = null; _runtime.LocalId = 1; _runtime.StartGame(VisualFixture.Spells(0, _previewSpells));
+            _runtime.Practice = null; _runtime.LocalId = _previewSpells == "stone" ? 2 : 1;
+            _runtime.StartGame(VisualFixture.Spells(0, _previewSpells));
             _runtime.Hud!.Visible = false; _runtime.Renderer.ShowControlPoints = _previewSpells.StartsWith("ground-contrast"); _runtime.Renderer.SetPreviewZoom(24);
             if (_previewSpells == "ground-contrast-stone") _runtime.Renderer.SetPreviewZoom(32);
             if (_previewSpells.StartsWith("stone"))
