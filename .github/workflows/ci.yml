@@ -85,7 +85,7 @@ jobs:
           echo "ARCANA_GODOT=$GODOT" >> "$GITHUB_ENV"
           dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
           "$GODOT" --headless --editor --path src/Arcana.Client --import
-      - name: Renderizar 42 capturas de móvil y escritorio y validar los límites
+      - name: Renderizar 44 capturas de móvil y escritorio y validar los límites
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
         run: |
@@ -114,7 +114,7 @@ jobs:
             if [ "$surface" = mobile ]; then viewport=1024x640; args=(--mobile); fi
             target="$PWD/artifacts/visual-review/stone-$surface"
             mkdir -p "$target"
-            for scene in stone stone-close; do
+            for scene in stone stone-close stone-auras; do
               xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- "${args[@]}" "--smoke-viewport=$viewport" "--preview-spells=$scene" "--capture=$target/$scene.png" 2>&1 | tee "$RUNNER_TEMP/$scene-$surface.log"
               grep -q 'CAPTURE: Ok' "$RUNNER_TEMP/$scene-$surface.log"
               ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/$scene-$surface.log"
@@ -123,8 +123,8 @@ jobs:
           python3 - <<'PY'
           import glob, struct, pathlib, hashlib
           files = sorted(glob.glob('artifacts/visual-review/*/*.png'))
-          if len(files) != 42:
-              raise SystemExit(f'Faltan capturas: {len(files)}/42')
+          if len(files) != 44:
+              raise SystemExit(f'Faltan capturas: {len(files)}/44')
           for name in files:
               raw = pathlib.Path(name).read_bytes()
               if len(raw) < 12000 or raw[:8] != b'\x89PNG\r\n\x1a\n':
@@ -133,8 +133,8 @@ jobs:
               if (w, h) not in ((1440, 900), (1024, 640), (720, 540), (1024, 720)):
                   raise SystemExit(f'Tamaño inesperado {w}x{h}: {name}')
           unique = len({hashlib.sha256(pathlib.Path(p).read_bytes()).digest() for p in files})
-          if unique < 36: raise SystemExit(f'Escenas indistinguibles: {unique}/42')
-          print(f'VISUAL_QA_OK: 42 PNG válidos, {unique} fotogramas distintos, 5 escenarios de tamaño y piedra en móvil/escritorio.')
+          if unique < 38: raise SystemExit(f'Escenas indistinguibles: {unique}/44')
+          print(f'VISUAL_QA_OK: 44 PNG válidos, {unique} fotogramas distintos, 5 escenarios de tamaño y auras de piedra en móvil/escritorio.')
           PY
       - name: Comprobar bonificaciones activas, persistencia y consulta de otros magos
         run: |

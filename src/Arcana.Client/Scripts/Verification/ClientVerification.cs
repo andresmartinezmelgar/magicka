@@ -85,7 +85,7 @@ public partial class ClientVerification : Node
             if (arg is "--preview-spells=barriers" or "--preview-spells=beams" or "--preview-spells=beam-charge"
                 or "--preview-spells=shield-elements" or "--preview-spells=shield-strength" or "--preview-spells=meteor"
                 or "--preview-spells=ground-contrast" or "--preview-spells=ground-contrast-stone"
-                or "--preview-spells=stone" or "--preview-spells=stone-close") _previewSpells = arg[17..];
+                or "--preview-spells=stone" or "--preview-spells=stone-close" or "--preview-spells=stone-auras") _previewSpells = arg[17..];
             if (arg == "--sprites-smoke") _spritesSmoke = true;
             if (arg == "--combinations-smoke") _combinationsSmoke = true;
             if (arg == "--maps-smoke") _mapsSmoke = true;
@@ -146,13 +146,19 @@ public partial class ClientVerification : Node
             if (_previewSpells == "ground-contrast-stone") _runtime.Renderer.SetPreviewZoom(32);
             if (_previewSpells.StartsWith("stone"))
             {
-                _runtime.Renderer.SetPreviewZoom(_previewSpells == "stone-close" ? 10 : 22);
+                _runtime.Renderer.SetPreviewZoom(_previewSpells == "stone-close" ? 10 : _previewSpells == "stone-auras" ? 13 : 22);
                 _runtime.Renderer.PreviewFocus = Vector3.Zero;
                 var legend = new HBoxContainer { Position = new(24, 24) };
                 legend.AddThemeConstantOverride("separation", 12);
                 legend.AddChild(new ElementIcon { Value = Element.Earth, CustomMinimumSize = new(40, 40) });
-                legend.AddChild(Ui.Label("TIERRA · roca, armadura y fragmentos", Ui.IsMobile ? 20 : 24));
+                legend.AddChild(Ui.Label(_previewSpells == "stone-auras" ? "PIEDRA · auras elementales" : "TIERRA · roca, armadura y fragmentos", Ui.IsMobile ? 20 : 24));
                 _runtime.UiRoot.AddChild(legend);
+                if (_previewSpells == "stone-auras")
+                    for (int i = 0; i < VisualFixture.StoneAuraSamples.Length; i++)
+                        _runtime.Renderer.AddChild(new Label3D { Text = VisualFixture.StoneAuraNames[i],
+                            Position = ArenaRenderer.World(VisualFixture.StoneAuraPosition(i), 2.1f), FontSize = 34, PixelSize = 0.012f,
+                            Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, OutlineSize = 8, OutlineModulate = new("060a12"),
+                            NoDepthTest = true, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
             }
             if (_previewSpells == "shield-strength")
             {
@@ -242,6 +248,11 @@ public partial class ClientVerification : Node
     internal void AfterRender(WorldSnapshot latest)
     {
         if (_previewSpells == "stone-close" && _runtime.Touch != null) _runtime.Touch.Visible = false;
+        if (_previewSpells == "stone-auras")
+        {
+            if (_runtime.Touch != null) _runtime.Touch.Visible = false;
+            if (_runtime.UiRoot.FindChild("NetworkMetricsPanel", true, false) is Control metrics) metrics.Visible = false;
+        }
         if (_mapsSmoke && _renderFrames % 30 == 0) CheckMaps(latest);
         if (_previewMap != null && !_mapOverview && _renderFrames == 1) _runtime.Renderer.SetPreviewZoom(72);
         if (_hudSmoke && _renderFrames <= HudCases.Length * 3 && _renderFrames % 3 == 2) CheckHudCase();

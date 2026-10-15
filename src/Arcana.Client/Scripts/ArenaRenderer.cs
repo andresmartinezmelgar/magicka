@@ -276,16 +276,24 @@ public partial class ArenaRenderer : Node3D
                 root = new Node3D { Position = World(projectile.Position, 0.9f) }; AddChild(root);
                 bool stone = projectile.Elements.Contains(Element.Earth);
                 bool ice = !stone && projectile.Elements.Contains(Element.Cold);
+                var imbuements = stone ? StoneVisuals.Imbuements(projectile.Elements) : [];
                 var color = Ui.SpellColor(projectile.Elements);
                 if (stone)
+                {
                     root.AddChild(new MeshInstance3D { Name = "StoneCore", Mesh = StoneVisuals.Shape(projectile.Id),
                         Scale = Vector3.One * projectile.Radius, MaterialOverride = StoneVisuals.Surface(projectile.Elements) });
+                    if (StoneVisuals.Aura(projectile.Elements) is { } aura)
+                        root.AddChild(new MeshInstance3D { Name = "StoneAura", Mesh = StoneVisuals.Shape(projectile.Id),
+                            Scale = Vector3.One * (projectile.Radius + 0.10f + (projectile.Elements.Length - 2) * 0.025f),
+                            MaterialOverride = aura, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
+                }
                 else Mesh(root, ice ? new PrismMesh { Size = new(0.3f, 0.9f, 0.3f) }
                     : new SphereMesh { Radius = projectile.Radius, Height = projectile.Radius * 2 }, Vector3.Zero, color, 0.35f);
                 var strength = SpellVisualStrength.For(projectile.Elements);
-                color.A = 0.3f;
                 for (int i = 0; i < strength.Charges - 1; i++)
                 {
+                    color = imbuements.Length > 0 ? StoneVisuals.AuraColor(imbuements[i % imbuements.Length]) : Ui.SpellColor(projectile.Elements);
+                    color.A = imbuements.Length > 0 ? 0.62f : 0.3f;
                     float radius = projectile.Radius + 0.09f + i * 0.045f;
                     var accent = Mesh(root, new TorusMesh { InnerRadius = radius - 0.025f, OuterRadius = radius,
                         Rings = 24, RingSegments = 5 }, Vector3.Zero, color, 0.25f);

@@ -127,16 +127,19 @@ public partial class CombatEffects : Node3D
         int count = (int)MathF.Round(basis * strength.BurstDensity);
         float speed = e.Kind is "explosion" or "nova" or "shield_break" ? 3.6f : 2.1f;
         bool stone = !shield && e.Elements.Contains(Element.Earth);
+        var imbuements = stone ? StoneVisuals.Imbuements(e.Elements) : [];
+        if (imbuements.Length > 0) color = new Color(StoneVisuals.AuraColor(imbuements[0]), 0.88f);
         int shape = stone ? 3 : shield || ice ? 1 : fire ? 2 : 0;
         var origin = ArenaRenderer.World(e.Position, e.Kind == "explosion" ? 0.3f : 1.1f);
         color.A = 0.88f;
         for (int i = 0; i < count; i++)
         {
             bool dust = stone && (e.Kind is "impact" or "splash") && i % 4 == 0;
-            Emit(origin, dust ? new Color(0.61f, 0.50f, 0.36f, 0.28f) : stone ? StoneVisuals.ChipColor(i) : color,
+            Element? infusion = !dust && imbuements.Length > 0 && i % 3 == 1 ? imbuements[i / 3 % imbuements.Length] : null;
+            Emit(origin, dust ? new Color(0.61f, 0.50f, 0.36f, 0.28f) : infusion is { } element ? StoneVisuals.AuraColor(element) : stone ? StoneVisuals.ChipColor(i) : color,
                 Direction() * speed * (dust ? 0.4f : 1),
-                strength.Lifetime + (float)_random.NextDouble() * 0.08f, dust ? 0 : shape,
-                strength.SparkSize * (dust ? 2.4f : e.Kind == "explosion" ? 1.2f : 1), stone && !dust ? 5 : 2);
+                strength.Lifetime + (float)_random.NextDouble() * 0.08f, dust ? 0 : infusion is { } imbued ? StoneVisuals.ParticleShape(imbued) : shape,
+                strength.SparkSize * (dust ? 2.4f : e.Kind == "explosion" ? 1.2f : 1), stone && !dust && infusion == null ? 5 : 2);
         }
         color.A = 0.42f;
         if (e.Kind is "nova" or "explosion" or "splash" or "mine_heal")
@@ -199,6 +202,7 @@ public partial class CombatEffects : Node3D
             foreach (var p in snapshot.Projectiles)
             {
                 bool stone = p.Elements.Contains(Element.Earth);
+                var imbuements = stone ? StoneVisuals.Imbuements(p.Elements) : [];
                 var strength = SpellVisualStrength.For(p.Elements); SeenCharges.Add(strength.Charges);
                 var color = Ui.SpellColor(p.Elements);
                 var forward = ArenaRenderer.World(p.Direction);
@@ -206,9 +210,12 @@ public partial class CombatEffects : Node3D
                 for (int i = 0; i < strength.TrailSamples; i++)
                 {
                     float offset = (i - (strength.TrailSamples - 1) * 0.5f) * 0.085f;
-                    Emit(ArenaRenderer.World(p.Position, 0.9f) + side * offset, stone ? StoneVisuals.ChipColor(i) : color,
+                    Element? infusion = imbuements.Length > 0 && i > 0 ? imbuements[(i - 1) % imbuements.Length] : null;
+                    Emit(ArenaRenderer.World(p.Position, 0.9f) + side * offset,
+                        infusion is { } element ? StoneVisuals.AuraColor(element) : stone ? StoneVisuals.ChipColor(i) : color,
                         forward * -1.3f + side * offset, strength.Lifetime,
-                        stone ? 3 : p.Elements.Contains(Element.Cold) ? 1 : 0, strength.SparkSize, stone ? 3 : 0);
+                        infusion is { } imbued ? StoneVisuals.ParticleShape(imbued) : stone ? 3 : p.Elements.Contains(Element.Cold) ? 1 : 0,
+                        strength.SparkSize, stone && infusion == null ? 3 : 0);
                 }
             }
             foreach (var b in snapshot.Beams)
@@ -249,10 +256,15 @@ public partial class CombatEffects : Node3D
                     var elements = p.CastingElements is { Length: > 0 } ? p.CastingElements : p.Selected;
                     if (elements.Length == 0) continue;
                     var strength = SpellVisualStrength.For(elements); SeenCharges.Add(strength.Charges);
+                    var imbuements = elements.Contains(Element.Earth) ? StoneVisuals.Imbuements(elements) : [];
                     for (int i = 0; i < strength.ChannelSamples; i++)
+                    {
+                        Element? infusion = imbuements.Length > 0 && i > 0 ? imbuements[(i - 1) % imbuements.Length] : null;
                         Emit(at + Vector3.Up * 0.55f + Direction() * 0.22f,
-                            elements.Contains(Element.Earth) ? StoneVisuals.ChipColor(i) : Ui.SpellColor(elements),
-                            Direction() * 0.4f, 0.24f, elements.Contains(Element.Earth) ? 3 : 0, strength.SparkSize * 0.75f, 0);
+                            infusion is { } element ? StoneVisuals.AuraColor(element) : elements.Contains(Element.Earth) ? StoneVisuals.ChipColor(i) : Ui.SpellColor(elements),
+                            Direction() * 0.4f, 0.24f, infusion is { } imbued ? StoneVisuals.ParticleShape(imbued) : elements.Contains(Element.Earth) ? 3 : 0,
+                            strength.SparkSize * 0.75f, 0);
+                    }
                 }
             }
             foreach (var field in snapshot.Fields)

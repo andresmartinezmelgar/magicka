@@ -18,7 +18,7 @@ public partial class Main
             string? requested = OS.GetCmdlineUserArgs().FirstOrDefault(a =>
                 a.StartsWith("--smoke-viewport=", StringComparison.Ordinal));
             if (requested != null && OS.GetCmdlineUserArgs().Any(a => a is "--mobile-menu-smoke"
-                or "--preview-spells=stone" or "--preview-spells=stone-close"))
+                or "--preview-spells=stone" or "--preview-spells=stone-close" or "--preview-spells=stone-auras"))
             {
                 string[] parts = requested["--smoke-viewport=".Length..].Split('x');
                 if (parts.Length != 2 || !int.TryParse(parts[0], out logicalWidth) ||
