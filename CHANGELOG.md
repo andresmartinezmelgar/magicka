@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.17.20
+
+- El aviso de actualización espera a que se elija Descargar actualización o Ahora no; al aceptar, la instalación continúa automáticamente.
+- Reintentos limitados con peticiones nuevas ante fallos temporales de GitHub, desconexiones, descargas cortadas y tiempos de espera.
+- Los fallos de red no se marcan como incompatibilidad del parche ni fuerzan la descarga completa; solo un fallo al aplicar el parche activa esa alternativa.
+- Temporales independientes por intento, cancelación sin reintentos y reutilización de archivos ya verificados.
+- Regresiones del primer intento, reintento manual, integridad, cancelación y elección en el aviso real; errores diferenciados entre descarga e instalación en los registros.
+- Versión Windows y Android sincronizada en 0.17.20; código Android 17020.
+
 ## 0.17.19
 
 - Desplazamiento táctil sobre el contenido en todas las pantallas con scroll, también sobre tarjetas y fondos de la ayuda y los formularios.
