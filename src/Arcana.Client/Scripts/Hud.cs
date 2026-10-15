@@ -187,11 +187,12 @@ public partial class Hud : Control
         _seriesStatus.HorizontalAlignment = HorizontalAlignment.Center;
         _seriesStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         scoreBox.AddChild(_seriesStatus);
-        _scoreScroll = new ScrollContainer { CustomMinimumSize = new(0, 120), HorizontalScrollMode = ScrollContainer.ScrollMode.Auto };
+        _scoreScroll = new ScrollContainer { CustomMinimumSize = new(0, 150),
+            SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Auto };
         scoreBox.AddChild(_scoreScroll);
         Ui.VisibleVerticalScroll(_scoreScroll);
-        _scoreRows = new GridContainer { Columns = 5 }; _scoreRows.AddThemeConstantOverride("h_separation", Ui.IsMobile ? 10 : 18); _scoreRows.AddThemeConstantOverride("v_separation", 12); _scoreScroll.AddChild(_scoreRows);
-        foreach (string text in new[] { "MAGO", "EQUIPO", "BAJAS", "MUERTES", "VIDA" }) _scoreRows.AddChild(Ui.Label(text, 14, Ui.Gold));
+        _scoreRows = Ui.Table(5, "ScoreTable"); _scoreScroll.AddChild(_scoreRows);
+        foreach (string text in new[] { "MAGO", "EQUIPO", "BAJAS", "MUERTES", "VIDA" }) Ui.TableCell(_scoreRows, text, header: true, size: 14);
         var equipmentButton = Ui.Button("Ver bonos de los magos", () => EquipmentRequested?.Invoke());
         equipmentButton.Name = "InspectEquipmentButton"; scoreBox.AddChild(equipmentButton);
         scoreBox.MoveChild(equipmentButton, 0);
@@ -398,8 +399,9 @@ public partial class Hud : Control
     }
     private void UpdateScore(WorldSnapshot snapshot, int id)
     {
-        _scoreScroll.CustomMinimumSize = new(0, Math.Clamp((snapshot.Players.Length + 1) * 33, 65,
-            Math.Max(100, (int)Size.Y - 145)));
+        // El nombre puede ocupar varias líneas; el padding y los bordes también cuentan.
+        _scoreScroll.CustomMinimumSize = new(0, Math.Clamp((snapshot.Players.Length + 1) * 64, 150,
+            Math.Max(150, (int)Size.Y - 200)));
         _seriesStatus.Text = snapshot.BestOf > 1 && snapshot.SeriesWins is { Length: >= 2 } wins
             ? $"{(wins[0] >= MatchSeries.WinsNeeded(snapshot.BestOf) || wins[1] >= MatchSeries.WinsNeeded(snapshot.BestOf) ? "SERIE FINALIZADA" : $"MEJOR DE {snapshot.BestOf}")} · AZUL {wins[0]} — {wins[1]} ROJO"
             : "CLASIFICACIÓN DE LA PARTIDA";
@@ -412,8 +414,9 @@ public partial class Hud : Control
             {
                 if (cell == _scoreCells.Count)
                 {
-                    var label = Ui.Label("", 17, color); label.MouseFilter = MouseFilterEnum.Ignore;
-                    _scoreRows.AddChild(label); _scoreCells.Add(label);
+                    var label = Ui.TableCell(_scoreRows, "", cell % 5 >= 2, color, size: 17);
+                    label.MouseFilter = MouseFilterEnum.Ignore;
+                    _scoreCells.Add(label);
                 }
                 var current = _scoreCells[cell++]; current.Text = text; current.Visible = true;
                 current.AddThemeColorOverride("font_color", color);

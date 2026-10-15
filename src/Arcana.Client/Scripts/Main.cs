@@ -620,8 +620,7 @@ public partial class Main : Node
             SizeFlagsVertical = Control.SizeFlags.ExpandFill };
         outer.AddChild(_helpPages);
         var box = new VBoxContainer { Name = "Controles" }; box.AddThemeConstantOverride("separation", 16); _helpPages.AddChild(box);
-        var table = new GridContainer { Columns = 2 }; _inGameHelpControls = table;
-        table.AddThemeConstantOverride("h_separation", 30); table.AddThemeConstantOverride("v_separation", 9); box.AddChild(table);
+        var table = Ui.Table(2, "InGameHelpControlsTable"); _inGameHelpControls = table; box.AddChild(table);
         string[,] rows =
         {
             { "Q W E R / A S D F", "Agua, vida, escudo, frío / rayo, arcano, tierra, fuego" },
@@ -646,7 +645,8 @@ public partial class Main : Node
             { "Vaciar", "Retirar los elementos seleccionados" },
             { "Ayuda / Tabla / Menú", "Combinaciones y daño / clasificación / pausa" }
         };
-        for (int i = 0; i < rows.GetLength(0); i++) { table.AddChild(Ui.Label(rows[i, 0], 15, Ui.Gold)); table.AddChild(Ui.Label(rows[i, 1], 15)); }
+        for (int i = 0; i < rows.GetLength(0); i++)
+        { Ui.TableCell(table, rows[i, 0], header: true, size: 15); Ui.TableCell(table, rows[i, 1], size: 15); }
         box.AddChild(Ui.Label("FFF: fuego · SSS: rayo arcano · WW + central: curación\nE + central: escudo · EF + central: guarda de fuego · DDF: roca incendiaria\nQF: vapor · QR: hielo · agua seguida de frío congela al objetivo", 16, Ui.Muted));
         box.AddChild(Ui.Label("Fuego/frío, vida/arcano, agua/rayo, tierra/rayo y escudo/escudo se anulan.\nLas magias también pueden afectar a aliados. Tres elementos por hechizo.", 15, Ui.Muted));
         var winsScroll = new ScrollContainer { Name = "Cómo ganar", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; _helpPages.AddChild(winsScroll);
@@ -687,15 +687,14 @@ public partial class Main : Node
         elementsBox.AddThemeConstantOverride("separation", 14); elementsScroll.AddChild(elementsBox);
         HelpText(elementsBox, "VENTAJAS Y DEBILIDADES", Ui.Gold);
         HelpText(elementsBox, "Contra una protección elemental: +50 % al superar su elemento, −50 % si te contrarresta y −82 % contra el mismo elemento. En una mezcla, cada componente conserva su aporte de daño y se compara con los elementos de la defensa.", Ui.Muted);
-        var elementalTable = new GridContainer { Columns = 3 };
-        elementalTable.AddThemeConstantOverride("h_separation", 28); elementalTable.AddThemeConstantOverride("v_separation", 8);
+        var elementalTable = Ui.Table(3, "ElementRelationsTable");
         elementsBox.AddChild(elementalTable);
-        foreach (var title in new[] { "Elemento", "Supera a", "Vulnerable a" }) elementalTable.AddChild(Ui.Label(title, 16, Ui.Gold));
+        foreach (var title in new[] { "Elemento", "Supera a", "Vulnerable a" }) Ui.TableCell(elementalTable, title, header: true);
         foreach (var element in Enum.GetValues<Element>())
         {
-            elementalTable.AddChild(Ui.Label(SpellCatalogue.Name([element]), 16));
-            elementalTable.AddChild(Ui.Label(SpellCatalogue.Name([ElementInteractions.StrongAgainst(element)]), 16));
-            elementalTable.AddChild(Ui.Label(SpellCatalogue.Name([ElementInteractions.Weakness(element)]), 16));
+            Ui.TableCell(elementalTable, SpellCatalogue.Name([element]));
+            Ui.TableCell(elementalTable, SpellCatalogue.Name([ElementInteractions.StrongAgainst(element)]));
+            Ui.TableCell(elementalTable, SpellCatalogue.Name([ElementInteractions.Weakness(element)]));
         }
         HelpText(elementsBox, "Agua moja y Vida cura. También desgastan protecciones enemigas con sus ventajas elementales; su presión no daña la salud al romper el escudo. Curar a un aliado conserva su escudo. Los bonus y debilidades propios del tipo de mago se aplican además de estas relaciones.", Ui.Muted);
         HelpText(elementsBox, "El escudo básico deja pasar los hechizos de su propietario. Las barreras imbuidas bloquean también los propios. Todas las barreras siguen bloqueando el movimiento.", Ui.Muted);

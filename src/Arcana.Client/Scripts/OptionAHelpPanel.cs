@@ -9,7 +9,7 @@ public partial class OptionAHelpPanel : Control
     private Main _main = null!;
     private VBoxContainer _body = null!;
     private ScrollContainer _bodyScroll = null!;
-    private Label _topic = null!;
+    private Label _topic = null!, _heading = null!;
     private readonly List<Button> _topicButtons = [];
     private GridContainer? _topicNavigation;
     private readonly List<(GridContainer Grid, int MaxColumns, float MinimumWidth)> _adaptiveGrids = [];
@@ -38,7 +38,7 @@ public partial class OptionAHelpPanel : Control
         var outer = new VBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
         outer.AddThemeConstantOverride("separation", Ui.IsMobile ? 8 : 14);
         panel.AddChild(outer);
-        var header = Ui.Label("CÓMO JUGAR  /  GUÍA DEL MAGO", 24, Ui.Gold);
+        var header = _heading = Ui.Label("CÓMO JUGAR  /  GUÍA DEL MAGO", 24, Ui.Gold);
         outer.AddChild(header);
         // Las seis secciones ocupan una banda horizontal: el contenido usa todo el ancho.
         var navigation = new GridContainer { Name = "HelpTopics", Columns = 6,
@@ -56,6 +56,13 @@ public partial class OptionAHelpPanel : Control
             button.AutowrapMode = TextServer.AutowrapMode.WordSmart;
             button.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 17 : 16);
             navigation.AddChild(button);
+            foreach (string state in new[] { "normal", "hover", "pressed", "disabled" })
+            {
+                var style = (StyleBoxFlat)button.GetThemeStylebox(state).Duplicate();
+                style.ContentMarginLeft = style.ContentMarginRight = 10;
+                style.ContentMarginTop = style.ContentMarginBottom = 8;
+                button.AddThemeStyleboxOverride(state, style);
+            }
             _topicButtons.Add(button);
         }
         var card = new PanelContainer { Name = "HelpContentCard",
@@ -98,9 +105,13 @@ public partial class OptionAHelpPanel : Control
         _topic.Text = _topics[page].ToUpperInvariant();
         foreach (Node child in _body.GetChildren()) { _body.RemoveChild(child); child.QueueFree(); }
         for (int i = 0; i < _topicButtons.Count; i++)
-            _topicButtons[i].AddThemeStyleboxOverride("normal",
-                Ui.Panel(new Color(i == page ? "1b4d72" : "132a43"), 7,
-                    i == page ? Ui.Blue : new Color("2a5071")));
+        {
+            var style = Ui.Panel(new Color(i == page ? "1b4d72" : "132a43"), 7,
+                i == page ? Ui.Blue : new Color("2a5071"));
+            style.ContentMarginLeft = style.ContentMarginRight = 10;
+            style.ContentMarginTop = style.ContentMarginBottom = 8;
+            _topicButtons[i].AddThemeStyleboxOverride("normal", style);
+        }
         switch (page)
         {
             case 0: ControlsPage(); break;
@@ -128,8 +139,10 @@ public partial class OptionAHelpPanel : Control
             for (int i = 0; i < _topicButtons.Count; i++)
                 _topicButtons[i].Text = compact && i == 5 ? "Hechizos" :
                     compact && i == 4 ? "Objetos" : _topics[i];
-            _topicNavigation.Columns = ResponsiveLayout.Columns(width, compact ? 160 : 146, _topics.Length, 10);
+            _topicNavigation.Columns = ResponsiveLayout.Columns(width, compact ? 128 : 146, _topics.Length, 10);
         }
+        bool shortScreen = GetViewport().GetVisibleRect().Size.X < 970 && GetViewport().GetVisibleRect().Size.Y <= 640;
+        _heading.Visible = _topic.Visible = !shortScreen;
         foreach (var (grid, maximumColumns, minimumWidth) in _adaptiveGrids)
             if (GodotObject.IsInstanceValid(grid) && !grid.IsQueuedForDeletion())
                 grid.Columns = ResponsiveLayout.Columns(width, minimumWidth, maximumColumns, 12);
@@ -158,23 +171,14 @@ public partial class OptionAHelpPanel : Control
             { "1 / 2 / 3 / 4", "Magias especiales" },
             { "TAB / F1 / ESC", "Clasificación, ayuda y menú" }
         };
-        var list = new GridContainer { Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        list.AddThemeConstantOverride("h_separation", Ui.IsMobile ? 12 : 20);
-        list.AddThemeConstantOverride("v_separation", Ui.IsMobile ? 4 : 8);
+        var list = Ui.Table(2, "MenuHelpControlsTable");
         _body.AddChild(list);
         AddAdaptiveGrid(list, 2, 310);
         for (int i = 0; i < rows.GetLength(0); i++)
         {
             // Cada pareja clave/explicación ocupa dos columnas o dos filas en pantallas estrechas.
-            var key = Ui.Label(rows[i, 0], Ui.IsMobile ? 16 : 18, Ui.Gold);
-            key.CustomMinimumSize = Vector2.Zero;
-            key.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-            key.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            list.AddChild(key);
-            var description = Ui.Label(rows[i, 1], Ui.IsMobile ? 16 : 18, Ui.Text);
-            description.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            description.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-            list.AddChild(description);
+            Ui.TableCell(list, rows[i, 0], color: Ui.Gold, header: true, size: Ui.IsMobile ? 16 : 18);
+            Ui.TableCell(list, rows[i, 1], size: Ui.IsMobile ? 16 : 18);
         }
         var note = Ui.Label("FFF: fuego  ·  E: escudo  ·  QF: vapor  ·  QR: hielo  ·  DDF: roca incendiaria", 15, Ui.Muted);
         note.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -313,7 +317,7 @@ public partial class OptionAHelpPanel : Control
     {
         var panel = new PanelContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill };
-        var style = Ui.Panel(new Color("132c46"), 8, new Color("31658d"));
+        var style = Ui.Panel(new Color("132c46"), 8, Ui.TableBorder);
         style.ContentMarginLeft = style.ContentMarginRight = Ui.IsMobile ? 15 : 24;
         style.ContentMarginTop = style.ContentMarginBottom = Ui.IsMobile ? 10 : 20;
         panel.AddThemeStyleboxOverride("panel", style);

@@ -108,6 +108,34 @@ public static class Ui
         if (color != null) label.AddThemeColorOverride("font_color", color.Value);
         return label;
     }
+    public static readonly Color TableBorder = new("7292b5");
+    public static GridContainer Table(int columns, string name)
+    {
+        var table = new GridContainer { Name = name, Columns = columns,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        table.AddThemeConstantOverride("h_separation", 0);
+        table.AddThemeConstantOverride("v_separation", 0);
+        return table;
+    }
+    /// <summary>Celdas con bordes continuos, relleno y altura compartida con su fila.</summary>
+    public static Label TableCell(GridContainer table, string text, bool number = false,
+        Color? color = null, bool header = false, int size = 16)
+    {
+        var label = Label(text, size, color ?? (header ? Gold : Text));
+        label.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        label.SizeFlagsVertical = Control.SizeFlags.Fill;
+        label.VerticalAlignment = VerticalAlignment.Center;
+        label.HorizontalAlignment = number ? HorizontalAlignment.Right : HorizontalAlignment.Left;
+        if (!number || header) label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        var background = header ? new Color("203b58") :
+            new Color(table.GetChildCount() / table.Columns % 2 == 0 ? "13273e" : "0d1d30");
+        var border = Panel(background, 0, TableBorder);
+        border.ContentMarginLeft = border.ContentMarginRight = IsMobile ? 8 : 10;
+        border.ContentMarginTop = border.ContentMarginBottom = IsMobile ? 8 : 7;
+        label.AddThemeStyleboxOverride("normal", border);
+        table.AddChild(label);
+        return label;
+    }
     public static Button Button(string text, Action pressed, bool primary = false)
     {
         var button = new Button { Text = text, CustomMinimumSize = new(0, IsMobile ? 68 : 45),

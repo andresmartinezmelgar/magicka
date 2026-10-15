@@ -68,6 +68,19 @@ public partial class Main
             throw new InvalidOperationException($"HUD {stage}: el minimapa tapa la vida del jugador: {minimap.GetGlobalRect()} / {status.GetGlobalRect()}");
     }
 
+    private void AssertVisibleTableData(Control root, string tableName)
+    {
+        var table = root.FindChild(tableName, true, false) as GridContainer
+            ?? throw new InvalidOperationException("Falta la tabla " + tableName);
+        var cells = table.GetChildren().OfType<Label>().Where(label => label.Visible).ToArray();
+        Rect2 visible = GetViewport().GetVisibleRect();
+        for (Node? parent = table.GetParent(); parent != null; parent = parent.GetParent())
+            if (parent is ScrollContainer scroll) visible = visible.Intersection(scroll.GetGlobalRect());
+        if (cells.Length < table.Columns * 2 || new[] { 0, table.Columns - 1, table.Columns, table.Columns * 2 - 1 }
+            .Any(index => !visible.Grow(1).Encloses(cells[index].GetGlobalRect())))
+            throw new InvalidOperationException(tableName + ": no se ven la cabecera y una fila completa de datos. Área visible: " + visible);
+    }
+
     // En CI no basta con simular los controles móviles: hay que comprobar
     // la geometría Godot del escritorio real en 1600×900 y 1280×720.
     private void PrepareDesktopHeaderSmokeWindow()
@@ -224,6 +237,7 @@ public partial class Main
                 116 => "08-perfil",
                 137 => "09-ayuda",
                 156 => "10-equipacion",
+                163 => "12-suma-bonificaciones",
                 _ => null
             };
             if (scene != null) CaptureVisualReview(scene);
@@ -250,6 +264,7 @@ public partial class Main
                         " pantalla=" + GetViewport().GetVisibleRect());
                 GD.Print("MOBILE_SCOREBOARD_LAYOUT_OK");
                 AssertHudBounds(_smokeScoreHud, "clasificacion");
+                AssertVisibleTableData(_smokeScoreHud, "ScoreTable");
                 _smokeScoreHud.ScoreOpen = false;
                 var simulated = new GameWorld(new WorldOptions { Mode = GameMode.Warfare, Bots = 0 });
                 var player = simulated.AddPlayer("Mago de prueba", 0)!;
@@ -439,7 +454,10 @@ public partial class Main
                 ToggleHelp();
             }
             if (frame == 135)
+            {
                 AssertOptionAScreen("AYUDA", _optionAHelp!);
+                AssertVisibleTableData(_optionAHelp!, "MenuHelpControlsTable");
+            }
             if (frame == 135 && _optionAHelp!.ContentWidthFraction < 0.78f)
                 throw new InvalidOperationException("AYUDA: las tarjetas no ocupan el ancho disponible.");
             if (frame == 136) _optionAHelp!.SelectForSmoke(2);
@@ -459,10 +477,21 @@ public partial class Main
                     !bonusLabels.Any(t => t.Contains("Absorción del escudo")))
                     throw new InvalidOperationException("Ayuda no documenta defensa y capacidad del escudo.");
                 CloseOptionAHelp();
-                OpenEquipment("automatic");
+                EquipmentFixture(false);
             }
             if (frame == 155)
                 AssertOptionAScreen("EQUIPACION", _equipmentPanel!);
+            if (frame == 158)
+            {
+                var sum = _equipmentPanel!.FindChildren("*", "Button", true, false).OfType<Button>()
+                    .Single(button => button.Text.Contains("SUMA DE BONIFICACIONES"));
+                sum.EmitSignal(Button.SignalName.Pressed);
+            }
+            if (frame == 162)
+            {
+                AssertOptionAScreen("SUMA_BONIFICACIONES", _equipmentPanel!);
+                AssertVisibleTableData(_equipmentPanel!, "EquipmentTotalsTable");
+            }
             if (frame < 165) return false;
             _googleIdentityKnown = false;
             GD.Print("MOBILE_MENU_LAYOUT_OK: Opción A PvP, IA, salas, perfil, ayuda y equipación; todos sin scroll.");

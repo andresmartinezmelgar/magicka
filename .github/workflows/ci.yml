@@ -85,7 +85,7 @@ jobs:
           echo "ARCANA_GODOT=$GODOT" >> "$GITHUB_ENV"
           dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
           "$GODOT" --headless --editor --path src/Arcana.Client --import
-      - name: Renderizar 35 capturas de móvil y escritorio y validar los límites
+      - name: Renderizar 38 capturas de móvil y escritorio y validar los límites
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
         run: |
@@ -111,8 +111,8 @@ jobs:
           python3 - <<'PY'
           import glob, struct, pathlib, hashlib
           files = sorted(glob.glob('artifacts/visual-review/*/*.png'))
-          if len(files) != 35:
-              raise SystemExit(f'Faltan capturas: {len(files)}/35')
+          if len(files) != 38:
+              raise SystemExit(f'Faltan capturas: {len(files)}/38')
           for name in files:
               raw = pathlib.Path(name).read_bytes()
               if len(raw) < 12000 or raw[:8] != b'\x89PNG\r\n\x1a\n':
@@ -121,9 +121,14 @@ jobs:
               if (w, h) not in ((1440, 900), (1024, 640), (720, 540), (1024, 720)):
                   raise SystemExit(f'Tamaño inesperado {w}x{h}: {name}')
           unique = len({hashlib.sha256(pathlib.Path(p).read_bytes()).digest() for p in files})
-          if unique < 29: raise SystemExit(f'Escenas indistinguibles: {unique}/35')
-          print(f'VISUAL_QA_OK: 35 PNG válidos, {unique} fotogramas distintos, 5 escenarios de tamaño.')
+          if unique < 32: raise SystemExit(f'Escenas indistinguibles: {unique}/38')
+          print(f'VISUAL_QA_OK: 38 PNG válidos, {unique} fotogramas distintos, 5 escenarios de tamaño.')
           PY
+      - name: Comprobar bonificaciones activas, persistencia y consulta de otros magos
+        run: |
+          set -euo pipefail
+          bash scripts/test-client-smoke.sh equipment-smoke "$ARCANA_GODOT"
+          bash scripts/test-client-smoke.sh equipment-public-smoke "$ARCANA_GODOT"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
