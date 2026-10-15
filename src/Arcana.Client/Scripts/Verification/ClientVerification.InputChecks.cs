@@ -25,6 +25,8 @@ public partial class ClientVerification
                 var player = world.AddPlayer("Reaparición", 0)!;
                 player.Position = new(-2, 0);
                 _runtime.Practice = world; _runtime.LocalId = player.Id; _runtime.LocalSequence = 0; _runtime.Snapshot = world.Snapshot();
+                // El cursor debe usar los límites y la cámara del mapa que se está verificando.
+                _runtime.Renderer.Render(_runtime.Snapshot, player.Id, 1 / 60.0, true);
                 _runtime.LocalWasAlive = true; _runtime.LocalDeaths = 0;
                 _runtime.Aim = _runtime.Target = new(12, 0); _runtime.MoveTo = true; _runtime.IgnoreLeftUntilRelease = false;
                 if (Ui.IsMobile)
@@ -48,6 +50,7 @@ public partial class ClientVerification
                 for (int i = 0; i < 7; i++) world.Step();
                 Require(player.Alive, "el servidor no ha reaparecido al mago.");
                 _runtime.Snapshot = world.Snapshot();
+                _runtime.Renderer.Render(_runtime.Snapshot, player.Id, 1 / 60.0, true);
                 var spawn = player.Position;
                 for (int i = 0; i < 120; i++)
                 {
@@ -87,6 +90,7 @@ public partial class ClientVerification
             _runtime.Touch?.Reset();
             (_runtime.Practice, _runtime.Snapshot, _runtime.LocalId, _runtime.LocalSequence, _runtime.MoveTo, _runtime.IgnoreLeftUntilRelease,
                 _runtime.LocalWasAlive, _runtime.LocalDeaths, _runtime.Aim, _runtime.Target) = saved;
+            if (_runtime.Snapshot != null) _runtime.Renderer.Render(_runtime.Snapshot, _runtime.LocalId, 1 / 60.0, true);
         }
     }
 
