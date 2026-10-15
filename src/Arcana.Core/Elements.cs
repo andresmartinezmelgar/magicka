@@ -2,7 +2,7 @@ namespace Arcana.Core;
 
 public enum Element { Water, Life, Shield, Cold, Lightning, Arcane, Earth, Fire }
 public enum SpellShape { Force, Spray, Beam, Lightning, Rock, Shards, Barrier }
-public enum GameMode { Duel, Arena, Warfare }
+public enum GameMode { Duel, Arena, Warfare, Defense }
 
 /// <summary>La selección es una lista; los elementos incompatibles se anulan al pulsar la tecla.</summary>
 public sealed class ElementBuffer

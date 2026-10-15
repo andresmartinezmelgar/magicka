@@ -76,10 +76,10 @@ public sealed partial class GameWorld
     {
         var end = RayEnd(from, direction, range, out wall, owner, parts);
         target = null; float nearest = 1;
-        foreach (var player in _players.Values)
+        foreach (var player in _combatants.Values)
         {
             if (!player.Alive || player.Id == ignoredWizard) continue;
-            float radius = player.Shield > 0 && player.ShieldTime > 0 ? 0.95f : 0.6f;
+            float radius = player.Role == CombatantRole.Castle ? DefenseRules.CastleRadius : player.Shield > 0 && player.ShieldTime > 0 ? 0.95f : 0.6f;
             if (Geometry.SegmentCircle(from, end, player.Position, radius) is not float t || t >= nearest) continue;
             nearest = t; target = player;
         }
@@ -134,7 +134,7 @@ public sealed partial class GameWorld
             {
                 bool alliedHealing = true;
                 foreach (var part in parts)
-                    if (!part.Recipe.Healing || !_players.TryGetValue(part.Owner, out var source) || !Allied(source, target))
+                    if (!part.Recipe.Healing || !_combatants.TryGetValue(part.Owner, out var source) || !Allied(source, target))
                     { alliedHealing = false; break; }
                 if (target.Shield <= 0 || target.ShieldTime <= 0 || alliedHealing)
                 {
@@ -142,7 +142,7 @@ public sealed partial class GameWorld
                     return;
                 }
                 foreach (var part in parts)
-                    if (!_players.TryGetValue(part.Owner, out var source) || source.Id == target.Id || !Allied(source, target) || Options.FriendlyFire)
+                    if (!_combatants.TryGetValue(part.Owner, out var source) || source.Id == target.Id || !Allied(source, target) || Options.FriendlyFire && !IsDefense)
                     {
                         Damage(target, BeamPressure(target, part) * 0.2f * dt, part.Owner, part.Recipe.Elements);
                         if (target.Shield > 0) DamageProtection(target, UtilityPressure(target, part.Recipe, part.Owner) * part.Scale * 0.2f * dt,

@@ -12,6 +12,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Reflection;
 
+if (args.Contains("--defense-rewards-only")) { await DefenseRewardsEmulatorTests.Run(); return; }
 VerifiedGoogleClaimsTests.Run();
 if (args.Contains("--verified-claims-only")) return;
 
@@ -300,6 +301,37 @@ await Test("PvP completo: fin de partida, diario y recompensa llegan a la cuenta
         "El fin de la partida no entregó una única recompensa.");
     long tick = game.CurrentTick; await Task.Delay(150); Check(game.CurrentTick > tick, "La persistencia bloqueó el reloj de simulación.");
 });
+await Test("Defensa online: hito autenticado con bots, entrega única y sin victorias PvP", async () =>
+{
+    var before = await repository.Profile(alice, "Alice");
+    var game = app.Services.GetRequiredService<GameService>();
+    var (created, error, _) = game.CreateRoom(new CreateRoomRequest {
+        Name = "Defensa autenticada", Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4, Bots = 1 });
+    var room = created ?? throw new InvalidOperationException(error);
+    await using var player = new ArenaConnection();
+    await player.ConnectAsync("127.0.0.1:28339", "Defensor", 1, "", roomId: room.Id, accountToken: aliceLogin.AccessToken);
+    var gate = typeof(GameService).GetField("_gate", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(game)!;
+    var rooms = (Dictionary<string, GameRoom>)typeof(GameService).GetField("_rooms", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(game)!;
+    lock (gate)
+    {
+        var world = rooms[room.Id].World;
+        // Fixture de cinco minutos: no se introduce ningún comando de reloj en el protocolo público.
+        typeof(GameWorld).GetProperty("Tick")!.SetValue(world, 18010L);
+        typeof(GameWorld).GetField("_defenseElapsed", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(world, 300.0);
+        var progress = (System.Collections.IDictionary)typeof(GameWorld).GetField("_defenders", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(world)!;
+        var data = progress[player.PlayerId]!;
+        data.GetType().GetField("ActiveTicks")!.SetValue(data, 18000L);
+    }
+    AccountProfile after = before;
+    for (int n = 0; n < 100 && after.Items.Length == before.Items.Length; n++)
+    { await Task.Delay(100); after = await repository.Profile(alice, "Alice"); }
+    Check(after.Items.Length == before.Items.Length + 1 && after.Wins == before.Wins && after.Losses == before.Losses,
+        "No se entregó el hito o se alteraron estadísticas PvP.");
+    await Task.Delay(300);
+    Check((await repository.Profile(alice, "Alice")).Items.Length == after.Items.Length, "Se repitió el mismo hito en otro tick.");
+    Check(player.Latest!.Defense!.Defenders.Single(p => p.PlayerId == player.PlayerId).Items.Length == 0,
+        "El premio permanente entró en el inventario temporal.");
+});
 await app.StopAsync(); await app.DisposeAsync();
 
 await Test("Diario: un resultado pendiente se recupera al reiniciar sin duplicar la recompensa", async () =>
@@ -314,6 +346,24 @@ await Test("Diario: un resultado pendiente se recupera al reiniciar sin duplicar
     Check(!Directory.EnumerateFiles(directory, "*.json").Any(), "El diario no entregó el resultado.");
     Check((await repository.Profile(alice, "Alice")).Wins == wins + 1, "No se recuperó el resultado.");
     await repository.Award(match); Check((await repository.Profile(alice, "Alice")).Wins == wins + 1, "El reintento duplicó el premio.");
+});
+await Test("Defensa Firestore: cuatro hitos idempotentes, sorteo PvP y tope de premios", async () =>
+{
+    string uid = "defense_" + suffix, run = Guid.NewGuid().ToString("N");
+    await repository.Profile(uid, "Defensa");
+    for (int n = 1; n <= 4; n++)
+    {
+        var reward = new RewardMatch(RewardRules.DefenseReceiptId(run, uid, n), "test-server", GameMode.Defense,
+            ArenaMapId.Bastion, DateTimeOffset.UtcNow, [new(uid, 1, 0, n * 300, true)], 2, run, n);
+        await Task.WhenAll(Enumerable.Range(0, 3).Select(_ => repository.Award(reward)));
+    }
+    var profile = await repository.Profile(uid, "Defensa");
+    Check(profile.Items.Length == 4 && profile.Items.All(EquipmentCatalogue.Valid) && profile.Wins == 0 && profile.Losses == 0 && profile.Gold == 0,
+        "Se duplicó un hito o se mezcló con resultados PvP.");
+    var invalid = new RewardMatch(RewardRules.DefenseReceiptId(run, uid, 5), "test-server", GameMode.Defense,
+        ArenaMapId.Bastion, DateTimeOffset.UtcNow, [new(uid, 1, 0, 1500, true)], 2, run, 5);
+    await repository.Award(invalid);
+    Check((await repository.Profile(uid, "Defensa")).Items.Length == 4, "Se entregó un quinto premio.");
 });
 Console.WriteLine($"RESULTADO CUENTAS: {passed} correctas, {failed} fallidas.");
 Environment.ExitCode = failed == 0 ? 0 : 1;

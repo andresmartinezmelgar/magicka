@@ -18,6 +18,12 @@ public partial class MobileControls : Control
     private SpellShape _aimedSpellShape;
     private int _selectionEchoFrames;
     private const float Radius = 82;
+    private bool _defenseLayout;
+    public Func<Vector2, bool>? PointerBlocked { get; set; }
+    private float DefenseScale => _defenseLayout ? Math.Min(1, Size.Y / 720f) : 1;
+    private float StickRadius => Radius * DefenseScale;
+    internal Rect2[] ButtonRectanglesForVerification => _actions.Select(a => a.Panel.GetGlobalRect()).ToArray();
+    public void ConfigureDefense() { _defenseLayout = true; Layout(); }
     internal bool BarrierAimPending => _directionalAimPending && _aimedSpellShape == SpellShape.Barrier;
     internal bool IceAimPending => _directionalAimPending && _aimedSpellShape == SpellShape.Shards;
     public Vector2 Movement => _move;
@@ -72,6 +78,24 @@ public partial class MobileControls : Control
     {
         if (_actions.Count == 0) return;
         float width = Size.X, height = Size.Y;
+        if (_defenseLayout)
+        {
+            float s = DefenseScale;
+            foreach (var action in _actions) action.Text.AddThemeFontSizeOverride("font_size", Math.Max(14, (int)(22 * s)));
+            foreach (var icon in _actions.SelectMany(a => a.Panel.GetChildren()).OfType<Container>().SelectMany(c => c.GetChildren()).OfType<ElementIcon>())
+                icon.CustomMinimumSize = new(25 * s, 25 * s);
+            _moveHome = new(142 * s, height - 125 * s);
+            if (_moveFinger < 0) _moveCenter = _moveHome;
+            _aimCenter = new(width - 142 * s, height - 125 * s);
+            for (int i = 0; i < 8; i++) Place(i, new(width - (246 - i % 2 * 116) * s, height - (572 - i / 2 * 80) * s), new(108 * s, 72 * s));
+            for (int i = 0; i < 4; i++)
+            {
+                Place(8 + i, new(width / 2 - (244 - i * 124) * s, height - 170 * s), new(120 * s, 62 * s));
+                Place(12 + i, new(width / 2 - (244 - i * 124) * s, height - 90 * s), new(120 * s, 72 * s));
+            }
+            for (int i = 0; i < 3; i++) Place(16 + i, new(width - (382 - i * 124) * s, 22 * s), new(118 * s, 62 * s));
+            QueueRedraw(); return;
+        }
         _moveHome = new(142, height - 125);
         if (_moveFinger < 0) _moveCenter = _moveHome;
         _aimCenter = new(width - 142, height - 125);
@@ -153,6 +177,7 @@ public partial class MobileControls : Control
             return false;
         }
         if (finger == _moveFinger || finger == _aimFinger || _pressed.ContainsKey(finger)) return true;
+        if (PointerBlocked?.Invoke(point + GlobalPosition) == true) return false;
         var action = _actions.FirstOrDefault(a => a.Panel.GetRect().HasPoint(point));
         if (action != null)
         {
@@ -165,7 +190,7 @@ public partial class MobileControls : Control
         // al cruzar botones o la mitad derecha, y un toque nuevo no lo sustituye.
         if (_moveFinger < 0 && new Rect2(Vector2.Zero, new(Size.X / 2, Size.Y)).HasPoint(point))
         { _moveFinger = finger; _moveCenter = point; _move = Vector2.Zero; QueueRedraw(); return true; }
-        if (_aimFinger < 0 && point.DistanceTo(_aimCenter) <= Radius + 20)
+        if (_aimFinger < 0 && point.DistanceTo(_aimCenter) <= StickRadius + 20)
         {
             _aimFinger = finger;
             _aimedSpellShape = new SpellRecipe(_selected.Elements).Shape;
@@ -206,10 +231,10 @@ public partial class MobileControls : Control
         _selectionEchoFrames = 0;
         ActionRequested?.Invoke(message);
     }
-    private static Vector2 Stick(Vector2 offset)
+    private Vector2 Stick(Vector2 offset)
     {
         if (offset.Length() < 12) return Vector2.Zero;
-        return offset.LimitLength(Radius) / Radius;
+        return offset.LimitLength(StickRadius) / StickRadius;
     }
     private void Move(Vector2 point) { _move = Stick(point - _moveCenter); QueueRedraw(); }
     private void Aim(Vector2 point)
@@ -223,11 +248,11 @@ public partial class MobileControls : Control
     }
     private void DrawStick(Vector2 center, Vector2 direction, string caption, Color color)
     {
-        DrawCircle(center, Radius, new Color(0.035f, 0.055f, 0.09f, 0.86f));
-        DrawArc(center, Radius, 0, Mathf.Tau, 48, new Color(color, 0.92f), 3, true);
-        DrawCircle(center + direction * (Radius - 27), 27, new Color(color, 0.68f));
+        DrawCircle(center, StickRadius, new Color(0.035f, 0.055f, 0.09f, 0.86f));
+        DrawArc(center, StickRadius, 0, Mathf.Tau, 48, new Color(color, 0.92f), 3, true);
+        DrawCircle(center + direction * (StickRadius - 27 * DefenseScale), 27 * DefenseScale, new Color(color, 0.68f));
         var font = ThemeDB.FallbackFont;
         float textWidth = font.GetStringSize(caption, fontSize: 19).X;
-        DrawString(font, center + new Vector2(-textWidth / 2, -Radius - 16), caption, fontSize: 19, modulate: color);
+        DrawString(font, center + new Vector2(-textWidth / 2, -StickRadius - 16 * DefenseScale), caption, fontSize: 19, modulate: color);
     }
 }

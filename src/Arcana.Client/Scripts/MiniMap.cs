@@ -54,6 +54,11 @@ public partial class MiniMap : Control
                         p.Progress < 0 ? Ui.Blue : Ui.Red, 3, true);
                 if (p.Contested) DrawArc(at, 7, 0, Mathf.Tau, 24, Ui.Text, 1, true);
             }
+        if (State.Defense is { } defense)
+        {
+            DrawRect(new(Point(defense.CastlePosition) - new Vector2(4, 4), new(8, 8)), Ui.Blue);
+            foreach (var enemy in defense.Minions) DrawCircle(Point(enemy.Position), 1.6f, Ui.Red);
+        }
         foreach (var p in State.Players.Where(p => p.Alive))
         {
             var pos = Point(p.Position); float radius = p.Id == LocalId ? 4 : 3;

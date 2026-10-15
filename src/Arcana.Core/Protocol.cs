@@ -6,10 +6,10 @@ namespace Arcana.Core;
 
 public static class Protocol
 {
-    public const int Version = 20;
+    public const int Version = 21;
     public const int GamePort = 27015;
     public const int DiscoveryPort = 27016;
-    public const string DiscoveryMagic = "ARCANA_DISCOVER_V20";
+    public const string DiscoveryMagic = "ARCANA_DISCOVER_V21";
     public const int LoadingTimeoutSeconds = 120;
     public const int MaxMessageBytes = 4096;
     public static readonly JsonSerializerOptions Json = new()
@@ -176,6 +176,7 @@ public sealed class ClientMessage
     public string AccountToken { get; set; } = "";
     public Element Element { get; set; }
     public int Slot { get; set; }
+    public string ItemId { get; set; } = "";
     public float MoveX { get; set; }
     public float MoveY { get; set; }
     public bool MoveTo { get; set; }
@@ -231,4 +232,4 @@ public sealed record WorldSnapshot(long Tick, double Time, GameMode Mode, bool M
     int ScoreLimit = 15, int StartingTickets = 75, ArenaMapId Map = ArenaMapId.Classic,
     int HoldingTeam = -1, float HoldSeconds = 0, PickupSnapshot[]? Pickups = null,
     bool WaitingForPlayers = false, int LobbyHostId = 0, int[]? LobbyReadyPlayerIds = null,
-    int BestOf = 1, int[]? SeriesWins = null, string RewardStatus = "", bool AwaitingRematch = false);
+    int BestOf = 1, int[]? SeriesWins = null, string RewardStatus = "", bool AwaitingRematch = false, DefenseSnapshot? Defense = null);

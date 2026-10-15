@@ -3,7 +3,7 @@ namespace Arcana.Core;
 /// <summary>Textos compartidos por la ayuda, las salas y el HUD; los límites vienen de la simulación.</summary>
 public static class MatchRules
 {
-    public static string Objective(GameMode mode, int scoreLimit, int tickets, ArenaMapId map = ArenaMapId.Classic) => map == ArenaMapId.Practice
+    public static string Objective(GameMode mode, int scoreLimit, int tickets, ArenaMapId map = ArenaMapId.Classic) => mode == GameMode.Defense ? "Defiende el bastión. Sobrevive a las oleadas; la partida termina al caer el castillo." : map == ArenaMapId.Practice
         ? "Práctica libre: estados, barreras y lanzador. Sin puntos de control ni victoria."
         : (mode switch
     {
@@ -15,7 +15,9 @@ public static class MatchRules
     }) + (map == ArenaMapId.Ascension
         ? "\nAscensión: +10 de vida por baja; +0,5 s al morir (máx. 10 s). Objetos aleatorios hasta morir."
         : map == ArenaMapId.Relics ? "\nRecoge reliquias: sus mejoras se acumulan y duran hasta morir." : "");
-    public static string Details(GameMode mode, ArenaMapId map = ArenaMapId.Classic) => map == ArenaMapId.Practice
+    public static string Details(GameMode mode, ArenaMapId map = ArenaMapId.Classic) => mode == GameMode.Defense
+        ? "Todos los defensores colaboran. Los enemigos llegan por oleadas o de forma continua. Recoge oro, piezas y reliquias; abre la tienda para equiparte, mejorar auras y reparar el bastión. Cada reparación encarece la siguiente. Conservas nivel y mejoras al morir; cada muerte añade 0,5 s a la reaparición. La progresión temporal se borra en otra partida. Con Google y servidor configurado, cada 5 minutos activos concede un objeto permanente, hasta 4. Las partidas locales no conceden premios permanentes."
+        : map == ArenaMapId.Practice
         ? "Los objetivos reciben daño y curación reales y reaparecen en su estación al morir. Los estados no caducan por tiempo, pero puedes neutralizarlos con hechizos. Restablece una estación para recuperar su estado y escudo iniciales. Todas las combinaciones de barrera y mina están indicadas junto a cada estación y se reconstruyen a los 2 segundos si las destruyes. El lanzador apunta siempre a la derecha: rayos, cadenas y conos continuos; rocas y fragmentos cada 2 segundos. Puedes cambiar su combinación, pausarlo y preparar tu vida al 40 % para medir curación. Al morir reapareces en el único círculo azul al cabo de 1 segundo."
         : (mode switch
     {

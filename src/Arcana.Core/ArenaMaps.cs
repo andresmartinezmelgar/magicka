@@ -1,6 +1,6 @@
 namespace Arcana.Core;
 
-public enum ArenaMapId { Classic, Citadel, Ascension, Relics, Frontline, Practice }
+public enum ArenaMapId { Classic, Citadel, Ascension, Relics, Frontline, Practice, Bastion }
 public enum ArenaTheme { Forest, City, Ruins, Sanctuary }
 public sealed record FloorSection(V2 Center, float Width, float Height);
 public sealed record MapEdge(V2 A, V2 B);
@@ -22,7 +22,8 @@ public sealed class ArenaDefinition
     public IReadOnlyList<MapEdge> EventGates { get; }
     public bool SequentialCapture => Id == ArenaMapId.Frontline;
     public bool IsPractice => Id == ArenaMapId.Practice;
-    public bool SupportsMode(GameMode mode) => !SequentialCapture || mode == GameMode.Warfare;
+    public bool SupportsMode(GameMode mode) => Id == ArenaMapId.Bastion ? mode == GameMode.Defense
+        : mode != GameMode.Defense && (!SequentialCapture || mode == GameMode.Warfare);
     public bool HasPickups => Id is ArenaMapId.Ascension or ArenaMapId.Relics;
     public bool RandomPickups => Id == ArenaMapId.Ascension;
     public ArenaTheme Theme => Id switch { ArenaMapId.Classic => ArenaTheme.Forest, ArenaMapId.Citadel => ArenaTheme.City,
@@ -56,6 +57,7 @@ public sealed class ArenaDefinition
     public V2 Spawn(int team, int index, int capturedPoints = 0)
     {
         if (IsPractice) return PracticeLayout.Respawn;
+        if (Id == ArenaMapId.Bastion) return new(-25, (index % 4 - 1.5f) * 1.8f);
         if (SequentialCapture && capturedPoints > 0)
         {
             int count = Math.Clamp(capturedPoints, 1, ControlPoints.Count);
@@ -254,10 +256,15 @@ internal static class ArenaMaps
          new(new(0, -18), 1.2f, 2.4f), new(new(0, 18), 1.2f, 2.4f)],
         [new(-18, -10), V2.Zero, new(18, 10)], 31,
         new[] { 0, -7, 7, -14, 14, -21, 21 }.SelectMany(y => new V2[] { new(-22, y), new(22, y) }).ToArray());
+    private static readonly ArenaDefinition Bastion = new(ArenaMapId.Bastion, "Bastión de las oleadas", 38, 24,
+        [new(new(-27, 0), 22, 16), new(new(10, 0), 56, 48)],
+        [new(-38, -8), new(-18, -8), new(-18, -24), new(38, -24), new(38, 24), new(-18, 24), new(-18, 8), new(-38, 8)],
+        [new(new(-8, -9), 1.4f, 2.8f), new(new(-8, 9), 1.4f, 2.8f),
+         new(new(12, -7), 1.2f, 2.4f), new(new(12, 7), 1.2f, 2.4f)], [], 25);
     public static ArenaDefinition Get(ArenaMapId id) => id switch
     {
         ArenaMapId.Classic => Classic, ArenaMapId.Citadel => Citadel, ArenaMapId.Ascension => Ascension, ArenaMapId.Relics => Relics,
-        ArenaMapId.Frontline => Frontline, ArenaMapId.Practice => Practice,
+        ArenaMapId.Frontline => Frontline, ArenaMapId.Practice => Practice, ArenaMapId.Bastion => Bastion,
         _ => throw new ArgumentOutOfRangeException(nameof(id))
     };
 }

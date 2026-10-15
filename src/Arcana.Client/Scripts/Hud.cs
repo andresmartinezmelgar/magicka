@@ -372,6 +372,35 @@ public partial class Hud : Control
             _blueScore.Text = $"AZUL  {(hold || conquest ? snapshot.Points.Count(p => p.Owner == 0) + "/" + snapshot.Points.Length : snapshot.Scores[0].ToString())}";
             _redScore.Text = $"{(hold || conquest ? snapshot.Points.Count(p => p.Owner == 1) + "/" + snapshot.Points.Length : snapshot.Scores[1].ToString())}  ROJO";
         }
+        if (snapshot.Defense is { } defense)
+        {
+            _teams.Visible = false; _match.Visible = true;
+            _match.Text = $"BASTIÓN  {defense.CastleHealth:0} / {defense.CastleMaxHealth:0}";
+            _match.AddThemeColorOverride("font_color", defense.CastleHealth < defense.CastleMaxHealth * 0.3f ? Ui.Red : Ui.Gold);
+            _objective.Text = $"{DefenseRules.Clock(defense.Elapsed)} · " + (defense.Flow == DefenseFlow.Waves ? $"Oleada {defense.Wave}" : $"Dificultad {defense.Difficulty}") +
+                $" · Enemigos {defense.Minions.Length} (+{defense.RemainingToSpawn})" +
+                (defense.NextWaveIn > 0 ? $"\nSiguiente oleada en {Math.Ceiling(defense.NextWaveIn)} s" : "");
+            if (Ui.IsMobile || GetViewportRect().Size.Y < 700) _mapPanel.Visible = false;
+            if (Ui.IsMobile)
+            {
+                float mobileScale = Math.Min(1, GetViewportRect().Size.Y / 720f);
+                _playerPanel.Scale = Vector2.One * mobileScale / GameplayScale;
+                _playerPanel.Position = new Vector2(22 * mobileScale, 18 * mobileScale) / GameplayScale;
+                var topRow = (HBoxContainer)_topScore.GetParent();
+                var leftSpace = topRow.GetChild<Control>(0); var rightSpace = topRow.GetChild<Control>(2);
+                leftSpace.SizeFlagsHorizontal = rightSpace.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+                leftSpace.CustomMinimumSize = new(338 * mobileScale / GameplayScale, 0);
+                rightSpace.CustomMinimumSize = new(390 * mobileScale / GameplayScale, 0);
+                _topScore.CustomMinimumSize = Vector2.Zero; _topScore.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+                if (GetViewportRect().Size.X < 900)
+                {
+                    _match.Text = $"BASTIÓN\n{defense.CastleHealth:0}/{defense.CastleMaxHealth:0}";
+                    _objective.Text = $"{DefenseRules.Clock(defense.Elapsed)} · " + (defense.Flow == DefenseFlow.Waves ? $"Oleada {defense.Wave}" : $"Dificultad {defense.Difficulty}") + $"\nEnemigos {defense.Minions.Length} (+{defense.RemainingToSpawn})";
+                    _objective.CustomMinimumSize = Vector2.Zero;
+                }
+            }
+            _feed.Visible = false;
+        }
         // Todos los clientes ven exactamente el mismo resultado y la misma
         // cuenta atrás, pero el titular se expresa desde su propio equipo.
         _banner.Text = snapshot.MatchEnded

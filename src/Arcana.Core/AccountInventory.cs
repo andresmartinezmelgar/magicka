@@ -24,13 +24,28 @@ public static class AccountInventory
 
 public sealed record MatchParticipant(string Uid, int PlayerId, int Team, float ActiveSeconds, bool Winner);
 public sealed record RewardMatch(string Id, string ServerId, GameMode Mode, ArenaMapId Map, DateTimeOffset FinishedAt,
-    MatchParticipant[] Participants, int RulesVersion = 1);
+    MatchParticipant[] Participants, int RulesVersion = 1, string DefenseRunId = "", int DefenseCheckpoint = 0);
 public static class RewardRules
 {
     public const float MinimumActiveSeconds = 15;
+    public static string DefenseReceiptId(string runId, string uid, int checkpoint)
+    {
+        byte[] digest = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes($"defense:{runId}:{uid}:{checkpoint}"));
+        return Convert.ToHexString(digest.AsSpan(0, 16)).ToLowerInvariant();
+    }
     public static MatchParticipant[] Eligible(RewardMatch match)
     {
         if (!Guid.TryParseExact(match.Id, "N", out _) || ArenaMap.Get(match.Map).IsPractice) return [];
+        if (match.Mode == GameMode.Defense)
+        {
+            if (match.Map != ArenaMapId.Bastion || match.RulesVersion != 2 || match.DefenseCheckpoint is < 1 or > DefenseRules.RewardLimit ||
+                !Guid.TryParseExact(match.DefenseRunId, "N", out _) || match.Participants is not { Length: 1 }) return [];
+            var p = match.Participants[0];
+            return p.Uid.Length > 0 && p.Team == 0 && p.Winner && float.IsFinite(p.ActiveSeconds) &&
+                p.ActiveSeconds >= match.DefenseCheckpoint * DefenseRules.RewardInterval &&
+                match.Id == DefenseReceiptId(match.DefenseRunId, p.Uid, match.DefenseCheckpoint) ? [p] : [];
+        }
+        if (match.DefenseCheckpoint != 0 || match.DefenseRunId.Length > 0 || match.Map == ArenaMapId.Bastion) return [];
         var players = match.Participants.Where(p => p.Uid.Length > 0 && p.ActiveSeconds >= MinimumActiveSeconds &&
             float.IsFinite(p.ActiveSeconds) && p.Team is 0 or 1).GroupBy(p => p.Uid, StringComparer.Ordinal).Where(g => g.Count() == 1).Select(g => g.Single()).ToArray();
         return players.Where(p => players.Any(q => q.Uid != p.Uid && (match.Mode == GameMode.Arena || q.Team != p.Team))).ToArray();

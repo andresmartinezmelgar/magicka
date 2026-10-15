@@ -99,7 +99,7 @@ public partial class Main : Node
         networkPanel.Visible = false;
         _launcher = new Launcher(); _ui.AddChild(_launcher); _launcher.Build(this);
         InitializeGoogleAuthentication();
-        AddChild(new ReleaseUpdateNotice());
+        if (!BuildInfo.DefensePreview) AddChild(new ReleaseUpdateNotice());
         _help = BuildHelp(); _ui.AddChild(_help); _help.Visible = false;
         _pause = BuildPause(); _ui.AddChild(_pause); _pause.Visible = false;
         var arguments = OS.GetCmdlineUserArgs();
@@ -124,6 +124,7 @@ public partial class Main : Node
             _verification = new ClientVerification(); AddChild(_verification);
             _verification.Initialize(new VerificationAccess(this), arguments);
         }
+        if (arguments.Contains("--defense-smoke")) StartDefenseSmoke(arguments);
         if (RenderProfiler.Requested(arguments))
         {
             if (_verification != null) throw new ArgumentException("El perfilado y las verificaciones se ejecutan por separado.");
@@ -256,7 +257,7 @@ public partial class Main : Node
         if (pending != null) _ = pending.DisposeAsync();
     }
     public void StartPractice(string name, int team, GameMode mode, int bots, WizardType wizardType = WizardType.Balanced,
-        ArenaMapId map = ArenaMapId.Classic)
+        ArenaMapId map = ArenaMapId.Classic, DefenseFlow defenseFlow = DefenseFlow.Waves)
     {
         CancelPendingConnection();
         var old = _connection; _connection = null;
@@ -268,11 +269,11 @@ public partial class Main : Node
             _serverName = "Práctica · " + _practice.Map.Name;
             ApplyPracticeEquipment(); StartGame(_practice.Snapshot()); return;
         }
-        _practice = new(new WorldOptions { Mode = mode, Map = map, MaxPlayers = mode == GameMode.Duel ? 2 : 8,
-            FriendlyFire = true, ScoreLimit = mode == GameMode.Duel ? 5 : 15, Tickets = 75 });
+        _practice = new(new WorldOptions { Mode = mode, Map = map, MaxPlayers = mode == GameMode.Defense ? 4 : mode == GameMode.Duel ? 2 : 8,
+            FriendlyFire = mode != GameMode.Defense, ScoreLimit = mode == GameMode.Duel ? 5 : 15, Tickets = 75, DefenseFlow = defenseFlow });
         var player = _practice.AddPlayer(name, team, wizardType: wizardType)!; _localId = player.Id;
         ApplyPracticeEquipment();
-        for (int i = 0; i < (mode == GameMode.Duel ? 1 : Math.Clamp(bots, 1, 7)); i++)
+        for (int i = 0; i < (mode == GameMode.Defense ? Math.Clamp(bots, 0, 3) : mode == GameMode.Duel ? 1 : Math.Clamp(bots, 1, 7)); i++)
             _practice.AddPlayer($"Bot {i + 1}", -1, true, (WizardType)(i % 5));
         _serverName = "Práctica · " + _practice.Map.Name; _localSequence = 0;
         Diagnostics.Info("practice.start", "Práctica iniciada.", new Dictionary<string, object?> { ["mode"] = mode, ["bots"] = bots, ["wizardType"] = wizardType });
@@ -310,6 +311,7 @@ public partial class Main : Node
         CancelPendingConnection();
         if (_playing) Diagnostics.Info("game.leave", "Vuelta al launcher.", Context());
         ClosePlayerEquipment();
+        _defensePanel?.QueueFree(); _defensePanel = null;
         _playing = false; _paused = false; _practice = null; _practiceSession = null; _snapshot = null;
         _practicePanel?.QueueFree(); _practicePanel = null;
         var old = _connection; _connection = null;
@@ -352,6 +354,7 @@ public partial class Main : Node
         if (CheckAccountEntrySmoke()) return;
         if (CheckPublicEquipmentSmoke()) return;
         if (CheckEquipmentSmoke()) return;
+        if (CheckDefenseSmoke()) return;
         if (_profiler?.Running == true) return;
         if (Loading) { ProcessLoading(); _verification?.CheckLoadingFrame(); return; }
         _verification?.BeforeFrame(delta);
@@ -371,7 +374,7 @@ public partial class Main : Node
             else
             {
                 _aim = _renderer.Cursor(GetViewport().GetMousePosition());
-                bool practiceUi = InspectingEquipment || _practicePanel?.PointerOverPanel == true || _hud?.PointerOverPanel == true;
+                bool practiceUi = InspectingEquipment || _practicePanel?.PointerOverPanel == true || _defensePanel?.PointerOverPanel == true || _hud?.PointerOverPanel == true;
                 if (practiceUi && Input.IsMouseButtonPressed(MouseButton.Left)) _moveTo = false;
                 UpdateMouseMovement(!practiceUi && Input.IsMouseButtonPressed(MouseButton.Left), Input.IsPhysicalKeyPressed(Key.Shift));
             }
@@ -385,6 +388,13 @@ public partial class Main : Node
             if (_practiceSession != null) _renderer.PracticeCasterDescription = _practiceSession.CasterDescription;
             _renderer.Render(latest, _localId, _verification?.FixedRenderStep == true ? 1 / 60.0 : delta, true);
             _hud?.Update(latest, _localId, _serverName, delta);
+            if (_defensePanel != null)
+            {
+                _defensePanel.Visible = !_paused && !_help.Visible;
+                _defensePanel.Update(latest, _localId, _connection != null, _connection?.Server?.RewardsAvailable == true);
+                if (latest.MatchEnded && !_defenseEnded) _defensePanel.OpenShop();
+                _defenseEnded = latest.MatchEnded;
+            }
             _waitingPanel?.Update(latest, _localId, _connection?.Server?.RewardsAvailable == true);
             if (_practicePanel != null)
             { _practicePanel.Visible = !_paused && !_help.Visible; _practicePanel.Update(_aim); }
@@ -406,7 +416,8 @@ public partial class Main : Node
         if (_connection is not { Connected: true } connection)
         {
             _networkStats.Text = $"FPS: {fps:F0}  |  Red: sin conexión";
-            _networkPanel.Visible = true;
+            _networkPanel.Visible = _snapshot?.Defense == null;
+            _defensePanel?.SetNetworkStats(_networkStats.Text);
             _statsConnection = null;
             return;
         }
@@ -422,7 +433,8 @@ public partial class Main : Node
         _previousSent = sent;
         _previousReceived = received;
         _networkStats.Text = $"FPS: {fps:F0}  |  ↑ {sentRate:F1} KB/s  ↓ {receivedRate:F1} KB/s\nTotal: ↑ {sent / 1024.0:F1} KB  ↓ {received / 1024.0:F1} KB";
-        _networkPanel.Visible = true;
+        _networkPanel.Visible = _snapshot?.Defense == null;
+        _defensePanel?.SetNetworkStats(_networkStats.Text);
     }
 
     public override void _PhysicsProcess(double delta)
@@ -505,7 +517,7 @@ public partial class Main : Node
     private void Submit(ClientMessage message)
     {
         if (Loading) return;
-        if (_practice != null) { message.Sequence = ++_localSequence; _practice.ApplyMessage(_localId, message); }
+        if (_practice != null) { message.Sequence = ++_localSequence; if (message.Type == "defense_restart") _practice.RestartDefense(); else _practice.ApplyMessage(_localId, message); }
         else _connection?.Send(message);
     }
     public override void _UnhandledInput(InputEvent input)
@@ -525,7 +537,8 @@ public partial class Main : Node
             if (key.PhysicalKeycode == Key.F1) { if (!InspectingEquipment) ToggleHelp(); GetViewport().SetInputAsHandled(); return; }
             if (key.PhysicalKeycode == Key.Escape)
             {
-                if (InspectingEquipment) ClosePlayerEquipment();
+                if (_defensePanel?.ShopOpen == true) _defensePanel.CloseShop();
+                else if (InspectingEquipment) ClosePlayerEquipment();
                 else if (GodotObject.IsInstanceValid(_equipmentPanel)) { _equipmentPanel!.QueueFree(); _equipmentPanel = null; }
                 else if (GodotObject.IsInstanceValid(_optionAHelp)) CloseOptionAHelp();
                 else if (_help.Visible) { _help.Visible = false; UpdateTouchVisibility(); }

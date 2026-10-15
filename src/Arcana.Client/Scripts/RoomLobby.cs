@@ -22,7 +22,7 @@ public partial class RoomLobby : Control
     private Label _status = null!, _heading = null!, _emptyRooms = null!;
     private Label? _serverAddressLabel;
     private LineEdit _joinPassword = null!, _serverPasswordEntry = null!, _roomName = null!, _roomPassword = null!;
-    private OptionButton _mode = null!, _map = null!, _bestOf = null!;
+    private OptionButton _mode = null!, _map = null!, _bestOf = null!, _defenseFlow = null!;
     private Label _rewardHint = null!;
     private bool _rewardsConfigured;
     private SpinBox _capacity = null!, _bots = null!, _score = null!, _tickets = null!;
@@ -145,12 +145,15 @@ public partial class RoomLobby : Control
         Row(grid, "Nombre", _roomName);
         _mode = new OptionButton { CustomMinimumSize = new(0, 42) };
         _mode.AddItem("Guerra de puntos", (int)GameMode.Warfare); _mode.AddItem("Todos contra todos", (int)GameMode.Arena);
-        _mode.AddItem("Duelo", (int)GameMode.Duel); Row(grid, "Modo", _mode);
+        _mode.AddItem("Duelo", (int)GameMode.Duel); _mode.AddItem("Defensa del bastión", (int)GameMode.Defense); Row(grid, "Modo", _mode);
         _map = new OptionButton { Name = "RoomMapChoice", CustomMinimumSize = new(0, 42) };
         foreach (var map in Enum.GetValues<ArenaMapId>().Where(m => !ArenaMap.Get(m).IsPractice)) _map.AddItem(ArenaMap.Get(map).Name + (map == ArenaMapId.Citadel ? " · 4×" : ""), (int)map);
         Row(grid, "Mapa", _map);
+        _defenseFlow = new OptionButton { Name = "RoomDefenseFlow", CustomMinimumSize = new(0, 42) };
+        _defenseFlow.AddItem("Por oleadas", (int)DefenseFlow.Waves); _defenseFlow.AddItem("Continua", (int)DefenseFlow.Continuous);
+        Row(grid, "Ritmo de Defensa", _defenseFlow);
         _capacity = Number(2, 16, 8); Row(grid, "Plazas (incluidos los bots)", _capacity);
-        _bots = Number(0, 7, 0); Row(grid, "IA (desactiva premios)", _bots);
+        _bots = Number(0, 7, 0); Row(grid, "IA (aliados en Defensa)", _bots);
         _bestOf = new OptionButton { CustomMinimumSize = new(0, 42) };
         _bestOf.AddItem("Partida única (sin sala de espera)", 1);
         _bestOf.AddItem("Mejor de 5 · gana 3", 5);
@@ -170,6 +173,8 @@ public partial class RoomLobby : Control
         _creationObjective = Ui.Label("", 14, Ui.Gold); _creationObjective.AutowrapMode = TextServer.AutowrapMode.WordSmart; _createPane.AddChild(_creationObjective);
         _mode.ItemSelected += _ =>
         {
+            if ((GameMode)_mode.GetSelectedId() == GameMode.Defense) _map.Select(_map.GetItemIndex((int)ArenaMapId.Bastion));
+            else if ((ArenaMapId)_map.GetSelectedId() == ArenaMapId.Bastion) _map.Select(0);
             bool duel = (GameMode)_mode.GetSelectedId() == GameMode.Duel;
             _bestOf.Disabled = (GameMode)_mode.GetSelectedId() == GameMode.Arena;
             UpdateRewardsHint();
@@ -359,7 +364,9 @@ public partial class RoomLobby : Control
         if (_rewardHint == null) return;
         _rewardHint.Text = !_rewardsConfigured
             ? "SIN RECOMPENSAS: el servidor no tiene Firebase habilitado. Configura el servidor con cuentas para probar premios."
-            : _bots.Value > 0
+            : (GameMode)_mode.GetSelectedId() == GameMode.Defense
+                ? "Defensa: un objeto cada cinco minutos activos por humano con Google, hasta cuatro. Los bots aliados están permitidos."
+                : _bots.Value > 0
                 ? "SIN RECOMPENSAS: las partidas con IA no conceden premios."
                 : (GameMode)_mode.GetSelectedId() == GameMode.Arena
                     ? "Sin premios por equipos: selecciona Guerra o Duelo para recompensas PvP."
@@ -370,12 +377,24 @@ public partial class RoomLobby : Control
     {
         var mode = (GameMode)_mode.GetSelectedId(); var map = (ArenaMapId)_map.GetSelectedId();
         var definition = ArenaMap.Get(map);
+        if (map == ArenaMapId.Bastion) { _mode.Select(_mode.GetItemIndex((int)GameMode.Defense)); mode = GameMode.Defense; }
         for (int i = 0; i < _mode.ItemCount; i++) _mode.SetItemDisabled(i, !definition.SupportsMode((GameMode)_mode.GetItemId(i)));
-        if (!definition.SupportsMode(mode)) { _mode.Select(_mode.GetItemIndex((int)GameMode.Warfare)); mode = GameMode.Warfare; }
+        if (!definition.SupportsMode(mode)) { mode = GameMode.Warfare; _mode.Select(_mode.GetItemIndex((int)mode)); }
+        _capacity.MinValue = mode == GameMode.Defense ? 1 : 2;
+        _capacity.MaxValue = mode == GameMode.Defense ? 4 : 16;
+        _bots.MaxValue = _capacity.Value - 1;
+        _bestOf.Disabled = _busy || mode is GameMode.Defense or GameMode.Arena;
+        _defenseFlow.Disabled = _busy || mode != GameMode.Defense;
+        _teamChoice.Disabled = _busy || mode == GameMode.Defense;
+        _friendly.Disabled = _busy || mode == GameMode.Defense;
+        if (mode == GameMode.Defense) _friendly.ButtonPressed = false;
+        if (mode == GameMode.Duel) _capacity.Value = 2;
+        if (mode == GameMode.Defense) _bestOf.Select(0);
         _capacity.Editable = !_busy && mode != GameMode.Duel;
         _tickets.Editable = !_busy && mode == GameMode.Warfare && definition.HoldSeconds == 0 && !definition.SequentialCapture;
-        _score.Editable = !_busy && mode != GameMode.Warfare;
+        _score.Editable = !_busy && mode is GameMode.Duel or GameMode.Arena;
         _creationObjective.Text = MatchRules.Objective(mode, (int)_score.Value, (int)_tickets.Value, map);
+        UpdateRewardsHint();
     }
     public void OpenCreation() => SwitchPane(true);
     private void Join()
@@ -407,7 +426,8 @@ public partial class RoomLobby : Control
         var request = new CreateRoomRequest { Name = _roomName.Text, Mode = (GameMode)_mode.GetSelectedId(), Map = (ArenaMapId)_map.GetSelectedId(),
             MaxPlayers = (int)_capacity.Value, Bots = (int)_bots.Value, FriendlyFire = _friendly.ButtonPressed,
             ScoreLimit = (int)_score.Value, Tickets = (int)_tickets.Value,
-            BestOf = (GameMode)_mode.GetSelectedId() == GameMode.Arena ? 1 : _bestOf.GetSelectedId(),
+            BestOf = (GameMode)_mode.GetSelectedId() is GameMode.Arena or GameMode.Defense ? 1 : _bestOf.GetSelectedId(),
+            DefenseFlow = (DefenseFlow)_defenseFlow.GetSelectedId(),
             Password = _roomPassword.Text, ServerPassword = _serverPasswordEntry.Text };
         Loading("Creando sala…");
         try

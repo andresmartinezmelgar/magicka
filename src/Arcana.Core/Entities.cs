@@ -2,6 +2,7 @@ namespace Arcana.Core;
 
 public sealed class Wizard
 {
+    internal CombatantRole Role { get; init; }
     public required int Id { get; init; }
     public required string Name { get; init; }
     public int Team { get; internal set; }
@@ -102,6 +103,7 @@ internal sealed class ControlPoint
 
 public sealed class WorldOptions
 {
+    public DefenseFlow DefenseFlow { get; init; }
     public GameMode Mode { get; init; } = GameMode.Warfare;
     public ArenaMapId Map { get; init; } = ArenaMapId.Classic;
     public int MaxPlayers { get; init; } = 8;

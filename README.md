@@ -2,7 +2,9 @@
 
 **Juego multijugador de combate mágico en tiempo real para Windows y Android.**
 
-**Estado del repositorio:** versión **0.17.22**, Godot **4.5.2 .NET**, **C# / .NET 8** y protocolo de red **20**. El servidor autoritativo está desarrollado con ASP.NET Core. El juego puede practicarse sin conexión, alojarse en un PC o utilizar un servidor dedicado. El acceso Google y la progresión se apoyan en Firebase, cuando están configurados.
+**Estado del repositorio:** versión experimental **0.18.0**, Godot **4.5.2 .NET**, **C# / .NET 8** y protocolo de red **21**. El servidor autoritativo está desarrollado con ASP.NET Core. El juego puede practicarse sin conexión, alojarse en un PC o utilizar un servidor dedicado. El acceso Google y la progresión se apoyan en Firebase, cuando están configurados.
+
+**Esta rama incorpora el modo cooperativo Defensa del bastión.** Se mantiene independiente de `main`; sus paquetes de prueba están en GitHub Actions y el actualizador estable está desactivado. [Funcionamiento y reglas de Defensa](docs/DEFENSA-OLEADAS.md).
 
 Proyecto inspirado en el combate elemental de *Magicka: Wizard Wars*, con código, escenarios, animaciones, efectos y reglas propios. No es una reproducción oficial ni exacta del juego original.
 
@@ -38,9 +40,10 @@ El inicio muestra cuatro accesos principales en **2 × 2**: **PvP, Versus IA, Mi
 | **Duelo** | Dos jugadores o un jugador contra IA; ganar por bajas según el límite configurado. |
 | **Todos contra todos** | Cada mago compite por alcanzar el límite de bajas. |
 | **Guerra** | Capturar y defender puntos; las condiciones de victoria dependen del mapa. |
+| **Defensa del bastión** | Resistir oleadas o ataques continuos, con uno a cuatro defensores humanos o bots aliados. |
 | **Laboratorio** | Probar hechizos y estados sin una partida competitiva. |
 
-**Mapas jugables:** Arena clásica, Ciudadela de los pasillos, Coliseo de la ascensión, Santuario de las reliquias y Frente de conquista. El laboratorio dispone de su propio escenario de pruebas. Ciudadela requiere mantener el control total; Frente de conquista obliga a capturar cinco puntos en orden y utiliza portales, meteoros y muros destructibles. [Detalles de los escenarios](docs/MAPAS.md) · [Reglas de victoria](docs/COMO-GANAR.md).
+**Mapas jugables:** Arena clásica, Ciudadela de los pasillos, Coliseo de la ascensión, Santuario de las reliquias, Frente de conquista y Bastión de las oleadas. El laboratorio dispone de su propio escenario de pruebas. Ciudadela requiere mantener el control total; Frente de conquista obliga a capturar cinco puntos en orden y utiliza portales, meteoros y muros destructibles. [Detalles de los escenarios](docs/MAPAS.md) · [Reglas de victoria](docs/COMO-GANAR.md).
 
 ## Descargar e instalar
 

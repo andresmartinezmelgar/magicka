@@ -1,0 +1,287 @@
+using Arcana.Core;
+using System.Collections;
+using System.Reflection;
+
+internal static class DefenseTests
+{
+    private static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
+    private static GameWorld World(DefenseFlow flow = DefenseFlow.Waves, int bots = 0) => new(new WorldOptions
+        { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4, DefenseFlow = flow, Seed = 37, Bots = bots });
+    private static object Field(GameWorld world, string name) => typeof(GameWorld).GetField(name, BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(world)!;
+    private static void Set(GameWorld world, string name, object value) => typeof(GameWorld).GetField(name, BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(world, value);
+    private static object? Invoke(GameWorld world, string name, params object?[] args) => typeof(GameWorld).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(world, args);
+    private static DefenseSnapshot State(GameWorld world) => world.Snapshot().Defense!;
+    private static DefensePlayerSnapshot Player(GameWorld world, Wizard p) => State(world).Defenders.Single(d => d.PlayerId == p.Id);
+    private static void Gold(GameWorld world, Wizard p, int value) => ((IDictionary)Field(world, "_defenders"))[p.Id]!.GetType().GetField("Gold")!.SetValue(((IDictionary)Field(world, "_defenders"))[p.Id], value);
+    private static Wizard Castle(GameWorld world) => (Wizard)Field(world, "_castle");
+    private static Wizard Enemy(GameWorld world)
+    {
+        Invoke(world, "SpawnMinion");
+        int id = State(world).Minions.Last().Id;
+        return ((Dictionary<int, Wizard>)Field(world, "_combatants"))[id];
+    }
+    private static bool Command(GameWorld world, Wizard p, string type, int slot = 0, string itemId = "") =>
+        world.ApplyMessage(p.Id, new() { Type = type, Slot = slot, ItemId = itemId, Sequence = p.LastSequence + 1 });
+    private static void Damage(GameWorld world, Wizard target, float amount, int owner)
+    { target.Invulnerable = 0; Invoke(world, "Damage", target, amount, owner, null); }
+    private static void Advance(GameWorld world, int ticks) { for (int i = 0; i < ticks; i++) world.Step(); }
+
+    public static void Run(Action<string, Action> test)
+    {
+        test("Defensa: mapa exclusivo, un equipo y enemigos fuera de plazas de jugadores", () =>
+        {
+            var w = World(bots: 3); var p = w.AddPlayer("Humano", 1)!;
+            Check(w.Players.Count == 4 && w.Players.Values.All(p => p.Team == 0), "Equipos cooperativos incorrectos.");
+            for (int i = 0; i < 20; i++)
+            {
+                var enemy = Enemy(w);
+                Check(w.Map.Walkable(enemy.Position) && V2.Distance(enemy.Position, DefenseRules.CastlePosition) >= DefenseRules.SafeRadius, "Aparición insegura.");
+                Check(State(w).Minions.Last().Kind == MinionKind.Melee, "Enemigo avanzado en primera oleada.");
+            }
+            Check(w.Players.Count == 4 && w.AddPlayer("Quinto") == null, "Los minions consumieron o ampliaron plazas.");
+            Check(!w.ApplyMessage(p.Id, new ClientMessage { Type = null!, Sequence = p.LastSequence + 1 }), "Un tipo de acción nulo fue aceptado.");
+            Check(State(w).Minions.Select(m => m.Id).Concat(w.Players.Keys).Distinct().Count() == 24, "Los minions y defensores comparten un ID.");
+            SnapshotValidation.Check(w.Snapshot());
+            foreach (var mode in new[] { GameMode.Arena, GameMode.Duel, GameMode.Warfare })
+                Check(!ArenaMap.Get(ArenaMapId.Bastion).SupportsMode(mode), "Bastión admitió un modo competitivo.");
+            Check(!ArenaMap.Get(ArenaMapId.Classic).SupportsMode(GameMode.Defense), "Defensa admitió geometría sin castillo.");
+        });
+        test("Defensa: pausa inicial, oleada completa y variante continua", () =>
+        {
+            var w = World(); w.AddPlayer("Humano"); Advance(w, 470);
+            Check(State(w).Wave == 0 && State(w).Minions.Length == 0, "La preparación inicial no se respetó.");
+            Advance(w, 900);
+            var s = State(w);
+            Check(s.Wave == 1 && s.Minions.Length + s.RemainingToSpawn == 20, "La primera oleada no contiene 20 minions.");
+            Check(DefenseRules.WaveSize(6) == 200 && DefenseRules.AttackDelay(100) >= 0.3f, "Escalado o delay sin límites.");
+            var continuous = World(DefenseFlow.Continuous); continuous.AddPlayer("Humano");
+            Set(continuous, "_defenseElapsed", 61.0); Advance(continuous, 2);
+            Check(State(continuous).Difficulty == 2 && State(continuous).NextWaveIn == 0, "No escaló al minuto.");
+            SnapshotValidation.Check(w.Snapshot());
+        });
+        test("Defensa: proyectiles, áreas y rayos dañan minions usando el combate existente", () =>
+        {
+            foreach (var elements in new[] { new[] { Element.Fire, Element.Fire, Element.Fire }, new[] { Element.Arcane, Element.Arcane, Element.Fire }, new[] { Element.Earth, Element.Earth, Element.Earth } })
+            {
+                var w = World(); var p = w.AddPlayer("Mago")!; p.Position = new(0, 0);
+                var enemy = Enemy(w); enemy.Position = new(3, 0); enemy.Health = enemy.MaxHealth = 2000;
+                p.Facing = new(1, 0); p.Input.AimX = 10; p.LastInput = w.Time;
+                foreach (var e in elements) p.Selection.Add(e);
+                Invoke(w, "BeginCast", p);
+                if (elements[0] == Element.Earth) { p.ChargeTime = 1; Invoke(w, "Release", p); }
+                for (int i = 0; i < 25; i++) { p.LastInput = w.Time; w.Step(); }
+                Check(enemy.Health < 2000, "El hechizo no alcanzó entidades de minion: " + elements[0]);
+            }
+        });
+        test("Defensa: experiencia compartida, equipo y reliquias sobreviven a la muerte", () =>
+        {
+            var w = World(); var p = w.AddPlayer("Mago")!; var ally = w.AddPlayer("Apoyo")!;
+            for (int i = 0; i < 10; i++) { Damage(w, Enemy(w), 100000, p.Id); Invoke(w, "CleanupDefense"); }
+            Check(Player(w, p).Level == 2 && Player(w, ally).Level == 2 && p.Kills == 10, "No se compartió experiencia o bajas.");
+            var item = EquipmentCatalogue.Generate(new Random(1)); Invoke(w, "GrantDefenseItem", p, item);
+            Invoke(w, "AddDefenseDrop", p.Position, p.Id, DefenseDropKind.Relic); Invoke(w, "TickDefenseDrops", 0.01f);
+            Gold(w, p, 1000); Check(Command(w, p, "defense_aura"), "No compró aura.");
+            var before = Player(w, p); int buffs = p.BuffStacks.Sum();
+            Damage(w, p, 1000000, Enemy(w).Id);
+            Check(!p.Alive && Math.Abs(p.Respawn - 4.5f) < 0.01 && p.BuffStacks.Sum() == buffs, "Muerte borró reliquias o penalización errónea.");
+            var after = Player(w, p);
+            Check(after.Level == before.Level && after.Items.Length == before.Items.Length && after.Gold == before.Gold && after.Auras.SequenceEqual(before.Auras), "Se perdió progreso temporal.");
+            SnapshotValidation.Check(w.Snapshot());
+            Advance(w, 271); Check(p.Alive, "No reapareció.");
+            Damage(w, p, 1000000, Enemy(w).Id); Check(Math.Abs(p.Respawn - 5) < 0.01, "No creció 0,5 segundos por muerte.");
+        });
+        test("Defensa: bot aliado apunta hacia amenazas entre el defensor y el castillo", () =>
+        {
+            var w = World(bots: 1); w.AddPlayer("Humano");
+            var bot = w.Players.Values.Single(p => p.Bot); bot.Position = new(-24, 0);
+            var enemy = Enemy(w); enemy.Position = new(-28.7f, 0); float health = enemy.Health;
+            Advance(w, 5);
+            Check(bot.Facing.X < -0.9f && enemy.Health < health, "El bot disparó al lado opuesto de la amenaza.");
+        });
+        test("Defensa: reparación compartida, coste creciente y rechazo sin fondos", () =>
+        {
+            var w = World(); var a = w.AddPlayer("A")!; var b = w.AddPlayer("B")!;
+            Castle(w).Health = 2000;
+            Check(!Command(w, a, "defense_repair"), "Se reparó sin oro.");
+            Gold(w, a, 1000); Gold(w, b, 1000);
+            Check(Command(w, a, "defense_repair") && State(w).RepairCost == 150 && Player(w, a).Gold == 900, "Primer precio incorrecto.");
+            Check(Command(w, b, "defense_repair") && State(w).RepairCost == 225 && Player(w, b).Gold == 850, "El otro jugador reinició el precio.");
+            a.Position = new(20, 0); Check(!Command(w, a, "defense_repair"), "Se reparó desde fuera de la zona.");
+            Castle(w).Health = 12000; b.Position = new(-25, 0);
+            Check(!Command(w, b, "defense_repair") && Player(w, b).Gold == 850, "Cobró una reparación sin efecto.");
+            Invoke(w, "Heal", Castle(w), 1000f); Check(Castle(w).Health == 12000, "Curación alteró el castillo.");
+        });
+        test("Defensa: compras autoritativas, mejoras limitadas y botín personal", () =>
+        {
+            var w = World(); var a = w.AddPlayer("A")!; var b = w.AddPlayer("B")!;
+            Gold(w, a, 1000); Check(Command(w, a, "defense_supply"), "No entregó suministros.");
+            var item = Player(w, a).Items.Single();
+            Check(!Command(w, b, "defense_equip", itemId: item.Item.Id), "Equipó una pieza ajena.");
+            Check(Command(w, a, "defense_upgrade", itemId: item.Item.Id), "No mejoró la pieza.");
+            var improved = Player(w, a).Items.Single();
+            Check(improved.Upgrades == 1 && improved.Item.Bonuses.Zip(item.Item.Bonuses).All(v => v.First.Current >= v.Second.Current && v.First.Current <= v.First.Maximum), "Mejora fuera del rango.");
+            int gold = Player(w, a).Gold;
+            Check(Command(w, a, "defense_sell", itemId: item.Item.Id) && Player(w, a).Gold == gold + item.Item.SaleGold, "No vendió la pieza temporal.");
+            Check(!Command(w, a, "defense_sell", itemId: item.Item.Id), "Pagó dos veces por la misma pieza.");
+            Invoke(w, "AddDefenseDrop", a.Position, b.Id, DefenseDropKind.Equipment); b.Position = new(30, 20);
+            Invoke(w, "TickDefenseDrops", 0.01f);
+            Check(State(w).Drops.Length == 1 && Player(w, a).Items.Length == 0, "Robó una recogida asignada.");
+            b.Position = a.Position; Invoke(w, "TickDefenseDrops", 0.01f);
+            Check(Player(w, b).Items.Length == 1, "El propietario no recogió su pieza.");
+            SnapshotValidation.Check(w.Snapshot());
+        });
+        test("Defensa: auras dañan minions y curan aliados, sin reparar el castillo", () =>
+        {
+            var w = World(); var p = w.AddPlayer("A")!; var ally = w.AddPlayer("B")!;
+            p.Position = new(-28.8f, 0); ally.Position = p.Position + new V2(0, 1); ally.Health = 500;
+            Gold(w, p, 1000); Command(w, p, "defense_aura", 0); Command(w, p, "defense_aura", 2);
+            var enemy = Enemy(w); enemy.Position = p.Position + new V2(1, 0);
+            float health = enemy.Health; Castle(w).Health = 1000;
+            Invoke(w, "TickDefenseAuras", 1f);
+            Check(enemy.Health < health && ally.Health > 500 && Castle(w).Health == 1000, "Aura dañó o curó un objetivo incorrecto.");
+            var wall = new SpellRecipe([Element.Life]); Invoke(w, "Hit", Castle(w), wall, 1f, p.Id, new V2(1, 0), 1f);
+            Check(Castle(w).Health == 1000, "Un hechizo evitó la reparación de pago.");
+        });
+        test("Defensa: una oleada sin oposición alcanza y destruye el bastión", () =>
+        {
+            var w = World(); var p = w.AddPlayer("Lejos del bastión")!; p.Position = new(35, 22);
+            for (int tick = 0; tick < 18000 && !w.MatchEnded; tick++) w.Step();
+            Check(w.MatchEnded && State(w).CastleHealth == 0 && p.Alive, "Los minions no completaron su objetivo real.");
+            SnapshotValidation.Check(w.Snapshot());
+        });
+        test("Defensa: fin solo por castillo, resumen estable y reinicio desde cero", () =>
+        {
+            var w = World(); var p = w.AddPlayer("A")!; Gold(w, p, 1000); Command(w, p, "defense_aura", 1);
+            Damage(w, p, 100000, Enemy(w).Id); Check(!w.MatchEnded, "La muerte del jugador terminó la partida.");
+            Damage(w, Castle(w), 100000, Enemy(w).Id);
+            Check(w.MatchEnded && State(w).CastleHealth == 0 && RoundPresentation.Message(w.Snapshot(), p.Id).Contains("BASTIÓN"), "No terminó con el castillo.");
+            Advance(w, 700); Check(w.MatchEnded, "Reinició automáticamente y ocultó los resultados.");
+            Check(w.RestartDefense(), "No permitió otra partida.");
+            var after = Player(w, p);
+            Check(p.Alive && p.Deaths == 0 && p.Kills == 0 && after.Level == 1 && after.Gold == 0 && after.Items.Length == 0 && after.Auras.All(v => v == 0) && State(w).CastleHealth == 12000, "No se reinició toda la partida.");
+            SnapshotValidation.Check(w.Snapshot());
+        });
+        test("Defensa: reconexión conserva progreso y tiempo; paquete independiente y acotado", () =>
+        {
+            var w = World(); var p = w.AddPlayer("A")!; w.AttachDefenseAccount(p.Id, "uid"); Gold(w, p, 190);
+            Command(w, p, "defense_aura", 2); Advance(w, 10); w.RemovePlayer(p.Id);
+            var reconnect = w.AddPlayer("A")!; w.AttachDefenseAccount(reconnect.Id, "uid");
+            Check(Player(w, reconnect).Gold == 110 && Player(w, reconnect).Auras[2] == 1, "Reconexión perdió progreso o reinició compras.");
+            for (int i = 0; i < 64; i++) Enemy(w);
+            var snapshot = w.Snapshot(); SnapshotValidation.Check(snapshot);
+            byte[] encoded = Protocol.SerializeUtf8(new ServerMessage { Type = "snapshot", Snapshot = snapshot });
+            Check(encoded.Length < Protocol.MaxSnapshotBytes, "El estado superó el presupuesto de red.");
+            bool rejected = false;
+            try { SnapshotValidation.Check(snapshot with { Defense = snapshot.Defense! with { Minions = [.. snapshot.Defense.Minions, snapshot.Defense.Minions[0]] } }); }
+            catch (InvalidDataException) { rejected = true; }
+            Check(rejected, "Aceptó una horda mayor que el máximo.");
+            Check(reconnect.Team == 0 && w.Players.Count == 1, "Minions alteraron plazas o equipo.");
+        });
+        test("Defensa: cada destinatario recibe sus piezas y conserva los bonos públicos", () =>
+        {
+            var w = World(); var a = w.AddPlayer("A")!; var b = w.AddPlayer("B")!;
+            Invoke(w, "GrantDefenseItem", a, EquipmentCatalogue.Generate(new Random(31)));
+            Invoke(w, "GrantDefenseItem", b, EquipmentCatalogue.Generate(new Random(32)));
+            Invoke(w, "AddDefenseDrop", a.Position, a.Id, DefenseDropKind.Equipment);
+            Invoke(w, "AddDefenseDrop", b.Position, b.Id, DefenseDropKind.Equipment);
+            var full = w.Snapshot(); var first = DefenseVisibility.ForPlayer(full, a.Id); var second = DefenseVisibility.ForPlayer(full, b.Id);
+            Check(first.Defense!.Defenders.Single(p => p.PlayerId == a.Id).Items.Length == 1 &&
+                first.Defense.Defenders.Single(p => p.PlayerId == b.Id).Items.Length == 0 &&
+                second.Defense!.Defenders.Single(p => p.PlayerId == b.Id).Items.Length == 1, "Se transmitieron inventarios ajenos.");
+            Check(first.Defense.Drops.All(d => d.OwnerId == a.Id) && full.Defense!.Drops.Length == 2 &&
+                full.Defense!.Defenders.All(p => p.Items.Length == 1), "Se filtró botín ajeno o se mutó el estado original.");
+            Check(first.Defense.Defenders.Single(p => p.PlayerId == b.Id).Modifiers == full.Defense!.Defenders.Single(p => p.PlayerId == b.Id).Modifiers, "Se ocultaron bonos públicos.");
+            SnapshotValidation.Check(first); SnapshotValidation.Check(second);
+        });
+        test("Defensa: copia de inventario aislada y tiempo activo de canalización", () =>
+        {
+            var w = World(); var p = w.AddPlayer("Mago")!;
+            Invoke(w, "GrantDefenseItem", p, EquipmentCatalogue.Generate(new Random(4)));
+            var first = State(w); string expected = Protocol.Serialize(State(w));
+            var bonuses = first.Defenders[0].Items[0].Item.Bonuses;
+            bonuses[0] = bonuses[0] with { Current = bonuses[0].Maximum };
+            Check(Protocol.Serialize(State(w)) == expected, "Una copia del inventario mutó la simulación.");
+            Advance(w, 100);
+            Check(w.DefenseActiveSeconds(p.Id) == 0, "El tiempo inactivo generó participación.");
+            p.Selection.Add(Element.Arcane); p.Selection.Add(Element.Fire); Invoke(w, "BeginCast", p);
+            for (int i = 0; i < 600; i++) { p.LastInput = w.Time; w.Step(); }
+            Check(w.DefenseActiveSeconds(p.Id) > 9.5, "Canalizar sin moverse dejó de contar como actividad.");
+        });
+        test("Defensa: premios propios por hitos sin relajar reglas PvP", () =>
+        {
+            string run = Guid.NewGuid().ToString("N"), uid = "humano";
+            for (int n = 1; n <= 4; n++)
+            {
+                string id = RewardRules.DefenseReceiptId(run, uid, n);
+                var reward = new RewardMatch(id, "server", GameMode.Defense, ArenaMapId.Bastion, DateTimeOffset.UtcNow,
+                    [new(uid, 1, 0, n * 300, true)], 2, run, n);
+                Check(RewardRules.Eligible(reward).Length == 1, "Hito válido rechazado.");
+                Check(RewardRules.Eligible(reward with { DefenseCheckpoint = 5 }).Length == 0, "Más de cuatro premios.");
+                Check(RewardRules.Eligible(reward with { Id = Guid.NewGuid().ToString("N") }).Length == 0, "Hito duplicable con ID arbitrario.");
+                Check(RewardRules.Eligible(reward with { Participants = [new(uid, 1, 0, n * 300 - 1, true)] }).Length == 0, "Premio anticipado.");
+                Check(RewardRules.Eligible(reward with { Mode = GameMode.Duel }).Length == 0, "Hito reutilizable en PvP.");
+            }
+        });
+    }
+
+    public static void Benchmark(string path)
+    {
+        var world = World();
+        var baseline = new ServerMessage { Type = "snapshot", Snapshot = world.Snapshot() };
+        for (int i = 0; i < 4; i++)
+        {
+            var player = world.AddPlayer("Defensor " + i)!;
+            for (int item = 0; item < DefenseRules.InventoryLimit; item++)
+                Invoke(world, "GrantDefenseItem", player, EquipmentCatalogue.Generate(new Random(i * 100 + item),
+                    tier: ItemTier.Mythic, slot: (EquipmentSlot)(item % 4)));
+        }
+        Set(world, "_defenseDifficulty", 10); Set(world, "_defenseWave", 10);
+        for (int i = 0; i < DefenseRules.MaxMinions; i++) Enemy(world);
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        for (int tick = 0; tick < 1200; tick++)
+        {
+            Castle(world).Health = DefenseRules.CastleHealth;
+            foreach (var p in world.Players.Values) p.Invulnerable = 1.2f;
+            world.Step();
+        }
+        double simulationMs = watch.Elapsed.TotalMilliseconds / 1200;
+        var message = new ServerMessage { Type = "snapshot", Snapshot = DefenseVisibility.ForPlayer(world.Snapshot(), world.Players.Keys.First()) };
+        SnapshotValidation.Check(message.Snapshot);
+        Check(message.Snapshot.Defense!.Minions.Length == 64 && world.Players.Count == 4, "La carga no mantuvo 64 minions y cuatro jugadores.");
+        int raw = Protocol.SerializeUtf8(message).Length;
+        Check(raw < Protocol.MaxSnapshotBytes, "El peor inventario superó el límite del protocolo.");
+        watch.Restart(); int compressed = 0;
+        for (int i = 0; i < 60; i++) compressed = Protocol.CompressSnapshotPayload(SnapshotDelta.Encode(message, baseline)).Length;
+        double encodingMs = watch.Elapsed.TotalMilliseconds / 60;
+        var result = new { defenders = 4, minions = 64, temporaryItems = 96, simulatedTicks = 1200,
+            millisecondsPerStep = simulationMs, millisecondsPerRecipientFrame = encodingMs,
+            rawBytes = raw, wireBytesPerFrame = compressed, kilobytesPerSecondAt20Hz = compressed * 20.0 / 1024,
+            note = "Medición del entorno de pruebas; requiere medición adicional en Raspberry Pi y Android reales." };
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
+        File.WriteAllText(path, System.Text.Json.JsonSerializer.Serialize(result, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+        Console.WriteLine("DEFENSE_BENCHMARK_OK: " + Protocol.Serialize(result));
+    }
+
+    public static async Task RunNetwork(string address, string password, Func<string, Func<Task>, Task> test)
+    {
+        await test("Defensa en red: un jugador, cooperación con bots, flujo y comandos válidos", async () =>
+        {
+            var room = await RoomBrowser.CreateAsync(address, new CreateRoomRequest { Name = "Defensa sola", Mode = GameMode.Defense,
+                Map = ArenaMapId.Bastion, MaxPlayers = 1, DefenseFlow = DefenseFlow.Continuous, ServerPassword = password });
+            Check(room.MaxPlayers == 1 && room.DefenseFlow == DefenseFlow.Continuous && !room.FriendlyFire, "Directorio de defensa incorrecto.");
+            await using var solo = new ArenaConnection(); await solo.ConnectAsync(address, "Defensor", 1, password, roomId: room.Id);
+            Check(solo.Latest!.Players.Single().Team == 0 && solo.Latest.Defense != null, "Conexión cooperativa rechazada.");
+            solo.Send(new() { Type = "defense_supply" }); solo.Send(new() { Type = "defense_equip", ItemId = new string('a', 32) });
+            await Task.Delay(300);
+            Check(solo.Connected && solo.Latest!.Defense!.Defenders.Single().Items.Length == 0, "El servidor confió en una compra sin fondos.");
+            var coop = await RoomBrowser.CreateAsync(address, new CreateRoomRequest { Name = "Defensa coop", Mode = GameMode.Defense,
+                Map = ArenaMapId.Bastion, MaxPlayers = 4, Bots = 1, ServerPassword = password });
+            await using var a = new ArenaConnection(); await using var b = new ArenaConnection();
+            await a.ConnectAsync(address, "A", 0, password, roomId: coop.Id);
+            await b.ConnectAsync(address, "B", 1, password, roomId: coop.Id);
+            for (int i = 0; i < 50 && a.Latest!.Players.Length < 3; i++) await Task.Delay(50);
+            Check(a.Latest!.Players.Length == 3 && a.Latest.Players.All(p => p.Team == 0), "Bots o humanos en equipo rival.");
+            SnapshotValidation.Check(a.Latest);
+        });
+    }
+}

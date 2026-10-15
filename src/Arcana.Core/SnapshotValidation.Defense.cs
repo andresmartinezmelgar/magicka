@@ -1,0 +1,46 @@
+namespace Arcana.Core;
+
+public static partial class SnapshotValidation
+{
+    private static void CheckDefense(WorldSnapshot state)
+    {
+        if (state.Mode != GameMode.Defense) { if (state.Defense != null) Invalid(); return; }
+        var d = state.Defense;
+        if (d == null || state.Map != ArenaMapId.Bastion || !Enum.IsDefined(d.Flow) || !double.IsFinite(d.Elapsed) ||
+            d.Elapsed < 0 || d.Elapsed > state.Time + 0.1 || d.Wave < 0 || d.Difficulty < 1 ||
+            d.RemainingToSpawn is < 0 or > 2000 || !Size(d.NextWaveIn, DefenseRules.WavePause + 0.01f) ||
+            d.CastlePosition != DefenseRules.CastlePosition || !NonNegative(d.CastleHealth) ||
+            d.CastleMaxHealth != DefenseRules.CastleHealth || d.CastleHealth > d.CastleMaxHealth ||
+            d.Repairs < 0 || d.RepairCost != DefenseRules.RepairCost(d.Repairs) || d.TotalKills < 0 ||
+            d.Minions is not { Length: <= DefenseRules.MaxMinions } || d.Drops is not { Length: <= DefenseRules.MaxDrops } ||
+            d.Defenders == null || d.Defenders.Length != state.Players.Length || state.Players.Length > DefenseRules.MaxDefenders ||
+            state.Players.Any(p => p.Team != 0)) Invalid();
+        var map = ArenaMap.Get(state.Map);
+        var ids = new HashSet<int>();
+        foreach (var m in d!.Minions!)
+            if (m == null || m.Id < 1000 || !ids.Add(m.Id) || !Enum.IsDefined(m.Kind) ||
+                !Position(map, m.Position) || !Direction(m.Facing) || !NonNegative([m.Health, m.MaxHealth, m.Wet, m.Burning, m.Chill, m.Frozen]) ||
+                m.Health <= 0 || m.Health > m.MaxHealth || !Elements(m.Elements)) Invalid();
+        ids.Clear();
+        foreach (var p in d.Defenders!)
+        {
+            if (p == null || !ids.Add(p.PlayerId) || !state.Players.Any(w => w.Id == p.PlayerId) || p.Level is < 1 or > 100 ||
+                p.Experience < 0 || p.Experience >= DefenseRules.ExperienceForLevel(p.Level) || p.NextLevelExperience != DefenseRules.ExperienceForLevel(p.Level) ||
+                p.Gold is < 0 or > 100000000 || p.Kills < 0 || p.Deaths < 0 || !double.IsFinite(p.ActiveSeconds) ||
+                p.ActiveSeconds < 0 || p.ActiveSeconds > state.Time + 0.1 || p.Auras is not { Length: 3 } ||
+                p.Auras.Any(a => a is < 0 or > DefenseRules.MaxAuraLevel) || p.Items is not { Length: <= DefenseRules.InventoryLimit } ||
+                p.Modifiers == null || !NonNegative([p.DamageMultiplier, p.IncomingMultiplier, p.Regeneration, p.SpeedMultiplier]) ||
+                !NonNegative([p.Modifiers.Power, p.Modifiers.Healing, p.Modifiers.Range, p.Modifiers.Incoming, p.Modifiers.Speed])) Invalid();
+            var items = new HashSet<string>(); var slots = new HashSet<EquipmentSlot>();
+            foreach (var item in p!.Items!)
+                if (item == null || !EquipmentCatalogue.Valid(item.Item) || !items.Add(item.Item.Id) ||
+                    item.Upgrades is < 0 or > 10 || item.Equipped && !slots.Add(item.Item.Slot)) Invalid();
+        }
+        ids.Clear();
+        foreach (var drop in d.Drops!)
+            if (drop == null || drop.Id <= 0 || !ids.Add(drop.Id) || !Position(map, drop.Position) || !Enum.IsDefined(drop.Kind) ||
+                !Enum.IsDefined(drop.Buff) || drop.OwnerId != 0 && !state.Players.Any(p => p.Id == drop.OwnerId) ||
+                drop.Gold is < 0 or > 208 || !Tier(drop.Tier) || drop.Slot.HasValue && !Enum.IsDefined(drop.Slot.Value) ||
+                drop.Kind == DefenseDropKind.Equipment && (!drop.Slot.HasValue || !drop.Tier.HasValue)) Invalid();
+    }
+}

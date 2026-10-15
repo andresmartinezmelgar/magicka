@@ -48,7 +48,7 @@ public sealed partial class GameWorld
     }
     private void Heal(Wizard player, float amount)
     {
-        if (!player.Alive || amount <= 0) return;
+        if (!player.Alive || player.Role == CombatantRole.Castle || amount <= 0) return;
         float healing = Math.Min(amount, Math.Max(0, player.MaxHealth - player.Health));
         player.Health += healing;
         if (Map.IsPractice && healing > 0) PracticeReading(player.Id).Healing += healing;

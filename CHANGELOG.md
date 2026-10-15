@@ -1,5 +1,16 @@
 # Cambios
 
+## 0.18.0 — Defensa del bastión (rama experimental)
+
+- Modo cooperativo local y online, de uno a cuatro defensores, con oleadas o ataques continuos.
+- Mapa propio con bastión estático, perímetro seguro y minions de cuerpo a cuerpo, arqueros, magos y capitanes.
+- Experiencia, equipo, reliquias y oro temporales; tienda, mejoras, tres auras y reparación compartida de coste creciente.
+- Conservación de mejoras al morir; reaparición progresiva y reinicio completo de la partida.
+- Premios permanentes cada cinco minutos activos, hasta cuatro, con recibos y reintentos independientes de PvP.
+- Interfaz de estadísticas e inventario, totales con bordes y controles de defensa adaptados al móvil.
+- Protocolo 21 y distribución independiente por artefactos de Actions; sin publicación ni actualización estable.
+- Pruebas de reglas, red, persistencia, controles táctiles y carga con 64 minions.
+
 ## 0.17.22
 
 - Aura visible alrededor de las rocas imbuidas: fuego rojo, agua azul, frío cian, vida verde y arcano rosa.

@@ -9,6 +9,13 @@ public static class RoundPresentation
     public static string Message(WorldSnapshot state, int localPlayerId)
     {
         if (!state.MatchEnded) return "";
+        if (state.Defense is { } defense)
+        {
+            var defender = defense.Defenders.FirstOrDefault(p => p.PlayerId == localPlayerId);
+            return $"EL BASTIÓN HA CAÍDO\nResistencia: {DefenseRules.Clock(defense.Elapsed)} · oleada {defense.Wave}\n" +
+                $"Bajas: {defender?.Kills ?? 0} · nivel: {defender?.Level ?? 1}\n" +
+                "Las mejoras temporales terminaron. Elige otra partida o vuelve al menú.";
+        }
         var local = state.Players.FirstOrDefault(p => p.Id == localPlayerId);
         int winningTeam = state.Mode == GameMode.Arena
             ? state.Players.FirstOrDefault(p => p.Id == state.Winner)?.Team ?? -1

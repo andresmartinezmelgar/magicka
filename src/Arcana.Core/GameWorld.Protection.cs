@@ -29,7 +29,7 @@ public sealed partial class GameWorld
     {
         float pressure = SpellBalance.Component(spell, Element.Water) == 0
             ? ElementDamage(target, owner, Element.Water, SpellBalance.UtilityPressure * spell.Count(Element.Water)) : 0;
-        if (!_players.TryGetValue(owner, out var source) || !Allied(source, target))
+        if (!_combatants.TryGetValue(owner, out var source) || !Allied(source, target))
             pressure += ElementDamage(target, owner, Element.Life, SpellBalance.UtilityPressure * spell.Count(Element.Life));
         return pressure;
     }

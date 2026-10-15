@@ -10,6 +10,7 @@ namespace Arcana.Core;
 
 public static class BuildInfo
 {
+    public static bool DefensePreview => true;
     public static string Version => typeof(BuildInfo).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
         .InformationalVersion.Split('+')[0] ?? "development";
 }

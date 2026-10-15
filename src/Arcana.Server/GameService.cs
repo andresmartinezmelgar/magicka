@@ -27,9 +27,10 @@ internal sealed class GameRoom(string id, string name, string password, WorldOpt
     public int BestOf { get; set; } = 1;
     public int HostPlayerId { get; set; }
     public bool StartRequested { get; set; }
+    public HashSet<string> DefenseRewards { get; } = new(StringComparer.Ordinal);
     public Dictionary<string, MatchParticipant> Participants { get; } = new(StringComparer.Ordinal);
     public RoomInfo Info() => new(Id, Name, Options.Mode, World.Players.Count, Options.MaxPlayers,
-        Options.Bots, Options.FriendlyFire, Options.ScoreLimit, Options.Tickets, Password.Length > 0, Options.Map, BestOf, Started);
+        Options.Bots, Options.FriendlyFire, Options.ScoreLimit, Options.Tickets, Password.Length > 0, Options.Map, BestOf, Started, Options.DefenseFlow);
 }
 internal sealed class PlayerSession(int id, GameRoom room, WebSocket socket)
 {
@@ -54,7 +55,7 @@ internal sealed class PlayerSession(int id, GameRoom room, WebSocket socket)
     { SingleReader = true, SingleWriter = true, FullMode = BoundedChannelFullMode.DropOldest });
 }
 
-public sealed class GameService(ServerSettings settings, ILogger<GameService> logger, AccountService accounts, RewardService rewards) : BackgroundService
+public sealed partial class GameService(ServerSettings settings, ILogger<GameService> logger, AccountService accounts, RewardService rewards) : BackgroundService
 {
     private readonly object _gate = new();
     private readonly Dictionary<string, GameRoom> _rooms = new(StringComparer.Ordinal)
@@ -83,10 +84,10 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
         if (!PasswordMatches(request.ServerPassword, settings.Password)) return (null, "Contraseña del servidor incorrecta.", 403);
         if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 32 || request.Name.Any(char.IsControl) ||
             request.Password == null || request.Password.Length > 128 || !Enum.IsDefined(request.Mode) || !Enum.IsDefined(request.Map) ||
-            request.MaxPlayers is < 2 or > 16 || request.Bots < 0 || request.Bots >= request.MaxPlayers ||
+            request.MaxPlayers < (request.Mode == GameMode.Defense ? 1 : 2) || request.MaxPlayers > (request.Mode == GameMode.Defense ? DefenseRules.MaxDefenders : 16) || request.Bots < 0 || request.Bots >= request.MaxPlayers ||
             request.ScoreLimit is < 1 or > 200 || request.Tickets is < 5 or > 1000 ||
             request.BestOf is not (1 or 5 or 7 or 9) ||
-            request.Mode == GameMode.Arena && request.BestOf > 1 ||
+            (request.Mode is GameMode.Arena or GameMode.Defense) && request.BestOf > 1 || !Enum.IsDefined(request.DefenseFlow) ||
             (request.Mode == GameMode.Duel && request.MaxPlayers != 2))
             return (null, "Datos inválidos. Duelo requiere 2 plazas; deja al menos una plaza libre de bots.", 400);
         if (!ArenaMap.Get(request.Map).SupportsMode(request.Mode))
@@ -105,7 +106,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                 logger.LogInformation("Sala vacía sustituida: {RoomId}", abandoned.Id);
             }
             var options = new WorldOptions { Mode = request.Mode, Map = request.Map, MaxPlayers = request.MaxPlayers, Bots = request.Bots,
-                FriendlyFire = request.FriendlyFire, ScoreLimit = request.ScoreLimit, Tickets = request.Tickets };
+                FriendlyFire = request.Mode != GameMode.Defense && request.FriendlyFire, ScoreLimit = request.ScoreLimit, Tickets = request.Tickets, DefenseFlow = request.DefenseFlow };
             var room = new GameRoom(Guid.NewGuid().ToString("N"), request.Name.Trim(), request.Password, options);
             room.BestOf = request.BestOf;
             _rooms.Add(room.Id, room);
@@ -179,6 +180,8 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                                         if (message.Type == "lobby-start" && session.Id == room.HostPlayerId)
                                         { room.StartRequested = true; continue; }
                                     }
+                                    if (message.Type == "defense_restart" && room.World.IsDefense && session.Ready && session.Id == room.HostPlayerId)
+                                    { RestartDefenseRoom(room); continue; }
                                     if (!room.Started && room.BestOf > 1) { _ignoredCommands++; continue; }
                                     if (!session.Ready || !room.World.ApplyMessage(session.Id, message)) _ignoredCommands++;
                                     else if (message.Type != "input" || message.MoveTo || Math.Abs(message.MoveX) + Math.Abs(message.MoveY) > 0.05f)
@@ -249,18 +252,20 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                     byte[]? full = null;
                     foreach (var session in snapshot.Recipients)
                     {
+                        var frame = DefenseFrame(snapshot.Message, session.Id);
+                        byte[] fullForPlayer = frame.Snapshot?.Defense == null
+                            ? full ??= Protocol.SerializeSnapshot(frame) : Protocol.SerializeSnapshot(frame);
                         byte[] bytes;
                         if (session.NetworkBaseline is { } baseline)
                         {
-                            byte[] delta = Protocol.CompressSnapshotPayload(SnapshotDelta.Encode(snapshot.Message, baseline));
-                            full ??= Protocol.SerializeSnapshot(snapshot.Message);
-                            bytes = delta.Length < full.Length ? delta : full;
+                            byte[] delta = Protocol.CompressSnapshotPayload(SnapshotDelta.Encode(frame, baseline));
+                            bytes = delta.Length < fullForPlayer.Length ? delta : fullForPlayer;
                         }
-                        else bytes = full ??= Protocol.SerializeSnapshot(snapshot.Message);
+                        else bytes = fullForPlayer;
                         if (session.Outbox.Writer.TryWrite(bytes))
                         {
                             Interlocked.Add(ref snapshotBytes, bytes.Length);
-                            Interlocked.Add(ref fullEquivalentBytes, (full ??= Protocol.SerializeSnapshot(snapshot.Message)).Length);
+                            Interlocked.Add(ref fullEquivalentBytes, fullForPlayer.Length);
                             Interlocked.Increment(ref snapshotFrames);
                             if (bytes.Length > 0 && bytes[0] == 0xA1) Interlocked.Increment(ref compressedFrames);
                         }
@@ -337,12 +342,13 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
                     else
                     {
                         room.World.EquipPlayer(player.Id, equipment);
+                        if (identity != null) room.World.AttachDefenseAccount(player.Id, identity.Uid);
                         session = new(player.Id, room, socket) { Account = identity, Equipment = equipment, LastActivityTick = room.World.Tick };
                         if (room.HostPlayerId == 0) room.HostPlayerId = player.Id;
                         room.Sessions.Add(player.Id, session);
                         _sessions[session.Key] = session; room.LastOccupied = Environment.TickCount64;
                         player.Invulnerable = 1.2f;
-                        welcome = RoomSnapshot(room); welcome.Type = "welcome"; welcome.PlayerId = player.Id;
+                        welcome = DefenseFrame(RoomSnapshot(room), player.Id); welcome.Type = "welcome"; welcome.PlayerId = player.Id;
                         welcome.Server = Info(); welcome.Room = room.Info(); welcome.RequiresReady = true;
                         session.NetworkBaseline = welcome;
                     }
@@ -444,6 +450,7 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
     { _stopping.Cancel(); return base.StopAsync(cancellationToken); }
     private void TrackAccounts(GameRoom room, bool endedBefore)
     {
+        if (room.World.IsDefense) { TrackDefenseAccounts(room); return; }
         if (endedBefore && !room.World.MatchEnded)
         {
             room.ResultQueued = false;
@@ -542,14 +549,16 @@ public sealed class GameService(ServerSettings settings, ILogger<GameService> lo
         lock (_gate)
         {
             foreach (var room in _rooms.Values)
-                if (room.MatchId == match.Id)
-                    room.RewardStatus = "Resultado registrado en Firebase. La recompensa del equipo ganador está guardada.";
+                if (room.MatchId == match.Id || match.Mode == GameMode.Defense && room.MatchId == match.DefenseRunId)
+                    room.RewardStatus = match.Mode == GameMode.Defense
+                        ? "Recompensa de defensa confirmada. Los premios dependen del tiempo activo individual."
+                        : "Resultado registrado en Firebase. La recompensa del equipo ganador está guardada.";
             foreach (var session in _sessions.Values)
             {
                 var participant = eligible.FirstOrDefault(p => p.Uid == session.Account?.Uid);
                 if (participant == null) continue;
                 session.Outbox.Writer.TryWrite(Protocol.SerializeUtf8(new ServerMessage { Type = "account",
-                    AccountNotice = participant.Winner ? "Recompensa PvP guardada. Revisa tu inventario." : "Resultado PvP guardado." }));
+                    AccountNotice = match.Mode == GameMode.Defense ? $"Recompensa de defensa {match.DefenseCheckpoint}/4 guardada. Revisa tu inventario." : participant.Winner ? "Recompensa PvP guardada. Revisa tu inventario." : "Resultado PvP guardado." }));
             }
         }
     }

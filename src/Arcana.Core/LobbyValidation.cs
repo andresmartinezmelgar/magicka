@@ -14,11 +14,11 @@ public static class LobbyValidation
     {
         if (room == null || string.IsNullOrWhiteSpace(room.Id) || room.Id.Length > 64 ||
             string.IsNullOrWhiteSpace(room.Name) || room.Name.Length > 32 || !Enum.IsDefined(room.Mode) ||
-            !Enum.IsDefined(room.Map) || ArenaMap.Get(room.Map).IsPractice || !ArenaMap.Get(room.Map).SupportsMode(room.Mode) || room.MaxPlayers is < 2 or > 16 || room.Players < 0 || room.Players > room.MaxPlayers ||
+            !Enum.IsDefined(room.Map) || ArenaMap.Get(room.Map).IsPractice || !ArenaMap.Get(room.Map).SupportsMode(room.Mode) || room.MaxPlayers < (room.Mode == GameMode.Defense ? 1 : 2) || room.MaxPlayers > (room.Mode == GameMode.Defense ? DefenseRules.MaxDefenders : 16) || room.Players < 0 || room.Players > room.MaxPlayers ||
             room.Bots < 0 || room.Bots >= room.MaxPlayers || room.Bots > room.Players ||
             room.ScoreLimit is < 1 or > 200 || room.Tickets is < 5 or > 1000 ||
             room.BestOf is not (1 or 5 or 7 or 9) ||
-            room.Mode == GameMode.Arena && room.BestOf > 1 ||
+            (room.Mode is GameMode.Arena or GameMode.Defense) && room.BestOf > 1 || !Enum.IsDefined(room.DefenseFlow) ||
             room.Mode == GameMode.Duel && room.MaxPlayers != 2)
             throw new InvalidDataException("El servidor devolvió una sala inválida.");
     }

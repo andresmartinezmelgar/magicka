@@ -14,7 +14,7 @@ public sealed partial class GameWorld
 
     private bool EligibleForMine(Wizard player, Field mine)
     {
-        if (!player.Alive || !_players.TryGetValue(mine.Owner, out var owner)) return false;
+        if (!player.Alive || !_combatants.TryGetValue(mine.Owner, out var owner)) return false;
         return mine.Kind == "healing_mine" ? Allied(owner, player) && player.Health < player.MaxHealth - 0.01f
             : Hostile(owner, player);
     }
@@ -24,7 +24,7 @@ public sealed partial class GameWorld
         var recipe = projectile.Recipe;
         float radius = recipe.SplashRadius;
         if (radius <= 0) return;
-        foreach (var target in _players.Values)
+        foreach (var target in _combatants.Values)
         {
             if (!target.Alive || target.Id == directTarget) continue;
             float distance = V2.Distance(target.Position, projectile.Position);

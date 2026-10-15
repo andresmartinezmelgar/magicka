@@ -9,7 +9,7 @@ public partial class Main
     private EquipmentPanel? _equipmentPanel;
     private AccountProfilePanel? _accountProfilePanel;
     private PlayerEquipmentPanel? _playerEquipmentPanel;
-    private bool InspectingEquipment => GodotObject.IsInstanceValid(_playerEquipmentPanel) && !_playerEquipmentPanel!.IsQueuedForDeletion();
+    private bool InspectingEquipment => _defensePanel?.ShopOpen == true || GodotObject.IsInstanceValid(_playerEquipmentPanel) && !_playerEquipmentPanel!.IsQueuedForDeletion();
     private string AccountCache => ProjectSettings.GlobalizePath("user://account-profile.json");
     private void RestoreAccountCache()
     {
@@ -76,6 +76,7 @@ public partial class Main
     private void OpenPlayerEquipment()
     {
         if (!_playing || InspectingEquipment) return;
+        if (_defensePanel != null) { _defensePanel.OpenShop(); return; }
         StopInput();
         var connection = _connection; var practice = _practice;
         _playerEquipmentPanel = new PlayerEquipmentPanel(); _ui.AddChild(_playerEquipmentPanel);

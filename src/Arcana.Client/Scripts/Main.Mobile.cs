@@ -17,7 +17,7 @@ public partial class Main
             // Solo pruebas headless: simular pantallas más estrechas sin alterar la APK.
             string? requested = OS.GetCmdlineUserArgs().FirstOrDefault(a =>
                 a.StartsWith("--smoke-viewport=", StringComparison.Ordinal));
-            if (requested != null && OS.GetCmdlineUserArgs().Any(a => a is "--mobile-menu-smoke"
+            if (requested != null && OS.GetCmdlineUserArgs().Any(a => a is "--defense-smoke" or "--mobile-menu-smoke"
                 or "--preview-spells=stone" or "--preview-spells=stone-close" or "--preview-spells=stone-auras"))
             {
                 string[] parts = requested["--smoke-viewport=".Length..].Split('x');
@@ -69,7 +69,8 @@ public partial class Main
         { _profiler.Cancel(); return; }
         if (what == NotificationWMGoBackRequest)
         {
-            if (InspectingEquipment) ClosePlayerEquipment();
+            if (_defensePanel?.ShopOpen == true) _defensePanel.CloseShop();
+            else if (InspectingEquipment) ClosePlayerEquipment();
             else if (GodotObject.IsInstanceValid(_equipmentPanel)) { _equipmentPanel!.QueueFree(); _equipmentPanel = null; }
             else if (GodotObject.IsInstanceValid(_optionAHelp)) CloseOptionAHelp();
             else if (_help.Visible) { _help.Visible = false; UpdateTouchVisibility(); }

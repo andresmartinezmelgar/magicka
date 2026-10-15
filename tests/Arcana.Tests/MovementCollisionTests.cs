@@ -10,7 +10,7 @@ internal static class MovementCollisionTests
     private static (GameWorld World, Wizard Player) Create(ArenaMapId map = ArenaMapId.Classic)
     {
         var world = new GameWorld(new WorldOptions { Map = map,
-            Mode = map == ArenaMapId.Frontline ? GameMode.Warfare : GameMode.Arena,
+            Mode = map == ArenaMapId.Bastion ? GameMode.Defense : map == ArenaMapId.Frontline ? GameMode.Warfare : GameMode.Arena, MaxPlayers = 4,
             Seed = 42, PickupSeed = 42, EnvironmentSeed = 42 });
         var player = world.AddPlayer("Colisiones")!;
         return (world, player);

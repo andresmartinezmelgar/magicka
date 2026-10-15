@@ -14,7 +14,7 @@ internal static class PerformanceRegressionTests
             foreach (var id in Enum.GetValues<ArenaMapId>())
             {
                 var world = id == ArenaMapId.Practice ? new PracticeSession("Mago ñ 🧙").World
-                    : new GameWorld(new() { Map = id, Mode = GameMode.Warfare, Bots = 7, MaxPlayers = 8,
+                    : new GameWorld(new() { Map = id, Mode = id == ArenaMapId.Bastion ? GameMode.Defense : GameMode.Warfare, Bots = id == ArenaMapId.Bastion ? 3 : 7, MaxPlayers = id == ArenaMapId.Bastion ? 4 : 8,
                         SpawnSeed = 271, PickupSeed = 271, EnvironmentSeed = 271 });
                 if (id != ArenaMapId.Practice) world.AddPlayer("Mago ñ 🧙");
                 for (int i = 0; i < 120; i++) world.Step();

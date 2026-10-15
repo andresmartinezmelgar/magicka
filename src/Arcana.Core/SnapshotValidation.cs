@@ -1,7 +1,7 @@
 namespace Arcana.Core;
 
 /// <summary>JSON válido no garantiza un estado válido. Rechaza respuestas incompletas antes de llegar al motor gráfico.</summary>
-public static class SnapshotValidation
+public static partial class SnapshotValidation
 {
     private static bool Elements(Element[]? values, int maximum = 3)
     {
@@ -36,7 +36,9 @@ public static class SnapshotValidation
             state.Beams is not { Length: <= 64 } || state.Points == null || state.Events is not { Length: <= 160 }) Invalid();
         var map = ArenaMap.Get(state.Map);
         if (!map.SupportsMode(state.Mode) || state.Points!.Length != map.ControlPoints.Count) Invalid();
-        bool hasPickups = map.HasPickups;
+        bool defense = state.Mode == GameMode.Defense;
+        CheckDefense(state);
+        bool hasPickups = map.HasPickups || defense;
         var ids = new HashSet<int>();
         foreach (var p in state.Players!)
         {
@@ -57,14 +59,14 @@ public static class SnapshotValidation
             int kinds = 0;
             foreach (var buff in p.Buffs ?? [])
             {
-                if (buff == null || !Enum.IsDefined(buff.Kind) || buff.Stacks <= 0 || !p.Alive || !hasPickups) Invalid();
+                if (buff == null || !Enum.IsDefined(buff.Kind) || buff.Stacks <= 0 || !p.Alive && !defense || !hasPickups) Invalid();
                 int bit = 1 << (int)buff!.Kind;
                 if ((kinds & bit) != 0) Invalid();
                 kinds |= bit;
             }
         }
-        if (state.Pickups is { Length: > 16 } || hasPickups && state.Pickups?.Length != RelicBuffs.SpawnCount ||
-            !hasPickups && state.Pickups is { Length: > 0 }) Invalid();
+        if (state.Pickups is { Length: > 16 } || map.HasPickups && state.Pickups?.Length != RelicBuffs.SpawnCount ||
+            !map.HasPickups && state.Pickups is { Length: > 0 }) Invalid();
         ids.Clear();
         foreach (var item in state.Pickups ?? [])
             if (item == null || item.Id <= 0 || !ids.Add(item.Id) || !Enum.IsDefined(item.Kind) ||

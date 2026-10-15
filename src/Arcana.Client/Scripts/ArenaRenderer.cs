@@ -99,6 +99,7 @@ public partial class ArenaRenderer : Node3D
     public void Clear()
     {
         _audio.StopAll();
+        ClearDefenseVisuals();
         foreach (var v in _wizards.Values) v.QueueFree(); _wizards.Clear();
         foreach (var v in _projectiles.Values) v.QueueFree(); _projectiles.Clear();
         foreach (var v in _walls.Values) v.QueueFree(); _walls.Clear();
@@ -202,6 +203,7 @@ public partial class ArenaRenderer : Node3D
             visual.Update(p, dt, (float)_time, Camera, snapshot.Time, InterpolationDelay);
         }
         if (_fresh) RemoveMissing(_wizards, snapshot.Players, static p => p.Id);
+        RenderDefense(snapshot, localId, dt);
         var local = snapshot.Players.FirstOrDefault(p => p.Id == localId);
         float followX = _map.Id == ArenaMapId.Classic ? 7 : _map.HalfWidth - 8;
         float followY = _map.Id == ArenaMapId.Classic ? 4 : _map.HalfHeight - 7;

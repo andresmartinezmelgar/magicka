@@ -25,6 +25,17 @@ async Task AsyncTest(string name, Func<Task> action)
     try { await action(); Console.WriteLine("PASS " + name); passed++; }
     catch (Exception e) { Console.WriteLine("FAIL " + name + ": " + e.Message); failed++; }
 }
+if (args.Contains("--defense-benchmark"))
+{
+    DefenseTests.Benchmark(args.FirstOrDefault(a => a.StartsWith("--profile-output="))?[17..] ?? "artifacts/defense/benchmark.json");
+    return 0;
+}
+if (args.Contains("--defense-only"))
+{
+    DefenseTests.Run(Test);
+    Console.WriteLine($"RESULTADO DEFENSA: {passed} correctas, {failed} fallidas.");
+    return failed == 0 ? 0 : 1;
+}
 if (args.Contains("--desktop-session-only"))
 {
     DesktopSessionStoreTests.Run(Test);
@@ -127,6 +138,7 @@ ResponsiveLayoutTests.Run(Test);
 NetworkEndpointTests.Run(Test);
 NetworkDeltaTests.Run(Test);
 FrontlineTests.Run(Test);
+DefenseTests.Run(Test);
 GameplayRegressionTests.Run(Test);
 MovementCollisionTests.Run(Test);
 PracticeTests.Run(Test);
@@ -461,7 +473,7 @@ Test("Ascensión: +10 por baja, vida actual y máxima, bonus conservado al morir
 });
 Test("Ascensión: cada muerte añade medio segundo y la espera nunca supera diez segundos", () =>
 {
-    foreach (var mode in Enum.GetValues<GameMode>())
+    foreach (var mode in Enum.GetValues<GameMode>().Where(m => m != GameMode.Defense))
     {
         var world = new GameWorld(new() { Map = ArenaMapId.Ascension, Mode = mode, ScoreLimit = 200, Tickets = 1000 });
         var a = world.AddPlayer("Autor")!; var b = world.AddPlayer("Objetivo")!;
@@ -535,7 +547,7 @@ Test("Ascensión: reanimación conserva el bonus y nueva partida reinicia vida y
 Test("Ascensión: las reglas de vida y reaparición no se aplican a los mapas anteriores", () =>
 {
     foreach (var map in new[] { ArenaMapId.Classic, ArenaMapId.Citadel })
-    foreach (var mode in Enum.GetValues<GameMode>())
+    foreach (var mode in Enum.GetValues<GameMode>().Where(m => m != GameMode.Defense))
     {
         var world = new GameWorld(new() { Map = map, Mode = mode }); var a = world.AddPlayer("Autor")!; var b = world.AddPlayer("Rival")!;
         a.Health = 700; LethalNova(world, a, b);
@@ -564,7 +576,7 @@ Test("Reliquias: catorce objetos simétricos, siete tipos y exclusividad del map
         Check(pair.Length == 2 && pair[0].Position.X == -pair[1].Position.X && pair[0].Position.Y == pair[1].Position.Y, "Un tipo no tiene dos objetos simétricos.");
     }
     foreach (var map in Enum.GetValues<ArenaMapId>().Where(m => !ArenaMap.Get(m).HasPickups))
-        Check(new GameWorld(new() { Map = map }).Snapshot().Pickups!.Length == 0, "Se filtraron objetos a " + map);
+        Check(new GameWorld(new() { Map = map, Mode = map == ArenaMapId.Bastion ? GameMode.Defense : GameMode.Warfare, MaxPlayers = 4 }).Snapshot().Pickups!.Length == 0, "Se filtraron objetos a " + map);
     SnapshotValidation.Check(w.Snapshot());
 });
 Test("Reliquias: solo recoge el vivo más cercano, empate estable y reaparición tras doce segundos", () =>
@@ -879,7 +891,7 @@ Test("Traslación: usa el último destino aunque no haya pasado un tick y respet
 {
     foreach (var map in Enum.GetValues<ArenaMapId>())
     {
-        var world = new GameWorld(new() { Map = map, Mode = ArenaMap.Get(map).SequentialCapture ? GameMode.Warfare : GameMode.Arena });
+        var world = new GameWorld(new() { Map = map, MaxPlayers = 4, Mode = map == ArenaMapId.Bastion ? GameMode.Defense : ArenaMap.Get(map).SequentialCapture ? GameMode.Warfare : GameMode.Arena });
         var player = world.AddPlayer("Giro inmediato")!;
         var origin = map == ArenaMapId.Frontline ? new V2(-150, -12) : V2.Zero;
         player.Position = origin; player.Facing = new(1, 0);
@@ -1471,7 +1483,7 @@ Test("Validación de snapshots acepta combates y rechaza estado parcial o no fin
 });
 Test("Snapshots: límites espaciales antes del renderer y combate válido en los cinco mapas", () =>
 {
-    foreach (var id in Enum.GetValues<ArenaMapId>().Where(m => !ArenaMap.Get(m).IsPractice))
+    foreach (var id in Enum.GetValues<ArenaMapId>().Where(m => !ArenaMap.Get(m).IsPractice && m != ArenaMapId.Bastion))
     {
         var world = new GameWorld(new() { Map = id, Mode = ArenaMap.Get(id).SequentialCapture ? GameMode.Warfare : GameMode.Arena,
             MaxPlayers = 16, Bots = 16, Seed = 41, SpawnSeed = 27, PickupSeed = 31, EnvironmentSeed = 21 });
@@ -1749,6 +1761,7 @@ if (server != null)
 {
     string password = Environment.GetEnvironmentVariable("TEST_PASSWORD") ?? "";
     await FrontlineTests.RunNetwork(server, password, AsyncTest);
+    await DefenseTests.RunNetwork(server, password, AsyncTest);
     await LoadingTests.RunNetwork(server, password, AsyncTest);
     await AsyncTest("Crear salas con opciones, enumerarlas y aislar estado aunque los IDs coincidan", async () =>
     {

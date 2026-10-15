@@ -72,7 +72,7 @@ public partial class Launcher
         string[] titlesText =
         [
             "⚔\nPvP\nLucha con otros magos",
-            "✧\nVERSUS IA\nEntrena con bots",
+            "✧\nIA / DEFENSA\nCombate y supervivencia",
             "♙\nMI PERFIL\nCuenta y estadísticas"
         ];
         for (int i = 0; i < existing.Length && i < 3; i++)
@@ -254,6 +254,7 @@ public partial class Launcher
         // El mapa, la modalidad y su objetivo a la izquierda; bots y laboratorio a la derecha.
         foreach (int index in new[] { 0, 1, 2, 3, 4 }) parts[index].Reparent(maps);
         foreach (int index in new[] { 5, 6, 7 }) parts[index].Reparent(bots);
+        _practiceDefenseFlow.Reparent(maps);
         if (parts[0] is Label explanation)
             explanation.AddThemeFontSizeOverride("font_size", 14);
         if (parts[4] is Label objective)

@@ -162,7 +162,7 @@ public sealed class FirestoreAccountRepository(FirestoreDb database) : IAccountR
                 if (item != null && !full) transaction.Create(user.Collection("items").Document(item.Id), FirestoreData.Map(item));
                 transaction.Update(user, new Dictionary<string, object>
                 {
-                    ["wins"] = checked(h.Wins + (player.Winner ? 1 : 0)), ["losses"] = checked(h.Losses + (player.Winner ? 0 : 1)),
+                    ["wins"] = checked(h.Wins + (match.Mode != GameMode.Defense && player.Winner ? 1 : 0)), ["losses"] = checked(h.Losses + (match.Mode != GameMode.Defense && !player.Winner ? 1 : 0)),
                     ["itemCount"] = h.ItemCount + (item != null && !full ? 1 : 0), ["gold"] = checked(h.Gold + gold)
                 });
                 transaction.Create(receipt, new Dictionary<string, object>
