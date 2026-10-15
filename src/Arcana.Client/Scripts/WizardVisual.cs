@@ -182,7 +182,7 @@ public partial class WizardVisual : Node3D
         _affinityRing.Scale = Vector3.One * (1 + Mathf.Sin(time * 2 + p.Id) * 0.04f);
         bool spawnProtected = p.Alive && p.InvulnerableSeconds > 0;
         bool protectedBody = p.Alive && (p.Shield > 0 || p.Frozen > 0 || spawnProtected);
-        _shield.Visible = protectedBody;
+        _shield.Visible = protectedBody && (!p.Ward.Contains(Element.Earth) || p.Frozen > 0 || spawnProtected);
         if (protectedBody)
         {
             var c = p.Frozen > 0 ? Ui.ElementColor(Element.Cold) : p.Ward.Length > 0 ? Ui.SpellColor(p.Ward) : Ui.Shield;

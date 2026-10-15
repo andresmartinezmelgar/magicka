@@ -273,9 +273,13 @@ public partial class ArenaRenderer : Node3D
             if (!_projectiles.TryGetValue(projectile.Id, out var root))
             {
                 root = new Node3D { Position = World(projectile.Position, 0.9f) }; AddChild(root);
-                bool ice = projectile.Elements.Contains(Element.Cold);
+                bool stone = projectile.Elements.Contains(Element.Earth);
+                bool ice = !stone && projectile.Elements.Contains(Element.Cold);
                 var color = Ui.SpellColor(projectile.Elements);
-                Mesh(root, ice ? new PrismMesh { Size = new(0.3f, 0.9f, 0.3f) }
+                if (stone)
+                    root.AddChild(new MeshInstance3D { Name = "StoneCore", Mesh = StoneVisuals.Shape(projectile.Id),
+                        Scale = Vector3.One * projectile.Radius, MaterialOverride = StoneVisuals.Surface(projectile.Elements) });
+                else Mesh(root, ice ? new PrismMesh { Size = new(0.3f, 0.9f, 0.3f) }
                     : new SphereMesh { Radius = projectile.Radius, Height = projectile.Radius * 2 }, Vector3.Zero, color, 0.35f);
                 var strength = SpellVisualStrength.For(projectile.Elements);
                 color.A = 0.3f;

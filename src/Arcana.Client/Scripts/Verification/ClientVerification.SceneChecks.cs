@@ -158,6 +158,7 @@ public partial class ClientVerification
             valid &= effects.ActiveCount == 0 && effects.SeenCharges.SetEquals([1,2,3]);
             if (valid) valid = CheckSpellStrength();
             if (valid) valid = CheckShieldMeteorVisuals();
+            if (valid) valid = CheckStoneVisuals();
             _runtime.Renderer.Clear(); valid &= effects.ActiveCount == 0 && _runtime.Renderer.ActiveBeamSegments == 0;
             if (valid) CompleteSmoke("EFFECTS_SMOKE_OK: 1/2/3 cargas, elementos repetidos, 12 eventos, límites, expiración, reutilización y limpieza");
         }
@@ -179,7 +180,8 @@ public partial class ClientVerification
             probe.Advance(shot,0.04f,true); probe.Advance(shot,0.04f,true); trails[charges-1] = probe.ActiveParticles;
             _runtime.Renderer.Render(shot,0,1/60.0,true);
             var meshes = _runtime.Renderer.ProjectileVisuals[1].GetChildren().OfType<MeshInstance3D>().ToArray();
-            valid &= meshes.Length == charges && ((SphereMesh)meshes[0].Mesh).Radius == 0.3f;
+            valid &= meshes.Length == charges && meshes[0].Name == "StoneCore" && meshes[0].Mesh is ArrayMesh &&
+                meshes[0].Scale.IsEqualApprox(Vector3.One * 0.3f);
             _runtime.Renderer.Clear();
         }
         valid &= impacts[0] > 0 && impacts[1] > impacts[0] && impacts[2] > impacts[1] && impacts[2] >= impacts[0]*2.5f;
