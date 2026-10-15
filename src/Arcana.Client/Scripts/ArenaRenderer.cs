@@ -95,6 +95,7 @@ public partial class ArenaRenderer : Node3D
     public void Zoom(float delta) => _zoom = Math.Clamp(_zoom + delta, 17, 34);
     internal void SetPreviewZoom(float size) => _zoom = Math.Clamp(size, 10, Math.Max(34, Math.Max(_map.HalfHeight * 2, _map.HalfWidth * 2) + 10));
     internal float CurrentZoom => _zoom;
+    internal Vector3? PreviewFocus { get; set; }
     public void Clear()
     {
         _audio.StopAll();
@@ -205,8 +206,8 @@ public partial class ArenaRenderer : Node3D
         float followX = _map.Id == ArenaMapId.Classic ? 7 : _map.HalfWidth - 8;
         float followY = _map.Id == ArenaMapId.Classic ? 4 : _map.HalfHeight - 7;
         var visiblePosition = local != null ? _wizards[local.Id].Position : Vector3.Zero;
-        var focus = playing && local != null ? new Vector3(Math.Clamp(visiblePosition.X, -followX, followX), 0,
-            Math.Clamp(visiblePosition.Z, -followY, followY)) : new Vector3(-4, 0, 0);
+        var focus = PreviewFocus ?? (playing && local != null ? new Vector3(Math.Clamp(visiblePosition.X, -followX, followX), 0,
+            Math.Clamp(visiblePosition.Z, -followY, followY)) : new Vector3(-4, 0, 0));
         var desired = focus + new Vector3(0, 27, 21);
         var previousLocal = previous?.Players.FirstOrDefault(p => p.Id == localId);
         bool respawned = local is { Alive: true } && previousLocal != null &&

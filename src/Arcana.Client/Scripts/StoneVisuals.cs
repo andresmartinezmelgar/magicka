@@ -36,7 +36,7 @@ internal static class StoneVisuals
             a = Deform(a); b = Deform(b); c = Deform(c);
             var normal = (b - a).Cross(c - a).Normalized();
             if (normal.Dot(a + b + c) < 0) { (b, c) = (c, b); normal = -normal; }
-            float shade = 0.84f + 0.16f * (0.5f + 0.5f * Mathf.Sin((a + b + c).Dot(new(9, 17, 23))));
+            float shade = 0.70f + 0.30f * (0.5f + 0.5f * Mathf.Sin((a + b + c).Dot(new(9, 17, 23))));
             surface.SetColor(new(shade, shade, shade)); surface.SetNormal(normal);
             // Godot usa el orden horario para las caras exteriores.
             surface.AddVertex(a); surface.AddVertex(c); surface.AddVertex(b);
@@ -62,13 +62,21 @@ internal static class StoneVisuals
             uniform float imbued = 0.0;
             uniform float tone = 1.0;
             varying vec3 local_position;
+            float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+            float grain(vec2 p) {
+                vec2 cell = floor(p);
+                vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+                return mix(mix(hash(cell), hash(cell + vec2(1.0, 0.0)), f.x),
+                    mix(hash(cell + vec2(0.0, 1.0)), hash(cell + vec2(1.0)), f.x), f.y);
+            }
             void vertex() { local_position = VERTEX; }
             void fragment() {
-                vec3 p = local_position * 8.0;
-                float grain = 0.5 + 0.5 * sin(dot(p, vec3(13.1, 7.7, 17.3)));
-                float vein = abs(sin(p.x * 1.7 + p.z * 0.8 + sin(p.y * 1.2) * 1.4));
-                float cracks = 1.0 - smoothstep(0.035, 0.13, vein);
-                vec3 rock = mix(vec3(0.27, 0.23, 0.19), vec3(0.63, 0.53, 0.39), grain * 0.42 + 0.35);
+                vec3 p = local_position * 3.5;
+                vec2 plane = vec2(p.x + p.y * 0.61, p.z - p.y * 0.37);
+                float mineral = grain(plane) * 0.8 + grain(plane * 3.2) * 0.2;
+                float seam = abs(sin(p.x * 1.6 + p.z * 0.8 + grain(plane.yx * 0.8) * 3.0));
+                float cracks = 1.0 - smoothstep(0.025, 0.085, seam);
+                vec3 rock = mix(vec3(0.16, 0.15, 0.13), vec3(0.39, 0.34, 0.27), mineral);
                 rock *= COLOR.rgb * tone;
                 ALBEDO = mix(rock, mix(rock * 0.32, accent.rgb, imbued * 0.8), cracks * 0.78);
                 ROUGHNESS = 0.97;

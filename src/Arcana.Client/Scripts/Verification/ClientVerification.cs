@@ -147,6 +147,7 @@ public partial class ClientVerification : Node
             if (_previewSpells.StartsWith("stone"))
             {
                 _runtime.Renderer.SetPreviewZoom(_previewSpells == "stone-close" ? 10 : 22);
+                _runtime.Renderer.PreviewFocus = Vector3.Zero;
                 var legend = new HBoxContainer { Position = new(24, 24) };
                 legend.AddThemeConstantOverride("separation", 12);
                 legend.AddChild(new ElementIcon { Value = Element.Earth, CustomMinimumSize = new(40, 40) });
@@ -240,6 +241,7 @@ public partial class ClientVerification : Node
     }
     internal void AfterRender(WorldSnapshot latest)
     {
+        if (_previewSpells == "stone-close" && _runtime.Touch != null) _runtime.Touch.Visible = false;
         if (_mapsSmoke && _renderFrames % 30 == 0) CheckMaps(latest);
         if (_previewMap != null && !_mapOverview && _renderFrames == 1) _runtime.Renderer.SetPreviewZoom(72);
         if (_hudSmoke && _renderFrames <= HudCases.Length * 3 && _renderFrames % 3 == 2) CheckHudCase();
