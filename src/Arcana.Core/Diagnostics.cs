@@ -10,9 +10,10 @@ namespace Arcana.Core;
 
 public static class BuildInfo
 {
-    public static bool DefensePreview => true;
     public static string Version => typeof(BuildInfo).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
         .InformationalVersion.Split('+')[0] ?? "development";
+    public static long UpdateBuildNumber => long.TryParse(typeof(BuildInfo).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+        .FirstOrDefault(a => a.Key == "ArcanaUpdateBuild")?.Value, out long build) && build > 0 ? build : 0;
 }
 public enum DiagnosticLevel { Trace, Debug, Information, Warning, Error, Critical }
 public interface IDiagnosticLog

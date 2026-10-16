@@ -17,7 +17,15 @@ public sealed partial class GameWorld
 
     private bool DefenseCommand(Wizard player, ClientMessage command)
     {
-        if (!IsDefense || !player.Alive || MatchEnded || !_defenders.TryGetValue(player.Id, out var progress)) return false;
+        if (!IsDefense || !_defenders.TryGetValue(player.Id, out var progress)) return false;
+        if (command.Type == "defense_shop")
+        {
+            if (player.Bot || command.Slot is < 0 or > 1) return false;
+            progress.ShopOpen = command.Slot == 1;
+            if (progress.ShopOpen) { CancelCast(player); player.Input.MoveTo = false; player.Input.MoveX = player.Input.MoveY = 0; }
+            return true;
+        }
+        if (!player.Alive || MatchEnded) return false;
         switch (command.Type)
         {
             case "defense_repair":
@@ -34,6 +42,14 @@ public sealed partial class GameWorld
                 if (level >= DefenseRules.MaxAuraLevel || progress.Gold < cost) return false;
                 progress.Gold -= cost; progress.Auras[command.Slot]++;
                 Emit("defense_shop", player.Position, [], DefenseRules.AuraName((DefenseAura)command.Slot) + $" · nivel {level + 1}");
+                return true;
+            case "defense_passive":
+                if (command.Slot is < 0 or > 3) return false;
+                int passiveLevel = progress.Passives[command.Slot], passiveCost = DefenseRules.PassiveCost(passiveLevel);
+                if (passiveLevel >= DefenseRules.MaxPassiveLevel || progress.Gold < passiveCost) return false;
+                progress.Gold -= passiveCost; progress.Passives[command.Slot]++;
+                if (passiveLevel == 0) progress.PassiveCooldowns[command.Slot] = command.Slot switch { 0 => 3, 1 => 16, 2 => 5, _ => 4 };
+                Emit("defense_shop", player.Position, [], DefenseRules.PassiveName((DefensePassive)command.Slot) + $" · nivel {passiveLevel + 1}");
                 return true;
             case "defense_supply":
                 if (progress.Gold < 100 || progress.Items.Count >= DefenseRules.InventoryLimit) return false;
@@ -172,7 +188,7 @@ public sealed partial class GameWorld
                     s.ActiveTicks / 60.0, p.Kills, p.Deaths, Copy(s.Auras), s.Items.Select(i => new DefenseItemSnapshot(i with { Bonuses = Copy(i.Bonuses) },
                         s.Upgrades.GetValueOrDefault(i.Id), s.Loadout.Get(i.Slot) == i.Id)).ToArray(), p.Equipment,
                     DamagePower(p.Id), RelicBuffs.Incoming(p) * p.Equipment.Incoming, RelicBuffs.Regeneration(p) + s.Auras[2] * 10 * HealingPower(p.Id),
-                    RelicBuffs.Speed(p) * p.Equipment.Speed);
-            }).ToArray());
+                    RelicBuffs.Speed(p) * p.Equipment.Speed * DefenseSpeed(p), Copy(s.Passives), Copy(s.PassiveCooldowns), s.BerserkerRemaining);
+            }).ToArray(), DefensePaused, _players.Values.Count(p => !p.Bot));
     }
 }

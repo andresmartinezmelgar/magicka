@@ -14,7 +14,9 @@ public partial class Main
         _defensePanel.Build(Submit, () => ReturnToLauncher());
         _defensePanel.OpenChanged += () =>
         {
-            StopInput(); _ignoreLeftUntilRelease = true; UpdateTouchVisibility();
+            StopInput();
+            Submit(new() { Type = "defense_shop", Slot = _defensePanel?.ShopOpen == true ? 1 : 0 });
+            _ignoreLeftUntilRelease = true; UpdateTouchVisibility();
             if (_defensePanel != null) _ui.MoveChild(_defensePanel, -1);
         };
         _touch?.ConfigureDefense();

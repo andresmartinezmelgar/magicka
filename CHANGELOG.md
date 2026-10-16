@@ -1,5 +1,19 @@
 # Cambios
 
+## 0.18.1 — Defensa: dificultad, tienda y premios pendientes
+
+- Pausa de toda la simulación al abrir la tienda con un solo humano, también con bots aliados y por red.
+- Minions con más vida, tanques lentos desde la tercera oleada y apariciones en grupos de ritmo variable.
+- Meteoritos cada 3 s, berserker periódico, pulso glacial y cadena de relámpagos: compra y cinco niveles por partida.
+- Tienda por pestañas con efectos, niveles, coste y oro faltante; estadísticas de los poderes activos.
+- Diario de premios persistido antes de confirmar el hito, recuperación tras caídas y recibos idempotentes.
+- Protocolo 22 para el nuevo estado de pausa y habilidades.
+
+- Dos UID autenticados reciben actualizaciones de ramas experimentales; las otras cuentas conservan las versiones estables.
+- Selección independiente de la lectura del perfil Firestore, comprobación de la rama, SHA-256 y certificado permanente de Android.
+- Publicación de preliminares verificadas con APK directa, sin cambiar la última Release estable.
+- Cambio de sesión invalida avisos y descargas pendientes; compilaciones de igual versión se distinguen por su número de Actions.
+
 ## 0.18.0 — Defensa del bastión (rama experimental)
 
 - Modo cooperativo local y online, de uno a cuatro defensores, con oleadas o ataques continuos.

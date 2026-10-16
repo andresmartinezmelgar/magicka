@@ -9,6 +9,7 @@ public partial class Main
 {
     private bool _defenseSmoke;
     private int _defenseSmokeFrame, _defenseSmokePhase;
+    private long _defensePauseTick;
     private string? _defenseCaptureDirectory;
 
     private void StartDefenseSmoke(string[] arguments)
@@ -73,7 +74,7 @@ public partial class Main
                     Check(!_touch.Touch(99, open.GetGlobalRect().GetCenter(), true), "El joystick interceptó el botón de tienda.");
                 }
                 CaptureDefense("01-partida");
-                panel.OpenShop(); _defenseSmokePhase++; return false;
+                panel.OpenShop(); _defensePauseTick = _practice.Tick; _defenseSmokePhase++; return false;
             }
             if (_defenseSmokePhase == 1)
             {
@@ -81,31 +82,36 @@ public partial class Main
                 var viewport = GetViewport().GetVisibleRect(); var rect = window.GetGlobalRect();
                 Check(viewport.Encloses(rect), "La tienda desborda el viewport: " + rect);
                 Check(_touch?.Visible != true, "Los controles táctiles cubren la tienda.");
-                var aura = panel.FindChild("DefenseAura0", true, false) as Button;
-                Check(aura != null && !aura.Disabled, "No se puede comprar el aura.");
-                aura!.EmitSignal(Button.SignalName.Pressed);
-                var after = _practice.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId);
-                Check(after.Auras[0] == 1 && after.Gold < 1500, "El botón no compra en la simulación.");
-                CaptureDefense("02-tienda");
-                _defenseSmokePhase++; return false;
+                Check(state.Defense!.Paused && state.Tick == _defensePauseTick, "La tienda no pausa con un humano y bot.");
+                CaptureDefense("02-bastion");
+                panel.ShowSection(2); _defenseSmokePhase++; return false;
             }
             if (_defenseSmokePhase == 2)
             {
-                var scroll = (ContentScrollContainer)panel.FindChild("DefenseShopScroll", true, false);
-                scroll.ScrollVertical = 520; _defenseSmokePhase++; return false;
+                var aura = (Button)panel.FindChild("DefenseAura0", true, false);
+                var passive = (Button)panel.FindChild("DefensePassive0", true, false);
+                Check(!aura.Disabled && !passive.Disabled, "No se pueden comprar poderes.");
+                panel.ShowPowers(false); aura.EmitSignal(Button.SignalName.Pressed);
+                panel.ShowPowers(true); passive.EmitSignal(Button.SignalName.Pressed);
+                var after = _practice.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId);
+                Check(after.Auras[0] == 1 && after.Passives[0] == 1 && after.Gold == 1280, "Los botones no compraron en la simulación pausada.");
+                _defenseSmokePhase++; return false;
             }
             if (_defenseSmokePhase == 3)
             {
-                CaptureDefense("03-inventario");
-                ((ContentScrollContainer)panel.FindChild("DefenseShopScroll", true, false)).ScrollVertical = 10000;
-                _defenseSmokePhase++; return false;
+                CaptureDefense("03-poderes"); panel.ShowSection(1); _defenseSmokePhase++; return false;
             }
             if (_defenseSmokePhase == 4)
             {
-                CaptureDefense("04-bonificaciones"); panel.CloseShop();
-                Check(!panel.ShopOpen && (!Ui.IsMobile || _touch?.Visible == true), "No se recuperaron los controles.");
+                Check(((ItemList)panel.FindChild("DefenseInventory", true, false)).ItemCount == 8, "No se muestran las piezas.");
+                CaptureDefense("04-inventario"); panel.ShowSection(3); _defenseSmokePhase++; return false;
+            }
+            if (_defenseSmokePhase == 5)
+            {
+                CaptureDefense("05-bonificaciones"); panel.CloseShop();
+                Check(!panel.ShopOpen && !_practice.DefensePaused && (!Ui.IsMobile || _touch?.Visible == true), "No se recuperaron combate y controles.");
                 Check(_engineLog.ErrorCount == 0, "Godot registró errores en defensa.");
-                GD.Print("DEFENSE_SMOKE_OK: mapa, minions, tienda, compra, inventario y controles.");
+                GD.Print("DEFENSE_SMOKE_OK: mapa, tanques, pausa con bots, cuatro pestañas, compra de aura y habilidad, inventario y controles.");
                 GetTree().Quit(); return true;
             }
         }

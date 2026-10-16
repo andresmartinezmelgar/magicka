@@ -2,9 +2,9 @@
 
 **Juego multijugador de combate mágico en tiempo real para Windows y Android.**
 
-**Estado del repositorio:** versión experimental **0.18.0**, Godot **4.5.2 .NET**, **C# / .NET 8** y protocolo de red **21**. El servidor autoritativo está desarrollado con ASP.NET Core. El juego puede practicarse sin conexión, alojarse en un PC o utilizar un servidor dedicado. El acceso Google y la progresión se apoyan en Firebase, cuando están configurados.
+**Estado del repositorio:** versión experimental **0.18.1**, Godot **4.5.2 .NET**, **C# / .NET 8** y protocolo de red **22**. El servidor autoritativo está desarrollado con ASP.NET Core. El juego puede practicarse sin conexión, alojarse en un PC o utilizar un servidor dedicado. El acceso Google y la progresión se apoyan en Firebase, cuando están configurados.
 
-**Esta rama incorpora el modo cooperativo Defensa del bastión.** Se mantiene independiente de `main`; sus paquetes de prueba están en GitHub Actions y el actualizador estable está desactivado. [Funcionamiento y reglas de Defensa](docs/DEFENSA-OLEADAS.md).
+**Esta rama incorpora el modo cooperativo Defensa del bastión.** Se mantiene independiente de `main`; sus paquetes se publican como preliminares. Las cuentas autorizadas reciben el [canal de pruebas](docs/CANALES-ACTUALIZACION.md). [Funcionamiento y reglas de Defensa](docs/DEFENSA-OLEADAS.md).
 
 Proyecto inspirado en el combate elemental de *Magicka: Wizard Wars*, con código, escenarios, animaciones, efectos y reglas propios. No es una reproducción oficial ni exacta del juego original.
 

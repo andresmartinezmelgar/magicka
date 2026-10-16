@@ -89,6 +89,7 @@ internal sealed class Field
     public float Lifetime;
     public float Delay;
     public float TriggerRadius = 0.85f;
+    public float Power = 1;
     public required SpellRecipe Recipe;
     public string Kind = "area";
 }

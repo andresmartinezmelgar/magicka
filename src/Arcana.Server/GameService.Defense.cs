@@ -21,9 +21,9 @@ public sealed partial class GameService
 
     private void TrackDefenseAccounts(GameRoom room)
     {
-        if (!accounts.GameEnabled)
+        if (!room.Sessions.Values.Any(s => s.Account != null))
         {
-            room.RewardStatus = "Partida sin premios permanentes: este servidor no tiene Firebase habilitado.";
+            room.RewardStatus = "Los premios permanentes requieren una cuenta de Google verificada por el servidor.";
             return;
         }
         foreach (var session in room.Sessions.Values)
@@ -34,12 +34,17 @@ public sealed partial class GameService
             for (int checkpoint = 1; checkpoint <= earned; checkpoint++)
             {
                 string id = RewardRules.DefenseReceiptId(room.MatchId, session.Account.Uid, checkpoint);
-                if (!room.DefenseRewards.Add(id)) continue;
+                if (room.DefenseRewards.Contains(id)) continue;
                 var participant = new MatchParticipant(session.Account.Uid, session.Id, 0, seconds, true);
                 var reward = new RewardMatch(id, settings.InstanceId, GameMode.Defense, ArenaMapId.Bastion,
                     DateTimeOffset.UtcNow, [participant], RulesVersion: 2, DefenseRunId: room.MatchId, DefenseCheckpoint: checkpoint);
-                rewards.Enqueue(reward);
-                room.RewardStatus = $"{room.World.Players[session.Id].Name}: hito de defensa {checkpoint}/{DefenseRules.RewardLimit} pendiente de guardar.";
+                if (!rewards.Enqueue(reward))
+                {
+                    room.RewardStatus = "Premio pendiente de guardar: se reintentará automáticamente.";
+                    continue;
+                }
+                room.DefenseRewards.Add(id);
+                room.RewardStatus = $"{room.World.Players[session.Id].Name}: hito de defensa {checkpoint}/{DefenseRules.RewardLimit} guardado como pendiente de entrega.";
             }
         }
     }

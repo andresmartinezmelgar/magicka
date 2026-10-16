@@ -2,7 +2,7 @@ name: Arcana Arena - compilacion automatica
 
 on:
   push:
-    branches: [main, feature/defensa-oleadas]
+    branches: ['**']
     tags: ['v*']
   pull_request:
   workflow_dispatch:
@@ -24,6 +24,8 @@ jobs:
           dotnet-version: 8.0.x
       - name: Validar metadatos de version
         run: python3 scripts/version-support.py check .
+      - name: Verificar aislamiento e integridad de publicaciones de prueba
+        run: python3 scripts/test-preview-release.py
       - name: Compilar cliente, servidor y pruebas
         run: dotnet build ArcanaArena.sln -c Release --nologo
       - name: Ejecutar pruebas funcionales y regresiones del motor
@@ -40,6 +42,8 @@ jobs:
         run: bash scripts/test-series-lobby.sh
       - name: Validar reglas de verificación de identidad sin conexión externa
         run: dotnet run --project tests/Arcana.Account.Tests/Arcana.Account.Tests.csproj -c Release --no-build -- --verified-claims-only
+      - name: Verificar premios pendientes con Firebase y servidor caídos
+        run: dotnet run --project tests/Arcana.Account.Tests/Arcana.Account.Tests.csproj -c Release --no-build -- --reward-outbox-only
       - name: Compilar servidor de cuentas heredado
         run: dotnet build src/Arcana.AccountServer/Arcana.AccountServer.csproj -c Release --nologo
 
@@ -589,3 +593,43 @@ jobs:
               --notes "Compilacion automatica desde tag. Validacion funcional en dispositivos a cargo del usuario." \
               --verify-tag
           fi
+
+  publish-preview:
+    name: Publicar versiones de prueba de otras ramas
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && github.ref != 'refs/heads/main'
+    needs: [build, firestore-rules, visual-audit, package-windows, package-android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ArcanaArena-Windows-x64
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: ArcanaArena-Android-arm64
+          path: dist
+      - name: Validar binarios firmados y preparar la publicación
+        run: |
+          python3 scripts/prepare-preview-release.py --root . --dist dist \
+            --branch "$GITHUB_REF_NAME" --commit "$GITHUB_SHA" --build "$GITHUB_RUN_NUMBER" \
+            --notes-file "$RUNNER_TEMP/preview-notes.md" --tag-file "$RUNNER_TEMP/preview-tag.txt"
+      - name: Publicar preliminar sin modificar la última versión estable
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag=$(cat "$RUNNER_TEMP/preview-tag.txt")
+          assets=(dist/*-Windows-x64.zip dist/*-Android-arm64.apk dist/SHA256SUMS.txt dist/SHA256SUMS-Windows.txt dist/SHA256SUMS-Android.txt dist/PREVIEW.json)
+          if gh release view "$tag" >/dev/null 2>&1; then
+            target=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" --jq '.target_commitish')
+            test "$target" = "$GITHUB_SHA" || { echo '::error::La preliminar existente pertenece a otro commit.'; exit 1; }
+            gh release upload "$tag" "${assets[@]}" --clobber
+          else
+            gh release create "$tag" "${assets[@]}" --draft --prerelease --latest=false \
+              --target "$GITHUB_SHA" --title "Arcana Arena PRUEBAS $tag" \
+              --notes-file "$RUNNER_TEMP/preview-notes.md"
+          fi
+          gh release edit "$tag" --draft=false --prerelease --latest=false --notes-file "$RUNNER_TEMP/preview-notes.md"

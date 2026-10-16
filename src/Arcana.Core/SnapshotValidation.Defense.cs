@@ -11,6 +11,7 @@ public static partial class SnapshotValidation
             d.RemainingToSpawn is < 0 or > 2000 || !Size(d.NextWaveIn, DefenseRules.WavePause + 0.01f) ||
             d.CastlePosition != DefenseRules.CastlePosition || !NonNegative(d.CastleHealth) ||
             d.CastleMaxHealth != DefenseRules.CastleHealth || d.CastleHealth > d.CastleMaxHealth ||
+            d.HumanCount != state.Players.Count(p => !p.Bot) || d.Paused && (d.HumanCount != 1 || state.MatchEnded) ||
             d.Repairs < 0 || d.RepairCost != DefenseRules.RepairCost(d.Repairs) || d.TotalKills < 0 ||
             d.Minions is not { Length: <= DefenseRules.MaxMinions } || d.Drops is not { Length: <= DefenseRules.MaxDrops } ||
             d.Defenders == null || d.Defenders.Length != state.Players.Length || state.Players.Length > DefenseRules.MaxDefenders ||
@@ -29,6 +30,9 @@ public static partial class SnapshotValidation
                 p.Gold is < 0 or > 100000000 || p.Kills < 0 || p.Deaths < 0 || !double.IsFinite(p.ActiveSeconds) ||
                 p.ActiveSeconds < 0 || p.ActiveSeconds > state.Time + 0.1 || p.Auras is not { Length: 3 } ||
                 p.Auras.Any(a => a is < 0 or > DefenseRules.MaxAuraLevel) || p.Items is not { Length: <= DefenseRules.InventoryLimit } ||
+                p.Passives is not { Length: 4 } || p.Passives.Any(a => a is < 0 or > DefenseRules.MaxPassiveLevel) ||
+                p.PassiveCooldowns is not { Length: 4 } || p.PassiveCooldowns.Any(a => !Size(a, 16.01f)) ||
+                !Size(p.BerserkerRemaining, DefenseRules.BerserkerDuration(DefenseRules.MaxPassiveLevel) + 0.01f) ||
                 p.Modifiers == null || !NonNegative([p.DamageMultiplier, p.IncomingMultiplier, p.Regeneration, p.SpeedMultiplier]) ||
                 !NonNegative([p.Modifiers.Power, p.Modifiers.Healing, p.Modifiers.Range, p.Modifiers.Incoming, p.Modifiers.Speed])) Invalid();
             var items = new HashSet<string>(); var slots = new HashSet<EquipmentSlot>();

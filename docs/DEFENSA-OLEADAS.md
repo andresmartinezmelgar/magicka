@@ -1,6 +1,6 @@
 # Defensa del bastión — primera versión experimental
 
-Versión **0.18.0**, protocolo **21**, rama `feature/defensa-oleadas`. Esta rama se mantiene independiente de `main`. Genera distribuciones de prueba en GitHub Actions; no publica una Release estable ni utiliza el actualizador de la aplicación.
+Versión **0.18.1**, protocolo **22**, rama `feature/defensa-oleadas`. Esta rama se mantiene independiente de `main`. Las compilaciones verificadas se publican como versiones preliminares con APK directa. Las dos cuentas autorizadas reciben estas versiones mediante el actualizador; el resto conserva el canal estable. Véase [Canales de actualización](CANALES-ACTUALIZACION.md).
 
 ## Entrar en el modo
 
@@ -8,7 +8,7 @@ Versión **0.18.0**, protocolo **21**, rama `feature/defensa-oleadas`. Esta rama
 - **Online:** PvP → alojar o abrir el servidor → crear sala → modo Defensa del bastión. Admite de uno a cuatro defensores, incluidos los bots. Todos están en el mismo equipo y no hay fuego amigo. El formato es partida única.
 - Cliente y servidor deben proceder de esta misma versión experimental. La APK conserva el identificador y la firma habituales: instalarla sustituye la aplicación instalada, aunque el desarrollo y la distribución permanezcan separados de `main`. El servidor incluido en el paquete Windows permite alojar el modo; el móvil también puede entrar en una sala remota.
 
-La tienda se abre desde el panel de estadísticas de la partida. Permite equipar, comparar, mejorar y vender piezas temporales, comprar auras y reparar el bastión. Abrirla no pausa el combate. En móvil, cerrar la tienda recupera los controles táctiles.
+La tienda se abre desde el panel de estadísticas de la partida. Permite equipar, comparar, mejorar y vender piezas temporales, comprar auras y reparar el bastión. Se divide en Bastión, Equipo, Poderes y Estadísticas. Con un único humano, abrirla pausa toda la simulación, incluso con bots aliados y por red. Con dos o más humanos el combate sigue; la tienda indica el estado. La pausa no suma tiempo para premios. En móvil, cerrar la tienda recupera los controles táctiles.
 
 ## Objetivo y mapa
 
@@ -31,6 +31,7 @@ Hay ocho segundos de preparación al empezar y entre oleadas. Las oleadas grande
 | Tipo | Introducción | Comportamiento |
 | --- | --- | --- |
 | Minion cuerpo a cuerpo | Dificultad 1 | Avanza hacia el bastión y golpea a corta distancia. |
+| Tanque | Dificultad 3 | Mucha vida, movimiento más lento y golpes más fuertes. |
 | Arquero | Dificultad 4 | Lanza proyectiles a distancia. |
 | Mago | Dificultad 7 | Usa hechizos existentes en canalizaciones breves. |
 | Capitán | Dificultad 10 | Potencia un 35 % el ataque de minions cercanos; su efecto no se acumula por varios capitanes. |
@@ -38,6 +39,10 @@ Hay ocho segundos de preparación al empezar y entre oleadas. Las oleadas grande
 La vida y el daño escalan con la dificultad. La pausa ofensiva empieza en un segundo y baja gradualmente hasta 0,3 segundos. La canalización de los magos termina antes de iniciar esa pausa. Los minions pueden romper muros creados por los defensores para evitar bloqueos permanentes.
 
 Con más defensores aumenta el número de enemigos y su resistencia. Se conserva la escala del mayor grupo alcanzado durante esa partida para evitar oscilaciones al desconectarse alguien. Los bots aliados defienden la zona del bastión, atacan amenazas, curan a compañeros y gastan su oro en auras o reparaciones.
+
+Desde dificultad 3 pueden aparecer **tanques**: cuatro veces la vida de un minion normal, movimiento un 35% más lento y golpes de 75 de daño base. La vida base normal pasa a 850 (700 arqueros, 950 magos, 1500 capitanes y 3400 tanques), escalada por dificultad y número de defensores. La fuerza crece un 18% por dificultad. Las oleadas también toman como mínimo la dificultad de cada 90 segundos transcurridos.
+
+Las apariciones alternan grupos rápidos (intervalos de 0,16–0,46 s antes del escalado) con descansos aleatorios de 1,8–5 s. El número total de la oleada sigue siendo el anunciado.
 
 ## Progresión que solo dura una partida
 
@@ -65,6 +70,19 @@ Reparar requiere estar a menos de doce metros del bastión, recupera hasta un 20
 
 Las auras de fuego y rayo dañan minions cercanos; la de regeneración cura defensores. Siguen al personaje, tienen hasta diez niveles y aumentan su radio y efecto. El siguiente nivel cuesta `80 × (nivel actual + 1)²`. La tabla de bonificaciones muestra los totales efectivos y las auras activas, con bordes visibles. El panel lateral mantiene nivel, experiencia, bajas, oro, daño, defensa, velocidad, regeneración y métricas de red. En las partidas online cada cliente recibe únicamente su inventario y sus recogidas asignadas; los atributos públicos y las auras de los compañeros siguen visibles.
 
+## Habilidades automáticas
+
+Se compran en Poderes y duran la partida; no requieren botones nuevos. Cada una admite cinco niveles, a un coste de `140 × (nivel actual + 1)²`. Sus recargas se detienen en pausa y mientras el defensor está muerto; nunca suman participación humana por sí solas.
+
+| Habilidad | Efecto base de nivel 1 |
+| --- | --- |
+| Meteoritos | Cada 3 s busca un enemigo a 16 m y marca un impacto de 260 de daño base en 3 m; tarda 1,4 s en caer. |
+| Berserker | Cada 16 s en combate, +50% daño y +15% velocidad durante 4,5 s; más daño y duración al mejorar. |
+| Pulso glacial | Cada 5 s, 65 de daño base y ralentización en 5 m. |
+| Cadena de relámpagos | Cada 4 s, 140 de daño base a hasta tres enemigos a 10 m; aumenta daño y objetivos. |
+
+Los poderes esperan a tener enemigos válidos y no dañan aliados ni al bastión. El daño efectivo incluye tus bonificaciones; la tabla muestra berserker mientras está activo.
+
 ## Premios permanentes
 
 | Participación activa individual | Objetos permanentes acumulados |
@@ -74,9 +92,9 @@ Las auras de fuego y rayo dañan minions cercanos; la de regeneración cura defe
 | 15 minutos | 3 |
 | 20 minutos o más | 4 |
 
-Solo se conceden en un servidor con Firebase habilitado y a humanos autenticados. Se permiten bots aliados, que no reciben premios. El tiempo se cuenta por participación individual, con actividad reciente o canalización, y no por el tiempo previo de una sala a la que se acaba de entrar. El juego local no concede premios permanentes.
+Los hitos se registran en el servidor para humanos con identidad Google verificada. La entrega requiere que el servicio de cuentas vuelva a estar disponible. Se permiten bots aliados, que no reciben premios. El tiempo se cuenta por participación individual, con actividad reciente o canalización, y no por el tiempo previo de una sala a la que se acaba de entrar. El juego local no concede premios permanentes.
 
-Cada hito genera una pieza con el mismo generador, probabilidades de calidad y rangos de atributos que PvP. Los premios se guardan al alcanzar el hito y no requieren ganar una partida de supervivencia. No aumentan las victorias ni las derrotas de PvP. Recibos por partida, cuenta e hito impiden duplicados; el diario existente reintenta entregas pendientes. Se conserva el comportamiento existente de conversión en oro permanente si el inventario de la cuenta está lleno.
+Cada hito genera una pieza con el mismo generador, probabilidades de calidad y rangos de atributos que PvP. Los premios se guardan al alcanzar el hito y no requieren ganar una partida de supervivencia. No aumentan las victorias ni las derrotas de PvP. Recibos por partida, cuenta e hito impiden duplicados; el diario guarda cada hito de forma atómica y fuerza la escritura a disco antes de confirmarlo a la simulación. Si Firebase o el servicio de cuentas falla, conserva el hito y reintenta la entrega cada 15 segundos. Si el servidor se apaga, otro inicio recupera los archivos del mismo directorio `ARCANA_REWARD_OUTBOX`. Una respuesta perdida después de crear el objeto se reintenta con el mismo recibo y no genera otro premio. La entrega no exige que el jugador siga conectado ni que la sala exista. El objeto permanente se genera al confirmar la entrega, con el generador PvP habitual; mientras tanto no se vuelve a sortear desde el cliente. Se conserva el comportamiento existente de conversión en oro permanente si el inventario de la cuenta está lleno.
 
 ## Validación reproducible
 

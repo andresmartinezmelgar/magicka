@@ -52,6 +52,7 @@ public partial class Main : Node
     private long _lastTick = -1;
     private string _serverName = "";
     private int _renderFrames;
+    private WorldSnapshot? _lastHealthSnapshot;
     private ClientVerification? _verification;
     private RenderProfiler? _profiler;
     private JsonElement? _lastRenderProfile;
@@ -99,9 +100,7 @@ public partial class Main : Node
         networkPanel.Visible = false;
         _launcher = new Launcher(); _ui.AddChild(_launcher); _launcher.Build(this);
         InitializeGoogleAuthentication();
-        // La rama experimental conserva la prueba del panel sin consultar actualizaciones estables.
-        if (!BuildInfo.DefensePreview || OS.GetCmdlineUserArgs().Contains("--update-ui-smoke"))
-            AddChild(new ReleaseUpdateNotice());
+        AddChild(new ReleaseUpdateNotice());
         _help = BuildHelp(); _ui.AddChild(_help); _help.Visible = false;
         _pause = BuildPause(); _ui.AddChild(_pause); _pause.Visible = false;
         var arguments = OS.GetCmdlineUserArgs();
@@ -380,7 +379,7 @@ public partial class Main : Node
                 if (practiceUi && Input.IsMouseButtonPressed(MouseButton.Left)) _moveTo = false;
                 UpdateMouseMovement(!practiceUi && Input.IsMouseButtonPressed(MouseButton.Left), Input.IsPhysicalKeyPressed(Key.Shift));
             }
-            if (latest.Tick != _lastTick) { _lastTick = latest.Tick; _snapshotAge = 0; } else _snapshotAge += delta;
+            if (!ReferenceEquals(latest, _lastHealthSnapshot)) { _lastHealthSnapshot = latest; _lastTick = latest.Tick; _snapshotAge = 0; } else _snapshotAge += delta;
             if (_connection != null && _snapshotAge > 8 && !latest.WaitingForPlayers)
             {
                 Diagnostics.Warn("client.stale_snapshot", "El servidor dejó de enviar el estado.", context: Context());

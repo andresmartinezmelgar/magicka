@@ -375,7 +375,7 @@ public partial class Hud : Control
         if (snapshot.Defense is { } defense)
         {
             _teams.Visible = false; _match.Visible = true;
-            _match.Text = $"BASTIÓN  {defense.CastleHealth:0} / {defense.CastleMaxHealth:0}";
+            _match.Text = (defense.Paused ? "PAUSA · " : "") + $"BASTIÓN  {defense.CastleHealth:0} / {defense.CastleMaxHealth:0}";
             _match.AddThemeColorOverride("font_color", defense.CastleHealth < defense.CastleMaxHealth * 0.3f ? Ui.Red : Ui.Gold);
             _objective.Text = $"{DefenseRules.Clock(defense.Elapsed)} · " + (defense.Flow == DefenseFlow.Waves ? $"Oleada {defense.Wave}" : $"Dificultad {defense.Difficulty}") +
                 $" · Enemigos {defense.Minions.Length} (+{defense.RemainingToSpawn})" +

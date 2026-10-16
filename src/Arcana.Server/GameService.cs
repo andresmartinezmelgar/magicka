@@ -218,7 +218,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                             // Comunicar el desenlace inmediatamente a TODOS los participantes,
                             // sin esperar al siguiente ciclo de envío periódico.
                             // El estado se sigue replicando durante toda la cuenta atrás.
-                            if (room.World.Tick % 3 == 0 || endedBefore != room.World.MatchEnded)
+                            if (CurrentTick % 3 == 0 || endedBefore != room.World.MatchEnded)
                                 dirty.Add(room);
                         }
                         Interlocked.Increment(ref _tick);

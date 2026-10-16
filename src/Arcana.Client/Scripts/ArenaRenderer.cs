@@ -325,7 +325,7 @@ public partial class ArenaRenderer : Node3D
     {
         foreach (var field in snapshot.Fields)
         {
-            if (field.Kind == "meteor")
+            if (field.Kind is "meteor" or "defense_meteor")
             {
                 if (!_fields.TryGetValue(field.Id, out var existing))
                 {

@@ -207,6 +207,67 @@ internal static class DefenseTests
             for (int i = 0; i < 600; i++) { p.LastInput = w.Time; w.Step(); }
             Check(w.DefenseActiveSeconds(p.Id) > 9.5, "Canalizar sin moverse dejó de contar como actividad.");
         });
+        test("Defensa: la tienda congela todo con un humano y bots, permite compras y reanuda", () =>
+        {
+            var w = World(bots: 2); var p = w.AddPlayer("Humano")!;
+            Gold(w, p, 2000); var enemy = Enemy(w); enemy.Position = new(-27, 0);
+            Check(Command(w, p, "defense_shop", 1), "No abrió tienda.");
+            var before = w.Snapshot(); Check(before.Defense!.Paused && before.Defense.HumanCount == 1, "Los bots impidieron pausar.");
+            Advance(w, 900);
+            Check(Protocol.Serialize(before) == Protocol.Serialize(w.Snapshot()), "La pausa avanzó vida, relojes, enemigos o experiencia.");
+            Check(Command(w, p, "defense_passive", 0) && Player(w, p).Passives[0] == 1, "No pudo comprar con la simulación pausada.");
+            Check(!Command(w, p, "defense_passive", 4), "Aceptó una habilidad inexistente.");
+            var second = w.AddPlayer("Otro humano")!; Check(!w.DefensePaused, "La tienda pausó a dos humanos.");
+            Advance(w, 5); Check(w.Tick > before.Tick, "No avanzó al entrar otro humano.");
+            w.RemovePlayer(second.Id); Check(w.DefensePaused, "No volvió a pausar al quedar un humano.");
+            Check(Command(w, p, "defense_shop", 0) && !w.DefensePaused, "No cerró la tienda.");
+            long tick = w.Tick; Advance(w, 5); Check(w.Tick == tick + 5, "No reanudó.");
+            SnapshotValidation.Check(w.Snapshot());
+        });
+        test("Defensa: tanques progresivos, resistentes y más lentos; ritmo en grupos", () =>
+        {
+            var w = World(DefenseFlow.Continuous); var p = w.AddPlayer("Humano")!; p.Position = new(35, 22);
+            var baseline = Enemy(w); Check(baseline.Health == 850, "La primera vida no está ajustada.");
+            Set(w, "_defenseDifficulty", 3);
+            for (int i = 0; i < 40; i++) Enemy(w);
+            var tank = State(w).Minions.First(m => m.Kind == MinionKind.Tank);
+            var tankBody = ((Dictionary<int, Wizard>)Field(w, "_combatants"))[tank.Id];
+            var regular = State(w).Minions.First(m => m.Kind == MinionKind.Melee && m.MaxHealth > baseline.MaxHealth);
+            Check(tank.MaxHealth >= regular.MaxHealth * 3.9f && tankBody.Equipment.Speed < baseline.Equipment.Speed, "El tanque no resiste o no tiene contrapartida.");
+            var rhythm = World(DefenseFlow.Continuous); rhythm.AddPlayer("Humano")!.Position = new(35, 22);
+            var appearances = new List<int>(); int last = 0;
+            for (int i = 0; i < 1800; i++) { rhythm.Step(); int count = State(rhythm).Minions.Length; if (count > last) appearances.Add(i); last = count; }
+            var gaps = appearances.Zip(appearances.Skip(1), (a, b) => (b - a) / 60f).ToArray();
+            Check(gaps.Any(g => g < 0.5f) && gaps.Any(g => g > 1.8f), "Las apariciones siguen a frecuencia uniforme.");
+            SnapshotValidation.Check(w.Snapshot());
+        });
+        test("Defensa: poderes automáticos respetan recarga, objetivos, coste y reinicio", () =>
+        {
+            var w = World(); var p = w.AddPlayer("Humano")!; p.Position = new(-22, 0);
+            var ally = w.AddPlayer("Aliado")!; ally.Position = p.Position;
+            var enemy = Enemy(w); enemy.Position = p.Position + new V2(2, 0); enemy.Health = enemy.MaxHealth = 10000;
+            Gold(w, p, 10000);
+            for (int i = 0; i < 4; i++) Check(Command(w, p, "defense_passive", i), "No compró habilidad.");
+            Check(Player(w, p).Gold == 9440, "Coste de habilidades incorrecto.");
+            Invoke(w, "TickDefensePassives", 2f);
+            Check(w.Snapshot().Fields.Length == 0 && enemy.Health == 10000, "Disparó antes de tiempo.");
+            Invoke(w, "TickDefensePassives", 1f);
+            Check(w.Snapshot().Fields.Count(f => f.Kind == "defense_meteor") == 1, "No apareció meteorito a los 3 s.");
+            float allyHealth = ally.Health, ownHealth = p.Health, castleHealth = Castle(w).Health;
+            Invoke(w, "TickWallsAndFields", 1.45f);
+            Check(enemy.Health < 10000 && p.Health == ownHealth && ally.Health == allyHealth && Castle(w).Health == castleHealth, "El meteorito no dañó al enemigo o dañó aliados.");
+            Invoke(w, "TickDefensePassives", 13f);
+            var stats = Player(w, p);
+            Check(stats.BerserkerRemaining > 0 && stats.DamageMultiplier > 1.49f && stats.SpeedMultiplier > 1.14f && enemy.Chill > 0, "No aplicó berserker o pulso glacial.");
+            float health = enemy.Health; Invoke(w, "TickDefensePassives", 0.01f);
+            Check(enemy.Health == health, "Ignoró las recargas.");
+            Invoke(w, "TickDefensePassives", 5f); Check(Player(w, p).BerserkerRemaining == 0, "Berserker se hizo permanente.");
+            Command(w, p, "defense_shop", 1); w.RemovePlayer(ally.Id); var paused = Protocol.Serialize(w.Snapshot());
+            Advance(w, 360); Check(Protocol.Serialize(w.Snapshot()) == paused, "Las habilidades no respetaron la pausa.");
+            Command(w, p, "defense_shop", 0); Damage(w, Castle(w), 100000, enemy.Id); w.RestartDefense();
+            Check(Player(w, p).Passives.All(n => n == 0), "Las habilidades pasaron a otra partida.");
+            SnapshotValidation.Check(w.Snapshot());
+        });
         test("Defensa: premios propios por hitos sin relajar reglas PvP", () =>
         {
             string run = Guid.NewGuid().ToString("N"), uid = "humano";
@@ -274,6 +335,14 @@ internal static class DefenseTests
             solo.Send(new() { Type = "defense_supply" }); solo.Send(new() { Type = "defense_equip", ItemId = new string('a', 32) });
             await Task.Delay(300);
             Check(solo.Connected && solo.Latest!.Defense!.Defenders.Single().Items.Length == 0, "El servidor confió en una compra sin fondos.");
+            solo.Send(new() { Type = "defense_shop", Slot = 1 });
+            for (int i = 0; i < 40 && solo.Latest!.Defense?.Paused != true; i++) await Task.Delay(50);
+            Check(solo.Latest!.Defense!.Paused, "El servidor no pausó la sala con un humano.");
+            var paused = solo.Latest; await Task.Delay(400);
+            Check(solo.Latest!.Tick == paused.Tick && !ReferenceEquals(solo.Latest, paused), "El servidor detuvo la conexión o avanzó la simulación pausada.");
+            solo.Send(new() { Type = "defense_shop", Slot = 0 });
+            for (int i = 0; i < 40 && solo.Latest!.Tick == paused.Tick; i++) await Task.Delay(50);
+            Check(solo.Latest!.Tick > paused.Tick && !solo.Latest.Defense!.Paused, "El servidor no reanudó la sala.");
             var coop = await RoomBrowser.CreateAsync(address, new CreateRoomRequest { Name = "Defensa coop", Mode = GameMode.Defense,
                 Map = ArenaMapId.Bastion, MaxPlayers = 4, Bots = 1, ServerPassword = password });
             await using var a = new ArenaConnection(); await using var b = new ArenaConnection();

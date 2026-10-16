@@ -145,6 +145,7 @@ public sealed partial class GameWorld
             if (applied && IsDefense) _defenders[p.Id].LastActivity = Time;
             return applied;
         }
+        if (DefensePaused && message.Type is not ("input" or "release")) { p.LastSequence = message.Sequence; return false; }
         if (message.Type == "input")
         {
             if (!float.IsFinite(message.MoveX) || !float.IsFinite(message.MoveY) ||
@@ -185,6 +186,7 @@ public sealed partial class GameWorld
 
     public void Step()
     {
+        if (DefensePaused) return;
         Tick++;
         const float dt = StepSeconds;
         _beams.Clear();
@@ -278,7 +280,7 @@ public sealed partial class GameWorld
             move = move.Normalized;
         }
         else if (p.Bot || move.LengthSquared > 1) move = move.Normalized;
-        float speed = 6.2f * RelicBuffs.Speed(p) * p.Equipment.Speed * (p.Haste > 0 ? 1.65f : 1) * (1 - p.Chill * 0.005f);
+        float speed = 6.2f * RelicBuffs.Speed(p) * p.Equipment.Speed * DefenseSpeed(p) * (p.Haste > 0 ? 1.65f : 1) * (1 - p.Chill * 0.005f);
         if (p.Channel != null) speed *= 0.48f;
         if (p.Charging != null) speed *= 0.35f;
         if (p.Ward.Contains(Element.Earth)) speed *= 0.78f;
@@ -759,6 +761,14 @@ public sealed partial class GameWorld
                     if (p.Alive && V2.Distance(p.Position, f.Position) < f.Radius && Visible(f.Position, p.Position, f.Owner))
                         Hit(p, f.Recipe, dt * SpellBalance.GroundPower, f.Owner, (p.Position - f.Position).Normalized);
                 continue;
+            }
+            if (f.Kind == "defense_meteor")
+            {
+                foreach (var minion in _minions.Values)
+                    if (minion.Body.Alive && V2.Distance(minion.Body.Position, f.Position) < f.Radius && Visible(f.Position, minion.Body.Position, f.Owner))
+                        Damage(minion.Body, f.Power, f.Owner, [Element.Earth, Element.Fire]);
+                Emit("explosion", f.Position, [Element.Earth, Element.Fire], "Meteorito", f.Radius);
+                f.Lifetime = 0; continue;
             }
             bool trigger = f.Kind == "meteor" || _combatants.Values.Any(p => EligibleForMine(p, f) && V2.Distance(p.Position, f.Position) < f.TriggerRadius);
             if (!trigger) continue;

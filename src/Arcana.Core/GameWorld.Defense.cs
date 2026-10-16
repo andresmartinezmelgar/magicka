@@ -9,10 +9,16 @@ public sealed partial class GameWorld
     private readonly Dictionary<string, DefenseProgress> _defenseAccounts = new(StringComparer.Ordinal);
     private readonly List<DefenseDrop> _defenseDrops = [];
     private Wizard? _castle;
-    private int _nextMinion = 1000, _defenseWave, _toSpawn, _repairs, _defenseKills, _defenseDifficulty = 1;
+    private int _nextMinion = 1000, _defenseWave, _toSpawn, _repairs, _defenseKills, _defenseDifficulty = 1, _spawnBurstRemaining;
     private double _defenseElapsed;
     private float _wavePause = DefenseRules.WavePause, _spawnClock, _auraClock;
     private int _defensePartySize = 1;
+
+    public bool DefensePaused => IsDefense && !MatchEnded && _players.Values.Count(p => !p.Bot) == 1 &&
+        _players.Values.Any(p => !p.Bot && _defenders[p.Id].ShopOpen);
+    private float DefenseDamagePower(int id) => IsDefense && _defenders.TryGetValue(id, out var s) && s.BerserkerRemaining > 0
+        ? DefenseRules.BerserkerPower(s.Passives[(int)DefensePassive.Berserker]) : 1;
+    private float DefenseSpeed(Wizard player) => IsDefense && _defenders.TryGetValue(player.Id, out var s) && s.BerserkerRemaining > 0 ? 1.15f : 1;
 
     private void InitializeDefense()
     {
@@ -45,6 +51,7 @@ public sealed partial class GameWorld
             player.Health = player.MaxHealth;
         }
         else _defenseAccounts[uid] = _defenders[playerId];
+        _defenders[playerId].ShopOpen = false;
     }
 
     public double DefenseActiveSeconds(int playerId) => _defenders.TryGetValue(playerId, out var p) ? p.ActiveTicks / 60.0 : 0;
@@ -71,7 +78,8 @@ public sealed partial class GameWorld
             if (_wavePause <= 0)
             {
                 _defenseWave++;
-                _defenseDifficulty = _defenseWave;
+                _defenseDifficulty = Math.Max(_defenseWave, 1 + (int)(_defenseElapsed / 90));
+                _spawnBurstRemaining = 0; _spawnClock = 0;
                 _toSpawn = (int)Math.Ceiling(DefenseRules.WaveSize(_defenseWave) * (1 + 0.45 * (_defensePartySize - 1)));
                 _wavePause = DefenseRules.WavePause;
                 Emit("defense_wave", _castle.Position, [], $"Oleada {_defenseWave}: {_toSpawn} enemigos");
@@ -83,11 +91,16 @@ public sealed partial class GameWorld
         {
             SpawnMinion();
             if (Options.DefenseFlow == DefenseFlow.Waves) _toSpawn--;
-            _spawnClock = Options.DefenseFlow == DefenseFlow.Continuous
-                ? Math.Max(0.15f, 1.8f / (1 + _defenseDifficulty * 0.12f) / (1 + (_defensePartySize - 1) * 0.4f))
-                : Math.Max(0.1f, 0.65f / (1 + _defenseDifficulty * 0.06f));
+            // Alterna grupos rápidos y descansos irregulares. El ritmo se acelera con la dificultad.
+            float pressure = 1 + (_defenseDifficulty - 1) * 0.09f + (_defensePartySize - 1) * 0.18f;
+            if (_spawnBurstRemaining <= 0) _spawnBurstRemaining = _random.Next(2, Options.DefenseFlow == DefenseFlow.Waves ? 8 : 6);
+            _spawnBurstRemaining--;
+            _spawnClock = _spawnBurstRemaining > 0
+                ? (0.16f + (float)_random.NextDouble() * 0.3f) / pressure
+                : (1.8f + (float)_random.NextDouble() * 3.2f) / pressure;
         }
         foreach (var minion in _minions.Values) TickMinion(minion, dt);
+        TickDefensePassives(dt);
         TickDefenseDrops(dt);
         _auraClock += dt;
         if (_auraClock >= 0.25f) { TickDefenseAuras(_auraClock); _auraClock = 0; }
@@ -98,8 +111,9 @@ public sealed partial class GameWorld
         MinionKind kind = MinionKind.Melee;
         int roll = _random.Next(100);
         if (_defenseDifficulty >= 10 && roll < 10) kind = MinionKind.Captain;
-        else if (_defenseDifficulty >= 7 && roll < 25) kind = MinionKind.Mage;
-        else if (_defenseDifficulty >= 4 && roll < 50) kind = MinionKind.Archer;
+        else if (_defenseDifficulty >= 3 && roll < 24) kind = MinionKind.Tank;
+        else if (_defenseDifficulty >= 7 && roll < 40) kind = MinionKind.Mage;
+        else if (_defenseDifficulty >= 4 && roll < 62) kind = MinionKind.Archer;
         var entrance = DefenseRules.Entrances[_random.Next(DefenseRules.Entrances.Count)];
         V2 at = entrance;
         for (int attempt = 0; attempt < 20; attempt++)
@@ -111,11 +125,11 @@ public sealed partial class GameWorld
                 _minions.Values.All(m => V2.Distance(m.Body.Position, candidate) > 0.8f)) { at = candidate; break; }
         }
         float strength = DefenseRules.EnemyStrength(_defenseDifficulty);
-        float health = (kind == MinionKind.Captain ? 500 : kind == MinionKind.Mage ? 300 : 220) * strength * (1 + (_defensePartySize - 1) * 0.12f);
+        float health = DefenseRules.MinionHealth(kind, _defenseDifficulty, _defensePartySize);
         var body = new Wizard { Id = _nextMinion++, Name = DefenseRules.MinionName(kind), Team = 1, Bot = true,
             Role = CombatantRole.Minion, WizardType = kind == MinionKind.Mage ? WizardType.Pyromancer : WizardType.Balanced,
             Position = at, Health = health, MaxHealth = health, Invulnerable = 0,
-            Equipment = EquipmentModifiers.None with { Speed = 0.5f + Math.Min(0.35f, _defenseDifficulty * 0.012f),
+            Equipment = EquipmentModifiers.None with { Speed = (0.5f + Math.Min(0.35f, _defenseDifficulty * 0.012f)) * (kind == MinionKind.Tank ? 0.65f : 1),
                 Power = strength * (kind == MinionKind.Mage ? 0.22f : 1) } };
         _minions.Add(body.Id, new(body, kind, strength));
         _combatants.Add(body.Id, body); _orderedPlayers.Add(body);
@@ -194,7 +208,7 @@ public sealed partial class GameWorld
                 Velocity = p.Facing * 14, Recipe = recipe, Radius = 0.14f, Power = 0.18f, Lifetime = 1.3f });
             Emit("cast", p.Position, [Element.Earth], "");
         }
-        else Damage(target, minion.Kind == MinionKind.Captain ? 45 : 30, p.Id);
+        else Damage(target, minion.Kind == MinionKind.Tank ? 75 : minion.Kind == MinionKind.Captain ? 45 : 30, p.Id);
     }
 
     private void ThinkDefenseBot(Wizard p, float dt)
@@ -281,7 +295,7 @@ public sealed partial class GameWorld
         if (!IsDefense || _castle == null) return;
         foreach (var minion in _minions.Values) { _combatants.Remove(minion.Body.Id); _orderedPlayers.Remove(minion.Body); }
         _minions.Clear(); _defenseDrops.Clear(); _defenseAccounts.Clear();
-        _defenseWave = _toSpawn = _repairs = _defenseKills = 0; _defenseDifficulty = _defensePartySize = 1;
+        _defenseWave = _toSpawn = _repairs = _defenseKills = _spawnBurstRemaining = 0; _defenseDifficulty = _defensePartySize = 1;
         _defenseElapsed = _spawnClock = _auraClock = 0; _wavePause = DefenseRules.WavePause;
         _castle.Health = _castle.MaxHealth; _castle.Burning = _castle.Wet = _castle.Chill = _castle.Frozen = 0;
         foreach (var player in _players.Values) { _defenders[player.Id] = new(); RecalculateDefender(player); }

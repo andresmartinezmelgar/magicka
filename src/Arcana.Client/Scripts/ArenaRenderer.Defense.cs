@@ -63,12 +63,12 @@ public partial class ArenaRenderer
                 }
                 else
                 {
-                    Godot.Mesh shape = m.Kind == MinionKind.Archer ? new BoxMesh { Size = new(0.95f, 0.7f, 0.95f) }
+                    Godot.Mesh shape = m.Kind == MinionKind.Tank ? new BoxMesh { Size = new(1.6f, 1.45f, 1.6f) } : m.Kind == MinionKind.Archer ? new BoxMesh { Size = new(0.95f, 0.7f, 0.95f) }
                         : new CylinderMesh { TopRadius = m.Kind == MinionKind.Captain ? 0.8f : 0.55f,
                             BottomRadius = m.Kind == MinionKind.Captain ? 0.8f : 0.55f, Height = 0.65f, RadialSegments = 16 };
-                    v.Body = Mesh(root, shape, new(0, 0.5f, 0), MinionColor(m.Kind));
-                    Mesh(root, new BoxMesh { Size = new(1.3f, 0.1f, 0.12f) }, new(0, 1.3f, 0), new("17232d"));
-                    v.Health = Mesh(root, new BoxMesh { Size = new(1.25f, 0.12f, 0.13f) }, new(0, 1.3f, 0.01f), Ui.Red);
+                    v.Body = Mesh(root, shape, new(0, m.Kind == MinionKind.Tank ? 0.8f : 0.5f, 0), MinionColor(m.Kind));
+                    Mesh(root, new BoxMesh { Size = new(1.3f, 0.1f, 0.12f) }, new(0, m.Kind == MinionKind.Tank ? 1.65f : 1.3f, 0), new("17232d"));
+                    v.Health = Mesh(root, new BoxMesh { Size = new(1.25f, 0.12f, 0.13f) }, new(0, m.Kind == MinionKind.Tank ? 1.65f : 1.3f, 0.01f), Ui.Red);
                 }
                 v.Aura = Mesh(root, new TorusMesh { InnerRadius = 0.88f, OuterRadius = 0.97f, Rings = 20, RingSegments = 6 },
                     new(0, 0.06f, 0), Ui.Gold, 0.5f);
@@ -105,20 +105,20 @@ public partial class ArenaRenderer
         {
             var player = snapshot.Players.FirstOrDefault(p => p.Id == defender.PlayerId);
             if (player == null) continue;
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 4; i++)
             {
                 var key = (defender.PlayerId, i);
                 if (!_defenseAuraVisuals.TryGetValue(key, out var aura))
                 {
                     var ring = new TorusMesh { Rings = 48, RingSegments = 5 };
-                    var mesh = Mesh(this, ring, Vector3.Zero, i == 0 ? Ui.ElementColor(Element.Fire) : i == 1 ? Ui.ElementColor(Element.Lightning) : Ui.Health, 0.5f);
+                    var mesh = Mesh(this, ring, Vector3.Zero, i == 0 ? Ui.ElementColor(Element.Fire) : i == 1 ? Ui.ElementColor(Element.Lightning) : i == 2 ? Ui.Health : Ui.Gold, 0.5f);
                     aura = (mesh, ring); _defenseAuraVisuals[key] = aura;
                 }
-                int level = defender.Auras[i];
+                int level = i == 3 ? defender.BerserkerRemaining > 0 ? 1 : 0 : defender.Auras[i];
                 aura.Mesh.Visible = player.Alive && level > 0;
                 if (level > 0)
                 {
-                    float radius = DefenseRules.AuraRadius(level);
+                    float radius = i == 3 ? 1.6f : DefenseRules.AuraRadius(level);
                     if (Math.Abs(aura.Ring.OuterRadius - radius) > 0.01f)
                     { aura.Ring.InnerRadius = radius - 0.08f; aura.Ring.OuterRadius = radius; }
                     aura.Mesh.Position = (_wizards.TryGetValue(player.Id, out var wizard) ? wizard.Position : World(player.Position)) + new Vector3(0, 0.08f + i * 0.03f, 0);
@@ -130,5 +130,5 @@ public partial class ArenaRenderer
     }
 
     private static Color MinionColor(MinionKind kind) => kind switch
-    { MinionKind.Archer => new("d6a36b"), MinionKind.Captain => new("a36de0"), _ => new("db636b") };
+    { MinionKind.Tank => new("5c9d91"), MinionKind.Archer => new("d6a36b"), MinionKind.Captain => new("a36de0"), _ => new("db636b") };
 }
