@@ -84,13 +84,15 @@ internal static class RewardOutboxTests
             Console.WriteLine("PASS Premios pendientes: configuración de Firebase ausente, posterior recuperación y tope de cuatro.");
             var interrupted = Reward(4);
             await File.WriteAllTextAsync(Path.Combine(root, interrupted.Id + ".json.tmp"), Protocol.Serialize(interrupted));
+            await File.WriteAllTextAsync(Path.Combine(root, "broken.json.tmp"), "{}");
             using (var restored = Worker())
             {
                 await restored.StartAsync(CancellationToken.None);
-                await Until(() => repository.Delivered == 4 && !Directory.EnumerateFiles(root, "*.json*").Any());
+                await Until(() => repository.Delivered == 4 && !Directory.EnumerateFiles(root, "*.json").Any() && !Directory.EnumerateFiles(root, "*.json.tmp").Any());
+                Check(File.Exists(Path.Combine(root, "broken.json.tmp.incomplete")), "No conservó el recibo corrupto para revisión.");
                 await restored.StopAsync(CancellationToken.None);
             }
-            Console.WriteLine("PASS Premios pendientes: recupera un cierre entre escribir y renombrar el recibo.");
+            Console.WriteLine("PASS Premios pendientes: recupera una escritura interrumpida y aísla un recibo corrupto sin bloquear premios válidos.");
             Console.WriteLine("REWARD_OUTBOX_OK");
         }
         finally

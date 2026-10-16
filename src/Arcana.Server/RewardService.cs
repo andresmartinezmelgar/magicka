@@ -64,7 +64,7 @@ public sealed class RewardService(AccountService accounts, ILogger<RewardService
                 string file = temporary[..^4];
                 if (File.Exists(file)) File.Delete(temporary); else File.Move(temporary, file);
             }
-            catch (Exception error) when (error is not IOException and not UnauthorizedAccessException)
+            catch (Exception error) when (error is InvalidDataException || error is not IOException and not UnauthorizedAccessException)
             {
                 logger.LogError(error, "Recibo interrumpido conservado para revisión: {File}", Path.GetFileName(temporary));
                 File.Move(temporary, temporary + ".incomplete", overwrite: true);
