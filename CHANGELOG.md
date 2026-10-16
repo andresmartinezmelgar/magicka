@@ -9,6 +9,7 @@
 - Atrás recorre selector, inventario, tienda y combate; la pausa con un solo humano continúa hasta cerrar la tienda.
 - Protocolo 23 para la selección atómica del equipo temporal y validación de propiedad de todas las piezas.
 - Comprobaciones de selector móvil, reapertura, compras, mejoras, ventas y aislamiento del inventario permanente.
+- Empaquetado Windows sin el wrapper de consola que retenía procesos de compilación tras cerrar Godot.
 
 ## 0.18.4 — Base del inventario de main
 

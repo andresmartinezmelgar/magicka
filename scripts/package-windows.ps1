@@ -2,6 +2,14 @@ param([Parameter(Mandatory=$true)][string]$GodotPath, [IO.FileStream]$BuildLease
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $godot = (Resolve-Path -LiteralPath $GodotPath).Path
+# El wrapper _console espera a todos los descendientes, incluidos los servidores de .NET.
+# Usar el editor directamente conserva stdout en Invoke-Tool sin retener ese Job Object.
+# https://github.com/godotengine/godot/issues/110101
+if ($godot -match '_console[.]exe$') {
+    $nativeEditor = $godot -replace '_console[.]exe$', '.exe'
+    if (!(Test-Path -LiteralPath $nativeEditor)) { throw "No se encuentra el editor Godot: $nativeEditor" }
+    $godot = $nativeEditor
+}
 $package = Join-Path $repo 'artifacts/windows'
 . (Join-Path $PSScriptRoot 'build-support.ps1')
 . (Join-Path $PSScriptRoot 'tool-support.ps1')
@@ -10,11 +18,12 @@ $package = Join-Path $repo 'artifacts/windows'
 $ownsLease = $null -eq $BuildLease
 if ($ownsLease) { $BuildLease = Enter-ArcanaBuildLock -RepositoryRoot $repo }
 $locationPushed = $false
-$previousSharedCompilation = $env:UseSharedCompilation
+$previousBuildEnvironment = @{}
+foreach ($buildVariable in @('UseSharedCompilation', 'MSBUILDDISABLENODEREUSE', 'DOTNET_CLI_USE_MSBUILD_SERVER')) {
+    $previousBuildEnvironment[$buildVariable] = [Environment]::GetEnvironmentVariable($buildVariable, 'Process')
+}
 $presetPath = Join-Path $repo 'src/Arcana.Client/export_presets.cfg'
 $presetBackup = $null
-# El wrapper de consola Godot 4.5 espera tambien a sus procesos hijos.
-# El servidor Roslyn persistente puede impedir que termine una exportacion ya completada.
 try {
     Push-Location $repo; $locationPushed = $true
     $buildVersion = Get-ArcanaBuildVersion -RepositoryRoot $repo
@@ -22,6 +31,8 @@ try {
     $presets = Update-ArcanaExportVersion -Presets ([IO.File]::ReadAllText($presetPath)) -Version $buildVersion
     [IO.File]::WriteAllText($presetPath, $presets, (New-Object System.Text.UTF8Encoding($false)))
     $env:UseSharedCompilation = 'false'
+    $env:MSBUILDDISABLENODEREUSE = '1'
+    $env:DOTNET_CLI_USE_MSBUILD_SERVER = '0'
     if (Test-Path $package) { Remove-Item $package -Recurse -Force }
     New-Item -ItemType Directory -Path $package -Force | Out-Null
     dotnet publish src/Arcana.Server -c Release -r win-x64 --self-contained true -p:DebugSymbols=false -p:DebugType=None -o "$package/server" --nologo
@@ -64,7 +75,9 @@ try {
 } finally {
     try {
         if ($null -ne $presetBackup) { [IO.File]::WriteAllBytes($presetPath, $presetBackup) }
-        $env:UseSharedCompilation = $previousSharedCompilation
+        foreach ($buildVariable in $previousBuildEnvironment.Keys) {
+            [Environment]::SetEnvironmentVariable($buildVariable, $previousBuildEnvironment[$buildVariable], 'Process')
+        }
         if ($locationPushed) { Pop-Location }
     }
     finally { if ($ownsLease) { Exit-ArcanaBuildLock -Lease $BuildLease } }
