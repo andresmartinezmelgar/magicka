@@ -75,6 +75,19 @@ public partial class ArenaRenderer
             foreach (var group in initial.Pickups.Chunk(4))
                 yield return ("Preparando las reliquias…", () => DrawLoadingView(empty with
                 { Pickups = group.Select((p, i) => p with { Position = center + new V2(i * 2 - 3, 0) }).ToArray() }, center));
+        if (initial.Defense is { } defense)
+        {
+            var drops = new List<DefenseDropSnapshot>
+            { new(7000, 0, center, DefenseDropKind.Gold, 10, default, null, null) };
+            foreach (var slot in Enum.GetValues<EquipmentSlot>())
+                drops.Add(new(7001 + (int)slot, 0, center + new V2((int)slot * 2 - 3, -2),
+                    DefenseDropKind.Equipment, 0, default, slot, ItemTier.Gold));
+            foreach (var buff in Enum.GetValues<BuffKind>())
+                drops.Add(new(7010 + (int)buff, 0, center + new V2((int)buff * 2 - 6, 2),
+                    DefenseDropKind.Relic, 0, buff, null, null));
+            yield return ("Preparando el botín…", () => DrawLoadingView(empty with
+                { Defense = defense with { Minions = [], Drops = drops.ToArray() } }, center));
+        }
         yield return ("Preparando la partida…", Clear);
     }
 

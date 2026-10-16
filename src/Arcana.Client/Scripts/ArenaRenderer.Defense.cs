@@ -12,9 +12,10 @@ public partial class ArenaRenderer
         public WizardVisual? Mage;
     }
     private readonly Dictionary<int, MinionVisual> _minionVisuals = [];
-    private readonly Dictionary<int, Node3D> _defenseLootVisuals = [];
+    private readonly Dictionary<int, DefenseLootVisual> _defenseLootVisuals = [];
     private readonly Dictionary<(int Player, int Aura), (MeshInstance3D Mesh, TorusMesh Ring)> _defenseAuraVisuals = [];
     internal int DefenseMinionVisualCount => _minionVisuals.Count;
+    internal IReadOnlyDictionary<int, DefenseLootVisual> DefenseLootVisuals => _defenseLootVisuals;
     private Node3D? _castleVisual;
     private Label3D? _castleLabel;
 
@@ -91,15 +92,15 @@ public partial class ArenaRenderer
             if (drop.OwnerId != 0 && drop.OwnerId != localId) continue;
             if (!_defenseLootVisuals.TryGetValue(drop.Id, out var visual))
             {
-                visual = new Node3D { Name = "DefenseDrop" + drop.Id, Position = World(drop.Position) + new Vector3(0, 0.35f, 0) }; AddChild(visual);
-                var color = drop.Kind == DefenseDropKind.Gold ? Ui.Gold : drop.Kind == DefenseDropKind.Relic ? RelicVisual.ColorFor(drop.Buff) : new Color("b6a1ff");
-                Mesh(visual, drop.Kind == DefenseDropKind.Gold ? new CylinderMesh { TopRadius = 0.22f, BottomRadius = 0.22f, Height = 0.15f }
-                    : new BoxMesh { Size = new(0.45f, 0.45f, 0.45f) }, Vector3.Zero, color, 0.6f);
+                visual = new DefenseLootVisual(); AddChild(visual);
+                var color = drop.Kind == DefenseDropKind.Gold ? Ui.Gold : drop.Kind == DefenseDropKind.Relic ? RelicVisual.ColorFor(drop.Buff)
+                    : EquipmentPanel.TierColor(drop.Tier ?? ItemTier.Silver);
+                visual.Build(drop, Material(color, 0.2f, true), Material(new("edba49"), 0.2f));
                 _defenseLootVisuals[drop.Id] = visual;
             }
-            visual.Rotation = new(0, (float)_time, 0);
+            visual.Update(_time);
         }
-        foreach (int id in _defenseLootVisuals.Keys.Where(id => !defense.Drops.Any(d => d.Id == id)).ToArray())
+        foreach (int id in _defenseLootVisuals.Keys.Where(id => !defense.Drops.Any(d => d.Id == id && (d.OwnerId == 0 || d.OwnerId == localId))).ToArray())
         { _defenseLootVisuals[id].QueueFree(); _defenseLootVisuals.Remove(id); }
         foreach (var defender in defense.Defenders)
         {

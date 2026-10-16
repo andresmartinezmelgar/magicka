@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.18.3 — Botín reconocible
+
+- Moneda pequeña con canto y grabados en ambas caras, girando sobre su eje vertical.
+- Botas, gorro, pechera y bastón con sprites propios; halo según la calidad del equipo.
+- Espada para potencia, escudo para protección, hoja con flecha para regeneración, corazón para vitalidad, ala para agilidad, rayo para energía y cruz para sanación.
+- Símbolos orientados a cámara, contornos y flotación suave; atlas y mallas compartidos.
+- Capturas de todas las recogidas en móvil y escritorio, giro de moneda y comprobación de privacidad y retirada.
+
 ## 0.18.2 — Inicio proporcional y bots distribuidos
 
 - Vida inicial de minions normales de 340 a 442 entre uno y cuatro defensores; el grupo aumenta sobre todo la cantidad.

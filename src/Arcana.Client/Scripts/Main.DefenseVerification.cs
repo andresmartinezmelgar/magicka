@@ -50,6 +50,7 @@ public partial class Main
     private bool CheckDefenseSmoke()
     {
         if (!_defenseSmoke || Loading || !_playing) return false;
+        if (_defenseLootReview != null) return CheckDefenseLootReview();
         try
         {
             if (++_defenseSmokeFrame < 45) return false;
@@ -111,8 +112,7 @@ public partial class Main
                 CaptureDefense("05-bonificaciones"); panel.CloseShop();
                 Check(!panel.ShopOpen && !_practice.DefensePaused && (!Ui.IsMobile || _touch?.Visible == true), "No se recuperaron combate y controles.");
                 Check(_engineLog.ErrorCount == 0, "Godot registró errores en defensa.");
-                GD.Print("DEFENSE_SMOKE_OK: mapa, tanques, pausa con bots, cuatro pestañas, compra de aura y habilidad, inventario y controles.");
-                GetTree().Quit(); return true;
+                StartDefenseLootReview(state); return true;
             }
         }
         catch (Exception error)

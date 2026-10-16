@@ -1,6 +1,6 @@
 # Defensa del bastión — primera versión experimental
 
-Versión **0.18.2**, protocolo **22**, rama `feature/defensa-oleadas`. Esta rama se mantiene independiente de `main`. Las compilaciones verificadas se publican como versiones preliminares con APK directa. Las dos cuentas autorizadas reciben estas versiones mediante el actualizador; el resto conserva el canal estable. Véase [Canales de actualización](CANALES-ACTUALIZACION.md).
+Versión **0.18.3**, protocolo **22**, rama `feature/defensa-oleadas`. Esta rama se mantiene independiente de `main`. Las compilaciones verificadas se publican como versiones preliminares con APK directa. Las dos cuentas autorizadas reciben estas versiones mediante el actualizador; el resto conserva el canal estable. Véase [Canales de actualización](CANALES-ACTUALIZACION.md).
 
 ## Entrar en el modo
 
@@ -68,6 +68,8 @@ Probabilidades iniciales por minion derrotado:
 | Reliquia pasiva | 2 % por defensor | Recogida asignada; sus acumulaciones duran la partida. |
 
 Las piezas utilizan las cuatro posiciones del equipo existente y permiten comparar sus atributos con la pieza equipada. Hay espacio para 24 piezas temporales. Un inventario lleno convierte nuevas piezas recogidas en oro de esa partida. El botín del suelo desaparece a los 75 segundos y hay un límite de 96 recogidas activas.
+
+El oro aparece como una moneda pequeña, con canto y dos caras grabadas, que gira sobre su eje vertical. El equipo muestra botas, gorro, pechera o bastón, con un halo del color de su calidad. Las mejoras muestran espada (potencia), escudo (protección), hoja con flecha (regeneración), corazón (vitalidad), ala (agilidad), rayo (energía) o cruz (sanación). Sus símbolos miran a cámara para poder reconocerlos durante el combate y flotan suavemente sobre el suelo.
 
 La tienda ofrece una pieza aleatoria por 100 de oro. Cada mejora de una pieza suma un punto porcentual a cada atributo hasta su máximo original, con hasta diez mejoras. Su precio es `35 × (mejoras previas + 1)`. Vender una pieza devuelve su valor en oro temporal.
 

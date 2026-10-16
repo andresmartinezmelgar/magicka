@@ -149,7 +149,7 @@ jobs:
           set -euo pipefail
           bash scripts/test-client-smoke.sh equipment-smoke "$ARCANA_GODOT"
           bash scripts/test-client-smoke.sh equipment-public-smoke "$ARCANA_GODOT"
-      - name: Verificar Defensa en escritorio y móvil y capturar tienda e inventario
+      - name: Verificar Defensa en escritorio y móvil y capturar tienda, inventario y botín
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
         run: |

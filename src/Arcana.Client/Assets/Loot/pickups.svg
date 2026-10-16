@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="256" viewBox="0 0 768 256">
+  <defs>
+    <linearGradient id="steel" x1="0" y1="0" x2="0.8" y2="1"><stop stop-color="#f4fbff"/><stop offset="0.45" stop-color="#a8c7df"/><stop offset="1" stop-color="#4d6b89"/></linearGradient>
+    <linearGradient id="leather" x1="0" y1="0" x2="0.8" y2="1"><stop stop-color="#ba8455"/><stop offset="1" stop-color="#694334"/></linearGradient>
+    <linearGradient id="cloth" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#c2a2fa"/><stop offset="0.5" stop-color="#8960c5"/><stop offset="1" stop-color="#493d79"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0.7" y2="1"><stop stop-color="#fff2a5"/><stop offset="0.48" stop-color="#ffcf57"/><stop offset="1" stop-color="#b97920"/></linearGradient>
+    <linearGradient id="heart" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffbdce"/><stop offset="0.4" stop-color="#ff678d"/><stop offset="1" stop-color="#c93269"/></linearGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#c2ffd7"/><stop offset="0.45" stop-color="#69e9a0"/><stop offset="1" stop-color="#238a6e"/></linearGradient>
+    <linearGradient id="energy" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f8d9ff"/><stop offset="0.4" stop-color="#cd91ff"/><stop offset="1" stop-color="#8253db"/></linearGradient>
+  </defs>
+  <!-- Botas: dos cañas, punteras y suelas; sin placa de fondo. -->
+  <g stroke="#111c30" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">
+    <g>
+      <path d="M24 25 54 23 55 72 66 82 65 101 19 101 18 85 27 72Z" fill="url(#leather)"/>
+      <path d="M72 24 101 27 99 73 115 84 115 103 68 103 66 85 74 73Z" fill="url(#leather)"/>
+      <path d="M24 25 54 23 54 37 25 39ZM72 24 101 27 100 41 73 39Z" fill="url(#steel)"/>
+      <path d="M19 91 65 91 65 103 19 103ZM68 93 115 93 115 105 68 105Z" fill="#384755"/>
+      <path d="M27 73 48 73 57 84 24 84ZM75 74 95 75 108 86 72 86Z" fill="url(#steel)"/>
+      <path d="M35 48 45 48M35 59 45 59M82 49 92 50M82 60 92 61" stroke="#efc58a" stroke-width="4"/>
+    </g>
+    <!-- Gorro de mago. -->
+    <g transform="translate(128)">
+      <path d="M39 83 49 43 66 13 80 24 89 27 78 32 89 83Z" fill="url(#cloth)"/>
+      <path d="M47 68 84 66 89 82 42 84Z" fill="#e4b86c"/>
+      <path d="M17 87Q61 68 107 87L111 97Q65 117 17 98Z" fill="url(#cloth)"/>
+      <path d="M53 40 64 24 70 29M28 91Q47 84 65 85" stroke="#e2ceff" stroke-width="4" fill="none"/>
+      <path d="M62 69 76 69 76 81 62 81Z" fill="#fff0ac" stroke-width="3"/>
+    </g>
+    <!-- Pechera con cuello, hombreras y placas. -->
+    <g transform="translate(256)">
+      <path d="M37 25 50 22Q64 42 78 22L91 25 105 51 94 61 89 100Q64 111 39 100L34 61 23 51Z" fill="url(#steel)"/>
+      <path d="M37 25 24 31 15 53 34 62 46 44ZM91 25 104 31 113 53 94 62 82 44Z" fill="url(#steel)"/>
+      <path d="M50 23Q64 43 78 23M64 43 64 94M42 75Q64 87 86 75M41 96Q64 103 87 96" fill="none" stroke="#46647e" stroke-width="4"/>
+      <path d="M50 43 42 60M85 41 92 52M31 35 23 49" stroke="#f1fcff" stroke-width="5" fill="none"/>
+      <path d="M64 51 74 63 64 74 54 63Z" fill="#70d9f3" stroke-width="3"/>
+    </g>
+    <!-- Bastón inclinado con cristal y abrazadera. -->
+    <g transform="translate(384)">
+      <path d="M32 104 21 96 76 34 85 42Z" fill="url(#leather)"/>
+      <path d="M22 96 30 101M41 77 49 83M59 56 67 62" stroke="#efc58a" stroke-width="5"/>
+      <path d="M74 51 63 35 76 12 100 15 111 38 95 55Z" fill="#6be1f8"/>
+      <path d="M76 12 81 37 63 35M81 37 100 15M81 37 95 55 111 38Z" fill="#c0f7ff" stroke="#3188b0" stroke-width="3"/>
+      <path d="M66 44 81 58 94 53 78 40Z" fill="url(#gold)"/>
+      <path d="M43 23 43 35M37 29 49 29" stroke="#e3faff" stroke-width="4"/>
+    </g>
+    <!-- Potencia: espada de hoja ancha. -->
+    <g transform="translate(512)">
+      <path d="M48 74 34 62 79 17 109 13 105 43 61 88Z" fill="#ffb08b"/>
+      <path d="M44 67 98 24 58 79Z" fill="#ffe3bd" stroke="none"/>
+      <path d="M24 83 44 61 67 83 56 95 43 83 30 96Z" fill="url(#gold)"/>
+      <path d="M22 109 12 99 34 77 45 88Z" fill="#a65b58"/>
+      <path d="M16 99 22 105" stroke="#ffd28a" stroke-width="5"/>
+      <path d="M77 66 98 60M85 82 105 83" stroke="#ff865d" stroke-width="5" fill="none"/>
+    </g>
+    <!-- Protección: escudo, no una segunda pechera. -->
+    <g transform="translate(640)">
+      <path d="M64 13 108 29 103 73Q95 97 64 115 32 97 25 73L20 29Z" fill="url(#gold)"/>
+      <path d="M64 26 94 37 90 69Q85 87 64 100 43 87 38 69L34 37Z" fill="#4c88b3" stroke-width="4"/>
+      <path d="M64 29 64 96M39 53 90 53" stroke="#dff6ff" stroke-width="7"/>
+      <path d="M31 33 29 48" stroke="#fff4b8" stroke-width="4" fill="none"/>
+    </g>
+    <!-- Regeneración: hoja y flecha de renovación. -->
+    <g transform="translate(0 128)">
+      <path d="M39 73Q24 35 80 24 93 69 62 84Z" fill="url(#green)"/>
+      <path d="M43 91 69 44M52 72 47 55M58 60 74 58" stroke="#e1ffe9" stroke-width="5" fill="none"/>
+      <path d="M24 60Q11 99 58 108 97 116 109 76" stroke="#111c30" stroke-width="16" fill="none"/>
+      <path d="M24 60Q11 99 58 108 97 116 109 76" stroke="#7bf3ae" stroke-width="8" fill="none"/>
+      <path d="M94 73 112 60 117 83Z" fill="#afffd0"/>
+    </g>
+    <!-- Vitalidad: corazón. -->
+    <g transform="translate(128 128)">
+      <path d="M64 109 23 71C-5 42 25 5 51 28L64 40 77 28C104 5 132 42 105 71Z" fill="url(#heart)"/>
+      <path d="M24 49Q22 32 39 32" stroke="#ffe6ef" stroke-width="7" fill="none"/>
+      <path d="M34 70 50 70 58 53 68 84 76 69 94 69" stroke="#fff1f6" stroke-width="6" fill="none"/>
+    </g>
+    <!-- Agilidad: ala y trazos de velocidad. -->
+    <g transform="translate(256 128)">
+      <path d="M31 88Q48 31 111 20L95 46 74 54 96 53 81 73 63 77 78 78 65 94 46 101Z" fill="#71ddf6"/>
+      <path d="M43 85Q59 54 87 41" stroke="#d6fbff" stroke-width="6" fill="none"/>
+      <path d="M13 52 36 52M10 69 28 69M9 87 22 87" stroke="#94eaff" stroke-width="7" fill="none"/>
+    </g>
+    <!-- Energía: rayo. -->
+    <g transform="translate(384 128)">
+      <path d="M68 12 30 69 57 69 45 116 103 49 74 49 91 12Z" fill="url(#energy)"/>
+      <path d="M71 23 46 60 66 60 56 92 87 57" fill="none" stroke="#f9e9ff" stroke-width="5"/>
+      <path d="M22 28 29 38M101 85 111 91" stroke="#c9a8ff" stroke-width="5" fill="none"/>
+    </g>
+    <!-- Sanación: cruz luminosa. -->
+    <g transform="translate(512 128)">
+      <path d="M46 16 82 16 82 46 112 46 112 82 82 82 82 112 46 112 46 82 16 82 16 46 46 46Z" fill="url(#green)"/>
+      <path d="M56 28 72 28 72 56 100 56 100 72 72 72 72 100 56 100 56 72 28 72 28 56 56 56Z" fill="#e5fff2" stroke="none"/>
+    </g>
+    <!-- Las dos caras de la moneda usan este grabado. -->
+    <g transform="translate(640 128)">
+      <circle cx="64" cy="64" r="55" fill="url(#gold)" stroke="#75491d" stroke-width="5"/>
+      <circle cx="64" cy="64" r="44" fill="none" stroke="#fff1a3" stroke-width="5"/>
+      <path d="M64 29 74 52 97 64 74 75 64 99 53 75 31 64 53 52Z" fill="#b87420" stroke="#965d20" stroke-width="2"/>
+      <path d="M64 37 70 57 87 64 64 69 57 87 58 67 42 64 59 58Z" fill="#fff3b0" stroke="none"/>
+      <path d="M28 44 34 34M90 91 98 81" stroke="#fff6c8" stroke-width="4" fill="none"/>
+    </g>
+  </g>
+</svg>
