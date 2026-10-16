@@ -173,7 +173,7 @@ public partial class EquipmentPanel : Control
         foreach (var tab in new[] { _optionAItemsTab, _optionAStatsTab })
             if (tab != null)
             {
-                tab.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+                tab.AutowrapMode = TextServer.AutowrapMode.Off;
                 tab.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? viewportWidth < 700 ? 18 : 21 : 17);
             }
         var profileParent = compact ? _equipmentToolbar : _equipmentHeading;
