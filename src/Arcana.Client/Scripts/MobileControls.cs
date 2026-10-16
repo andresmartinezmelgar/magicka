@@ -10,6 +10,8 @@ public partial class MobileControls : Control
     private readonly List<TouchAction> _actions = [];
     private readonly Dictionary<int, TouchAction> _pressed = [];
     private readonly List<TouchAction> _magicks = [];
+    private readonly List<TouchAction> _utilities = [];
+    private TouchAction _self = null!, _nova = null!;
     private int _moveFinger = -1, _aimFinger = -1;
     private Vector2 _move, _aim = Vector2.Right, _aimKnob;
     private Vector2 _moveCenter, _moveHome, _aimCenter;
@@ -41,15 +43,13 @@ public partial class MobileControls : Control
             action.Panel.Name = "TouchElement" + element;
             action.Text.AddThemeFontSizeOverride("font_size", 22);
         }
-        AddButton("Vaciar", new() { Type = "clear" });
-        AddButton("Bastón", new() { Type = "melee" });
-        AddButton("Sobre ti", new() { Type = "self" }, color: Ui.Health);
-        AddButton("Área", new() { Type = "nova" }, color: Ui.Gold);
+        _self = AddButton("Sobre mí", new() { Type = "self" }, color: Ui.Health); _self.Panel.Name = "TouchSelf";
+        _nova = AddButton("En área", new() { Type = "nova" }, color: Ui.Gold); _nova.Panel.Name = "TouchNova";
         for (int i = 0; i < SpellBalance.Magicks.Count; i++)
             _magicks.Add(AddButton(SpellBalance.Magicks[i].Name, new() { Type = "magick", Slot = i }, color: Ui.Gold));
-        AddButton("Ayuda", run: () => HelpRequested?.Invoke());
-        AddButton("Tabla", run: () => ScoreRequested?.Invoke());
-        AddButton("Menú", run: () => MenuRequested?.Invoke());
+        _utilities.Add(AddButton("Ayuda", run: () => HelpRequested?.Invoke()));
+        _utilities.Add(AddButton("Tabla", run: () => ScoreRequested?.Invoke()));
+        _utilities.Add(AddButton("Menú", run: () => MenuRequested?.Invoke()));
         Resized += Layout; Layout();
     }
     private TouchAction AddButton(string title, ClientMessage? message = null, Action? run = null, Color? color = null, Element? element = null)
@@ -88,28 +88,27 @@ public partial class MobileControls : Control
             if (_moveFinger < 0) _moveCenter = _moveHome;
             _aimCenter = new(width - 142 * s, height - 125 * s);
             for (int i = 0; i < 8; i++) Place(i, new(width - (246 - i % 2 * 116) * s, height - (572 - i / 2 * 80) * s), new(108 * s, 72 * s));
-            for (int i = 0; i < 4; i++)
-            {
-                Place(8 + i, new(width / 2 - (244 - i * 124) * s, height - 170 * s), new(120 * s, 62 * s));
-                Place(12 + i, new(width / 2 - (244 - i * 124) * s, height - 90 * s), new(120 * s, 72 * s));
-            }
-            for (int i = 0; i < 3; i++) Place(16 + i, new(width - (382 - i * 124) * s, 22 * s), new(118 * s, 62 * s));
+            Place(_self, new(330 * s, height - 302 * s), new(120 * s, 62 * s));
+            Place(_nova, new(330 * s, height - 232 * s), new(120 * s, 62 * s));
+            for (int i = 0; i < _magicks.Count; i++)
+                Place(_magicks[i], new(width / 2 - (244 - i * 124) * s, height - 90 * s), new(120 * s, 72 * s));
+            for (int i = 0; i < _utilities.Count; i++) Place(_utilities[i], new(width - (382 - i * 124) * s, 22 * s), new(118 * s, 62 * s));
             QueueRedraw(); return;
         }
         _moveHome = new(142, height - 125);
         if (_moveFinger < 0) _moveCenter = _moveHome;
         _aimCenter = new(width - 142, height - 125);
         for (int i = 0; i < 8; i++) Place(i, new(width - 246 + i % 2 * 116, height - 572 + i / 2 * 80), new(108, 72));
-        Place(8, new(251, height - 148), new(118, 62));
-        Place(9, new(251, height - 80), new(118, 62));
-        Place(10, new(width - 369, height - 148), new(118, 62));
-        Place(11, new(width - 369, height - 80), new(118, 62));
-        for (int i = 0; i < 4; i++) Place(12 + i, new(width / 2 - 244 + i * 124, height - 90), new(120, 72));
-        for (int i = 0; i < 3; i++) Place(16 + i, new(width - 382 + i * 124, 22), new(118, 62));
+        Place(_self, new(width - 369, height - 148), new(118, 62));
+        Place(_nova, new(width - 369, height - 80), new(118, 62));
+        for (int i = 0; i < _magicks.Count; i++) Place(_magicks[i], new(width / 2 - 244 + i * 124, height - 90), new(120, 72));
+        for (int i = 0; i < _utilities.Count; i++) Place(_utilities[i], new(width - 382 + i * 124, 22), new(118, 62));
         QueueRedraw();
     }
     private void Place(int index, Vector2 position, Vector2 size)
-    { _actions[index].Panel.Position = position; _actions[index].Panel.Size = size; }
+        => Place(_actions[index], position, size);
+    private static void Place(TouchAction action, Vector2 position, Vector2 size)
+    { action.Panel.Position = position; action.Panel.Size = size; }
     public void Reset()
     {
         _moveFinger = _aimFinger = -1; _move = _aimKnob = Vector2.Zero; _moveCenter = _moveHome;

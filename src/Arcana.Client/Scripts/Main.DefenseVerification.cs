@@ -71,6 +71,13 @@ public partial class Main
                 if (_touch != null)
                 {
                     var rectangles = _touch.ButtonRectanglesForVerification;
+                    Check(rectangles.Length == 17 && !_touch.FindChildren("*", "Label", true, false).OfType<Label>().Any(l => l.Text is "Bastón" or "Vaciar"),
+                        "Siguen presentes los botones retirados.");
+                    foreach (string name in new[] { "TouchSelf", "TouchNova" })
+                    {
+                        var action = ((Control)_touch.FindChild(name, true, false)).GetGlobalRect();
+                        Check(action.End.X < GetViewport().GetVisibleRect().Size.X / 2, "Sobre mí o En área no están en la izquierda.");
+                    }
                     foreach (var buttonRect in rectangles)
                     {
                         Check(GetViewport().GetVisibleRect().Encloses(buttonRect), "Un botón táctil desborda la pantalla: " + buttonRect);
@@ -119,11 +126,11 @@ public partial class Main
                 var inventory = panel.EquipmentInventory!;
                 Check(inventory is { TemporaryInventory: true, VisibleItems: 8 } &&
                     inventory.FindChild("ResponsiveMenuShell", true, false) == null, "Defensa no utiliza el inventario compartido de partida.");
-                Button Tab(string text) => inventory.FindChildren("*", "Button", true, false).OfType<Button>().Single(b => b.Text.Contains(text));
+                Button Tab(string name) => (Button)inventory.FindChild(name, true, false);
                 if (_defenseTotalsReview == 0)
                 {
                     CaptureDefense("04-inventario");
-                    Tab("SUMA DE BONIFICACIONES").EmitSignal(Button.SignalName.Pressed);
+                    Tab("EquipmentTotalsTab").EmitSignal(Button.SignalName.Pressed);
                     _defenseTotalsReview = 1; return false;
                 }
                 if (_defenseTotalsReview == 1)
@@ -132,7 +139,7 @@ public partial class Main
                     Check(new[] { "Botas", "Gorro", "Pecho", "Arma", "Suma", "Aplicado" }.All(inventory.Totals.Contains),
                         "El inventario temporal no muestra las cuatro aportaciones y el total.");
                     CaptureDefense("04-desglose-equipo");
-                    Tab("OBJETOS Y EQUIPACIÓN").EmitSignal(Button.SignalName.Pressed);
+                    Tab("EquipmentItemsTab").EmitSignal(Button.SignalName.Pressed);
                     _defenseTotalsReview = 2; return false;
                 }
                 inventory.PressInspect(EquipmentSlot.Chest); _defenseSmokePhase++; return false;
@@ -190,9 +197,18 @@ public partial class Main
                 Check(player.Items.Length == 9 && player.Gold == 1145 && panel.EquipmentInventory?.Saving == false,
                     "Comprar una pieza no actualizó el inventario y el oro de partida.");
                 var inventory = panel.EquipmentInventory!;
-                _defenseSoldItem = inventory.PreviewProfile!.Loadout.Boots;
+                inventory.PressInspect(EquipmentSlot.Boots);
+                _defenseSoldItem = player.Items.First(i => !i.Equipped && i.Item.Slot == EquipmentSlot.Boots).Item.Id;
                 _defenseGoldAfterSale = player.Gold + player.Items.Single(i => i.Item.Id == _defenseSoldItem).Item.SaleGold;
-                ((Button)inventory.FindChild("EquipmentSellButton", true, false)).EmitSignal(Button.SignalName.Pressed);
+                Check(inventory.FindChild("EquipmentSellButton", true, false) == null, "Sigue presente el botón de venta anterior.");
+                inventory.PressTrash(_defenseSoldItem);
+                Check(inventory.PreviewProfile!.Loadout == _defenseChosenLoadout &&
+                    _practice!.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId).Items.Length == 9,
+                    "La papelera equipa o vende antes de confirmar.");
+                inventory.HandleBack();
+                Check(inventory.PickerVisible && !inventory.GetChildren().OfType<ConfirmationDialog>().Single().Visible,
+                    "Cancelar la venta cierra el selector.");
+                inventory.PressTrash(_defenseSoldItem);
                 inventory.GetChildren().OfType<ConfirmationDialog>().Single().EmitSignal(ConfirmationDialog.SignalName.Confirmed);
                 _defenseSmokePhase++; return false;
             }
@@ -201,10 +217,14 @@ public partial class Main
                 var player = state.Defense!.Defenders.Single(p => p.PlayerId == _localId);
                 Check(player.Items.Length == 8 && player.Items.All(i => i.Item.Id != _defenseSoldItem) && player.Gold == _defenseGoldAfterSale &&
                     panel.EquipmentInventory?.Saving == false, "Vender una pieza no actualizó el equipo temporal.");
+                Check(panel.EquipmentInventory!.PickerVisible && !panel.EquipmentInventory.PickerItems.Contains(_defenseSoldItem) &&
+                    panel.EquipmentInventory.PreviewProfile!.Loadout == _defenseChosenLoadout,
+                    "La venta no actualiza el selector o modifica la selección de equipo.");
                 Check(Protocol.Serialize(Accounts.Profile) == _defenseAccountBefore &&
                     (System.IO.File.Exists(AccountCache) ? System.IO.File.ReadAllText(AccountCache) : "") == _defenseCacheBefore,
                     "El inventario temporal modificó la cuenta o su caché permanente.");
-                panel.HandleBack(); panel.ShowSection(3); _defenseSmokePhase++; return false;
+                panel.EquipmentInventory.GetChildren().OfType<ConfirmationDialog>().Single().Hide();
+                panel.HandleBack(); panel.HandleBack(); panel.ShowSection(3); _defenseSmokePhase++; return false;
             }
             if (_defenseSmokePhase == 10)
             {

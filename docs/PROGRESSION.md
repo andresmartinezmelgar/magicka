@@ -136,3 +136,5 @@ Las comprobaciones cubren premios concurrentes, venta repetida, precisión de or
 ### Desglose de bonificaciones
 
 La suma de bonificaciones presenta botas, gorro, pecho y arma por separado, seguidos por el bono de conjunto, la suma y el valor aplicado tras los límites. Solo cuentan las piezas equipadas; las penalizaciones conservan su signo y las posiciones vacías aparecen con una raya. En móvil se muestran las mismas aportaciones dentro de cada atributo. Defensa añade el total efectivo de la partida después del desglose del equipo, conservando por separado los efectos de nivel, reliquias y poderes.
+
+Las papeleras de cada tarjeta del selector venden la pieza indicada tras confirmarla, sin tener que equiparla. La venta no aplica otras selecciones provisionales y conserva el selector abierto.

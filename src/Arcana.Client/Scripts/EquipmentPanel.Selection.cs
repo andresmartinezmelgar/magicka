@@ -6,11 +6,13 @@ namespace Arcana.Client;
 public partial class EquipmentPanel
 {
     private Control _itemPicker = null!;
-    private Label _pickerTitle = null!, _pickerHelp = null!, _pickerEmpty = null!;
+    private Label _pickerTitle = null!, _pickerHelp = null!, _pickerEmpty = null!, _pickerStatus = null!;
     private ContentScrollContainer _pickerScroll = null!;
     private GridContainer _pickerGrid = null!;
     private Button _unequip = null!;
     private readonly Dictionary<string, Button> _itemButtons = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Button> _trashButtons = new(StringComparer.Ordinal);
+    private static Texture2D? _trashIcon;
     internal bool PickerVisible => _itemPicker.Visible;
     internal int PickerColumns => _pickerGrid.Columns;
     internal string[] PickerItems => _itemButtons.Keys.ToArray();
@@ -36,6 +38,8 @@ public partial class EquipmentPanel
         close.CustomMinimumSize = new(0, Ui.IsMobile ? 60 : 48); heading.AddChild(close);
         _pickerHelp = Ui.Label("", Ui.IsMobile ? 17 : 16, Ui.Muted);
         _pickerHelp.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_pickerHelp);
+        _pickerStatus = Ui.Label("", 16, Ui.Gold); _pickerStatus.Name = "EquipmentPickerStatus";
+        _pickerStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart; _pickerStatus.Visible = false; box.AddChild(_pickerStatus);
         _pickerScroll = new ContentScrollContainer { Name = "EquipmentPickerScroll",
             SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
@@ -55,37 +59,77 @@ public partial class EquipmentPanel
     {
         if (_busy) return;
         _selectedSlot = slot; Render();
-        _itemButtons.Clear(); Clear(_pickerGrid);
+        _itemButtons.Clear(); _trashButtons.Clear(); Clear(_pickerGrid);
         var choices = Choices(slot);
         string equipped = _draft?.Loadout.Get(slot) ?? "";
         _pickerTitle.Text = EquipmentCatalogue.SlotName(slot).ToUpperInvariant() + $" · {choices.Length} objetos";
-        _pickerHelp.Text = "De mayor a menor calidad: Mítico, Diamante, Platino, Oro y Plata. Pulsa una pieza para equiparla y ver sus detalles.";
+        _pickerHelp.Text = "De mayor a menor calidad: Mítico, Diamante, Platino, Oro y Plata. Pulsa una pieza para equiparla; usa su papelera para venderla.";
         foreach (var item in choices)
         {
             bool selected = item.Id == equipped;
             string title = EquipmentCatalogue.TierName(item.Tier) + " · " + EquipmentCatalogue.FamilyName(item.Family);
+            var card = new PanelContainer { Name = "EquipmentCard_" + item.Id, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            var style = Ui.Panel(new Color(selected ? "185184" : "122743"), 8, selected ? Ui.Gold : TierColor(item.Tier));
+            style.ContentMarginLeft = style.ContentMarginRight = 10;
+            style.ContentMarginTop = style.ContentMarginBottom = 10;
+            card.AddThemeStyleboxOverride("panel", style); _pickerGrid.AddChild(card);
+            var content = new VBoxContainer(); content.AddThemeConstantOverride("separation", 8); card.AddChild(content);
+            var heading = new HBoxContainer(); heading.AddThemeConstantOverride("separation", 8); content.AddChild(heading);
+            var label = Ui.Label(title, Ui.IsMobile ? 18 : 17, selected ? Ui.Gold : TierColor(item.Tier));
+            label.AutowrapMode = TextServer.AutowrapMode.WordSmart; label.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            label.MouseFilter = MouseFilterEnum.Ignore; heading.AddChild(label);
+            var sale = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ShrinkEnd }; heading.AddChild(sale);
+            var trash = Ui.Button("", () => ConfirmSale(item.Id));
+            trash.Name = "EquipmentTrash_" + item.Id;
+            trash.SetMeta("sale_item_id", item.Id);
+            _trashIcon ??= GD.Load<Texture2D>("res://Assets/Inventory/trash.svg");
+            trash.Icon = _trashIcon; trash.ExpandIcon = true; trash.AddThemeConstantOverride("icon_max_width", 25);
+            trash.AddThemeColorOverride("icon_normal_color", Ui.Red);
+            trash.CustomMinimumSize = new(Ui.IsMobile ? 56 : 48, Ui.IsMobile ? 56 : 48);
+            trash.TooltipText = $"Vender esta pieza por {item.SaleGold} oro" +
+                (_defensePlayer != null ? " de esta partida." : ".") +
+                (!CanSellInventory ? " La venta requiere iniciar sesión y disponer del servicio de ventas." : "");
+            sale.AddChild(trash); _trashButtons.Add(item.Id, trash);
+            var price = Ui.Label($"+{item.SaleGold} oro", 14, Ui.Gold); price.HorizontalAlignment = HorizontalAlignment.Center;
+            sale.AddChild(price);
             string attributes = string.Join("\n", item.Bonuses.Select(b => StatName(b.Stat) + " " + EquipmentCatalogue.Percent(b.Current)));
-            var button = Ui.Button(title + "\n" + attributes + "\n" + (selected ? "EQUIPADA" : "Ver y equipar"), () => ChooseItem(item.Id));
+            var button = Ui.Button(attributes + "\n" + (selected ? "EQUIPADA" : "Ver y equipar"), () => ChooseItem(item.Id));
             button.Name = "EquipmentItem_" + item.Id;
             button.SetMeta("item_id", item.Id);
             button.Alignment = HorizontalAlignment.Left;
             button.MouseFilter = MouseFilterEnum.Pass;
             button.AutowrapMode = TextServer.AutowrapMode.WordSmart;
             button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            button.CustomMinimumSize = new(0, Ui.IsMobile ? 210 : 180);
+            button.CustomMinimumSize = new(0, Ui.IsMobile ? 150 : 130);
             button.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 18 : 17);
             button.AddThemeColorOverride("font_color", selected ? Ui.Gold : Ui.Text);
-            var normal = Ui.Panel(new Color(selected ? "185184" : "122743"), 8, selected ? Ui.Gold : TierColor(item.Tier));
+            var normal = Ui.Panel(new Color(selected ? "185184" : "122743"), 6);
             normal.ContentMarginLeft = normal.ContentMarginRight = 12;
             normal.ContentMarginTop = normal.ContentMarginBottom = 12;
             button.AddThemeStyleboxOverride("normal", normal);
             button.TooltipText = EquipmentCatalogue.ItemName(item) + "\n" + attributes;
-            _pickerGrid.AddChild(button); _itemButtons.Add(item.Id, button);
+            content.AddChild(button); _itemButtons.Add(item.Id, button);
         }
         _pickerEmpty.Visible = choices.Length == 0;
-        _unequip.Disabled = equipped.Length == 0;
+        UpdatePickerActions();
         _itemPicker.Show(); _pickerScroll.ScrollVertical = 0; UpdatePickerColumns();
     }
+
+    private void UpdatePickerActions()
+    {
+        foreach (var button in _itemButtons.Values) button.Disabled = _busy;
+        foreach (var button in _trashButtons.Values) button.Disabled = _busy || !CanSellInventory;
+        if (_unequip != null) _unequip.Disabled = _busy || (_draft?.Loadout.Get(_selectedSlot).Length ?? 0) == 0;
+    }
+
+    private void RefreshPickerItems()
+    {
+        if (_itemPicker == null || !_itemPicker.Visible || _busy) return;
+        int scroll = _pickerScroll.ScrollVertical;
+        OpenItemPicker(_selectedSlot); _pickerScroll.ScrollVertical = scroll;
+    }
+
+    internal void PressTrash(string id) => _trashButtons[id].EmitSignal(Button.SignalName.Pressed);
 
     private void UpdatePickerColumns()
     {
@@ -102,6 +146,7 @@ public partial class EquipmentPanel
 
     public void HandleBack()
     {
+        if (_confirm.Visible) { _confirm.Hide(); _selling = ""; return; }
         if (_itemPicker.Visible) CloseItemPicker();
         else Close();
     }

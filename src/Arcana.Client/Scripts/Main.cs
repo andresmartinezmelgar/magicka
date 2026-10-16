@@ -659,9 +659,8 @@ public partial class Main : Node
             { "Ocho botones de elementos", "Seleccionar hasta tres cargas; se admiten repetidos" },
             { "Joystick derecho", "Apuntar y lanzar mientras mantienes el dedo" },
             { "Soltar joystick derecho", "Lanzar la roca cargada o interrumpir el rayo" },
-            { "Sobre ti / Área / Bastón", "Curación y escudo / pulso alrededor / golpe" },
+            { "Sobre mí / En área", "Curación y escudo / pulso alrededor" },
             { "Cuatro magias especiales", "Celeridad / traslación / meteoro / reanimación" },
-            { "Vaciar", "Retirar los elementos seleccionados" },
             { "Ayuda / Tabla / Menú", "Combinaciones y daño / clasificación / pausa" }
         };
         for (int i = 0; i < rows.GetLength(0); i++)

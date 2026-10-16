@@ -170,6 +170,8 @@ public partial class Main
             {
                 var before = panel.PreviewProfile!.Loadout;
                 panel.PressInspect(slot);
+                Check(panel.FindChild("EquipmentSellButton", true, false) == null && panel.PickerItems.All(id =>
+                    panel.FindChild("EquipmentTrash_" + id, true, false) is Button), "Faltan papeleras individuales o queda el botón de venta anterior.");
                 var tiers = panel.PickerItems.Select(id => original.Items.Single(i => i.Id == id).Tier).ToArray();
                 Check(panel.PickerVisible && tiers.SequenceEqual(Enum.GetValues<ItemTier>().Reverse()) && panel.PickerColumns is 2 or 3,
                     "El selector no abre una rejilla ordenada de mayor a menor calidad.");

@@ -33,6 +33,7 @@ public partial class ClientVerification
                 case 10:
                     Require(CheckMobilePalette(), "La paleta móvil no distingue los elementos o pierde contraste.");
                     Require(CheckMobileArea(), "El área izquierda no conserva el origen, los dedos o los botones.");
+                    ReadyForSpell();
                     Require(width >= 1440 && height >= 720, "El viewport móvil no respeta la escala horizontal.");
                     foreach (var element in Enum.GetValues<Element>())
                     {
@@ -110,10 +111,10 @@ public partial class ClientVerification
                     Require(!touch.BarrierAimPending && _runtime.Practice.Snapshot().Walls.Length == countBeforeCancel
                         && player.Selection.Elements.Contains(Element.Shield),
                         "Cancelar un gesto coloca un escudo o consume los elementos.");
-                    // Use the real touch button so the optimistic local selection and
-                    // the authoritative server selection are cleared together.
-                    Down(2, new(310, height - 117)); Up(2);
-                    Require(player.Selection.Elements.Count == 0, "Vaciar no restablece la selección tras cancelar el escudo.");
+                    // Preparar el siguiente caso sin depender de controles retirados.
+                    _runtime.Submit(new() { Type = "clear" }); touch.Reset();
+                    touch.Update(_runtime.Practice.Snapshot().Players.Single(p => p.Id == player.Id));
+                    Require(player.Selection.Elements.Count == 0, "La preparación del siguiente caso conserva elementos.");
                     GD.Print("MOBILE_SHIELD_AIM_OK: el escudo espera al gesto completo, respeta la dirección final y se cancela sin lanzar.");
 
                     break;
@@ -212,9 +213,11 @@ public partial class ClientVerification
                 touch.Touch(20, Vector2.Zero, false, true);
                 Require(touch.Movement.IsZeroApprox(), "cancelar fuera del área conserva movimiento.");
             }
-            var clear = new Vector2(310, touch.Size.Y - 117);
-            Require(touch.Touch(22, global + clear, true) && actions.SequenceEqual(["clear"]) && touch.Movement.IsZeroApprox(),
-                "el área de movimiento roba el botón Vaciar.");
+            Require(!touch.FindChildren("*", "Label", true, false).OfType<Label>().Any(l => l.Text is "Vaciar" or "Bastón"),
+                "siguen visibles los botones retirados.");
+            var self = ((Control)touch.FindChild("TouchSelf", true, false)).GetRect().GetCenter();
+            Require(touch.Touch(22, global + self, true) && actions.SequenceEqual(["self"]) && touch.Movement.IsZeroApprox(),
+                "el gesto de apuntado roba el botón Sobre mí.");
             touch.Touch(22, Vector2.Zero, false);
             Require(!touch.Touch(23, global + new Vector2(touch.Size.X * 0.75f, 120), true), "el lado derecho vacío activa movimiento.");
             Require(touch.Touch(24, global + new Vector2(50, 250), true), "no admite un gesto nuevo después de cancelar.");

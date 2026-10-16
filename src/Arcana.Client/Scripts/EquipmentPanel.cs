@@ -20,7 +20,6 @@ public partial class EquipmentPanel : Control
     private GridContainer? _selectorsGrid;
     private ScrollContainer? _setsScroll;
     private Label _salesHelp = null!;
-    private Button _sell = null!;
     private ConfirmationDialog _confirm = null!;
     private AcceptDialog _setsInfo = null!;
     private readonly Button[] _slots = new Button[4];
@@ -121,8 +120,6 @@ public partial class EquipmentPanel : Control
         _combatPreview = Ui.Label("", Ui.IsMobile ? 16 : 17, Ui.Gold);
         _combatPreview.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         inventory.AddChild(_combatPreview);
-        _sell = Action(inventory, "Eliminar pieza por oro", ConfirmSale);
-        _sell.Name = "EquipmentSellButton";
         if (_defensePlayer != null) BuildDefenseActions(inventory);
         var totalsScroll = new ContentScrollContainer { Name = "EquipmentTotalsScroll", SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
@@ -146,8 +143,9 @@ public partial class EquipmentPanel : Control
         var hint = Ui.Label("Suma = botas + gorro + pecho + arma + conjunto. Aplicado = valor real en combate.", 14, Ui.Muted);
         hint.AutowrapMode = TextServer.AutowrapMode.WordSmart; hint.SizeFlagsHorizontal = SizeFlags.ExpandFill; footer.AddChild(hint);
         var close = Action(footer, _defensePlayer == null ? "Volver" : "Volver a la tienda", () => Close()); _actions.Remove(close);
-        _confirm = new ConfirmationDialog { Title = "Eliminar objeto", OkButtonText = "Eliminar y recibir oro", CancelButtonText = "Cancelar" };
+        _confirm = new ConfirmationDialog { Title = "Vender pieza", OkButtonText = "Vender y recibir oro", CancelButtonText = "Cancelar" };
         AddChild(_confirm); _confirm.Confirmed += () => _ = Sell();
+        _confirm.Canceled += () => _selling = "";
         _setsInfo = new AcceptDialog { Title = "Conjuntos Míticos de los ocho elementos", OkButtonText = "Cerrar" }; AddChild(_setsInfo);
         var setsScroll = new ContentScrollContainer { CustomMinimumSize = new(600, 300),
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; _setsInfo.AddChild(setsScroll);
@@ -170,6 +168,14 @@ public partial class EquipmentPanel : Control
         float viewportWidth = GetViewport().GetVisibleRect().Size.X;
         float available = Math.Max(260, viewportWidth - (Ui.IsMobile ? 65 : 110));
         bool compact = viewportWidth < 970;
+        if (_optionAItemsTab != null) _optionAItemsTab.Text = viewportWidth < 700 ? "OBJETOS Y EQUIPO" : "◇  OBJETOS Y EQUIPACIÓN";
+        if (_optionAStatsTab != null) _optionAStatsTab.Text = viewportWidth < 700 ? "SUMA DE BONOS" : "✧  SUMA DE BONIFICACIONES";
+        foreach (var tab in new[] { _optionAItemsTab, _optionAStatsTab })
+            if (tab != null)
+            {
+                tab.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+                tab.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? viewportWidth < 700 ? 18 : 21 : 17);
+            }
         var profileParent = compact ? _equipmentToolbar : _equipmentHeading;
         if (_profile.GetParent() != profileParent)
         {
@@ -294,9 +300,6 @@ public partial class EquipmentPanel : Control
         }
         _empty.Text = item == null ? "Sin pieza equipada. Pulsa una posición para abrir sus objetos ordenados por calidad." :
             "Pulsa una posición para comparar sus objetos. Los cambios se guardan al salir del inventario.";
-        _sell.Text = item == null ? (_defensePlayer == null ? "Eliminar pieza por oro" : "Vender pieza por oro")
-            : $"{(_defensePlayer == null ? "Eliminar esta pieza" : "Vender esta pieza")} · +{item.SaleGold} oro";
-        _sell.Disabled = _busy || item == null || !CanSellInventory;
     }
     public static Color TierColor(ItemTier tier) => tier switch
     { ItemTier.Silver => new("c4cbd7"), ItemTier.Gold => new("e8c574"), ItemTier.Platinum => new("82dfd6"), ItemTier.Diamond => new("73bfff"), _ => new("cf9cff") };
@@ -310,7 +313,9 @@ public partial class EquipmentPanel : Control
     {
         _busy = value; foreach (var button in _actions) button.Disabled = value;
         _address.Editable = !value; if (message.Length > 0) SetStatus(message);
-        _sell.Disabled = value || Selected() == null || !CanSellInventory;
+        if (_itemPicker != null && _itemPicker.Visible && message.Length > 0)
+        { _pickerStatus.Text = message; _pickerStatus.Visible = true; }
+        UpdatePickerActions();
         if (_defensePlayer != null) RenderDefenseActions();
     }
     private void ConfigureOperations()
@@ -352,15 +357,17 @@ public partial class EquipmentPanel : Control
         }
         catch (Exception error) { SetStatus(error.Message); }
     }
-    private void ConfirmSale()
+    private void ConfirmSale(string id)
     {
-        var item = Selected(); if (_busy || item == null || !CanSellInventory) return;
+        var item = _draft?.Items.FirstOrDefault(i => i.Id == id && i.Slot == _selectedSlot);
+        if (_busy || item == null || !CanSellInventory) return;
         _selling = item.Id;
         _confirm.DialogText = "PIEZA QUE VAS A ELIMINAR:\n" + EquipmentCatalogue.ItemName(item) +
             $"\n\nORO QUE RECIBIRÁS: +{item.SaleGold}\n\n" + (_defensePlayer == null
                 ? "La pieza desaparecerá definitivamente de tu inventario y dejará de estar equipada. Esta acción no se puede deshacer."
                 : "La pieza se venderá por oro de esta partida y dejará de estar equipada.") + "\n\n¿Confirmas la venta?";
-        _confirm.PopupCentered(new(640, 220));
+        var viewport = GetViewport().GetVisibleRect().Size;
+        _confirm.PopupCentered(new((int)Math.Min(640, viewport.X - 32), (int)Math.Min(300, viewport.Y - 32)));
     }
     private async Task Sell()
     {
@@ -376,12 +383,14 @@ public partial class EquipmentPanel : Control
         if (_lifetime.IsCancellationRequested) return;
         RebaseDraft();
         Render(); Busy(false, saved ? message : message + " No se pudo actualizar la copia del dispositivo.");
+        RefreshPickerItems();
         ContinueRequestedClose();
     });
     private void Failed(Exception error) => _main.Post(() =>
     {
         if (_lifetime.IsCancellationRequested) return;
         Render(); Busy(false, error is OperationCanceledException ? "Operación cancelada." : error.Message);
+        RefreshPickerItems();
         ContinueRequestedClose();
     });
     public override void _ExitTree() { GetViewport().SizeChanged -= UpdateEquipmentResponsive; _lifetime.Cancel(); _lifetime.Dispose(); }

@@ -29,6 +29,8 @@ public partial class EquipmentPanel
         box.MoveChild(tabs, 3);
         _optionAItemsTab = Ui.Button("◇  OBJETOS Y EQUIPACIÓN", () => SwitchOptionAEquipment(false));
         _optionAStatsTab = Ui.Button("✧  SUMA DE BONIFICACIONES", () => SwitchOptionAEquipment(true));
+        _optionAItemsTab.Name = "EquipmentItemsTab";
+        _optionAStatsTab.Name = "EquipmentTotalsTab";
         _optionAItemsTab.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _optionAStatsTab.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _optionAItemsTab.CustomMinimumSize = new(0, Ui.IsMobile ? 58 : 47);

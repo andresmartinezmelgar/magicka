@@ -64,9 +64,8 @@ public partial class EquipmentPanel
         if (stamp != _defenseInventoryStamp)
         {
             _defenseInventoryStamp = stamp;
-            bool picker = PickerVisible; int scroll = _pickerScroll.ScrollVertical;
             RebaseDraft(); Render();
-            if (picker) { OpenItemPicker(_selectedSlot); _pickerScroll.ScrollVertical = scroll; }
+            RefreshPickerItems();
         }
         if (_defensePending == null) return;
         if (_defensePending(player))
@@ -74,6 +73,8 @@ public partial class EquipmentPanel
             var confirmed = _defenseConfirmed;
             _defensePending = null; _defenseConfirmed = null;
             Busy(false); Render(); SetStatus("Equipo de partida actualizado.", routine: true);
+            RefreshPickerItems();
+            if (PickerVisible) { _pickerStatus.Text = "Venta confirmada. El oro y las piezas están actualizados."; _pickerStatus.Visible = true; }
             confirmed?.Invoke();
             if (!_closing) ContinueRequestedClose();
         }
@@ -81,6 +82,7 @@ public partial class EquipmentPanel
         {
             _defensePending = null; _defenseConfirmed = null; _closeRequested = false;
             CloseFailed(new InvalidOperationException("La partida no confirmó la operación."));
+            UpdatePickerActions();
         }
     }
 

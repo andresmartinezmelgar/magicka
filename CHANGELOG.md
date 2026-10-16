@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.18.8 — Papeleras y controles de combate
+
+- Cada tarjeta del selector de botas, gorro, pecho y arma tiene su papelera y el oro de venta; permite vender sin equipar la pieza.
+- Retirado el botón de venta de la pantalla principal del inventario; las ventas confirmadas actualizan el selector y conservan el desplazamiento.
+- Retirados los botones Bastón y Vaciar de los controles táctiles de todos los modos.
+- Sobre mí y En área se sitúan en la izquierda en Defensa, sin tapar las estadísticas ni el joystick.
+- Se conserva el desglose de las cuatro piezas, los conjuntos y el total aplicado de la versión anterior.
+
 ## 0.18.7 — Bonificaciones por pieza
 
 - La suma de bonificaciones separa las aportaciones de botas, gorro, pecho y arma, y muestra después el conjunto, la suma y el valor aplicado.

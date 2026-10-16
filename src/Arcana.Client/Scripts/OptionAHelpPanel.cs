@@ -156,8 +156,8 @@ public partial class OptionAHelpPanel : Control
             { "Apuntar", "Usa el joystick derecho" },
             { "Magia", "Combina hasta 3 elementos" },
             { "Lanzar", "Arrastra y suelta el joystick derecho" },
-            { "Sobre ti", "Curar, escudo o secar" },
-            { "Área", "Hechizos de alrededor" },
+            { "Sobre mí", "Curar, escudo o secar" },
+            { "En área", "Hechizos de alrededor" },
             { "Especiales", "Cuatro magias equipadas" },
             { "Ayuda", "Ayuda, tabla y menú" }
         } : new string[,]
