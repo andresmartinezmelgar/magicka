@@ -482,22 +482,29 @@ public partial class Main
             {
                 AssertOptionAScreen("AYUDA_BONIFICACIONES", _optionAHelp!);
                 AssertTouchScroll(_optionAHelp!, "HelpContentScroll", "AYUDA_BONIFICACIONES");
-                var bonusLabels = _optionAHelp.FindChildren("*", "Label", true, false).OfType<Label>()
+                var bonusLabels = _optionAHelp!.FindChildren("*", "Label", true, false).OfType<Label>()
                     .Select(l => l.Text).ToArray();
                 if (!bonusLabels.Any(t => t.Contains("DEFENSA NO ES CAPACIDAD")) ||
                     !bonusLabels.Any(t => t.Contains("100 de daño")) ||
                     !bonusLabels.Any(t => t.Contains("Absorción del escudo")))
                     throw new InvalidOperationException("Ayuda no documenta defensa y capacidad del escudo.");
                 CloseOptionAHelp();
-                EquipmentFixture(false);
+                EquipmentFixture(false, copies: 12);
             }
             if (frame == 155)
             {
                 AssertOptionAScreen("EQUIPACION", _equipmentPanel!);
                 AssertTouchScroll(_equipmentPanel!, "EquipmentItemsScroll", "EQUIPACION");
             }
+            if (frame == 156) _equipmentPanel!.PressInspect(EquipmentSlot.Chest);
             if (frame == 158)
             {
+                var picker = _equipmentPanel!;
+                AssertOptionAScreen("SELECTOR_EQUIPO", picker);
+                AssertTouchScroll(picker, "EquipmentPickerScroll", "SELECTOR_EQUIPO", overButton: true);
+                if (!picker.PickerVisible || picker.HasChanges || picker.PickerItems.Length != 60 || picker.PickerColumns is < 2 or > 3)
+                    throw new InvalidOperationException("El gesto seleccionó un objeto o el selector perdió objetos/columnas.");
+                picker.HandleBack();
                 var sum = _equipmentPanel!.FindChildren("*", "Button", true, false).OfType<Button>()
                     .Single(button => button.Text.Contains("SUMA DE BONIFICACIONES"));
                 sum.EmitSignal(Button.SignalName.Pressed);

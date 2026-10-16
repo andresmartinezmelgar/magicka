@@ -18,6 +18,7 @@ public partial class Main
             string? requested = OS.GetCmdlineUserArgs().FirstOrDefault(a =>
                 a.StartsWith("--smoke-viewport=", StringComparison.Ordinal));
             if (requested != null && OS.GetCmdlineUserArgs().Any(a => a is "--defense-smoke" or "--mobile-menu-smoke"
+                or "--equipment-smoke" or "--preview-equipment-picker"
                 or "--preview-spells=stone" or "--preview-spells=stone-close" or "--preview-spells=stone-auras"))
             {
                 string[] parts = requested["--smoke-viewport=".Length..].Split('x');
@@ -71,7 +72,7 @@ public partial class Main
         {
             if (_defensePanel?.ShopOpen == true) _defensePanel.CloseShop();
             else if (InspectingEquipment) ClosePlayerEquipment();
-            else if (GodotObject.IsInstanceValid(_equipmentPanel)) { _equipmentPanel!.QueueFree(); _equipmentPanel = null; }
+            else if (GodotObject.IsInstanceValid(_equipmentPanel)) _equipmentPanel!.HandleBack();
             else if (GodotObject.IsInstanceValid(_optionAHelp)) CloseOptionAHelp();
             else if (_help.Visible) { _help.Visible = false; UpdateTouchVisibility(); }
             else if (_playing) TogglePause();

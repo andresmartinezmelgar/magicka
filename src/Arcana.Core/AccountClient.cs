@@ -12,7 +12,15 @@ public sealed record LoginPoll(bool Ready, string AccessToken = "", DateTimeOffs
 /// <summary>El token permanece en memoria. La caché de perfil sirve para jugar contra IA sin conexión.</summary>
 public sealed class AccountClient : IDisposable
 {
-    private readonly HttpClient _http = new(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(20) };
+    private readonly HttpClient _http;
+    private readonly HttpClient? _firebaseHttp;
+    private readonly bool _ownsHttp;
+    public AccountClient(HttpClient? httpClient = null)
+    {
+        _ownsHttp = httpClient == null;
+        _firebaseHttp = httpClient;
+        _http = httpClient ?? new(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(20) };
+    }
     public string ServerAddress { get; private set; } = "";
     public string Token { get; private set; } = "";
     public DateTimeOffset ExpiresAt { get; private set; }
@@ -62,12 +70,12 @@ public sealed class AccountClient : IDisposable
         long generation = Interlocked.Increment(ref _identityGeneration);
         if (expiresAt <= DateTimeOffset.UtcNow || string.IsNullOrWhiteSpace(idToken))
             throw new UnauthorizedAccessException("Token Firebase caducado o vacío.");
-        using var reader = new FirebaseProfileReader(projectId);
+        using var reader = new FirebaseProfileReader(projectId, _firebaseHttp);
         var profile = await reader.Read(uid, idToken, displayName, cancellationToken).ConfigureAwait(false);
         if (generation != Interlocked.Read(ref _identityGeneration))
             throw new OperationCanceledException("El inicio de sesión Google ya no está vigente.");
         _firebaseReader?.Dispose();
-        _firebaseReader = new FirebaseProfileReader(projectId);
+        _firebaseReader = new FirebaseProfileReader(projectId, _firebaseHttp);
         _firebaseUid = uid;
         Token = idToken;
         ExpiresAt = expiresAt;
@@ -84,6 +92,11 @@ public sealed class AccountClient : IDisposable
     {
         if (Profile == null) throw new InvalidOperationException("No hay un inventario guardado para practicar.");
         Profile = AccountInventory.Equip(Profile, new(itemId, slot));
+    }
+    public void EquipOffline(EquipmentLoadout loadout)
+    {
+        if (Profile == null) throw new InvalidOperationException("No hay un inventario guardado para practicar.");
+        Profile = AccountInventory.ApplyLoadout(Profile, loadout);
     }
     public async Task<AccountConfiguration> Configuration(string address, CancellationToken token)
     {
@@ -140,6 +153,22 @@ public sealed class AccountClient : IDisposable
         var result = await Request<InventoryResult>(HttpMethod.Post, "account/equip", new InventoryRequest(itemId, slot), token).ConfigureAwait(false);
         _ = EquipmentModifiers.Calculate(result.Profile); Profile = result.Profile; return result;
     }
+    /// <summary>Guarda las cuatro posiciones juntas, con una sola escritura del equipamiento.</summary>
+    public async Task<InventoryResult> SaveLoadout(EquipmentLoadout loadout, CancellationToken token = default)
+    {
+        if (Profile == null) throw new InvalidOperationException("El inventario todavía no se ha cargado.");
+        var updated = AccountInventory.ApplyLoadout(Profile, loadout);
+        if (IsDirectFirebaseSession)
+        {
+            await _firebaseReader!.SaveLoadout(_firebaseUid, Token, updated.Loadout, token).ConfigureAwait(false);
+            Profile = updated;
+            return new(updated, "Equipamiento guardado en Firebase.");
+        }
+        var result = await Request<InventoryResult>(HttpMethod.Post, "account/loadout", loadout, token).ConfigureAwait(false);
+        _ = EquipmentModifiers.Calculate(result.Profile);
+        Profile = result.Profile;
+        return result;
+    }
     public async Task<InventoryResult> Sell(string itemId, CancellationToken token = default)
     {
         var result = await Request<InventoryResult>(HttpMethod.Post, "account/sell", new InventoryRequest(itemId), token).ConfigureAwait(false);
@@ -184,5 +213,5 @@ public sealed class AccountClient : IDisposable
         // usuario: no aceptar redirecciones ni credenciales en las URL.
         ServerAddress = uri.GetLeftPart(UriPartial.Authority);
     }
-    public void Dispose() { _firebaseReader?.Dispose(); _http.Dispose(); }
+    public void Dispose() { _firebaseReader?.Dispose(); if (_ownsHttp) _http.Dispose(); }
 }

@@ -105,6 +105,12 @@ try
             await accounts.Repository!.Equip(identity.Uid, request, token);
             return new InventoryResult(await accounts.Repository.Profile(identity.Uid, identity.Name, token), "Equipamiento guardado.");
         }));
+    app.MapPost("/account/loadout", (EquipmentLoadout loadout, HttpContext context, AccountService accounts) =>
+        AccountMutation(context, accounts, async (identity, token) =>
+        {
+            await accounts.Repository!.SaveLoadout(identity.Uid, loadout, token);
+            return new InventoryResult(await accounts.Repository.Profile(identity.Uid, identity.Name, token), "Equipamiento guardado.");
+        }));
     app.MapPost("/account/sell", (InventoryRequest request, HttpContext context, AccountService accounts) =>
         AccountMutation(context, accounts, async (identity, token) =>
         {

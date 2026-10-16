@@ -1,6 +1,6 @@
 # Defensa del bastión — primera versión experimental
 
-Versión **0.18.3**, protocolo **22**, rama `feature/defensa-oleadas`. Esta rama se mantiene independiente de `main`. Las compilaciones verificadas se publican como versiones preliminares con APK directa. Las dos cuentas autorizadas reciben estas versiones mediante el actualizador; el resto conserva el canal estable. Véase [Canales de actualización](CANALES-ACTUALIZACION.md).
+Versión **0.18.4**, protocolo **22**, rama `feature/defensa-oleadas`. Esta rama se mantiene independiente de `main`. Las compilaciones verificadas se publican como versiones preliminares con APK directa. Las dos cuentas autorizadas reciben estas versiones mediante el actualizador; el resto conserva el canal estable. Véase [Canales de actualización](CANALES-ACTUALIZACION.md).
 
 ## Entrar en el modo
 

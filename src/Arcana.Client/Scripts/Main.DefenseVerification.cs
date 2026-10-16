@@ -85,6 +85,11 @@ public partial class Main
                 Check(_touch?.Visible != true, "Los controles táctiles cubren la tienda.");
                 Check(state.Defense!.Paused && state.Tick == _defensePauseTick, "La tienda no pausa con un humano y bot.");
                 CaptureDefense("02-bastion");
+                if (Ui.IsMobile) _Notification(NotificationWMGoBackRequest);
+                else _UnhandledInput(new InputEventKey { Pressed = true, PhysicalKeycode = Key.Escape });
+                Check(!panel.ShopOpen && !_practice.DefensePaused && (!Ui.IsMobile || _touch?.Visible == true),
+                    "Escape o Atrás de Android no cierra la tienda y restaura el combate.");
+                panel.OpenShop();
                 panel.ShowSection(2); _defenseSmokePhase++; return false;
             }
             if (_defenseSmokePhase == 2)

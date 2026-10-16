@@ -118,6 +118,7 @@ internal static class RewardOutboxTests
         }
         public Task<AccountProfile> Profile(string uid, string name, CancellationToken token = default) => throw new NotSupportedException();
         public Task Equip(string uid, InventoryRequest request, CancellationToken token = default) => throw new NotSupportedException();
+        public Task SaveLoadout(string uid, EquipmentLoadout loadout, CancellationToken token = default) => throw new NotSupportedException();
         public Task<int> Sell(string uid, string itemId, CancellationToken token = default) => throw new NotSupportedException();
     }
 }

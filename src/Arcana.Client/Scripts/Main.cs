@@ -112,6 +112,11 @@ public partial class Main : Node
         foreach (string arg in arguments)
         {
             if (arg is "--preview-equipment" or "--equipment-smoke") EquipmentFixture(arg == "--equipment-smoke");
+            if (arg == "--preview-equipment-picker")
+            {
+                EquipmentFixture(false, copies: 12);
+                _equipmentPanel!.PressInspect(EquipmentSlot.Chest);
+            }
             if (arg.StartsWith("--preview-equipment=") && Enum.TryParse<EquipmentFamily>(arg[20..], true, out var family) && Enum.IsDefined(family)) EquipmentFixture(false, family);
             if (arg == "--equipment-elements-smoke") { _equipmentElementsSmoke = true; EquipmentFixture(false, EquipmentFamily.Water); }
             if (arg == "--equipment-restore-smoke") { _equipmentRestoreSmoke = true; OpenEquipment("wss://servidor-central.example"); }
@@ -540,7 +545,7 @@ public partial class Main : Node
             {
                 if (_defensePanel?.ShopOpen == true) _defensePanel.CloseShop();
                 else if (InspectingEquipment) ClosePlayerEquipment();
-                else if (GodotObject.IsInstanceValid(_equipmentPanel)) { _equipmentPanel!.QueueFree(); _equipmentPanel = null; }
+                else if (GodotObject.IsInstanceValid(_equipmentPanel)) _equipmentPanel!.HandleBack();
                 else if (GodotObject.IsInstanceValid(_optionAHelp)) CloseOptionAHelp();
                 else if (_help.Visible) { _help.Visible = false; UpdateTouchVisibility(); }
                 else if (_playing) TogglePause();

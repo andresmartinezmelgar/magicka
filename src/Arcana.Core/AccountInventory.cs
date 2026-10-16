@@ -2,6 +2,20 @@ namespace Arcana.Core;
 
 public static class AccountInventory
 {
+    public static AccountProfile ApplyLoadout(AccountProfile profile, EquipmentLoadout loadout)
+    {
+        ArgumentNullException.ThrowIfNull(loadout);
+        var updated = profile;
+        foreach (var slot in Enum.GetValues<EquipmentSlot>())
+        {
+            string id = loadout.Get(slot);
+            if (id == null || id.Length > 32) throw new ArgumentException("Selección inválida.");
+            updated = Equip(updated, new InventoryRequest(id, slot));
+        }
+        _ = EquipmentModifiers.Calculate(updated);
+        return updated;
+    }
+
     public static AccountProfile Equip(AccountProfile profile, InventoryRequest request)
     {
         if (!Enum.IsDefined(request.Slot)) throw new ArgumentException("Posición desconocida.");
