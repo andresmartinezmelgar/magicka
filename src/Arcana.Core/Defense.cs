@@ -18,11 +18,21 @@ public static class DefenseRules
     public static IReadOnlyList<V2> Entrances { get; } = Array.AsReadOnly<V2>([new(32, -18), new(34, 0), new(32, 18), new(4, -20), new(4, 20)]);
     public static int WaveSize(int wave) => wave switch
     { <= 3 => 20, 4 => 50, 5 => 100, 6 => 200, _ => Math.Min(500, 200 + (wave - 6) * 25) };
-    public static float EnemyStrength(int stage) => MathF.Min(1000, MathF.Pow(1.18f, Math.Min(60, Math.Max(0, stage - 1))));
-    public static float AttackDelay(int stage) => Math.Max(0.3f, 1 - Math.Max(0, stage - 1) * 0.025f);
+    public static int WaveSize(int wave, int defenders) =>
+        (WaveSize(wave) * (10 + 3 * (Math.Clamp(defenders, 1, MaxDefenders) - 1)) + 9) / 10;
+    public static float PartyPressure(int defenders) => 1 + (Math.Clamp(defenders, 1, MaxDefenders) - 1) * 0.3f;
+    public static int SpawnLimit(int stage, int defenders) => Math.Min(MaxMinions,
+        8 + (Math.Clamp(defenders, 1, MaxDefenders) - 1) * 4 + Math.Max(0, stage - 1) * 2);
+    public static int TimedDifficulty(double seconds) => 1 + (int)(Math.Max(0, seconds) / 90);
+    public static float EnemyStrength(int stage)
+    {
+        int growth = Math.Clamp(stage - 1, 0, 60);
+        return MathF.Min(1000, MathF.Pow(1.1f, Math.Min(4, growth)) * MathF.Pow(1.14f, Math.Max(0, growth - 4)));
+    }
+    public static float AttackDelay(int stage) => Math.Max(0.4f, 1.35f - Math.Max(0, stage - 1) * 0.035f);
     public static float MinionHealth(MinionKind kind, int stage, int party) => (kind switch
-    { MinionKind.Tank => 3400, MinionKind.Captain => 1500, MinionKind.Mage => 950, MinionKind.Archer => 700, _ => 850 })
-        * EnemyStrength(stage) * (1 + Math.Max(0, party - 1) * 0.55f);
+    { MinionKind.Tank => 1200, MinionKind.Captain => 700, MinionKind.Mage => 380, MinionKind.Archer => 260, _ => 340 })
+        * EnemyStrength(stage) * (1 + (Math.Clamp(party, 1, MaxDefenders) - 1) * 0.1f);
     public static int PassiveCost(int level) => 140 * (level + 1) * (level + 1);
     public static float BerserkerDuration(int level) => 4 + level * 0.5f;
     public static float BerserkerPower(int level) => 1.4f + level * 0.1f;

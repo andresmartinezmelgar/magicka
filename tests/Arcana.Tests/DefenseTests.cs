@@ -28,6 +28,7 @@ internal static class DefenseTests
 
     public static void Run(Action<string, Action> test)
     {
+        DefenseBalanceTests.Run(test);
         test("Defensa: mapa exclusivo, un equipo y enemigos fuera de plazas de jugadores", () =>
         {
             var w = World(bots: 3); var p = w.AddPlayer("Humano", 1)!;
@@ -55,8 +56,8 @@ internal static class DefenseTests
             Check(s.Wave == 1 && s.Minions.Length + s.RemainingToSpawn == 20, "La primera oleada no contiene 20 minions.");
             Check(DefenseRules.WaveSize(6) == 200 && DefenseRules.AttackDelay(100) >= 0.3f, "Escalado o delay sin límites.");
             var continuous = World(DefenseFlow.Continuous); continuous.AddPlayer("Humano");
-            Set(continuous, "_defenseElapsed", 61.0); Advance(continuous, 2);
-            Check(State(continuous).Difficulty == 2 && State(continuous).NextWaveIn == 0, "No escaló al minuto.");
+            Set(continuous, "_defenseElapsed", 91.0); Advance(continuous, 2);
+            Check(State(continuous).Difficulty == 2 && State(continuous).NextWaveIn == 0, "No escaló tras el tiempo de preparación.");
             SnapshotValidation.Check(w.Snapshot());
         });
         test("Defensa: proyectiles, áreas y rayos dañan minions usando el combate existente", () =>
@@ -227,13 +228,13 @@ internal static class DefenseTests
         test("Defensa: tanques progresivos, resistentes y más lentos; ritmo en grupos", () =>
         {
             var w = World(DefenseFlow.Continuous); var p = w.AddPlayer("Humano")!; p.Position = new(35, 22);
-            var baseline = Enemy(w); Check(baseline.Health == 850, "La primera vida no está ajustada.");
-            Set(w, "_defenseDifficulty", 3);
+            var baseline = Enemy(w); Check(baseline.Health == 340, "La primera vida no está ajustada.");
+            Set(w, "_defenseDifficulty", 5);
             for (int i = 0; i < 40; i++) Enemy(w);
             var tank = State(w).Minions.First(m => m.Kind == MinionKind.Tank);
             var tankBody = ((Dictionary<int, Wizard>)Field(w, "_combatants"))[tank.Id];
             var regular = State(w).Minions.First(m => m.Kind == MinionKind.Melee && m.MaxHealth > baseline.MaxHealth);
-            Check(tank.MaxHealth >= regular.MaxHealth * 3.9f && tankBody.Equipment.Speed < baseline.Equipment.Speed, "El tanque no resiste o no tiene contrapartida.");
+            Check(tank.MaxHealth >= regular.MaxHealth * 3.4f && tankBody.Equipment.Speed < baseline.Equipment.Speed, "El tanque no resiste o no tiene contrapartida.");
             var rhythm = World(DefenseFlow.Continuous); rhythm.AddPlayer("Humano")!.Position = new(35, 22);
             var appearances = new List<int>(); int last = 0;
             for (int i = 0; i < 1800; i++) { rhythm.Step(); int count = State(rhythm).Minions.Length; if (count > last) appearances.Add(i); last = count; }

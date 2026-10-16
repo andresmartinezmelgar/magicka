@@ -25,6 +25,11 @@ async Task AsyncTest(string name, Func<Task> action)
     try { await action(); Console.WriteLine("PASS " + name); passed++; }
     catch (Exception e) { Console.WriteLine("FAIL " + name + ": " + e.Message); failed++; }
 }
+if (args.Contains("--defense-balance") || args.Contains("--defense-balance-report-only"))
+{
+    DefenseBalanceTests.Profile(args.FirstOrDefault(a => a.StartsWith("--profile-output="))?[17..] ?? "artifacts/defense/balance.json", args.Contains("--defense-balance"));
+    return 0;
+}
 if (args.Contains("--defense-benchmark"))
 {
     DefenseTests.Benchmark(args.FirstOrDefault(a => a.StartsWith("--profile-output="))?[17..] ?? "artifacts/defense/benchmark.json");

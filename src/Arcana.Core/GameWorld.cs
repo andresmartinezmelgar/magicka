@@ -113,6 +113,7 @@ public sealed partial class GameWorld
         if (!_players.Remove(id, out var wizard)) return;
         _orderedPlayers.Remove(wizard); _combatants.Remove(id); _defenders.Remove(id);
         _defenseDrops.RemoveAll(d => d.OwnerId == id);
+        _defenseBotPlans.Remove(id); _defenseBotPlanClock = 0;
         _routes.Remove(id);
         _practiceSpawns.Remove(id); _practiceReadings.Remove(id);
         _projectiles.RemoveAll(p => p.Owner == id);
@@ -200,6 +201,7 @@ public sealed partial class GameWorld
             if (RestartIn <= 0) ResetMatch();
             return;
         }
+        if (IsDefense) PlanDefenseBots(dt);
         foreach (var p in _players.Values)
         {
             p.ActionCooldown = Math.Max(0, p.ActionCooldown - dt);

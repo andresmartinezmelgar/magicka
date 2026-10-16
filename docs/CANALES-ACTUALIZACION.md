@@ -12,4 +12,4 @@ El instalador comprueba el repositorio, el tag, la plataforma y el manifiesto de
 
 ## Primera instalación
 
-La antigua Defensa 0.18.0 tenía el actualizador desactivado: necesita instalar manualmente la APK 0.18.1 una vez. A partir de ella, el canal depende de la cuenta autenticada. Las APK mantienen el identificador y el certificado habituales, por lo que sustituyen la instalación anterior. Para jugar online, cliente y servidor deben tener protocolos compatibles; el servidor de Defensa sigue distribuyéndose con el paquete Windows de su rama.
+La antigua Defensa 0.18.0 tenía el actualizador desactivado: necesita instalar manualmente una APK 0.18.1 o posterior una vez. A partir de ella, el canal depende de la cuenta autenticada. Las APK mantienen el identificador y el certificado habituales, por lo que sustituyen la instalación anterior. Para jugar online, cliente y servidor deben tener protocolos compatibles; el servidor de Defensa sigue distribuyéndose con el paquete Windows de su rama.

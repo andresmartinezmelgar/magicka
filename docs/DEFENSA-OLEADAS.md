@@ -1,6 +1,6 @@
 # Defensa del bastión — primera versión experimental
 
-Versión **0.18.1**, protocolo **22**, rama `feature/defensa-oleadas`. Esta rama se mantiene independiente de `main`. Las compilaciones verificadas se publican como versiones preliminares con APK directa. Las dos cuentas autorizadas reciben estas versiones mediante el actualizador; el resto conserva el canal estable. Véase [Canales de actualización](CANALES-ACTUALIZACION.md).
+Versión **0.18.2**, protocolo **22**, rama `feature/defensa-oleadas`. Esta rama se mantiene independiente de `main`. Las compilaciones verificadas se publican como versiones preliminares con APK directa. Las dos cuentas autorizadas reciben estas versiones mediante el actualizador; el resto conserva el canal estable. Véase [Canales de actualización](CANALES-ACTUALIZACION.md).
 
 ## Entrar en el modo
 
@@ -31,18 +31,29 @@ Hay ocho segundos de preparación al empezar y entre oleadas. Las oleadas grande
 | Tipo | Introducción | Comportamiento |
 | --- | --- | --- |
 | Minion cuerpo a cuerpo | Dificultad 1 | Avanza hacia el bastión y golpea a corta distancia. |
-| Tanque | Dificultad 3 | Mucha vida, movimiento más lento y golpes más fuertes. |
+| Tanque | Dificultad 5 | Mucha vida, movimiento más lento y golpes más fuertes. |
 | Arquero | Dificultad 4 | Lanza proyectiles a distancia. |
 | Mago | Dificultad 7 | Usa hechizos existentes en canalizaciones breves. |
 | Capitán | Dificultad 10 | Potencia un 35 % el ataque de minions cercanos; su efecto no se acumula por varios capitanes. |
 
-La vida y el daño escalan con la dificultad. La pausa ofensiva empieza en un segundo y baja gradualmente hasta 0,3 segundos. La canalización de los magos termina antes de iniciar esa pausa. Los minions pueden romper muros creados por los defensores para evitar bloqueos permanentes.
+La vida y el daño escalan con la dificultad. La pausa ofensiva empieza en 1,35 segundos y baja gradualmente hasta 0,4 segundos. La canalización de los magos termina antes de iniciar esa pausa. Los minions pueden romper muros creados por los defensores para evitar bloqueos permanentes.
 
-Con más defensores aumenta el número de enemigos y su resistencia. Se conserva la escala del mayor grupo alcanzado durante esa partida para evitar oscilaciones al desconectarse alguien. Los bots aliados defienden la zona del bastión, atacan amenazas, curan a compañeros y gastan su oro en auras o reparaciones.
+La escala toma el número de defensores presentes, incluidos los bots. Cada defensor adicional aumenta un 30% la cantidad de la oleada y solo un 10% la vida individual. En continuo aumenta la frecuencia en lugar del total de la oleada. El ritmo por grupo en oleadas no recibe otro multiplicador por jugadores. Si alguien sale, los nuevos enemigos se adaptan al grupo actual; los que ya están vivos conservan su vida.
 
-Desde dificultad 3 pueden aparecer **tanques**: cuatro veces la vida de un minion normal, movimiento un 35% más lento y golpes de 75 de daño base. La vida base normal pasa a 850 (700 arqueros, 950 magos, 1500 capitanes y 3400 tanques), escalada por dificultad y número de defensores. La fuerza crece un 18% por dificultad. Las oleadas también toman como mínimo la dificultad de cada 90 segundos transcurridos.
+| Defensores | Vida inicial normal | Total de primera oleada | Máximo simultáneo inicial |
+| ---: | ---: | ---: | ---: |
+| 1 | 340 | 20 | 8 |
+| 2 | 374 | 26 | 12 |
+| 3 | 408 | 32 | 16 |
+| 4 | 442 | 38 | 20 |
 
-Las apariciones alternan grupos rápidos (intervalos de 0,16–0,46 s antes del escalado) con descansos aleatorios de 1,8–5 s. El número total de la oleada sigue siendo el anunciado.
+El máximo simultáneo sube dos plazas por dificultad hasta el límite de 64; los restantes esperan para aparecer. La dificultad por tiempo aumenta cada 90 segundos y la potencia crece un 10% en los primeros cuatro incrementos y un 14% después.
+
+Los bots cubren puestos y amenazas diferentes, dan prioridad a enemigos cerca del bastión y a capitanes, y mantienen espacio entre aliados. Si solo queda una amenaza pueden concentrar el ataque desde posiciones distintas. Se asigna un sanador por aliado herido; los demás siguen cubriendo. Mantienen la carga del rayo mientras la receta sea válida y no lo reinician con cada decisión. Gastan su oro en auras o reparaciones.
+
+Desde dificultad 5 pueden aparecer **tanques**: unas 3,5 veces la vida normal, movimiento un 35% más lento y golpes de 45 de daño base. Al principio son un 8% de las apariciones, subiendo al 14% desde dificultad 8. Las vidas base son 340 normales, 260 arqueros, 380 magos, 700 capitanes y 1200 tanques. El cuerpo a cuerpo normal hace 20 de daño base, y el capitán 32. Las oleadas toman como mínimo la dificultad temporal de cada 90 segundos.
+
+Las apariciones alternan grupos rápidos (intervalos de 0,16–0,46 s antes del escalado) con descansos aleatorios de 2,6–5,2 s. Durante las dos primeras dificultades cada grupo tiene de dos a cuatro enemigos. El número total de la oleada sigue siendo el anunciado.
 
 ## Progresión que solo dura una partida
 
@@ -102,6 +113,7 @@ Cada hito genera una pieza con el mismo generador, probabilidades de calidad y r
 dotnet build ArcanaArena.sln -c Release
 dotnet run --project tests/Arcana.Tests -c Release --no-build
 dotnet run --project tests/Arcana.Tests -c Release --no-build -- --defense-benchmark
+dotnet run --project tests/Arcana.Tests -c Release --no-build -- --defense-balance
 bash scripts/test-network.sh
 RUNNER_TEMP=/tmp bash scripts/test-series-lobby.sh
 ```

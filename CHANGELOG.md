@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.18.2 — Inicio proporcional y bots distribuidos
+
+- Vida inicial de minions normales de 340 a 442 entre uno y cuatro defensores; el grupo aumenta sobre todo la cantidad.
+- Límite de enemigos simultáneos de 8 a 20 al comenzar, con aumento gradual; grupos pequeños y pausas variables.
+- Dificultad temporal cada 90 s, crecimiento inicial más suave y tanques menos frecuentes desde dificultad 5.
+- Bots con objetivos distintos, puestos de guardia, separación de aliados y reparto de curaciones.
+- Los bots mantienen la carga del rayo al continuar un ataque y liberan los objetivos derrotados.
+- Pruebas de tiempo de muerte con hechizos reales y supervivencia durante tres minutos, con uno a cuatro defensores.
+
 ## 0.18.1 — Defensa: dificultad, tienda y premios pendientes
 
 - Pausa de toda la simulación al abrir la tienda con un solo humano, también con bots aliados y por red.
