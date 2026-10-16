@@ -292,12 +292,16 @@ public partial class DefensePanel : Control
         }
         if (_wizard.MaxHealth > Wizard.BaseMaxHealth) rows.Add(("Vida máxima extra", $"+{_wizard.MaxHealth - Wizard.BaseMaxHealth:0}"));
         if (p.Regeneration > 0) rows.Add(("Regeneración propia", $"{p.Regeneration:0.#} vida/s"));
+        int energyStacks = (_wizard.Buffs ?? []).Where(b => b.Kind == BuffKind.Energy).Sum(b => b.Stacks);
+        if (energyStacks > 0) rows.Add(("Energía por reliquias", $"+{energyStacks * p.Modifiers.EnergyRegeneration:0.#} energía/s"));
         for (int i = 0; i < 3; i++) if (p.Auras[i] > 0)
             rows.Add((DefenseRules.AuraName((DefenseAura)i), $"Nivel {p.Auras[i]} · {DefenseRules.AuraRadius(p.Auras[i]):0.#} m"));
         for (int i = 0; i < 4; i++) if (p.Passives[i] > 0)
             rows.Add((DefenseRules.PassiveName((DefensePassive)i), $"Nivel {p.Passives[i]}"));
         if (rows.Count == 0) rows.Add(("Sin bonificaciones activas", "0"));
-        _bonuses.Text = string.Join("\n", rows.Select(row => row.Name + ": " + row.Value));
+        var relics = (_wizard.Buffs ?? []).Select(b => RelicBuffs.Name(b.Kind) + " ×" + b.Stacks).ToArray();
+        _bonuses.Text = (relics.Length > 0 ? "RELIQUIAS\n" + string.Join("\n", relics) + "\n\nTOTALES\n" : "") +
+            string.Join("\n", rows.Select(row => row.Name + ": " + row.Value));
         string stamp = string.Join('|', rows.Select(r => r.Name + r.Value));
         if (stamp == _totalsStamp) return;
         _totalsStamp = stamp;

@@ -44,6 +44,7 @@ public partial class Main
         typeof(GameWorld).GetField("_defenseDifficulty", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(world, 10);
         typeof(GameWorld).GetField("_defenseElapsed", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(world, 810.0);
         typeof(GameWorld).GetField("<Tick>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(world, 48600L);
+        p.BuffStacks[(int)BuffKind.Energy] = 2;
         p.Invulnerable = 1.2f;
         Call("TrySpawnMinion", MinionKind.Boss);
         for (int i = 0; i < 20; i++) Call("SpawnMinion");
@@ -99,7 +100,7 @@ public partial class Main
                 Check(_renderer.FindChild("DefenseCastle", true, false) == null && panel.FindChild("DefenseRepairButton", true, false) == null,
                     "Sigue presente el castillo o su reparación.");
                 var bonuses = (Label)panel.FindChild("DefenseVerticalBonuses", true, false);
-                Check(bonuses.Text.Contains('\n') && panel.SummaryRectForVerification.End.X < GetViewport().GetVisibleRect().Size.X / 2,
+                Check(bonuses.Text.Contains("Energía ×2") && bonuses.Text.Contains("Energía por reliquias") && panel.SummaryRectForVerification.End.X < GetViewport().GetVisibleRect().Size.X / 2,
                     "Las bonificaciones no están en una columna a la izquierda.");
                 CaptureDefense("01-partida");
                 panel.OpenShop(); _defensePauseTick = _practice.Tick; _defenseSmokePhase++; return false;

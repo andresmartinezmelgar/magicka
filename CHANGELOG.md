@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.19.1 — Supervivencia y todas las reliquias visibles
+
+- Supervivencia continua en Anillos: mapa de 192 × 144 m con pasillos y portales, sin castillo ni oleadas.
+- Dos vidas por jugador; en cooperativo termina cuando todos los humanos las agotan.
+- Colosos a intervalos variables y minions que persiguen al jugador, con impulsos ocasionales de velocidad.
+- Se cargan solo los sectores cercanos; las bonificaciones y todas las reliquias aparecen en vertical a la izquierda.
+- La energía de las reliquias también aparece en los totales; se mantienen el inventario compartido, la pausa en solitario y los premios pendientes.
+
 ## 0.19.0 — Supervivencia en Anillos
 
 - Defensa pasa a supervivencia continua: se retiran las oleadas, el castillo y las reparaciones.
