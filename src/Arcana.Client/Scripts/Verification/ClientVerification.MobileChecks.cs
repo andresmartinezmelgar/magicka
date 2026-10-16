@@ -82,7 +82,25 @@ public partial class ClientVerification
                     Require(_runtime.Practice.Snapshot().Walls.Any(w => w.Elements.Contains(Element.Earth) && w.Elements.Contains(Element.Fire)),
                         "El control táctil no crea la barrera de piedra y fuego.");
                     ReadyForSpell(); Down(2, new(width / 2 + 61, height - 54)); Up(2);
-                    Require(_runtime.Practice.Snapshot().Fields.Any(f => f.Kind == "meteor"), "El toque no lanza el meteorito.");
+                    Require(touch.PendingMagick == 2 && !_runtime.Practice.Snapshot().Fields.Any(f => f.Kind == "meteor"),
+                        "El meteoro se lanza antes de apuntar.");
+                    Vector2 specialAim = new(width - 142, height - 125);
+                    Down(1, specialAim); touch.Drag(1, global + specialAim + new Vector2(-32, 0));
+                    V2 meteorTarget = _runtime.Aim;
+                    Require(V2.Distance(meteorTarget, player.Position) is > 3 and < 7, "El joystick no ajusta la distancia del meteoro.");
+                    Up(1);
+                    var meteorField = _runtime.Practice.Snapshot().Fields.Single(f => f.Kind == "meteor");
+                    Require(V2.Distance(meteorField.Position, meteorTarget) < 0.01f && touch.PendingMagick == -1,
+                        "El meteoro no respeta el punto final del gesto.");
+                    ReadyForSpell();
+                    float energyBeforeCancel = player.Energy;
+                    var blink = (Control)touch.FindChild("TouchMagick1", true, false);
+                    Down(2, blink.GetRect().GetCenter()); Up(2);
+                    Require(touch.PendingMagick == 1, "Traslación no permite apuntar.");
+                    Down(1, specialAim); touch.Drag(1, global + specialAim + Vector2.Up * 65); Up(1, true);
+                    Require(touch.PendingMagick == -1 && player.Energy == energyBeforeCancel && player.MagickCooldowns[1] == 0,
+                        "Cancelar Traslación gasta energía o inicia la recarga.");
+                    GD.Print("MOBILE_MAGICK_AIM_OK: destino y distancia finales, lanzamiento al soltar y cancelación sin gasto.");
                     break;
                 case 65:
                     // Regression: placing a directional shield used to happen on touch-down,
@@ -178,6 +196,7 @@ public partial class ClientVerification
                     _runtime.Submit(new() { Type = "clear" });
                     GD.Print("MOBILE_ICE_AIM_OK: agua y frío esperan a soltar y respetan la dirección final.");
                     Require(CheckTranslationInput(), "Traslación conserva el destino anterior o no continúa desde la llegada.");
+                    Require(CheckReanimationInput(), "Reanimar no distingue aliados recuperables de eliminados.");
                     Require(CheckRespawnInput(), "La reaparición conserva la entrada de la vida anterior.");
                     CompleteSmoke("MOBILE_SMOKE_OK: multitáctil, roca, escudo personal, piedra y fuego, caída e impacto del meteorito, cancelación, ayuda, pausa y Atrás");
                     break;

@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.19.3 — Inventario abierto y hechizos con apuntado
+
+- Equipar o quitar una pieza mantiene abierto el selector y conserva el desplazamiento; la selección se guarda al salir del inventario.
+- Retirado «Volver al menú» de la tienda de Supervivencia.
+- El lateral muestra solo las mejoras recogidas; el equipo conserva sus estadísticas en el inventario. Los elementos preparados quedan más cerca de los hechizos.
+- En móvil, Traslación y Meteoro permiten ajustar dirección y distancia con el joystick derecho y se lanzan al soltar, con destino visible y cancelación sin gasto. Las magias interrumpen el ataque anterior; Traslación respeta los muros y Meteoro protege a los defensores aliados.
+- Reanimar indica cuándo falta un aliado caído a menos de 8 m, busca suelo libre si un muro ocupa su posición y respeta el máximo de dos vidas.
+
 ## 0.19.2 — Publicaciones de pruebas con deltas
 
 - Los tags de pruebas adjuntan los deltas Android y Windows de las tres versiones anteriores disponibles de su misma rama.

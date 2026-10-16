@@ -1,6 +1,6 @@
 # Supervivencia en Anillos
 
-Versión **0.19.2**, protocolo **25**, rama `feature/defensa-oleadas`. Esta rama sigue independiente de `main`. Se publican APK directas, paquetes Windows preliminares y deltas de las tres versiones anteriores de esta rama. Las dos cuentas autorizadas reciben el [canal de pruebas](CANALES-ACTUALIZACION.md); el resto conserva el canal estable. Cliente y servidor deben utilizar el mismo protocolo.
+Versión **0.19.3**, protocolo **25**, rama `feature/defensa-oleadas`. Esta rama sigue independiente de `main`. Se publican APK directas, paquetes Windows preliminares y deltas de las tres versiones anteriores de esta rama. Las dos cuentas autorizadas reciben el [canal de pruebas](CANALES-ACTUALIZACION.md); el resto conserva el canal estable. Cliente y servidor deben utilizar el mismo protocolo y actualizarse para aplicar las correcciones del combate.
 
 ## Partida y vidas
 
@@ -11,6 +11,12 @@ El modo Defensa ahora es **Supervivencia**, con enemigos continuos. Se han retir
 - Cada jugador tiene **dos vidas**. La primera muerte permite reaparecer a los **4,5 segundos**, en el lugar de la caída; la segunda lo elimina. Las curaciones, la reanimación y reconectar con la misma cuenta no restituyen vidas agotadas.
 - En cooperativo termina cuando todos los humanos han agotado sus vidas. Los bots vivos no prolongan la partida. Si el último humano con vidas sale y quedan humanos eliminados, también termina.
 - El resultado permanece hasta volver al menú o iniciar otra partida. En red reinicia el anfitrión.
+
+En móvil, toca **Traslación** o **Meteoro**, ajusta dirección y distancia con el joystick derecho y suelta para lanzar. Una marca muestra el destino; el meteoro indica además su área. Tocar otra vez el mismo botón o cancelar el gesto no consume energía. Traslación recorre hasta 7 m sin atravesar muros ni conservar empujes anteriores. Meteoro alcanza 14 m, avisa durante 1,4 s y no daña a los defensores.
+
+**Reanimar** recupera con 600 de vida a un aliado caído a menos de 8 m, durante la espera de su primera reaparición. No recupera vidas agotadas. Si no hay objetivo, el botón muestra «Sin aliado» y no consume energía. Un muro sobre el lugar de la caída obliga a reaparecer en suelo libre cercano.
+
+Equipar o quitar piezas mantiene abierto el selector; Atrás vuelve al inventario y salir aplica la selección. El lateral de combate muestra solo las mejoras recogidas. Los atributos del equipo y los totales siguen disponibles en el inventario y las estadísticas de la tienda.
 
 ## Mapa, aparición y rendimiento
 

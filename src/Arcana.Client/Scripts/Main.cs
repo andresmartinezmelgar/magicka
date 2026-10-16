@@ -404,7 +404,7 @@ public partial class Main : Node
             _waitingPanel?.Update(latest, _localId, _connection?.Server?.RewardsAvailable == true);
             if (_practicePanel != null)
             { _practicePanel.Visible = !_paused && !_help.Visible; _practicePanel.Update(_aim); }
-            _touch?.Update(latest.Players.FirstOrDefault(p => p.Id == _localId));
+            _touch?.Update(latest.Players.FirstOrDefault(p => p.Id == _localId), latest);
             _verification?.AfterRender(latest);
         }
         else _renderer.Render(_backdropSnapshot ??= _backdrop.Snapshot(), 0, delta, false);
@@ -496,6 +496,7 @@ public partial class Main : Node
     }
     private void UseMagick(int slot)
     {
+        if (!CheckMagickAvailable(slot, checkTarget: true)) return;
         if (slot == 1)
         {
             // El siguiente paquete no debe restaurar el destino anterior al salto.

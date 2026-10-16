@@ -94,6 +94,54 @@ public partial class ClientVerification
         }
     }
 
+    private bool CheckReanimationInput()
+    {
+        var saved = (_runtime.Practice, _runtime.Snapshot, _runtime.LocalId, _runtime.LocalSequence,
+            _runtime.LocalWasAlive, _runtime.LocalDeaths, _runtime.Aim);
+        void Require(bool condition, string detail)
+        { if (!condition) throw new InvalidDataException("Reanimar: " + detail); }
+        try
+        {
+            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4 });
+            var caster = world.AddPlayer("Reanimador")!; var ally = world.AddPlayer("Aliado")!;
+            caster.Position = V2.Zero; ally.Position = new(2, 0);
+            _runtime.Practice = world; _runtime.LocalId = caster.Id; _runtime.LocalSequence = 0;
+            _runtime.LocalWasAlive = true; _runtime.LocalDeaths = 0;
+            var touch = _runtime.Touch!; touch.Reset();
+            var button = (Control)touch.FindChild("TouchMagick3", true, false);
+            void Refresh()
+            {
+                _runtime.Snapshot = world.Snapshot();
+                touch.Update(_runtime.Snapshot.Players.Single(p => p.Id == caster.Id), _runtime.Snapshot);
+            }
+            void Tap()
+            {
+                var at = button.GetGlobalRect().GetCenter();
+                touch.Touch(2, at, true); touch.Touch(2, at, false);
+            }
+            Refresh(); Tap();
+            Require(caster.Energy == 100 && caster.MagickCooldowns[3] == 0 && _runtime.Hud!.ActionNoticeForSmoke.Contains("aliado caído"),
+                "el botón sin objetivo no explica el requisito o consume energía.");
+            ally.Health = 0; ally.Invulnerable = 0; ally.Deaths = 1; ally.Respawn = 4.5f;
+            Refresh(); Tap();
+            Require(ally.Alive && ally.Health == 600 && ally.Deaths == 1 && caster.Energy == 40,
+                "el botón no recupera al aliado de su primera caída.");
+            ally.Health = 0; ally.Invulnerable = 0; ally.Deaths = 2;
+            caster.Energy = 100; caster.ActionCooldown = caster.MagickCooldowns[3] = 0;
+            Refresh(); Tap();
+            Require(!ally.Alive && caster.Energy == 100 && caster.MagickCooldowns[3] == 0,
+                "el botón recupera una tercera vida o cobra por un aliado eliminado.");
+            GD.Print("REANIMATION_INPUT_OK: requisito visible, aliado reanimado y dos vidas respetadas.");
+            return true;
+        }
+        finally
+        {
+            _runtime.Touch?.Reset();
+            (_runtime.Practice, _runtime.Snapshot, _runtime.LocalId, _runtime.LocalSequence,
+                _runtime.LocalWasAlive, _runtime.LocalDeaths, _runtime.Aim) = saved;
+        }
+    }
+
     private bool CheckTranslationInput()
     {
         void Require(bool condition, string detail)
@@ -121,6 +169,11 @@ public partial class ClientVerification
                 var button = touch.GlobalPosition + new Vector2(touch.Size.X / 2 - 60, touch.Size.Y - 54);
                 Require(touch.Touch(2, button, true), "el botón 2 no recibe el toque.");
                 touch.Touch(2, button, false);
+                Require(touch.PendingMagick == 1 && player.Position == before, "el salto no espera al apuntado.");
+                var stick = touch.GlobalPosition + new Vector2(touch.Size.X - 142, touch.Size.Y - 125);
+                Require(touch.Touch(1, stick, true), "el joystick no inicia el apuntado del salto.");
+                touch.Drag(1, stick + new Vector2(80, 0));
+                touch.Touch(1, stick, false);
             }
             else _runtime.UnhandledInput(new InputEventKey { PhysicalKeycode = Key.Key2, Pressed = true });
             var arrival = player.Position;

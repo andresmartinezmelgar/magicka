@@ -552,7 +552,9 @@ public sealed partial class GameWorld
 
     private void Magick(Wizard p, int slot)
     {
-        if (!Ready(p) || slot is < 0 or > 3 || p.MagickCooldowns[slot] > 0) return;
+        // Las magias tienen energía y recarga propias: un ataque recién soltado
+        // no debe perder el lanzamiento especial al finalizar el gesto móvil.
+        if (!p.Alive || p.Frozen > 0 || MatchEnded || slot is < 0 or > 3 || p.MagickCooldowns[slot] > 0) return;
         var magick = SpellBalance.Magicks[slot];
         float cost = magick.Cost * (slot == 3 ? p.Equipment.LifeCost : 1);
         if (p.Energy < cost) return;
@@ -560,40 +562,33 @@ public sealed partial class GameWorld
         if (slot == 0) p.Haste = 4;
         if (slot == 1)
         {
-            // El recorrido se comprueba: no se puede saltar fuera del mapa ni cruzar muros.
             var direction = (target - p.Position).Normalized;
-            float distance = Math.Min(7, V2.Distance(p.Position, target));
-            V2 last = p.Position;
-            for (float d = 0.3f; d <= distance; d += 0.3f)
-            {
-                var candidate = p.Position + direction * d;
-                if (!Walkable(candidate)) break;
-                last = candidate;
-            }
+            var last = MagickRules.BlinkDestination(p.Position, target, ClearMovement);
             if (V2.Distance(last, p.Position) < 0.4f) return;
             Emit("blink", p.Position, [], "");
             p.Position = last; p.Facing = direction; p.Input.MoveTo = false;
+            p.Knockback = V2.Zero;
             ResetSlide(p);
             _routes.Remove(p.Id);
             Emit("blink_arrive", p.Position, [], "");
         }
         if (slot == 2)
         {
-            var direction = target - p.Position;
-            if (direction.Length > 14) target = p.Position + direction.Normalized * 14;
-            if (!Map.Inside(target) || _fields.Count >= 40) return;
+            target = MagickRules.MeteorTarget(p.Position, target);
+            if (!Map.Walkable(target) || _fields.Count >= 40) return;
             _fields.Add(new Field { Id = _nextEntity++, Owner = p.Id, Position = target, Radius = SpellBalance.MeteorRadius,
                 Lifetime = SpellBalance.MeteorLifetime, Delay = SpellBalance.MeteorDelay, Kind = "meteor",
                 Recipe = new SpellRecipe([Element.Earth, Element.Fire, Element.Fire]) });
         }
         if (slot == 3)
         {
-            var ally = _players.Values.Where(q => !q.Alive && (!IsDefense || q.Deaths < DefenseRules.PlayerLives) && Allied(p, q) && q.Id != p.Id && V2.Distance(q.Position, p.Position) < 8)
-                .OrderBy(q => V2.Distance(q.Position, p.Position)).FirstOrDefault();
+            var ally = _players.Values.Where(q => q.Id != p.Id && MagickRules.CanReanimate(Options.Mode, p.Team, q.Team, q.Alive, q.Deaths, V2.Distance(q.Position, p.Position)))
+                .OrderBy(q => V2.Distance(q.Position, p.Position)).ThenBy(q => q.Id).FirstOrDefault();
             if (ally == null) return;
             var location = ally.Position;
-            Respawn(ally); if (Walkable(location)) ally.Position = location; ally.Health = 600;
+            Respawn(ally); if (Walkable(location)) ally.Position = location; ally.Health = Math.Min(600, ally.MaxHealth);
         }
+        if (slot != 0) CancelCast(p);
         p.Energy -= cost; p.MagickCooldowns[slot] = magick.Cooldown;
         p.ActionCooldown = 0.2f;
         Emit("magick", p.Position, [], magick.Name);
@@ -769,6 +764,7 @@ public sealed partial class GameWorld
             foreach (var p in _combatants.Values)
             {
                 if (!p.Alive || !(V2.Distance(p.Position, f.Position) < f.Radius) || !Visible(f.Position, p.Position, f.Owner)) continue;
+                if (IsDefense && f.Kind == "meteor" && _combatants.TryGetValue(f.Owner, out var caster) && Allied(caster, p)) continue;
                 if (f.Kind == "healing_mine")
                 {
                     if (_combatants.TryGetValue(f.Owner, out var owner) && Allied(owner, p))
@@ -900,7 +896,17 @@ public sealed partial class GameWorld
     private V2 RespawnPosition(Wizard p)
     {
         if (Map.IsPractice) return _practiceSpawns.GetValueOrDefault(p.Id, PracticeLayout.Respawn);
-        if (IsDefense && Map.Walkable(p.Position)) return p.Position;
+        if (IsDefense)
+        {
+            if (Walkable(p.Position)) return p.Position;
+            for (float radius = 0.8f; radius <= 8; radius += 0.4f)
+                for (int i = 0; i < 24; i++)
+                {
+                    float angle = i * MathF.Tau / 24;
+                    var at = p.Position + new V2(MathF.Cos(angle), MathF.Sin(angle)) * radius;
+                    if (Walkable(at)) return at;
+                }
+        }
         if (Options.Mode == GameMode.Arena) return ArenaSpawnPosition(p, p.Deaths > 0 ? p.Position : null);
         var preferred = TeamSpawn(p.Team, p.Id % 4);
         for (int offset = 0; offset < 4; offset++)

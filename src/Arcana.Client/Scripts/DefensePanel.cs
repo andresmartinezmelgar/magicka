@@ -37,7 +37,7 @@ public partial class DefensePanel : Control
     private GridContainer _navigation = null!;
     public bool PointerOverPanel => _summary.GetGlobalRect().HasPoint(GetGlobalMousePosition()) || ShopOpen;
 
-    public void Build(Main main, Action<ClientMessage> submit, Action leave)
+    public void Build(Main main, Action<ClientMessage> submit)
     {
         _main = main; _submit = submit;
         Name = "DefensePanel"; Theme = Ui.Theme(); Ui.Full(this); MouseFilter = MouseFilterEnum.Ignore;
@@ -131,7 +131,6 @@ public partial class DefensePanel : Control
         ShowSection(0); ShowPowers(true);
         var footer = new HBoxContainer(); footer.AddThemeConstantOverride("separation", 8); body.AddChild(footer);
         _restart = Ui.Button("Otra partida", () => { Send("defense_restart"); CloseShop(); }); footer.AddChild(_restart);
-        footer.AddChild(Ui.Button("Volver al menú", leave));
         foreach (var button in new[] { open }.Concat(_auras).Concat(_passives))
         {
             button.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -300,8 +299,7 @@ public partial class DefensePanel : Control
             rows.Add((DefenseRules.PassiveName((DefensePassive)i), $"Nivel {p.Passives[i]}"));
         if (rows.Count == 0) rows.Add(("Sin bonificaciones activas", "0"));
         var relics = (_wizard.Buffs ?? []).Select(b => RelicBuffs.Name(b.Kind) + " ×" + b.Stacks).ToArray();
-        _bonuses.Text = (relics.Length > 0 ? "RELIQUIAS\n" + string.Join("\n", relics) + "\n\nTOTALES\n" : "") +
-            string.Join("\n", rows.Select(row => row.Name + ": " + row.Value));
+        _bonuses.Text = relics.Length > 0 ? "MEJORAS RECOGIDAS\n" + string.Join("\n", relics) : "Sin mejoras recogidas";
         string stamp = string.Join('|', rows.Select(r => r.Name + r.Value));
         if (stamp == _totalsStamp) return;
         _totalsStamp = stamp;

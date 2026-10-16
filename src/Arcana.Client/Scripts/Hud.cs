@@ -13,6 +13,10 @@ public partial class Hud : Control
     private Label _controls = null!;
     private Label _reward = null!;
     private float _rewardSeconds;
+    private Label _actionNotice = null!;
+    private float _actionNoticeSeconds;
+    internal string ActionNoticeForSmoke => _actionNotice.Text;
+    public void ActionNotice(string text) { _actionNotice.Text = text; _actionNoticeSeconds = 4; _actionNotice.Visible = true; }
     private HBoxContainer _teams = null!;
     private Label _blueScore = null!, _redScore = null!;
     private StyleBoxFlat _shieldFill = null!, _shieldTrack = null!;
@@ -106,6 +110,10 @@ public partial class Hud : Control
         _buffs.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft); _buffs.Position = Vector2.Zero; _buffs.Size = new(690, 44); AddChild(_buffs);
         spells.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft); spells.Position = Vector2.Zero; AddChild(spells);
         _spellsPanel = spells;
+        _actionNotice = Ui.Label("", 18, Ui.Gold); _actionNotice.Name = "MagickFeedback";
+        _actionNotice.HorizontalAlignment = HorizontalAlignment.Center;
+        _actionNotice.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _actionNotice.Visible = false; AddChild(_actionNotice);
         var stack = new VBoxContainer(); stack.AddThemeConstantOverride("separation", 9); spells.AddChild(stack);
         var first = new HBoxContainer(); first.AddThemeConstantOverride("separation", 14); stack.AddChild(first);
         var queue = new HBoxContainer(); queue.AddThemeConstantOverride("separation", 8); first.AddChild(queue);
@@ -241,7 +249,8 @@ public partial class Hud : Control
         _mapPanel.Position = Ui.IsMobile ? new(Size.X - 235, 136) : new(Size.X - 235, 72);
         float spellsWidth = Math.Min(Ui.IsMobile ? 320 : 690, Math.Max(100, Size.X - 36));
         float spellsHeight = Math.Max(54, _spellsPanel.GetCombinedMinimumSize().Y);
-        float spellsBottom = Ui.IsMobile ? 150 / GameplayScale : 26 / GameplayScale;
+        float touchScale = _lastSnapshot?.Defense != null ? Math.Min(1, Size.Y * GameplayScale / 720f) : 1;
+        float spellsBottom = Ui.IsMobile ? 100 * touchScale / GameplayScale : 26 / GameplayScale;
         float spellsLeft = (Size.X - spellsWidth) / 2;
         if (!Ui.IsMobile && Size.X >= 1250)
             spellsLeft = Math.Max(spellsLeft, 345 / GameplayScale);
@@ -251,6 +260,8 @@ public partial class Hud : Control
         float buffsWidth = Math.Min(690, available);
         _buffs.Position = new((Size.X - buffsWidth) / 2, Math.Max(100, spellsTop - 52));
         _buffs.Size = new(buffsWidth, 44);
+        _actionNotice.Position = new((Size.X - buffsWidth) / 2, Math.Max(100, spellsTop - (_buffs.Visible ? 96 : 48)));
+        _actionNotice.Size = new(buffsWidth, 44);
         if (!Ui.IsMobile)
             _playerPanel.Position = Size.X < 1250
                 ? new Vector2(24, 145) / GameplayScale
@@ -279,6 +290,8 @@ public partial class Hud : Control
     {
         _rewardSeconds = Math.Max(0, _rewardSeconds - (float)delta); _reward.Visible = _rewardSeconds > 0;
         _rewardBackdrop.Visible = _reward.Visible;
+        _actionNoticeSeconds = Math.Max(0, _actionNoticeSeconds - (float)delta);
+        _actionNotice.Visible = _actionNoticeSeconds > 0;
         _feedTime -= (float)delta; _feed.Text = _feedTime > 0 ? _feedText : "";
         bool showScore = snapshot.Map != ArenaMapId.Practice && (ScoreOpen || Input.IsPhysicalKeyPressed(Key.Tab));
         bool opened = !_scorePanel.Visible && showScore;
@@ -288,6 +301,7 @@ public partial class Hud : Control
         if (ReferenceEquals(snapshot, _lastSnapshot)) return;
         var previous = _lastSnapshot;
         _lastSnapshot = snapshot;
+        if (previous?.Mode != snapshot.Mode) ResizeLayout();
         var player = snapshot.Players.FirstOrDefault(p => p.Id == id); if (player == null) return;
         var old = _lastPlayer; _lastPlayer = player;
         if (_lastServerName != serverName || previous?.Mode != snapshot.Mode || previous.Map != snapshot.Map)

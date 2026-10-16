@@ -80,6 +80,10 @@ public partial class Main
                 if (_touch != null)
                 {
                     var rectangles = _touch.ButtonRectanglesForVerification;
+                    var selected = ((Control)_hud!.FindChild("SpellControlsPanel", true, false)).GetGlobalRect();
+                    var magicks = ((Control)_touch.FindChild("TouchMagick0", true, false)).GetGlobalRect();
+                    Check(magicks.Position.Y - selected.End.Y is >= 0 and <= 20,
+                        "Los elementos seleccionados no están pegados a los hechizos especiales.");
                     Check(rectangles.Length == 17 && !_touch.FindChildren("*", "Label", true, false).OfType<Label>().Any(l => l.Text is "Bastón" or "Vaciar"),
                         "Siguen presentes los botones retirados.");
                     foreach (string name in new[] { "TouchSelf", "TouchNova" })
@@ -104,8 +108,11 @@ public partial class Main
                 Check(_renderer.FindChild("DefenseCastle", true, false) == null && panel.FindChild("DefenseRepairButton", true, false) == null,
                     "Sigue presente el castillo o su reparación.");
                 var bonuses = (Label)panel.FindChild("DefenseVerticalBonuses", true, false);
-                Check(bonuses.Text.Contains("Energía ×2") && bonuses.Text.Contains("Energía por reliquias") && panel.SummaryRectForVerification.End.X < GetViewport().GetVisibleRect().Size.X / 2,
-                    "Las bonificaciones no están en una columna a la izquierda.");
+                Check(bonuses.Text.Contains("Energía ×2") && !bonuses.Text.Contains("TOTALES") && !bonuses.Text.Contains("Vida máxima extra") &&
+                    !bonuses.Text.Contains("Aura") && panel.SummaryRectForVerification.End.X < GetViewport().GetVisibleRect().Size.X / 2,
+                    "El lateral debe mostrar solo las mejoras recogidas.");
+                Check(!panel.FindChildren("*", "Button", true, false).OfType<Button>().Any(b => b.Text == "Volver al menú"),
+                    "La tienda conserva el botón de volver al menú.");
                 CaptureDefense("01-partida");
                 panel.OpenShop(); _defensePauseTick = _practice.Tick; _defenseSmokePhase++; return false;
             }
@@ -177,17 +184,18 @@ public partial class Main
                 Check(!inventory.PickerVisible && panel.EquipmentInventory == inventory && panel.ShopOpen && _practice!.DefensePaused,
                     "Atrás no vuelve del selector al inventario manteniendo la pausa.");
                 inventory.PressInspect(EquipmentSlot.Chest); inventory.PressChoice("");
-                Check(inventory.PreviewProfile!.Loadout.Chest == "" && lookup.Values.Any(i => i.Equipped && i.Item.Slot == EquipmentSlot.Chest),
+                Check(inventory.PickerVisible && inventory.PreviewProfile!.Loadout.Chest == "" && lookup.Values.Any(i => i.Equipped && i.Item.Slot == EquipmentSlot.Chest),
                     "Quitar una pieza no se previsualiza manteniendo el equipo actual hasta salir.");
                 foreach (var slot in Enum.GetValues<EquipmentSlot>())
                 {
                     inventory.PressInspect(slot);
                     inventory.PressChoice(lookup.Values.Single(i => i.Item.Slot == slot && i.Item.Tier == ItemTier.Platinum).Item.Id);
+                    Check(inventory.PickerVisible, "Equipar cerró el selector de piezas.");
                 }
                 _defenseChosenLoadout = inventory.PreviewProfile!.Loadout;
                 Check(inventory.HasChanges && _practice!.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId)
                     .Items.Where(i => i.Equipped).All(i => i.Item.Tier == ItemTier.Gold), "Se aplicó la selección antes de salir.");
-                panel.HandleBack(); _defenseSmokePhase++; return false;
+                panel.HandleBack(); panel.HandleBack(); _defenseSmokePhase++; return false;
             }
             if (_defenseSmokePhase == 6)
             {

@@ -21,6 +21,14 @@ public partial class MobileControls : Control
     private int _selectionEchoFrames;
     private const float Radius = 82;
     private bool _defenseLayout;
+    private int _pendingMagick = -1;
+    private float _magickAimAmount = 1;
+    private bool _hasMagickTarget, _magickTargetValid;
+    private Vector2 _magickTarget, _magickAxisX, _magickAxisY;
+    public Func<int, bool>? MagickAvailable { get; set; }
+    public int PendingMagick => _pendingMagick;
+    public float AimRange => _pendingMagick == 1 ? MagickRules.BlinkRange : MagickRules.MeteorRange;
+    public float AimStrength => _pendingMagick >= 0 ? _magickAimAmount : 1;
     public Func<Vector2, bool>? PointerBlocked { get; set; }
     private float DefenseScale => _defenseLayout ? Math.Min(1, Size.Y / 720f) : 1;
     private float StickRadius => Radius * DefenseScale;
@@ -46,7 +54,10 @@ public partial class MobileControls : Control
         _self = AddButton("Sobre mí", new() { Type = "self" }, color: Ui.Health); _self.Panel.Name = "TouchSelf";
         _nova = AddButton("En área", new() { Type = "nova" }, color: Ui.Gold); _nova.Panel.Name = "TouchNova";
         for (int i = 0; i < SpellBalance.Magicks.Count; i++)
-            _magicks.Add(AddButton(SpellBalance.Magicks[i].Name, new() { Type = "magick", Slot = i }, color: Ui.Gold));
+        {
+            var action = AddButton(SpellBalance.Magicks[i].Name, new() { Type = "magick", Slot = i }, color: Ui.Gold);
+            action.Panel.Name = "TouchMagick" + i; _magicks.Add(action);
+        }
         _utilities.Add(AddButton("Ayuda", run: () => HelpRequested?.Invoke()));
         _utilities.Add(AddButton("Tabla", run: () => ScoreRequested?.Invoke()));
         _utilities.Add(AddButton("Menú", run: () => MenuRequested?.Invoke()));
@@ -113,11 +124,12 @@ public partial class MobileControls : Control
     {
         _moveFinger = _aimFinger = -1; _move = _aimKnob = Vector2.Zero; _moveCenter = _moveHome;
         _directionalAimPending = false;
+        CancelMagickAim();
         _awaitingSelectionEcho = false;
         foreach (var action in _pressed.Values) action.Panel.Modulate = Colors.White;
         _pressed.Clear(); QueueRedraw();
     }
-    public void Update(WizardSnapshot? player)
+    public void Update(WizardSnapshot? player, WorldSnapshot? world = null)
     {
         if (player == null) return;
         // Local element taps are immediate, whereas a PvP snapshot can arrive a frame later.
@@ -135,8 +147,12 @@ public partial class MobileControls : Control
         {
             var magick = SpellBalance.Magicks[i];
             float cost = i == 3 ? player.ReanimationCost : magick.Cost;
-            _magicks[i].Text.Text = magick.Name + "\n" + (player.Cooldowns[i] > 0 ? $"{Math.Ceiling(player.Cooldowns[i])}s" : $"{cost:0}");
-            _magicks[i].Text.AddThemeColorOverride("font_color", player.Cooldowns[i] > 0 || player.Energy < cost ? Ui.Muted : Ui.Gold);
+            bool missingAlly = i == 3 && world != null && MagickRules.ReanimationTarget(world, player) == null;
+            bool available = player.Alive && player.Frozen <= 0 && player.Cooldowns[i] <= 0 && player.Energy >= cost && !missingAlly;
+            if (_pendingMagick == i && !available) CancelMagickAim();
+            _magicks[i].Text.Text = magick.Name + "\n" + (_pendingMagick == i ? "Apuntando" :
+                player.Cooldowns[i] > 0 ? $"{Math.Ceiling(player.Cooldowns[i])}s" : missingAlly ? "Sin aliado" : $"{cost:0}");
+            _magicks[i].Text.AddThemeColorOverride("font_color", available ? Ui.Gold : Ui.Muted);
         }
     }
     public override void _Input(InputEvent input)
@@ -162,6 +178,16 @@ public partial class MobileControls : Control
                 _aimFinger = -1; _aimKnob = Vector2.Zero;
                 bool castOnRelease = _directionalAimPending && !canceled;
                 _directionalAimPending = false; QueueRedraw();
+                if (_pendingMagick >= 0)
+                {
+                    if (!canceled)
+                    {
+                        AimChanged?.Invoke();
+                        ActionRequested?.Invoke(new() { Type = "magick", Slot = _pendingMagick });
+                    }
+                    CancelMagickAim();
+                    Request(new() { Type = "release" }); return true;
+                }
                 // Escudos y fragmentos de hielo son instantáneos: el lanzamiento
                 // espera la dirección FINAL del gesto, nunca el primer contacto.
                 // Un toque cancelado no debe gastar los elementos.
@@ -193,9 +219,9 @@ public partial class MobileControls : Control
         {
             _aimFinger = finger;
             _aimedSpellShape = new SpellRecipe(_selected.Elements).Shape;
-            _directionalAimPending = _aimedSpellShape is SpellShape.Barrier or SpellShape.Shards;
+            _directionalAimPending = _pendingMagick < 0 && (_aimedSpellShape is SpellShape.Barrier or SpellShape.Shards);
             Aim(point); AimChanged?.Invoke();
-            if (!_directionalAimPending) Request(new() { Type = "cast" });
+            if (!_directionalAimPending && _pendingMagick < 0) Request(new() { Type = "cast" });
             QueueRedraw();
             return true;
         }
@@ -211,6 +237,19 @@ public partial class MobileControls : Control
     }
     private void Request(ClientMessage message)
     {
+        if (message.Type == "magick")
+        {
+            if (_pendingMagick == message.Slot) { CancelMagickAim(); return; }
+            if (MagickAvailable?.Invoke(message.Slot) == false) return;
+            if (message.Slot is 1 or 2)
+            {
+                ActionRequested?.Invoke(new() { Type = "release" });
+                _directionalAimPending = false; _pendingMagick = message.Slot; _magickAimAmount = 1;
+                if (_aimFinger >= 0) _magickAimAmount = _aimKnob.Length();
+                AimChanged?.Invoke(); QueueRedraw(); return;
+            }
+            CancelMagickAim();
+        }
         switch (message.Type)
         {
             case "element":
@@ -237,11 +276,36 @@ public partial class MobileControls : Control
     }
     private void Move(Vector2 point) { _move = Stick(point - _moveCenter); QueueRedraw(); }
     private void Aim(Vector2 point)
-    { _aimKnob = Stick(point - _aimCenter); if (!_aimKnob.IsZeroApprox()) _aim = _aimKnob.Normalized(); QueueRedraw(); }
+    {
+        _aimKnob = Stick(point - _aimCenter);
+        if (_pendingMagick >= 0) _magickAimAmount = _aimKnob.Length();
+        if (!_aimKnob.IsZeroApprox()) _aim = _aimKnob.Normalized();
+        QueueRedraw();
+    }
+    private void CancelMagickAim()
+    { _pendingMagick = -1; _magickAimAmount = 1; _hasMagickTarget = false; QueueRedraw(); }
+    public void SetMagickTarget(Vector2 center, Vector2 axisX, Vector2 axisY, bool valid)
+    {
+        _magickTarget = center - GlobalPosition; _magickAxisX = axisX; _magickAxisY = axisY;
+        _magickTargetValid = valid; _hasMagickTarget = true; QueueRedraw();
+    }
     public override void _Draw()
     {
+        if (_pendingMagick >= 0 && _hasMagickTarget)
+        {
+            Color color = _magickTargetValid ? Ui.Gold : Ui.Red;
+            var previous = _magickTarget + _magickAxisX;
+            for (int i = 1; i <= 40; i++)
+            {
+                float angle = Mathf.Tau * i / 40;
+                var next = _magickTarget + _magickAxisX * Mathf.Cos(angle) + _magickAxisY * Mathf.Sin(angle);
+                DrawLine(previous, next, color, 2, true); previous = next;
+            }
+            DrawLine(_magickTarget - Vector2.Right * 7, _magickTarget + Vector2.Right * 7, color, 2, true);
+            DrawLine(_magickTarget - Vector2.Down * 7, _magickTarget + Vector2.Down * 7, color, 2, true);
+        }
         DrawStick(_moveCenter, _move, "MOVER", Ui.Blue);
-        DrawStick(_aimCenter, _aimKnob, _directionalAimPending
+        DrawStick(_aimCenter, _aimKnob, _pendingMagick >= 0 ? "SUELTA: " + SpellBalance.Magicks[_pendingMagick].Name.ToUpperInvariant() : _directionalAimPending
             ? _aimedSpellShape == SpellShape.Shards ? "SUELTA: HIELO" : "SUELTA: ESCUDO"
             : "APUNTAR / LANZAR", Ui.Gold);
     }

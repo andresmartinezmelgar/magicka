@@ -351,9 +351,11 @@ public partial class EquipmentPanel : Control
         try
         {
             _draft = AccountInventory.Equip(_draft, new InventoryRequest(id, _selectedSlot));
-            CloseItemPicker();
             Render();
-            SetStatus(HasChanges ? "Cambios pendientes. Se guardarán al salir del inventario." : "La configuración coincide con el equipo guardado.", routine: true);
+            RefreshPickerItems();
+            string message = HasChanges ? "Cambios pendientes. Se guardarán al salir del inventario." : "La configuración coincide con el equipo guardado.";
+            SetStatus(message, routine: true);
+            if (PickerVisible) { _pickerStatus.Text = message; _pickerStatus.Visible = true; }
         }
         catch (Exception error) { SetStatus(error.Message); }
     }

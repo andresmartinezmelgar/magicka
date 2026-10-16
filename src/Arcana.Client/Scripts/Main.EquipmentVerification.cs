@@ -203,13 +203,13 @@ public partial class Main
                 Check(panel.PickerVisible && tiers.SequenceEqual(Enum.GetValues<ItemTier>().Reverse()) && panel.PickerColumns is 2 or 3,
                     "El selector no abre una rejilla ordenada de mayor a menor calidad.");
                 panel.PressChoice(original.Items.Single(i => i.Slot == slot && i.Tier == ItemTier.Diamond).Id);
-                Check(!panel.Saving && !panel.PickerVisible && panel.SelectedSlot == slot && panel.PreviewProfile!.Loadout.Get(slot) != before.Get(slot),
-                    "Elegir una tarjeta no actualiza la previsualización.");
+                Check(!panel.Saving && panel.PickerVisible && panel.SelectedSlot == slot && panel.PreviewProfile!.Loadout.Get(slot) != before.Get(slot),
+                    "Equipar debe actualizar la previsualización manteniendo abierto el selector.");
                 Check(Enum.GetValues<EquipmentSlot>().Where(s => s != slot).All(s => panel.PreviewProfile!.Loadout.Get(s) == before.Get(s)), "La selección cambió otra posición.");
                 Check(Accounts.Profile!.Loadout == original.Loadout && System.IO.File.ReadAllText(AccountCache) == cacheBefore,
                     "Se guardó una selección antes de salir del inventario.");
-                panel.PressInspect(slot); panel.PressChoice("");
-                Check(panel.PreviewProfile!.Loadout.Get(slot) == "", "No se puede quitar la pieza equipada.");
+                panel.PressChoice("");
+                Check(panel.PickerVisible && panel.PreviewProfile!.Loadout.Get(slot) == "", "Quitar debe mantener abierto el selector.");
                 panel.PressInspect(slot); panel.PressChoice(original.Items.Single(i => i.Slot == slot && i.Tier == ItemTier.Silver).Id);
                 panel.PressInspect(slot); panel.PressChoice(before.Get(slot));
                 Check(panel.PreviewProfile!.Loadout == before && !panel.HasChanges, "Volver al equipo original deja un guardado innecesario.");
@@ -232,6 +232,10 @@ public partial class Main
             Check(_equipmentPanel == null && Accounts.Profile!.Loadout.Boots != chosen.Loadout.Boots, "La navegación inferior perdió la selección.");
             OpenEquipment("wss://servidor-central.example"); panel = _equipmentPanel!;
             panel.PressInspect(EquipmentSlot.Boots); panel.PressChoice(chosen.Loadout.Boots);
+            if (Ui.IsMobile) _Notification((int)NotificationWMGoBackRequest);
+            else _UnhandledInput(new InputEventKey { Pressed = true, PhysicalKeycode = Key.Escape });
+            Check(_equipmentPanel == panel && !panel.PickerVisible && Accounts.Profile!.Loadout.Boots != chosen.Loadout.Boots,
+                "El primer Atrás debe cerrar solo el selector, sin guardar todavía.");
             if (Ui.IsMobile) _Notification((int)NotificationWMGoBackRequest);
             else _UnhandledInput(new InputEventKey { Pressed = true, PhysicalKeycode = Key.Escape });
             Check(_equipmentPanel == null && Accounts.Profile!.Loadout == chosen.Loadout, "Escape o Atrás de Android no guardó la selección.");

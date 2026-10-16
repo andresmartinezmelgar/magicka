@@ -23,9 +23,9 @@ En v0.12.9, agua azul, frío turquesa, rayo violeta y arcano magenta usan tonos 
 | Joystick derecho | Apuntar y lanzar mientras se mantiene el dedo. Soltar interrumpe los rayos o lanza la roca cargada. |
 | Sobre ti | Curación, escudo, guarda o secado. |
 | Área | Pulso alrededor del mago. |
-| Bastón | Ataque cuerpo a cuerpo. |
-| Vaciar | Quitar los elementos preparados. |
-| Celeridad, Traslación, Meteoro y Reanimar | Magias especiales; muestran su coste o recarga. |
+| Celeridad | Aumentar la velocidad; muestra coste o recarga. |
+| Traslación y Meteoro | Tocar el hechizo, ajustar dirección y distancia con el joystick derecho y soltar para lanzar. Tocar de nuevo el botón o cancelar el gesto cancela sin gasto. |
+| Reanimar | Recuperar a un aliado caído a menos de 8 m. Muestra «Sin aliado» cuando no hay objetivo; en Supervivencia no devuelve vidas agotadas. |
 | Ayuda | Reglas y las 120 combinaciones con sus cifras de daño. |
 | Tabla | Clasificación. |
 | Menú / Atrás | Pausa y salida de la partida. |

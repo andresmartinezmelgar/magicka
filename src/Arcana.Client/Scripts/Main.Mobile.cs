@@ -38,6 +38,7 @@ public partial class Main
         _touch?.Reset(); _touch?.QueueFree(); _touch = null;
         if (!Ui.IsMobile) return;
         _touch = new MobileControls(); _ui.AddChild(_touch);
+        _touch.MagickAvailable = slot => CheckMagickAvailable(slot, checkTarget: false);
         _touch.ActionRequested += message =>
         {
             if (!_playing || _paused || _help.Visible || InspectingEquipment) return;
@@ -57,7 +58,16 @@ public partial class Main
         if (player == null) return;
         Vector2 center = GetViewport().GetVisibleRect().Size / 2;
         V2 direction = _renderer.Cursor(center + _touch.AimDirection * 100) - _renderer.Cursor(center);
-        if (direction.Length > 0.01f) _aim = player.Position + direction.Normalized * 14;
+        if (direction.Length > 0.01f) _aim = player.Position + direction.Normalized * (_touch.AimRange * _touch.AimStrength);
+        if (_touch.PendingMagick >= 0 && (_connection?.Latest ?? _snapshot) is { } world)
+        {
+            var (target, valid) = MagickPreview(world, player, _touch.PendingMagick);
+            float radius = _touch.PendingMagick == 2 ? SpellBalance.MeteorRadius : ArenaMap.WizardRadius;
+            var at = _renderer.Camera.UnprojectPosition(ArenaRenderer.World(target, 0.05f));
+            var axisX = _renderer.Camera.UnprojectPosition(ArenaRenderer.World(target + new V2(radius, 0), 0.05f)) - at;
+            var axisY = _renderer.Camera.UnprojectPosition(ArenaRenderer.World(target + new V2(0, radius), 0.05f)) - at;
+            _touch.SetMagickTarget(at, axisX, axisY, valid);
+        }
     }
     private void UpdateTouchVisibility()
     { if (_touch != null) _touch.Visible = _playing && !_paused && !_help.Visible && !InspectingEquipment; }

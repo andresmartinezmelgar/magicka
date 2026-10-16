@@ -19,8 +19,76 @@ internal static class SurvivalTests
         Check((bool)Call(w, "TrySpawnMinion", kind)!, "No se pudo preparar el enemigo.");
         return ((Dictionary<int, Wizard>)Field(w, "_combatants"))[State(w).Minions.Last().Id];
     }
+    private static void Magick(GameWorld w, Wizard player, int slot, V2 target)
+    {
+        w.ApplyMessage(player.Id, new() { Type = "input", AimX = target.X, AimY = target.Y, Sequence = player.LastSequence + 1 });
+        w.ApplyMessage(player.Id, new() { Type = "magick", Slot = slot, Sequence = player.LastSequence + 1 });
+    }
+    private static void WallAt(GameWorld world, V2 a, V2 b)
+    {
+        var type = typeof(GameWorld).Assembly.GetType("Arcana.Core.Wall")!;
+        var wall = Activator.CreateInstance(type, nonPublic: true)!;
+        type.GetField("Id")!.SetValue(wall, 9999);
+        type.GetField("A")!.SetValue(wall, a); type.GetField("B")!.SetValue(wall, b);
+        type.GetField("Recipe")!.SetValue(wall, new SpellRecipe([Element.Shield, Element.Earth]));
+        ((IList)Field(world, "_walls")).Add(wall);
+    }
     public static void Run(Action<string, Action> test)
     {
+        test("Supervivencia: Traslación respeta muros, detiene empujes y no cobra un destino bloqueado", () =>
+        {
+            var w = World(); var player = w.AddPlayer("Salto")!; player.Position = V2.Zero;
+            WallAt(w, new(3, -4), new(3, 4)); player.Knockback = new(20, 5);
+            player.ActionCooldown = 0.3f; player.Channel = new SpellRecipe([Element.Arcane]);
+            Magick(w, player, 1, new(7, 0));
+            Check(player.Position.X > 2 && player.Position.X < 3 - ArenaMap.WizardRadius && w.Walkable(player.Position), "El salto atravesó el muro.");
+            Check(player.Knockback == V2.Zero && player.Channel == null && player.Energy == 65 && player.MagickCooldowns[1] == 12,
+                "El ataque anterior bloqueó el salto, no se interrumpió o no cobró exactamente un lanzamiento.");
+            var arrival = player.Position;
+            player.ActionCooldown = 0; player.MagickCooldowns[1] = 0;
+            Magick(w, player, 1, new(7, 0));
+            Check(player.Position == arrival && player.Energy == 65 && player.MagickCooldowns[1] == 0, "Un salto bloqueado gastó energía o recarga.");
+        });
+        test("Supervivencia: Meteoro espera su aviso, daña minions y protege al lanzador y aliados", () =>
+        {
+            var w = World(); var player = w.AddPlayer("Meteoro")!; var ally = w.AddPlayer("Aliado")!;
+            Set(w, "_spawnClock", 10000f); player.Position = V2.Zero; ally.Position = new(-1, 0);
+            player.Invulnerable = ally.Invulnerable = 0;
+            var enemy = Spawn(w); enemy.Position = new(1, 0); enemy.Health = enemy.MaxHealth = 10000; enemy.Frozen = 10;
+            float own = player.Health, allied = ally.Health;
+            Magick(w, player, 2, enemy.Position);
+            Check(player.Energy == 25 && w.Snapshot().Fields.Single().Position == enemy.Position, "No respetó el destino ni el coste.");
+            Advance(w, 80); Check(enemy.Health == 10000, "Impactó antes del aviso.");
+            for (int i = 0; i < 10 && w.Snapshot().Fields.Length > 0; i++) w.Step();
+            Check(enemy.Health < 10000 && player.Health == own && ally.Health == allied, "El meteoro no dañó al minion o hirió a un defensor.");
+            Check(w.Snapshot().Fields.Length == 0 && w.Snapshot().Events.Any(e => e.Kind == "explosion" && e.Text == "Meteoro"), "No terminó el impacto.");
+        });
+        test("Supervivencia: Meteoro rechaza patios sin suelo sin gastar energía ni recarga", () =>
+        {
+            var w = World(); var player = w.AddPlayer("Suelo")!; player.Position = new(18, 0);
+            var target = new V2(28, 10);
+            Check(!w.Map.Walkable(MagickRules.MeteorTarget(player.Position, target)), "El caso requiere un patio sin suelo.");
+            Magick(w, player, 2, target);
+            Check(player.Energy == 100 && player.MagickCooldowns[2] == 0 && w.Snapshot().Fields.Length == 0, "Aceptó un destino sin suelo.");
+        });
+        test("Supervivencia: Reanimar libera al aliado de un muro y conserva el límite de dos vidas", () =>
+        {
+            var w = World(); var caster = w.AddPlayer("Reanimador")!; var ally = w.AddPlayer("Aliado")!;
+            caster.Position = V2.Zero; ally.Position = new(2, 0); Set(w, "_spawnClock", 10000f);
+            ally.BuffStacks[(int)BuffKind.Power] = 3; Kill(w, ally);
+            WallAt(w, new(2, -2), new(2, 2));
+            Check(!w.Walkable(ally.Position) && MagickRules.ReanimationTarget(w.Snapshot(), w.Snapshot().Players.Single(p => p.Id == caster.Id))?.Id == ally.Id,
+                "El cliente no identifica al aliado caído.");
+            Magick(w, caster, 3, ally.Position);
+            Check(ally.Alive && ally.Health == 600 && w.Walkable(ally.Position) && ally.Deaths == 1 && ally.BuffStacks[(int)BuffKind.Power] == 3,
+                "El aliado reanimado quedó atrapado, recibió otra vida o perdió sus mejoras.");
+            Kill(w, ally); caster.Energy = 100; caster.ActionCooldown = caster.MagickCooldowns[3] = 0;
+            Magick(w, caster, 3, ally.Position);
+            Check(!ally.Alive && caster.Energy == 100 && caster.MagickCooldowns[3] == 0 &&
+                MagickRules.ReanimationTarget(w.Snapshot(), w.Snapshot().Players.Single(p => p.Id == caster.Id)) == null,
+                "Un aliado eliminado permite gastar energía o recuperar una tercera vida.");
+            SnapshotValidation.Check(w.Snapshot());
+        });
         test("Anillos: mapa grande conectado, patios cerrados y portales accesibles", () =>
         {
             var map = ArenaMap.Get(ArenaMapId.Bastion);
