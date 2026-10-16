@@ -17,7 +17,7 @@ public sealed partial class GameWorld
                 if (progress.PassiveCooldowns[i] > 0) continue;
                 float range = i switch { 0 => 16, 1 => 18, 2 => 5, _ => 10 };
                 var targets = _minions.Values.Where(m => m.Body.Alive && V2.Distance(m.Body.Position, player.Position) < range &&
-                    Visible(player.Position, m.Body.Position, player.Id)).OrderBy(m => V2.Distance(m.Body.Position, _castle!.Position)).ToArray();
+                    Visible(player.Position, m.Body.Position, player.Id)).OrderBy(m => V2.Distance(m.Body.Position, player.Position)).ToArray();
                 if (targets.Length == 0) continue; // Un poder listo espera al combate; nunca cuenta como actividad humana.
                 switch ((DefensePassive)i)
                 {

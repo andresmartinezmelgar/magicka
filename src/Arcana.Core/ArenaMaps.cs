@@ -42,14 +42,14 @@ public sealed class ArenaDefinition
 
     internal ArenaDefinition(ArenaMapId id, string name, float halfWidth, float halfHeight,
         FloorSection[] floors, V2[] outline, Obstacle[] obstacles, V2[] points, float spawnX, V2[]? itemSpawns = null,
-        TeleportPair[]? teleports = null, MapEdge[]? eventGates = null)
+        TeleportPair[]? teleports = null, MapEdge[]? eventGates = null, MapEdge[]? boundary = null)
     {
         Id = id; Name = name; HalfWidth = halfWidth; HalfHeight = halfHeight; _spawnX = spawnX;
         _floors = floors; _obstacles = obstacles;
         Floors = Array.AsReadOnly(_floors); Obstacles = Array.AsReadOnly(_obstacles); ControlPoints = Array.AsReadOnly(points);
         ItemSpawns = Array.AsReadOnly(itemSpawns ?? []);
         Teleports = Array.AsReadOnly(teleports ?? []); EventGates = Array.AsReadOnly(eventGates ?? []);
-        _boundary = outline.Select((p, i) => new MapEdge(p, outline[(i + 1) % outline.Length])).ToArray();
+        _boundary = boundary ?? outline.Select((p, i) => new MapEdge(p, outline[(i + 1) % outline.Length])).ToArray();
         Boundary = Array.AsReadOnly(_boundary);
         _navigation = new(BuildNavigation);
     }
@@ -57,7 +57,7 @@ public sealed class ArenaDefinition
     public V2 Spawn(int team, int index, int capturedPoints = 0)
     {
         if (IsPractice) return PracticeLayout.Respawn;
-        if (Id == ArenaMapId.Bastion) return new(-25, (index % 4 - 1.5f) * 1.8f);
+        if (Id == ArenaMapId.Bastion) return new((index % 2 * 2 - 1) * 2, (index % 4 / 2 * 2 - 1) * 2);
         if (SequentialCapture && capturedPoints > 0)
         {
             int count = Math.Clamp(capturedPoints, 1, ControlPoints.Count);
@@ -126,6 +126,7 @@ public sealed class ArenaDefinition
 
     // La cuadrícula estática se prepara al cargar el mundo, antes de sus ticks.
     internal void PrepareNavigation() => _ = _navigation.Value;
+    internal (V2[] Positions, int[][] Neighbors) Navigation => _navigation.Value;
 
     /// <summary>A*: rutas por pasillos y alrededor de pilares; no permite atajos por los patios sin suelo.</summary>
     public V2[] FindPath(V2 from, V2 goal, Func<V2, V2, bool>? clearSegment = null, bool allowPartial = false)
@@ -256,11 +257,7 @@ internal static class ArenaMaps
          new(new(0, -18), 1.2f, 2.4f), new(new(0, 18), 1.2f, 2.4f)],
         [new(-18, -10), V2.Zero, new(18, 10)], 31,
         new[] { 0, -7, 7, -14, 14, -21, 21 }.SelectMany(y => new V2[] { new(-22, y), new(22, y) }).ToArray());
-    private static readonly ArenaDefinition Bastion = new(ArenaMapId.Bastion, "Bastión de las oleadas", 38, 24,
-        [new(new(-27, 0), 22, 16), new(new(10, 0), 56, 48)],
-        [new(-38, -8), new(-18, -8), new(-18, -24), new(38, -24), new(38, 24), new(-18, 24), new(-18, 8), new(-38, 8)],
-        [new(new(-8, -9), 1.4f, 2.8f), new(new(-8, 9), 1.4f, 2.8f),
-         new(new(12, -7), 1.2f, 2.4f), new(new(12, 7), 1.2f, 2.4f)], [], 25);
+    private static readonly ArenaDefinition Bastion = SurvivalLayout.Create();
     public static ArenaDefinition Get(ArenaMapId id) => id switch
     {
         ArenaMapId.Classic => Classic, ArenaMapId.Citadel => Citadel, ArenaMapId.Ascension => Ascension, ArenaMapId.Relics => Relics,

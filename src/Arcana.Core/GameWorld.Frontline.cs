@@ -27,8 +27,8 @@ public sealed partial class GameWorld
 
     private void TickFrontline(float dt)
     {
-        if (!ConquestToWin) return;
-        foreach (var player in _players.Values)
+        if (!ConquestToWin && !IsDefense) return;
+        foreach (var player in IsDefense ? _combatants.Values : _players.Values)
         {
             player.TeleportCooldown = Math.Max(0, player.TeleportCooldown - dt);
             if (player.TeleportNeedsExit)
@@ -56,7 +56,7 @@ public sealed partial class GameWorld
                 break;
             }
         }
-        if (_players.Count == 0) return;
+        if (!ConquestToWin || _players.Count == 0) return;
         var random = _environmentRandom ??= new Random(Options.EnvironmentSeed ?? Random.Shared.Next());
         if (_environmentClock <= 0) _environmentClock = 10 + (float)random.NextDouble() * 8;
         _environmentClock -= dt;

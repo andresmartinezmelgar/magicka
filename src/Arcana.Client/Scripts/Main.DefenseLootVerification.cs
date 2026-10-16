@@ -65,6 +65,33 @@ public partial class Main
             var state = _defenseLootReview!;
             _renderer.Render(state with { Defense = state.Defense! with { Drops = [] } }, _localId, 0, true);
             if (_renderer.DefenseLootVisuals.Count != 0) throw new InvalidOperationException("Queda botín después de recogerlo.");
+            _renderer.PreviewFocus = null;
+            var local = state.Players.Single();
+            var nearbyMinion = new MinionSnapshot(85000, MinionKind.Melee, V2.Zero, new(1, 0),
+                340, 340, 0, 0, 0, 0, false, [], false);
+            var sectorMinions = new[]
+            {
+                nearbyMinion with { Id = 85001, Position = new(-76, -52) },
+                nearbyMinion with { Id = 85002, Position = new(76, 52) }
+            };
+            WorldSnapshot At(V2 position) => state with
+            {
+                Players = [local with { Position = position }],
+                Defense = state.Defense! with
+                {
+                    Minions = sectorMinions,
+                    Drops = sectorMinions.Select(m => new DefenseDropSnapshot(m.Id, 0, m.Position,
+                        DefenseDropKind.Gold, 10, default, null, null)).ToArray()
+                }
+            };
+            _renderer.Render(At(new(-76, -52)), _localId, 1 / 60.0, true);
+            var firstSectors = _renderer.SurvivalSectorKeys.ToHashSet();
+            _renderer.Render(At(new(76, 52)), _localId, 1 / 60.0, true);
+            if (firstSectors.Overlaps(_renderer.SurvivalSectorKeys) || _renderer.VisibleSurvivalSectors >= _renderer.TotalSurvivalSectors ||
+                _renderer.Camera.Position.X < 70 || _renderer.DefenseMinionVisualCount != 1 ||
+                _renderer.DefenseLootVisuals.Count != 1 || !_renderer.DefenseLootVisuals.ContainsKey(85002))
+                throw new InvalidOperationException("Los sectores o la cámara no siguieron el salto de un portal.");
+            GD.Print($"SURVIVAL_SECTORS_OK: {_renderer.VisibleSurvivalSectors}/{_renderer.TotalSurvivalSectors} sectores, minions y botín cercanos, descarga y cámara tras portal.");
             foreach (var label in _defenseLootLabels) label.QueueFree();
             _defenseLootLabels.Clear(); _renderer.PreviewFocus = null; _renderer.Clear();
             if (_engineLog.ErrorCount > 0) throw new InvalidOperationException("Godot registró errores al dibujar el botín.");

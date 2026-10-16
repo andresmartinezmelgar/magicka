@@ -1,5 +1,16 @@
 # Cambios
 
+## 0.19.0 — Supervivencia en Anillos
+
+- Defensa pasa a supervivencia continua: se retiran las oleadas, el castillo y las reparaciones.
+- Nuevo mapa Anillos de 192 × 144 m, con pasillos, salas y dos parejas de teletransportes.
+- Dos vidas por jugador; la primera muerte reaparece a los 4,5 s y la segunda elimina. En cooperativo termina al agotar las vidas de todos los humanos.
+- Los minions aparecen en todo el mapa fuera de 16 m de los defensores y los persiguen por los pasillos. Algunos aceleran un 60 % durante unos segundos.
+- Colosos grandes y resistentes a intervalos variables: primero entre los minutos 2 y 3; después, de 90 a 150 s tras derrotar al anterior.
+- Se crean y retiran solo los sectores cercanos, junto con sus enemigos, botín y efectos visibles. La simulación continúa fuera de cámara.
+- Bonificaciones a la izquierda en vertical, vidas en el HUD y tienda adaptada al nuevo objetivo, manteniendo inventario compartido, pausa y premios pendientes.
+- Protocolo 25 para vidas, colosos e impulsos de velocidad; cliente y servidor deben actualizarse juntos.
+
 ## 0.18.9 — Tres acciones por pieza
 
 - Cada pieza muestra tres iconos en columna: vender, equipar o quitar y mejorar estadísticas; retirados los botones inferiores de equipación y mejora.

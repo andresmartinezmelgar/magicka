@@ -56,8 +56,9 @@ public partial class MiniMap : Control
             }
         if (State.Defense is { } defense)
         {
-            DrawRect(new(Point(defense.CastlePosition) - new Vector2(4, 4), new(8, 8)), Ui.Blue);
-            foreach (var enemy in defense.Minions) DrawCircle(Point(enemy.Position), 1.6f, Ui.Red);
+            if (State.Players.FirstOrDefault(p => p.Id == LocalId) is { } local)
+                DrawArc(Point(local.Position), DefenseRules.SafeRadius * scale, 0, Mathf.Tau, 32, new Color(Ui.Blue, 0.45f), 1, true);
+            foreach (var enemy in defense.Minions) DrawCircle(Point(enemy.Position), enemy.Kind == MinionKind.Boss ? 3.5f : 1.6f, enemy.Kind == MinionKind.Boss ? Ui.Gold : Ui.Red);
         }
         foreach (var p in State.Players.Where(p => p.Alive))
         {

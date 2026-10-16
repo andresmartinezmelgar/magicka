@@ -118,9 +118,6 @@ public sealed partial class GameWorld
             Consider(Geometry.SegmentCircle(from, to, obstacle.Position, obstacle.Radius + ArenaMap.WizardRadius),
                 -Map.Boundary.Count - i - 1, obstacle.Position, obstacle.Position);
         }
-        if (IsDefense)
-            Consider(Geometry.SegmentCircle(from, to, DefenseRules.CastlePosition, DefenseRules.CastleRadius + ArenaMap.WizardRadius),
-                int.MinValue, DefenseRules.CastlePosition, DefenseRules.CastlePosition);
         foreach (var wall in _walls)
             if (wall.Health > 0)
                 Consider(Geometry.SegmentCapsule(from, to, wall.A, wall.B, ArenaMap.WizardRadius + 0.18f),

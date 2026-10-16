@@ -104,7 +104,7 @@ internal sealed class ControlPoint
 
 public sealed class WorldOptions
 {
-    public DefenseFlow DefenseFlow { get; init; }
+    public DefenseFlow DefenseFlow { get; init; } = DefenseFlow.Continuous;
     public GameMode Mode { get; init; } = GameMode.Warfare;
     public ArenaMapId Map { get; init; } = ArenaMapId.Classic;
     public int MaxPlayers { get; init; } = 8;

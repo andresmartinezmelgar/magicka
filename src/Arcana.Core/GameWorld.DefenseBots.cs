@@ -13,10 +13,12 @@ public sealed partial class GameWorld
     private void PlanDefenseBots(float dt)
     {
         _defenseBotPlanClock -= dt;
-        if (_castle == null || _defenseBotPlanClock > 0) return;
+        if (_defenseBotPlanClock > 0) return;
         _defenseBotPlanClock = 0.45f;
         var bots = _players.Values.Where(p => p.Bot && p.Alive).OrderBy(p => p.Id).ToArray();
-        var threats = _minions.Values.Where(m => m.Body.Alive && V2.Distance(m.Body.Position, _castle.Position) < 34).ToArray();
+        var humans = _players.Values.Where(p => !p.Bot && p.Deaths < DefenseRules.PlayerLives).ToArray();
+        if (humans.Length == 0) return;
+        var threats = _minions.Values.Where(m => m.Body.Alive && humans.Any(p => V2.Distance(m.Body.Position, p.Position) < 28)).ToArray();
         var attacks = new Dictionary<int, int>();
         var healers = new HashSet<int>(bots.Where(p => p.Health < p.MaxHealth * 0.4f).Select(p => p.Id));
         int medics = 0;
@@ -25,14 +27,15 @@ public sealed partial class GameWorld
             var bot = bots[index];
             if (!_defenseBotPlans.TryGetValue(bot.Id, out var plan)) _defenseBotPlans[bot.Id] = plan = new();
             float lane = bots.Length == 1 ? 0 : (index / (float)(bots.Length - 1) * 2 - 1) * 5;
-            var home = _castle.Position + new V2(10, lane);
+            var anchor = humans.MinBy(p => (p.Position - bot.Position).LengthSquared)!.Position;
+            var home = SafeDefenseBotGoal(anchor + new V2(3 + index % 2 * 3, lane * 0.7f), anchor);
             Wizard? healing = bot.Health < bot.MaxHealth * 0.4f ? bot : null;
             if (healing == null && (threats.Length == 0 || medics < Math.Max(1, bots.Length - 1)))
             {
                 // Un único sanador por aliado. Mantiene la ayuda hasta estabilizarlo, sin cambiar a cada paso.
                 healing = _players.Values.Where(a => a.Alive && a.Id != bot.Id && !healers.Contains(a.Id) &&
                         a.Health < a.MaxHealth * (plan.HealTargetId == a.Id ? 0.82f : 0.55f) &&
-                        V2.Distance(a.Position, bot.Position) < 12 && V2.Distance(a.Position, _castle.Position) < 22)
+                        V2.Distance(a.Position, bot.Position) < 12)
                     .OrderBy(a => a.Health / a.MaxHealth).ThenBy(a => a.Id).FirstOrDefault();
             }
             if (healing != null)
@@ -45,23 +48,22 @@ public sealed partial class GameWorld
             plan.HealTargetId = 0;
             bool uncovered = threats.Any(m => !attacks.ContainsKey(m.Body.Id));
             var target = threats.Where(m => !uncovered || !attacks.ContainsKey(m.Body.Id))
-                .OrderBy(m => DefenseThreatScore(m, bot, lane, plan.TargetId)).ThenBy(m => m.Body.Id).FirstOrDefault();
+                .OrderBy(m => DefenseThreatScore(m, bot, anchor, plan.TargetId)).ThenBy(m => m.Body.Id).FirstOrDefault();
             plan.TargetId = target?.Body.Id ?? 0;
             if (target == null) { plan.Goal = home; continue; }
             attacks[target.Body.Id] = attacks.GetValueOrDefault(target.Body.Id) + 1;
-            var forward = (target.Body.Position - _castle.Position).Normalized;
+            var forward = (target.Body.Position - anchor).Normalized;
             var lateral = new V2(-forward.Y, forward.X);
             float flank = bots.Length == 1 ? 0 : (index - (bots.Length - 1) * 0.5f) * 3;
             var goal = target.Body.Position - forward * 6 + lateral * flank;
-            if (V2.Distance(goal, _castle.Position) > 17) goal = _castle.Position + (goal - _castle.Position).Normalized * 17;
-            goal = new(Math.Max(_castle.Position.X + 5, goal.X), goal.Y);
+            if (V2.Distance(goal, anchor) > 18) goal = anchor + (goal - anchor).Normalized * 18;
             plan.Goal = SafeDefenseBotGoal(goal, home);
         }
     }
-    private float DefenseThreatScore(DefenseMinion minion, Wizard bot, float lane, int previous)
+    private float DefenseThreatScore(DefenseMinion minion, Wizard bot, V2 anchor, int previous)
     {
-        float distance = V2.Distance(minion.Body.Position, _castle!.Position);
-        return distance * 2 + Math.Abs(minion.Body.Position.Y - lane) * 0.65f + V2.Distance(minion.Body.Position, bot.Position) * 0.2f
+        float distance = V2.Distance(minion.Body.Position, anchor);
+        return distance * 2 + V2.Distance(minion.Body.Position, bot.Position) * 0.35f
             - (distance < 7 ? 16 : 0) - (minion.Kind == MinionKind.Captain ? 5 : 0) - (minion.Body.Id == previous ? 3 : 0);
     }
     private V2 SafeDefenseBotGoal(V2 goal, V2 home)

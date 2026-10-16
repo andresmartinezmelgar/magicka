@@ -38,7 +38,11 @@ public partial class ArenaRenderer
 
     private void UpdateFrontline(WorldSnapshot state, float time)
     {
-        foreach (var portal in _portals) portal.Scale = Vector3.One * (1 + Mathf.Sin(time * 3) * 0.04f);
+        foreach (var portal in _portals)
+        {
+            portal.Visible = NearSurvival(new(portal.Position.X, portal.Position.Z));
+            if (portal.Visible) portal.Scale = Vector3.One * (1 + Mathf.Sin(time * 3) * 0.04f);
+        }
         for (int team = 0; team < _frontlineSpawns.Count; team++)
         {
             int count = 0;

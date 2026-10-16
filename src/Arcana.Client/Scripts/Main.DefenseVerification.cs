@@ -42,14 +42,17 @@ public partial class Main
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
             Call("GrantDefenseItem", p, EquipmentCatalogue.Generate(new(200 + (int)slot), tier: ItemTier.Platinum, slot: slot));
         typeof(GameWorld).GetField("_defenseDifficulty", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(world, 10);
-        typeof(GameWorld).GetField("_defenseWave", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(world, 10);
+        typeof(GameWorld).GetField("_defenseElapsed", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(world, 810.0);
+        typeof(GameWorld).GetField("<Tick>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(world, 48600L);
+        p.Invulnerable = 1.2f;
+        Call("TrySpawnMinion", MinionKind.Boss);
         for (int i = 0; i < 20; i++) Call("SpawnMinion");
         var combatants = (Dictionary<int, Wizard>)Field("_combatants");
         int index = 0;
         foreach (var m in world.Snapshot().Defense!.Minions)
-        { combatants[m.Id].Position = new(-17 + index % 7 * 2.1f, (index / 7 - 1) * 3); index++; }
+        { combatants[m.Id].Position = new(-12 + index % 7 * 3f, (index / 7 - 1) * 3); index++; }
         foreach (var minion in ((IDictionary)Field("_minions")).Values) minion!.GetType().GetField("Attack")!.SetValue(minion, 600f);
-        ((Wizard)Field("_castle")).Health = 7200;
+
         _snapshot = world.Snapshot();
         _defenseAccountBefore = Protocol.Serialize(Accounts.Profile);
         _defenseCacheBefore = System.IO.File.Exists(AccountCache) ? System.IO.File.ReadAllText(AccountCache) : "";
@@ -91,6 +94,13 @@ public partial class Main
                     var open = (Button)panel.FindChild("DefenseShopButton", true, false);
                     Check(!_touch.Touch(99, open.GetGlobalRect().GetCenter(), true), "El joystick interceptó el botón de tienda.");
                 }
+                Check(_renderer.VisibleSurvivalSectors > 0 && _renderer.VisibleSurvivalSectors < _renderer.TotalSurvivalSectors,
+                    "Se ha construido todo el mapa en lugar de los sectores próximos.");
+                Check(_renderer.FindChild("DefenseCastle", true, false) == null && panel.FindChild("DefenseRepairButton", true, false) == null,
+                    "Sigue presente el castillo o su reparación.");
+                var bonuses = (Label)panel.FindChild("DefenseVerticalBonuses", true, false);
+                Check(bonuses.Text.Contains('\n') && panel.SummaryRectForVerification.End.X < GetViewport().GetVisibleRect().Size.X / 2,
+                    "Las bonificaciones no están en una columna a la izquierda.");
                 CaptureDefense("01-partida");
                 panel.OpenShop(); _defensePauseTick = _practice.Tick; _defenseSmokePhase++; return false;
             }
@@ -101,7 +111,7 @@ public partial class Main
                 Check(viewport.Encloses(rect), "La tienda desborda el viewport: " + rect);
                 Check(_touch?.Visible != true, "Los controles táctiles cubren la tienda.");
                 Check(state.Defense!.Paused && state.Tick == _defensePauseTick, "La tienda no pausa con un humano y bot.");
-                CaptureDefense("02-bastion");
+                CaptureDefense("02-supervivencia");
                 if (Ui.IsMobile) _Notification((int)NotificationWMGoBackRequest);
                 else _UnhandledInput(new InputEventKey { Pressed = true, PhysicalKeycode = Key.Escape });
                 Check(!panel.ShopOpen && !_practice.DefensePaused && (!Ui.IsMobile || _touch?.Visible == true),

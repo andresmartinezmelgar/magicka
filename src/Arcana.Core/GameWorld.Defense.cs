@@ -8,10 +8,9 @@ public sealed partial class GameWorld
     private readonly Dictionary<int, DefenseProgress> _defenders = [];
     private readonly Dictionary<string, DefenseProgress> _defenseAccounts = new(StringComparer.Ordinal);
     private readonly List<DefenseDrop> _defenseDrops = [];
-    private Wizard? _castle;
-    private int _nextMinion = 1000, _defenseWave, _toSpawn, _repairs, _defenseKills, _defenseDifficulty = 1, _spawnBurstRemaining;
+    private int _nextMinion = 1000, _defenseKills, _bossesKilled, _defenseDifficulty = 1, _spawnBurstRemaining;
     private double _defenseElapsed;
-    private float _wavePause = DefenseRules.WavePause, _spawnClock, _auraClock;
+    private float _spawnClock, _auraClock, _bossClock;
     private int _defensePartySize = 1;
 
     public bool DefensePaused => IsDefense && !MatchEnded && _players.Values.Count(p => !p.Bot) == 1 &&
@@ -22,11 +21,7 @@ public sealed partial class GameWorld
 
     private void InitializeDefense()
     {
-        if (!IsDefense) return;
-        _castle = new Wizard { Id = int.MaxValue, Name = "Bastión", Team = 0, Role = CombatantRole.Castle,
-            Position = DefenseRules.CastlePosition, MaxHealth = DefenseRules.CastleHealth,
-            Health = DefenseRules.CastleHealth, Invulnerable = 0 };
-        _combatants.Add(_castle.Id, _castle);
+        if (IsDefense) _bossClock = DefenseRules.BossInterval(_random, true);
     }
 
     private void AddDefender(Wizard player)
@@ -48,53 +43,40 @@ public sealed partial class GameWorld
             player.Kills = previous.Kills; player.Deaths = previous.Deaths;
             Array.Copy(previous.Buffs, player.BuffStacks, RelicBuffs.Count);
             RecalculateDefender(player);
-            player.Health = player.MaxHealth;
+            player.Health = player.Deaths >= DefenseRules.PlayerLives ? 0 : player.MaxHealth;
+            player.Respawn = 0;
         }
         else _defenseAccounts[uid] = _defenders[playerId];
         _defenders[playerId].ShopOpen = false;
+        CheckSurvivalEnd();
     }
 
     public double DefenseActiveSeconds(int playerId) => _defenders.TryGetValue(playerId, out var p) ? p.ActiveTicks / 60.0 : 0;
 
     private void TickDefense(float dt)
     {
-        if (!IsDefense || _castle == null || !_players.Values.Any(p => !p.Bot)) return;
+        if (!IsDefense || !_players.Values.Any(p => !p.Bot)) return;
         _defenseElapsed += dt;
         _defensePartySize = Math.Clamp(_players.Count, 1, DefenseRules.MaxDefenders);
         foreach (var player in _players.Values)
         {
             var progress = _defenders[player.Id];
-            if (player.Bot || Time - progress.LastActivity < 8 || player.Channel != null || player.Charging != null) progress.ActiveTicks++;
+            if (player.Deaths < DefenseRules.PlayerLives && (player.Bot || Time - progress.LastActivity < 8 || player.Channel != null || player.Charging != null)) progress.ActiveTicks++;
         }
-        if (Options.DefenseFlow == DefenseFlow.Continuous)
+        _defenseDifficulty = DefenseRules.TimedDifficulty(_defenseElapsed);
+        bool bossAlive = _minions.Values.Any(m => m.Kind == MinionKind.Boss && m.Body.Alive);
+        if (!bossAlive)
         {
-            _defenseDifficulty = DefenseRules.TimedDifficulty(_defenseElapsed);
-            _defenseWave = _defenseDifficulty;
-            _wavePause = 0;
-        }
-        else if (_toSpawn == 0 && _minions.Count == 0)
-        {
-            _wavePause = Math.Max(0, _wavePause - dt);
-            if (_wavePause <= 0)
-            {
-                _defenseWave++;
-                _defenseDifficulty = Math.Max(_defenseWave, DefenseRules.TimedDifficulty(_defenseElapsed));
-                _spawnBurstRemaining = 0; _spawnClock = 0;
-                _toSpawn = DefenseRules.WaveSize(_defenseWave, _defensePartySize);
-                _wavePause = DefenseRules.WavePause;
-                Emit("defense_wave", _castle.Position, [], $"Oleada {_defenseWave}: {_toSpawn} enemigos");
-            }
+            _bossClock = Math.Max(0, _bossClock - dt);
+            if (_bossClock <= 0 && _minions.Count < DefenseRules.MaxMinions && TrySpawnMinion(MinionKind.Boss))
+                _bossClock = DefenseRules.BossInterval(_random, false);
         }
         _spawnClock -= dt;
-        if (_spawnClock <= 0 && _minions.Count < DefenseRules.SpawnLimit(_defenseDifficulty, _defensePartySize) &&
-            (Options.DefenseFlow == DefenseFlow.Continuous || _toSpawn > 0))
+        if (_spawnClock <= 0 && _minions.Count < Math.Min(DefenseRules.MaxMinions - 1, DefenseRules.SpawnLimit(_defenseDifficulty, _defensePartySize)))
         {
             SpawnMinion();
-            if (Options.DefenseFlow == DefenseFlow.Waves) _toSpawn--;
-            // Alterna grupos rápidos y descansos irregulares. El ritmo se acelera con la dificultad.
-            float pressure = 1 + (_defenseDifficulty - 1) * 0.07f;
-            if (Options.DefenseFlow == DefenseFlow.Continuous) pressure *= DefenseRules.PartyPressure(_defensePartySize);
-            if (_spawnBurstRemaining <= 0) _spawnBurstRemaining = _random.Next(2, _defenseDifficulty <= 2 ? 5 : Options.DefenseFlow == DefenseFlow.Waves ? 8 : 6);
+            float pressure = (1 + (_defenseDifficulty - 1) * 0.07f) * DefenseRules.PartyPressure(_defensePartySize);
+            if (_spawnBurstRemaining <= 0) _spawnBurstRemaining = _random.Next(2, _defenseDifficulty <= 2 ? 5 : 6);
             _spawnBurstRemaining--;
             _spawnClock = _spawnBurstRemaining > 0
                 ? (0.16f + (float)_random.NextDouble() * 0.3f) / pressure
@@ -118,16 +100,12 @@ public sealed partial class GameWorld
         else if (roll < captains + tanks) kind = MinionKind.Tank;
         else if (roll < captains + tanks + mages) kind = MinionKind.Mage;
         else if (_defenseDifficulty >= 4 && roll < captains + tanks + mages + 26) kind = MinionKind.Archer;
-        var entrance = DefenseRules.Entrances[_random.Next(DefenseRules.Entrances.Count)];
-        V2 at = entrance;
-        for (int attempt = 0; attempt < 20; attempt++)
-        {
-            var candidate = _random.Next(100) < 20
-                ? new V2((float)_random.NextDouble() * 70 - 35, (float)_random.NextDouble() * 42 - 21)
-                : entrance + new V2((float)_random.NextDouble() * 5 - 2.5f, (float)_random.NextDouble() * 5 - 2.5f);
-            if (Map.Walkable(candidate) && V2.Distance(candidate, DefenseRules.CastlePosition) >= DefenseRules.SafeRadius &&
-                _minions.Values.All(m => V2.Distance(m.Body.Position, candidate) > 0.8f)) { at = candidate; break; }
-        }
+        TrySpawnMinion(kind);
+    }
+
+    private bool TrySpawnMinion(MinionKind kind)
+    {
+        if (_minions.Count >= DefenseRules.MaxMinions || !TryDefenseSpawn(out var at)) return false;
         float strength = DefenseRules.EnemyStrength(_defenseDifficulty);
         float health = DefenseRules.MinionHealth(kind, _defenseDifficulty, _defensePartySize);
         var body = new Wizard { Id = _nextMinion++, Name = DefenseRules.MinionName(kind), Team = 1, Bot = true,
@@ -135,10 +113,34 @@ public sealed partial class GameWorld
             Position = at, Health = health, MaxHealth = health, Invulnerable = 0,
             Equipment = EquipmentModifiers.None with { Speed = DefenseRules.MinionSpeed(kind, _defenseDifficulty),
                 Power = strength * (kind == MinionKind.Mage ? DefenseRules.MagePower : 1) } };
-        var minion = new DefenseMinion(body, kind, strength);
+        var minion = new DefenseMinion(body, kind, strength) { SpeedClock = 7 + (float)_random.NextDouble() * 12 };
         _minions.Add(body.Id, minion);
         _combatants.Add(body.Id, body); _orderedPlayers.Add(body);
         DiscoverDefenseEnemy(minion);
+        if (kind == MinionKind.Boss) Emit("defense_boss", at, [], "Un coloso te está buscando");
+        return true;
+    }
+
+    private bool TryDefenseSpawn(out V2 position)
+    {
+        var defenders = _players.Values.Where(p => p.Deaths < DefenseRules.PlayerLives).ToArray();
+        var nodes = Map.Navigation.Positions;
+        for (int attempt = 0; attempt < 160 && defenders.Length > 0; attempt++)
+        {
+            V2 candidate;
+            if (attempt < 60 && _random.NextDouble() < 0.6)
+            {
+                var anchor = defenders[_random.Next(defenders.Length)].Position;
+                float angle = (float)_random.NextDouble() * MathF.Tau;
+                float radius = DefenseRules.SafeRadius + 2 + (float)_random.NextDouble() * 16;
+                candidate = anchor + new V2(MathF.Cos(angle), MathF.Sin(angle)) * radius;
+            }
+            else candidate = nodes[_random.Next(nodes.Length)];
+            if (!Map.Walkable(candidate) || defenders.Any(p => V2.Distance(p.Position, candidate) < DefenseRules.SafeRadius) ||
+                _minions.Values.Any(m => m.Body.Alive && V2.Distance(m.Body.Position, candidate) < 1.5f)) continue;
+            position = candidate; return true;
+        }
+        position = default; return false;
     }
 
     private bool Empowered(DefenseMinion minion) => _minions.Values.Any(m => m.Kind == MinionKind.Captain &&
@@ -147,30 +149,36 @@ public sealed partial class GameWorld
     private void TickMinion(DefenseMinion minion, float dt)
     {
         var p = minion.Body;
-        if (!p.Alive || _castle == null || !_castle.Alive) return;
+        if (!p.Alive || MatchEnded) return;
         p.ActionCooldown = Math.Max(0, p.ActionCooldown - dt);
         p.HitEffectCooldown = Math.Max(0, p.HitEffectCooldown - dt);
         TickStatus(p, dt);
         if (!p.Alive) return;
-        p.Equipment = p.Equipment with { Power = minion.Strength * (minion.Kind == MinionKind.Mage ? DefenseRules.MagePower : 1) * (Empowered(minion) ? 1.35f : 1) };
-        Wizard target = _castle;
-        float nearest = 5.5f;
-        foreach (var defender in _players.Values)
+        minion.SpeedBoost = Math.Max(0, minion.SpeedBoost - dt);
+        minion.SpeedClock -= dt;
+        if (minion.SpeedClock <= 0)
         {
-            float distance = V2.Distance(p.Position, defender.Position);
-            if (defender.Alive && distance < nearest && V2.Distance(defender.Position, _castle.Position) < 28)
-            { target = defender; nearest = distance; }
+            minion.SpeedClock = 8 + (float)_random.NextDouble() * 14;
+            if (minion.Kind != MinionKind.Boss && _random.Next(100) < 35) minion.SpeedBoost = 2 + (float)_random.NextDouble() * 2;
         }
+        p.Equipment = p.Equipment with
+        {
+            Power = minion.Strength * (minion.Kind == MinionKind.Mage ? DefenseRules.MagePower : 1) * (Empowered(minion) ? 1.35f : 1),
+            Speed = DefenseRules.MinionSpeed(minion.Kind, _defenseDifficulty) * (minion.SpeedBoost > 0 ? DefenseRules.SpeedBoostMultiplier : 1)
+        };
+        var target = _players.Values.Where(d => d.Alive).MinBy(d => (d.Position - p.Position).LengthSquared);
+        if (target == null) { p.Input.MoveX = p.Input.MoveY = 0; return; }
         V2 goal = target.Position;
-        if (target == _castle)
-        {
-            float angle = (p.Id % 20 - 9.5f) * 0.11f;
-            goal += new V2(MathF.Cos(angle), MathF.Sin(angle)) * (DefenseRules.CastleRadius + 0.7f);
-        }
-        float range = target == _castle && minion.Kind is not (MinionKind.Archer or MinionKind.Mage) ? 3.5f : DefenseRules.MinionRange(minion.Kind);
+        float range = DefenseRules.MinionRange(minion.Kind);
         float distanceToTarget = V2.Distance(p.Position, target.Position);
         bool canAttack = distanceToTarget <= range && Visible(p.Position, target.Position, p.Id);
-        var direction = canAttack ? V2.Zero : NavigationDirection(p, goal, dt);
+        minion.NavigationClock -= dt;
+        if (!canAttack && minion.NavigationClock <= 0)
+        {
+            minion.Navigation = SurvivalDirection(p, target);
+            minion.NavigationClock = 0.16f + p.Id % 4 * 0.015f;
+        }
+        var direction = canAttack ? V2.Zero : minion.Navigation;
         V2 separation = V2.Zero;
         foreach (var other in _minions.Values)
         {
@@ -220,22 +228,29 @@ public sealed partial class GameWorld
     private bool DefenseDeath(Wizard target, int owner)
     {
         if (!IsDefense) return false;
-        if (target.Role == CombatantRole.Castle)
+        if (target.Role == CombatantRole.Player)
         {
-            MatchEnded = true; Winner = 1; RestartIn = 0;
-            foreach (var body in _combatants.Values) CancelCast(body);
-            Emit("defense_end", target.Position, [], "El bastión ha caído");
+            target.Deaths = Math.Min(DefenseRules.PlayerLives, target.Deaths + 1);
+            _defenders[target.Id].Deaths = target.Deaths;
+            target.Respawn = target.Deaths < DefenseRules.PlayerLives ? 4 + target.Deaths * 0.5f : 0;
+            CancelCast(target); target.Selection.Clear();
+            target.Shield = target.ShieldMax = target.ShieldTime = target.RegenerationRate = 0;
+            Emit("death", target.Position, [], target.Deaths < DefenseRules.PlayerLives ? "Te queda una vida" : target.Name + " ha agotado sus vidas");
+            CheckSurvivalEnd();
             return true;
         }
         if (target.Role != CombatantRole.Minion) return false;
-        CancelCast(target); _defenseKills++; _defenseBotPlanClock = 0;
+        CancelCast(target); _defenseKills++;
+        bool boss = _minions[target.Id].Kind == MinionKind.Boss;
+        if (boss) _bossesKilled++; _defenseBotPlanClock = 0;
         var discovery = _defenseBestiary[_minions[target.Id].Kind];
         _defenseBestiary[discovery.Kind] = discovery with { Killed = discovery.Killed + 1 };
         if (_players.TryGetValue(owner, out var killer)) { killer.Kills++; _defenders[killer.Id].Kills = killer.Kills; }
         foreach (var defender in _players.Values)
         {
             var progress = _defenders[defender.Id];
-            progress.Experience += 10;
+            if (defender.Deaths >= DefenseRules.PlayerLives) continue;
+            progress.Experience += boss ? 60 : 10;
             bool levelled = false;
             while (progress.Level < 100 && progress.Experience >= DefenseRules.ExperienceForLevel(progress.Level))
             {
@@ -260,6 +275,15 @@ public sealed partial class GameWorld
         }
     }
 
+    private void CheckSurvivalEnd()
+    {
+        var humans = _players.Values.Where(p => !p.Bot).ToArray();
+        if (MatchEnded || humans.Length == 0 || humans.Any(p => p.Deaths < DefenseRules.PlayerLives)) return;
+        MatchEnded = true; Winner = 1; RestartIn = 0;
+        foreach (var body in _combatants.Values) CancelCast(body);
+        Emit("defense_end", humans[0].Position, [], "No quedan vidas");
+    }
+
     public bool RestartDefense()
     {
         if (!IsDefense || !MatchEnded) return false;
@@ -268,13 +292,13 @@ public sealed partial class GameWorld
 
     private void ResetDefense()
     {
-        if (!IsDefense || _castle == null) return;
+        if (!IsDefense) return;
         foreach (var minion in _minions.Values) { _combatants.Remove(minion.Body.Id); _orderedPlayers.Remove(minion.Body); }
         _minions.Clear(); _defenseDrops.Clear(); _defenseAccounts.Clear(); _defenseBestiary.Clear();
         _defenseBotPlans.Clear(); _defenseBotPlanClock = 0;
-        _defenseWave = _toSpawn = _repairs = _defenseKills = _spawnBurstRemaining = 0; _defenseDifficulty = _defensePartySize = 1;
-        _defenseElapsed = _spawnClock = _auraClock = 0; _wavePause = DefenseRules.WavePause;
-        _castle.Health = _castle.MaxHealth; _castle.Burning = _castle.Wet = _castle.Chill = _castle.Frozen = 0;
+        _defenseKills = _bossesKilled = _spawnBurstRemaining = 0; _defenseDifficulty = _defensePartySize = 1;
+        _defenseElapsed = _spawnClock = _auraClock = 0;
+        _bossClock = DefenseRules.BossInterval(_random, true); _survivalFlows.Clear();
         foreach (var player in _players.Values) { _defenders[player.Id] = new(); RecalculateDefender(player); }
     }
 }

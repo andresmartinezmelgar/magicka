@@ -165,6 +165,7 @@ jobs:
             target="$PWD/artifacts/visual-review/defense-$viewport"
             mkdir -p "$target"
             xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --defense-smoke --mobile "--smoke-viewport=$viewport" "--defense-captures=$target" 2>&1 | tee "$RUNNER_TEMP/defense-$viewport.log"
+            grep -q 'SURVIVAL_SECTORS_OK' "$RUNNER_TEMP/defense-$viewport.log"
             grep -q 'DEFENSE_SMOKE_OK' "$RUNNER_TEMP/defense-$viewport.log"
             ! grep -E '^(ERROR:|SCRIPT ERROR:)|DEFENSE_SMOKE_FAILED' "$RUNNER_TEMP/defense-$viewport.log"
           done
@@ -302,10 +303,10 @@ jobs:
           echo "ANDROID_SDK_ROOT=$sdk" >> "$GITHUB_ENV"
       - name: Preparar Godot y plantillas
         run: |
-          curl -fL https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_mono_linux_x86_64.zip -o /tmp/godot.zip
+          curl --retry 4 --retry-delay 2 --retry-all-errors -fL https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_mono_linux_x86_64.zip -o /tmp/godot.zip
           unzip -q /tmp/godot.zip -d /tmp/godot
           chmod +x /tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64
-          curl -fL https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_mono_export_templates.tpz -o /tmp/templates.tpz
+          curl --retry 4 --retry-delay 2 --retry-all-errors -fL https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_mono_export_templates.tpz -o /tmp/templates.tpz
           python3 - <<'PY'
           import zipfile
           from pathlib import Path

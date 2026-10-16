@@ -263,7 +263,7 @@ public partial class Main : Node
         if (pending != null) _ = pending.DisposeAsync();
     }
     public void StartPractice(string name, int team, GameMode mode, int bots, WizardType wizardType = WizardType.Balanced,
-        ArenaMapId map = ArenaMapId.Classic, DefenseFlow defenseFlow = DefenseFlow.Waves)
+        ArenaMapId map = ArenaMapId.Classic, DefenseFlow defenseFlow = DefenseFlow.Continuous)
     {
         CancelPendingConnection();
         var old = _connection; _connection = null;

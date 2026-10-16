@@ -5,7 +5,7 @@ using System.Reflection;
 internal static class DefenseTests
 {
     private static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
-    private static GameWorld World(DefenseFlow flow = DefenseFlow.Waves, int bots = 0) => new(new WorldOptions
+    private static GameWorld World(DefenseFlow flow = DefenseFlow.Continuous, int bots = 0) => new(new WorldOptions
         { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4, DefenseFlow = flow, Seed = 37, Bots = bots });
     private static object Field(GameWorld world, string name) => typeof(GameWorld).GetField(name, BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(world)!;
     private static void Set(GameWorld world, string name, object value) => typeof(GameWorld).GetField(name, BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(world, value);
@@ -13,7 +13,11 @@ internal static class DefenseTests
     private static DefenseSnapshot State(GameWorld world) => world.Snapshot().Defense!;
     private static DefensePlayerSnapshot Player(GameWorld world, Wizard p) => State(world).Defenders.Single(d => d.PlayerId == p.Id);
     private static void Gold(GameWorld world, Wizard p, int value) => ((IDictionary)Field(world, "_defenders"))[p.Id]!.GetType().GetField("Gold")!.SetValue(((IDictionary)Field(world, "_defenders"))[p.Id], value);
-    private static Wizard Castle(GameWorld world) => (Wizard)Field(world, "_castle");
+    private static void End(GameWorld world, int owner)
+    {
+        foreach (var human in world.Players.Values.Where(p => !p.Bot))
+        { human.Health = human.MaxHealth; human.Deaths = 1; Damage(world, human, 1000000, owner); }
+    }
     private static Wizard Enemy(GameWorld world)
     {
         Invoke(world, "SpawnMinion");
@@ -34,6 +38,7 @@ internal static class DefenseTests
     public static void Run(Action<string, Action> test)
     {
         DefenseBalanceTests.Run(test);
+        SurvivalTests.Run(test);
         test("Defensa: bestiario descubre, conserva muertos, actualiza la última versión y reinicia", () =>
         {
             var w = World(); var p = w.AddPlayer("Mago")!;
@@ -52,7 +57,7 @@ internal static class DefenseTests
             var decoded = Protocol.Deserialize<ServerMessage>(Protocol.Serialize(new ServerMessage { Type = "snapshot", Snapshot = snapshot }))!.Snapshot!;
             SnapshotValidation.Check(decoded);
             Check(decoded.Defense!.Bestiary.Single() == latest, "La guía no llegó intacta por red.");
-            Damage(w, Castle(w), 1000000, stronger.Id); Check(w.RestartDefense(), "No se reinició.");
+            End(w, stronger.Id); Check(w.RestartDefense(), "No se reinició.");
             Check(State(w).Bestiary.Length == 0, "El bestiario se conservó entre partidas.");
         });
         test("Defensa: bestiario rechaza duplicados, valores no finitos y bajas imposibles", () =>
@@ -122,7 +127,7 @@ internal static class DefenseTests
             for (int i = 0; i < 20; i++)
             {
                 var enemy = Enemy(w);
-                Check(w.Map.Walkable(enemy.Position) && V2.Distance(enemy.Position, DefenseRules.CastlePosition) >= DefenseRules.SafeRadius, "Aparición insegura.");
+                Check(w.Map.Walkable(enemy.Position) && w.Players.Values.All(p => V2.Distance(enemy.Position, p.Position) >= DefenseRules.SafeRadius), "Aparición insegura.");
                 Check(State(w).Minions.Last().Kind == MinionKind.Melee, "Enemigo avanzado en primera oleada.");
             }
             Check(w.Players.Count == 4 && w.AddPlayer("Quinto") == null, "Los minions consumieron o ampliaron plazas.");
@@ -133,17 +138,13 @@ internal static class DefenseTests
                 Check(!ArenaMap.Get(ArenaMapId.Bastion).SupportsMode(mode), "Bastión admitió un modo competitivo.");
             Check(!ArenaMap.Get(ArenaMapId.Classic).SupportsMode(GameMode.Defense), "Defensa admitió geometría sin castillo.");
         });
-        test("Defensa: pausa inicial, oleada completa y variante continua", () =>
+        test("Supervivencia: flujo continuo único y dificultad gradual", () =>
         {
-            var w = World(); w.AddPlayer("Humano"); Advance(w, 470);
-            Check(State(w).Wave == 0 && State(w).Minions.Length == 0, "La preparación inicial no se respetó.");
-            Advance(w, 900);
-            var s = State(w);
-            Check(s.Wave == 1 && s.Minions.Length + s.RemainingToSpawn == 20, "La primera oleada no contiene 20 minions.");
-            Check(DefenseRules.WaveSize(6) == 200 && DefenseRules.AttackDelay(100) >= 0.3f, "Escalado o delay sin límites.");
-            var continuous = World(DefenseFlow.Continuous); continuous.AddPlayer("Humano");
-            Set(continuous, "_defenseElapsed", 91.0); Advance(continuous, 2);
-            Check(State(continuous).Difficulty == 2 && State(continuous).NextWaveIn == 0, "No escaló tras el tiempo de preparación.");
+            Check(Enum.GetValues<DefenseFlow>().SequenceEqual(new[] { DefenseFlow.Continuous }), "Sigue disponible la modalidad por oleadas.");
+            var w = World(); var p = w.AddPlayer("Humano")!; p.Invulnerable = 10000; Advance(w, 120);
+            Check(State(w).Minions.Length > 0 && State(w).Difficulty == 1, "No comenzó el flujo continuo.");
+            Set(w, "_defenseElapsed", 91.0); Set(w, "<Tick>k__BackingField", 5460L); Advance(w, 2); p.Invulnerable = 1.2f;
+            Check(State(w).Difficulty == 2 && DefenseRules.AttackDelay(100) >= 0.4f, "Escalado o delay sin límites.");
             SnapshotValidation.Check(w.Snapshot());
         });
         test("Defensa: proyectiles, áreas y rayos dañan minions usando el combate existente", () =>
@@ -175,28 +176,20 @@ internal static class DefenseTests
             Check(after.Level == before.Level && after.Items.Length == before.Items.Length && after.Gold == before.Gold && after.Auras.SequenceEqual(before.Auras), "Se perdió progreso temporal.");
             SnapshotValidation.Check(w.Snapshot());
             Advance(w, 271); Check(p.Alive, "No reapareció.");
-            Damage(w, p, 1000000, Enemy(w).Id); Check(Math.Abs(p.Respawn - 5) < 0.01, "No creció 0,5 segundos por muerte.");
+            Damage(w, p, 1000000, Enemy(w).Id); Check(p.Deaths == 2 && p.Respawn == 0 && !p.Alive && !w.MatchEnded, "No agotó la segunda vida mientras el aliado continúa.");
         });
-        test("Defensa: bot aliado apunta hacia amenazas entre el defensor y el castillo", () =>
+        test("Defensa: bot aliado apunta hacia amenazas cercanas al defensor", () =>
         {
-            var w = World(bots: 1); w.AddPlayer("Humano");
+            var w = World(bots: 1); w.AddPlayer("Humano")!.Position = new(-15, 0);
             var bot = w.Players.Values.Single(p => p.Bot); bot.Position = new(-24, 0);
             var enemy = Enemy(w); enemy.Position = new(-28.7f, 0); float health = enemy.Health;
-            Advance(w, 5);
-            Check(bot.Facing.X < -0.9f && enemy.Health < health, "El bot disparó al lado opuesto de la amenaza.");
+            Advance(w, 45);
+            Check(bot.Facing.X < -0.9f && enemy.Health < health, $"El bot disparó al lado opuesto de la amenaza: facing={bot.Facing}, salud={enemy.Health}/{health}, posición={bot.Position}.");
         });
-        test("Defensa: reparación compartida, coste creciente y rechazo sin fondos", () =>
+        test("Supervivencia: la reparación retirada no consume oro", () =>
         {
-            var w = World(); var a = w.AddPlayer("A")!; var b = w.AddPlayer("B")!;
-            Castle(w).Health = 2000;
-            Check(!Command(w, a, "defense_repair"), "Se reparó sin oro.");
-            Gold(w, a, 1000); Gold(w, b, 1000);
-            Check(Command(w, a, "defense_repair") && State(w).RepairCost == 150 && Player(w, a).Gold == 900, "Primer precio incorrecto.");
-            Check(Command(w, b, "defense_repair") && State(w).RepairCost == 225 && Player(w, b).Gold == 850, "El otro jugador reinició el precio.");
-            a.Position = new(20, 0); Check(!Command(w, a, "defense_repair"), "Se reparó desde fuera de la zona.");
-            Castle(w).Health = 12000; b.Position = new(-25, 0);
-            Check(!Command(w, b, "defense_repair") && Player(w, b).Gold == 850, "Cobró una reparación sin efecto.");
-            Invoke(w, "Heal", Castle(w), 1000f); Check(Castle(w).Health == 12000, "Curación alteró el castillo.");
+            var w = World(); var p = w.AddPlayer("A")!; Gold(w, p, 1000);
+            Check(!Command(w, p, "defense_repair") && Player(w, p).Gold == 1000, "Se aceptó una reparación retirada.");
         });
         test("Defensa: compras autoritativas, mejoras limitadas y botín personal", () =>
         {
@@ -217,35 +210,35 @@ internal static class DefenseTests
             Check(Player(w, b).Items.Length == 1, "El propietario no recogió su pieza.");
             SnapshotValidation.Check(w.Snapshot());
         });
-        test("Defensa: auras dañan minions y curan aliados, sin reparar el castillo", () =>
+        test("Defensa: auras dañan minions y curan aliados", () =>
         {
             var w = World(); var p = w.AddPlayer("A")!; var ally = w.AddPlayer("B")!;
             p.Position = new(-28.8f, 0); ally.Position = p.Position + new V2(0, 1); ally.Health = 500;
             Gold(w, p, 1000); Command(w, p, "defense_aura", 0); Command(w, p, "defense_aura", 2);
             var enemy = Enemy(w); enemy.Position = p.Position + new V2(1, 0);
-            float health = enemy.Health; Castle(w).Health = 1000;
+            float health = enemy.Health;
             Invoke(w, "TickDefenseAuras", 1f);
-            Check(enemy.Health < health && ally.Health > 500 && Castle(w).Health == 1000, "Aura dañó o curó un objetivo incorrecto.");
-            var wall = new SpellRecipe([Element.Life]); Invoke(w, "Hit", Castle(w), wall, 1f, p.Id, new V2(1, 0), 1f);
-            Check(Castle(w).Health == 1000, "Un hechizo evitó la reparación de pago.");
+            Check(enemy.Health < health && ally.Health > 500, "Aura dañó o curó un objetivo incorrecto.");
         });
-        test("Defensa: una oleada sin oposición alcanza y destruye el bastión", () =>
+        test("Supervivencia: los minions encuentran al humano y agotan sus vidas", () =>
         {
-            var w = World(); var p = w.AddPlayer("Lejos del bastión")!; p.Position = new(35, 22);
+            var w = World(); var p = w.AddPlayer("Sin combatir")!; p.Position = new(76, 52);
             for (int tick = 0; tick < 18000 && !w.MatchEnded; tick++) w.Step();
-            Check(w.MatchEnded && State(w).CastleHealth == 0 && p.Alive, "Los minions no completaron su objetivo real.");
+            Check(w.MatchEnded && p.Deaths == 2 && !p.Alive, "Los minions no completaron su objetivo real.");
             SnapshotValidation.Check(w.Snapshot());
         });
-        test("Defensa: fin solo por castillo, resumen estable y reinicio desde cero", () =>
+        test("Supervivencia: segunda muerte, resumen estable y reinicio desde cero", () =>
         {
             var w = World(); var p = w.AddPlayer("A")!; Gold(w, p, 1000); Command(w, p, "defense_aura", 1);
-            Damage(w, p, 100000, Enemy(w).Id); Check(!w.MatchEnded, "La muerte del jugador terminó la partida.");
-            Damage(w, Castle(w), 100000, Enemy(w).Id);
-            Check(w.MatchEnded && State(w).CastleHealth == 0 && RoundPresentation.Message(w.Snapshot(), p.Id).Contains("BASTIÓN"), "No terminó con el castillo.");
+            var enemy = Enemy(w);
+            Damage(w, p, 100000, enemy.Id); Check(!w.MatchEnded && p.Deaths == 1, "La primera muerte terminó la partida.");
+            Advance(w, 271); Damage(w, p, 100000, enemy.Id);
+            Check(w.MatchEnded && !p.Alive && RoundPresentation.Message(w.Snapshot(), p.Id).Contains("SUPERVIVENCIA"), "No terminó tras dos muertes.");
             Advance(w, 700); Check(w.MatchEnded, "Reinició automáticamente y ocultó los resultados.");
             Check(w.RestartDefense(), "No permitió otra partida.");
             var after = Player(w, p);
-            Check(p.Alive && p.Deaths == 0 && p.Kills == 0 && after.Level == 1 && after.Gold == 0 && after.Items.Length == 0 && after.Auras.All(v => v == 0) && State(w).CastleHealth == 12000, "No se reinició toda la partida.");
+            Check(p.Alive && p.Deaths == 0 && p.Kills == 0 && after.Level == 1 && after.Gold == 0 && after.Items.Length == 0 && after.Auras.All(v => v == 0) &&
+                after.LivesRemaining == 2 && State(w).BossesKilled == 0, "No se reinició toda la partida.");
             SnapshotValidation.Check(w.Snapshot());
         });
         test("Defensa: reconexión conserva progreso y tiempo; paquete independiente y acotado", () =>
@@ -313,7 +306,7 @@ internal static class DefenseTests
         });
         test("Defensa: tanques progresivos, resistentes y más lentos; ritmo en grupos", () =>
         {
-            var w = World(DefenseFlow.Continuous); var p = w.AddPlayer("Humano")!; p.Position = new(35, 22);
+            var w = World(DefenseFlow.Continuous); var p = w.AddPlayer("Humano")!; p.Position = new(76, 52);
             var baseline = Enemy(w); Check(baseline.Health == 340, "La primera vida no está ajustada.");
             Set(w, "_defenseDifficulty", 5);
             for (int i = 0; i < 40; i++) Enemy(w);
@@ -321,7 +314,7 @@ internal static class DefenseTests
             var tankBody = ((Dictionary<int, Wizard>)Field(w, "_combatants"))[tank.Id];
             var regular = State(w).Minions.First(m => m.Kind == MinionKind.Melee && m.MaxHealth > baseline.MaxHealth);
             Check(tank.MaxHealth >= regular.MaxHealth * 3.4f && tankBody.Equipment.Speed < baseline.Equipment.Speed, "El tanque no resiste o no tiene contrapartida.");
-            var rhythm = World(DefenseFlow.Continuous); rhythm.AddPlayer("Humano")!.Position = new(35, 22);
+            var rhythm = World(DefenseFlow.Continuous); rhythm.AddPlayer("Humano")!.Position = new(76, 52);
             var appearances = new List<int>(); int last = 0;
             for (int i = 0; i < 1800; i++) { rhythm.Step(); int count = State(rhythm).Minions.Length; if (count > last) appearances.Add(i); last = count; }
             var gaps = appearances.Zip(appearances.Skip(1), (a, b) => (b - a) / 60f).ToArray();
@@ -340,9 +333,9 @@ internal static class DefenseTests
             Check(w.Snapshot().Fields.Length == 0 && enemy.Health == 10000, "Disparó antes de tiempo.");
             Invoke(w, "TickDefensePassives", 1f);
             Check(w.Snapshot().Fields.Count(f => f.Kind == "defense_meteor") == 1, "No apareció meteorito a los 3 s.");
-            float allyHealth = ally.Health, ownHealth = p.Health, castleHealth = Castle(w).Health;
+            float allyHealth = ally.Health, ownHealth = p.Health;
             Invoke(w, "TickWallsAndFields", 1.45f);
-            Check(enemy.Health < 10000 && p.Health == ownHealth && ally.Health == allyHealth && Castle(w).Health == castleHealth, "El meteorito no dañó al enemigo o dañó aliados.");
+            Check(enemy.Health < 10000 && p.Health == ownHealth && ally.Health == allyHealth, "El meteorito no dañó al enemigo o dañó aliados.");
             Invoke(w, "TickDefensePassives", 13f);
             var stats = Player(w, p);
             Check(stats.BerserkerRemaining > 0 && stats.DamageMultiplier > 1.49f && stats.SpeedMultiplier > 1.14f && enemy.Chill > 0, "No aplicó berserker o pulso glacial.");
@@ -351,7 +344,7 @@ internal static class DefenseTests
             Invoke(w, "TickDefensePassives", 5f); Check(Player(w, p).BerserkerRemaining == 0, "Berserker se hizo permanente.");
             Command(w, p, "defense_shop", 1); w.RemovePlayer(ally.Id); var paused = Protocol.Serialize(w.Snapshot());
             Advance(w, 360); Check(Protocol.Serialize(w.Snapshot()) == paused, "Las habilidades no respetaron la pausa.");
-            Command(w, p, "defense_shop", 0); Damage(w, Castle(w), 100000, enemy.Id); w.RestartDefense();
+            Command(w, p, "defense_shop", 0); End(w, enemy.Id); w.RestartDefense();
             Check(Player(w, p).Passives.All(n => n == 0), "Las habilidades pasaron a otra partida.");
             SnapshotValidation.Check(w.Snapshot());
         });
@@ -383,12 +376,11 @@ internal static class DefenseTests
                 Invoke(world, "GrantDefenseItem", player, EquipmentCatalogue.Generate(new Random(i * 100 + item),
                     tier: ItemTier.Mythic, slot: (EquipmentSlot)(item % 4)));
         }
-        Set(world, "_defenseDifficulty", 10); Set(world, "_defenseWave", 10);
+        Set(world, "_defenseElapsed", 810.0); Set(world, "_defenseDifficulty", 10); Set(world, "<Tick>k__BackingField", 48600L);
         for (int i = 0; i < DefenseRules.MaxMinions; i++) Enemy(world);
         var watch = System.Diagnostics.Stopwatch.StartNew();
         for (int tick = 0; tick < 1200; tick++)
         {
-            Castle(world).Health = DefenseRules.CastleHealth;
             foreach (var p in world.Players.Values) p.Invulnerable = 1.2f;
             world.Step();
         }

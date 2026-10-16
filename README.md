@@ -2,9 +2,9 @@
 
 **Juego multijugador de combate mágico en tiempo real para Windows y Android.**
 
-**Estado del repositorio:** versión experimental **0.18.9**, Godot **4.5.2 .NET**, **C# / .NET 8** y protocolo de red **24**. El servidor autoritativo está desarrollado con ASP.NET Core. El juego puede practicarse sin conexión, alojarse en un PC o utilizar un servidor dedicado. El acceso Google y la progresión se apoyan en Firebase, cuando están configurados.
+**Estado del repositorio:** versión experimental **0.19.0**, Godot **4.5.2 .NET**, **C# / .NET 8** y protocolo de red **25**. El servidor autoritativo está desarrollado con ASP.NET Core. El juego puede practicarse sin conexión, alojarse en un PC o utilizar un servidor dedicado. El acceso Google y la progresión se apoyan en Firebase, cuando están configurados.
 
-**Esta rama incorpora el modo cooperativo Defensa del bastión.** Se mantiene independiente de `main`; sus paquetes se publican como preliminares. Las cuentas autorizadas reciben el [canal de pruebas](docs/CANALES-ACTUALIZACION.md). [Funcionamiento y reglas de Defensa](docs/DEFENSA-OLEADAS.md).
+**Esta rama incorpora el modo cooperativo Supervivencia en Anillos.** Se mantiene independiente de `main`; sus paquetes se publican como preliminares. Las cuentas autorizadas reciben el [canal de pruebas](docs/CANALES-ACTUALIZACION.md). [Funcionamiento y reglas de Defensa](docs/DEFENSA-OLEADAS.md).
 
 Proyecto inspirado en el combate elemental de *Magicka: Wizard Wars*, con código, escenarios, animaciones, efectos y reglas propios. No es una reproducción oficial ni exacta del juego original.
 
@@ -40,10 +40,10 @@ El inicio muestra cuatro accesos principales en **2 × 2**: **PvP, Versus IA, Mi
 | **Duelo** | Dos jugadores o un jugador contra IA; ganar por bajas según el límite configurado. |
 | **Todos contra todos** | Cada mago compite por alcanzar el límite de bajas. |
 | **Guerra** | Capturar y defender puntos; las condiciones de victoria dependen del mapa. |
-| **Defensa del bastión** | Resistir oleadas o ataques continuos, con uno a cuatro defensores humanos o bots aliados. |
+| **Supervivencia** | Resistir con dos vidas por jugador en Anillos, con uno a cuatro humanos o bots aliados y colosos a intervalos variables. |
 | **Laboratorio** | Probar hechizos y estados sin una partida competitiva. |
 
-**Mapas jugables:** Arena clásica, Ciudadela de los pasillos, Coliseo de la ascensión, Santuario de las reliquias, Frente de conquista y Bastión de las oleadas. El laboratorio dispone de su propio escenario de pruebas. Ciudadela requiere mantener el control total; Frente de conquista obliga a capturar cinco puntos en orden y utiliza portales, meteoros y muros destructibles. [Detalles de los escenarios](docs/MAPAS.md) · [Reglas de victoria](docs/COMO-GANAR.md).
+**Mapas jugables:** Arena clásica, Ciudadela de los pasillos, Coliseo de la ascensión, Santuario de las reliquias, Frente de conquista y Anillos de supervivencia. El laboratorio dispone de su propio escenario de pruebas. Ciudadela requiere mantener el control total; Frente de conquista obliga a capturar cinco puntos en orden y utiliza portales, meteoros y muros destructibles. [Detalles de los escenarios](docs/MAPAS.md) · [Reglas de victoria](docs/COMO-GANAR.md).
 
 ## Descargar e instalar
 

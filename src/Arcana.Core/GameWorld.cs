@@ -120,6 +120,7 @@ public sealed partial class GameWorld
         _walls.RemoveAll(p => p.Owner == id);
         _fields.RemoveAll(p => p.Owner == id);
         Emit("leave", wizard.Position, [], $"{wizard.Name} sale de la arena");
+        if (IsDefense) { _survivalFlows.Remove(id); CheckSurvivalEnd(); }
     }
 
     public void EquipPlayer(int id, EquipmentModifiers equipment)
@@ -210,6 +211,7 @@ public sealed partial class GameWorld
             for (int i = 0; i < 4; i++) p.MagickCooldowns[i] = Math.Max(0, p.MagickCooldowns[i] - dt);
             if (!p.Alive)
             {
+                if (IsDefense && p.Deaths >= DefenseRules.PlayerLives) continue;
                 p.Respawn -= dt;
                 if (p.Respawn <= 0) Respawn(p);
                 continue;
@@ -304,7 +306,7 @@ public sealed partial class GameWorld
 
     public bool Walkable(V2 position)
     {
-        if (!Map.Walkable(position) || IsDefense && V2.Distance(position, DefenseRules.CastlePosition) < DefenseRules.CastleRadius + ArenaMap.WizardRadius) return false;
+        if (!Map.Walkable(position)) return false;
         foreach (var wall in _walls)
             if (wall.Health > 0 && Geometry.DistanceToSegment(position, wall.A, wall.B) < ArenaMap.WizardRadius + 0.18f) return false;
         return true;
@@ -586,7 +588,7 @@ public sealed partial class GameWorld
         }
         if (slot == 3)
         {
-            var ally = _players.Values.Where(q => !q.Alive && Allied(p, q) && q.Id != p.Id && V2.Distance(q.Position, p.Position) < 8)
+            var ally = _players.Values.Where(q => !q.Alive && (!IsDefense || q.Deaths < DefenseRules.PlayerLives) && Allied(p, q) && q.Id != p.Id && V2.Distance(q.Position, p.Position) < 8)
                 .OrderBy(q => V2.Distance(q.Position, p.Position)).FirstOrDefault();
             if (ally == null) return;
             var location = ally.Position;
@@ -600,15 +602,6 @@ public sealed partial class GameWorld
     private void Hit(Wizard target, SpellRecipe spell, float scale, int owner, V2 force, float damageMultiplier = 1)
     {
         if (!target.Alive) return;
-        if (target.Role == CombatantRole.Castle)
-        {
-            if (_combatants.TryGetValue(owner, out var invader) && invader.Team == 1)
-            {
-                float pressure = SpellBalance.Offensive.Sum(e => ElementDamage(target, owner, e, SpellBalance.Component(spell, e)));
-                Damage(target, pressure * scale * damageMultiplier, owner, spell.Elements);
-            }
-            return;
-        }
         var equipment = _combatants.TryGetValue(owner, out var attacker) ? attacker.Equipment : EquipmentModifiers.None;
         if (spell.Healing) Heal(target, SpellBalance.Heal * spell.Count(Element.Life) * scale * HealingPower(owner));
         if (target.Invulnerable > 0) return;
@@ -674,8 +667,7 @@ public sealed partial class GameWorld
         if (DefenseDeath(target, owner)) return;
         target.Deaths++;
         target.Respawn = IsDefense ? 4 + target.Deaths * 0.5f : Map.RespawnSeconds(Options.Mode, target.Deaths);
-        if (IsDefense) _defenders[target.Id].Deaths = target.Deaths;
-        else RelicBuffs.Clear(target);
+        RelicBuffs.Clear(target);
         CancelCast(target); target.Selection.Clear(); target.Shield = target.ShieldMax = target.ShieldTime = target.RegenerationRate = 0;
         if (Options.Mode == GameMode.Warfare && !Map.IsPractice && !HoldToWin && !ConquestToWin) Scores[target.Team] = Math.Max(0, Scores[target.Team] - 1);
         string text = $"{target.Name} ha caído";
@@ -712,7 +704,7 @@ public sealed partial class GameWorld
                 if (w.Health > 0 && !PassesOwnShield(w, projectile.Owner) && Geometry.SegmentCapsule(from, to, w.A, w.B, projectile.Radius + 0.2f) is float t && t < nearest)
                 { nearest = t; wallHit = w; obstacleHit = false; target = null; }
             foreach (var q in _combatants.Values)
-                if (q.Alive && q.Id != projectile.Owner && Geometry.SegmentCircle(from, to, q.Position, (q.Role == CombatantRole.Castle ? DefenseRules.CastleRadius : ArenaMap.WizardRadius) + projectile.Radius) is float t && t < nearest)
+                if (q.Alive && q.Id != projectile.Owner && Geometry.SegmentCircle(from, to, q.Position, (IsDefense && _minions.TryGetValue(q.Id, out var minion) && minion.Kind == MinionKind.Boss ? 1.4f : ArenaMap.WizardRadius) + projectile.Radius) is float t && t < nearest)
                 { nearest = t; target = q; obstacleHit = false; wallHit = null; }
             projectile.Position = V2.Lerp(from, to, nearest);
             if (target != null)
@@ -888,6 +880,7 @@ public sealed partial class GameWorld
     }
     private void Respawn(Wizard p)
     {
+        if (IsDefense && p.Deaths >= DefenseRules.PlayerLives) return;
         _routes.Remove(p.Id);
         ResetSlide(p);
         p.Position = RespawnPosition(p); p.Health = p.MaxHealth;
@@ -907,6 +900,7 @@ public sealed partial class GameWorld
     private V2 RespawnPosition(Wizard p)
     {
         if (Map.IsPractice) return _practiceSpawns.GetValueOrDefault(p.Id, PracticeLayout.Respawn);
+        if (IsDefense && Map.Walkable(p.Position)) return p.Position;
         if (Options.Mode == GameMode.Arena) return ArenaSpawnPosition(p, p.Deaths > 0 ? p.Position : null);
         var preferred = TeamSpawn(p.Team, p.Id % 4);
         for (int offset = 0; offset < 4; offset++)

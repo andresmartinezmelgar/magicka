@@ -6,15 +6,12 @@ public static partial class SnapshotValidation
     {
         if (state.Mode != GameMode.Defense) { if (state.Defense != null) Invalid(); return; }
         var d = state.Defense;
-        if (d == null || state.Map != ArenaMapId.Bastion || !Enum.IsDefined(d.Flow) || !double.IsFinite(d.Elapsed) ||
-            d.Elapsed < 0 || d.Elapsed > state.Time + 0.1 || d.Wave < 0 || d.Difficulty < 1 ||
-            d.RemainingToSpawn is < 0 or > 2000 || !Size(d.NextWaveIn, DefenseRules.WavePause + 0.01f) ||
-            d.CastlePosition != DefenseRules.CastlePosition || !NonNegative(d.CastleHealth) ||
-            d.CastleMaxHealth != DefenseRules.CastleHealth || d.CastleHealth > d.CastleMaxHealth ||
-            d.HumanCount != state.Players.Count(p => !p.Bot) || d.Paused && (d.HumanCount != 1 || state.MatchEnded) ||
-            d.Repairs < 0 || d.RepairCost != DefenseRules.RepairCost(d.Repairs) || d.TotalKills < 0 ||
+        if (d == null || state.Map != ArenaMapId.Bastion || !double.IsFinite(d.Elapsed) ||
+            d.Elapsed < 0 || d.Elapsed > state.Time + 0.1 || d.Difficulty < 1 ||
+            !Size(d.NextBossIn, 180.01f) || d.BossesKilled < 0 || d.BossesKilled > d.TotalKills ||
+            d.HumanCount != state.Players.Count(p => !p.Bot) || d.Paused && (d.HumanCount != 1 || state.MatchEnded) || d.TotalKills < 0 ||
             d.Minions is not { Length: <= DefenseRules.MaxMinions } || d.Drops is not { Length: <= DefenseRules.MaxDrops } ||
-            d.Bestiary is not { Length: <= 5 } ||
+            d.Bestiary is not { Length: <= 6 } ||
             d.Defenders == null || d.Defenders.Length != state.Players.Length || state.Players.Length > DefenseRules.MaxDefenders ||
             state.Players.Any(p => p.Team != 0)) Invalid();
         var map = ArenaMap.Get(state.Map);
@@ -33,13 +30,13 @@ public static partial class SnapshotValidation
         foreach (var m in d!.Minions!)
             if (m == null || m.Id < 1000 || !ids.Add(m.Id) || !Enum.IsDefined(m.Kind) ||
                 !Position(map, m.Position) || !Direction(m.Facing) || !NonNegative([m.Health, m.MaxHealth, m.Wet, m.Burning, m.Chill, m.Frozen]) ||
-                m.Health <= 0 || m.Health > m.MaxHealth || !Elements(m.Elements)) Invalid();
+                !Size(m.SpeedBoostSeconds, 4.01f) || m.Health <= 0 || m.Health > m.MaxHealth || !Elements(m.Elements)) Invalid();
         ids.Clear();
         foreach (var p in d.Defenders!)
         {
             if (p == null || !ids.Add(p.PlayerId) || !state.Players.Any(w => w.Id == p.PlayerId) || p.Level is < 1 or > 100 ||
                 p.Experience < 0 || p.Experience >= DefenseRules.ExperienceForLevel(p.Level) || p.NextLevelExperience != DefenseRules.ExperienceForLevel(p.Level) ||
-                p.Gold is < 0 or > 100000000 || p.Kills < 0 || p.Deaths < 0 || !double.IsFinite(p.ActiveSeconds) ||
+                p.Gold is < 0 or > 100000000 || p.Kills < 0 || p.Deaths is < 0 or > DefenseRules.PlayerLives || !double.IsFinite(p.ActiveSeconds) ||
                 p.ActiveSeconds < 0 || p.ActiveSeconds > state.Time + 0.1 || p.Auras is not { Length: 3 } ||
                 p.Auras.Any(a => a is < 0 or > DefenseRules.MaxAuraLevel) || p.Items is not { Length: <= DefenseRules.InventoryLimit } ||
                 p.Passives is not { Length: 4 } || p.Passives.Any(a => a is < 0 or > DefenseRules.MaxPassiveLevel) ||

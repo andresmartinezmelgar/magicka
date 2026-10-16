@@ -12,7 +12,7 @@ public static class RoundPresentation
         if (state.Defense is { } defense)
         {
             var defender = defense.Defenders.FirstOrDefault(p => p.PlayerId == localPlayerId);
-            return $"EL BASTIÓN HA CAÍDO\nResistencia: {DefenseRules.Clock(defense.Elapsed)} · oleada {defense.Wave}\n" +
+            return $"SUPERVIVENCIA TERMINADA\nResistencia: {DefenseRules.Clock(defense.Elapsed)} · dificultad {defense.Difficulty}\n" +
                 $"Bajas: {defender?.Kills ?? 0} · nivel: {defender?.Level ?? 1}\n" +
                 "Las mejoras temporales terminaron. Elige otra partida o vuelve al menú.";
         }

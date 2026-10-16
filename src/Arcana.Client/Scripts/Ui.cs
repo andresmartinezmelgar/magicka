@@ -66,7 +66,7 @@ public static class Ui
         if (elements.Contains(Element.Cold)) return ElementColor(Element.Cold);
         return ElementColor(Element.Water);
     }
-    public static string ModeName(GameMode mode) => mode switch { GameMode.Duel => "Duelo", GameMode.Arena => "Todos contra todos", GameMode.Defense => "Defensa del bastión", _ => "Guerra de puntos" };
+    public static string ModeName(GameMode mode) => mode switch { GameMode.Duel => "Duelo", GameMode.Arena => "Todos contra todos", GameMode.Defense => "Supervivencia", _ => "Guerra de puntos" };
     public static StyleBoxFlat Panel(Color? color = null, int radius = 12, Color? border = null)
     {
         var style = new StyleBoxFlat

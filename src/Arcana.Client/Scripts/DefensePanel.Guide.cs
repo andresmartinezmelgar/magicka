@@ -47,7 +47,7 @@ public partial class DefensePanel
             Wrapped(card, buff == BuffKind.Vitality ? "+100 de vida máxima y actual por acumulación. En Defensa se conserva al morir, hasta reiniciar la partida."
                 : RelicBuffs.Description(buff), 15);
         }
-        Wrapped(_lootGuide, "Todas las bajas dan 10 EXP a cada defensor, aunque no dejen botín. Las auras y las habilidades automáticas se compran en Poderes. Los premios permanentes dependen del tiempo activo y se consultan en Estadísticas.", 15, Ui.Muted);
+        Wrapped(_lootGuide, "Las bajas normales dan 10 EXP y los colosos 60 EXP a cada defensor, aunque no dejen botín. Las auras y las habilidades automáticas se compran en Poderes. Los premios permanentes dependen del tiempo activo y se consultan en Estadísticas.", 15, Ui.Muted);
         _enemyGuide = new VBoxContainer { Name = "DefenseEnemyGuide" }; section.AddChild(_enemyGuide);
         _enemyGuide.AddThemeConstantOverride("separation", 12);
         _enemyCards = new VBoxContainer { Name = "DefenseEnemyCards" }; _enemyCards.AddThemeConstantOverride("separation", 12); _enemyGuide.AddChild(_enemyCards);
@@ -101,9 +101,10 @@ public partial class DefensePanel
                 MinionKind.Captain => "Potencia un 35 % el daño de otros enemigos a menos de 8 m. No se potencia a sí mismo.",
                 MinionKind.Archer => "Dispara proyectiles de tierra que pueden interceptarse con barreras.",
                 MinionKind.Mage => $"Canaliza arcano y fuego durante {DefenseRules.MageChannelDuration:0.##} s por ataque. El rayo gana potencia al cargar y puede provocar quemaduras adicionales.",
-                _ => "Avanza hacia el bastión y ataca cuerpo a cuerpo. Puede desviarse hacia defensores cercanos."
+                MinionKind.Boss => "Coloso con mucha vida y gran alcance cuerpo a cuerpo. Aparece a intervalos variables; solo puede haber uno activo.",
+                _ => "Persigue a los jugadores por todo el mapa y ataca cuerpo a cuerpo."
             };
-            Wrapped(card, description, 15, Ui.Muted);
+            Wrapped(card, description + (enemy.Kind != MinionKind.Boss ? " Puede obtener un impulso temporal de velocidad del 60 %." : ""), 15, Ui.Muted);
         }
     }
 }

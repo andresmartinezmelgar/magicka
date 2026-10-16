@@ -158,16 +158,19 @@ public partial class ArenaRenderer : Node3D
         {
             Clear(); _map = definition; _mapPrepared = false;
             if (_mapRoot != null) { RemoveChild(_mapRoot); _mapRoot.QueueFree(); }
+            _survivalSectors.Clear();
             _points.Clear(); _portals.Clear(); _frontlineSpawns.Clear(); _practiceCasterLabel = null;
             rootMap = new Node3D { Name = "MapGeometry" }; _mapRoot = rootMap; AddChild(rootMap);
         };
         // La enumeración prepara trabajos; los nodos se crean al ejecutar cada paso.
-        foreach (var step in PrepareScenery(() => rootMap!, definition)) yield return step;
+        if (id != ArenaMapId.Bastion)
+            foreach (var step in PrepareScenery(() => rootMap!, definition)) yield return step;
         yield return () => { BuildMapDetails(rootMap!); _mapPrepared = true; };
     }
     private void BuildMapDetails(Node3D rootMap)
     {
         if (_map.IsPractice) { BuildPracticeMap(rootMap); return; }
+        if (_map.Id == ArenaMapId.Bastion) { BuildFrontline(rootMap); return; }
         for (int team = 0; team < 2; team++)
         {
             var color = team == 0 ? Ui.Blue : Ui.Red;
@@ -194,17 +197,19 @@ public partial class ArenaRenderer : Node3D
         var previous = _lastSnapshot;
         float dt = (float)delta; _time += delta;
         _fresh = !ReferenceEquals(snapshot, _lastSnapshot); _lastSnapshot = snapshot;
+        var local = snapshot.Players.FirstOrDefault(p => p.Id == localId);
+        UpdateSurvivalGeometry(PreviewFocus is { } preview ? new(preview.X, preview.Z) : local?.Position ?? V2.Zero);
         foreach (var p in snapshot.Players)
         {
             if (!_wizards.TryGetValue(p.Id, out var visual))
             {
                 visual = new WizardVisual(); AddChild(visual); visual.Build(p, p.Id == localId); _wizards[p.Id] = visual;
             }
-            visual.Update(p, dt, (float)_time, Camera, snapshot.Time, InterpolationDelay);
+            visual.Visible = NearSurvival(p.Position);
+            if (visual.Visible) visual.Update(p, dt, (float)_time, Camera, snapshot.Time, InterpolationDelay);
         }
         if (_fresh) RemoveMissing(_wizards, snapshot.Players, static p => p.Id);
         RenderDefense(snapshot, localId, dt);
-        var local = snapshot.Players.FirstOrDefault(p => p.Id == localId);
         float followX = _map.Id == ArenaMapId.Classic ? 7 : _map.HalfWidth - 8;
         float followY = _map.Id == ArenaMapId.Classic ? 4 : _map.HalfHeight - 7;
         var visiblePosition = local != null ? _wizards[local.Id].Position : Vector3.Zero;
@@ -214,7 +219,8 @@ public partial class ArenaRenderer : Node3D
         var previousLocal = previous?.Players.FirstOrDefault(p => p.Id == localId);
         bool respawned = local is { Alive: true } && previousLocal != null &&
             (!previousLocal.Alive || previousLocal.Deaths != local.Deaths);
-        Camera.Position = playing && (first || respawned) ? desired : Camera.Position.Lerp(desired, 1 - Mathf.Exp(-3 * dt));
+        bool teleported = _map.Id == ArenaMapId.Bastion && previousLocal != null && local != null && V2.Distance(previousLocal.Position, local.Position) > 12;
+        Camera.Position = playing && (first || respawned || teleported) ? desired : Camera.Position.Lerp(desired, 1 - Mathf.Exp(-3 * dt));
         Camera.LookAt(Camera.Position - new Vector3(0, 27, 21));
         Camera.Size = Mathf.Lerp(Camera.Size, playing ? _zoom : 32, 1 - Mathf.Exp(-5 * dt));
         foreach (var visual in _points.Values) visual.Visible = ShowControlPoints && snapshot.Mode == GameMode.Warfare;
@@ -226,9 +232,17 @@ public partial class ArenaRenderer : Node3D
         UpdateFrontline(snapshot, (float)_time);
         if (_practiceCasterLabel != null && _practiceCasterLabel.Text != PracticeCasterDescription)
             _practiceCasterLabel.Text = PracticeCasterDescription;
-        DrawProjectiles(snapshot, dt);
-        DrawWalls(snapshot, dt);
-        DrawFields(snapshot, dt);
+        var visibleState = snapshot.Defense == null ? snapshot : snapshot with
+        {
+            Players = snapshot.Players.Where(p => NearSurvival(p.Position)).ToArray(),
+            Projectiles = snapshot.Projectiles.Where(p => NearSurvival(p.Position)).ToArray(),
+            Walls = snapshot.Walls.Where(p => NearSurvivalSegment(p.A, p.B)).ToArray(),
+            Fields = snapshot.Fields.Where(p => NearSurvival(p.Position, p.Radius + 4)).ToArray(),
+            Beams = snapshot.Beams.Where(p => NearSurvivalSegment(p.From, p.To)).ToArray()
+        };
+        DrawProjectiles(visibleState, dt);
+        DrawWalls(visibleState, dt);
+        DrawFields(visibleState, dt);
         foreach (var item in snapshot.Pickups ?? [])
         {
             if (!_pickups.TryGetValue(item.Id, out var visual))
@@ -238,13 +252,13 @@ public partial class ArenaRenderer : Node3D
         if (_fresh) RemoveMissing(_pickups, snapshot.Pickups ?? [], static p => p.Id);
         _beamUsed = 0; BeamGeometryUpdates = 0;
         // Dibuja primero todos los canales; el presupuesto de detalle nunca oculta un rayo.
-        foreach (var beam in snapshot.Beams) DrawBeam(beam, false);
-        foreach (var beam in snapshot.Beams) DrawBeam(beam, true);
+        foreach (var beam in visibleState.Beams) DrawBeam(beam, false);
+        foreach (var beam in visibleState.Beams) DrawBeam(beam, true);
         for (int i = _beamUsed; i < _beamPool.Count; i++) _beamPool[i].Root.Visible = false;
         foreach (var e in snapshot.Events)
         {
             if (e.Id <= _lastEvent) continue;
-            if (playing)
+            if (playing && NearSurvival(e.Position))
             {
                 _effects.Play(e);
                 if (e.Kind is "cast" or "self" or "nova" or "barrier")
@@ -258,7 +272,7 @@ public partial class ArenaRenderer : Node3D
             }
             _lastEvent = Math.Max(_lastEvent, e.Id);
         }
-        _effects.Advance(snapshot, dt, playing);
+        _effects.Advance(visibleState, dt, playing);
     }
 
     private void RemoveMissing<T, TState>(Dictionary<int, T> nodes, TState[] present, Func<TState, int> id) where T : Node
@@ -307,7 +321,7 @@ public partial class ArenaRenderer : Node3D
             root.Position = root.Position.Lerp(World(projectile.Position, 0.9f), 1 - Mathf.Exp(-35 * dt));
             root.Rotation += new Vector3(dt * 4, dt * 3, dt * 2);
         }
-        if (_fresh) RemoveMissing(_projectiles, snapshot.Projectiles, static p => p.Id);
+        if (_fresh || snapshot.Defense != null) RemoveMissing(_projectiles, snapshot.Projectiles, static p => p.Id);
     }
     private void DrawWalls(WorldSnapshot snapshot, float delta)
     {
@@ -319,7 +333,7 @@ public partial class ArenaRenderer : Node3D
             }
             visual.Update(wall, delta, (float)_time);
         }
-        if (_fresh) RemoveMissing(_walls, snapshot.Walls, static p => p.Id);
+        if (_fresh || snapshot.Defense != null) RemoveMissing(_walls, snapshot.Walls, static p => p.Id);
     }
     private void DrawFields(WorldSnapshot snapshot, float delta)
     {
@@ -375,7 +389,7 @@ public partial class ArenaRenderer : Node3D
             if (root.GetNodeOrNull<MeshInstance3D>("MineCore") is { } mineCore)
                 mineCore.Visible = field.Armed || (int)(_time * 10) % 2 == 0;
         }
-        if (_fresh) RemoveMissing(_fields, snapshot.Fields, static p => p.Id);
+        if (_fresh || snapshot.Defense != null) RemoveMissing(_fields, snapshot.Fields, static p => p.Id);
     }
 
 }

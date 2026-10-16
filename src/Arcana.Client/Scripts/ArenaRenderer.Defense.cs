@@ -16,15 +16,12 @@ public partial class ArenaRenderer
     private readonly Dictionary<(int Player, int Aura), (MeshInstance3D Mesh, TorusMesh Ring)> _defenseAuraVisuals = [];
     internal int DefenseMinionVisualCount => _minionVisuals.Count;
     internal IReadOnlyDictionary<int, DefenseLootVisual> DefenseLootVisuals => _defenseLootVisuals;
-    private Node3D? _castleVisual;
-    private Label3D? _castleLabel;
 
     private void ClearDefenseVisuals()
     {
         foreach (var v in _minionVisuals.Values) v.Root.QueueFree(); _minionVisuals.Clear();
         foreach (var v in _defenseLootVisuals.Values) v.QueueFree(); _defenseLootVisuals.Clear();
         foreach (var v in _defenseAuraVisuals.Values) v.Mesh.QueueFree(); _defenseAuraVisuals.Clear();
-        _castleVisual?.QueueFree(); _castleVisual = null; _castleLabel = null;
     }
 
     private static WizardSnapshot MinionWizard(MinionSnapshot m) => new(m.Id, "Mago invasor", 1, true, m.Position,
@@ -34,24 +31,7 @@ public partial class ArenaRenderer
     private void RenderDefense(WorldSnapshot snapshot, int localId, float dt)
     {
         if (snapshot.Defense is not { } defense) return;
-        if (_castleVisual == null)
-        {
-            _castleVisual = new Node3D { Name = "DefenseCastle", Position = World(defense.CastlePosition) }; AddChild(_castleVisual);
-            Mesh(_castleVisual, new BoxMesh { Size = new(5.3f, 0.6f, 5.3f) }, new(0, 0.3f, 0), new("526579"));
-            Mesh(_castleVisual, new BoxMesh { Size = new(3.8f, 3, 3.8f) }, new(0, 2, 0), new("8194a4"));
-            Mesh(_castleVisual, new BoxMesh { Size = new(1, 1.8f, 0.2f) }, new(0, 1.2f, 1.98f), new("18283b"));
-            foreach (int x in new[] { -1, 1 }) foreach (int z in new[] { -1, 1 })
-            {
-                Mesh(_castleVisual, new CylinderMesh { TopRadius = 0.7f, BottomRadius = 0.8f, Height = 4.4f, RadialSegments = 10 }, new(x * 1.9f, 2.3f, z * 1.9f), new("607b94"));
-                Mesh(_castleVisual, new CylinderMesh { TopRadius = 0, BottomRadius = 0.95f, Height = 1.2f, RadialSegments = 8 }, new(x * 1.9f, 5.1f, z * 1.9f), Ui.Blue);
-            }
-            _castleLabel = new Label3D { Position = new(0, 6.3f, 0), FontSize = 38, PixelSize = 0.018f,
-                Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, OutlineSize = 10, OutlineModulate = new("070c15"), NoDepthTest = true };
-            _castleVisual.AddChild(_castleLabel);
-        }
-        _castleLabel!.Text = $"BASTIÓN\n{Math.Ceiling(defense.CastleHealth):0} / {defense.CastleMaxHealth:0}";
-        _castleLabel.Modulate = defense.CastleHealth < defense.CastleMaxHealth * 0.3f ? Ui.Red : Ui.Blue;
-        foreach (var m in defense.Minions)
+        foreach (var m in defense.Minions.Where(m => NearSurvival(m.Position)))
         {
             if (!_minionVisuals.TryGetValue(m.Id, out var v))
             {
@@ -64,13 +44,16 @@ public partial class ArenaRenderer
                 }
                 else
                 {
-                    Godot.Mesh shape = m.Kind == MinionKind.Tank ? new BoxMesh { Size = new(1.6f, 1.45f, 1.6f) } : m.Kind == MinionKind.Archer ? new BoxMesh { Size = new(0.95f, 0.7f, 0.95f) }
+                    Godot.Mesh shape = m.Kind == MinionKind.Boss ? new BoxMesh { Size = new(2.6f, 2.7f, 2.6f) } : m.Kind == MinionKind.Tank ? new BoxMesh { Size = new(1.6f, 1.45f, 1.6f) } : m.Kind == MinionKind.Archer ? new BoxMesh { Size = new(0.95f, 0.7f, 0.95f) }
                         : new CylinderMesh { TopRadius = m.Kind == MinionKind.Captain ? 0.8f : 0.55f,
                             BottomRadius = m.Kind == MinionKind.Captain ? 0.8f : 0.55f, Height = 0.65f, RadialSegments = 16 };
-                    v.Body = Mesh(root, shape, new(0, m.Kind == MinionKind.Tank ? 0.8f : 0.5f, 0), MinionColor(m.Kind));
-                    Mesh(root, new BoxMesh { Size = new(1.3f, 0.1f, 0.12f) }, new(0, m.Kind == MinionKind.Tank ? 1.65f : 1.3f, 0), new("17232d"));
-                    v.Health = Mesh(root, new BoxMesh { Size = new(1.25f, 0.12f, 0.13f) }, new(0, m.Kind == MinionKind.Tank ? 1.65f : 1.3f, 0.01f), Ui.Red);
+                    v.Body = Mesh(root, shape, new(0, m.Kind == MinionKind.Boss ? 1.4f : m.Kind == MinionKind.Tank ? 0.8f : 0.5f, 0), MinionColor(m.Kind));
+                    Mesh(root, new BoxMesh { Size = new(1.3f, 0.1f, 0.12f) }, new(0, m.Kind == MinionKind.Boss ? 3.15f : m.Kind == MinionKind.Tank ? 1.65f : 1.3f, 0), new("17232d"));
+                    v.Health = Mesh(root, new BoxMesh { Size = new(1.25f, 0.12f, 0.13f) }, new(0, m.Kind == MinionKind.Boss ? 3.15f : m.Kind == MinionKind.Tank ? 1.65f : 1.3f, 0.01f), Ui.Red);
                 }
+                if (m.Kind == MinionKind.Boss)
+                    root.AddChild(new Label3D { Text = "COLOSO", Position = new(0, 3.7f, 0), FontSize = 34, PixelSize = 0.015f,
+                        Modulate = Ui.Gold, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled });
                 v.Aura = Mesh(root, new TorusMesh { InnerRadius = 0.88f, OuterRadius = 0.97f, Rings = 20, RingSegments = 6 },
                     new(0, 0.06f, 0), Ui.Gold, 0.5f);
                 _minionVisuals[m.Id] = v;
@@ -83,13 +66,14 @@ public partial class ArenaRenderer
             }
             if (v.Health != null) v.Health.Scale = new(Math.Max(0.001f, m.Health / m.MaxHealth), 1, 1);
             if (v.Body != null) v.Body.MaterialOverride = Material(m.Frozen > 0 ? new("8bdeff") : m.Burning > 0 ? Ui.ElementColor(Element.Fire) : MinionColor(m.Kind));
-            v.Aura!.Visible = m.Empowered || m.Kind == MinionKind.Captain;
+            v.Aura!.Visible = m.Empowered || m.Kind == MinionKind.Captain || m.SpeedBoostSeconds > 0 || m.Kind == MinionKind.Boss;
+            v.Aura.MaterialOverride = Material(m.SpeedBoostSeconds > 0 ? new("65e5ff") : Ui.Gold, 0.5f);
         }
-        foreach (int id in _minionVisuals.Keys.Where(id => !defense.Minions.Any(m => m.Id == id)).ToArray())
+        foreach (int id in _minionVisuals.Keys.Where(id => !defense.Minions.Any(m => m.Id == id && NearSurvival(m.Position))).ToArray())
         { _minionVisuals[id].Root.QueueFree(); _minionVisuals.Remove(id); }
         foreach (var drop in defense.Drops)
         {
-            if (drop.OwnerId != 0 && drop.OwnerId != localId) continue;
+            if (!NearSurvival(drop.Position) || drop.OwnerId != 0 && drop.OwnerId != localId) continue;
             if (!_defenseLootVisuals.TryGetValue(drop.Id, out var visual))
             {
                 visual = new DefenseLootVisual(); AddChild(visual);
@@ -100,7 +84,7 @@ public partial class ArenaRenderer
             }
             visual.Update(_time);
         }
-        foreach (int id in _defenseLootVisuals.Keys.Where(id => !defense.Drops.Any(d => d.Id == id && (d.OwnerId == 0 || d.OwnerId == localId))).ToArray())
+        foreach (int id in _defenseLootVisuals.Keys.Where(id => !defense.Drops.Any(d => d.Id == id && NearSurvival(d.Position) && (d.OwnerId == 0 || d.OwnerId == localId))).ToArray())
         { _defenseLootVisuals[id].QueueFree(); _defenseLootVisuals.Remove(id); }
         foreach (var defender in defense.Defenders)
         {
@@ -116,7 +100,7 @@ public partial class ArenaRenderer
                     aura = (mesh, ring); _defenseAuraVisuals[key] = aura;
                 }
                 int level = i == 3 ? defender.BerserkerRemaining > 0 ? 1 : 0 : defender.Auras[i];
-                aura.Mesh.Visible = player.Alive && level > 0;
+                aura.Mesh.Visible = player.Alive && level > 0 && NearSurvival(player.Position);
                 if (level > 0)
                 {
                     float radius = i == 3 ? 1.6f : DefenseRules.AuraRadius(level);
@@ -131,5 +115,5 @@ public partial class ArenaRenderer
     }
 
     private static Color MinionColor(MinionKind kind) => kind switch
-    { MinionKind.Tank => new("5c9d91"), MinionKind.Archer => new("d6a36b"), MinionKind.Captain => new("a36de0"), _ => new("db636b") };
+    { MinionKind.Boss => new("d6ae57"), MinionKind.Tank => new("5c9d91"), MinionKind.Archer => new("d6a36b"), MinionKind.Captain => new("a36de0"), _ => new("db636b") };
 }

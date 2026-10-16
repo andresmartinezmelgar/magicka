@@ -42,14 +42,6 @@ public sealed partial class GameWorld
         if (!player.Alive || MatchEnded) return false;
         switch (command.Type)
         {
-            case "defense_repair":
-                int repairCost = DefenseRules.RepairCost(_repairs);
-                if (_castle == null || _castle.Health >= _castle.MaxHealth || progress.Gold < repairCost ||
-                    V2.Distance(player.Position, _castle.Position) > 12) return false;
-                progress.Gold -= repairCost; _repairs++;
-                _castle.Health = Math.Min(_castle.MaxHealth, _castle.Health + _castle.MaxHealth * 0.2f);
-                Emit("defense_repair", _castle.Position, [Element.Life], $"Bastión reparado · siguiente coste: {DefenseRules.RepairCost(_repairs)}");
-                return true;
             case "defense_aura":
                 if (command.Slot is < 0 or > 2) return false;
                 int level = progress.Auras[command.Slot], cost = DefenseRules.AuraCost(level);
@@ -179,21 +171,17 @@ public sealed partial class GameWorld
     private void AutoShopDefenseBot(Wizard player)
     {
         var progress = _defenders[player.Id];
-        if (_castle!.Health < _castle.MaxHealth * 0.65f && progress.Gold >= DefenseRules.RepairCost(_repairs))
-            DefenseCommand(player, new() { Type = "defense_repair" });
         int aura = progress.Auras[0] <= progress.Auras[2] ? 0 : 2;
         DefenseCommand(player, new() { Type = "defense_aura", Slot = aura });
     }
 
     private DefenseSnapshot? DefenseState()
     {
-        if (!IsDefense || _castle == null) return null;
-        return new(Options.DefenseFlow, _defenseElapsed, _defenseWave, _defenseDifficulty, _toSpawn,
-            Options.DefenseFlow == DefenseFlow.Waves && _minions.Count == 0 && _toSpawn == 0 ? _wavePause : 0,
-            _castle.Position, _castle.Health, _castle.MaxHealth, _repairs, DefenseRules.RepairCost(_repairs), _defenseKills,
+        if (!IsDefense) return null;
+        return new(_defenseElapsed, _defenseDifficulty, _defenseKills,
             _minions.Values.Where(m => m.Body.Alive).Select(m => new MinionSnapshot(m.Body.Id, m.Kind, m.Body.Position, m.Body.Facing,
                 m.Body.Health, m.Body.MaxHealth, m.Body.Wet, m.Body.Burning, m.Body.Chill, m.Body.Frozen,
-                m.Body.Channel != null, Copy(m.Body.Channel?.Elements ?? []), Empowered(m))).ToArray(),
+                m.Body.Channel != null, Copy(m.Body.Channel?.Elements ?? []), Empowered(m)) { SpeedBoostSeconds = m.SpeedBoost }).ToArray(),
             _defenseDrops.Select(d => new DefenseDropSnapshot(d.Id, d.OwnerId, d.Position, d.Kind, d.Gold, d.Buff, d.Item?.Slot, d.Item?.Tier)).ToArray(),
             _players.Values.Select(p =>
             {
@@ -204,6 +192,6 @@ public sealed partial class GameWorld
                     DamagePower(p.Id), RelicBuffs.Incoming(p) * p.Equipment.Incoming, RelicBuffs.Regeneration(p) + s.Auras[2] * 10 * HealingPower(p.Id),
                     RelicBuffs.Speed(p) * p.Equipment.Speed * DefenseSpeed(p), Copy(s.Passives), Copy(s.PassiveCooldowns), s.BerserkerRemaining);
             }).ToArray(), DefensePaused, _players.Values.Count(p => !p.Bot))
-            { Bestiary = _defenseBestiary.Values.OrderBy(e => e.Kind).ToArray() };
+            { Bestiary = _defenseBestiary.Values.OrderBy(e => e.Kind).ToArray(), NextBossIn = _bossClock, BossesKilled = _bossesKilled };
     }
 }

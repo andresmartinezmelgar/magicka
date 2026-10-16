@@ -375,29 +375,29 @@ public partial class Hud : Control
         if (snapshot.Defense is { } defense)
         {
             _teams.Visible = false; _match.Visible = true;
-            _match.Text = (defense.Paused ? "PAUSA · " : "") + $"BASTIÓN  {defense.CastleHealth:0} / {defense.CastleMaxHealth:0}";
-            _match.AddThemeColorOverride("font_color", defense.CastleHealth < defense.CastleMaxHealth * 0.3f ? Ui.Red : Ui.Gold);
-            _objective.Text = $"{DefenseRules.Clock(defense.Elapsed)} · " + (defense.Flow == DefenseFlow.Waves ? $"Oleada {defense.Wave}" : $"Dificultad {defense.Difficulty}") +
-                $" · Enemigos {defense.Minions.Length} (+{defense.RemainingToSpawn})" +
-                (defense.NextWaveIn > 0 ? $"\nSiguiente oleada en {Math.Ceiling(defense.NextWaveIn)} s" : "");
+            int lives = Math.Max(0, DefenseRules.PlayerLives - player.Deaths);
+            _buffs.Visible = false; // Las bonificaciones se muestran en la columna izquierda de Defensa.
+            _match.Text = (defense.Paused ? "PAUSA · " : "") + $"SUPERVIVENCIA · VIDAS {lives}/2";
+            _match.AddThemeColorOverride("font_color", lives <= 1 ? Ui.Red : Ui.Gold);
+            _objective.Text = $"{DefenseRules.Clock(defense.Elapsed)} · Dificultad {defense.Difficulty} · Enemigos {defense.Minions.Length}\n" +
+                (defense.Minions.Any(m => m.Kind == MinionKind.Boss) ? "¡COLOSO EN EL MAPA!" : $"Coloso en {Math.Ceiling(defense.NextBossIn)} s");
             if (Ui.IsMobile || GetViewportRect().Size.Y < 700) _mapPanel.Visible = false;
-            if (Ui.IsMobile)
+            float mobileScale = Math.Min(1, GetViewportRect().Size.Y / 720f);
+            _server.Visible = _status.Visible = _affinity.Visible = false;
+            _playerPanel.CustomMinimumSize = new(310, 176); _playerPanel.Size = new(310, 176);
+            _playerPanel.Scale = Vector2.One * mobileScale / GameplayScale;
+            _playerPanel.Position = new Vector2(22 * mobileScale, 18 * mobileScale) / GameplayScale;
+            var topRow = (HBoxContainer)_topScore.GetParent();
+            var leftSpace = topRow.GetChild<Control>(0); var rightSpace = topRow.GetChild<Control>(2);
+            leftSpace.SizeFlagsHorizontal = rightSpace.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+            leftSpace.CustomMinimumSize = new(338 * mobileScale / GameplayScale, 0);
+            rightSpace.CustomMinimumSize = new((Ui.IsMobile ? 390 : 220) * mobileScale / GameplayScale, 0);
+            _topScore.CustomMinimumSize = Vector2.Zero; _topScore.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            if (GetViewportRect().Size.X < 900)
             {
-                float mobileScale = Math.Min(1, GetViewportRect().Size.Y / 720f);
-                _playerPanel.Scale = Vector2.One * mobileScale / GameplayScale;
-                _playerPanel.Position = new Vector2(22 * mobileScale, 18 * mobileScale) / GameplayScale;
-                var topRow = (HBoxContainer)_topScore.GetParent();
-                var leftSpace = topRow.GetChild<Control>(0); var rightSpace = topRow.GetChild<Control>(2);
-                leftSpace.SizeFlagsHorizontal = rightSpace.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
-                leftSpace.CustomMinimumSize = new(338 * mobileScale / GameplayScale, 0);
-                rightSpace.CustomMinimumSize = new(390 * mobileScale / GameplayScale, 0);
-                _topScore.CustomMinimumSize = Vector2.Zero; _topScore.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-                if (GetViewportRect().Size.X < 900)
-                {
-                    _match.Text = $"BASTIÓN\n{defense.CastleHealth:0}/{defense.CastleMaxHealth:0}";
-                    _objective.Text = $"{DefenseRules.Clock(defense.Elapsed)} · " + (defense.Flow == DefenseFlow.Waves ? $"Oleada {defense.Wave}" : $"Dificultad {defense.Difficulty}") + $"\nEnemigos {defense.Minions.Length} (+{defense.RemainingToSpawn})";
-                    _objective.CustomMinimumSize = Vector2.Zero;
-                }
+                _match.Text = (defense.Paused ? "PAUSA" : "SUPERVIVENCIA") + $"\nVIDAS {lives}/2";
+                _objective.Text = $"{DefenseRules.Clock(defense.Elapsed)} · Dificultad {defense.Difficulty}\nEnemigos {defense.Minions.Length}";
+                _objective.CustomMinimumSize = Vector2.Zero;
             }
             _feed.Visible = false;
         }
@@ -405,6 +405,7 @@ public partial class Hud : Control
         // cuenta atrás, pero el titular se expresa desde su propio equipo.
         _banner.Text = snapshot.MatchEnded
             ? RoundPresentation.Message(snapshot, id)
+            : !player.Alive && snapshot.Defense != null && player.Deaths >= DefenseRules.PlayerLives ? "VIDAS AGOTADAS\nTus aliados continúan"
             : !player.Alive ? "HAS CAÍDO\nReapareces en " +
                 (snapshot.Map == ArenaMapId.Ascension ? $"{player.Respawn:0.0}" : $"{Math.Ceiling(player.Respawn):0}") + " s" : "";
         _bannerBackdrop.Visible = _banner.Text.Length > 0;

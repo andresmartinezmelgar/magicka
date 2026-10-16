@@ -5,7 +5,6 @@ namespace Arcana.Client;
 
 public partial class Launcher : Control
 {
-    private OptionButton _practiceDefenseFlow = null!;
     private Main _main = null!;
     private LineEdit _name = null!, _address = null!, _password = null!, _hostName = null!;
     private OptionButton _team = null!, _practiceMode = null!, _practiceMap = null!, _wizardType = null!;
@@ -124,21 +123,17 @@ public partial class Launcher : Control
         _practiceMode.AddItem("Guerra de puntos", (int)GameMode.Warfare);
         _practiceMode.AddItem("Todos contra todos", (int)GameMode.Arena);
         _practiceMode.AddItem("Duelo", (int)GameMode.Duel);
-        _practiceMode.AddItem("Defensa del bastión", (int)GameMode.Defense); practice.AddChild(_practiceMode);
+        _practiceMode.AddItem("Supervivencia", (int)GameMode.Defense); practice.AddChild(_practiceMode);
         practice.AddChild(Ui.Label("Mapa", 14, Ui.Muted));
         _practiceMap = new OptionButton { Name = "PracticeMapChoice", CustomMinimumSize = new(0, 42) };
         foreach (var map in Enum.GetValues<ArenaMapId>()) _practiceMap.AddItem(ArenaMap.Get(map).Name + (map == ArenaMapId.Citadel ? " · 4×" : ""), (int)map);
         int savedMap = _config.GetValue("practice", "map", 0).AsInt32();
         _practiceMap.Select(Enum.IsDefined((ArenaMapId)savedMap) ? savedMap : 0); practice.AddChild(_practiceMap);
         var practiceObjective = Ui.Label("", 14, Ui.Gold); practiceObjective.AutowrapMode = TextServer.AutowrapMode.WordSmart; practice.AddChild(practiceObjective);
-        _practiceDefenseFlow = new OptionButton { Name = "PracticeDefenseFlow", CustomMinimumSize = new(0, 45), Visible = false };
-        _practiceDefenseFlow.AddItem("Defensa por oleadas", (int)DefenseFlow.Waves);
-        _practiceDefenseFlow.AddItem("Defensa continua", (int)DefenseFlow.Continuous);
         void Objective()
         {
             var map = ArenaMap.Get((ArenaMapId)_practiceMap.GetSelectedId());
             _practiceMode.Disabled = map.IsPractice;
-            _practiceDefenseFlow.Visible = map.Id == ArenaMapId.Bastion;
             if (map.Id == ArenaMapId.Bastion) _practiceMode.Select(_practiceMode.GetItemIndex((int)GameMode.Defense));
             if (_bots != null)
             { _bots.MinValue = map.Id == ArenaMapId.Bastion ? 0 : 1; _bots.MaxValue = map.Id == ArenaMapId.Bastion ? 3 : 7; }
@@ -183,7 +178,6 @@ public partial class Launcher : Control
             _main.StartPractice(_name.Text, 0, GameMode.Warfare, 0, (WizardType)_wizardType.GetSelectedId(), ArenaMapId.Practice));
         laboratory.Name = "PracticeLaboratoryButton"; practice.AddChild(laboratory);
         practice.AddChild(Ui.Label("El duelo usa un bot. Defensa permite jugar solo o con hasta tres aliados IA.", 13, Ui.Muted));
-        practice.AddChild(_practiceDefenseFlow);
         
         var hosting = TabBox("Alojar");
         _hostName = new LineEdit { Text = _config.GetValue("host", "name", "Partida local").AsString(),
@@ -369,7 +363,7 @@ public partial class Launcher : Control
         if (_tabs.CurrentTab == 2)
         {
             _main.StartPractice(_name.Text, team, (GameMode)_practiceMode.GetSelectedId(), (int)_bots.Value,
-                (WizardType)_wizardType.GetSelectedId(), (ArenaMapId)_practiceMap.GetSelectedId(), (DefenseFlow)_practiceDefenseFlow.GetSelectedId()); return;
+                (WizardType)_wizardType.GetSelectedId(), (ArenaMapId)_practiceMap.GetSelectedId(), DefenseFlow.Continuous); return;
         }
         if (_tabs.CurrentTab == 3) { _ = Host(); return; }
         string address = _address.Text;

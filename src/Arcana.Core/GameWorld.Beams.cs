@@ -79,7 +79,7 @@ public sealed partial class GameWorld
         foreach (var player in _combatants.Values)
         {
             if (!player.Alive || player.Id == ignoredWizard) continue;
-            float radius = player.Role == CombatantRole.Castle ? DefenseRules.CastleRadius : player.Shield > 0 && player.ShieldTime > 0 ? 0.95f : 0.6f;
+            float radius = IsDefense && _minions.TryGetValue(player.Id, out var minion) && minion.Kind == MinionKind.Boss ? 1.4f : player.Shield > 0 && player.ShieldTime > 0 ? 0.95f : 0.6f;
             if (Geometry.SegmentCircle(from, end, player.Position, radius) is not float t || t >= nearest) continue;
             nearest = t; target = player;
         }
