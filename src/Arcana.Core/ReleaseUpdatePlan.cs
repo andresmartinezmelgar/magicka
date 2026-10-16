@@ -10,6 +10,7 @@ public sealed record ReleaseUpdatePlan(string Version, string Filename, string D
     public string? BaseVersion { get; init; }
     public long BuildNumber { get; init; }
     public string SourceBranch { get; init; } = "";
+    public string[] Changes { get; init; } = [];
     public bool Preview => BuildNumber > 0;
     public string Identity => Preview ? $"preview:{Version}:{BuildNumber}" : $"stable:{Version}";
     public bool Differential => FullPackage != null;
@@ -53,7 +54,7 @@ public sealed record ReleaseUpdatePlan(string Version, string Filename, string D
         string hashes = checksum[0].GetProperty("browser_download_url").GetString() ?? "";
         string checksumName = checksum[0].GetProperty("name").GetString()!;
         if (!Official(download, tag, filename) || !Official(hashes, tag, checksumName)) return null;
-        var full = new ReleaseUpdatePlan(version, filename, download, hashes, bytes);
+        var full = new ReleaseUpdatePlan(version, filename, download, hashes, bytes) { Changes = ReleaseChanges.Read(release) };
         if (!preferDelta) return full;
         string deltaName = $"ArcanaArena-v{version}-" + (android ? "Android-arm64" : "Windows-x64") +
             $"-from-v{local}" + (android ? ".delta" : ".zip");
@@ -66,7 +67,7 @@ public sealed record ReleaseUpdatePlan(string Version, string Filename, string D
         string deltaUrl = deltaLink.GetString() ?? "";
         if (deltaBytes <= 0 || deltaBytes >= bytes * 0.85 || !Official(deltaUrl, tag, deltaName)) return full;
         return new ReleaseUpdatePlan(version, deltaName, deltaUrl, hashes, deltaBytes)
-        { FullPackage = full, BaseVersion = local.ToString() };
+        { FullPackage = full, BaseVersion = local.ToString(), Changes = full.Changes };
     }
 
     private static bool Official(string url, string tag, string filename) =>

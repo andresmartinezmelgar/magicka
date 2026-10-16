@@ -22,6 +22,7 @@ public partial class ReleaseUpdateNotice : Node
     private Label? _headline, _subtitle, _sizeLabel, _progressLabel, _percentLabel, _speedLabel, _note;
     private ProgressBar? _progress;
     private Button? _primary, _secondary;
+    private Label? _changes;
     private string _version = "", _downloadUrl = "", _downloadPath = "", _checksumUrl = "", _assetName = "";
     private long _expectedBytes;
     private bool _downloading, _completed, _installing, _checking, _disabled;
@@ -242,6 +243,13 @@ public partial class ReleaseUpdateNotice : Node
         available.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         versions.AddChild(available);
 
+        AddText(body, Ui.Label("NOVEDADES DE ESTA VERSIÓN", 17, Ui.Gold));
+        _changes = Ui.Label(_activePlan?.Changes is { Length: > 0 } changes
+            ? string.Join("\n", changes.Select(c => "• " + c))
+            : "Esta publicación no incluye un resumen de cambios.", 16, Ui.Text);
+        _changes.Name = "ReleaseChangeSummary";
+        AddText(body, _changes);
+
         var rule = new HSeparator();
         body.AddChild(rule);
         _sizeLabel = Ui.Label(size >= 0 ? "Tamaño de descarga  ·  " + Size(size) : "Tamaño de descarga  ·  Por determinar", 17, Ui.Text);
@@ -326,12 +334,15 @@ public partial class ReleaseUpdateNotice : Node
             _secondary!.EmitSignal(BaseButton.SignalName.Pressed);
             if (_overlay != null) throw new InvalidOperationException("Ahora no no libera el overlay.");
             _activePlan = new("99.0.0", "preview.apk", "https://github.com/andresmartinezmelgar/magicka/releases", "", 12345678)
-                { BuildNumber = 72, SourceBranch = "feature/defensa-oleadas" };
+                { BuildNumber = 72, SourceBranch = "feature/defensa-oleadas", Changes =
+                    ["Guía de botín y enemigos descubiertos en Defensa.", "Inventario de partida compartido y mejoras en la tienda."] };
             ShowNotice(_activePlan.Version, _activePlan.DownloadUrl, _activePlan.Bytes);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (!_headline!.Text.Contains("prueba") || !_subtitle!.Text.Contains(_activePlan.SourceBranch) || _downloading)
                 throw new InvalidOperationException("La preliminar no identifica su origen o descarga sin consentimiento.");
+            if (_changes?.Text.Contains(_activePlan.Changes[0]) != true || !_changes.IsVisibleInTree())
+                throw new InvalidOperationException("El aviso no muestra las novedades de la versión seleccionada.");
             _identity = "qRUza2DieeTypFqBIRA5KhbtXoY2";
             _pendingUpdate = _activePlan;
             int previousGeneration = _progressGeneration;

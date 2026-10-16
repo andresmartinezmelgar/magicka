@@ -14,6 +14,7 @@ class PreviewReleaseTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
         (self.root / 'VERSION').write_text('0.18.1\n')
+        (self.root / 'CHANGELOG.md').write_text('# Cambios\n\n## 0.18.1 — Prueba\n\n- Tienda más clara.\n- Nuevos poderes.\n\n## 0.18.0\n- Cambio antiguo.\n')
         (self.root / 'FIRMA-ANDROID.txt').write_text('Tipo de firma: PERMANENTE\n')
         for platform, ext in [('Windows-x64', 'zip'), ('Android-arm64', 'apk')]:
             path = self.root / f'ArcanaArena-v0.18.1-{platform}.{ext}'
@@ -32,6 +33,15 @@ class PreviewReleaseTests(unittest.TestCase):
         self.assertEqual(result['tag'], 'preview-v0.18.1-r17')
         self.assertEqual((self.root / 'notes.md').read_text().splitlines()[0], 'Arcana-Preview-Branch: feature/defensa-oleadas')
         self.assertEqual(len((self.root / 'SHA256SUMS.txt').read_text().splitlines()), 2)
+        notes = (self.root / 'notes.md').read_text()
+        self.assertIn('- Tienda más clara.', notes)
+        self.assertNotIn('Cambio antiguo', notes)
+
+    def test_exact_version_notes_and_missing_changelog(self):
+        from release_notes import notes
+        self.assertNotIn('Tienda', notes(self.root, '0.18.2'))
+        (self.root / 'CHANGELOG.md').unlink()
+        self.assertFalse(any(line.startswith('- ') for line in notes(self.root, '0.18.1').splitlines()))
 
     def test_main_cannot_publish_as_preview(self):
         with self.assertRaises(ValueError):

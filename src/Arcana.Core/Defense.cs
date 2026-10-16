@@ -14,6 +14,12 @@ public static class DefenseRules
     public const float CastleHealth = 12000, CastleRadius = 2.5f, SafeRadius = 20;
     public const float WavePause = 8, DropLifetime = 75, RewardInterval = 300;
     public const int RewardLimit = 4, MaxAuraLevel = 10, MaxPassiveLevel = 5;
+    public const int GoldDropChance = 35, EquipmentDropChance = 6, RelicDropChance = 2;
+    public const float ArrowPower = 0.18f, MagePower = 0.22f, MageChannelDuration = 0.45f;
+    public static float MinionMeleeAttack(MinionKind kind) => kind == MinionKind.Tank ? 45 : kind == MinionKind.Captain ? 32 : 20;
+    public static float MinionRange(MinionKind kind) => kind is MinionKind.Archer or MinionKind.Mage ? 9 : 1.4f;
+    public static float MinionSpeed(MinionKind kind, int stage) =>
+        (0.5f + Math.Min(0.35f, stage * 0.012f)) * (kind == MinionKind.Tank ? 0.65f : 1);
     public static V2 CastlePosition => new(-32, 0);
     public static IReadOnlyList<V2> Entrances { get; } = Array.AsReadOnly<V2>([new(32, -18), new(34, 0), new(32, 18), new(4, -20), new(4, 20)]);
     public static int WaveSize(int wave) => wave switch
@@ -94,6 +100,8 @@ internal sealed class DefenseDrop
 
 public sealed record MinionSnapshot(int Id, MinionKind Kind, V2 Position, V2 Facing, float Health, float MaxHealth,
     float Wet, float Burning, float Chill, float Frozen, bool Casting, Element[] Elements, bool Empowered);
+public sealed record DefenseEnemySnapshot(MinionKind Kind, int Difficulty, float MaxHealth, float Attack, float AttackMaximum,
+    float AttackInterval, float Speed, float Range, int Spawned, int Killed);
 public sealed record DefenseDropSnapshot(int Id, int OwnerId, V2 Position, DefenseDropKind Kind, int Gold,
     BuffKind Buff, EquipmentSlot? Slot, ItemTier? Tier);
 public sealed record DefenseItemSnapshot(EquipmentItem Item, int Upgrades, bool Equipped);
@@ -103,7 +111,10 @@ public sealed record DefensePlayerSnapshot(int PlayerId, int Level, int Experien
     int[] Passives, float[] PassiveCooldowns, float BerserkerRemaining);
 public sealed record DefenseSnapshot(DefenseFlow Flow, double Elapsed, int Wave, int Difficulty, int RemainingToSpawn,
     float NextWaveIn, V2 CastlePosition, float CastleHealth, float CastleMaxHealth, int Repairs, int RepairCost,
-    int TotalKills, MinionSnapshot[] Minions, DefenseDropSnapshot[] Drops, DefensePlayerSnapshot[] Defenders, bool Paused, int HumanCount);
+    int TotalKills, MinionSnapshot[] Minions, DefenseDropSnapshot[] Drops, DefensePlayerSnapshot[] Defenders, bool Paused, int HumanCount)
+{
+    public DefenseEnemySnapshot[] Bestiary { get; init; } = [];
+}
 
 public static class DefenseVisibility
 {

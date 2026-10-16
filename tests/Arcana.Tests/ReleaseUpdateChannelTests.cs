@@ -15,7 +15,8 @@ internal static class ReleaseUpdateChannelTests
         if (!androidOnly) assets.Add(Asset($"ArcanaArena-v{version}-Windows-x64.zip"));
         if (hashes) assets.Add(Asset("SHA256SUMS.txt"));
         return new { tag_name = tag, draft, prerelease = preview, target_commitish = new string('a', 40),
-            body = ReleaseUpdateChannel.BranchMarker + branch, assets };
+            body = ReleaseUpdateChannel.BranchMarker + branch + "\n" + ReleaseChanges.Start +
+                "\n- Novedades de la prueba " + build + ".\n" + ReleaseChanges.End, assets };
     }
     private static ReleaseUpdatePlan? Select(object releases, string uid = Tester, bool signedIn = true,
         string installed = "0.18.0", long installedBuild = 0, bool android = true)
@@ -41,6 +42,7 @@ internal static class ReleaseUpdateChannelTests
             var plan = Select(new[] { Release(13), Release(15), Release(11) });
             Check(plan is { Preview: true, BuildNumber: 15, SourceBranch: "feature/defensa-oleadas", Differential: false } &&
                 plan.Filename.EndsWith("Android-arm64.apk"), "No eligió la prueba Android más reciente.");
+            Check(plan!.Changes.SequenceEqual(new[] { "Novedades de la prueba 15." }), "Mezcló notas de otras compilaciones.");
             var windows = Select(new[] { Release() }, android: false);
             Check(windows?.Filename.EndsWith("Windows-x64.zip") == true, "Plataforma equivocada.");
         });

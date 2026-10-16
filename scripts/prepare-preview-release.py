@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 from pathlib import Path
+from release_notes import notes
 
 
 def digest(path):
@@ -45,7 +46,7 @@ def prepare(root, dist, branch, commit, build, notes_file, tag_file):
     (dist / 'PREVIEW.json').write_text(json.dumps(metadata, indent=2) + '\n', encoding='utf-8')
     notes_file.write_text('Arcana-Preview-Branch: ' + branch + '\n\n'
                           + f'Versión de pruebas {version}, compilación {build}.\n'
-                          + f'Commit: {commit}\n\n'
+                          + f'Commit: {commit}\n\n' + notes(root, version) + '\n'
                           + 'Windows y APK Android con firma permanente. Descarga directa y SHA-256 verificado.\n', encoding='utf-8')
     tag_file.write_text(tag + '\n', encoding='utf-8')
     return metadata

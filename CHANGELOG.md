@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.18.6 — Novedades y guía de Defensa
+
+- Las actualizaciones muestran un resumen breve de los cambios antes de descargar y durante la descarga.
+- Nueva pestaña Guía en la tienda de Defensa con porcentajes de monedas, equipo, calidades, ranuras y reliquias.
+- Bestiario con vida, ataque, alcance y velocidad del último ejemplar de cada tipo descubierto, además de aparecidos y derrotados.
+- El bestiario se comparte con los aliados, conserva los enemigos derrotados y empieza de cero en cada partida.
+- Se mantiene el inventario compartido con main, la dificultad por número de defensores y los sprites de botín.
+- Protocolo 24 para las fichas de enemigos; notas de publicación de la versión exacta y reintento de publicación ante fallos temporales.
+
 ## 0.18.5 — Inventario compartido con main
 
 - Integración de main en la rama experimental, conservando dificultad, bots y sprites de Defensa.

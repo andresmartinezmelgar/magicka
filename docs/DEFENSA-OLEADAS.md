@@ -1,6 +1,6 @@
 # Defensa del bastión — primera versión experimental
 
-Versión **0.18.5**, protocolo **23**, rama `feature/defensa-oleadas`. Esta rama se mantiene independiente de `main`. Las compilaciones verificadas se publican como versiones preliminares con APK directa. Las dos cuentas autorizadas reciben estas versiones mediante el actualizador; el resto conserva el canal estable. Véase [Canales de actualización](CANALES-ACTUALIZACION.md).
+Versión **0.18.6**, protocolo **24**, rama `feature/defensa-oleadas`. Esta rama se mantiene independiente de `main`. Las compilaciones verificadas se publican como versiones preliminares con APK directa. Las dos cuentas autorizadas reciben estas versiones mediante el actualizador; el resto conserva el canal estable. Véase [Canales de actualización](CANALES-ACTUALIZACION.md).
 
 ## Entrar en el modo
 
@@ -127,3 +127,9 @@ La CI comprueba las transacciones y recompensas en el emulador Firestore, y ejec
 Las pruebas visuales comprueban tienda, compras, inventario, límites de pantalla, recuperación del control táctil y ausencia de botones superpuestos. Las capturas y la medición de carga se guardan como artefactos de prueba. La medida de carga utiliza cuatro defensores, 64 minions y 96 piezas temporales.
 
 Quedan para fases posteriores el arte definitivo, jefes, más clases de minion y árboles amplios de habilidades. El equilibrio y el rendimiento en dispositivos Android y Raspberry Pi físicos requieren partidas reales.
+
+### Guía de la tienda
+
+La pestaña Guía separa el botín (probabilidades por baja y dentro de cada categoría) del bestiario. Las tiradas de monedas, equipo y reliquias son independientes; equipo y reliquias se sortean por defensor. Las fichas se comparten con la sala y guardan las estadísticas base del último ejemplar aparecido de cada tipo, con contadores de apariciones y bajas. Se conservan al morir y se borran al reiniciar.
+
+El actualizador muestra hasta cinco novedades de la publicación seleccionada, también durante la descarga. Las notas proceden únicamente de su sección de CHANGELOG.md y se mantienen al pasar de parche a paquete completo.

@@ -479,15 +479,17 @@ jobs:
           version=$(tr -d '\r\n' < VERSION)
           tag="v$version"
           apk="dist/ArcanaArena-v$version-Android-arm64.apk"
+          python3 scripts/release_notes.py --output "$RUNNER_TEMP/release-notes.md"
           shopt -s nullglob
           assets=("$apk" dist/*-Android-arm64-from-v*.delta dist/SHA256SUMS-Android.txt)
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" "${assets[@]}" --clobber
           elif ! gh release create "$tag" "${assets[@]}" --target "$GITHUB_SHA" \
               --title "Arcana Arena $tag" \
-              --notes "APK Android firmada y verificada. Windows se adjuntará al terminar su empaquetado."; then
+              --notes-file "$RUNNER_TEMP/release-notes.md"; then
             gh release upload "$tag" "${assets[@]}" --clobber
           fi
+          gh release edit "$tag" --notes-file "$RUNNER_TEMP/release-notes.md"
 
   release-on-tag:
     name: Publicar artefactos al crear un tag
@@ -572,6 +574,7 @@ jobs:
           set -euo pipefail
           version=$(tr -d '\r\n' < VERSION)
           tag="v$version"
+          python3 scripts/release_notes.py --output "$RUNNER_TEMP/release-notes.md"
           if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
             # APK firmada: solo publish-android-first. Este job solo publica Windows.
             # Así no compiten dos trabajos por el mismo asset y nunca se borra la APK.
@@ -580,7 +583,7 @@ jobs:
             elif ! gh release create "$tag" dist/*.zip dist/SHA256SUMS-Windows.txt \
                 --target "$GITHUB_SHA" \
                 --title "Arcana Arena $tag" \
-                --notes "Windows y Android se publican de forma independiente con verificación de firma APK."; then
+                --notes-file "$RUNNER_TEMP/release-notes.md"; then
               # El trabajo Android puede haber creado la Release simultáneamente.
               sleep 3
               gh release view "$tag" >/dev/null
@@ -593,9 +596,10 @@ jobs:
             shopt -s nullglob
             gh release create "$GITHUB_REF_NAME" dist/*.zip dist/*.apk dist/*.delta dist/SHA256SUMS*.txt \
               --title "Arcana Arena $GITHUB_REF_NAME" \
-              --notes "Compilacion automatica desde tag. Validacion funcional en dispositivos a cargo del usuario." \
+              --notes-file "$RUNNER_TEMP/release-notes.md" \
               --verify-tag
           fi
+          gh release edit "$tag" --notes-file "$RUNNER_TEMP/release-notes.md"
 
   publish-preview:
     name: Publicar versiones de prueba de otras ramas
@@ -635,4 +639,10 @@ jobs:
               --target "$GITHUB_SHA" --title "Arcana Arena PRUEBAS $tag" \
               --notes-file "$RUNNER_TEMP/preview-notes.md"
           fi
-          gh release edit "$tag" --draft=false --prerelease --latest=false --notes-file "$RUNNER_TEMP/preview-notes.md"
+          for attempt in 1 2 3; do
+            if gh release edit "$tag" --draft=false --prerelease --latest=false --notes-file "$RUNNER_TEMP/preview-notes.md"; then
+              break
+            fi
+            test "$attempt" -lt 3 || exit 1
+            sleep 3
+          done

@@ -192,7 +192,33 @@ public partial class Main
             }
             if (_defenseSmokePhase == 10)
             {
-                CaptureDefense("05-bonificaciones"); panel.CloseShop();
+                CaptureDefense("05-bonificaciones"); panel.ShowSection(4); _defenseSmokePhase++; return false;
+            }
+            if (_defenseSmokePhase == 11)
+            {
+                var viewport = GetViewport().GetVisibleRect();
+                foreach (var tab in Enumerable.Range(0, 5).Select(i => (Button)panel.FindChild("DefenseTab" + i, true, false)))
+                    Check(viewport.Encloses(tab.GetGlobalRect()), "Una pestaña de la tienda desborda la pantalla.");
+                Check(((Control)panel.FindChild("DefenseDropRates", true, false)).IsVisibleInTree(), "No se muestra la tabla de botín.");
+                CaptureDefense("06-guia-botin"); panel.ShowGuide(true); _defenseSmokePhase++; return false;
+            }
+            if (_defenseSmokePhase == 12)
+            {
+                var cards = (VBoxContainer)panel.FindChild("DefenseEnemyCards", true, false);
+                Check(cards.GetChildCount() == state.Defense!.Bestiary.Length && cards.GetChildCount() > 0,
+                    "Las fichas no coinciden con los enemigos descubiertos.");
+                foreach (var enemy in state.Defense.Bestiary)
+                {
+                    var table = (GridContainer)panel.FindChild("DefenseEnemyStats" + enemy.Kind, true, false);
+                    Check(table.GetChildren().OfType<Label>().Any(l => l.Text == $"{enemy.MaxHealth:0.#}"), "La ficha no muestra la última vida conocida.");
+                }
+                var firstTable = (GridContainer)cards.GetChild(0).GetChild(0).GetChild(1);
+                var scroll = (Control)panel.FindChild("DefenseShopScroll", true, false);
+                Check(scroll.GetGlobalRect().Encloses(((Control)firstTable.GetChild(1)).GetGlobalRect()) &&
+                    scroll.GetGlobalRect().Encloses(((Control)firstTable.GetChild(3)).GetGlobalRect()),
+                    "La guía obliga a desplazarse antes de ver vida y ataque del primer enemigo.");
+                Check(_practice!.Tick == _defensePauseTick, "La consulta de la guía rompió la pausa.");
+                CaptureDefense("07-guia-enemigos"); panel.CloseShop();
                 Check(!panel.ShopOpen && !_practice.DefensePaused && (!Ui.IsMobile || _touch?.Visible == true), "No se recuperaron combate y controles.");
                 Check(_engineLog.ErrorCount == 0, "Godot registró errores en defensa.");
                 StartDefenseLootReview(state); return true;

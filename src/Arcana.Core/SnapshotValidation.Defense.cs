@@ -14,9 +14,21 @@ public static partial class SnapshotValidation
             d.HumanCount != state.Players.Count(p => !p.Bot) || d.Paused && (d.HumanCount != 1 || state.MatchEnded) ||
             d.Repairs < 0 || d.RepairCost != DefenseRules.RepairCost(d.Repairs) || d.TotalKills < 0 ||
             d.Minions is not { Length: <= DefenseRules.MaxMinions } || d.Drops is not { Length: <= DefenseRules.MaxDrops } ||
+            d.Bestiary is not { Length: <= 5 } ||
             d.Defenders == null || d.Defenders.Length != state.Players.Length || state.Players.Length > DefenseRules.MaxDefenders ||
             state.Players.Any(p => p.Team != 0)) Invalid();
         var map = ArenaMap.Get(state.Map);
+        var kinds = new HashSet<MinionKind>();
+        long discoveredKills = 0;
+        foreach (var enemy in d!.Bestiary!)
+        {
+            if (enemy == null || !Enum.IsDefined(enemy.Kind) || !kinds.Add(enemy.Kind) || enemy.Difficulty < 1 ||
+                enemy.Difficulty > d.Difficulty || enemy.Spawned < 1 || enemy.Killed < 0 || enemy.Killed > enemy.Spawned ||
+                !NonNegative([enemy.MaxHealth, enemy.Attack, enemy.AttackMaximum, enemy.AttackInterval, enemy.Speed, enemy.Range]) ||
+                enemy.MaxHealth <= 0 || enemy.AttackMaximum < enemy.Attack || enemy.AttackInterval <= 0 || enemy.Speed <= 0 || enemy.Range <= 0) Invalid();
+            discoveredKills += enemy!.Killed;
+        }
+        if (discoveredKills != d.TotalKills || d.Minions!.Any(m => m == null || !kinds.Contains(m.Kind))) Invalid();
         var ids = new HashSet<int>();
         foreach (var m in d!.Minions!)
             if (m == null || m.Id < 1000 || !ids.Add(m.Id) || !Enum.IsDefined(m.Kind) ||

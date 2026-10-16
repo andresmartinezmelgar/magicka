@@ -133,10 +133,12 @@ public sealed partial class GameWorld
         var body = new Wizard { Id = _nextMinion++, Name = DefenseRules.MinionName(kind), Team = 1, Bot = true,
             Role = CombatantRole.Minion, WizardType = kind == MinionKind.Mage ? WizardType.Pyromancer : WizardType.Balanced,
             Position = at, Health = health, MaxHealth = health, Invulnerable = 0,
-            Equipment = EquipmentModifiers.None with { Speed = (0.5f + Math.Min(0.35f, _defenseDifficulty * 0.012f)) * (kind == MinionKind.Tank ? 0.65f : 1),
-                Power = strength * (kind == MinionKind.Mage ? 0.22f : 1) } };
-        _minions.Add(body.Id, new(body, kind, strength));
+            Equipment = EquipmentModifiers.None with { Speed = DefenseRules.MinionSpeed(kind, _defenseDifficulty),
+                Power = strength * (kind == MinionKind.Mage ? DefenseRules.MagePower : 1) } };
+        var minion = new DefenseMinion(body, kind, strength);
+        _minions.Add(body.Id, minion);
         _combatants.Add(body.Id, body); _orderedPlayers.Add(body);
+        DiscoverDefenseEnemy(minion);
     }
 
     private bool Empowered(DefenseMinion minion) => _minions.Values.Any(m => m.Kind == MinionKind.Captain &&
@@ -150,7 +152,7 @@ public sealed partial class GameWorld
         p.HitEffectCooldown = Math.Max(0, p.HitEffectCooldown - dt);
         TickStatus(p, dt);
         if (!p.Alive) return;
-        p.Equipment = p.Equipment with { Power = minion.Strength * (minion.Kind == MinionKind.Mage ? 0.22f : 1) * (Empowered(minion) ? 1.35f : 1) };
+        p.Equipment = p.Equipment with { Power = minion.Strength * (minion.Kind == MinionKind.Mage ? DefenseRules.MagePower : 1) * (Empowered(minion) ? 1.35f : 1) };
         Wizard target = _castle;
         float nearest = 5.5f;
         foreach (var defender in _players.Values)
@@ -165,7 +167,7 @@ public sealed partial class GameWorld
             float angle = (p.Id % 20 - 9.5f) * 0.11f;
             goal += new V2(MathF.Cos(angle), MathF.Sin(angle)) * (DefenseRules.CastleRadius + 0.7f);
         }
-        float range = minion.Kind is MinionKind.Archer or MinionKind.Mage ? 9 : target == _castle ? 3.5f : 1.4f;
+        float range = target == _castle && minion.Kind is not (MinionKind.Archer or MinionKind.Mage) ? 3.5f : DefenseRules.MinionRange(minion.Kind);
         float distanceToTarget = V2.Distance(p.Position, target.Position);
         bool canAttack = distanceToTarget <= range && Visible(p.Position, target.Position, p.Id);
         var direction = canAttack ? V2.Zero : NavigationDirection(p, goal, dt);
@@ -202,17 +204,17 @@ public sealed partial class GameWorld
         if (minion.Kind == MinionKind.Mage)
         {
             p.Selection.Clear(); p.Selection.Add(Element.Arcane); p.Selection.Add(Element.Fire);
-            BeginCast(p); minion.ChannelTime = 0.45f;
+            BeginCast(p); minion.ChannelTime = DefenseRules.MageChannelDuration;
         }
         else if (minion.Kind == MinionKind.Archer)
         {
             if (_projectiles.Count >= 160) return;
             var recipe = new SpellRecipe([Element.Earth]);
             _projectiles.Add(new Projectile { Id = _nextEntity++, Owner = p.Id, Position = SpellOrigin(p, p.Facing, 0.75f),
-                Velocity = p.Facing * 14, Recipe = recipe, Radius = 0.14f, Power = 0.18f, Lifetime = 1.3f });
+                Velocity = p.Facing * 14, Recipe = recipe, Radius = 0.14f, Power = DefenseRules.ArrowPower, Lifetime = 1.3f });
             Emit("cast", p.Position, [Element.Earth], "");
         }
-        else Damage(target, minion.Kind == MinionKind.Tank ? 45 : minion.Kind == MinionKind.Captain ? 32 : 20, p.Id);
+        else Damage(target, DefenseRules.MinionMeleeAttack(minion.Kind), p.Id);
     }
 
     private bool DefenseDeath(Wizard target, int owner)
@@ -227,6 +229,8 @@ public sealed partial class GameWorld
         }
         if (target.Role != CombatantRole.Minion) return false;
         CancelCast(target); _defenseKills++; _defenseBotPlanClock = 0;
+        var discovery = _defenseBestiary[_minions[target.Id].Kind];
+        _defenseBestiary[discovery.Kind] = discovery with { Killed = discovery.Killed + 1 };
         if (_players.TryGetValue(owner, out var killer)) { killer.Kills++; _defenders[killer.Id].Kills = killer.Kills; }
         foreach (var defender in _players.Values)
         {
@@ -239,10 +243,10 @@ public sealed partial class GameWorld
             }
             if (progress.Level == 100) progress.Experience = Math.Min(progress.Experience, DefenseRules.ExperienceForLevel(100) - 1);
             if (levelled) RecalculateDefender(defender);
-            if (_random.Next(100) < 6) AddDefenseDrop(target.Position, defender.Id, DefenseDropKind.Equipment);
-            if (_random.Next(100) < 2) AddDefenseDrop(target.Position, defender.Id, DefenseDropKind.Relic);
+            if (_random.Next(100) < DefenseRules.EquipmentDropChance) AddDefenseDrop(target.Position, defender.Id, DefenseDropKind.Equipment);
+            if (_random.Next(100) < DefenseRules.RelicDropChance) AddDefenseDrop(target.Position, defender.Id, DefenseDropKind.Relic);
         }
-        if (_random.Next(100) < 35) AddDefenseDrop(target.Position, 0, DefenseDropKind.Gold);
+        if (_random.Next(100) < DefenseRules.GoldDropChance) AddDefenseDrop(target.Position, 0, DefenseDropKind.Gold);
         return true;
     }
 
@@ -266,7 +270,7 @@ public sealed partial class GameWorld
     {
         if (!IsDefense || _castle == null) return;
         foreach (var minion in _minions.Values) { _combatants.Remove(minion.Body.Id); _orderedPlayers.Remove(minion.Body); }
-        _minions.Clear(); _defenseDrops.Clear(); _defenseAccounts.Clear();
+        _minions.Clear(); _defenseDrops.Clear(); _defenseAccounts.Clear(); _defenseBestiary.Clear();
         _defenseBotPlans.Clear(); _defenseBotPlanClock = 0;
         _defenseWave = _toSpawn = _repairs = _defenseKills = _spawnBurstRemaining = 0; _defenseDifficulty = _defensePartySize = 1;
         _defenseElapsed = _spawnClock = _auraClock = 0; _wavePause = DefenseRules.WavePause;

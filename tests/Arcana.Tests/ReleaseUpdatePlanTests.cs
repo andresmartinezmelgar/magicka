@@ -10,13 +10,32 @@ static class ReleaseUpdatePlanTests
     private static object Asset(string name, string? url = null, long bytes = 100) =>
         new { name, browser_download_url = url ?? Root + name, size = bytes };
     private static ReleaseUpdatePlan? Plan(object[] assets, bool android = false,
-        string tag = "v0.17.17", bool draft = false, bool prerelease = false, string local = "0.17.16")
+        string tag = "v0.17.17", bool draft = false, bool prerelease = false, string local = "0.17.16", string? body = null)
     {
-        using var json = JsonDocument.Parse(JsonSerializer.Serialize(new { tag_name = tag, draft, prerelease, assets }));
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(new { tag_name = tag, draft, prerelease, assets, body }));
         return ReleaseUpdatePlan.Read(json.RootElement, local, android);
     }
     public static void Run(Action<string, Action> test)
     {
+        test("Actualización: novedades conservadas en parche y descarga completa, compatibles sin notas", () =>
+        {
+            string body = "Commit: abc\n" + ReleaseChanges.Start + "\n- Guía de Defensa.\n- Inventario mejorado.\n" + ReleaseChanges.End + "\n- Otro bloque.";
+            var plan = Plan([Asset(Windows), Asset("ArcanaArena-v0.17.17-Windows-x64-from-v0.17.16.zip", bytes: 20), Asset("SHA256SUMS.txt")], body: body);
+            if (plan?.Changes.Length != 2 || plan.Changes[0] != "Guía de Defensa." || plan.FullPackage?.Changes.SequenceEqual(plan.Changes) != true ||
+                Plan([Asset(Windows), Asset("SHA256SUMS.txt")])?.Changes.Length != 0)
+                throw new Exception("Notas mezcladas, perdidas o incompatibles con publicaciones antiguas.");
+        });
+        test("Actualización: notas acotadas y bloque incompleto descartado", () =>
+        {
+            string body = ReleaseChanges.Start + "\n- " + new string('x', 400) + "\u0001\n" +
+                string.Join('\n', Enumerable.Range(0, 20).Select(i => "- Cambio " + i)) + "\n" + ReleaseChanges.End;
+            using var json = JsonDocument.Parse(JsonSerializer.Serialize(new { body }));
+            var changes = ReleaseChanges.Read(json.RootElement);
+            if (changes.Length != 5 || changes.Any(c => c.Length > 200 || c.Any(char.IsControl)))
+                throw new Exception("Notas sin límites de presentación.");
+            using var incomplete = JsonDocument.Parse(JsonSerializer.Serialize(new { body = ReleaseChanges.Start + "\n- Incompleto" }));
+            if (ReleaseChanges.Read(incomplete.RootElement).Length != 0) throw new Exception("Bloque sin cierre aceptado.");
+        });
         test("Actualizacion diferencial: elige la base exacta y conserva el paquete completo", () =>
         {
             string name = "ArcanaArena-v0.17.17-Windows-x64-from-v0.17.16.zip";

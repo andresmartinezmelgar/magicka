@@ -29,6 +29,7 @@ public partial class DefensePanel : Control
     private string _totalsStamp = "";
     private GridContainer _totals = null!;
     private bool _canRestart;
+    private GridContainer _navigation = null!;
     public bool PointerOverPanel => _summary.GetGlobalRect().HasPoint(GetGlobalMousePosition()) || ShopOpen;
 
     public void Build(Main main, Action<ClientMessage> submit, Action leave)
@@ -56,19 +57,20 @@ public partial class DefensePanel : Control
         _wallet = Ui.Label("", 16); _wallet.AutowrapMode = TextServer.AutowrapMode.WordSmart; body.AddChild(_wallet);
         _shopStatus = Ui.Label("", 14, Ui.Health); _shopStatus.Name = "DefenseShopStatus";
         _shopStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart; body.AddChild(_shopStatus);
-        var navigation = new HBoxContainer(); navigation.AddThemeConstantOverride("separation", 4); body.AddChild(navigation);
-        string[] names = ["Bastión", "Equipo", "Poderes", "Estadísticas"];
+        _navigation = new GridContainer { Columns = 5 }; _navigation.AddThemeConstantOverride("h_separation", 4);
+        _navigation.AddThemeConstantOverride("v_separation", 4); body.AddChild(_navigation);
+        string[] names = ["Bastión", "Equipo", "Poderes", "Estadísticas", "Guía"];
         for (int i = 0; i < names.Length; i++)
         {
             int section = i;
             var tab = Ui.Button(names[i], () => ShowSection(section)); tab.Name = "DefenseTab" + i;
             tab.SizeFlagsHorizontal = SizeFlags.ExpandFill; tab.CustomMinimumSize = new(0, Ui.IsMobile ? 52 : 44);
-            tab.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 17 : 16); navigation.AddChild(tab); _tabs.Add(tab);
+            tab.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 17 : 16); _navigation.AddChild(tab); _tabs.Add(tab);
         }
         _scroll = new ContentScrollContainer { Name = "DefenseShopScroll", SizeFlagsVertical = SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; body.AddChild(_scroll); Ui.VisibleVerticalScroll(_scroll);
         var content = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; _scroll.AddChild(content);
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < names.Length; i++)
         {
             var section = new VBoxContainer { Name = "DefenseSection" + i, SizeFlagsHorizontal = SizeFlags.ExpandFill, Visible = i == 0 };
             section.AddThemeConstantOverride("separation", 10); content.AddChild(section); _sections.Add(section);
@@ -112,6 +114,7 @@ public partial class DefensePanel : Control
         Wrapped(statistics, "BONIFICACIONES ACTIVAS", 18, Ui.Gold);
         _totals = Ui.Table(2, "DefenseTotals"); statistics.AddChild(_totals);
         _rules = Wrapped(statistics, "", 15, Ui.Muted);
+        BuildGuide(_sections[4]);
         ShowSection(0); ShowPowers(true);
         var footer = new HBoxContainer(); footer.AddThemeConstantOverride("separation", 8); body.AddChild(footer);
         _restart = Ui.Button("Otra partida", () => { Send("defense_restart"); CloseShop(); }); footer.AddChild(_restart);
@@ -143,6 +146,7 @@ public partial class DefensePanel : Control
         }
         _scroll.ScrollVertical = 0;
         if (index == 1) OpenEquipmentInventory();
+        if (index == 4) UpdateGuide();
     }
     internal void ShowPowers(bool automatic)
     {
@@ -189,6 +193,7 @@ public partial class DefensePanel : Control
         _summary.Position = Ui.IsMobile ? new(22 * mobileScale, 200 * mobileScale) : new(size.X - width - 16, compact ? 100 : 210);
         _window.CustomMinimumSize = new(Math.Min(790, size.X - 28), Math.Min(700, size.Y - 28));
         _window.Size = _window.CustomMinimumSize;
+        _navigation.Columns = size.X < 660 ? 3 : 5;
     }
 
     public void Update(WorldSnapshot snapshot, int id, bool online, bool rewardsAvailable)
@@ -253,6 +258,7 @@ public partial class DefensePanel : Control
         _restart.TooltipText = _canRestart ? "Reinicia toda la progresión temporal." : "Solo el anfitrión puede iniciar otra partida.";
         _equipmentInventory?.UpdateDefenseInventory(p, _wizard, snapshot.MatchEnded);
         UpdateTotals();
+        if (_sections[4].Visible) UpdateGuide();
         _summary.Size = new(_summary.Size.X, 0);
     }
 

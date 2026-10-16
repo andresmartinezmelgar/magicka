@@ -197,7 +197,7 @@ public static partial class EquipmentCatalogue
         EquipmentFamily? family = null, string? id = null)
     {
         int roll = random.Next(100);
-        var quality = tier ?? (roll < 48 ? ItemTier.Silver : roll < 75 ? ItemTier.Gold : roll < 90 ? ItemTier.Platinum : roll < 98 ? ItemTier.Diamond : ItemTier.Mythic);
+        var quality = tier ?? TierForRoll(roll);
         var position = slot ?? (EquipmentSlot)random.Next(4);
         if (family.HasValue && !Enum.IsDefined(family.Value)) throw new ArgumentException("Familia de objeto inválida.");
         var identity = quality >= ItemTier.Diamond ? family.HasValue && family != EquipmentFamily.Mixed ? family.Value
@@ -221,6 +221,14 @@ public static partial class EquipmentCatalogue
             bonuses[n] = b with { Current = MathF.Round(b.Current - decrease, 4) }; excess -= decrease;
         }
         return new(id ?? Guid.NewGuid().ToString("N"), position, quality, identity, bonuses.ToArray(), Sales[t], GenerationVersion, sourceMatchId, DateTimeOffset.UtcNow);
+    }
+    public static int TierChance(ItemTier tier) => tier switch
+    { ItemTier.Silver => 48, ItemTier.Gold => 27, ItemTier.Platinum => 15, ItemTier.Diamond => 8, ItemTier.Mythic => 2, _ => 0 };
+    private static ItemTier TierForRoll(int roll)
+    {
+        foreach (var tier in Enum.GetValues<ItemTier>())
+        { roll -= TierChance(tier); if (roll < 0) return tier; }
+        throw new ArgumentOutOfRangeException(nameof(roll));
     }
     public static bool Valid(EquipmentItem item) => item != null && Guid.TryParseExact(item.Id, "N", out _) &&
         Enum.IsDefined(item.Slot) && Enum.IsDefined(item.Tier) && Enum.IsDefined(item.Family) && item.GenerationVersion > 0 &&

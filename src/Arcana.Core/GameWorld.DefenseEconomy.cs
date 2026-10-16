@@ -203,6 +203,7 @@ public sealed partial class GameWorld
                         s.Upgrades.GetValueOrDefault(i.Id), s.Loadout.Get(i.Slot) == i.Id)).ToArray(), p.Equipment,
                     DamagePower(p.Id), RelicBuffs.Incoming(p) * p.Equipment.Incoming, RelicBuffs.Regeneration(p) + s.Auras[2] * 10 * HealingPower(p.Id),
                     RelicBuffs.Speed(p) * p.Equipment.Speed * DefenseSpeed(p), Copy(s.Passives), Copy(s.PassiveCooldowns), s.BerserkerRemaining);
-            }).ToArray(), DefensePaused, _players.Values.Count(p => !p.Bot));
+            }).ToArray(), DefensePaused, _players.Values.Count(p => !p.Bot))
+            { Bestiary = _defenseBestiary.Values.OrderBy(e => e.Kind).ToArray() };
     }
 }

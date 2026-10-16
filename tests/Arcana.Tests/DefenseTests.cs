@@ -25,10 +25,56 @@ internal static class DefenseTests
     private static void Damage(GameWorld world, Wizard target, float amount, int owner)
     { target.Invulnerable = 0; Invoke(world, "Damage", target, amount, owner, null); }
     private static void Advance(GameWorld world, int ticks) { for (int i = 0; i < ticks; i++) world.Step(); }
+    private sealed class FixedTierRoll(int roll) : Random(73)
+    {
+        private bool _first = true;
+        public override int Next(int maxValue) { if (_first) { _first = false; return roll; } return base.Next(maxValue); }
+    }
 
     public static void Run(Action<string, Action> test)
     {
         DefenseBalanceTests.Run(test);
+        test("Defensa: bestiario descubre, conserva muertos, actualiza la última versión y reinicia", () =>
+        {
+            var w = World(); var p = w.AddPlayer("Mago")!;
+            Check(State(w).Bestiary.Length == 0, "Se revelaron enemigos antes de aparecer.");
+            var first = Enemy(w); var initial = State(w).Bestiary.Single();
+            Check(initial.Kind == MinionKind.Melee && initial.MaxHealth == first.MaxHealth && initial.Attack == 20 &&
+                initial.Spawned == 1 && initial.Killed == 0, "La ficha no coincide con el primer ejemplar.");
+            Damage(w, first, 100000, p.Id); Invoke(w, "CleanupDefense");
+            Check(State(w).Minions.Length == 0 && State(w).Bestiary.Single().Killed == 1, "Se perdió la ficha del muerto.");
+            Set(w, "_defenseDifficulty", 3); var stronger = Enemy(w); var latest = State(w).Bestiary.Single();
+            Check(latest.Difficulty == 3 && latest.MaxHealth == stronger.MaxHealth && latest.MaxHealth > initial.MaxHealth &&
+                latest.Attack > initial.Attack && latest.AttackInterval < initial.AttackInterval && latest.Spawned == 2 && latest.Killed == 1,
+                "No muestra la versión más reciente.");
+            Check(initial.Difficulty == 1 && initial.Killed == 0, "Se mutó una instantánea anterior.");
+            var snapshot = DefenseVisibility.ForPlayer(w.Snapshot(), p.Id);
+            var decoded = Protocol.Deserialize<ServerMessage>(Protocol.Serialize(new ServerMessage { Type = "snapshot", Snapshot = snapshot }))!.Snapshot!;
+            SnapshotValidation.Check(decoded);
+            Check(decoded.Defense!.Bestiary.Single() == latest, "La guía no llegó intacta por red.");
+            Damage(w, Castle(w), 1000000, stronger.Id); Check(w.RestartDefense(), "No se reinició.");
+            Check(State(w).Bestiary.Length == 0, "El bestiario se conservó entre partidas.");
+        });
+        test("Defensa: bestiario rechaza duplicados, valores no finitos y bajas imposibles", () =>
+        {
+            var w = World(); w.AddPlayer("Mago"); Enemy(w); var snapshot = w.Snapshot(); var e = snapshot.Defense!.Bestiary.Single();
+            foreach (var entries in new[] { new[] { e, e }, new[] { e with { Attack = float.NaN } }, new[] { e with { Killed = 2 } }, Array.Empty<DefenseEnemySnapshot>() })
+            {
+                bool rejected = false;
+                try { SnapshotValidation.Check(snapshot with { Defense = snapshot.Defense with { Bestiary = entries } }); }
+                catch (InvalidDataException) { rejected = true; }
+                Check(rejected, "Ficha inválida aceptada.");
+            }
+        });
+        test("Defensa: porcentajes de calidad coinciden con las cien tiradas del generador", () =>
+        {
+            foreach (var tier in Enum.GetValues<ItemTier>())
+            {
+                int count = Enumerable.Range(0, 100).Count(roll => EquipmentCatalogue.Generate(new FixedTierRoll(roll)).Tier == tier);
+                Check(count == EquipmentCatalogue.TierChance(tier), "Guía y generador difieren: " + tier);
+            }
+            Check(Enum.GetValues<ItemTier>().Sum(EquipmentCatalogue.TierChance) == 100, "Las calidades no suman 100%.");
+        });
         test("Defensa: inventario compartido aplica cuatro ranuras de forma atómica sin importar equipo permanente", () =>
         {
             var world = World(); var owner = world.AddPlayer("Defensor")!; var other = world.AddPlayer("Aliado")!;
