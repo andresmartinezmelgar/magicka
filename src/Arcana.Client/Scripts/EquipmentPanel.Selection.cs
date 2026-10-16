@@ -9,10 +9,10 @@ public partial class EquipmentPanel
     private Label _pickerTitle = null!, _pickerHelp = null!, _pickerEmpty = null!, _pickerStatus = null!;
     private ContentScrollContainer _pickerScroll = null!;
     private GridContainer _pickerGrid = null!;
-    private Button _unequip = null!;
     private readonly Dictionary<string, Button> _itemButtons = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Button> _trashButtons = new(StringComparer.Ordinal);
-    private static Texture2D? _trashIcon;
+    private readonly Dictionary<string, Button> _upgradeButtons = new(StringComparer.Ordinal);
+    private static Texture2D? _trashIcon, _equipIcon, _upgradeIcon;
     internal bool PickerVisible => _itemPicker.Visible;
     internal int PickerColumns => _pickerGrid.Columns;
     internal string[] PickerItems => _itemButtons.Keys.ToArray();
@@ -50,20 +50,21 @@ public partial class EquipmentPanel
         _pickerScroll.Resized += UpdatePickerColumns;
         _pickerEmpty = Ui.Label("No tienes objetos para esta posición.", 19, Ui.Muted);
         _pickerEmpty.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_pickerEmpty);
-        _unequip = Ui.Button("Quitar pieza equipada", () => ChooseItem(""));
-        _unequip.Name = "EquipmentUnequip";
-        _unequip.CustomMinimumSize = new(0, Ui.IsMobile ? 60 : 48); box.AddChild(_unequip);
     }
 
     private void OpenItemPicker(EquipmentSlot slot)
     {
         if (_busy) return;
         _selectedSlot = slot; Render();
-        _itemButtons.Clear(); _trashButtons.Clear(); Clear(_pickerGrid);
+        _itemButtons.Clear(); _trashButtons.Clear(); _upgradeButtons.Clear(); Clear(_pickerGrid);
         var choices = Choices(slot);
         string equipped = _draft?.Loadout.Get(slot) ?? "";
         _pickerTitle.Text = EquipmentCatalogue.SlotName(slot).ToUpperInvariant() + $" · {choices.Length} objetos";
-        _pickerHelp.Text = "De mayor a menor calidad: Mítico, Diamante, Platino, Oro y Plata. Pulsa una pieza para equiparla; usa su papelera para venderla.";
+        _pickerHelp.Text = "De mayor a menor calidad. Iconos de cada pieza: vender, equipar o quitar y mejorar." +
+            (_defensePlayer == null ? " Las mejoras con oro están disponibles en Defensa." : $" Oro de partida: {_defensePlayer.Gold}.");
+        _trashIcon ??= GD.Load<Texture2D>("res://Assets/Inventory/trash.svg");
+        _equipIcon ??= GD.Load<Texture2D>("res://Assets/Inventory/equip.svg");
+        _upgradeIcon ??= GD.Load<Texture2D>("res://Assets/Inventory/upgrade.svg");
         foreach (var item in choices)
         {
             bool selected = item.Id == equipped;
@@ -73,53 +74,69 @@ public partial class EquipmentPanel
             style.ContentMarginLeft = style.ContentMarginRight = 10;
             style.ContentMarginTop = style.ContentMarginBottom = 10;
             card.AddThemeStyleboxOverride("panel", style); _pickerGrid.AddChild(card);
-            var content = new VBoxContainer(); content.AddThemeConstantOverride("separation", 8); card.AddChild(content);
-            var heading = new HBoxContainer(); heading.AddThemeConstantOverride("separation", 8); content.AddChild(heading);
+            var content = new HBoxContainer(); content.AddThemeConstantOverride("separation", 10); card.AddChild(content);
+            var description = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            description.AddThemeConstantOverride("separation", 8); content.AddChild(description);
             var label = Ui.Label(title, Ui.IsMobile ? 18 : 17, selected ? Ui.Gold : TierColor(item.Tier));
             label.AutowrapMode = TextServer.AutowrapMode.WordSmart; label.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            label.MouseFilter = MouseFilterEnum.Ignore; heading.AddChild(label);
-            var sale = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ShrinkEnd }; heading.AddChild(sale);
-            var trash = Ui.Button("", () => ConfirmSale(item.Id));
-            trash.Name = "EquipmentTrash_" + item.Id;
-            trash.SetMeta("sale_item_id", item.Id);
-            _trashIcon ??= GD.Load<Texture2D>("res://Assets/Inventory/trash.svg");
-            trash.Icon = _trashIcon; trash.ExpandIcon = true; trash.AddThemeConstantOverride("icon_max_width", 25);
-            trash.AddThemeColorOverride("icon_normal_color", Ui.Red);
-            trash.CustomMinimumSize = new(Ui.IsMobile ? 56 : 48, Ui.IsMobile ? 56 : 48);
-            trash.TooltipText = $"Vender esta pieza por {item.SaleGold} oro" +
-                (_defensePlayer != null ? " de esta partida." : ".") +
-                (!CanSellInventory ? " La venta requiere iniciar sesión y disponer del servicio de ventas." : "");
-            sale.AddChild(trash); _trashButtons.Add(item.Id, trash);
-            var price = Ui.Label($"+{item.SaleGold} oro", 14, Ui.Gold); price.HorizontalAlignment = HorizontalAlignment.Center;
-            sale.AddChild(price);
+            label.MouseFilter = MouseFilterEnum.Ignore; description.AddChild(label);
+            var equippedLabel = Ui.Label(selected ? "EQUIPADA" : "Sin equipar", 15, selected ? Ui.Gold : Ui.Muted);
+            equippedLabel.MouseFilter = MouseFilterEnum.Ignore; description.AddChild(equippedLabel);
             string attributes = string.Join("\n", item.Bonuses.Select(b => StatName(b.Stat) + " " + EquipmentCatalogue.Percent(b.Current)));
-            var button = Ui.Button(attributes + "\n" + (selected ? "EQUIPADA" : "Ver y equipar"), () => ChooseItem(item.Id));
-            button.Name = "EquipmentItem_" + item.Id;
-            button.SetMeta("item_id", item.Id);
-            button.Alignment = HorizontalAlignment.Left;
-            button.MouseFilter = MouseFilterEnum.Pass;
-            button.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-            button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            button.CustomMinimumSize = new(0, Ui.IsMobile ? 150 : 130);
-            button.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 18 : 17);
-            button.AddThemeColorOverride("font_color", selected ? Ui.Gold : Ui.Text);
-            var normal = Ui.Panel(new Color(selected ? "185184" : "122743"), 6);
-            normal.ContentMarginLeft = normal.ContentMarginRight = 12;
-            normal.ContentMarginTop = normal.ContentMarginBottom = 12;
-            button.AddThemeStyleboxOverride("normal", normal);
-            button.TooltipText = EquipmentCatalogue.ItemName(item) + "\n" + attributes;
-            content.AddChild(button); _itemButtons.Add(item.Id, button);
+            var stats = Ui.Label(attributes, Ui.IsMobile ? 18 : 17);
+            stats.Name = "EquipmentItemStats_" + item.Id;
+            stats.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            stats.SizeFlagsHorizontal = SizeFlags.ExpandFill; stats.MouseFilter = MouseFilterEnum.Pass;
+            stats.TooltipText = string.Join("\n", item.Bonuses.Select(b => StatName(b.Stat) + ": " +
+                EquipmentCatalogue.Percent(b.Current) + " (" + EquipmentCatalogue.Percent(b.Minimum) + " / " + EquipmentCatalogue.Percent(b.Maximum) + ")"));
+            description.AddChild(stats);
+            var entry = _defensePlayer?.Items.FirstOrDefault(i => i.Item.Id == item.Id);
+            if (entry != null) description.AddChild(Ui.Label($"Mejoras: {entry.Upgrades} / 10", 15, Ui.Muted));
+            var actions = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ShrinkEnd };
+            actions.AddThemeConstantOverride("separation", 8); content.AddChild(actions);
+            var trash = PickerAction(actions, "EquipmentTrash_", item.Id, _trashIcon, Ui.Red, $"+{item.SaleGold} oro",
+                $"Vender esta pieza por {item.SaleGold} oro" + (_defensePlayer != null ? " de esta partida." : ".") +
+                (!CanSellInventory ? " La venta requiere iniciar sesión y disponer del servicio de ventas." : ""), () => ConfirmSale(item.Id));
+            trash.SetMeta("sale_item_id", item.Id);
+            _trashButtons.Add(item.Id, trash);
+            var equip = PickerAction(actions, "EquipmentEquip_", item.Id, _equipIcon, selected ? Ui.Gold : Ui.Blue,
+                selected ? "Quitar" : "Equipar", selected ? "Quitar esta pieza equipada." : "Equipar esta pieza. Se guardará al salir del inventario.",
+                () => ChooseItem(selected ? "" : item.Id));
+            _itemButtons.Add(item.Id, equip);
+            bool maximum = entry != null && (entry.Upgrades >= 10 || item.Bonuses.All(b => b.Current >= b.Maximum));
+            int cost = DefenseRules.UpgradeCost(entry?.Upgrades ?? 0);
+            var upgrade = PickerAction(actions, "EquipmentUpgrade_", item.Id, _upgradeIcon, Ui.Health,
+                entry == null ? "Defensa" : maximum ? "Máximo" : $"{cost} oro",
+                entry == null ? "Mejorar estadísticas con oro durante una partida de Defensa." : maximum ? "Esta pieza ha alcanzado su límite de mejora." :
+                $"Mejorar esta pieza por {cost} oro de partida. Suma un punto porcentual a cada atributo, hasta su máximo. Mejora {entry.Upgrades + 1} / 10." +
+                (_defensePlayer!.Gold < cost ? $" Faltan {cost - _defensePlayer.Gold} oro." : ""), () => UpgradeDefenseItem(item.Id));
+            _upgradeButtons.Add(item.Id, upgrade);
         }
         _pickerEmpty.Visible = choices.Length == 0;
         UpdatePickerActions();
         _itemPicker.Show(); _pickerScroll.ScrollVertical = 0; UpdatePickerColumns();
     }
 
+    private static Button PickerAction(VBoxContainer actions, string prefix, string id, Texture2D icon, Color color,
+        string caption, string tooltip, Action pressed)
+    {
+        var box = new VBoxContainer(); box.AddThemeConstantOverride("separation", 2); actions.AddChild(box);
+        var button = Ui.Button("", pressed);
+        button.Name = prefix + id; button.SetMeta("item_id", id);
+        button.Icon = icon; button.ExpandIcon = true; button.AddThemeConstantOverride("icon_max_width", 25);
+        button.AddThemeColorOverride("icon_normal_color", color);
+        button.CustomMinimumSize = new(Ui.IsMobile ? 64 : 48, Ui.IsMobile ? 64 : 48);
+        button.MouseFilter = MouseFilterEnum.Pass; button.TooltipText = tooltip; box.AddChild(button);
+        var label = Ui.Label(caption, 14, color); label.HorizontalAlignment = HorizontalAlignment.Center;
+        label.MouseFilter = MouseFilterEnum.Ignore; box.AddChild(label);
+        return button;
+    }
+
     private void UpdatePickerActions()
     {
-        foreach (var button in _itemButtons.Values) button.Disabled = _busy;
+        foreach (var button in _itemButtons.Values) button.Disabled = _busy || (_defensePlayer != null && !CanChangeDefenseItems);
         foreach (var button in _trashButtons.Values) button.Disabled = _busy || !CanSellInventory;
-        if (_unequip != null) _unequip.Disabled = _busy || (_draft?.Loadout.Get(_selectedSlot).Length ?? 0) == 0;
+        foreach (var (id, button) in _upgradeButtons) button.Disabled = !CanUpgradeDefenseItem(id);
     }
 
     private void RefreshPickerItems()
@@ -130,6 +147,7 @@ public partial class EquipmentPanel
     }
 
     internal void PressTrash(string id) => _trashButtons[id].EmitSignal(Button.SignalName.Pressed);
+    internal void PressUpgrade(string id) => _upgradeButtons[id].EmitSignal(Button.SignalName.Pressed);
 
     private void UpdatePickerColumns()
     {
@@ -153,7 +171,7 @@ public partial class EquipmentPanel
 
     internal void PressChoice(string id)
     {
-        if (id.Length == 0) _unequip.EmitSignal(Button.SignalName.Pressed);
-        else _itemButtons[id].EmitSignal(Button.SignalName.Pressed);
+        string chosen = id.Length == 0 ? _draft?.Loadout.Get(_selectedSlot) ?? "" : id;
+        if (chosen.Length > 0) _itemButtons[chosen].EmitSignal(Button.SignalName.Pressed);
     }
 }

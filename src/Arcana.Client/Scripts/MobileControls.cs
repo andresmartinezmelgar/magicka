@@ -88,8 +88,8 @@ public partial class MobileControls : Control
             if (_moveFinger < 0) _moveCenter = _moveHome;
             _aimCenter = new(width - 142 * s, height - 125 * s);
             for (int i = 0; i < 8; i++) Place(i, new(width - (246 - i % 2 * 116) * s, height - (572 - i / 2 * 80) * s), new(108 * s, 72 * s));
-            Place(_self, new(330 * s, height - 302 * s), new(120 * s, 62 * s));
-            Place(_nova, new(330 * s, height - 232 * s), new(120 * s, 62 * s));
+            Place(_self, new(width - 382 * s, height - 452 * s), new(120 * s, 62 * s));
+            Place(_nova, new(width - 382 * s, height - 382 * s), new(120 * s, 62 * s));
             for (int i = 0; i < _magicks.Count; i++)
                 Place(_magicks[i], new(width / 2 - (244 - i * 124) * s, height - 90 * s), new(120 * s, 72 * s));
             for (int i = 0; i < _utilities.Count; i++) Place(_utilities[i], new(width - (382 - i * 124) * s, 22 * s), new(118 * s, 62 * s));

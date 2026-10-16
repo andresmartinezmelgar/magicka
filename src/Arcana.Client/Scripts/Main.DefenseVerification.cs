@@ -14,6 +14,7 @@ public partial class Main
     private string _defenseAccountBefore = "", _defenseCacheBefore = "";
     private EquipmentLoadout? _defenseChosenLoadout;
     private string _defenseSoldItem = "";
+    private EquipmentItem? _defenseUpgradeBefore;
     private long _defenseGoldAfterSale;
     private int _defenseTotalsReview;
 
@@ -76,7 +77,9 @@ public partial class Main
                     foreach (string name in new[] { "TouchSelf", "TouchNova" })
                     {
                         var action = ((Control)_touch.FindChild(name, true, false)).GetGlobalRect();
-                        Check(action.End.X < GetViewport().GetVisibleRect().Size.X / 2, "Sobre mí o En área no están en la izquierda.");
+                        Check(action.Position.X > GetViewport().GetVisibleRect().Size.X / 2, "Sobre mí o En área no están en la derecha.");
+                        Check(!action.Intersects(((Control)_hud!.FindChild("SpellControlsPanel", true, false)).GetGlobalRect()),
+                            "Sobre mí o En área tapan los elementos seleccionados.");
                     }
                     foreach (var buttonRect in rectangles)
                     {
@@ -152,6 +155,7 @@ public partial class Main
                 var lookup = state.Defense!.Defenders.Single(p => p.PlayerId == _localId).Items.ToDictionary(i => i.Item.Id);
                 Check(inventory.PickerItems.Select(id => lookup[id].Item.Tier).SequenceEqual(new[] { ItemTier.Platinum, ItemTier.Gold }),
                     "Las piezas no están ordenadas por calidad.");
+                foreach (string id in inventory.PickerItems) AssertPickerActions(inventory, id, checkLayout: true);
                 CaptureDefense("05-selector-calidad");
                 if (Ui.IsMobile) _Notification((int)NotificationWMGoBackRequest);
                 else _UnhandledInput(new InputEventKey { Pressed = true, PhysicalKeycode = Key.Escape });
@@ -179,15 +183,43 @@ public partial class Main
                 panel.ShowSection(1);
                 var inventory = panel.EquipmentInventory!;
                 Check(!inventory.HasChanges && inventory.PreviewProfile!.Loadout == _defenseChosenLoadout, "Reabrir perdió el equipo elegido.");
-                var upgrade = (Button)inventory.FindChild("DefenseInventoryUpgrade", true, false);
-                Check(!upgrade.Disabled, "No se puede mejorar una pieza desde el inventario compartido.");
-                upgrade.EmitSignal(Button.SignalName.Pressed); _defenseSmokePhase++; return false;
+                inventory.PressInspect(EquipmentSlot.Boots);
+                _defenseUpgradeBefore = player.Items.Single(i => i.Item.Slot == EquipmentSlot.Boots && !i.Equipped).Item;
+                string id = _defenseUpgradeBefore.Id;
+                var wizard = state.Players.Single(p => p.Id == _localId);
+                Button Upgrade() => (Button)inventory.FindChild("EquipmentUpgrade_" + id, true, false);
+                inventory.UpdateDefenseInventory(player with { Gold = 0 }, wizard, false);
+                Check(Upgrade().Disabled && Upgrade().TooltipText.Contains("Faltan 35 oro"), "No se desactiva la mejora sin oro suficiente.");
+                inventory.PressUpgrade(id);
+                Check(_practice!.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId).Gold == 1280,
+                    "Un icono desactivado ha gastado oro.");
+                inventory.UpdateDefenseInventory(player with { Items = player.Items.Select(i => i.Item.Id == id ? i with { Upgrades = 10 } : i).ToArray() }, wizard, false);
+                Check(Upgrade().Disabled, "Se permite superar las diez mejoras.");
+                inventory.UpdateDefenseInventory(player with { Items = player.Items.Select(i => i.Item.Id == id ? i with
+                    { Upgrades = 9, Item = i.Item with { Bonuses = i.Item.Bonuses.Select(b => b with { Current = b.Maximum }).ToArray() } } : i).ToArray() }, wizard, false);
+                Check(Upgrade().Disabled, "Se permite mejorar una pieza con todos sus atributos al máximo.");
+                inventory.UpdateDefenseInventory(player, wizard, false);
+                Check(!Upgrade().Disabled, "No se puede mejorar una pieza sin equiparla.");
+                inventory.PressUpgrade(id); _defenseSmokePhase++; return false;
             }
             if (_defenseSmokePhase == 7)
             {
                 var player = state.Defense!.Defenders.Single(p => p.PlayerId == _localId);
-                Check(player.Items.Single(i => i.Item.Id == _defenseChosenLoadout!.Boots).Upgrades == 1 && player.Gold == 1245 &&
+                var improved = player.Items.Single(i => i.Item.Id == _defenseUpgradeBefore!.Id);
+                Check(improved.Upgrades == 1 && player.Gold == 1245 &&
                     panel.EquipmentInventory?.Saving == false, "La mejora no confirmó su efecto y coste.");
+                Check(!improved.Equipped && player.Items.Single(i => i.Item.Id == _defenseChosenLoadout!.Boots).Upgrades == 0 &&
+                    panel.EquipmentInventory!.PreviewProfile!.Loadout == _defenseChosenLoadout && panel.EquipmentInventory.PickerVisible,
+                    "Mejorar otra pieza cambia la equipación, mejora la pieza equivocada o cierra el selector.");
+                Check(improved.Item.Bonuses.Zip(_defenseUpgradeBefore!.Bonuses).All(pair =>
+                    pair.First.Current == MathF.Round(Math.Min(pair.Second.Maximum, pair.Second.Current + 0.01f), 4)),
+                    "La mejora no respeta el incremento o el límite de cada atributo.");
+                var inventory = panel.EquipmentInventory!;
+                Check(((Button)inventory.FindChild("EquipmentUpgrade_" + improved.Item.Id, true, false)).TooltipText.Contains("70 oro") &&
+                    ((Label)inventory.FindChild("EquipmentItemStats_" + improved.Item.Id, true, false)).Text.Contains(EquipmentCatalogue.Percent(improved.Item.Bonuses[0].Current)),
+                    "El selector no actualiza el siguiente coste y las estadísticas mejoradas.");
+                CaptureDefense("05-mejora-pieza");
+                inventory.HandleBack();
                 ((Button)panel.EquipmentInventory!.FindChild("DefenseInventorySupply", true, false)).EmitSignal(Button.SignalName.Pressed);
                 _defenseSmokePhase++; return false;
             }

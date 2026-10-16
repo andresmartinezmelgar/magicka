@@ -10,11 +10,12 @@ public partial class EquipmentPanel
     private WizardSnapshot? _defenseWizard;
     private bool _defenseMatchEnded;
     private Action<ClientMessage>? _defenseSubmit;
-    private Button? _defenseSupply, _defenseUpgrade;
+    private Button? _defenseSupply;
     private string _defenseInventoryStamp = "";
     private Func<DefensePlayerSnapshot, bool>? _defensePending;
     private Action? _defenseConfirmed;
     private ulong _defensePendingAt;
+    private string _defensePendingMessage = "";
     internal bool TemporaryInventory => _defensePlayer != null;
     private bool CanChangeDefenseItems => _defenseWizard?.Alive == true && !_defenseMatchEnded;
     private bool CanSellInventory => _defensePlayer != null ? CanChangeDefenseItems :
@@ -36,24 +37,15 @@ public partial class EquipmentPanel
 
     private void BuildDefenseActions(VBoxContainer inventory)
     {
-        _defenseUpgrade = Action(inventory, "Mejorar pieza", UpgradeDefenseItem);
-        _defenseUpgrade.Name = "DefenseInventoryUpgrade";
         _defenseSupply = Action(inventory, "Comprar pieza aleatoria · 100 oro", BuyDefenseItem);
         _defenseSupply.Name = "DefenseInventorySupply";
     }
 
     private void RenderDefenseActions()
     {
-        if (_defenseSupply == null || _defenseUpgrade == null || _defensePlayer == null) return;
-        var selected = Selected();
-        var entry = _defensePlayer.Items.FirstOrDefault(i => i.Item.Id == selected?.Id);
-        int cost = DefenseRules.UpgradeCost(entry?.Upgrades ?? 0);
+        if (_defenseSupply == null || _defensePlayer == null) return;
         _defenseSupply.Disabled = _busy || !CanChangeDefenseItems || _defensePlayer.Gold < 100 ||
             _defensePlayer.Items.Length >= DefenseRules.InventoryLimit;
-        _defenseUpgrade.Disabled = _busy || !CanChangeDefenseItems || entry == null || entry.Upgrades >= 10 ||
-            entry.Item.Bonuses.All(b => b.Current >= b.Maximum) || _defensePlayer.Gold < cost;
-        _defenseUpgrade.Text = entry == null ? "Elige una pieza para mejorar" : $"Mejorar pieza · +{entry.Upgrades} / 10 · {cost} oro";
-        _defenseUpgrade.TooltipText = "Suma un punto porcentual a cada atributo, hasta el máximo de la pieza.";
     }
 
     internal void UpdateDefenseInventory(DefensePlayerSnapshot player, WizardSnapshot wizard, bool ended)
@@ -71,10 +63,11 @@ public partial class EquipmentPanel
         if (_defensePending(player))
         {
             var confirmed = _defenseConfirmed;
+            string message = _defensePendingMessage;
             _defensePending = null; _defenseConfirmed = null;
-            Busy(false); Render(); SetStatus("Equipo de partida actualizado.", routine: true);
+            Busy(false); Render(); SetStatus(message, routine: true);
             RefreshPickerItems();
-            if (PickerVisible) { _pickerStatus.Text = "Venta confirmada. El oro y las piezas están actualizados."; _pickerStatus.Visible = true; }
+            if (PickerVisible) { _pickerStatus.Text = message; _pickerStatus.Visible = true; }
             confirmed?.Invoke();
             if (!_closing) ContinueRequestedClose();
         }
@@ -86,9 +79,11 @@ public partial class EquipmentPanel
         }
     }
 
-    private void DefenseOperation(ClientMessage command, Func<DefensePlayerSnapshot, bool> confirmed, Action? after = null)
+    private void DefenseOperation(ClientMessage command, Func<DefensePlayerSnapshot, bool> confirmed, Action? after = null,
+        string message = "Equipo de partida actualizado.")
     {
         _defensePending = confirmed; _defenseConfirmed = after; _defensePendingAt = Time.GetTicksMsec();
+        _defensePendingMessage = message;
         Busy(true, "Actualizando equipo de partida…"); _defenseSubmit!(command);
     }
 
@@ -96,23 +91,32 @@ public partial class EquipmentPanel
     {
         if (_busy || !CanChangeDefenseItems || _defensePlayer == null || _defenseSupply!.Disabled) return;
         var ids = _defensePlayer.Items.Select(i => i.Item.Id).ToHashSet(StringComparer.Ordinal);
-        DefenseOperation(new() { Type = "defense_supply" }, p => p.Items.Any(i => !ids.Contains(i.Item.Id)));
+        DefenseOperation(new() { Type = "defense_supply" }, p => p.Items.Any(i => !ids.Contains(i.Item.Id)),
+            message: "Pieza comprada. El oro y el inventario están actualizados.");
     }
 
-    private void UpgradeDefenseItem()
+    private bool CanUpgradeDefenseItem(string id)
     {
-        if (_busy || _defenseUpgrade!.Disabled || _defensePlayer == null) return;
-        var item = Selected(); if (item == null) return;
-        int before = _defensePlayer.Items.Single(i => i.Item.Id == item.Id).Upgrades;
-        DefenseOperation(new() { Type = "defense_upgrade", ItemId = item.Id },
-            p => p.Items.Any(i => i.Item.Id == item.Id && i.Upgrades > before));
+        var entry = _defensePlayer?.Items.FirstOrDefault(i => i.Item.Id == id);
+        return !_busy && CanChangeDefenseItems && entry != null && entry.Upgrades < 10 &&
+            entry.Item.Bonuses.Any(b => b.Current < b.Maximum) && _defensePlayer!.Gold >= DefenseRules.UpgradeCost(entry.Upgrades);
+    }
+
+    private void UpgradeDefenseItem(string id)
+    {
+        if (!CanUpgradeDefenseItem(id)) return;
+        int before = _defensePlayer!.Items.Single(i => i.Item.Id == id).Upgrades;
+        DefenseOperation(new() { Type = "defense_upgrade", ItemId = id },
+            p => p.Items.Any(i => i.Item.Id == id && i.Upgrades > before),
+            message: "Mejora confirmada. Las estadísticas y el oro están actualizados.");
     }
 
     private void SellDefenseItem()
     {
         if (_busy || !CanSellInventory || _selling.Length == 0) return;
         string id = _selling; _selling = "";
-        DefenseOperation(new() { Type = "defense_sell", ItemId = id }, p => p.Items.All(i => i.Item.Id != id));
+        DefenseOperation(new() { Type = "defense_sell", ItemId = id }, p => p.Items.All(i => i.Item.Id != id),
+            message: "Venta confirmada. El oro y las piezas están actualizados.");
     }
 
     private void SaveDefenseAndClose()

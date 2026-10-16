@@ -11,6 +11,28 @@ public partial class Main
     private bool _equipmentPublicMode, _equipmentPublicPreview;
     private int _equipmentPublicStage;
     private AccountProfile? _equipmentPublicProfile;
+    private static void AssertPickerActions(EquipmentPanel panel, string id, bool checkLayout = false)
+    {
+        var card = (Control)panel.FindChild("EquipmentCard_" + id, true, false);
+        var actions = new[] { "EquipmentTrash_", "EquipmentEquip_", "EquipmentUpgrade_" }
+            .Select(prefix => panel.FindChild(prefix + id, true, false) as Button).ToArray();
+        if (actions.Any(b => b?.Icon == null || b.Text.Length != 0) ||
+            card.FindChildren("*", "Button", true, false).Count != 3 ||
+            panel.FindChild("EquipmentItem_" + id, true, false) != null ||
+            panel.FindChild("EquipmentUnequip", true, false) != null ||
+            panel.FindChild("DefenseInventoryUpgrade", true, false) != null)
+            throw new InvalidOperationException("Cada pieza debe tener solo los tres iconos de vender, equipar y mejorar.");
+        if (!checkLayout) return;
+        for (int i = 0; i < actions.Length; i++)
+        {
+            var rect = actions[i]!.GetGlobalRect();
+            if (!card.GetGlobalRect().Encloses(rect) || rect.Size.X < (Ui.IsMobile ? 64 : 48) ||
+                rect.Size.Y < (Ui.IsMobile ? 64 : 48) || i > 0 &&
+                (actions[i - 1]!.GetGlobalRect().End.Y > rect.Position.Y ||
+                 Math.Abs(actions[i - 1]!.GetGlobalRect().Position.X - rect.Position.X) > 1))
+                throw new InvalidOperationException("Los tres iconos no forman una columna accesible dentro de su tarjeta.");
+        }
+    }
     private void PublicEquipmentFixture(bool smoke)
     {
         EquipmentFixture(false, EquipmentFamily.Water);
@@ -170,8 +192,13 @@ public partial class Main
             {
                 var before = panel.PreviewProfile!.Loadout;
                 panel.PressInspect(slot);
-                Check(panel.FindChild("EquipmentSellButton", true, false) == null && panel.PickerItems.All(id =>
-                    panel.FindChild("EquipmentTrash_" + id, true, false) is Button), "Faltan papeleras individuales o queda el botón de venta anterior.");
+                Check(panel.FindChild("EquipmentSellButton", true, false) == null, "Sigue presente el botón de venta anterior.");
+                foreach (string id in panel.PickerItems)
+                {
+                    AssertPickerActions(panel, id);
+                    Check(((Button)panel.FindChild("EquipmentUpgrade_" + id, true, false)).Disabled,
+                        "La mejora de partida está habilitada para un objeto permanente.");
+                }
                 var tiers = panel.PickerItems.Select(id => original.Items.Single(i => i.Id == id).Tier).ToArray();
                 Check(panel.PickerVisible && tiers.SequenceEqual(Enum.GetValues<ItemTier>().Reverse()) && panel.PickerColumns is 2 or 3,
                     "El selector no abre una rejilla ordenada de mayor a menor calidad.");

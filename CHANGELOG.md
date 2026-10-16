@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.18.9 — Tres acciones por pieza
+
+- Cada pieza muestra tres iconos en columna: vender, equipar o quitar y mejorar estadísticas; retirados los botones inferiores de equipación y mejora.
+- Las mejoras de Defensa actúan sobre la pieza indicada, aunque no esté equipada, y actualizan atributos, oro y siguiente coste dentro del selector.
+- Los iconos respetan operaciones pendientes, falta de oro, diez mejoras y máximos de atributos; la venta conserva su confirmación.
+- Sobre mí y En área vuelven al lado derecho en Defensa, junto a los controles de combate.
+
 ## 0.18.8 — Papeleras y controles de combate
 
 - Cada tarjeta del selector de botas, gorro, pecho y arma tiene su papelera y el oro de venta; permite vender sin equipar la pieza.

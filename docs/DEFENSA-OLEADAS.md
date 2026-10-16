@@ -1,6 +1,6 @@
 # Defensa del bastión — primera versión experimental
 
-Versión **0.18.8**, protocolo **24**, rama `feature/defensa-oleadas`. Esta rama se mantiene independiente de `main`. Las compilaciones verificadas se publican como versiones preliminares con APK directa. Las dos cuentas autorizadas reciben estas versiones mediante el actualizador; el resto conserva el canal estable. Véase [Canales de actualización](CANALES-ACTUALIZACION.md).
+Versión **0.18.9**, protocolo **24**, rama `feature/defensa-oleadas`. Esta rama se mantiene independiente de `main`. Las compilaciones verificadas se publican como versiones preliminares con APK directa. Las dos cuentas autorizadas reciben estas versiones mediante el actualizador; el resto conserva el canal estable. Véase [Canales de actualización](CANALES-ACTUALIZACION.md).
 
 ## Entrar en el modo
 
@@ -8,7 +8,9 @@ Versión **0.18.8**, protocolo **24**, rama `feature/defensa-oleadas`. Esta rama
 - **Online:** PvP → alojar o abrir el servidor → crear sala → modo Defensa del bastión. Admite de uno a cuatro defensores, incluidos los bots. Todos están en el mismo equipo y no hay fuego amigo. El formato es partida única.
 - Cliente y servidor deben proceder de esta misma versión experimental. La APK conserva el identificador y la firma habituales: instalarla sustituye la aplicación instalada, aunque el desarrollo y la distribución permanezcan separados de `main`. El servidor incluido en el paquete Windows permite alojar el modo; el móvil también puede entrar en una sala remota.
 
-La tienda se abre desde el panel de estadísticas de la partida. Permite equipar, comparar, mejorar y vender piezas temporales, comprar auras y reparar el bastión. Se divide en Bastión, Equipo, Poderes y Estadísticas. Con un único humano, abrirla pausa toda la simulación, incluso con bots aliados y por red. Con dos o más humanos el combate sigue; la tienda indica el estado. La pausa no suma tiempo para premios. En móvil, cerrar la tienda recupera los controles táctiles.
+La tienda se abre desde el panel de estadísticas de la partida. Permite equipar, comparar, mejorar y vender piezas temporales, comprar auras y reparar el bastión. Se divide en Bastión, Equipo, Poderes, Estadísticas y Guía. Con un único humano, abrirla pausa toda la simulación, incluso con bots aliados y por red. Con dos o más humanos el combate sigue; la tienda indica el estado. La pausa no suma tiempo para premios. En móvil, cerrar la tienda recupera los controles táctiles.
+
+Cada tarjeta de pieza tiene tres iconos en columna: vender, equipar o quitar, y mejorar estadísticas. Muestra el oro de venta, el coste de la siguiente mejora y las mejoras realizadas. Se puede mejorar una pieza sin equiparla; el selector actualiza los atributos y permanece abierto. El icono se desactiva por falta de oro, al alcanzar diez mejoras o cuando todos los atributos llegan al máximo. Los controles Sobre mí y En área están en el lado derecho.
 
 ## Objetivo y mapa
 
