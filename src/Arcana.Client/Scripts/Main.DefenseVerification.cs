@@ -33,6 +33,10 @@ public partial class Main
         var world = _practice!;
         object Field(string name) => typeof(GameWorld).GetField(name, BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(world)!;
         void Call(string name, params object[] values) => typeof(GameWorld).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(world, values);
+        // La escena comprueba compras sobre ocho piezas conocidas. La velocidad de render
+        // del runner no debe permitir que el bot genere botín adicional antes de abrir la tienda.
+        foreach (var bot in world.Players.Values.Where(p => p.Bot)) bot.BotDecision = 10000;
+        typeof(GameWorld).GetField("_spawnClock", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(world, 10000f);
         var p = world.Players[_localId];
         var progress = ((IDictionary)Field("_defenders"))[p.Id]!;
         progress.GetType().GetField("Gold")!.SetValue(progress, 1500);
@@ -137,9 +141,9 @@ public partial class Main
             }
             if (_defenseSmokePhase == 4)
             {
-                var inventory = panel.EquipmentInventory!;
-                Check(inventory is { TemporaryInventory: true, VisibleItems: 8 } &&
-                    inventory.FindChild("ResponsiveMenuShell", true, false) == null, "Defensa no utiliza el inventario compartido de partida.");
+                var inventory = panel.EquipmentInventory ?? throw new InvalidOperationException("No se abrió el inventario temporal.");
+                Check(inventory.TemporaryInventory && inventory.VisibleItems == 8 &&
+                    inventory.FindChild("ResponsiveMenuShell", true, false) == null, $"Inventario temporal inesperado: temporal={inventory.TemporaryInventory}, piezas={inventory.VisibleItems}.");
                 Button Tab(string name) => (Button)inventory.FindChild(name, true, false);
                 if (_defenseTotalsReview == 0)
                 {
