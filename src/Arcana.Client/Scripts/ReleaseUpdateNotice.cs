@@ -5,10 +5,9 @@ using Arcana.Core;
 
 namespace Arcana.Client;
 
-/// <summary>Actualizador visual no bloqueante. Descarga la release oficial y muestra progreso real.</summary>
+/// <summary>Actualizador visual con canal estable o de pruebas según la sesión autenticada.</summary>
 public partial class ReleaseUpdateNotice : Node
 {
-    private const string Latest = "https://api.github.com/repos/andresmartinezmelgar/magicka/releases/latest";
     private static readonly System.Net.Http.HttpClient MetadataHttp = new() { Timeout = TimeSpan.FromSeconds(12) };
     private static readonly System.Net.Http.HttpClient DownloadHttp = new() { Timeout = Timeout.InfiniteTimeSpan };
     private static readonly ReleaseAssetDownloader Downloader = new(MetadataHttp, DownloadHttp);
@@ -34,6 +33,9 @@ public partial class ReleaseUpdateNotice : Node
     private AndroidUpdateBridge? _androidInstaller;
     private double _checkClock;
     private int _progressGeneration;
+    private string _identity = "";
+    private int _channelGeneration;
+    private bool CurrentIdentity => _disabled || _identity == GetParent<Main>().UpdateIdentityUid;
 
     public override void _Ready()
     {
@@ -49,6 +51,7 @@ public partial class ReleaseUpdateNotice : Node
         _disabled = OS.HasFeature("editor") || !OS.HasFeature("windows") && !_android ||
             OS.GetCmdlineUserArgs().Any(a => a.Contains("smoke") || a.Contains("preview"));
         if (_disabled) return;
+        _identity = GetParent<Main>().UpdateIdentityUid;
         if (_android)
         {
             _androidInstaller = new AndroidUpdateBridge();
@@ -62,12 +65,13 @@ public partial class ReleaseUpdateNotice : Node
     public override void _Process(double delta)
     {
         if (_disabled) return;
+        SynchronizeIdentity(GetParent<Main>().UpdateIdentityUid);
         _checkClock += delta;
         if (_pendingUpdate != null && _overlay == null && GetParent<Main>().CanApplyUpdates)
         {
             var pending = _pendingUpdate;
             _pendingUpdate = null;
-            if (pending.Version != _dismissedVersion)
+            if (pending.Identity != _dismissedVersion)
             {
                 _activePlan = pending;
                 ShowNotice(pending.Version, pending.DownloadUrl, pending.Bytes, pending.ChecksumUrl, pending.Filename);
@@ -75,6 +79,19 @@ public partial class ReleaseUpdateNotice : Node
         }
         if (_checkClock >= 60 && !_checking && _overlay == null && _pendingUpdate == null)
         { _checkClock = 0; _ = Check(); }
+    }
+
+    private void SynchronizeIdentity(string identity)
+    {
+        if (_identity == identity || _installing) return;
+        _identity = identity;
+        _channelGeneration++;
+        _downloadStop?.Cancel();
+        _progressGeneration++;
+        Close();
+        _pendingUpdate = _activePlan = null;
+        _dismissedVersion = "";
+        _checkClock = 60;
     }
 
     private static string Size(long bytes)
@@ -91,19 +108,28 @@ public partial class ReleaseUpdateNotice : Node
     {
         if (_checking || _stop.IsCancellationRequested) return;
         _checking = true;
+        string identity = _identity;
+        int channelGeneration = _channelGeneration;
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, Latest);
-            request.Headers.UserAgent.ParseAdd("ArcanaArena-Updater/2.0");
+            bool preview = ReleaseUpdateChannel.PreviewAllowed(identity, identity.Length > 0);
+            using var request = new HttpRequestMessage(HttpMethod.Get, preview ? ReleaseUpdateChannel.PreviewMetadata : ReleaseUpdateChannel.StableMetadata);
+            request.Headers.UserAgent.ParseAdd("ArcanaArena-Updater/2.2");
             request.Headers.Accept.ParseAdd("application/vnd.github+json");
+            request.Headers.CacheControl = new() { NoCache = true };
             using var response = await MetadataHttp.SendAsync(request, _stop.Token);
             if (!response.IsSuccessStatusCode) return;
-            using var document = JsonDocument.Parse(await RoomBrowser.ReadBoundedAsync(response.Content, 256 * 1024, _stop.Token));
-            var plan = ReleaseUpdatePlan.Read(document.RootElement, BuildInfo.Version, _android);
+            using var document = JsonDocument.Parse(await RoomBrowser.ReadBoundedAsync(response.Content, preview ? 1024 * 1024 : 256 * 1024, _stop.Token));
+            var plan = ReleaseUpdateChannel.Select(document.RootElement, identity, identity.Length > 0,
+                BuildInfo.Version, BuildInfo.UpdateBuildNumber, _android);
             if (plan?.Differential == true && (_android && _androidBasePath.Length == 0 ||
                 System.IO.File.Exists(System.IO.Path.Combine(_updatesFolder, "skip-delta-" + plan.Version + ".txt"))))
                 plan = plan.FullPackage;
-            if (plan != null) Callable.From(() => { if (!_stop.IsCancellationRequested) _pendingUpdate = plan; }).CallDeferred();
+            if (plan != null) Callable.From(() =>
+            {
+                if (!_stop.IsCancellationRequested && channelGeneration == _channelGeneration &&
+                    identity == GetParent<Main>().UpdateIdentityUid) _pendingUpdate = plan;
+            }).CallDeferred();
         }
         catch (OperationCanceledException) { }
         catch (Exception) { /* Sin red, se puede seguir jugando. */ }
@@ -197,11 +223,12 @@ public partial class ReleaseUpdateNotice : Node
         topCopy.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         top.AddChild(topCopy);
         AddText(topCopy, Ui.Label("ARCANA ARENA", 15, Ui.Gold));
-        _headline = Ui.Label("Actualización disponible", Ui.IsMobile ? 24 : 25, Ui.Text);
+        _headline = Ui.Label(_activePlan?.Preview == true ? "Versión de prueba disponible" : "Actualización disponible", Ui.IsMobile ? 24 : 25, Ui.Text);
         AddText(topCopy, _headline);
 
         _subtitle = Ui.Label(_activePlan?.Differential == true ? "Se descargarán solo los cambios compatibles con tu versión cuando lo elijas." :
-            "Elige si quieres descargar la nueva versión ahora o seguir jugando.", 16, Ui.Muted);
+            _activePlan?.Preview == true ? "Rama: " + _activePlan.SourceBranch + ". Elige cuándo descargar esta prueba."
+                : "Elige si quieres descargar la nueva versión ahora o seguir jugando.", 16, Ui.Muted);
         AddText(body, _subtitle);
 
         var versions = new HBoxContainer();
@@ -211,7 +238,7 @@ public partial class ReleaseUpdateNotice : Node
         installed.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         versions.AddChild(installed);
         versions.AddChild(Ui.Label("➜", 24, Ui.Gold));
-        var available = Ui.Label("DISPONIBLE\n" + version, 16, Ui.Gold);
+        var available = Ui.Label("DISPONIBLE\n" + version + (_activePlan?.Preview == true ? $" · prueba #{_activePlan.BuildNumber}" : ""), 16, Ui.Gold);
         available.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         versions.AddChild(available);
 
@@ -298,6 +325,20 @@ public partial class ReleaseUpdateNotice : Node
             GD.Print("UPDATE_NOTICE_LAYOUT_OK");
             _secondary!.EmitSignal(BaseButton.SignalName.Pressed);
             if (_overlay != null) throw new InvalidOperationException("Ahora no no libera el overlay.");
+            _activePlan = new("99.0.0", "preview.apk", "https://github.com/andresmartinezmelgar/magicka/releases", "", 12345678)
+                { BuildNumber = 72, SourceBranch = "feature/defensa-oleadas" };
+            ShowNotice(_activePlan.Version, _activePlan.DownloadUrl, _activePlan.Bytes);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (!_headline!.Text.Contains("prueba") || !_subtitle!.Text.Contains(_activePlan.SourceBranch) || _downloading)
+                throw new InvalidOperationException("La preliminar no identifica su origen o descarga sin consentimiento.");
+            _identity = "qRUza2DieeTypFqBIRA5KhbtXoY2";
+            _pendingUpdate = _activePlan;
+            int previousGeneration = _progressGeneration;
+            SynchronizeIdentity("");
+            if (_overlay != null || _pendingUpdate != null || _activePlan != null || _progressGeneration <= previousGeneration)
+                throw new InvalidOperationException("Cambiar de cuenta conserva una actualización del canal anterior.");
+            GD.Print("UPDATE_CHANNEL_IDENTITY_OK: identifica la rama y descarta avisos de pruebas al cerrar la sesión.");
             GetTree().Quit(0);
         }
         catch (Exception error)
@@ -315,7 +356,7 @@ public partial class ReleaseUpdateNotice : Node
 
     private void StartDownload()
     {
-        if (_downloading || _completed || _stop.IsCancellationRequested) return;
+        if (_downloading || _completed || _stop.IsCancellationRequested || !CurrentIdentity) return;
         _downloading = true;
         _downloadStop = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);
         _downloadStop.CancelAfter(TimeSpan.FromMinutes(10));
@@ -436,7 +477,7 @@ public partial class ReleaseUpdateNotice : Node
 
     private void ShowDownloaded(int generation, string path, string hash, bool windowsDelta)
     {
-        if (generation != _progressGeneration || !GodotObject.IsInstanceValid(_overlay) || _stop.IsCancellationRequested) return;
+        if (generation != _progressGeneration || !GodotObject.IsInstanceValid(_overlay) || _stop.IsCancellationRequested || !CurrentIdentity) return;
         _downloading = false;
         _completed = true;
         _downloadPath = path;
@@ -477,7 +518,7 @@ public partial class ReleaseUpdateNotice : Node
     private void Close()
     {
         if (_installing) return;
-        _dismissedVersion = _version;
+        _dismissedVersion = _activePlan?.Identity ?? "stable:" + _version;
         if (_downloading)
         {
             _progressGeneration++;
@@ -495,7 +536,7 @@ public partial class ReleaseUpdateNotice : Node
 
     private async Task InstallDownloaded()
     {
-        if (_downloadPath.Length == 0 || _installing || _stop.IsCancellationRequested) return;
+        if (_downloadPath.Length == 0 || _installing || _stop.IsCancellationRequested || !CurrentIdentity) return;
         _installing = true;
         _primary!.Disabled = _secondary!.Disabled = true;
         _primary.Text = "Instalando…";
@@ -506,6 +547,7 @@ public partial class ReleaseUpdateNotice : Node
                 _subtitle!.Text = "La instalación comenzará al terminar la partida y detener el alojamiento local.";
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
                 _stop.Token.ThrowIfCancellationRequested();
+                if (!CurrentIdentity) { _installing = false; return; }
             }
             if (_android)
             {

@@ -2,7 +2,7 @@
 
 **Juego multijugador de combate mágico en tiempo real para Windows y Android.**
 
-**Estado del repositorio:** versión **0.17.23**, Godot **4.5.2 .NET**, **C# / .NET 8** y protocolo de red **20**. El servidor autoritativo está desarrollado con ASP.NET Core. El juego puede practicarse sin conexión, alojarse en un PC o utilizar un servidor dedicado. El acceso Google y la progresión se apoyan en Firebase, cuando están configurados.
+**Estado del repositorio:** versión **0.17.24**, Godot **4.5.2 .NET**, **C# / .NET 8** y protocolo de red **20**. El servidor autoritativo está desarrollado con ASP.NET Core. El juego puede practicarse sin conexión, alojarse en un PC o utilizar un servidor dedicado. El acceso Google y la progresión se apoyan en Firebase, cuando están configurados.
 
 Proyecto inspirado en el combate elemental de *Magicka: Wizard Wars*, con código, escenarios, animaciones, efectos y reglas propios. No es una reproducción oficial ni exacta del juego original.
 
@@ -249,3 +249,5 @@ Los test y las capturas automatizadas **no sustituyen** una partida entre dispos
 - Las versiones de cliente y servidor deben ser compatibles en **versión de juego y protocolo**.
 
 Documentación temática: [cómo ganar](docs/COMO-GANAR.md) · [mapas](docs/MAPAS.md) · [equipación y progresión](docs/PROGRESSION.md) · [red](docs/NETWORK-OPTIMIZATION.md) · [diagnóstico](docs/DIAGNOSTICO.md) · [exportar](docs/EXPORTAR.md). El historial de cambios, cuando se necesite, se mantiene separado en [CHANGELOG.md](CHANGELOG.md).
+
+Canal estable para cuentas generales y [versiones de prueba por UID autenticado](docs/CANALES-ACTUALIZACION.md).

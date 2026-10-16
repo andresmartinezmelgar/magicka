@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.17.24 — Canal de pruebas por cuenta
+
+- Actualizador por UID autenticado: versiones preliminares para las dos cuentas autorizadas y estables para las demás.
+- Publicación verificada de ramas, conservación de firma e integridad, identificación de cada compilación y limpieza al cambiar de sesión.
+
 ## 0.17.22
 
 - Aura visible alrededor de las rocas imbuidas: fuego rojo, agua azul, frío cian, vida verde y arcano rosa.

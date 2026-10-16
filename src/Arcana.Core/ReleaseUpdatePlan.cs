@@ -8,6 +8,10 @@ public sealed record ReleaseUpdatePlan(string Version, string Filename, string D
 {
     public ReleaseUpdatePlan? FullPackage { get; init; }
     public string? BaseVersion { get; init; }
+    public long BuildNumber { get; init; }
+    public string SourceBranch { get; init; } = "";
+    public bool Preview => BuildNumber > 0;
+    public string Identity => Preview ? $"preview:{Version}:{BuildNumber}" : $"stable:{Version}";
     public bool Differential => FullPackage != null;
     public const long MaximumBytes = 2L * 1024 * 1024 * 1024;
     private const string Repository = "andresmartinezmelgar/magicka";
@@ -28,6 +32,12 @@ public sealed record ReleaseUpdatePlan(string Version, string Filename, string D
         if (!System.Version.TryParse(version, out var available) || available.Build < 0 ||
             available.Revision >= 0 || version != available.ToString() ||
             !System.Version.TryParse(installed.TrimStart('v', 'V'), out var local) || available <= local) return null;
+        return ReadAssets(release, tag, version, local, android, preferDelta);
+    }
+
+    internal static ReleaseUpdatePlan? ReadAssets(JsonElement release, string tag, string version,
+        System.Version local, bool android, bool preferDelta)
+    {
         string filename = $"ArcanaArena-v{version}-" + (android ? "Android-arm64.apk" : "Windows-x64.zip");
         var assets = release.GetProperty("assets").EnumerateArray().ToArray();
         var package = assets.Where(a => a.GetProperty("name").GetString() == filename).ToArray();

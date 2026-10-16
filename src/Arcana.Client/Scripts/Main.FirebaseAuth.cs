@@ -14,9 +14,11 @@ public partial class Main
     private string _googleStatus = "";
     private bool _googleIdentityKnown;
     private string _googleIdentityName = "";
+    private string _googleIdentityUid = "";
     /// <summary>Autenticación SDK completada aunque Firestore haya denegado los permisos.</summary>
     public bool GoogleIdentityKnown => _googleIdentityKnown;
     public string GoogleIdentityName => _googleIdentityName;
+    public string UpdateIdentityUid => _googleIdentityKnown ? _googleIdentityUid : Accounts.SignedIn ? Accounts.Profile?.Uid ?? "" : "";
     public bool GoogleLoginAvailable => _google?.Available == true || _desktopGoogle?.Available == true;
     public bool DesktopGoogleNeedsConfiguration => _desktopGoogle is { Configured: false };
 
@@ -42,6 +44,7 @@ public partial class Main
         {
             _googleIdentityKnown = false;
             _googleIdentityName = "";
+            _googleIdentityUid = "";
             if (!Accounts.SignedIn) GoogleStatus("Sin sesión de Google. Puedes practicar sin conexión.");
         });
         if (_google.Available)
@@ -113,6 +116,7 @@ public partial class Main
             if (generation != Interlocked.Read(ref _sessionGeneration)) return;
             _googleIdentityKnown = true;
             _googleIdentityName = session.Name;
+            _googleIdentityUid = session.Uid;
             GoogleStatus("Google autenticado. Comprobando el acceso al perfil…", true);
         });
         try
@@ -143,6 +147,7 @@ public partial class Main
         Interlocked.Increment(ref _sessionGeneration);
         _googleIdentityKnown = false;
         _googleIdentityName = "";
+        _googleIdentityUid = "";
         _google?.Logout();
         _desktopGoogle?.SignOut();
         await Accounts.SignOut(_lifetime.Token);
