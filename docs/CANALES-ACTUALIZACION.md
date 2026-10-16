@@ -8,7 +8,9 @@ Al iniciar sesión, cerrar sesión o cambiar de cuenta se descartan avisos, cons
 
 GitHub Actions compila las ramas y publica una preliminar solo después de aprobar código, servidor, reglas, cuentas, capturas y ambos paquetes. Exige la firma Android permanente y comprueba los SHA-256. Prepara el borrador completo antes de hacerlo visible. La preliminar lleva el tag `preview-vVERSION-rNUMERO`, el commit exacto y la rama de origen. No cambia `/releases/latest` ni publica tags `v*`.
 
-El instalador comprueba el repositorio, el tag, la plataforma y el manifiesto de integridad. Las pruebas utilizan paquetes completos para evitar mezclar parches de distintas ramas. A igual versión, el número de Actions permite actualizar una compilación de pruebas y evita ofrecerla repetidamente después de instalarla. No se ofrecen APK con una versión base inferior a la instalada.
+Se adjuntan deltas Android y Windows desde las tres versiones anteriores disponibles de la misma rama, usando la última compilación verificable de cada versión. No se usan bases estables ni de otras ramas. La APK reconstruida debe coincidir byte a byte con la APK firmada de destino; cada parche tiene su SHA-256 tanto en el manifiesto de su plataforma como en el combinado. Si no hay una base íntegra o el parche no reduce al menos un 15 % la descarga, se conserva el paquete completo. Los informes `DELTAS-*.json` detallan las bases, los tamaños y los bytes reutilizados.
+
+El instalador comprueba el repositorio, el tag, la plataforma y el manifiesto de integridad. Por ahora el actualizador del canal de pruebas sigue descargando paquetes completos; los deltas se adjuntan a la publicación. A igual versión, el número de Actions permite actualizar una compilación de pruebas y evita ofrecerla repetidamente después de instalarla. No se ofrecen APK con una versión base inferior a la instalada.
 
 ## Primera instalación
 

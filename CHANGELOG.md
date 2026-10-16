@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.19.2 — Publicaciones de pruebas con deltas
+
+- Los tags de pruebas adjuntan los deltas Android y Windows de las tres versiones anteriores disponibles de su misma rama.
+- A igual versión base se utiliza la última compilación verificable, sin mezclar paquetes de main ni de otras ramas.
+- Cada delta se comprueba antes de publicar y se incluye en los manifiestos SHA-256; la APK reconstruida coincide exactamente con la firmada.
+- Se mantienen la APK directa con firma permanente, el paquete Windows completo y el resumen de cambios de la publicación.
+- Se conserva Supervivencia en Anillos de 0.19.1; el actualizador de pruebas sigue usando paquetes completos.
+
 ## 0.19.1 — Supervivencia y todas las reliquias visibles
 
 - Supervivencia continua en Anillos: mapa de 192 × 144 m con pasillos y portales, sin castillo ni oleadas.

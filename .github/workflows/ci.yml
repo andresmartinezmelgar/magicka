@@ -31,7 +31,9 @@ jobs:
       - name: Validar metadatos de version
         run: python3 scripts/version-support.py check .
       - name: Verificar aislamiento e integridad de publicaciones de prueba
-        run: python3 scripts/test-preview-release.py
+        run: |
+          python3 scripts/test-preview-release.py
+          python3 scripts/test-delta-publisher.py
       - name: Compilar cliente, servidor y pruebas
         run: dotnet build ArcanaArena.sln -c Release --nologo
       - name: Ejecutar pruebas funcionales y regresiones del motor
@@ -263,7 +265,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $version = (Get-Content VERSION -Raw).Trim()
-          python scripts/generate-update-deltas.py --platform windows --target "artifacts/ArcanaArena-v$version-Windows-x64.zip" --version $version --output artifacts --repository "${{ github.repository }}"
+          $deltaOptions = @()
+          if ($env:GITHUB_REF -like 'refs/heads/*' -and $env:GITHUB_REF_NAME -ne 'main') {
+            $deltaOptions = @('--preview-branch', $env:GITHUB_REF_NAME)
+          }
+          python scripts/generate-update-deltas.py --platform windows --target "artifacts/ArcanaArena-v$version-Windows-x64.zip" --version $version --output artifacts --repository "${{ github.repository }}" @deltaOptions
           if ($LASTEXITCODE -ne 0) { throw 'Fallo la generacion diferencial Windows.' }
       - uses: actions/upload-artifact@v4
         with:
@@ -418,7 +424,11 @@ jobs:
         run: |
           set -euo pipefail
           version=$(tr -d '\r\n' < VERSION)
-          python3 scripts/generate-update-deltas.py --platform android --target "artifacts/android/ArcanaArena-v$version-Android-arm64.apk" --version "$version" --output artifacts/android --repository "${{ github.repository }}"
+          delta_options=()
+          if [[ "$GITHUB_REF" == refs/heads/* && "$GITHUB_REF_NAME" != main ]]; then
+            delta_options=(--preview-branch "$GITHUB_REF_NAME")
+          fi
+          python3 scripts/generate-update-deltas.py --platform android --target "artifacts/android/ArcanaArena-v$version-Android-arm64.apk" --version "$version" --output artifacts/android --repository "${{ github.repository }}" "${delta_options[@]}"
       - uses: actions/upload-artifact@v4
         with:
           name: ArcanaArena-Android-arm64
@@ -636,7 +646,8 @@ jobs:
         run: |
           set -euo pipefail
           tag=$(cat "$RUNNER_TEMP/preview-tag.txt")
-          assets=(dist/*-Windows-x64.zip dist/*-Android-arm64.apk dist/SHA256SUMS.txt dist/SHA256SUMS-Windows.txt dist/SHA256SUMS-Android.txt dist/PREVIEW.json)
+          shopt -s nullglob
+          assets=(dist/*-Windows-x64*.zip dist/*-Android-arm64.apk dist/*-Android-arm64-from-v*.delta dist/DELTAS-*.json dist/SHA256SUMS.txt dist/SHA256SUMS-Windows.txt dist/SHA256SUMS-Android.txt dist/PREVIEW.json)
           if gh release view "$tag" >/dev/null 2>&1; then
             target=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" --jq '.target_commitish')
             test "$target" = "$GITHUB_SHA" || { echo '::error::La preliminar existente pertenece a otro commit.'; exit 1; }

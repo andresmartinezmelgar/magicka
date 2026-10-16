@@ -34,12 +34,20 @@ def prepare(root, dist, branch, commit, build, notes_file, tag_file):
         if not path.is_file() or path.stat().st_size == 0:
             raise ValueError(f'Falta el paquete completo {name}.')
         manifest = dist / ('SHA256SUMS-Android.txt' if extension == 'apk' else 'SHA256SUMS-Windows.txt')
-        entries = [line.split(maxsplit=1) for line in manifest.read_text().splitlines()]
-        expected = [parts[0] for parts in entries if len(parts) == 2 and parts[1].lstrip('*') == name]
-        actual = digest(path)
-        if len(expected) != 1 or expected[0].lower() != actual:
-            raise ValueError(f'Integridad incorrecta de {name}.')
-        checksums.append(f'{actual}  {name}\n')
+        patch_extension = 'delta' if extension == 'apk' else 'zip'
+        packages = [path, *sorted(dist.glob(f'ArcanaArena-v{version}-{platform}-from-v*.{patch_extension}'))]
+        entries = {}
+        for line in manifest.read_text(encoding='utf-8-sig').splitlines():
+            match = re.fullmatch(r'([a-fA-F0-9]{64}) [ *]([^/\\]+)', line)
+            if not match or match[2] in entries:
+                raise ValueError(f'Manifiesto de integridad inválido: {manifest.name}.')
+            entries[match[2]] = match[1].lower()
+        if set(entries) != {package.name for package in packages}:
+            raise ValueError(f'El manifiesto no coincide con los paquetes y deltas de {platform}.')
+        for package in packages:
+            if not package.is_file() or package.stat().st_size == 0 or entries[package.name] != digest(package):
+                raise ValueError(f'Integridad incorrecta de {package.name}.')
+            checksums.append(f'{entries[package.name]}  {package.name}\n')
     (dist / 'SHA256SUMS.txt').write_text(''.join(checksums), encoding='utf-8')
     tag = f'preview-v{version}-r{build}'
     metadata = dict(channel='preview', version=version, branch=branch, commit=commit, build=build, tag=tag)
@@ -47,7 +55,7 @@ def prepare(root, dist, branch, commit, build, notes_file, tag_file):
     notes_file.write_text('Arcana-Preview-Branch: ' + branch + '\n\n'
                           + f'Versión de pruebas {version}, compilación {build}.\n'
                           + f'Commit: {commit}\n\n' + notes(root, version) + '\n'
-                          + 'Windows y APK Android con firma permanente. Descarga directa y SHA-256 verificado.\n', encoding='utf-8')
+                          + 'Windows y APK Android con firma permanente. Paquetes completos y deltas de esta rama con SHA-256 verificado.\n', encoding='utf-8')
     tag_file.write_text(tag + '\n', encoding='utf-8')
     return metadata
 

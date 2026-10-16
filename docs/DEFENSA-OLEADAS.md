@@ -1,6 +1,6 @@
 # Supervivencia en Anillos
 
-Versión **0.19.1**, protocolo **25**, rama `feature/defensa-oleadas`. Esta rama sigue independiente de `main`. Se publican APK directas y paquetes Windows preliminares. Las dos cuentas autorizadas reciben el [canal de pruebas](CANALES-ACTUALIZACION.md); el resto conserva el canal estable. Cliente y servidor deben utilizar el mismo protocolo.
+Versión **0.19.2**, protocolo **25**, rama `feature/defensa-oleadas`. Esta rama sigue independiente de `main`. Se publican APK directas, paquetes Windows preliminares y deltas de las tres versiones anteriores de esta rama. Las dos cuentas autorizadas reciben el [canal de pruebas](CANALES-ACTUALIZACION.md); el resto conserva el canal estable. Cliente y servidor deben utilizar el mismo protocolo.
 
 ## Partida y vidas
 

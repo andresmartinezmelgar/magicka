@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Genera parches contra Releases verificadas; si faltan bases, publica el paquete completo."""
 import argparse
-import hashlib
 import json
 import os
+import re
 import tempfile
 import urllib.error
 import urllib.request
@@ -33,8 +33,59 @@ def asset_url(asset, repository, tag):
     return url
 
 
-def download_base(release, platform, repository, destination):
-    old_version = release["tag_name"].removeprefix("v")
+def eligible_releases(releases, target_version, preview_branch=None):
+    """Ordena bases del mismo canal; a igual versión prima la última compilación."""
+    if preview_branch is not None and (preview_branch in ("main", "refs/heads/main") or
+            not 1 <= len(preview_branch) <= 200 or any(c.isspace() or ord(c) < 32 for c in preview_branch)):
+        raise ValueError("Rama de pruebas inválida")
+    eligible = []
+    for release in releases:
+        if release.get("draft"):
+            continue
+        tag = release.get("tag_name", "")
+        build = 0
+        if preview_branch is None:
+            if release.get("prerelease") or not tag.startswith("v"):
+                continue
+            old = tag[1:]
+        else:
+            match = re.fullmatch(r"preview-v([0-9]+\.[0-9]+\.[0-9]+)-r([1-9][0-9]{0,17})", tag)
+            target = release.get("target_commitish", "")
+            branches = [line.removeprefix("Arcana-Preview-Branch: ").rstrip("\r")
+                        for line in (release.get("body") or "").split("\n")
+                        if line.startswith("Arcana-Preview-Branch: ")]
+            if not release.get("prerelease") or not match or not target or target in ("main", "refs/heads/main") or \
+                    branches != [preview_branch]:
+                continue
+            old, build = match[1], int(match[2])
+        try:
+            parsed = version(old)
+        except ValueError:
+            continue
+        if parsed < target_version:
+            eligible.append((parsed, build, old, release))
+    return sorted(eligible, key=lambda item: (item[0], item[1]), reverse=True)
+
+
+def published_bases(releases, target_version, platform, repository, destination, preview_branch=None):
+    bases, seen = [], set()
+    for parsed, _, old, release in eligible_releases(releases, target_version, preview_branch):
+        if parsed in seen:
+            continue
+        try:
+            base = download_base(release, platform, repository, destination, old)
+            if base:
+                bases.append((old, base))
+                seen.add(parsed)
+                print(f"DELTA_BASE {release['tag_name']}: {base.name}")
+                if len(bases) == 3:
+                    break
+        except (OSError, ValueError, urllib.error.URLError) as error:
+            print(f"DELTA_BASE_SKIPPED {old}: {type(error).__name__}")
+    return bases
+
+
+def download_base(release, platform, repository, destination, old_version):
     suffix = "Android-arm64.apk" if platform == "android" else "Windows-x64.zip"
     name = f"ArcanaArena-v{old_version}-{suffix}"
     assets = release.get("assets", [])
@@ -79,6 +130,7 @@ def main():
     parser.add_argument("--repository", default="andresmartinezmelgar/magicka")
     parser.add_argument("--base", type=Path)
     parser.add_argument("--base-version")
+    parser.add_argument("--preview-branch", help="Usar solo preliminares publicadas de esta rama")
     args = parser.parse_args()
     target_version = version(args.version)
     suffix = "Android-arm64" if args.platform == "android" else "Windows-x64"
@@ -99,29 +151,9 @@ def main():
             bases.append((args.base_version, args.base))
         else:
             try:
-                releases = json.loads(request(f"https://api.github.com/repos/{args.repository}/releases?per_page=30",
+                releases = json.loads(request(f"https://api.github.com/repos/{args.repository}/releases?per_page=100",
                     8 * 1024 ** 2, os.environ.get("GH_TOKEN")))
-                eligible = []
-                seen = set()
-                for release in releases:
-                    try:
-                        old = release["tag_name"].removeprefix("v")
-                        parsed = version(old)
-                    except (ValueError, KeyError):
-                        continue
-                    if parsed >= target_version or parsed in seen or release.get("draft") or release.get("prerelease"):
-                        continue
-                    seen.add(parsed)
-                    eligible.append((parsed, old, release))
-                for _, old, release in sorted(eligible, reverse=True):
-                    if len(bases) == 3:
-                        break
-                    try:
-                        base = download_base(release, args.platform, args.repository, folder)
-                        if base:
-                            bases.append((old, base))
-                    except (OSError, ValueError, urllib.error.URLError) as error:
-                        print(f"DELTA_BASE_SKIPPED {old}: {type(error).__name__}")
+                bases = published_bases(releases, target_version, args.platform, args.repository, folder, args.preview_branch)
             except (OSError, ValueError, urllib.error.URLError) as error:
                 print(f"DELTA_BASES_UNAVAILABLE: {type(error).__name__}; paquete completo disponible")
         for old, base in bases:
