@@ -10,6 +10,12 @@ on:
 permissions:
   contents: read
 
+# Godot solicita net8.0 con LatestMajor por defecto. En los runners con .NET 10
+# eso cambia el runtime de las pruebas. Los cierres fallidos usaban .NET 10.
+# Conserva los parches de seguridad de 8.0 sin cambiar de versión principal.
+env:
+  DOTNET_ROLL_FORWARD: LatestPatch
+
 # CI comprueba exclusivamente lo reproducible sin dispositivos, red LAN ni credenciales
 # privadas. Las pruebas manuales estan documentadas en docs/PRUEBAS-MANUALES-v0.17.md.
 jobs:
