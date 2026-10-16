@@ -184,7 +184,7 @@ public partial class Main
             Check(_equipmentPanel == null && Accounts.Profile!.Loadout.Boots != chosen.Loadout.Boots, "La navegación inferior perdió la selección.");
             OpenEquipment("wss://servidor-central.example"); panel = _equipmentPanel!;
             panel.PressInspect(EquipmentSlot.Boots); panel.PressChoice(chosen.Loadout.Boots);
-            if (Ui.IsMobile) _Notification(NotificationWMGoBackRequest);
+            if (Ui.IsMobile) _Notification((int)NotificationWMGoBackRequest);
             else _UnhandledInput(new InputEventKey { Pressed = true, PhysicalKeycode = Key.Escape });
             Check(_equipmentPanel == null && Accounts.Profile!.Loadout == chosen.Loadout, "Escape o Atrás de Android no guardó la selección.");
             Accounts.RestoreOfflineProfile(chosen with { Loadout = new() }); RestoreAccountCache();

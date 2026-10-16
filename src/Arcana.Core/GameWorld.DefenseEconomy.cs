@@ -18,6 +18,20 @@ public sealed partial class GameWorld
     private bool DefenseCommand(Wizard player, ClientMessage command)
     {
         if (!IsDefense || !_defenders.TryGetValue(player.Id, out var progress)) return false;
+        if (command.Type == "defense_loadout")
+        {
+            if (command.Loadout == null) return false;
+            var inventory = new AccountProfile("", player.Name, progress.Gold, 0, 0, progress.Loadout, progress.Items.ToArray());
+            try
+            {
+                // Valida las cuatro ranuras antes de cambiar ninguna. También permite quitar piezas.
+                var updated = AccountInventory.ApplyLoadout(inventory, command.Loadout);
+                progress.Loadout = updated.Loadout;
+                RecalculateDefender(player);
+                return true;
+            }
+            catch (ArgumentException) { return false; }
+        }
         if (command.Type == "defense_shop")
         {
             if (player.Bot || command.Slot is < 0 or > 1) return false;

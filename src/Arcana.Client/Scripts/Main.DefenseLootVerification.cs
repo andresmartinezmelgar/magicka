@@ -69,7 +69,7 @@ public partial class Main
             _defenseLootLabels.Clear(); _renderer.PreviewFocus = null; _renderer.Clear();
             if (_engineLog.ErrorCount > 0) throw new InvalidOperationException("Godot registró errores al dibujar el botín.");
             GD.Print("DEFENSE_LOOT_SMOKE_OK: moneda vertical animada, cuatro piezas, siete mejoras, privacidad y retirada de recogidas.");
-            GD.Print("DEFENSE_SMOKE_OK: mapa, tanques, pausa con bots, tienda, compras, inventario, controles y botín.");
+            GD.Print("DEFENSE_SMOKE_OK: mapa, tanques, pausa con bots, inventario compartido, selección al salir, compra/mejora/venta, aislamiento de cuenta, controles y botín.");
             GetTree().Quit();
         }
         catch (Exception error)

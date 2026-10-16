@@ -29,6 +29,46 @@ internal static class DefenseTests
     public static void Run(Action<string, Action> test)
     {
         DefenseBalanceTests.Run(test);
+        test("Defensa: inventario compartido aplica cuatro ranuras de forma atómica sin importar equipo permanente", () =>
+        {
+            var world = World(); var owner = world.AddPlayer("Defensor")!; var other = world.AddPlayer("Aliado")!;
+            var random = new Random(173);
+            foreach (var slot in Enum.GetValues<EquipmentSlot>())
+            {
+                Invoke(world, "GrantDefenseItem", owner, EquipmentCatalogue.Generate(random, tier: ItemTier.Gold, slot: slot));
+                Invoke(world, "GrantDefenseItem", owner, EquipmentCatalogue.Generate(random, tier: ItemTier.Diamond, slot: slot));
+            }
+            var items = Player(world, owner).Items;
+            var desired = new EquipmentLoadout();
+            foreach (var slot in Enum.GetValues<EquipmentSlot>())
+                desired = desired.With(slot, items.Single(i => i.Item.Slot == slot && i.Item.Tier == ItemTier.Diamond).Item.Id);
+            bool Apply(EquipmentLoadout? loadout)
+            {
+                var command = new ClientMessage { Type = "defense_loadout", Sequence = owner.LastSequence + 1, Loadout = loadout };
+                var wire = Protocol.Deserialize<ClientMessage>(Protocol.SerializeBinaryAction(command))!;
+                return world.ApplyMessage(owner.Id, wire);
+            }
+            Command(world, owner, "defense_shop", 1);
+            Check(Apply(desired) && Player(world, owner).Items.Count(i => i.Equipped && i.Item.Tier == ItemTier.Diamond) == 4,
+                "No aplicó las cuatro posiciones desde el mensaje de red.");
+            int gold = Player(world, owner).Gold;
+            var invalid = desired.With(EquipmentSlot.Boots, items.First(i => i.Item.Slot == EquipmentSlot.Boots && i.Item.Tier == ItemTier.Gold).Item.Id)
+                .With(EquipmentSlot.Weapon, new string('a', 32));
+            Check(!Apply(invalid) && Player(world, owner).Items.Where(i => i.Equipped).All(i => i.Item.Tier == ItemTier.Diamond),
+                "Un ID desconocido aplicó parcialmente el equipo.");
+            Check(!Apply(desired.With(EquipmentSlot.Hat, desired.Boots)) && !Apply(null) &&
+                !Apply(desired.With(EquipmentSlot.Hat, null!)), "Aceptó ranuras intercambiadas o selecciones nulas.");
+            Check(!world.ApplyMessage(other.Id, new() { Type = "defense_loadout", Sequence = other.LastSequence + 1, Loadout = desired }),
+                "El aliado pudo equipar piezas ajenas.");
+            owner.Health = 0;
+            Check(Apply(new()) && Player(world, owner).Items.All(i => !i.Equipped) && Player(world, owner).Gold == gold &&
+                Protocol.Serialize(Player(world, owner).Items.Select(i => i.Item)) == Protocol.Serialize(items.Select(i => i.Item)),
+                "Quitar equipo durante la reaparición alteró las piezas o el oro.");
+            owner.Health = owner.MaxHealth; Check(Apply(desired), "No recuperó la selección.");
+            Invoke(world, "ResetMatch");
+            Check(Player(world, owner).Items.Length == 0 && Player(world, owner).Gold == 0, "El equipo se conservó en otra partida.");
+            SnapshotValidation.Check(world.Snapshot());
+        });
         test("Defensa: mapa exclusivo, un equipo y enemigos fuera de plazas de jugadores", () =>
         {
             var w = World(bots: 3); var p = w.AddPlayer("Humano", 1)!;

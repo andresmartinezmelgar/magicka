@@ -44,30 +44,30 @@ public partial class EquipmentPanel : Control
 
     public void Build(Main main, string address)
     {
-        _automaticServer = PublicAccountServer.NeedsDiscovery(address, Ui.IsMobile);
+        _automaticServer = _defensePlayer == null && PublicAccountServer.NeedsDiscovery(address, Ui.IsMobile);
         _main = main; Name = "EquipmentPanel"; Theme = Ui.Theme(); Ui.Full(this);
-        _draft = main.Accounts.Profile;
+        _draft = _defensePlayer == null ? main.Accounts.Profile : DefenseProfile(_defensePlayer);
         _savedLoadout = _draft?.Loadout ?? new();
-        _onlineInventory = main.Accounts.SignedIn || main.Accounts.HasDirectFirebaseSession;
+        _onlineInventory = _defensePlayer == null && (main.Accounts.SignedIn || main.Accounts.HasDirectFirebaseSession);
         AddChild(new ColorRect { Color = new(0.01f, 0.025f, 0.045f, 0.98f), LayoutMode = 1, AnchorRight = 1, AnchorBottom = 1 });
         var margin = new MarginContainer(); AddChild(margin); Ui.Full(margin);
         foreach (string side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, 20);
         var panel = new PanelContainer(); margin.AddChild(panel);
         var box = new VBoxContainer(); box.AddThemeConstantOverride("separation", 8); panel.AddChild(box);
         var heading = _equipmentHeading = new HBoxContainer(); box.AddChild(heading);
-        var title = Ui.Label("MI MAGO · EQUIPACIÓN", 25, Ui.Gold);
+        var title = Ui.Label(_defensePlayer == null ? "MI MAGO · EQUIPACIÓN" : "DEFENSA · EQUIPO DE PARTIDA", 25, Ui.Gold);
         title.AutowrapMode = TextServer.AutowrapMode.WordSmart; title.SizeFlagsHorizontal = SizeFlags.ExpandFill; heading.AddChild(title);
         _profile = Ui.Label("", 16); _profile.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _profile.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _profile.HorizontalAlignment = HorizontalAlignment.Right; heading.AddChild(_profile);
         var connection = _equipmentToolbar = new HBoxContainer(); connection.AddThemeConstantOverride("separation", 8); box.AddChild(connection);
         var operationsConfig = new ConfigFile();
-        if (operationsConfig.Load("user://protected-account-service.cfg") == Error.Ok)
+        if (_defensePlayer == null && operationsConfig.Load("user://protected-account-service.cfg") == Error.Ok)
         {
             try { _main.Accounts.SetProtectedActionsServer(operationsConfig.GetValue("operations", "url", "").AsString()); }
             catch (ArgumentException) { /* El usuario puede corregir la dirección en esta pantalla. */ }
         }
-        _address = new LineEdit { Text = _main.Accounts.ServerAddress, PlaceholderText = "https://servidor-seguro-para-ventas",
+        _address = new LineEdit { Text = _defensePlayer == null ? _main.Accounts.ServerAddress : "", PlaceholderText = "https://servidor-seguro-para-ventas",
             CustomMinimumSize = new(0, 48), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _address.AddThemeFontSizeOverride("font_size", 18); connection.AddChild(_address);
         _address.Visible = false;
@@ -87,8 +87,8 @@ public partial class EquipmentPanel : Control
                 configSales.Text = "Configurar ventas";
             }
         });
-        configSales.Visible = _main.Accounts.IsDirectFirebaseSession;
-        Action(connection, "Actualizar", () => _ = Refresh());
+        configSales.Visible = _defensePlayer == null && _main.Accounts.IsDirectFirebaseSession;
+        Action(connection, "Actualizar", () => _ = Refresh()).Visible = _defensePlayer == null;
         _status = Ui.Label("", 18, Ui.Gold); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_status);
         _salesHelp = Ui.Label("", 15, Ui.Muted);
         _salesHelp.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -122,6 +122,8 @@ public partial class EquipmentPanel : Control
         _combatPreview.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         inventory.AddChild(_combatPreview);
         _sell = Action(inventory, "Eliminar pieza por oro", ConfirmSale);
+        _sell.Name = "EquipmentSellButton";
+        if (_defensePlayer != null) BuildDefenseActions(inventory);
         var totalsScroll = new ContentScrollContainer { Name = "EquipmentTotalsScroll", SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         columns.AddChild(totalsScroll);
@@ -143,7 +145,7 @@ public partial class EquipmentPanel : Control
         var footer = new HBoxContainer(); footer.AddThemeConstantOverride("separation", 14); box.AddChild(footer);
         var hint = Ui.Label("Suma = piezas + conjunto. Aplicado = valor real en combate.", 14, Ui.Muted);
         hint.AutowrapMode = TextServer.AutowrapMode.WordSmart; hint.SizeFlagsHorizontal = SizeFlags.ExpandFill; footer.AddChild(hint);
-        var close = Action(footer, "Volver", () => Close()); _actions.Remove(close);
+        var close = Action(footer, _defensePlayer == null ? "Volver" : "Volver a la tienda", () => Close()); _actions.Remove(close);
         _confirm = new ConfirmationDialog { Title = "Eliminar objeto", OkButtonText = "Eliminar y recibir oro", CancelButtonText = "Cancelar" };
         AddChild(_confirm); _confirm.Confirmed += () => _ = Sell();
         _setsInfo = new AcceptDialog { Title = "Conjuntos Míticos de los ocho elementos", OkButtonText = "Cerrar" }; AddChild(_setsInfo);
@@ -160,7 +162,7 @@ public partial class EquipmentPanel : Control
         GetViewport().SizeChanged += UpdateEquipmentResponsive;
         UpdateEquipmentResponsive();
         Render();
-        if (_main.Accounts.SignedIn) _ = Refresh();
+        if (_defensePlayer == null && _main.Accounts.SignedIn) _ = Refresh();
     }
 
     private void UpdateEquipmentResponsive()
@@ -175,9 +177,10 @@ public partial class EquipmentPanel : Control
             if (compact) profileParent.MoveChild(_profile, 0);
         }
         _profile.HorizontalAlignment = compact ? HorizontalAlignment.Left : HorizontalAlignment.Right;
-        _equipmentHeading.Visible = !compact;
+        _equipmentHeading.Visible = _defensePlayer != null || !compact;
         _equipmentToolbar.Visible = !_showingTotals;
-        _status.Visible = _status.Text.Length > 0 && (!_showingTotals || !_routineStatus);
+        _status.Visible = _status.Text.Length > 0 && (!_showingTotals || !_routineStatus) &&
+            (_defensePlayer == null || !_routineStatus || HasChanges);
         _summaryTitle.Visible = !compact;
         var setsParent = compact ? (Node)_summaryHeading : _summaryContent;
         if (_sets.GetParent() != setsParent)
@@ -241,7 +244,7 @@ public partial class EquipmentPanel : Control
     private void Render()
     {
         var account = _draft;
-        _profile.Text = account == null ? "Sin cuenta" : $"{account.Name} · {account.Gold} oro · {account.Items.Length}/{EquipmentCatalogue.InventoryLimit} objetos";
+        _profile.Text = account == null ? "Sin cuenta" : $"{account.Name} · {account.Gold} oro{(_defensePlayer == null ? "" : " temporal")} · {account.Items.Length}/{(_defensePlayer == null ? EquipmentCatalogue.InventoryLimit : DefenseRules.InventoryLimit)} objetos";
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
             var view = _slots[(int)slot]; var choices = Choices(slot);
@@ -268,11 +271,14 @@ public partial class EquipmentPanel : Control
             string.Join(" · ", activeSets.Select(f => EquipmentCatalogue.FamilyName(f) + " " + m.Pieces(f) + "/4"));
         _sets.TooltipText = "Solo cuentan las piezas Míticas de la misma familia. Con 3 piezas sigue activo el bonus de 2. El bonus de 4 sustituye al de 2.\n"
             + string.Join("\n", activeSets.Select(f => Set(EquipmentCatalogue.FamilyName(f), m.Pieces(f), SetDescription(f, false), SetDescription(f, true))));
-        _salesHelp.Text = _main.Accounts.IsDirectFirebaseSession && _main.Accounts.ServerAddress.Length == 0
+        _salesHelp.Text = _defensePlayer != null
+            ? "Piezas y oro de esta partida. Los cambios se aplican al volver a la tienda."
+            : _main.Accounts.IsDirectFirebaseSession && _main.Accounts.ServerAddress.Length == 0
             ? "Venta de objetos por oro: desactivada hasta configurar un servicio seguro. Equipar y consultar el inventario funcionan sin él."
             : "Las bonificaciones equipadas afectan al combate. Consulta «Ayuda → Bonificaciones» para ver cómo actúa cada atributo.";
         if (!_busy && _status.Text.Length == 0) SetStatus(account == null ? "Inicia sesión con Google para recuperar tu inventario y conseguir objetos en PvP." :
             "Pulsa una posición para elegir una pieza. La configuración se guarda al salir del inventario.", routine: true);
+        if (_defensePlayer != null) RenderDefenseActions();
     }
     internal static bool RenderTotals(GridContainer table, IEnumerable<EquipmentStatTotal> stats)
     {
@@ -321,24 +327,28 @@ public partial class EquipmentPanel : Control
         }
         _empty.Text = item == null ? "Sin pieza equipada. Pulsa una posición para abrir sus objetos ordenados por calidad." :
             "Pulsa una posición para comparar sus objetos. Los cambios se guardan al salir del inventario.";
-        _sell.Text = item == null ? "Eliminar pieza por oro" : $"Eliminar esta pieza · +{item.SaleGold} oro";
-        _sell.Disabled = _busy || item == null || !_main.Accounts.SignedIn || (_main.Accounts.IsDirectFirebaseSession && _main.Accounts.ServerAddress.Length == 0);
+        _sell.Text = item == null ? (_defensePlayer == null ? "Eliminar pieza por oro" : "Vender pieza por oro")
+            : $"{(_defensePlayer == null ? "Eliminar esta pieza" : "Vender esta pieza")} · +{item.SaleGold} oro";
+        _sell.Disabled = _busy || item == null || !CanSellInventory;
     }
     public static Color TierColor(ItemTier tier) => tier switch
     { ItemTier.Silver => new("c4cbd7"), ItemTier.Gold => new("e8c574"), ItemTier.Platinum => new("82dfd6"), ItemTier.Diamond => new("73bfff"), _ => new("cf9cff") };
     private void SetStatus(string message, bool routine = false)
     {
         _status.Text = message; _routineStatus = routine;
-        _status.Visible = message.Length > 0 && (!_showingTotals || !routine);
+        _status.Visible = message.Length > 0 && (!_showingTotals || !routine) &&
+            (_defensePlayer == null || !routine || HasChanges);
     }
     private void Busy(bool value, string message = "")
     {
         _busy = value; foreach (var button in _actions) button.Disabled = value;
         _address.Editable = !value; if (message.Length > 0) SetStatus(message);
-        _sell.Disabled = value || Selected() == null || !_main.Accounts.SignedIn || (_main.Accounts.IsDirectFirebaseSession && _main.Accounts.ServerAddress.Length == 0);
+        _sell.Disabled = value || Selected() == null || !CanSellInventory;
+        if (_defensePlayer != null) RenderDefenseActions();
     }
     private void ConfigureOperations()
     {
+        if (_defensePlayer != null) return;
         try
         {
             _main.Accounts.SetProtectedActionsServer(_address.Text.Trim());
@@ -356,6 +366,7 @@ public partial class EquipmentPanel : Control
 
     private async Task Refresh()
     {
+        if (_defensePlayer != null) return;
         if (_busy) return;
         if (!_main.Accounts.SignedIn) { Busy(false, "Inicia sesión con Google para actualizar el inventario de tu cuenta."); return; }
         Busy(true, "Cargando inventario…");
@@ -376,14 +387,17 @@ public partial class EquipmentPanel : Control
     }
     private void ConfirmSale()
     {
-        var item = Selected(); if (_busy || item == null || !_main.Accounts.SignedIn || (_main.Accounts.IsDirectFirebaseSession && _main.Accounts.ServerAddress.Length == 0)) return;
+        var item = Selected(); if (_busy || item == null || !CanSellInventory) return;
         _selling = item.Id;
         _confirm.DialogText = "PIEZA QUE VAS A ELIMINAR:\n" + EquipmentCatalogue.ItemName(item) +
-            $"\n\nORO QUE RECIBIRÁS: +{item.SaleGold}\n\nLa pieza desaparecerá definitivamente de tu inventario y dejará de estar equipada. Esta acción no se puede deshacer.\n\n¿Confirmas la venta?";
+            $"\n\nORO QUE RECIBIRÁS: +{item.SaleGold}\n\n" + (_defensePlayer == null
+                ? "La pieza desaparecerá definitivamente de tu inventario y dejará de estar equipada. Esta acción no se puede deshacer."
+                : "La pieza se venderá por oro de esta partida y dejará de estar equipada.") + "\n\n¿Confirmas la venta?";
         _confirm.PopupCentered(new(640, 220));
     }
     private async Task Sell()
     {
+        if (_defensePlayer != null) { SellDefenseItem(); return; }
         if (_busy || _selling.Length == 0) return; Busy(true, "Eliminando objeto y abonando oro…");
         try { var result = await _main.Accounts.Sell(_selling, _lifetime.Token); Done(result.Message); }
         catch (Exception error) { Failed(error); }

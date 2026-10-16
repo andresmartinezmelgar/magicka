@@ -11,7 +11,7 @@ public partial class Main
         _defensePanel?.QueueFree(); _defensePanel = null; _defenseEnded = false;
         if (snapshot.Defense == null) return;
         _defensePanel = new DefensePanel(); _ui.AddChild(_defensePanel);
-        _defensePanel.Build(Submit, () => ReturnToLauncher());
+        _defensePanel.Build(this, Submit, () => ReturnToLauncher());
         _defensePanel.OpenChanged += () =>
         {
             StopInput();

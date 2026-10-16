@@ -70,7 +70,7 @@ public partial class Main
         { _profiler.Cancel(); return; }
         if (what == NotificationWMGoBackRequest)
         {
-            if (_defensePanel?.ShopOpen == true) _defensePanel.CloseShop();
+            if (_defensePanel?.ShopOpen == true) _defensePanel.HandleBack();
             else if (InspectingEquipment) ClosePlayerEquipment();
             else if (GodotObject.IsInstanceValid(_equipmentPanel)) _equipmentPanel!.HandleBack();
             else if (GodotObject.IsInstanceValid(_optionAHelp)) CloseOptionAHelp();

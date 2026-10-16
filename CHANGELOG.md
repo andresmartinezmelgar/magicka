@@ -1,5 +1,19 @@
 # Cambios
 
+## 0.18.5 — Inventario compartido con main
+
+- Integración de main en la rama experimental, conservando dificultad, bots y sprites de Defensa.
+- La tienda de Defensa reutiliza la pantalla de inventario, sus cuatro ranuras, el selector por calidad y las tablas de atributos y conjuntos de main.
+- Selección provisional y aplicación de las cuatro posiciones al volver a la tienda; permite quitar piezas y espera la confirmación de la partida.
+- Compras, mejoras y ventas con oro temporal, sin modificar la cuenta ni su caché permanente.
+- Atrás recorre selector, inventario, tienda y combate; la pausa con un solo humano continúa hasta cerrar la tienda.
+- Protocolo 23 para la selección atómica del equipo temporal y validación de propiedad de todas las piezas.
+- Comprobaciones de selector móvil, reapertura, compras, mejoras, ventas y aislamiento del inventario permanente.
+
+## 0.18.4 — Base del inventario de main
+
+- Selector de piezas por calidad en dos o tres columnas y guardado de la equipación de cuenta al salir.
+
 ## 0.18.3 — Botín reconocible
 
 - Moneda pequeña con canto y grabados en ambas caras, girando sobre su eje vertical.
@@ -41,6 +55,11 @@
 - Interfaz de estadísticas e inventario, totales con bordes y controles de defensa adaptados al móvil.
 - Protocolo 21 y distribución independiente por artefactos de Actions; sin publicación ni actualización estable.
 - Pruebas de reglas, red, persistencia, controles táctiles y carga con 64 minions.
+
+## 0.17.24 — Canal de pruebas por cuenta
+
+- Actualizador por UID autenticado: versiones preliminares para las dos cuentas autorizadas y estables para las demás.
+- Publicación verificada de ramas, conservación de firma e integridad, identificación de cada compilación y limpieza al cambiar de sesión.
 
 ## 0.17.22
 

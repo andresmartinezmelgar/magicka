@@ -543,7 +543,7 @@ public partial class Main : Node
             if (key.PhysicalKeycode == Key.F1) { if (!InspectingEquipment) ToggleHelp(); GetViewport().SetInputAsHandled(); return; }
             if (key.PhysicalKeycode == Key.Escape)
             {
-                if (_defensePanel?.ShopOpen == true) _defensePanel.CloseShop();
+                if (_defensePanel?.ShopOpen == true) _defensePanel.HandleBack();
                 else if (InspectingEquipment) ClosePlayerEquipment();
                 else if (GodotObject.IsInstanceValid(_equipmentPanel)) _equipmentPanel!.HandleBack();
                 else if (GodotObject.IsInstanceValid(_optionAHelp)) CloseOptionAHelp();

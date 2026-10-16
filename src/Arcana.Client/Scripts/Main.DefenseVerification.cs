@@ -11,6 +11,10 @@ public partial class Main
     private int _defenseSmokeFrame, _defenseSmokePhase;
     private long _defensePauseTick;
     private string? _defenseCaptureDirectory;
+    private string _defenseAccountBefore = "", _defenseCacheBefore = "";
+    private EquipmentLoadout? _defenseChosenLoadout;
+    private string _defenseSoldItem = "";
+    private long _defenseGoldAfterSale;
 
     private void StartDefenseSmoke(string[] arguments)
     {
@@ -45,6 +49,8 @@ public partial class Main
         foreach (var minion in ((IDictionary)Field("_minions")).Values) minion!.GetType().GetField("Attack")!.SetValue(minion, 600f);
         ((Wizard)Field("_castle")).Health = 7200;
         _snapshot = world.Snapshot();
+        _defenseAccountBefore = Protocol.Serialize(Accounts.Profile);
+        _defenseCacheBefore = System.IO.File.Exists(AccountCache) ? System.IO.File.ReadAllText(AccountCache) : "";
     }
 
     private bool CheckDefenseSmoke()
@@ -53,7 +59,7 @@ public partial class Main
         if (_defenseLootReview != null) return CheckDefenseLootReview();
         try
         {
-            if (++_defenseSmokeFrame < 45) return false;
+            if (++_defenseSmokeFrame < (_defenseSmokePhase >= 4 ? 15 : 45)) return false;
             _defenseSmokeFrame = 0;
             void Check(bool value, string reason) { if (!value) throw new InvalidOperationException(reason); }
             var panel = _defensePanel ?? throw new InvalidOperationException("No se construyó el panel de defensa.");
@@ -85,7 +91,7 @@ public partial class Main
                 Check(_touch?.Visible != true, "Los controles táctiles cubren la tienda.");
                 Check(state.Defense!.Paused && state.Tick == _defensePauseTick, "La tienda no pausa con un humano y bot.");
                 CaptureDefense("02-bastion");
-                if (Ui.IsMobile) _Notification(NotificationWMGoBackRequest);
+                if (Ui.IsMobile) _Notification((int)NotificationWMGoBackRequest);
                 else _UnhandledInput(new InputEventKey { Pressed = true, PhysicalKeycode = Key.Escape });
                 Check(!panel.ShopOpen && !_practice.DefensePaused && (!Ui.IsMobile || _touch?.Visible == true),
                     "Escape o Atrás de Android no cierra la tienda y restaura el combate.");
@@ -109,10 +115,82 @@ public partial class Main
             }
             if (_defenseSmokePhase == 4)
             {
-                Check(((ItemList)panel.FindChild("DefenseInventory", true, false)).ItemCount == 8, "No se muestran las piezas.");
-                CaptureDefense("04-inventario"); panel.ShowSection(3); _defenseSmokePhase++; return false;
+                var inventory = panel.EquipmentInventory!;
+                Check(inventory is { TemporaryInventory: true, VisibleItems: 8 } &&
+                    inventory.FindChild("ResponsiveMenuShell", true, false) == null, "Defensa no utiliza el inventario compartido de partida.");
+                CaptureDefense("04-inventario");
+                inventory.PressInspect(EquipmentSlot.Chest); _defenseSmokePhase++; return false;
             }
             if (_defenseSmokePhase == 5)
+            {
+                var inventory = panel.EquipmentInventory!;
+                Check(inventory.PickerVisible && inventory.PickerColumns is 2 or 3 && inventory.PickerItems.Length == 2,
+                    "El selector no muestra columnas de piezas de la ranura.");
+                var lookup = state.Defense!.Defenders.Single(p => p.PlayerId == _localId).Items.ToDictionary(i => i.Item.Id);
+                Check(inventory.PickerItems.Select(id => lookup[id].Item.Tier).SequenceEqual(new[] { ItemTier.Platinum, ItemTier.Gold }),
+                    "Las piezas no están ordenadas por calidad.");
+                CaptureDefense("05-selector-calidad");
+                if (Ui.IsMobile) _Notification((int)NotificationWMGoBackRequest);
+                else _UnhandledInput(new InputEventKey { Pressed = true, PhysicalKeycode = Key.Escape });
+                Check(!inventory.PickerVisible && panel.EquipmentInventory == inventory && panel.ShopOpen && _practice!.DefensePaused,
+                    "Atrás no vuelve del selector al inventario manteniendo la pausa.");
+                inventory.PressInspect(EquipmentSlot.Chest); inventory.PressChoice("");
+                Check(inventory.PreviewProfile!.Loadout.Chest == "" && lookup.Values.Any(i => i.Equipped && i.Item.Slot == EquipmentSlot.Chest),
+                    "Quitar una pieza no se previsualiza manteniendo el equipo actual hasta salir.");
+                foreach (var slot in Enum.GetValues<EquipmentSlot>())
+                {
+                    inventory.PressInspect(slot);
+                    inventory.PressChoice(lookup.Values.Single(i => i.Item.Slot == slot && i.Item.Tier == ItemTier.Platinum).Item.Id);
+                }
+                _defenseChosenLoadout = inventory.PreviewProfile!.Loadout;
+                Check(inventory.HasChanges && _practice!.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId)
+                    .Items.Where(i => i.Equipped).All(i => i.Item.Tier == ItemTier.Gold), "Se aplicó la selección antes de salir.");
+                panel.HandleBack(); _defenseSmokePhase++; return false;
+            }
+            if (_defenseSmokePhase == 6)
+            {
+                var player = state.Defense!.Defenders.Single(p => p.PlayerId == _localId);
+                Check(panel.EquipmentInventory == null && panel.ShopOpen && _practice!.DefensePaused &&
+                    player.Items.Count(i => i.Equipped && i.Item.Tier == ItemTier.Platinum) == 4,
+                    "Salir no aplicó las cuatro posiciones o reanudó el combate antes de cerrar la tienda.");
+                panel.ShowSection(1);
+                var inventory = panel.EquipmentInventory!;
+                Check(!inventory.HasChanges && inventory.PreviewProfile!.Loadout == _defenseChosenLoadout, "Reabrir perdió el equipo elegido.");
+                var upgrade = (Button)inventory.FindChild("DefenseInventoryUpgrade", true, false);
+                Check(!upgrade.Disabled, "No se puede mejorar una pieza desde el inventario compartido.");
+                upgrade.EmitSignal(Button.SignalName.Pressed); _defenseSmokePhase++; return false;
+            }
+            if (_defenseSmokePhase == 7)
+            {
+                var player = state.Defense!.Defenders.Single(p => p.PlayerId == _localId);
+                Check(player.Items.Single(i => i.Item.Id == _defenseChosenLoadout!.Boots).Upgrades == 1 && player.Gold == 1245 &&
+                    panel.EquipmentInventory?.Saving == false, "La mejora no confirmó su efecto y coste.");
+                ((Button)panel.EquipmentInventory!.FindChild("DefenseInventorySupply", true, false)).EmitSignal(Button.SignalName.Pressed);
+                _defenseSmokePhase++; return false;
+            }
+            if (_defenseSmokePhase == 8)
+            {
+                var player = state.Defense!.Defenders.Single(p => p.PlayerId == _localId);
+                Check(player.Items.Length == 9 && player.Gold == 1145 && panel.EquipmentInventory?.Saving == false,
+                    "Comprar una pieza no actualizó el inventario y el oro de partida.");
+                var inventory = panel.EquipmentInventory!;
+                _defenseSoldItem = inventory.PreviewProfile!.Loadout.Boots;
+                _defenseGoldAfterSale = player.Gold + player.Items.Single(i => i.Item.Id == _defenseSoldItem).Item.SaleGold;
+                ((Button)inventory.FindChild("EquipmentSellButton", true, false)).EmitSignal(Button.SignalName.Pressed);
+                inventory.GetChildren().OfType<ConfirmationDialog>().Single().EmitSignal(ConfirmationDialog.SignalName.Confirmed);
+                _defenseSmokePhase++; return false;
+            }
+            if (_defenseSmokePhase == 9)
+            {
+                var player = state.Defense!.Defenders.Single(p => p.PlayerId == _localId);
+                Check(player.Items.Length == 8 && player.Items.All(i => i.Item.Id != _defenseSoldItem) && player.Gold == _defenseGoldAfterSale &&
+                    panel.EquipmentInventory?.Saving == false, "Vender una pieza no actualizó el equipo temporal.");
+                Check(Protocol.Serialize(Accounts.Profile) == _defenseAccountBefore &&
+                    (System.IO.File.Exists(AccountCache) ? System.IO.File.ReadAllText(AccountCache) : "") == _defenseCacheBefore,
+                    "El inventario temporal modificó la cuenta o su caché permanente.");
+                panel.HandleBack(); panel.ShowSection(3); _defenseSmokePhase++; return false;
+            }
+            if (_defenseSmokePhase == 10)
             {
                 CaptureDefense("05-bonificaciones"); panel.CloseShop();
                 Check(!panel.ShopOpen && !_practice.DefensePaused && (!Ui.IsMobile || _touch?.Visible == true), "No se recuperaron combate y controles.");

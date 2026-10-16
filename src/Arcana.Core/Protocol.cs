@@ -6,10 +6,10 @@ namespace Arcana.Core;
 
 public static class Protocol
 {
-    public const int Version = 22;
+    public const int Version = 23;
     public const int GamePort = 27015;
     public const int DiscoveryPort = 27016;
-    public const string DiscoveryMagic = "ARCANA_DISCOVER_V22";
+    public const string DiscoveryMagic = "ARCANA_DISCOVER_V23";
     public const int LoadingTimeoutSeconds = 120;
     public const int MaxMessageBytes = 4096;
     public static readonly JsonSerializerOptions Json = new()
@@ -177,6 +177,7 @@ public sealed class ClientMessage
     public Element Element { get; set; }
     public int Slot { get; set; }
     public string ItemId { get; set; } = "";
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public EquipmentLoadout? Loadout { get; set; }
     public float MoveX { get; set; }
     public float MoveY { get; set; }
     public bool MoveTo { get; set; }

@@ -9,10 +9,13 @@ public partial class DefensePanel : Control
     public bool ShopOpen => _shop?.Visible == true;
     public event Action? OpenChanged;
     private Action<ClientMessage> _submit = null!;
+    private Main _main = null!;
+    private EquipmentPanel? _equipmentInventory;
+    internal EquipmentPanel? EquipmentInventory => _equipmentInventory;
     private PanelContainer _summary = null!, _window = null!;
     private Control _shop = null!;
-    private Label _metrics = null!, _stats = null!, _wallet = null!, _detail = null!, _result = null!, _rules = null!;
-    private Button _repair = null!, _supply = null!, _equip = null!, _upgrade = null!, _sell = null!, _restart = null!;
+    private Label _metrics = null!, _stats = null!, _wallet = null!, _result = null!, _rules = null!;
+    private Button _repair = null!, _restart = null!;
     private readonly List<Button> _auras = [], _passives = [], _tabs = [];
     private readonly List<Label> _auraHints = [], _passiveHints = [];
     private readonly List<VBoxContainer> _sections = [];
@@ -20,19 +23,17 @@ public partial class DefensePanel : Control
     private ContentScrollContainer _scroll = null!;
     private VBoxContainer _auraSection = null!, _passiveSection = null!;
     private Button _auraTab = null!, _passiveTab = null!;
-    private ItemList _inventory = null!;
     private DefensePlayerSnapshot? _player;
     private DefenseSnapshot? _state;
     private WizardSnapshot? _wizard;
-    private string _itemId = "", _inventoryStamp = "", _totalsStamp = "";
+    private string _totalsStamp = "";
     private GridContainer _totals = null!;
     private bool _canRestart;
-    private readonly List<string> _itemIds = [];
     public bool PointerOverPanel => _summary.GetGlobalRect().HasPoint(GetGlobalMousePosition()) || ShopOpen;
 
-    public void Build(Action<ClientMessage> submit, Action leave)
+    public void Build(Main main, Action<ClientMessage> submit, Action leave)
     {
-        _submit = submit;
+        _main = main; _submit = submit;
         Name = "DefensePanel"; Theme = Ui.Theme(); Ui.Full(this); MouseFilter = MouseFilterEnum.Ignore;
         _summary = new PanelContainer { Name = "DefenseSummary" }; AddChild(_summary);
         _summary.AddThemeStyleboxOverride("panel", Ui.Panel(new("0b192b"), 7, new("56748f")));
@@ -81,19 +82,8 @@ public partial class DefensePanel : Control
         Wrapped(castle, "EQUIPO: recoge, equipa y mejora piezas.\nPODERES: compra auras y habilidades automáticas.\nESTADÍSTICAS: consulta los bonos y los premios por supervivencia.", 16);
         var equipment = _sections[1];
         _equipmentSummary = Wrapped(equipment, "", 16, Ui.Gold);
-        _supply = Ui.Button("Comprar pieza aleatoria · 100 oro", () => Send("defense_supply")); equipment.AddChild(_supply);
-        _inventory = new ItemList { Name = "DefenseInventory", CustomMinimumSize = new(0, 150), SelectMode = ItemList.SelectModeEnum.Single,
-            SizeFlagsHorizontal = SizeFlags.ExpandFill }; equipment.AddChild(_inventory);
-        _inventory.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 18 : 16);
-        _inventory.ItemSelected += index => { _itemId = _itemIds[(int)index]; UpdateDetails(); };
-        var detailPanel = new PanelContainer(); detailPanel.AddThemeStyleboxOverride("panel", Ui.Panel(new("091525"), 4, new("54718b"))); equipment.AddChild(detailPanel);
-        _detail = Wrapped(detailPanel, "", 15);
-        var actions = new HBoxContainer(); actions.AddThemeConstantOverride("separation", 6); equipment.AddChild(actions);
-        _equip = Ui.Button("Equipar", () => Send("defense_equip")); actions.AddChild(_equip);
-        _upgrade = Ui.Button("Mejorar", () => Send("defense_upgrade")); actions.AddChild(_upgrade);
-        _sell = Ui.Button("Vender", () => Send("defense_sell")); actions.AddChild(_sell);
-        foreach (var button in new[] { _equip, _upgrade, _sell }) button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        equipment.MoveChild(actions, 3);
+        equipment.AddChild(Ui.Button("Abrir inventario de partida", OpenEquipmentInventory));
+        Wrapped(equipment, "Elige botas, gorro, pechera o arma. Compara las piezas por calidad y consulta sus atributos y bonificaciones. La selección se aplica al volver a la tienda.", 16);
         var powers = _sections[2];
         var powerNavigation = new HBoxContainer(); powers.AddChild(powerNavigation);
         _passiveTab = Ui.Button("Habilidades automáticas", () => ShowPowers(true));
@@ -126,7 +116,7 @@ public partial class DefensePanel : Control
         var footer = new HBoxContainer(); footer.AddThemeConstantOverride("separation", 8); body.AddChild(footer);
         _restart = Ui.Button("Otra partida", () => { Send("defense_restart"); CloseShop(); }); footer.AddChild(_restart);
         footer.AddChild(Ui.Button("Volver al menú", leave));
-        foreach (var button in new[] { open, _repair, _supply, _equip, _upgrade, _sell }.Concat(_auras).Concat(_passives))
+        foreach (var button in new[] { open, _repair }.Concat(_auras).Concat(_passives))
         {
             button.AutowrapMode = TextServer.AutowrapMode.WordSmart;
             button.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 18 : 16);
@@ -152,6 +142,7 @@ public partial class DefensePanel : Control
             _tabs[i].AddThemeColorOverride("font_color", i == index ? Ui.Gold : new Color("edf3ff"));
         }
         _scroll.ScrollVertical = 0;
+        if (index == 1) OpenEquipmentInventory();
     }
     internal void ShowPowers(bool automatic)
     {
@@ -167,9 +158,26 @@ public partial class DefensePanel : Control
     internal Rect2 SummaryRectForVerification => _summary.GetGlobalRect();
     public bool BlocksTouch(Vector2 point) => _summary.GetGlobalRect().HasPoint(point) || ShopOpen;
 
-    public void OpenShop() { _shop.Visible = true; OpenChanged?.Invoke(); UpdateDetails(); }
-    public void CloseShop() { _shop.Visible = false; OpenChanged?.Invoke(); }
-    private void Send(string type) => _submit(new() { Type = type, ItemId = _itemId });
+    public void OpenShop() { _shop.Visible = true; OpenChanged?.Invoke(); }
+    public void CloseShop()
+    {
+        if (_equipmentInventory != null) { _equipmentInventory.Close(FinishClosingShop); return; }
+        FinishClosingShop();
+    }
+    private void FinishClosingShop() { _shop.Visible = false; OpenChanged?.Invoke(); }
+    internal void HandleBack()
+    {
+        if (_equipmentInventory != null) _equipmentInventory.HandleBack();
+        else CloseShop();
+    }
+    private void OpenEquipmentInventory()
+    {
+        if (!ShopOpen || _equipmentInventory != null || _player == null || _wizard == null) return;
+        var inventory = new EquipmentPanel(); _equipmentInventory = inventory; _shop.AddChild(inventory);
+        inventory.BuildDefense(_main, _player, _wizard, _state!.CastleHealth <= 0, _submit);
+        inventory.Closed += () => { if (_equipmentInventory == inventory) _equipmentInventory = null; };
+    }
+    private void Send(string type) => _submit(new() { Type = type });
 
     private void Resize()
     {
@@ -233,7 +241,6 @@ public partial class DefensePanel : Control
             _passives[i].Text = PriceLabel(DefenseRules.PassiveCost(level), level >= DefenseRules.MaxPassiveLevel);
             _passives[i].Disabled = !buying || level >= DefenseRules.MaxPassiveLevel || p.Gold < DefenseRules.PassiveCost(level);
         }
-        _supply.Disabled = !buying || p.Gold < 100 || p.Items.Length >= DefenseRules.InventoryLimit;
         _result.Text = snapshot.MatchEnded ? $"Bastión destruido. Tiempo: {DefenseRules.Clock(defense.Elapsed)} · Oleada {defense.Wave}."
             : $"Bastión: {defense.CastleHealth:0}/{defense.CastleMaxHealth:0} · Oleada {defense.Wave} · {DefenseRules.Clock(defense.Elapsed)}";
         _rules.Text = "Nivel, oro, piezas, mejoras y reliquias se conservan al morir y desaparecen al iniciar otra partida. Si eres el único humano, la tienda pausa el combate y el tiempo de los premios.\n" +
@@ -244,44 +251,10 @@ public partial class DefensePanel : Control
             (snapshot.RewardStatus.Length > 0 ? "\n" + snapshot.RewardStatus : "");
         _restart.Visible = snapshot.MatchEnded; _restart.Disabled = !_canRestart;
         _restart.TooltipText = _canRestart ? "Reinicia toda la progresión temporal." : "Solo el anfitrión puede iniciar otra partida.";
-        string stamp = string.Join('|', p.Items.Select(i => $"{i.Item.Id}:{i.Upgrades}:{i.Equipped}"));
-        if (stamp != _inventoryStamp)
-        {
-            _inventoryStamp = stamp; _inventory.Clear(); _itemIds.Clear();
-            foreach (var i in p.Items.OrderBy(i => i.Item.Slot).ThenByDescending(i => i.Equipped).ThenByDescending(i => i.Item.Tier))
-            {
-                _inventory.AddItem((i.Equipped ? "[E] " : "") + EquipmentCatalogue.SlotName(i.Item.Slot) + " · " +
-                    EquipmentCatalogue.TierName(i.Item.Tier) + " · " + EquipmentCatalogue.FamilyName(i.Item.Family) + $" +{i.Upgrades}");
-                _inventory.SetItemCustomFgColor(_itemIds.Count, EquipmentPanel.TierColor(i.Item.Tier));
-                _itemIds.Add(i.Item.Id);
-            }
-            if (!_itemIds.Contains(_itemId)) _itemId = _itemIds.FirstOrDefault() ?? "";
-            int selected = _itemIds.IndexOf(_itemId); if (selected >= 0) _inventory.Select(selected);
-        }
-        UpdateDetails();
+        _equipmentInventory?.UpdateDefenseInventory(p, _wizard, snapshot.MatchEnded);
         UpdateTotals();
         _summary.Size = new(_summary.Size.X, 0);
     }
-
-    private void UpdateDetails()
-    {
-        var selected = _player?.Items.FirstOrDefault(i => i.Item.Id == _itemId);
-        bool buying = _wizard?.Alive == true && _state?.CastleHealth > 0;
-        _equip.Text = selected?.Equipped == true ? "Equipada" : "Equipar";
-        _equip.Disabled = !buying || selected == null || selected.Equipped;
-        _upgrade.Disabled = !buying || selected == null || selected.Upgrades >= 10 ||
-            selected.Item.Bonuses.All(b => b.Current >= b.Maximum) || _player!.Gold < DefenseRules.UpgradeCost(selected.Upgrades);
-        _sell.Disabled = !buying || selected == null;
-        _upgrade.Text = selected == null ? "Mejorar" : $"Mejorar · {DefenseRules.UpgradeCost(selected.Upgrades)} oro";
-        _sell.Text = selected == null ? "Vender" : $"Vender · +{selected.Item.SaleGold} oro";
-        var equipped = selected == null ? null : _player!.Items.FirstOrDefault(i => i.Equipped && i.Item.Slot == selected.Item.Slot);
-        _detail.Text = selected == null ? "Recoge una pieza del suelo o compra suministros. Las piezas recogidas son exclusivas de esta partida."
-            : EquipmentCatalogue.SlotName(selected.Item.Slot) + " · " + EquipmentCatalogue.TierName(selected.Item.Tier) + (selected.Equipped ? " · EQUIPADA" : "") + "\n" +
-                string.Join("\n", selected.Item.Bonuses.Select(b => $"{EquipmentCatalogue.StatName(b.Stat)}: {b.Current * 100:+0.#;-0.#;0} %  [{b.Minimum * 100:0.#} a {b.Maximum * 100:0.#} %]" +
-                    (!selected.Equipped ? $"  Δ {(b.Current - (equipped?.Item.Bonuses.FirstOrDefault(v => v.Stat == b.Stat)?.Current ?? 0)) * 100:+0.#;-0.#;0} puntos" : ""))) +
-                "\nCada mejora suma 1 punto porcentual por atributo, hasta su máximo.";
-    }
-
 
     private void UpdateTotals()
     {

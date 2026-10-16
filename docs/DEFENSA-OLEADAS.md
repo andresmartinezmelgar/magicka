@@ -1,6 +1,6 @@
 # Defensa del bastión — primera versión experimental
 
-Versión **0.18.4**, protocolo **22**, rama `feature/defensa-oleadas`. Esta rama se mantiene independiente de `main`. Las compilaciones verificadas se publican como versiones preliminares con APK directa. Las dos cuentas autorizadas reciben estas versiones mediante el actualizador; el resto conserva el canal estable. Véase [Canales de actualización](CANALES-ACTUALIZACION.md).
+Versión **0.18.5**, protocolo **23**, rama `feature/defensa-oleadas`. Esta rama se mantiene independiente de `main`. Las compilaciones verificadas se publican como versiones preliminares con APK directa. Las dos cuentas autorizadas reciben estas versiones mediante el actualizador; el resto conserva el canal estable. Véase [Canales de actualización](CANALES-ACTUALIZACION.md).
 
 ## Entrar en el modo
 
@@ -71,7 +71,9 @@ Las piezas utilizan las cuatro posiciones del equipo existente y permiten compar
 
 El oro aparece como una moneda pequeña, con canto y dos caras grabadas, que gira sobre su eje vertical. El equipo muestra botas, gorro, pechera o bastón, con un halo del color de su calidad. Las mejoras muestran espada (potencia), escudo (protección), hoja con flecha (regeneración), corazón (vitalidad), ala (agilidad), rayo (energía) o cruz (sanación). Sus símbolos miran a cámara para poder reconocerlos durante el combate y flotan suavemente sobre el suelo.
 
-La tienda ofrece una pieza aleatoria por 100 de oro. Cada mejora de una pieza suma un punto porcentual a cada atributo hasta su máximo original, con hasta diez mejoras. Su precio es `35 × (mejoras previas + 1)`. Vender una pieza devuelve su valor en oro temporal.
+La pestaña Equipo abre la misma pantalla `EquipmentPanel` del inventario de main: cuatro ranuras, selector por calidad en dos o tres columnas, desplazamiento táctil, atributos individuales, conjuntos y suma de bonificaciones. Las selecciones se previsualizan y se aplican juntas al volver a la tienda, incluyendo quitar piezas. Solo se utilizan las piezas y el oro de esta partida; no se carga ni guarda la cuenta permanente. Atrás vuelve primero del selector al inventario, después a la tienda y finalmente al combate. Con un solo humano la pausa se mantiene durante todo ese recorrido.
+
+El inventario ofrece una pieza aleatoria por 100 de oro. Cada mejora de una pieza suma un punto porcentual a cada atributo hasta su máximo original, con hasta diez mejoras. Su precio es `35 × (mejoras previas + 1)`. Vender una pieza devuelve su valor en oro temporal.
 
 Morir conserva experiencia, nivel, oro, equipo, auras y reliquias. La reaparición tarda `4 + 0,5 × muertes` segundos, sin heredar el límite de diez segundos de Ascensión. Reiniciar borra toda esta progresión. Una cuenta autenticada puede recuperar su progreso al reconectar a esa misma partida, mientras el servidor y la sala sigan activos.
 

@@ -11,7 +11,7 @@ public partial class EquipmentPanel
     // Una pieza vendida o retirada del inventario nunca se vuelve a equipar.
     private void RebaseDraft()
     {
-        var latest = _main.Accounts.Profile;
+        var latest = _defensePlayer == null ? _main.Accounts.Profile : DefenseProfile(_defensePlayer);
         if (latest == null) { _draft = null; _savedLoadout = new(); return; }
         var loadout = latest.Loadout;
         if (_draft?.Uid == latest.Uid)
@@ -23,7 +23,7 @@ public partial class EquipmentPanel
             }
         _savedLoadout = latest.Loadout;
         _draft = latest with { Loadout = loadout };
-        _onlineInventory |= _main.Accounts.SignedIn || _main.Accounts.HasDirectFirebaseSession;
+        if (_defensePlayer == null) _onlineInventory |= _main.Accounts.SignedIn || _main.Accounts.HasDirectFirebaseSession;
     }
 
     public void Close(Action? afterClose = null)
@@ -32,6 +32,7 @@ public partial class EquipmentPanel
         if (_busy) { _closeRequested = true; _afterClose = afterClose; return; }
         _closing = true; _afterClose = afterClose;
         CloseItemPicker();
+        if (_defensePlayer != null) { SaveDefenseAndClose(); return; }
         if (!HasChanges) { SaveCacheAndClose(); return; }
         Busy(true, "Guardando configuración…");
         if (_onlineInventory) { _ = SaveAndClose(); return; }

@@ -13,8 +13,9 @@ public partial class EquipmentPanel
         VBoxContainer box, HBoxContainer columns, ScrollContainer items, ScrollContainer totals,
         HBoxContainer legacyFooter)
     {
-        _optionAChrome = ArcanaMenuChrome.Attach(this, margin, _main, "Inventario y equipación",
-            4, _main.NavigateOptionAMenu);
+        if (_defensePlayer == null)
+            _optionAChrome = ArcanaMenuChrome.Attach(this, margin, _main, "Inventario y equipación",
+                4, _main.NavigateOptionAMenu);
         foreach (string side in new[] { "left", "right", "top", "bottom" })
             margin.AddThemeConstantOverride("margin_" + side, Ui.IsMobile ? 9 : 15);
         panel.SizeFlagsVertical = SizeFlags.ExpandFill;
@@ -46,7 +47,7 @@ public partial class EquipmentPanel
         items.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         totals.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         columns.AddThemeConstantOverride("separation", 0);
-        legacyFooter.Visible = false;
+        legacyFooter.Visible = _defensePlayer != null;
         SwitchOptionAEquipment(false);
     }
 

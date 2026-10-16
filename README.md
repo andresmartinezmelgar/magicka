@@ -2,7 +2,7 @@
 
 **Juego multijugador de combate mágico en tiempo real para Windows y Android.**
 
-**Estado del repositorio:** versión experimental **0.18.4**, Godot **4.5.2 .NET**, **C# / .NET 8** y protocolo de red **22**. El servidor autoritativo está desarrollado con ASP.NET Core. El juego puede practicarse sin conexión, alojarse en un PC o utilizar un servidor dedicado. El acceso Google y la progresión se apoyan en Firebase, cuando están configurados.
+**Estado del repositorio:** versión experimental **0.18.5**, Godot **4.5.2 .NET**, **C# / .NET 8** y protocolo de red **23**. El servidor autoritativo está desarrollado con ASP.NET Core. El juego puede practicarse sin conexión, alojarse en un PC o utilizar un servidor dedicado. El acceso Google y la progresión se apoyan en Firebase, cuando están configurados.
 
 **Esta rama incorpora el modo cooperativo Defensa del bastión.** Se mantiene independiente de `main`; sus paquetes se publican como preliminares. Las cuentas autorizadas reciben el [canal de pruebas](docs/CANALES-ACTUALIZACION.md). [Funcionamiento y reglas de Defensa](docs/DEFENSA-OLEADAS.md).
 
@@ -252,3 +252,5 @@ Los test y las capturas automatizadas **no sustituyen** una partida entre dispos
 - Las versiones de cliente y servidor deben ser compatibles en **versión de juego y protocolo**.
 
 Documentación temática: [cómo ganar](docs/COMO-GANAR.md) · [mapas](docs/MAPAS.md) · [equipación y progresión](docs/PROGRESSION.md) · [red](docs/NETWORK-OPTIMIZATION.md) · [diagnóstico](docs/DIAGNOSTICO.md) · [exportar](docs/EXPORTAR.md). El historial de cambios, cuando se necesite, se mantiene separado en [CHANGELOG.md](CHANGELOG.md).
+
+Canal estable para cuentas generales y [versiones de prueba por UID autenticado](docs/CANALES-ACTUALIZACION.md).
