@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.18.7 — Bonificaciones por pieza
+
+- La suma de bonificaciones separa las aportaciones de botas, gorro, pecho y arma, y muestra después el conjunto, la suma y el valor aplicado.
+- El desglose se adapta a móvil y escritorio, incluye penalizaciones y posiciones vacías y cuenta solo las piezas equipadas.
+- Las estadísticas de Defensa muestran el equipo por pieza y, a continuación, el total efectivo con nivel, reliquias y poderes.
+- La consulta de equipamiento de otros magos utiliza el mismo desglose.
+- Porcentajes con hasta dos decimales para que las aportaciones y el total no discrepen por redondeo.
+
 ## 0.18.6 — Novedades y guía de Defensa
 
 - Las actualizaciones muestran un resumen breve de los cambios antes de descargar y durante la descarga.

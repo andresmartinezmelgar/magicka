@@ -130,20 +130,20 @@ public partial class EquipmentPanel : Control
         Ui.VisibleVerticalScroll(totalsScroll);
         var summary = _summaryContent = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; summary.AddThemeConstantOverride("separation", 8); totalsScroll.AddChild(summary);
         var summaryHeading = _summaryHeading = new HBoxContainer(); summaryHeading.AddThemeConstantOverride("separation", 10); summary.AddChild(summaryHeading);
-        var summaryTitle = _summaryTitle = Ui.Label("SUMA DE TODO EL EQUIPO", 22, Ui.Gold); summaryTitle.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        var summaryTitle = _summaryTitle = Ui.Label("DESGLOSE Y TOTAL DEL EQUIPO", 22, Ui.Gold); summaryTitle.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         summaryTitle.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        summaryTitle.TooltipText = "Suma = piezas + conjunto. Aplicado incluye los límites de combate. Valores respecto al mago base.";
+        summaryTitle.TooltipText = "Suma = botas + gorro + pecho + arma + conjunto. Aplicado incluye los límites de combate. Valores respecto al mago base.";
         summaryHeading.AddChild(summaryTitle);
         var setsButton = Action(summaryHeading, "Conjuntos", () => _setsInfo.PopupCentered());
         setsButton.CustomMinimumSize = new(0, 48);
         _sets = Ui.Label("", 16, Ui.Gold); _sets.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _sets.SizeFlagsHorizontal = SizeFlags.ExpandFill; summary.AddChild(_sets);
-        _totals = Ui.Table(5, "EquipmentTotalsTable"); summary.AddChild(_totals);
+        _totals = Ui.Table(8, "EquipmentTotalsTable"); summary.AddChild(_totals);
         _totalsEmpty = Ui.Label("No hay bonificaciones activas en el equipo actual.", 16, Ui.Muted);
         _totalsEmpty.Name = "EquipmentNoActiveBonuses";
         _totalsEmpty.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_totalsEmpty);
         var footer = new HBoxContainer(); footer.AddThemeConstantOverride("separation", 14); box.AddChild(footer);
-        var hint = Ui.Label("Suma = piezas + conjunto. Aplicado = valor real en combate.", 14, Ui.Muted);
+        var hint = Ui.Label("Suma = botas + gorro + pecho + arma + conjunto. Aplicado = valor real en combate.", 14, Ui.Muted);
         hint.AutowrapMode = TextServer.AutowrapMode.WordSmart; hint.SizeFlagsHorizontal = SizeFlags.ExpandFill; footer.AddChild(hint);
         var close = Action(footer, _defensePlayer == null ? "Volver" : "Volver a la tienda", () => Close()); _actions.Remove(close);
         _confirm = new ConfirmationDialog { Title = "Eliminar objeto", OkButtonText = "Eliminar y recibir oro", CancelButtonText = "Cancelar" };
@@ -192,7 +192,7 @@ public partial class EquipmentPanel : Control
             _selectorsGrid.Columns = ResponsiveLayout.Columns(available, Ui.IsMobile ? 365 : 340, 2, 10);
         // Tabla completa en escritorio; fichas de dos columnas en pantallas estrechas.
         // Su contenido se regenera solo si cambia realmente el formato.
-        int columns = compact ? 2 : 5;
+        int columns = compact ? 2 : 8;
         if (_totals != null && _totals.Columns != columns)
         {
             _totals.Columns = columns;
@@ -256,8 +256,8 @@ public partial class EquipmentPanel : Control
             view.Disabled = _busy;
         }
         RenderDetails();
-        var breakdown = EquipmentModifiers.Summarize(account ?? new("", "", 0, 0, 0, new(), []));
-        _totalsEmpty.Visible = !RenderTotals(_totals, breakdown.Stats);
+        var breakdown = PublicEquipment.Prepare(account ?? new("", "", 0, 0, 0, new(), []));
+        _totalsEmpty.Visible = !RenderTotals(_totals, breakdown.View.Stats, breakdown.View.Items);
         var m = breakdown.Modifiers;
         _combatPreview.Text = account == null
             ? "Los porcentajes reales aparecen aquí cuando equipas un objeto."
@@ -279,39 +279,6 @@ public partial class EquipmentPanel : Control
         if (!_busy && _status.Text.Length == 0) SetStatus(account == null ? "Inicia sesión con Google para recuperar tu inventario y conseguir objetos en PvP." :
             "Pulsa una posición para elegir una pieza. La configuración se guarda al salir del inventario.", routine: true);
         if (_defensePlayer != null) RenderDefenseActions();
-    }
-    internal static bool RenderTotals(GridContainer table, IEnumerable<EquipmentStatTotal> stats)
-    {
-        Clear(table);
-        var active = stats.Where(s => Math.Abs(s.Effective) > 0.00001f).ToArray();
-        table.Visible = active.Length > 0;
-        if (!table.Visible) return false;
-        bool compactStats = table.Columns == 2;
-        if (compactStats)
-        {
-            Cell(table, "Atributo", header: true);
-            Cell(table, "Aplicado en combate", true, header: true);
-        }
-        else foreach (string heading in new[] { "Atributo", "Piezas", "Conjunto", "Suma", "Aplicado" })
-            Cell(table, heading, heading != "Atributo", header: true);
-        foreach (var stat in active)
-        {
-            Cell(table, StatName(stat.Stat)).TooltipText = EquipmentCatalogue.StatDescription(stat.Stat);
-            if (!compactStats)
-            {
-                Cell(table, EquipmentCatalogue.Percent(stat.Items), true);
-                Cell(table, EquipmentCatalogue.Percent(stat.Set), true, stat.Set > 0 ? Ui.Gold : Ui.Muted);
-                Cell(table, EquipmentCatalogue.Percent(stat.Sum), true);
-            }
-            string appliedText = EquipmentCatalogue.Percent(stat.Effective);
-            if (compactStats) appliedText += "\nPiezas: " + EquipmentCatalogue.Percent(stat.Items) +
-                "\nConjunto: " + EquipmentCatalogue.Percent(stat.Set) + "\nSuma: " + EquipmentCatalogue.Percent(stat.Sum);
-            var applied = Cell(table, appliedText, true,
-                stat.Limited ? Ui.Gold : stat.Effective < 0 ? Ui.Red : Ui.Blue);
-            applied.TooltipText = EquipmentCatalogue.StatDescription(stat.Stat) +
-                (stat.Limited ? "\nLa suma está limitada: se aplica el valor de esta columna." : "");
-        }
-        return true;
     }
     private static string Set(string name, int pieces, string two, string four) => name + " " + pieces + "/4 · " + (pieces == 4 ? four : pieces >= 2 ? two : "sin bonificación");
     private void RenderDetails()

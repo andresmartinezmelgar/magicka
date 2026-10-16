@@ -132,3 +132,7 @@ Las consultas viajan por la conexión de la propia sala y solo se responden para
 Las comprobaciones cubren premios concurrentes, venta repetida, precisión de oro de 64 bits, propiedad, venta frente a equipamiento simultáneo, persistencia de tiradas y de las cuatro posiciones tras una nueva instancia y sesión, sesiones falsas, fin de partida y recuperación del diario. El acceso Google real requiere el proyecto y dominio configurados; las pruebas del emulador no sustituyen una comprobación de OAuth con las cuentas del proyecto de producción.
 
 `equipment-public-smoke` abre la ficha desde el botón real de clasificación, cambia de mago, comprueba las piezas y totales de dos familias, comprueba que el inventario no cambia y restaura los controles al cerrar. Las pruebas de red comprueban también consultas durante los snapshots, aislamiento entre salas con IDs de jugador coincidentes y equipo de la ronda frente a cambios del inventario.
+
+### Desglose de bonificaciones
+
+La suma de bonificaciones presenta botas, gorro, pecho y arma por separado, seguidos por el bono de conjunto, la suma y el valor aplicado tras los límites. Solo cuentan las piezas equipadas; las penalizaciones conservan su signo y las posiciones vacías aparecen con una raya. En móvil se muestran las mismas aportaciones dentro de cada atributo. Defensa añade el total efectivo de la partida después del desglose del equipo, conservando por separado los efectos de nivel, reliquias y poderes.

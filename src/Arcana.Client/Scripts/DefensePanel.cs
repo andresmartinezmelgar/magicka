@@ -28,6 +28,9 @@ public partial class DefensePanel : Control
     private WizardSnapshot? _wizard;
     private string _totalsStamp = "";
     private GridContainer _totals = null!;
+    private GridContainer _equipmentTotals = null!;
+    private Label _equipmentTotalsEmpty = null!;
+    private string _equipmentTotalsStamp = "";
     private bool _canRestart;
     private GridContainer _navigation = null!;
     public bool PointerOverPanel => _summary.GetGlobalRect().HasPoint(GetGlobalMousePosition()) || ShopOpen;
@@ -111,7 +114,10 @@ public partial class DefensePanel : Control
             button.Name = "DefensePassive" + i; card.AddChild(button); _passives.Add(button);
         }
         var statistics = _sections[3];
-        Wrapped(statistics, "BONIFICACIONES ACTIVAS", 18, Ui.Gold);
+        Wrapped(statistics, "BONIFICACIONES DEL EQUIPO · POR PIEZA", 18, Ui.Gold);
+        _equipmentTotals = Ui.Table(2, "DefenseEquipmentTotals"); statistics.AddChild(_equipmentTotals);
+        _equipmentTotalsEmpty = Wrapped(statistics, "No hay bonificaciones activas en el equipo actual.", 15, Ui.Muted);
+        Wrapped(statistics, "TOTAL EFECTIVO EN PARTIDA · equipo, nivel y mejoras", 18, Ui.Gold);
         _totals = Ui.Table(2, "DefenseTotals"); statistics.AddChild(_totals);
         _rules = Wrapped(statistics, "", 15, Ui.Muted);
         BuildGuide(_sections[4]);
@@ -266,6 +272,16 @@ public partial class DefensePanel : Control
     {
         if (_player == null || _wizard == null) return;
         var p = _player;
+        var equipped = p.Items.Where(i => i.Equipped).ToArray();
+        string equipmentStamp = string.Join('|', equipped.Select(i => i.Item.Id + ":" + i.Upgrades));
+        if (equipmentStamp != _equipmentTotalsStamp || _equipmentTotals.GetChildCount() == 0)
+        {
+            _equipmentTotalsStamp = equipmentStamp;
+            var loadout = new EquipmentLoadout();
+            foreach (var item in equipped) loadout = loadout.With(item.Item.Slot, item.Item.Id);
+            var summary = PublicEquipment.Prepare(new("", "", 0, 0, 0, loadout, equipped.Select(i => i.Item).ToArray()));
+            _equipmentTotalsEmpty.Visible = !EquipmentPanel.RenderTotals(_equipmentTotals, summary.View.Stats, summary.View.Items);
+        }
         var rows = new List<(string Name, string Value)>();
         foreach (var stat in Enum.GetValues<EquipmentStat>())
         {

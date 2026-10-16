@@ -157,7 +157,7 @@ public static partial class EquipmentCatalogue
         EquipmentStat.WetLightningPower => "Rayo contra mojados", EquipmentStat.BeamChargeSpeed => "Velocidad de carga del haz", EquipmentStat.RockChargeSpeed => "Velocidad de carga de rocas",
         _ => throw new ArgumentOutOfRangeException(nameof(stat))
     };
-    public static string Percent(float value) => MathF.Round(value * 100, 1).ToString("+0.#;-0.#;0", CultureInfo.InvariantCulture) + "%";
+    public static string Percent(float value) => MathF.Round(value * 100, 2).ToString("+0.##;-0.##;0", CultureInfo.InvariantCulture) + "%";
     public static string ItemName(EquipmentItem item) => SlotName(item.Slot) + " · " + TierName(item.Tier) + " · " + FamilyName(item.Family);
     public static EquipmentStat MainStat(EquipmentSlot slot, EquipmentFamily family) => slot switch
     {

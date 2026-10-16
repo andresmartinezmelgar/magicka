@@ -21,6 +21,15 @@ internal static class EquipmentTests
     public static void Run(Action<string, Action> test)
     {
         EquipmentElementTests.Run(test);
+        test("Equipo: pieza y total aplicado conservan la misma precisión porcentual", () =>
+        {
+            var piece = Item(EquipmentSlot.Hat, EquipmentStat.FreezeDuration, 0.0605f);
+            var summary = EquipmentModifiers.Summarize(Profile(piece));
+            var total = summary.Stats.Single(s => s.Stat == EquipmentStat.FreezeDuration);
+            Check(EquipmentCatalogue.Percent(piece.Bonuses[0].Current) == "+6.05%" &&
+                EquipmentCatalogue.Percent(total.Items) == "+6.05%" && EquipmentCatalogue.Percent(total.Effective) == "+6.05%",
+                "La precisión del multiplicador hace discrepar la pieza y el total.");
+        });
         test("Equipo: 20.000 tiradas válidas con cinco calidades, rangos y posición principal", () =>
         {
             var random = new Random(441); bool penalty = false;

@@ -55,7 +55,9 @@ public partial class PlayerEquipmentPanel : Control
         float width = GetViewport().GetVisibleRect().Size.X;
         if (_headerGrid != null) _headerGrid.Columns = ResponsiveLayout.Columns(Math.Max(250, width - 85), 250, 3, 12);
         if (_contentGrid != null) _contentGrid.Columns = ResponsiveLayout.Columns(Math.Max(250, width - 100), 480, 2, 24);
-        bool compact = width < 970;
+        int columns = _contentGrid?.Columns ?? 1;
+        float summaryWidth = (width - 100 - 24 * (columns - 1)) / columns;
+        bool compact = summaryWidth < 900;
         if (_compactStats != compact)
         {
             _compactStats = compact;
@@ -128,8 +130,8 @@ public partial class PlayerEquipmentPanel : Control
         string sets = activeSets.Length == 0 ? "Sin conjuntos activos." : string.Join("\n", activeSets.Select(s =>
             EquipmentCatalogue.FamilyName(s.Family) + " " + s.Pieces + "/4 · " + EquipmentPanel.SetDescription(s.Family, s.Pieces == 4)));
         var setLabel = Ui.Label(sets, 16, Ui.Gold); setLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart; _summary.AddChild(setLabel);
-        var totals = Ui.Table(_compactStats ? 2 : 5, "PlayerEquipmentTotalsTable"); _summary.AddChild(totals);
-        if (!EquipmentPanel.RenderTotals(totals, view.Equipment.Stats))
+        var totals = Ui.Table(_compactStats ? 2 : 8, "PlayerEquipmentTotalsTable"); _summary.AddChild(totals);
+        if (!EquipmentPanel.RenderTotals(totals, view.Equipment.Stats, view.Equipment.Items))
         {
             var empty = Ui.Label("No hay bonificaciones activas en el equipo actual.", 16, Ui.Muted);
             empty.AutowrapMode = TextServer.AutowrapMode.WordSmart; _summary.AddChild(empty);

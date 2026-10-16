@@ -135,6 +135,25 @@ public partial class Main
             panel.HandleBack(); Check(!panel.PickerVisible && !panel.IsQueuedForDeletion(), "Atrás no cierra solo el selector.");
             EquipmentItem Piece(EquipmentSlot slot, ItemTier tier, params ItemBonus[] bonuses) =>
                 new(Guid.NewGuid().ToString("N"), slot, tier, EquipmentFamily.Life, bonuses, 100);
+            var contributions = new[] { 0.02f, -0.01f, 0.05f, 0.07f };
+            var separated = Enum.GetValues<EquipmentSlot>().Select(slot => Piece(slot, ItemTier.Silver,
+                new ItemBonus(EquipmentStat.Power, -0.5f, 0.5f, contributions[(int)slot]),
+                new ItemBonus(EquipmentStat.SpellRange, 0, 0.5f, 0.01f))).ToArray();
+            var unused = Piece(EquipmentSlot.Weapon, ItemTier.Silver, new ItemBonus(EquipmentStat.Power, 0, 0.5f, 0.4f));
+            Show(original with { Items = [.. separated, unused],
+                Loadout = new(separated[0].Id, separated[1].Id, separated[2].Id, separated[3].Id) });
+            var totals = (GridContainer)panel.FindChild("EquipmentTotalsTable", true, false);
+            var cells = totals.GetChildren().OfType<Label>().ToArray();
+            int attack = Array.FindIndex(cells, l => l.Text == "Ataque");
+            Check(attack >= 0 && (totals.Columns == 2
+                ? cells[attack + 1].Text == "Botas: +2% · Gorro: -1%\nPecho: +5% · Arma: +7%\nConjunto: 0% · Suma: +13%\nAplicado: +13%"
+                : cells.Skip(attack + 1).Take(7).Select(l => l.Text).SequenceEqual(new[] { "+2%", "-1%", "+5%", "+7%", "0%", "+13%", "+13%" })),
+                "El desglose no separa las cuatro piezas, pierde el signo o suma piezas sin equipar.");
+            panel.PressInspect(EquipmentSlot.Hat); panel.PressChoice("");
+            Check(panel.Totals.Contains("+14%") && (totals.Columns == 2 ? panel.Totals.Contains("Gorro: —") : panel.Totals.Contains("—")),
+                "Quitar una pieza no actualiza su aportación y la suma provisional.");
+            Check(Accounts.Profile!.Loadout.Hat == separated[1].Id, "La vista previa guarda antes de salir.");
+            GD.Print("EQUIPMENT_SLOT_TOTALS_OK: cuatro aportaciones, penalización, pieza sin equipar, suma y previsualización sin guardar.");
             var boots = Piece(EquipmentSlot.Boots, ItemTier.Mythic,
                 new(EquipmentStat.Defense, -0.5f, 0.5f, 0.031f), new(EquipmentStat.HealingPower, 0, 0.5f, 0.5f));
             var chest = Piece(EquipmentSlot.Chest, ItemTier.Silver,

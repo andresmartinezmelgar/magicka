@@ -15,6 +15,7 @@ public partial class Main
     private EquipmentLoadout? _defenseChosenLoadout;
     private string _defenseSoldItem = "";
     private long _defenseGoldAfterSale;
+    private int _defenseTotalsReview;
 
     private void StartDefenseSmoke(string[] arguments)
     {
@@ -118,7 +119,22 @@ public partial class Main
                 var inventory = panel.EquipmentInventory!;
                 Check(inventory is { TemporaryInventory: true, VisibleItems: 8 } &&
                     inventory.FindChild("ResponsiveMenuShell", true, false) == null, "Defensa no utiliza el inventario compartido de partida.");
-                CaptureDefense("04-inventario");
+                Button Tab(string text) => inventory.FindChildren("*", "Button", true, false).OfType<Button>().Single(b => b.Text.Contains(text));
+                if (_defenseTotalsReview == 0)
+                {
+                    CaptureDefense("04-inventario");
+                    Tab("SUMA DE BONIFICACIONES").EmitSignal(Button.SignalName.Pressed);
+                    _defenseTotalsReview = 1; return false;
+                }
+                if (_defenseTotalsReview == 1)
+                {
+                    AssertVisibleTableData(inventory, "EquipmentTotalsTable");
+                    Check(new[] { "Botas", "Gorro", "Pecho", "Arma", "Suma", "Aplicado" }.All(inventory.Totals.Contains),
+                        "El inventario temporal no muestra las cuatro aportaciones y el total.");
+                    CaptureDefense("04-desglose-equipo");
+                    Tab("OBJETOS Y EQUIPACIÓN").EmitSignal(Button.SignalName.Pressed);
+                    _defenseTotalsReview = 2; return false;
+                }
                 inventory.PressInspect(EquipmentSlot.Chest); _defenseSmokePhase++; return false;
             }
             if (_defenseSmokePhase == 5)
@@ -192,6 +208,10 @@ public partial class Main
             }
             if (_defenseSmokePhase == 10)
             {
+                var totals = (GridContainer)panel.FindChild("DefenseEquipmentTotals", true, false);
+                string text = string.Join('\n', totals.GetChildren().OfType<Label>().Select(l => l.Text));
+                Check(new[] { "Botas:", "Gorro:", "Pecho:", "Arma:", "Suma:", "Aplicado:" }.All(text.Contains),
+                    "Las estadísticas de Defensa no desglosan las cuatro piezas y su suma.");
                 CaptureDefense("05-bonificaciones"); panel.ShowSection(4); _defenseSmokePhase++; return false;
             }
             if (_defenseSmokePhase == 11)
