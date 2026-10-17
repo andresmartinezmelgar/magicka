@@ -176,9 +176,6 @@ public partial class Launcher : Control
         botControls.AddChild(moreBots);
         _practiceMap.ItemSelected += _ => { _bots.Editable = (ArenaMapId)_practiceMap.GetSelectedId() != ArenaMapId.Practice; };
         _bots.Editable = (ArenaMapId)_practiceMap.GetSelectedId() != ArenaMapId.Practice; Objective();
-        var laboratory = Ui.Button("Entrar en laboratorio de hechizos", () =>
-            _main.StartPractice(_name.Text, 0, GameMode.Warfare, 0, (WizardType)_wizardType.GetSelectedId(), ArenaMapId.Practice));
-        laboratory.Name = "PracticeLaboratoryButton"; practice.AddChild(laboratory);
         practice.AddChild(Ui.Label("El duelo usa un bot. Defensa permite jugar solo o con hasta tres aliados IA.", 13, Ui.Muted));
         practice.AddChild(measureSurvival);
         

@@ -8,7 +8,7 @@ public sealed partial class GameWorld
     private readonly Dictionary<int, DefenseProgress> _defenders = [];
     private readonly Dictionary<string, DefenseProgress> _defenseAccounts = new(StringComparer.Ordinal);
     private readonly List<DefenseDrop> _defenseDrops = [];
-    private int _nextMinion = 1000, _defenseKills, _bossesKilled, _defenseDifficulty = 1, _spawnBurstRemaining;
+    private int _nextMinion = 1000, _defenseKills, _bossesKilled, _defenseDifficulty = 1;
     private double _defenseElapsed;
     private float _spawnClock, _auraClock, _bossClock;
     private int _defensePartySize = 1;
@@ -101,15 +101,11 @@ public sealed partial class GameWorld
                 _bossClock = DefenseRules.BossInterval(_random, false);
         }
         _spawnClock -= dt;
-        if (_spawnClock <= 0 && _minions.Count < DefenseMinionLimit - (bossAlive ? 0 : 1))
+        if (_spawnClock <= 0)
         {
-            SpawnMinion();
-            float pressure = (1 + (_defenseDifficulty - 1) * 0.07f) * DefenseRules.PartyPressure(_defensePartySize);
-            if (_spawnBurstRemaining <= 0) _spawnBurstRemaining = _random.Next(4, _defenseDifficulty <= 2 ? 8 : 10);
-            _spawnBurstRemaining--;
-            _spawnClock = _spawnBurstRemaining > 0
-                ? (0.12f + (float)_random.NextDouble() * 0.20f) / pressure
-                : (1.3f + (float)_random.NextDouble() * 1.8f) / pressure;
+            if (_minions.Count < DefenseMinionLimit - (bossAlive ? 0 : 1)) SpawnMinion();
+            else ReturnDistantMinion();
+            _spawnClock = DefenseRules.SpawnInterval(_defenseDifficulty, _defensePartySize, _random.NextDouble());
         }
         BuildDefenseCells();
         foreach (var minion in _minions.Values) TickMinion(minion, dt);
@@ -154,18 +150,18 @@ public sealed partial class GameWorld
         return true;
     }
 
-    private bool TryDefenseSpawn(out V2 position)
+    private bool TryDefenseSpawn(out V2 position, bool nearbyOnly = false)
     {
         var defenders = _players.Values.Where(p => p.Deaths < DefenseRules.PlayerLives).ToArray();
         var nodes = Map.Navigation.Positions;
         for (int attempt = 0; attempt < 160 && defenders.Length > 0; attempt++)
         {
             V2 candidate;
-            if (attempt < 60 && _random.NextDouble() < 0.6)
+            if (nearbyOnly || attempt < 120 && _random.NextDouble() < 0.9)
             {
                 var anchor = defenders[_random.Next(defenders.Length)].Position;
                 float angle = (float)_random.NextDouble() * MathF.Tau;
-                float radius = DefenseRules.SafeRadius + 2 + (float)_random.NextDouble() * 16;
+                float radius = DefenseRules.SafeRadius + 2 + (float)_random.NextDouble() * 10;
                 candidate = anchor + new V2(MathF.Cos(angle), MathF.Sin(angle)) * radius;
             }
             else candidate = nodes[_random.Next(nodes.Length)];
@@ -174,6 +170,21 @@ public sealed partial class GameWorld
             position = candidate; return true;
         }
         position = default; return false;
+    }
+
+    private void ReturnDistantMinion()
+    {
+        // Un cambio de zona no deja toda la población ocupada lejos del combate.
+        // Solo regresa un enemigo fuera de vista, conservando salud y estados.
+        var defenders = _players.Values.Where(p => p.Deaths < DefenseRules.PlayerLives).ToArray();
+        if (defenders.Length == 0) return;
+        var distant = _minions.Values.Where(m => m.Kind != MinionKind.Boss && m.Body.Alive &&
+            defenders.All(p => V2.Distance(p.Position, m.Body.Position) > 60))
+            .OrderByDescending(m => defenders.Min(p => V2.Distance(p.Position, m.Body.Position))).FirstOrDefault();
+        if (distant == null || !TryDefenseSpawn(out var at, nearbyOnly: true)) return;
+        CancelCast(distant.Body); distant.Body.Position = at; distant.Body.Knockback = V2.Zero;
+        distant.Navigation = at; distant.NavigationClock = 0;
+        _routes.Remove(distant.Body.Id);
     }
 
     private bool Empowered(DefenseMinion minion)
@@ -384,7 +395,7 @@ public sealed partial class GameWorld
         foreach (var minion in _minions.Values) { _combatants.Remove(minion.Body.Id); _orderedPlayers.Remove(minion.Body); }
         _minions.Clear(); _defenseDrops.Clear(); _defenseAccounts.Clear(); _defenseBestiary.Clear();
         _defenseBotPlans.Clear(); _defenseBotPlanClock = 0;
-        _defenseKills = _bossesKilled = _spawnBurstRemaining = 0; _defenseDifficulty = _defensePartySize = 1;
+        _defenseKills = _bossesKilled = 0; _defenseDifficulty = _defensePartySize = 1;
         _defenseElapsed = _spawnClock = _auraClock = 0;
         _simulationBudget = new(DefenseRules.MaxMinions); _simulationCost = 0; _simulationSamples = 0;
         _bossClock = DefenseRules.BossInterval(_random, true); _survivalFlows.Clear();

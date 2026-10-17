@@ -25,12 +25,4 @@ public partial class Main
         _optionAHelp = null;
     }
 
-    /// <summary>Conserva las demostraciones del libro existente sin tocar la ayuda durante la partida.</summary>
-    public void OpenOriginalSpellBookFromMenu()
-    {
-        if (_playing) return;
-        CloseOptionAHelp();
-        _help.Visible = true;
-        _helpPages.CurrentTab = 4;
-    }
 }

@@ -311,6 +311,9 @@ public partial class Main
             if (_defenseSmokePhase == 10)
             {
                 var totals = (GridContainer)panel.FindChild("DefenseEquipmentTotals", true, false);
+                Check(((Label)totals.GetChild(totals.Columns - 1)).Text == "Atributo" &&
+                    ((Label)panel.FindChild("DefenseTotals", true, false).GetChild(1)).Text == "Atributo",
+                    "Los atributos de Supervivencia no están a la derecha de sus valores.");
                 string text = string.Join('\n', totals.GetChildren().OfType<Label>().Select(l => l.Text));
                 Check(new[] { "Botas:", "Gorro:", "Pecho:", "Arma:", "Suma:", "Aplicado:" }.All(text.Contains),
                     "Las estadísticas de Defensa no desglosan las cuatro piezas y su suma.");

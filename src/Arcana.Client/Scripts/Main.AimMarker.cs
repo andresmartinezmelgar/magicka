@@ -5,6 +5,7 @@ namespace Arcana.Client;
 
 public partial class Main
 {
+    internal const float ProjectileMarkerDistance = 7;
     private AimMarker _aimMarker = null!;
     private SpellRecipe? _markerSpell;
 
@@ -32,9 +33,8 @@ public partial class Main
 
         V2 direction = _aim - player.Position;
         if (direction.Length < 0.05f) direction = player.Facing;
-        // Los proyectiles son direccionales: la referencia táctil queda cerca del
-        // mago, igual que Traslación. No modifica su alcance ni predice el impacto.
-        V2 point = _touch != null ? player.Position + direction.Normalized * MagickRules.BlinkRange : _aim;
+        // La referencia indica dirección a una distancia fija en ambas plataformas.
+        V2 point = player.Position + direction.Normalized * ProjectileMarkerDistance;
         ShowAimMarker(point, ArenaMap.WizardRadius, _markerSpell.Shape == SpellShape.Shards ? Ui.ElementColor(Element.Cold) : Ui.Gold,
             player.Position + direction.Normalized * 0.85f);
     }

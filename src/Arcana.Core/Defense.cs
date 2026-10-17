@@ -32,6 +32,9 @@ public static class DefenseRules
         { MinionKind.Tank => 0.65f, MinionKind.Boss => 0.8f, MinionKind.Runner => 1.45f,
             MinionKind.Brute => 0.6f, MinionKind.Bomber => 1.15f, MinionKind.Shaman => 0.85f, _ => 1 });
     public static float PartyPressure(int defenders) => 1 + (Math.Clamp(defenders, 1, MaxDefenders) - 1) * 0.3f;
+    public static float SpawnInterval(int stage, int defenders, double variation) =>
+        (0.32f + (float)Math.Clamp(variation, 0, 1) * 0.16f) /
+        ((1 + Math.Max(0, stage - 1) * 0.07f) * PartyPressure(defenders));
     public static int SpawnLimit(int stage, int defenders) => Math.Min(MaxMinions,
         24 + (Math.Clamp(defenders, 1, MaxDefenders) - 1) * 8 + Math.Max(0, stage - 1) * 8);
     public static int TimedDifficulty(double seconds) => 1 + (int)(Math.Max(0, seconds) / 90);
@@ -60,6 +63,8 @@ public static class DefenseRules
     };
     public static int AuraCost(int level) => 80 * (level + 1) * (level + 1);
     public static int UpgradeCost(int upgrades) => 35 * (upgrades + 1);
+    public const int ItemUpgradeLimit = 10;
+    public const float ItemUpgradeStep = 0.01f;
     public static int ExperienceForLevel(int level) => 60 + level * 40;
     public static float AuraRadius(int level) => level <= 0 ? 0 : 2.8f + level * 0.25f;
     public static string AuraName(DefenseAura aura) => aura switch

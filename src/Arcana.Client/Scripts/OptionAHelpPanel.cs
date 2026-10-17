@@ -12,6 +12,7 @@ public partial class OptionAHelpPanel : Control
     private Label _topic = null!, _heading = null!;
     private readonly List<Button> _topicButtons = [];
     private GridContainer? _topicNavigation;
+    private OptionButton? _topicChoice;
     private readonly List<(GridContainer Grid, int MaxColumns, float MinimumWidth)> _adaptiveGrids = [];
     private int _page;
     private int _relicOffset;
@@ -40,6 +41,18 @@ public partial class OptionAHelpPanel : Control
         panel.AddChild(outer);
         var header = _heading = Ui.Label("CÓMO JUGAR  /  GUÍA DEL MAGO", 24, Ui.Gold);
         outer.AddChild(header);
+        _topicChoice = new OptionButton { Name = "HelpTopicChoice", CustomMinimumSize = new(0, 44), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _topicChoice.AddThemeFontSizeOverride("font_size", 18);
+        foreach (var state in new[] { "normal", "hover", "pressed", "disabled" })
+            if (_topicChoice.GetThemeStylebox(state) is StyleBoxFlat current)
+            {
+                var compact = (StyleBoxFlat)current.Duplicate();
+                compact.ContentMarginTop = compact.ContentMarginBottom = 6;
+                _topicChoice.AddThemeStyleboxOverride(state, compact);
+            }
+        foreach (var topic in _topics) _topicChoice.AddItem(topic);
+        _topicChoice.ItemSelected += index => Select((int)index);
+        outer.AddChild(_topicChoice);
         // Las seis secciones ocupan una banda horizontal: el contenido usa todo el ancho.
         var navigation = new GridContainer { Name = "HelpTopics", Columns = 6,
             SizeFlagsHorizontal = SizeFlags.ExpandFill };
@@ -101,6 +114,7 @@ public partial class OptionAHelpPanel : Control
     {
         if (_bodyScroll != null) _bodyScroll.ScrollVertical = 0;
         _page = page;
+        _topicChoice?.Select(page);
         _adaptiveGrids.Clear();
         _topic.Text = _topics[page].ToUpperInvariant();
         foreach (Node child in _body.GetChildren()) { _body.RemoveChild(child); child.QueueFree(); }
@@ -142,6 +156,9 @@ public partial class OptionAHelpPanel : Control
             _topicNavigation.Columns = ResponsiveLayout.Columns(width, compact ? 128 : 146, _topics.Length, 10);
         }
         bool shortScreen = GetViewport().GetVisibleRect().Size.X < 970 && GetViewport().GetVisibleRect().Size.Y <= 640;
+        bool compactCombinations = shortScreen && _page == 5;
+        if (_topicNavigation != null) _topicNavigation.Visible = !compactCombinations;
+        if (_topicChoice != null) _topicChoice.Visible = compactCombinations;
         _heading.Visible = _topic.Visible = !shortScreen;
         foreach (var (grid, maximumColumns, minimumWidth) in _adaptiveGrids)
             if (GodotObject.IsInstanceValid(grid) && !grid.IsQueuedForDeletion())
@@ -273,14 +290,7 @@ public partial class OptionAHelpPanel : Control
 
     private void SpellPage()
     {
-        Wrapped(_body, "Mezcla hasta tres elementos, incluidos repetidos. Cada combinación puede lanzar un hechizo distinto. Consulta la demostración completa en el libro de hechizos.");
-        var button = Ui.Button("Abrir libro interactivo de hechizos", () => _main.OpenOriginalSpellBookFromMenu(), true);
-        button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        _body.AddChild(button);
-        var grid = new GridContainer { Columns = 4, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        _body.AddChild(grid);
-        AddAdaptiveGrid(grid, 4, 105);
-        foreach (var element in Enum.GetValues<Element>()) grid.AddChild(Ui.ElementTile(element, true));
+        _body.AddChild(new SpellBook { Name = "MenuSpellCombinations", ShowPreview = false });
     }
 
     private void EquipmentBonusesPage()

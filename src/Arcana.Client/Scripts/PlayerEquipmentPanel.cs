@@ -121,9 +121,9 @@ public partial class PlayerEquipmentPanel : Control
                 + " · " + EquipmentCatalogue.FamilyName(item.Family)), 20, item == null ? Ui.Muted : EquipmentPanel.TierColor(item.Tier)));
             if (item == null) continue;
             var grid = Ui.Table(2, "PlayerPiece" + slot + "Table"); _pieces.AddChild(grid);
-            Ui.TableCell(grid, "Atributo", header: true); Ui.TableCell(grid, "Actual", true, header: true);
+            Ui.TableCell(grid, "Actual", true, header: true); Ui.TableCell(grid, "Atributo", header: true);
             foreach (var bonus in item.Bonuses)
-            { Ui.TableCell(grid, EquipmentPanel.StatName(bonus.Stat)); Ui.TableCell(grid, EquipmentCatalogue.Percent(bonus.Current), true, bonus.Current < 0 ? Ui.Red : Ui.Blue); }
+            { Ui.TableCell(grid, EquipmentCatalogue.Percent(bonus.Current), true, bonus.Current < 0 ? Ui.Red : Ui.Blue); Ui.TableCell(grid, EquipmentPanel.StatName(bonus.Stat)); }
         }
         _summary.AddChild(Ui.Label("TOTAL DEL EQUIPO", 22, Ui.Gold));
         var activeSets = view.Equipment.Sets.Where(s => s.Pieces >= 2).ToArray();

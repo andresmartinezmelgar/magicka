@@ -3,172 +3,155 @@ using Godot;
 
 namespace Arcana.Client;
 
+/// <summary>Selección directa de hasta tres elementos y una forma de lanzamiento.</summary>
 public partial class SpellBook : VBoxContainer
 {
-    private ItemList _list = null!;
-    private LineEdit _search = null!;
-    private Label _title = null!, _description = null!, _clock = null!, _damage = null!;
-    private OptionButton _mode = null!, _scenario = null!;
+    private readonly ElementBuffer _selection = new();
+    private readonly ElementIcon[] _slots = new ElementIcon[3];
+    private readonly Button[] _modes = new Button[3];
+    private Label _title = null!, _description = null!, _damage = null!;
+    private GridContainer _elements = null!;
+    private GridContainer _columns = null!;
+    private SubViewportContainer _preview = null!;
     private ArenaRenderer _arena = null!;
-    private ProgressBar _timeline = null!;
-    private Button _pause = null!;
-    private GridContainer? _responsiveTop, _responsiveContent;
-    private VBoxContainer? _choicesColumn;
-    private SubViewportContainer? _responsivePreview;
-    private readonly List<SpellCombination> _shown = [];
-    private SpellCombination _combination = SpellCatalogue.All[0];
+    private CastMode _mode;
+    private DemonstrationKind _kind;
     private SpellDemonstration _demo = null!;
     private WorldSnapshot _snapshot = null!;
-    private bool _paused;
     private double _accumulator;
     public SpellDemonstration Demo => _demo;
     internal ArenaRenderer Preview => _arena;
     internal bool FixedStepForVerification { get; set; }
+    public bool ShowPreview { get; set; } = true;
 
     public override void _Ready()
     {
         AddThemeConstantOverride("separation", 9);
-        var top = new GridContainer { Columns = 2 }; _responsiveTop = top;
-        top.AddThemeConstantOverride("h_separation", 12); AddChild(top);
-        _scenario = new OptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        foreach (string text in new[] { "Combinaciones", "Cruce de rayos", "Escudo prismático", "Captura de punto" }) _scenario.AddItem(text);
-        top.AddChild(_scenario);
-        _mode = new OptionButton();
-        foreach (string text in Ui.IsMobile ? new[] { "Frontal", "Sobre ti", "Área" } : new[] { "Frontal · derecho", "Sobre ti · central", "Pulso · Mayús + derecho" }) _mode.AddItem(text);
-        top.AddChild(_mode);
-        var row = new GridContainer { Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        _responsiveContent = row;
-        row.AddThemeConstantOverride("h_separation", 14);
-        row.AddThemeConstantOverride("v_separation", 10); AddChild(row);
-        var choices = new VBoxContainer { CustomMinimumSize = new(188, 0) };
-        _choicesColumn = choices;
-        choices.SizeFlagsHorizontal = SizeFlags.ExpandFill; row.AddChild(choices);
-        _search = new LineEdit { PlaceholderText = "EW, fuego…", Name = "SpellSearch", MaxLength = 64 }; choices.AddChild(_search);
-        _list = new ItemList { CustomMinimumSize = new(188, 310), SizeFlagsVertical = SizeFlags.ExpandFill, Name = "SpellCombinations" };
-        choices.AddChild(_list);
-        choices.AddChild(Ui.Label($"{SpellCatalogue.All.Length} combinaciones válidas", 13, Ui.Muted));
-        var view = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; row.AddChild(view);
-        _title = Ui.Label("", 18, Ui.Gold); view.AddChild(_title);
+        SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        var hint = Ui.Label("Pulsa hasta tres elementos. Puedes repetirlos; los opuestos se anulan.", 16, Ui.Muted);
+        hint.AutowrapMode = TextServer.AutowrapMode.WordSmart; hint.Visible = ShowPreview; AddChild(hint);
+        _columns = new GridContainer { Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _columns.AddThemeConstantOverride("h_separation", 14); _columns.AddThemeConstantOverride("v_separation", 9); AddChild(_columns);
+        var choices = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        choices.AddThemeConstantOverride("separation", 4); _columns.AddChild(choices);
+        var result = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        result.AddThemeConstantOverride("separation", 9); _columns.AddChild(result);
+        _elements = new GridContainer { Columns = 4, Name = "SpellElementChoices", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _elements.AddThemeConstantOverride("h_separation", 6); _elements.AddThemeConstantOverride("v_separation", 6); choices.AddChild(_elements);
+        foreach (var element in Enum.GetValues<Element>())
+        {
+            var selected = element;
+            var button = Ui.Button(Ui.ElementName(element), () => { _selection.Add(selected); _kind = DemonstrationKind.Combination; Restart(); });
+            button.Name = "SpellElement" + element; button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            CompactButton(button); button.AddThemeColorOverride("font_color", Ui.ElementColor(element));
+            _elements.AddChild(button);
+        }
+        var selection = new HBoxContainer(); selection.AddThemeConstantOverride("separation", 8); choices.AddChild(selection);
+        for (int i = 0; i < _slots.Length; i++)
+        {
+            var panel = new PanelContainer { CustomMinimumSize = new(36, 36) };
+            var style = Ui.Panel(new("09182a"), 5, Ui.TableBorder);
+            style.ContentMarginLeft = style.ContentMarginRight = style.ContentMarginTop = style.ContentMarginBottom = 4;
+            panel.AddThemeStyleboxOverride("panel", style); selection.AddChild(panel);
+            panel.AddChild(_slots[i] = new ElementIcon());
+        }
+        var clear = Ui.Button("Limpiar", () => { _selection.Clear(); _kind = DemonstrationKind.Combination; Restart(); });
+        clear.Name = "SpellClear"; CompactButton(clear); selection.AddChild(clear);
+        var modes = new HBoxContainer(); modes.AddThemeConstantOverride("separation", 8); choices.AddChild(modes);
+        string[] names = ["Frontal", "Sobre mí", "En área"];
+        for (int i = 0; i < _modes.Length; i++)
+        {
+            int mode = i;
+            var button = Ui.Button(names[i], () => { _mode = (CastMode)mode; _kind = DemonstrationKind.Combination; Restart(); });
+            button.Name = "SpellCastMode" + i; button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            CompactButton(button);
+            modes.AddChild(button); _modes[i] = button;
+        }
+        _title = Ui.Label("", 18, Ui.Gold); _title.Name = "SpellCombinationTitle";
+        _title.AutowrapMode = TextServer.AutowrapMode.WordSmart; result.AddChild(_title);
+        _description = Ui.Label("", 15); _description.AutowrapMode = TextServer.AutowrapMode.WordSmart; result.AddChild(_description);
         _damage = Ui.Label("", 14, Ui.Gold); _damage.Name = "SpellDamageValues";
-        _damage.AutowrapMode = TextServer.AutowrapMode.WordSmart; view.AddChild(_damage);
-        var container = new SubViewportContainer { CustomMinimumSize = new(640, 230), Stretch = true,
-            SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore };
-        _responsivePreview = container;
-        view.AddChild(container);
-        var viewport = new SubViewport { Size = new(640, 230), OwnWorld3D = true,
-            RenderTargetUpdateMode = SubViewport.UpdateMode.WhenParentVisible, HandleInputLocally = false };
-        container.AddChild(viewport);
-        _arena = new ArenaRenderer { AudioEnabled = false, ShowControlPoints = false }; viewport.AddChild(_arena);
-        _arena.SetPreviewZoom(12);
-        _description = Ui.Label("", 14); _description.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _description.CustomMinimumSize = new(640, 55); view.AddChild(_description);
-        var controls = new HBoxContainer(); controls.AddThemeConstantOverride("separation", 12); AddChild(controls);
-        _pause = Ui.Button("Pausar", () => { _paused = !_paused; _pause.Text = _paused ? "Reproducir" : "Pausar"; });
-        _pause.CustomMinimumSize = new(110, 34); controls.AddChild(_pause);
-        var replay = Ui.Button("Repetir", Restart); replay.CustomMinimumSize = new(100, 34); controls.AddChild(replay);
-        _timeline = new ProgressBar { ShowPercentage = false, SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new(0, 8) }; controls.AddChild(_timeline);
-        _clock = Ui.Label("", 13, Ui.Muted); controls.AddChild(_clock);
-        AddChild(Ui.Label("Cifras base: magos equilibrados, objetivo seco y sin protección. Afinidades, escudos y objetos modifican el resultado.", 12, Ui.Muted));
-        _list.ItemSelected += SelectRow;
-        _search.TextChanged += _ => Refresh();
-        _mode.ItemSelected += _ => Restart();
-        _scenario.ItemSelected += _ => Restart();
-        GetViewport().SizeChanged += UpdateResponsiveSpellBook;
-        UpdateResponsiveSpellBook();
-        Refresh();
-    }
-
-    private void UpdateResponsiveSpellBook()
-    {
-        float screenWidth = GetViewport().GetVisibleRect().Size.X;
-        float width = Math.Max(260, screenWidth - (Ui.IsMobile ? 95 : 145));
-        int columns = ResponsiveLayout.Columns(width, 445, 2, 14);
-        if (_responsiveTop != null) _responsiveTop.Columns = ResponsiveLayout.Columns(width, 290, 2, 12);
-        if (_responsiveContent != null) _responsiveContent.Columns = columns;
-        if (_choicesColumn != null) _choicesColumn.CustomMinimumSize = new Vector2(columns == 2 ? 188 : 0, 0);
-        if (_list != null)
-            _list.CustomMinimumSize = new Vector2(columns == 2 ? 188 : 0, columns == 2 ? 310 : 140);
-        if (_responsivePreview != null)
+        _damage.AutowrapMode = TextServer.AutowrapMode.WordSmart; result.AddChild(_damage);
+        _preview = new SubViewportContainer { Stretch = true, SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            MouseFilter = MouseFilterEnum.Ignore, CustomMinimumSize = new(0, Ui.IsMobile ? 170 : 210) };
+        AddChild(_preview);
+        if (ShowPreview)
         {
-            float previewWidth = Math.Max(260, Math.Min(640, columns == 2 ? width - 210 : width));
-            _responsivePreview.CustomMinimumSize = new Vector2(previewWidth, 230);
-            if (_description != null) _description.CustomMinimumSize = new Vector2(previewWidth, 55);
+            var viewport = new SubViewport { Size = new(640, 230), OwnWorld3D = true,
+                RenderTargetUpdateMode = SubViewport.UpdateMode.WhenParentVisible, HandleInputLocally = false };
+            _preview.AddChild(viewport);
+            _arena = new ArenaRenderer { AudioEnabled = false, ShowControlPoints = false }; viewport.AddChild(_arena);
+            _arena.SetPreviewZoom(12);
         }
+        var note = Ui.Label("Cifras base sin equipo ni protección. La demostración se repite sola.", 12, Ui.Muted);
+        note.AutowrapMode = TextServer.AutowrapMode.WordSmart; note.Visible = ShowPreview; AddChild(note);
+        Resized += UpdateLayout; UpdateLayout(); Restart();
     }
 
-    public override void _ExitTree() => GetViewport().SizeChanged -= UpdateResponsiveSpellBook;
+    private void UpdateLayout()
+    {
+        if (_columns != null) _columns.Columns = Size.X < 540 ? 1 : 2;
+    }
 
-    private void Refresh()
+    private static void CompactButton(Button button)
     {
-        string query = _search.Text.Trim().ToUpperInvariant();
-        bool keys = query.Length > 0 && query.All(c => SpellCatalogue.ElementKeys.Contains(c));
-        var required = keys ? query.GroupBy(c => c).Select(g => (Key: g.Key, Count: g.Count())).ToArray() : [];
-        _list.Clear(); _shown.Clear();
-        foreach (var combination in SpellCatalogue.All)
-        {
-            bool match = query.Length == 0 || keys && required.All(r => combination.Keys.Count(k => k == r.Key) >= r.Count) ||
-                SpellCatalogue.Name(combination.Elements).ToUpperInvariant().Contains(query);
-            if (!match) continue;
-            _shown.Add(combination);
-            _list.AddItem(combination.Keys + " · " + SpellCatalogue.Name(combination.Elements));
-            _list.SetItemTooltip(_shown.Count - 1, SpellCatalogue.Name(combination.Elements) + "\n" + SpellBalance.Format(combination.Recipe, (CastMode)_mode.Selected));
-        }
-        if (_shown.Count > 0) { _list.Select(0); SelectRow(0); }
+        button.CustomMinimumSize = new(0, 44); button.AddThemeFontSizeOverride("font_size", 15);
+        foreach (var state in new[] { "normal", "hover", "pressed", "disabled" })
+            if (button.GetThemeStylebox(state) is StyleBoxFlat current)
+            {
+                var style = (StyleBoxFlat)current.Duplicate();
+                style.ContentMarginLeft = style.ContentMarginRight = 6;
+                style.ContentMarginTop = style.ContentMarginBottom = 4;
+                button.AddThemeStyleboxOverride(state, style);
+            }
     }
-    private void SelectRow(long index)
-    {
-        _combination = _shown[(int)index]; _scenario.Select(0); Restart();
-    }
+
     public void SelectCombination(string keys, CastMode mode = CastMode.Forward, DemonstrationKind kind = DemonstrationKind.Combination)
     {
-        var selected = SpellCatalogue.FromKeys(keys) ?? SpellCatalogue.All[0];
-        _search.Text = "";
-        _combination = selected;
-        int index = _shown.FindIndex(c => c.Keys == selected.Keys);
-        if (index >= 0) { _list.Select(index); _list.EnsureCurrentIsVisible(); }
-        _mode.Select((int)mode); _scenario.Select((int)kind); Restart();
+        _selection.Clear();
+        foreach (var element in (SpellCatalogue.FromKeys(keys) ?? SpellCatalogue.All[0]).Elements) _selection.Add(element);
+        _mode = mode; _kind = kind; Restart();
     }
+
     public void Restart()
     {
-        _paused = false; _pause.Text = "Pausar"; _accumulator = 0;
-        var mode = (CastMode)_mode.Selected; var kind = (DemonstrationKind)_scenario.Selected;
-        _demo = new(_combination.Elements, mode, kind);
-        _snapshot = _demo.World.Snapshot();
-        _arena.Clear(); _arena.ShowControlPoints = kind == DemonstrationKind.Capture;
-        _mode.Disabled = kind != DemonstrationKind.Combination;
-        _damage.Text = kind == DemonstrationKind.Combination ? SpellBalance.Format(_combination.Recipe, mode) : "";
-        _damage.Visible = kind == DemonstrationKind.Combination;
-        _damage.TooltipText = "Valores base contra un mago equilibrado, seco y sin protección. Afinidades, guardas, escudos y objetos modifican el resultado. La curación respeta la vida máxima del objetivo.";
-        for (int i = 0; i < _shown.Count; i++) _list.SetItemTooltip(i, SpellCatalogue.Name(_shown[i].Elements) + "\n" + SpellBalance.Format(_shown[i].Recipe, mode));
-        _title.Text = kind switch { DemonstrationKind.CrossedBeams => "SSF + SSR · CRUCE DE RAYOS",
-            DemonstrationKind.ShieldRefraction => "SS CONTRA EF · REFRACCIÓN",
-            DemonstrationKind.Capture => "CAPTURA · AZUL Y ROJO", _ => _combination.Keys + " · " + SpellCatalogue.Name(_combination.Elements) };
-        _description.Text = kind switch
+        _accumulator = 0;
+        var elements = _selection.Elements.ToArray(); var recipe = new SpellRecipe(elements);
+        for (int i = 0; i < _slots.Length; i++) _slots[i].Value = i < elements.Length ? elements[i] : null;
+        for (int i = 0; i < _modes.Length; i++)
+            _modes[i].AddThemeColorOverride("font_color", i == (int)_mode ? Ui.Gold : Ui.Text);
+        _demo = new(elements, _mode, _kind); _snapshot = _demo.World.Snapshot();
+        if (_arena != null) { _arena.Clear(); _arena.ShowControlPoints = _kind == DemonstrationKind.Capture; }
+        bool chosen = elements.Length > 0 || _kind != DemonstrationKind.Combination;
+        _preview.Visible = chosen && ShowPreview; _damage.Visible = chosen && _kind == DemonstrationKind.Combination;
+        _damage.Text = _kind == DemonstrationKind.Combination ? SpellBalance.Format(recipe, _mode) : "";
+        _title.Text = !chosen ? "Elige hasta tres elementos" : _kind switch
         {
-            DemonstrationKind.CrossedBeams => "Los rayos se detienen en el cruce. El tramo de salida suma sus efectos y sigue la bisectriz; si llegan de frente, se desvía 90°.",
-            DemonstrationKind.ShieldRefraction => "Un escudo devuelve el 80 % de la intensidad. Una guarda añade sus elementos y desvía 20° más el tramo reflejado. Máximo dos rebotes.",
-            DemonstrationKind.Capture => "El color ocupa el círculo según la captura. El rojo primero retira el progreso azul. Con los dos equipos dentro, la captura se detiene.",
-            _ => SpellCatalogue.Describe(_combination.Recipe, mode)
+            DemonstrationKind.CrossedBeams => "CRUCE DE RAYOS",
+            DemonstrationKind.ShieldRefraction => "REFRACCIÓN DEL ESCUDO",
+            DemonstrationKind.Capture => "CAPTURA DE PUNTO", _ => SpellCatalogue.Name(elements)
         };
-        _timeline.MaxValue = _demo.Duration;
+        _description.Text = !chosen ? "Puedes repetir elementos; los opuestos se anulan. Aquí verás el efecto y sus cifras." : _kind switch
+        {
+            DemonstrationKind.CrossedBeams => "Los rayos suman sus efectos desde el cruce y siguen la bisectriz.",
+            DemonstrationKind.ShieldRefraction => "El escudo refleja el rayo y la guarda añade sus elementos.",
+            DemonstrationKind.Capture => "Con ambos equipos dentro, la captura se detiene.",
+            _ => SpellCatalogue.Describe(recipe, _mode)
+        };
     }
+
     public override void _Process(double delta)
     {
-        if (!IsVisibleInTree() || _demo == null) return;
-        if (!_paused)
+        if (_arena == null || !IsVisibleInTree() || !_preview.Visible || _demo == null) return;
+        _accumulator += FixedStepForVerification ? 1 / 60.0 : Math.Clamp(delta, 0, 0.1);
+        bool advanced = false;
+        while (_accumulator >= 1 / 60.0)
         {
-            _accumulator += FixedStepForVerification ? 1 / 60.0 : Math.Clamp(delta, 0, 0.1);
-            bool advanced = false;
-            while (_accumulator >= 1 / 60.0)
-            {
-                int cycle = _demo.Cycle; _demo.Step();
-                if (_demo.Cycle != cycle) _arena.Clear();
-                _accumulator -= 1 / 60.0; advanced = true;
-            }
-            if (advanced) _snapshot = _demo.World.Snapshot();
+            int cycle = _demo.Cycle; _demo.Step();
+            if (_demo.Cycle != cycle) _arena.Clear();
+            _accumulator -= 1 / 60.0; advanced = true;
         }
-        _arena.Render(_snapshot, _demo.LocalId, _paused ? 0 : FixedStepForVerification ? 1 / 60.0 : delta, true);
-        _timeline.Value = _demo.Time;
-        _clock.Text = $"{_demo.Time:0.0} / {_demo.Duration:0} s · bucle";
+        if (advanced) _snapshot = _demo.World.Snapshot();
+        _arena.Render(_snapshot, _demo.LocalId, FixedStepForVerification ? 1 / 60.0 : delta, true);
     }
 }

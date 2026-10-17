@@ -329,9 +329,9 @@ public partial class DefensePanel : Control
         if (stamp == _totalsStamp) return;
         _totalsStamp = stamp;
         foreach (var child in _totals.GetChildren()) { _totals.RemoveChild(child); child.QueueFree(); }
-        Ui.TableCell(_totals, "Atributo", header: true, size: 15); Ui.TableCell(_totals, "Total efectivo", header: true, size: 15);
+        Ui.TableCell(_totals, "Total efectivo", header: true, size: 15); Ui.TableCell(_totals, "Atributo", header: true, size: 15);
         foreach (var row in rows)
-        { Ui.TableCell(_totals, row.Name, size: 15); Ui.TableCell(_totals, row.Value, number: true, size: 15); }
+        { Ui.TableCell(_totals, row.Value, number: true, size: 15); Ui.TableCell(_totals, row.Name, size: 15); }
     }
 
     public override void _ExitTree() => GetViewport().SizeChanged -= Resize;

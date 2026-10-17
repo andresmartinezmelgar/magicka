@@ -82,9 +82,15 @@ public partial class ClientVerification
                 Point(new(-5, -2));
                 Require(_runtime.AimMarker.Target.DistanceTo(firstTarget) > 20, name + " no mueve el marcador con el gesto.");
                 V2 direction = (_runtime.Aim - player.Position).Normalized;
-                V2 expected = touch != null ? player.Position + direction * MagickRules.BlinkRange : _runtime.Aim;
+                V2 expected = player.Position + direction * Main.ProjectileMarkerDistance;
                 var projected = _runtime.Renderer.Camera.UnprojectPosition(ArenaRenderer.World(expected, 0.05f));
                 Require(_runtime.AimMarker.Target.DistanceTo(projected) < 1, name + " no coincide con la dirección del lanzamiento.");
+                var fixedTarget = _runtime.AimMarker.Target;
+                Point(new(-2, -0.8f));
+                Require(_runtime.AimMarker.Target.DistanceTo(fixedTarget) < 1, name + " acerca el marcador al mover el cursor hacia el mago.");
+                Point(new(-10, -4));
+                Require(_runtime.AimMarker.Target.DistanceTo(fixedTarget) < 1, name + " aleja el marcador al mover el cursor hacia fuera.");
+                direction = (_runtime.Aim - player.Position).Normalized;
                 await CaptureMarker(name);
                 if (touch != null) touch.Touch(1, Vector2.Zero, false);
                 else

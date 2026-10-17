@@ -116,7 +116,7 @@ public partial class EquipmentPanel
             var upgrade = PickerAction(actions, "EquipmentUpgrade_", item.Id, _upgradeIcon, Ui.Health,
                 entry == null ? "Defensa" : maximum ? "Máximo" : $"{cost} oro",
                 entry == null ? "Mejorar estadísticas con oro durante una partida de Defensa." : maximum ? "Esta pieza ha alcanzado su límite de mejora." :
-                $"Mejorar esta pieza por {cost} oro de partida. Suma un punto porcentual a cada atributo, hasta su máximo. Mejora {entry.Upgrades + 1} / 10." +
+                $"Mejorar esta pieza por {cost} oro de partida. Suma un punto porcentual a cada atributo; diez puntos sobre su valor inicial. Mejora {entry.Upgrades + 1} / 10." +
                 (_defensePlayer!.Gold < cost ? $" Faltan {cost - _defensePlayer.Gold} oro." : ""), () => UpgradeDefenseItem(item.Id));
             _upgradeButtons.Add(item.Id, upgrade);
         }

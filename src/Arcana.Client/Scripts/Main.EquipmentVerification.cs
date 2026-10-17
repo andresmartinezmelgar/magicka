@@ -166,10 +166,13 @@ public partial class Main
                 Loadout = new(separated[0].Id, separated[1].Id, separated[2].Id, separated[3].Id) });
             var totals = (GridContainer)panel.FindChild("EquipmentTotalsTable", true, false);
             var cells = totals.GetChildren().OfType<Label>().ToArray();
+            Check(cells[totals.Columns - 1].Text == "Atributo" &&
+                ((Label)panel.FindChild("EquipmentDetailsTable", true, false).GetChild(2)).Text == "Atributo",
+                "Los nombres de atributos no ocupan la última columna.");
             int attack = Array.FindIndex(cells, l => l.Text == "Ataque");
             Check(attack >= 0 && (totals.Columns == 2
-                ? cells[attack + 1].Text == "Botas: +2% · Gorro: -1%\nPecho: +5% · Arma: +7%\nConjunto: 0% · Suma: +13%\nAplicado: +13%"
-                : cells.Skip(attack + 1).Take(7).Select(l => l.Text).SequenceEqual(new[] { "+2%", "-1%", "+5%", "+7%", "0%", "+13%", "+13%" })),
+                ? cells[attack - 1].Text == "Botas: +2% · Gorro: -1%\nPecho: +5% · Arma: +7%\nConjunto: 0% · Suma: +13%\nAplicado: +13%"
+                : cells.Skip(attack - 7).Take(7).Select(l => l.Text).SequenceEqual(new[] { "+2%", "-1%", "+5%", "+7%", "0%", "+13%", "+13%" })),
                 "El desglose no separa las cuatro piezas, pierde el signo o suma piezas sin equipar.");
             panel.PressInspect(EquipmentSlot.Hat); panel.PressChoice("");
             Check(panel.Totals.Contains("+14%") && (totals.Columns == 2 ? panel.Totals.Contains("Gorro: —") : panel.Totals.Contains("—")),

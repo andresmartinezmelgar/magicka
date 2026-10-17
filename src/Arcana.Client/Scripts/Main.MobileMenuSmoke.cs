@@ -236,6 +236,7 @@ public partial class Main
                 96 => "07-crear-sala",
                 116 => "08-perfil",
                 137 => "09-ayuda",
+                146 => "09-combinaciones",
                 156 => "10-equipacion",
                 163 => "12-suma-bonificaciones",
                 _ => null
@@ -396,6 +397,8 @@ public partial class Main
             if (frame == 45) _launcher.OpenMobileSmokePage(2);
             if (frame == 55)
             {
+                if (_launcher.FindChild("PracticeLaboratoryButton", true, false) != null)
+                    throw new InvalidOperationException("El acceso redundante al laboratorio sigue visible.");
                 foreach (string nodeName in new[] { "OptionAFullWidthPanel", "OptionASettingsColumns",
                     "OptionAPrimaryActions", "LauncherSettingsScroll", "OptionAHomeCards", "OptionAIaSettingsColumns" })
                 {
@@ -484,8 +487,33 @@ public partial class Main
             }
             if (frame == 142) _optionAHelp!.SelectForSmoke(4);
             if (frame == 144) AssertOptionAScreen("AYUDA_RELIQUIAS", _optionAHelp!);
-            if (frame == 144) _optionAHelp!.SelectForSmoke(6);
+            if (frame == 144) _optionAHelp!.SelectForSmoke(5);
             if (frame == 145)
+            {
+                AssertOptionAScreen("AYUDA_COMBINACIONES", _optionAHelp!);
+                var book = (SpellBook)_optionAHelp!.FindChild("MenuSpellCombinations", true, false);
+                void Press(string name) => ((Button)book.FindChild(name, true, false)).EmitSignal(Button.SignalName.Pressed);
+                Press("SpellElementWater"); Press("SpellElementCold");
+                var damage = (Label)book.FindChild("SpellDamageValues", true, false);
+                if (damage.Text != SpellBalance.Format(new SpellRecipe([Element.Water, Element.Cold]), CastMode.Forward) ||
+                    book.FindChildren("*", "ItemList", true, false).Count != 0)
+                    throw new InvalidOperationException("La ayuda no combina directamente o conserva la lista compleja.");
+            }
+            if (frame == 147)
+            {
+                var book = (SpellBook)_optionAHelp!.FindChild("MenuSpellCombinations", true, false);
+                void Press(string name) => ((Button)book.FindChild(name, true, false)).EmitSignal(Button.SignalName.Pressed);
+                var damage = (Label)book.FindChild("SpellDamageValues", true, false);
+                Press("SpellElementCold");
+                Press("SpellCastMode1");
+                if (damage.Text != SpellBalance.Format(new SpellRecipe([Element.Water, Element.Cold, Element.Cold]), CastMode.Self))
+                    throw new InvalidOperationException("La ayuda no cambia la forma de lanzamiento.");
+                Press("SpellClear");
+                if (damage.Visible) throw new InvalidOperationException("Limpiar conserva los datos del hechizo anterior.");
+                GD.Print("SIMPLE_COMBINATIONS_OK: selección directa, repetición de elementos, tres modos y limpieza.");
+                _optionAHelp!.SelectForSmoke(6);
+            }
+            if (frame == 149)
             {
                 AssertOptionAScreen("AYUDA_BONIFICACIONES", _optionAHelp!);
                 AssertTouchScroll(_optionAHelp!, "HelpContentScroll", "AYUDA_BONIFICACIONES");

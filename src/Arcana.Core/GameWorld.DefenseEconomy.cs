@@ -87,9 +87,9 @@ public sealed partial class GameWorld
                 else
                 {
                     int upgrades = progress.Upgrades.GetValueOrDefault(item.Id), price = DefenseRules.UpgradeCost(upgrades);
-                    if (upgrades >= 10 || progress.Gold < price || item.Bonuses.All(b => b.Current >= b.Maximum)) return false;
+                    if (upgrades >= DefenseRules.ItemUpgradeLimit || progress.Gold < price || item.Bonuses.All(b => b.Current >= b.Maximum)) return false;
                     var improved = item with { Bonuses = item.Bonuses.Select(b => b with
-                        { Current = MathF.Round(Math.Min(b.Maximum, b.Current + 0.01f), 4) }).ToArray() };
+                        { Current = MathF.Round(Math.Min(b.Maximum, b.Current + DefenseRules.ItemUpgradeStep), 4) }).ToArray() };
                     progress.Gold -= price; progress.Upgrades[item.Id] = upgrades + 1;
                     progress.Items[progress.Items.IndexOf(item)] = improved;
                 }
@@ -117,6 +117,10 @@ public sealed partial class GameWorld
             progress.Gold = Math.Min(100000000, progress.Gold + item.SaleGold);
         else
         {
+            // Solo el equipo temporal: cada tirada dispone de diez incrementos
+            // propios, incluso cuando ya salió en el máximo del catálogo.
+            item = item with { Bonuses = item.Bonuses.Select(b => b with
+                { Maximum = MathF.Round(b.Current + DefenseRules.ItemUpgradeLimit * DefenseRules.ItemUpgradeStep, 4) }).ToArray() };
             progress.Items.Add(item);
             if (progress.Loadout.Get(item.Slot).Length == 0) progress.Loadout = progress.Loadout.With(item.Slot, item.Id);
             RecalculateDefender(player);

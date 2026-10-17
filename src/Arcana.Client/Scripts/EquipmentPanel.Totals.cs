@@ -14,16 +14,15 @@ public partial class EquipmentPanel
         if (!table.Visible) return false;
         bool compact = table.Columns == 2;
         var slots = Enum.GetValues<EquipmentSlot>();
-        Cell(table, "Atributo", header: true);
         if (compact) Cell(table, "Piezas y total aplicado", true, header: true);
         else
         {
             foreach (var slot in slots) Cell(table, EquipmentCatalogue.SlotName(slot), true, header: true);
             foreach (string heading in new[] { "Conjunto", "Suma", "Aplicado" }) Cell(table, heading, true, header: true);
         }
+        Cell(table, "Atributo", header: true);
         foreach (var stat in active)
         {
-            Cell(table, StatName(stat.Stat)).TooltipText = EquipmentCatalogue.StatDescription(stat.Stat);
             var lines = new List<string>();
             foreach (var slot in slots)
             {
@@ -51,6 +50,7 @@ public partial class EquipmentPanel
             applied.TooltipText = EquipmentCatalogue.StatDescription(stat.Stat) +
                 "\nSuma = botas + gorro + pecho + arma + conjunto. — indica que no hay pieza equipada." +
                 (stat.Limited ? "\nLa suma está limitada: se aplica el valor indicado en Aplicado." : "");
+            Cell(table, StatName(stat.Stat)).TooltipText = EquipmentCatalogue.StatDescription(stat.Stat);
         }
         return true;
     }

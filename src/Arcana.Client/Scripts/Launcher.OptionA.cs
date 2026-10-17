@@ -234,7 +234,7 @@ public partial class Launcher
     {
         if (_tabs.GetChild(2) is not VBoxContainer practice) return;
         var parts = practice.GetChildren().OfType<Control>().ToArray();
-        if (parts.Length < 8) return;
+        if (parts.Length < 6) return;
         practice.AddThemeConstantOverride("separation", 6);
         var row = new GridContainer { Name = "OptionAIaSettingsColumns", Columns = 2,
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
@@ -251,9 +251,9 @@ public partial class Launcher
             SizeFlagsStretchRatio = 1.0f };
         bots.AddThemeConstantOverride("separation", 10);
         row.AddChild(bots);
-        // El mapa, la modalidad y su objetivo a la izquierda; bots y laboratorio a la derecha.
-        foreach (int index in new[] { 0, 1, 2, 3, 4 }) parts[index].Reparent(maps);
-        foreach (int index in new[] { 5, 6, 7, 8 }) parts[index].Reparent(bots);
+        // El mapa, la modalidad y su objetivo a la izquierda; bots y medición a la derecha.
+        foreach (var part in parts.Take(5)) part.Reparent(maps);
+        foreach (var part in parts.Skip(5)) part.Reparent(bots);
         if (parts[0] is Label explanation)
             explanation.AddThemeFontSizeOverride("font_size", 14);
         if (parts[4] is Label objective)

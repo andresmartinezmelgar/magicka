@@ -118,7 +118,7 @@ jobs:
           dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
           dotnet build src/Arcana.Server/Arcana.Server.csproj -c Debug --nologo
           "$GODOT" --headless --editor --path src/Arcana.Client --import
-      - name: Renderizar 44 capturas de móvil y escritorio y validar los límites
+      - name: Renderizar 47 capturas de móvil y escritorio y validar los límites
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
         run: |
@@ -128,6 +128,7 @@ jobs:
             mkdir -p "$target"
             xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client --               --mobile-menu-smoke "--smoke-viewport=$viewport" --visual-review "--visual-directory=$target"               2>&1 | tee "$RUNNER_TEMP/visual-$viewport.log"
             grep -q 'MOBILE_MENU_LAYOUT_OK' "$RUNNER_TEMP/visual-$viewport.log"
+            grep -q 'SIMPLE_COMBINATIONS_OK' "$RUNNER_TEMP/visual-$viewport.log"
             grep -q 'MOBILE_SERIES_REWARD_LAYOUT_OK' "$RUNNER_TEMP/visual-$viewport.log"
             grep -q 'MOBILE_SERIES_LOSS_LAYOUT_OK' "$RUNNER_TEMP/visual-$viewport.log"
             grep -q 'VISUAL_CAPTURE_OK:02-victoria-3-de-5' "$RUNNER_TEMP/visual-$viewport.log"
@@ -156,8 +157,8 @@ jobs:
           python3 - <<'PY'
           import glob, struct, pathlib, hashlib
           files = sorted(glob.glob('artifacts/visual-review/*/*.png'))
-          if len(files) != 44:
-              raise SystemExit(f'Faltan capturas: {len(files)}/44')
+          if len(files) != 47:
+              raise SystemExit(f'Faltan capturas: {len(files)}/47')
           for name in files:
               raw = pathlib.Path(name).read_bytes()
               if len(raw) < 12000 or raw[:8] != b'\x89PNG\r\n\x1a\n':

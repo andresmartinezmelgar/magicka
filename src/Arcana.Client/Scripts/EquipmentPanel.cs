@@ -291,12 +291,12 @@ public partial class EquipmentPanel : Control
     {
         Clear(_details); var item = Selected();
         _detailTitle.Text = EquipmentCatalogue.SlotName(_selectedSlot) + " · ATRIBUTOS INDIVIDUALES";
-        foreach (string heading in new[] { "Atributo", "Actual", "Límites (mín. / máx.)" }) Cell(_details, heading, heading != "Atributo", header: true);
+        foreach (string heading in new[] { "Actual", "Límites (mín. / máx.)", "Atributo" }) Cell(_details, heading, heading != "Atributo", header: true);
         if (item != null) foreach (var bonus in item.Bonuses)
         {
-            Cell(_details, StatName(bonus.Stat)).TooltipText = EquipmentCatalogue.StatDescription(bonus.Stat);
             Cell(_details, EquipmentCatalogue.Percent(bonus.Current), true, bonus.Current < 0 ? Ui.Red : Ui.Blue);
             Cell(_details, EquipmentCatalogue.Percent(bonus.Minimum) + " / " + EquipmentCatalogue.Percent(bonus.Maximum), true, Ui.Muted);
+            Cell(_details, StatName(bonus.Stat)).TooltipText = EquipmentCatalogue.StatDescription(bonus.Stat);
         }
         _empty.Text = item == null ? "Sin pieza equipada. Pulsa una posición para abrir sus objetos ordenados por calidad." :
             "Pulsa una posición para comparar sus objetos. Los cambios se guardan al salir del inventario.";
