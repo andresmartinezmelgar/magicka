@@ -116,6 +116,7 @@ jobs:
           chmod +x "$GODOT"
           echo "ARCANA_GODOT=$GODOT" >> "$GITHUB_ENV"
           dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
+          dotnet build src/Arcana.Server/Arcana.Server.csproj -c Debug --nologo
           "$GODOT" --headless --editor --path src/Arcana.Client --import
       - name: Renderizar 44 capturas de móvil y escritorio y validar los límites
         env:
@@ -192,6 +193,21 @@ jobs:
           xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --defense-smoke --smoke-viewport=1440x900 "--defense-captures=$target" 2>&1 | tee "$RUNNER_TEMP/defense-desktop.log"
           grep -q 'DEFENSE_SMOKE_OK' "$RUNNER_TEMP/defense-desktop.log"
           ! grep -E '^(ERROR:|SCRIPT ERROR:)|DEFENSE_SMOKE_FAILED' "$RUNNER_TEMP/defense-desktop.log"
+      - name: Verificar reconexión desde la interfaz móvil
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          GAME_PORT=29115 DISCOVERY_PORT=29116 BOTS=0 SERVER_PASSWORD= dotnet src/Arcana.Server/bin/Debug/net8.0/Arcana.Server.dll > "$RUNNER_TEMP/reconnect-server.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for i in {1..80}; do
+            if curl -fsS http://127.0.0.1:29115/health >/dev/null; then break; fi
+            sleep 0.2
+          done
+          timeout 150s xvfb-run -a -s "-screen 0 1280x720x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --reconnect-smoke --reconnect-server=127.0.0.1:29115 --mobile --smoke-viewport=1024x640 2>&1 | tee "$RUNNER_TEMP/reconnect-client.log"
+          grep -q 'RECONNECT_SMOKE_OK' "$RUNNER_TEMP/reconnect-client.log"
+          ! grep -E '^(ERROR:|SCRIPT ERROR:)|RECONNECT_SMOKE_FAILED' "$RUNNER_TEMP/reconnect-client.log"
       - name: Medir Supervivencia con combate, IA, inventario y portales
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'

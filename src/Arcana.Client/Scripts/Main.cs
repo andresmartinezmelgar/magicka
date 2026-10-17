@@ -130,6 +130,7 @@ public partial class Main : Node
             _verification = new ClientVerification(); AddChild(_verification);
             _verification.Initialize(new VerificationAccess(this), arguments);
         }
+        if (arguments.Contains("--reconnect-smoke")) _ = VerifyReconnectInterface(arguments);
         if (arguments.Contains("--defense-smoke")) StartDefenseSmoke(arguments);
         if (RenderProfiler.Requested(arguments))
         {
