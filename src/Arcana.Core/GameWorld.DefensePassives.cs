@@ -43,6 +43,8 @@ public sealed partial class GameWorld
                         Emit("nova", player.Position, [Element.Cold], "Pulso glacial", 5);
                         break;
                     case DefensePassive.ChainLightning:
+                        // Cabecera cosmética: conserva el origen y el orden real de los objetivos sin cambiar el protocolo.
+                        Emit("passive_chain", player.Position, [Element.Lightning], "");
                         foreach (var target in targets.Take(Math.Min(6, 2 + level)))
                         {
                             Damage(target.Body, 140 * level * player.Equipment.ElementPower(Element.Lightning), player.Id, [Element.Lightning]);

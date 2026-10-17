@@ -14,13 +14,14 @@ public partial class Main
         if (!OS.HasFeature("mobile"))
         {
             int logicalWidth = 1440, logicalHeight = 720, physicalWidth = 1600;
-            // Solo pruebas headless: simular pantallas más estrechas sin alterar la APK.
+            // Simular pantallas de prueba más estrechas sin alterar la APK.
             string? requested = OS.GetCmdlineUserArgs().FirstOrDefault(a =>
                 a.StartsWith("--smoke-viewport=", StringComparison.Ordinal));
             if (requested != null && OS.GetCmdlineUserArgs().Any(a => a is "--defense-smoke" or "--mobile-menu-smoke"
                 or "--aim-marker-smoke"
                 or "--equipment-smoke" or "--preview-equipment-picker"
-                or "--preview-spells=stone" or "--preview-spells=stone-close" or "--preview-spells=stone-auras"))
+                or "--preview-spells=stone" or "--preview-spells=stone-close" or "--preview-spells=stone-auras"
+                or "--preview-spells=areas" or "--preview-spells=auras" or "--preview-spells=passives"))
             {
                 string[] parts = requested["--smoke-viewport=".Length..].Split('x');
                 if (parts.Length != 2 || !int.TryParse(parts[0], out logicalWidth) ||

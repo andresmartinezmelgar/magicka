@@ -42,7 +42,8 @@ public partial class ArenaRenderer
         }
         _defenseLootVisuals.Remove(id); _lootKeys.Remove(id);
     }
-    private readonly Dictionary<(int Player, int Aura), (MeshInstance3D Mesh, TorusMesh Ring)> _defenseAuraVisuals = [];
+    private readonly Dictionary<(int Player, int Aura), MeshInstance3D> _defenseAuraVisuals = [];
+    internal IReadOnlyDictionary<(int Player, int Aura), MeshInstance3D> DefenseAuraVisuals => _defenseAuraVisuals;
     internal int DefenseMinionVisualCount => _minionVisuals.Count;
     internal IReadOnlyDictionary<int, DefenseLootVisual> DefenseLootVisuals => _defenseLootVisuals;
 
@@ -51,7 +52,7 @@ public partial class ArenaRenderer
         foreach (var v in _minionVisuals.Values) ReturnMinionVisual(v); _minionVisuals.Clear();
         foreach (var pool in _freeMinions) foreach (var v in pool) v.Root.Visible = false;
         foreach (int id in _defenseLootVisuals.Keys.ToArray()) ReturnLoot(id);
-        foreach (var v in _defenseAuraVisuals.Values) v.Mesh.QueueFree(); _defenseAuraVisuals.Clear();
+        foreach (var v in _defenseAuraVisuals.Values) v.QueueFree(); _defenseAuraVisuals.Clear();
     }
 
     private static WizardSnapshot MinionWizard(MinionSnapshot m) => new(m.Id, DefenseRules.MinionName(m.Kind), 1, true, m.Position,
@@ -121,23 +122,21 @@ public partial class ArenaRenderer
                 var key = (defender.PlayerId, i);
                 if (!_defenseAuraVisuals.TryGetValue(key, out var aura))
                 {
-                    var ring = new TorusMesh { Rings = 48, RingSegments = 5 };
-                    var mesh = Mesh(this, ring, Vector3.Zero, i == 0 ? Ui.ElementColor(Element.Fire) : i == 1 ? Ui.ElementColor(Element.Lightning) : i == 2 ? Ui.Health : Ui.Gold, 0.5f);
-                    aura = (mesh, ring); _defenseAuraVisuals[key] = aura;
+                    aura = AreaVisuals.Piece(this, AreaVisuals.AuraPattern(i));
+                    aura.Name = $"DefenseAura{defender.PlayerId}_{i}"; _defenseAuraVisuals[key] = aura;
                 }
                 int level = i == 3 ? defender.BerserkerRemaining > 0 ? 1 : 0 : defender.Auras[i];
-                aura.Mesh.Visible = player.Alive && level > 0 && NearSurvival(player.Position);
+                aura.Visible = player.Alive && level > 0 && NearSurvival(player.Position);
                 if (level > 0)
                 {
                     float radius = i == 3 ? 1.6f : DefenseRules.AuraRadius(level);
-                    if (Math.Abs(aura.Ring.OuterRadius - radius) > 0.01f)
-                    { aura.Ring.InnerRadius = radius - 0.08f; aura.Ring.OuterRadius = radius; }
-                    aura.Mesh.Position = (_wizards.TryGetValue(player.Id, out var wizard) ? wizard.Position : World(player.Position)) + new Vector3(0, 0.08f + i * 0.03f, 0);
+                    aura.Scale = new(radius, 1, radius);
+                    aura.Position = (_wizards.TryGetValue(player.Id, out var wizard) ? wizard.Position : World(player.Position)) + new Vector3(0, 0.08f + i * 0.03f, 0);
                 }
             }
         }
         foreach (var key in _defenseAuraVisuals.Keys.Where(k => !defense.Defenders.Any(d => d.PlayerId == k.Player)).ToArray())
-        { _defenseAuraVisuals[key].Mesh.QueueFree(); _defenseAuraVisuals.Remove(key); }
+        { _defenseAuraVisuals[key].QueueFree(); _defenseAuraVisuals.Remove(key); }
     }
 
     private static int PreparedMinionCount(MinionKind kind) => kind switch

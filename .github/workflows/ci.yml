@@ -209,6 +209,32 @@ jobs:
             test -s "$target/hielo.png"
             test -s "$target/roca.png"
           done
+      - name: Revisar áreas, auras y pasivas en escritorio y móvil
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          for surface in desktop mobile; do
+            args=(--smoke-viewport=1440x900)
+            if [ "$surface" = mobile ]; then args=(--mobile --smoke-viewport=720x540); fi
+            target="$PWD/artifacts/visual-review/areas-$surface"
+            mkdir -p "$target"
+            for scene in areas auras passives; do
+              timeout 90s xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- "${args[@]}" "--preview-spells=$scene" "--capture=$target/$scene.png" 2>&1 | tee "$RUNNER_TEMP/$scene-$surface.log"
+              grep -q 'CAPTURE: Ok' "$RUNNER_TEMP/$scene-$surface.log"
+              ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/$scene-$surface.log"
+              test -s "$target/$scene.png"
+            done
+          done
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          for surface, size in [('desktop', (1440, 900)), ('mobile', (720, 540))]:
+              for scene in ['areas', 'auras', 'passives']:
+                  path = Path('artifacts/visual-review') / ('areas-' + surface) / (scene + '.png')
+                  with Image.open(path) as image:
+                      assert image.size == size, (path, image.size, size)
+          PY
       - name: Verificar reconexión desde la interfaz móvil
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'

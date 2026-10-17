@@ -135,16 +135,6 @@ public partial class ArenaRenderer : Node3D
     private MeshInstance3D Ring(Node3D parent, float radius, float width, Vector3 pos, Color color) =>
         Mesh(parent, new TorusMesh { InnerRadius = radius - width, OuterRadius = radius, Rings = 48, RingSegments = 8 }, pos, color, 0.6f);
 
-    private void GroundRing(Node3D parent, float radius, float width, Color color)
-    {
-        var border = Mesh(parent, new TorusMesh { InnerRadius = Math.Max(0.01f, radius - width - 0.07f),
-            OuterRadius = radius + 0.07f, Rings = 48, RingSegments = 8 }, new(0, 0.07f, 0), new("09111e"), unshaded: true);
-        var ring = Mesh(parent, new TorusMesh { InnerRadius = Math.Max(0.01f, radius - width),
-            OuterRadius = radius, Rings = 48, RingSegments = 8 }, new(0, 0.14f, 0), color, unshaded: true);
-        border.Scale = ring.Scale = new(1, 0.25f, 1);
-        border.CastShadow = ring.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
-    }
-
     private void BuildMap()
     {
         foreach (var step in PrepareMap(_map.Id, true)) step();
@@ -259,7 +249,7 @@ public partial class ArenaRenderer : Node3D
         foreach (var e in snapshot.Events)
         {
             if (e.Id <= _lastEvent) continue;
-            if (playing && NearSurvival(e.Position))
+            if (playing && (NearSurvival(e.Position) || e.Kind == "passive_chain"))
             {
                 _effects.Play(e);
                 if (e.Kind is "cast" or "self" or "nova" or "barrier")
@@ -352,43 +342,10 @@ public partial class ArenaRenderer : Node3D
             }
             if (!_fields.TryGetValue(field.Id, out var root))
             {
-                root = new Node3D { Position = World(field.Position) }; AddChild(root);
-                Color color = Ui.SpellColor(field.Elements);
-                bool mine = field.Kind is "mine" or "healing_mine";
-                if (field.Kind == "healing_mine") color = Ui.Health;
-                int charges = SpellVisualStrength.For(field.Elements).Charges;
-                GroundRing(root, field.Radius, mine ? 0.09f : 0.15f, color);
-                if (mine)
-                {
-                    GroundRing(root, field.TriggerRadius, 0.12f, color);
-                    var core = Mesh(root, new PrismMesh { Size = new(0.4f, 0.55f, 0.4f) }, new(0, 0.36f, 0), color, unshaded: true);
-                    core.Name = "MineCore";
-                    root.AddChild(new Label3D { Text = field.Kind == "healing_mine" ? "+" : "!", Position = new(0, 0.9f, 0),
-                        FontSize = 50, PixelSize = 0.009f, Modulate = color, OutlineSize = 10, OutlineModulate = new("060a12"),
-                        Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
-                        CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
-                }
-                var fill = color; fill.A = 0.32f + charges * 0.04f;
-                float radius = mine ? field.TriggerRadius : field.Radius;
-                var floor = Mesh(root, new CylinderMesh { TopRadius = radius, BottomRadius = radius, Height = 0.012f, RadialSegments = 48 },
-                    new(0, 0.031f, 0), new(new Color("09111e"), 0.48f), unshaded: true);
-                var area = Mesh(root, new CylinderMesh { TopRadius = radius, BottomRadius = radius, Height = 0.012f, RadialSegments = 48 },
-                    new(0, 0.048f, 0), fill, unshaded: true);
-                floor.CastShadow = area.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
-                int marks = charges == 1 ? 0 : charges == 2 ? 3 : 6;
-                var accent = color;
-                for (int i = 0; i < marks; i++)
-                {
-                    float angle = i * Mathf.Tau / marks;
-                    var glyph = Mesh(root,new BoxMesh { Size = new(0.1f,0.035f,0.24f) },
-                        new(Mathf.Cos(angle)*radius*0.82f,0.11f,Mathf.Sin(angle)*radius*0.82f),accent,unshaded:true);
-                    glyph.Rotation = new(0,-angle,0); glyph.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
-                }
-                _fields[field.Id] = root;
+                var area = new AreaFieldVisual(); AddChild(area); area.Build(field);
+                _fields[field.Id] = root = area;
             }
-            root.Scale = Vector3.One * (1 + Mathf.Sin((float)_time * 6) * 0.02f);
-            if (root.GetNodeOrNull<MeshInstance3D>("MineCore") is { } mineCore)
-                mineCore.Visible = field.Armed || (int)(_time * 10) % 2 == 0;
+            ((AreaFieldVisual)root).Update(field, (float)_time);
         }
         if (_fresh || snapshot.Defense != null) RemoveMissing(_fields, snapshot.Fields, static p => p.Id);
     }

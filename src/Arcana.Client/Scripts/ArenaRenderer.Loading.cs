@@ -103,7 +103,10 @@ public partial class ArenaRenderer
                 { AttackWarningSeconds = DefenseRules.AttackWindup(kind) }).ToArray();
             var preview = empty with { Players = [player], Defense = defense with { Minions = minions, Drops = [],
                 Defenders = defense.Defenders.Where(p => p.PlayerId == localId).Select(p => p with
-                    { Auras = [1, 1, 1], BerserkerRemaining = 2 }).ToArray() } };
+                    { Auras = [1, 1, 1], BerserkerRemaining = 2 }).ToArray() },
+                Events = [new(20001,"nova",center,[Element.Fire,Element.Arcane],"Berserker",1.8f),
+                    new(20002,"passive_chain",center,[Element.Lightning],""),
+                    new(20003,"hurt",center+new V2(3,0),[Element.Lightning],"Relámpago")] };
             yield return ("Preparando enemigos, auras y habilidades…", () => DrawLoadingView(preview, center));
             yield return ("Preparando los estados de los enemigos…", () => DrawLoadingView(preview with
                 { Defense = preview.Defense! with { Minions = minions.Select(m => m with

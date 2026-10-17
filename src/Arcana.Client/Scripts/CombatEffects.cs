@@ -13,6 +13,7 @@ public partial class CombatEffects : Node3D
         public readonly MeshInstance3D Node = node;
         public Vector3 Velocity, Size;
         public float Life, Duration, Gravity;
+        public bool FixedSpan;
     }
     private sealed class Wave(MeshInstance3D node)
     {
@@ -30,12 +31,15 @@ public partial class CombatEffects : Node3D
         new SphereMesh { Radius = 0.5f, Height = 1, RadialSegments = 8, Rings = 4 },
         new PrismMesh { Size = Vector3.One },
         new CylinderMesh { TopRadius = 0, BottomRadius = 0.5f, Height = 1, RadialSegments = 6 },
-        StoneVisuals.Shape()
+        StoneVisuals.Shape(),
+        AreaVisuals.Shape(AreaVisuals.Pattern.LightningLink)
     ];
     private readonly TorusMesh _ring = new() { InnerRadius = 0.94f, OuterRadius = 1, Rings = 32, RingSegments = 6 };
     private readonly SphereMesh _blast = new() { Radius = 1, Height = 0.8f, RadialSegments = 20, Rings = 8 };
     private int _sparkCount, _waveCount, _emittedThisFrame;
     private float _trailClock, _statusClock;
+    private V2? _chainFrom;
+    private int _chainLinks;
     public int ActiveCount => _sparks.Count + _waves.Count;
     public int PooledCount => _sparkCount + _waveCount;
     internal void PreparePoolBatch()
@@ -72,26 +76,28 @@ public partial class CombatEffects : Node3D
         };
         _materials.Add(key, material); return material;
     }
-    private void Emit(Vector3 position, Color color, Vector3 velocity, float duration = 0.45f,
+    private Spark? Emit(Vector3 position, Color color, Vector3 velocity, float duration = 0.45f,
         int shape = 0, float size = 0.18f, float gravity = 2)
     {
         if (_emittedThisFrame >= Math.Max(16, (int)(EmissionBudget * DetailScale)) ||
-            _sparks.Count >= Math.Max(80, (int)(ParticleLimit * DetailScale))) return;
+            _sparks.Count >= Math.Max(80, (int)(ParticleLimit * DetailScale))) return null;
         Spark spark;
         if (_freeSparks.Count > 0) spark = _freeSparks.Pop();
         else
         {
-            if (_sparkCount >= ParticleLimit) return;
+            if (_sparkCount >= ParticleLimit) return null;
             var node = new MeshInstance3D { CastShadow = GeometryInstance3D.ShadowCastingSetting.Off }; AddChild(node);
             spark = new(node); _sparkCount++;
         }
-        spark.Node.Mesh = _shapes[shape]; spark.Node.MaterialOverride = Material(color, shape == 3);
+        spark.Node.Mesh = _shapes[shape]; spark.Node.MaterialOverride = shape == 4 ? AreaVisuals.Skin(color) : Material(color, shape == 3);
         spark.Node.Position = position; spark.Node.Rotation = Vector3.Zero; spark.Node.Visible = true;
         spark.Size = shape is 0 or 3 ? Vector3.One * size : new(size, size * 2.2f, size);
         spark.Node.Scale = spark.Size; spark.Velocity = velocity; spark.Gravity = gravity;
-        spark.Life = spark.Duration = duration; _sparks.Add(spark); _emittedThisFrame++;
+        spark.FixedSpan = false;
+        spark.Life = spark.Duration = duration; _sparks.Add(spark); _emittedThisFrame++; return spark;
     }
-    private void Ring(V2 position, Color color, float start, float end, float duration, bool blast = false)
+    private void Ring(V2 position, Color color, float start, float end, float duration, bool blast = false,
+        AreaVisuals.Pattern? pattern = null)
     {
         Wave wave;
         if (_freeWaves.Count > 0) wave = _freeWaves.Pop();
@@ -101,8 +107,9 @@ public partial class CombatEffects : Node3D
             var node = new MeshInstance3D { Mesh = _ring, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off }; AddChild(node);
             wave = new(node); _waveCount++;
         }
-        wave.Node.MaterialOverride = Material(color); wave.Node.Position = ArenaRenderer.World(position, 0.09f);
-        wave.Node.Mesh = blast ? _blast : _ring;
+        wave.Node.MaterialOverride = pattern.HasValue ? AreaVisuals.Skin() : Material(color);
+        wave.Node.Position = ArenaRenderer.World(position, 0.09f); wave.Node.Rotation = Vector3.Zero;
+        wave.Node.Mesh = pattern.HasValue ? AreaVisuals.Shape(pattern.Value) : blast ? _blast : _ring;
         wave.Node.Visible = true; wave.Start = start; wave.End = end;
         wave.Life = wave.Duration = duration; wave.Node.Scale = new(start, 0.5f, start); _waves.Add(wave);
     }
@@ -111,13 +118,15 @@ public partial class CombatEffects : Node3D
 
     public void Play(GameEvent e)
     {
+        if (e.Kind == "passive_chain") { _chainFrom = e.Position; _chainLinks = 0; return; }
         if (e.Kind is not ("cast" or "self" or "nova" or "impact" or "explosion" or "death" or "blink" or
             "blink_arrive" or "barrier" or "shield_hit" or "shield_break" or "hurt" or "splash" or "mine_heal" or "mine_place" or "beam_merge" or "beam_refract")) return;
         SeenKinds.Add(e.Kind);
-        if (e.Kind == "explosion" && e.Text == "Meteoro")
+        if (e.Kind == "explosion" && e.Text is "Meteoro" or "Meteorito")
         {
-            SeenCharges.Add(3); MeteorImpact(e); return;
+            SeenCharges.Add(e.Text == "Meteoro" ? 3 : 2); MeteorImpact(e); return;
         }
+        if (e.Kind == "hurt" && e.Text == "Relámpago") { SeenCharges.Add(1); ChainHit(e.Position); return; }
         // Golpes continuos y efectos de estado conservan una respuesta breve, sin multiplicar destellos.
         var strength = e.Kind is "hurt" or "shield_hit" or "shield_break" or "death" or "blink" or "blink_arrive"
             ? new SpellVisualStrength(1) : SpellVisualStrength.For(e.Elements);
@@ -147,7 +156,9 @@ public partial class CombatEffects : Node3D
         if (e.Kind is "nova" or "explosion" or "splash" or "mine_heal")
         {
             float radius = e.Radius > 0 ? e.Radius : e.Kind == "nova" ? 4 : 2.4f;
-            Ring(e.Position, color, 0.4f, radius, 0.45f);
+            AreaVisuals.Pattern? pattern = e.Text == "Berserker" ? AreaVisuals.Pattern.Berserker
+                : e.Kind == "nova" && ice ? AreaVisuals.Pattern.FrostPulse : null;
+            Ring(e.Position, color, 0.4f, radius, 0.45f, pattern: pattern);
             if (strength.Charges == 3) Ring(e.Position, color, 0.2f, radius * 0.72f, 0.32f);
         }
         else if (e.Kind is "beam_merge" or "beam_refract") Ring(e.Position, color, 0.1f, 0.6f, 0.25f);
@@ -158,19 +169,47 @@ public partial class CombatEffects : Node3D
 
     private void MeteorImpact(GameEvent e)
     {
+        bool passive = e.Text == "Meteorito";
         var origin = ArenaRenderer.World(e.Position, 0.25f);
-        for (int i = 0; i < 10; i++)
+        for (int i = 0; i < (passive ? 8 : 10); i++)
             Emit(origin, StoneVisuals.ChipColor(i), Direction() * 4.3f, 0.65f, 3, 0.19f, 7);
-        for (int i = 0; i < 14; i++)
+        for (int i = 0; i < (passive ? 10 : 14); i++)
             Emit(origin, i % 3 == 0 ? new("ffe1a3") : Ui.ElementColor(Element.Fire),
                 Direction() * 4.8f, 0.48f, 2, 0.14f, 3);
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < (passive ? 4 : 6); i++)
             Emit(origin + Direction() * 0.5f, new Color(0.22f, 0.18f, 0.15f, 0.3f),
                 Vector3.Up * 1.2f + Direction() * 0.5f, 0.85f, 0, 0.48f, -0.2f);
         float radius = e.Radius > 0 ? e.Radius : 4;
-        Ring(e.Position, new Color(1, 0.45f, 0.12f, 0.4f), 0.45f, radius, 0.5f);
+        Ring(e.Position, new Color(1, 0.45f, 0.12f, 0.4f), 0.45f, radius, 0.5f, pattern: AreaVisuals.Pattern.Impact);
+        if (passive) return; // Las 22 partículas y la onda sustituyen el presupuesto anterior de la pasiva.
         Ring(e.Position, new Color(0.55f, 0.42f, 0.29f, 0.3f), 0.25f, radius * 0.78f, 0.4f);
         Ring(e.Position, new Color(1, 0.6f, 0.2f, 0.24f), 0.2f, radius * 0.6f, 0.2f, blast: true);
+    }
+
+    private void ChainHit(V2 target)
+    {
+        bool link = _chainFrom is { } from && _chainLinks < 6 && V2.Distance(from, target) is > 0.01f and <= 20.1f;
+        var color = new Color("dbd4ff");
+        if (link)
+        {
+            var direction = ArenaRenderer.World(target - _chainFrom!.Value);
+            var spark = Emit(ArenaRenderer.World(_chainFrom.Value, 0.85f), color, Vector3.Zero, 0.3f, 4, 1, 0);
+            if (spark != null)
+            {
+                spark.FixedSpan = true; spark.Size = new(direction.Length(), 1, 1);
+                spark.Node.Scale = spark.Size; spark.Node.Rotation = new(0, MathF.Atan2(-direction.Z, direction.X), 0);
+            }
+        }
+        // El impacto y el enlace reemplazan las tres chispas genéricas; no añaden emisiones.
+        var bolt = Emit(ArenaRenderer.World(target, 0.35f), color, Vector3.Zero, 0.3f, 4, 1, 0);
+        if (bolt != null)
+        {
+            bolt.FixedSpan = true; bolt.Size = new(1.8f, 1, 1); bolt.Node.Scale = bolt.Size;
+            bolt.Node.Rotation = new(0, Mathf.Pi / 2, Mathf.Pi / 2);
+        }
+        for (int i = 0; i < (link ? 1 : 2); i++)
+            Emit(ArenaRenderer.World(target, 0.8f), color, Direction() * 1.2f, 0.22f, 1, 0.1f, 0);
+        if (_chainFrom.HasValue) { _chainFrom = target; _chainLinks++; }
     }
 
     public void Advance(WorldSnapshot snapshot, float delta, bool playing)
@@ -183,8 +222,13 @@ public partial class CombatEffects : Node3D
             {
                 p.Node.Visible = false; _freeSparks.Push(p); _sparks[i] = _sparks[^1]; _sparks.RemoveAt(_sparks.Count - 1); continue;
             }
-            p.Velocity -= Vector3.Up * p.Gravity * dt; p.Node.Position += p.Velocity * dt;
-            p.Node.Scale = p.Size * Math.Max(0.04f, p.Life / p.Duration); p.Node.RotateY(dt * 4);
+            if (p.FixedSpan)
+                p.Node.Scale = new(p.Size.X, 1, Math.Max(0.04f, p.Life / p.Duration));
+            else
+            {
+                p.Velocity -= Vector3.Up * p.Gravity * dt; p.Node.Position += p.Velocity * dt;
+                p.Node.Scale = p.Size * Math.Max(0.04f, p.Life / p.Duration); p.Node.RotateY(dt * 4);
+            }
         }
         for (int i = _waves.Count - 1; i >= 0; i--)
         {
@@ -298,12 +342,18 @@ public partial class CombatEffects : Node3D
         }
         FinishFrame();
     }
-    private void FinishFrame() { EmittedLastFrame = _emittedThisFrame; _emittedThisFrame = 0; }
+    private void FinishFrame()
+    {
+        EmittedLastFrame = _emittedThisFrame; _emittedThisFrame = 0;
+        // No unir tandas distintas si una base de red descartó la cabecera de origen.
+        _chainFrom = null; _chainLinks = 0;
+    }
     public void Clear()
     {
         foreach (var p in _sparks) { p.Node.Visible = false; _freeSparks.Push(p); } _sparks.Clear();
         foreach (var w in _waves) { w.Node.Visible = false; _freeWaves.Push(w); } _waves.Clear();
         _trailClock = _statusClock = 0; _emittedThisFrame = EmittedLastFrame = 0;
+        _chainFrom = null; _chainLinks = 0;
         SeenKinds.Clear(); SeenCharges.Clear();
     }
 }

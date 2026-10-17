@@ -3,7 +3,7 @@ using Arcana.Core;
 namespace Arcana.Client;
 
 /// <summary>Escena determinista utilizada por capturas y comprobaciones del HUD, nunca por partidas en red.</summary>
-internal static class VisualFixture
+internal static partial class VisualFixture
 {
     internal static readonly Element[][] StoneAuraSamples = [[Element.Earth, Element.Fire], [Element.Earth, Element.Water],
         [Element.Earth, Element.Cold], [Element.Earth, Element.Life], [Element.Earth, Element.Arcane],
@@ -13,6 +13,7 @@ internal static class VisualFixture
 
     public static WorldSnapshot Spells(int frame, string view)
     {
+        if (view is "areas" or "auras" or "passives") return AreaAndPassiveScene(frame, view);
         var state = Create("none");
         var local = state.Players[0] with { Position = V2.Zero, Selected = [], Shield = 0, ShieldMax = 0, ShieldSeconds = 0 };
         if (view == "stone-auras")

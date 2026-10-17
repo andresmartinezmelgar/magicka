@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.23.0 — Áreas y pasivas con identidad visual
+
+- Fuego con grietas y llamas, agua con ondas y gotas, hielo facetado con seis brazos. Las minas distinguen daño y curación y mantienen visibles sus dos radios al armarse.
+- Auras de fuego, electricidad y regeneración con formas y ritmos propios. Se reconocen al superponerse y acompañan al mago con su radio real.
+- Berserker deja marcas de furia, el pulso glacial expande un cristal y el meteorito pasivo termina en grietas incandescentes. Los relámpagos unen los objetivos realmente alcanzados.
+- Mallas y materiales compartidos: una superficie por área y dos por mina, sin luces nuevas ni sombras decorativas. Se mantienen los límites de 320 partículas y 24 ondas y la reducción de detalle.
+- Radios y presupuestos verificados; capturas en móvil y escritorio. Daño y recargas conservados. Los enlaces nuevos necesitan servidor 0.23; protocolo 27 compatible.
+
 ## 0.22.0 — Presión continua, equipo y ayuda directa
 
 - Los marcadores de hielo y rocas permanecen a 7 m del mago tanto con ratón como con joystick, independientemente de la distancia del cursor.

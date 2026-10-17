@@ -87,7 +87,8 @@ public partial class ClientVerification : Node
             if (arg is "--preview-spells=barriers" or "--preview-spells=beams" or "--preview-spells=beam-charge"
                 or "--preview-spells=shield-elements" or "--preview-spells=shield-strength" or "--preview-spells=meteor"
                 or "--preview-spells=ground-contrast" or "--preview-spells=ground-contrast-stone"
-                or "--preview-spells=stone" or "--preview-spells=stone-close" or "--preview-spells=stone-auras") _previewSpells = arg[17..];
+                or "--preview-spells=stone" or "--preview-spells=stone-close" or "--preview-spells=stone-auras"
+                or "--preview-spells=areas" or "--preview-spells=auras" or "--preview-spells=passives") _previewSpells = arg[17..];
             if (arg == "--sprites-smoke") _spritesSmoke = true;
             if (arg == "--combinations-smoke") _combinationsSmoke = true;
             if (arg == "--maps-smoke") _mapsSmoke = true;
@@ -146,6 +147,17 @@ public partial class ClientVerification : Node
             _runtime.StartGame(VisualFixture.Spells(0, _previewSpells));
             _runtime.Hud!.Visible = false; _runtime.Renderer.ShowControlPoints = _previewSpells.StartsWith("ground-contrast"); _runtime.Renderer.SetPreviewZoom(24);
             if (_previewSpells == "ground-contrast-stone") _runtime.Renderer.SetPreviewZoom(32);
+            if (_previewSpells is "areas" or "auras" or "passives")
+            {
+                _runtime.Renderer.SetPreviewZoom(19); _runtime.Renderer.PreviewFocus = new(0,0,1);
+                var names = _previewSpells == "areas" ? VisualFixture.AreaNames : _previewSpells == "auras" ? VisualFixture.AuraNames : VisualFixture.PassiveNames;
+                var positions = _previewSpells == "areas" ? VisualFixture.AreaPositions : VisualFixture.AuraPositions;
+                for (int i = 0; i < names.Length; i++)
+                    _runtime.Renderer.AddChild(new Label3D { Text = names[i],
+                        Position = ArenaRenderer.World(positions[i] + new V2(0,2.9f), 0.3f), FontSize = 32, PixelSize = 0.012f,
+                        Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, OutlineSize = 8, OutlineModulate = new("060a12"),
+                        NoDepthTest = true, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
+            }
             if (_previewSpells.StartsWith("stone"))
             {
                 _runtime.Renderer.SetPreviewZoom(_previewSpells == "stone-close" ? 10 : _previewSpells == "stone-auras" ? 13 : 22);
@@ -257,10 +269,12 @@ public partial class ClientVerification : Node
     internal void AfterRender(WorldSnapshot latest)
     {
         if (_previewSpells == "stone-close" && _runtime.Touch != null) _runtime.Touch.Visible = false;
-        if (_previewSpells == "stone-auras")
+        if (_previewSpells is "stone-auras" or "areas" or "auras" or "passives")
         {
             if (_runtime.Touch != null) _runtime.Touch.Visible = false;
             if (_runtime.UiRoot.FindChild("NetworkMetricsPanel", true, false) is Control metrics) metrics.Visible = false;
+            if (_previewSpells is "areas" or "auras" or "passives")
+                foreach (var panel in _runtime.UiRoot.GetChildren().OfType<DefensePanel>()) panel.Visible = false;
         }
         if (_mapsSmoke && _renderFrames % 30 == 0) CheckMaps(latest);
         if (_previewMap != null && !_mapOverview && _renderFrames == 1) _runtime.Renderer.SetPreviewZoom(72);

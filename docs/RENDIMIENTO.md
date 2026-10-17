@@ -64,3 +64,37 @@ godot --path src/Arcana.Client -- --profile-render --profile-survival --profile-
 ```
 
 El informe se identifica como `integrated_survival_scene` e incluye pasos simulados, cruces de portales, entidades, resolución y percentil 95. La cantidad de enemigos puede variar durante el combate. La CI ejecuta el escenario mediante OpenGL por software; para conocer el rendimiento del móvil hay que ejecutar la misma medición en ese móvil. La prueba integra IA, combate y representación local; los costes de codificación de red se miden aparte con `--defense-benchmark`.
+
+## Áreas y pasivas de 0.23.0
+
+Los campos pasan a una superficie compartida por tipo; las minas usan dos para conservar el radio de daño y el de activación. Las auras siguen usando una superficie cada una. Cada patrón tiene como máximo 384 triángulos y se prepara durante la carga. La animación calcula un seno por vértice, sin ruido por píxel, texturas, luces nuevas ni sombras decorativas. Los límites continúan en 320 partículas, 24 ondas y 64 emisiones por fotograma, con la reducción de detalle existente.
+
+La cadena eléctrica comunica su origen mediante un evento cosmético del protocolo 27 y dibuja los impactos en su orden real. Cada impacto sigue consumiendo como máximo tres partículas; el meteorito pasivo conserva sus 22 partículas y una onda. Si falta el evento de origen, aparecen los impactos sin inventar enlaces entre tandas. El servidor 0.23 permite ver los enlaces; el cliente sigue aceptando servidores anteriores del protocolo 27.
+
+Comparación local del 17-10-2026: Godot 4.5.2 .NET, Linux, OpenGL Compatibility, llvmpipe LLVM 20.1.2, 1440 × 900, semilla 271, 5 s de calentamiento y 20 s de muestras. Son medidas por software en un entorno compartido; no equivalen a una GPU o móvil físico.
+
+| Escena sintética de carga máxima | Antes | Después |
+|---|---:|---:|
+| FPS medios | 9,34 | 10,48 |
+| Tiempo medio por fotograma | 107,07 ms | 95,46 ms |
+| Percentil 95 por fotograma | 119,87 ms | 109,76 ms |
+| CPU del cliente, media | 7,07 ms | 7,30 ms |
+| Llamadas de dibujo, media | 3246,44 | 2926,60 |
+| Primitivas, media | 529686 | 441448 |
+| Nodos | 4679 | 4379 |
+| Pico de partículas / ondas | 320 / 24 | 320 / 24 |
+
+Se reducen un 9,9 % las llamadas de dibujo y un 16,7 % las primitivas de esta escena. El coste medio de actualización del cliente sube 0,23 ms; el tiempo total por fotograma baja. No se amplía el presupuesto para conseguir el nuevo aspecto.
+
+En Supervivencia se repitió la comparación tras observar variación en los picos de las primeras pasadas. La pareja consecutiva 0.22.0 → 0.23.0 completó exactamente 1517 pasos y 13 cruces de portal, con cuatro jugadores, 96 objetos y 120 minions al terminar:
+
+| Supervivencia, comparación consecutiva | 0.22.0 | 0.23.0 |
+|---|---:|---:|
+| FPS medios | 21,09 | 21,01 |
+| Tiempo medio por fotograma | 47,42 ms | 47,59 ms |
+| Percentil 95 por fotograma | 72,05 ms | 72,37 ms |
+| CPU del cliente, media | 27,51 ms | 27,20 ms |
+| Llamadas de dibujo, media | 170,71 | 167,41 |
+| Primitivas, media | 23173 | 20748 |
+
+La diferencia de FPS es inferior al 0,5 % en esa pareja. Las otras pasadas dieron 22,83 FPS antes y 20,23–23,74 después, por lo que no permiten prometer una ganancia de FPS ni ausencia de cambios en todos los dispositivos. El descenso de geometría y los presupuestos fijos sí se comprueban directamente. La CI conserva además capturas de áreas, auras y pasivas en escritorio y móvil, con comprobación del tamaño real del framebuffer.

@@ -387,6 +387,26 @@ internal static class DefenseTests
             Check(Player(w, p).Passives.All(n => n == 0), "Las habilidades pasaron a otra partida.");
             SnapshotValidation.Check(w.Snapshot());
         });
+        test("Defensa: la cadena visual comunica origen y objetivos sin repetir daño", () =>
+        {
+            var w = World(); var p = w.AddPlayer("Relámpagos")!; p.Position = new(-22,0);
+            var enemies = Enumerable.Range(0,3).Select(i =>
+            {
+                var enemy = Enemy(w); enemy.Position = p.Position + new V2(2+i,0);
+                enemy.Invulnerable = 0; enemy.Health = enemy.MaxHealth = 10000; return enemy;
+            }).ToArray();
+            Gold(w,p,10000); Check(Command(w,p,"defense_passive",3), "No compró la pasiva eléctrica.");
+            Invoke(w,"TickDefensePassives",4f);
+            var snapshot = w.Snapshot();
+            var source = snapshot.Events.Single(e => e.Kind == "passive_chain");
+            var hits = snapshot.Events.Where(e => e.Text == "Relámpago").ToArray();
+            Check(source.Position == p.Position && source.Elements.SequenceEqual([Element.Lightning]) &&
+                hits.Length == 3 && hits.All(e => e.Id > source.Id) &&
+                hits.Select(e => e.Position).SequenceEqual(enemies.Select(e => e.Position)), "Origen u orden de objetivos incorrecto.");
+            Check(enemies.All(e => Math.Abs(e.Health-9860)<0.01f) && Player(w,p).PassiveCooldowns[3] == 4,
+                "La información visual alteró daño o recarga.");
+            SnapshotValidation.Check(snapshot);
+        });
         test("Defensa: premios propios por hitos sin relajar reglas PvP", () =>
         {
             string run = Guid.NewGuid().ToString("N"), uid = "humano";
