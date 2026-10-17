@@ -464,21 +464,29 @@ Test("Ascensión: mapa distinto, apariciones, puntos y rutas transitables", () =
 });
 Test("Ascensión: +10 por baja, vida actual y máxima, bonus conservado al morir y replicación", () =>
 {
-    var world = new GameWorld(new() { Map = ArenaMapId.Ascension, Mode = GameMode.Arena });
+    var world = new GameWorld(new() { Map = ArenaMapId.Ascension, Mode = GameMode.Arena, SpawnSeed = 271, PickupSeed = 271 });
+    // Esta regresión mide las bajas y la reaparición. Una reliquia aleatoria
+    // junto al punto de llegada puede añadir vida en el mismo tick; se prueba aparte.
+    var pickups = (Array)typeof(GameWorld).GetField("_pickups", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(world)!;
+    void WaitForRespawn(int ticks)
+    {
+        foreach (var pickup in pickups) pickup!.GetType().GetField("Respawn")!.SetValue(pickup, RelicBuffs.RespawnSeconds);
+        for (int i = 0; i < ticks; i++) world.Step();
+    }
     var a = world.AddPlayer("Ascendente")!; var b = world.AddPlayer("Rival")!;
     a.Health = 700; LethalNova(world, a, b);
     Check(a.Health == 710 && a.MaxHealth == 1010 && a.Kills == 1 && b.Deaths == 1 && b.Respawn == 4.5f,
         "La primera baja no sumó exactamente diez o la primera muerte no sumó medio segundo.");
-    for (int i = 0; i < 271; i++) world.Step();
+    WaitForRespawn(271);
     Check(b.Alive && b.Health == 1000, "No reapareció el rival.");
     LethalNova(world, a, b); Check(a.MaxHealth == 1020 && a.Health == 720 && b.Respawn == 5, "El bonus o la penalización no se acumulan.");
-    for (int i = 0; i < 301; i++) world.Step();
+    WaitForRespawn(301);
     LethalNova(world, b, a); Check(a.MaxHealth == 1020 && a.Health == 0, "Morir borró el bonus.");
     var dead = Protocol.Deserialize<WorldSnapshot>(Protocol.Serialize(world.Snapshot()))!;
     SnapshotValidation.Check(dead);
     Check(dead.Map == ArenaMapId.Ascension && dead.Players.Single(p => p.Id == a.Id).MaxHealth == 1020 &&
         dead.Players.Single(p => p.Id == a.Id).Respawn == 4.5f, "La red perdió vida máxima o espera.");
-    for (int i = 0; i < 271; i++) world.Step();
+    WaitForRespawn(271);
     Check(a.Alive && a.Health == 1020 && a.MaxHealth == 1020, "Reaparecer perdió la vida permanente.");
 });
 Test("Ascensión: cada muerte añade medio segundo y la espera nunca supera diez segundos", () =>

@@ -4,9 +4,8 @@
 
 - Los marcadores de hielo y rocas permanecen a 7 m del mago tanto con ratón como con joystick, independientemente de la distancia del cursor.
 - Supervivencia mantiene apariciones regulares de 0,32–0,48 s antes del escalado por dificultad y grupo. Prioriza los alrededores de los defensores; los enemigos a más de 60 m de todos pueden regresar fuera del radio seguro, conservando salud y estados. Se mantienen los límites de rendimiento, los avisos y las dos vidas.
-- Retirado el botón redundante del laboratorio. El mapa de práctica sigue disponible en el selector.
 - Nombres de atributos en la última columna de las tablas del inventario, inspección de magos y estadísticas de Supervivencia.
-- Combinaciones integradas en Ayuda: ocho elementos, tres ranuras y tres formas de lanzamiento, con el efecto y sus cifras al lado; sin listas, buscador, segunda ventana ni escena 3D adicional en el menú. La ayuda durante el combate conserva la demostración automática.
+- Combinaciones integradas en Ayuda: selección directa y cifras al lado, sin buscador ni segunda ventana o escena 3D en el menú. La ayuda de combate conserva su demostración. Retirado el botón redundante del laboratorio; el mapa de práctica sigue en el selector.
 - Cada pieza temporal admite diez incrementos de un punto porcentual sobre su tirada inicial: −6 % llega a +4 % y +10 % a +20 %. La cuenta y las tiradas del equipo permanente se conservan. Protocolo 27.
 
 ## 0.21.1 — Marcadores de apuntado para hielo y rocas
