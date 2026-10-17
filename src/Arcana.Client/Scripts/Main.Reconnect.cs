@@ -20,6 +20,7 @@ public partial class Main
         var lifetime = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         lifetime.CancelAfter(TimeSpan.FromSeconds(30)); _reconnectLifetime = lifetime;
         _reconnecting = true; _playing = false; _touch?.Reset();
+        _aimMarker.Hide();
         ClosePlayerEquipment(); _defensePanel?.CloseShop();
         _reconnectScreen = new LoadingScreen(); _ui.AddChild(_reconnectScreen);
         _reconnectScreen.Build("Restableciendo la conexión", () => ReturnToLauncher());

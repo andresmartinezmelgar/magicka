@@ -18,12 +18,12 @@ public partial class MobileControls : Control
     private readonly ElementBuffer _selected = new();
     private bool _awaitingSelectionEcho, _directionalAimPending;
     private SpellShape _aimedSpellShape;
+    private Element[]? _aimedProjectile;
+    private bool _rockChargeObserved;
     private int _selectionEchoFrames;
     private const float Radius = 82;
     private int _pendingMagick = -1;
     private float _magickAimAmount = 1;
-    private bool _hasMagickTarget, _magickTargetValid;
-    private Vector2 _magickTarget, _magickAxisX, _magickAxisY;
     public Func<int, bool>? MagickAvailable { get; set; }
     public int PendingMagick => _pendingMagick;
     public float AimRange => _pendingMagick == 1 ? MagickRules.BlinkRange : MagickRules.MeteorRange;
@@ -34,6 +34,7 @@ public partial class MobileControls : Control
     internal Rect2[] ButtonRectanglesForVerification => _actions.Select(a => a.Panel.GetGlobalRect()).ToArray();
     internal bool BarrierAimPending => _directionalAimPending && _aimedSpellShape == SpellShape.Barrier;
     internal bool IceAimPending => _directionalAimPending && _aimedSpellShape == SpellShape.Shards;
+    internal Element[]? ProjectileAimElements => _aimFinger >= 0 && _pendingMagick < 0 ? _aimedProjectile : null;
     public Vector2 Movement => _move;
     public Vector2 AimDirection => _aim;
     public event Action<ClientMessage>? ActionRequested;
@@ -110,6 +111,7 @@ public partial class MobileControls : Control
     {
         _moveFinger = _aimFinger = -1; _move = _aimKnob = Vector2.Zero; _moveCenter = _moveHome;
         _directionalAimPending = false;
+        _aimedProjectile = null; _rockChargeObserved = false;
         CancelMagickAim();
         _awaitingSelectionEcho = false;
         foreach (var action in _pressed.Values) action.Panel.Modulate = Colors.White;
@@ -128,6 +130,13 @@ public partial class MobileControls : Control
             foreach (var element in player.Selected) _selected.Add(element);
             _awaitingSelectionEcho = false;
             _selectionEchoFrames = 0;
+        }
+        if (_aimedProjectile != null && _aimedSpellShape == SpellShape.Rock)
+        {
+            bool charging = player.Casting && player.CastingElements?.Contains(Element.Earth) == true;
+            if (charging) _rockChargeObserved = true;
+            else if (_rockChargeObserved || !_awaitingSelectionEcho && player.Selected.Length == 0)
+                _aimedProjectile = null; // La carga completa también dispara sin soltar el dedo.
         }
         for (int i = 0; i < _magicks.Count; i++)
         {
@@ -162,6 +171,7 @@ public partial class MobileControls : Control
             if (finger == _aimFinger)
             {
                 _aimFinger = -1; _aimKnob = Vector2.Zero;
+                _aimedProjectile = null;
                 bool castOnRelease = _directionalAimPending && !canceled;
                 _directionalAimPending = false; QueueRedraw();
                 if (_pendingMagick >= 0)
@@ -204,7 +214,10 @@ public partial class MobileControls : Control
         if (_aimFinger < 0 && point.DistanceTo(_aimCenter) <= StickRadius + 20)
         {
             _aimFinger = finger;
-            _aimedSpellShape = new SpellRecipe(_selected.Elements).Shape;
+            var spell = new SpellRecipe(_selected.Elements);
+            _aimedSpellShape = spell.Shape;
+            _aimedProjectile = spell.Shape is SpellShape.Rock or SpellShape.Shards ? spell.Elements : null;
+            _rockChargeObserved = false;
             _directionalAimPending = _pendingMagick < 0 && (_aimedSpellShape is SpellShape.Barrier or SpellShape.Shards);
             Aim(point); AimChanged?.Invoke();
             if (!_directionalAimPending && _pendingMagick < 0) Request(new() { Type = "cast" });
@@ -231,6 +244,7 @@ public partial class MobileControls : Control
             {
                 ActionRequested?.Invoke(new() { Type = "release" });
                 _directionalAimPending = false; _pendingMagick = message.Slot; _magickAimAmount = 1;
+                _aimedProjectile = null;
                 if (_aimFinger >= 0) _magickAimAmount = _aimKnob.Length();
                 AimChanged?.Invoke(); QueueRedraw(); return;
             }
@@ -269,27 +283,9 @@ public partial class MobileControls : Control
         QueueRedraw();
     }
     private void CancelMagickAim()
-    { _pendingMagick = -1; _magickAimAmount = 1; _hasMagickTarget = false; QueueRedraw(); }
-    public void SetMagickTarget(Vector2 center, Vector2 axisX, Vector2 axisY, bool valid)
-    {
-        _magickTarget = center - GlobalPosition; _magickAxisX = axisX; _magickAxisY = axisY;
-        _magickTargetValid = valid; _hasMagickTarget = true; QueueRedraw();
-    }
+    { _pendingMagick = -1; _magickAimAmount = 1; QueueRedraw(); }
     public override void _Draw()
     {
-        if (_pendingMagick >= 0 && _hasMagickTarget)
-        {
-            Color color = _magickTargetValid ? Ui.Gold : Ui.Red;
-            var previous = _magickTarget + _magickAxisX;
-            for (int i = 1; i <= 40; i++)
-            {
-                float angle = Mathf.Tau * i / 40;
-                var next = _magickTarget + _magickAxisX * Mathf.Cos(angle) + _magickAxisY * Mathf.Sin(angle);
-                DrawLine(previous, next, color, 2, true); previous = next;
-            }
-            DrawLine(_magickTarget - Vector2.Right * 7, _magickTarget + Vector2.Right * 7, color, 2, true);
-            DrawLine(_magickTarget - Vector2.Down * 7, _magickTarget + Vector2.Down * 7, color, 2, true);
-        }
         DrawStick(_moveCenter, _move, "MOVER", Ui.Blue);
         DrawStick(_aimCenter, _aimKnob, _pendingMagick >= 0 ? "SUELTA: " + SpellBalance.Magicks[_pendingMagick].Name.ToUpperInvariant() : _directionalAimPending
             ? _aimedSpellShape == SpellShape.Shards ? "SUELTA: HIELO" : "SUELTA: ESCUDO"

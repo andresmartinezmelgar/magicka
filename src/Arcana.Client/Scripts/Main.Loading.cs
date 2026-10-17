@@ -18,6 +18,7 @@ public partial class Main
     {
         CancelGameLoading();
         _playing = false; _paused = false; _moveTo = false; _snapshot = snapshot;
+        _aimMarker.Hide();
         _launcher.Visible = false; _launcher.CloseRooms(); _help.Visible = _pause.Visible = false;
         _loadingScreen = new LoadingScreen(); _ui.AddChild(_loadingScreen);
         _loadingScreen.Build(ArenaMap.Get(snapshot.Map).Name, () => ReturnToLauncher());
@@ -97,6 +98,7 @@ public partial class Main
         _practicePanel?.QueueFree(); _practicePanel = null;
         if (_practiceSession != null)
         { _practicePanel = new PracticePanel(); _ui.AddChild(_practicePanel); _practicePanel.Build(_practiceSession); }
+        _ui.MoveChild(_aimMarker, -1);
         BuildTouchControls(); _touch?.Update(snapshot.Players.FirstOrDefault(p => p.Id == _localId));
         BuildDefenseControls(snapshot);
         _ui.MoveChild(_help, -1); _ui.MoveChild(_pause, -1);

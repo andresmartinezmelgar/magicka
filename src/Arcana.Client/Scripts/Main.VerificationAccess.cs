@@ -36,6 +36,7 @@ public partial class Main
         internal V2 Target { get => owner._target; set => owner._target = value; }
         internal string ServerName { get => owner._serverName; set => owner._serverName = value; }
         internal MobileControls? Touch { get => owner._touch; }
+        internal AimMarker AimMarker => owner._aimMarker;
         internal EngineLogBridge EngineLog { get => owner._engineLog; }
         internal void StartGame(WorldSnapshot snapshot) => owner.ActivateGame(snapshot);
         internal void StartGameLoading(WorldSnapshot snapshot) => owner.StartGame(snapshot);
@@ -48,6 +49,7 @@ public partial class Main
         internal void ToggleHelp() => owner.ToggleHelp();
         internal void TogglePause() => owner.TogglePause();
         internal void UpdateTouchAim() => owner.UpdateTouchAim();
+        internal void UpdateAimMarker(WorldSnapshot world) => owner.UpdateAimMarker(world);
         internal void UpdateMouseMovement(bool left, bool shift) => owner.UpdateMouseMovement(left, shift);
         internal void UseMagick(int slot) => owner.UseMagick(slot);
         internal void Submit(ClientMessage message) => owner.Submit(message);

@@ -193,6 +193,21 @@ jobs:
           xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --defense-smoke --smoke-viewport=1440x900 "--defense-captures=$target" 2>&1 | tee "$RUNNER_TEMP/defense-desktop.log"
           grep -q 'DEFENSE_SMOKE_OK' "$RUNNER_TEMP/defense-desktop.log"
           ! grep -E '^(ERROR:|SCRIPT ERROR:)|DEFENSE_SMOKE_FAILED' "$RUNNER_TEMP/defense-desktop.log"
+      - name: Verificar marcadores de hielo y rocas en escritorio y móvil
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          for surface in desktop mobile; do
+            args=()
+            if [ "$surface" = mobile ]; then args=(--mobile --smoke-viewport=720x540); fi
+            target="$PWD/artifacts/visual-review/aim-markers-$surface"
+            timeout 60s xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --aim-marker-smoke "${args[@]}" "--aim-marker-directory=$target" 2>&1 | tee "$RUNNER_TEMP/aim-markers-$surface.log"
+            grep -q 'AIM_MARKER_SMOKE_OK' "$RUNNER_TEMP/aim-markers-$surface.log"
+            ! grep -E '^(ERROR:|SCRIPT ERROR:)|AIM_MARKER_SMOKE_FAILED' "$RUNNER_TEMP/aim-markers-$surface.log"
+            test -s "$target/hielo.png"
+            test -s "$target/roca.png"
+          done
       - name: Verificar reconexión desde la interfaz móvil
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'

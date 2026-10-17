@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.21.1 — Marcadores de apuntado para hielo y rocas
+
+- Agua con frío y sus variantes muestran un círculo con cruz y una guía de dirección mientras se apunta. Las rocas también lo muestran durante la carga, incluidas las combinaciones elementales.
+- En móvil el marcador sigue el joystick; en ordenador sigue el cursor. Se oculta al lanzar, cancelar el gesto, completar automáticamente la carga o abrir ayuda, pausa y menús.
+- Traslación y Meteoro conservan sus marcadores de destino. La referencia de los proyectiles indica dirección, sin cambiar su alcance, daño ni tiempos de lanzamiento. Protocolo 27 compatible con 0.21.0.
+
 ## 0.21.0 — Red, hordas, reconexión e inventario
 
 - Bases de red renovadas con confirmación y deltas independientes por identificador; inventario estable reutilizado, con los 20 estados por segundo y recuperación tras descartes.

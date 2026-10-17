@@ -76,6 +76,7 @@ public partial class Main : Node
         RestoreAccountCache();
         var layer = new CanvasLayer(); AddChild(layer);
         _ui = new Control { MouseFilter = Control.MouseFilterEnum.Ignore }; layer.AddChild(_ui); Ui.Full(_ui);
+        _aimMarker = new AimMarker(); _ui.AddChild(_aimMarker);
         // The minimap occupies the upper right (with a different layout on mobile).
         // Place metrics below the upper-left player/header area instead of behind it.
         var networkPanel = new PanelContainer { Name = "NetworkMetricsPanel", MouseFilter = Control.MouseFilterEnum.Ignore };
@@ -321,6 +322,7 @@ public partial class Main : Node
         ClosePlayerEquipment();
         _defensePanel?.QueueFree(); _defensePanel = null;
         _playing = false; _paused = false; _practice = null; _practiceSession = null; _snapshot = null;
+        _aimMarker.Hide();
         _practicePanel?.QueueFree(); _practicePanel = null;
         var old = _connection; _connection = null;
         if (old != null) _ = old.DisposeAsync();
@@ -408,6 +410,7 @@ public partial class Main : Node
             if (_practicePanel != null)
             { _practicePanel.Visible = !_paused && !_help.Visible; _practicePanel.Update(_aim); }
             _touch?.Update(latest.Players.FirstOrDefault(p => p.Id == _localId), latest);
+            UpdateAimMarker(latest);
             _verification?.AfterRender(latest);
         }
         else _renderer.Render(_backdropSnapshot ??= _backdrop.Snapshot(), 0, delta, false);
@@ -605,7 +608,7 @@ public partial class Main : Node
         if (_paused) StopInput();
         UpdateTouchVisibility();
     }
-    private void StopInput() { _moveTo = false; _touch?.Reset(); Submit(new() { Type = "release" }); Submit(InputMessage()); }
+    private void StopInput() { _moveTo = false; _aimMarker.Hide(); _touch?.Reset(); Submit(new() { Type = "release" }); Submit(InputMessage()); }
 
     private PanelContainer? _responsiveHelpModal;
     private ScrollContainer? _responsiveHelpScroll;

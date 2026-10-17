@@ -41,7 +41,7 @@ public partial class ClientVerification : Node
     private string? _capturePath;
     private bool _captureReview, _mapOverview;
     private bool _smokeFailed;
-    private bool SmokeMode => _smoke || _hostSmoke || _diagnosticsSmoke || _hudSmoke || _effectsSmoke || _spritesSmoke || _combinationsSmoke || _mapsSmoke || _mobileSmoke || _practiceSmoke || _loadingSmoke || _lobbySmoke != null;
+    private bool SmokeMode => _smoke || _hostSmoke || _diagnosticsSmoke || _hudSmoke || _effectsSmoke || _spritesSmoke || _combinationsSmoke || _mapsSmoke || _mobileSmoke || _practiceSmoke || _loadingSmoke || _aimMarkerSmoke || _lobbySmoke != null;
 
     internal bool CheckSmokeErrors()
     {
@@ -63,16 +63,18 @@ public partial class ClientVerification : Node
     internal bool DiagnosticsSmoke => _diagnosticsSmoke;
     internal bool FixedRenderStep => _effectsSmoke || _spritesSmoke || _previewStrength > 0 || _previewSpells != null;
     internal bool FreezeSimulation => _hudSmoke || _previewShield != null || _effectsSmoke || _previewEffects || _previewStrength > 0 ||
-        _previewSpells != null || _spritesSmoke || _previewWizards != null || _combinationsSmoke || _mapsSmoke || _previewMap != null;
+        _previewSpells != null || _spritesSmoke || _previewWizards != null || _combinationsSmoke || _mapsSmoke || _previewMap != null || _aimMarkerSmoke;
 
     internal static bool Requested(string[] arguments) => arguments.Any(a => a is "--smoke" or "--host-smoke" or "--diagnostics-smoke" or
         "--hud-smoke" or "--effects-smoke" or "--preview-effects" or "--sprites-smoke" or "--combinations-smoke" or "--maps-smoke" or
-        "--mobile-smoke" or "--mobile-fixture" or "--practice-smoke" or "--loading-smoke" or "--preview-loading" or "--preview-wizards" or "--capture-review" or "--map-overview" ||
+        "--mobile-smoke" or "--mobile-fixture" or "--practice-smoke" or "--loading-smoke" or "--preview-loading" or "--preview-wizards" or "--capture-review" or "--map-overview" or "--aim-marker-smoke" ||
         a.StartsWith("--preview-") || a.StartsWith("--capture=") || a.StartsWith("--lobby-smoke="));
 
     internal void Initialize(Main.VerificationAccess runtime, string[] arguments)
     {
         _runtime = runtime;
+        _aimMarkerSmoke = arguments.Contains("--aim-marker-smoke");
+        _aimMarkerDirectory = arguments.FirstOrDefault(a => a.StartsWith("--aim-marker-directory="))?["--aim-marker-directory=".Length..];
         foreach (string arg in arguments)
         {
             if (arg == "--smoke") _smoke = true;
@@ -186,6 +188,13 @@ public partial class ClientVerification : Node
             _runtime.StartPractice("Mago móvil", 0, GameMode.Warfare, 1);
             _runtime.Practice!.Players[_runtime.LocalId].Position = V2.Zero;
         }
+        if (_aimMarkerSmoke)
+        {
+            var world = new GameWorld(new() { Mode = GameMode.Arena, Map = ArenaMapId.Classic, MaxPlayers = 2 });
+            var player = world.AddPlayer("Apuntado", 0)!; player.Position = V2.Zero;
+            _runtime.Practice = world; _runtime.LocalId = player.Id; _runtime.LocalSequence = 0;
+            _runtime.StartGame(world.Snapshot());
+        }
     }
     private async Task HostedSmoke()
     {
@@ -280,6 +289,8 @@ public partial class ClientVerification : Node
     }
     internal void AfterFrame()
     {
+        if (_aimMarkerSmoke && !_aimMarkerRunning && _renderFrames >= 3)
+        { _aimMarkerRunning = true; _ = CheckAimMarkers(); }
         if (_diagnosticsSmoke && _renderFrames == 30) _runtime.ExportDiagnostics();
         if (_capturePath != null && _renderFrames == 90) _ = Capture(_capturePath);
     }
