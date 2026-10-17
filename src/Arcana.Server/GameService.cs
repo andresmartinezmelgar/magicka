@@ -16,6 +16,7 @@ internal sealed class GameRoom(string id, string name, string password, WorldOpt
     public WorldOptions Options { get; } = options;
     public GameWorld World { get; } = new(options);
     public Dictionary<int, PlayerSession> Sessions { get; } = [];
+    public Dictionary<string, ReservedPlayer> Reservations { get; } = new(StringComparer.Ordinal);
     public long LastOccupied { get; set; } = Environment.TickCount64;
     public bool Started { get; set; }
     public string MatchId { get; set; } = Guid.NewGuid().ToString("N");
@@ -39,7 +40,11 @@ internal sealed class PlayerSession(int id, GameRoom room, WebSocket socket)
     public int Id { get; } = id;
     public GameRoom Room { get; } = room;
     public WebSocket Socket { get; } = socket;
-    public ServerMessage? NetworkBaseline { get; set; }
+    public SnapshotSender Network { get; set; } = null!;
+    public bool Resumed { get; init; }
+    public long ReconnectUntil { get; init; }
+    public string ResumeToken { get; init; } = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+    public long LastPacketAt = Environment.TickCount64;
     public bool Ready { get; set; }
     public bool LobbyReady { get; set; }
     public AccountIdentity? Account { get; init; }
@@ -133,7 +138,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
         var snapshots = new List<(ServerMessage Message, PlayerSession[] Recipients, GameRoom Room)>(MaxRooms);
         var dirty = new HashSet<GameRoom>();
         double maxStepMs = 0;
-        long snapshotBytes = 0, snapshotFrames = 0, compressedFrames = 0, fullEquivalentBytes = 0;
+        long snapshotBytes = 0, snapshotFrames = 0, compressedFrames = 0;
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(4));
         rewards.Delivered += NotifyAccounts;
         try
@@ -157,11 +162,14 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                     {
                         foreach (var room in _rooms.Values)
                         {
+                            ExpireReservations(room);
                             // Pausa los bots y el reloj de las salas sin jugadores humanos.
                             if (room.Sessions.Count == 0) continue;
                             int readyPlayers = 0;
                             foreach (var session in room.Sessions.Values)
                             {
+                                if (session.Ready && Environment.TickCount64 - Volatile.Read(ref session.LastPacketAt) > 12000) session.Socket.Abort();
+                                if (session.Resumed && !session.Ready && Environment.TickCount64 > session.ReconnectUntil) session.Socket.Abort();
                                 if (!session.Ready && Environment.TickCount64 - session.LoadingStartedAt > Protocol.LoadingTimeoutSeconds * 1000L)
                                     session.Socket.Abort();
                                 for (int n = 0; n < 32 && session.Commands.Reader.TryRead(out var message); n++)
@@ -211,9 +219,11 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                             // Entrar en una partida iniciada no la pausa: el nuevo jugador
                             // permanece protegido y sin acciones hasta terminar su carga.
                             foreach (var session in room.Sessions.Values)
-                                if (!session.Ready && room.World.Players.TryGetValue(session.Id, out var player)) player.Invulnerable = 1.2f;
+                                if (!session.Ready && !session.Resumed && room.World.Players.TryGetValue(session.Id, out var player)) player.Invulnerable = 1.2f;
                             bool endedBefore = room.World.MatchEnded;
+                            long simulationStarted = Stopwatch.GetTimestamp();
                             room.World.Step();
+                            room.World.ReportSimulationStep(Stopwatch.GetElapsedTime(simulationStarted).TotalMilliseconds);
                             TrackAccounts(room, endedBefore);
                             room.LastOccupied = Environment.TickCount64;
                             // Comunicar el desenlace inmediatamente a TODOS los participantes,
@@ -236,37 +246,25 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                             ["activeRooms"] = _rooms.Values.Count(r => r.Sessions.Count > 0), ["maxStepMs"] = maxStepMs,
                             ["ignoredCommands"] = _ignoredCommands, ["managedBytes"] = GC.GetTotalMemory(false),
                              ["queuedSnapshotPayloadBytes"] = Interlocked.Read(ref snapshotBytes),
-                             ["fullSnapshotEquivalentBytes"] = Interlocked.Read(ref fullEquivalentBytes),
                              ["snapshotRecipientFrames"] = Interlocked.Read(ref snapshotFrames),
                              ["compressedSnapshotFrames"] = Interlocked.Read(ref compressedFrames) });
                         metricsAt = Environment.TickCount64; maxStepMs = 0; _ignoredCommands = 0;
                         Interlocked.Exchange(ref snapshotBytes, 0); Interlocked.Exchange(ref snapshotFrames, 0);
                         Interlocked.Exchange(ref compressedFrames, 0);
-                        Interlocked.Exchange(ref fullEquivalentBytes, 0);
                     }
                 }
                 foreach (var snapshot in snapshots)
                 {
-                    // Cada jugador recibe el estado de referencia en el saludo, una sola vez.
-                    // Los deltas posteriores son independientes entre sí y se comparan siempre
-                    // contra ese estado; DropOldest no invalida los siguientes fotogramas.
-                    byte[]? full = null;
+                    // Cada destinatario conserva su propia base confirmada y sus datos privados.
+                    // Keyframes y deltas se pueden descartar sin crear dependencias entre fotogramas.
                     foreach (var session in snapshot.Recipients)
                     {
                         var frame = DefenseFrame(snapshot.Message, session.Id);
-                        byte[] fullForPlayer = frame.Snapshot?.Defense == null
-                            ? full ??= Protocol.SerializeSnapshot(frame) : Protocol.SerializeSnapshot(frame);
-                        byte[] bytes;
-                        if (session.NetworkBaseline is { } baseline)
-                        {
-                            byte[] delta = Protocol.CompressSnapshotPayload(SnapshotDelta.Encode(frame, baseline));
-                            bytes = delta.Length < fullForPlayer.Length ? delta : fullForPlayer;
-                        }
-                        else bytes = fullForPlayer;
+                        byte[] bytes = session.Network.Encode(frame, out var keyframe);
+                        if (keyframe != null && session.Outbox.Writer.TryWrite(keyframe)) Interlocked.Add(ref snapshotBytes, keyframe.Length);
                         if (session.Outbox.Writer.TryWrite(bytes))
                         {
                             Interlocked.Add(ref snapshotBytes, bytes.Length);
-                            Interlocked.Add(ref fullEquivalentBytes, fullForPlayer.Length);
                             Interlocked.Increment(ref snapshotFrames);
                             if (bytes.Length > 0 && bytes[0] == 0xA1) Interlocked.Increment(ref compressedFrames);
                         }
@@ -329,32 +327,48 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                 equipment = PublicEquipment.Prepare(profile);
             }
             string error = ""; ServerMessage? welcome = null;
+            Diagnostics.Log.ProtectSecret(hello.ResumeToken);
             lock (_gate)
             {
-                if (identity != null && _sessions.Values.Any(s => s.Account?.Uid == identity.Uid)) error = "Tu cuenta ya está jugando en este servidor.";
-                else if (hello.RoomId == null || !_rooms.TryGetValue(hello.RoomId, out var room)) error = "La sala ya no existe. Actualiza la lista.";
+                if (hello.RoomId == null || !_rooms.TryGetValue(hello.RoomId, out var room)) error = "La sala ya no existe. Actualiza la lista.";
                 else if (!PasswordMatches(hello.RoomPassword, room.Password)) error = "Contraseña de la sala incorrecta.";
-                else if (room.BestOf > 1 && room.Started) error = "La serie está en curso. Espera al siguiente encuentro o crea otra sala.";
                 else
                 {
-                    var player = room.World.AddPlayer(hello.Name, hello.Team, wizardType: hello.WizardType);
-                    if (player == null) error = room.World.Players.Count >= room.Options.MaxPlayers
-                        ? "La sala está llena." : "El equipo elegido está ocupado en este duelo. Elige el otro equipo o Automático.";
+                    ExpireReservations(room);
+                    var active = hello.ResumeToken.Length == 64 ? room.Sessions.Values.FirstOrDefault(s =>
+                        s.ResumeToken == hello.ResumeToken && s.Account?.Uid == identity?.Uid) : null;
+                    bool resume = room.Reservations.TryGetValue(hello.ResumeToken, out var reservation) && reservation.Account?.Uid == identity?.Uid;
+                    if (active != null) { active.Socket.Abort(); error = "Cerrando la conexión anterior. Reintentando…"; }
+                    else if (hello.ResumeToken.Length > 0 && !resume) error = "Ha terminado el plazo para recuperar esta partida.";
+                    else if (identity != null && _sessions.Values.Any(s => s.Account?.Uid == identity.Uid)) error = "Tu cuenta ya está jugando en este servidor.";
+                    else if (!resume && identity != null && _rooms.Values.Any(r => r.Reservations.Values.Any(v => v.Account?.Uid == identity.Uid)))
+                        error = "Tu cuenta tiene una partida reservada para reconexión. Recupera esa partida o espera a que termine el plazo.";
+                    else if (!resume && room.BestOf > 1 && room.Started) error = "La serie está en curso. Espera al siguiente encuentro o crea otra sala.";
                     else
                     {
-                        room.World.EquipPlayer(player.Id, equipment);
-                        if (identity != null) room.World.AttachDefenseAccount(player.Id, identity.Uid);
-                        session = new(player.Id, room, socket) { Account = identity, Equipment = equipment, LastActivityTick = room.World.Tick };
-                        if (room.HostPlayerId == 0) room.HostPlayerId = player.Id;
-                        room.Sessions.Add(player.Id, session);
-                        _sessions[session.Key] = session; room.LastOccupied = Environment.TickCount64;
-                        player.Invulnerable = 1.2f;
-                        welcome = DefenseFrame(RoomSnapshot(room), player.Id); welcome.Type = "welcome"; welcome.PlayerId = player.Id;
-                        welcome.Server = Info(); welcome.Room = room.Info(); welcome.RequiresReady = true;
-                        session.NetworkBaseline = welcome;
+                        var player = resume ? room.World.Players.GetValueOrDefault(reservation!.Id)
+                            : room.World.AddPlayer(hello.Name, hello.Team, wizardType: hello.WizardType);
+                        if (player == null) error = "La sala está llena o el personaje ya no está disponible.";
+                        else
+                        {
+                            if (resume) room.Reservations.Remove(hello.ResumeToken);
+                            else { room.World.EquipPlayer(player.Id, equipment); if (identity != null) room.World.AttachDefenseAccount(player.Id, identity.Uid); }
+                            session = new(player.Id, room, socket) { Account = identity, Equipment = resume ? reservation!.Equipment : equipment,
+                                LastActivityTick = resume ? reservation!.LastActivityTick : room.World.Tick,
+                                ResumeToken = resume ? hello.ResumeToken : Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)),
+                                Resumed = resume, ReconnectUntil = resume ? reservation!.ExpiresAt : 0, LobbyReady = resume && reservation!.LobbyReady };
+                            Diagnostics.Log.ProtectSecret(session.ResumeToken);
+                            if (room.HostPlayerId == 0) room.HostPlayerId = player.Id;
+                            room.Sessions.Add(player.Id, session); _sessions[session.Key] = session; room.LastOccupied = Environment.TickCount64;
+                            if (!resume) player.Invulnerable = 1.2f;
+                            welcome = DefenseFrame(RoomSnapshot(room), player.Id); welcome.Type = "welcome"; welcome.PlayerId = player.Id;
+                            welcome.ResumeToken = session.ResumeToken; welcome.Server = Info(); welcome.Room = room.Info(); welcome.RequiresReady = true;
+                            session.Network = new(welcome);
+                        }
                     }
                 }
             }
+
             if (session == null) { await RejectLogged(error, handshake.Token); return; }
             // El límite protege solamente la fase de saludo. Las sesiones establecidas no deben ocuparlo.
             _handshakes.Release(); handshakeSlotHeld = false;
@@ -369,11 +383,12 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                 {
                     var message = await Receive(socket, receiveBuffer, connection.Token);
                     if (message == null) break;
-                    long now = Environment.TickCount64;
+                    long now = Environment.TickCount64; Volatile.Write(ref session.LastPacketAt, now);
                     if (now - window >= 1000) { window = now; count = 0; }
                     if (++count > 180)
                     { Diagnostics.Warn("connection.rate_limit", "Límite de mensajes o cola de comandos alcanzado.", context: Context()); socket.Abort(); break; }
-                    if (message.Type == "inspect")
+                    if (message.Type == "baseline_ack") { session.Network.Acknowledge(message.BaselineId); }
+                    else if (message.Type == "inspect")
                     {
                         var response = new ServerMessage { Type = "equipment", InspectionRequestId = message.InspectionRequestId };
                         lock (_gate)
@@ -414,26 +429,14 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                 lock (_gate)
                 {
                     session.Room.Sessions.Remove(session.Id);
-                    session.Room.World.RemovePlayer(session.Id);
-                    if (session.Room.HostPlayerId == session.Id)
-                        session.Room.HostPlayerId = session.Room.Sessions.Keys.FirstOrDefault();
-                    if (session.Room.BestOf > 1 && session.Room.Started && !session.Room.SeriesFinished)
+                    if ((session.Ready || session.Resumed) && socket?.CloseStatus != WebSocketCloseStatus.NormalClosure &&
+                        !_stopping.IsCancellationRequested && !session.Room.World.MatchEnded)
                     {
-                        // Una serie incompleta no puede continuar sin un rival.
-                        // Permite recibir sustitutos sin regalar puntos ni recompensas.
-                        session.Room.World.ResetForWaitingRoom();
-                        session.Room.Started = false;
-                        session.Room.StartRequested = false;
-                        session.Room.SeriesWins[0] = session.Room.SeriesWins[1] = 0;
-                        session.Room.SeriesFinished = false;
-                        session.Room.ResultQueued = false;
-                        session.Room.MatchId = Guid.NewGuid().ToString("N");
-                        session.Room.Participants.Clear();
-                        session.Room.AwaitingRematch = true;
-                        session.Room.RewardStatus = "La serie se canceló al desconectarse un jugador. Preparad otra partida.";
-                        foreach (var remaining in session.Room.Sessions.Values) remaining.LobbyReady = false;
+                        session.Room.World.SuspendPlayer(session.Id);
+                        session.Room.Reservations[session.ResumeToken] = new(session.Id, session.Account, session.Equipment,
+                            session.LastActivityTick, session.Ready ? Environment.TickCount64 + 30000 : session.ReconnectUntil, session.LobbyReady);
                     }
-                    if (!session.Room.Started) session.Room.StartRequested = false;
+                    else RemovePlayerFromRoom(session.Room, session.Id);
                 }
                 Diagnostics.Info("connection.closed", "Jugador desconectado.", Context());
             }

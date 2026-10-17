@@ -14,7 +14,7 @@ public partial class Main
     internal bool Loading => _loadingSteps != null;
     private void FrameDrawn() => Interlocked.Increment(ref _drawnFrames);
 
-    private void StartGame(WorldSnapshot snapshot)
+    private void StartGame(WorldSnapshot snapshot, bool resume = false)
     {
         CancelGameLoading();
         _playing = false; _paused = false; _moveTo = false; _snapshot = snapshot;
@@ -22,7 +22,7 @@ public partial class Main
         _loadingScreen = new LoadingScreen(); _ui.AddChild(_loadingScreen);
         _loadingScreen.Build(ArenaMap.Get(snapshot.Map).Name, () => ReturnToLauncher());
         _loadingAudio = _renderer.AudioEnabled; _renderer.AudioEnabled = false;
-        _loadingSteps = _renderer.PrepareVisuals(snapshot, _localId).ToList();
+        _loadingSteps = resume ? new() : _renderer.PrepareVisuals(snapshot, _localId).ToList();
         _loadingSteps.Add(("Preparando los controles…", () => PrepareGameControls(snapshot)));
         _loadingSteps.Add(("Preparando la vista de la partida…", () =>
             _renderer.Render(_connection?.Latest ?? _practice?.Snapshot() ?? snapshot, _localId, 1 / 60.0, true)));

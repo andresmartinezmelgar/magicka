@@ -7,3 +7,14 @@
 src/Arcana.Client/
 tests/
 artifacts/
+
+.tools/
+docs/
+android/
+.secrets/
+**/node_modules/
+**/service-account.json
+**/*firebase-adminsdk*.json
+firebase/server.local.json
+**/*.keystore
+**/*.jks

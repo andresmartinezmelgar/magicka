@@ -1,5 +1,17 @@
 # Cambios
 
+## 0.21.0 — Red, hordas, reconexión e inventario
+
+- Bases de red renovadas con confirmación y deltas independientes por identificador; inventario estable reutilizado, con los 20 estados por segundo y recuperación tras descartes.
+- Vecindad espacial para separar minions con el mismo orden de cálculo; reutilización de botín y datos gráficos de magos.
+- Reconexión automática durante 30 segundos con el mismo personaje, posición, vidas y equipo. La partida continúa: no concede curación, protección ni actividad artificial. Salir voluntariamente sigue siendo inmediato.
+- Menos partículas decorativas ante caídas de rendimiento; el presupuesto incorpora el percentil 95 y la carga de simulación del servidor, conservando avisos de ataques.
+- Inventario con filtros combinados de elemento, calidad y atributo, y comparación de cada pieza con la equipada sin efectos de conjunto.
+- Chamán desde dificultad 3 (3:00), bruto desde 4 (4:30), capitán desde 5 (6:00) y mago desde 4, con probabilidades ajustadas.
+- Medición local integral de Supervivencia con IA, inventario, habilidades y portales, disponible en Versus IA; informe con percentil 95.
+- Docker incorpora el recurso de compilación que faltaba, conserva el diario de premios en un volumen y verifica x64/ARM64 en CI.
+- Protocolo 27: actualizar cliente y servidor juntos.
+
 ## 0.20.2 — Controles comunes, más enemigos y precarga completa
 
 - «Sobre mí» y «En área» ocupan la misma posición a la derecha en todos los modos, con la distribución de Supervivencia y escala adaptable a la pantalla.

@@ -45,6 +45,7 @@ public partial class EquipmentPanel
         close.CustomMinimumSize = new(0, Ui.IsMobile ? 60 : 48); heading.AddChild(close);
         _pickerHelp = Ui.Label("", Ui.IsMobile ? 17 : 16, Ui.Muted);
         _pickerHelp.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_pickerHelp);
+        BuildPickerFilters(box);
         _pickerStatus = Ui.Label("", 16, Ui.Gold); _pickerStatus.Name = "EquipmentPickerStatus";
         _pickerStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart; _pickerStatus.Visible = false; box.AddChild(_pickerStatus);
         _pickerScroll = new ContentScrollContainer { Name = "EquipmentPickerScroll",
@@ -64,9 +65,10 @@ public partial class EquipmentPanel
         if (_busy) return;
         _selectedSlot = slot; Render();
         _itemButtons.Clear(); _trashButtons.Clear(); _upgradeButtons.Clear(); Clear(_pickerGrid);
-        var choices = Choices(slot);
+        var allChoices = Choices(slot);
+        var choices = allChoices.Where(PickerFilter.Matches).ToArray();
         string equipped = _draft?.Loadout.Get(slot) ?? "";
-        _pickerTitle.Text = EquipmentCatalogue.SlotName(slot).ToUpperInvariant() + $" · {choices.Length} objetos";
+        _pickerTitle.Text = EquipmentCatalogue.SlotName(slot).ToUpperInvariant() + $" · {choices.Length}/{allChoices.Length} objetos";
         _pickerHelp.Text = "De mayor a menor calidad. Iconos de cada pieza: vender, equipar o quitar y mejorar." +
             (_defensePlayer == null ? " Las mejoras con oro están disponibles en Defensa." : $" Oro de partida: {_defensePlayer.Gold}.");
         PrepareIcons();
@@ -95,6 +97,7 @@ public partial class EquipmentPanel
             stats.TooltipText = string.Join("\n", item.Bonuses.Select(b => StatName(b.Stat) + ": " +
                 EquipmentCatalogue.Percent(b.Current) + " (" + EquipmentCatalogue.Percent(b.Minimum) + " / " + EquipmentCatalogue.Percent(b.Maximum) + ")"));
             description.AddChild(stats);
+            AddComparison(description, item);
             var entry = _defensePlayer?.Items.FirstOrDefault(i => i.Item.Id == item.Id);
             if (entry != null) description.AddChild(Ui.Label($"Mejoras: {entry.Upgrades} / 10", 15, Ui.Muted));
             var actions = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ShrinkEnd };
@@ -117,6 +120,7 @@ public partial class EquipmentPanel
                 (_defensePlayer!.Gold < cost ? $" Faltan {cost - _defensePlayer.Gold} oro." : ""), () => UpgradeDefenseItem(item.Id));
             _upgradeButtons.Add(item.Id, upgrade);
         }
+        _pickerEmpty.Text = allChoices.Length == 0 ? "No tienes objetos para esta posición." : "No hay objetos que coincidan con estos filtros.";
         _pickerEmpty.Visible = choices.Length == 0;
         UpdatePickerActions();
         _itemPicker.Show(); _pickerScroll.ScrollVertical = 0; UpdatePickerColumns();

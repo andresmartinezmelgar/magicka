@@ -32,6 +32,7 @@ if (args.Contains("--defense-balance") || args.Contains("--defense-balance-repor
 }
 if (args.Contains("--defense-benchmark"))
 {
+    StreamingPerformanceBenchmarks.Run();
     DefenseTests.Benchmark(args.FirstOrDefault(a => a.StartsWith("--profile-output="))?[17..] ?? "artifacts/defense/benchmark.json");
     return 0;
 }
@@ -143,6 +144,7 @@ BinaryUpdateDeltaTests.Run(Test);
 MatchSeriesTests.Run(Test);
 ResponsiveLayoutTests.Run(Test);
 NetworkEndpointTests.Run(Test);
+UpgradeTests.Run(Test);
 NetworkDeltaTests.Run(Test);
 FrontlineTests.Run(Test);
 DefenseTests.Run(Test);
@@ -1770,6 +1772,7 @@ if (server != null)
     string password = Environment.GetEnvironmentVariable("TEST_PASSWORD") ?? "";
     await FrontlineTests.RunNetwork(server, password, AsyncTest);
     await DefenseTests.RunNetwork(server, password, AsyncTest);
+    await UpgradeTests.RunNetwork(server, password, AsyncTest);
     await LoadingTests.RunNetwork(server, password, AsyncTest);
     await AsyncTest("Crear salas con opciones, enumerarlas y aislar estado aunque los IDs coincidan", async () =>
     {

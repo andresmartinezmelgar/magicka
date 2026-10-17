@@ -7,6 +7,7 @@ namespace Arcana.Client;
 
 public partial class Main
 {
+    private bool _defenseFiltersReviewed;
     private bool _defenseSmoke;
     private int _defenseSmokeFrame, _defenseSmokePhase;
     private long _defensePauseTick;
@@ -190,6 +191,19 @@ public partial class Main
                 var lookup = state.Defense!.Defenders.Single(p => p.PlayerId == _localId).Items.ToDictionary(i => i.Item.Id);
                 Check(inventory.PickerItems.Select(id => lookup[id].Item.Tier).SequenceEqual(new[] { ItemTier.Platinum, ItemTier.Gold }),
                     "Las piezas no están ordenadas por calidad.");
+                if (!_defenseFiltersReviewed)
+                {
+                var tierFilter = (OptionButton)inventory.FindChild("EquipmentTierFilter", true, false);
+                tierFilter.Select((int)ItemTier.Gold + 1); tierFilter.EmitSignal(OptionButton.SignalName.ItemSelected, (long)tierFilter.Selected);
+                Check(inventory.PickerItems.Length == 1 && lookup[inventory.PickerItems[0]].Item.Tier == ItemTier.Gold,
+                    "El filtro de calidad no reduce las piezas correctamente.");
+                tierFilter.Select(0); tierFilter.EmitSignal(OptionButton.SignalName.ItemSelected, 0L);
+                Check(inventory.PickerItems.Length == 2 && !inventory.HasChanges &&
+                    inventory.FindChildren("EquipmentComparison_*", "Label", true, false).Count > 0,
+                    "Filtrar cambia el equipo o falta la comparación de atributos.");
+                GD.Print("EQUIPMENT_FILTERS_OK: filtro y comparación sin alterar la selección.");
+                    _defenseFiltersReviewed = true; return false; // Espera la distribución real de las tarjetas reconstruidas.
+                }
                 foreach (string id in inventory.PickerItems) AssertPickerActions(inventory, id, checkLayout: true);
                 CaptureDefense("05-selector-calidad");
                 if (Ui.IsMobile) _Notification((int)NotificationWMGoBackRequest);

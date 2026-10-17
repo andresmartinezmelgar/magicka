@@ -86,3 +86,9 @@ Para detener: `docker compose down`. Las estadísticas de esta versión son de l
 La versión v0.10.0 añade objetos aleatorios al Coliseo. El servidor decide sus posiciones iniciales y sus recolocaciones; los clientes solo las representan. Los snapshots transmiten objetos y espera de reaparición, mejoras acumuladas y elementos del lanzamiento activo; la recogida y sus efectos se calculan en el servidor. La sala y el saludo replican el mapa elegido. Actualizar cliente y servidor juntos; los clientes anteriores son rechazados. Para el servidor dedicado: `docker compose up -d --build`.
 
 El mapa se elige en **Crear sala → Mapa**. Para la sala principal del servidor dedicado, `ARENA_MAP=Classic` mantiene la arena original y `ARENA_MAP=Citadel` selecciona la Ciudadela. En guerra, esta última exige 15 segundos seguidos de control total y no utiliza tickets para la victoria.
+
+## Docker desde 0.21.0
+
+La compilación incorpora `scripts/Apply-WindowsUpdate.ps1`, requerido por Arcana.Core. Las variantes Compose guardan logs en `server-logs` y el diario de premios en `server-data`, montado en `/app/data`; el proceso usa `/app/data/rewards` con un usuario sin privilegios. Recrear el contenedor conserva ese volumen. `docker compose down -v` elimina los datos persistentes.
+
+La CI compila y arranca imágenes Linux x64 y ARM64, comprueba HTTP y verifica que el usuario puede conservar datos al recrear el contenedor. ARM64 se comprueba con emulación; el rendimiento de una Raspberry Pi requiere medirlo en la placa. Las credenciales y HTTPS/WSS siguen configurándose para el alojamiento elegido. No se despliega automáticamente ningún servidor.

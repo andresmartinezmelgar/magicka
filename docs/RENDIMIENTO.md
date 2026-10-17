@@ -54,3 +54,13 @@ Con varios dispositivos, especificar `-Serial`. Con otro SDK, especificar `-Andr
 `scripts/test-render-profile.sh` ejecuta los cuatro mapas con un viewport OpenGL en Linux. La CI también instala la app en Android 15 y ejecuta la misma escena. `scripts/check-render-profile.py` comprueba formato, muestras, geometría presente, procedencia y presupuestos; no impone un umbral de FPS. Los informes y registros son artefactos de la CI, sin publicar una Release.
 
 Los entornos se identifican como `ci-linux-software-opengl` y `ci-android15-emulator-swangle`. Ambos renderizan por software. Sus medidas comprueban el funcionamiento y permiten detectar cambios en esos entornos; no permiten fijar rendimiento para una GPU de PC o un móvil físico. La medición física necesita ejecutarse en el dispositivo. Para comparar resultados, conservar mapa, versión, resolución, backend y condiciones del dispositivo; una muestra de tres segundos de CI no describe una sesión larga.
+
+## Medición integral de Supervivencia
+
+En **Versus IA → Medir rendimiento de Supervivencia** se ejecuta una escena local con cuatro defensores (tres bots), hasta 192 minions de varios tipos, 96 piezas de equipo, poderes, botín y cruces de portales. Utiliza la simulación real además del renderizador. Los defensores tienen protección artificial para mantener la carga: no sirve para evaluar el equilibrio. No conecta a cuentas ni concede recompensas.
+
+```bash
+godot --path src/Arcana.Client -- --profile-render --profile-survival --profile-warmup=5 --profile-seconds=30 --profile-output=/ruta/supervivencia.json
+```
+
+El informe se identifica como `integrated_survival_scene` e incluye pasos simulados, cruces de portales, entidades, resolución y percentil 95. La cantidad de enemigos puede variar durante el combate. La CI ejecuta el escenario mediante OpenGL por software; para conocer el rendimiento del móvil hay que ejecutar la misma medición en ese móvil. La prueba integra IA, combate y representación local; los costes de codificación de red se miden aparte con `--defense-benchmark`.

@@ -28,7 +28,8 @@ public sealed class ArenaConnection : IAsyncDisposable
     public long BytesSent => Interlocked.Read(ref _bytesSent);
     public long BytesReceived => Interlocked.Read(ref _bytesReceived);
     private WorldSnapshot? _latest;
-    private ServerMessage? _networkBaseline;
+    private SnapshotReceiver? _snapshotReceiver;
+    public string ResumeToken { get; private set; } = "";
     private Task? _reader, _writer, _disposal, _connecting;
     private int _disposing, _connected, _notified;
     private int _ready, _readyRequested, _preparingPlayers;
@@ -75,21 +76,21 @@ public sealed class ArenaConnection : IAsyncDisposable
         return uri.AbsolutePath == "/" ? new UriBuilder(uri) { Path = "/play" }.Uri : uri;
     }
     public Task ConnectAsync(string address, string name, int team, string password, CancellationToken token = default,
-        string roomId = "default", string roomPassword = "", WizardType wizardType = WizardType.Balanced, bool deferReady = false, string accountToken = "")
+        string roomId = "default", string roomPassword = "", WizardType wizardType = WizardType.Balanced, bool deferReady = false, string accountToken = "", string resumeToken = "")
     {
         lock (_disposeGate)
         {
             ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposing) != 0, this);
             if (_connecting != null) throw new InvalidOperationException("Esta conexión ya se ha iniciado.");
             if (!Enum.IsDefined(wizardType)) throw new ArgumentOutOfRangeException(nameof(wizardType));
-            return _connecting = ConnectCore(address, name, team, password, token, roomId, roomPassword, wizardType, deferReady, accountToken);
+            return _connecting = ConnectCore(address, name, team, password, token, roomId, roomPassword, wizardType, deferReady, accountToken, resumeToken);
         }
     }
     private async Task ConnectCore(string address, string name, int team, string password, CancellationToken token,
-        string roomId, string roomPassword, WizardType wizardType, bool deferReady, string accountToken)
+        string roomId, string roomPassword, WizardType wizardType, bool deferReady, string accountToken, string resumeToken)
     {
         Diagnostics.Log.ProtectSecret(password); Diagnostics.Log.ProtectSecret(roomPassword);
-        Diagnostics.Log.ProtectSecret(accountToken);
+        Diagnostics.Log.ProtectSecret(accountToken); Diagnostics.Log.ProtectSecret(resumeToken);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token, _lifetime.Token);
         timeout.CancelAfter(TimeSpan.FromSeconds(accountToken.Length > 0 ? 25 : 7));
         try
@@ -99,7 +100,7 @@ public sealed class ArenaConnection : IAsyncDisposable
             _socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(10);
             await _socket.ConnectAsync(endpoint, timeout.Token).ConfigureAwait(false);
             var hello = new ClientMessage { Type = "hello", Name = name, Team = team, Password = password,
-                RoomId = roomId, RoomPassword = roomPassword, Protocol = Protocol.Version, GameVersion = BuildInfo.Version, WizardType = wizardType, AccountToken = accountToken };
+                RoomId = roomId, RoomPassword = roomPassword, Protocol = Protocol.Version, GameVersion = BuildInfo.Version, WizardType = wizardType, AccountToken = accountToken, ResumeToken = resumeToken };
             await SendFrame(hello, timeout.Token).ConfigureAwait(false);
             var welcome = await Read(timeout.Token).ConfigureAwait(false);
             if (welcome?.Type == "error") throw new InvalidOperationException(welcome.Error);
@@ -116,7 +117,8 @@ public sealed class ArenaConnection : IAsyncDisposable
             PlayerId = welcome.PlayerId; Server = welcome.Server; Room = welcome.Room;
             _requiresReady = welcome.RequiresReady;
             ApplyReadiness(welcome);
-            _networkBaseline = welcome;
+            _snapshotReceiver = new(welcome); ResumeToken = welcome.ResumeToken;
+            Diagnostics.Log.ProtectSecret(ResumeToken);
             Volatile.Write(ref _latest, welcome.Snapshot); Volatile.Write(ref _connected, 1);
             Diagnostics.Info("network.connected", "Conexión establecida.", Context());
             _writer = WriteLoop(); _reader = ReadLoop();
@@ -128,6 +130,7 @@ public sealed class ArenaConnection : IAsyncDisposable
             Volatile.Write(ref _connected, 0); _socket.Abort(); throw;
         }
     }
+    public void ReconnectAfterStall() => Fail("Restableciendo la conexión…", null, "network.stalled");
     public bool CompleteLoading()
     {
         if (!Connected) return false;
@@ -150,7 +153,7 @@ public sealed class ArenaConnection : IAsyncDisposable
             var queued = new ClientMessage { Type = message.Type, Sequence = ++_sequence,
                 InspectionRequestId = message.InspectionRequestId, InspectPlayerId = message.InspectPlayerId,
                 Element = message.Element, Slot = message.Slot, Team = message.Team, ItemId = message.ItemId,
-                FramesPerSecond = message.FramesPerSecond, Loadout = message.Loadout,
+                FramesPerSecond = message.FramesPerSecond, FrameTime95 = message.FrameTime95, BaselineId = message.BaselineId, Loadout = message.Loadout,
                 MoveX = message.MoveX, MoveY = message.MoveY,
                 MoveTo = message.MoveTo, TargetX = message.TargetX, TargetY = message.TargetY,
                 AimX = message.AimX, AimY = message.AimY };
@@ -202,7 +205,9 @@ public sealed class ArenaConnection : IAsyncDisposable
             {
                 var message = await Read(_lifetime.Token).ConfigureAwait(false);
                 if (message == null) { Fail("El servidor ha cerrado la conexión.", null, "network.server_closed"); break; }
-                if (message.Type == "snapshot" && message.Snapshot != null)
+                if (message.Type == "keyframe")
+                { _snapshotReceiver!.Accept(message); Send(new() { Type = "baseline_ack", BaselineId = message.BaselineId }); }
+                else if (message.Type == "snapshot" && message.Snapshot != null)
                 { ApplyReadiness(message); Volatile.Write(ref _latest, message.Snapshot); }
                 else if (message.Type == "account" && message.AccountNotice != null) AccountChanged?.Invoke(message.AccountNotice);
                 else if (message.Type == "equipment")
@@ -257,15 +262,14 @@ public sealed class ArenaConnection : IAsyncDisposable
             var message = Protocol.DeserializeFrame(payload.Span, frameType == WebSocketMessageType.Binary);
             if (message?.Type == "delta")
             {
-                if (_networkBaseline == null) { stream.SetLength(0); frameType = null; continue; }
+                if (_snapshotReceiver == null) { stream.SetLength(0); frameType = null; continue; }
                 // La carga binaria puede estar comprimida; reconstruimos a partir del JSON ya validado.
                 byte[] raw = frameType == WebSocketMessageType.Binary
                     ? Protocol.DecompressSnapshotPayload(payload.Span) : payload.ToArray();
-                try { message = SnapshotDelta.Decode(raw, _networkBaseline); }
+                try { message = _snapshotReceiver.Decode(raw); if (message == null) { stream.SetLength(0); frameType = null; continue; } }
                 catch (InvalidDataException) { stream.SetLength(0); frameType = null; continue; }
             }
-            // El baseline es el welcome inicial y no cambia aunque llegue un snapshot completo.
-            // Así los deltas independientes siguen siendo válidos tras descartes de la cola.
+            // Las bases se renuevan mediante keyframes confirmados y conservan la referencia anterior.
             if (message?.Snapshot != null) SnapshotValidation.Check(message.Snapshot);
             if (message?.Snapshot != null) CheckReadiness(message);
             if (message?.Type == "snapshot" && message.Snapshot == null) throw new InvalidDataException("Estado de partida ausente.");

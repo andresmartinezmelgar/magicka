@@ -165,12 +165,12 @@ public partial class Main : Node
 
     public async Task ConnectOnline(string address, string name, int team, string password,
         string roomId = "default", string roomPassword = "", WizardType wizardType = WizardType.Balanced,
-        Action<string>? onError = null)
+        Action<string>? onError = null, string resumeToken = "", Action? onConnected = null)
     {
         if (Volatile.Read(ref _exiting) != 0) return;
         var connection = new ArenaConnection();
         connection.AccountChanged += message => _ = RefreshRewardAccount(message);
-        connection.Disconnected += reason => Post(() => { if (_connection == connection) ReturnToLauncher(reason); });
+        connection.Disconnected += reason => Post(() => { if (_connection == connection) _ = RecoverConnection(connection, address, name, team, password, roomId, roomPassword, wizardType, reason); });
         ArenaConnection? previous;
         lock (_connectionGate) { previous = _pendingConnection; _pendingConnection = connection; }
         if (previous != null) _ = previous.DisposeAsync();
@@ -220,7 +220,7 @@ public partial class Main : Node
                     throw new InvalidOperationException(GoogleConnectionMessage());
             }
             await connection.ConnectAsync(destination, name, team, password, _lifetime.Token, roomId: roomId, roomPassword: roomPassword,
-                wizardType: wizardType, deferReady: true, accountToken: accountToken).ConfigureAwait(false);
+                wizardType: wizardType, deferReady: true, accountToken: accountToken, resumeToken: resumeToken).ConfigureAwait(false);
             if (!Post(() =>
             {
                 lock (_connectionGate)
@@ -232,7 +232,7 @@ public partial class Main : Node
                 if (_connection != null) _ = _connection.DisposeAsync();
                 _connection = connection; _practice = null; _practiceSession = null; _localId = connection.PlayerId;
                 _serverName = (connection.Server?.Name ?? address) + " / " + (connection.Room?.Name ?? "Sala principal");
-                StartGame(connection.Latest!);
+                CancelReconnect(); StartGame(connection.Latest!, resumeToken.Length > 0); onConnected?.Invoke();
             })) await connection.DisposeAsync().ConfigureAwait(false);
         }
         catch (Exception e)
@@ -313,6 +313,7 @@ public partial class Main : Node
     }
     public void ReturnToLauncher(string error = "")
     {
+        CancelReconnect();
         CancelGameLoading();
         CancelPendingConnection();
         if (_playing) Diagnostics.Info("game.leave", "Vuelta al launcher.", Context());
@@ -361,7 +362,7 @@ public partial class Main : Node
         if (CheckPublicEquipmentSmoke()) return;
         if (CheckEquipmentSmoke()) return;
         if (CheckDefenseSmoke()) return;
-        if (_profiler?.Running == true) return;
+        if (_profiler?.Running == true || _reconnecting) return;
         if (Loading) { ProcessLoading(); _verification?.CheckLoadingFrame(); return; }
         _verification?.BeforeFrame(delta);
         _metricsTime += delta;
@@ -389,7 +390,7 @@ public partial class Main : Node
             if (_connection != null && _snapshotAge > 8 && !latest.WaitingForPlayers)
             {
                 Diagnostics.Warn("client.stale_snapshot", "El servidor dejó de enviar el estado.", context: Context());
-                ReturnToLauncher("El servidor ha dejado de enviar el estado de la partida. Puedes exportar el diagnóstico desde el launcher."); return;
+                _connection.ReconnectAfterStall(); return;
             }
             _renderer.InterpolationDelay = _connection != null ? 0.075 : 1 / 60.0;
             if (_practiceSession != null) _renderer.PracticeCasterDescription = _practiceSession.CasterDescription;
@@ -447,7 +448,7 @@ public partial class Main : Node
     public override void _PhysicsProcess(double delta)
     {
         if (_verification?.CheckSmokeErrors() == true) return;
-        if (Loading) return;
+        if (Loading || _reconnecting) return;
         if (_verification?.FreezeSimulation == true) return;
         if (_profiler?.Running == true) return;
         if (!_playing)

@@ -6,17 +6,17 @@ namespace Arcana.Core;
 
 public static class Protocol
 {
-    public const int Version = 26;
+    public const int Version = 27;
     public const int GamePort = 27015;
     public const int DiscoveryPort = 27016;
-    public const string DiscoveryMagic = "ARCANA_DISCOVER_V26";
+    public const string DiscoveryMagic = "ARCANA_DISCOVER_V27";
     public const int LoadingTimeoutSeconds = 120;
     public const int MaxMessageBytes = 4096;
     public static readonly JsonSerializerOptions Json = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
-        MaxDepth = 16
+        MaxDepth = 32
     };
     // Los mensajes de combate no incluyen datos del saludo ni campos de otras acciones.
     // Los nombres se mantienen para que el servidor pueda deserializar con el protocolo actual.
@@ -75,6 +75,9 @@ public static class Protocol
     }
     public static byte[] SerializeAction(ClientMessage message) => message.Type switch
     {
+        "baseline_ack" => JsonSerializer.SerializeToUtf8Bytes(new { type = message.Type, sequence = message.Sequence, baselineId = message.BaselineId }, Json),
+        "defense_performance" => JsonSerializer.SerializeToUtf8Bytes(new { type = message.Type, sequence = message.Sequence,
+            framesPerSecond = message.FramesPerSecond, frameTime95 = message.FrameTime95 }, Json),
         "input" => SerializeInput(message),
         "element" => JsonSerializer.SerializeToUtf8Bytes(new
         {
@@ -174,6 +177,9 @@ public sealed class ClientMessage
     public int Team { get; set; } = -1;
     public WizardType WizardType { get; set; }
     public string AccountToken { get; set; } = "";
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public string ResumeToken { get; set; } = "";
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public long BaselineId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public float FrameTime95 { get; set; }
     public Element Element { get; set; }
     public int Slot { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public float FramesPerSecond { get; set; }
@@ -195,6 +201,8 @@ public sealed class ServerMessage
 {
     public string Type { get; set; } = "";
     public int PlayerId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public long BaselineId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public string ResumeToken { get; set; } = "";
     public string Error { get; set; } = "";
     public ServerInfo? Server { get; set; }
     public RoomInfo? Room { get; set; }

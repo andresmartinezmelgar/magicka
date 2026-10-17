@@ -1,6 +1,6 @@
 # Supervivencia en Anillos
 
-Versión estable **0.20.2**, protocolo **26**, integrada en `main`. Se publican APK directas, paquetes Windows y deltas de hasta tres versiones estables anteriores. Las dos cuentas autorizadas conservan el [canal de pruebas](CANALES-ACTUALIZACION.md); el resto recibe el canal estable. La horda ampliada requiere actualizar también el servidor incluido en el paquete Windows a 0.20.2.
+Versión estable **0.21.0**, protocolo **27**, integrada en `main`. Se publican APK directas, paquetes Windows y deltas de hasta tres versiones estables anteriores. Las dos cuentas autorizadas conservan el [canal de pruebas](CANALES-ACTUALIZACION.md); el resto recibe el canal estable. La horda ampliada requiere actualizar también el servidor incluido en el paquete Windows a 0.21.0.
 
 ## Partida y vidas
 
@@ -64,10 +64,10 @@ El tope real también depende de los FPS de cada dispositivo. Se empieza con un 
 | Arquero | Dificultad 4 | 260 | Proyectiles de tierra |
 | Detonador | Dificultad 4 | 240 | 95 en 3,2 m; avisa 1,1 s y muere al explotar |
 | Tanque | Dificultad 5 | 1200 | 45; movimiento un 35 % más lento |
-| Bruto | Dificultad 6 | 1500 | 70 en 2,8 m; avisa 0,9 s y se detiene |
-| Mago | Dificultad 7 | 380 | Canaliza arcano y fuego durante 0,45 s |
-| Chamán | Dificultad 8 | 540 | 12; cura 90 × fuerza a otro enemigo a 8 m cada 3 s |
-| Capitán | Dificultad 10 | 700 | 32; potencia un 35 % a otros enemigos a menos de 8 m |
+| Bruto | Dificultad 4 | 1500 | 70 en 2,8 m; avisa 0,9 s y se detiene |
+| Mago | Dificultad 4 | 380 | Canaliza arcano y fuego durante 0,45 s |
+| Chamán | Dificultad 3 | 540 | 12; cura 90 × fuerza a otro enemigo a 8 m cada 3 s |
+| Capitán | Dificultad 5 | 700 | 32; potencia un 35 % a otros enemigos a menos de 8 m |
 | Coloso | Intervalos variables | 4200 | 65; cuerpo a cuerpo de 2,4 m |
 
 El primer coloso aparece entre **120 y 180 s**. Tras derrotarlo se espera un intervalo nuevo de **90 a 150 s**. Solo hay uno activo; su vida aumenta un 40 % por defensor adicional, además de la dificultad. La guía muestra los valores del último ejemplar descubierto.
@@ -121,3 +121,13 @@ dotnet run --project tests/Arcana.Tests -c Release --no-build -- --defense-bench
 ```
 
 La auditoría visual real comprueba móvil y escritorio, límites táctiles, inventario, guía, coloso, sectores cargados y descarga tras un portal. Las mediciones automatizadas no sustituyen la prueba de rendimiento en un Android físico.
+
+## Cambios de 0.21.0
+
+El inventario permite combinar filtros de familia elemental, calidad y atributo. Cada pieza no equipada muestra las diferencias de atributos respecto a la equipada; la comparación no incluye los conjuntos. Filtrar no cambia la selección ni escribe en Firestore.
+
+Ante una caída de red, el cliente intenta recuperar la misma conexión durante 30 segundos. Se conservan el personaje, posición, inventario y vidas; el personaje continúa expuesto en el servidor si hay otros jugadores conectados. No se concede invulnerabilidad ni actividad para premios. Salir voluntariamente elimina la plaza inmediatamente. La recuperación utiliza un token aleatorio de la sesión y, con Google, exige la misma identidad verificada. No recupera partidas después de reiniciar el servidor.
+
+El ajuste gráfico reduce primero partículas decorativas, manteniendo las áreas y avisos de ataque. Las ventanas incorporan el percentil 95 del tiempo por fotograma; los picos persistentes y la carga de simulación del servidor también limitan las apariciones. Los enemigos cercanos y los colosos siguen protegidos frente a la retirada por rendimiento.
+
+El chamán puede aparecer desde el minuto 3, el bruto y el mago desde 4:30 y el capitán desde 6:00; no cambian sus atributos base.

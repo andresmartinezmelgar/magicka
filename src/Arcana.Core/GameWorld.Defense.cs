@@ -58,10 +58,10 @@ public sealed partial class GameWorld
     {
         get
         {
-            int limit = DefenseRules.MaxMinions; bool found = false;
+            int limit = _simulationBudget.Limit; bool found = false;
             foreach (var p in _players.Values)
                 if (!p.Bot) { found = true; limit = Math.Min(limit, _defenders[p.Id].Performance.Limit); }
-            return found ? limit : DefensePerformanceBudget.DefaultLimit;
+            return found ? limit : Math.Min(limit, DefensePerformanceBudget.DefaultLimit);
         }
     }
     private int DefenseMinionLimit => Math.Min(DefensePerformanceLimit, DefenseRules.SpawnLimit(_defenseDifficulty, _defensePartySize));
@@ -111,6 +111,7 @@ public sealed partial class GameWorld
                 ? (0.12f + (float)_random.NextDouble() * 0.20f) / pressure
                 : (1.3f + (float)_random.NextDouble() * 1.8f) / pressure;
         }
+        BuildDefenseCells();
         foreach (var minion in _minions.Values) TickMinion(minion, dt);
         TickDefensePassives(dt);
         TickDefenseDrops(dt);
@@ -124,11 +125,11 @@ public sealed partial class GameWorld
         int roll = _random.Next(100);
         int cursor = 0;
         bool Pick(int firstStage, int chance) { if (_defenseDifficulty < firstStage) return false; cursor += chance; return roll < cursor; }
-        if (Pick(10, 6)) kind = MinionKind.Captain;
-        else if (Pick(8, 7)) kind = MinionKind.Shaman;
-        else if (Pick(6, 8)) kind = MinionKind.Brute;
+        if (Pick(5, 4)) kind = MinionKind.Captain;
+        else if (Pick(3, 5)) kind = MinionKind.Shaman;
+        else if (Pick(4, 6)) kind = MinionKind.Brute;
         else if (Pick(5, 10)) kind = MinionKind.Tank;
-        else if (Pick(7, 12)) kind = MinionKind.Mage;
+        else if (Pick(4, 10)) kind = MinionKind.Mage;
         else if (Pick(4, 10)) kind = MinionKind.Bomber;
         else if (Pick(4, 20)) kind = MinionKind.Archer;
         else if (Pick(2, 16)) kind = MinionKind.Runner;
@@ -231,18 +232,15 @@ public sealed partial class GameWorld
             minion.NavigationClock = 0.16f + p.Id % 4 * 0.015f;
         }
         var direction = canAttack ? V2.Zero : minion.Navigation;
-        V2 separation = V2.Zero;
-        foreach (var other in _minions.Values)
-        {
-            if (other.Body.Id == p.Id || !other.Body.Alive) continue;
-            var away = p.Position - other.Body.Position;
-            if (away.LengthSquared is > 0.0001f and < 1.2f) separation += away.Normalized * (1.1f - away.Length);
-        }
+        V2 separation = DefenseSeparation(minion);
         p.Input.MoveX = direction.X + separation.X * 1.5f;
         p.Input.MoveY = direction.Y + separation.Y * 1.5f;
         p.Input.AimX = target.Position.X; p.Input.AimY = target.Position.Y;
         p.Facing = (target.Position - p.Position).Normalized;
+        var oldCell = DefenseCell(p.Position);
         Move(p, dt);
+        var newCell = DefenseCell(p.Position);
+        if (oldCell != newCell) { DefenseCellList(oldCell).Remove(minion); DefenseCellList(newCell).Add(minion); }
         minion.Attack -= dt;
         if (p.Channel != null)
         {
@@ -388,6 +386,7 @@ public sealed partial class GameWorld
         _defenseBotPlans.Clear(); _defenseBotPlanClock = 0;
         _defenseKills = _bossesKilled = _spawnBurstRemaining = 0; _defenseDifficulty = _defensePartySize = 1;
         _defenseElapsed = _spawnClock = _auraClock = 0;
+        _simulationBudget = new(DefenseRules.MaxMinions); _simulationCost = 0; _simulationSamples = 0;
         _bossClock = DefenseRules.BossInterval(_random, true); _survivalFlows.Clear();
         foreach (var player in _players.Values) { _defenders[player.Id] = new(); RecalculateDefender(player); }
     }

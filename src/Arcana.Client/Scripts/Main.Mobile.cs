@@ -78,6 +78,7 @@ public partial class Main
         { ReturnToLauncher(); return; }
         if (_profiler?.Running == true && (long)what is NotificationWMGoBackRequest or NotificationApplicationPaused or NotificationApplicationFocusOut)
         { _profiler.Cancel(); return; }
+        if (_reconnecting && what == NotificationWMGoBackRequest) { ReturnToLauncher(); return; }
         if (what == NotificationWMGoBackRequest)
         {
             if (_defensePanel?.ShopOpen == true) _defensePanel.HandleBack();

@@ -1,18 +1,15 @@
-# Optimización de comunicaciones PvP — protocolo 19
+# Comunicaciones — protocolo 27
 
-## Código implementado
-- Acciones cliente-servidor en binario (0xB1) con código de acción, secuencia y campos específicos.
-- Ejes de movimiento cuantizados a int16; objetivos de movimiento omitidos si MoveTo es falso. El apuntado conserva float32.
-- Un estado base por jugador se transmite en el saludo (welcome). Los siguientes snapshots se codifican como deltas independientes frente a esa base durante toda la conexión.
-- El delta incluye cambios de campos y, si el tamaño de la colección se conserva, solo índices modificados. Si cambia el tamaño se transmite la colección.
-- Los fotogramas se comprimen opcionalmente con Brotli y viajan como WebSocket Binary (0xA1); la descompresión se limita a 256 KiB.
-- La cola DropOldest es segura para estos deltas porque no dependen de fotogramas intermedios.
-- La precarga estática de partida se realiza mediante el estado inicial del saludo; nombres, equipación y demás datos sin cambios se omiten en los deltas.
-- Instrumentación de bytes y número de snapshots en el servidor; benchmarks y pruebas de roundtrip añadidos.
+Las acciones de combate conservan su formato binario y el servidor envía 20 estados por segundo. Cada delta es independiente respecto a una base identificada; nunca depende del mensaje anterior.
 
-## Consideraciones
-- Los clientes y el servidor deben actualizarse conjuntamente a la versión 19.
-- La codificación de snapshots sigue siendo JSON delta comprimido, no un esquema binario tipado completo.
-- La comparación de estados por cliente aumenta el trabajo de CPU; medirlo en servidores con múltiples salas.
-- No se han ejecutado las pruebas ni compilado la solución desde esta conexión. No se garantiza aún funcionamiento en producción.
-- Para una reducción adicional, sustituir los campos dinámicos del delta por un esquema binario versionado, cuantizar posiciones tras medir tolerancias y añadir pruebas de estrés reales.
+Cada 40 estados se ofrece una nueva base. El cliente la valida, conserva la anterior y confirma su identificador. El servidor solo cambia de base tras esa confirmación. La base se reintenta cada 20 estados si se descartó o no llegó la confirmación. Los controles de base se añaden al estado del mismo ciclo, sin reemplazarlo.
+
+Los enemigos usan máscaras binarias de campos exactos por identificador, sin cuantizar posición, vida ni avisos. Así se evita construir árboles JSON por cada minion. Las otras colecciones con identificadores conservan altas, bajas y orden sin sustituir todos sus elementos cuando cambia la cantidad. Si el orden es estable, se actualizan solo los campos modificados. El inventario y los datos estables ya incorporados a la base se omiten hasta cambiar. La base JSON del servidor se prepara una vez y no se comprime además un snapshot completo para compararlo en cada envío.
+
+El cliente conserva dos bases como máximo. El tamaño de mensaje y de descompresión sigue limitado a 256 KiB; la profundidad JSON admite 32 niveles para los cambios anidados de inventario. Los datos privados de equipo y botín se filtran antes de codificar el estado de cada destinatario. El token de recuperación viaja únicamente en el saludo y no se incorpora a las bases.
+
+`--defense-benchmark` compara el codificador anterior con bases confirmadas usando los mismos estados reales y contabiliza los keyframes. Sus tiempos pertenecen al entorno de pruebas; no equivalen a FPS de Android o Raspberry Pi.
+
+## Medición de 0.21.0
+
+En una ejecución local de 180 estados idénticos para ambos codificadores, la base inicial fija envió 2.106.652 bytes y las bases confirmadas con enemigos binarios enviaron 1.260.391 bytes, incluyendo keyframes (40,2 % menos). La codificación pasó de 1.445,6 a 614,4 ms (57,5 % menos), y las asignaciones de 239.055.160 a 129.833.552 bytes (45,7 % menos). Son mediciones de CPU y tráfico del escenario de prueba, no FPS de dispositivos reales ni una garantía para cualquier partida.

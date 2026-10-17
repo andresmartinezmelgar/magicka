@@ -29,6 +29,8 @@ public partial class RenderProfiler : Node
     private float _savedZoom;
     private bool _measuring, _stopped, _quit, _initialized, _savedPoints, _savedAudio, _configured;
     internal bool Running => _initialized && !_stopped;
+    private SurvivalPerformanceSession? _survival;
+    private WorldSnapshot? _survivalFrame;
     internal static bool Requested(string[] args) => args.Contains("--profile-render");
 
     private static double Number(string[] args, string key, double fallback, double minimum, double maximum)
@@ -49,8 +51,9 @@ public partial class RenderProfiler : Node
         _output = args.LastOrDefault(a => a.StartsWith("--profile-output="))?[17..] ?? "user://profiles/latest.json";
         _environment = args.LastOrDefault(a => a.StartsWith("--profile-environment="))?[22..] ?? "local";
         if (_environment.Length > 64) throw new ArgumentException("Etiqueta de entorno demasiado larga.");
-        _scene = new(_map); SnapshotValidation.Check(_scene.Frame(1));
-        _scenery = args.Contains("--profile-scenery");
+        if (args.Contains("--profile-survival") || _map == ArenaMapId.Bastion) { _map = ArenaMapId.Bastion; _survival = new(); }
+        _scene = new(_survival == null ? _map : ArenaMapId.Classic); SnapshotValidation.Check(_scene.Frame(1));
+        _scenery = _survival == null && args.Contains("--profile-scenery");
         if (_scenery) _scenerySnapshot = _scene.Frame(1) with
         { Players = [], Projectiles = [], Walls = [], Fields = [], Beams = [], Events = [], Pickups = [] };
         _savedZoom = _renderer.CurrentZoom; _savedPoints = _renderer.ShowControlPoints; _savedAudio = _renderer.AudioEnabled;
@@ -91,9 +94,12 @@ public partial class RenderProfiler : Node
             _lastTime = now;
             var began = Stopwatch.GetTimestamp();
             ++_frame;
-            _renderer.Render(_scenery ? _scenerySnapshot! : _scene.Frame(_frame), 0, 1 / 60.0, true);
+            var frame = _survival?.Frame(delta) ?? (_scenery ? _scenerySnapshot! : _scene.Frame(_frame));
+            if (_survival != null) _survivalFrame = frame;
+            int localId = _survival == null ? 0 : frame.Players.First(p => !p.Bot).Id;
+            _renderer.Render(frame, localId, _survival == null ? 1 / 60.0 : delta, true);
             _lastCpu = Stopwatch.GetElapsedTime(began).TotalMilliseconds;
-            _status.Text = $"Medición gráfica · {(_scenery ? "decoración del mapa" : "16 magos y carga máxima")}\n{(_measuring ? "Midiendo" : "Calentando")} · {_samples.Count} muestras";
+            _status.Text = $"Medición gráfica · {(_survival != null ? "Supervivencia: horda, poderes y portales" : _scenery ? "decoración del mapa" : "16 magos y carga máxima")}\n{(_measuring ? "Midiendo" : "Calentando")} · {_samples.Count} muestras";
         }
         catch (Exception error) { Fail(error); }
     }
@@ -111,14 +117,16 @@ public partial class RenderProfiler : Node
         var report = new
         {
             schema = 1, version = BuildInfo.Version, timestampUtc = DateTimeOffset.UtcNow, environment = _environment,
-            scope = _scenery ? "static_map_render_scene" : "synthetic_local_render_scene", canceled, map = _map.ToString(), seed = 271,
+            scope = _survival != null ? "integrated_survival_scene" : _scenery ? "static_map_render_scene" : "synthetic_local_render_scene", canceled, map = _map.ToString(), seed = 271,
             device = new { os = OS.GetName(), model = OS.GetModelName(), gpu = RenderingServer.GetVideoAdapterName(),
                 renderer = RenderingServer.GetCurrentRenderingMethod(), driver = RenderingServer.GetCurrentRenderingDriverName(),
                 editor = OS.HasFeature("editor"), mobile = Ui.IsMobile, maxFps = Engine.MaxFps,
                 windowWidth = GetWindow().Size.X, windowHeight = GetWindow().Size.Y,
                 viewportWidth = GetViewport().GetVisibleRect().Size.X, viewportHeight = GetViewport().GetVisibleRect().Size.Y },
-            scene = new { players = _scenery ? 0 : RenderStressScene.Players, projectiles = _scenery ? 0 : RenderStressScene.Projectiles, walls = _scenery ? 0 : RenderStressScene.Walls,
-                fields = _scenery ? 0 : RenderStressScene.Fields, beams = _scenery ? 0 : RenderStressScene.Beams, eventsPerFrame = _scenery ? 0 : RenderStressScene.Events },
+            scene = new { players = _survivalFrame?.Players.Length ?? (_scenery ? 0 : RenderStressScene.Players), projectiles = _survivalFrame?.Projectiles.Length ?? (_scenery ? 0 : RenderStressScene.Projectiles), walls = _survivalFrame?.Walls.Length ?? (_scenery ? 0 : RenderStressScene.Walls),
+                fields = _survivalFrame?.Fields.Length ?? (_scenery ? 0 : RenderStressScene.Fields), beams = _survivalFrame?.Beams.Length ?? (_scenery ? 0 : RenderStressScene.Beams), eventsPerFrame = _survivalFrame?.Events.Length ?? (_scenery ? 0 : RenderStressScene.Events) },
+            survival = _survival == null ? null : new { simulatedTicks = _survival.SimulatedTicks, portalCrossings = _survival.PortalCrossings,
+                players = _survival.World.Players.Count, minions = _survival.World.Snapshot().Defense!.Minions.Length, inventoryItems = 96, liveSimulation = true },
             warmupSeconds = _warmup, requestedSeconds = _seconds, measuredSeconds = measured, samples = _samples.Count,
             averageFps = measured > 0 ? _samples.Count / measured : (double?)null,
             metrics = new { frameMs = Stats(s => s.FrameMs), clientCpuMs = Stats(s => s.ClientCpuMs), engineProcessMs = Stats(s => s.EngineProcessMs),

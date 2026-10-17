@@ -253,7 +253,7 @@ public partial class Launcher
         row.AddChild(bots);
         // El mapa, la modalidad y su objetivo a la izquierda; bots y laboratorio a la derecha.
         foreach (int index in new[] { 0, 1, 2, 3, 4 }) parts[index].Reparent(maps);
-        foreach (int index in new[] { 5, 6, 7 }) parts[index].Reparent(bots);
+        foreach (int index in new[] { 5, 6, 7, 8 }) parts[index].Reparent(bots);
         if (parts[0] is Label explanation)
             explanation.AddThemeFontSizeOverride("font_size", 14);
         if (parts[4] is Label objective)

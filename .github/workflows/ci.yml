@@ -57,6 +57,22 @@ jobs:
       - name: Compilar servidor de cuentas heredado
         run: dotnet build src/Arcana.AccountServer/Arcana.AccountServer.csproj -c Release --nologo
 
+  docker-server:
+    name: Servidor Docker (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Compilar y comprobar servidor y volumen persistente
+        env:
+          ARCANA_DOCKER_ARCH: ${{ matrix.arch }}
+        run: bash scripts/test-docker-server.sh
+
   firestore-rules:
     name: Validar reglas Firestore con emulador
     runs-on: ubuntu-latest
@@ -176,6 +192,14 @@ jobs:
           xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --defense-smoke --smoke-viewport=1440x900 "--defense-captures=$target" 2>&1 | tee "$RUNNER_TEMP/defense-desktop.log"
           grep -q 'DEFENSE_SMOKE_OK' "$RUNNER_TEMP/defense-desktop.log"
           ! grep -E '^(ERROR:|SCRIPT ERROR:)|DEFENSE_SMOKE_FAILED' "$RUNNER_TEMP/defense-desktop.log"
+      - name: Medir Supervivencia con combate, IA, inventario y portales
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          mkdir -p artifacts/visual-review/survival-performance
+          xvfb-run -a -s "-screen 0 1280x720x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --profile-render --profile-survival --profile-warmup=2 --profile-seconds=10 --profile-output="$PWD/artifacts/visual-review/survival-performance/report.json" 2>&1 | tee "$RUNNER_TEMP/survival-profile.log"
+          grep -q 'PROFILE_OK' "$RUNNER_TEMP/survival-profile.log"
+          python3 scripts/check-survival-profile.py artifacts/visual-review/survival-performance/report.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -443,7 +467,7 @@ jobs:
   publish-android-first:
     name: Publicar APK Android firmada sin esperar a Windows
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [build, firestore-rules, visual-audit, package-android]
+    needs: [build, docker-server, firestore-rules, visual-audit, package-android]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -511,7 +535,7 @@ jobs:
   release-on-tag:
     name: Publicar artefactos al crear un tag
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    needs: [build, firestore-rules, visual-audit, package-windows, package-android]
+    needs: [build, docker-server, firestore-rules, visual-audit, package-windows, package-android]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -621,7 +645,7 @@ jobs:
   publish-preview:
     name: Publicar versiones de prueba de otras ramas
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && github.ref != 'refs/heads/main'
-    needs: [build, firestore-rules, visual-audit, package-windows, package-android]
+    needs: [build, docker-server, firestore-rules, visual-audit, package-windows, package-android]
     runs-on: ubuntu-latest
     permissions:
       contents: write

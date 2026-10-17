@@ -18,9 +18,8 @@ public partial class DefenseLootVisual : Node3D
 
     internal void Build(DefenseDropSnapshot drop, Material haloMaterial, Material coinMaterial)
     {
-        _id = drop.Id; _coin = drop.Kind == DefenseDropKind.Gold;
-        Name = "DefenseDrop" + drop.Id;
-        Position = ArenaRenderer.World(drop.Position);
+        _coin = drop.Kind == DefenseDropKind.Gold;
+        Reset(drop);
         AddChild(_body);
         // El mismo atlas y las mismas mallas sirven para todas las recogidas de la partida.
         _atlas ??= GD.Load<Texture2D>("res://Assets/Loot/pickups.svg");
@@ -53,6 +52,9 @@ public partial class DefenseLootVisual : Node3D
             Position = new(0, 0.055f, 0), Scale = new(1, 0.25f, 1), MaterialOverride = haloMaterial,
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
     }
+
+    internal void Reset(DefenseDropSnapshot drop)
+    { _id = drop.Id; Name = "DefenseDrop" + drop.Id; Position = ArenaRenderer.World(drop.Position); Visible = true; }
 
     private Sprite3D Icon(float size, bool billboard) => new()
     {

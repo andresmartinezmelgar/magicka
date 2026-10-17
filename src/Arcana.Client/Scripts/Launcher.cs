@@ -129,6 +129,8 @@ public partial class Launcher : Control
         foreach (var map in Enum.GetValues<ArenaMapId>()) _practiceMap.AddItem(ArenaMap.Get(map).Name + (map == ArenaMapId.Citadel ? " · 4×" : ""), (int)map);
         int savedMap = _config.GetValue("practice", "map", 0).AsInt32();
         _practiceMap.Select(Enum.IsDefined((ArenaMapId)savedMap) ? savedMap : 0); practice.AddChild(_practiceMap);
+        var measureSurvival = Ui.Button("Medir rendimiento de Supervivencia", () => _main.StartRenderProfile(ArenaMapId.Bastion));
+        measureSurvival.Name = "SurvivalPerformanceButton"; measureSurvival.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         var practiceObjective = Ui.Label("", 14, Ui.Gold); practiceObjective.AutowrapMode = TextServer.AutowrapMode.WordSmart; practice.AddChild(practiceObjective);
         void Objective()
         {
@@ -178,6 +180,7 @@ public partial class Launcher : Control
             _main.StartPractice(_name.Text, 0, GameMode.Warfare, 0, (WizardType)_wizardType.GetSelectedId(), ArenaMapId.Practice));
         laboratory.Name = "PracticeLaboratoryButton"; practice.AddChild(laboratory);
         practice.AddChild(Ui.Label("El duelo usa un bot. Defensa permite jugar solo o con hasta tres aliados IA.", 13, Ui.Muted));
+        practice.AddChild(measureSurvival);
         
         var hosting = TabBox("Alojar");
         _hostName = new LineEdit { Text = _config.GetValue("host", "name", "Partida local").AsString(),

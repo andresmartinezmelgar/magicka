@@ -95,6 +95,11 @@ public partial class Main
             if (_renderer.SurvivalSectorBuilds != sectorBuilds || _renderer.DefenseMinionBuilds != minionBuilds)
                 throw new InvalidOperationException("El portal reconstruyó sectores o minions en lugar de reutilizar la precarga.");
             GD.Print("SURVIVAL_PRELOAD_REUSE_OK: portal sin construir sectores ni enemigos nuevos.");
+            int lootBuilds = _renderer.DefenseLootBuilds;
+            _renderer.Render(At(new(-76, -52)), _localId, 1 / 60.0, true);
+            if (_renderer.DefenseLootBuilds != lootBuilds || !_renderer.DefenseLootVisuals.ContainsKey(85001))
+                throw new InvalidOperationException("Volver a la zona reconstruyó el botín preparado.");
+            GD.Print("DEFENSE_LOOT_REUSE_OK: regreso por portal sin reconstruir el botín.");
             GD.Print($"SURVIVAL_SECTORS_OK: {_renderer.VisibleSurvivalSectors}/{_renderer.TotalSurvivalSectors} sectores, minions y botín cercanos, descarga y cámara tras portal.");
             foreach (var label in _defenseLootLabels) label.QueueFree();
             _defenseLootLabels.Clear(); _renderer.PreviewFocus = null; _renderer.Clear();

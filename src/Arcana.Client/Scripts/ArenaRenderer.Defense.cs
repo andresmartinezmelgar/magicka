@@ -11,6 +11,8 @@ public partial class ArenaRenderer
         public MinionKind Kind;
         public MeshInstance3D? Body, Health, Aura, Warning;
         public WizardVisual? Mage;
+        public MinionSnapshot? Sample;
+        public WizardSnapshot? Wizard;
     }
     private readonly Dictionary<int, MinionVisual> _minionVisuals = [];
     private readonly Stack<MinionVisual>[] _freeMinions = Enum.GetValues<MinionKind>().Select(_ => new Stack<MinionVisual>()).ToArray();
@@ -21,6 +23,25 @@ public partial class ArenaRenderer
     internal int DefenseMinionBuilds { get; private set; }
     internal int PreparedMinionCapacity => _minionCreated.Sum();
     private readonly Dictionary<int, DefenseLootVisual> _defenseLootVisuals = [];
+    private readonly Dictionary<(DefenseDropKind, BuffKind, EquipmentSlot?, ItemTier?), Stack<DefenseLootVisual>> _freeLoot = [];
+    private readonly Dictionary<int, (DefenseDropKind, BuffKind, EquipmentSlot?, ItemTier?)> _lootKeys = [];
+    private readonly HashSet<int> _visibleLootIds = [];
+    private int _freeLootCount;
+    internal int DefenseLootBuilds { get; private set; }
+    private static readonly float[] MinionCooldowns = [0, 0, 0, 0];
+    private static (DefenseDropKind, BuffKind, EquipmentSlot?, ItemTier?) LootKey(DefenseDropSnapshot d) => (d.Kind, d.Buff, d.Slot, d.Tier);
+    private void ReturnLoot(int id)
+    {
+        var visual = _defenseLootVisuals[id]; visual.Visible = false;
+        if (_freeLootCount >= DefenseRules.MaxDrops) visual.QueueFree();
+        else
+        {
+            var key = _lootKeys[id];
+            if (!_freeLoot.TryGetValue(key, out var pool)) _freeLoot[key] = pool = new();
+            pool.Push(visual); _freeLootCount++;
+        }
+        _defenseLootVisuals.Remove(id); _lootKeys.Remove(id);
+    }
     private readonly Dictionary<(int Player, int Aura), (MeshInstance3D Mesh, TorusMesh Ring)> _defenseAuraVisuals = [];
     internal int DefenseMinionVisualCount => _minionVisuals.Count;
     internal IReadOnlyDictionary<int, DefenseLootVisual> DefenseLootVisuals => _defenseLootVisuals;
@@ -29,13 +50,13 @@ public partial class ArenaRenderer
     {
         foreach (var v in _minionVisuals.Values) ReturnMinionVisual(v); _minionVisuals.Clear();
         foreach (var pool in _freeMinions) foreach (var v in pool) v.Root.Visible = false;
-        foreach (var v in _defenseLootVisuals.Values) v.QueueFree(); _defenseLootVisuals.Clear();
+        foreach (int id in _defenseLootVisuals.Keys.ToArray()) ReturnLoot(id);
         foreach (var v in _defenseAuraVisuals.Values) v.Mesh.QueueFree(); _defenseAuraVisuals.Clear();
     }
 
     private static WizardSnapshot MinionWizard(MinionSnapshot m) => new(m.Id, DefenseRules.MinionName(m.Kind), 1, true, m.Position,
         m.Facing, m.Health, m.MaxHealth, 0, [], [], true, 0, m.Wet, m.Burning, m.Chill, m.Frozen, 0,
-        100, [0, 0, 0, 0], 0, 0, 0, m.Casting,
+        100, MinionCooldowns, 0, 0, 0, m.Casting,
         WizardType: m.Kind == MinionKind.Shaman ? WizardType.Geomancer : WizardType.Pyromancer, CastingElements: m.Elements);
 
     private void RenderDefense(WorldSnapshot snapshot, int localId, float dt)
@@ -58,7 +79,8 @@ public partial class ArenaRenderer
             v.Root.Position = v.Root.Position.Lerp(World(m.Position), Math.Min(1, dt * 18));
             if (v.Mage != null)
             {
-                v.Mage.Update(MinionWizard(m), dt, (float)_time, Camera, snapshot.Time, InterpolationDelay);
+                if (!ReferenceEquals(v.Sample, m)) { v.Sample = m; v.Wizard = MinionWizard(m); }
+                v.Mage.Update(v.Wizard!, dt, (float)_time, Camera, snapshot.Time, InterpolationDelay);
                 v.Mage.Position -= World(m.Position); // La raíz ya está en coordenadas del mundo.
             }
             if (v.Health != null) v.Health.Scale = new(Math.Max(0.001f, m.Health / m.MaxHealth), 1, 1);
@@ -68,21 +90,28 @@ public partial class ArenaRenderer
             if (v.Warning != null)
                 v.Warning.Visible = m.AttackWarningSeconds > 0;
         }
+        _visibleLootIds.Clear();
         foreach (var drop in defense.Drops)
         {
             if (!NearSurvival(drop.Position) || drop.OwnerId != 0 && drop.OwnerId != localId) continue;
+            _visibleLootIds.Add(drop.Id);
             if (!_defenseLootVisuals.TryGetValue(drop.Id, out var visual))
             {
-                visual = new DefenseLootVisual(); AddChild(visual);
+                var key = LootKey(drop);
+                if (_freeLoot.TryGetValue(key, out var pool) && pool.Count > 0)
+                { visual = pool.Pop(); _freeLootCount--; visual.Reset(drop); }
+                else
+                {
+                visual = new DefenseLootVisual(); AddChild(visual); DefenseLootBuilds++;
                 var color = drop.Kind == DefenseDropKind.Gold ? Ui.Gold : drop.Kind == DefenseDropKind.Relic ? RelicVisual.ColorFor(drop.Buff)
                     : EquipmentPanel.TierColor(drop.Tier ?? ItemTier.Silver);
                 visual.Build(drop, Material(color, 0.2f, true), Material(new("edba49"), 0.2f));
-                _defenseLootVisuals[drop.Id] = visual;
+                }
+                _defenseLootVisuals[drop.Id] = visual; _lootKeys[drop.Id] = key;
             }
             visual.Update(_time);
         }
-        foreach (int id in _defenseLootVisuals.Keys.Where(id => !defense.Drops.Any(d => d.Id == id && NearSurvival(d.Position) && (d.OwnerId == 0 || d.OwnerId == localId))).ToArray())
-        { _defenseLootVisuals[id].QueueFree(); _defenseLootVisuals.Remove(id); }
+        foreach (int id in _defenseLootVisuals.Keys.Where(id => !_visibleLootIds.Contains(id)).ToArray()) ReturnLoot(id);
         foreach (var defender in defense.Defenders)
         {
             var player = snapshot.Players.FirstOrDefault(p => p.Id == defender.PlayerId);

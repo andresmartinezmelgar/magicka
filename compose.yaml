@@ -1,7 +1,7 @@
 services:
   server:
     build: .
-    image: arcana-arena-server:0.12.13
+    image: arcana-arena-server:local
     restart: unless-stopped
     ports:
       - "${GAME_PORT:-27015}:${GAME_PORT:-27015}/tcp"
@@ -18,11 +18,14 @@ services:
       SCORE_LIMIT: "${SCORE_LIMIT:-15}"
       TICKETS: "${TICKETS:-75}"
       SERVER_PASSWORD: "${SERVER_PASSWORD:-}"
+      ARCANA_REWARD_OUTBOX: /app/data/rewards
       ARCANA_LOG_LEVEL: "${ARCANA_LOG_LEVEL:-Information}"
     volumes:
       - server-logs:/app/logs
+      - server-data:/app/data
     stop_grace_period: 10s
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
 volumes:
   server-logs:
+  server-data:

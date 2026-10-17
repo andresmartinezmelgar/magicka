@@ -6,6 +6,7 @@ namespace Arcana.Client;
 /// <summary>Efectos locales. Reutiliza nodos y mallas con límites fijos; nunca modifica el combate.</summary>
 public partial class CombatEffects : Node3D
 {
+    public float DetailScale { get; set; } = 1;
     public const int ParticleLimit = 320, RingLimit = 24, EmissionBudget = 64;
     private sealed class Spark(MeshInstance3D node)
     {
@@ -74,7 +75,8 @@ public partial class CombatEffects : Node3D
     private void Emit(Vector3 position, Color color, Vector3 velocity, float duration = 0.45f,
         int shape = 0, float size = 0.18f, float gravity = 2)
     {
-        if (_emittedThisFrame >= EmissionBudget) return;
+        if (_emittedThisFrame >= Math.Max(16, (int)(EmissionBudget * DetailScale)) ||
+            _sparks.Count >= Math.Max(80, (int)(ParticleLimit * DetailScale))) return;
         Spark spark;
         if (_freeSparks.Count > 0) spark = _freeSparks.Pop();
         else

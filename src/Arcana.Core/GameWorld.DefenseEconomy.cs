@@ -23,7 +23,7 @@ public sealed partial class GameWorld
             if (player.Bot || !float.IsFinite(command.FramesPerSecond) || command.FramesPerSecond is < 1 or > 240 ||
                 Time - progress.LastPerformanceReport < 3) return false;
             progress.LastPerformanceReport = Time;
-            progress.Performance.Observe(command.FramesPerSecond);
+            progress.Performance.Observe(command.FramesPerSecond, command.FrameTime95);
             TrimDistantDefenseMinions();
             return true;
         }
