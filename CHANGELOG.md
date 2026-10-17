@@ -1,5 +1,16 @@
 # Cambios
 
+## 0.20.2 — Controles comunes, más enemigos y precarga completa
+
+- «Sobre mí» y «En área» ocupan la misma posición a la derecha en todos los modos, con la distribución de Supervivencia y escala adaptable a la pantalla.
+- Supervivencia empieza con límites de 24, 32, 40 o 48 enemigos según los defensores y gana ocho plazas por dificultad. Entran grupos más frecuentes sin aumentar la vida ni el daño de los enemigos básicos.
+- Tope adaptado a los FPS sostenidos: entre 32 y 192 enemigos, con recuperación gradual para evitar oscilaciones. Online cuenta el dispositivo más lento; nunca se ocultan amenazas cercanas para reducir la carga.
+- Cuatro enemigos nuevos: corredor rápido y frágil, bruto con golpe de área anunciado, detonador con explosión anunciada y chamán que cura a otros enemigos. Aparecen progresivamente y tienen fichas en la guía.
+- La conexión conserva la selección completa de las cuatro piezas del inventario temporal al enviarla al servidor.
+- La carga recorre las zonas de cada mapa y prepara magos, animaciones, congelación, sonidos, proyectiles, barreras, meteoros, auras, botín e iconos antes de habilitar la partida.
+- Anillos conserva sus 48 sectores preparados y reutiliza una reserva de enemigos. Solo se dibuja la zona cercana; atravesar portales no reconstruye sus sectores ni los enemigos ya preparados.
+- Protocolo 26 para admitir la horda ampliada: actualizar cliente y servidor. Se mantienen las dos vidas, las compras, los premios pendientes y las actualizaciones diferenciales.
+
 ## 0.20.1 — Supervivencia estable y actualización con tiempo límite
 
 - Supervivencia en Anillos integrada en main, con dos vidas, colosos, portales, tienda e inventario temporal y premios pendientes.

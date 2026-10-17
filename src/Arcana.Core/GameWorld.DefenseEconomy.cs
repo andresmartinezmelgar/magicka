@@ -18,6 +18,15 @@ public sealed partial class GameWorld
     private bool DefenseCommand(Wizard player, ClientMessage command)
     {
         if (!IsDefense || !_defenders.TryGetValue(player.Id, out var progress)) return false;
+        if (command.Type == "defense_performance")
+        {
+            if (player.Bot || !float.IsFinite(command.FramesPerSecond) || command.FramesPerSecond is < 1 or > 240 ||
+                Time - progress.LastPerformanceReport < 3) return false;
+            progress.LastPerformanceReport = Time;
+            progress.Performance.Observe(command.FramesPerSecond);
+            TrimDistantDefenseMinions();
+            return true;
+        }
         if (command.Type == "defense_loadout")
         {
             if (command.Loadout == null) return false;
@@ -181,7 +190,8 @@ public sealed partial class GameWorld
         return new(_defenseElapsed, _defenseDifficulty, _defenseKills,
             _minions.Values.Where(m => m.Body.Alive).Select(m => new MinionSnapshot(m.Body.Id, m.Kind, m.Body.Position, m.Body.Facing,
                 m.Body.Health, m.Body.MaxHealth, m.Body.Wet, m.Body.Burning, m.Body.Chill, m.Body.Frozen,
-                m.Body.Channel != null, Copy(m.Body.Channel?.Elements ?? []), Empowered(m)) { SpeedBoostSeconds = m.SpeedBoost }).ToArray(),
+                m.Body.Channel != null, Copy(m.Body.Channel?.Elements ?? []), Empowered(m))
+                { SpeedBoostSeconds = m.SpeedBoost, AttackWarningSeconds = m.Windup }).ToArray(),
             _defenseDrops.Select(d => new DefenseDropSnapshot(d.Id, d.OwnerId, d.Position, d.Kind, d.Gold, d.Buff, d.Item?.Slot, d.Item?.Tier)).ToArray(),
             _players.Values.Select(p =>
             {
@@ -192,6 +202,7 @@ public sealed partial class GameWorld
                     DamagePower(p.Id), RelicBuffs.Incoming(p) * p.Equipment.Incoming, RelicBuffs.Regeneration(p) + s.Auras[2] * 10 * HealingPower(p.Id),
                     RelicBuffs.Speed(p) * p.Equipment.Speed * DefenseSpeed(p), Copy(s.Passives), Copy(s.PassiveCooldowns), s.BerserkerRemaining);
             }).ToArray(), DefensePaused, _players.Values.Count(p => !p.Bot))
-            { Bestiary = _defenseBestiary.Values.OrderBy(e => e.Kind).ToArray(), NextBossIn = _bossClock, BossesKilled = _bossesKilled };
+            { Bestiary = _defenseBestiary.Values.OrderBy(e => e.Kind).ToArray(), NextBossIn = _bossClock, BossesKilled = _bossesKilled,
+                MinionLimit = DefenseMinionLimit, PerformanceLimit = DefensePerformanceLimit };
     }
 }

@@ -7,6 +7,10 @@ public partial class ArenaRenderer
 {
     private const int SurvivalSectorSize = 24;
     private readonly Dictionary<(int X, int Y), Node3D> _survivalSectors = [];
+    private readonly Dictionary<(int X, int Y), Node3D> _preparedSurvivalSectors = [];
+    private (int MinX, int MaxX, int MinY, int MaxY)? _survivalWindow;
+    internal int PreparedSurvivalSectors => _preparedSurvivalSectors.Count;
+    internal int SurvivalSectorBuilds { get; private set; }
     private V2 _survivalCenter;
     private float _survivalHalfX, _survivalHalfY;
     internal int VisibleSurvivalSectors => _survivalSectors.Count;
@@ -28,20 +32,50 @@ public partial class ArenaRenderer
         // Margen conservador para ambas relaciones de aspecto, paredes y seguimiento suave.
         _survivalHalfX = Math.Max(_zoom, Camera.Size) * Math.Max(1, viewport.X / Math.Max(1, viewport.Y)) / 2 + 12;
         _survivalHalfY = Math.Max(_zoom, Camera.Size) * 0.7f + 14;
-        var required = new HashSet<(int X, int Y)>();
         int minX = Math.Max(-4, (int)MathF.Floor((center.X - _survivalHalfX) / SurvivalSectorSize));
         int maxX = Math.Min(3, (int)MathF.Floor((center.X + _survivalHalfX) / SurvivalSectorSize));
         int minY = Math.Max(-3, (int)MathF.Floor((center.Y - _survivalHalfY) / SurvivalSectorSize));
         int maxY = Math.Min(2, (int)MathF.Floor((center.Y + _survivalHalfY) / SurvivalSectorSize));
+        var window = (minX, maxX, minY, maxY);
+        if (_survivalWindow == window) return;
+        _survivalWindow = window;
+        var required = new HashSet<(int X, int Y)>();
         for (int x = minX; x <= maxX; x++) for (int y = minY; y <= maxY; y++)
         {
             var key = (x, y); required.Add(key);
-            if (!_survivalSectors.ContainsKey(key)) _survivalSectors[key] = BuildSurvivalSector(x, y);
+            if (!_survivalSectors.ContainsKey(key))
+            {
+                var sector = PreparedSurvivalSector(x, y);
+                sector.Visible = true; _survivalSectors[key] = sector;
+            }
         }
         foreach (var key in _survivalSectors.Keys.Where(k => !required.Contains(k)).ToArray())
         {
-            var sector = _survivalSectors[key]; sector.GetParent().RemoveChild(sector); sector.QueueFree();
+            _survivalSectors[key].Visible = false;
             _survivalSectors.Remove(key);
+        }
+    }
+
+    private Node3D PreparedSurvivalSector(int x, int y)
+    {
+        if (_preparedSurvivalSectors.TryGetValue((x, y), out var sector)) return sector;
+        sector = BuildSurvivalSector(x, y); sector.Visible = false;
+        _preparedSurvivalSectors[(x, y)] = sector; SurvivalSectorBuilds++;
+        return sector;
+    }
+
+    private IEnumerable<(string Name, Action Work)> PrepareSurvivalSectors()
+    {
+        for (int x = -4; x <= 3; x++) for (int y = -3; y <= 2; y++)
+        {
+            int sx = x, sy = y;
+            yield return ("Preparando los sectores y portales…", () =>
+            {
+                PreparedSurvivalSector(sx, sy);
+                var center = new V2((sx + 0.5f) * SurvivalSectorSize, (sy + 0.5f) * SurvivalSectorSize);
+                UpdateSurvivalGeometry(center); FocusLoadingView(center);
+                foreach (var portal in _portals) portal.Visible = NearSurvival(new(portal.Position.X, portal.Position.Z));
+            });
         }
     }
 

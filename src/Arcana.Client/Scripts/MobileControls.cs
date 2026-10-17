@@ -20,7 +20,6 @@ public partial class MobileControls : Control
     private SpellShape _aimedSpellShape;
     private int _selectionEchoFrames;
     private const float Radius = 82;
-    private bool _defenseLayout;
     private int _pendingMagick = -1;
     private float _magickAimAmount = 1;
     private bool _hasMagickTarget, _magickTargetValid;
@@ -30,10 +29,9 @@ public partial class MobileControls : Control
     public float AimRange => _pendingMagick == 1 ? MagickRules.BlinkRange : MagickRules.MeteorRange;
     public float AimStrength => _pendingMagick >= 0 ? _magickAimAmount : 1;
     public Func<Vector2, bool>? PointerBlocked { get; set; }
-    private float DefenseScale => _defenseLayout ? Math.Min(1, Size.Y / 720f) : 1;
-    private float StickRadius => Radius * DefenseScale;
+    private float ControlScale => Math.Min(1, Size.Y / 720f);
+    private float StickRadius => Radius * ControlScale;
     internal Rect2[] ButtonRectanglesForVerification => _actions.Select(a => a.Panel.GetGlobalRect()).ToArray();
-    public void ConfigureDefense() { _defenseLayout = true; Layout(); }
     internal bool BarrierAimPending => _directionalAimPending && _aimedSpellShape == SpellShape.Barrier;
     internal bool IceAimPending => _directionalAimPending && _aimedSpellShape == SpellShape.Shards;
     public Vector2 Movement => _move;
@@ -89,31 +87,19 @@ public partial class MobileControls : Control
     {
         if (_actions.Count == 0) return;
         float width = Size.X, height = Size.Y;
-        if (_defenseLayout)
-        {
-            float s = DefenseScale;
-            foreach (var action in _actions) action.Text.AddThemeFontSizeOverride("font_size", Math.Max(14, (int)(22 * s)));
-            foreach (var icon in _actions.SelectMany(a => a.Panel.GetChildren()).OfType<Container>().SelectMany(c => c.GetChildren()).OfType<ElementIcon>())
-                icon.CustomMinimumSize = new(25 * s, 25 * s);
-            _moveHome = new(142 * s, height - 125 * s);
-            if (_moveFinger < 0) _moveCenter = _moveHome;
-            _aimCenter = new(width - 142 * s, height - 125 * s);
-            for (int i = 0; i < 8; i++) Place(i, new(width - (246 - i % 2 * 116) * s, height - (572 - i / 2 * 80) * s), new(108 * s, 72 * s));
-            Place(_self, new(width - 382 * s, height - 452 * s), new(120 * s, 62 * s));
-            Place(_nova, new(width - 382 * s, height - 382 * s), new(120 * s, 62 * s));
-            for (int i = 0; i < _magicks.Count; i++)
-                Place(_magicks[i], new(width / 2 - (244 - i * 124) * s, height - 90 * s), new(120 * s, 72 * s));
-            for (int i = 0; i < _utilities.Count; i++) Place(_utilities[i], new(width - (382 - i * 124) * s, 22 * s), new(118 * s, 62 * s));
-            QueueRedraw(); return;
-        }
-        _moveHome = new(142, height - 125);
+        float s = ControlScale;
+        foreach (var action in _actions) action.Text.AddThemeFontSizeOverride("font_size", Math.Max(14, (int)(22 * s)));
+        foreach (var icon in _actions.SelectMany(a => a.Panel.GetChildren()).OfType<Container>().SelectMany(c => c.GetChildren()).OfType<ElementIcon>())
+            icon.CustomMinimumSize = new(25 * s, 25 * s);
+        _moveHome = new(142 * s, height - 125 * s);
         if (_moveFinger < 0) _moveCenter = _moveHome;
-        _aimCenter = new(width - 142, height - 125);
-        for (int i = 0; i < 8; i++) Place(i, new(width - 246 + i % 2 * 116, height - 572 + i / 2 * 80), new(108, 72));
-        Place(_self, new(width - 369, height - 148), new(118, 62));
-        Place(_nova, new(width - 369, height - 80), new(118, 62));
-        for (int i = 0; i < _magicks.Count; i++) Place(_magicks[i], new(width / 2 - 244 + i * 124, height - 90), new(120, 72));
-        for (int i = 0; i < _utilities.Count; i++) Place(_utilities[i], new(width - 382 + i * 124, 22), new(118, 62));
+        _aimCenter = new(width - 142 * s, height - 125 * s);
+        for (int i = 0; i < 8; i++) Place(i, new(width - (246 - i % 2 * 116) * s, height - (572 - i / 2 * 80) * s), new(108 * s, 72 * s));
+        Place(_self, new(width - 382 * s, height - 452 * s), new(120 * s, 62 * s));
+        Place(_nova, new(width - 382 * s, height - 382 * s), new(120 * s, 62 * s));
+        for (int i = 0; i < _magicks.Count; i++)
+            Place(_magicks[i], new(width / 2 - (244 - i * 124) * s, height - 90 * s), new(120 * s, 72 * s));
+        for (int i = 0; i < _utilities.Count; i++) Place(_utilities[i], new(width - (382 - i * 124) * s, 22 * s), new(118 * s, 62 * s));
         QueueRedraw();
     }
     private void Place(int index, Vector2 position, Vector2 size)
@@ -313,9 +299,9 @@ public partial class MobileControls : Control
     {
         DrawCircle(center, StickRadius, new Color(0.035f, 0.055f, 0.09f, 0.86f));
         DrawArc(center, StickRadius, 0, Mathf.Tau, 48, new Color(color, 0.92f), 3, true);
-        DrawCircle(center + direction * (StickRadius - 27 * DefenseScale), 27 * DefenseScale, new Color(color, 0.68f));
+        DrawCircle(center + direction * (StickRadius - 27 * ControlScale), 27 * ControlScale, new Color(color, 0.68f));
         var font = ThemeDB.FallbackFont;
         float textWidth = font.GetStringSize(caption, fontSize: 19).X;
-        DrawString(font, center + new Vector2(-textWidth / 2, -StickRadius - 16 * DefenseScale), caption, fontSize: 19, modulate: color);
+        DrawString(font, center + new Vector2(-textWidth / 2, -StickRadius - 16 * ControlScale), caption, fontSize: 19, modulate: color);
     }
 }

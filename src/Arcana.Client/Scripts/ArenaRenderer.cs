@@ -159,6 +159,7 @@ public partial class ArenaRenderer : Node3D
             Clear(); _map = definition; _mapPrepared = false;
             if (_mapRoot != null) { RemoveChild(_mapRoot); _mapRoot.QueueFree(); }
             _survivalSectors.Clear();
+            _preparedSurvivalSectors.Clear(); _survivalWindow = null; SurvivalSectorBuilds = 0;
             _points.Clear(); _portals.Clear(); _frontlineSpawns.Clear(); _practiceCasterLabel = null;
             rootMap = new Node3D { Name = "MapGeometry" }; _mapRoot = rootMap; AddChild(rootMap);
         };

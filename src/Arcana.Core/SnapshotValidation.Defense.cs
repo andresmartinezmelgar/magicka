@@ -11,7 +11,8 @@ public static partial class SnapshotValidation
             !Size(d.NextBossIn, 180.01f) || d.BossesKilled < 0 || d.BossesKilled > d.TotalKills ||
             d.HumanCount != state.Players.Count(p => !p.Bot) || d.Paused && (d.HumanCount != 1 || state.MatchEnded) || d.TotalKills < 0 ||
             d.Minions is not { Length: <= DefenseRules.MaxMinions } || d.Drops is not { Length: <= DefenseRules.MaxDrops } ||
-            d.Bestiary is not { Length: <= 6 } ||
+            d.Bestiary == null || d.Bestiary.Length > DefenseRules.MinionTypeCount ||
+            d.MinionLimit is < 1 or > DefenseRules.MaxMinions || d.PerformanceLimit is < DefensePerformanceBudget.MinimumLimit or > DefenseRules.MaxMinions ||
             d.Defenders == null || d.Defenders.Length != state.Players.Length || state.Players.Length > DefenseRules.MaxDefenders ||
             state.Players.Any(p => p.Team != 0)) Invalid();
         var map = ArenaMap.Get(state.Map);
@@ -30,7 +31,8 @@ public static partial class SnapshotValidation
         foreach (var m in d!.Minions!)
             if (m == null || m.Id < 1000 || !ids.Add(m.Id) || !Enum.IsDefined(m.Kind) ||
                 !Position(map, m.Position) || !Direction(m.Facing) || !NonNegative([m.Health, m.MaxHealth, m.Wet, m.Burning, m.Chill, m.Frozen]) ||
-                !Size(m.SpeedBoostSeconds, 4.01f) || m.Health <= 0 || m.Health > m.MaxHealth || !Elements(m.Elements)) Invalid();
+                !Size(m.SpeedBoostSeconds, 4.01f) || !Size(m.AttackWarningSeconds, DefenseRules.AttackWindup(m.Kind) + 0.01f) ||
+                m.Health <= 0 || m.Health > m.MaxHealth || !Elements(m.Elements)) Invalid();
         ids.Clear();
         foreach (var p in d.Defenders!)
         {

@@ -13,6 +13,13 @@ public partial class EquipmentPanel
     private readonly Dictionary<string, Button> _trashButtons = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Button> _upgradeButtons = new(StringComparer.Ordinal);
     private static Texture2D? _trashIcon, _equipIcon, _upgradeIcon;
+    [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(_trashIcon), nameof(_equipIcon), nameof(_upgradeIcon))]
+    internal static void PrepareIcons()
+    {
+        _trashIcon ??= GD.Load<Texture2D>("res://Assets/Inventory/trash.svg") ?? throw new InvalidDataException("No se pudo cargar el icono de venta.");
+        _equipIcon ??= GD.Load<Texture2D>("res://Assets/Inventory/equip.svg") ?? throw new InvalidDataException("No se pudo cargar el icono de equipar.");
+        _upgradeIcon ??= GD.Load<Texture2D>("res://Assets/Inventory/upgrade.svg") ?? throw new InvalidDataException("No se pudo cargar el icono de mejora.");
+    }
     internal bool PickerVisible => _itemPicker.Visible;
     internal int PickerColumns => _pickerGrid.Columns;
     internal string[] PickerItems => _itemButtons.Keys.ToArray();
@@ -62,9 +69,7 @@ public partial class EquipmentPanel
         _pickerTitle.Text = EquipmentCatalogue.SlotName(slot).ToUpperInvariant() + $" · {choices.Length} objetos";
         _pickerHelp.Text = "De mayor a menor calidad. Iconos de cada pieza: vender, equipar o quitar y mejorar." +
             (_defensePlayer == null ? " Las mejoras con oro están disponibles en Defensa." : $" Oro de partida: {_defensePlayer.Gold}.");
-        _trashIcon ??= GD.Load<Texture2D>("res://Assets/Inventory/trash.svg");
-        _equipIcon ??= GD.Load<Texture2D>("res://Assets/Inventory/equip.svg");
-        _upgradeIcon ??= GD.Load<Texture2D>("res://Assets/Inventory/upgrade.svg");
+        PrepareIcons();
         foreach (var item in choices)
         {
             bool selected = item.Id == equipped;

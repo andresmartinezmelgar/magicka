@@ -1,7 +1,7 @@
 namespace Arcana.Core;
 
 public enum DefenseFlow { Continuous = 1 }
-public enum MinionKind { Melee, Archer, Mage, Captain, Tank, Boss }
+public enum MinionKind { Melee, Archer, Mage, Captain, Tank, Boss, Runner, Brute, Bomber, Shaman }
 public enum DefenseDropKind { Gold, Equipment, Relic }
 public enum DefenseAura { Fire, Lightning, Regeneration }
 public enum DefensePassive { Meteor, Berserker, FrostNova, ChainLightning }
@@ -10,21 +10,30 @@ internal enum CombatantRole { Player, Minion }
 /// <summary>Reglas de la versión experimental. No alteran el catálogo ni el equilibrio PvP.</summary>
 public static class DefenseRules
 {
-    public const int MaxDefenders = 4, MaxMinions = 64, MaxDrops = 96, InventoryLimit = 24;
+    public const int MaxDefenders = 4, MaxMinions = 192, MaxDrops = 96, InventoryLimit = 24;
     public const int PlayerLives = 2;
+    public static readonly int MinionTypeCount = Enum.GetValues<MinionKind>().Length;
     public const float SafeRadius = 16, DropLifetime = 75, RewardInterval = 300;
     public const float SpeedBoostMultiplier = 1.6f;
     public static float BossInterval(Random random, bool first) => (first ? 120 : 90) + (float)random.NextDouble() * 60;
     public const int RewardLimit = 4, MaxAuraLevel = 10, MaxPassiveLevel = 5;
     public const int GoldDropChance = 35, EquipmentDropChance = 6, RelicDropChance = 2;
     public const float ArrowPower = 0.18f, MagePower = 0.22f, MageChannelDuration = 0.45f;
-    public static float MinionMeleeAttack(MinionKind kind) => kind == MinionKind.Boss ? 65 : kind == MinionKind.Tank ? 45 : kind == MinionKind.Captain ? 32 : 20;
-    public static float MinionRange(MinionKind kind) => kind is MinionKind.Archer or MinionKind.Mage ? 9 : kind == MinionKind.Boss ? 2.4f : 1.4f;
+    public static float MinionMeleeAttack(MinionKind kind) => kind switch
+    { MinionKind.Boss => 65, MinionKind.Tank => 45, MinionKind.Captain => 32, MinionKind.Runner => 14,
+        MinionKind.Brute => 70, MinionKind.Bomber => 95, MinionKind.Shaman => 12, _ => 20 };
+    public static float MinionRange(MinionKind kind) => kind switch
+    { MinionKind.Archer or MinionKind.Mage => 9, MinionKind.Boss => 2.4f, MinionKind.Brute or MinionKind.Bomber => 2, _ => 1.4f };
+    public static float AreaAttackRadius(MinionKind kind) => kind == MinionKind.Brute ? 2.8f : kind == MinionKind.Bomber ? 3.2f : 0;
+    public static float AttackWindup(MinionKind kind) => kind == MinionKind.Brute ? 0.9f : kind == MinionKind.Bomber ? 1.1f : 0;
+    public const float ShamanHealInterval = 3, ShamanHealRadius = 8, ShamanHealAmount = 90;
     public static float MinionSpeed(MinionKind kind, int stage) =>
-        (0.5f + Math.Min(0.35f, stage * 0.012f)) * (kind == MinionKind.Tank ? 0.65f : kind == MinionKind.Boss ? 0.8f : 1);
+        (0.5f + Math.Min(0.35f, stage * 0.012f)) * (kind switch
+        { MinionKind.Tank => 0.65f, MinionKind.Boss => 0.8f, MinionKind.Runner => 1.45f,
+            MinionKind.Brute => 0.6f, MinionKind.Bomber => 1.15f, MinionKind.Shaman => 0.85f, _ => 1 });
     public static float PartyPressure(int defenders) => 1 + (Math.Clamp(defenders, 1, MaxDefenders) - 1) * 0.3f;
     public static int SpawnLimit(int stage, int defenders) => Math.Min(MaxMinions,
-        8 + (Math.Clamp(defenders, 1, MaxDefenders) - 1) * 4 + Math.Max(0, stage - 1) * 2);
+        24 + (Math.Clamp(defenders, 1, MaxDefenders) - 1) * 8 + Math.Max(0, stage - 1) * 8);
     public static int TimedDifficulty(double seconds) => 1 + (int)(Math.Max(0, seconds) / 90);
     public static float EnemyStrength(int stage)
     {
@@ -33,7 +42,8 @@ public static class DefenseRules
     }
     public static float AttackDelay(int stage) => Math.Max(0.4f, 1.35f - Math.Max(0, stage - 1) * 0.035f);
     public static float MinionHealth(MinionKind kind, int stage, int party) => (kind switch
-    { MinionKind.Boss => 4200, MinionKind.Tank => 1200, MinionKind.Captain => 700, MinionKind.Mage => 380, MinionKind.Archer => 260, _ => 340 })
+    { MinionKind.Boss => 4200, MinionKind.Tank => 1200, MinionKind.Captain => 700, MinionKind.Mage => 380, MinionKind.Archer => 260,
+        MinionKind.Runner => 200, MinionKind.Brute => 1500, MinionKind.Bomber => 240, MinionKind.Shaman => 540, _ => 340 })
         * EnemyStrength(stage) * (1 + (Math.Clamp(party, 1, MaxDefenders) - 1) * (kind == MinionKind.Boss ? 0.4f : 0.1f));
     public static int PassiveCost(int level) => 140 * (level + 1) * (level + 1);
     public static float BerserkerDuration(int level) => 4 + level * 0.5f;
@@ -55,7 +65,8 @@ public static class DefenseRules
     public static string AuraName(DefenseAura aura) => aura switch
     { DefenseAura.Fire => "Aura de fuego", DefenseAura.Lightning => "Aura eléctrica", _ => "Aura de regeneración" };
     public static string MinionName(MinionKind kind) => kind switch
-    { MinionKind.Melee => "Minion", MinionKind.Archer => "Arquero", MinionKind.Mage => "Mago invasor", MinionKind.Tank => "Tanque", MinionKind.Boss => "Coloso", _ => "Capitán" };
+    { MinionKind.Melee => "Minion", MinionKind.Archer => "Arquero", MinionKind.Mage => "Mago invasor", MinionKind.Tank => "Tanque", MinionKind.Boss => "Coloso",
+        MinionKind.Runner => "Corredor", MinionKind.Brute => "Bruto", MinionKind.Bomber => "Detonador", MinionKind.Shaman => "Chamán", _ => "Capitán" };
     public static string Clock(double seconds) => $"{(int)Math.Max(0, seconds) / 60:00}:{(int)Math.Max(0, seconds) % 60:00}";
 }
 
@@ -64,6 +75,8 @@ internal sealed class DefenseProgress
     public int Level = 1, Experience, Gold, Kills, Deaths;
     public long ActiveTicks;
     public bool ShopOpen;
+    public DefensePerformanceBudget Performance = new();
+    public double LastPerformanceReport = -100;
     public float BerserkerRemaining;
     public readonly int[] Passives = new int[4];
     public readonly float[] PassiveCooldowns = new float[4];
@@ -80,7 +93,7 @@ internal sealed class DefenseMinion(Wizard body, MinionKind kind, float strength
     public readonly Wizard Body = body;
     public readonly MinionKind Kind = kind;
     public readonly float Strength = strength;
-    public float Attack = 1, ChannelTime, SpeedBoost, SpeedClock, NavigationClock;
+    public float Attack = 1, ChannelTime, SpeedBoost, SpeedClock, NavigationClock, Windup, SupportCooldown = 3;
     public V2 Navigation;
 }
 
@@ -98,6 +111,7 @@ public sealed record MinionSnapshot(int Id, MinionKind Kind, V2 Position, V2 Fac
     float Wet, float Burning, float Chill, float Frozen, bool Casting, Element[] Elements, bool Empowered)
 {
     public float SpeedBoostSeconds { get; init; }
+    public float AttackWarningSeconds { get; init; }
 }
 public sealed record DefenseEnemySnapshot(MinionKind Kind, int Difficulty, float MaxHealth, float Attack, float AttackMaximum,
     float AttackInterval, float Speed, float Range, int Spawned, int Killed);
@@ -117,6 +131,8 @@ public sealed record DefenseSnapshot(double Elapsed, int Difficulty,
     public DefenseEnemySnapshot[] Bestiary { get; init; } = [];
     public float NextBossIn { get; init; }
     public int BossesKilled { get; init; }
+    public int MinionLimit { get; init; } = DefensePerformanceBudget.DefaultLimit;
+    public int PerformanceLimit { get; init; } = DefensePerformanceBudget.DefaultLimit;
 }
 
 public static class DefenseVisibility

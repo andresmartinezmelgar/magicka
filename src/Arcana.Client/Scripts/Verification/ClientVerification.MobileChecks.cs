@@ -35,6 +35,20 @@ public partial class ClientVerification
                     Require(CheckMobileArea(), "El área izquierda no conserva el origen, los dedos o los botones.");
                     ReadyForSpell();
                     Require(width >= 1440 && height >= 720, "El viewport móvil no respeta la escala horizontal.");
+                    float controlScale = Math.Min(1, height / 720f);
+                    foreach (var (name, top) in new[] { ("TouchSelf", 452f), ("TouchNova", 382f) })
+                    {
+                        var rect = ((Control)touch.FindChild(name, true, false)).GetRect();
+                        Require(rect.Position.DistanceTo(new(width - 382 * controlScale, height - top * controlScale)) < 0.01f,
+                            "Los botones personales no comparten la posición de Supervivencia.");
+                    }
+                    var buttons = touch.ButtonRectanglesForVerification;
+                    for (int a = 0; a < buttons.Length; a++)
+                    {
+                        Require(new Rect2(touch.GlobalPosition, touch.Size).Encloses(buttons[a]), "Un botón táctil desborda el área de juego.");
+                        for (int b = a + 1; b < buttons.Length; b++) Require(!buttons[a].Intersects(buttons[b]), "Dos botones táctiles se solapan.");
+                    }
+                    GD.Print("MOBILE_SHARED_LAYOUT_OK: Sobre mí y En área en la posición de Supervivencia, sin solapes.");
                     foreach (var element in Enum.GetValues<Element>())
                     {
                         var button = (PanelContainer)touch.FindChild("TouchElement" + element, true, false);
@@ -69,7 +83,7 @@ public partial class ClientVerification
                 case 60:
                     ReadyForSpell();
                     _runtime.Submit(new() { Type = "clear" }); Tap(Element.Shield);
-                    Down(2, new(width - 310, height - 120)); Up(2);
+                    Down(2, ((Control)touch.FindChild("TouchSelf", true, false)).GetRect().GetCenter()); Up(2);
                     Require(player.Shield > 0, "El botón Sobre ti no crea el escudo.");
                     ReadyForSpell();
                     Down(2, new(width / 2 - 184, height - 54)); Up(2);

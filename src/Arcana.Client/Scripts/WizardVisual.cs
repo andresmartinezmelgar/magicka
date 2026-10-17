@@ -119,6 +119,13 @@ public partial class WizardVisual : Node3D
         var node = new MeshInstance3D { Mesh = mesh, Position = position, MaterialOverride = material,
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off }; parent.AddChild(node); return node;
     }
+    internal void ResetForReuse(WizardSnapshot p)
+    {
+        _motion.Advance(p.Position, 0, 0, 0, true);
+        _wasAlive = p.Alive; _deaths = p.Deaths; _previousHealth = p.Health;
+        _hitFlash = _castPose = 0; _lastCastElements = [];
+    }
+
     public void Update(WizardSnapshot p, float dt, float time, Camera3D camera, double sampleTime, double interpolationDelay)
     {
         _motion.Advance(p.Position, sampleTime, dt, interpolationDelay,

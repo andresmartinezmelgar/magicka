@@ -86,11 +86,15 @@ public partial class Main
             };
             _renderer.Render(At(new(-76, -52)), _localId, 1 / 60.0, true);
             var firstSectors = _renderer.SurvivalSectorKeys.ToHashSet();
+            int sectorBuilds = _renderer.SurvivalSectorBuilds, minionBuilds = _renderer.DefenseMinionBuilds;
             _renderer.Render(At(new(76, 52)), _localId, 1 / 60.0, true);
             if (firstSectors.Overlaps(_renderer.SurvivalSectorKeys) || _renderer.VisibleSurvivalSectors >= _renderer.TotalSurvivalSectors ||
                 _renderer.Camera.Position.X < 70 || _renderer.DefenseMinionVisualCount != 1 ||
                 _renderer.DefenseLootVisuals.Count != 1 || !_renderer.DefenseLootVisuals.ContainsKey(85002))
                 throw new InvalidOperationException("Los sectores o la cámara no siguieron el salto de un portal.");
+            if (_renderer.SurvivalSectorBuilds != sectorBuilds || _renderer.DefenseMinionBuilds != minionBuilds)
+                throw new InvalidOperationException("El portal reconstruyó sectores o minions en lugar de reutilizar la precarga.");
+            GD.Print("SURVIVAL_PRELOAD_REUSE_OK: portal sin construir sectores ni enemigos nuevos.");
             GD.Print($"SURVIVAL_SECTORS_OK: {_renderer.VisibleSurvivalSectors}/{_renderer.TotalSurvivalSectors} sectores, minions y botín cercanos, descarga y cámara tras portal.");
             foreach (var label in _defenseLootLabels) label.QueueFree();
             _defenseLootLabels.Clear(); _renderer.PreviewFocus = null; _renderer.Clear();

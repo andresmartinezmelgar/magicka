@@ -1,6 +1,6 @@
 # Supervivencia en Anillos
 
-Versión estable **0.20.1**, protocolo **25**, integrada en `main`. Se publican APK directas, paquetes Windows y deltas de hasta tres versiones estables anteriores. Las dos cuentas autorizadas conservan el [canal de pruebas](CANALES-ACTUALIZACION.md); el resto recibe el canal estable. Para jugar online con todas las correcciones, actualiza también el servidor incluido en el paquete Windows a 0.20.1.
+Versión estable **0.20.2**, protocolo **26**, integrada en `main`. Se publican APK directas, paquetes Windows y deltas de hasta tres versiones estables anteriores. Las dos cuentas autorizadas conservan el [canal de pruebas](CANALES-ACTUALIZACION.md); el resto recibe el canal estable. La horda ampliada requiere actualizar también el servidor incluido en el paquete Windows a 0.20.2.
 
 ## Partida y vidas
 
@@ -26,7 +26,9 @@ Dos parejas de portales unen esquinas opuestas. Cada pareja comparte color. Bast
 
 Las apariciones utilizan posiciones transitables de todo el mapa. La exclusión de **16 m sigue a cada defensor con vidas**, incluso mientras espera reaparecer. Evita apariciones pegadas al personaje; los enemigos ya existentes sí pueden entrar y atacar. Si no hay una posición segura se aplaza la aparición.
 
-El cliente crea y retira **sectores de 24 × 24 m** alrededor de la cámara. También limita minions, botín y efectos a esa zona. Los sectores lejanos no se construyen. El servidor sigue simulando los enemigos del mapa entero y comparte rutas por objetivo para reducir búsquedas repetidas. El salto por un portal reposiciona la cámara y cambia los sectores cargados.
+La carga prepara los 48 **sectores de 24 × 24 m**, sus materiales y portales. Durante el juego solo se dibujan los sectores cercanos, y se limita también la representación de minions, botín y efectos a esa zona. Los sectores lejanos permanecen ocultos en una caché; cambiar de zona o saltar por un portal reutiliza la geometría preparada. Una reserva inicial de 192 representaciones de enemigos, repartida por tipos, reduce la creación de nodos al aparecer. La reserva puede crecer de forma acotada si la mezcla de tipos lo necesita. El servidor sigue simulando los enemigos del mapa entero y comparte rutas por objetivo para reducir búsquedas repetidas.
+
+Todos los modos precargan las zonas del mapa, atlas de magos, sonidos, partículas, combinaciones, barreras, meteoros e iconos, dibujando fotogramas de preparación antes de habilitar los controles. Cancelar la carga devuelve al menú sin arrancar la simulación. La precarga reduce los tirones de primera aparición; los FPS también dependen del dispositivo y de los elementos visibles.
 
 En 0.20.0, la IA evita recrear el equipo de cada minion si su daño y velocidad no cambian, y busca capitanes y objetivos sin crear consultas temporales. El HUD reutiliza los datos que no cambian y prepara las estadísticas al abrir su pestaña. En la comparación local contra 0.19.3, con cuatro defensores, 64 minions, 96 piezas y 1.200 pasos, la memoria temporal de simulación pasó de 41.774 a 14.140 bytes por paso (66 % menos). El snapshot final normalizado fue idéntico. Esta medición no representa los FPS de un dispositivo físico.
 
@@ -34,21 +36,37 @@ En 0.20.0, la IA evita recrear el equipo de cada minion si su daño y velocidad 
 
 La dificultad sube cada **90 segundos**. Se ajustan vida, daño y frecuencia al número de defensores presentes, humanos o bots. Los enemigos existentes mantienen su vida cuando cambia el grupo.
 
-| Defensores | Vida inicial normal | Máximo inicial de minions normales |
+| Defensores | Vida inicial normal | Límite inicial de enemigos |
 | ---: | ---: | ---: |
-| 1 | 340 | 8 |
-| 2 | 374 | 12 |
-| 3 | 408 | 16 |
-| 4 | 442 | 20 |
+| 1 | 340 | 24 |
+| 2 | 374 | 32 |
+| 3 | 408 | 40 |
+| 4 | 442 | 48 |
 
-Los grupos alternan apariciones rápidas (0,16–0,46 s antes de escalar) y descansos variables (2,6–5,2 s). El límite normal aumenta dos plazas por dificultad; se reserva una para el coloso, con un máximo global de **64 enemigos**. La pausa entre ataques empieza en 1,35 s y baja hasta 0,4 s. Los minions buscan defensores vivos por todo el mapa, recorren pasillos y pueden romper barreras temporales.
+Los grupos alternan apariciones rápidas (0,12–0,32 s antes de escalar) y descansos variables (1,3–3,1 s). El límite aumenta ocho plazas por dificultad; se reserva una para el coloso, con un máximo global de **192 enemigos**. Se conservan la vida y el daño de los seis tipos anteriores. La pausa entre ataques empieza en 1,35 s y baja hasta 0,4 s. Los minions buscan defensores vivos por todo el mapa, recorren pasillos y pueden romper barreras temporales.
+
+El tope real también depende de los FPS de cada dispositivo. Se empieza con un presupuesto de 96; cada 5 s de juego activo se mide la media, excluyendo carga, tienda, pausa y ventana sin foco. Una ventana lenta reduce el presupuesto; tres ventanas estables permiten subir una banda. En cooperativo se usa el menor presupuesto de los humanos conectados. Si ya hay demasiados enemigos, se frenan las apariciones y solo se retiran los que estén a más de 60 m de todos los defensores, excluyendo colosos, sin bajas, experiencia ni botín. Los cercanos siguen visibles y activos. El HUD muestra enemigos actuales/límite y la guía también el presupuesto por rendimiento.
+
+| FPS sostenidos | Presupuesto máximo |
+| ---: | ---: |
+| Menos de 18 | 32 |
+| 18–24 | 48 |
+| 25–31 | 64 |
+| 32–39 | 96 |
+| 40–47 | 128 |
+| 48–55 | 160 |
+| 56 o más | 192 |
 
 | Tipo | Introducción | Vida base individual | Ataque base |
 | --- | --- | ---: | --- |
 | Minion | Desde el inicio | 340 | 20, cuerpo a cuerpo |
+| Corredor | Dificultad 2 | 200 | 14; corre un 45 % más que el básico |
 | Arquero | Dificultad 4 | 260 | Proyectiles de tierra |
+| Detonador | Dificultad 4 | 240 | 95 en 3,2 m; avisa 1,1 s y muere al explotar |
 | Tanque | Dificultad 5 | 1200 | 45; movimiento un 35 % más lento |
+| Bruto | Dificultad 6 | 1500 | 70 en 2,8 m; avisa 0,9 s y se detiene |
 | Mago | Dificultad 7 | 380 | Canaliza arcano y fuego durante 0,45 s |
+| Chamán | Dificultad 8 | 540 | 12; cura 90 × fuerza a otro enemigo a 8 m cada 3 s |
 | Capitán | Dificultad 10 | 700 | 32; potencia un 35 % a otros enemigos a menos de 8 m |
 | Coloso | Intervalos variables | 4200 | 65; cuerpo a cuerpo de 2,4 m |
 

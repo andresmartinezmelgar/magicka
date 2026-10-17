@@ -51,7 +51,9 @@ public partial class Main
         p.BuffStacks[(int)BuffKind.Energy] = 2;
         p.Invulnerable = 1.2f;
         Call("TrySpawnMinion", MinionKind.Boss);
-        for (int i = 0; i < 20; i++) Call("SpawnMinion");
+        foreach (var kind in new[] { MinionKind.Runner, MinionKind.Brute, MinionKind.Bomber, MinionKind.Shaman })
+            Call("TrySpawnMinion", kind);
+        for (int i = 0; i < 16; i++) Call("SpawnMinion");
         var combatants = (Dictionary<int, Wizard>)Field("_combatants");
         int index = 0;
         foreach (var m in world.Snapshot().Defense!.Minions)
@@ -104,7 +106,11 @@ public partial class Main
                     Check(!_touch.Touch(99, open.GetGlobalRect().GetCenter(), true), "El joystick interceptó el botón de tienda.");
                 }
                 Check(_renderer.VisibleSurvivalSectors > 0 && _renderer.VisibleSurvivalSectors < _renderer.TotalSurvivalSectors,
-                    "Se ha construido todo el mapa en lugar de los sectores próximos.");
+                    "Se están dibujando todos los sectores en lugar de los próximos.");
+                Check(_renderer.PreparedSurvivalSectors == _renderer.TotalSurvivalSectors &&
+                    _renderer.PreparedMinionCapacity >= DefenseRules.MaxMinions,
+                    "La partida comenzó sin terminar de preparar sectores y enemigos.");
+                GD.Print($"SURVIVAL_PRELOAD_OK: {_renderer.PreparedSurvivalSectors} sectores y {_renderer.PreparedMinionCapacity} enemigos preparados.");
                 Check(_renderer.FindChild("DefenseCastle", true, false) == null && panel.FindChild("DefenseRepairButton", true, false) == null,
                     "Sigue presente el castillo o su reparación.");
                 var bonuses = (Label)panel.FindChild("DefenseVerticalBonuses", true, false);

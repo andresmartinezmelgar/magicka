@@ -38,7 +38,7 @@ jobs:
         run: dotnet build ArcanaArena.sln -c Release --nologo
       - name: Ejecutar pruebas funcionales y regresiones del motor
         run: dotnet run --project tests/Arcana.Tests/Arcana.Tests.csproj -c Release --no-build
-      - name: Medir horda de Defensa con cuatro jugadores y 64 minions
+      - name: Medir horda de Defensa con cuatro jugadores y 192 minions
         run: dotnet run --project tests/Arcana.Tests/Arcana.Tests.csproj -c Release --no-build -- --defense-benchmark
       - name: Medir inicio de Defensa, tiempos de combate y supervivencia con uno a cuatro defensores
         run: dotnet run --project tests/Arcana.Tests/Arcana.Tests.csproj -c Release --no-build -- --defense-balance

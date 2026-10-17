@@ -150,6 +150,7 @@ public sealed class ArenaConnection : IAsyncDisposable
             var queued = new ClientMessage { Type = message.Type, Sequence = ++_sequence,
                 InspectionRequestId = message.InspectionRequestId, InspectPlayerId = message.InspectPlayerId,
                 Element = message.Element, Slot = message.Slot, Team = message.Team, ItemId = message.ItemId,
+                FramesPerSecond = message.FramesPerSecond, Loadout = message.Loadout,
                 MoveX = message.MoveX, MoveY = message.MoveY,
                 MoveTo = message.MoveTo, TargetX = message.TargetX, TargetY = message.TargetY,
                 AimX = message.AimX, AimY = message.AimY };

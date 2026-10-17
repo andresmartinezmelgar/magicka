@@ -38,6 +38,7 @@ internal static class DefenseTests
     public static void Run(Action<string, Action> test)
     {
         DefenseBalanceTests.Run(test);
+        DefenseHordeTests.Run(test);
         SurvivalTests.Run(test);
         test("Defensa: bestiario descubre, conserva muertos, actualiza la última versión y reinicia", () =>
         {
@@ -48,7 +49,8 @@ internal static class DefenseTests
                 initial.Spawned == 1 && initial.Killed == 0, "La ficha no coincide con el primer ejemplar.");
             Damage(w, first, 100000, p.Id); Invoke(w, "CleanupDefense");
             Check(State(w).Minions.Length == 0 && State(w).Bestiary.Single().Killed == 1, "Se perdió la ficha del muerto.");
-            Set(w, "_defenseDifficulty", 3); var stronger = Enemy(w); var latest = State(w).Bestiary.Single();
+            Set(w, "_defenseDifficulty", 3); Invoke(w, "TrySpawnMinion", MinionKind.Melee);
+            var stronger = ((Dictionary<int, Wizard>)Field(w, "_combatants"))[State(w).Minions.Last().Id]; var latest = State(w).Bestiary.Single();
             Check(latest.Difficulty == 3 && latest.MaxHealth == stronger.MaxHealth && latest.MaxHealth > initial.MaxHealth &&
                 latest.Attack > initial.Attack && latest.AttackInterval < initial.AttackInterval && latest.Spawned == 2 && latest.Killed == 1,
                 "No muestra la versión más reciente.");
@@ -247,7 +249,7 @@ internal static class DefenseTests
             Command(w, p, "defense_aura", 2); Advance(w, 10); w.RemovePlayer(p.Id);
             var reconnect = w.AddPlayer("A")!; w.AttachDefenseAccount(reconnect.Id, "uid");
             Check(Player(w, reconnect).Gold == 110 && Player(w, reconnect).Auras[2] == 1, "Reconexión perdió progreso o reinició compras.");
-            for (int i = 0; i < 64; i++) Enemy(w);
+            for (int i = 0; i < DefenseRules.MaxMinions; i++) Enemy(w);
             var snapshot = w.Snapshot(); SnapshotValidation.Check(snapshot);
             byte[] encoded = Protocol.SerializeUtf8(new ServerMessage { Type = "snapshot", Snapshot = snapshot });
             Check(encoded.Length < Protocol.MaxSnapshotBytes, "El estado superó el presupuesto de red.");
@@ -379,6 +381,10 @@ internal static class DefenseTests
         }
         Set(world, "_defenseElapsed", 810.0); Set(world, "_defenseDifficulty", 10); Set(world, "<Tick>k__BackingField", 48600L);
         for (int i = 0; i < DefenseRules.MaxMinions; i++) Enemy(world);
+        // Mantiene constante el número de actores: sus explosiones se verifican en las regresiones de combate.
+        foreach (var minion in ((IDictionary)Field(world, "_minions")).Values)
+            if ((MinionKind)minion!.GetType().GetField("Kind")!.GetValue(minion)! == MinionKind.Bomber)
+                minion.GetType().GetField("Attack")!.SetValue(minion, 60f);
         long simulationAllocationStart = GC.GetAllocatedBytesForCurrentThread();
         var watch = System.Diagnostics.Stopwatch.StartNew();
         for (int tick = 0; tick < 1200; tick++)
@@ -390,7 +396,7 @@ internal static class DefenseTests
         double allocatedBytesPerStep = (GC.GetAllocatedBytesForCurrentThread() - simulationAllocationStart) / 1200.0;
         var message = new ServerMessage { Type = "snapshot", Snapshot = DefenseVisibility.ForPlayer(world.Snapshot(), world.Players.Keys.First()) };
         SnapshotValidation.Check(message.Snapshot);
-        Check(message.Snapshot.Defense!.Minions.Length == 64 && world.Players.Count == 4, "La carga no mantuvo 64 minions y cuatro jugadores.");
+        Check(message.Snapshot.Defense!.Minions.Length == DefenseRules.MaxMinions && world.Players.Count == 4, "La carga no mantuvo la horda máxima y cuatro jugadores.");
         int raw = Protocol.SerializeUtf8(message).Length;
         Check(raw < Protocol.MaxSnapshotBytes, "El peor inventario superó el límite del protocolo.");
         watch.Restart(); int compressed = 0;
@@ -402,11 +408,11 @@ internal static class DefenseTests
         var normalized = state with { Defense = state.Defense! with { Defenders = state.Defense.Defenders.Select(p => p with
             { Items = p.Items.Select((item, index) => item with { Item = item.Item with { Id = $"item-{p.PlayerId}-{index}" } }).ToArray() }).ToArray() } };
         string stateFingerprint = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Protocol.SerializeUtf8(normalized)));
-        var result = new { defenders = 4, minions = 64, temporaryItems = 96, simulatedTicks = 1200,
+        var result = new { defenders = 4, minions = DefenseRules.MaxMinions, temporaryItems = 96, simulatedTicks = 1200,
             millisecondsPerStep = simulationMs, millisecondsPerRecipientFrame = encodingMs,
             allocatedBytesPerStep, allocatedBytesPerRecipientFrame, stateFingerprint,
             rawBytes = raw, wireBytesPerFrame = compressed, kilobytesPerSecondAt20Hz = compressed * 20.0 / 1024,
-            note = "Medición del entorno de pruebas; requiere medición adicional en Raspberry Pi y Android reales." };
+            note = "Medición del entorno de pruebas; detonaciones aplazadas para sostener la carga de actores. Requiere medición adicional en Raspberry Pi y Android reales." };
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
         File.WriteAllText(path, System.Text.Json.JsonSerializer.Serialize(result, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
         Console.WriteLine("DEFENSE_BENCHMARK_OK: " + Protocol.Serialize(result));
@@ -439,6 +445,11 @@ internal static class DefenseTests
             await b.ConnectAsync(address, "B", 1, password, roomId: coop.Id);
             for (int i = 0; i < 50 && a.Latest!.Players.Length < 3; i++) await Task.Delay(50);
             Check(a.Latest!.Players.Length == 3 && a.Latest.Players.All(p => p.Team == 0), "Bots o humanos en equipo rival.");
+            a.Send(new() { Type = "defense_performance", FramesPerSecond = 20 });
+            b.Send(new() { Type = "defense_performance", FramesPerSecond = 60 });
+            for (int i = 0; i < 50 && a.Latest!.Defense!.PerformanceLimit != 48; i++) await Task.Delay(50);
+            Check(a.Latest!.Defense!.PerformanceLimit == 48 && b.Latest!.Defense!.PerformanceLimit == 48,
+                "Los clientes no comparten el límite de rendimiento de la sala.");
             SnapshotValidation.Check(a.Latest);
         });
     }

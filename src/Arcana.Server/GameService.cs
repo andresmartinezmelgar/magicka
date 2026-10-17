@@ -184,7 +184,8 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                                     { RestartDefenseRoom(room); continue; }
                                     if (!room.Started && room.BestOf > 1) { _ignoredCommands++; continue; }
                                     if (!session.Ready || !room.World.ApplyMessage(session.Id, message)) _ignoredCommands++;
-                                    else if (message.Type != "input" || message.MoveTo || Math.Abs(message.MoveX) + Math.Abs(message.MoveY) > 0.05f)
+                                    else if (message.Type != "defense_performance" &&
+                                        (message.Type != "input" || message.MoveTo || Math.Abs(message.MoveX) + Math.Abs(message.MoveY) > 0.05f))
                                         session.LastActivityTick = room.World.Tick;
                                 }
                                 if (session.Ready) readyPlayers++;

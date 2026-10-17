@@ -249,7 +249,7 @@ public partial class Hud : Control
         _mapPanel.Position = Ui.IsMobile ? new(Size.X - 235, 136) : new(Size.X - 235, 72);
         float spellsWidth = Math.Min(Ui.IsMobile ? 320 : 690, Math.Max(100, Size.X - 36));
         float spellsHeight = Math.Max(54, _spellsPanel.GetCombinedMinimumSize().Y);
-        float touchScale = _lastSnapshot?.Defense != null ? Math.Min(1, Size.Y * GameplayScale / 720f) : 1;
+        float touchScale = Math.Min(1, Size.Y * GameplayScale / 720f);
         float spellsBottom = Ui.IsMobile ? 100 * touchScale / GameplayScale : 26 / GameplayScale;
         float spellsLeft = (Size.X - spellsWidth) / 2;
         if (!Ui.IsMobile && Size.X >= 1250)
@@ -393,7 +393,7 @@ public partial class Hud : Control
             _buffs.Visible = false; // Las bonificaciones se muestran en la columna izquierda de Defensa.
             _match.Text = (defense.Paused ? "PAUSA · " : "") + $"SUPERVIVENCIA · VIDAS {lives}/2";
             _match.AddThemeColorOverride("font_color", lives <= 1 ? Ui.Red : Ui.Gold);
-            _objective.Text = $"{DefenseRules.Clock(defense.Elapsed)} · Dificultad {defense.Difficulty} · Enemigos {defense.Minions.Length}\n" +
+            _objective.Text = $"{DefenseRules.Clock(defense.Elapsed)} · Dificultad {defense.Difficulty} · Enemigos {defense.Minions.Length}/{defense.MinionLimit}\n" +
                 (defense.Minions.Any(m => m.Kind == MinionKind.Boss) ? "¡COLOSO EN EL MAPA!" : $"Coloso en {Math.Ceiling(defense.NextBossIn)} s");
             if (Ui.IsMobile || GetViewportRect().Size.Y < 700) _mapPanel.Visible = false;
             float mobileScale = Math.Min(1, GetViewportRect().Size.Y / 720f);
@@ -410,7 +410,7 @@ public partial class Hud : Control
             if (GetViewportRect().Size.X < 900)
             {
                 _match.Text = (defense.Paused ? "PAUSA" : "SUPERVIVENCIA") + $"\nVIDAS {lives}/2";
-                _objective.Text = $"{DefenseRules.Clock(defense.Elapsed)} · Dificultad {defense.Difficulty}\nEnemigos {defense.Minions.Length}";
+                _objective.Text = $"{DefenseRules.Clock(defense.Elapsed)} · Dificultad {defense.Difficulty}\nEnemigos {defense.Minions.Length}/{defense.MinionLimit}";
                 _objective.CustomMinimumSize = Vector2.Zero;
             }
             _feed.Visible = false;

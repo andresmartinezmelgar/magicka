@@ -8,8 +8,11 @@ public partial class ArenaRenderer
     internal IEnumerable<(string Name, Action Work)> PrepareVisuals(WorldSnapshot initial, int localId)
     {
         foreach (var step in PrepareMap(initial.Map)) yield return ("Construyendo el mapa…", step);
+        if (initial.Map == ArenaMapId.Bastion)
+            foreach (var step in PrepareSurvivalSectors()) yield return step;
         foreach (var type in Enum.GetValues<WizardType>())
             yield return ("Cargando los magos…", () => WizardSprites.Load(type));
+        yield return ("Preparando los iconos del inventario…", EquipmentPanel.PrepareIcons);
         foreach (var element in Enum.GetValues<Element>())
             yield return ("Preparando los sonidos…", () => _audio.Prepare(element.ToString()));
         yield return ("Preparando los sonidos…", () => _audio.Prepare("boom"));
@@ -18,7 +21,22 @@ public partial class ArenaRenderer
 
         var player = initial.Players.First(p => p.Id == localId);
         V2 center = player.Position;
-        var empty = initial with { Players = [], Projectiles = [], Walls = [], Fields = [], Beams = [], Events = [], Pickups = [] };
+        if (initial.Defense != null)
+            foreach (var step in PrepareDefenseMinions(center)) yield return step;
+        var empty = initial with { Players = [], Projectiles = [], Walls = [], Fields = [], Beams = [], Events = [], Pickups = [],
+            Defense = initial.Defense is { } d ? d with { Minions = [], Drops = [] } : null };
+        if (initial.Map != ArenaMapId.Bastion)
+        {
+            var definition = ArenaMap.Get(initial.Map);
+            for (float x = -definition.HalfWidth + 12; x < definition.HalfWidth; x += 24)
+                for (float y = -definition.HalfHeight + 12; y < definition.HalfHeight; y += 24)
+                {
+                    var view = new V2(x, y);
+                    if (!definition.Floors.Any(f => Math.Abs(view.X - f.Center.X) <= f.Width / 2 + 12 &&
+                        Math.Abs(view.Y - f.Center.Y) <= f.Height / 2 + 12)) continue;
+                    yield return ("Preparando las zonas del mapa…", () => DrawLoadingView(empty, view));
+                }
+        }
         var actors = Enum.GetValues<WizardType>().SelectMany(type => new[] { 0, 1 }.Select(team => player with
         {
             Id = 1000 + (int)type * 2 + team, WizardType = type, Team = team, Name = "Mago",
@@ -33,6 +51,8 @@ public partial class ArenaRenderer
         var ghosts = scene with { Players = actors.Select(p => p with { Health = 0, Alive = false,
             Shield = 0, InvulnerableSeconds = 0, Respawn = 1 }).ToArray() };
         yield return ("Preparando las animaciones…", () => DrawLoadingView(ghosts, center));
+        yield return ("Preparando congelación y efectos de estado…", () => DrawLoadingView(scene with
+            { Players = actors.Select(p => p with { Frozen = 2, Chill = 3, Ward = [Element.Cold] }).ToArray() }, center));
 
         foreach (var group in SpellCatalogue.All.Where(c => c.Recipe.Shape is SpellShape.Beam or SpellShape.Spray or SpellShape.Lightning).Chunk(16))
         {
@@ -77,6 +97,20 @@ public partial class ArenaRenderer
                 { Pickups = group.Select((p, i) => p with { Position = center + new V2(i * 2 - 3, 0) }).ToArray() }, center));
         if (initial.Defense is { } defense)
         {
+            var minions = Enum.GetValues<MinionKind>().Select((kind, i) => new MinionSnapshot(7500 + i, kind,
+                center + new V2((i % 3 - 1) * 4, (i / 3 - 0.5f) * 5), new(1, 0), 1000, 1000,
+                0, 0, 0, 0, kind == MinionKind.Mage, [Element.Arcane, Element.Fire], true)
+                { AttackWarningSeconds = DefenseRules.AttackWindup(kind) }).ToArray();
+            var preview = empty with { Players = [player], Defense = defense with { Minions = minions, Drops = [],
+                Defenders = defense.Defenders.Where(p => p.PlayerId == localId).Select(p => p with
+                    { Auras = [1, 1, 1], BerserkerRemaining = 2 }).ToArray() } };
+            yield return ("Preparando enemigos, auras y habilidades…", () => DrawLoadingView(preview, center));
+            yield return ("Preparando los estados de los enemigos…", () => DrawLoadingView(preview with
+                { Defense = preview.Defense! with { Minions = minions.Select(m => m with
+                    { Frozen = 2, Chill = 3, SpeedBoostSeconds = 2, Casting = false }).ToArray() } }, center));
+            yield return ("Preparando el fuego y la regeneración…", () => DrawLoadingView(preview with
+                { Defense = preview.Defense! with { Minions = minions.Select(m => m with
+                    { Burning = 2 }).ToArray() } }, center));
             var drops = new List<DefenseDropSnapshot>
             { new(7000, 0, center, DefenseDropKind.Gold, 10, default, null, null) };
             foreach (var slot in Enum.GetValues<EquipmentSlot>())
@@ -102,6 +136,10 @@ public partial class ArenaRenderer
     private void DrawLoadingView(WorldSnapshot snapshot, V2 center)
     {
         Render(snapshot, 0, 1 / 60.0, true);
+        FocusLoadingView(center);
+    }
+    private void FocusLoadingView(V2 center)
+    {
         var focus = World(center); Camera.Position = focus + new Vector3(0, 27, 21);
         Camera.LookAt(focus); Camera.Size = 27;
     }

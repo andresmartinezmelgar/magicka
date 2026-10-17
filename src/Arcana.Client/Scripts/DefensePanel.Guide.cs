@@ -75,7 +75,8 @@ public partial class DefensePanel
     private void UpdateGuide()
     {
         if (_state is not { } state) return;
-        _guideStatus.Text = $"Dificultad {state.Difficulty} · {state.Minions.Length} vivos · {state.TotalKills} bajas · {state.Defenders.Length} defensores";
+        _guideStatus.Text = $"Dificultad {state.Difficulty} · {state.Minions.Length}/{state.MinionLimit} enemigos · {state.TotalKills} bajas · {state.Defenders.Length} defensores\n" +
+            $"Tope por rendimiento: {state.PerformanceLimit}. Se ajusta a los FPS sostenidos; online cuenta el dispositivo con menor rendimiento.";
         string stamp = string.Join('|', state.Bestiary.Select(e => e.ToString()));
         // La primera ficha vacía también se construye, sin revelar nombres aún no descubiertos.
         if (stamp == _bestiaryStamp && _enemyCards.GetChildCount() > 0) return;
@@ -102,6 +103,10 @@ public partial class DefensePanel
                 MinionKind.Archer => "Dispara proyectiles de tierra que pueden interceptarse con barreras.",
                 MinionKind.Mage => $"Canaliza arcano y fuego durante {DefenseRules.MageChannelDuration:0.##} s por ataque. El rayo gana potencia al cargar y puede provocar quemaduras adicionales.",
                 MinionKind.Boss => "Coloso con mucha vida y gran alcance cuerpo a cuerpo. Aparece a intervalos variables; solo puede haber uno activo.",
+                MinionKind.Runner => "Corre un 45 % más que un minion básico, pero tiene menos vida y daño. Aparece desde dificultad 2.",
+                MinionKind.Brute => "Mucha vida. Se detiene y avisa 0,9 s antes de golpear en un radio de 2,8 m. Puedes esquivarlo o interrumpirlo con congelación. Desde dificultad 6.",
+                MinionKind.Bomber => "Se detiene y avisa 1,1 s antes de explotar en 3,2 m. Muere al explotar; matarlo o congelarlo interrumpe el aviso. Desde dificultad 4.",
+                MinionKind.Shaman => $"Cada {DefenseRules.ShamanHealInterval:0} s cura a otro enemigo herido a {DefenseRules.ShamanHealRadius:0} m, sin atravesar muros. Curación base: {DefenseRules.ShamanHealAmount * DefenseRules.EnemyStrength(enemy.Difficulty):0.#}. Desde dificultad 8.",
                 _ => "Persigue a los jugadores por todo el mapa y ataca cuerpo a cuerpo."
             };
             Wrapped(card, description + (enemy.Kind != MinionKind.Boss ? " Puede obtener un impulso temporal de velocidad del 60 %." : ""), 15, Ui.Muted);

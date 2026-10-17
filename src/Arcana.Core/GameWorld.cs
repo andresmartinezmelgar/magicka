@@ -144,7 +144,7 @@ public sealed partial class GameWorld
         {
             p.LastSequence = message.Sequence;
             bool applied = DefenseCommand(p, message);
-            if (applied && IsDefense) _defenders[p.Id].LastActivity = Time;
+            if (applied && IsDefense && message.Type != "defense_performance") _defenders[p.Id].LastActivity = Time;
             return applied;
         }
         if (DefensePaused && message.Type is not ("input" or "release")) { p.LastSequence = message.Sequence; return false; }

@@ -114,7 +114,9 @@ internal static class DefenseBalanceTests
         test("Defensa: límite inicial de presión, tiempo gradual y tanques tardíos", () =>
         {
             var world = World(); world.AddPlayer("Humano")!.Position = new(76, 52); Advance(world, 2000);
-            Check(State(world).Minions.Length <= 8, "El comienzo saturó al defensor.");
+            Check(State(world).Minions.Length is >= 20 and <= 24, "La horda inicial no alcanzó su nueva densidad o superó el límite inicial.");
+            Check(DefenseRules.SpawnLimit(1, 4) == 48 && DefenseRules.SpawnLimit(40, 4) == DefenseRules.MaxMinions,
+                "La horda no se adapta al grupo o excede el máximo de enemigos.");
             Check(DefenseRules.TimedDifficulty(89) == 1 && DefenseRules.TimedDifficulty(179) == 2, "El tiempo escaló demasiado deprisa.");
             for (int stage = 1; stage <= 4; stage++)
             {

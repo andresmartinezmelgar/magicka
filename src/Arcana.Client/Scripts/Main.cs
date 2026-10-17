@@ -375,6 +375,7 @@ public partial class Main : Node
             var latest = _connection?.Latest ?? _snapshot;
             if (latest == null) return;
             _snapshot = latest;
+            ReportDefensePerformance(latest, delta);
             SynchronizeLocalLife();
             if (Ui.IsMobile) UpdateTouchAim();
             else
