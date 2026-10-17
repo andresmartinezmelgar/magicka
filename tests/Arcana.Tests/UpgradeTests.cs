@@ -86,6 +86,11 @@ internal static class UpgradeTests
             var random = new Random(27);
             for (int i = 0; i < 90; i++) Call(w, "TrySpawnMinion", MinionKind.Melee);
             var minions = ((IDictionary)Field(w, "_minions")).Values.Cast<object>().ToArray();
+            // Dictionary reutiliza huecos al aparecer nuevos enemigos: el orden no siempre coincide con sus ID.
+            var dictionary = (IDictionary)Field(w, "_minions");
+            foreach (var m in minions.Take(8)) dictionary.Remove(((Wizard)Field(m, "Body")).Id);
+            for (int i = 0; i < 8; i++) Call(w, "TrySpawnMinion", MinionKind.Melee);
+            minions = dictionary.Values.Cast<object>().ToArray();
             foreach (var m in minions) ((Wizard)Field(m, "Body")).Position = new((float)random.NextDouble() * 8 - 4, (float)random.NextDouble() * 8 - 4);
             Call(w, "BuildDefenseCells");
             foreach (var m in minions)

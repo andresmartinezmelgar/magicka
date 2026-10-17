@@ -95,6 +95,7 @@ internal sealed class DefenseMinion(Wizard body, MinionKind kind, float strength
     public readonly float Strength = strength;
     public float Attack = 1, ChannelTime, SpeedBoost, SpeedClock, NavigationClock, Windup, SupportCooldown = 3;
     public V2 Navigation;
+    public int NeighborhoodOrder;
 }
 
 internal sealed class DefenseDrop

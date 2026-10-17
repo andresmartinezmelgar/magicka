@@ -326,6 +326,8 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                 var profile = await accounts.ProfileGame(identity, handshake.Token);
                 equipment = PublicEquipment.Prepare(profile);
             }
+            if (hello.ResumeToken == null || hello.ResumeToken.Length is not (0 or 64) || hello.ResumeToken.Any(c => !Uri.IsHexDigit(c)))
+            { await RejectLogged("Identificador de reconexión inválido.", handshake.Token); return; }
             string error = ""; ServerMessage? welcome = null;
             Diagnostics.Log.ProtectSecret(hello.ResumeToken);
             lock (_gate)
