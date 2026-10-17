@@ -113,6 +113,13 @@ public partial class Main
                     "El lateral debe mostrar solo las mejoras recogidas.");
                 Check(!panel.FindChildren("*", "Button", true, false).OfType<Button>().Any(b => b.Text == "Volver al menú"),
                     "La tienda conserva el botón de volver al menú.");
+                panel.Update(state, _localId, false, false);
+                long beforeReuse = GC.GetAllocatedBytesForCurrentThread();
+                for (int i = 0; i < 100; i++) panel.Update(state, _localId, false, false);
+                long reuseBytes = GC.GetAllocatedBytesForCurrentThread() - beforeReuse;
+                Check(reuseBytes < 65536 && ((GridContainer)panel.FindChild("DefenseTotals", true, false)).GetChildCount() == 0 &&
+                    bonuses.Text.Contains("Energía ×2"), "El HUD recalcula tarjetas ocultas o pierde las mejoras al reutilizar el estado.");
+                GD.Print($"DEFENSE_HUD_REUSE_OK: 100 fotogramas sin cambios, {reuseBytes} bytes, estadísticas ocultas sin construir.");
                 CaptureDefense("01-partida");
                 panel.OpenShop(); _defensePauseTick = _practice.Tick; _defenseSmokePhase++; return false;
             }

@@ -138,6 +138,7 @@ ReleaseDownloadVerifierTests.Run(Test);
 ReleaseAssetDownloaderTests.Run(Test);
 ReleaseUpdatePlanTests.Run(Test);
 ReleaseUpdateChannelTests.Run(Test);
+ReleaseUpdateQueryTests.Run(Test);
 BinaryUpdateDeltaTests.Run(Test);
 MatchSeriesTests.Run(Test);
 ResponsiveLayoutTests.Run(Test);

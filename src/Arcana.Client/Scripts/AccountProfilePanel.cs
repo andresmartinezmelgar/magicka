@@ -1,4 +1,5 @@
 using Godot;
+using Arcana.Core;
 
 namespace Arcana.Client;
 
@@ -7,7 +8,11 @@ public partial class AccountProfilePanel : Control
 {
     private Main _main = null!;
     private Label _heading = null!, _status = null!;
-    private Button _login = null!, _logout = null!;
+    private Button _login = null!, _logout = null!, _checkUpdate = null!;
+    private Label _updateStatus = null!;
+    private GridContainer _profileActions = null!;
+    private bool _checkingUpdate;
+    private string _updateIdentity = "";
     private bool _busy;
     private string _message = "";
     private readonly CancellationTokenSource _lifetime = new();
@@ -15,7 +20,7 @@ public partial class AccountProfilePanel : Control
     private PanelContainer? _responsiveCard;
     private int _responsivePadding;
 
-    internal Button[] VisibleFooterButtons => new[] { _login, _logout }
+    internal Button[] VisibleFooterButtons => new[] { _login, _logout, _checkUpdate }
         .Where(b => GodotObject.IsInstanceValid(b) && b.IsVisibleInTree()).ToArray();
 
     public void Build(Main main)
@@ -63,12 +68,23 @@ public partial class AccountProfilePanel : Control
 
         _login = Ui.Button("Entrar con Google", () => { if (!_busy) _main.StartGoogleLogin(); }, true);
         _logout = Ui.Button("Cerrar sesión", () => _ = Logout(), true);
-        foreach (var button in new[] { _login, _logout })
+        _checkUpdate = Ui.Button("Buscar actualización", () => _ = CheckUpdate());
+        _checkUpdate.Name = "ProfileCheckUpdates";
+        _profileActions = new GridContainer { Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _profileActions.AddThemeConstantOverride("h_separation", 10); _profileActions.AddThemeConstantOverride("v_separation", 8);
+        content.AddChild(_profileActions);
+        foreach (var button in new[] { _login, _logout, _checkUpdate })
         {
             button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            button.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            button.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 18 : 19);
             Ui.TouchTarget(button, 76);
-            content.AddChild(button);
+            _profileActions.AddChild(button);
         }
+        _updateStatus = Ui.Label("", Ui.IsMobile ? 17 : 16, Ui.Muted);
+        _updateStatus.Name = "ProfileUpdateStatus";
+        _updateStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _updateStatus.HorizontalAlignment = HorizontalAlignment.Center; content.AddChild(_updateStatus);
         ArcanaMenuChrome.Attach(this, margin, main, "Mi perfil", 3, main.NavigateOptionAMenu);
         _message = main.GoogleLoginStatus;
         GetViewport().SizeChanged += ResizeProfileCard;
@@ -82,6 +98,9 @@ public partial class AccountProfilePanel : Control
         float width = GetViewport().GetVisibleRect().Size.X;
         _responsiveCard.CustomMinimumSize = new Vector2(
             Math.Max(220, Math.Min(Ui.IsMobile ? 1050 : 860, width - 2 * _responsivePadding - 12)), 0);
+        _profileActions.Columns = width < 560 ? 1 : 2;
+        float height = GetViewport().GetVisibleRect().Size.Y < 640 ? 60 : 76;
+        foreach (var button in new[] { _login, _logout, _checkUpdate }) button.CustomMinimumSize = new(0, height);
     }
 
     /// <summary>Selecciona el JSON OAuth sin copiarlo ni renombrarlo manualmente.</summary>
@@ -136,6 +155,25 @@ public partial class AccountProfilePanel : Control
         _logout.Visible = google;
         _login.Disabled = _busy;
         _logout.Disabled = _busy;
+        _checkUpdate.Disabled = _checkingUpdate;
+        _checkUpdate.Text = _checkingUpdate ? "Buscando…" : "Buscar actualización";
+        if (!_checkingUpdate && (_updateIdentity != _main.UpdateIdentityUid || _updateStatus.Text.Length == 0))
+        {
+            _updateIdentity = _main.UpdateIdentityUid;
+            _updateStatus.Text = "Versión instalada: " + BuildInfo.Version;
+        }
+    }
+
+    private async Task CheckUpdate()
+    {
+        if (_checkingUpdate || _lifetime.IsCancellationRequested) return;
+        _checkingUpdate = true; _updateStatus.Text = "Buscando actualizaciones…"; Render();
+        string message;
+        try { message = await _main.CheckForUpdates(); }
+        catch (Exception) { message = "No se ha podido comprobar la actualización."; }
+        if (_lifetime.IsCancellationRequested || !IsInsideTree()) return;
+        _checkingUpdate = false; _updateIdentity = _main.UpdateIdentityUid;
+        _updateStatus.Text = message; Render();
     }
 
     private async Task Logout()

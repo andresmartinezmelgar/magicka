@@ -1,5 +1,4 @@
 using System.Net.Http;
-using System.Text.Json;
 using Godot;
 using Arcana.Core;
 
@@ -25,7 +24,9 @@ public partial class ReleaseUpdateNotice : Node
     private Label? _changes;
     private string _version = "", _downloadUrl = "", _downloadPath = "", _checksumUrl = "", _assetName = "";
     private long _expectedBytes;
-    private bool _downloading, _completed, _installing, _checking, _disabled;
+    private bool _downloading, _completed, _installing, _disabled;
+    private Task<ReleaseUpdateQueryResult>? _checkTask;
+    private bool Checking => _checkTask is { IsCompleted: false };
     private string _expectedHash = "", _dismissedVersion = "";
     private ReleaseUpdatePlan? _pendingUpdate;
     private ReleaseUpdatePlan? _activePlan;
@@ -78,7 +79,7 @@ public partial class ReleaseUpdateNotice : Node
                 ShowNotice(pending.Version, pending.DownloadUrl, pending.Bytes, pending.ChecksumUrl, pending.Filename);
             }
         }
-        if (_checkClock >= 60 && !_checking && _overlay == null && _pendingUpdate == null)
+        if (_checkClock >= 60 && !Checking && _overlay == null && _pendingUpdate == null)
         { _checkClock = 0; _ = Check(); }
     }
 
@@ -87,6 +88,7 @@ public partial class ReleaseUpdateNotice : Node
         if (_identity == identity || _installing) return;
         _identity = identity;
         _channelGeneration++;
+        _checkTask = null;
         _downloadStop?.Cancel();
         _progressGeneration++;
         Close();
@@ -105,24 +107,36 @@ public partial class ReleaseUpdateNotice : Node
         return unit == 0 ? $"{bytes} B" : $"{value:0.0} {units[unit]}";
     }
 
-    private async Task Check()
+    public async Task<string> CheckNow()
     {
-        if (_checking || _stop.IsCancellationRequested) return;
-        _checking = true;
+        if (_disabled) return "La búsqueda de actualizaciones está disponible en las versiones para Android y Windows.";
+        if (_stop.IsCancellationRequested || !IsInsideTree()) return "La búsqueda se ha cancelado.";
+        SynchronizeIdentity(GetParent<Main>().UpdateIdentityUid);
+        if (_installing || _downloading) return "Hay una actualización en curso.";
+        string identity = _identity;
+        int generation = _channelGeneration;
+        _dismissedVersion = ""; // Una búsqueda explícita puede volver a ofrecer una versión descartada.
+        _checkClock = 0;
+        var result = await Check();
+        if (_stop.IsCancellationRequested || generation != _channelGeneration || identity != GetParent<Main>().UpdateIdentityUid)
+            return "La búsqueda se ha cancelado al cambiar de sesión.";
+        return !result.Succeeded ? "No se ha podido consultar la actualización. Comprueba la conexión." :
+            result.Update is { } plan ? $"Actualización {plan.Version} disponible. Puedes elegir descargarla en el aviso." :
+            $"No hay una versión más reciente disponible para tu cuenta. Instalada: {BuildInfo.Version}.";
+    }
+
+    private Task<ReleaseUpdateQueryResult> Check() => Checking ? _checkTask! : _checkTask = FindUpdate();
+
+    private async Task<ReleaseUpdateQueryResult> FindUpdate()
+    {
+        if (_stop.IsCancellationRequested) return new(false, null);
         string identity = _identity;
         int channelGeneration = _channelGeneration;
         try
         {
-            bool preview = ReleaseUpdateChannel.PreviewAllowed(identity, identity.Length > 0);
-            using var request = new HttpRequestMessage(HttpMethod.Get, preview ? ReleaseUpdateChannel.PreviewMetadata : ReleaseUpdateChannel.StableMetadata);
-            request.Headers.UserAgent.ParseAdd("ArcanaArena-Updater/2.2");
-            request.Headers.Accept.ParseAdd("application/vnd.github+json");
-            request.Headers.CacheControl = new() { NoCache = true };
-            using var response = await MetadataHttp.SendAsync(request, _stop.Token);
-            if (!response.IsSuccessStatusCode) return;
-            using var document = JsonDocument.Parse(await RoomBrowser.ReadBoundedAsync(response.Content, preview ? 1024 * 1024 : 256 * 1024, _stop.Token));
-            var plan = ReleaseUpdateChannel.Select(document.RootElement, identity, identity.Length > 0,
-                BuildInfo.Version, BuildInfo.UpdateBuildNumber, _android);
+            var result = await ReleaseUpdateQuery.CheckAsync(MetadataHttp, identity, BuildInfo.Version,
+                BuildInfo.UpdateBuildNumber, _android, _stop.Token);
+            var plan = result.Update;
             if (plan?.Differential == true && (_android && _androidBasePath.Length == 0 ||
                 System.IO.File.Exists(System.IO.Path.Combine(_updatesFolder, "skip-delta-" + plan.Version + ".txt"))))
                 plan = plan.FullPackage;
@@ -131,10 +145,10 @@ public partial class ReleaseUpdateNotice : Node
                 if (!_stop.IsCancellationRequested && channelGeneration == _channelGeneration &&
                     identity == GetParent<Main>().UpdateIdentityUid) _pendingUpdate = plan;
             }).CallDeferred();
+            return result with { Update = plan };
         }
-        catch (OperationCanceledException) { }
-        catch (Exception) { /* Sin red, se puede seguir jugando. */ }
-        finally { _checking = false; }
+        catch (OperationCanceledException) { return new(false, null); }
+        catch (Exception) { return new(false, null); }
     }
 
     private static PanelContainer Card()

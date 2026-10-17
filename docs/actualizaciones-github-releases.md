@@ -2,9 +2,9 @@
 
 ## Cliente
 
-Windows x64 y Android ARM64 consultan la última Release estable al arrancar y cada minuto. Seleccionan exclusivamente el archivo de su plataforma y de la versión anunciada. Si una Release todavía solo contiene Android, Windows espera a que se publique su ZIP. No se descargan borradores, previews, versiones iguales, versiones anteriores ni paquetes sin SHA-256.
+Windows x64 y Android ARM64 consultan la última Release estable al arrancar y cada minuto. **Perfil → Buscar actualización** permite consultar de inmediato y muestra el resultado sin iniciar la descarga. Las consultas simultáneas se comparten. Las cuentas autorizadas también pueden recibir preliminares según las reglas de [canales](CANALES-ACTUALIZACION.md). Seleccionan exclusivamente el archivo de su plataforma y de la versión anunciada. Si una Release todavía solo contiene Android, Windows espera a que se publique su ZIP. Se rechazan borradores, versiones anteriores y paquetes sin SHA-256; solo una compilación de pruebas más reciente puede actualizar la misma versión base.
 
-La descarga empieza automáticamente en el menú, muestra progreso y puede cancelarse. El tamaño y el SHA-256 deben coincidir con la Release. Un archivo completo que ya se haya descargado y verificado se reutiliza; una descarga incompleta o alterada se rechaza. El instalador nunca se inicia durante una partida, una conexión en preparación o un servidor local activo. Sin red o si falla la descarga, el juego sigue disponible.
+El aviso permite elegir descargar o continuar jugando. La descarga muestra progreso y puede cancelarse. El tamaño y el SHA-256 deben coincidir con la Release. Un archivo completo que ya se haya descargado y verificado se reutiliza; una descarga incompleta o alterada se rechaza. El instalador nunca se inicia durante una partida, una conexión en preparación o un servidor local activo. Sin red o si falla la descarga, el juego sigue disponible.
 
 El cliente prefiere un parche de su plataforma y de la versión que tiene instalada cuando reduce al menos un 15 % el tamaño de descarga. Las sesiones, inventario y preferencias siguen en el almacenamiento de usuario.
 
@@ -46,7 +46,7 @@ Los parches Android se generan y verifican de nuevo después de la última firma
 
 El generador y el cliente se prueban por separado: los parches creados en Python se reconstruyen con el lector C# del cliente. Las pruebas Windows ejecutan la instalación diferencial, retirada de archivos, conservación de datos, alternativa completa y recuperación con un PCK bloqueado. También simulan un proceso real que retiene el PCK hasta cerrar, para verificar la espera por PID y hora de inicio. Las Releases se generan con los flujos actuales de main o de un tag vVERSION, después de sus comprobaciones de compilación, cuentas y empaquetado. La firma Android usa los secretos permanentes ya configurados. No debe publicarse una APK firmada con una clave temporal.
 
-El flujo automático existe a partir de una versión que incluya este cambio. Una instalación anterior, incluida v0.17.16, conserva su actualizador antiguo hasta instalar por primera vez una distribución con el instalador integrado. Los cambios de esta rama no publican por sí solos una Release ni modifican main.
+Una instalación anterior, incluida v0.17.16, conserva su actualizador antiguo hasta instalar por primera vez una distribución con el instalador integrado. Supervivencia y el botón de búsqueda manual se distribuyen en la versión estable 0.20.0 y posteriores.
 
 ## Verificación
 

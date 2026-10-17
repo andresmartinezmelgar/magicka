@@ -1,6 +1,6 @@
 # Supervivencia en Anillos
 
-Versión **0.19.3**, protocolo **25**, rama `feature/defensa-oleadas`. Esta rama sigue independiente de `main`. Se publican APK directas, paquetes Windows preliminares y deltas de las tres versiones anteriores de esta rama. Las dos cuentas autorizadas reciben el [canal de pruebas](CANALES-ACTUALIZACION.md); el resto conserva el canal estable. Cliente y servidor deben utilizar el mismo protocolo y actualizarse para aplicar las correcciones del combate.
+Versión estable **0.20.0**, protocolo **25**, integrada en `main`. Se publican APK directas, paquetes Windows y deltas de hasta tres versiones estables anteriores. Las dos cuentas autorizadas conservan el [canal de pruebas](CANALES-ACTUALIZACION.md); el resto recibe el canal estable. Para jugar online con todas las correcciones, actualiza también el servidor incluido en el paquete Windows a 0.20.0.
 
 ## Partida y vidas
 
@@ -27,6 +27,8 @@ Dos parejas de portales unen esquinas opuestas. Cada pareja comparte color. Bast
 Las apariciones utilizan posiciones transitables de todo el mapa. La exclusión de **16 m sigue a cada defensor con vidas**, incluso mientras espera reaparecer. Evita apariciones pegadas al personaje; los enemigos ya existentes sí pueden entrar y atacar. Si no hay una posición segura se aplaza la aparición.
 
 El cliente crea y retira **sectores de 24 × 24 m** alrededor de la cámara. También limita minions, botín y efectos a esa zona. Los sectores lejanos no se construyen. El servidor sigue simulando los enemigos del mapa entero y comparte rutas por objetivo para reducir búsquedas repetidas. El salto por un portal reposiciona la cámara y cambia los sectores cargados.
+
+En 0.20.0, la IA evita recrear el equipo de cada minion si su daño y velocidad no cambian, y busca capitanes y objetivos sin crear consultas temporales. El HUD reutiliza los datos que no cambian y prepara las estadísticas al abrir su pestaña. En la comparación local contra 0.19.3, con cuatro defensores, 64 minions, 96 piezas y 1.200 pasos, la memoria temporal de simulación pasó de 41.774 a 14.140 bytes por paso (66 % menos). El snapshot final normalizado fue idéntico. Esta medición no representa los FPS de un dispositivo físico.
 
 ## Enemigos y dificultad
 
@@ -72,7 +74,7 @@ Las bajas normales dan 10 EXP compartida y los colosos 60 EXP a los defensores c
 | Equipo | 6 % por defensor | Personal |
 | Reliquia | 2 % por defensor | Personal y acumulable |
 
-Las recogidas duran 75 s, con un máximo de 96; el inventario temporal admite 24 piezas. Los sprites distinguen monedas giratorias, las cuatro piezas y cada mejora. La columna izquierda muestra en vertical las bonificaciones efectivas, además de nivel, EXP, oro, bajas y vidas.
+Las recogidas duran 75 s, con un máximo de 96; el inventario temporal admite 24 piezas. Los sprites distinguen monedas giratorias, las cuatro piezas y cada mejora. La columna izquierda muestra en vertical solo las mejoras recogidas, además de nivel, EXP, oro, bajas y vidas. Las aportaciones del equipo se consultan en el inventario y en Estadísticas.
 
 Las auras de fuego, rayo y regeneración siguen al personaje. Admiten diez niveles y cuestan `80 × (nivel actual + 1)²`. Las habilidades automáticas admiten cinco niveles y cuestan `140 × (nivel actual + 1)²`:
 

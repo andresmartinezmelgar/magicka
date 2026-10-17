@@ -24,6 +24,13 @@ internal static class ReleaseUpdateChannelTests
         using var document = JsonDocument.Parse(JsonSerializer.Serialize(releases));
         return ReleaseUpdateChannel.Select(document.RootElement, uid, signedIn, installed, installedBuild, android);
     }
+    internal static object Stable(string version = "0.20.0")
+    {
+        string root = $"https://github.com/andresmartinezmelgar/magicka/releases/download/v{version}/";
+        object Asset(string name) => new { name, browser_download_url = root + name, size = 2000 };
+        return new { tag_name = "v" + version, draft = false, prerelease = false, assets = new[] {
+            Asset($"ArcanaArena-v{version}-Android-arm64.apk"), Asset($"ArcanaArena-v{version}-Windows-x64.zip"), Asset("SHA256SUMS.txt") } };
+    }
 
     public static void Run(Action<string, Action> test)
     {
@@ -53,11 +60,22 @@ internal static class ReleaseUpdateChannelTests
             Check(Select(new[] { Release(19) }, installed: "0.18.1", installedBuild: 20) == null, "Retrocedió de compilación.");
             Check(Select(new[] { Release(21, "0.17.24") }, installed: "0.18.1", installedBuild: 20) == null, "Ofreció una APK de versión inferior.");
         });
-        test("Canal de pruebas: excluye main, borradores y releases estables", () =>
+        test("Canal de pruebas: rechaza etiquetas y orígenes experimentales inválidos", () =>
         {
             foreach (object release in new[] { Release(branch: "main"), Release(branch: "refs/heads/main"), Release(draft: true), Release(preview: false) })
                 Check(Select(new[] { release }) == null, "Origen no experimental aceptado.");
             Check(Select(new[] { Release(branch: "otra-rama") })?.SourceBranch == "otra-rama", "El canal quedó ligado a una sola rama.");
+        });
+        test("Canal de pruebas: recibe la integración estable sin perder el acceso a pruebas posteriores", () =>
+        {
+            Check(Select(new[] { Stable(), Release(470, "0.19.3") }, installed: "0.19.3", installedBuild: 470) is
+                { Preview: false, Version: "0.20.0" }, "La cuenta de pruebas no recibe la integración de main.");
+            Check(Select(new[] { Stable(), Release(500, "0.20.1") }) is { Preview: true, Version: "0.20.1" },
+                "La versión estable oculta una prueba posterior.");
+            Check(Select(new[] { Stable(), Release(471, "0.20.0") }) is { Preview: true, BuildNumber: 471 },
+                "Se perdió la preferencia por una compilación de pruebas de igual versión.");
+            Check(Select(new[] { Stable(), Release(471, "0.20.0") }, installed: "0.20.0", installedBuild: 471) == null,
+                "La promoción a estable vuelve a instalar el mismo código o retrocede de compilación.");
         });
         test("Canal estable: usuarios ajenos y sesiones cerradas rechazan preliminares", () =>
         {

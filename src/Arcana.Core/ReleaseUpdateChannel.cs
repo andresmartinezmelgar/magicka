@@ -18,7 +18,8 @@ public static class ReleaseUpdateChannel
     {
         if (!PreviewAllowed(uid, signedIn)) return ReleaseUpdatePlan.Read(metadata, installed, android);
         if (metadata.ValueKind != JsonValueKind.Array) return null;
-        return metadata.EnumerateArray().Select(r => ReadPreview(r, installed, installedBuild, android))
+        return metadata.EnumerateArray().Select(r => ReadPreview(r, installed, installedBuild, android) ??
+                ReleaseUpdatePlan.Read(r, installed, android))
             .Where(p => p != null).OrderByDescending(p => System.Version.Parse(p!.Version))
             .ThenByDescending(p => p!.BuildNumber).FirstOrDefault();
     }

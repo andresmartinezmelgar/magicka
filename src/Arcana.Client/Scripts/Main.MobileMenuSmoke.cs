@@ -440,7 +440,7 @@ public partial class Main
             }
             if (frame == 115)
             {
-                AssertMobileActions("PERFIL_403", _accountProfilePanel!.VisibleFooterButtons, 1);
+                AssertMobileActions("PERFIL_403", _accountProfilePanel!.VisibleFooterButtons, 2);
                 AssertOptionAScreen("PERFIL_403", _accountProfilePanel);
                 string[] labels = _accountProfilePanel.FindChildren("*", "Label", true, false)
                     .OfType<Label>().Select(label => label.Text).ToArray();
@@ -448,6 +448,13 @@ public partial class Main
                     !labels.Any(t => t.Contains("403", StringComparison.Ordinal)))
                     throw new InvalidOperationException(
                         "El perfil oculta que Google está autenticado cuando Firestore rechaza sus permisos.");
+                var update = (Button)_accountProfilePanel.FindChild("ProfileCheckUpdates", true, false);
+                if (update.Disabled || !update.IsVisibleInTree()) throw new InvalidOperationException("El perfil no permite buscar actualizaciones.");
+                update.EmitSignal(Button.SignalName.Pressed);
+                var updateStatus = (Label)_accountProfilePanel.FindChild("ProfileUpdateStatus", true, false);
+                if (updateStatus.Text.Length == 0 || update.Disabled)
+                    throw new InvalidOperationException("La búsqueda manual no confirma su estado o deja el botón bloqueado.");
+                GD.Print("PROFILE_UPDATE_BUTTON_OK: botón accesible sin depender de Firestore y resultado visible.");
             }
             if (frame == 125)
             {

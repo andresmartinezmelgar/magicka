@@ -35,6 +35,11 @@ public partial class DefensePanel : Control
     private string _equipmentTotalsStamp = "";
     private bool _canRestart;
     private GridContainer _navigation = null!;
+    private WorldSnapshot? _lastSnapshot;
+    private int _lastPlayerId;
+    private bool _lastOnline, _lastRewardsAvailable, _lastShopOpen;
+    private (int Level, int Experience, int Next, int Gold, int Kills, int Lives)? _summaryState;
+    private BuffSnapshot[]? _lastBonuses;
     public bool PointerOverPanel => _summary.GetGlobalRect().HasPoint(GetGlobalMousePosition()) || ShopOpen;
 
     public void Build(Main main, Action<ClientMessage> submit)
@@ -158,6 +163,7 @@ public partial class DefensePanel : Control
         }
         _scroll.ScrollVertical = 0;
         if (index == 1) OpenEquipmentInventory();
+        if (index == 3 && ShopOpen) UpdateTotals();
         if (index == 4) UpdateGuide();
     }
     internal void ShowPowers(bool automatic)
@@ -209,14 +215,27 @@ public partial class DefensePanel : Control
 
     public void Update(WorldSnapshot snapshot, int id, bool online, bool rewardsAvailable)
     {
+        bool shopOpen = ShopOpen;
+        if (ReferenceEquals(snapshot, _lastSnapshot) && id == _lastPlayerId && online == _lastOnline &&
+            rewardsAvailable == _lastRewardsAvailable && shopOpen == _lastShopOpen) return;
+        _lastSnapshot = snapshot; _lastPlayerId = id; _lastOnline = online;
+        _lastRewardsAvailable = rewardsAvailable; _lastShopOpen = shopOpen;
         if (snapshot.Defense is not { } defense) return;
         _state = defense; _ended = snapshot.MatchEnded; _player = defense.Defenders.FirstOrDefault(p => p.PlayerId == id);
         _wizard = snapshot.Players.FirstOrDefault(p => p.Id == id);
         if (_player == null || _wizard == null) return;
         _canRestart = !online || snapshot.LobbyHostId == id;
         var p = _player;
+        var summary = (p.Level, p.Experience, p.NextLevelExperience, p.Gold, p.Kills, p.LivesRemaining);
+        if (_summaryState != summary)
+        {
+            _summaryState = summary;
+            _stats.Text = $"Nivel {p.Level} · {p.Experience}/{p.NextLevelExperience} EXP\nOro {p.Gold} · Bajas {p.Kills} · Vidas {p.LivesRemaining}/2";
+        }
+        UpdateCollectedBonuses();
+        _summary.Size = new(_summary.Size.X, 0);
+        if (!shopOpen) return; // Las tarjetas ocultas se preparan al abrir su vista.
         int earned = Math.Min(4, (int)(p.ActiveSeconds / DefenseRules.RewardInterval));
-        _stats.Text = $"Nivel {p.Level} · {p.Experience}/{p.NextLevelExperience} EXP\nOro {p.Gold} · Bajas {p.Kills} · Vidas {p.LivesRemaining}/2";
         _wallet.Text = $"Oro: {p.Gold} · Nivel {p.Level} · Bajas {p.Kills} · Vidas {p.LivesRemaining}/2";
         _shopStatus.Text = snapshot.MatchEnded ? "PARTIDA TERMINADA" : defense.Paused
             ? "PARTIDA EN PAUSA · el combate y el tiempo se reanudan al cerrar la tienda."
@@ -257,9 +276,17 @@ public partial class DefensePanel : Control
         _restart.Visible = snapshot.MatchEnded; _restart.Disabled = !_canRestart;
         _restart.TooltipText = _canRestart ? "Reinicia toda la progresión temporal." : "Solo el anfitrión puede iniciar otra partida.";
         _equipmentInventory?.UpdateDefenseInventory(p, _wizard, snapshot.MatchEnded);
-        UpdateTotals();
+        if (_sections[3].Visible) UpdateTotals();
         if (_sections[4].Visible) UpdateGuide();
-        _summary.Size = new(_summary.Size.X, 0);
+    }
+
+    private void UpdateCollectedBonuses()
+    {
+        var buffs = _wizard!.Buffs ?? [];
+        if (_lastBonuses != null && _lastBonuses.AsSpan().SequenceEqual(buffs)) return;
+        _lastBonuses = buffs;
+        _bonuses.Text = buffs.Length > 0 ? "MEJORAS RECOGIDAS\n" +
+            string.Join("\n", buffs.Select(b => RelicBuffs.Name(b.Kind) + " ×" + b.Stacks)) : "Sin mejoras recogidas";
     }
 
     private void UpdateTotals()
@@ -298,8 +325,6 @@ public partial class DefensePanel : Control
         for (int i = 0; i < 4; i++) if (p.Passives[i] > 0)
             rows.Add((DefenseRules.PassiveName((DefensePassive)i), $"Nivel {p.Passives[i]}"));
         if (rows.Count == 0) rows.Add(("Sin bonificaciones activas", "0"));
-        var relics = (_wizard.Buffs ?? []).Select(b => RelicBuffs.Name(b.Kind) + " ×" + b.Stacks).ToArray();
-        _bonuses.Text = relics.Length > 0 ? "MEJORAS RECOGIDAS\n" + string.Join("\n", relics) : "Sin mejoras recogidas";
         string stamp = string.Join('|', rows.Select(r => r.Name + r.Value));
         if (stamp == _totalsStamp) return;
         _totalsStamp = stamp;

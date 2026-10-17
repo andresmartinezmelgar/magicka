@@ -8,6 +8,8 @@ public partial class Main
     public AccountClient Accounts { get; } = new();
     private EquipmentPanel? _equipmentPanel;
     private AccountProfilePanel? _accountProfilePanel;
+    private ReleaseUpdateNotice? _updateNotice;
+    public Task<string> CheckForUpdates() => _updateNotice?.CheckNow() ?? Task.FromResult("El actualizador se está preparando.");
     private PlayerEquipmentPanel? _playerEquipmentPanel;
     private bool InspectingEquipment => _defensePanel?.ShopOpen == true || GodotObject.IsInstanceValid(_playerEquipmentPanel) && !_playerEquipmentPanel!.IsQueuedForDeletion();
     private string AccountCache => ProjectSettings.GlobalizePath("user://account-profile.json");

@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.20.0 — Supervivencia en main y búsqueda de actualizaciones
+
+- Supervivencia en Anillos llega a la versión estable: mapa con pasillos y portales, dos vidas, colosos, botín temporal, tienda y premios pendientes cuando no hay conexión.
+- Perfil incorpora «Buscar actualización»: muestra la versión instalada, consulta al pulsar e informa si hay novedades o falla la conexión. La descarga sigue requiriendo elegirla en el aviso.
+- Las cuentas de pruebas también reciben una versión estable más reciente; conservan el acceso a futuras publicaciones experimentales.
+- Reducida la memoria temporal de la IA de minions y evitados los cálculos de la tienda cerrada, conservando estadísticas, comportamientos y funciones del inventario.
+- Incluye las correcciones de Traslación, Meteoro y Reanimar, el inventario que permanece abierto al equipar y el lateral dedicado a las mejoras recogidas. APK con firma permanente y actualizaciones diferenciales verificadas.
+
 ## 0.19.3 — Inventario abierto y hechizos con apuntado
 
 - Equipar o quitar una pieza mantiene abierto el selector y conserva el desplazamiento; la selección se guarda al salir del inventario.

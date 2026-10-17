@@ -1,6 +1,8 @@
 # Canales de actualización
 
-El actualizador utiliza el UID de la sesión de Google. Las dos cuentas declaradas en `ReleaseUpdateChannel` consultan las versiones preliminares publicadas desde ramas distintas de `main`. Las otras cuentas y las sesiones cerradas consultan exclusivamente la última Release estable. Una copia del inventario sin sesión no habilita el canal de pruebas. La sesión de Google sirve para elegir el canal incluso si Firestore no ha conseguido cargar el perfil.
+El actualizador utiliza el UID de la sesión de Google. Las dos cuentas declaradas en `ReleaseUpdateChannel` consultan las versiones preliminares publicadas desde ramas distintas de `main` y las estables, eligiendo la versión más reciente. A igual versión, prefieren la compilación de pruebas más reciente. Las otras cuentas y las sesiones cerradas consultan exclusivamente la última Release estable. Una copia del inventario sin sesión no habilita el canal de pruebas. La sesión de Google sirve para elegir el canal incluso si Firestore no ha conseguido cargar el perfil.
+
+Desde 0.20.0, **Perfil → Buscar actualización** permite consultar manualmente, ver la versión instalada y distinguir falta de novedades de un error de conexión. Comparte la consulta en curso con la comprobación automática, respeta el canal de la cuenta y permite volver a mostrar un aviso descartado. Consultar no inicia la descarga.
 
 Al iniciar sesión, cerrar sesión o cambiar de cuenta se descartan avisos, consultas y descargas pendientes del canal anterior. Se mantiene la elección entre descargar y continuar jugando. La ventana identifica las pruebas por su rama y su número de compilación.
 
@@ -14,4 +16,4 @@ El instalador comprueba el repositorio, el tag, la plataforma y el manifiesto de
 
 ## Primera instalación
 
-La antigua Defensa 0.18.0 tenía el actualizador desactivado: necesita instalar manualmente una APK 0.18.1 o posterior una vez. A partir de ella, el canal depende de la cuenta autenticada. Las APK mantienen el identificador y el certificado habituales, por lo que sustituyen la instalación anterior. Para jugar online, cliente y servidor deben tener protocolos compatibles; el servidor de Defensa sigue distribuyéndose con el paquete Windows de su rama.
+La antigua Defensa 0.18.0 tenía el actualizador desactivado: necesita instalar manualmente una APK 0.18.1 o posterior una vez. A partir de ella, el canal depende de la cuenta autenticada. Las APK mantienen el identificador y el certificado habituales, por lo que sustituyen la instalación anterior. Desde 0.20.0 Supervivencia forma parte de `main`; su servidor se incluye en el paquete Windows estable. Para jugar online, cliente y servidor deben tener protocolos compatibles y actualizarse juntos.

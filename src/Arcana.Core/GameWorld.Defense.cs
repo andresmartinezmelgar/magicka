@@ -143,8 +143,13 @@ public sealed partial class GameWorld
         position = default; return false;
     }
 
-    private bool Empowered(DefenseMinion minion) => _minions.Values.Any(m => m.Kind == MinionKind.Captain &&
-        m.Body.Alive && m.Body.Id != minion.Body.Id && V2.Distance(m.Body.Position, minion.Body.Position) < 8);
+    private bool Empowered(DefenseMinion minion)
+    {
+        foreach (var other in _minions.Values)
+            if (other.Kind == MinionKind.Captain && other.Body.Alive && other.Body.Id != minion.Body.Id &&
+                V2.Distance(other.Body.Position, minion.Body.Position) < 8) return true;
+        return false;
+    }
 
     private void TickMinion(DefenseMinion minion, float dt)
     {
@@ -161,12 +166,18 @@ public sealed partial class GameWorld
             minion.SpeedClock = 8 + (float)_random.NextDouble() * 14;
             if (minion.Kind != MinionKind.Boss && _random.Next(100) < 35) minion.SpeedBoost = 2 + (float)_random.NextDouble() * 2;
         }
-        p.Equipment = p.Equipment with
+        float power = minion.Strength * (minion.Kind == MinionKind.Mage ? DefenseRules.MagePower : 1) * (Empowered(minion) ? 1.35f : 1);
+        float speed = DefenseRules.MinionSpeed(minion.Kind, _defenseDifficulty) * (minion.SpeedBoost > 0 ? DefenseRules.SpeedBoostMultiplier : 1);
+        if (p.Equipment.Power != power || p.Equipment.Speed != speed)
+            p.Equipment = p.Equipment with { Power = power, Speed = speed };
+        Wizard? target = null;
+        float nearest = float.PositiveInfinity;
+        foreach (var defender in _players.Values)
         {
-            Power = minion.Strength * (minion.Kind == MinionKind.Mage ? DefenseRules.MagePower : 1) * (Empowered(minion) ? 1.35f : 1),
-            Speed = DefenseRules.MinionSpeed(minion.Kind, _defenseDifficulty) * (minion.SpeedBoost > 0 ? DefenseRules.SpeedBoostMultiplier : 1)
-        };
-        var target = _players.Values.Where(d => d.Alive).MinBy(d => (d.Position - p.Position).LengthSquared);
+            if (!defender.Alive) continue;
+            float distance = (defender.Position - p.Position).LengthSquared;
+            if (distance < nearest) { nearest = distance; target = defender; }
+        }
         if (target == null) { p.Input.MoveX = p.Input.MoveY = 0; return; }
         V2 goal = target.Position;
         float range = DefenseRules.MinionRange(minion.Kind);

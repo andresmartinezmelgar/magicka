@@ -374,10 +374,12 @@ internal static class DefenseTests
             var player = world.AddPlayer("Defensor " + i)!;
             for (int item = 0; item < DefenseRules.InventoryLimit; item++)
                 Invoke(world, "GrantDefenseItem", player, EquipmentCatalogue.Generate(new Random(i * 100 + item),
-                    tier: ItemTier.Mythic, slot: (EquipmentSlot)(item % 4)));
+                    tier: ItemTier.Mythic, slot: (EquipmentSlot)(item % 4)) with
+                    { Id = $"{i * 100 + item + 1:x32}", CreatedAt = DateTimeOffset.UnixEpoch });
         }
         Set(world, "_defenseElapsed", 810.0); Set(world, "_defenseDifficulty", 10); Set(world, "<Tick>k__BackingField", 48600L);
         for (int i = 0; i < DefenseRules.MaxMinions; i++) Enemy(world);
+        long simulationAllocationStart = GC.GetAllocatedBytesForCurrentThread();
         var watch = System.Diagnostics.Stopwatch.StartNew();
         for (int tick = 0; tick < 1200; tick++)
         {
@@ -385,16 +387,24 @@ internal static class DefenseTests
             world.Step();
         }
         double simulationMs = watch.Elapsed.TotalMilliseconds / 1200;
+        double allocatedBytesPerStep = (GC.GetAllocatedBytesForCurrentThread() - simulationAllocationStart) / 1200.0;
         var message = new ServerMessage { Type = "snapshot", Snapshot = DefenseVisibility.ForPlayer(world.Snapshot(), world.Players.Keys.First()) };
         SnapshotValidation.Check(message.Snapshot);
         Check(message.Snapshot.Defense!.Minions.Length == 64 && world.Players.Count == 4, "La carga no mantuvo 64 minions y cuatro jugadores.");
         int raw = Protocol.SerializeUtf8(message).Length;
         Check(raw < Protocol.MaxSnapshotBytes, "El peor inventario superó el límite del protocolo.");
         watch.Restart(); int compressed = 0;
+        long encodingAllocationStart = GC.GetAllocatedBytesForCurrentThread();
         for (int i = 0; i < 60; i++) compressed = Protocol.CompressSnapshotPayload(SnapshotDelta.Encode(message, baseline)).Length;
         double encodingMs = watch.Elapsed.TotalMilliseconds / 60;
+        double allocatedBytesPerRecipientFrame = (GC.GetAllocatedBytesForCurrentThread() - encodingAllocationStart) / 60.0;
+        var state = world.Snapshot();
+        var normalized = state with { Defense = state.Defense! with { Defenders = state.Defense.Defenders.Select(p => p with
+            { Items = p.Items.Select((item, index) => item with { Item = item.Item with { Id = $"item-{p.PlayerId}-{index}" } }).ToArray() }).ToArray() } };
+        string stateFingerprint = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Protocol.SerializeUtf8(normalized)));
         var result = new { defenders = 4, minions = 64, temporaryItems = 96, simulatedTicks = 1200,
             millisecondsPerStep = simulationMs, millisecondsPerRecipientFrame = encodingMs,
+            allocatedBytesPerStep, allocatedBytesPerRecipientFrame, stateFingerprint,
             rawBytes = raw, wireBytesPerFrame = compressed, kilobytesPerSecondAt20Hz = compressed * 20.0 / 1024,
             note = "Medición del entorno de pruebas; requiere medición adicional en Raspberry Pi y Android reales." };
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
