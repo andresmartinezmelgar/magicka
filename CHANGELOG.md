@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.20.1 — Supervivencia estable y actualización con tiempo límite
+
+- Supervivencia en Anillos integrada en main, con dos vidas, colosos, portales, tienda e inventario temporal y premios pendientes.
+- Perfil → Buscar actualización permite consultar las novedades y descargar desde el aviso; la búsqueda termina con un error de conexión si la respuesta se bloquea, también durante la lectura.
+- Las dos cuentas de pruebas reciben versiones estables posteriores y mantienen el acceso a futuras preliminares.
+- La IA consume un 66 % menos de memoria temporal en la prueba de horda; el HUD evita recalcular la tienda cerrada y conserva todas sus funciones.
+- Incluye el inventario abierto al equipar, el lateral con las mejoras recogidas y las correcciones de Traslación, Meteoro y Reanimar. APK con firma permanente y deltas verificados para Android y Windows.
+
 ## 0.20.0 — Supervivencia en main y búsqueda de actualizaciones
 
 - Supervivencia en Anillos llega a la versión estable: mapa con pasillos y portales, dos vidas, colosos, botín temporal, tienda y premios pendientes cuando no hay conexión.

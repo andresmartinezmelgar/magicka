@@ -1,6 +1,6 @@
 # Supervivencia en Anillos
 
-Versión estable **0.20.0**, protocolo **25**, integrada en `main`. Se publican APK directas, paquetes Windows y deltas de hasta tres versiones estables anteriores. Las dos cuentas autorizadas conservan el [canal de pruebas](CANALES-ACTUALIZACION.md); el resto recibe el canal estable. Para jugar online con todas las correcciones, actualiza también el servidor incluido en el paquete Windows a 0.20.0.
+Versión estable **0.20.1**, protocolo **25**, integrada en `main`. Se publican APK directas, paquetes Windows y deltas de hasta tres versiones estables anteriores. Las dos cuentas autorizadas conservan el [canal de pruebas](CANALES-ACTUALIZACION.md); el resto recibe el canal estable. Para jugar online con todas las correcciones, actualiza también el servidor incluido en el paquete Windows a 0.20.1.
 
 ## Partida y vidas
 

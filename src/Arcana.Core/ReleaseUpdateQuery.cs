@@ -14,16 +14,18 @@ public static class ReleaseUpdateQuery
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(http.Timeout == Timeout.InfiniteTimeSpan ? TimeSpan.FromSeconds(12) : http.Timeout);
             bool preview = ReleaseUpdateChannel.PreviewAllowed(identity, identity.Length > 0);
             using var request = new HttpRequestMessage(HttpMethod.Get,
                 preview ? ReleaseUpdateChannel.PreviewMetadata : ReleaseUpdateChannel.StableMetadata);
             request.Headers.UserAgent.ParseAdd("ArcanaArena-Updater/2.3");
             request.Headers.Accept.ParseAdd("application/vnd.github+json");
             request.Headers.CacheControl = new() { NoCache = true };
-            using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+            using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode) return new(false, null);
             using var document = JsonDocument.Parse(await RoomBrowser.ReadBoundedAsync(response.Content,
-                preview ? 1024 * 1024 : 256 * 1024, cancellationToken).ConfigureAwait(false));
+                preview ? 1024 * 1024 : 256 * 1024, timeout.Token).ConfigureAwait(false));
             var root = document.RootElement;
             if (preview ? root.ValueKind != JsonValueKind.Array : root.ValueKind != JsonValueKind.Object ||
                 !root.TryGetProperty("tag_name", out var tag) || tag.ValueKind != JsonValueKind.String ||

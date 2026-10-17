@@ -8,6 +8,19 @@ internal static class ReleaseUpdateQueryTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token) => send(request, token);
     }
+    private sealed class StalledBody : MemoryStream
+    {
+        public bool ReadStarted, ReadCanceled;
+        public override bool CanSeek => false;
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken token = default)
+        {
+            ReadStarted = true;
+            try { await Task.Delay(Timeout.InfiniteTimeSpan, token); return 0; }
+            catch (OperationCanceledException) { ReadCanceled = true; throw; }
+        }
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken token) =>
+            ReadAsync(buffer.AsMemory(offset, count), token).AsTask();
+    }
     private static void Check(bool value, string message) { if (!value) throw new Exception(message); }
     private static HttpResponseMessage Response(object metadata) => new(HttpStatusCode.OK)
         { Content = new StringContent(JsonSerializer.Serialize(metadata)) };
@@ -64,6 +77,14 @@ internal static class ReleaseUpdateQueryTests
             bool canceled = false;
             try { Query(offline, token: stop.Token); } catch (OperationCanceledException) { canceled = true; }
             Check(canceled, "Una consulta cancelada continuó operando.");
+        });
+        test("Buscar actualización: una respuesta bloqueada tras sus cabeceras tiene un límite de tiempo", () =>
+        {
+            var body = new StalledBody();
+            using var http = new HttpClient(new Handler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                { Content = new StreamContent(body) }))) { Timeout = TimeSpan.FromMilliseconds(100) };
+            Check(!Query(http).Succeeded && body.ReadStarted && body.ReadCanceled,
+                "La lectura quedó bloqueada, no se canceló o se presentó como ausencia de novedades.");
         });
     }
 }
