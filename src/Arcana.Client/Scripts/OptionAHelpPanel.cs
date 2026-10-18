@@ -167,7 +167,6 @@ public partial class OptionAHelpPanel : Control
 
     private void ControlsPage()
     {
-        _body.AddChild(Ui.Button("Configurar controles táctiles", _main.OpenTouchSettings));
         string[,] rows = Ui.IsMobile ? new string[,]
         {
             { "Moverse", "Desliza el joystick izquierdo" },
@@ -200,6 +199,7 @@ public partial class OptionAHelpPanel : Control
         }
         var note = Ui.Label("FFF: fuego  ·  E: escudo  ·  QF: vapor  ·  QR: hielo  ·  DDF: roca incendiaria", 15, Ui.Muted);
         note.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _body.AddChild(Ui.Button("Configurar controles táctiles", _main.OpenTouchSettings));
         _body.AddChild(note);
     }
 
