@@ -14,7 +14,7 @@ public partial class Main
         StopInput();
         _touchSettings ??= (DevicePreferences.Read<TouchSettings>("touch-controls") ?? new()).Normalize();
         _controlsSettings = new MobileSettingsPanel(); _ui.AddChild(_controlsSettings);
-        _controlsSettings.Build(_touchSettings);
+        _controlsSettings.Build(_touchSettings, _snapshot, _localId, AppendEditorTouchAreas);
         _controlsSettings.Saved += settings => { _touchSettings = settings; _touch?.Configure(settings); CloseTouchSettings(); };
         _controlsSettings.Canceled += CloseTouchSettings;
         UpdateTouchVisibility();

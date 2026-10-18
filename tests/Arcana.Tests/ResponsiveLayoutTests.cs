@@ -4,6 +4,7 @@ static class ResponsiveLayoutTests
 {
     public static void Run(Action<string, Action> test)
     {
+        ScreenPlacementTests.Run(test);
         test("Responsive: escritorio distribuye cuatro tarjetas sin desbordar", () =>
         {
             if (ResponsiveLayout.Columns(1200, 185, 4, 16) != 4)

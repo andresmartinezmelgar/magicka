@@ -107,6 +107,7 @@ public partial class Main
                     }
                     for (int a = 0; a < rectangles.Length; a++) for (int b = a + 1; b < rectangles.Length; b++)
                         Check(!rectangles[a].Intersects(rectangles[b]), $"Botones táctiles superpuestos: {a}, {b}.");
+                    VerifyTouchClearance(_touch);
                     var open = (Button)panel.FindChild("DefenseShopButton", true, false);
                     Check(!_touch.Touch(99, open.GetGlobalRect().GetCenter(), true), "El joystick interceptó el botón de tienda.");
                 }

@@ -492,6 +492,15 @@ jobs:
             grep -q 'MOBILE_MENU_LAYOUT_OK' "$RUNNER_TEMP/mobile-menu-$viewport.log"
             ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/mobile-menu-$viewport.log"
           done
+      - name: Verificar márgenes táctiles y minimapa en los siete mapas
+        run: |
+          set -euo pipefail
+          for viewport in 1440x720 1024x640 720x540 640x450; do
+            export XDG_DATA_HOME="$RUNNER_TEMP/touch-layout-$viewport"
+            timeout 90s "$ARCANA_GODOT" --headless --audio-driver Dummy --path src/Arcana.Client -- --touch-layout-smoke --mobile "--smoke-viewport=$viewport" 2>&1 | tee "$RUNNER_TEMP/touch-layout-$viewport.log"
+            grep -q 'TOUCH_LAYOUT_SMOKE_OK' "$RUNNER_TEMP/touch-layout-$viewport.log"
+            ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/touch-layout-$viewport.log"
+          done
       - name: Verificar ventana de actualización y botones en pantalla
         run: |
           set -o pipefail

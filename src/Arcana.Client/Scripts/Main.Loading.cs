@@ -101,6 +101,7 @@ public partial class Main
         _ui.MoveChild(_aimMarker, -1);
         BuildTouchControls(); _touch?.Update(snapshot.Players.FirstOrDefault(p => p.Id == _localId));
         BuildDefenseControls(snapshot);
+        UpdateTouchLayout();
         _ui.MoveChild(_help, -1); _ui.MoveChild(_pause, -1);
     }
 }

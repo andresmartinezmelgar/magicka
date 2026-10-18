@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.25.2 — Controles y minimapa sin superposiciones
+
+- Margen mínimo de ocho píxeles de interfaz entre botones, joysticks, minimapa y zonas de información, además del borde de pantalla. Al arrastrar un control sobre otro elemento se ajusta al hueco libre más cercano sin desplazar el resto.
+- Las posiciones guardadas se corrigen al cargar; cambiar tamaño, separación, modo zurdo o resolución vuelve a comprobar el espacio. Los paneles se escalan completos para que el área pulsable coincida con lo que se dibuja.
+- El minimapa busca una posición libre y mantiene su zona protegida en el editor. La vista de edición muestra el HUD y reserva también vida, conexión/FPS, selección, avisos y los laterales de cada modo.
+- El joystick flotante conserva el origen del gesto y coloca su dibujo en un hueco libre. Sus rótulos quedan dentro de la zona reservada y tocar un panel informativo no inicia movimiento.
+- Vida y clasificación se adaptan a pantallas estrechas. El Laboratorio conserva sus controles en una columna con desplazamiento, sin que el selector de hechizos ensanche el panel; avisos y bonificaciones tienen una altura limitada.
+- Pruebas de geometría y entradas en los siete mapas, tamaños extremos, modo zurdo, posiciones apiladas, arrastres sobre elementos protegidos y pantallas de 640×450 a 1440×720. La distribución se recalcula al cambiar la geometría, no en cada dibujo.
+
 ## 0.25.1 — Correcciones de controles personalizados y ventas
 
 - Los joysticks de movimiento y lanzamiento responden en su posición personalizada, aunque estén en la mitad contraria de la pantalla. Se respeta el modo zurdo y los dedos conservan su función al mover y apuntar simultáneamente.

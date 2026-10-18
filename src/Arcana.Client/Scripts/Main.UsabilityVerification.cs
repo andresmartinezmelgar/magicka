@@ -121,6 +121,8 @@ public partial class Main
                     Check(_controlsSettings.Configuration.Positions.ContainsKey("TouchSelf"), "No se conserva la posición normalizada.");
                     Check(GetViewport().GetVisibleRect().Encloses(moved.GetGlobalRect()), "El editor deja un botón fuera de pantalla.");
                     var preview = (MobileControls)_controlsSettings.FindChild("MobileControls", true, false);
+                    VerifyTouchClearance(preview);
+                    VerifyTouchLayoutVariants(preview);
                     Check(preview.Settings.Positions.ContainsKey("Move") && preview.Settings.Positions.ContainsKey("Aim") && preview.Movement == Vector2.Zero,
                         "El editor no mueve ambos joysticks o genera movimiento de combate: " + string.Join(",", preview.Settings.Positions.Keys) + " / " + preview.Movement + " / " + ((Control)_controlsSettings.FindChild("TouchEditorToolbar", true, false)).GetGlobalRect());
                     CaptureUsability("03-editor-tactil");

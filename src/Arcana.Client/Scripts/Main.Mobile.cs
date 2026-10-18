@@ -18,6 +18,7 @@ public partial class Main
             string? requested = OS.GetCmdlineUserArgs().FirstOrDefault(a =>
                 a.StartsWith("--smoke-viewport=", StringComparison.Ordinal));
             if (requested != null && OS.GetCmdlineUserArgs().Any(a => a is "--defense-smoke" or "--mobile-menu-smoke"
+                or "--touch-layout-smoke" or "--practice-smoke"
                 or "--aim-marker-smoke"
                 or "--shop-smoke" or "--sale-smoke" or "--usability-smoke"
                 or "--equipment-smoke" or "--preview-equipment-picker"

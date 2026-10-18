@@ -33,6 +33,7 @@ public partial class ClientVerification
                 case 10:
                     Require(CheckMobilePalette(), "La paleta móvil no distingue los elementos o pierde contraste.");
                     Require(CheckMobileArea(), "El área izquierda no conserva el origen, los dedos o los botones.");
+                    Main.VerifyTouchClearance(touch);
                     ReadyForSpell();
                     Require(width >= 1440 && height >= 720, "El viewport móvil no respeta la escala horizontal.");
                     float controlScale = Math.Min(1, height / 720f);
@@ -230,7 +231,11 @@ public partial class ClientVerification
         touch.ActionRequested += Observe;
         try
         {
-            foreach (var origin in new[] { Vector2.Zero, new Vector2(40, 220), new Vector2(touch.Size.X / 2 - 2, 180), new Vector2(24, touch.Size.Y - 240) })
+            foreach (var area in touch.HudAreas)
+            {
+                Require(!touch.Touch(20, area.Bounds.GetCenter(), true) && touch.Movement.IsZeroApprox(), "un panel informativo activa movimiento.");
+            }
+            foreach (var origin in new[] { Vector2.Zero, new Vector2(touch.Size.X * .3f, 220), new Vector2(touch.Size.X / 2 - 2, 180), new Vector2(350, touch.Size.Y - 240) })
             {
                 touch.Reset();
                 Require(touch.Touch(20, global + origin, true) && touch.Movement.IsZeroApprox(), "el contacto inicial debe fijar el centro sin mover.");
@@ -253,10 +258,10 @@ public partial class ClientVerification
                 "el gesto de apuntado roba el botón Sobre mí.");
             touch.Touch(22, Vector2.Zero, false);
             Require(!touch.Touch(23, global + new Vector2(touch.Size.X * 0.75f, 120), true), "el lado derecho vacío activa movimiento.");
-            Require(touch.Touch(24, global + new Vector2(50, 250), true), "no admite un gesto nuevo después de cancelar.");
-            touch.Drag(24, global + new Vector2(50, 290));
+            Require(touch.Touch(24, global + new Vector2(350, 250), true), "no admite un gesto nuevo después de cancelar.");
+            touch.Drag(24, global + new Vector2(350, 290));
             touch.Reset();
-            Require(touch.Movement.IsZeroApprox() && !touch.Drag(24, global + new Vector2(50, 330)), "Reset conserva un dedo anterior.");
+            Require(touch.Movement.IsZeroApprox() && !touch.Drag(24, global + new Vector2(350, 330)), "Reset conserva un dedo anterior.");
             GD.Print("MOBILE_AREA_OK: origen flotante, mitad izquierda, intensidad, límite circular, propiedad de cada dedo, cancelación y prioridad de botones");
             return true;
         }

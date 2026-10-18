@@ -136,6 +136,7 @@ public partial class Main : Node
         if (arguments.Contains("--shop-smoke")) StartShopSmoke(arguments);
         if (arguments.Contains("--sale-smoke")) StartSaleSmoke(arguments);
         if (arguments.Contains("--usability-smoke")) StartUsabilitySmoke(arguments);
+        if (arguments.Contains("--touch-layout-smoke")) _ = RunTouchLayoutSmoke(arguments);
         if (RenderProfiler.Requested(arguments))
         {
             if (_verification != null) throw new ArgumentException("El perfilado y las verificaciones se ejecutan por separado.");
@@ -415,6 +416,7 @@ public partial class Main : Node
             _waitingPanel?.Update(latest, _localId, _connection?.Server?.RewardsAvailable == true);
             if (_practicePanel != null)
             { _practicePanel.Visible = !_paused && !_help.Visible; _practicePanel.Update(_aim); }
+            UpdateTouchLayout();
             _touch?.Update(latest.Players.FirstOrDefault(p => p.Id == _localId), latest);
             UpdateAimMarker(latest);
             _verification?.AfterRender(latest);

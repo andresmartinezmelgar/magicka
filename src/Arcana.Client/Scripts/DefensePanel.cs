@@ -207,7 +207,7 @@ public partial class DefensePanel : Control
         float scale = Math.Min(1, size.Y / 720f);
         _summary.Scale = Vector2.One * scale;
         _summary.Size = new(296, 0);
-        _summary.Position = new(22 * scale, 200 * scale);
+        _summary.Position = new(22 * scale, 194 * scale + ScreenPlacement.MinimumGap);
         _window.CustomMinimumSize = new(Math.Min(790, size.X - 28), Math.Min(700, size.Y - 28));
         _window.Size = _window.CustomMinimumSize;
         _navigation.Columns = size.X < 660 ? 3 : 5;

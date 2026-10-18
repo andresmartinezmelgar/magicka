@@ -12,15 +12,27 @@ public partial class MobileSettingsPanel : Control
     private VBoxContainer _sliders = null!;
     private Label _status = null!;
     private MobileControls _preview = null!;
+    private Hud _editorHud = null!;
+    private Action<List<TouchHudArea>>? _modeAreas;
+    private readonly List<TouchHudArea> _areas = [];
+    private readonly List<Control> _modePreviews = [];
     public event Action<TouchSettings>? Saved;
     public event Action? Canceled;
     internal TouchSettings Configuration => _preview.Visible ? _preview.Settings : _settings;
 
-    public void Build(TouchSettings settings)
+    internal void Build(TouchSettings settings, WorldSnapshot? state = null, int playerId = 0, Action<List<TouchHudArea>>? modeAreas = null)
     {
         Name = "MobileSettings"; Theme = Ui.Theme(); Ui.Full(this); MouseFilter = MouseFilterEnum.Stop;
         _settings = settings.Normalize();
         var backdrop = new ColorRect { Color = new Color("081424") }; AddChild(backdrop); Ui.Full(backdrop);
+        _modeAreas = modeAreas;
+        _editorHud = new Hud { MobileLayout = true, Visible = false }; AddChild(_editorHud); _editorHud.Build();
+        if (state == null)
+        {
+            var sample = new GameWorld(new WorldOptions { Mode = GameMode.Arena });
+            playerId = sample.AddPlayer("Vista de controles", 0)!.Id; state = sample.Snapshot();
+        }
+        _editorHud.Update(state, playerId, "Vista de controles", 0); _editorHud.HideEditorPlayer();
         _preview = new MobileControls { EditorMode = true, Visible = false }; AddChild(_preview); _preview.Configure(_settings);
         var margin = new MarginContainer(); _form = margin; AddChild(margin); Ui.Full(margin);
         foreach (string side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, 16);
@@ -42,13 +54,22 @@ public partial class MobileSettingsPanel : Control
         var bar = new PanelContainer { Name = "TouchEditorToolbar", Position = new(12, 12), Size = new(550, 100), Visible = false }; _editorBar = bar; AddChild(bar);
         bar.MinimumSizeChanged += () => Callable.From(FitEditorToolbar).CallDeferred();
         var tools = new VBoxContainer(); bar.AddChild(tools);
-        var instruction = Ui.Label("Arrastra cada control hasta su posición", 16, Ui.Gold);
+        var instruction = Ui.Label("Arrastra los controles. Margen mínimo: 8 px. Las zonas de información están protegidas.", 16, Ui.Gold);
         instruction.AutowrapMode = TextServer.AutowrapMode.WordSmart; tools.AddChild(instruction);
         var actions = new HBoxContainer(); tools.AddChild(actions);
         var done = Ui.Button("Listo", FinishEditing); done.Name = "TouchEditorDone"; actions.AddChild(done);
         actions.AddChild(Ui.Button("Deshacer posiciones", () => { _settings = _beforeEdit; FinishEditing(false); }));
         foreach (var button in actions.GetChildren().OfType<Button>())
-        { button.CustomMinimumSize = new(0, 44); button.AddThemeFontSizeOverride("font_size", 16); }
+        {
+            button.CustomMinimumSize = new(0, 44); button.AddThemeFontSizeOverride("font_size", 16);
+            foreach (string stateName in new[] { "normal", "hover", "pressed" })
+            {
+                var style = Ui.Panel(new("19283d"), 8);
+                style.ContentMarginLeft = style.ContentMarginRight = 8;
+                style.ContentMarginTop = style.ContentMarginBottom = 8;
+                button.AddThemeStyleboxOverride(stateName, style);
+            }
+        }
         _preview.PointerBlocked = point => _editorBar.Visible && _editorBar.GetGlobalRect().HasPoint(point);
     }
     private void BuildFields()
@@ -72,10 +93,11 @@ public partial class MobileSettingsPanel : Control
     private void StartEditing()
     {
         _beforeEdit = _settings.Normalize(); _preview.Configure(_settings);
-        float width = Math.Min(550, GetViewport().GetVisibleRect().Size.X * .53f);
-        _editorBar.Size = new(width, 100);
-        _editorBar.Position = new(_settings.LeftHanded ? GetViewport().GetVisibleRect().Size.X - width - 12 : 12, 12);
-        _form.Hide(); _preview.Show(); _editorBar.Show();
+        float s = Math.Min(1, GetViewport().GetVisibleRect().Size.Y / 720f);
+        _editorBar.Scale = Vector2.One * s; _editorBar.Size = new(310, 100);
+        _editorBar.Position = new(22 * s, 18 * s);
+        _form.Hide(); _editorHud.Show(); _preview.Show(); _editorBar.Show();
+        UpdateEditorLayout();
     }
     private void FinishEditing() => FinishEditing(true);
     private void FitEditorToolbar()
@@ -86,7 +108,33 @@ public partial class MobileSettingsPanel : Control
     private void FinishEditing(bool apply)
     {
         if (apply) _settings = _preview.Settings.Normalize();
-        _preview.Hide(); _editorBar.Hide(); _form.Show();
+        _preview.Hide(); _editorHud.Hide(); _editorBar.Hide(); _form.Show();
+        foreach (var preview in _modePreviews) preview.Hide();
+    }
+    public override void _Process(double delta) { if (_preview.Visible) UpdateEditorLayout(); }
+    private void UpdateEditorLayout()
+    {
+        _areas.Clear(); _modeAreas?.Invoke(_areas);
+        int index = 0;
+        foreach (var area in _areas)
+        {
+            if (index == _modePreviews.Count)
+            {
+                var panel = new Panel { MouseFilter = MouseFilterEnum.Ignore, ClipContents = true }; AddChild(panel); MoveChild(panel, _preview.GetIndex());
+                panel.AddThemeStyleboxOverride("panel", Ui.Panel());
+                var label = Ui.Label("", 13, Ui.Muted); label.HorizontalAlignment = HorizontalAlignment.Center;
+                label.VerticalAlignment = VerticalAlignment.Center;
+                label.AutowrapMode = TextServer.AutowrapMode.WordSmart; panel.AddChild(label); Ui.Full(label); _modePreviews.Add(panel);
+            }
+            var placeholder = _modePreviews[index++]; placeholder.Show();
+            placeholder.Position = area.Bounds.Position; placeholder.Size = area.Bounds.Size;
+            var text = (Label)placeholder.GetChild(0);
+            text.Text = area.Name;
+            text.AddThemeFontSizeOverride("font_size", Math.Max(10, (int)(16 * Math.Min(1, Size.Y / 720f))));
+        }
+        // Las herramientas sustituyen a la ficha de vida en esta vista y también impiden arrastres por debajo.
+        _areas.Add(new("Herramientas", _editorBar.GetGlobalRect()));
+        TouchHudLayout.Apply(_preview, _editorHud, _areas);
     }
     private void Save()
     {

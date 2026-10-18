@@ -6,6 +6,7 @@ namespace Arcana.Client;
 public partial class Hud : Control
 {
     internal const float GameplayScale = 0.75f;
+    internal bool MobileLayout { get; set; } = Ui.IsMobile;
     private Label _name = null!, _status = null!, _match = null!, _feed = null!, _banner = null!, _server = null!;
     private ProgressBar _health = null!, _shield = null!, _energy = null!, _charge = null!;
     private Label _healthText = null!, _shieldText = null!, _energyText = null!;
@@ -16,7 +17,7 @@ public partial class Hud : Control
     private Label _actionNotice = null!;
     private float _actionNoticeSeconds;
     internal string ActionNoticeForSmoke => _actionNotice.Text;
-    public void ActionNotice(string text) { _actionNotice.Text = text; _actionNoticeSeconds = 4; _actionNotice.Visible = true; }
+    public void ActionNotice(string text) { _actionNotice.Text = text; _actionNotice.TooltipText = text; _actionNoticeSeconds = 4; _actionNotice.Visible = true; }
     private HBoxContainer _teams = null!;
     private Label _blueScore = null!, _redScore = null!;
     private StyleBoxFlat _shieldFill = null!, _shieldTrack = null!;
@@ -64,7 +65,7 @@ public partial class Hud : Control
         var controls = Ui.Label("F1  Controles     TAB  Clasificación     ESC  Menú", 14, Ui.Muted);
         _controls = controls;
         controls.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft); controls.Position = new(0, 24); controls.Size = new(420, 24); AddChild(controls);
-        controls.Visible = !Ui.IsMobile;
+        controls.Visible = !MobileLayout;
         var topCenter = new HBoxContainer { Name = "HudTopCenter", MouseFilter = MouseFilterEnum.Ignore };
         topCenter.SetAnchorsAndOffsetsPreset(LayoutPreset.TopWide);
         topCenter.OffsetTop = 12;
@@ -78,6 +79,7 @@ public partial class Hud : Control
         topCenter.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore });
         _match = Ui.Label("", 24); _match.HorizontalAlignment = HorizontalAlignment.Center;
         _match.CustomMinimumSize = new Vector2(0, 42);
+        _match.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _topScore.AddChild(_match);
         _teams = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center, MouseFilter = MouseFilterEnum.Ignore,
             CustomMinimumSize = new Vector2(0, 42) };
@@ -95,7 +97,7 @@ public partial class Hud : Control
         playerPanel.Position = new Vector2(24, 18) / GameplayScale; playerPanel.Scale = Vector2.One / GameplayScale; AddChild(playerPanel);
         _playerPanel = playerPanel;
         var info = new VBoxContainer(); info.AddThemeConstantOverride("separation", 7); playerPanel.AddChild(info);
-        _name = Ui.Label("", 19); info.AddChild(_name);
+        _name = Ui.Label("", 19); _name.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis; info.AddChild(_name);
         _affinity = Ui.Label("", 13); _affinity.Name = "WizardAffinity"; info.AddChild(_affinity);
         _health = Bar(Ui.Health, 1000, 33); _health.Name = "HealthBar";
         info.AddChild(Meter(_health, "HealthValue", out _healthText));
@@ -103,7 +105,7 @@ public partial class Hud : Control
         _shieldFill = (StyleBoxFlat)_shield.GetThemeStylebox("fill");
         _shieldTrack = (StyleBoxFlat)_shield.GetThemeStylebox("background");
         info.AddChild(Meter(_shield, "ShieldValue", out _shieldText));
-        _energy = Bar(Ui.Energy, 100, Ui.IsMobile ? 26 : 20); info.AddChild(Meter(_energy, "EnergyValue", out _energyText, 12));
+        _energy = Bar(Ui.Energy, 100, MobileLayout ? 26 : 20); info.AddChild(Meter(_energy, "EnergyValue", out _energyText, 12));
         _status = Ui.Label("", 13, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; info.AddChild(_status);
         var spells = new PanelContainer { Name = "SpellControlsPanel", CustomMinimumSize = new(690, 0), MouseFilter = MouseFilterEnum.Ignore };
         _buffs = Ui.Label("", 13, Ui.Gold); _buffs.Name = "ActiveBuffs"; _buffs.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -128,20 +130,20 @@ public partial class Hud : Control
             var label = Ui.Label("—", 21, Ui.Muted); row.AddChild(label); _selected.Add(label);
         }
         var hint = Ui.Label("Derecho: lanzar\nCentral: sobre ti · Mayús + derecho: área", 14, Ui.Muted); first.AddChild(hint);
-        hint.Visible = !Ui.IsMobile;
+        hint.Visible = !MobileLayout;
         _charge = Bar(Ui.Gold, 1, 5); _charge.Name = "ChargeBar"; stack.AddChild(_charge);
         var elements = new HBoxContainer(); elements.AddThemeConstantOverride("separation", 7); stack.AddChild(elements);
         foreach (var e in Enum.GetValues<Element>())
         {
             elements.AddChild(Ui.ElementTile(e, true));
         }
-        elements.Visible = !Ui.IsMobile;
+        elements.Visible = !MobileLayout;
         var magicks = new HBoxContainer(); magicks.AddThemeConstantOverride("separation", 12); stack.AddChild(magicks);
         foreach (string text in SpellBalance.Magicks.Select((m, i) => $"{i + 1} {m.Name}"))
         {
             var label = Ui.Label(text, 13, Ui.Gold); label.SizeFlagsHorizontal = SizeFlags.ExpandFill; magicks.AddChild(label); _magicks.Add(label);
         }
-        magicks.Visible = !Ui.IsMobile;
+        magicks.Visible = !MobileLayout;
         _feed = Ui.Label("", 15); _feed.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft);
         _feed.Position = new(0, 245); _feed.Size = new(420, 100); _feed.HorizontalAlignment = HorizontalAlignment.Right; AddChild(_feed);
         var mapPanel = new PanelContainer { Name = "MiniMapPanel", CustomMinimumSize = new(205, 151), MouseFilter = MouseFilterEnum.Ignore };
@@ -204,7 +206,7 @@ public partial class Hud : Control
         var equipmentButton = Ui.Button("Ver bonos de los magos", () => EquipmentRequested?.Invoke());
         equipmentButton.Name = "InspectEquipmentButton"; scoreBox.AddChild(equipmentButton);
         scoreBox.MoveChild(equipmentButton, 0);
-        if (Ui.IsMobile)
+        if (MobileLayout)
         {
             _server.Visible = _status.Visible = _affinity.Visible = false;
             playerPanel.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft);
@@ -240,19 +242,19 @@ public partial class Hud : Control
         _topScore.CustomMinimumSize = new Vector2(Math.Min(690, available), 0);
         _objective.CustomMinimumSize = new Vector2(0, Size.X < 800 ? 76 : 46);
         _server.Size = new(Math.Max(70, Math.Min(300, (Size.X - 60) / 3)), 58);
-        _controls.Visible = !Ui.IsMobile && Size.X >= 1250;
+        _controls.Visible = !MobileLayout && Size.X >= 1250;
         _controls.Position = new(Size.X - 440, 24);
         float feedWidth = Math.Min(420, available);
         _feed.Position = new(Size.X - feedWidth - 30, Math.Min(245, Math.Max(80, Size.Y - 110)));
         _feed.Size = new(feedWidth, 100);
-        _mapPanel.Visible = Size.X >= (Ui.IsMobile ? 850 : 700);
-        _mapPanel.Position = Ui.IsMobile ? new(Size.X - 235, 136) : new(Size.X - 235, 72);
-        float spellsWidth = Math.Min(Ui.IsMobile ? 320 : 690, Math.Max(100, Size.X - 36));
+        _mapPanel.Visible = Size.X >= (MobileLayout ? 850 : 700);
+        _mapPanel.Position = MobileLayout ? new(Size.X - 235, 136) : new(Size.X - 235, 72);
+        float spellsWidth = Math.Min(MobileLayout ? 320 : 690, Math.Max(100, Size.X - 36));
         float spellsHeight = Math.Max(54, _spellsPanel.GetCombinedMinimumSize().Y);
         float touchScale = Math.Min(1, Size.Y * GameplayScale / 720f);
-        float spellsBottom = Ui.IsMobile ? 100 * touchScale / GameplayScale : 26 / GameplayScale;
+        float spellsBottom = MobileLayout ? 100 * touchScale / GameplayScale : 26 / GameplayScale;
         float spellsLeft = (Size.X - spellsWidth) / 2;
-        if (!Ui.IsMobile && Size.X >= 1250)
+        if (!MobileLayout && Size.X >= 1250)
             spellsLeft = Math.Max(spellsLeft, 345 / GameplayScale);
         float spellsTop = Math.Max(120, Size.Y - spellsHeight - spellsBottom);
         _spellsPanel.Position = new(spellsLeft, spellsTop);
@@ -262,10 +264,11 @@ public partial class Hud : Control
         _buffs.Size = new(buffsWidth, 44);
         _actionNotice.Position = new((Size.X - buffsWidth) / 2, Math.Max(100, spellsTop - (_buffs.Visible ? 96 : 48)));
         _actionNotice.Size = new(buffsWidth, 44);
-        if (!Ui.IsMobile)
+        if (!MobileLayout)
             _playerPanel.Position = Size.X < 1250
                 ? new Vector2(24, 145) / GameplayScale
                 : new Vector2(24, Size.Y * GameplayScale - 282) / GameplayScale;
+        else ResizeTouchHud();
     }
     public override void _ExitTree() => GetViewport().SizeChanged -= ResizeLayout;
     private static ProgressBar Bar(Color color, float max, int height)
@@ -395,18 +398,21 @@ public partial class Hud : Control
             _match.AddThemeColorOverride("font_color", lives <= 1 ? Ui.Red : Ui.Gold);
             _objective.Text = $"{DefenseRules.Clock(defense.Elapsed)} · Dificultad {defense.Difficulty} · Enemigos {defense.Minions.Length}/{defense.MinionLimit}\n" +
                 (defense.Minions.Any(m => m.Kind == MinionKind.Boss) ? "¡COLOSO EN EL MAPA!" : $"Coloso en {Math.Ceiling(defense.NextBossIn)} s");
-            if (Ui.IsMobile || GetViewportRect().Size.Y < 700) _mapPanel.Visible = false;
-            float mobileScale = Math.Min(1, GetViewportRect().Size.Y / 720f);
-            _server.Visible = _status.Visible = _affinity.Visible = false;
-            _playerPanel.CustomMinimumSize = new(310, 176); _playerPanel.Size = new(310, 176);
-            _playerPanel.Scale = Vector2.One * mobileScale / GameplayScale;
-            _playerPanel.Position = new Vector2(22 * mobileScale, 18 * mobileScale) / GameplayScale;
-            var topRow = (HBoxContainer)_topScore.GetParent();
-            var leftSpace = topRow.GetChild<Control>(0); var rightSpace = topRow.GetChild<Control>(2);
-            leftSpace.SizeFlagsHorizontal = rightSpace.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
-            leftSpace.CustomMinimumSize = new(338 * mobileScale / GameplayScale, 0);
-            rightSpace.CustomMinimumSize = new((Ui.IsMobile ? 390 : 220) * mobileScale / GameplayScale, 0);
-            _topScore.CustomMinimumSize = Vector2.Zero; _topScore.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            if (!MobileLayout)
+            {
+                if (GetViewportRect().Size.Y < 700) _mapPanel.Visible = false;
+                float mobileScale = Math.Min(1, GetViewportRect().Size.Y / 720f);
+                _server.Visible = _status.Visible = _affinity.Visible = false;
+                _playerPanel.CustomMinimumSize = new(310, 176); _playerPanel.Size = new(310, 176);
+                _playerPanel.Scale = Vector2.One * mobileScale / GameplayScale;
+                _playerPanel.Position = new Vector2(22 * mobileScale, 18 * mobileScale) / GameplayScale;
+                var topRow = (HBoxContainer)_topScore.GetParent();
+                var leftSpace = topRow.GetChild<Control>(0); var rightSpace = topRow.GetChild<Control>(2);
+                leftSpace.SizeFlagsHorizontal = rightSpace.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+                leftSpace.CustomMinimumSize = new(338 * mobileScale / GameplayScale, 0);
+                rightSpace.CustomMinimumSize = new(220 * mobileScale / GameplayScale, 0);
+                _topScore.CustomMinimumSize = Vector2.Zero; _topScore.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            }
             if (GetViewportRect().Size.X < 900)
             {
                 _match.Text = (defense.Paused ? "PAUSA" : "SUPERVIVENCIA") + $"\nVIDAS {lives}/2";
