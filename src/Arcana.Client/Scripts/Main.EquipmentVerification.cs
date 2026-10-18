@@ -17,11 +17,12 @@ public partial class Main
         var actions = new[] { "EquipmentTrash_", "EquipmentEquip_", "EquipmentUpgrade_" }
             .Select(prefix => panel.FindChild(prefix + id, true, false) as Button).ToArray();
         if (actions.Any(b => b?.Icon == null || b.Text.Length != 0) ||
-            card.FindChildren("*", "Button", true, false).Count != 3 ||
+            card.FindChildren("*", "Button", true, false).Count != 4 ||
+            panel.FindChild("EquipmentFavorite_" + id, true, false) is not Button ||
             panel.FindChild("EquipmentItem_" + id, true, false) != null ||
             panel.FindChild("EquipmentUnequip", true, false) != null ||
             panel.FindChild("DefenseInventoryUpgrade", true, false) != null)
-            throw new InvalidOperationException("Cada pieza debe tener solo los tres iconos de vender, equipar y mejorar.");
+            throw new InvalidOperationException("Cada pieza debe conservar los tres iconos y el botón de favorito.");
         if (!checkLayout) return;
         for (int i = 0; i < actions.Length; i++)
         {

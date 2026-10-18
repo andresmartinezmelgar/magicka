@@ -16,6 +16,8 @@ public partial class ItemShopPanel : Control
     private bool _busy, _connected;
     private string? _owner;
     private int _requestVersion;
+    private AcceptDialog _comparison = null!;
+    private Label _comparisonText = null!;
     internal ItemShop? Catalogue => _shop;
     internal bool Busy => _busy;
     internal int Columns => _offers.Columns;
@@ -36,7 +38,7 @@ public partial class ItemShopPanel : Control
         explanation.Visible = !Ui.IsMobile;
         var toolbar = new HBoxContainer(); toolbar.AddThemeConstantOverride("separation", 8); body.AddChild(toolbar);
         _reload = Ui.Button("Consultar", () => _ = Load()); _reload.Name = "ShopConnect";
-        _refresh = Ui.Button(Ui.IsMobile ? "Renovar" : "Renovar · próximamente", () => { }); _refresh.Name = "ShopRefreshAd";
+        _refresh = Ui.Button(Ui.IsMobile ? "Sin anuncios" : "Renovar · pronto", () => { }); _refresh.Name = "ShopRefreshAd";
         _refresh.Disabled = true;
         _refresh.TooltipText = "La renovación por anuncios todavía no está disponible.";
         var inventory = Ui.Button("Inventario", () => main.CloseItemShop(true)); inventory.Name = "ShopInventory";
@@ -53,6 +55,11 @@ public partial class ItemShopPanel : Control
         _offers = new GridContainer { Name = "ShopOffers", Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _offers.AddThemeConstantOverride("h_separation", 10); _offers.AddThemeConstantOverride("v_separation", 10); scroll.AddChild(_offers);
         scroll.Resized += ResizeOffers;
+        _comparison = new AcceptDialog { Name = "ShopComparison", Title = "Comparación del equipo", OkButtonText = "Volver a la oferta",
+            Theme = Ui.Theme(), Exclusive = true, Transient = true }; AddChild(_comparison);
+        var comparisonScroll = new ContentScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        _comparison.AddChild(comparisonScroll); Ui.VisibleVerticalScroll(comparisonScroll);
+        _comparisonText = Wrapped(comparisonScroll, "", 17); _comparisonText.Name = "ShopComparisonText";
         if (!Ui.IsMobile) ArcanaMenuChrome.Attach(this, margin, main, "Tienda de objetos", 7, main.NavigateOptionAMenu);
         ShowUnavailable("Conectando con la tienda…");
         _ = Load();
@@ -70,6 +77,7 @@ public partial class ItemShopPanel : Control
     private void ClearOffers()
     {
         _shop = null; _connected = false; _buyButtons.Clear();
+        _comparison?.Hide();
         foreach (var child in _offers.GetChildren()) { _offers.RemoveChild(child); child.QueueFree(); }
     }
     private void ShowUnavailable(string status)
@@ -109,15 +117,28 @@ public partial class ItemShopPanel : Control
                 Ui.TableCell(stats, EquipmentCatalogue.Percent(bonus.Current), true, bonus.Current < 0 ? Ui.Red : Ui.Blue);
                 Ui.TableCell(stats, EquipmentCatalogue.StatName(bonus.Stat)).TooltipText = EquipmentCatalogue.Percent(bonus.Minimum) + " / " + EquipmentCatalogue.Percent(bonus.Maximum);
             }
+            var purchaseRow = new HBoxContainer(); purchaseRow.AddThemeConstantOverride("separation", 6); box.AddChild(purchaseRow);
+            var compare = Ui.Button("Comparar", () =>
+            {
+                _comparisonText.Text = EquipmentCatalogue.ItemName(offer.Item) + "\n\nEQUIPO SI LA EQUIPAS\n" + EquipmentQuery.Preview(result.Profile, offer.Item).Describe();
+                var size = GetViewport().GetVisibleRect().Size;
+                _comparison.PopupCentered(new((int)Math.Min(620, size.X - 32), (int)Math.Min(410, size.Y - 32)));
+            });
+            compare.Name = "ShopComparison_" + offer.Item.Id; compare.CustomMinimumSize = new(0, 40);
+            compare.TooltipText = "Comparar el equipo completo, conjuntos y límites antes de comprar.";
+            compare.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            compare.AddThemeFontSizeOverride("font_size", 15); purchaseRow.AddChild(compare);
             bool full = result.Profile.Items.Length >= EquipmentCatalogue.InventoryLimit;
             bool affordable = result.Profile.Gold >= offer.Price;
-            string caption = offer.Sold ? "COMPRADO" : $"Comprar · {offer.Price:N0} oro";
+            string caption = offer.Sold ? "COMPRADO" : full ? "Inventario lleno" : !affordable ? $"Faltan {offer.Price - result.Profile.Gold:N0} oro" : $"Comprar · {offer.Price:N0} oro";
             var buy = Ui.Button(caption, () => _ = Buy(offer.Item.Id)); buy.Name = "ShopBuy_" + offer.Item.Id;
             buy.CustomMinimumSize = new(0, 50); buy.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            buy.AddThemeFontSizeOverride("font_size", 16); buy.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             buy.Disabled = offer.Sold || !affordable || full;
             buy.TooltipText = offer.Sold ? "Esta oferta ya está comprada." : full ? "El inventario está lleno." :
                 !affordable ? $"Faltan {offer.Price - result.Profile.Gold} de oro." : "Comprar y guardar esta pieza en tu cuenta.";
-            buy.SetMeta("available", !buy.Disabled); box.AddChild(buy); _buyButtons.Add(offer.Item.Id, buy);
+            buy.SetMeta("available", !buy.Disabled); purchaseRow.AddChild(buy); _buyButtons.Add(offer.Item.Id, buy);
+            Wrapped(box, buy.TooltipText, 15, buy.Disabled && !offer.Sold ? Ui.Gold : Ui.Muted).Name = "ShopReason_" + offer.Item.Id;
         }
         _status.Text = message; ResizeOffers(); SetBusy(false); _main.SaveAccountCache();
     }
@@ -161,7 +182,7 @@ public partial class ItemShopPanel : Control
         try { var result = await _main.Accounts.BuyShopItem(purchase, _lifetime.Token).ConfigureAwait(false); Publish(request, () => Render(result, "Objeto comprado y guardado en tu inventario.")); }
         catch (Exception error) { Publish(request, () => Failed(error)); }
     }
-    internal void HandleBack() => _main.NavigateOptionAMenu(0);
+    internal void HandleBack() { if (_comparison.Visible) _comparison.Hide(); else _main.NavigateOptionAMenu(0); }
     internal void Close()
     {
         _lifetime.Cancel(); QueueFree();

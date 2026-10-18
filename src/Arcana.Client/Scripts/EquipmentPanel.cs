@@ -71,6 +71,7 @@ public partial class EquipmentPanel : Control
         Ui.VisibleVerticalScroll(inventoryScroll);
         var inventory = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; inventory.AddThemeConstantOverride("separation", 6); inventoryScroll.AddChild(inventory);
         _salesHelp.Reparent(inventory);
+        if (_defensePlayer == null) BuildSavedEquipment(inventory);
         var selectors = new GridContainer { Columns = 2 }; _selectorsGrid = selectors;
         selectors.AddThemeConstantOverride("h_separation", 10);
         selectors.AddThemeConstantOverride("v_separation", 6); inventory.AddChild(selectors);
@@ -235,6 +236,7 @@ public partial class EquipmentPanel : Control
             view.Disabled = _busy;
         }
         RenderDetails();
+        RenderSavedEquipment();
         var breakdown = PublicEquipment.Prepare(account ?? new("", "", 0, 0, 0, new(), []));
         _totalsEmpty.Visible = !RenderTotals(_totals, breakdown.View.Stats, breakdown.View.Items);
         var m = breakdown.Modifiers;
@@ -263,6 +265,7 @@ public partial class EquipmentPanel : Control
     {
         if (_lifetime.IsCancellationRequested || _defensePlayer != null || _draft?.Uid == _main.Accounts.Profile?.Uid) return;
         RebaseDraft(); _onlineInventory = _main.Accounts.SignedIn || _main.Accounts.HasDirectFirebaseSession;
+        _saleSelection.Clear(); _bulkMode = false;
         CancelSale(); CloseItemPicker(); Render();
         SetStatus("La cuenta ha cambiado. Se ha cargado su inventario sin conservar la selección anterior.");
     }
@@ -296,6 +299,7 @@ public partial class EquipmentPanel : Control
         if (_itemPicker != null && _itemPicker.Visible && message.Length > 0)
         { _pickerStatus.Text = message; _pickerStatus.Visible = true; }
         UpdatePickerActions();
+        RenderSavedEquipment();
         if (_defensePlayer != null) RenderDefenseActions();
     }
     private async Task ConnectInventoryServer()
@@ -339,7 +343,8 @@ public partial class EquipmentPanel : Control
     private async Task Sell()
     {
         if (_busy || _selling.Length == 0) return;
-        if (!CanSellInventory || _saleOwner != _draft?.Uid ||
+        if (_confirmingBatch) { await SellBatch(); return; }
+        if (Preferences.Protected(_selling) || !CanSellInventory || _saleOwner != _draft?.Uid ||
             (_defensePlayer == null && _saleOwner != _main.Accounts.Profile?.Uid)) { CancelSale(); return; }
         _confirm.Hide();
         if (_defensePlayer != null) { SellDefenseItem(); return; }

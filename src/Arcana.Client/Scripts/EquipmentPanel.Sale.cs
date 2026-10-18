@@ -78,7 +78,8 @@ public partial class EquipmentPanel
     private EquipmentItem? SelectSaleItem(string id)
     {
         var item = _draft?.Items.FirstOrDefault(i => i.Id == id && i.Slot == _selectedSlot);
-        if (_busy || item == null || !CanSellInventory) return null;
+        if (_busy || item == null || !CanSellInventory || Preferences.Protected(id)) return null;
+        _confirmingBatch = false;
         _selling = item.Id; _saleOwner = _draft!.Uid;
         return item;
     }
@@ -137,6 +138,6 @@ public partial class EquipmentPanel
     private void CancelSale()
     {
         ResetQuickActions();
-        _confirm.Hide(); _selling = ""; _saleOwner = "";
+        _confirm.Hide(); _selling = ""; _saleOwner = ""; _confirmingBatch = false;
     }
 }

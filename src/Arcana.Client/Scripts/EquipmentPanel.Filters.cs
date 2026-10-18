@@ -5,7 +5,7 @@ namespace Arcana.Client;
 
 public partial class EquipmentPanel
 {
-    private OptionButton _familyFilter = null!, _tierFilter = null!, _statFilter = null!;
+    private OptionButton _familyFilter = null!, _tierFilter = null!, _statFilter = null!, _sort = null!;
     private EquipmentFilter PickerFilter => new(
         _familyFilter.Selected > 0 ? (EquipmentFamily)(_familyFilter.GetSelectedId() - 1) : null,
         _tierFilter.Selected > 0 ? (ItemTier)(_tierFilter.GetSelectedId() - 1) : null,
@@ -28,16 +28,14 @@ public partial class EquipmentPanel
         foreach (var tier in Enum.GetValues<ItemTier>()) _tierFilter.AddItem(EquipmentCatalogue.TierName(tier), (int)tier + 1);
         _statFilter = Filter("EquipmentStatFilter", "Atributo: todos");
         foreach (var stat in Enum.GetValues<EquipmentStat>()) _statFilter.AddItem(StatName(stat), (int)stat + 1);
+        _sort = Filter("EquipmentSort", "Orden: calidad");
+        foreach (var stat in Enum.GetValues<EquipmentStat>()) _sort.AddItem("↓ " + StatName(stat), (int)stat + 1);
     }
 
     private void AddComparison(VBoxContainer description, EquipmentItem item)
     {
-        var equipped = _draft?.Items.FirstOrDefault(i => i.Id == _draft.Loadout.Get(item.Slot));
-        var changes = EquipmentQuery.Compare(item, equipped);
-        if (equipped?.Id == item.Id) return;
-        var label = Ui.Label(changes.Length == 0 ? "Mismos atributos que la equipada" :
-            "Diferencia respecto a la equipada (sin conjuntos):\n" + string.Join("\n", changes.Select(c =>
-                StatName(c.Stat) + " " + EquipmentCatalogue.Percent(c.Difference))),
+        if (_draft == null || _draft.Loadout.Get(item.Slot) == item.Id) return;
+        var label = Ui.Label("EQUIPO AL CAMBIAR ESTA PIEZA\n" + EquipmentQuery.Preview(_draft, item).Describe(),
             Ui.IsMobile ? 16 : 15, Ui.Muted);
         label.Name = "EquipmentComparison_" + item.Id;
         label.AutowrapMode = TextServer.AutowrapMode.WordSmart; label.MouseFilter = MouseFilterEnum.Pass;

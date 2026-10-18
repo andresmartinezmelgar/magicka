@@ -118,7 +118,7 @@ jobs:
           dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
           dotnet build src/Arcana.Server/Arcana.Server.csproj -c Debug --nologo
           "$GODOT" --headless --editor --path src/Arcana.Client --import
-      - name: Renderizar 47 capturas de móvil y escritorio y validar los límites
+      - name: Renderizar capturas de móvil y escritorio y validar los límites
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
         run: |
@@ -213,6 +213,22 @@ jobs:
             grep -q 'QUICK_CANCEL_OK' "$RUNNER_TEMP/quick-sale-$surface.log"
             grep -q 'SALE_SMOKE_OK' "$RUNNER_TEMP/quick-sale-$surface.log"
             ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/quick-sale-$surface.log"
+          done
+      - name: Verificar favoritos, equipos, ventas múltiples y editor táctil
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          for surface in desktop mobile small; do
+            args=(--visual-desktop --smoke-viewport=1440x900)
+            if [ "$surface" = mobile ]; then args=(--mobile --smoke-viewport=720x540); fi
+            if [ "$surface" = small ]; then args=(--mobile --smoke-viewport=640x450); fi
+            target="$PWD/artifacts/visual-review/usability-$surface"
+            export XDG_DATA_HOME="$RUNNER_TEMP/usability-cache-$surface"
+            timeout 50s xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --usability-smoke "${args[@]}" "--usability-captures=$target" 2>&1 | tee "$RUNNER_TEMP/usability-$surface.log"
+            grep -q 'USABILITY_SMOKE_OK' "$RUNNER_TEMP/usability-$surface.log"
+            test "$(find "$target" -name '*.png' | wc -l)" -eq 3
+            ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/usability-$surface.log"
           done
       - name: Verificar Defensa en escritorio y móvil y capturar tienda, inventario y botín
         env:

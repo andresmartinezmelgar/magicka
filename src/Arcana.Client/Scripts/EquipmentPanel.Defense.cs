@@ -46,6 +46,9 @@ public partial class EquipmentPanel
         if (_defenseSupply == null || _defensePlayer == null) return;
         _defenseSupply.Disabled = _busy || !CanChangeDefenseItems || _defensePlayer.Gold < 100 ||
             _defensePlayer.Items.Length >= DefenseRules.InventoryLimit;
+        _defenseSupply.Text = !CanChangeDefenseItems ? "Compra bloqueada · partida terminada o mago caído" :
+            _defensePlayer.Items.Length >= DefenseRules.InventoryLimit ? "Inventario lleno · vende alguna pieza" :
+            _defensePlayer.Gold < 100 ? $"Comprar pieza · faltan {100 - _defensePlayer.Gold} oro" : "Comprar pieza aleatoria · 100 oro";
     }
 
     internal void UpdateDefenseInventory(DefensePlayerSnapshot player, WizardSnapshot wizard, bool ended)
@@ -74,6 +77,7 @@ public partial class EquipmentPanel
         else if (Time.GetTicksMsec() - _defensePendingAt > 6000)
         {
             _defensePending = null; _defenseConfirmed = null; _closeRequested = false;
+            _defenseBatch.Clear();
             CloseFailed(new InvalidOperationException("La partida no confirmó la operación."));
             UpdatePickerActions();
         }
@@ -113,7 +117,7 @@ public partial class EquipmentPanel
 
     private void SellDefenseItem()
     {
-        if (_busy || !CanSellInventory || _selling.Length == 0) return;
+        if (_busy || !CanSellInventory || _selling.Length == 0 || Preferences.Protected(_selling)) return;
         string id = _selling; _selling = "";
         DefenseOperation(new() { Type = "defense_sell", ItemId = id }, p => p.Items.All(i => i.Item.Id != id),
             message: "Venta confirmada. El oro y las piezas están actualizados.");

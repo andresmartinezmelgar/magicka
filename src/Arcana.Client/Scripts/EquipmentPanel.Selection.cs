@@ -41,11 +41,12 @@ public partial class EquipmentPanel
         _pickerTitle = Ui.Label("", Ui.IsMobile ? 24 : 25, Ui.Gold);
         _pickerTitle.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _pickerTitle.SizeFlagsHorizontal = SizeFlags.ExpandFill; heading.AddChild(_pickerTitle);
-        var close = Ui.Button("Volver al inventario", CloseItemPicker);
+        var close = Ui.Button(Ui.IsMobile ? "Volver" : "Volver al inventario", CloseItemPicker);
         close.CustomMinimumSize = new(0, Ui.IsMobile ? 60 : 48); heading.AddChild(close);
         _pickerHelp = Ui.Label("", Ui.IsMobile ? 17 : 16, Ui.Muted);
         _pickerHelp.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_pickerHelp);
         BuildPickerFilters(box);
+        BuildBulkActions(box, heading);
         _pickerStatus = Ui.Label("", 16, Ui.Gold); _pickerStatus.Name = "EquipmentPickerStatus";
         _pickerStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart; _pickerStatus.Visible = false; box.AddChild(_pickerStatus);
         _pickerScroll = new ContentScrollContainer { Name = "EquipmentPickerScroll",
@@ -68,11 +69,13 @@ public partial class EquipmentPanel
         _selectedSlot = slot; Render();
         _itemButtons.Clear(); _trashButtons.Clear(); _upgradeButtons.Clear(); Clear(_pickerGrid);
         var allChoices = Choices(slot);
-        var choices = allChoices.Where(PickerFilter.Matches).ToArray();
+        var choices = EquipmentQuery.Sort(allChoices.Where(PickerFilter.Matches),
+            _sort.Selected > 0 ? (EquipmentStat)(_sort.GetSelectedId() - 1) : null);
         string equipped = _draft?.Loadout.Get(slot) ?? "";
         _pickerTitle.Text = EquipmentCatalogue.SlotName(slot).ToUpperInvariant() + $" · {choices.Length}/{allChoices.Length} objetos";
-        _pickerHelp.Text = "De mayor a menor calidad. Iconos de cada pieza: vender, equipar o quitar y mejorar." +
+        _pickerHelp.Text = "Orden descendente. Marca favoritos para protegerlos de cualquier venta." +
             (_defensePlayer == null ? " Las mejoras con oro están disponibles en Defensa." : $" Oro de partida: {_defensePlayer.Gold}.");
+        if (Ui.IsMobile) _pickerHelp.Text = _defensePlayer == null ? "Orden descendente · Los favoritos no se venden." : $"Oro de partida: {_defensePlayer.Gold} · Favoritos protegidos.";
         PrepareIcons();
         foreach (var item in choices)
         {
@@ -89,6 +92,7 @@ public partial class EquipmentPanel
             var label = Ui.Label(title, Ui.IsMobile ? 18 : 17, selected ? Ui.Gold : TierColor(item.Tier));
             label.AutowrapMode = TextServer.AutowrapMode.WordSmart; label.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             label.MouseFilter = MouseFilterEnum.Ignore; description.AddChild(label);
+            BuildItemPreferences(description, item);
             var equippedLabel = Ui.Label(selected ? "EQUIPADA" : "Sin equipar", 15, selected ? Ui.Gold : Ui.Muted);
             equippedLabel.MouseFilter = MouseFilterEnum.Ignore; description.AddChild(equippedLabel);
             string attributes = string.Join("\n", item.Bonuses.Select(b => StatName(b.Stat) + " " + EquipmentCatalogue.Percent(b.Current)));
@@ -122,10 +126,17 @@ public partial class EquipmentPanel
                 $"Mejorar esta pieza por {cost} oro de partida. Suma un punto porcentual a cada atributo; diez puntos sobre su valor inicial. Mejora {entry.Upgrades + 1} / 10." +
                 (_defensePlayer!.Gold < cost ? $" Faltan {cost - _defensePlayer.Gold} oro." : ""), () => ClickUpgrade(item.Id));
             _upgradeButtons.Add(item.Id, upgrade);
+            string blocked = UpgradeBlockedReason(item.Id);
+            if (blocked.Length > 0)
+            {
+                var reason = Ui.Label(blocked, 14, Ui.Muted); reason.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+                description.AddChild(reason);
+            }
         }
         _pickerEmpty.Text = allChoices.Length == 0 ? "No tienes objetos para esta posición." : "No hay objetos que coincidan con estos filtros.";
         _pickerEmpty.Visible = choices.Length == 0;
         UpdatePickerActions();
+        UpdateBulkActions();
         _itemPicker.Show(); _pickerScroll.ScrollVertical = 0; UpdatePickerColumns();
     }
 
@@ -147,8 +158,9 @@ public partial class EquipmentPanel
     private void UpdatePickerActions()
     {
         foreach (var button in _itemButtons.Values) button.Disabled = _busy || (_defensePlayer != null && !CanChangeDefenseItems);
-        foreach (var button in _trashButtons.Values) button.Disabled = _busy || !CanSellInventory;
+        foreach (var (id, button) in _trashButtons) button.Disabled = _busy || !CanSellInventory || Preferences.Protected(id);
         foreach (var (id, button) in _upgradeButtons) button.Disabled = !CanUpgradeDefenseItem(id);
+        UpdatePreferenceActions();
     }
 
     private void RefreshPickerItems()

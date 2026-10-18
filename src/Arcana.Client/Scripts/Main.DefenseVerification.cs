@@ -17,7 +17,10 @@ public partial class Main
     private string _defenseSoldItem = "";
     private EquipmentItem? _defenseUpgradeBefore;
     private long _defenseGoldAfterSale;
-    private int _defenseTotalsReview;
+    private int _defenseTotalsReview, _defenseBulkReview;
+    private string[] _defenseBulkItems = [];
+    private string _defenseBulkFavorite = "";
+    private long _defenseBulkGold;
 
     private void StartDefenseSmoke(string[] arguments)
     {
@@ -261,7 +264,7 @@ public partial class Main
                 var player = state.Defense!.Defenders.Single(p => p.PlayerId == _localId);
                 var improved = player.Items.Single(i => i.Item.Id == _defenseUpgradeBefore!.Id);
                 Check(improved.Upgrades == 1 && player.Gold == 1280 - DefenseRules.UpgradeCost(improved.Item.Tier, 0) &&
-                    panel.EquipmentInventory?.Saving == false, "La mejora no confirmó su efecto y coste.");
+                    panel.EquipmentInventory?.Saving == false, $"La mejora no confirmó su efecto y coste: mejoras={improved.Upgrades}, oro={player.Gold}, guardando={panel.EquipmentInventory?.Saving}.");
                 Check(!improved.Equipped && player.Items.Single(i => i.Item.Id == _defenseChosenLoadout!.Boots).Upgrades == 0 &&
                     panel.EquipmentInventory!.PreviewProfile!.Loadout == _defenseChosenLoadout && panel.EquipmentInventory.PickerVisible,
                     "Mejorar otra pieza cambia la equipación, mejora la pieza equivocada o cierra el selector.");
@@ -302,15 +305,42 @@ public partial class Main
             if (_defenseSmokePhase == 9)
             {
                 var player = state.Defense!.Defenders.Single(p => p.PlayerId == _localId);
-                Check(player.Items.Length == 8 && player.Items.All(i => i.Item.Id != _defenseSoldItem) && player.Gold == _defenseGoldAfterSale &&
-                    panel.EquipmentInventory?.Saving == false, "Vender una pieza no actualizó el equipo temporal.");
-                Check(panel.EquipmentInventory!.PickerVisible && !panel.EquipmentInventory.PickerItems.Contains(_defenseSoldItem) &&
-                    panel.EquipmentInventory.PreviewProfile!.Loadout == _defenseChosenLoadout,
-                    "La venta no actualiza el selector o modifica la selección de equipo.");
+                var inventory = panel.EquipmentInventory!;
+                if (_defenseBulkReview == 0)
+                {
+                    Check(player.Items.Length == 8 && player.Items.All(i => i.Item.Id != _defenseSoldItem) && player.Gold == _defenseGoldAfterSale && !inventory.Saving,
+                        "Vender una pieza no actualizó el equipo temporal.");
+                    Check(inventory.PickerVisible && !inventory.PickerItems.Contains(_defenseSoldItem) && inventory.PreviewProfile!.Loadout == _defenseChosenLoadout,
+                        "La venta no actualiza el selector o modifica la selección de equipo.");
+                    var unequipped = player.Items.Where(i => !i.Equipped).ToArray();
+                    var favorite = unequipped[0].Item; _defenseBulkFavorite = favorite.Id;
+                    inventory.PressInspect(favorite.Slot);
+                    ((Button)inventory.FindChild("EquipmentFavorite_" + favorite.Id, true, false)).EmitSignal(Button.SignalName.Pressed);
+                    inventory.PressTrash(favorite.Id);
+                    Check(!inventory.GetChildren().OfType<ConfirmationDialog>().Single().Visible, "Un favorito temporal se puede vender.");
+                    ((Button)inventory.FindChild("EquipmentBulkToggle", true, false)).EmitSignal(Button.SignalName.Pressed);
+                    var selected = unequipped.Skip(1).Take(2).Select(i => i.Item).ToArray();
+                    _defenseBulkItems = selected.Select(i => i.Id).ToArray();
+                    _defenseBulkGold = player.Gold + selected.Sum(i => i.SaleGold);
+                    foreach (var item in selected)
+                    {
+                        inventory.PressInspect(item.Slot);
+                        ((CheckBox)inventory.FindChild("EquipmentSelect_" + item.Id, true, false)).ButtonPressed = true;
+                    }
+                    ((Button)inventory.FindChild("EquipmentBulkSell", true, false)).EmitSignal(Button.SignalName.Pressed);
+                    var confirmation = inventory.GetChildren().OfType<ConfirmationDialog>().Single();
+                    Check(confirmation.Visible && confirmation.GetOkButton().Text.Contains("Vender 2"), "La selección entre posiciones pierde una pieza.");
+                    confirmation.EmitSignal(ConfirmationDialog.SignalName.Confirmed);
+                    _defenseBulkReview = 1; return false;
+                }
+                if (inventory.Saving) return false;
+                Check(player.Items.Length == 6 && player.Gold == _defenseBulkGold && player.Items.All(i => !_defenseBulkItems.Contains(i.Item.Id)) &&
+                    player.Items.Any(i => i.Item.Id == _defenseBulkFavorite) && inventory.PreviewProfile!.Loadout == _defenseChosenLoadout,
+                    "La venta múltiple temporal pierde el favorito, el equipo o una confirmación autoritativa.");
                 Check(Protocol.Serialize(Accounts.Profile) == _defenseAccountBefore &&
                     (System.IO.File.Exists(AccountCache) ? System.IO.File.ReadAllText(AccountCache) : "") == _defenseCacheBefore,
                     "El inventario temporal modificó la cuenta o su caché permanente.");
-                panel.EquipmentInventory.GetChildren().OfType<ConfirmationDialog>().Single().Hide();
+                GD.Print("DEFENSE_BULK_SALE_OK: favoritos temporales, selección entre posiciones, dos ventas confirmadas, oro correcto y cuenta intacta.");
                 panel.HandleBack(); panel.HandleBack(); panel.ShowSection(3); _defenseSmokePhase++; return false;
             }
             if (_defenseSmokePhase == 10)

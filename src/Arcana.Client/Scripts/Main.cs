@@ -135,6 +135,7 @@ public partial class Main : Node
         if (arguments.Contains("--defense-smoke")) StartDefenseSmoke(arguments);
         if (arguments.Contains("--shop-smoke")) StartShopSmoke(arguments);
         if (arguments.Contains("--sale-smoke")) StartSaleSmoke(arguments);
+        if (arguments.Contains("--usability-smoke")) StartUsabilitySmoke(arguments);
         if (RenderProfiler.Requested(arguments))
         {
             if (_verification != null) throw new ArgumentException("El perfilado y las verificaciones se ejecutan por separado.");
@@ -368,6 +369,7 @@ public partial class Main : Node
         if (CheckEquipmentSmoke()) return;
         if (CheckShopSmoke()) return;
         if (CheckSaleSmoke()) return;
+        if (CheckUsabilitySmoke()) return;
         if (CheckDefenseSmoke()) return;
         if (_profiler?.Running == true || _reconnecting) return;
         if (Loading) { ProcessLoading(); _verification?.CheckLoadingFrame(); return; }
@@ -518,7 +520,7 @@ public partial class Main : Node
     {
         bool alive = SynchronizeLocalLife();
         float x = 0, y = 0;
-        if (alive && !_paused && !_help.Visible && !InspectingEquipment)
+        if (alive && !_paused && !_help.Visible && !InspectingEquipment && !ControlsOpen)
         {
             if (_touch != null) { x = _touch.Movement.X; y = _touch.Movement.Y; }
             else
@@ -528,7 +530,7 @@ public partial class Main : Node
             }
         }
         if (x != 0 || y != 0) _moveTo = false;
-        return new() { Type = "input", MoveX = x, MoveY = y, MoveTo = alive && _moveTo && !_paused && !_help.Visible && !InspectingEquipment,
+        return new() { Type = "input", MoveX = x, MoveY = y, MoveTo = alive && _moveTo && !_paused && !_help.Visible && !InspectingEquipment && !ControlsOpen,
             TargetX = _target.X, TargetY = _target.Y, AimX = _aim.X, AimY = _aim.Y };
     }
     private void Submit(ClientMessage message)
@@ -551,10 +553,12 @@ public partial class Main : Node
         }
         if (input is InputEventKey { Pressed: true, Echo: false } key)
         {
+            if (ControlsOpen && key.PhysicalKeycode != Key.Escape) { GetViewport().SetInputAsHandled(); return; }
             if (key.PhysicalKeycode == Key.F1) { if (!InspectingEquipment) ToggleHelp(); GetViewport().SetInputAsHandled(); return; }
             if (key.PhysicalKeycode == Key.Escape)
             {
-                if (GodotObject.IsInstanceValid(_itemShopPanel)) _itemShopPanel!.HandleBack();
+                if (ControlsOpen) _controlsSettings!.HandleBack();
+                else if (GodotObject.IsInstanceValid(_itemShopPanel)) _itemShopPanel!.HandleBack();
                 else if (_defensePanel?.ShopOpen == true) _defensePanel.HandleBack();
                 else if (InspectingEquipment) ClosePlayerEquipment();
                 else if (GodotObject.IsInstanceValid(_equipmentPanel)) _equipmentPanel!.HandleBack();
@@ -564,7 +568,7 @@ public partial class Main : Node
                 return;
             }
         }
-        if (!_playing || _paused || _help.Visible || InspectingEquipment ||
+        if (!_playing || _paused || _help.Visible || InspectingEquipment || ControlsOpen ||
             _waitingPanel?.Visible == true) return;
         if (input is InputEventKey { Pressed: true, Echo: false } press)
         {
@@ -651,6 +655,7 @@ public partial class Main : Node
             SizeFlagsVertical = Control.SizeFlags.ExpandFill };
         outer.AddChild(_helpPages);
         var box = new VBoxContainer { Name = "Controles" }; box.AddThemeConstantOverride("separation", 16); _helpPages.AddChild(box);
+        box.AddChild(Ui.Button("Configurar controles táctiles", OpenTouchSettings));
         var table = Ui.Table(2, "InGameHelpControlsTable"); _inGameHelpControls = table; box.AddChild(table);
         string[,] rows =
         {
@@ -760,6 +765,7 @@ public partial class Main : Node
         var root = Modal(out var box); box.AddChild(Ui.Label("PARTIDA", 30, Ui.Gold));
         box.AddChild(Ui.Label("En red, la partida continúa mientras estás en este menú.", 17, Ui.Muted));
         box.AddChild(Ui.Button("Continuar", TogglePause, true));
+        box.AddChild(Ui.Button("Controles táctiles", OpenTouchSettings));
         box.AddChild(Ui.Button("Volver al launcher", () => ReturnToLauncher()));
         box.AddChild(Ui.Button("Exportar diagnóstico", ExportDiagnostics));
         _diagnosticStatus = Ui.Label("", 15, Ui.Muted); _diagnosticStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;

@@ -167,6 +167,7 @@ public partial class OptionAHelpPanel : Control
 
     private void ControlsPage()
     {
+        _body.AddChild(Ui.Button("Configurar controles táctiles", _main.OpenTouchSettings));
         string[,] rows = Ui.IsMobile ? new string[,]
         {
             { "Moverse", "Desliza el joystick izquierdo" },

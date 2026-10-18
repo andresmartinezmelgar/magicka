@@ -156,6 +156,7 @@ LoadingTests.Run(Test);
 ElementInteractionTests.Run(Test);
 EquipmentTests.Run(Test);
 AccountLoadoutTests.Run(Test);
+UsabilityTests.Run(Test);
 AccountSessionTests.Run(Test);
 ShopRulesTests.Run(Test);
 PublicEquipmentTests.Run(Test);

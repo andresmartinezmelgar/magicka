@@ -19,7 +19,7 @@ public partial class Main
                 a.StartsWith("--smoke-viewport=", StringComparison.Ordinal));
             if (requested != null && OS.GetCmdlineUserArgs().Any(a => a is "--defense-smoke" or "--mobile-menu-smoke"
                 or "--aim-marker-smoke"
-                or "--shop-smoke" or "--sale-smoke"
+                or "--shop-smoke" or "--sale-smoke" or "--usability-smoke"
                 or "--equipment-smoke" or "--preview-equipment-picker"
                 or "--preview-spells=stone" or "--preview-spells=stone-close" or "--preview-spells=stone-auras"
                 or "--preview-spells=areas" or "--preview-spells=auras" or "--preview-spells=passives"))
@@ -41,15 +41,17 @@ public partial class Main
         _touch?.Reset(); _touch?.QueueFree(); _touch = null;
         if (!Ui.IsMobile) return;
         _touch = new MobileControls(); _ui.AddChild(_touch);
+        _touchSettings ??= (DevicePreferences.Read<TouchSettings>("touch-controls") ?? new()).Normalize();
+        _touch.Configure(_touchSettings);
         _touch.MagickAvailable = slot => CheckMagickAvailable(slot, checkTarget: false);
         _touch.ActionRequested += message =>
         {
-            if (!_playing || _paused || _help.Visible || InspectingEquipment) return;
+            if (!_playing || _paused || _help.Visible || InspectingEquipment || ControlsOpen) return;
             UpdateTouchAim();
             if (message.Type == "magick") UseMagick(message.Slot);
             else { Submit(InputMessage()); Submit(message); }
         };
-        _touch.AimChanged += () => { if (_playing && !_paused && !_help.Visible && !InspectingEquipment) { UpdateTouchAim(); Submit(InputMessage()); } };
+        _touch.AimChanged += () => { if (_playing && !_paused && !_help.Visible && !InspectingEquipment && !ControlsOpen) { UpdateTouchAim(); Submit(InputMessage()); } };
         _touch.HelpRequested += ToggleHelp;
         _touch.MenuRequested += TogglePause;
         _touch.ScoreRequested += () => { if (_hud != null) { StopInput(); _hud.ScoreOpen = !_hud.ScoreOpen; } };
@@ -64,7 +66,7 @@ public partial class Main
         if (direction.Length > 0.01f) _aim = player.Position + direction.Normalized * (_touch.AimRange * _touch.AimStrength);
     }
     private void UpdateTouchVisibility()
-    { if (_touch != null) _touch.Visible = _playing && !_paused && !_help.Visible && !InspectingEquipment; }
+    { if (_touch != null) _touch.Visible = _playing && !_paused && !_help.Visible && !InspectingEquipment && !ControlsOpen; }
     public override void _Notification(int what)
     {
         if (!Ui.IsMobile || _launcher == null) return;
@@ -75,7 +77,8 @@ public partial class Main
         if (_reconnecting && what == NotificationWMGoBackRequest) { ReturnToLauncher(); return; }
         if (what == NotificationWMGoBackRequest)
         {
-            if (GodotObject.IsInstanceValid(_itemShopPanel)) _itemShopPanel!.HandleBack();
+            if (ControlsOpen) _controlsSettings!.HandleBack();
+            else if (GodotObject.IsInstanceValid(_itemShopPanel)) _itemShopPanel!.HandleBack();
             else if (_defensePanel?.ShopOpen == true) _defensePanel.HandleBack();
             else if (InspectingEquipment) ClosePlayerEquipment();
             else if (GodotObject.IsInstanceValid(_equipmentPanel)) _equipmentPanel!.HandleBack();

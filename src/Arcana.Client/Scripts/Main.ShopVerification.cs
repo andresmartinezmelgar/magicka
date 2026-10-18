@@ -80,6 +80,10 @@ public partial class Main
                 Check(((Control)shop.FindChild("ShopOffersScroll", true, false)).GetGlobalRect().Grow(1).Encloses(Button("ShopBuy_" + _shopBoughtId).GetGlobalRect()),
                     "El primer objeto no permite ver el botón de compra junto con sus atributos.");
                 Check(Button("ShopRefreshAd").Disabled, "La renovación por anuncios está activa.");
+                Button("ShopComparison_" + _shopBoughtId).EmitSignal(Godot.Button.SignalName.Pressed);
+                Check(((AcceptDialog)shop.FindChild("ShopComparison", true, false)).Visible &&
+                    ((Label)shop.FindChild("ShopComparisonText", true, false)).Text.Contains("→"), "La tienda no muestra la comparación antes de comprar.");
+                shop.HandleBack();
                 CaptureShop("03-ofertas"); Button("ShopBuy_" + _shopBoughtId).EmitSignal(Godot.Button.SignalName.Pressed);
                 Button("ShopBuy_" + _shopBoughtId).EmitSignal(Godot.Button.SignalName.Pressed); _shopSmokePhase++; return false;
             }
@@ -99,7 +103,7 @@ public partial class Main
                 Check(_equipmentPanel.VisibleItems == 1 && _equipmentPanel.PreviewProfile!.Items.Single().Id == _shopBoughtId, "La pieza comprada no aparece en el inventario.");
                 Check(_equipmentPanel.FindChild("EquipmentOpenShop", true, false) == null &&
                     !_equipmentPanel.FindChildren("*", "Button", true, false).OfType<Button>().Any(b => b.Text is "Servidor" or "Guardar configuración") &&
-                    _equipmentPanel.FindChildren("*", "LineEdit", true, false).Count == 0, "El inventario conserva la tienda o la configuración manual del servidor.");
+                    _equipmentPanel.FindChildren("*", "LineEdit", true, false).OfType<LineEdit>().All(l => l.Name == "EquipmentTeamName"), "El inventario conserva la tienda o la configuración manual del servidor.");
                 NavigateOptionAMenu(0); _shopSmokePhase++; return false;
             }
             if (_shopSmokePhase == 5)

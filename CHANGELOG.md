@@ -1,5 +1,16 @@
 # Cambios
 
+## 0.25.0 — Inventario y controles configurables
+
+- Comparación del resultado real del equipo completo al sustituir una pieza: valores antes y después, diferencias, límites aplicados y activación o pérdida de conjuntos. Disponible en el selector y en «Comparar con mi equipo» de cada oferta de tienda.
+- Favoritos protegidos frente a venta individual, doble clic/toque y selección múltiple. Preferencias permanentes separadas por cuenta y guardadas en el dispositivo; los favoritos de Defensa se mantienen durante la sesión de partida.
+- Venta múltiple con selección entre posiciones, selección de piezas visibles sin equipar, suma de oro y una sola confirmación. Cada venta se confirma en el servidor; una interrupción conserva las piezas pendientes y permite reintentarlas sin repetir las ya confirmadas. También funciona con el inventario temporal de Defensa.
+- Motivos visibles de acciones bloqueadas: falta de oro, inventario lleno, desconexión, favoritos, mago caído y límites de mejora. Las magias táctiles indican si falta energía o el mago está congelado.
+- Orden descendente por cualquiera de los 22 atributos, con calidad como desempate y piezas sin ese atributo al final. Se mantienen los filtros de elemento, calidad y atributo.
+- Hasta ocho equipos permanentes con nombre por cuenta en este dispositivo. Aplicar restaura las cuatro posiciones y conserva el guardado al salir; un equipo con piezas vendidas muestra el motivo y no se aplica parcialmente.
+- Controles táctiles desde Ayuda → Controles y desde el menú de partida: tamaño, separación, zona muerta, sensibilidad del alcance, modo zurdo y editor para arrastrar cada botón y los dos joysticks. Guardado local y cancelación; los marcadores de agua, hielo y rocas conservan su distancia fija.
+- Verificación de lógica, recorridos nativos en escritorio y móvil, recuperación tras fallo parcial de venta, protección de favoritos, persistencia, equipos, editor táctil y regresiones de doble toque, tienda y Supervivencia.
+
 ## 0.24.3 — Doble clic y doble toque en objetos
 
 - Doble clic en la papelera para vender directamente la pieza y recibir su oro, sin abrir la confirmación. En móvil funciona con doble toque; un clic o toque conserva la modal de venta.
