@@ -73,13 +73,13 @@ public sealed partial class AccountClient : IDisposable
     private string _firebaseUid = "";
     private string _pendingLoginId = "";
     private sealed record Identity(long Generation, string AccessToken, DateTimeOffset Expiry, AccountProfile? Profile,
-        FirebaseProfileReader? Reader, string Uid, string Address)
+        FirebaseProfileReader? Reader, string Uid, string Address, long InventoryRevision)
     {
         public bool Direct => Reader != null && AccessToken.Length > 0 && Expiry > DateTimeOffset.UtcNow;
     }
     private Identity CaptureIdentity()
     {
-        lock (_identityGate) return new(_identityGeneration, Token, ExpiresAt, Profile, _firebaseReader, _firebaseUid, ServerAddress);
+        lock (_identityGate) return new(_identityGeneration, Token, ExpiresAt, Profile, _firebaseReader, _firebaseUid, ServerAddress, _inventoryRevision);
     }
     public bool IsDirectFirebaseSession => _firebaseReader != null && SignedIn;
     public bool HasDirectFirebaseSession => _firebaseReader != null;
@@ -98,7 +98,7 @@ public sealed partial class AccountClient : IDisposable
             _firebaseReader?.Dispose();
             _firebaseReader = new FirebaseProfileReader(projectId, _firebaseHttp);
             _firebaseUid = uid; _pendingLoginId = "";
-            Token = idToken; ExpiresAt = expiresAt; Profile = profile;
+            Token = idToken; ExpiresAt = expiresAt; Profile = profile; ResetInventorySync();
         }
         Diagnostics.Log.ProtectSecret(Token);
     }
@@ -108,15 +108,18 @@ public sealed partial class AccountClient : IDisposable
         if (generation != _identityGeneration)
             throw new OperationCanceledException("La operación pertenece a una sesión anterior.");
     }
-    private void PublishProfile(AccountProfile profile, long generation)
+    private void PublishProfile(AccountProfile profile, long generation, long? inventoryRevision = null)
     {
         _ = EquipmentModifiers.Calculate(profile);
         lock (_identityGate)
         {
             RequireIdentity(generation);
+            if (inventoryRevision.HasValue && inventoryRevision.Value != _inventoryRevision)
+                throw new OperationCanceledException("La lectura comenzó antes de la última venta sin confirmar. Actualiza de nuevo el inventario.");
             if (SignedIn && Profile != null && profile.Uid != Profile.Uid)
                 throw new InvalidDataException("El perfil no pertenece a la cuenta conectada.");
             Profile = profile;
+            if (inventoryRevision.HasValue) _inventoryNeedsRefresh = false;
         }
     }
     // Guardar equipación no modifica oro, premios ni objetos. Una compra o
@@ -167,7 +170,7 @@ public sealed partial class AccountClient : IDisposable
         lock (_identityGate)
         {
             generation = ++_identityGeneration;
-            Token = ""; ExpiresAt = default; Profile = null;
+            Token = ""; ExpiresAt = default; Profile = null; ResetInventorySync();
             _firebaseReader?.Dispose(); _firebaseReader = null; _firebaseUid = ""; _pendingLoginId = "";
             ServerAddress = address;
         }
@@ -202,7 +205,7 @@ public sealed partial class AccountClient : IDisposable
         {
             RequireIdentity(generation);
             ++_identityGeneration;
-            Token = result.AccessToken; ExpiresAt = result.ExpiresAt; Profile = result.Profile;
+            Token = result.AccessToken; ExpiresAt = result.ExpiresAt; Profile = result.Profile; ResetInventorySync();
         }
         Diagnostics.Log.ProtectSecret(result.AccessToken);
         return true;
@@ -212,7 +215,8 @@ public sealed partial class AccountClient : IDisposable
         var identity = CaptureIdentity();
         var profile = identity.Direct ? await identity.Reader!.Read(identity.Uid, identity.AccessToken, token: token).ConfigureAwait(false)
             : await Request<AccountProfile>(HttpMethod.Get, "account/profile", null, token, identity).ConfigureAwait(false);
-        PublishProfile(profile, identity.Generation); return profile;
+        PublishProfile(profile, identity.Generation, identity.InventoryRevision);
+        return profile;
     }
     public async Task<InventoryResult> Equip(EquipmentSlot slot, string itemId, CancellationToken token = default)
     {
@@ -244,12 +248,6 @@ public sealed partial class AccountClient : IDisposable
         PublishProfile(result.Profile, identity.Generation);
         return result;
     }
-    public async Task<InventoryResult> Sell(string itemId, CancellationToken token = default)
-    {
-        var identity = CaptureIdentity();
-        var result = await Request<InventoryResult>(HttpMethod.Post, "account/sell", new InventoryRequest(itemId), token, identity).ConfigureAwait(false);
-        PublishProfile(result.Profile, identity.Generation); return result;
-    }
     public async Task SignOut(CancellationToken token = default)
     {
         string access, address; bool legacy;
@@ -257,7 +255,7 @@ public sealed partial class AccountClient : IDisposable
         {
             access = Token; address = ServerAddress; legacy = SignedIn && !IsDirectFirebaseSession;
             ++_identityGeneration;
-            Token = ""; ExpiresAt = default; Profile = null; _pendingLoginId = "";
+            Token = ""; ExpiresAt = default; Profile = null; ResetInventorySync(); _pendingLoginId = "";
             _firebaseReader?.Dispose(); _firebaseReader = null; _firebaseUid = "";
         }
         if (!legacy || address.Length == 0) return;
@@ -294,7 +292,7 @@ public sealed partial class AccountClient : IDisposable
     private static async Task<T> Read<T>(HttpResponseMessage response, CancellationToken token)
     {
         string text = await RoomBrowser.ReadBoundedAsync(response.Content, 1024 * 1024, token).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode) throw new InvalidOperationException(Protocol.Deserialize<ApiError>(text)?.Error ?? "No se pudo gestionar la cuenta.");
+        if (!response.IsSuccessStatusCode) throw new AccountApiException(response.StatusCode, Protocol.Deserialize<ApiError>(text)?.Error ?? "No se pudo gestionar la cuenta.");
         return Protocol.Deserialize<T>(text) ?? throw new InvalidDataException("Respuesta de cuenta incompleta.");
     }
     /// <summary>Dirección opcional HTTPS únicamente para acciones de escritura verificadas.</summary>

@@ -348,9 +348,18 @@ public partial class EquipmentPanel : Control
             (_defensePlayer == null && _saleOwner != _main.Accounts.Profile?.Uid)) { CancelSale(); return; }
         _confirm.Hide();
         if (_defensePlayer != null) { SellDefenseItem(); return; }
+        string itemId = _selling, owner = _saleOwner;
         Busy(true, "Eliminando objeto y abonando oro…");
-        try { var result = await _main.Accounts.Sell(_selling, _lifetime.Token); Done(result.Message); }
-        catch (Exception error) { Failed(error); }
+        try { var result = await _main.Accounts.Sell(itemId, _lifetime.Token); Done(result.Message); }
+        catch (Exception error)
+        {
+            if (!_main.Accounts.InventoryNeedsRefresh) Failed(error);
+            else if (await RecoverSaleState(owner))
+                Done(_main.Accounts.Profile!.Items.Any(i => i.Id == itemId)
+                    ? "Inventario sincronizado. La pieza sigue disponible; puedes reintentar la venta."
+                    : "Venta confirmada al sincronizar. El objeto y el oro están actualizados.");
+            else Failed(new InvalidOperationException("Venta sin confirmar. Actualiza el inventario antes de volver a vender.", error));
+        }
         finally { _selling = ""; }
     }
     private void Done(string message) => _main.Post(() =>

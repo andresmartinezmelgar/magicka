@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.25.1 — Correcciones de controles personalizados y ventas
+
+- Los joysticks de movimiento y lanzamiento responden en su posición personalizada, aunque estén en la mitad contraria de la pantalla. Se respeta el modo zurdo y los dedos conservan su función al mover y apuntar simultáneamente.
+- Un segundo dedo en un joystick ocupado ya no activa el otro control. Soltar movimiento y soltar lanzamiento siguen siendo acciones independientes.
+- Cuando se pierde la respuesta de una venta o llega un error de servidor, se sincroniza el inventario para recuperar los objetos vendidos y el oro real antes de permitir un reintento. Si tampoco hay conexión para leerlo, se muestra «Venta sin confirmar» y se bloquean nuevas ventas hasta actualizar. Una lectura antigua o una copia local no elimina ese bloqueo.
+- La venta múltiple muestra el progreso y el oro confirmado. La recuperación no vuelve a enviar las ventas ya aplicadas; el bloqueo no se transmite a otra cuenta al cambiar de sesión.
+- Pruebas de pérdida de respuesta tras confirmar la venta, errores 503, lectura sin conexión, respuestas antiguas, recuperación manual, cambio de cuenta y controles personalizados con varios dedos.
+
 ## 0.25.0 — Inventario y controles configurables
 
 - Comparación del resultado real del equipo completo al sustituir una pieza: valores antes y después, diferencias, límites aplicados y activación o pérdida de conjuntos. Disponible en el selector y en «Comparar con mi equipo» de cada oferta de tienda.

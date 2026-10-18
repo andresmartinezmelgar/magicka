@@ -19,7 +19,8 @@ public partial class EquipmentPanel
     internal bool TemporaryInventory => _defensePlayer != null;
     private bool CanChangeDefenseItems => _defenseWizard?.Alive == true && !_defenseMatchEnded;
     private bool CanSellInventory => _defensePlayer != null ? CanChangeDefenseItems :
-        _main.Accounts.SignedIn && (!_main.Accounts.IsDirectFirebaseSession || _main.Accounts.ServerAddress.Length > 0);
+        !_main.Accounts.InventoryNeedsRefresh && _main.Accounts.SignedIn &&
+        (!_main.Accounts.IsDirectFirebaseSession || _main.Accounts.ServerAddress.Length > 0);
 
     internal void BuildDefense(Main main, DefensePlayerSnapshot player, WizardSnapshot wizard, bool ended, Action<ClientMessage> submit)
     {

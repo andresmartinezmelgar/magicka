@@ -94,13 +94,11 @@ public partial class Main
                 case 4:
                     Check(fixture.Sold == 2 && fixture.Attempts == 3 && panel.VisibleItems == 5 && panel.PreviewProfile!.Items.Any(i => i.Id == fixture.Extras[0].Id),
                         "Reintentar no conserva la favorita o repite una venta confirmada.");
-                    OpenTouchSettings();
-                    ((HSlider)_controlsSettings!.FindChild("TouchSize", true, false)).Value = 1.15;
-                    ((HSlider)_controlsSettings.FindChild("TouchDeadZone", true, false)).Value = .2;
-                    ((HSlider)_controlsSettings.FindChild("TouchSensitivity", true, false)).Value = 1.2;
-                    ((CheckBox)_controlsSettings.FindChild("TouchLeftHanded", true, false)).ButtonPressed = true;
-                    ((Button)_controlsSettings.FindChild("TouchEditPositions", true, false)).EmitSignal(BaseButton.SignalName.Pressed);
-                    _usabilityStage++; return false;
+                    Button("EquipmentFavorite_" + fixture.Extras[0].Id).EmitSignal(BaseButton.SignalName.Pressed);
+                    Button("EquipmentBulkAll").EmitSignal(BaseButton.SignalName.Pressed);
+                    fixture.LoseNextResponse = true;
+                    Button("EquipmentBulkSell").EmitSignal(BaseButton.SignalName.Pressed); dialog.EmitSignal(ConfirmationDialog.SignalName.Confirmed);
+                    _usabilityStage = 8; return false;
                 case 5:
                     var tools = (Control)_controlsSettings!.FindChild("TouchEditorToolbar", true, false);
                     Check(GetViewport().GetVisibleRect().Encloses(tools.GetGlobalRect()), "Las herramientas del editor salen de la pantalla: " + tools.GetGlobalRect());
@@ -137,7 +135,37 @@ public partial class Main
                     ((HSlider)_controlsSettings!.FindChild("TouchSize", true, false)).Value = .8;
                     _controlsSettings.HandleBack();
                     Check(DevicePreferences.Read<TouchSettings>("touch-controls")!.Size > 1, "Cancelar guarda cambios.");
-                    _usabilityWait = Time.GetTicksMsec() + 400; _usabilityStage++; return false;
+                    VerifyCustomTouchRouting();
+                    _usabilityWait = Time.GetTicksMsec() + 400; _usabilityStage = 99; return false;
+                case 8:
+                    Check(fixture.Sold == 3 && fixture.Attempts == 4 && panel.VisibleItems == 4 && panel.PreviewProfile!.Gold == fixture.Profile.Gold && !Accounts.InventoryNeedsRefresh,
+                        "Perder una respuesta de venta no recupera el inventario real o vuelve a enviar la escritura.");
+                    var boots = fixture.Profile.Items.Single(i => i.Slot == EquipmentSlot.Boots);
+                    panel.PressInspect(EquipmentSlot.Boots);
+                    fixture.LoseNextResponse = true; fixture.ReadsOffline = true;
+                    panel.PressTrash(boots.Id); dialog.EmitSignal(ConfirmationDialog.SignalName.Confirmed);
+                    _usabilityStage = 9; return false;
+                case 9:
+                    Check(Accounts.InventoryNeedsRefresh && fixture.Sold == 4 && fixture.Attempts == 5 && panel.VisibleItems == 4 &&
+                        ((Label)panel.FindChild("EquipmentPickerStatus", true, false)).Text.Contains("sin confirmar"), "La pérdida de respuesta sin lectura fiable se muestra como una venta descartada.");
+                    var pendingId = panel.PreviewProfile!.Items.Single(i => i.Slot == EquipmentSlot.Boots).Id;
+                    Check(Button("EquipmentTrash_" + pendingId).Disabled, "Se puede reenviar una venta sin confirmar.");
+                    panel.PressTrash(pendingId);
+                    Check(fixture.Attempts == 5 && !dialog.Visible, "Un botón desactivado reenvía la operación pendiente.");
+                    fixture.ReadsOffline = false; panel.HandleBack();
+                    panel.FindChildren("*", "Button", true, false).OfType<Button>().Single(b => b.Text == "Actualizar").EmitSignal(BaseButton.SignalName.Pressed);
+                    _usabilityStage = 10; return false;
+                case 10:
+                    Check(!Accounts.InventoryNeedsRefresh && panel.VisibleItems == 3 && panel.PreviewProfile!.Gold == fixture.Profile.Gold && fixture.Attempts == 5,
+                        "Actualizar no resuelve la venta pendiente o repite su cobro.");
+                    GD.Print("SALE_RESPONSE_RECOVERY_OK: respuesta perdida, sincronización automática, bloqueo sin lectura y recuperación manual sin reenvíos.");
+                    OpenTouchSettings();
+                    ((HSlider)_controlsSettings!.FindChild("TouchSize", true, false)).Value = 1.15;
+                    ((HSlider)_controlsSettings.FindChild("TouchDeadZone", true, false)).Value = .2;
+                    ((HSlider)_controlsSettings.FindChild("TouchSensitivity", true, false)).Value = 1.2;
+                    ((CheckBox)_controlsSettings.FindChild("TouchLeftHanded", true, false)).ButtonPressed = true;
+                    ((Button)_controlsSettings.FindChild("TouchEditPositions", true, false)).EmitSignal(BaseButton.SignalName.Pressed);
+                    _usabilityStage = 5; return false;
                 default:
                     if (Time.GetTicksMsec() < _usabilityWait) return false;
                     Check(_engineLog.ErrorCount == 0, "Godot registró errores durante los flujos de usabilidad.");
@@ -154,7 +182,7 @@ public partial class Main
             tier: ItemTier.Diamond, slot: EquipmentSlot.Weapon, family: EquipmentFamily.Cold)).ToArray();
         public AccountProfile Profile;
         public int Attempts, Sold;
-        public bool FailSecond = true;
+        public bool FailSecond = true, LoseNextResponse, ReadsOffline;
         public UsabilityFixture()
         {
             var items = Enum.GetValues<EquipmentSlot>().Select(s => EquipmentCatalogue.Generate(new(111 + (int)s),
@@ -168,12 +196,15 @@ public partial class Main
             {
                 case "/account/login/start": value = new LoginChallenge(_challenge, new('p', 64), "https://usability.example/account/login/" + _challenge + "?key=" + new string('k', 64), DateTimeOffset.UtcNow.AddMinutes(2)); break;
                 case "/account/login/poll": value = new LoginPoll(true, new('s', 64), DateTimeOffset.UtcNow.AddHours(1), Profile); break;
-                case "/account/profile": value = Profile; break;
+                case "/account/profile":
+                    if (ReadsOffline) throw new System.Net.Http.HttpRequestException("Lectura sin conexión simulada.");
+                    value = Profile; break;
                 case "/account/sell":
                     Attempts++;
                     if (FailSecond && Attempts == 2) return Json(new ApiError("Fallo de conexión simulado."), HttpStatusCode.ServiceUnavailable);
                     var sale = Protocol.Deserialize<InventoryRequest>(await request.Content!.ReadAsStringAsync(token))!;
                     Profile = AccountInventory.Sell(Profile, sale.ItemId); Sold++;
+                    if (LoseNextResponse) { LoseNextResponse = false; throw new System.Net.Http.HttpRequestException("Respuesta perdida tras vender."); }
                     value = new InventoryResult(Profile, "Vendido."); break;
                 default: throw new InvalidOperationException("Operación inesperada: " + request.RequestUri.AbsolutePath);
             }

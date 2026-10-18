@@ -248,12 +248,13 @@ public partial class MobileControls : Control
                 Request(new() { Type = action.Message.Type, Element = action.Message.Element, Slot = action.Message.Slot });
             action.Run?.Invoke(); return true;
         }
-        // El primer contacto fija el origen. Un dedo ya asignado conserva su función
-        // al cruzar botones o la mitad derecha, y un toque nuevo no lo sustituye.
-        if (_moveFinger < 0 && new Rect2(new(Settings.LeftHanded ? Size.X / 2 : 0, 0), new(Size.X / 2, Size.Y)).HasPoint(point))
-        { _moveFinger = finger; _moveCenter = point; _move = Vector2.Zero; QueueRedraw(); return true; }
-        if (_aimFinger < 0 && point.DistanceTo(_aimCenter) <= StickRadius + 20)
+        // Las posiciones editadas tienen prioridad sobre la zona flotante de movimiento.
+        // Un toque adicional en un joystick ocupado nunca se reasigna al otro control.
+        float aimDistance = point.DistanceTo(_aimCenter), moveDistance = point.DistanceTo(_moveHome);
+        bool nearAim = aimDistance <= StickRadius + 20, nearMove = moveDistance <= StickRadius + 20;
+        if (nearAim && (!nearMove || aimDistance <= moveDistance))
         {
+            if (_aimFinger >= 0) return true;
             _aimFinger = finger;
             var spell = new SpellRecipe(_selected.Elements);
             _aimedSpellShape = spell.Shape;
@@ -264,6 +265,12 @@ public partial class MobileControls : Control
             if (!_directionalAimPending && _pendingMagick < 0) Request(new() { Type = "cast" });
             QueueRedraw();
             return true;
+        }
+        bool movementZone = new Rect2(new(Settings.LeftHanded ? Size.X / 2 : 0, 0), new(Size.X / 2, Size.Y)).HasPoint(point);
+        if (nearMove || movementZone)
+        {
+            if (_moveFinger >= 0) return true;
+            _moveFinger = finger; _moveCenter = point; _move = Vector2.Zero; QueueRedraw(); return true;
         }
         return false;
     }

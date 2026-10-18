@@ -6,6 +6,7 @@ internal static class UsabilityTests
     private static void Check(bool ok, string reason) { if (!ok) throw new Exception(reason); }
     public static void Run(Action<string, Action> test)
     {
+        SaleRecoveryTests.Run(test);
         EquipmentItem Item(EquipmentSlot slot, EquipmentFamily family, float value, ItemTier tier = ItemTier.Mythic) =>
             new(Guid.NewGuid().ToString("N"), slot, tier, family, [new(EquipmentStat.FirePower, -.5f, .5f, value), new(EquipmentStat.Defense, 0, .5f, .01f)], 100);
         test("Comparación: al cambiar una oferta se pierden conjuntos y se aplican límites reales", () =>

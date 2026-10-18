@@ -83,8 +83,7 @@ public partial class EquipmentPanel
         _bulkAll.Disabled = _busy || !CanSellInventory;
         _bulkSell.Disabled = _busy || !CanSellInventory || items.Length == 0;
         _bulkSell.Text = $"Vender {items.Length} · +{items.Sum(i => (long)i.SaleGold)} oro";
-        if (!CanSellInventory) SetPickerMessage(TemporaryInventory ? "No puedes vender con el mago caído o al terminar la partida." :
-            "Venta bloqueada: inicia sesión y conecta con el servidor de ventas.");
+        if (!CanSellInventory) SetPickerMessage(SaleBlockedReason);
     }
     private string UpgradeBlockedReason(string id)
     {
@@ -200,14 +199,27 @@ public partial class EquipmentPanel
             {
                 await _main.Accounts.Sell(item.Id, _lifetime.Token);
                 _batchSold++; _batchGold += item.SaleGold;
+                SaleProgress(owner, _batchSold, _batchCount, _batchGold);
             }
-            catch (Exception error) { failure = error.Message; break; }
+            catch (Exception error)
+            {
+                failure = error.Message;
+                if (await RecoverSaleState(owner))
+                {
+                    var remaining = _main.Accounts.Profile!.Items.Select(i => i.Id).ToHashSet(StringComparer.Ordinal);
+                    var sold = items.Where(i => !remaining.Contains(i.Id)).ToArray();
+                    _batchSold = sold.Length; _batchGold = sold.Sum(i => (long)i.SaleGold);
+                }
+                break;
+            }
         }
         _main.Post(() =>
         {
             if (_lifetime.IsCancellationRequested) return;
             _main.SaveAccountCache(); RebaseDraft(); Render();
-            string result = $"Vendidos {_batchSold}/{_batchCount} objetos · +{_batchGold} oro." + (failure.Length > 0 ? " " + failure + " Los pendientes se conservan." : "");
+            string result = $"Vendidos {_batchSold}/{_batchCount} objetos · +{_batchGold} oro confirmado." +
+                (_main.Accounts.InventoryNeedsRefresh ? " Venta sin confirmar. Actualiza el inventario antes de volver a vender." :
+                failure.Length > 0 && _batchSold < _batchCount ? " " + failure + " Los objetos restantes siguen en el inventario." : "");
             Busy(false, result); RefreshPickerItems(); SetPickerMessage(result); ContinueRequestedClose();
         });
     }

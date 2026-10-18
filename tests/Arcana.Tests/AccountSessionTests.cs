@@ -35,7 +35,7 @@ internal static class AccountSessionTests
         handler.Release.SetResult();
         try { await pending; throw new Exception("Se publicó una respuesta de la sesión anterior."); }
         catch (OperationCanceledException) { }
-        Check(changeAccount ? client.SignedIn && client.Profile?.Uid == "accountB" && client.Token == "token-accountB" : !client.SignedIn && client.Profile == null,
+        Check(changeAccount ? client.SignedIn && client.Profile?.Uid == "accountB" && client.Token == "token-accountB" && !client.InventoryNeedsRefresh : !client.SignedIn && client.Profile == null,
             "La operación tardía restauró el perfil anterior o alteró la cuenta nueva.");
     }
     private static async Task LateSignOut()
