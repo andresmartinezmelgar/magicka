@@ -156,9 +156,9 @@ public partial class OptionAHelpPanel : Control
             _topicNavigation.Columns = ResponsiveLayout.Columns(width, compact ? 128 : 146, _topics.Length, 10);
         }
         bool shortScreen = GetViewport().GetVisibleRect().Size.X < 970 && GetViewport().GetVisibleRect().Size.Y <= 640;
-        bool compactCombinations = shortScreen && _page == 5;
-        if (_topicNavigation != null) _topicNavigation.Visible = !compactCombinations;
-        if (_topicChoice != null) _topicChoice.Visible = compactCombinations;
+        bool compactTopics = shortScreen && (_page == 5 || GetViewport().GetVisibleRect().Size.Y <= 480);
+        if (_topicNavigation != null) _topicNavigation.Visible = !compactTopics;
+        if (_topicChoice != null) _topicChoice.Visible = compactTopics;
         _heading.Visible = _topic.Visible = !shortScreen;
         foreach (var (grid, maximumColumns, minimumWidth) in _adaptiveGrids)
             if (GodotObject.IsInstanceValid(grid) && !grid.IsQueuedForDeletion())
@@ -199,7 +199,8 @@ public partial class OptionAHelpPanel : Control
         }
         var note = Ui.Label("FFF: fuego  ·  E: escudo  ·  QF: vapor  ·  QR: hielo  ·  DDF: roca incendiaria", 15, Ui.Muted);
         note.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _body.AddChild(Ui.Button("Configurar controles táctiles", _main.OpenTouchSettings));
+        var settings = Ui.Label("Personaliza el joystick y los botones desde Mi perfil → Configurar joystick y botones.", 15, Ui.Muted);
+        settings.AutowrapMode = TextServer.AutowrapMode.WordSmart; _body.AddChild(settings);
         _body.AddChild(note);
     }
 

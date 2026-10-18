@@ -235,6 +235,7 @@ public partial class Launcher
         if (_tabs.GetChild(2) is not VBoxContainer practice) return;
         var parts = practice.GetChildren().OfType<Control>().ToArray();
         if (parts.Length < 6) return;
+        foreach (var label in parts.OfType<Label>()) label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         practice.AddThemeConstantOverride("separation", 6);
         var row = new GridContainer { Name = "OptionAIaSettingsColumns", Columns = 2,
             SizeFlagsHorizontal = SizeFlags.ExpandFill,

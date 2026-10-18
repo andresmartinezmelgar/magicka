@@ -129,11 +129,13 @@ public partial class Main
                     ((Button)_controlsSettings.FindChild("TouchEditorDone", true, false)).EmitSignal(BaseButton.SignalName.Pressed);
                     _controlsSettings.FindChildren("*", "Button", true, false).OfType<Button>().Single(b => b.Text == "Guardar").EmitSignal(BaseButton.SignalName.Pressed);
                     Check(!ControlsOpen, "Guardar no cierra los ajustes.");
+                    Check(_accountProfilePanel?.IsVisibleInTree() == true, "Guardar no devuelve al perfil.");
                     var config = DevicePreferences.Read<TouchSettings>("touch-controls")!;
                     Check(config.LeftHanded && config.Positions.ContainsKey("TouchSelf") && Math.Abs(config.Size - 1.15f) < .01 && Math.Abs(config.DeadZone - .2f) < .01,
                         "Los ajustes táctiles no se guardan en disco.");
-                    OpenTouchSettings(); _usabilityStage++; return false;
+                    ((Button)_accountProfilePanel!.FindChild("ProfileTouchControls", true, false)).EmitSignal(BaseButton.SignalName.Pressed); _usabilityStage++; return false;
                 case 7:
+                    AssertOptionAScreen("AJUSTES_DESDE_PERFIL", _controlsSettings!);
                     ((HSlider)_controlsSettings!.FindChild("TouchSize", true, false)).Value = .8;
                     _controlsSettings.HandleBack();
                     Check(DevicePreferences.Read<TouchSettings>("touch-controls")!.Size > 1, "Cancelar guarda cambios.");
@@ -161,7 +163,12 @@ public partial class Main
                     Check(!Accounts.InventoryNeedsRefresh && panel.VisibleItems == 3 && panel.PreviewProfile!.Gold == fixture.Profile.Gold && fixture.Attempts == 5,
                         "Actualizar no resuelve la venta pendiente o repite su cobro.");
                     GD.Print("SALE_RESPONSE_RECOVERY_OK: respuesta perdida, sincronización automática, bloqueo sin lectura y recuperación manual sin reenvíos.");
-                    OpenTouchSettings();
+                    Check(!_pause.FindChildren("*", "Button", true, false).OfType<Button>().Any(b => b.Text is "Controles táctiles" or "Configurar controles táctiles") &&
+                        !_help.FindChildren("*", "Button", true, false).OfType<Button>().Any(b => b.Text is "Controles táctiles" or "Configurar controles táctiles"), "La partida conserva el acceso a los ajustes táctiles.");
+                    OpenAccountProfile();
+                    var touchSettings = (Button)_accountProfilePanel!.FindChild("ProfileTouchControls", true, false);
+                    Check(!touchSettings.Disabled, "Mi perfil desactiva los ajustes locales.");
+                    touchSettings.EmitSignal(BaseButton.SignalName.Pressed);
                     ((HSlider)_controlsSettings!.FindChild("TouchSize", true, false)).Value = 1.15;
                     ((HSlider)_controlsSettings.FindChild("TouchDeadZone", true, false)).Value = .2;
                     ((HSlider)_controlsSettings.FindChild("TouchSensitivity", true, false)).Value = 1.2;

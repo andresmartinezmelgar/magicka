@@ -38,6 +38,8 @@ public partial class EquipmentPanel : Control
     internal string Totals => string.Join("\n", _totals.GetChildren().OfType<Label>().Select(l => l.Text));
     internal bool Saving => _busy;
     internal string Sets => _sets.Text;
+    private bool ShortEquipmentMenu => Ui.IsMobile && _defensePlayer == null &&
+        GetViewport().GetVisibleRect().Size.Y <= 480;
 
     public void Build(Main main, string address)
     {
@@ -141,6 +143,9 @@ public partial class EquipmentPanel : Control
         float viewportWidth = GetViewport().GetVisibleRect().Size.X;
         float available = Math.Max(260, viewportWidth - (Ui.IsMobile ? 65 : 110));
         bool compact = viewportWidth < 970;
+        bool shortMenu = ShortEquipmentMenu;
+        foreach (var button in _equipmentToolbar.GetChildren().OfType<Button>())
+            button.CustomMinimumSize = new(0, Ui.IsMobile ? shortMenu ? 48 : 68 : 48);
         if (_optionAItemsTab != null) _optionAItemsTab.Text = viewportWidth < 700 ? "OBJETOS Y EQUIPO" : "◇  OBJETOS Y EQUIPACIÓN";
         if (_optionAStatsTab != null) _optionAStatsTab.Text = viewportWidth < 700 ? "SUMA DE BONOS" : "✧  SUMA DE BONIFICACIONES";
         foreach (var tab in new[] { _optionAItemsTab, _optionAStatsTab })
@@ -159,7 +164,7 @@ public partial class EquipmentPanel : Control
         _equipmentHeading.Visible = _defensePlayer != null || !compact;
         _equipmentToolbar.Visible = !_showingTotals;
         _status.Visible = _status.Text.Length > 0 && (!_showingTotals || !_routineStatus) &&
-            (_defensePlayer == null || !_routineStatus || HasChanges);
+            (_defensePlayer == null || !_routineStatus || HasChanges) && (!shortMenu || !_routineStatus || HasChanges);
         _summaryTitle.Visible = !compact;
         var setsParent = compact ? (Node)_summaryHeading : _summaryContent;
         if (_sets.GetParent() != setsParent)
@@ -290,7 +295,7 @@ public partial class EquipmentPanel : Control
     {
         _status.Text = message; _routineStatus = routine;
         _status.Visible = message.Length > 0 && (!_showingTotals || !routine) &&
-            (_defensePlayer == null || !routine || HasChanges);
+            (_defensePlayer == null || !routine || HasChanges) && (!ShortEquipmentMenu || !routine || HasChanges);
     }
     private void Busy(bool value, string message = "")
     {

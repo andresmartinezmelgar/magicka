@@ -487,7 +487,7 @@ jobs:
           set -o pipefail
           "$ARCANA_GODOT" --headless --path src/Arcana.Client -- --mobile-menu-smoke 2>&1 | tee "$RUNNER_TEMP/mobile-menu-smoke.log"
           grep -q 'MOBILE_MENU_LAYOUT_OK' "$RUNNER_TEMP/mobile-menu-smoke.log"
-          for viewport in 1024x640 800x600 720x540; do
+          for viewport in 1024x640 800x600 720x540 640x450; do
             "$ARCANA_GODOT" --headless --path src/Arcana.Client -- --mobile-menu-smoke "--smoke-viewport=$viewport" 2>&1 | tee "$RUNNER_TEMP/mobile-menu-$viewport.log"
             grep -q 'MOBILE_MENU_LAYOUT_OK' "$RUNNER_TEMP/mobile-menu-$viewport.log"
             ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/mobile-menu-$viewport.log"

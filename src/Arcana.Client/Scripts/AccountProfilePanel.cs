@@ -8,7 +8,7 @@ public partial class AccountProfilePanel : Control
 {
     private Main _main = null!;
     private Label _heading = null!, _status = null!;
-    private Button _login = null!, _logout = null!, _checkUpdate = null!;
+    private Button _login = null!, _logout = null!, _checkUpdate = null!, _touchControls = null!;
     private Label _updateStatus = null!;
     private GridContainer _profileActions = null!;
     private bool _checkingUpdate;
@@ -20,7 +20,7 @@ public partial class AccountProfilePanel : Control
     private PanelContainer? _responsiveCard;
     private int _responsivePadding;
 
-    internal Button[] VisibleFooterButtons => new[] { _login, _logout, _checkUpdate }
+    internal Button[] VisibleFooterButtons => new[] { _login, _logout, _checkUpdate, _touchControls }
         .Where(b => GodotObject.IsInstanceValid(b) && b.IsVisibleInTree()).ToArray();
 
     public void Build(Main main)
@@ -41,9 +41,12 @@ public partial class AccountProfilePanel : Control
         foreach (string side in new[] { "left", "right", "top", "bottom" })
             margin.AddThemeConstantOverride("margin_" + side, padding);
 
+        var scroll = new ContentScrollContainer { Name = "ProfileContentScroll", SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        margin.AddChild(scroll); Ui.VisibleVerticalScroll(scroll);
         var center = new CenterContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill };
-        margin.AddChild(center);
+        scroll.AddChild(center);
         var card = new PanelContainer
         {
             Name = "GoogleAccountCard",
@@ -70,10 +73,13 @@ public partial class AccountProfilePanel : Control
         _logout = Ui.Button("Cerrar sesión", () => _ = Logout(), true);
         _checkUpdate = Ui.Button("Buscar actualización", () => _ = CheckUpdate());
         _checkUpdate.Name = "ProfileCheckUpdates";
+        _touchControls = Ui.Button("Configurar joystick y botones", main.OpenTouchSettings);
+        _touchControls.Name = "ProfileTouchControls";
+        _touchControls.TooltipText = "Tamaño, posiciones, zona muerta, sensibilidad y modo zurdo. Se guardan en este dispositivo.";
         _profileActions = new GridContainer { Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _profileActions.AddThemeConstantOverride("h_separation", 10); _profileActions.AddThemeConstantOverride("v_separation", 8);
         content.AddChild(_profileActions);
-        foreach (var button in new[] { _login, _logout, _checkUpdate })
+        foreach (var button in new[] { _login, _logout, _checkUpdate, _touchControls })
         {
             button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             button.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -97,10 +103,10 @@ public partial class AccountProfilePanel : Control
         if (_responsiveCard == null) return;
         float width = GetViewport().GetVisibleRect().Size.X;
         _responsiveCard.CustomMinimumSize = new Vector2(
-            Math.Max(220, Math.Min(Ui.IsMobile ? 1050 : 860, width - 2 * _responsivePadding - 12)), 0);
+            Math.Max(220, Math.Min(Ui.IsMobile ? 1050 : 860, width - 2 * _responsivePadding - 36)), 0);
         _profileActions.Columns = width < 560 ? 1 : 2;
         float height = GetViewport().GetVisibleRect().Size.Y < 640 ? 60 : 76;
-        foreach (var button in new[] { _login, _logout, _checkUpdate }) button.CustomMinimumSize = new(0, height);
+        foreach (var button in new[] { _login, _logout, _checkUpdate, _touchControls }) button.CustomMinimumSize = new(0, height);
     }
 
     /// <summary>Selecciona el JSON OAuth sin copiarlo ni renombrarlo manualmente.</summary>

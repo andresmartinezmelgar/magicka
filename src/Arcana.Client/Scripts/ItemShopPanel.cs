@@ -12,6 +12,7 @@ public partial class ItemShopPanel : Control
     private Label _wallet = null!, _status = null!;
     private Button _reload = null!, _refresh = null!;
     private GridContainer _offers = null!;
+    private ContentScrollContainer _scroll = null!;
     private readonly Dictionary<string, Button> _buyButtons = new(StringComparer.Ordinal);
     private bool _busy, _connected;
     private string? _owner;
@@ -31,7 +32,11 @@ public partial class ItemShopPanel : Control
         var margin = new MarginContainer(); AddChild(margin); Ui.Full(margin);
         foreach (string side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, Ui.IsMobile ? 9 : 15);
         var panel = new PanelContainer(); panel.AddThemeStyleboxOverride("panel", Ui.Panel(ArcanaMenuChrome.Surface, 10, ArcanaMenuChrome.Border)); margin.AddChild(panel);
-        var body = new VBoxContainer(); body.AddThemeConstantOverride("separation", 8); panel.AddChild(body);
+        _scroll = new ContentScrollContainer { Name = "ShopOffersScroll", SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        panel.AddChild(_scroll); Ui.VisibleVerticalScroll(_scroll);
+        var body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        body.AddThemeConstantOverride("separation", 8); _scroll.AddChild(body);
         if (Ui.IsMobile) Wrapped(body, "TIENDA · OBJETOS PERMANENTES", 20, Ui.Gold);
         _wallet = Wrapped(body, "Oro de cuenta: —", 21, Ui.Gold); _wallet.Name = "ShopWallet";
         var explanation = Wrapped(body, "Objetos permanentes. Cada oferta se compra una vez; las piezas llegan al inventario sin cambiar tu equipo.", 15, Ui.Muted);
@@ -41,26 +46,21 @@ public partial class ItemShopPanel : Control
         _refresh = Ui.Button(Ui.IsMobile ? "Sin anuncios" : "Renovar · pronto", () => { }); _refresh.Name = "ShopRefreshAd";
         _refresh.Disabled = true;
         _refresh.TooltipText = "La renovación por anuncios todavía no está disponible.";
-        var inventory = Ui.Button("Inventario", () => main.CloseItemShop(true)); inventory.Name = "ShopInventory";
-        var home = Ui.Button("Inicio", () => main.NavigateOptionAMenu(0)); home.Name = "ShopHome";
-        foreach (var button in new[] { _reload, _refresh, inventory, home })
+        foreach (var button in new[] { _reload, _refresh })
         {
             button.SizeFlagsHorizontal = SizeFlags.ExpandFill; button.CustomMinimumSize = new(0, Ui.IsMobile ? 54 : 46);
             button.AutowrapMode = TextServer.AutowrapMode.WordSmart; button.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 17 : 16); toolbar.AddChild(button);
         }
         _status = Wrapped(body, "Conectando con la tienda…", 16, Ui.Muted); _status.Name = "ShopStatus";
-        var scroll = new ContentScrollContainer { Name = "ShopOffersScroll", SizeFlagsHorizontal = SizeFlags.ExpandFill,
-            SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-        body.AddChild(scroll); Ui.VisibleVerticalScroll(scroll);
         _offers = new GridContainer { Name = "ShopOffers", Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        _offers.AddThemeConstantOverride("h_separation", 10); _offers.AddThemeConstantOverride("v_separation", 10); scroll.AddChild(_offers);
-        scroll.Resized += ResizeOffers;
+        _offers.AddThemeConstantOverride("h_separation", 10); _offers.AddThemeConstantOverride("v_separation", 10); body.AddChild(_offers);
+        _scroll.Resized += ResizeOffers;
         _comparison = new AcceptDialog { Name = "ShopComparison", Title = "Comparación del equipo", OkButtonText = "Volver a la oferta",
             Theme = Ui.Theme(), Exclusive = true, Transient = true }; AddChild(_comparison);
         var comparisonScroll = new ContentScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         _comparison.AddChild(comparisonScroll); Ui.VisibleVerticalScroll(comparisonScroll);
         _comparisonText = Wrapped(comparisonScroll, "", 17); _comparisonText.Name = "ShopComparisonText";
-        if (!Ui.IsMobile) ArcanaMenuChrome.Attach(this, margin, main, "Tienda de objetos", 7, main.NavigateOptionAMenu);
+        ArcanaMenuChrome.Attach(this, margin, main, "Tienda de objetos", 7, main.NavigateOptionAMenu);
         ShowUnavailable("Conectando con la tienda…");
         _ = Load();
     }
@@ -71,8 +71,9 @@ public partial class ItemShopPanel : Control
     }
     private void ResizeOffers()
     {
-        if (_offers?.GetParent() is not Control scroll) return;
-        _offers.Columns = scroll.Size.X >= 1100 ? 3 : scroll.Size.X >= 600 ? 2 : 1;
+        if (_scroll == null || _offers == null) return;
+        float width = _scroll.Size.X - _scroll.GetVScrollBar().Size.X;
+        _offers.Columns = width >= 1100 ? 3 : width >= 600 ? 2 : 1;
     }
     private void ClearOffers()
     {

@@ -68,7 +68,7 @@ public partial class Main
             throw new InvalidOperationException($"HUD {stage}: el minimapa tapa la vida del jugador: {minimap.GetGlobalRect()} / {status.GetGlobalRect()}");
     }
 
-    private void AssertVisibleTableData(Control root, string tableName)
+    private void AssertVisibleTableData(Control root, string tableName, bool includeHeader = true)
     {
         var table = root.FindChild(tableName, true, false) as GridContainer
             ?? throw new InvalidOperationException("Falta la tabla " + tableName);
@@ -76,9 +76,11 @@ public partial class Main
         Rect2 visible = GetViewport().GetVisibleRect();
         for (Node? parent = table.GetParent(); parent != null; parent = parent.GetParent())
             if (parent is ScrollContainer scroll) visible = visible.Intersection(scroll.GetGlobalRect());
-        if (cells.Length < table.Columns * 2 || new[] { 0, table.Columns - 1, table.Columns, table.Columns * 2 - 1 }
+        int[] required = includeHeader ? [0, table.Columns - 1, table.Columns, table.Columns * 2 - 1]
+            : [table.Columns, table.Columns * 2 - 1];
+        if (cells.Length < table.Columns * 2 || required
             .Any(index => !visible.Grow(1).Encloses(cells[index].GetGlobalRect())))
-            throw new InvalidOperationException(tableName + ": no se ven la cabecera y una fila completa de datos. Área visible: " + visible);
+            throw new InvalidOperationException(tableName + ": no se ven la cabecera y una fila completa de datos. Área visible: " + visible + "; celdas: " + string.Join("; ", cells.Take(table.Columns * 2).Select(cell => cell.Text + " " + cell.GetGlobalRect())));
     }
 
     // En CI no basta con simular los controles móviles: hay que comprobar
@@ -185,6 +187,18 @@ public partial class Main
         if (root.FindChild("OptionAHeader", true, false) is not Control ||
             root.FindChild("OptionAFooter", true, false) is not Control)
             throw new InvalidOperationException($"{stage}: faltan barras de navegación de la opción A.");
+        var header = ((Control)root.FindChild("OptionAHeader", true, false)).GetGlobalRect();
+        var footer = ((Control)root.FindChild("OptionAFooter", true, false)).GetGlobalRect();
+        var content = ((Control)root.FindChild("ResponsiveContentHost", true, false)).GetGlobalRect();
+        if (!screen.Grow(1).Encloses(header) || !screen.Grow(1).Encloses(footer) ||
+            content.Position.Y < header.End.Y - 1 || content.End.Y > footer.Position.Y + 1)
+            throw new InvalidOperationException($"{stage}: las barras comunes tapan el contenido o salen de pantalla.");
+        for (int page = 0; page < 8; page++)
+        {
+            var navigation = (Button)root.FindChild("OptionANav" + page, true, false);
+            if (!navigation.IsVisibleInTree() || !footer.Grow(1).Encloses(navigation.GetGlobalRect()))
+                throw new InvalidOperationException($"{stage}: la opción inferior {page} no es accesible.");
+        }
         foreach (var control in root.FindChildren("*", "Control", true, false).OfType<Control>())
         {
             if (!control.IsVisibleInTree()) continue;
@@ -443,7 +457,10 @@ public partial class Main
             }
             if (frame == 115)
             {
-                AssertMobileActions("PERFIL_403", _accountProfilePanel!.VisibleFooterButtons, 2);
+                var profileScroll = (ScrollContainer)_accountProfilePanel!.FindChild("ProfileContentScroll", true, false);
+                foreach (var action in _accountProfilePanel.VisibleFooterButtons)
+                    if (action.Disabled || action.Size.Y < 60) throw new InvalidOperationException("El perfil desactiva una acción local o reduce su tamaño táctil.");
+                profileScroll.EnsureControlVisible((Control)_accountProfilePanel.FindChild("ProfileTouchControls", true, false));
                 AssertOptionAScreen("PERFIL_403", _accountProfilePanel);
                 string[] labels = _accountProfilePanel.FindChildren("*", "Label", true, false)
                     .OfType<Label>().Select(label => label.Text).ToArray();
@@ -458,6 +475,25 @@ public partial class Main
                 if (updateStatus.Text.Length == 0 || update.Disabled)
                     throw new InvalidOperationException("La búsqueda manual no confirma su estado o deja el botón bloqueado.");
                 GD.Print("PROFILE_UPDATE_BUTTON_OK: botón accesible sin depender de Firestore y resultado visible.");
+            }
+            if (frame == 117)
+            {
+                var action = (Button)_accountProfilePanel!.FindChild("ProfileTouchControls", true, false);
+                var scroll = (ScrollContainer)_accountProfilePanel.FindChild("ProfileContentScroll", true, false);
+                if (!scroll.GetGlobalRect().Grow(1).Encloses(action.GetGlobalRect()))
+                    throw new InvalidOperationException("Los ajustes táctiles no son accesibles desde Mi perfil.");
+                action.EmitSignal(Button.SignalName.Pressed);
+            }
+            if (frame == 120)
+            {
+                if (!ControlsOpen) throw new InvalidOperationException("Mi perfil no abre los ajustes táctiles.");
+                AssertOptionAScreen("AJUSTES_DESDE_PERFIL", _controlsSettings!);
+                float originalSize = _touchSettings!.Size;
+                ((HSlider)_controlsSettings!.FindChild("TouchSize", true, false)).Value = originalSize > 1 ? .8 : 1.2;
+                ((Button)_controlsSettings.FindChild("OptionANav3", true, false)).EmitSignal(Button.SignalName.Pressed);
+                if (ControlsOpen || _accountProfilePanel?.IsVisibleInTree() != true || _touchSettings.Size != originalSize)
+                    throw new InvalidOperationException("Volver a Mi perfil guarda cambios sin confirmar o pierde el perfil.");
+                GD.Print("PROFILE_TOUCH_SETTINGS_OK: acceso local, navegación común y cancelación sin guardar.");
             }
             if (frame == 125)
             {
@@ -540,19 +576,32 @@ public partial class Main
                 if (!picker.PickerVisible || picker.HasChanges || picker.PickerItems.Length != 60 || picker.PickerColumns is < 2 or > 3)
                     throw new InvalidOperationException("El gesto seleccionó un objeto o el selector perdió objetos/columnas.");
                 picker.HandleBack();
-                var sum = _equipmentPanel!.FindChildren("*", "Button", true, false).OfType<Button>()
-                    .Single(button => button.Text.Contains("SUMA DE BONIFICACIONES"));
+                var sum = (Button)_equipmentPanel!.FindChild("EquipmentTotalsTab", true, false);
                 sum.EmitSignal(Button.SignalName.Pressed);
+            }
+            if (frame == 160)
+            {
+                var table = (GridContainer)_equipmentPanel!.FindChild("EquipmentTotalsTable", true, false);
+                var scroll = (ScrollContainer)_equipmentPanel.FindChild("EquipmentTotalsScroll", true, false);
+                // En 450 px el desglose de cuatro líneas cabe entero al desplazarlo,
+                // aunque no quepa simultáneamente con su cabecera.
+                if (GetViewport().GetVisibleRect().Size.Y <= 480)
+                {
+                    foreach (var heading in table.GetChildren().OfType<Label>().Take(table.Columns))
+                        if (!scroll.GetGlobalRect().Grow(1).Encloses(heading.GetGlobalRect()))
+                            throw new InvalidOperationException("La cabecera de bonificaciones no es accesible.");
+                    scroll.EnsureControlVisible(table.GetChildren().OfType<Label>().ElementAt(table.Columns * 2 - 1));
+                }
             }
             if (frame == 162)
             {
                 AssertOptionAScreen("SUMA_BONIFICACIONES", _equipmentPanel!);
-                AssertVisibleTableData(_equipmentPanel!, "EquipmentTotalsTable");
+                AssertVisibleTableData(_equipmentPanel!, "EquipmentTotalsTable", includeHeader: GetViewport().GetVisibleRect().Size.Y > 480);
                 AssertTouchScroll(_equipmentPanel!, "EquipmentTotalsScroll", "SUMA_BONIFICACIONES");
             }
             if (frame < 165) return false;
             _googleIdentityKnown = false;
-            GD.Print("MOBILE_MENU_LAYOUT_OK: Opción A PvP, IA, salas, perfil, ayuda y equipación; todos sin scroll.");
+            GD.Print("MOBILE_MENU_LAYOUT_OK: PvP, IA, salas, perfil, ajustes, ayuda y equipación; navegación común y contenido accesible.");
             _mobileMenuSmoke = false;
             GetTree().Quit(0);
             return true;

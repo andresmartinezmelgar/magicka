@@ -151,7 +151,8 @@ public partial class RoomLobby : Control
         Row(grid, "Mapa", _map);
         _capacity = Number(2, 16, 8); Row(grid, "Plazas (incluidos los bots)", _capacity);
         _bots = Number(0, 7, 0); Row(grid, "IA (aliados en Defensa)", _bots);
-        _bestOf = new OptionButton { CustomMinimumSize = new(0, 42) };
+        _bestOf = new OptionButton { CustomMinimumSize = new(0, 42), FitToLongestItem = false,
+            ClipText = true, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
         _bestOf.AddItem("Partida única (sin sala de espera)", 1);
         _bestOf.AddItem("Mejor de 5 · gana 3", 5);
         _bestOf.AddItem("Mejor de 7 · gana 4", 7);
@@ -233,7 +234,10 @@ public partial class RoomLobby : Control
     private static SpinBox Number(int min, int max, int value) => new() { MinValue = min, MaxValue = max,
         Value = value, Step = 1, CustomMinimumSize = new(0, 40), SizeFlagsHorizontal = SizeFlags.ExpandFill };
     private static void Row(GridContainer grid, string title, Control control)
-    { grid.AddChild(Ui.Label(title, 15, Ui.Muted)); grid.AddChild(control); }
+    {
+        var label = Ui.Label(title, 15, Ui.Muted); label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        grid.AddChild(label); grid.AddChild(control);
+    }
     private void ActionButton(Node parent, string text, Action action, bool primary = false)
     {
         var button = Ui.Button(text, action, primary); button.SizeFlagsHorizontal = SizeFlags.ExpandFill;

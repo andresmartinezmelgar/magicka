@@ -200,11 +200,15 @@ El servidor Docker **no configura automáticamente** el túnel temporal de Fireb
 | Vaciar elementos | Retroceso |
 | Clasificación / ayuda / pausa o menú | **TAB / F1 / ESC** |
 
+La configuración del joystick y los botones está en **Mi perfil → Configurar joystick y botones**, disponible también como invitado. El tamaño, las posiciones, la zona muerta, la sensibilidad y el modo zurdo se guardan en este dispositivo.
+
 En Android se utilizan **joysticks y botones táctiles** para movimiento, apuntado, elementos, lanzamiento y magicks. La ayuda dentro del juego explica combinaciones, objetivos y tipos de mago. [Guía Android](docs/ANDROID.md) · [Combinaciones](docs/COMBINACIONES.md).
 
 ## Desarrollo y compilación
 
 ### Tecnologías y estructura
+
+Todas las pantallas y subpantallas de menú comparten la cabecera y la navegación inferior de `ArcanaMenuChrome` en móvil y escritorio. El contenido se adapta o se desplaza dentro del área central, sin ocultar ni tapar estas barras. El editor de posiciones utiliza el lienzo completo del HUD mientras se arrastran los controles.
 
 | Ruta | Contenido |
 | --- | --- |

@@ -5,6 +5,7 @@ namespace Arcana.Client;
 
 /// <summary>
 /// Opción A: marco visual único para todas las pantallas de menú.
+/// Cabecera y navegación inferior se comparten en móvil y escritorio, también en subpantallas de ajustes.
 /// No se instancia durante el combate; sus acciones reutilizan los controladores existentes.
 /// </summary>
 public partial class ArcanaMenuChrome : Control
@@ -129,8 +130,8 @@ public partial class ArcanaMenuChrome : Control
     {
         if (_reservedContent == null || _footer == null || _navigationGrid == null) return;
         float viewportWidth = GetViewport().GetVisibleRect().Size.X;
-        // El ancho del texto más los márgenes y el scrollbar requieren holgura:
-        // seis botones de 110 px excedían 720 px pese al cálculo de columnas.
+        // La navegación no tiene scrollbar: descontar solo los márgenes reales
+        // permite cuatro columnas en 640 px sin añadir una tercera fila que quite espacio al contenido.
         bool compactNav = Ui.IsMobile && viewportWidth <= 820;
         string[] fullNames = ["⌂  Inicio", "⚔  PvP", "✧  Versus IA", "♙  Perfil", "◇  Inventario", "?  Ayuda", "Salir", "Tienda"];
         string[] compactNames = ["Inicio", "PvP", "IA", "Perfil", "Equipo", "Ayuda", "Salir", "Tienda"];
@@ -139,7 +140,7 @@ public partial class ArcanaMenuChrome : Control
             _navigation[i].Text = compactNav ? compactNames[i] : fullNames[i];
             _navigation[i].AddThemeFontSizeOverride("font_size", compactNav ? 16 : Ui.IsMobile ? 17 : 16);
         }
-        int columns = ResponsiveLayout.Columns(Math.Max(1, viewportWidth - (Ui.IsMobile ? 44 : 60)),
+        int columns = ResponsiveLayout.Columns(Math.Max(1, viewportWidth - (Ui.IsMobile ? 20 : 36)),
             compactNav ? 148 : Ui.IsMobile ? 165 : 140, _navigation.Count, Ui.IsMobile ? 7 : 12);
         _navigationGrid.Columns = columns;
         int rows = ResponsiveLayout.Rows(_navigation.Count, columns);

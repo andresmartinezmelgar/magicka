@@ -63,6 +63,7 @@ public partial class Main
             if (_shopSmokePhase == 1)
             {
                 if (shop == null || shop.Busy) return false;
+                AssertOptionAScreen("TIENDA_SIN_CONEXION", shop);
                 CheckUnavailable(); Check(shop.Status.Contains("Sin conexión"), "Falta el aviso de tienda desconectada.");
                 CaptureShop("02-sin-conexion"); _shopFixture!.Connected = true;
                 Button("ShopConnect").EmitSignal(Godot.Button.SignalName.Pressed); _shopSmokePhase++; return false;
@@ -70,14 +71,22 @@ public partial class Main
             if (_shopSmokePhase == 2)
             {
                 if (shop?.Catalogue == null || shop.Busy) return false;
-                Check(shop.Catalogue.Offers.Length == 6 && shop.Columns == (GetViewport().GetVisibleRect().Size.X >= 1200 ? 3 : 2), "No se muestran seis ofertas en columnas adaptadas.");
-                foreach (string name in new[] { "ShopWallet", "ShopConnect", "ShopRefreshAd", "ShopInventory", "ShopHome", "ShopOffersScroll" })
+                var offersScroll = (ScrollContainer)shop.FindChild("ShopOffersScroll", true, false);
+                float offersWidth = offersScroll.Size.X - offersScroll.GetVScrollBar().Size.X;
+                Check(shop.Catalogue.Offers.Length == 6 && shop.Columns == (offersWidth >= 1100 ? 3 : offersWidth >= 600 ? 2 : 1), "No se muestran seis ofertas en columnas adaptadas.");
+                AssertOptionAScreen("TIENDA_CONECTADA", shop);
+                foreach (string name in new[] { "ShopOffersScroll", "OptionANav0", "OptionANav4", "OptionANav7" })
                 {
                     var control = (Control)shop.FindChild(name, true, false);
                     Check(GetViewport().GetVisibleRect().Grow(1).Encloses(control.GetGlobalRect()), name + " sale de la pantalla.");
                 }
                 _shopSmokeId = shop.Catalogue.Id; var offer = shop.Catalogue.Offers[0]; _shopBoughtId = offer.Item.Id; _shopBoughtPrice = offer.Price;
-                Check(((Control)shop.FindChild("ShopOffersScroll", true, false)).GetGlobalRect().Grow(1).Encloses(Button("ShopBuy_" + _shopBoughtId).GetGlobalRect()),
+                offersScroll.EnsureControlVisible(Button("ShopBuy_" + _shopBoughtId));
+                _shopSmokePhase = 20; return false;
+            }
+            if (_shopSmokePhase == 20)
+            {
+                Check(((Control)shop!.FindChild("ShopOffersScroll", true, false)).GetGlobalRect().Grow(1).Encloses(Button("ShopBuy_" + _shopBoughtId).GetGlobalRect()),
                     "El primer objeto no permite ver el botón de compra junto con sus atributos.");
                 Check(Button("ShopRefreshAd").Disabled, "La renovación por anuncios está activa.");
                 Button("ShopComparison_" + _shopBoughtId).EmitSignal(Godot.Button.SignalName.Pressed);
@@ -85,7 +94,7 @@ public partial class Main
                     ((Label)shop.FindChild("ShopComparisonText", true, false)).Text.Contains("→"), "La tienda no muestra la comparación antes de comprar.");
                 shop.HandleBack();
                 CaptureShop("03-ofertas"); Button("ShopBuy_" + _shopBoughtId).EmitSignal(Godot.Button.SignalName.Pressed);
-                Button("ShopBuy_" + _shopBoughtId).EmitSignal(Godot.Button.SignalName.Pressed); _shopSmokePhase++; return false;
+                Button("ShopBuy_" + _shopBoughtId).EmitSignal(Godot.Button.SignalName.Pressed); _shopSmokePhase = 3; return false;
             }
             if (_shopSmokePhase == 3)
             {
@@ -95,7 +104,7 @@ public partial class Main
                 _shopGoldAfterPurchase = Accounts.Profile!.Gold;
                 Button("ShopRefreshAd").EmitSignal(Godot.Button.SignalName.Pressed);
                 Check(_shopFixture.AdRequests == 0 && shop.Catalogue!.Id == _shopSmokeId, "El botón de anuncios contactó con el servidor o renovó el catálogo.");
-                CaptureShop("04-compra"); Button("ShopInventory").EmitSignal(Godot.Button.SignalName.Pressed); _shopSmokePhase++; return false;
+                CaptureShop("04-compra"); Button("OptionANav4").EmitSignal(Godot.Button.SignalName.Pressed); _shopSmokePhase++; return false;
             }
             if (_shopSmokePhase == 4)
             {

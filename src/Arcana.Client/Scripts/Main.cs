@@ -657,7 +657,6 @@ public partial class Main : Node
             SizeFlagsVertical = Control.SizeFlags.ExpandFill };
         outer.AddChild(_helpPages);
         var box = new VBoxContainer { Name = "Controles" }; box.AddThemeConstantOverride("separation", 16); _helpPages.AddChild(box);
-        box.AddChild(Ui.Button("Configurar controles táctiles", OpenTouchSettings));
         var table = Ui.Table(2, "InGameHelpControlsTable"); _inGameHelpControls = table; box.AddChild(table);
         string[,] rows =
         {
@@ -767,7 +766,6 @@ public partial class Main : Node
         var root = Modal(out var box); box.AddChild(Ui.Label("PARTIDA", 30, Ui.Gold));
         box.AddChild(Ui.Label("En red, la partida continúa mientras estás en este menú.", 17, Ui.Muted));
         box.AddChild(Ui.Button("Continuar", TogglePause, true));
-        box.AddChild(Ui.Button("Controles táctiles", OpenTouchSettings));
         box.AddChild(Ui.Button("Volver al launcher", () => ReturnToLauncher()));
         box.AddChild(Ui.Button("Exportar diagnóstico", ExportDiagnostics));
         _diagnosticStatus = Ui.Label("", 15, Ui.Muted); _diagnosticStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;

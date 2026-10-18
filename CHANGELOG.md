@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.25.3 — Navegación coherente y ajustes en Mi perfil
+
+- La tienda utiliza la misma cabecera y navegación inferior que Inicio, Perfil, Inventario y Ayuda tanto en móvil como en escritorio. Se eliminan los accesos duplicados a Inicio e Inventario de su barra de acciones.
+- El catálogo y sus acciones se desplazan dentro del área central, conservando las ocho opciones del menú siempre visibles. La distribución de ofertas se adapta al ancho disponible; compra, comparación, reconexión y mensajes sin servidor mantienen su funcionamiento.
+- «Configurar joystick y botones» pasa a Mi perfil, disponible sin sesión Google ni conexión con Firestore. Se retiran los accesos del menú y la ayuda de la partida; la ayuda del menú indica su nueva ubicación.
+- Los ajustes táctiles comparten la navegación del resto de menús. Guardar o cancelar vuelve al perfil; cambiar de sección descarta los cambios sin guardar. El editor de posiciones conserva el lienzo completo y los márgenes de ocho píxeles.
+- Perfil y ajustes permiten desplazamiento en pantallas pequeñas sin tapar las barras comunes. Las verificaciones comprueban las ocho opciones inferiores, los límites del contenido, compras y apertura/guardado/cancelación de controles desde Mi perfil.
+- En 640×450 la navegación utiliza cuatro columnas y dos filas. Los formularios de IA y creación de salas se ajustan al ancho; Ayuda usa su selector de temas compacto y el inventario conserva espacio para desplazarse.
+
 ## 0.25.2 — Controles y minimapa sin superposiciones
 
 - Margen mínimo de ocho píxeles de interfaz entre botones, joysticks, minimapa y zonas de información, además del borde de pantalla. Al arrastrar un control sobre otro elemento se ajusta al hueco libre más cercano sin desplazar el resto.

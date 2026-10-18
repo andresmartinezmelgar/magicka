@@ -20,7 +20,7 @@ public partial class MobileSettingsPanel : Control
     public event Action? Canceled;
     internal TouchSettings Configuration => _preview.Visible ? _preview.Settings : _settings;
 
-    internal void Build(TouchSettings settings, WorldSnapshot? state = null, int playerId = 0, Action<List<TouchHudArea>>? modeAreas = null)
+    internal void Build(TouchSettings settings, WorldSnapshot? state = null, int playerId = 0, Action<List<TouchHudArea>>? modeAreas = null, Main? menuOwner = null)
     {
         Name = "MobileSettings"; Theme = Ui.Theme(); Ui.Full(this); MouseFilter = MouseFilterEnum.Stop;
         _settings = settings.Normalize();
@@ -34,16 +34,19 @@ public partial class MobileSettingsPanel : Control
         }
         _editorHud.Update(state, playerId, "Vista de controles", 0); _editorHud.HideEditorPlayer();
         _preview = new MobileControls { EditorMode = true, Visible = false }; AddChild(_preview); _preview.Configure(_settings);
-        var margin = new MarginContainer(); _form = margin; AddChild(margin); Ui.Full(margin);
+        _form = new Control(); AddChild(_form); Ui.Full(_form);
+        var margin = new MarginContainer(); _form.AddChild(margin); Ui.Full(margin);
         foreach (string side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, 16);
         var panel = new PanelContainer(); margin.AddChild(panel);
-        var box = new VBoxContainer(); box.AddThemeConstantOverride("separation", 8); panel.AddChild(box);
+        var scroll = new ContentScrollContainer { Name = "TouchSettingsScroll", SizeFlagsVertical = SizeFlags.ExpandFill,
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        panel.AddChild(scroll); Ui.VisibleVerticalScroll(scroll);
+        var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        box.AddThemeConstantOverride("separation", 8); scroll.AddChild(box);
         box.AddChild(Ui.Label("CONTROLES TÁCTILES", 24, Ui.Gold));
         var help = Ui.Label("Ajustes de este dispositivo. Puedes cambiar cada posición arrastrando los botones y los dos joysticks.", 16, Ui.Muted);
         help.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(help);
-        var scroll = new ContentScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-        box.AddChild(scroll); Ui.VisibleVerticalScroll(scroll);
-        _sliders = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; _sliders.AddThemeConstantOverride("separation", 8); scroll.AddChild(_sliders);
+        _sliders = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; _sliders.AddThemeConstantOverride("separation", 8); box.AddChild(_sliders);
         BuildFields();
         var edit = Ui.Button("Mover botones y joysticks", StartEditing); edit.Name = "TouchEditPositions"; box.AddChild(edit);
         _status = Ui.Label("", 15, Ui.Gold); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_status);
@@ -51,6 +54,8 @@ public partial class MobileSettingsPanel : Control
         foreach (var button in new[] { Ui.Button("Restablecer", () => { _settings = new(); BuildFields(); }),
             Ui.Button("Cancelar", () => Canceled?.Invoke()), Ui.Button("Guardar", Save) })
         { button.SizeFlagsHorizontal = SizeFlags.ExpandFill; button.CustomMinimumSize = new(0, 48); footer.AddChild(button); }
+        if (menuOwner != null) ArcanaMenuChrome.Attach(_form, margin, menuOwner, "Controles táctiles", 3,
+            page => { Canceled?.Invoke(); menuOwner.NavigateOptionAMenu(page); });
         var bar = new PanelContainer { Name = "TouchEditorToolbar", Position = new(12, 12), Size = new(550, 100), Visible = false }; _editorBar = bar; AddChild(bar);
         bar.MinimumSizeChanged += () => Callable.From(FitEditorToolbar).CallDeferred();
         var tools = new VBoxContainer(); bar.AddChild(tools);
