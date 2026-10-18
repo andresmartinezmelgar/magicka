@@ -19,7 +19,7 @@ public partial class EquipmentPanel
             var choice = new OptionButton { Name = name, SizeFlagsHorizontal = SizeFlags.ExpandFill,
                 CustomMinimumSize = new(0, 46), ClipText = true };
             choice.AddItem(all, 0); choice.AddThemeFontSizeOverride("font_size", 16);
-            choice.ItemSelected += _ => { choice.TooltipText = choice.GetItemText(choice.Selected); if (!_busy) OpenItemPicker(_selectedSlot); };
+            choice.ItemSelected += _ => { ResetQuickActions(); choice.TooltipText = choice.GetItemText(choice.Selected); if (!_busy) OpenItemPicker(_selectedSlot); };
             row.AddChild(choice); return choice;
         }
         _familyFilter = Filter("EquipmentFamilyFilter", "Elemento: todos");

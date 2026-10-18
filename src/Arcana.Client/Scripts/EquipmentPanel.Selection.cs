@@ -58,11 +58,13 @@ public partial class EquipmentPanel
         _pickerScroll.Resized += UpdatePickerColumns;
         _pickerEmpty = Ui.Label("No tienes objetos para esta posición.", 19, Ui.Muted);
         _pickerEmpty.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_pickerEmpty);
+        BuildQuickActions();
     }
 
     private void OpenItemPicker(EquipmentSlot slot)
     {
         if (_busy) return;
+        if (_selectedSlot != slot) ResetQuickActions();
         _selectedSlot = slot; Render();
         _itemButtons.Clear(); _trashButtons.Clear(); _upgradeButtons.Clear(); Clear(_pickerGrid);
         var allChoices = Choices(slot);
@@ -104,7 +106,8 @@ public partial class EquipmentPanel
             actions.AddThemeConstantOverride("separation", 8); content.AddChild(actions);
             var trash = PickerAction(actions, "EquipmentTrash_", item.Id, _trashIcon, Ui.Red, $"+{item.SaleGold} oro",
                 $"Vender esta pieza por {item.SaleGold} oro" + (_defensePlayer != null ? " de esta partida." : ".") +
-                (!CanSellInventory ? " La venta requiere iniciar sesión y disponer del servicio de ventas." : ""), () => ConfirmSale(item.Id));
+                (!CanSellInventory ? " La venta requiere iniciar sesión y disponer del servicio de ventas." : "") +
+                (Ui.IsMobile ? " Doble toque para vender sin confirmar." : " Doble clic para vender sin confirmar."), () => ClickSell(item.Id));
             trash.SetMeta("sale_item_id", item.Id);
             _trashButtons.Add(item.Id, trash);
             var equip = PickerAction(actions, "EquipmentEquip_", item.Id, _equipIcon, selected ? Ui.Gold : Ui.Blue,
@@ -117,7 +120,7 @@ public partial class EquipmentPanel
                 entry == null ? "Defensa" : maximum ? "Máximo" : $"{cost} oro",
                 entry == null ? "Mejorar estadísticas con oro durante una partida de Defensa." : maximum ? "Esta pieza ha alcanzado su límite de mejora." :
                 $"Mejorar esta pieza por {cost} oro de partida. Suma un punto porcentual a cada atributo; diez puntos sobre su valor inicial. Mejora {entry.Upgrades + 1} / 10." +
-                (_defensePlayer!.Gold < cost ? $" Faltan {cost - _defensePlayer.Gold} oro." : ""), () => UpgradeDefenseItem(item.Id));
+                (_defensePlayer!.Gold < cost ? $" Faltan {cost - _defensePlayer.Gold} oro." : ""), () => ClickUpgrade(item.Id));
             _upgradeButtons.Add(item.Id, upgrade);
         }
         _pickerEmpty.Text = allChoices.Length == 0 ? "No tienes objetos para esta posición." : "No hay objetos que coincidan con estos filtros.";
@@ -167,6 +170,7 @@ public partial class EquipmentPanel
 
     private void CloseItemPicker()
     {
+        ResetQuickActions();
         _itemPicker.Hide();
         _slots[(int)_selectedSlot].GrabFocus();
     }

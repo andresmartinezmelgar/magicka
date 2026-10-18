@@ -208,6 +208,11 @@ jobs:
             grep -q 'SALE_SMOKE_OK' "$RUNNER_TEMP/sale-$surface.log"
             test "$(find "$target" -name '*.png' | wc -l)" -eq 2
             ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/sale-$surface.log"
+            timeout 50s xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --sale-smoke --quick-item-actions "${args[@]}" 2>&1 | tee "$RUNNER_TEMP/quick-sale-$surface.log"
+            grep -q 'QUICK_SALE_OK' "$RUNNER_TEMP/quick-sale-$surface.log"
+            grep -q 'QUICK_CANCEL_OK' "$RUNNER_TEMP/quick-sale-$surface.log"
+            grep -q 'SALE_SMOKE_OK' "$RUNNER_TEMP/quick-sale-$surface.log"
+            ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/quick-sale-$surface.log"
           done
       - name: Verificar Defensa en escritorio y móvil y capturar tienda, inventario y botín
         env:
@@ -217,14 +222,16 @@ jobs:
           for viewport in 1440x720 1024x640 720x540; do
             target="$PWD/artifacts/visual-review/defense-$viewport"
             mkdir -p "$target"
-            xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --defense-smoke --mobile "--smoke-viewport=$viewport" "--defense-captures=$target" 2>&1 | tee "$RUNNER_TEMP/defense-$viewport.log"
+            xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --defense-smoke --quick-item-actions --mobile "--smoke-viewport=$viewport" "--defense-captures=$target" 2>&1 | tee "$RUNNER_TEMP/defense-$viewport.log"
+            grep -q 'QUICK_UPGRADE_OK' "$RUNNER_TEMP/defense-$viewport.log"
             grep -q 'SURVIVAL_SECTORS_OK' "$RUNNER_TEMP/defense-$viewport.log"
             grep -q 'DEFENSE_SMOKE_OK' "$RUNNER_TEMP/defense-$viewport.log"
             ! grep -E '^(ERROR:|SCRIPT ERROR:)|DEFENSE_SMOKE_FAILED' "$RUNNER_TEMP/defense-$viewport.log"
           done
           target="$PWD/artifacts/visual-review/defense-desktop"
           mkdir -p "$target"
-          xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --defense-smoke --smoke-viewport=1440x900 "--defense-captures=$target" 2>&1 | tee "$RUNNER_TEMP/defense-desktop.log"
+          xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --defense-smoke --quick-item-actions --smoke-viewport=1440x900 "--defense-captures=$target" 2>&1 | tee "$RUNNER_TEMP/defense-desktop.log"
+          grep -q 'QUICK_UPGRADE_OK' "$RUNNER_TEMP/defense-desktop.log"
           grep -q 'DEFENSE_SMOKE_OK' "$RUNNER_TEMP/defense-desktop.log"
           ! grep -E '^(ERROR:|SCRIPT ERROR:)|DEFENSE_SMOKE_FAILED' "$RUNNER_TEMP/defense-desktop.log"
       - name: Verificar marcadores de hielo y rocas en escritorio y móvil

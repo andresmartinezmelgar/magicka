@@ -324,6 +324,7 @@ public partial class EquipmentPanel : Control
     private void ChooseItem(string id)
     {
         if (_busy || _draft == null) return;
+        ResetQuickActions();
         try
         {
             _draft = AccountInventory.Equip(_draft, new InventoryRequest(id, _selectedSlot));

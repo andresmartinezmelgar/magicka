@@ -22,6 +22,7 @@ public partial class Main
     private void StartDefenseSmoke(string[] arguments)
     {
         _defenseSmoke = true;
+        _quickItemActions = arguments.Contains("--quick-item-actions");
         _defenseCaptureDirectory = arguments.FirstOrDefault(a => a.StartsWith("--defense-captures="))?["--defense-captures=".Length..];
         if (!Ui.IsMobile)
         {
@@ -250,10 +251,13 @@ public partial class Main
                 Check(Upgrade().Disabled, "Se permite mejorar una pieza con todos sus atributos al máximo.");
                 inventory.UpdateDefenseInventory(player, wizard, false);
                 Check(!Upgrade().Disabled, "No se puede mejorar una pieza sin equiparla.");
-                inventory.PressUpgrade(id); _defenseSmokePhase++; return false;
+                if (_quickItemActions) ClickItemWithPointer(inventory, "EquipmentUpgrade_" + id, 2);
+                else inventory.PressUpgrade(id);
+                _defenseSmokePhase++; return false;
             }
             if (_defenseSmokePhase == 7)
             {
+                if (_quickItemActions && ItemGestureRunning()) return false;
                 var player = state.Defense!.Defenders.Single(p => p.PlayerId == _localId);
                 var improved = player.Items.Single(i => i.Item.Id == _defenseUpgradeBefore!.Id);
                 Check(improved.Upgrades == 1 && player.Gold == 1280 - DefenseRules.UpgradeCost(improved.Item.Tier, 0) &&
@@ -264,6 +268,7 @@ public partial class Main
                 Check(improved.Item.Bonuses.Zip(_defenseUpgradeBefore!.Bonuses).All(pair =>
                     pair.First.Current == MathF.Round(Math.Min(pair.Second.Maximum, pair.Second.Current + 0.01f), 4)),
                     "La mejora no respeta el incremento o el límite de cada atributo.");
+                if (_quickItemActions) GD.Print("QUICK_UPGRADE_OK: doble clic/toque aplica una sola mejora y un solo cobro; límites de oro y nivel respetados.");
                 var inventory = panel.EquipmentInventory!;
                 Check(((Button)inventory.FindChild("EquipmentUpgrade_" + improved.Item.Id, true, false)).TooltipText.Contains($"{DefenseRules.UpgradeCost(improved.Item.Tier, 1)} oro") &&
                     ((Label)inventory.FindChild("EquipmentItemStats_" + improved.Item.Id, true, false)).Text.Contains(EquipmentCatalogue.Percent(improved.Item.Bonuses[0].Current)),

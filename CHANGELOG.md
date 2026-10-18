@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.24.3 — Doble clic y doble toque en objetos
+
+- Doble clic en la papelera para vender directamente la pieza y recibir su oro, sin abrir la confirmación. En móvil funciona con doble toque; un clic o toque conserva la modal de venta.
+- El botón de mejora conserva la mejora inmediata con un clic. Un doble clic o toque aplica una sola mejora y cobra una vez, respetando el oro disponible, el máximo de diez mejoras y los límites de atributos.
+- Los gestos identifican la pieza aunque se reconstruyan las tarjetas y evitan que el segundo toque pulse otra acción si aparece un mensaje de estado. Salir del selector, cambiar de posición, filtrar o cambiar de cuenta cancela la venta pendiente.
+- Verificación con eventos reales de ratón y tacto: clic simple, venta directa única, selección pendiente conservada, salida del selector, mejora única y límites. Se mantienen las verificaciones de inventario, tienda, mapas y Supervivencia.
+
 ## 0.24.2 — Confirmación de venta y correcciones de inventario
 
 - Nueva modal de venta con tarjeta por rareza, valores de cada atributo, oro que se recibe y botones «Conservar objeto» y «Vender». Fondo atenuado y diseño adaptado a escritorio y móviles pequeños.

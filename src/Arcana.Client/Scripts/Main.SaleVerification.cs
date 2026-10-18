@@ -10,12 +10,14 @@ public partial class Main
     private bool _saleSmoke, _saleLogoutProbe;
     private int _salePhase;
     private ulong _saleStarted;
+    private ulong _salePauseUntil;
     private string? _saleCaptureDirectory;
     private SaleFixtureHandler? _saleFixture;
     private readonly TaskCompletionSource<string> _saleServerReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private async void StartSaleSmoke(string[] args)
     {
         _saleSmoke = true; _saleStarted = Time.GetTicksMsec(); _saleLogoutProbe = args.Contains("--sale-logout-repro");
+        _quickItemActions = args.Contains("--quick-item-actions");
         _saleCaptureDirectory = args.FirstOrDefault(a => a.StartsWith("--sale-captures=", StringComparison.Ordinal))?["--sale-captures=".Length..];
         if (!Ui.IsMobile)
         {
@@ -24,7 +26,7 @@ public partial class Main
         }
         try
         {
-            _saleFixture = new SaleFixtureHandler(); Accounts.Dispose(); Accounts = new(new System.Net.Http.HttpClient(_saleFixture));
+            _saleFixture = new SaleFixtureHandler { IncludeSpare = _quickItemActions }; Accounts.Dispose(); Accounts = new(new System.Net.Http.HttpClient(_saleFixture));
             await Accounts.SetFirebaseSession("demo-sale", "sale-fixture", "Mercader", "sale-token", DateTimeOffset.UtcNow.AddHours(1));
             _accountServerResolver = token => _saleServerReady.Task.WaitAsync(token);
             if (_saleLogoutProbe) _saleServerReady.SetResult("wss://sales.example/play");
@@ -58,10 +60,13 @@ public partial class Main
             {
                 if (Accounts.ServerAddress.Length == 0) return false;
                 Check(!Trash(fixture.Weapon.Id).Disabled, "Conectar el servidor no habilita la venta en el selector que ya estaba abierto.");
-                panel.PressTrash(fixture.Weapon.Id); _salePhase++; return false;
+                if (_quickItemActions) ClickItemWithPointer(panel, "EquipmentTrash_" + fixture.Weapon.Id, 1);
+                else panel.PressTrash(fixture.Weapon.Id);
+                _salePhase++; return false;
             }
             if (_salePhase == 2)
             {
+                if (_quickItemActions && (ItemGestureRunning() || !dialog.Visible)) return false;
                 Check(dialog.Visible, "No se muestra la confirmación de venta.");
                 if (_saleLogoutProbe) { _ = Accounts.SignOut(); _salePhase = 9; return false; }
                 var stats = (GridContainer)dialog.FindChild("SaleStats", true, false);
@@ -82,26 +87,64 @@ public partial class Main
                 }
                 CaptureSale("01-mitico-equipado"); panel.HandleBack();
                 Check(!dialog.Visible && panel.PickerVisible && fixture.Sales == 0, "Cancelar vendió la pieza o cerró el selector.");
-                panel.PressTrash(fixture.Weapon.Id); _salePhase++; return false;
+                if (_quickItemActions)
+                {
+                    panel.PressChoice("");
+                    Check(panel.PreviewProfile!.Loadout.Weapon == "" && !Trash(fixture.Weapon.Id).Disabled,
+                        "Quitar una pieza impide venderla.");
+                    panel.PressChoice(fixture.Spare.Id);
+                    ClickItemWithPointer(panel, "EquipmentTrash_" + fixture.Weapon.Id, 2);
+                }
+                else panel.PressTrash(fixture.Weapon.Id);
+                _salePhase++; return false;
             }
             if (_salePhase == 3)
             {
-                dialog.GetOkButton().EmitSignal(Button.SignalName.Pressed);
-                dialog.EmitSignal(ConfirmationDialog.SignalName.Confirmed);
+                if (_quickItemActions) { if (ItemGestureRunning()) return false; }
+                else
+                {
+                    dialog.GetOkButton().EmitSignal(Button.SignalName.Pressed);
+                    dialog.EmitSignal(ConfirmationDialog.SignalName.Confirmed);
+                }
                 _salePhase++; return false;
             }
             if (_salePhase == 4)
             {
                 if (panel.Saving) return false;
                 Check(fixture.Sales == 1 && fixture.SaleAttempts == 1 && Accounts.Profile!.Gold == 2900 && panel.PreviewProfile!.Items.All(i => i.Id != fixture.Weapon.Id) &&
-                    panel.PreviewProfile.Loadout.Weapon == "" && panel.PickerVisible && !dialog.Visible,
+                    panel.PreviewProfile.Loadout.Weapon == (_quickItemActions ? fixture.Spare.Id : "") && panel.PickerVisible && !dialog.Visible,
                     "Vender no actualiza el oro, elimina otra pieza, duplica la venta o conserva la ventana.");
+                if (_quickItemActions)
+                {
+                    Check(Accounts.Profile!.Loadout.Weapon == "" && panel.PreviewProfile!.Items.Any(i => i.Id == fixture.Spare.Id),
+                        "El doble clic elimina otra pieza o guarda la selección pendiente antes de salir.");
+                    GD.Print("QUICK_SALE_OK: clic simple con modal, doble clic/toque vende una vez sin modal y conserva la selección pendiente.");
+                }
                 panel.PressInspect(EquipmentSlot.Boots); panel.PressTrash(fixture.Boots.Id); _salePhase++; return false;
             }
             if (_salePhase == 5)
             {
                 Check(dialog.Visible && !((Label)dialog.FindChild("SaleWarning", true, false)).Text.Contains("desequipará"), "El aviso dice que se desequipará una pieza sin equipar.");
-                CaptureSale("02-pieza-sin-equipar"); _ = Accounts.SignOut(); _salePhase = 9; return false;
+                CaptureSale("02-pieza-sin-equipar");
+                if (_quickItemActions)
+                {
+                    panel.HandleBack(); ClickItemWithPointer(panel, "EquipmentTrash_" + fixture.Boots.Id, 1);
+                    _salePhase = 6; return false;
+                }
+                _ = Accounts.SignOut(); _salePhase = 9; return false;
+            }
+            if (_salePhase == 6)
+            {
+                if (ItemGestureRunning()) return false;
+                panel.HandleBack(); _salePauseUntil = Time.GetTicksMsec() + 450; _salePhase = 7; return false;
+            }
+            if (_salePhase == 7)
+            {
+                if (Time.GetTicksMsec() < _salePauseUntil) return false;
+                Check(!dialog.Visible && !panel.PickerVisible && fixture.SaleAttempts == 1, "Salir del selector deja un clic pendiente que abre una venta después.");
+                GD.Print("QUICK_CANCEL_OK: salir del selector cancela el clic pendiente sin vender ni abrir una modal tardía.");
+                panel.PressInspect(EquipmentSlot.Boots); panel.PressTrash(fixture.Boots.Id);
+                _ = Accounts.SignOut(); _salePhase = 9; return false;
             }
             if (_salePhase == 9)
             {
@@ -127,11 +170,13 @@ public partial class Main
     {
         public readonly EquipmentItem Weapon = EquipmentCatalogue.Generate(new(81), tier: ItemTier.Mythic, slot: EquipmentSlot.Weapon, family: EquipmentFamily.Fire);
         public readonly EquipmentItem Boots = EquipmentCatalogue.Generate(new(82), tier: ItemTier.Gold, slot: EquipmentSlot.Boots);
+        public readonly EquipmentItem Spare = EquipmentCatalogue.Generate(new(83), tier: ItemTier.Mythic, slot: EquipmentSlot.Weapon);
+        public bool IncludeSpare;
         public int Sales, SaleAttempts;
         private long _gold = 2500;
         private bool _sold;
         private EquipmentLoadout Loadout => new(Weapon: _sold ? "" : Weapon.Id);
-        private EquipmentItem[] Items => _sold ? [Boots] : [Weapon, Boots];
+        private EquipmentItem[] Items => (_sold ? new[] { Boots } : new[] { Weapon, Boots }).Concat(IncludeSpare ? [Spare] : Array.Empty<EquipmentItem>()).ToArray();
         private AccountProfile Profile => new("sale-fixture", "Mercader", _gold, 0, 0, Loadout, Items);
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
         {

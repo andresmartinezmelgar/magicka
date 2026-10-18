@@ -75,12 +75,18 @@ public partial class EquipmentPanel
         foreach (string state in new[] { "font_color", "font_hover_color", "font_pressed_color" }) sell.AddThemeColorOverride(state, new Color("111a26"));
     }
 
-    private void ConfirmSale(string id)
+    private EquipmentItem? SelectSaleItem(string id)
     {
         var item = _draft?.Items.FirstOrDefault(i => i.Id == id && i.Slot == _selectedSlot);
-        if (_busy || item == null || !CanSellInventory) return;
+        if (_busy || item == null || !CanSellInventory) return null;
         _selling = item.Id; _saleOwner = _draft!.Uid;
-        bool equipped = _draft.Loadout.Get(item.Slot) == item.Id;
+        return item;
+    }
+    private void ConfirmSale(string id)
+    {
+        var item = SelectSaleItem(id);
+        if (item == null) return;
+        bool equipped = _draft!.Loadout.Get(item.Slot) == item.Id;
         Color rarity = TierColor(item.Tier);
         var card = Ui.Panel(ArcanaMenuChrome.SurfaceRaised, 8, rarity);
         card.BorderWidthLeft = 4; card.ContentMarginLeft = card.ContentMarginRight = 12;
@@ -130,6 +136,7 @@ public partial class EquipmentPanel
     }
     private void CancelSale()
     {
+        ResetQuickActions();
         _confirm.Hide(); _selling = ""; _saleOwner = "";
     }
 }
