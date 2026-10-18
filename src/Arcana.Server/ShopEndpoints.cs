@@ -16,15 +16,11 @@ public static class ShopEndpoints
             return new ShopResult(await accounts.Repository.Profile(user.Uid, user.Name, context.RequestAborted),
                 await accounts.Repository.Shop(user.Uid, user.Name, context.RequestAborted), bought ? "Objeto comprado y guardado en tu inventario." : "Esta compra ya estaba registrada.");
         }));
-        app.MapPost("/account/shop/ad/start", (ShopAdRequest request, AccountService accounts, HttpContext context) => Auth(accounts, context,
-            async user => await accounts.Repository!.StartShopAd(user.Uid, request, context.RequestAborted)));
-        app.MapPost("/account/shop/ad/complete", (ShopAdCompleteRequest request, AccountService accounts, HttpContext context) => Auth(accounts, context, async user =>
-        {
-            var shop = await accounts.Repository!.CompleteShopAd(user.Uid, request, context.RequestAborted);
-            return new ShopResult(await accounts.Repository.Profile(user.Uid, user.Name, context.RequestAborted), shop,
-                "Anuncio simulado completado. Se han renovado las seis ofertas sin gastar oro.");
-        }));
+        app.MapPost("/account/shop/ad/start", AdsUnavailable);
+        app.MapPost("/account/shop/ad/complete", AdsUnavailable);
     }
+    private static IResult AdsUnavailable() => Results.Json(new ApiError("La renovación por anuncios todavía no está disponible."),
+        Protocol.Json, statusCode: StatusCodes.Status503ServiceUnavailable);
     private static async Task<IResult> Auth(AccountService accounts, HttpContext context, Func<AccountIdentity, Task<object>> operation)
     {
         context.Response.Headers.CacheControl = "no-store";

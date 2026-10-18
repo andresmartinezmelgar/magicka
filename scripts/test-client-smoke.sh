@@ -5,7 +5,7 @@ godot="${2:?Indica el ejecutable Godot}"
 shift 2
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
-if [[ "$mode" = equipment-* ]]; then
+if [[ "$mode" = equipment-* || "$mode" = shop-smoke ]]; then
     equipment_cache="$(mktemp -d)"
     export XDG_DATA_HOME="$equipment_cache"
     trap 'rm -rf "$equipment_cache"' EXIT

@@ -102,13 +102,13 @@ public partial class ArcanaMenuChrome : Control
         footer.SizeFlagsVertical = SizeFlags.ShrinkEnd;
         footer.AddThemeStyleboxOverride("panel", BarStyle());
         _shell.AddChild(footer);
-        var nav = new GridContainer { Columns = 7, SizeFlagsHorizontal = SizeFlags.ExpandFill,
+        var nav = new GridContainer { Columns = 8, SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill };
         _navigationGrid = nav;
         nav.AddThemeConstantOverride("h_separation", Ui.IsMobile ? 7 : 12);
         nav.AddThemeConstantOverride("v_separation", 7);
         footer.AddChild(nav);
-        string[] pages = ["⌂  Inicio", "⚔  PvP", "✧  Versus IA", "♙  Perfil", "◇  Inventario", "?  Ayuda", "Salir"];
+        string[] pages = ["⌂  Inicio", "⚔  PvP", "✧  Versus IA", "♙  Perfil", "◇  Inventario", "?  Ayuda", "Salir", "Tienda"];
         for (int i = 0; i < pages.Length; i++)
         {
             int id = i;
@@ -120,6 +120,7 @@ public partial class ArcanaMenuChrome : Control
             nav.AddChild(action);
             _navigation.Add(action);
         }
+        nav.MoveChild(_navigation[7], 5);
         Select(selected);
         RefreshAccount();
     }
@@ -131,15 +132,15 @@ public partial class ArcanaMenuChrome : Control
         // El ancho del texto más los márgenes y el scrollbar requieren holgura:
         // seis botones de 110 px excedían 720 px pese al cálculo de columnas.
         bool compactNav = Ui.IsMobile && viewportWidth <= 820;
-        string[] fullNames = ["⌂  Inicio", "⚔  PvP", "✧  Versus IA", "♙  Perfil", "◇  Inventario", "?  Ayuda", "Salir"];
-        string[] compactNames = ["Inicio", "PvP", "IA", "Perfil", "Equipo", "Ayuda", "Salir"];
+        string[] fullNames = ["⌂  Inicio", "⚔  PvP", "✧  Versus IA", "♙  Perfil", "◇  Inventario", "?  Ayuda", "Salir", "Tienda"];
+        string[] compactNames = ["Inicio", "PvP", "IA", "Perfil", "Equipo", "Ayuda", "Salir", "Tienda"];
         for (int i = 0; i < _navigation.Count; i++)
         {
             _navigation[i].Text = compactNav ? compactNames[i] : fullNames[i];
             _navigation[i].AddThemeFontSizeOverride("font_size", compactNav ? 16 : Ui.IsMobile ? 17 : 16);
         }
         int columns = ResponsiveLayout.Columns(Math.Max(1, viewportWidth - (Ui.IsMobile ? 44 : 60)),
-            compactNav ? 148 : Ui.IsMobile ? 180 : 140, _navigation.Count, Ui.IsMobile ? 7 : 12);
+            compactNav ? 148 : Ui.IsMobile ? 165 : 140, _navigation.Count, Ui.IsMobile ? 7 : 12);
         _navigationGrid.Columns = columns;
         int rows = ResponsiveLayout.Rows(_navigation.Count, columns);
         int height = Math.Max(FooterHeight, rows * (Ui.IsMobile ? 58 : 48) + (rows - 1) * 7 + 14);
@@ -174,7 +175,7 @@ public partial class ArcanaMenuChrome : Control
     public void Select(int page)
     {
         if (_dynamicSection && _sectionLabel != null)
-            _sectionLabel.Text = page switch { 0 => "INICIO", 1 => "PVP", 2 => "VERSUS IA", 3 => "PERFIL", 4 => "INVENTARIO", 5 => "AYUDA", _ => "MENÚ" };
+            _sectionLabel.Text = page switch { 0 => "INICIO", 1 => "PVP", 2 => "VERSUS IA", 3 => "PERFIL", 4 => "INVENTARIO", 5 => "AYUDA", 7 => "TIENDA", _ => "MENÚ" };
         for (int i = 0; i < _navigation.Count; i++)
         {
             var btn = _navigation[i];

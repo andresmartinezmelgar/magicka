@@ -72,6 +72,7 @@ public partial class Main
         }
         CloseOptionAHelp();
         _launcher.CloseRooms();
+        if (page == 7) { OpenItemShop(); return; }
         _launcher.NavigateOptionA(page);
     }
     private void ApplyPracticeEquipment()

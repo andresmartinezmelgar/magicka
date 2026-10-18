@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.24.1 — Tienda en el menú principal y conexión automática
+
+- Acceso directo a Tienda junto a Inventario en la navegación principal. La tienda permite consultar las seis ofertas personales y comprar por oro permanente sin modificar la equipación elegida.
+- Eliminados el botón Servidor, la dirección editable y la configuración local del inventario. Las compras y ventas usan la dirección oficial publicada y validada automáticamente.
+- La tienda mantiene su interfaz visible sin servidor o sin sesión, con seis espacios vacíos y un aviso. Retira ofertas y precios al perder la conexión o cerrar sesión y permite volver a consultar cuando regresa el servicio.
+- Renovación por anuncios desactivada: botón «Renovar · próximamente», sin simulación y con los dos endpoints publicitarios bloqueados. Se mantienen las ofertas y el estado de las compras al cerrar y abrir.
+- Verificaciones de navegación desde Inicio, compra única, inventario, saldo insuficiente, desconexión, reconexión, cierre de sesión y anuncios inactivos en móvil y escritorio.
+
 ## 0.24.0 — Tienda de cuenta, economía de mejoras y sesiones
 
 - Tienda permanente en Inventario → Tienda, disponible con Google y servidor Firebase conectado. Seis ofertas personales con atributos y precios por rareza; se compra por oro de cuenta sin cambiar el equipo elegido.

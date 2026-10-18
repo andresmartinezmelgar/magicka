@@ -6,8 +6,6 @@ namespace Arcana.Client;
 public partial class EquipmentPanel : Control
 {
     private Main _main = null!;
-    private LineEdit _address = null!;
-    private bool _automaticServer;
     private Label _profile = null!, _detailTitle = null!, _empty = null!, _sets = null!, _status = null!;
     private Label _combatPreview = null!;
     private Label _totalsEmpty = null!;
@@ -43,7 +41,6 @@ public partial class EquipmentPanel : Control
 
     public void Build(Main main, string address)
     {
-        _automaticServer = _defensePlayer == null && PublicAccountServer.NeedsDiscovery(address, Ui.IsMobile);
         _main = main; Name = "EquipmentPanel"; Theme = Ui.Theme(); Ui.Full(this);
         _draft = _defensePlayer == null ? main.Accounts.Profile : DefenseProfile(_defensePlayer);
         _savedLoadout = _draft?.Loadout ?? new();
@@ -60,36 +57,7 @@ public partial class EquipmentPanel : Control
         _profile.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _profile.HorizontalAlignment = HorizontalAlignment.Right; heading.AddChild(_profile);
         var connection = _equipmentToolbar = new HBoxContainer(); connection.AddThemeConstantOverride("separation", 8); box.AddChild(connection);
-        var operationsConfig = new ConfigFile();
-        if (_defensePlayer == null && _main.Accounts.ServerAddress.Length == 0 && operationsConfig.Load("user://protected-account-service.cfg") == Error.Ok)
-        {
-            try { _main.Accounts.SetProtectedActionsServer(operationsConfig.GetValue("operations", "url", "").AsString()); }
-            catch (ArgumentException) { /* El usuario puede corregir la dirección en esta pantalla. */ }
-        }
-        _address = new LineEdit { Text = _defensePlayer == null ? _main.Accounts.ServerAddress : "", PlaceholderText = "https://servidor-de-compras-y-ventas",
-            CustomMinimumSize = new(0, 48), SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        _address.AddThemeFontSizeOverride("font_size", 18); connection.AddChild(_address);
-        _address.Visible = false;
-        Button configSales = null!;
-        configSales = Action(connection, "Servidor", () =>
-        {
-            if (!_address.Visible)
-            {
-                _address.Visible = true;
-                configSales.Text = "Guardar configuración";
-                SetStatus("Configura el servidor HTTPS autorizado para comprar y vender objetos por oro.");
-            }
-            else
-            {
-                ConfigureOperations();
-                _address.Visible = false;
-                configSales.Text = "Servidor";
-            }
-        });
-        configSales.Visible = _defensePlayer == null && _main.Accounts.IsDirectFirebaseSession;
         Action(connection, "Actualizar", () => _ = Refresh()).Visible = _defensePlayer == null;
-        var shop = Action(connection, "Tienda", main.OpenItemShop); shop.Name = "EquipmentOpenShop";
-        shop.Visible = _defensePlayer == null;
         _status = Ui.Label("", 18, Ui.Gold); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_status);
         _salesHelp = Ui.Label("", 15, Ui.Muted);
         _salesHelp.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -162,7 +130,11 @@ public partial class EquipmentPanel : Control
         GetViewport().SizeChanged += UpdateEquipmentResponsive;
         UpdateEquipmentResponsive();
         Render();
-        if (_defensePlayer == null && _main.Accounts.SignedIn) _ = Refresh();
+        if (_defensePlayer == null && _main.Accounts.SignedIn)
+        {
+            _ = Refresh();
+            if (_main.Accounts.IsDirectFirebaseSession) _ = ConnectInventoryServer();
+        }
     }
 
     private void UpdateEquipmentResponsive()
@@ -282,7 +254,7 @@ public partial class EquipmentPanel : Control
         _salesHelp.Text = _defensePlayer != null
             ? "Piezas y oro de esta partida. Los cambios se aplican al volver a la tienda."
             : _main.Accounts.IsDirectFirebaseSession && _main.Accounts.ServerAddress.Length == 0
-            ? "Venta de objetos por oro: desactivada hasta configurar un servicio seguro. Equipar y consultar el inventario funcionan sin él."
+            ? "Sin conexión con el servidor de ventas. El inventario y la equipación siguen disponibles."
             : "Las bonificaciones equipadas afectan al combate. Consulta «Ayuda → Bonificaciones» para ver cómo actúa cada atributo.";
         if (!_busy && _status.Text.Length == 0) SetStatus(account == null ? "Inicia sesión con Google para recuperar tu inventario y conseguir objetos en PvP." :
             "Pulsa una posición para elegir una pieza. La configuración se guarda al salir del inventario.", routine: true);
@@ -321,28 +293,20 @@ public partial class EquipmentPanel : Control
     private void Busy(bool value, string message = "")
     {
         _busy = value; foreach (var button in _actions) button.Disabled = value;
-        _address.Editable = !value; if (message.Length > 0) SetStatus(message);
+        if (message.Length > 0) SetStatus(message);
         if (_itemPicker != null && _itemPicker.Visible && message.Length > 0)
         { _pickerStatus.Text = message; _pickerStatus.Visible = true; }
         UpdatePickerActions();
         if (_defensePlayer != null) RenderDefenseActions();
     }
-    private void ConfigureOperations()
+    private async Task ConnectInventoryServer()
     {
-        if (_defensePlayer != null) return;
         try
         {
-            _main.Accounts.SetProtectedActionsServer(_address.Text.Trim());
-            var file = new ConfigFile();
-            file.SetValue("operations", "url", _main.Accounts.ServerAddress);
-            if (file.Save("user://protected-account-service.cfg") != Error.Ok)
-                throw new InvalidOperationException("No se pudo guardar el servidor de operaciones.");
-            SetStatus(_main.Accounts.ServerAddress.Length > 0
-                ? "Servidor de operaciones protegido configurado. El login y las lecturas siguen siendo directos a Firebase."
-                : "Las ventas requieren el servidor de operaciones; Google y equipación funcionan sin él.");
-            Render();
+            await _main.EnsureShopServer(_lifetime.Token).ConfigureAwait(false);
+            _main.Post(() => { if (!_lifetime.IsCancellationRequested) Render(); });
         }
-        catch (Exception error) { SetStatus(error.Message); }
+        catch (Exception) { /* La consulta del inventario no depende del servidor de ventas. */ }
     }
 
     private async Task Refresh()

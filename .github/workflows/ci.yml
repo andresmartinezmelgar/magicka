@@ -189,7 +189,7 @@ jobs:
             mkdir -p "$target"
             xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --shop-smoke "${args[@]}" "--shop-captures=$target" 2>&1 | tee "$RUNNER_TEMP/shop-$surface.log"
             grep -q 'SHOP_SMOKE_OK' "$RUNNER_TEMP/shop-$surface.log"
-            test "$(find "$target" -name '*.png' | wc -l)" -eq 5
+            test "$(find "$target" -name '*.png' | wc -l)" -eq 6
             ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/shop-$surface.log"
           done
       - name: Verificar Defensa en escritorio y móvil y capturar tienda, inventario y botín

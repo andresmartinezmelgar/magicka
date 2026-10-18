@@ -319,6 +319,7 @@ public partial class Launcher
             case 4: _main.OpenEquipment("automatic"); break;
             case 5: _main.ToggleHelp(); break;
             case 6: GetTree().Quit(); break;
+            case 7: _main.OpenItemShop(); break;
         }
     }
 }

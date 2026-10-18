@@ -105,6 +105,15 @@ internal static class ShopEmulatorTests
             http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "verified:" + uid);
             var fake = await http.PostAsJsonAsync("account/shop/buy", new ShopPurchaseRequest(first.Shop.Id, Guid.NewGuid().ToString("N")), Protocol.Json);
             Check(fake.StatusCode == HttpStatusCode.Conflict, "El servidor aceptó una oferta inventada.");
+            foreach (string action in new[] { "start", "complete" })
+            {
+                var ad = await http.PostAsJsonAsync("account/shop/ad/" + action,
+                    new ShopAdCompleteRequest(first.Shop.Id, Guid.NewGuid().ToString("N")), Protocol.Json);
+                Check(ad.StatusCode == HttpStatusCode.ServiceUnavailable, "La API permite renovar por anuncios desactivados.");
+            }
+            var unchanged = await client.Shop();
+            Check(unchanged.Shop.Id == first.Shop.Id && unchanged.Profile.Gold == purchase.Profile.Gold && unchanged.Profile.Items.Length == 1,
+                "Los anuncios desactivados renovaron el catálogo, cobraron oro o entregaron objetos.");
         });
     }
 }
