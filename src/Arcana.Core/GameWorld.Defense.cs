@@ -34,23 +34,49 @@ public sealed partial class GameWorld
     }
 
     /// <summary>La identidad solo la proporciona el servidor después de verificar Google. Nunca viaja en un comando de combate.</summary>
-    public void AttachDefenseAccount(int playerId, string uid)
+    public bool AttachDefenseAccount(int playerId, string uid)
     {
-        if (!IsDefense || string.IsNullOrWhiteSpace(uid) || !_players.TryGetValue(playerId, out var player)) return;
+        if (!IsDefense || string.IsNullOrWhiteSpace(uid) || !_players.TryGetValue(playerId, out var player)) return false;
+        bool restored = false;
         if (_defenseAccounts.TryGetValue(uid, out var previous))
         {
             _defenders[playerId] = previous;
             player.Kills = previous.Kills; player.Deaths = previous.Deaths;
             Array.Copy(previous.Buffs, player.BuffStacks, RelicBuffs.Count);
             RecalculateDefender(player);
-            player.Health = player.Deaths >= DefenseRules.PlayerLives ? 0 : player.MaxHealth;
-            player.Respawn = 0;
+            if (previous.CombatState is { } combat && combat.Id != player.Id)
+            {
+                RestoreDefenseCombat(player, combat); restored = true;
+            }
         }
         else _defenseAccounts[uid] = _defenders[playerId];
+        _defenders[playerId].CombatState = player;
         _defenders[playerId].ShopOpen = false;
         _defenders[playerId].Performance = new();
         _defenders[playerId].LastPerformanceReport = -100;
         CheckSurvivalEnd();
+        return restored;
+    }
+
+    private void RestoreDefenseCombat(Wizard player, Wizard previous)
+    {
+        // Una salida voluntaria conserva los recursos igual que una reconexión de transporte.
+        player.Position = Walkable(previous.Position) ? previous.Position : Map.Spawn(0, player.Id % 4);
+        player.Facing = previous.Facing;
+        player.Health = player.Deaths >= DefenseRules.PlayerLives ? 0 : Math.Min(previous.Health, player.MaxHealth);
+        player.Energy = previous.Energy; player.Respawn = previous.Respawn;
+        player.Shield = previous.Shield; player.ShieldMax = previous.ShieldMax;
+        player.ShieldTime = previous.ShieldTime; player.ShieldCharges = previous.ShieldCharges;
+        player.RegenerationRate = previous.RegenerationRate;
+        player.Ward = previous.Ward.ToArray(); player.WardTime = previous.WardTime;
+        player.Wet = previous.Wet; player.Burning = previous.Burning;
+        player.BurnOwner = previous.BurnOwner == previous.Id ? player.Id : previous.BurnOwner;
+        player.BurnMultiplier = previous.BurnMultiplier; player.HitEffectCooldown = previous.HitEffectCooldown;
+        player.Chill = previous.Chill; player.Frozen = previous.Frozen; player.Haste = previous.Haste;
+        player.Invulnerable = previous.Invulnerable; player.ActionCooldown = previous.ActionCooldown;
+        player.TeleportCooldown = previous.TeleportCooldown; player.TeleportNeedsExit = previous.TeleportNeedsExit;
+        player.Knockback = previous.Knockback;
+        Array.Copy(previous.MagickCooldowns, player.MagickCooldowns, player.MagickCooldowns.Length);
     }
 
     public double DefenseActiveSeconds(int playerId) => _defenders.TryGetValue(playerId, out var p) ? p.ActiveTicks / 60.0 : 0;

@@ -150,9 +150,12 @@ public partial class Main
         _googleIdentityUid = "";
         _google?.Logout();
         _desktopGoogle?.SignOut();
-        await Accounts.SignOut(_lifetime.Token);
-        SaveAccountCache();
-        GoogleStatus("Sesión cerrada. No se necesita ningún servidor de cuentas para entrar.");
+        try { await Accounts.SignOut(_lifetime.Token); }
+        finally
+        {
+            SaveAccountCache();
+            GoogleStatus("Sesión cerrada. No se necesita ningún servidor de cuentas para entrar.");
+        }
     }
 
     private void GoogleStatus(string message, bool busy = false)

@@ -188,7 +188,7 @@ builder.Services.AddSingleton(new ServerSettings { Port = 28339, DiscoveryPort =
 builder.Services.AddSingleton<RewardService>(); builder.Services.AddSingleton<GameService>();
 builder.Services.AddHostedService(p => p.GetRequiredService<GameService>());
 builder.Services.AddHostedService(p => p.GetRequiredService<RewardService>());
-var app = builder.Build(); app.UseWebSockets(); app.MapAccounts(); app.Map("/play", (HttpContext context, GameService game) => game.HandleConnection(context));
+var app = builder.Build(); app.UseWebSockets(); app.MapAccounts(); app.MapItemShop(); app.Map("/play", (HttpContext context, GameService game) => game.HandleConnection(context));
 await app.StartAsync();
 using var http = new HttpClient { BaseAddress = new(options.PublicUrl) };
 var aliceLogin = await Login(alice);
@@ -355,6 +355,43 @@ await Test("Defensa online: hito autenticado con bots, entrega única y sin vict
     Check(player.Latest!.Defense!.Defenders.Single(p => p.PlayerId == player.PlayerId).Items.Length == 0,
         "El premio permanente entró en el inventario temporal.");
 });
+await Test("Defensa online: salida voluntaria y nueva entrada conservan recursos sin protección gratuita", async () =>
+{
+    var game = app.Services.GetRequiredService<GameService>();
+    var (created, error, _) = game.CreateRoom(new CreateRoomRequest { Name = "Recursos al volver", Mode = GameMode.Defense,
+        Map = ArenaMapId.Bastion, MaxPlayers = 2, Bots = 0 });
+    var room = created ?? throw new InvalidOperationException(error);
+    await using var ally = new ArenaConnection();
+    await ally.ConnectAsync("127.0.0.1:28339", "Aliado", 0, "", roomId: room.Id, accountToken: bobLogin.AccessToken);
+    var player = new ArenaConnection();
+    await player.ConnectAsync("127.0.0.1:28339", "Defensor", 0, "", roomId: room.Id, accountToken: aliceLogin.AccessToken);
+    var gate = typeof(GameService).GetField("_gate", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(game)!;
+    var rooms = (Dictionary<string, GameRoom>)typeof(GameService).GetField("_rooms", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(game)!;
+    lock (gate)
+    {
+        var world = rooms[room.Id].World;
+        typeof(GameWorld).GetField("_spawnClock", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(world, 10000f);
+        var body = world.Players[player.PlayerId]; body.Health = 100; body.Energy = 5; body.Invulnerable = 0; body.MagickCooldowns[1] = 10;
+    }
+    int oldId = player.PlayerId; await player.DisposeAsync();
+    bool removed = false;
+    for (int n = 0; n < 100; n++)
+    {
+        lock (gate) removed = !rooms[room.Id].World.Players.ContainsKey(oldId);
+        if (removed) break;
+        await Task.Delay(20);
+    }
+    Check(removed, "La salida no eliminó la sesión anterior.");
+    await using var returned = new ArenaConnection();
+    await returned.ConnectAsync("127.0.0.1:28339", "Defensor", 0, "", roomId: room.Id, accountToken: aliceLogin.AccessToken);
+    lock (gate)
+    {
+        var body = rooms[room.Id].World.Players[returned.PlayerId];
+        Check(body.Id != oldId && body.Health is > 0 and <= 100 && body.Energy < 25 && body.MagickCooldowns[1] > 8 &&
+            body.Invulnerable == 0 && body.Deaths == 0, "La nueva entrada curó, rellenó energía o concedió recarga/protección.");
+    }
+});
+await ShopEmulatorTests.Run(database, repository, new Uri(options.PublicUrl), Test);
 await app.StopAsync(); await app.DisposeAsync();
 
 await Test("Diario: un resultado pendiente se recupera al reiniciar sin duplicar la recompensa", async () =>

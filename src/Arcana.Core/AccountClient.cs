@@ -10,7 +10,7 @@ public sealed record LoginCompleteRequest(string IdToken, string BrowserSecret);
 public sealed record LoginPoll(bool Ready, string AccessToken = "", DateTimeOffset ExpiresAt = default, AccountProfile? Profile = null);
 
 /// <summary>El token permanece en memoria. La caché de perfil sirve para jugar contra IA sin conexión.</summary>
-public sealed class AccountClient : IDisposable
+public sealed partial class AccountClient : IDisposable
 {
     private readonly HttpClient _http;
     private readonly HttpClient? _firebaseHttp;
@@ -26,6 +26,13 @@ public sealed class AccountClient : IDisposable
     public DateTimeOffset ExpiresAt { get; private set; }
     public AccountProfile? Profile { get; private set; }
     public bool SignedIn => Token.Length > 0 && ExpiresAt > DateTimeOffset.UtcNow;
+    private static string SocketAddress(string address)
+    {
+        if (Uri.TryCreate(address, UriKind.Absolute, out var uri) && uri.Scheme is "https" or "http")
+            return new UriBuilder(uri) { Scheme = uri.Scheme == "https" ? "wss" : "ws", Port = uri.Port }.Uri.AbsoluteUri;
+        return address;
+    }
+    private static Uri Endpoint(string address, string path) => RoomBrowser.Endpoint(SocketAddress(address), path);
     // Solo se entrega a la misma autoridad que creó la sesión heredada, o al
     // servidor local de confianza. No se envían ID tokens Firebase por ws:// LAN.
     public string TokenFor(string address)
@@ -39,7 +46,7 @@ public sealed class AccountClient : IDisposable
         if (ServerAddress.Length == 0) return "";
         try
         {
-            var origin = ArenaConnection.Address(ServerAddress);
+            var origin = ArenaConnection.Address(SocketAddress(ServerAddress));
             return origin.IdnHost.Equals(target.IdnHost, StringComparison.OrdinalIgnoreCase) &&
                 origin.Port == target.Port && origin.Scheme == target.Scheme ? Token : "";
         }
@@ -61,26 +68,56 @@ public sealed class AccountClient : IDisposable
         catch (ArgumentException) { return ""; }
     }
     private FirebaseProfileReader? _firebaseReader;
+    private readonly object _identityGate = new();
     private long _identityGeneration;
     private string _firebaseUid = "";
+    private string _pendingLoginId = "";
+    private sealed record Identity(long Generation, string AccessToken, DateTimeOffset Expiry, AccountProfile? Profile,
+        FirebaseProfileReader? Reader, string Uid, string Address)
+    {
+        public bool Direct => Reader != null && AccessToken.Length > 0 && Expiry > DateTimeOffset.UtcNow;
+    }
+    private Identity CaptureIdentity()
+    {
+        lock (_identityGate) return new(_identityGeneration, Token, ExpiresAt, Profile, _firebaseReader, _firebaseUid, ServerAddress);
+    }
     public bool IsDirectFirebaseSession => _firebaseReader != null && SignedIn;
     public bool HasDirectFirebaseSession => _firebaseReader != null;
     public async Task SetFirebaseSession(string projectId, string uid, string displayName, string idToken, DateTimeOffset expiresAt, CancellationToken cancellationToken = default)
     {
-        long generation = Interlocked.Increment(ref _identityGeneration);
         if (expiresAt <= DateTimeOffset.UtcNow || string.IsNullOrWhiteSpace(idToken))
             throw new UnauthorizedAccessException("Token Firebase caducado o vacío.");
+        long generation;
+        lock (_identityGate) generation = ++_identityGeneration;
         using var reader = new FirebaseProfileReader(projectId, _firebaseHttp);
         var profile = await reader.Read(uid, idToken, displayName, cancellationToken).ConfigureAwait(false);
-        if (generation != Interlocked.Read(ref _identityGeneration))
-            throw new OperationCanceledException("El inicio de sesión Google ya no está vigente.");
-        _firebaseReader?.Dispose();
-        _firebaseReader = new FirebaseProfileReader(projectId, _firebaseHttp);
-        _firebaseUid = uid;
-        Token = idToken;
-        ExpiresAt = expiresAt;
-        Profile = profile;
+        lock (_identityGate)
+        {
+            RequireIdentity(generation);
+            ++_identityGeneration; // Descarta también operaciones iniciadas mientras se leía la cuenta nueva.
+            _firebaseReader?.Dispose();
+            _firebaseReader = new FirebaseProfileReader(projectId, _firebaseHttp);
+            _firebaseUid = uid; _pendingLoginId = "";
+            Token = idToken; ExpiresAt = expiresAt; Profile = profile;
+        }
         Diagnostics.Log.ProtectSecret(Token);
+    }
+
+    private void RequireIdentity(long generation)
+    {
+        if (generation != _identityGeneration)
+            throw new OperationCanceledException("La operación pertenece a una sesión anterior.");
+    }
+    private void PublishProfile(AccountProfile profile, long generation)
+    {
+        _ = EquipmentModifiers.Calculate(profile);
+        lock (_identityGate)
+        {
+            RequireIdentity(generation);
+            if (SignedIn && Profile != null && profile.Uid != Profile.Uid)
+                throw new InvalidDataException("El perfil no pertenece a la cuenta conectada.");
+            Profile = profile;
+        }
     }
 
     public void RestoreOfflineProfile(AccountProfile profile)
@@ -100,20 +137,26 @@ public sealed class AccountClient : IDisposable
     }
     public async Task<AccountConfiguration> Configuration(string address, CancellationToken token)
     {
-        var endpoint = RoomBrowser.Endpoint(address, "account/config");
+        var endpoint = Endpoint(address, "account/config");
         if (endpoint.Scheme != "https" && !endpoint.IsLoopback) throw new ArgumentException("Las cuentas requieren una dirección wss:// con HTTPS.");
         using var response = await _http.GetAsync(endpoint, token).ConfigureAwait(false);
         return await Read<AccountConfiguration>(response, token).ConfigureAwait(false);
     }
     public async Task<LoginChallenge> BeginLogin(string address, CancellationToken token)
     {
-        var endpoint = RoomBrowser.Endpoint(address, "account/login/start");
+        var endpoint = Endpoint(address, "account/login/start");
         if (endpoint.Scheme != "https" && !endpoint.IsLoopback) throw new ArgumentException("Las cuentas requieren HTTPS.");
-        Token = ""; ExpiresAt = default;
-        ServerAddress = address;
+        long generation;
+        lock (_identityGate)
+        {
+            generation = ++_identityGeneration;
+            Token = ""; ExpiresAt = default; Profile = null;
+            _firebaseReader?.Dispose(); _firebaseReader = null; _firebaseUid = ""; _pendingLoginId = "";
+            ServerAddress = address;
+        }
         using var response = await _http.PostAsJsonAsync(endpoint, new { }, Protocol.Json, token).ConfigureAwait(false);
         var challenge = await Read<LoginChallenge>(response, token).ConfigureAwait(false);
-        var login = RoomBrowser.Endpoint(address, "account/login/" + challenge.Id);
+        var login = Endpoint(address, "account/login/" + challenge.Id);
         if (!Guid.TryParseExact(challenge.Id, "N", out _) || challenge.PollSecret == null || challenge.PollSecret.Length is < 32 or > 128 ||
             challenge.ExpiresAt <= DateTimeOffset.UtcNow || challenge.ExpiresAt > DateTimeOffset.UtcNow.AddMinutes(6) ||
             !Uri.TryCreate(challenge.Url, UriKind.Absolute, out var url) || url.GetLeftPart(UriPartial.Path) != login.GetLeftPart(UriPartial.Path) ||
@@ -121,79 +164,115 @@ public sealed class AccountClient : IDisposable
             url.Query.Length is < 37 or > 133 || url.Query[5..].Any(c => !char.IsAsciiLetterOrDigit(c) && c != '-' && c != '_'))
             throw new InvalidDataException("El servidor ha enviado un acceso Google inválido. Revisa la dirección del servidor.");
         Diagnostics.Log.ProtectSecret(challenge.PollSecret); Diagnostics.Log.ProtectSecret(url.Query[5..]);
+        lock (_identityGate) { RequireIdentity(generation); _pendingLoginId = challenge.Id; }
         return challenge;
     }
     public async Task<bool> PollLogin(LoginChallenge challenge, CancellationToken token)
     {
-        using var response = await _http.PostAsJsonAsync(RoomBrowser.Endpoint(ServerAddress, "account/login/poll"),
+        long generation;
+        lock (_identityGate)
+        {
+            generation = _identityGeneration;
+            if (challenge.Id != _pendingLoginId) throw new OperationCanceledException("El acceso ya no está vigente.");
+        }
+        using var response = await _http.PostAsJsonAsync(Endpoint(ServerAddress, "account/login/poll"),
             new LoginPollRequest(challenge.Id, challenge.PollSecret), Protocol.Json, token).ConfigureAwait(false);
         var result = await Read<LoginPoll>(response, token).ConfigureAwait(false);
         if (!result.Ready) return false;
         if (result.Profile == null || result.AccessToken.Length < 32 || result.ExpiresAt <= DateTimeOffset.UtcNow) throw new InvalidDataException("Sesión de cuenta inválida.");
         _ = EquipmentModifiers.Calculate(result.Profile);
-        Token = result.AccessToken; ExpiresAt = result.ExpiresAt; Profile = result.Profile; Diagnostics.Log.ProtectSecret(Token);
+        lock (_identityGate)
+        {
+            RequireIdentity(generation);
+            ++_identityGeneration;
+            Token = result.AccessToken; ExpiresAt = result.ExpiresAt; Profile = result.Profile;
+        }
+        Diagnostics.Log.ProtectSecret(result.AccessToken);
         return true;
     }
     public async Task<AccountProfile> Refresh(CancellationToken token = default)
     {
-        Profile = IsDirectFirebaseSession ? await _firebaseReader!.Read(_firebaseUid, Token, token: token).ConfigureAwait(false) : await Request<AccountProfile>(HttpMethod.Get, "account/profile", null, token).ConfigureAwait(false);
-        _ = EquipmentModifiers.Calculate(Profile); return Profile;
+        var identity = CaptureIdentity();
+        var profile = identity.Direct ? await identity.Reader!.Read(identity.Uid, identity.AccessToken, token: token).ConfigureAwait(false)
+            : await Request<AccountProfile>(HttpMethod.Get, "account/profile", null, token, identity).ConfigureAwait(false);
+        PublishProfile(profile, identity.Generation); return profile;
     }
     public async Task<InventoryResult> Equip(EquipmentSlot slot, string itemId, CancellationToken token = default)
     {
-        if (IsDirectFirebaseSession)
+        var identity = CaptureIdentity();
+        if (identity.Direct)
         {
-            if (Profile == null) throw new InvalidOperationException("El inventario todavía no se ha cargado.");
-            var updated = AccountInventory.Equip(Profile, new InventoryRequest(itemId, slot));
-            await _firebaseReader!.SaveLoadout(_firebaseUid, Token, updated.Loadout, token).ConfigureAwait(false);
-            _ = EquipmentModifiers.Calculate(updated);
-            Profile = updated;
+            if (identity.Profile == null) throw new InvalidOperationException("El inventario todavía no se ha cargado.");
+            var updated = AccountInventory.Equip(identity.Profile, new InventoryRequest(itemId, slot));
+            await identity.Reader!.SaveLoadout(identity.Uid, identity.AccessToken, updated.Loadout, token).ConfigureAwait(false);
+            PublishProfile(updated, identity.Generation);
             return new InventoryResult(updated, "Equipamiento guardado en Firebase.");
         }
-        var result = await Request<InventoryResult>(HttpMethod.Post, "account/equip", new InventoryRequest(itemId, slot), token).ConfigureAwait(false);
-        _ = EquipmentModifiers.Calculate(result.Profile); Profile = result.Profile; return result;
+        var result = await Request<InventoryResult>(HttpMethod.Post, "account/equip", new InventoryRequest(itemId, slot), token, identity).ConfigureAwait(false);
+        PublishProfile(result.Profile, identity.Generation); return result;
     }
     /// <summary>Guarda las cuatro posiciones juntas, con una sola escritura del equipamiento.</summary>
     public async Task<InventoryResult> SaveLoadout(EquipmentLoadout loadout, CancellationToken token = default)
     {
-        if (Profile == null) throw new InvalidOperationException("El inventario todavía no se ha cargado.");
-        var updated = AccountInventory.ApplyLoadout(Profile, loadout);
-        if (IsDirectFirebaseSession)
+        var identity = CaptureIdentity();
+        if (identity.Profile == null) throw new InvalidOperationException("El inventario todavía no se ha cargado.");
+        var updated = AccountInventory.ApplyLoadout(identity.Profile, loadout);
+        if (identity.Direct)
         {
-            await _firebaseReader!.SaveLoadout(_firebaseUid, Token, updated.Loadout, token).ConfigureAwait(false);
-            Profile = updated;
+            await identity.Reader!.SaveLoadout(identity.Uid, identity.AccessToken, updated.Loadout, token).ConfigureAwait(false);
+            PublishProfile(updated, identity.Generation);
             return new(updated, "Equipamiento guardado en Firebase.");
         }
-        var result = await Request<InventoryResult>(HttpMethod.Post, "account/loadout", loadout, token).ConfigureAwait(false);
-        _ = EquipmentModifiers.Calculate(result.Profile);
-        Profile = result.Profile;
+        var result = await Request<InventoryResult>(HttpMethod.Post, "account/loadout", loadout, token, identity).ConfigureAwait(false);
+        PublishProfile(result.Profile, identity.Generation);
         return result;
     }
     public async Task<InventoryResult> Sell(string itemId, CancellationToken token = default)
     {
-        var result = await Request<InventoryResult>(HttpMethod.Post, "account/sell", new InventoryRequest(itemId), token).ConfigureAwait(false);
-        _ = EquipmentModifiers.Calculate(result.Profile); Profile = result.Profile; return result;
+        var identity = CaptureIdentity();
+        var result = await Request<InventoryResult>(HttpMethod.Post, "account/sell", new InventoryRequest(itemId), token, identity).ConfigureAwait(false);
+        PublishProfile(result.Profile, identity.Generation); return result;
     }
     public async Task SignOut(CancellationToken token = default)
     {
-        Interlocked.Increment(ref _identityGeneration);
-        try { if (SignedIn && !IsDirectFirebaseSession) _ = await Request<ApiError>(HttpMethod.Post, "account/logout", new { }, token).ConfigureAwait(false); }
-        finally { Token = ""; ExpiresAt = default; Profile = null; _firebaseReader?.Dispose(); _firebaseReader = null; _firebaseUid = ""; }
+        string access, address; bool legacy;
+        lock (_identityGate)
+        {
+            access = Token; address = ServerAddress; legacy = SignedIn && !IsDirectFirebaseSession;
+            ++_identityGeneration;
+            Token = ""; ExpiresAt = default; Profile = null; _pendingLoginId = "";
+            _firebaseReader?.Dispose(); _firebaseReader = null; _firebaseUid = "";
+        }
+        if (!legacy || address.Length == 0) return;
+        var endpoint = Endpoint(address, "account/logout");
+        if (endpoint.Scheme != Uri.UriSchemeHttps && !endpoint.IsLoopback) return;
+        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", access);
+        request.Content = JsonContent.Create(new { }, options: Protocol.Json);
+        using var response = await _http.SendAsync(request, token).ConfigureAwait(false);
+        _ = await Read<ApiError>(response, token).ConfigureAwait(false);
     }
-    private async Task<T> Request<T>(HttpMethod method, string path, object? body, CancellationToken token)
+    private async Task<T> Request<T>(HttpMethod method, string path, object? body, CancellationToken token, Identity? identity = null)
     {
-        if (!SignedIn) throw new InvalidOperationException("Inicia sesión con Google para gestionar tu inventario.");
-        if (ServerAddress.Length == 0)
+        identity ??= CaptureIdentity();
+        if (identity.AccessToken.Length == 0 || identity.Expiry <= DateTimeOffset.UtcNow) throw new InvalidOperationException("Inicia sesión con Google para gestionar tu inventario.");
+        if (identity.Address.Length == 0)
             throw new InvalidOperationException("Esta acción requiere un servidor de cuentas disponible para verificarla; tu sesión Google sigue conectada.");
-        var endpoint = RoomBrowser.Endpoint(ServerAddress, path);
+        var endpoint = Endpoint(identity.Address, path);
         if (endpoint.Scheme != Uri.UriSchemeHttps && !endpoint.IsLoopback)
             throw new InvalidOperationException("No se pueden enviar credenciales Google mediante HTTP sin cifrar.");
         using var request = new HttpRequestMessage(method, endpoint);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Token);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", identity.AccessToken);
         if (body != null) request.Content = JsonContent.Create(body, options: Protocol.Json);
         using var response = await _http.SendAsync(request, token).ConfigureAwait(false);
-        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized) { Token = ""; ExpiresAt = default; }
-        return await Read<T>(response, token).ConfigureAwait(false);
+        lock (_identityGate)
+        {
+            RequireIdentity(identity.Generation);
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized) { Token = ""; ExpiresAt = default; }
+        }
+        var result = await Read<T>(response, token).ConfigureAwait(false);
+        lock (_identityGate) RequireIdentity(identity.Generation);
+        return result;
     }
     private static async Task<T> Read<T>(HttpResponseMessage response, CancellationToken token)
     {

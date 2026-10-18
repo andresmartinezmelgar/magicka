@@ -112,7 +112,7 @@ public partial class EquipmentPanel
                 () => ChooseItem(selected ? "" : item.Id));
             _itemButtons.Add(item.Id, equip);
             bool maximum = entry != null && (entry.Upgrades >= 10 || item.Bonuses.All(b => b.Current >= b.Maximum));
-            int cost = DefenseRules.UpgradeCost(entry?.Upgrades ?? 0);
+            int cost = maximum ? 0 : DefenseRules.UpgradeCost(item.Tier, entry?.Upgrades ?? 0);
             var upgrade = PickerAction(actions, "EquipmentUpgrade_", item.Id, _upgradeIcon, Ui.Health,
                 entry == null ? "Defensa" : maximum ? "Máximo" : $"{cost} oro",
                 entry == null ? "Mejorar estadísticas con oro durante una partida de Defensa." : maximum ? "Esta pieza ha alcanzado su límite de mejora." :

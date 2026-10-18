@@ -86,8 +86,10 @@ public sealed partial class GameWorld
                 }
                 else
                 {
-                    int upgrades = progress.Upgrades.GetValueOrDefault(item.Id), price = DefenseRules.UpgradeCost(upgrades);
-                    if (upgrades >= DefenseRules.ItemUpgradeLimit || progress.Gold < price || item.Bonuses.All(b => b.Current >= b.Maximum)) return false;
+                    int upgrades = progress.Upgrades.GetValueOrDefault(item.Id);
+                    if (upgrades >= DefenseRules.ItemUpgradeLimit || item.Bonuses.All(b => b.Current >= b.Maximum)) return false;
+                    int price = DefenseRules.UpgradeCost(item.Tier, upgrades);
+                    if (progress.Gold < price) return false;
                     var improved = item with { Bonuses = item.Bonuses.Select(b => b with
                         { Current = MathF.Round(Math.Min(b.Maximum, b.Current + DefenseRules.ItemUpgradeStep), 4) }).ToArray() };
                     progress.Gold -= price; progress.Upgrades[item.Id] = upgrades + 1;

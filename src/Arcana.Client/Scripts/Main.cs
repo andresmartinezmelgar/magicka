@@ -133,6 +133,7 @@ public partial class Main : Node
         }
         if (arguments.Contains("--reconnect-smoke")) _ = VerifyReconnectInterface(arguments);
         if (arguments.Contains("--defense-smoke")) StartDefenseSmoke(arguments);
+        if (arguments.Contains("--shop-smoke")) StartShopSmoke(arguments);
         if (RenderProfiler.Requested(arguments))
         {
             if (_verification != null) throw new ArgumentException("El perfilado y las verificaciones se ejecutan por separado.");
@@ -364,6 +365,7 @@ public partial class Main : Node
         if (CheckAccountEntrySmoke()) return;
         if (CheckPublicEquipmentSmoke()) return;
         if (CheckEquipmentSmoke()) return;
+        if (CheckShopSmoke()) return;
         if (CheckDefenseSmoke()) return;
         if (_profiler?.Running == true || _reconnecting) return;
         if (Loading) { ProcessLoading(); _verification?.CheckLoadingFrame(); return; }
@@ -550,7 +552,8 @@ public partial class Main : Node
             if (key.PhysicalKeycode == Key.F1) { if (!InspectingEquipment) ToggleHelp(); GetViewport().SetInputAsHandled(); return; }
             if (key.PhysicalKeycode == Key.Escape)
             {
-                if (_defensePanel?.ShopOpen == true) _defensePanel.HandleBack();
+                if (GodotObject.IsInstanceValid(_itemShopPanel)) _itemShopPanel!.HandleBack();
+                else if (_defensePanel?.ShopOpen == true) _defensePanel.HandleBack();
                 else if (InspectingEquipment) ClosePlayerEquipment();
                 else if (GodotObject.IsInstanceValid(_equipmentPanel)) _equipmentPanel!.HandleBack();
                 else if (GodotObject.IsInstanceValid(_optionAHelp)) CloseOptionAHelp();

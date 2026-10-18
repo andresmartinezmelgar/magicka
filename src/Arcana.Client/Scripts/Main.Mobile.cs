@@ -19,6 +19,7 @@ public partial class Main
                 a.StartsWith("--smoke-viewport=", StringComparison.Ordinal));
             if (requested != null && OS.GetCmdlineUserArgs().Any(a => a is "--defense-smoke" or "--mobile-menu-smoke"
                 or "--aim-marker-smoke"
+                or "--shop-smoke"
                 or "--equipment-smoke" or "--preview-equipment-picker"
                 or "--preview-spells=stone" or "--preview-spells=stone-close" or "--preview-spells=stone-auras"
                 or "--preview-spells=areas" or "--preview-spells=auras" or "--preview-spells=passives"))
@@ -74,7 +75,8 @@ public partial class Main
         if (_reconnecting && what == NotificationWMGoBackRequest) { ReturnToLauncher(); return; }
         if (what == NotificationWMGoBackRequest)
         {
-            if (_defensePanel?.ShopOpen == true) _defensePanel.HandleBack();
+            if (GodotObject.IsInstanceValid(_itemShopPanel)) _itemShopPanel!.HandleBack();
+            else if (_defensePanel?.ShopOpen == true) _defensePanel.HandleBack();
             else if (InspectingEquipment) ClosePlayerEquipment();
             else if (GodotObject.IsInstanceValid(_equipmentPanel)) _equipmentPanel!.HandleBack();
             else if (GodotObject.IsInstanceValid(_optionAHelp)) CloseOptionAHelp();

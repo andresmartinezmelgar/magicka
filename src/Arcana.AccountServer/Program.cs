@@ -19,6 +19,7 @@ builder.Services.ConfigureHttpJsonOptions(json =>
 builder.Services.AddSingleton(new AccountService(options));
 var app = builder.Build();
 app.MapAccounts();
+app.MapItemShop();
 
 // Solo el servidor de juego, mediante una clave compartida, puede consultar sesiones,
 // perfiles de jugadores o entregar recompensas. No exponer esta clave al cliente.

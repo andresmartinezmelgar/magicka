@@ -156,6 +156,8 @@ LoadingTests.Run(Test);
 ElementInteractionTests.Run(Test);
 EquipmentTests.Run(Test);
 AccountLoadoutTests.Run(Test);
+AccountSessionTests.Run(Test);
+ShopRulesTests.Run(Test);
 PublicEquipmentTests.Run(Test);
 
 Test("Límite de tres elementos y cancelación de incompatibles", () =>

@@ -5,7 +5,7 @@ namespace Arcana.Client;
 
 public partial class Main
 {
-    public AccountClient Accounts { get; } = new();
+    public AccountClient Accounts { get; private set; } = new();
     private EquipmentPanel? _equipmentPanel;
     private AccountProfilePanel? _accountProfilePanel;
     private ReleaseUpdateNotice? _updateNotice;
@@ -59,6 +59,7 @@ public partial class Main
     public void NavigateOptionAMenu(int page)
     {
         if (_playing) return;
+        CloseItemShop();
         if (GodotObject.IsInstanceValid(_equipmentPanel) && !_equipmentPanel!.IsQueuedForDeletion())
         {
             if (page != 4) _equipmentPanel.Close(() => NavigateOptionAMenu(page));

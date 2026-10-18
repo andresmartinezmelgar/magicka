@@ -239,7 +239,7 @@ public partial class Main
                 var wizard = state.Players.Single(p => p.Id == _localId);
                 Button Upgrade() => (Button)inventory.FindChild("EquipmentUpgrade_" + id, true, false);
                 inventory.UpdateDefenseInventory(player with { Gold = 0 }, wizard, false);
-                Check(Upgrade().Disabled && Upgrade().TooltipText.Contains("Faltan 35 oro"), "No se desactiva la mejora sin oro suficiente.");
+                Check(Upgrade().Disabled && Upgrade().TooltipText.Contains($"Faltan {DefenseRules.UpgradeCost(_defenseUpgradeBefore.Tier, 0)} oro"), "No se desactiva la mejora sin oro suficiente.");
                 inventory.PressUpgrade(id);
                 Check(_practice!.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId).Gold == 1280,
                     "Un icono desactivado ha gastado oro.");
@@ -256,7 +256,7 @@ public partial class Main
             {
                 var player = state.Defense!.Defenders.Single(p => p.PlayerId == _localId);
                 var improved = player.Items.Single(i => i.Item.Id == _defenseUpgradeBefore!.Id);
-                Check(improved.Upgrades == 1 && player.Gold == 1245 &&
+                Check(improved.Upgrades == 1 && player.Gold == 1280 - DefenseRules.UpgradeCost(improved.Item.Tier, 0) &&
                     panel.EquipmentInventory?.Saving == false, "La mejora no confirmó su efecto y coste.");
                 Check(!improved.Equipped && player.Items.Single(i => i.Item.Id == _defenseChosenLoadout!.Boots).Upgrades == 0 &&
                     panel.EquipmentInventory!.PreviewProfile!.Loadout == _defenseChosenLoadout && panel.EquipmentInventory.PickerVisible,
@@ -265,7 +265,7 @@ public partial class Main
                     pair.First.Current == MathF.Round(Math.Min(pair.Second.Maximum, pair.Second.Current + 0.01f), 4)),
                     "La mejora no respeta el incremento o el límite de cada atributo.");
                 var inventory = panel.EquipmentInventory!;
-                Check(((Button)inventory.FindChild("EquipmentUpgrade_" + improved.Item.Id, true, false)).TooltipText.Contains("70 oro") &&
+                Check(((Button)inventory.FindChild("EquipmentUpgrade_" + improved.Item.Id, true, false)).TooltipText.Contains($"{DefenseRules.UpgradeCost(improved.Item.Tier, 1)} oro") &&
                     ((Label)inventory.FindChild("EquipmentItemStats_" + improved.Item.Id, true, false)).Text.Contains(EquipmentCatalogue.Percent(improved.Item.Bonuses[0].Current)),
                     "El selector no actualiza el siguiente coste y las estadísticas mejoradas.");
                 CaptureDefense("05-mejora-pieza");
@@ -276,7 +276,7 @@ public partial class Main
             if (_defenseSmokePhase == 8)
             {
                 var player = state.Defense!.Defenders.Single(p => p.PlayerId == _localId);
-                Check(player.Items.Length == 9 && player.Gold == 1145 && panel.EquipmentInventory?.Saving == false,
+                Check(player.Items.Length == 9 && player.Gold == 1180 - DefenseRules.UpgradeCost(_defenseUpgradeBefore!.Tier, 0) && panel.EquipmentInventory?.Saving == false,
                     "Comprar una pieza no actualizó el inventario y el oro de partida.");
                 var inventory = panel.EquipmentInventory!;
                 inventory.PressInspect(EquipmentSlot.Boots);

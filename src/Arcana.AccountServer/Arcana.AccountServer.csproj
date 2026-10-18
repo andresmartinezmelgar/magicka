@@ -4,6 +4,8 @@
     <Compile Include="../Arcana.Server/AccountEndpoints.cs" Link="AccountEndpoints.cs" />
     <Compile Include="../Arcana.Server/AccountLoginPage.cs" Link="AccountLoginPage.cs" />
     <Compile Include="../Arcana.Server/AccountRepository.cs" Link="AccountRepository.cs" />
+    <Compile Include="../Arcana.Server/AccountRepository.Shop.cs" Link="AccountRepository.Shop.cs" />
+    <Compile Include="../Arcana.Server/ShopEndpoints.cs" Link="ShopEndpoints.cs" />
     <Compile Include="../Arcana.Server/AccountService.cs" Link="AccountService.cs" />
   </ItemGroup>
   <ItemGroup>

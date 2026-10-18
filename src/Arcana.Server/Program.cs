@@ -118,6 +118,7 @@ try
             return new InventoryResult(await accounts.Repository.Profile(identity.Uid, identity.Name, token),
                 gold > 0 ? $"Objeto vendido: +{gold} de oro." : "Esta venta ya estaba registrada.");
         }));
+    app.MapItemShop();
     app.Map("/play", async (HttpContext context, GameService game) => await game.HandleConnection(context));
     app.MapGet("/", () => $"Arcana Arena v{BuildInfo.Version}. Cliente: /play. Salas: /rooms. Estado: /health.");
     Diagnostics.Info("server.start", "Iniciando servidor.", new Dictionary<string, object?>

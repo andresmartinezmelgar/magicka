@@ -353,8 +353,13 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                         if (player == null) error = "La sala está llena o el personaje ya no está disponible.";
                         else
                         {
+                            bool restoredDefense = false;
                             if (resume) room.Reservations.Remove(hello.ResumeToken);
-                            else { room.World.EquipPlayer(player.Id, equipment); if (identity != null) room.World.AttachDefenseAccount(player.Id, identity.Uid); }
+                            else
+                            {
+                                room.World.EquipPlayer(player.Id, equipment);
+                                if (identity != null) restoredDefense = room.World.AttachDefenseAccount(player.Id, identity.Uid);
+                            }
                             session = new(player.Id, room, socket) { Account = identity, Equipment = resume ? reservation!.Equipment : equipment,
                                 LastActivityTick = resume ? reservation!.LastActivityTick : room.World.Tick,
                                 ResumeToken = resume ? hello.ResumeToken : Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)),
@@ -362,7 +367,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                             Diagnostics.Log.ProtectSecret(session.ResumeToken);
                             if (room.HostPlayerId == 0) room.HostPlayerId = player.Id;
                             room.Sessions.Add(player.Id, session); _sessions[session.Key] = session; room.LastOccupied = Environment.TickCount64;
-                            if (!resume) player.Invulnerable = 1.2f;
+                            if (!resume && !restoredDefense) player.Invulnerable = 1.2f;
                             welcome = DefenseFrame(RoomSnapshot(room), player.Id); welcome.Type = "welcome"; welcome.PlayerId = player.Id;
                             welcome.ResumeToken = session.ResumeToken; welcome.Server = Info(); welcome.Room = room.Info(); welcome.RequiresReady = true;
                             session.Network = new(welcome);

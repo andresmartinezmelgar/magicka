@@ -26,6 +26,10 @@ async function main() {
     await assertFails(setDoc(doc(other, "users/bob"), { ...initial, uid: "alice" }));
     await assertFails(setDoc(user, { ...initial, gold: 999999 }));
     await assertFails(setDoc(user, { ...initial, wins: 42 }));
+    for (const entry of ["shop/current", "shop/simulatedAd", "shopPurchases/fake-receipt"]) {
+      await assertFails(setDoc(doc(google, "users/alice/" + entry), { gold: 0, price: 0, completed: true }));
+      await assertFails(getDoc(doc(google, "users/alice/" + entry)));
+    }
 
     const bootsId = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const hatId = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";

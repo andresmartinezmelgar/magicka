@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.24.0 — Tienda de cuenta, economía de mejoras y sesiones
+
+- Tienda permanente en Inventario → Tienda, disponible con Google y servidor Firebase conectado. Seis ofertas personales con atributos y precios por rareza; se compra por oro de cuenta sin cambiar el equipo elegido.
+- Catálogo, compras y recibos persistentes. La transacción cobra y entrega una sola vez, incluso con reintentos o compras simultáneas. Rechaza saldo insuficiente, inventario lleno y ofertas de otro catálogo o cuenta.
+- Renovación gratuita mediante anuncio simulado de tres segundos, cancelable y claramente identificado. El servidor comprueba la espera y guarda una sola renovación por anuncio. No incorpora SDK publicitario ni pagos reales.
+- Mejoras temporales de Anillos más caras según rareza y escalón: diez mejoras cuestan 17.600 / 26.400 / 39.600 / 57.200 / 88.000 de oro desde Plata hasta Mítico. Conservan el incremento relativo de diez puntos porcentuales desde la tirada inicial.
+- Las respuestas tardías de inventario, equipación, ventas y tienda se descartan al cerrar sesión o cambiar de cuenta. Un cierre o 401 antiguo tampoco borra la sesión nueva; las operaciones aceptan las URL HTTPS del servidor configurado.
+- Salir voluntariamente y volver a Anillos conserva vida, energía, estados, escudos, posición, reaparición y recargas. No concede invulnerabilidad adicional.
+- Pruebas de lógica, HTTP, transacciones Firestore y tienda en móvil/escritorio. Protocolo de combate 27; la tienda y los costes nuevos requieren actualizar el servidor a 0.24.
+
 ## 0.23.0 — Áreas y pasivas con identidad visual
 
 - Fuego con grietas y llamas, agua con ondas y gotas, hielo facetado con seis brazos. Las minas distinguen daño y curación y mantienen visibles sus dos radios al armarse.

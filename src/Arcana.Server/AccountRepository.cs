@@ -11,6 +11,10 @@ public interface IAccountRepository
     Task SaveLoadout(string uid, EquipmentLoadout loadout, CancellationToken token = default);
     Task<int> Sell(string uid, string itemId, CancellationToken token = default);
     Task Award(RewardMatch match, CancellationToken token = default);
+    Task<ItemShop> Shop(string uid, string name, CancellationToken token = default);
+    Task<bool> Buy(string uid, ShopPurchaseRequest request, CancellationToken token = default);
+    Task<ShopAdTicket> StartShopAd(string uid, ShopAdRequest request, CancellationToken token = default);
+    Task<ItemShop> CompleteShopAd(string uid, ShopAdCompleteRequest request, CancellationToken token = default);
 }
 
 internal static class FirestoreData
@@ -29,7 +33,7 @@ internal static class FirestoreData
 internal sealed record AccountHeader(string Uid, string Name, long Gold = 0, int Wins = 0, int Losses = 0, int ItemCount = 0, int SchemaVersion = 1);
 
 /// <summary>Las escrituras cruzadas usan transacciones: inventario, saldo, equipamiento y recibo no divergen.</summary>
-public sealed class FirestoreAccountRepository(FirestoreDb database) : IAccountRepository
+public sealed partial class FirestoreAccountRepository(FirestoreDb database) : IAccountRepository
 {
     private readonly LootRandom _loot = new();
     private readonly SemaphoreSlim _catalogueGate = new(1, 1);

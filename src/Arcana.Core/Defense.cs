@@ -62,7 +62,13 @@ public static class DefenseRules
         _ => $"Cada 4 s: {140 * level} daño base a un máximo de {Math.Min(6, 2 + level)} enemigos a 10 m."
     };
     public static int AuraCost(int level) => 80 * (level + 1) * (level + 1);
-    public static int UpgradeCost(int upgrades) => 35 * (upgrades + 1);
+    public static int UpgradeCost(ItemTier tier, int upgrades)
+    {
+        if (upgrades is < 0 or >= ItemUpgradeLimit) throw new ArgumentException("Nivel de mejora inválido.");
+        int basis = tier switch { ItemTier.Silver => 80, ItemTier.Gold => 120, ItemTier.Platinum => 180,
+            ItemTier.Diamond => 260, ItemTier.Mythic => 400, _ => throw new ArgumentException("Calidad desconocida.") };
+        return basis * (upgrades + 1) * (upgrades + 2) / 2;
+    }
     public const int ItemUpgradeLimit = 10;
     public const float ItemUpgradeStep = 0.01f;
     public static int ExperienceForLevel(int level) => 60 + level * 40;
@@ -77,6 +83,7 @@ public static class DefenseRules
 
 internal sealed class DefenseProgress
 {
+    public Wizard? CombatState;
     public int Level = 1, Experience, Gold, Kills, Deaths;
     public long ActiveTicks;
     public bool ShopOpen;

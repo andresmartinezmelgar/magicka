@@ -61,33 +61,35 @@ public partial class EquipmentPanel : Control
         _profile.HorizontalAlignment = HorizontalAlignment.Right; heading.AddChild(_profile);
         var connection = _equipmentToolbar = new HBoxContainer(); connection.AddThemeConstantOverride("separation", 8); box.AddChild(connection);
         var operationsConfig = new ConfigFile();
-        if (_defensePlayer == null && operationsConfig.Load("user://protected-account-service.cfg") == Error.Ok)
+        if (_defensePlayer == null && _main.Accounts.ServerAddress.Length == 0 && operationsConfig.Load("user://protected-account-service.cfg") == Error.Ok)
         {
             try { _main.Accounts.SetProtectedActionsServer(operationsConfig.GetValue("operations", "url", "").AsString()); }
             catch (ArgumentException) { /* El usuario puede corregir la dirección en esta pantalla. */ }
         }
-        _address = new LineEdit { Text = _defensePlayer == null ? _main.Accounts.ServerAddress : "", PlaceholderText = "https://servidor-seguro-para-ventas",
+        _address = new LineEdit { Text = _defensePlayer == null ? _main.Accounts.ServerAddress : "", PlaceholderText = "https://servidor-de-compras-y-ventas",
             CustomMinimumSize = new(0, 48), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _address.AddThemeFontSizeOverride("font_size", 18); connection.AddChild(_address);
         _address.Visible = false;
         Button configSales = null!;
-        configSales = Action(connection, "Configurar ventas", () =>
+        configSales = Action(connection, "Servidor", () =>
         {
             if (!_address.Visible)
             {
                 _address.Visible = true;
                 configSales.Text = "Guardar configuración";
-                SetStatus("Las ventas requieren un servicio HTTPS autorizado para intercambiar objetos por oro. El inventario y el equipamiento no dependen de él.");
+                SetStatus("Configura el servidor HTTPS autorizado para comprar y vender objetos por oro.");
             }
             else
             {
                 ConfigureOperations();
                 _address.Visible = false;
-                configSales.Text = "Configurar ventas";
+                configSales.Text = "Servidor";
             }
         });
         configSales.Visible = _defensePlayer == null && _main.Accounts.IsDirectFirebaseSession;
         Action(connection, "Actualizar", () => _ = Refresh()).Visible = _defensePlayer == null;
+        var shop = Action(connection, "Tienda", main.OpenItemShop); shop.Name = "EquipmentOpenShop";
+        shop.Visible = _defensePlayer == null;
         _status = Ui.Label("", 18, Ui.Gold); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_status);
         _salesHelp = Ui.Label("", 15, Ui.Muted);
         _salesHelp.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -285,6 +287,13 @@ public partial class EquipmentPanel : Control
         if (!_busy && _status.Text.Length == 0) SetStatus(account == null ? "Inicia sesión con Google para recuperar tu inventario y conseguir objetos en PvP." :
             "Pulsa una posición para elegir una pieza. La configuración se guarda al salir del inventario.", routine: true);
         if (_defensePlayer != null) RenderDefenseActions();
+    }
+    public override void _Process(double delta)
+    {
+        if (_lifetime.IsCancellationRequested || _defensePlayer != null || _draft?.Uid == _main.Accounts.Profile?.Uid) return;
+        RebaseDraft(); _onlineInventory = _main.Accounts.SignedIn || _main.Accounts.HasDirectFirebaseSession;
+        _selling = ""; CloseItemPicker(); Render();
+        SetStatus("La cuenta ha cambiado. Se ha cargado su inventario sin conservar la selección anterior.");
     }
     private static string Set(string name, int pieces, string two, string four) => name + " " + pieces + "/4 · " + (pieces == 4 ? four : pieces >= 2 ? two : "sin bonificación");
     private void RenderDetails()

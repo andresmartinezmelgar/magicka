@@ -259,6 +259,28 @@ internal static class DefenseTests
             Check(rejected, "Aceptó una horda mayor que el máximo.");
             Check(reconnect.Team == 0 && w.Players.Count == 1, "Minions alteraron plazas o equipo.");
         });
+        test("Supervivencia: salir y volver no cura, rellena energía ni borra estados o recargas", () =>
+        {
+            var w = World(); var p = w.AddPlayer("A")!; w.AddPlayer("B"); w.AttachDefenseAccount(p.Id, "uid-a");
+            p.Health = 100; p.Energy = 5; p.Burning = 5; p.Wet = 3; p.Chill = 40; p.Frozen = 1;
+            p.Invulnerable = 0; p.ActionCooldown = 0.4f; p.MagickCooldowns[1] = 10;
+            p.Shield = 30; p.ShieldMax = 100; p.ShieldTime = 2;
+            p.Ward = [Element.Fire]; p.WardTime = 3; p.TeleportCooldown = 2; p.TeleportNeedsExit = true;
+            var position = p.Position; w.RemovePlayer(p.Id);
+            var rejoin = w.AddPlayer("A")!;
+            Check(w.AttachDefenseAccount(rejoin.Id, "uid-a"), "No se detectó el estado anterior.");
+            Check(rejoin.Health == 100 && rejoin.Energy == 5 && rejoin.Deaths == 0 && rejoin.Burning == 5 && rejoin.Wet == 3 &&
+                rejoin.Chill == 40 && rejoin.Frozen == 1 && rejoin.Invulnerable == 0 && rejoin.ActionCooldown == 0.4f && rejoin.MagickCooldowns[1] == 10 &&
+                rejoin.Shield == 30 && rejoin.ShieldMax == 100 && rejoin.ShieldTime == 2 && rejoin.Ward.SequenceEqual(new[] { Element.Fire }) &&
+                rejoin.WardTime == 3 && rejoin.TeleportCooldown == 2 && rejoin.TeleportNeedsExit && rejoin.Position == position,
+                "La nueva entrada restableció recursos o borró estados.");
+            rejoin.Health = 0; rejoin.Deaths = 1; rejoin.Respawn = 3.5f;
+            ((IDictionary)Field(w, "_defenders"))[rejoin.Id]!.GetType().GetField("Deaths")!.SetValue(((IDictionary)Field(w, "_defenders"))[rejoin.Id], 1);
+            w.RemovePlayer(rejoin.Id); var dead = w.AddPlayer("A")!; w.AttachDefenseAccount(dead.Id, "uid-a");
+            Check(!dead.Alive && dead.Respawn == 3.5f && dead.Deaths == 1, "Volver omitió el tiempo de reaparición.");
+            w.RemovePlayer(dead.Id); var another = w.AddPlayer("C")!; w.AttachDefenseAccount(another.Id, "uid-c");
+            Check(another.Health == another.MaxHealth && another.Energy == 100 && another.Deaths == 0, "Se mezclaron estados entre cuentas.");
+        });
         test("Defensa: cada destinatario recibe sus piezas y conserva los bonos públicos", () =>
         {
             var w = World(); var a = w.AddPlayer("A")!; var b = w.AddPlayer("B")!;
@@ -328,7 +350,7 @@ internal static class DefenseTests
             var w = World(); var p = w.AddPlayer("Mejoras")!;
             var original = new EquipmentItem(Guid.NewGuid().ToString("N"), EquipmentSlot.Weapon, ItemTier.Platinum, EquipmentFamily.Mixed,
                 [new(EquipmentStat.Power, -0.10f, 0.10f, -0.06f), new(EquipmentStat.SpellRange, 0, 0.10f, 0.10f)], 60);
-            Invoke(w, "GrantDefenseItem", p, original); Gold(w, p, 10000);
+            Invoke(w, "GrantDefenseItem", p, original); Gold(w, p, 100000);
             var initial = Player(w, p).Items.Single().Item;
             Check(initial.Bonuses[0].Maximum == 0.04f && initial.Bonuses[1].Maximum == 0.20f &&
                 original.Bonuses[0].Maximum == 0.10f && original.Bonuses[1].Current == 0.10f,
@@ -343,7 +365,7 @@ internal static class DefenseTests
             }
             var final = Player(w, p); int gold = final.Gold;
             Check(final.Items[0].Item.Bonuses[0].Current == 0.04f && final.Items[0].Item.Bonuses[1].Current == 0.20f &&
-                gold == 10000 - Enumerable.Range(0, 10).Sum(DefenseRules.UpgradeCost), "Resultado o coste incorrectos.");
+                gold == 100000 - Enumerable.Range(0, 10).Sum(n => DefenseRules.UpgradeCost(original.Tier, n)), "Resultado o coste incorrectos.");
             Check(!Command(w, p, "defense_upgrade", itemId: original.Id) && Player(w, p).Gold == gold, "Se cobró una undécima mejora.");
         });
         test("Supervivencia: recuperar presión lejana conserva identidad, vida, estados y premios", () =>

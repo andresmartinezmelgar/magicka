@@ -99,7 +99,7 @@ public partial class EquipmentPanel
     {
         var entry = _defensePlayer?.Items.FirstOrDefault(i => i.Item.Id == id);
         return !_busy && CanChangeDefenseItems && entry != null && entry.Upgrades < 10 &&
-            entry.Item.Bonuses.Any(b => b.Current < b.Maximum) && _defensePlayer!.Gold >= DefenseRules.UpgradeCost(entry.Upgrades);
+            entry.Item.Bonuses.Any(b => b.Current < b.Maximum) && _defensePlayer!.Gold >= DefenseRules.UpgradeCost(entry.Item.Tier, entry.Upgrades);
     }
 
     private void UpgradeDefenseItem(string id)
