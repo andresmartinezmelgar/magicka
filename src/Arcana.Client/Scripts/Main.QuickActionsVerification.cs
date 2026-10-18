@@ -14,10 +14,10 @@ public partial class Main
         _itemGesture.GetAwaiter().GetResult();
         return false;
     }
-    private void ClickItemWithPointer(EquipmentPanel panel, string buttonName, int clicks)
-        => _itemGesture = SendItemPointerClicks(panel, buttonName, clicks);
+    private void ClickItemWithPointer(EquipmentPanel panel, string buttonName, int clicks, bool backAfter = false)
+        => _itemGesture = SendItemPointerClicks(panel, buttonName, clicks, backAfter);
 
-    private async Task SendItemPointerClicks(EquipmentPanel panel, string buttonName, int clicks)
+    private async Task SendItemPointerClicks(EquipmentPanel panel, string buttonName, int clicks, bool backAfter)
     {
         await ToSignal(GetTree().CreateTimer(0.05), SceneTreeTimer.SignalName.Timeout);
         var button = (Button)panel.FindChild(buttonName, true, false);
@@ -34,6 +34,13 @@ public partial class Main
             if (Ui.IsMobile) Input.ParseInputEvent(new InputEventScreenTouch { Index = 0, Position = point, Pressed = false });
             else Input.ParseInputEvent(new InputEventMouseButton { Position = point, GlobalPosition = point,
                 ButtonIndex = MouseButton.Left, Pressed = false });
+            if (backAfter && i == clicks - 1)
+            {
+                // Mismo orden que un usuario que pulsa Atrás justo tras el clic.
+                // No esperar seis fotogramas: en un runner lento ya vencería la confirmación.
+                Input.ParseInputEvent(new InputEventKey { PhysicalKeycode = Key.Escape, Pressed = true });
+                Input.ParseInputEvent(new InputEventKey { PhysicalKeycode = Key.Escape, Pressed = false });
+            }
             await ToSignal(GetTree().CreateTimer(0.045), SceneTreeTimer.SignalName.Timeout);
         }
         GD.Print($"ITEM_POINTER_OK: {(Ui.IsMobile ? "tacto" : "ratón")} · {clicks} · {buttonName}");

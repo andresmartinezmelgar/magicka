@@ -128,7 +128,7 @@ public partial class Main
                 CaptureSale("02-pieza-sin-equipar");
                 if (_quickItemActions)
                 {
-                    panel.HandleBack(); ClickItemWithPointer(panel, "EquipmentTrash_" + fixture.Boots.Id, 1);
+                    panel.HandleBack(); ClickItemWithPointer(panel, "EquipmentTrash_" + fixture.Boots.Id, 1, backAfter: true);
                     _salePhase = 6; return false;
                 }
                 _ = Accounts.SignOut(); _salePhase = 9; return false;
@@ -136,7 +136,7 @@ public partial class Main
             if (_salePhase == 6)
             {
                 if (ItemGestureRunning()) return false;
-                panel.HandleBack(); _salePauseUntil = Time.GetTicksMsec() + 450; _salePhase = 7; return false;
+                _salePauseUntil = Time.GetTicksMsec() + 450; _salePhase = 7; return false;
             }
             if (_salePhase == 7)
             {
