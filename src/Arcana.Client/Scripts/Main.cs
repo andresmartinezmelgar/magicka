@@ -134,6 +134,7 @@ public partial class Main : Node
         if (arguments.Contains("--reconnect-smoke")) _ = VerifyReconnectInterface(arguments);
         if (arguments.Contains("--defense-smoke")) StartDefenseSmoke(arguments);
         if (arguments.Contains("--shop-smoke")) StartShopSmoke(arguments);
+        if (arguments.Contains("--sale-smoke")) StartSaleSmoke(arguments);
         if (RenderProfiler.Requested(arguments))
         {
             if (_verification != null) throw new ArgumentException("El perfilado y las verificaciones se ejecutan por separado.");
@@ -366,6 +367,7 @@ public partial class Main : Node
         if (CheckPublicEquipmentSmoke()) return;
         if (CheckEquipmentSmoke()) return;
         if (CheckShopSmoke()) return;
+        if (CheckSaleSmoke()) return;
         if (CheckDefenseSmoke()) return;
         if (_profiler?.Running == true || _reconnecting) return;
         if (Loading) { ProcessLoading(); _verification?.CheckLoadingFrame(); return; }

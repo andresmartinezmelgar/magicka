@@ -31,6 +31,7 @@ public partial class EquipmentPanel
         if (_closing) return;
         if (_busy) { _closeRequested = true; _afterClose = afterClose; return; }
         _closing = true; _afterClose = afterClose;
+        CancelSale();
         CloseItemPicker();
         if (_defensePlayer != null) { SaveDefenseAndClose(); return; }
         if (!HasChanges) { SaveCacheAndClose(); return; }

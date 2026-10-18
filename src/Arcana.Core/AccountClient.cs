@@ -119,6 +119,23 @@ public sealed partial class AccountClient : IDisposable
             Profile = profile;
         }
     }
+    // Guardar equipación no modifica oro, premios ni objetos. Una compra o
+    // venta concurrente puede haber actualizado esos campos durante la espera.
+    private AccountProfile PublishLoadout(EquipmentLoadout loadout, long generation)
+    {
+        lock (_identityGate)
+        {
+            RequireIdentity(generation);
+            var current = Profile ?? throw new InvalidOperationException("El inventario todavía no se ha cargado.");
+            foreach (var slot in Enum.GetValues<EquipmentSlot>())
+            {
+                string id = loadout.Get(slot);
+                if (id.Length > 0 && !current.Items.Any(item => item.Id == id && item.Slot == slot))
+                    loadout = loadout.With(slot, "");
+            }
+            return Profile = AccountInventory.ApplyLoadout(current, loadout);
+        }
+    }
 
     public void RestoreOfflineProfile(AccountProfile profile)
     {
@@ -205,7 +222,7 @@ public sealed partial class AccountClient : IDisposable
             if (identity.Profile == null) throw new InvalidOperationException("El inventario todavía no se ha cargado.");
             var updated = AccountInventory.Equip(identity.Profile, new InventoryRequest(itemId, slot));
             await identity.Reader!.SaveLoadout(identity.Uid, identity.AccessToken, updated.Loadout, token).ConfigureAwait(false);
-            PublishProfile(updated, identity.Generation);
+            updated = PublishLoadout(updated.Loadout, identity.Generation);
             return new InventoryResult(updated, "Equipamiento guardado en Firebase.");
         }
         var result = await Request<InventoryResult>(HttpMethod.Post, "account/equip", new InventoryRequest(itemId, slot), token, identity).ConfigureAwait(false);
@@ -220,7 +237,7 @@ public sealed partial class AccountClient : IDisposable
         if (identity.Direct)
         {
             await identity.Reader!.SaveLoadout(identity.Uid, identity.AccessToken, updated.Loadout, token).ConfigureAwait(false);
-            PublishProfile(updated, identity.Generation);
+            updated = PublishLoadout(updated.Loadout, identity.Generation);
             return new(updated, "Equipamiento guardado en Firebase.");
         }
         var result = await Request<InventoryResult>(HttpMethod.Post, "account/loadout", loadout, token, identity).ConfigureAwait(false);

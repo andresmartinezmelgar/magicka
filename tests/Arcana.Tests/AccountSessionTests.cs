@@ -13,6 +13,8 @@ internal static class AccountSessionTests
         test("Cuentas: un 401 de la cuenta anterior no desconecta la cuenta nueva", () => Race("sell", true, unauthorized: true).GetAwaiter().GetResult());
         test("Cuentas: terminar un cierre heredado no borra un nuevo inicio de sesión", () => LateSignOut().GetAwaiter().GetResult());
         test("Cuentas: un 401 iniciado durante el cambio de cuenta tampoco invalida la sesión nueva", () => DuringLogin().GetAwaiter().GetResult());
+        foreach (string operation in new[] { "equip", "loadout" })
+            test($"Cuentas: {operation} directo conserva el oro y objetos de una compra simultánea", () => DirectLoadoutKeepsPurchase(operation).GetAwaiter().GetResult());
     }
 
     private static Task Connect(AccountClient client, string uid) =>
@@ -57,10 +59,25 @@ internal static class AccountSessionTests
         catch (OperationCanceledException) { }
         Check(client.SignedIn && client.Profile?.Uid == "accountB", "El 401 invalidó la nueva cuenta.");
     }
+    private static async Task DirectLoadoutKeepsPurchase(string operation)
+    {
+        var handler = new DelayedHandler { GrantOnShop = true };
+        using var http = new HttpClient(handler); using var client = new AccountClient(http);
+        await Connect(client, "accountA"); client.SetProtectedActionsServer("https://accounts.example");
+        handler.DelayNext = true;
+        var saving = operation == "equip" ? client.Equip(EquipmentSlot.Boots, "") : client.SaveLoadout(new());
+        await handler.Waiting.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        var bought = await client.Shop();
+        Check(client.Profile!.Gold == 750 && client.Profile.Items.Length == 1, "La compra de prueba no actualizó el perfil.");
+        handler.Release.SetResult(); var result = await saving;
+        Check(client.Profile!.Gold == bought.Profile.Gold && client.Profile.Items.Select(i => i.Id).SequenceEqual(bought.Profile.Items.Select(i => i.Id)) &&
+            result.Profile.Gold == bought.Profile.Gold && result.Profile.Items.Length == 1,
+            "Guardar equipación restauró el saldo antiguo y eliminó de la memoria el objeto recién comprado.");
+    }
 
     private sealed class DelayedHandler : HttpMessageHandler
     {
-        public bool DelayNext, Unauthorized, DelayApi;
+        public bool DelayNext, Unauthorized, DelayApi, GrantOnShop;
         public readonly TaskCompletionSource Waiting = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public readonly TaskCompletionSource Release = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public readonly TaskCompletionSource ApiWaiting = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -80,7 +97,9 @@ internal static class AccountSessionTests
                 "https://accounts.example/account/login/" + _challenge + "?key=" + new string('b', 64), DateTimeOffset.UtcNow.AddMinutes(2)));
             if (path == "/account/login/poll") return Json(new LoginPoll(true, new('s', 64), DateTimeOffset.UtcNow.AddHours(1), profile));
             if (path == "/account/logout") return Json(new ApiError(""));
-            if (path == "/account/shop") return Json(new ShopResult(profile, ShopRules.Generate(new(73)), "Ofertas"));
+            if (path == "/account/shop") return Json(new ShopResult(GrantOnShop
+                ? profile with { Gold = 750, Items = [EquipmentCatalogue.Generate(new(74))] } : profile,
+                ShopRules.Generate(new(73)), "Ofertas"));
             if (path.StartsWith("/account/", StringComparison.Ordinal)) return Json(new InventoryResult(profile, "Guardado"));
             if (request.Method == HttpMethod.Patch) return Json(new { });
             if (path.EndsWith("/items", StringComparison.Ordinal)) return Json(new { documents = Array.Empty<object>() });

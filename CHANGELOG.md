@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.24.2 — Confirmación de venta y correcciones de inventario
+
+- Nueva modal de venta con tarjeta por rareza, valores de cada atributo, oro que se recibe y botones «Conservar objeto» y «Vender». Fondo atenuado y diseño adaptado a escritorio y móviles pequeños.
+- El aviso solo indica que se desequipará la pieza cuando está equipada. Se distinguen el oro permanente de cuenta y el oro temporal de Supervivencia; cancelar conserva el selector y el objeto.
+- Corregida la venta que permanecía desactivada si la conexión automática llegaba con el selector abierto.
+- Corregida la confirmación de venta que quedaba abierta al cerrar sesión o cambiar de cuenta; la confirmación queda vinculada a la cuenta que la abrió.
+- Guardar equipación directamente en Firebase conserva el oro y los objetos actualizados por una compra simultánea, en lugar de restaurar una copia antigua en la memoria del cliente.
+- Regresiones de concurrencia y venta, doble confirmación, cancelación y cierre de sesión. Capturas y límites verificados a 1440×900, 720×540 y 640×450, además de la venta temporal de Supervivencia.
+
 ## 0.24.1 — Tienda en el menú principal y conexión automática
 
 - Acceso directo a Tienda junto a Inventario en la navegación principal. La tienda permite consultar las seis ofertas personales y comprar por oro permanente sin modificar la equipación elegida.

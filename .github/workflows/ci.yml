@@ -175,6 +175,7 @@ jobs:
           set -euo pipefail
           bash scripts/test-client-smoke.sh equipment-smoke "$ARCANA_GODOT"
           bash scripts/test-client-smoke.sh shop-smoke "$ARCANA_GODOT"
+          bash scripts/test-client-smoke.sh sale-smoke "$ARCANA_GODOT"
           bash scripts/test-client-smoke.sh equipment-elements-smoke "$ARCANA_GODOT"
           bash scripts/test-client-smoke.sh equipment-public-smoke "$ARCANA_GODOT"
       - name: Verificar y capturar tienda permanente en escritorio y móvil
@@ -191,6 +192,22 @@ jobs:
             grep -q 'SHOP_SMOKE_OK' "$RUNNER_TEMP/shop-$surface.log"
             test "$(find "$target" -name '*.png' | wc -l)" -eq 6
             ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/shop-$surface.log"
+          done
+      - name: Verificar y capturar la venta en escritorio y pantallas móviles pequeñas
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          for surface in desktop mobile small; do
+            args=(--visual-desktop --smoke-viewport=1440x900)
+            if [ "$surface" = mobile ]; then args=(--mobile --smoke-viewport=720x540); fi
+            if [ "$surface" = small ]; then args=(--mobile --smoke-viewport=640x450); fi
+            target="$PWD/artifacts/visual-review/sale-$surface"
+            export XDG_DATA_HOME="$RUNNER_TEMP/sale-cache-$surface"
+            timeout 50s xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --sale-smoke "${args[@]}" "--sale-captures=$target" 2>&1 | tee "$RUNNER_TEMP/sale-$surface.log"
+            grep -q 'SALE_SMOKE_OK' "$RUNNER_TEMP/sale-$surface.log"
+            test "$(find "$target" -name '*.png' | wc -l)" -eq 2
+            ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/sale-$surface.log"
           done
       - name: Verificar Defensa en escritorio y móvil y capturar tienda, inventario y botín
         env:

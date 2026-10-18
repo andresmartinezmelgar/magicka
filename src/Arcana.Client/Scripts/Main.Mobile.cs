@@ -19,7 +19,7 @@ public partial class Main
                 a.StartsWith("--smoke-viewport=", StringComparison.Ordinal));
             if (requested != null && OS.GetCmdlineUserArgs().Any(a => a is "--defense-smoke" or "--mobile-menu-smoke"
                 or "--aim-marker-smoke"
-                or "--shop-smoke"
+                or "--shop-smoke" or "--sale-smoke"
                 or "--equipment-smoke" or "--preview-equipment-picker"
                 or "--preview-spells=stone" or "--preview-spells=stone-close" or "--preview-spells=stone-auras"
                 or "--preview-spells=areas" or "--preview-spells=auras" or "--preview-spells=passives"))

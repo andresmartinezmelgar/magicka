@@ -5,7 +5,7 @@ godot="${2:?Indica el ejecutable Godot}"
 shift 2
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
-if [[ "$mode" = equipment-* || "$mode" = shop-smoke ]]; then
+if [[ "$mode" = equipment-* || "$mode" = shop-smoke || "$mode" = sale-smoke ]]; then
     equipment_cache="$(mktemp -d)"
     export XDG_DATA_HOME="$equipment_cache"
     trap 'rm -rf "$equipment_cache"' EXIT
@@ -16,6 +16,7 @@ verify() {
     local log="$check_mode-test.log"
     local seconds=30
     if [ "$check_mode" = combinations-smoke ]; then seconds=50; fi
+    if [ "$check_mode" = sale-smoke ]; then seconds=50; fi
     # Mobile smoke covers 160 rendered frames; --max-fps 2 needs at least 80 s
     # plus Godot startup, even when every gameplay assertion succeeds.
     if [ "$check_mode" = mobile-smoke ]; then seconds=120; fi

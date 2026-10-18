@@ -173,7 +173,7 @@ public partial class EquipmentPanel
 
     public void HandleBack()
     {
-        if (_confirm.Visible) { _confirm.Hide(); _selling = ""; return; }
+        if (_confirm.Visible) { CancelSale(); return; }
         if (_itemPicker.Visible) CloseItemPicker();
         else Close();
     }

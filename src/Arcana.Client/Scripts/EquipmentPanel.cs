@@ -113,9 +113,7 @@ public partial class EquipmentPanel : Control
         var hint = Ui.Label("Suma = botas + gorro + pecho + arma + conjunto. Aplicado = valor real en combate.", 14, Ui.Muted);
         hint.AutowrapMode = TextServer.AutowrapMode.WordSmart; hint.SizeFlagsHorizontal = SizeFlags.ExpandFill; footer.AddChild(hint);
         var close = Action(footer, _defensePlayer == null ? "Volver" : "Volver a la tienda", () => Close()); _actions.Remove(close);
-        _confirm = new ConfirmationDialog { Title = "Vender pieza", OkButtonText = "Vender y recibir oro", CancelButtonText = "Cancelar" };
-        AddChild(_confirm); _confirm.Confirmed += () => _ = Sell();
-        _confirm.Canceled += () => _selling = "";
+        BuildSaleModal();
         _setsInfo = new AcceptDialog { Title = "Conjuntos Míticos de los ocho elementos", OkButtonText = "Cerrar" }; AddChild(_setsInfo);
         var setsScroll = new ContentScrollContainer { CustomMinimumSize = new(600, 300),
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; _setsInfo.AddChild(setsScroll);
@@ -183,6 +181,7 @@ public partial class EquipmentPanel : Control
                 Math.Max(240, Math.Min(920, viewportWidth - (Ui.IsMobile ? 85 : 140))),
                 Math.Max(180, Math.Min(480, GetViewport().GetVisibleRect().Size.Y - 180)));
         UpdatePickerColumns();
+        if (_confirm.Visible) ResizeSaleModal();
     }
 
     private Button Action(Node parent, string text, Action action, bool primary = false)
@@ -264,7 +263,7 @@ public partial class EquipmentPanel : Control
     {
         if (_lifetime.IsCancellationRequested || _defensePlayer != null || _draft?.Uid == _main.Accounts.Profile?.Uid) return;
         RebaseDraft(); _onlineInventory = _main.Accounts.SignedIn || _main.Accounts.HasDirectFirebaseSession;
-        _selling = ""; CloseItemPicker(); Render();
+        CancelSale(); CloseItemPicker(); Render();
         SetStatus("La cuenta ha cambiado. Se ha cargado su inventario sin conservar la selección anterior.");
     }
     private static string Set(string name, int pieces, string two, string four) => name + " " + pieces + "/4 · " + (pieces == 4 ? four : pieces >= 2 ? two : "sin bonificación");
@@ -304,7 +303,11 @@ public partial class EquipmentPanel : Control
         try
         {
             await _main.EnsureShopServer(_lifetime.Token).ConfigureAwait(false);
-            _main.Post(() => { if (!_lifetime.IsCancellationRequested) Render(); });
+            _main.Post(() =>
+            {
+                if (_lifetime.IsCancellationRequested) return;
+                Render(); RefreshPickerItems(); UpdatePickerActions();
+            });
         }
         catch (Exception) { /* La consulta del inventario no depende del servidor de ventas. */ }
     }
@@ -332,22 +335,14 @@ public partial class EquipmentPanel : Control
         }
         catch (Exception error) { SetStatus(error.Message); }
     }
-    private void ConfirmSale(string id)
-    {
-        var item = _draft?.Items.FirstOrDefault(i => i.Id == id && i.Slot == _selectedSlot);
-        if (_busy || item == null || !CanSellInventory) return;
-        _selling = item.Id;
-        _confirm.DialogText = "PIEZA QUE VAS A ELIMINAR:\n" + EquipmentCatalogue.ItemName(item) +
-            $"\n\nORO QUE RECIBIRÁS: +{item.SaleGold}\n\n" + (_defensePlayer == null
-                ? "La pieza desaparecerá definitivamente de tu inventario y dejará de estar equipada. Esta acción no se puede deshacer."
-                : "La pieza se venderá por oro de esta partida y dejará de estar equipada.") + "\n\n¿Confirmas la venta?";
-        var viewport = GetViewport().GetVisibleRect().Size;
-        _confirm.PopupCentered(new((int)Math.Min(640, viewport.X - 32), (int)Math.Min(300, viewport.Y - 32)));
-    }
     private async Task Sell()
     {
+        if (_busy || _selling.Length == 0) return;
+        if (!CanSellInventory || _saleOwner != _draft?.Uid ||
+            (_defensePlayer == null && _saleOwner != _main.Accounts.Profile?.Uid)) { CancelSale(); return; }
+        _confirm.Hide();
         if (_defensePlayer != null) { SellDefenseItem(); return; }
-        if (_busy || _selling.Length == 0) return; Busy(true, "Eliminando objeto y abonando oro…");
+        Busy(true, "Eliminando objeto y abonando oro…");
         try { var result = await _main.Accounts.Sell(_selling, _lifetime.Token); Done(result.Message); }
         catch (Exception error) { Failed(error); }
         finally { _selling = ""; }
