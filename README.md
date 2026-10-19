@@ -2,7 +2,7 @@
 
 **Juego multijugador de combate mágico en tiempo real para Windows y Android.**
 
-**Estado del repositorio:** versión estable **0.22.0**, Godot **4.5.2 .NET**, **C# / .NET 8** y protocolo de red **27**. El servidor autoritativo está desarrollado con ASP.NET Core. El juego puede practicarse sin conexión, alojarse en un PC o utilizar un servidor dedicado. El acceso Google y la progresión se apoyan en Firebase, cuando están configurados.
+**Estado del repositorio:** versión estable **0.25.4**, Godot **4.5.2 .NET**, **C# / .NET 8** y protocolo de red **27**. El servidor autoritativo está desarrollado con ASP.NET Core. El juego puede practicarse sin conexión, alojarse en un PC o utilizar un servidor dedicado. El acceso Google y la progresión se apoyan en Firebase, cuando están configurados.
 
 **Supervivencia en Anillos está integrado en `main`.** Se distribuye junto a los modos PvP en la versión estable. Las cuentas autorizadas conservan el [canal de pruebas](docs/CANALES-ACTUALIZACION.md). [Funcionamiento y reglas de Supervivencia](docs/DEFENSA-OLEADAS.md).
 

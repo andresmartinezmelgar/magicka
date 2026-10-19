@@ -14,7 +14,7 @@ public sealed partial class AccountClient
         var result = await Request<ShopResult>(method, path, body, token, identity).ConfigureAwait(false);
         if (!ShopRules.Valid(result.Shop) || result.Profile == null || result.Profile.Gold < 0)
             throw new InvalidDataException("Respuesta de tienda inválida.");
-        PublishProfile(result.Profile, identity.Generation);
+        PublishProfile(result.Profile, identity.Generation, method == HttpMethod.Get ? identity.InventoryRevision : null);
         return result;
     }
 

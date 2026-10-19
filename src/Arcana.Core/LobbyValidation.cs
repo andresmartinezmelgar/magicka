@@ -7,7 +7,7 @@ public static class LobbyValidation
         !string.IsNullOrWhiteSpace(server.Name) && server.Name.Length <= 64 &&
         server.Port is >= 1 and <= 65535 && server.DiscoveryPort is >= 1 and <= 65535 &&
         Enum.IsDefined(server.Mode) && server.Protocol == Protocol.Version &&
-        server.MaxPlayers is >= 2 and <= 256 && server.Players >= 0 && server.Players <= server.MaxPlayers &&
+        server.MaxPlayers >= (server.Mode == GameMode.Defense ? 1 : 2) && server.MaxPlayers <= 256 && server.Players >= 0 && server.Players <= server.MaxPlayers &&
         server.InstanceId is not { Length: > 64 };
 
     public static void Check(RoomInfo? room)

@@ -21,7 +21,17 @@ public partial class Main
     {
         await ToSignal(GetTree().CreateTimer(0.05), SceneTreeTimer.SignalName.Timeout);
         var button = (Button)panel.FindChild(buttonName, true, false);
+        // Llevar la pieza al área visible antes de simular el gesto real.
+        // El selector puede ocupar una sola columna y compartir las barras del menú.
+        ScrollContainer? container = null;
+        for (Node? parent = button.GetParent(); parent != null; parent = parent.GetParent())
+            if (parent is ScrollContainer scroll) { container = scroll; break; }
+        container?.EnsureControlVisible(button);
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
         var point = button.GetGlobalRect().GetCenter();
+        if (container != null && !container.GetGlobalRect().Grow(1).Encloses(button.GetGlobalRect()))
+            throw new InvalidOperationException("El botón sigue fuera del área desplazable: " + buttonName);
         if (button.Disabled || !button.IsVisibleInTree() || button.Size.X < 40 || button.Size.Y < 40 || !GetViewport().GetVisibleRect().HasPoint(point))
             throw new InvalidOperationException("No se puede pulsar el botón de la pieza: " + buttonName);
         GetViewport().PushInput(new InputEventMouseMotion { Position = point, GlobalPosition = point });

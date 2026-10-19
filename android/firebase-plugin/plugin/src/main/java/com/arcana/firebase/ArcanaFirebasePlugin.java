@@ -40,6 +40,9 @@ public final class ArcanaFirebasePlugin extends GodotPlugin {
 
     private FirebaseAuth auth;
     private boolean loginBusy;
+    private long generation;
+    private boolean signedOut;
+    private CancellationSignal credentialCancellation;
 
     public ArcanaFirebasePlugin(Godot godot) { super(godot); }
 
@@ -47,10 +50,12 @@ public final class ArcanaFirebasePlugin extends GodotPlugin {
 
     @NonNull @Override public Set<SignalInfo> getPluginSignals() {
         return new HashSet<>(Arrays.asList(
-            new SignalInfo(SESSION_READY, String.class, String.class, String.class, String.class),
-            new SignalInfo(LOGIN_FAILED, String.class),
-            new SignalInfo(SESSION_CLEARED)));
+            new SignalInfo(SESSION_READY, String.class, String.class, String.class, String.class, String.class),
+            new SignalInfo(LOGIN_FAILED, String.class, String.class),
+            new SignalInfo(SESSION_CLEARED, String.class)));
     }
+
+    @UsedByGodot public synchronized String sessionGeneration() { return String.valueOf(generation); }
 
     private FirebaseAuth firebase() {
         if (auth != null) return auth;
@@ -68,35 +73,44 @@ public final class ArcanaFirebasePlugin extends GodotPlugin {
         return auth;
     }
 
-    private void failed(Exception error) {
+    private synchronized void failed(long request, Exception error) {
+        if (request != generation) return;
         loginBusy = false;
-        emitSignal(LOGIN_FAILED, error.getLocalizedMessage() == null ? "No se pudo iniciar sesión." : error.getLocalizedMessage());
+        emitSignal(LOGIN_FAILED, error.getLocalizedMessage() == null ? "No se pudo iniciar sesión." : error.getLocalizedMessage(), String.valueOf(request));
     }
 
-    private void sendSession(boolean forceRefresh) {
+    private synchronized void sendSession(boolean forceRefresh, long request) {
+        if (request != generation || signedOut) return;
         FirebaseUser user = firebase().getCurrentUser();
         if (user == null) {
-            emitSignal(SESSION_CLEARED);
+            emitSignal(SESSION_CLEARED, String.valueOf(generation));
             return;
         }
         user.getIdToken(forceRefresh).addOnCompleteListener(task -> {
-            if (!task.isSuccessful() || task.getResult() == null || task.getResult().getToken() == null) {
-                failed(task.getException() == null ? new IllegalStateException("No se pudo renovar el token.") : task.getException());
-                return;
+            synchronized (ArcanaFirebasePlugin.this) {
+                FirebaseUser current = firebase().getCurrentUser();
+                if (request != generation || signedOut || current == null || !current.getUid().equals(user.getUid())) return;
+                if (!task.isSuccessful() || task.getResult() == null || task.getResult().getToken() == null) {
+                    failed(request, task.getException() == null ? new IllegalStateException("No se pudo renovar el token.") : task.getException());
+                    return;
+                }
+                String expiry = String.valueOf(task.getResult().getExpirationTimestamp());
+                emitSignal(SESSION_READY, user.getUid(), user.getDisplayName() == null ? "Mago" : user.getDisplayName(), task.getResult().getToken(), expiry, String.valueOf(request));
             }
-            String expiry = String.valueOf(task.getResult().getExpirationTimestamp());
-            emitSignal(SESSION_READY, user.getUid(), user.getDisplayName() == null ? "Mago" : user.getDisplayName(), task.getResult().getToken(), expiry);
         });
     }
 
     /** Load SDK-persisted Firebase session; no C# accounts server and no Google prompt. */
-    @UsedByGodot public void requestSession() {
-        try { sendSession(false); } catch (Exception error) { failed(error); }
+    @UsedByGodot public synchronized void requestSession() {
+        if (loginBusy) return;
+        signedOut = false;
+        try { sendSession(false, generation); } catch (Exception error) { failed(generation, error); }
     }
 
     /** Renew Firebase ID token before it expires, including when joining PvP. */
-    @UsedByGodot public void refreshSession() {
-        try { sendSession(true); } catch (Exception error) { failed(error); }
+    @UsedByGodot public synchronized void refreshSession() {
+        if (loginBusy || signedOut) return;
+        try { sendSession(true, generation); } catch (Exception error) { failed(generation, error); }
     }
 
     /**
@@ -104,7 +118,8 @@ public final class ArcanaFirebasePlugin extends GodotPlugin {
      * option. Some providers return NoCredentialException for passive discovery
      * despite the phone having Google accounts; retry using unrestricted selection.
      */
-    private void requestGoogleCredential(Activity activity, boolean explicitButton) {
+    private void requestGoogleCredential(Activity activity, boolean explicitButton, long request) {
+        if (request != generation || signedOut) return;
         GetCredentialRequest.Builder builder = new GetCredentialRequest.Builder();
         if (explicitButton) {
             builder.addCredentialOption(new GetSignInWithGoogleOption.Builder(WEB_CLIENT_ID).build());
@@ -115,58 +130,78 @@ public final class ArcanaFirebasePlugin extends GodotPlugin {
                 .setAutoSelectEnabled(false)
                 .build());
         }
-        CredentialManager.create(activity).getCredentialAsync(activity, builder.build(), new CancellationSignal(),
+        credentialCancellation = new CancellationSignal();
+        CredentialManager.create(activity).getCredentialAsync(activity, builder.build(), credentialCancellation,
             command -> activity.runOnUiThread(command),
             new CredentialManagerCallback<GetCredentialResponse, GetCredentialException>() {
                 @Override public void onResult(GetCredentialResponse response) {
-                    try {
-                        Credential credential = response.getCredential();
-                        if (!(credential instanceof CustomCredential)
-                                || !GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL.equals(credential.getType()))
-                            throw new IllegalArgumentException("Google no devolvió una credencial válida.");
-                        GoogleIdTokenCredential googleToken = GoogleIdTokenCredential.createFrom(credential.getData());
-                        firebase().signInWithCredential(GoogleAuthProvider.getCredential(googleToken.getIdToken(), null))
-                            .addOnCompleteListener(activity, result -> {
-                                loginBusy = false;
-                                if (!result.isSuccessful()) {
-                                    failed(result.getException() == null
-                                        ? new IllegalStateException("Error de Firebase Auth.") : result.getException());
-                                    return;
-                                }
-                                sendSession(false);
-                            });
-                    } catch (Exception error) { failed(error); }
+                    synchronized (ArcanaFirebasePlugin.this) {
+                        if (request != generation || signedOut) return;
+                        try {
+                            Credential credential = response.getCredential();
+                            if (!(credential instanceof CustomCredential)
+                                    || !GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL.equals(credential.getType()))
+                                throw new IllegalArgumentException("Google no devolvió una credencial válida.");
+                            GoogleIdTokenCredential googleToken = GoogleIdTokenCredential.createFrom(credential.getData());
+                            firebase().signInWithCredential(GoogleAuthProvider.getCredential(googleToken.getIdToken(), null))
+                                .addOnCompleteListener(activity, result -> {
+                                    synchronized (ArcanaFirebasePlugin.this) {
+                                        if (request != generation || signedOut) {
+                                            if (signedOut) firebase().signOut();
+                                            return;
+                                        }
+                                        loginBusy = false;
+                                        if (!result.isSuccessful()) {
+                                            failed(request, result.getException() == null
+                                                ? new IllegalStateException("Error de Firebase Auth.") : result.getException());
+                                            return;
+                                        }
+                                        sendSession(false, request);
+                                    }
+                                });
+                        } catch (Exception error) { failed(request, error); }
+                    }
                 }
                 @Override public void onError(@NonNull GetCredentialException error) {
-                    if (error instanceof NoCredentialException && explicitButton) {
-                        try { requestGoogleCredential(activity, false); }
-                        catch (Exception retryError) { failed(retryError); }
-                        return;
+                    synchronized (ArcanaFirebasePlugin.this) {
+                        if (request != generation || signedOut) return;
+                        if (error instanceof NoCredentialException && explicitButton) {
+                            try { requestGoogleCredential(activity, false, request); }
+                            catch (Exception retryError) { failed(request, retryError); }
+                            return;
+                        }
+                        if (error instanceof NoCredentialException) {
+                            failed(request, new IllegalStateException(
+                                "Google no ofrece cuentas a esta APK. Comprueba que tenga una firma SHA-1 " +
+                                "registrada en Firebase para com.arcana.arena y que Google Play Services esté actualizado."));
+                        } else failed(request, error);
                     }
-                    if (error instanceof NoCredentialException) {
-                        failed(new IllegalStateException(
-                            "Google no ofrece cuentas a esta APK. Comprueba que tenga una firma SHA-1 " +
-                            "registrada en Firebase para com.arcana.arena y que Google Play Services esté actualizado."));
-                    } else failed(error);
                 }
             });
     }
 
     /** Show the native account chooser, then exchange the Google ID token with Firebase Auth. */
-    @UsedByGodot public void signIn() {
+    @UsedByGodot public synchronized void signIn() {
         if (loginBusy) return;
         Activity activity = getActivity();
-        if (activity == null) { failed(new IllegalStateException("Android no está preparado.")); return; }
+        if (activity == null) { failed(generation, new IllegalStateException("Android no está preparado.")); return; }
         loginBusy = true;
-        try { requestGoogleCredential(activity, true); }
-        catch (Exception error) { failed(error); }
+        signedOut = false;
+        long request = ++generation;
+        try { requestGoogleCredential(activity, true, request); }
+        catch (Exception error) { failed(request, error); }
     }
 
-    @UsedByGodot public void signOut() {
+    @UsedByGodot public synchronized void signOut() {
+        ++generation;
+        signedOut = true;
+        loginBusy = false;
+        if (credentialCancellation != null) credentialCancellation.cancel();
+        credentialCancellation = null;
         try {
             firebase().signOut();
             loginBusy = false;
-            emitSignal(SESSION_CLEARED);
-        } catch (Exception error) { failed(error); }
+            emitSignal(SESSION_CLEARED, String.valueOf(generation));
+        } catch (Exception error) { failed(generation, error); }
     }
 }

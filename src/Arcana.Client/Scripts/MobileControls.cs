@@ -15,12 +15,11 @@ public partial class MobileControls : Control
     private int _moveFinger = -1, _aimFinger = -1;
     private Vector2 _move, _aim = Vector2.Right, _aimKnob;
     private Vector2 _moveCenter, _moveHome, _moveOrigin, _aimCenter;
-    private readonly ElementBuffer _selected = new();
-    private bool _awaitingSelectionEcho, _directionalAimPending;
+    private readonly PredictedElementSelection _selected = new();
+    private bool _directionalAimPending;
     private SpellShape _aimedSpellShape;
     private Element[]? _aimedProjectile;
     private bool _rockChargeObserved;
-    private int _selectionEchoFrames;
     private const float Radius = 82;
     private int _pendingMagick = -1;
     private float _magickAimAmount = 1;
@@ -100,29 +99,19 @@ public partial class MobileControls : Control
         _directionalAimPending = false;
         _aimedProjectile = null; _rockChargeObserved = false;
         CancelMagickAim();
-        _awaitingSelectionEcho = false;
+        _selected.Reset();
         foreach (var action in _pressed.Values) action.Panel.Modulate = Colors.White;
         _pressed.Clear(); QueueRedraw();
     }
     public void Update(WizardSnapshot? player, WorldSnapshot? world = null)
     {
         if (player == null) return;
-        // Local element taps are immediate, whereas a PvP snapshot can arrive a frame later.
-        // Keep the optimistic selection until the server echoes it, then resynchronize.
-        if (_awaitingSelectionEcho && player.Selected.SequenceEqual(_selected.Elements))
-            _awaitingSelectionEcho = false;
-        if (!_awaitingSelectionEcho || ++_selectionEchoFrames > 120)
-        {
-            _selected.Clear();
-            foreach (var element in player.Selected) _selected.Add(element);
-            _awaitingSelectionEcho = false;
-            _selectionEchoFrames = 0;
-        }
+        _selected.Confirm(player.Selected, player.SelectionSequence);
         if (_aimedProjectile != null && _aimedSpellShape == SpellShape.Rock)
         {
             bool charging = player.Casting && player.CastingElements?.Contains(Element.Earth) == true;
             if (charging) _rockChargeObserved = true;
-            else if (_rockChargeObserved || !_awaitingSelectionEcho && player.Selected.Length == 0)
+            else if (_rockChargeObserved || !_selected.Pending && player.Selected.Length == 0)
                 _aimedProjectile = null; // La carga completa también dispara sin soltar el dedo.
         }
         for (int i = 0; i < _magicks.Count; i++)
@@ -261,24 +250,11 @@ public partial class MobileControls : Control
             }
             CancelMagickAim();
         }
-        switch (message.Type)
-        {
-            case "element":
-                _selected.Add(message.Element);
-                break;
-            case "clear":
-            case "cast":
-            case "self":
-            case "nova":
-                _selected.Clear();
-                break;
-            default:
-                ActionRequested?.Invoke(message);
-                return;
-        }
-        _awaitingSelectionEcho = true;
-        _selectionEchoFrames = 0;
+        bool selectionAction = message.Type is "element" or "clear" or "cast" or "self" or "nova";
+        if (selectionAction) _selected.Predict(message);
         ActionRequested?.Invoke(message);
+        // Submit asigna la secuencia de la conexión o de la partida local.
+        if (selectionAction) _selected.Track(message);
     }
     private Vector2 Stick(Vector2 offset)
     {

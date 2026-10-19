@@ -21,7 +21,7 @@ public sealed partial class GameWorld
     public void SuspendPlayer(int id)
     {
         if (!_players.TryGetValue(id, out var player)) return;
-        CancelCast(player); player.Selection.Clear(); player.Input = new(); player.LastSequence = 0; player.LastInput = Time;
+        CancelCast(player); player.Selection.Clear(); player.Input = new(); player.LastSequence = 0; player.SelectionSequence = 0; player.LastInput = Time;
         if (_defenders.TryGetValue(id, out var progress)) { progress.ShopOpen = false; progress.LastActivity = -100; }
     }
 }

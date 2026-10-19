@@ -115,11 +115,12 @@ public sealed partial class AccountClient : IDisposable
         {
             RequireIdentity(generation);
             if (inventoryRevision.HasValue && inventoryRevision.Value != _inventoryRevision)
-                throw new OperationCanceledException("La lectura comenzó antes de la última venta sin confirmar. Actualiza de nuevo el inventario.");
+                throw new OperationCanceledException("El inventario cambió durante la lectura. Actualiza de nuevo el inventario.");
             if (SignedIn && Profile != null && profile.Uid != Profile.Uid)
                 throw new InvalidDataException("El perfil no pertenece a la cuenta conectada.");
             Profile = profile;
             if (inventoryRevision.HasValue) _inventoryNeedsRefresh = false;
+            else ++_inventoryRevision; // Invalida lecturas anteriores a una escritura confirmada.
         }
     }
     // Guardar equipación no modifica oro, premios ni objetos. Una compra o
@@ -136,6 +137,7 @@ public sealed partial class AccountClient : IDisposable
                 if (id.Length > 0 && !current.Items.Any(item => item.Id == id && item.Slot == slot))
                     loadout = loadout.With(slot, "");
             }
+            ++_inventoryRevision;
             return Profile = AccountInventory.ApplyLoadout(current, loadout);
         }
     }
@@ -230,7 +232,7 @@ public sealed partial class AccountClient : IDisposable
             return new InventoryResult(updated, "Equipamiento guardado en Firebase.");
         }
         var result = await Request<InventoryResult>(HttpMethod.Post, "account/equip", new InventoryRequest(itemId, slot), token, identity).ConfigureAwait(false);
-        PublishProfile(result.Profile, identity.Generation); return result;
+        return result with { Profile = PublishLoadout(result.Profile.Loadout, identity.Generation) };
     }
     /// <summary>Guarda las cuatro posiciones juntas, con una sola escritura del equipamiento.</summary>
     public async Task<InventoryResult> SaveLoadout(EquipmentLoadout loadout, CancellationToken token = default)
@@ -245,8 +247,7 @@ public sealed partial class AccountClient : IDisposable
             return new(updated, "Equipamiento guardado en Firebase.");
         }
         var result = await Request<InventoryResult>(HttpMethod.Post, "account/loadout", loadout, token, identity).ConfigureAwait(false);
-        PublishProfile(result.Profile, identity.Generation);
-        return result;
+        return result with { Profile = PublishLoadout(result.Profile.Loadout, identity.Generation) };
     }
     public async Task SignOut(CancellationToken token = default)
     {

@@ -40,14 +40,15 @@ public partial class RoomLobby : Control
         _main = main; _address = address; _serverPassword = password; _playerName = name; _wizardType = wizardType;
         Theme = Ui.Theme(); Ui.Full(this);
         var shade = new ColorRect { Color = new(0.01f, 0.025f, 0.045f, 0.94f) }; AddChild(shade); Ui.Full(shade);
-        // Opción A: ancho completo, navegación constante y contenido por secciones sin scroll.
         var safeMargin = new MarginContainer();
         AddChild(safeMargin); Ui.Full(safeMargin);
         foreach (string side in new[] { "left", "right", "top", "bottom" })
             safeMargin.AddThemeConstantOverride("margin_" + side, Ui.IsMobile ? 8 : 15);
         var panel = new PanelContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill };
-        panel.AddThemeStyleboxOverride("panel", Ui.Panel(new Color("091a2c"), 10, new Color("2876a3")));
+        var panelStyle = Ui.Panel(new Color("091a2c"), 10, new Color("2876a3"));
+        panelStyle.ContentMarginTop = panelStyle.ContentMarginBottom = 8;
+        panel.AddThemeStyleboxOverride("panel", panelStyle);
         safeMargin.AddChild(panel);
         var layout = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill };
@@ -118,7 +119,8 @@ public partial class RoomLobby : Control
         pages.AddChild(_roomPageNext);
         _objective = Ui.Label("", 15, Ui.Gold); _objective.AutowrapMode = TextServer.AutowrapMode.WordSmart; _listPane.AddChild(_objective);
         _list.ItemSelected += _ => ShowObjective();
-        _listPane.AddChild(Ui.Label("1. Contraseña del SERVIDOR (solo si está protegido)", 14, Ui.Muted));
+        var serverKeyLabel = Ui.Label("1. Contraseña del SERVIDOR (solo si está protegido)", 14, Ui.Muted);
+        serverKeyLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart; _listPane.AddChild(serverKeyLabel);
         _serverPasswordEntry = new LineEdit
         {
             Name = "ServerPasswordInput",
@@ -128,7 +130,8 @@ public partial class RoomLobby : Control
         };
         _serverPasswordEntry.TextChanged += value => _serverPassword = value;
         _listPane.AddChild(_serverPasswordEntry);
-        _listPane.AddChild(Ui.Label("2. Contraseña de la SALA seleccionada (si tiene)", 14, Ui.Muted));
+        var roomKeyLabel = Ui.Label("2. Contraseña de la SALA seleccionada (si tiene)", 14, Ui.Muted);
+        roomKeyLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart; _listPane.AddChild(roomKeyLabel);
         _joinPassword = new LineEdit { Name = "RoomPasswordInput", Secret = true, MaxLength = 128,
             PlaceholderText = "Clave utilizada al crear la sala",
             CustomMinimumSize = new(0, 42) };
@@ -138,7 +141,8 @@ public partial class RoomLobby : Control
         ActionButton(actions, "Entrar", Join, true); ActionButton(actions, "Crear sala", () => SwitchPane(true));
         ActionButton(actions, "Actualizar", Refresh);
         _createPane = new VBoxContainer { Visible = false }; _createPane.AddThemeConstantOverride("separation", 12); box.AddChild(_createPane);
-        var grid = new GridContainer { Columns = 6 }; _roomFormGrid = grid;
+        var grid = new GridContainer { Name = "RoomCreationFields", Columns = 3, SizeFlagsHorizontal = SizeFlags.ExpandFill }; _roomFormGrid = grid;
+        grid.Resized += UpdateRoomResponsive;
         grid.AddThemeConstantOverride("h_separation", 18);
         grid.AddThemeConstantOverride("v_separation", Ui.IsMobile ? 5 : 7); _createPane.AddChild(grid);
         _roomName = new LineEdit { Text = "Sala de " + (name.Length > 24 ? name[..24] : name), MaxLength = 32, CustomMinimumSize = new(0, 42) };
@@ -191,7 +195,8 @@ public partial class RoomLobby : Control
         _heading.TooltipText = "Cada sala tiene su partida. Las salas vacías se retiran tras 2 minutos; si el servidor se llena, se sustituyen las salas abandonadas.";
         _status = Ui.Label("Cargando salas…", 15, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _status.CustomMinimumSize = new(0, 36); box.AddChild(_status);
-        var back = Ui.Button("Volver al launcher", Close);
+        var back = Ui.Button("Volver al launcher", Close); back.Name = "RoomLobbyBack";
+        back.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         box.AddChild(back);
         // Acciones en el mismo lugar en lista y creación; el botón de volver
         // está en la misma barra inferior de cada sección.
@@ -199,7 +204,7 @@ public partial class RoomLobby : Control
         _mobileCreateActions = creation;
         _status.Reparent(fixedActions);
         back.Reparent(actions);
-        var backCreate = Ui.Button("Volver al launcher", Close);
+        var backCreate = Ui.Button("Volver al launcher", Close); backCreate.Name = "RoomLobbyBack";
         backCreate.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         creation.AddChild(backCreate);
         actions.Reparent(fixedActions);
@@ -218,25 +223,50 @@ public partial class RoomLobby : Control
     {
         if (_roomFormGrid == null) return;
         float width = GetViewport().GetVisibleRect().Size.X - (Ui.IsMobile ? 65 : 115);
-        _roomFormGrid.Columns = ResponsiveLayout.Columns(width, 550, 3, 18) * 2;
+        _roomFormGrid.Columns = ResponsiveLayout.Columns(_roomFormGrid.Size.X > 0 ? _roomFormGrid.Size.X : width, 260, 3, 18);
+        bool compact = GetViewport().GetVisibleRect().Size.Y <= 600 || width < 720;
         if (_mobileListActions != null)
-            _mobileListActions.Columns = ResponsiveLayout.Columns(width, 175, 4, 12);
+            _mobileListActions.Columns = ResponsiveLayout.Columns(width, compact ? 110 : 175, 4, 12);
         if (_mobileCreateActions != null)
-            _mobileCreateActions.Columns = ResponsiveLayout.Columns(width, Ui.IsMobile ? 195 : 230, 3, 12);
+            _mobileCreateActions.Columns = ResponsiveLayout.Columns(width, compact ? 160 : Ui.IsMobile ? 195 : 230, 3, 12);
+        foreach (var group in new[] { _mobileListActions, _mobileCreateActions })
+            if (group != null)
+                foreach (var button in group.GetChildren().OfType<Button>())
+                {
+                    button.CustomMinimumSize = new(0, compact ? Ui.IsMobile ? 60 : 48 : Ui.IsMobile ? 66 : 48);
+                    button.AddThemeFontSizeOverride("font_size", compact ? 16 : 20);
+                    if (button.Name == "RoomLobbyBack") button.Text = compact ? "Volver" : "Volver al launcher";
+                }
+        _status.CustomMinimumSize = new(0, compact ? 0 : 36);
+        _status.AddThemeFontSizeOverride("font_size", compact ? 14 : 15);
     }
     internal bool IsBusyForSmoke => _busy;
     internal string StatusForSmoke => _status.Text;
     internal Button[] MobileRoomButtons => (_createPane.Visible ? _mobileCreateActions : _mobileListActions)?
         .GetChildren().OfType<Button>().Where(button => button.Visible).ToArray() ?? [];
     internal Button? MobileBackButton => FindChildren("*", "Button", true, false)
-        .OfType<Button>().FirstOrDefault(button => button.Text == "Volver al launcher" && button.IsVisibleInTree());
+        .OfType<Button>().FirstOrDefault(button => button.Name == "RoomLobbyBack" && button.IsVisibleInTree());
 
     private static SpinBox Number(int min, int max, int value) => new() { MinValue = min, MaxValue = max,
         Value = value, Step = 1, CustomMinimumSize = new(0, 40), SizeFlagsHorizontal = SizeFlags.ExpandFill };
     private static void Row(GridContainer grid, string title, Control control)
     {
-        var label = Ui.Label(title, 15, Ui.Muted); label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        grid.AddChild(label); grid.AddChild(control);
+        var field = new VBoxContainer { Name = "RoomField" + control.GetClass(), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        field.AddThemeConstantOverride("separation", 4);
+        grid.AddChild(field);
+        var label = Ui.Label(title, 15, Ui.Muted);
+        label.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        field.AddChild(label);
+        control.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        if (control is OptionButton choice)
+        {
+            choice.FitToLongestItem = false;
+            choice.ClipText = true;
+            choice.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+        }
+        if (control is CheckBox check) check.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        field.AddChild(control);
     }
     private void ActionButton(Node parent, string text, Action action, bool primary = false)
     {

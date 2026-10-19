@@ -1,6 +1,6 @@
 # Pruebas manuales — Arcana Arena v0.17
 
-GitHub Actions **solo compila** los proyectos C# y **genera** los paquetes Android y Windows. La existencia de un APK o ZIP no demuestra que el juego funcione en dispositivos reales.
+GitHub Actions compila los paquetes Android y Windows y ejecuta pruebas del motor, red, Firebase e interfaces renderizadas con Xvfb. Las comprobaciones en dispositivos físicos de esta lista siguen siendo manuales.
 
 ## Checklist de validación del usuario
 
@@ -21,4 +21,4 @@ GitHub Actions **solo compila** los proyectos C# y **genera** los paquetes Andro
 
 ## Límites de CI
 
-Las pruebas manuales anteriores no se ejecutan ni se marcan como correctas en GitHub Actions. Los artefactos de CI son compilaciones para revisión, **no versiones validadas**. La publicación y firma de distribución se realizan manualmente tras completar el checklist.
+Las pruebas manuales anteriores no se ejecutan ni se marcan como correctas en GitHub Actions. La publicación estable y la firma Android se automatizan cuando pasan los trabajos de CI; ese resultado no acredita una prueba en un móvil físico ni en un equipo Windows del usuario.

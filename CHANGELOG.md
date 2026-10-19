@@ -1,5 +1,18 @@
 # Cambios
 
+## 0.25.4 — PvP adaptable y correcciones de sincronización
+
+- Los campos de creación de salas agrupan etiqueta y control en una misma columna flexible. La rejilla pasa de una a tres columnas según el espacio disponible, sin estrechar los textos a una letra por línea. Las acciones se compactan en pantallas pequeñas para dejar espacio útil al formulario.
+- La sala de espera PvP ocupa el ancho disponible, adapta equipos y acciones y permite desplazar el contenido sin perder el botón de salida. Los nombres y avisos conservan un ancho legible. Los controles táctiles se ocultan durante la espera y vuelven al iniciar el combate, sin acumular gestos detrás de la modal.
+- El selector de objetos comparte el área central del inventario: la cabecera y las ocho opciones inferiores permanecen visibles y pulsables. Tarjetas, filtros y acciones se desplazan juntos; la rejilla admite una columna cuando es necesario.
+- Cerrar Google invalida las respuestas pendientes, tanto en el plugin Android como al recibir una sesión en el cliente. Un callback anterior ya no vuelve a iniciar sesión.
+- Las lecturas de inventario y tienda iniciadas antes de una compra, venta o cambio de equipación confirmado se descartan. Guardar equipación conserva el oro y objetos de operaciones simultáneas.
+- Los controles táctiles reconcilian los elementos con la secuencia de acciones procesadas por el servidor, conservando las pulsaciones pendientes. Un lanzamiento rechazado ya no deja una combinación distinta en el joystick.
+- La configuración OAuth de escritorio se valida con un único lector que comprueba los tipos JSON y el proyecto. Los archivos corruptos se rechazan sin cerrar el juego y la configuración importada tiene prioridad al reiniciar.
+- Atrás de Android y Escape cierran Mi perfil y conservan la pantalla de origen. Defensa arranca con cuatro plazas por defecto, admite una plaza y limita la configuración a cuatro defensores, también desde Docker.
+- Se retiran la barra móvil antigua, las cabeceras ocultas y validaciones duplicadas sin uso. Se actualiza documentación obsoleta de versiones, servidor y pruebas.
+- Se añaden regresiones de concurrencia, OAuth, selección táctil y configuración del servidor, además de comprobaciones gráficas y pulsaciones reales de navegación en 640×450, 720×540, 1024×640 y 1440×900.
+
 ## 0.25.3 — Navegación coherente y ajustes en Mi perfil
 
 - La tienda utiliza la misma cabecera y navegación inferior que Inicio, Perfil, Inventario y Ayuda tanto en móvil como en escritorio. Se eliminan los accesos duplicados a Inicio e Inventario de su barra de acciones.

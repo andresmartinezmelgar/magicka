@@ -573,7 +573,7 @@ public partial class Main
                 var picker = _equipmentPanel!;
                 AssertOptionAScreen("SELECTOR_EQUIPO", picker);
                 AssertTouchScroll(picker, "EquipmentPickerScroll", "SELECTOR_EQUIPO", overButton: true);
-                if (!picker.PickerVisible || picker.HasChanges || picker.PickerItems.Length != 60 || picker.PickerColumns is < 2 or > 3)
+                if (!picker.PickerVisible || picker.HasChanges || picker.PickerItems.Length != 60 || picker.PickerColumns is < 1 or > 3)
                     throw new InvalidOperationException("El gesto seleccionó un objeto o el selector perdió objetos/columnas.");
                 picker.HandleBack();
                 var sum = (Button)_equipmentPanel!.FindChild("EquipmentTotalsTab", true, false);

@@ -45,6 +45,7 @@ public sealed class Wizard
     public ClientMessage Input { get; set; } = new() { Type = "input", AimX = 1 };
     public double LastInput { get; set; }
     public long LastSequence { get; set; }
+    public long SelectionSequence { get; set; }
     public SpellRecipe? Channel { get; set; }
     public int BeamTicks { get; set; }
     public float BeamCharge => Math.Clamp(BeamTicks * GameWorld.StepSeconds / SpellBalance.BeamChargeSeconds, 0, 1);

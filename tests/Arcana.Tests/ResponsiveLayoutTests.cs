@@ -17,13 +17,13 @@ static class ResponsiveLayoutTests
                 ResponsiveLayout.Columns(785, 185, 4, 16) != 3)
                 throw new Exception("La rejilla no respeta las dimensiones disponibles.");
         });
-        test("Responsive: formulario de salas mantiene pares etiqueta-campo", () =>
+        test("Responsive: campos de sala conservan ancho legible al cambiar columnas", () =>
         {
             foreach (float width in new[] { 320f, 600f, 900f, 1300f })
             {
-                int columns = ResponsiveLayout.Columns(width, 550, 3, 18) * 2;
-                if (columns is not (2 or 4 or 6))
-                    throw new Exception("Las etiquetas han quedado separadas de sus controles.");
+                int columns = ResponsiveLayout.Columns(width, 260, 3, 18);
+                if (columns > 1 && (width - (columns - 1) * 18) / columns < 260)
+                    throw new Exception("Los campos no respetan su ancho mínimo.");
             }
         });
         test("Responsive: la rejilla IA no fuerza doble columna en móvil estrecho", () =>

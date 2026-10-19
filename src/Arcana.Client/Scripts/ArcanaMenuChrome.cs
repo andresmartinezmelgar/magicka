@@ -23,6 +23,8 @@ public partial class ArcanaMenuChrome : Control
     private bool _dynamicSection;
     private bool _profileScreen;
 
+    internal Control ContentHost => _contentHost;
+
     public const int HeaderHeight = 68;
     public const int FooterHeight = 72;
     public static readonly Color Backdrop = new("050d1b");

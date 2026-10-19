@@ -10,19 +10,20 @@ El anfitrión puede entrar en una sala mientras el servidor continúa atendiendo
 
 `GET /rooms` devuelve servidor y salas sin revelar contraseñas. `POST /rooms` permite crear una sala; requiere `serverPassword` si está configurada. El saludo WebSocket selecciona `roomId` y `roomPassword`, además de la contraseña del servidor.
 
-Hay hasta 16 salas, cada una con 2–16 plazas, incluidas las de bots. Duelo utiliza exactamente dos plazas. Las salas creadas se eliminan tras 15 minutos sin personas conectadas; los bots no impiden esa limpieza. Su simulación se pausa mientras no haya personas conectadas. La sala principal permanece. El aforo, la simulación, los jugadores, los marcadores y los mensajes son independientes por sala. No hay cuentas ni persistencia de salas tras reiniciar.
+Hay hasta 16 salas, cada una con 2–16 plazas, incluidas las de bots. Duelo utiliza exactamente dos plazas y Defensa admite 1–4 defensores. Las salas creadas se eliminan tras 2 minutos sin personas conectadas; los bots no impiden esa limpieza. Su simulación se pausa mientras no haya personas conectadas. La sala principal permanece. El aforo, la simulación, los jugadores, los marcadores y los mensajes son independientes por sala. Las salas no persisten al reiniciar; las cuentas y recompensas requieren la configuración Firebase del servidor.
 
 ## Parámetros
 
 | Variable | Predeterminado | Valores |
 |---|---|---|
 | `SERVER_NAME` | Arcana Arena | Nombre visible en LAN |
-| `GAME_MODE` | warfare | `duel`, `arena`, `warfare` |
+| `GAME_MODE` | warfare | `duel`, `arena`, `warfare`, `defense` |
+| `ARENA_MAP` | Classic; Bastion en Defensa | Identificador del mapa compatible con el modo; el laboratorio es local |
 | `GAME_PORT` | 27015 | Puerto TCP entre 1024 y 65535 |
 | `DISCOVERY_PORT` | 27016 | Puerto UDP entre 1024 y 65535 |
-| `MAX_PLAYERS` | 8 | 2–16; en duelo siempre 2 |
+| `MAX_PLAYERS` | 8; 4 en Defensa | 2–16; en duelo siempre 2; Defensa 1–4. Vacío utiliza el valor del modo |
 | `BOTS` | 0 | Ocupan plazas; se reserva al menos una plaza para una persona |
-| `FRIENDLY_FIRE` | true | `false` desactiva el daño a aliados |
+| `FRIENDLY_FIRE` | true; false en Defensa | `false` desactiva el daño a aliados; Defensa lo mantiene desactivado |
 | `SCORE_LIMIT` | 15 | Bajas necesarias en duelo/arena |
 | `TICKETS` | 75 | Tickets iniciales por equipo en guerra |
 | `SERVER_PASSWORD` | vacía | Contraseña opcional del saludo; máximo 128 caracteres |
@@ -58,6 +59,8 @@ En un VPS, abrir TCP `GAME_PORT` en el cortafuegos del servidor. En una conexió
 El puerto UDP de descubrimiento no es necesario para jugar por IP desde Internet. No se realiza apertura automática de puertos ni se instala un servicio en el router.
 
 ## Modos
+
+- **Defensa / Supervivencia**: `GAME_MODE=defense` selecciona Anillos (`Bastion`) por defecto. De uno a cuatro defensores, enemigos continuos y dos vidas por jugador.
 
 - **Duelo**: dos plazas; gana el equipo que llega a `SCORE_LIMIT`.
 - **Arena**: todos contra todos; gana el jugador que llega a `SCORE_LIMIT` bajas.

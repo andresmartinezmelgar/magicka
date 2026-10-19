@@ -29,7 +29,6 @@ public partial class Launcher : Control
     private int _page;
     private Label _wizardDescription = null!;
     private Button _accountButton = null!;
-    private HBoxContainer? _mobilePrimaryActions;
     private ScrollContainer? _mobileScroll;
 
     public void Build(Main main)
@@ -50,17 +49,12 @@ public partial class Launcher : Control
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
             VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
         rightColumn.AddChild(rightScroll);
-        if (Ui.IsMobile) _mobileScroll = rightScroll;
-        var rightCenter = new CenterContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
-            SizeFlagsVertical = Ui.IsMobile ? SizeFlags.ShrinkBegin : SizeFlags.ExpandFill };
-        rightScroll.AddChild(rightCenter);
-        var panel = new PanelContainer { CustomMinimumSize = new(Ui.IsMobile ? 0 : 560, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill }; rightCenter.AddChild(panel);
+        _mobileScroll = rightScroll;
+        var panel = new PanelContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; rightScroll.AddChild(panel);
         var formStyle = Ui.Panel(new Color(0.035f, 0.057f, 0.093f, 0.97f), 16);
         formStyle.ContentMarginTop = formStyle.ContentMarginBottom = Ui.IsMobile ? 5 : 12;
         if (Ui.IsMobile) formStyle.ContentMarginLeft = formStyle.ContentMarginRight = 7; panel.AddThemeStyleboxOverride("panel", formStyle);
         var form = new VBoxContainer(); form.AddThemeConstantOverride("separation", Ui.IsMobile ? 3 : 6); panel.AddChild(form);
-        form.AddChild(Ui.Label(Ui.IsMobile ? "ARCANA ARENA" : "ENTRAR EN LA ARENA", Ui.IsMobile ? 22 : 27, Ui.Gold));
-        form.AddChild(Ui.Label("Elige PvP, Versus IA o Perfil.", Ui.IsMobile ? 13 : 16, Ui.Muted));
         _homeMenu = new VBoxContainer();
         _homeMenu.AddThemeConstantOverride("separation", Ui.IsMobile ? 5 : 10);
         form.AddChild(_homeMenu);
@@ -202,32 +196,6 @@ public partial class Launcher : Control
         _connect = Ui.Button("Ver salas por IP", Connect, true); _playBody.AddChild(_connect);
         _status = Ui.Label("El servidor usa TCP 27015. LAN usa UDP 27016.", 14, Ui.Muted);
         _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; _status.CustomMinimumSize = new(0, 45); _playBody.AddChild(_status);
-        var footer = new HBoxContainer(); _playBody.AddChild(footer);
-        var help = Ui.Button("Cómo jugar", () => _main.ToggleHelp()); help.SizeFlagsHorizontal = SizeFlags.ExpandFill; footer.AddChild(help);
-        var exit = Ui.Button("Salir", () => GetTree().Quit()); exit.SizeFlagsHorizontal = SizeFlags.ExpandFill; footer.AddChild(exit);
-        if (Ui.IsMobile)
-        {
-            // Volver, jugar y las utilidades NO se esconden al desplazarse el formulario.
-            var bar = new PanelContainer();
-            bar.AddThemeStyleboxOverride("panel", Ui.Panel(new Color("0c192c"), 9, new Color("426488")));
-            rightColumn.AddChild(bar);
-            var buttonRows = new VBoxContainer();
-            buttonRows.AddThemeConstantOverride("separation", 7);
-            bar.AddChild(buttonRows);
-            _mobilePrimaryActions = new HBoxContainer();
-            _mobilePrimaryActions.AddThemeConstantOverride("separation", 9);
-            buttonRows.AddChild(_mobilePrimaryActions);
-            _menuBack.Reparent(_mobilePrimaryActions);
-            _connect.Reparent(_mobilePrimaryActions);
-            _menuBack.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            _connect.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            var utilities = new HBoxContainer();
-            utilities.AddThemeConstantOverride("separation", 9);
-            buttonRows.AddChild(utilities);
-            help.Reparent(utilities);
-            exit.Reparent(utilities);
-            footer.QueueFree();
-        }
         _tabs.TabChanged += tab =>
         {
             UpdateConnectLabel();
@@ -251,8 +219,8 @@ public partial class Launcher : Control
             _tabs.CurrentTab = 2;
             UpdateConnectLabel();
         }
-        ApplyOptionALayout(margin, columns, rightColumn, rightScroll, rightCenter, panel, form,
-            identity, typeRow, typeInfo, footer, help, exit);
+        ApplyOptionALayout(margin, columns, rightColumn, rightScroll, panel, form,
+            identity, typeRow, typeInfo);
         OpenPage(0);
     }
 
@@ -298,14 +266,14 @@ public partial class Launcher : Control
             (Ui.IsMobile && _tabs.CurrentTab is not (0 or 1))))
             _tabs.CurrentTab = 1;
         if (page == 3) Remember();
-        if (_mobilePrimaryActions != null) _mobilePrimaryActions.Visible = page != 0;
         if (_mobileScroll != null) _mobileScroll.ScrollVertical = 0;
         UpdateOptionAPage(page);
         UpdateConnectLabel();
     }
 
+    internal int PageForVerification => _page;
     internal void OpenMobileSmokePage(int page) => OpenPage(page);
-    internal Button[] MobilePrimaryButtons => (_optionAPrimaryActions ?? _mobilePrimaryActions)?
+    internal Button[] MobilePrimaryButtons => _optionAPrimaryActions?
         .GetChildren().OfType<Button>().Where(button => button.Visible).ToArray() ?? [];
 
     private string DefaultServerAddress()

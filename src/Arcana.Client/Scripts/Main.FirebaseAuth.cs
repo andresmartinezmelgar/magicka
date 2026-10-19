@@ -9,6 +9,7 @@ public partial class Main
     private FirebaseAndroidBridge? _google;
     private FirebaseDesktopBridge? _desktopGoogle;
     private long _sessionGeneration;
+    private bool _acceptGoogleSessions = true;
     private double _sessionCheckTimer;
     private DateTimeOffset _lastRenewRequest;
     private string _googleStatus = "";
@@ -30,6 +31,7 @@ public partial class Main
             GoogleStatus("Error de configuración: " + error);
             return;
         }
+        _acceptGoogleSessions = true;
         GoogleStatus("Configuración de Google guardada. Abriendo el navegador…", true);
         _ = _desktopGoogle.LoginAsync();
     }
@@ -75,6 +77,7 @@ public partial class Main
                 : "Google Sign-In directo está disponible en Android. En Windows se conserva la práctica sin conexión.");
             return;
         }
+        _acceptGoogleSessions = true;
         if (_desktopGoogle != null)
         {
             if (!_desktopGoogle.Configured)
@@ -103,12 +106,24 @@ public partial class Main
             GoogleStatus("Firebase Android no está disponible.");
             return;
         }
+        _acceptGoogleSessions = true;
         GoogleStatus("Renovando la sesión y reintentando el acceso a Firestore…", true);
         if (_desktopGoogle != null) _ = _desktopGoogle.RenewAsync();
         else _google!.Renew();
     }
 
-    private async void OnGoogleSession(FirebaseAndroidBridge.Session session)
+    private void OnGoogleSession(FirebaseAndroidBridge.Session session)
+    {
+        long generation = Interlocked.Read(ref _sessionGeneration);
+        Post(() =>
+        {
+            if (_acceptGoogleSessions && generation == Interlocked.Read(ref _sessionGeneration))
+                _ = AcceptGoogleSession(session);
+        });
+    }
+
+    // Inicia la lectura en el hilo principal, antes de que pueda intercalarse un cierre.
+    private async Task AcceptGoogleSession(FirebaseAndroidBridge.Session session)
     {
         long generation = Interlocked.Read(ref _sessionGeneration);
         Post(() =>
@@ -144,6 +159,7 @@ public partial class Main
 
     public async Task StopGoogleSession()
     {
+        _acceptGoogleSessions = false;
         Interlocked.Increment(ref _sessionGeneration);
         _googleIdentityKnown = false;
         _googleIdentityName = "";

@@ -12,7 +12,7 @@ services:
       DISCOVERY_PORT: "${DISCOVERY_PORT:-27016}"
       GAME_MODE: "${GAME_MODE:-warfare}"
       ARENA_MAP: "${ARENA_MAP:-Classic}"
-      MAX_PLAYERS: "${MAX_PLAYERS:-8}"
+      MAX_PLAYERS: "${MAX_PLAYERS:-}"
       BOTS: "${BOTS:-0}"
       FRIENDLY_FIRE: "${FRIENDLY_FIRE:-true}"
       SCORE_LIMIT: "${SCORE_LIMIT:-15}"

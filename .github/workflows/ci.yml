@@ -316,6 +316,22 @@ jobs:
           xvfb-run -a -s "-screen 0 1280x720x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --profile-render --profile-survival --profile-warmup=2 --profile-seconds=10 --profile-output="$PWD/artifacts/visual-review/survival-performance/report.json" 2>&1 | tee "$RUNNER_TEMP/survival-profile.log"
           grep -q 'PROFILE_OK' "$RUNNER_TEMP/survival-profile.log"
           python3 scripts/check-survival-profile.py artifacts/visual-review/survival-performance/report.json
+      - name: Regresiones de sesión, OAuth, navegación y PvP adaptable
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          for surface in desktop mobile; do
+            args=()
+            if [ "$surface" = mobile ]; then args=(--mobile); fi
+            target="$PWD/artifacts/visual-review/regressions/$surface"
+            export XDG_DATA_HOME="$RUNNER_TEMP/regression-cache-$surface"
+            timeout 90s xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --regression-smoke "${args[@]}" "--regression-captures=$target" 2>&1 | tee "$RUNNER_TEMP/regressions-$surface.log"
+            grep -q 'REGRESSION_SMOKE_OK' "$RUNNER_TEMP/regressions-$surface.log"
+            grep -q 'TOUCH_REJECTED_CAST_REGRESSION_OK' "$RUNNER_TEMP/regressions-$surface.log"
+            test "$(find "$target" -name '*.png' | wc -l)" -eq 12
+            ! grep -E '^(ERROR:|SCRIPT ERROR:)|REGRESSION_SMOKE_FAILED' "$RUNNER_TEMP/regressions-$surface.log"
+          done
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -147,6 +147,7 @@ public sealed partial class GameWorld
             if (applied && IsDefense && message.Type != "defense_performance") _defenders[p.Id].LastActivity = Time;
             return applied;
         }
+        if (message.Type is "element" or "clear" or "cast" or "self" or "nova") p.SelectionSequence = message.Sequence;
         if (DefensePaused && message.Type is not ("input" or "release")) { p.LastSequence = message.Sequence; return false; }
         if (message.Type == "input")
         {

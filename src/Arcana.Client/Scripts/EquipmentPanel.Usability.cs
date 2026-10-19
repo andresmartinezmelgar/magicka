@@ -64,7 +64,14 @@ public partial class EquipmentPanel
         check.Toggled += selected => { if (selected) _saleSelection.Add(item.Id); else _saleSelection.Remove(item.Id); UpdateBulkActions(); };
         box.AddChild(check); _preferenceActions.Add(check);
     }
-    private void SetPickerMessage(string text) { _pickerStatus.Text = text; _pickerStatus.Visible = true; }
+    private void SetPickerMessage(string text, bool bringIntoView = true)
+    {
+        _pickerStatus.Text = text; _pickerStatus.Visible = true;
+        if (!bringIntoView || !PickerVisible) return;
+        // Los errores y resultados deben verse aunque haya muchas tarjetas.
+        _pickerStatus.GetParent().MoveChild(_pickerStatus, 0);
+        _pickerScroll.SetDeferred(ScrollContainer.PropertyName.ScrollVertical, 0);
+    }
     private void UpdatePreferenceActions()
     {
         _preferenceActions.RemoveAll(b => !GodotObject.IsInstanceValid(b) || !b.IsInsideTree());
@@ -83,7 +90,7 @@ public partial class EquipmentPanel
         _bulkAll.Disabled = _busy || !CanSellInventory;
         _bulkSell.Disabled = _busy || !CanSellInventory || items.Length == 0;
         _bulkSell.Text = $"Vender {items.Length} · +{items.Sum(i => (long)i.SaleGold)} oro";
-        if (!CanSellInventory) SetPickerMessage(SaleBlockedReason);
+        if (!CanSellInventory) SetPickerMessage(SaleBlockedReason, bringIntoView: false);
     }
     private string UpgradeBlockedReason(string id)
     {

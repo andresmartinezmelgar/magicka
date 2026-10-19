@@ -18,19 +18,15 @@ public partial class Launcher
     private GridContainer? _optionAHomeCards, _optionASettingsGrid, _optionAPracticeGrid, _optionAElements;
 
     private void ApplyOptionALayout(MarginContainer margin, HBoxContainer columns,
-        VBoxContainer rightColumn, ScrollContainer scroll, CenterContainer rightCenter,
+        VBoxContainer rightColumn, ScrollContainer scroll,
         PanelContainer panel, VBoxContainer form, HBoxContainer identity, HBoxContainer typeRow,
-        Label typeInfo, HBoxContainer obsoleteFooter, Button oldHelp, Button oldExit)
+        Label typeInfo)
     {
         columns.AddThemeConstantOverride("separation", 0);
         columns.SizeFlagsVertical = SizeFlags.ExpandFill;
         columns.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         rightColumn.SizeFlagsVertical = SizeFlags.ExpandFill;
         rightColumn.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        // El CenterContainer encogía Inicio a su ancho mínimo (cuatro botones estrechos).
-        // ScrollContainer asigna ahora al panel todo el ancho del área central.
-        panel.Reparent(scroll);
-        rightCenter.QueueFree();
         scroll.Name = "LauncherSettingsScroll";
         scroll.CustomMinimumSize = Vector2.Zero;
         scroll.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -45,7 +41,6 @@ public partial class Launcher
         panel.AddThemeStyleboxOverride("panel", WidePanel());
         form.SizeFlagsVertical = SizeFlags.ExpandFill;
         form.AddThemeConstantOverride("separation", Ui.IsMobile ? 6 : 10);
-        foreach (var child in form.GetChildren().OfType<Label>().Take(2)) child.Visible = false;
 
         var hero = new PanelContainer { Name = "OptionAHero" };
         hero.AddThemeStyleboxOverride("panel", Ui.Panel(new Color("0b2541"), 9, new Color("2c719a")));
@@ -86,7 +81,7 @@ public partial class Launcher
         choices.AddChild(helpTile);
         CardStyle(helpTile, 3);
  
-        // Paneles de opciones de 2 columnas: no se necesita desplazamiento vertical ni horizontal.
+        // Los paneles se apilan cuando no cabe una segunda columna legible.
         _playBody.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _playBody.SizeFlagsVertical = SizeFlags.ExpandFill;
         _playBody.AddThemeConstantOverride("separation", 7);
@@ -180,14 +175,6 @@ public partial class Launcher
         _connect.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _connect.CustomMinimumSize = new(0, Ui.IsMobile ? 64 : 54);
         _menuBack.CustomMinimumSize = new(0, Ui.IsMobile ? 64 : 54);
-
-        obsoleteFooter.Visible = false;
-        oldHelp.Visible = false;
-        oldExit.Visible = false;
-        if (_mobilePrimaryActions != null)
-        {
-            ((Control)_mobilePrimaryActions.GetParent().GetParent()).Visible = false;
-        }
 
         _optionAChrome = ArcanaMenuChrome.Attach(this, margin, _main,
             "Inicio", 0, NavigateOptionA);

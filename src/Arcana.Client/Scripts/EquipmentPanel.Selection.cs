@@ -27,14 +27,17 @@ public partial class EquipmentPanel
     private void BuildItemPicker()
     {
         _itemPicker = new Control { Name = "EquipmentItemPicker", Visible = false, MouseFilter = MouseFilterEnum.Stop };
-        AddChild(_itemPicker); Ui.Full(_itemPicker);
+        // El selector comparte el área central; cabecera y navegación siguen recibiendo entrada.
+        (_optionAChrome?.ContentHost ?? this).AddChild(_itemPicker); Ui.Full(_itemPicker);
         var backdrop = new ColorRect { Color = new(0.01f, 0.02f, 0.04f, 0.97f) };
         _itemPicker.AddChild(backdrop); Ui.Full(backdrop);
         var margin = new MarginContainer(); _itemPicker.AddChild(margin); Ui.Full(margin);
         foreach (string side in new[] { "left", "right", "top", "bottom" })
             margin.AddThemeConstantOverride("margin_" + side, Ui.IsMobile ? 12 : 24);
         var panel = new PanelContainer();
-        panel.AddThemeStyleboxOverride("panel", Ui.Panel(new Color("0a1d33"), 11, new Color("2b719d")));
+        var panelStyle = Ui.Panel(new Color("0a1d33"), 11, new Color("2b719d"));
+        panelStyle.ContentMarginTop = panelStyle.ContentMarginBottom = 8;
+        panel.AddThemeStyleboxOverride("panel", panelStyle);
         margin.AddChild(panel);
         var box = new VBoxContainer(); box.AddThemeConstantOverride("separation", 10); panel.AddChild(box);
         var heading = new HBoxContainer(); heading.AddThemeConstantOverride("separation", 12); box.AddChild(heading);
@@ -52,13 +55,18 @@ public partial class EquipmentPanel
         _pickerScroll = new ContentScrollContainer { Name = "EquipmentPickerScroll",
             SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-        box.AddChild(_pickerScroll); Ui.VisibleVerticalScroll(_pickerScroll);
+        var body = new VBoxContainer { Name = "EquipmentPickerBody", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        body.AddThemeConstantOverride("separation", 6);
+        foreach (var child in box.GetChildren().ToArray()) child.Reparent(body);
+        box.AddChild(_pickerScroll); Ui.VisibleVerticalScroll(_pickerScroll); _pickerScroll.AddChild(body);
         _pickerGrid = new GridContainer { Name = "EquipmentPickerGrid", Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _pickerGrid.AddThemeConstantOverride("h_separation", 10);
-        _pickerGrid.AddThemeConstantOverride("v_separation", 10); _pickerScroll.AddChild(_pickerGrid);
+        _pickerGrid.AddThemeConstantOverride("v_separation", 10); body.AddChild(_pickerGrid);
         _pickerScroll.Resized += UpdatePickerColumns;
+        body.MoveChild(_pickerHelp, body.GetChildCount() - 1);
+        body.MoveChild(_pickerStatus, body.GetChildCount() - 1);
         _pickerEmpty = Ui.Label("No tienes objetos para esta posición.", 19, Ui.Muted);
-        _pickerEmpty.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_pickerEmpty);
+        _pickerEmpty.AutowrapMode = TextServer.AutowrapMode.WordSmart; body.AddChild(_pickerEmpty);
         BuildQuickActions();
     }
 
@@ -177,7 +185,7 @@ public partial class EquipmentPanel
     {
         if (_pickerGrid == null) return;
         float width = _pickerScroll.Size.X > 0 ? _pickerScroll.Size.X : GetViewport().GetVisibleRect().Size.X - 100;
-        _pickerGrid.Columns = Math.Clamp(ResponsiveLayout.Columns(Math.Max(0, width), 290, 3, 10), 2, 3);
+        _pickerGrid.Columns = ResponsiveLayout.Columns(Math.Max(0, width), 290, 3, 10);
     }
 
     private void CloseItemPicker()

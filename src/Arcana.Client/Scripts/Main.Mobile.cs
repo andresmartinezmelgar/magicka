@@ -20,7 +20,7 @@ public partial class Main
             if (requested != null && OS.GetCmdlineUserArgs().Any(a => a is "--defense-smoke" or "--mobile-menu-smoke"
                 or "--touch-layout-smoke" or "--practice-smoke"
                 or "--aim-marker-smoke"
-                or "--shop-smoke" or "--sale-smoke" or "--usability-smoke"
+                or "--regression-smoke" or "--shop-smoke" or "--sale-smoke" or "--usability-smoke"
                 or "--equipment-smoke" or "--preview-equipment-picker"
                 or "--preview-spells=stone" or "--preview-spells=stone-close" or "--preview-spells=stone-auras"
                 or "--preview-spells=areas" or "--preview-spells=auras" or "--preview-spells=passives"))
@@ -47,12 +47,12 @@ public partial class Main
         _touch.MagickAvailable = slot => CheckMagickAvailable(slot, checkTarget: false);
         _touch.ActionRequested += message =>
         {
-            if (!_playing || _paused || _help.Visible || InspectingEquipment || ControlsOpen) return;
+            if (!_playing || _paused || _help.Visible || InspectingEquipment || ControlsOpen || _waitingPanel?.Visible == true) return;
             UpdateTouchAim();
             if (message.Type == "magick") UseMagick(message.Slot);
             else { Submit(InputMessage()); Submit(message); }
         };
-        _touch.AimChanged += () => { if (_playing && !_paused && !_help.Visible && !InspectingEquipment && !ControlsOpen) { UpdateTouchAim(); Submit(InputMessage()); } };
+        _touch.AimChanged += () => { if (_playing && !_paused && !_help.Visible && !InspectingEquipment && !ControlsOpen && _waitingPanel?.Visible != true) { UpdateTouchAim(); Submit(InputMessage()); } };
         _touch.HelpRequested += ToggleHelp;
         _touch.MenuRequested += TogglePause;
         _touch.ScoreRequested += () => { if (_hud != null) { StopInput(); _hud.ScoreOpen = !_hud.ScoreOpen; } };
@@ -67,7 +67,12 @@ public partial class Main
         if (direction.Length > 0.01f) _aim = player.Position + direction.Normalized * (_touch.AimRange * _touch.AimStrength);
     }
     private void UpdateTouchVisibility()
-    { if (_touch != null) _touch.Visible = _playing && !_paused && !_help.Visible && !InspectingEquipment && !ControlsOpen; }
+    {
+        if (_touch == null) return;
+        bool visible = _playing && !_paused && !_help.Visible && !InspectingEquipment && !ControlsOpen && _waitingPanel?.Visible != true;
+        if (_touch.Visible && !visible) _touch.Reset();
+        _touch.Visible = visible;
+    }
     public override void _Notification(int what)
     {
         if (!Ui.IsMobile || _launcher == null) return;
@@ -83,6 +88,7 @@ public partial class Main
             else if (_defensePanel?.ShopOpen == true) _defensePanel.HandleBack();
             else if (InspectingEquipment) ClosePlayerEquipment();
             else if (GodotObject.IsInstanceValid(_equipmentPanel)) _equipmentPanel!.HandleBack();
+            else if (GodotObject.IsInstanceValid(_accountProfilePanel)) CloseAccountProfile();
             else if (GodotObject.IsInstanceValid(_optionAHelp)) CloseOptionAHelp();
             else if (_help.Visible) { _help.Visible = false; UpdateTouchVisibility(); }
             else if (_playing) TogglePause();

@@ -301,9 +301,9 @@ public partial class EquipmentPanel : Control
     {
         _busy = value; foreach (var button in _actions) button.Disabled = value;
         if (message.Length > 0) SetStatus(message);
-        if (_itemPicker != null && _itemPicker.Visible && message.Length > 0)
-        { _pickerStatus.Text = message; _pickerStatus.Visible = true; }
         UpdatePickerActions();
+        if (_itemPicker != null && _itemPicker.Visible && message.Length > 0)
+            SetPickerMessage(message);
         RenderSavedEquipment();
         if (_defensePlayer != null) RenderDefenseActions();
     }

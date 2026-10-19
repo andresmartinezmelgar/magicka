@@ -157,7 +157,7 @@ public sealed class ArenaConnection : IAsyncDisposable
                 MoveX = message.MoveX, MoveY = message.MoveY,
                 MoveTo = message.MoveTo, TargetX = message.TargetX, TargetY = message.TargetY,
                 AimX = message.AimX, AimY = message.AimY };
-            if (_outgoing.Writer.TryWrite(queued)) return true;
+            if (_outgoing.Writer.TryWrite(queued)) { message.Sequence = queued.Sequence; return true; }
             // Perder release/input puede dejar un canal activo: no continúa una conexión saturada.
             Fail("Cola de conexión saturada. Vuelve a conectar.", null, "network.queue_full"); return false;
         }

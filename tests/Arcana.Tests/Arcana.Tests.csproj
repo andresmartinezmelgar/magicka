@@ -1,4 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
   <ItemGroup><ProjectReference Include="../../src/Arcana.Core/Arcana.Core.csproj" /></ItemGroup>
+  <ItemGroup><Compile Include="../../src/Arcana.Server/ServerSettings.cs" Link="ServerSettings.cs" /></ItemGroup>
 </Project>

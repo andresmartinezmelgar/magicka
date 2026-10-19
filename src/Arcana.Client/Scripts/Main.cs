@@ -131,6 +131,7 @@ public partial class Main : Node
             _verification = new ClientVerification(); AddChild(_verification);
             _verification.Initialize(new VerificationAccess(this), arguments);
         }
+        if (arguments.Contains("--regression-smoke")) _ = RunBugRegressionSmoke(arguments);
         if (arguments.Contains("--reconnect-smoke")) _ = VerifyReconnectInterface(arguments);
         if (arguments.Contains("--defense-smoke")) StartDefenseSmoke(arguments);
         if (arguments.Contains("--shop-smoke")) StartShopSmoke(arguments);
@@ -414,6 +415,7 @@ public partial class Main : Node
                 _defenseEnded = latest.MatchEnded;
             }
             _waitingPanel?.Update(latest, _localId, _connection?.Server?.RewardsAvailable == true);
+            UpdateTouchVisibility();
             if (_practicePanel != null)
             { _practicePanel.Visible = !_paused && !_help.Visible; _practicePanel.Update(_aim); }
             UpdateTouchLayout();
@@ -564,6 +566,7 @@ public partial class Main : Node
                 else if (_defensePanel?.ShopOpen == true) _defensePanel.HandleBack();
                 else if (InspectingEquipment) ClosePlayerEquipment();
                 else if (GodotObject.IsInstanceValid(_equipmentPanel)) _equipmentPanel!.HandleBack();
+                else if (GodotObject.IsInstanceValid(_accountProfilePanel)) CloseAccountProfile();
                 else if (GodotObject.IsInstanceValid(_optionAHelp)) CloseOptionAHelp();
                 else if (_help.Visible) { _help.Visible = false; UpdateTouchVisibility(); }
                 else if (_playing) TogglePause();

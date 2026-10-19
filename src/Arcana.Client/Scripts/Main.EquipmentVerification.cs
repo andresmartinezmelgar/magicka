@@ -204,7 +204,7 @@ public partial class Main
                         "La mejora de partida está habilitada para un objeto permanente.");
                 }
                 var tiers = panel.PickerItems.Select(id => original.Items.Single(i => i.Id == id).Tier).ToArray();
-                Check(panel.PickerVisible && tiers.SequenceEqual(Enum.GetValues<ItemTier>().Reverse()) && panel.PickerColumns is 2 or 3,
+                Check(panel.PickerVisible && tiers.SequenceEqual(Enum.GetValues<ItemTier>().Reverse()) && panel.PickerColumns is >= 1 and <= 3,
                     "El selector no abre una rejilla ordenada de mayor a menor calidad.");
                 panel.PressChoice(original.Items.Single(i => i.Slot == slot && i.Tier == ItemTier.Diamond).Id);
                 Check(!panel.Saving && panel.PickerVisible && panel.SelectedSlot == slot && panel.PreviewProfile!.Loadout.Get(slot) != before.Get(slot),

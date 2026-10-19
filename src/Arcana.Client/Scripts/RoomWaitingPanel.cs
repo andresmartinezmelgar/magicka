@@ -7,7 +7,7 @@ namespace Arcana.Client;
 public partial class RoomWaitingPanel : Control
 {
     private PanelContainer _panel = null!;
-    private GridContainer _teams = null!;
+    private GridContainer _teams = null!, _choose = null!, _actions = null!;
     private VBoxContainer _blue = null!, _red = null!;
     private Label _headline = null!, _status = null!, _prizes = null!;
     private Button _ready = null!, _start = null!, _exit = null!;
@@ -37,9 +37,11 @@ public partial class RoomWaitingPanel : Control
             VerticalScrollMode = ScrollContainer.ScrollMode.Auto, SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill };
         content.AddChild(scroll);
-        var body = new VBoxContainer();
+        Ui.VisibleVerticalScroll(scroll);
+        var body = new VBoxContainer { Name = "WaitingRoomBody", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         body.AddThemeConstantOverride("separation", 12); scroll.AddChild(body);
         _headline = Ui.Label("SALA DE ESPERA", 24, Ui.Gold);
+        _headline.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _headline.HorizontalAlignment = HorizontalAlignment.Center; body.AddChild(_headline);
         var details = Ui.Label("Selecciona tu equipo y pulsa Preparado antes de comenzar.", 16, Ui.Muted);
         details.HorizontalAlignment = HorizontalAlignment.Center;
@@ -53,16 +55,23 @@ public partial class RoomWaitingPanel : Control
         _red = TeamList("EQUIPO ROJO", Ui.Red);
         _teams.AddChild(_blue);
         _teams.AddChild(_red);
-        var choose = new GridContainer { Columns = 2 };
+        var choose = _choose = new GridContainer { Columns = 2 };
+        choose.AddThemeConstantOverride("v_separation", 8);
         choose.AddThemeConstantOverride("h_separation", 12); body.AddChild(choose);
         var blue = Ui.Button("Elegir equipo azul", () => _submit?.Invoke(new ClientMessage { Type = "lobby-team", Team = 0 }));
         var red = Ui.Button("Elegir equipo rojo", () => _submit?.Invoke(new ClientMessage { Type = "lobby-team", Team = 1 }));
         choose.AddChild(blue); choose.AddChild(red);
-        var actions = new GridContainer { Columns = 2 };
+        var actions = _actions = new GridContainer { Columns = 2 };
+        actions.AddThemeConstantOverride("v_separation", 8);
         actions.AddThemeConstantOverride("h_separation", 12); body.AddChild(actions);
         _ready = Ui.Button("Estoy preparado", () => _submit?.Invoke(new ClientMessage { Type = "lobby-ready" }), true);
         _start = Ui.Button("Comenzar partida", () => _submit?.Invoke(new ClientMessage { Type = "lobby-start" }), true);
         actions.AddChild(_ready); actions.AddChild(_start);
+        foreach (var button in new[] { blue, red, _ready, _start })
+        {
+            button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            Ui.TouchTarget(button, Ui.IsMobile ? 52 : 46);
+        }
         _status = Ui.Label("", 16, Ui.Gold); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _status.HorizontalAlignment = HorizontalAlignment.Center; body.AddChild(_status);
         _prizes = Ui.Label("", 15, Ui.Muted); _prizes.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -81,21 +90,23 @@ public partial class RoomWaitingPanel : Control
     {
         var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         box.AddThemeConstantOverride("separation", 5);
-        var title = Ui.Label(name, 19, color); title.HorizontalAlignment = HorizontalAlignment.Center;
+        var title = Ui.Label(name, 19, color); title.AutowrapMode = TextServer.AutowrapMode.WordSmart; title.HorizontalAlignment = HorizontalAlignment.Center;
         box.AddChild(title);
         return box;
     }
 
-    private static void RenderTeam(VBoxContainer container, string title, Color color,
+    private static void RenderTeam(VBoxContainer container, Color color,
         IEnumerable<WizardSnapshot> members, int[] ready)
     {
-        foreach (var child in container.GetChildren().Skip(1).ToArray()) child.QueueFree();
+        foreach (var child in container.GetChildren().Skip(1).ToArray())
+        { container.RemoveChild(child); child.QueueFree(); }
         int count = 0;
         foreach (var player in members)
         {
             string suffix = player.Bot ? " [IA]" : ready.Contains(player.Id) ? " ✓" : " · pendiente";
             var label = Ui.Label(player.Name + suffix, 15, color);
-            label.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
+            label.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
             container.AddChild(label); count++;
         }
         if (count == 0) container.AddChild(Ui.Label("— Sin jugadores —", 14, Ui.Muted));
@@ -110,8 +121,8 @@ public partial class RoomWaitingPanel : Control
         if (roster != _lastRoster)
         {
             _lastRoster = roster;
-            RenderTeam(_blue, "AZUL", Ui.Blue, snapshot.Players.Where(p => p.Team == 0), ready);
-            RenderTeam(_red, "ROJO", Ui.Red, snapshot.Players.Where(p => p.Team == 1), ready);
+            RenderTeam(_blue, Ui.Blue, snapshot.Players.Where(p => p.Team == 0), ready);
+            RenderTeam(_red, Ui.Red, snapshot.Players.Where(p => p.Team == 1), ready);
         }
         bool ownReady = ready.Contains(localId);
         bool host = snapshot.LobbyHostId == localId;
@@ -140,7 +151,7 @@ public partial class RoomWaitingPanel : Control
         float width = Math.Max(0, Math.Min(950, size.X - 28));
         float height = Math.Max(0, Math.Min(650, size.Y - 28));
         _panel.CustomMinimumSize = new Vector2(width, height);
-        _teams.Columns = width < 610 ? 1 : 2;
+        _teams.Columns = _choose.Columns = _actions.Columns = width < 690 ? 1 : 2;
     }
 
     public override void _ExitTree() => GetViewport().SizeChanged -= Reflow;

@@ -46,6 +46,12 @@ public partial class Main
         _ui.AddChild(_accountProfilePanel);
         _accountProfilePanel.Build(this);
     }
+    private void CloseAccountProfile()
+    {
+        if (!GodotObject.IsInstanceValid(_accountProfilePanel)) return;
+        _accountProfilePanel!.QueueFree();
+        _accountProfilePanel = null;
+    }
     public void OpenEquipment(string address)
     {
         if (_playing) return;
@@ -65,11 +71,7 @@ public partial class Main
             if (page != 4) _equipmentPanel.Close(() => NavigateOptionAMenu(page));
             return;
         }
-        if (GodotObject.IsInstanceValid(_accountProfilePanel))
-        {
-            _accountProfilePanel!.QueueFree();
-            _accountProfilePanel = null;
-        }
+        CloseAccountProfile();
         CloseOptionAHelp();
         _launcher.CloseRooms();
         if (page == 7) { OpenItemShop(); return; }

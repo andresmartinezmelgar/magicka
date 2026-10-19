@@ -17,8 +17,15 @@ public partial class EquipmentPanel
         OptionButton Filter(string name, string all)
         {
             var choice = new OptionButton { Name = name, SizeFlagsHorizontal = SizeFlags.ExpandFill,
-                CustomMinimumSize = new(0, 46), ClipText = true };
+                CustomMinimumSize = new(0, 46), FitToLongestItem = false, ClipText = true,
+                TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
             choice.AddItem(all, 0); choice.AddThemeFontSizeOverride("font_size", 16);
+            foreach (string state in new[] { "normal", "hover", "pressed", "disabled" })
+            {
+                var style = (StyleBoxFlat)choice.GetThemeStylebox(state).Duplicate();
+                style.ContentMarginTop = style.ContentMarginBottom = 6;
+                choice.AddThemeStyleboxOverride(state, style);
+            }
             choice.ItemSelected += _ => { ResetQuickActions(); choice.TooltipText = choice.GetItemText(choice.Selected); if (!_busy) OpenItemPicker(_selectedSlot); };
             row.AddChild(choice); return choice;
         }

@@ -46,7 +46,7 @@ public sealed class FirebaseDesktopBridge : IDisposable
     private static IEnumerable<string> ConfigurationDirectories(string userDirectory)
     {
         string executableDirectory = Path.GetDirectoryName(OS.GetExecutablePath()) ?? "";
-        return new[] { executableDirectory, AppContext.BaseDirectory, userDirectory }
+        return new[] { userDirectory, executableDirectory, AppContext.BaseDirectory }
             .Where(dir => !string.IsNullOrWhiteSpace(dir))
             .Distinct(StringComparer.OrdinalIgnoreCase);
     }
@@ -60,18 +60,8 @@ public sealed class FirebaseDesktopBridge : IDisposable
             if (!file.Exists || file.Length is <= 0 or > 8192)
                 throw new InvalidDataException("Selecciona el JSON OAuth descargado desde Google Cloud.");
             string json = File.ReadAllText(source);
-            using var document = JsonDocument.Parse(json);
-            if (!document.RootElement.TryGetProperty("installed", out var installed))
-                throw new InvalidDataException("No es una credencial OAuth de Aplicación de escritorio.");
-            string id = installed.GetProperty("client_id").GetString() ?? "";
-            string secret = installed.TryGetProperty("client_secret", out var secretField)
-                ? secretField.GetString() ?? "" : "";
-            if (!IsDesktopClientId(id) || secret.Length > 256)
-                throw new InvalidDataException("El cliente OAuth de escritorio no es válido.");
-            string project = installed.TryGetProperty("project_id", out var projectField)
-                ? projectField.GetString() ?? "" : "";
-            if (project.Length > 0 && project != "arcana-arena-f2997")
-                throw new InvalidDataException("El cliente OAuth pertenece a otro proyecto.");
+            if (!DesktopOAuthConfiguration.TryParse(json, out var configuration, out string reason))
+                throw new InvalidDataException(reason);
             Directory.CreateDirectory(_userDirectory);
             string destination = Path.Combine(_userDirectory, "google-desktop-oauth.json");
             string temporary = destination + ".tmp";
@@ -84,8 +74,8 @@ public sealed class FirebaseDesktopBridge : IDisposable
             {
                 if (File.Exists(temporary)) File.Delete(temporary);
             }
-            _clientId = id;
-            _clientSecret = secret;
+            _clientId = configuration!.ClientId;
+            _clientSecret = configuration.ClientSecret;
             return true;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
@@ -101,7 +91,7 @@ public sealed class FirebaseDesktopBridge : IDisposable
     {
         string envId = System.Environment.GetEnvironmentVariable("ARCANA_GOOGLE_DESKTOP_CLIENT_ID")?.Trim() ?? "";
         string envSecret = System.Environment.GetEnvironmentVariable("ARCANA_GOOGLE_DESKTOP_CLIENT_SECRET")?.Trim() ?? "";
-        if (IsDesktopClientId(envId)) return (envId, envSecret);
+        if (DesktopOAuthConfiguration.IsClientId(envId) && envSecret.Length <= 256) return (envId, envSecret);
 
         // El JSON «Aplicación de escritorio» descargado de Google Cloud es la opción
         // más compatible. Se mantiene fuera del repositorio y nunca se registra.
@@ -111,12 +101,8 @@ public sealed class FirebaseDesktopBridge : IDisposable
             try
             {
                 if (!File.Exists(file) || new FileInfo(file).Length > 8192) continue;
-                using var json = JsonDocument.Parse(File.ReadAllText(file));
-                if (!json.RootElement.TryGetProperty("installed", out var installed)) continue;
-                string id = installed.GetProperty("client_id").GetString() ?? "";
-                string secret = installed.TryGetProperty("client_secret", out var value)
-                    ? value.GetString() ?? "" : "";
-                if (IsDesktopClientId(id)) return (id, secret);
+                if (DesktopOAuthConfiguration.TryParse(File.ReadAllText(file), out var configuration, out _))
+                    return (configuration!.ClientId, configuration.ClientSecret);
             }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
@@ -130,19 +116,13 @@ public sealed class FirebaseDesktopBridge : IDisposable
             {
                 if (!File.Exists(file) || new FileInfo(file).Length > 512) continue;
                 string id = File.ReadAllText(file).Trim();
-                if (IsDesktopClientId(id)) return (id, envSecret);
+                if (DesktopOAuthConfiguration.IsClientId(id) && envSecret.Length <= 256) return (id, envSecret);
             }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
         }
         return ("", "");
     }
-
-    private static bool IsDesktopClientId(string value) =>
-        value.Length is > 35 and < 200 &&
-        value.EndsWith(".apps.googleusercontent.com", StringComparison.Ordinal) &&
-        value[..^".apps.googleusercontent.com".Length].All(c =>
-            char.IsAsciiLetterOrDigit(c) || c is '-' or '_');
 
     private static string RandomUrlToken() =>
         Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
