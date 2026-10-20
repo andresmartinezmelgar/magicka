@@ -119,45 +119,18 @@ public partial class ArenaRenderer
         }
         else if (beam.Shape is SpellShape.Spray or SpellShape.Force)
         {
-            // Render only once: the main renderer invokes a basic and detail pass.
-            // Match the collision server sector (dot > 0.74 for spray, same rule for force).
-            if (!details) return;
-            bool spray = beam.Shape == SpellShape.Spray;
-            float length = from.DistanceTo(to);
-            float reach = length; // Includes range bonuses and any actual obstruction.
-            if (reach <= 0.05f) return;
-            float dotLimit = SpellBalance.ChannelConeDot;
-            float halfAngle = Mathf.Acos(dotLimit);
-            float edge = reach * Mathf.Sin(halfAngle);
-            float forwardExtent = reach * Mathf.Cos(halfAngle);
-            Color rim = beam.Elements.Contains(Element.Fire) ? new("ffd596")
-                : beam.Elements.Contains(Element.Cold) ? new("dbf7ff")
-                : beam.Elements.Contains(Element.Water) ? new("a9edff") : color.Lightened(0.30f);
-            // Light interior plus an explicit arc; the rim makes the actual damage sector readable.
-            var mist = new Color(color, spray ? 0.075f : 0.050f);
-            BeamSegment(from, to, mist, 0.08f, Math.Max(0.10f, edge * 0.75f));
-            Vector3 previous = from + direction * forwardExtent - side * edge;
-            var edgeColor = new Color(rim, spray ? 0.43f : 0.27f);
-            BeamSegment(from, previous, edgeColor, 0.018f, 0.029f, profile: 6);
-            const int arcSections = 6;
-            for (int i = 1; i <= arcSections; i++)
+            if (!details)
             {
-                float angle = -halfAngle + (2f * halfAngle * i / arcSections);
-                Vector3 next = from + direction * (reach * MathF.Cos(angle))
-                    + side * (reach * MathF.Sin(angle));
-                BeamSegment(previous, next, edgeColor, 0.021f, profile: 6);
-                previous = next;
+                color.A = beam.Shape == SpellShape.Force ? 0.035f : 0.055f + strength.Charges * 0.012f;
+                BeamSegment(from, to, color, 0.09f, from.DistanceTo(to) * 0.28f);
+                return;
             }
-            BeamSegment(previous, from, edgeColor, 0.029f, 0.018f, profile: 6);
-            // Compact elemental ribbons inside the wedge.
-            int strands = strength.Charges * (Ui.IsMobile ? 1 : 2);
-            for (int i = 0; i < strands; i++)
+            color.A = 0.36f;
+            for (int i = 0; i < strength.SprayStrands; i++)
             {
-                float t = Mathf.PosMod((float)_time * 0.75f + i / (float)strands, 1);
-                float lateral = MathF.Sin(i * 3.7f + (float)_time * 5) * (t * edge * 0.55f);
-                var p = from.Lerp(to, t) + side * lateral;
-                BeamSegment(p, p + direction * 0.23f, new Color(rim, 0.50f),
-                    0.012f + 0.03f * t, 0.006f, profile: 6);
+                float t = Mathf.PosMod((float)_time * 1.6f + i / (float)strength.SprayStrands, 1);
+                var p = from.Lerp(to, t) + side * (Mathf.Sin(i * 4.23f + (float)_time * 5) * t * 1.2f);
+                BeamSegment(p, p + direction * (0.24f + strength.Charges * 0.055f), color, 0.025f + 0.045f * t);
             }
         }
         else

@@ -6,10 +6,12 @@ namespace Arcana.Client;
 public partial class Main
 {
     private bool _bestiarySmoke;
+    private string? _bestiaryCaptures;
     private int _bestiarySmokePhase, _bestiarySmokeFrames;
     private void StartBestiarySmoke(string[] arguments)
     {
         _bestiarySmoke = true;
+        _bestiaryCaptures = arguments.FirstOrDefault(a => a.StartsWith("--bestiary-captures="))?["--bestiary-captures=".Length..];
         string? requested = arguments.FirstOrDefault(a => a.StartsWith("--smoke-viewport="));
         if (requested != null)
         {
@@ -34,9 +36,24 @@ public partial class Main
                     labels.Any(l => l.Text.Contains("Coloso · Bajas: 2")), "El bestiario no muestra las bajas de la cuenta.");
                 Check(Enum.GetValues<MinionKind>().All(k => _bestiaryPanel.FindChild("Bestiary_" + k, true, false) != null),
                     "El catálogo omite un enemigo.");
+                Check(Enum.GetValues<MinionKind>().All(k =>
+                    _bestiaryPanel.FindChild("BestiaryPortrait_" + k, true, false) is BestiaryPortrait portrait &&
+                    portrait.FindChild("PortraitModel", true, false) is Node3D && portrait.Size.X >= 88 && portrait.Size.Y >= 100),
+                    "Falta la imagen de un enemigo o su tamaño no es legible.");
                 var scroll = (Control)_bestiaryPanel.FindChild("BestiaryScroll", true, false);
                 Check(GetViewport().GetVisibleRect().Encloses(scroll.GetGlobalRect()) && scroll.Size.X > 240,
                     "El bestiario desborda la pantalla o comprime el texto.");
+                if (_bestiaryCaptures != null)
+                {
+                    System.IO.Directory.CreateDirectory(_bestiaryCaptures);
+                    GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(_bestiaryCaptures, "bestiary.png"));
+                    foreach (var kind in Enum.GetValues<MinionKind>())
+                    {
+                        var portrait = _bestiaryPanel.FindChild("BestiaryPortrait_" + kind, true, false)!;
+                        var viewport = (SubViewport)portrait.FindChild("PortraitViewport", true, false);
+                        viewport.GetTexture().GetImage().SavePng(System.IO.Path.Combine(_bestiaryCaptures, kind + ".png"));
+                    }
+                }
                 CloseBestiary();
                 StartPractice("Defensor", 0, GameMode.Defense, 0, map: ArenaMapId.Bastion);
                 _bestiarySmokePhase = 1; return false;

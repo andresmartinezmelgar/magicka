@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.27.1 — Continuar supervivencia y retratos del bestiario
+
+- El menú de supervivencia local permite guardar la partida o guardar y salir. El launcher ofrece continuarla después de cerrar el juego, con el mismo mago, aliados IA, vidas, salud, equipo, afijos, mejoras, reliquias, enemigos, botín y relojes de dificultad y jefes.
+- El guardado permanece en el dispositivo, con escritura atómica y una copia de respaldo recuperable. No se sube a Firestore ni transforma una sala online en una partida local. Reanudar conserva el identificador y los acumulados del bestiario para evitar bajas duplicadas.
+- Las trece fichas del bestiario incluyen una imagen con el modelo, los colores y los sprites utilizados durante el combate. Los retratos se renderizan una sola vez para reducir su coste.
+- Los conos recuperan su efecto visual anterior, sin el borde y relleno que marcaban toda la zona de alcance. Se mantienen las diferencias entre una, dos y tres cargas.
+- Se añaden pruebas de guardado y recuperación tras un reinicio, copia dañada, continuidad del combate, aliados, afijos y contadores, además de verificaciones de los botones y retratos en escritorio y móvil.
+
 ## 0.27.0 — Bestiario, reliquias y efectos especiales del equipo
 
 - El perfil incorpora un bestiario de los trece enemigos de supervivencia, con sus habilidades y las bajas causadas por cada jugador. Los contadores se guardan en Firestore mediante registros por partida que evitan duplicados al reintentar. Las partidas locales con una cuenta guardada conservan sus datos pendientes hasta recuperar el servidor de cuentas.

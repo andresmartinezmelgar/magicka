@@ -32,6 +32,12 @@ public partial class Main
     }
     private void BeginLocalBestiary()
     {
+        if (_resumingSurvival is { } save && _practice?.IsDefense == true)
+        {
+            _localBestiaryRun = save.RunId; _localBestiaryUid = save.BestiaryUid;
+            _localBestiarySaved = 0; _resumingSurvival = null;
+            return;
+        }
         _localBestiaryRun = _practice?.IsDefense == true ? Guid.NewGuid().ToString("N") : "";
         _localBestiaryUid = _localBestiaryRun.Length > 0 ? Accounts.Profile?.Uid ?? "" : "";
         _localBestiarySaved = 0;

@@ -41,7 +41,10 @@ public partial class BestiaryPanel : Control
             var card = new PanelContainer { Name = "Bestiary_" + kind, SizeFlagsHorizontal = SizeFlags.ExpandFill };
             card.AddThemeStyleboxOverride("panel", Ui.Panel(new Color("10263f"), 8, new Color("3375a6")));
             _entries.AddChild(card);
-            var body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; body.AddThemeConstantOverride("separation", 6); card.AddChild(body);
+            var row = new HBoxContainer(); row.AddThemeConstantOverride("separation", Ui.IsMobile ? 12 : 18); card.AddChild(row);
+            var portrait = new BestiaryPortrait { SizeFlagsVertical = SizeFlags.ShrinkCenter };
+            row.AddChild(portrait); portrait.Build(kind);
+            var body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; body.AddThemeConstantOverride("separation", 6); row.AddChild(body);
             long kills = _lastProfile?.Bestiary.GetValueOrDefault(BestiaryCatalogue.Key(kind)) ?? 0;
             var heading = Ui.Label(DefenseRules.MinionName(kind) + $" · Bajas: {kills}", 20, Ui.Gold);
             heading.AutowrapMode = TextServer.AutowrapMode.WordSmart; body.AddChild(heading);

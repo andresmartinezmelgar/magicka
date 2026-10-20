@@ -10,6 +10,7 @@ public partial class Launcher : Control
     private OptionButton _team = null!, _practiceMode = null!, _practiceMap = null!, _wizardType = null!;
     private SpinBox _bots = null!, _discoveryPort = null!, _hostPort = null!, _hostDiscovery = null!;
     private Label _status = null!;
+    private Button? _continueSurvival;
     private ItemList _servers = null!;
     private Button _connect = null!, _refresh = null!, _stopHost = null!, _firewall = null!, _officialOnline = null!;
     private Label _hostInfo = null!;
@@ -172,6 +173,10 @@ public partial class Launcher : Control
         _bots.Editable = (ArenaMapId)_practiceMap.GetSelectedId() != ArenaMapId.Practice; Objective();
         practice.AddChild(Ui.Label("El duelo usa un bot. Defensa permite jugar solo o con hasta tres aliados IA.", 13, Ui.Muted));
         practice.AddChild(measureSurvival);
+        _continueSurvival = Ui.Button("Continuar supervivencia guardada", _main.ContinueSurvival, true);
+        _continueSurvival.Name = "ContinueSurvival";
+        _continueSurvival.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        practice.AddChild(_continueSurvival); UpdateSurvivalSave();
         
         var hosting = TabBox("Alojar");
         _hostName = new LineEdit { Text = _config.GetValue("host", "name", "Partida local").AsString(),
@@ -295,6 +300,7 @@ public partial class Launcher : Control
     {
         if (busy) CancelSearch();
         _busy = busy; _connect.Disabled = busy; _officialOnline.Disabled = busy;
+        UpdateSurvivalSave();
         for (int i = 0; i < 4; i++) _tabs.SetTabDisabled(i, busy || Ui.IsMobile && i == 3);
         _name.Editable = _address.Editable = !busy; _team.Disabled = _wizardType.Disabled = busy;
         _hostName.Editable = _hostPort.Editable = _hostDiscovery.Editable = !busy && !_host.Running;
@@ -308,6 +314,11 @@ public partial class Launcher : Control
         SetBusy(false);
         if (GodotObject.IsInstanceValid(_lobby)) { _lobby!.ShowError(message); return; }
         _status.Text = message; _status.AddThemeColorOverride("font_color", Ui.Red);
+    }
+    public void UpdateSurvivalSave()
+    {
+        if (_continueSurvival == null) return;
+        _continueSurvival.Visible = _main.HasSurvivalSave; _continueSurvival.Disabled = _busy;
     }
     public void ShowStatus(string message)
     { _status.Text = message; _status.AddThemeColorOverride("font_color", Ui.Gold); }

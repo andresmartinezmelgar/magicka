@@ -58,8 +58,7 @@ public partial class ArenaRenderer
     private static WizardSnapshot MinionWizard(MinionSnapshot m) => new(m.Id, DefenseRules.MinionName(m.Kind), 1, true, m.Position,
         m.Facing, m.Health, m.MaxHealth, 0, [], [], true, 0, m.Wet, m.Burning, m.Chill, m.Frozen, 0,
         100, MinionCooldowns, 0, 0, 0, m.Casting,
-        WizardType: m.Kind == MinionKind.Shaman ? WizardType.Geomancer :
-            m.Kind == MinionKind.Cryomancer ? WizardType.Cryomancer : WizardType.Pyromancer,
+        WizardType: MinionArt.CasterType(m.Kind) ?? WizardType.Pyromancer,
             CastingElements: m.Elements);
 
     private void RenderDefense(WorldSnapshot snapshot, int localId, float dt)
@@ -162,7 +161,7 @@ public partial class ArenaRenderer
     {
         var root = new Node3D { Name = "Minion" + m.Id, Position = World(m.Position) }; AddChild(root);
         var v = new MinionVisual { Root = root, Kind = m.Kind };
-        if (m.Kind is MinionKind.Mage or MinionKind.Shaman or MinionKind.Warlock or MinionKind.Cryomancer)
+        if (MinionArt.CasterType(m.Kind) != null)
         {
             v.Mage = new WizardVisual(); root.AddChild(v.Mage); v.Mage.Build(MinionWizard(m), false);
             v.Mage.Position = Vector3.Zero;
@@ -171,21 +170,10 @@ public partial class ArenaRenderer
         {
             if (!_minionShapes.TryGetValue(m.Kind, out var shape))
             {
-                shape = m.Kind switch
-                {
-                    MinionKind.Boss => new BoxMesh { Size = new(2.6f, 2.7f, 2.6f) },
-                    MinionKind.Brute => new BoxMesh { Size = new(1.8f, 1.9f, 1.8f) },
-                    MinionKind.Sentinel => new BoxMesh { Size = new(2.1f, 2.3f, 2.1f) },
-                    MinionKind.Tank => new BoxMesh { Size = new(1.6f, 1.45f, 1.6f) },
-                    MinionKind.Archer => new BoxMesh { Size = new(0.95f, 0.7f, 0.95f) },
-                    MinionKind.Runner => new CylinderMesh { TopRadius = 0.08f, BottomRadius = 0.45f, Height = 1.1f, RadialSegments = 12 },
-                    MinionKind.Bomber => new SphereMesh { Radius = 0.6f, Height = 1.2f, RadialSegments = 12, Rings = 8 },
-                    _ => new CylinderMesh { TopRadius = m.Kind == MinionKind.Captain ? 0.8f : 0.55f,
-                        BottomRadius = m.Kind == MinionKind.Captain ? 0.8f : 0.55f, Height = 0.65f, RadialSegments = 16 }
-                };
+                shape = MinionArt.Shape(m.Kind);
                 _minionShapes[m.Kind] = shape;
             }
-            float height = m.Kind == MinionKind.Boss ? 1.4f : m.Kind == MinionKind.Brute ? 1.05f : m.Kind == MinionKind.Sentinel ? 1.17f : m.Kind == MinionKind.Tank ? 0.8f : 0.6f;
+            float height = MinionArt.BodyHeight(m.Kind);
             float healthHeight = m.Kind == MinionKind.Boss ? 3.15f : m.Kind == MinionKind.Brute ? 2.25f : m.Kind == MinionKind.Sentinel ? 2.65f : m.Kind == MinionKind.Tank ? 1.65f : 1.3f;
             v.Body = Mesh(root, shape, new(0, height, 0), MinionColor(m.Kind));
             Mesh(root, new BoxMesh { Size = new(1.3f, 0.1f, 0.12f) }, new(0, healthHeight, 0), new("17232d"));
@@ -224,7 +212,5 @@ public partial class ArenaRenderer
                 });
     }
 
-    private static Color MinionColor(MinionKind kind) => kind switch
-    { MinionKind.Boss => new("d6ae57"), MinionKind.Tank => new("5c9d91"), MinionKind.Archer => new("d6a36b"), MinionKind.Captain => new("a36de0"),
-        MinionKind.Runner => new("d5ee69"), MinionKind.Brute => new("8796af"), MinionKind.Bomber => new("ff913d"), MinionKind.Sentinel => new("ddbb67"), MinionKind.Warlock => new("ff685d"), MinionKind.Cryomancer => new("91e5ff"), _ => new("db636b") };
+    private static Color MinionColor(MinionKind kind) => MinionArt.ColorFor(kind);
 }

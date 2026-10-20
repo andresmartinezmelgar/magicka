@@ -1,6 +1,6 @@
 # Supervivencia en Anillos
 
-Versión estable **0.21.0**, protocolo **27**, integrada en `main`. Se publican APK directas, paquetes Windows y deltas de hasta tres versiones estables anteriores. Las dos cuentas autorizadas conservan el [canal de pruebas](CANALES-ACTUALIZACION.md); el resto recibe el canal estable. La horda ampliada requiere actualizar también el servidor incluido en el paquete Windows a 0.21.0.
+Versión estable **0.27.1**, protocolo **28**, integrada en `main`. Se publican APK directas, paquetes Windows y deltas de hasta tres versiones estables anteriores. Las dos cuentas autorizadas conservan el [canal de pruebas](CANALES-ACTUALIZACION.md); el resto recibe el canal estable. La horda ampliada requiere actualizar también el servidor incluido en el paquete Windows a una versión compatible.
 
 ## Partida y vidas
 
@@ -11,6 +11,14 @@ El modo Defensa ahora es **Supervivencia**, con enemigos continuos. Se han retir
 - Cada jugador tiene **dos vidas**. La primera muerte permite reaparecer a los **4,5 segundos**, en el lugar de la caída; la segunda lo elimina. Las curaciones, la reanimación y reconectar con la misma cuenta no restituyen vidas agotadas.
 - En cooperativo termina cuando todos los humanos han agotado sus vidas. Los bots vivos no prolongan la partida. Si el último humano con vidas sale y quedan humanos eliminados, también termina.
 - El resultado permanece hasta volver al menú o iniciar otra partida. En red reinicia el anfitrión.
+
+## Guardar y continuar en local
+
+En una supervivencia local, abre el menú de partida y elige **Guardar partida** para crear un punto de continuación, o **Guardar y salir** para regresar al launcher. En **Contra IA / Práctica**, el botón **Continuar supervivencia guardada** recupera ese punto incluso después de cerrar el juego. Hay una ranura por dispositivo: guardar sustituye el punto anterior y comenzar una partida nueva no lo borra.
+
+Se conservan el mago, sus aliados IA, vidas, salud y estados, equipo y afijos, mejoras, auras, habilidades pasivas, reliquias, enemigos, botín y el tiempo de dificultad y jefes. Los controles se sueltan al continuar y el tiempo fuera del juego no avanza la simulación. La escritura es atómica y se conserva una copia válida anterior que se usa si el archivo principal está dañado.
+
+La partida se guarda únicamente en el dispositivo; no se almacena en Firestore. Este guardado se ofrece para supervivencia local, también con bots aliados. Las salas online conservan sus reglas de conexión. Las bajas del bestiario mantienen su identificador de partida y su acumulado al continuar.
 
 En móvil, toca **Traslación** o **Meteoro**, ajusta dirección y distancia con el joystick derecho y suelta para lanzar. Una marca muestra el destino; el meteoro indica además su área. Tocar otra vez el mismo botón o cancelar el gesto no consume energía. Traslación recorre hasta 7 m sin atravesar muros ni conservar empujes anteriores. Meteoro alcanza 14 m, avisa durante 1,4 s y no daña a los defensores.
 

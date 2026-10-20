@@ -135,6 +135,7 @@ public partial class Main : Node
         if (arguments.Contains("--reconnect-smoke")) _ = VerifyReconnectInterface(arguments);
         if (arguments.Contains("--defense-smoke")) StartDefenseSmoke(arguments);
         if (arguments.Contains("--bestiary-smoke")) StartBestiarySmoke(arguments);
+        if (arguments.Contains("--survival-save-smoke")) StartSurvivalSaveSmoke(arguments);
         if (arguments.Contains("--shop-smoke")) StartShopSmoke(arguments);
         if (arguments.Contains("--sale-smoke")) StartSaleSmoke(arguments);
         if (arguments.Contains("--usability-smoke")) StartUsabilitySmoke(arguments);
@@ -273,6 +274,7 @@ public partial class Main : Node
     public void StartPractice(string name, int team, GameMode mode, int bots, WizardType wizardType = WizardType.Balanced,
         ArenaMapId map = ArenaMapId.Classic, DefenseFlow defenseFlow = DefenseFlow.Continuous)
     {
+        _resumingSurvival = null;
         CancelPendingConnection();
         var old = _connection; _connection = null;
         if (old != null) _ = old.DisposeAsync();
@@ -325,7 +327,7 @@ public partial class Main : Node
         CancelReconnect();
         CancelGameLoading();
         CancelPendingConnection();
-        CaptureLocalBestiary(); _localBestiaryRun = ""; _localBestiaryUid = ""; _bestiaryClock = 10;
+        CaptureLocalBestiary(); _localBestiaryRun = ""; _localBestiaryUid = ""; _bestiaryClock = 10; _resumingSurvival = null;
         CloseRelics();
         if (_playing) Diagnostics.Info("game.leave", "Vuelta al launcher.", Context());
         ClosePlayerEquipment();
@@ -340,7 +342,7 @@ public partial class Main : Node
         _pause.Visible = false; _help.Visible = false;
         _networkPanel.Visible = false; _statsConnection = null; _networkStatsTime = 0;
         _touch?.Reset(); _touch?.QueueFree(); _touch = null;
-        _renderer.Clear(); _launcher.Visible = true; _launcher.SetBusy(false);
+        _renderer.Clear(); _launcher.Visible = true; _launcher.SetBusy(false); _launcher.UpdateSurvivalSave();
         if (error.Length > 0) _launcher.ShowError(error);
     }
 
@@ -379,6 +381,7 @@ public partial class Main : Node
         if (CheckUsabilitySmoke()) return;
         if (CheckDefenseSmoke()) return;
         if (CheckBestiarySmoke()) return;
+        if (CheckSurvivalSaveSmoke()) return;
         if (_profiler?.Running == true || _reconnecting) return;
         if (Loading) { ProcessLoading(); _verification?.CheckLoadingFrame(); return; }
         _verification?.BeforeFrame(delta);
@@ -628,6 +631,7 @@ public partial class Main : Node
     {
         _paused = !_paused; _pause.Visible = _paused;
         if (_relicMenuButton != null) _relicMenuButton.Visible = HasRelics;
+        UpdateSurvivalSaveActions();
         if (_paused) StopInput();
         UpdateTouchVisibility();
     }
@@ -635,7 +639,7 @@ public partial class Main : Node
 
     private PanelContainer? _responsiveHelpModal;
     private ScrollContainer? _responsiveHelpScroll;
-    private Control Modal(out VBoxContainer content)
+    private Control Modal(out VBoxContainer content, bool scrollable = false, bool trackHelp = true)
     {
         var root = new Control { Theme = Ui.Theme() }; Ui.Full(root);
         var shade = new ColorRect { Color = new Color(0.018f, 0.03f, 0.05f, 0.86f) }; root.AddChild(shade); Ui.Full(shade);
@@ -644,17 +648,18 @@ public partial class Main : Node
         var panel = new PanelContainer { CustomMinimumSize = new(Math.Max(280, Math.Min(750, available - 50)), 0) };
         center.AddChild(panel);
         // Solo el modal de ayuda se actualiza tras construirlo.
-        _responsiveHelpModal = panel;
-        _responsiveHelpScroll = null;
+        if (trackHelp) { _responsiveHelpModal = panel; _responsiveHelpScroll = null; }
+        else _responsivePauseModal = panel;
         content = new VBoxContainer(); content.AddThemeConstantOverride("separation", 16);
-        if (Ui.IsMobile)
+        if (Ui.IsMobile || scrollable)
         {
             var scroll = new ContentScrollContainer {
-                CustomMinimumSize = new(Math.Max(270, Math.Min(1080, available - 50)),
+                CustomMinimumSize = new(Math.Max(270, Math.Min(Ui.IsMobile ? 1080 : 750, available - 50)),
                     Math.Max(240, GetViewport().GetVisibleRect().Size.Y - 64)),
                 HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
                 VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
-            _responsiveHelpScroll = scroll;
+            if (trackHelp) _responsiveHelpScroll = scroll;
+            else _responsivePauseScroll = scroll;
             panel.AddChild(scroll); content.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill; scroll.AddChild(content);
         }
         else panel.AddChild(content);
@@ -754,6 +759,7 @@ public partial class Main : Node
 
     private void UpdateInGameHelpResponsive()
     {
+        UpdatePauseResponsive();
         float width = GetViewport().GetVisibleRect().Size.X;
         float height = GetViewport().GetVisibleRect().Size.Y;
         if (_responsiveHelpModal != null)
@@ -775,9 +781,10 @@ public partial class Main : Node
     }
     private Control BuildPause()
     {
-        var root = Modal(out var box); box.AddChild(Ui.Label("PARTIDA", 30, Ui.Gold));
+        var root = Modal(out var box, scrollable: true, trackHelp: false); box.AddChild(Ui.Label("PARTIDA", 30, Ui.Gold));
         box.AddChild(Ui.Label("En red, la partida continúa mientras estás en este menú.", 17, Ui.Muted));
         box.AddChild(Ui.Button("Continuar", TogglePause, true));
+        AddSurvivalSaveActions(box);
         _relicMenuButton = Ui.Button("Reliquias recogidas", OpenRelics);
         _relicMenuButton.Name = "PauseRelics"; _relicMenuButton.Visible = false; box.AddChild(_relicMenuButton);
         box.AddChild(Ui.Button("Volver al launcher", () => ReturnToLauncher()));
@@ -785,6 +792,7 @@ public partial class Main : Node
         _diagnosticStatus = Ui.Label("", 15, Ui.Muted); _diagnosticStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         box.AddChild(_diagnosticStatus);
         box.AddChild(Ui.Button("Salir del juego", () => GetTree().Quit()));
+        UpdatePauseResponsive();
         return root;
     }
     private Dictionary<string, object?> Context() => new()

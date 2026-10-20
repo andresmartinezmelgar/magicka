@@ -51,7 +51,7 @@ public sealed partial class GameWorld
         if (!Enum.IsDefined(Options.DefenseFlow) || IsDefense && Options.MaxPlayers is < 1 or > DefenseRules.MaxDefenders)
             throw new ArgumentException("Defensa admite entre uno y cuatro defensores.", nameof(options));
         if (!Map.IsPractice) Map.PrepareNavigation();
-        _random = new(Options.Seed);
+        _random = IsDefense ? new SurvivalRandom(Options.Seed) : new Random(Options.Seed);
         _points = Map.ControlPoints.Select((p, i) => new ControlPoint { Id = i, Position = p }).ToArray();
         _pickupRandom = new(Options.PickupSeed ?? Random.Shared.Next());
         _pickups = CreatePickups();
