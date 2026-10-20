@@ -4,31 +4,42 @@ using Godot;
 namespace Arcana.Client;
 
 /// <summary>
-/// Approved style-B art. Both atlases share four columns, with independent cell sizes.
-/// Loaded once; regions are reused by HUD, personal wards, walls and field effects.
-/// Missing assets fail gracefully to existing procedural visuals.
+/// Approved element icons and character-free defense art. Shield sprites are shared
+/// across all recipes (E, EX and EXY), with deterministic layers for two affinities.
+/// Purely visual: no gameplay/network logic lives here.
 /// </summary>
 internal static class ArcanaSpriteAtlas
 {
+    internal enum DefenseForm { Personal, Area, Wall }
+
     private const int Columns = 4;
     private const int ElementCell = 96;
-    private const int ShieldCell = 96;
+    private const int ShieldCell = 160;
     private const string ElementsPath = "res://Assets/VFX/element-style-b.webp";
-    private const string ShieldsPath = "res://Assets/VFX/shields-style-b.webp";
+    private static readonly string[] DefensePaths =
+    [
+        "res://Assets/VFX/personal-shields-style-b.webp",
+        "res://Assets/VFX/area-shields-style-b.webp",
+        "res://Assets/VFX/wall-shields-style-b.webp"
+    ];
 
-    private static Texture2D? _elements, _shields;
-    private static bool _elementsAttempted, _shieldsAttempted;
+    // E, EW, ER, ES, EF, EQ, ED, EA: valid shield-affinity motifs.
+    private static readonly Element[] Affinities =
+    [
+        Element.Life, Element.Cold, Element.Arcane, Element.Fire,
+        Element.Water, Element.Earth, Element.Lightning
+    ];
+
+    private static Texture2D? _elements;
+    private static bool _elementsAttempted;
+    private static readonly Texture2D?[] _defenseAtlases = new Texture2D?[3];
+    private static readonly bool[] _defenseAttempted = new bool[3];
     private static readonly Dictionary<int, AtlasTexture> ElementRegions = [];
-    private static readonly Dictionary<int, AtlasTexture> ShieldRegions = [];
+    private static readonly Dictionary<int, AtlasTexture>[] DefenseRegions =
+        [new(), new(), new()];
 
-    private static Texture2D? Load(string path, ref Texture2D? cache, ref bool attempted)
-    {
-        if (attempted) return cache;
-        attempted = true;
-        if (ResourceLoader.Exists(path))
-            cache = ResourceLoader.Load<Texture2D>(path);
-        return cache;
-    }
+    private static Texture2D? Load(string path)
+        => ResourceLoader.Exists(path) ? ResourceLoader.Load<Texture2D>(path) : null;
 
     private static Texture2D? Region(Texture2D? atlas, int cell, int index,
         Dictionary<int, AtlasTexture> regions)
@@ -49,45 +60,50 @@ internal static class ArcanaSpriteAtlas
 
     internal static Texture2D? Icon(Element element)
     {
-        var atlas = Load(ElementsPath, ref _elements, ref _elementsAttempted);
-        return Region(atlas, ElementCell, (int)element, ElementRegions);
+        if (!_elementsAttempted)
+        {
+            _elementsAttempted = true;
+            _elements = Load(ElementsPath);
+        }
+        return Region(_elements, ElementCell, (int)element, ElementRegions);
     }
 
-    private static Texture2D? Shield(int index)
+    // Layer 0: first unique affinity (or basic shield).
+    // Layer 1: optional second unique affinity. The keyboard input order does
+    // not change the visual result; repeated elements strengthen existing VFX.
+    internal static Texture2D? Defense(DefenseForm form, Element[] elements, int layer = 0)
     {
-        var atlas = Load(ShieldsPath, ref _shields, ref _shieldsAttempted);
-        return Region(atlas, ShieldCell, index, ShieldRegions);
+        if (layer is < 0 or > 1) return null;
+        int atlasIndex = (int)form;
+        if (!_defenseAttempted[atlasIndex])
+        {
+            _defenseAttempted[atlasIndex] = true;
+            _defenseAtlases[atlasIndex] = Load(DefensePaths[atlasIndex]);
+        }
+
+        int chosen = 0, count = 0;
+        foreach (var element in Affinities)
+        {
+            if (Array.IndexOf(elements, element) < 0) continue;
+            if (count == layer)
+            {
+                chosen = Array.IndexOf(Affinities, element) + 1;
+                count++;
+                break;
+            }
+            count++;
+        }
+        if (count <= layer) return layer == 0
+            ? Region(_defenseAtlases[atlasIndex], ShieldCell, 0, DefenseRegions[atlasIndex])
+            : null;
+        return Region(_defenseAtlases[atlasIndex], ShieldCell, chosen, DefenseRegions[atlasIndex]);
     }
 
-    // Tiles 0..3: E, EW, ER, ES (shield, life, cold, arcane).
-    internal static Texture2D? Personal(Element[] elements)
+    internal static int AffinityLayers(Element[] elements)
     {
-        if (elements.Contains(Element.Life)) return Shield(1);
-        if (elements.Contains(Element.Cold)) return Shield(2);
-        if (elements.Contains(Element.Arcane)) return Shield(3);
-        return Shield(0);
+        int count = 0;
+        foreach (var affinity in Affinities)
+            if (Array.IndexOf(elements, affinity) >= 0) count++;
+        return Math.Clamp(count, 1, 2);
     }
-
-    // Tiles 4..7: EF, EQ, ER, ED; these are defensive field motifs.
-    internal static Texture2D? Area(Element[] elements)
-    {
-        if (elements.Contains(Element.Fire)) return Shield(4);
-        if (elements.Contains(Element.Water)) return Shield(5);
-        if (elements.Contains(Element.Cold)) return Shield(6);
-        if (elements.Contains(Element.Earth)) return Shield(7);
-        return null;
-    }
-
-    // Tiles 8..11: ED, EDF, EQR, ES.
-    internal static Texture2D? Barrier(Element[] elements)
-    {
-        if (elements.Contains(Element.Earth) && elements.Contains(Element.Fire)) return Shield(9);
-        if (elements.Contains(Element.Water) && elements.Contains(Element.Cold)) return Shield(10);
-        if (elements.Contains(Element.Earth)) return Shield(8);
-        if (elements.Contains(Element.Arcane)) return Shield(11);
-        return null;
-    }
-
-    internal static Texture2D? Mine(Element[] elements, bool healing)
-        => healing ? Shield(1) : elements.Contains(Element.Arcane) ? Shield(11) : Area(elements);
 }
