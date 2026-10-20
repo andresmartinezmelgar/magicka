@@ -122,8 +122,10 @@ public sealed partial class GameWorld
     private void TraceBeam(V2 from, V2 direction, float range, BeamPart[] parts, int owner, int ignoredWizard,
         float dt, string interaction)
     {
-        int penetrations = parts.Where(p => !p.Recipe.Healing).Select(p =>
-            _combatants.TryGetValue(p.Owner, out var source) ? source.Equipment.BeamPierce : 0).DefaultIfEmpty(0).Max();
+        int penetrations = 0;
+        foreach (var part in parts)
+            if (!part.Recipe.Healing && _combatants.TryGetValue(part.Owner, out var source))
+                penetrations = Math.Max(penetrations, source.Equipment.BeamPierce);
         HashSet<int>? pierced = penetrations > 0 ? [] : null;
         for (int step = 0, bounce = 0; step < 6 && range > 0.08f; step++)
         {
@@ -142,8 +144,11 @@ public sealed partial class GameWorld
                 if (target.Shield <= 0 || target.ShieldTime <= 0 || alliedHealing)
                 {
                     foreach (var part in parts) Hit(target, part.Recipe, dt * part.Scale, part.Owner, direction, part.DamageMultiplier);
-                    bool hostile = parts.Any(part => !part.Recipe.Healing &&
-                        _combatants.TryGetValue(part.Owner, out var source) && Hostile(source, target));
+                    bool hostile = false;
+                    if (penetrations > 0)
+                        foreach (var part in parts)
+                            if (!part.Recipe.Healing && _combatants.TryGetValue(part.Owner, out var source) && Hostile(source, target))
+                            { hostile = true; break; }
                     if (penetrations <= 0 || !hostile) return;
                     penetrations--; pierced!.Add(target.Id);
                     from = end + direction * 0.04f; range = Math.Max(0, range - 0.04f);

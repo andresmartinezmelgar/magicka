@@ -73,7 +73,7 @@ public partial class Main
         }
         catch (OperationCanceledException) { return "Sincronización pendiente."; }
         catch (Exception error) when (error is System.IO.IOException or InvalidOperationException or
-            HttpRequestException or UnauthorizedAccessException or AccountApiException)
+            HttpRequestException or UnauthorizedAccessException)
         {
             return "Se muestran los datos guardados. Las partidas pendientes se sincronizarán cuando la conexión de cuenta esté disponible.";
         }
