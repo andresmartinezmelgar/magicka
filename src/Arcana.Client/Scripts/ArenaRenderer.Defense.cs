@@ -58,7 +58,9 @@ public partial class ArenaRenderer
     private static WizardSnapshot MinionWizard(MinionSnapshot m) => new(m.Id, DefenseRules.MinionName(m.Kind), 1, true, m.Position,
         m.Facing, m.Health, m.MaxHealth, 0, [], [], true, 0, m.Wet, m.Burning, m.Chill, m.Frozen, 0,
         100, MinionCooldowns, 0, 0, 0, m.Casting,
-        WizardType: m.Kind == MinionKind.Shaman ? WizardType.Geomancer : WizardType.Pyromancer, CastingElements: m.Elements);
+        WizardType: m.Kind == MinionKind.Shaman ? WizardType.Geomancer :
+            m.Kind == MinionKind.Cryomancer ? WizardType.Cryomancer : WizardType.Pyromancer,
+            CastingElements: m.Elements);
 
     private void RenderDefense(WorldSnapshot snapshot, int localId, float dt)
     {
@@ -87,7 +89,9 @@ public partial class ArenaRenderer
             if (v.Health != null) v.Health.Scale = new(Math.Max(0.001f, m.Health / m.MaxHealth), 1, 1);
             if (v.Body != null) v.Body.MaterialOverride = Material(m.Frozen > 0 ? new("8bdeff") : m.Burning > 0 ? Ui.ElementColor(Element.Fire) : MinionColor(m.Kind));
             v.Aura!.Visible = m.Empowered || m.Kind is MinionKind.Captain or MinionKind.Sentinel or MinionKind.Warlock or MinionKind.Cryomancer || m.SpeedBoostSeconds > 0 || m.Kind == MinionKind.Boss;
-            v.Aura.MaterialOverride = Material(m.SpeedBoostSeconds > 0 ? new("65e5ff") : Ui.Gold, 0.5f);
+            v.Aura.MaterialOverride = Material(m.SpeedBoostSeconds > 0 ? new("65e5ff") :
+                m.Kind is MinionKind.Warlock or MinionKind.Cryomancer or MinionKind.Sentinel
+                    ? MinionColor(m.Kind) : Ui.Gold, 0.5f);
             if (v.Warning != null)
                 v.Warning.Visible = m.AttackWarningSeconds > 0;
         }
