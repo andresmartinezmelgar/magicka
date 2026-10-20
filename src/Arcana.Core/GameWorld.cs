@@ -427,7 +427,7 @@ public sealed partial class GameWorld
                 if (q.Id == p.Id || !q.Alive) continue;
                 float distance = V2.Distance(q.Position, from);
                 if (distance <= range && V2.Dot((q.Position - from).Normalized, p.Facing) >
-                    (spell.Shape == SpellShape.Lightning ? 0.55f : 0.74f) && Visible(from, q.Position, p.Id))
+                    (spell.Shape == SpellShape.Lightning ? SpellBalance.LightningConeDot : SpellBalance.ChannelConeDot) && Visible(from, q.Position, p.Id))
                     targets.Add((q, distance, index));
             }
             targets.Sort(static (a, b) => a.Distance != b.Distance ? a.Distance.CompareTo(b.Distance) : a.Order.CompareTo(b.Order));

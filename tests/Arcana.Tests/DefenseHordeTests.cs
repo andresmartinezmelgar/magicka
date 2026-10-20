@@ -66,13 +66,13 @@ internal static class DefenseHordeTests
                 "Retirar enemigos dio premios.");
             SnapshotValidation.Check(w.Snapshot());
         });
-        test("Supervivencia: diez tipos válidos por red y variantes nuevas progresivas", () =>
+        test("Supervivencia: todos los tipos válidos por red y variantes nuevas progresivas", () =>
         {
             var w = World(); w.AddPlayer("Mago"); Set(w, "_defenseDifficulty", 10);
             foreach (var kind in Enum.GetValues<MinionKind>()) Enemy(w, kind, new(0, 0));
             var snapshot = w.Snapshot() with { Time = 900 };
             var decoded = Protocol.Deserialize<ServerMessage>(Protocol.Serialize(new ServerMessage { Type = "snapshot", Snapshot = snapshot }))!.Snapshot!;
-            Check(decoded.Defense!.Bestiary.Length == 10 && decoded.Defense.Minions.Select(m => m.Kind).Distinct().Count() == 10,
+            Check(decoded.Defense!.Bestiary.Length == DefenseRules.MinionTypeCount && decoded.Defense.Minions.Select(m => m.Kind).Distinct().Count() == DefenseRules.MinionTypeCount,
                 "Se perdieron tipos en la red o guía.");
             SnapshotValidation.Check(decoded);
             var early = World(); early.AddPlayer("Mago");
@@ -80,7 +80,7 @@ internal static class DefenseHordeTests
             Check(State(early).Minions.All(m => m.Kind == MinionKind.Melee), "Apareció un enemigo especial en el primer nivel.");
             var late = World(); late.AddPlayer("Mago"); Set(late, "_defenseDifficulty", 10);
             for (int i = 0; i < DefenseRules.MaxMinions; i++) Invoke(late, "SpawnMinion");
-            foreach (var kind in new[] { MinionKind.Runner, MinionKind.Brute, MinionKind.Bomber, MinionKind.Shaman })
+            foreach (var kind in new[] { MinionKind.Runner, MinionKind.Brute, MinionKind.Bomber, MinionKind.Shaman, MinionKind.Warlock, MinionKind.Cryomancer, MinionKind.Sentinel })
                 Check(State(late).Minions.Any(m => m.Kind == kind), "El generador no incluye " + kind);
         });
         test("Supervivencia: el generador respeta el tope de FPS aun en dificultad avanzada", () =>

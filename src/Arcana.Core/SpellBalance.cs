@@ -5,6 +5,8 @@ namespace Arcana.Core;
 /// <summary>Valores compartidos por el combate y las cifras de F1. El catálogo indica daño base contra un mago seco.</summary>
 public static class SpellBalance
 {
+    // Shared gameplay/renderer sector thresholds; do not tune visuals independently.
+    public const float ChannelConeDot = 0.74f, LightningConeDot = 0.55f;
     public const float Arcane = 115, Earth = 100, Lightning = 100, Fire = 58, Cold = 24, Ice = 68, Steam = 160;
     public const float WetLightning = 1.9f, BurnPerSecond = 28, BurnDuration = 4;
     public const float Heal = 140, SelfHeal = 145, MineHeal = 252;

@@ -124,9 +124,9 @@ public partial class ArenaRenderer
             if (!details) return;
             bool spray = beam.Shape == SpellShape.Spray;
             float length = from.DistanceTo(to);
-            float reach = Math.Min(length, spray ? 6f : 4f);
+            float reach = length; // Includes range bonuses and any actual obstruction.
             if (reach <= 0.05f) return;
-            float dotLimit = 0.74f;
+            float dotLimit = SpellBalance.ChannelConeDot;
             float halfAngle = Mathf.Acos(dotLimit);
             float edge = reach * Mathf.Sin(halfAngle);
             float forwardExtent = reach * Mathf.Cos(halfAngle);
