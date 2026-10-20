@@ -169,7 +169,7 @@ internal static class DefenseHordeTests
         test("Supervivencia: magos élite usan ataques con áreas reales y el guardián se protege", () =>
         {
             var w = World(); var player = w.AddPlayer("Mago")!;
-            player.Position = new(-25, 0); player.Invulnerable = 100;
+            player.Position = new(-25, 0); player.Invulnerable = 1.0f;
             Set(w, "_defenseDifficulty", 8);
             var warlock = Enemy(w, MinionKind.Warlock, new(-18, 0));
             Set(warlock.Runtime, "Attack", 0f);
