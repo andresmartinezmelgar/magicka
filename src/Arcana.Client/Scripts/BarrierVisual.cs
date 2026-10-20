@@ -20,7 +20,7 @@ public partial class BarrierVisual : Node3D
     internal int StoneSourceVertices { get; private set; }
     internal int StoneBatchedVertices { get; private set; }
     private float _reinforcement;
-    private Sprite3D? _approvedWallArt, _approvedAreaArt;
+    private readonly Sprite3D?[] _approvedWallArt = new Sprite3D?[2];
 
     public void Build(WallSnapshot wall)
     {
@@ -184,33 +184,27 @@ public partial class BarrierVisual : Node3D
             glyph.Name = "BarrierRuneCrystal" + i;
             glyph.Rotation = new(MathF.PI / 4, i * 0.35f, 0);
         }
-        // Display the generated artwork as lightweight additive-looking ornaments,
-        // retaining the 3D wall, collision silhouette and elemental shader.
-        Texture2D? wallTexture = ArcanaSpriteAtlas.Barrier(wall.Elements);
-        if (wallTexture != null)
+        // 3D-aligned wall graphics: never paste a whole scene or second character.
+        // Layer 0 and 1 reproduce both affinities of valid EXY combinations.
+        int layers = ArcanaSpriteAtlas.AffinityLayers(wall.Elements);
+        for (int i = 0; i < layers; i++)
         {
-            _approvedWallArt = new Sprite3D
+            var texture = ArcanaSpriteAtlas.Defense(ArcanaSpriteAtlas.DefenseForm.Wall, wall.Elements, i);
+            if (texture == null) continue;
+            var sprite = new Sprite3D
             {
-                Name = "GeneratedWallArtwork", Texture = wallTexture,
-                Position = new(stone ? StoneThickness * 0.55f : 0.1f, 1.18f, 0),
-                PixelSize = Math.Min(2.15f, length * 0.75f) / 96f,
-                Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
-                Shaded = false, Modulate = new Color(1, 1, 1, 0.50f)
+                Name = "WallRuneVisual" + i,
+                Texture = texture,
+                Position = new(stone ? StoneThickness / 2 + 0.08f + i * 0.015f : 0.095f + i * 0.015f,
+                    1.22f, 0),
+                Rotation = new(0, Mathf.Pi / 2f, 0),
+                PixelSize = 1f / 160f,
+                Scale = new(Math.Min(length * 0.94f, 4.5f), 2.48f, 1),
+                Shaded = false,
+                Modulate = new Color(1, 1, 1, i == 0 ? 0.62f : 0.36f)
             };
-            _geometry.AddChild(_approvedWallArt);
-        }
-        Texture2D? areaTexture = ArcanaSpriteAtlas.Area(wall.Elements);
-        if (areaTexture != null)
-        {
-            _approvedAreaArt = new Sprite3D
-            {
-                Name = "GeneratedAreaArtwork", Texture = areaTexture,
-                Position = new(stone ? StoneThickness * 0.55f + 0.045f : 0.145f, 0.48f, 0),
-                PixelSize = Math.Min(1.20f, length * 0.42f) / 96f,
-                Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
-                Shaded = false, Modulate = new Color(1, 1, 1, 0.34f)
-            };
-            _geometry.AddChild(_approvedAreaArt);
+            _geometry.AddChild(sprite);
+            _approvedWallArt[i] = sprite;
         }
         BuildElements(wall, length, stone);
     }
@@ -266,10 +260,11 @@ public partial class BarrierVisual : Node3D
             _surface.SetShaderParameter("hit_flash", _flash);
             _surface.SetShaderParameter("clock", time);
         }
-        if (_approvedWallArt != null)
-            _approvedWallArt.Modulate = new Color(1, 1, 1, 0.50f * fade);
-        if (_approvedAreaArt != null)
-            _approvedAreaArt.Modulate = new Color(1, 1, 1, 0.34f * fade);
+        for (int i = 0; i < _approvedWallArt.Length; i++)
+        {
+            if (_approvedWallArt[i] is not { } sprite) continue;
+            sprite.Modulate = new Color(1, 1, 1, (i == 0 ? 0.62f : 0.36f) * fade);
+        }
         UpdateElements(fade, time);
         Visible = wall.Health > 0 && wall.Lifetime > 0;
     }
