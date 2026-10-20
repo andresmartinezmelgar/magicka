@@ -27,9 +27,6 @@ public partial class AreaFieldVisual : Node3D
         area.Scale = new(Radius, 1, Radius);
         if (mine)
         {
-            // Capa ornamental sobre las runas existentes, sin alterar los radios.
-            var (_, skin) = ShieldArt.GroundSigil(this, Radius, tint ?? Ui.Shield);
-            _styleBSigil = skin;
             // Flat, concentric rings on the actual ground. Unlike a billboard, the
             // sprite does not float in front of the mage or hide the playfield.
             int layers = ArcanaSpriteAtlas.AffinityLayers(field.Elements);
@@ -51,6 +48,12 @@ public partial class AreaFieldVisual : Node3D
                 };
                 AddChild(sprite);
                 _approvedAreaArt[i] = sprite;
+            }
+            // El atlas ya incluye sus runas. El material procedural cubre la falta de textura.
+            if (_approvedAreaArt.All(sprite => sprite == null))
+            {
+                var (_, skin) = ShieldArt.GroundSigil(this, Radius, tint ?? Ui.Shield);
+                _styleBSigil = skin;
             }
             _trigger = AreaVisuals.Piece(this, field.Kind == "healing_mine" ? AreaVisuals.Pattern.HealingTrigger : AreaVisuals.Pattern.MineTrigger, tint);
             // El marcador es pequeño y central. Solo AreaBoundary marca el alcance real.
