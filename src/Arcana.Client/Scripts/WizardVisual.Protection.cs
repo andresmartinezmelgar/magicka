@@ -13,6 +13,7 @@ public partial class WizardVisual
     private readonly List<MeshInstance3D> _stonePlates = [];
     private readonly List<MeshInstance3D> _arcaneShieldCrystals = [];
     private readonly List<MeshInstance3D> _arcaneShieldRings = [];
+    private Sprite3D? _approvedPersonalShield;
     private StandardMaterial3D _arcaneShieldAccent = null!;
     private Material? _stoneArmorMaterial;
     internal int StoneArmorPlates => _stoneArmor.Visible ? _stonePlates.Count(p => p.Visible) : 0;
@@ -63,6 +64,17 @@ public partial class WizardVisual
             ring.Visible = false;
             _arcaneShieldRings.Add(ring);
         }
+        _approvedPersonalShield = new Sprite3D
+        {
+            Name = "ApprovedPersonalWard",
+            Position = new(0, 1.43f, 0),
+            PixelSize = 3.18f / 56f,
+            Shaded = false,
+            Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+            Modulate = new Color(1f, 1f, 1f, 0.57f),
+            Visible = false
+        };
+        AddChild(_approvedPersonalShield);
         _stoneArmor = new Node3D { Name = "StoneArmor", Visible = false }; AddChild(_stoneArmor);
         _stoneArmorMaterial = StoneVisuals.Surface([Element.Earth]);
         for (int i = 0; i < 6; i++)
@@ -146,6 +158,18 @@ public partial class WizardVisual
             ring.Visible = activeWard && elemental && (i == 0 || player.ShieldCharges > 1);
             if (!ring.Visible) continue;
             ring.Rotation = new(0.4f + i * 0.65f, time * (i == 0 ? 0.48f : -0.38f), i * 0.45f);
+        }
+        // Original bubble and combat hitboxes stay unchanged.
+        if (_approvedPersonalShield != null)
+        {
+            var art = ArcanaSpriteAtlas.Personal(player.Ward);
+            if (_approvedPersonalShield.Texture != art) _approvedPersonalShield.Texture = art;
+            _approvedPersonalShield.Visible = activeWard && art != null;
+            if (_approvedPersonalShield.Visible)
+            {
+                _approvedPersonalShield.Modulate = new Color(1f, 1f, 1f, 0.35f + 0.30f * integrity);
+                _approvedPersonalShield.Scale = Vector3.One * (1f + MathF.Sin(time * 2.8f) * 0.022f);
+            }
         }
         _spawnProtection.Visible = invulnerable;
         if (invulnerable) _spawnProtection.Scale = Vector3.One * (1 + Mathf.Sin(time * 12) * 0.035f);
