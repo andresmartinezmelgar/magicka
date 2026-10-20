@@ -526,7 +526,7 @@ internal static class DefenseTests
             Check(a.Latest!.Players.Length == 3 && a.Latest.Players.All(p => p.Team == 0), "Bots o humanos en equipo rival.");
             a.Send(new() { Type = "defense_performance", FramesPerSecond = 20 });
             b.Send(new() { Type = "defense_performance", FramesPerSecond = 60 });
-            for (int i = 0; i < 50 && a.Latest!.Defense!.PerformanceLimit != 48; i++) await Task.Delay(50);
+            for (int i = 0; i < 50 && (a.Latest!.Defense!.PerformanceLimit != 48 || b.Latest!.Defense!.PerformanceLimit != 48); i++) await Task.Delay(50);
             Check(a.Latest!.Defense!.PerformanceLimit == 48 && b.Latest!.Defense!.PerformanceLimit == 48,
                 "Los clientes no comparten el límite de rendimiento de la sala.");
             SnapshotValidation.Check(a.Latest);
