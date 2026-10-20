@@ -12,6 +12,14 @@ public partial class ElementIcon : Control
     public override void _Draw()
     {
         if (_value == null) return;
+        // Use the approved image atlas, with the previous vector shapes as fallback.
+        if (ArcanaSpriteAtlas.Icon(_value.Value) is { } texture)
+        {
+            float side = Math.Min(Size.X, Size.Y);
+            var bounds = new Rect2((Size - new Vector2(side, side)) / 2f, new Vector2(side, side));
+            DrawTextureRect(texture, bounds, false);
+            return;
+        }
         Vector2 center = Size / 2; float r = Math.Min(Size.X, Size.Y) * 0.43f;
         var color = Ui.ElementColor(_value.Value);
         Vector2 P(float x, float y) => center + new Vector2(x, y) * r;
