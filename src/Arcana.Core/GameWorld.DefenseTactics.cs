@@ -62,7 +62,7 @@ public sealed partial class GameWorld
                 : turn % 3 == 1
                     ? [Element.Water, Element.Cold, Element.Cold]
                     : [Element.Earth, Element.Cold, Element.Cold],
-            _ => turn % 4 switch
+            _ => (turn % 4) switch
             {
                 0 => [Element.Arcane, Element.Fire],
                 1 when body.Wet <= 0 => [Element.Lightning, Element.Fire, Element.Fire],
