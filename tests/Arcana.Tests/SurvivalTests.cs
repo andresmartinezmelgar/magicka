@@ -35,6 +35,40 @@ internal static class SurvivalTests
     }
     public static void Run(Action<string, Action> test)
     {
+        test("Supervivencia: IA alterna conos, descargas, rocas, hielo y rayos a distancias válidas", () =>
+        {
+            var choose = typeof(GameWorld).GetMethod("DefenseBotAttack",
+                BindingFlags.NonPublic | BindingFlags.Static)!;
+            foreach (float distance in new[] { 4.0f, 7.5f, 13f })
+            {
+                var shapes = new HashSet<SpellShape>();
+                var recipes = new HashSet<string>();
+                for (int turn = 0; turn < 7; turn++)
+                {
+                    var selected = (Element[])choose.Invoke(null, [distance, turn])!;
+                    var recipe = new SpellRecipe(selected);
+                    Check(recipe.Elements.SequenceEqual(selected) && selected.Length == 3,
+                        "La IA intentó una combinación incompatible o incompleta.");
+                    shapes.Add(recipe.Shape);
+                    recipes.Add(string.Join(",", selected));
+                    Check(distance <= recipe.Range + 0.001f || recipe.Shape == SpellShape.Rock,
+                        "La IA eligió un chorro que no alcanza al objetivo.");
+                }
+                Check(recipes.Count >= 3 && shapes.Count >= 2,
+                    "Los bots vuelven a depender de un único tipo de hechizo.");
+                if (distance < 6)
+                {
+                    foreach (Element cone in new[] { Element.Fire, Element.Water, Element.Cold })
+                        Check(Enumerable.Range(0, 7).Any(turn =>
+                        {
+                            var selected = (Element[])choose.Invoke(null, [distance, turn])!;
+                            return selected.All(e => e == cone) && new SpellRecipe(selected).Shape == SpellShape.Spray;
+                        }), "Falta uno de los conos elementales de corta distancia.");
+                }
+                if (distance > 9)
+                    Check(!shapes.Contains(SpellShape.Spray), "La IA usa un cono demasiado lejos.");
+            }
+        });
         test("Supervivencia: Traslación respeta muros, detiene empujes y no cobra un destino bloqueado", () =>
         {
             var w = World(); var player = w.AddPlayer("Salto")!; player.Position = V2.Zero;
