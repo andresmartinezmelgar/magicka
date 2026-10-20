@@ -6,6 +6,8 @@ public sealed partial class GameWorld
     {
         public int TargetId, HealTargetId;
         public V2 Goal;
+        public float SpellTime;
+        public int SpellTurn;
     }
     private readonly Dictionary<int, DefenseBotPlan> _defenseBotPlans = [];
     private float _defenseBotPlanClock;
@@ -75,6 +77,38 @@ public sealed partial class GameWorld
         }
         return home;
     }
+    // All arrays resolve to legal spells through SpellRecipe. Range bands prevent
+    // short cones from replacing beams against targets they could never hit.
+    // The sequence is deterministic, reproducible in tests and desynchronised per bot.
+    private static Element[] DefenseBotAttack(float distance, int turn)
+    {
+        int phase = (turn % 7 + 7) % 7;
+        if (distance > 9f) return phase switch
+        {
+            0 or 4 => [Element.Fire, Element.Arcane, Element.Arcane], // distant fire beam
+            1 or 5 => [Element.Earth, Element.Earth, Element.Fire], // charged fiery rock
+            2 => [Element.Water, Element.Cold, Element.Cold], // frost shards
+            _ => [Element.Arcane, Element.Arcane, Element.Arcane] // pure arcane beam
+        };
+        if (distance > 6f) return phase switch
+        {
+            0 => [Element.Lightning, Element.Fire, Element.Fire],
+            1 or 5 => [Element.Water, Element.Cold, Element.Cold],
+            2 => [Element.Earth, Element.Earth, Element.Fire],
+            3 or 6 => [Element.Fire, Element.Arcane, Element.Arcane],
+            _ => [Element.Arcane, Element.Arcane, Element.Arcane]
+        };
+        return phase switch
+        {
+            0 => [Element.Fire, Element.Fire, Element.Fire], // flame cone
+            1 => [Element.Water, Element.Water, Element.Water], // water cone
+            2 => [Element.Cold, Element.Cold, Element.Cold], // frost cone
+            3 => [Element.Lightning, Element.Fire, Element.Fire],
+            4 => [Element.Water, Element.Cold, Element.Cold],
+            5 => [Element.Earth, Element.Earth, Element.Fire],
+            _ => [Element.Fire, Element.Arcane, Element.Arcane]
+        };
+    }
     private void ThinkDefenseBot(Wizard bot, float dt)
     {
         if (!_defenseBotPlans.TryGetValue(bot.Id, out var plan)) return;
@@ -93,26 +127,47 @@ public sealed partial class GameWorld
         Wizard? target = plan.HealTargetId != 0 ? _players.GetValueOrDefault(plan.HealTargetId)
             : _minions.GetValueOrDefault(plan.TargetId)?.Body;
         bool healing = plan.HealTargetId != 0;
-        if (target is not { Alive: true } || V2.Distance(bot.Position, target.Position) > 16 || !Visible(bot.Position, target.Position, bot.Id))
-        { if (bot.Channel != null) CancelCast(bot); return; }
+        if (target is not { Alive: true } || V2.Distance(bot.Position, target.Position) > 16 ||
+            !Visible(bot.Position, target.Position, bot.Id))
+        {
+            if (bot.Channel != null || bot.Charging != null) CancelCast(bot);
+            return;
+        }
         bot.Input.AimX = target.Position.X; bot.Input.AimY = target.Position.Y;
+        float distance = V2.Distance(bot.Position, target.Position);
+        // Cycle the offensive repertoire every few seconds; healing takes precedence
+        // and is never interrupted merely to vary the attacking spell.
+        if (healing) plan.SpellTime = 0;
+        else
+        {
+            plan.SpellTime -= dt;
+            if (plan.SpellTime <= 0)
+            {
+                plan.SpellTurn++;
+                plan.SpellTime = 2.15f + bot.Id % 3 * 0.23f;
+            }
+        }
         bot.BotDecision -= dt;
         if (bot.BotDecision > 0 || !Ready(bot)) return;
-        bot.BotDecision = 0.45f + bot.Id % 3 * 0.07f;
         AutoShopDefenseBot(bot);
         if (healing && target == bot)
         {
+            bot.BotDecision = 0.65f;
             CancelCast(bot); bot.Selection.Clear();
             for (int i = 0; i < 3; i++) bot.Selection.Add(Element.Life);
             SelfCast(bot); return;
         }
-        // Mantiene el rayo y su carga mientras la receta siga siendo válida, incluso al apuntar a otra amenaza.
-        bool same = bot.Channel is { } channel && (healing ? channel.Healing && channel.Count(Element.Life) == 3
-            : channel.Count(Element.Arcane) == 2 && channel.Count(Element.Fire) == 1);
-        if (same) return;
+        // Do not abort rocks mid-charge: the normal simulation releases them when
+        // charged, and targeting remains updated while aiming at moving enemies.
+        if (!healing && bot.Charging != null) return;
+        Element[] recipe = healing ? [Element.Life, Element.Life, Element.Life]
+            : DefenseBotAttack(distance, plan.SpellTurn + bot.Id);
+        var spell = new SpellRecipe(recipe);
+        bot.BotDecision = (spell.Shape is SpellShape.Rock or SpellShape.Shards ? 0.8f : 0.45f)
+            + bot.Id % 3 * 0.07f;
+        if (bot.Channel is { } channel && channel.Elements.SequenceEqual(recipe)) return;
         CancelCast(bot); bot.Selection.Clear();
-        if (healing) for (int i = 0; i < 3; i++) bot.Selection.Add(Element.Life);
-        else { bot.Selection.Add(Element.Fire); bot.Selection.Add(Element.Arcane); bot.Selection.Add(Element.Arcane); }
+        foreach (var element in recipe) bot.Selection.Add(element);
         UpdateFacing(bot); BeginCast(bot);
     }
 }
