@@ -193,9 +193,11 @@ internal static class SurvivalTests
             var intervals = Enumerable.Range(1, 10).Select(seed => State(World(seed: seed)).NextBossIn).ToArray();
             Check(intervals.All(t => t is >= 120 and <= 180) && intervals.Distinct().Count() > 5, "El primer intervalo no es variable.");
             var w = World(); var p = w.AddPlayer("Humano")!; p.Invulnerable = 10000; Set(w, "_spawnClock", 10000f); Set(w, "_bossClock", 0f);
-            w.Step(); var boss = State(w).Minions.Single();
-            Check(boss.Kind == MinionKind.Boss && boss.MaxHealth >= DefenseRules.MinionHealth(MinionKind.Melee, 1, 1) * 10 &&
-                State(w).Bestiary.Single().Kind == MinionKind.Boss, "El coloso no tiene más vida o no se descubre.");
+            w.Step(); var boss = State(w).Minions.Single(m => m.Kind == MinionKind.Boss);
+            Check(boss.MaxHealth >= DefenseRules.MinionHealth(MinionKind.Melee, 1, 1) * 10 &&
+                State(w).Bestiary.Any(e => e.Kind == MinionKind.Boss) &&
+                State(w).Minions.Length > 1,
+                "El coloso no tiene más vida o no aparece con sus refuerzos.");
             Set(w, "_bossClock", 0f); Advance(w, 120);
             Check(State(w).Minions.Count(m => m.Kind == MinionKind.Boss) == 1, "Se solapan varios colosos.");
             var body = ((Dictionary<int, Wizard>)Field(w, "_combatants"))[boss.Id]; Kill(w, body, p.Id); w.Step();
