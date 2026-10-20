@@ -32,7 +32,7 @@ public partial class WizardVisual : Node3D
     private Element[] _lastCastElements = [];
     private readonly Element?[] _slotElements = new Element?[3];
     private readonly List<StandardMaterial3D> _elementMaterials = [];
-    private StandardMaterial3D _shieldMaterial = null!;
+    private ShaderMaterial _shieldMaterial = null!;
     private Basis _billboardBasis;
     private int _renderedFrame = -1;
     private Vector2 _renderedOffset;
@@ -77,8 +77,8 @@ public partial class WizardVisual : Node3D
             new StandardMaterial3D { AlbedoColor = _color, EmissionEnabled = true, Emission = _color, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
         _affinityRing = Mesh(this, new TorusMesh { InnerRadius = 0.82f, OuterRadius = 0.86f, Rings = 24, RingSegments = 6 }, new(0, 0.055f, 0),
             new StandardMaterial3D { AlbedoColor = affinityColor, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
-        var shieldMat = new StandardMaterial3D { AlbedoColor = new Color(Ui.Shield.R, Ui.Shield.G, Ui.Shield.B, 0.22f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-            EmissionEnabled = true, Emission = Ui.Shield, EmissionEnergyMultiplier = 0.5f, CullMode = BaseMaterial3D.CullModeEnum.Disabled };
+        // El material animado conserva el tamaño y la geometría de colisión previos.
+        var shieldMat = ShieldArt.Bubble();
         _shieldMaterial = shieldMat;
         _shield = Mesh(this, new SphereMesh { Radius = 1.05f, Height = 3.1f }, new(0, 1.45f, 0), shieldMat);
         BuildProtectionBands();
@@ -196,7 +196,10 @@ public partial class WizardVisual : Node3D
             c.A = p.Frozen > 0 ? 0.42f : 0.12f + 0.10f * Math.Clamp(p.Shield / Ui.ShieldMaximum(p), 0, 1);
             if (p.Shield > 0 && p.Frozen <= 0) c.A += (p.ShieldCharges - 1) * 0.035f * Math.Clamp(p.Shield / Ui.ShieldMaximum(p), 0, 1);
             if (spawnProtected) c = new Color(new Color("fff2a3"), 0.20f + 0.035f * Mathf.Sin(time * 12));
-            if (_shieldColor != c) { _shieldMaterial.AlbedoColor = c; _shieldMaterial.Emission = c; _shieldColor = c; }
+            if (_shieldColor != c) _shieldColor = c;
+            ShieldArt.UpdateBubble(_shieldMaterial, p.Ward, c,
+                p.Shield > 0 ? Math.Clamp(p.Shield / Ui.ShieldMaximum(p), 0, 1) : 1,
+                p.ShieldCharges, p.Frozen > 0, spawnProtected);
             _shield.Scale = Vector3.One * (1 + Mathf.Sin(time * 3) * 0.03f);
         }
         UpdateProtectionBands(p, time);
