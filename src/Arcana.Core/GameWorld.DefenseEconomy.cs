@@ -7,8 +7,18 @@ public sealed partial class GameWorld
         var progress = _defenders[player.Id];
         var profile = new AccountProfile("", player.Name, 0, 0, 0, progress.Loadout, progress.Items.ToArray());
         var prepared = PublicEquipment.Prepare(profile);
+        float previousCapacity = player.Equipment.ShieldCapacity;
         player.Equipment = prepared.Modifiers with { Power = prepared.Modifiers.Power * (1 + (progress.Level - 1) * 0.08f),
-            Healing = prepared.Modifiers.Healing * (1 + (progress.Level - 1) * 0.04f) };
+            Healing = prepared.Modifiers.Healing * (1 + (progress.Level - 1) * 0.04f),
+            ShieldCapacity = prepared.Modifiers.ShieldCapacity * DefenseRules.ShieldLevelMultiplier(progress.Level) };
+        // Preserve damage already taken while increasing the capacity of an active ward.
+        // Recalculating equipment multiple times must never stack the level bonus.
+        if (player.ShieldMax > 0 && previousCapacity > 0)
+        {
+            float ratio = player.Equipment.ShieldCapacity / previousCapacity;
+            player.ShieldMax *= ratio;
+            player.Shield = Math.Min(player.ShieldMax, player.Shield * ratio);
+        }
         player.PublicEquipment = prepared.View;
         float health = Wizard.BaseMaxHealth + (progress.Level - 1) * 50 + player.BuffStacks[(int)BuffKind.Vitality] * 100;
         if (player.Alive) player.Health = Math.Clamp(player.Health + health - player.MaxHealth, 1, health);

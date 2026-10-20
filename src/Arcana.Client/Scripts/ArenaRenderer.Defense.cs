@@ -86,7 +86,7 @@ public partial class ArenaRenderer
             }
             if (v.Health != null) v.Health.Scale = new(Math.Max(0.001f, m.Health / m.MaxHealth), 1, 1);
             if (v.Body != null) v.Body.MaterialOverride = Material(m.Frozen > 0 ? new("8bdeff") : m.Burning > 0 ? Ui.ElementColor(Element.Fire) : MinionColor(m.Kind));
-            v.Aura!.Visible = m.Empowered || m.Kind == MinionKind.Captain || m.SpeedBoostSeconds > 0 || m.Kind == MinionKind.Boss;
+            v.Aura!.Visible = m.Empowered || m.Kind is MinionKind.Captain or MinionKind.Sentinel or MinionKind.Warlock or MinionKind.Cryomancer || m.SpeedBoostSeconds > 0 || m.Kind == MinionKind.Boss;
             v.Aura.MaterialOverride = Material(m.SpeedBoostSeconds > 0 ? new("65e5ff") : Ui.Gold, 0.5f);
             if (v.Warning != null)
                 v.Warning.Visible = m.AttackWarningSeconds > 0;
@@ -141,7 +141,8 @@ public partial class ArenaRenderer
 
     private static int PreparedMinionCount(MinionKind kind) => kind switch
     { MinionKind.Melee => 64, MinionKind.Archer => 24, MinionKind.Mage or MinionKind.Tank => 16,
-        MinionKind.Captain or MinionKind.Shaman => 10, MinionKind.Boss => 2, MinionKind.Runner => 24,
+        MinionKind.Captain or MinionKind.Shaman => 10, MinionKind.Warlock or MinionKind.Cryomancer => 12,
+        MinionKind.Sentinel => 8, MinionKind.Boss => 2, MinionKind.Runner => 24,
         MinionKind.Brute => 12, MinionKind.Bomber => 14, _ => 0 };
 
     private void ReturnMinionVisual(MinionVisual visual)
@@ -157,7 +158,7 @@ public partial class ArenaRenderer
     {
         var root = new Node3D { Name = "Minion" + m.Id, Position = World(m.Position) }; AddChild(root);
         var v = new MinionVisual { Root = root, Kind = m.Kind };
-        if (m.Kind is MinionKind.Mage or MinionKind.Shaman)
+        if (m.Kind is MinionKind.Mage or MinionKind.Shaman or MinionKind.Warlock or MinionKind.Cryomancer)
         {
             v.Mage = new WizardVisual(); root.AddChild(v.Mage); v.Mage.Build(MinionWizard(m), false);
             v.Mage.Position = Vector3.Zero;
@@ -170,6 +171,7 @@ public partial class ArenaRenderer
                 {
                     MinionKind.Boss => new BoxMesh { Size = new(2.6f, 2.7f, 2.6f) },
                     MinionKind.Brute => new BoxMesh { Size = new(1.8f, 1.9f, 1.8f) },
+                    MinionKind.Sentinel => new BoxMesh { Size = new(2.1f, 2.3f, 2.1f) },
                     MinionKind.Tank => new BoxMesh { Size = new(1.6f, 1.45f, 1.6f) },
                     MinionKind.Archer => new BoxMesh { Size = new(0.95f, 0.7f, 0.95f) },
                     MinionKind.Runner => new CylinderMesh { TopRadius = 0.08f, BottomRadius = 0.45f, Height = 1.1f, RadialSegments = 12 },
@@ -179,8 +181,8 @@ public partial class ArenaRenderer
                 };
                 _minionShapes[m.Kind] = shape;
             }
-            float height = m.Kind == MinionKind.Boss ? 1.4f : m.Kind == MinionKind.Brute ? 1.05f : m.Kind == MinionKind.Tank ? 0.8f : 0.6f;
-            float healthHeight = m.Kind == MinionKind.Boss ? 3.15f : m.Kind == MinionKind.Brute ? 2.25f : m.Kind == MinionKind.Tank ? 1.65f : 1.3f;
+            float height = m.Kind == MinionKind.Boss ? 1.4f : m.Kind == MinionKind.Brute ? 1.05f : m.Kind == MinionKind.Sentinel ? 1.17f : m.Kind == MinionKind.Tank ? 0.8f : 0.6f;
+            float healthHeight = m.Kind == MinionKind.Boss ? 3.15f : m.Kind == MinionKind.Brute ? 2.25f : m.Kind == MinionKind.Sentinel ? 2.65f : m.Kind == MinionKind.Tank ? 1.65f : 1.3f;
             v.Body = Mesh(root, shape, new(0, height, 0), MinionColor(m.Kind));
             Mesh(root, new BoxMesh { Size = new(1.3f, 0.1f, 0.12f) }, new(0, healthHeight, 0), new("17232d"));
             v.Health = Mesh(root, new BoxMesh { Size = new(1.25f, 0.12f, 0.13f) }, new(0, healthHeight, 0.01f), Ui.Red);
@@ -220,5 +222,5 @@ public partial class ArenaRenderer
 
     private static Color MinionColor(MinionKind kind) => kind switch
     { MinionKind.Boss => new("d6ae57"), MinionKind.Tank => new("5c9d91"), MinionKind.Archer => new("d6a36b"), MinionKind.Captain => new("a36de0"),
-        MinionKind.Runner => new("d5ee69"), MinionKind.Brute => new("8796af"), MinionKind.Bomber => new("ff913d"), _ => new("db636b") };
+        MinionKind.Runner => new("d5ee69"), MinionKind.Brute => new("8796af"), MinionKind.Bomber => new("ff913d"), MinionKind.Sentinel => new("ddbb67"), MinionKind.Warlock => new("ff685d"), MinionKind.Cryomancer => new("91e5ff"), _ => new("db636b") };
 }

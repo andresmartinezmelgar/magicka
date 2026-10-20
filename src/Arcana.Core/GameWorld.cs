@@ -700,7 +700,9 @@ public sealed partial class GameWorld
                 if (w.Health > 0 && !PassesOwnShield(w, projectile.Owner) && Geometry.SegmentCapsule(from, to, w.A, w.B, projectile.Radius + 0.2f) is float t && t < nearest)
                 { nearest = t; wallHit = w; obstacleHit = false; target = null; }
             foreach (var q in _combatants.Values)
-                if (q.Alive && q.Id != projectile.Owner && Geometry.SegmentCircle(from, to, q.Position, (IsDefense && _minions.TryGetValue(q.Id, out var minion) && minion.Kind == MinionKind.Boss ? 1.4f : ArenaMap.WizardRadius) + projectile.Radius) is float t && t < nearest)
+                if (q.Alive && q.Id != projectile.Owner &&
+                    !(IsDefense && _combatants.TryGetValue(projectile.Owner, out var caster) && Allied(caster, q)) &&
+                    Geometry.SegmentCircle(from, to, q.Position, (IsDefense && _minions.TryGetValue(q.Id, out var minion) && minion.Kind == MinionKind.Boss ? 1.4f : ArenaMap.WizardRadius) + projectile.Radius) is float t && t < nearest)
                 { nearest = t; target = q; obstacleHit = false; wallHit = null; }
             projectile.Position = V2.Lerp(from, to, nearest);
             if (target != null)
