@@ -11,6 +11,9 @@ public partial class WizardVisual
     private Color? _bandColor, _bandEmission;
     private Node3D _stoneArmor = null!;
     private readonly List<MeshInstance3D> _stonePlates = [];
+    private readonly List<MeshInstance3D> _arcaneShieldCrystals = [];
+    private readonly List<MeshInstance3D> _arcaneShieldRings = [];
+    private StandardMaterial3D _arcaneShieldAccent = null!;
     private Material? _stoneArmorMaterial;
     internal int StoneArmorPlates => _stoneArmor.Visible ? _stonePlates.Count(p => p.Visible) : 0;
     internal int ProtectionBandCount => _protectionBands.Count(b => b.Visible);
@@ -36,6 +39,30 @@ public partial class WizardVisual
             new StandardMaterial3D { AlbedoColor = new("fff2a3"),
                 ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
         _spawnProtection.Visible = false;
+        // Visual-only decoration; shield rules remain authoritative on the server.
+        _arcaneShieldAccent = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(Ui.Shield, 0.7f),
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            EmissionEnabled = true, Emission = Ui.Shield, EmissionEnergyMultiplier = 0.35f
+        };
+        for (int i = 0; i < 8; i++)
+        {
+            var crystal = Mesh(this, new PrismMesh { Size = new(0.14f, 0.31f, 0.14f) },
+                Vector3.Zero, _arcaneShieldAccent);
+            crystal.Name = "ShieldRuneCrystal" + i;
+            crystal.Visible = false;
+            _arcaneShieldCrystals.Add(crystal);
+        }
+        for (int i = 0; i < 2; i++)
+        {
+            var ring = Mesh(this, new TorusMesh { InnerRadius = 1.09f, OuterRadius = 1.12f,
+                    Rings = 36, RingSegments = 5 }, new(0, 1.45f, 0), _arcaneShieldAccent);
+            ring.Name = "ShieldArcaneOrbit" + i;
+            ring.Visible = false;
+            _arcaneShieldRings.Add(ring);
+        }
         _stoneArmor = new Node3D { Name = "StoneArmor", Visible = false }; AddChild(_stoneArmor);
         _stoneArmorMaterial = StoneVisuals.Surface([Element.Earth]);
         for (int i = 0; i < 6; i++)
@@ -82,6 +109,43 @@ public partial class WizardVisual
             if (i >= bands) continue;
             band.Rotation = new(0.42f + i * 0.65f, time * (i == 0 ? 0.35f : -0.28f), i * 0.3f);
             band.Scale = new(1, 1, 1.3f);
+        }
+        // Element-specific motifs: regeneration, frost, arcane and offensive infusions.
+        bool activeWard = player.Alive && player.Shield > 0 && player.Frozen <= 0;
+        bool regenerate = player.Ward.Contains(Element.Life);
+        bool frost = player.Ward.Contains(Element.Cold);
+        bool arcane = player.Ward.Contains(Element.Arcane);
+        bool elemental = regenerate || frost || arcane || player.Ward.Contains(Element.Fire) ||
+                         player.Ward.Contains(Element.Water) || player.Ward.Contains(Element.Lightning);
+        Color accent = regenerate ? Ui.ElementColor(Element.Life)
+            : frost ? Ui.ElementColor(Element.Cold)
+            : arcane ? Ui.ElementColor(Element.Arcane)
+            : player.Ward.Contains(Element.Fire) ? Ui.ElementColor(Element.Fire)
+            : player.Ward.Contains(Element.Water) ? Ui.ElementColor(Element.Water)
+            : player.Ward.Contains(Element.Lightning) ? Ui.ElementColor(Element.Lightning) : Ui.Shield;
+        _arcaneShieldAccent.AlbedoColor = new Color(accent, 0.25f + integrity * 0.52f);
+        _arcaneShieldAccent.Emission = accent;
+        int crystalCount = !activeWard || !elemental ? 0
+            : Math.Min(_arcaneShieldCrystals.Count, 4 + Math.Max(0, player.ShieldCharges - 1) * 2);
+        for (int i = 0; i < _arcaneShieldCrystals.Count; i++)
+        {
+            var crystal = _arcaneShieldCrystals[i];
+            crystal.Visible = i < crystalCount;
+            if (!crystal.Visible) continue;
+            float a = i * Mathf.Tau / crystalCount + time * (arcane ? 0.60f : 0.22f);
+            float radius = frost ? 1.03f : 1.10f;
+            crystal.Position = new(Mathf.Cos(a) * radius,
+                1.45f + MathF.Sin(a * (frost ? 1 : 2) + time * 1.3f) * (frost ? 0.55f : 0.35f),
+                Mathf.Sin(a) * radius);
+            crystal.Rotation = new(time * 0.3f, a, frost ? 0 : time * 0.4f);
+            crystal.Scale = Vector3.One * (frost ? 1.35f : regenerate ? 0.8f : 1f);
+        }
+        for (int i = 0; i < _arcaneShieldRings.Count; i++)
+        {
+            var ring = _arcaneShieldRings[i];
+            ring.Visible = activeWard && elemental && (i == 0 || player.ShieldCharges > 1);
+            if (!ring.Visible) continue;
+            ring.Rotation = new(0.4f + i * 0.65f, time * (i == 0 ? 0.48f : -0.38f), i * 0.45f);
         }
         _spawnProtection.Visible = invulnerable;
         if (invulnerable) _spawnProtection.Scale = Vector3.One * (1 + Mathf.Sin(time * 12) * 0.035f);
