@@ -68,7 +68,7 @@ public partial class WizardVisual
         {
             Name = "ApprovedPersonalWard",
             Position = new(0, 1.43f, 0),
-            PixelSize = 3.18f / 56f,
+            PixelSize = 3.18f / 96f,
             Shaded = false,
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
             Modulate = new Color(1f, 1f, 1f, 0.57f),

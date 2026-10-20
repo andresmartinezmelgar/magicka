@@ -193,7 +193,7 @@ public partial class BarrierVisual : Node3D
             {
                 Name = "GeneratedWallArtwork", Texture = wallTexture,
                 Position = new(stone ? StoneThickness * 0.55f : 0.1f, 1.18f, 0),
-                PixelSize = Math.Min(2.15f, length * 0.75f) / 56f,
+                PixelSize = Math.Min(2.15f, length * 0.75f) / 96f,
                 Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
                 Shaded = false, Modulate = new Color(1, 1, 1, 0.50f)
             };
@@ -206,7 +206,7 @@ public partial class BarrierVisual : Node3D
             {
                 Name = "GeneratedAreaArtwork", Texture = areaTexture,
                 Position = new(stone ? StoneThickness * 0.55f + 0.045f : 0.145f, 0.48f, 0),
-                PixelSize = Math.Min(1.20f, length * 0.42f) / 56f,
+                PixelSize = Math.Min(1.20f, length * 0.42f) / 96f,
                 Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
                 Shaded = false, Modulate = new Color(1, 1, 1, 0.34f)
             };

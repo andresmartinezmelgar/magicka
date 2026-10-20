@@ -11,8 +11,8 @@ namespace Arcana.Client;
 internal static class ArcanaSpriteAtlas
 {
     private const int Columns = 4;
-    private const int ElementCell = 64;
-    private const int ShieldCell = 56;
+    private const int ElementCell = 96;
+    private const int ShieldCell = 96;
     private const string ElementsPath = "res://Assets/VFX/element-style-b.webp";
     private const string ShieldsPath = "res://Assets/VFX/shields-style-b.webp";
 

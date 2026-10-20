@@ -1,23 +1,23 @@
-# Prueba visual: escudos estilo B
+# Escudos e iconos estilo B: integrados en rama de pruebas
 
-Rama de prueba, separada de `main`. Las imágenes generadas previamente son **concept art**, no capturas obtenidas con Godot.
+Rama: `feature/escudos-visuales-estilo-b`. Prueba: `0.25.6`.
 
-## Cambios ejecutables
+## Activos gráficos
 
-- **Escudos personales:** el renderizador crea hasta ocho pequeños cristales flotantes y dos órbitas luminosas según los elementos de la protección. Verde regeneración (`EW`), cian frío (`ER`), violeta arcano (`ES`), y colores específicos para agua, fuego y rayo. Las cargas refuerzan el ornamento.
-- **Barreras sobre el terreno:** glifos cristalinos más grandes y escalonados a lo largo de los muros existentes, con cantidad creciente según cargas. El efecto combina con las superficies elementales que ya renderiza `BarrierVisual.Elements.cs`.
-- **Anillos de área:** siguen usando seis segmentos del muro, por lo que heredan el nuevo detalle de cada barrera.
-- Las reglas de hechizos, daño, bloqueo, duración, hitboxes, servidor y protocolo **no se modifican**.
+- `src/Arcana.Client/Assets/VFX/element-style-b.webp`: atlas de 8 emblemas aprobados, 4 columnas y 2 filas de 96 × 96 px. Orden: agua, vida, escudo, frío, rayo, arcano, tierra, fuego.
+- `src/Arcana.Client/Assets/VFX/shields-style-b.webp`: atlas de 12 propuestas de escudos recortadas de los bocetos, 4 columnas y 3 filas de 96 × 96 px. Se procesaron los fondos negros para transparencia y se redujo su resolución para la ejecución; no son imágenes originales a tamaño completo.
+- Originales sin reducción conservados en la Biblioteca, `/Arcana Arena/Arte aprobado/Elementos/` y archivos de bocetos.
+- `ArcanaSpriteAtlas.cs` almacena en caché las imágenes y cada `AtlasTexture`.
 
-## Limitación del arte aprobado
+## Integración
 
-Los ocho PNG aprobados están conservados en Biblioteca, `/Arcana Arena/Arte aprobado/Elementos/`, junto con ZIP y atlas; **aún no están copiados a GitHub** ni enlazados con `ElementIcon.cs`. El conector GitHub de esta sesión permite escribir texto/código, pero no recibe directamente los archivos PNG montados en el entorno. Por tanto, las mejoras de la rama son geometría 3D y materiales sobre el renderizador existente, y no una reproducción píxel a píxel de los fotomontajes.
+- `ElementIcon.cs`: el HUD dibuja el emblema aprobado en vez de la forma vectorial; fallback a dibujo vectorial cuando falta el recurso.
+- `WizardVisual.Protection.cs`: texturas personales E, EW, ER, ES sobre la burbuja existente y cristales animados; no cambian las colisiones o puntuaciones.
+- `BarrierVisual.cs`: texturas de defensa de campo (ED, EDF, EQR y ES) y círculos elementales sobre geometría 3D; fade sincronizado con la vida restante.
+- `AreaFieldVisual.cs`: adornos de textura sobre minas arcanas y de sanación; no modifican los radios reales.
+- Los anillos de seis muros reutilizan las representaciones gráficas de sus segmentos.
+- Se conserva íntegra la lógica, daño, duración, protocolo y cálculo de hechizos.
 
-## Validación pendiente
+## Validaciones
 
-- Compilar/exportar cliente Godot Mono para Windows y Android en un entorno con el SDK instalado.
-- Examinar in-game los escudos `E`, `EW`, `ER`, `ES`, la barrera `ED`, la barrera `EDF` y los anillos de área.
-- Verificar visibilidad, superposición, framerate en móvil, integridad visual al caducar, y las pruebas `--effects-smoke` y `--mobile-smoke`.
-- Valorar si el tamaño de los adornos se debe reducir antes de fusionar con `main`.
-
-No se ha etiquetado una versión ni fusionado esta rama.
+La compilación Godot Mono, la importación WebP, los smoke tests y la exportación Windows/Android se comprueban en GitHub Actions para esta rama. Antes de fusionar, revisar visualmente la transparencia y visibilidad sobre fondos claros, tamaños de pantalla pequeños y rendimiento cuando coincidan múltiples barreras.

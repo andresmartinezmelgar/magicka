@@ -30,7 +30,7 @@ public partial class AreaFieldVisual : Node3D
                     Name = "GeneratedMineArtwork",
                     Texture = image,
                     Position = new(0, 0.20f, 0),
-                    PixelSize = Math.Min(field.Radius * 0.65f, 1.65f) / 56f,
+                    PixelSize = Math.Min(field.Radius * 0.65f, 1.65f) / 96f,
                     Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
                     Shaded = false, Modulate = new Color(1, 1, 1, 0.58f)
                 };
