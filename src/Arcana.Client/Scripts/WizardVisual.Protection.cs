@@ -13,7 +13,7 @@ public partial class WizardVisual
     private readonly List<MeshInstance3D> _stonePlates = [];
     private readonly List<MeshInstance3D> _arcaneShieldCrystals = [];
     private readonly List<MeshInstance3D> _arcaneShieldRings = [];
-    private Sprite3D? _approvedPersonalShield;
+    private readonly Sprite3D[] _approvedPersonalShields = new Sprite3D[2];
     private StandardMaterial3D _arcaneShieldAccent = null!;
     private Material? _stoneArmorMaterial;
     internal int StoneArmorPlates => _stoneArmor.Visible ? _stonePlates.Count(p => p.Visible) : 0;
@@ -64,17 +64,22 @@ public partial class WizardVisual
             ring.Visible = false;
             _arcaneShieldRings.Add(ring);
         }
-        _approvedPersonalShield = new Sprite3D
+        // Always render a hollow ward: transparent center, with the real mage visible.
+        for (int i = 0; i < _approvedPersonalShields.Length; i++)
         {
-            Name = "ApprovedPersonalWard",
-            Position = new(0, 1.43f, 0),
-            PixelSize = 3.18f / 96f,
-            Shaded = false,
-            Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
-            Modulate = new Color(1f, 1f, 1f, 0.57f),
-            Visible = false
-        };
-        AddChild(_approvedPersonalShield);
+            var sprite = new Sprite3D
+            {
+                Name = "PersonalWardVisual" + i,
+                Position = new(0, 1.43f, i * 0.035f),
+                PixelSize = 3.18f / 160f,
+                Shaded = false,
+                Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+                Modulate = new Color(1f, 1f, 1f, 0.62f),
+                Visible = false
+            };
+            AddChild(sprite);
+            _approvedPersonalShields[i] = sprite;
+        }
         _stoneArmor = new Node3D { Name = "StoneArmor", Visible = false }; AddChild(_stoneArmor);
         _stoneArmorMaterial = StoneVisuals.Surface([Element.Earth]);
         for (int i = 0; i < 6; i++)
@@ -159,17 +164,21 @@ public partial class WizardVisual
             if (!ring.Visible) continue;
             ring.Rotation = new(0.4f + i * 0.65f, time * (i == 0 ? 0.48f : -0.38f), i * 0.45f);
         }
-        // Original bubble and combat hitboxes stay unchanged.
-        if (_approvedPersonalShield != null)
+        // Keep the original 3D shield and use transparent external-only sprites.
+        // Mixed wards display both elements instead of selecting only one of them.
+        int effectLayers = ArcanaSpriteAtlas.AffinityLayers(player.Ward);
+        for (int i = 0; i < _approvedPersonalShields.Length; i++)
         {
-            var art = ArcanaSpriteAtlas.Personal(player.Ward);
-            if (_approvedPersonalShield.Texture != art) _approvedPersonalShield.Texture = art;
-            _approvedPersonalShield.Visible = activeWard && art != null;
-            if (_approvedPersonalShield.Visible)
-            {
-                _approvedPersonalShield.Modulate = new Color(1f, 1f, 1f, 0.35f + 0.30f * integrity);
-                _approvedPersonalShield.Scale = Vector3.One * (1f + MathF.Sin(time * 2.8f) * 0.022f);
-            }
+            var sprite = _approvedPersonalShields[i];
+            var texture = i < effectLayers
+                ? ArcanaSpriteAtlas.Defense(ArcanaSpriteAtlas.DefenseForm.Personal, player.Ward, i)
+                : null;
+            if (sprite.Texture != texture) sprite.Texture = texture;
+            sprite.Visible = activeWard && texture != null;
+            if (!sprite.Visible) continue;
+            sprite.Modulate = new Color(1f, 1f, 1f,
+                (i == 0 ? 0.72f : 0.42f) * (0.5f + integrity * 0.5f));
+            sprite.Scale = Vector3.One * (1f + MathF.Sin(time * (i == 0 ? 2.8f : 2.0f)) * 0.022f);
         }
         _spawnProtection.Visible = invulnerable;
         if (invulnerable) _spawnProtection.Scale = Vector3.One * (1 + Mathf.Sin(time * 12) * 0.035f);
