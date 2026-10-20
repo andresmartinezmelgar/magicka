@@ -125,5 +125,69 @@ internal static class DefenseHordeTests
             Invoke(w, "TickDefenseShaman", shaman.Runtime, 0.1f);
             Check(wounded.Body.Health == wounded.Body.MaxHealth, "La curación supera la vida máxima.");
         });
+
+        test("Supervivencia: escudos crecen de forma moderada y sin multiplicación repetida", () =>
+        {
+            var w = World(); var player = w.AddPlayer("Guardia")!;
+            player.Shield = 120; player.ShieldMax = 300; player.ShieldTime = 20;
+            var mods = player.Equipment.ShieldCapacity;
+            var progress = ((IDictionary)Field(w, "_defenders"))[player.Id]!;
+            Set(progress, "Level", 11);
+            Invoke(w, "RecalculateDefender", player);
+            float factor = DefenseRules.ShieldLevelMultiplier(11);
+            Check(factor > 1 && factor <= 1.35f && Math.Abs(player.Equipment.ShieldCapacity / mods - factor) < 0.001f,
+                "La capacidad de escudo no aumenta al subir de nivel.");
+            Check(Math.Abs(player.Shield - 120 * factor) < 0.01f &&
+                Math.Abs(player.ShieldMax - 300 * factor) < 0.01f, "El escudo activo no se ajusta proporcionalmente.");
+            Invoke(w, "RecalculateDefender", player);
+            Check(Math.Abs(player.Shield - 120 * factor) < 0.01f, "Recalcular duplicó la bonificación.");
+            Check(DefenseRules.ShieldLevelMultiplier(100) <= 1.35f, "El aumento por nivel es excesivo.");
+        });
+        test("Supervivencia: el comandante multiplica la horda sin superar el límite de FPS", () =>
+        {
+            var w = World(); var player = w.AddPlayer("Mago")!;
+            player.Position = new(-25, 0); player.Invulnerable = 200;
+            Set(w, "_defenseDifficulty", 8);
+            int normal = DefenseRules.SpawnLimit(8, 1);
+            Enemy(w, MinionKind.Captain, new(10, 0));
+            Check(State(w).MinionLimit > normal, "El comandante no aumenta el límite durante la oleada.");
+            Set(w, "_spawnClock", 10000f); Set(w, "_bossClock", 10000f);
+            int before = State(w).Minions.Length;
+            Step(w, 120);
+            Check(State(w).Minions.Length > before + 6 && State(w).Minions.Length <= DefenseRules.MaxMinions,
+                "Los refuerzos no aparecen por grupos o rompen el techo absoluto.");
+            var slow = World(); var device = slow.AddPlayer("Móvil lento")!;
+            device.Position = new(-25, 0); device.Invulnerable = 200;
+            Set(slow, "_defenseDifficulty", 8);
+            Check(Fps(slow, device, 15), "No acepta la telemetría de un dispositivo lento.");
+            Enemy(slow, MinionKind.Captain, new(10, 0));
+            Set(slow, "_spawnClock", 10000f); Set(slow, "_bossClock", 10000f);
+            Step(slow, 400);
+            Check(State(slow).MinionLimit == 32 && State(slow).Minions.Length <= 32,
+                "La oleada del comandante excede el límite de un móvil lento.");
+        });
+        test("Supervivencia: magos élite usan ataques con áreas reales y el guardián se protege", () =>
+        {
+            var w = World(); var player = w.AddPlayer("Mago")!;
+            player.Position = new(-25, 0); player.Invulnerable = 100;
+            Set(w, "_defenseDifficulty", 8);
+            var warlock = Enemy(w, MinionKind.Warlock, new(-18, 0));
+            Set(warlock.Runtime, "Attack", 0f);
+            Invoke(w, "TickMinion", warlock.Runtime, 1 / 60f);
+            Check(w.Snapshot().Projectiles.Any(p => p.Owner == warlock.Body.Id &&
+                    new SpellRecipe(p.Elements).SplashRadius > 0),
+                "El conjurador no lanza proyectiles de área.");
+            var cryo = Enemy(w, MinionKind.Cryomancer, new(-21, 2));
+            Set(cryo.Runtime, "Attack", 0f);
+            Invoke(w, "TickMinion", cryo.Runtime, 1 / 60f);
+            Check(cryo.Body.Channel?.Shape == SpellShape.Spray,
+                "El tejedor glacial no usa su cono de hielo.");
+            var sentinel = Enemy(w, MinionKind.Sentinel, new(-24, 0));
+            Set(sentinel.Runtime, "Attack", 0f);
+            Invoke(w, "TickMinion", sentinel.Runtime, 1 / 60f);
+            Check(sentinel.Body.Shield > 0 && (float)Field(sentinel.Runtime, "Windup") > 0,
+                "El guardián no prepara escudo propio y golpe de área visible.");
+            SnapshotValidation.Check(w.Snapshot());
+        });
     }
 }
