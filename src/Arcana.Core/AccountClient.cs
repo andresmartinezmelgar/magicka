@@ -118,6 +118,12 @@ public sealed partial class AccountClient : IDisposable
                 throw new OperationCanceledException("El inventario cambió durante la lectura. Actualiza de nuevo el inventario.");
             if (SignedIn && Profile != null && profile.Uid != Profile.Uid)
                 throw new InvalidDataException("El perfil no pertenece a la cuenta conectada.");
+            if (Profile?.Uid == profile.Uid && Profile.Bestiary.Count > 0)
+            {
+                var totals = new Dictionary<string, long>(profile.Bestiary, StringComparer.Ordinal);
+                foreach (var pair in Profile.Bestiary) totals[pair.Key] = Math.Max(totals.GetValueOrDefault(pair.Key), pair.Value);
+                profile = profile with { Bestiary = totals };
+            }
             Profile = profile;
             if (inventoryRevision.HasValue) _inventoryNeedsRefresh = false;
             else ++_inventoryRevision; // Invalida lecturas anteriores a una escritura confirmada.

@@ -5,12 +5,12 @@ namespace Arcana.Server;
 
 public sealed partial class FirestoreAccountRepository
 {
-    public async Task SaveBestiary(BestiaryProgress progress, CancellationToken token = default)
+    public async Task<BestiaryTotals> SaveBestiary(BestiaryProgress progress, CancellationToken token = default)
     {
         if (!BestiaryCatalogue.Valid(progress)) throw new ArgumentException("Registro de bestiario inválido.");
         var user = User(progress.Uid);
         var receipt = user.Collection("bestiaryRuns").Document(progress.RunId);
-        await database.RunTransactionAsync(async transaction =>
+        return await database.RunTransactionAsync(async transaction =>
         {
             var account = await transaction.GetSnapshotAsync(user, token);
             var previous = await transaction.GetSnapshotAsync(receipt, token);
@@ -30,10 +30,11 @@ public sealed partial class FirestoreAccountRepository
                 totals[pair.Key] = checked(totals.GetValueOrDefault(pair.Key) + next - old);
                 cumulative[pair.Key] = next; changed = true;
             }
-            if (!changed) return;
+            if (!changed) return new BestiaryTotals(totals);
             transaction.Set(receipt, FirestoreData.Map(progress with { Kills = cumulative,
                 ActiveSeconds = Math.Max(progress.ActiveSeconds, saved?.ActiveSeconds ?? 0) }));
-            transaction.Update(user, new Dictionary<string, object> { ["bestiary"] = totals });
+            transaction.Update(user, FirestoreData.Map(new { bestiary = totals }));
+            return new BestiaryTotals(totals);
         }, cancellationToken: token);
     }
 }

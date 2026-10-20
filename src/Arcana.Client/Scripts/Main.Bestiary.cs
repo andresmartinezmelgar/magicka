@@ -50,9 +50,10 @@ public partial class Main
         _bestiaryClock += delta;
         if (_bestiaryClock < 10) return;
         _bestiaryClock = 0; CaptureLocalBestiary();
-        if (!_syncingBestiary && Accounts.SignedIn && Accounts.ServerAddress.Length > 0) _ = SynchronizeBestiary();
+        if (!_syncingBestiary && Accounts.SignedIn && Accounts.ServerAddress.Length > 0 && PendingBestiaryRuns > 0)
+            _ = SynchronizeBestiary(refreshProfile: false);
     }
-    internal async Task<string> SynchronizeBestiary()
+    internal async Task<string> SynchronizeBestiary(bool refreshProfile = true)
     {
         if (_syncingBestiary) return "Sincronizando bestiario…";
         if (!Accounts.SignedIn) return "Inicia sesión para consultar tus bajas guardadas.";
@@ -67,7 +68,7 @@ public partial class Main
                 await Accounts.SaveBestiary(progress, _lifetime.Token);
                 BestiaryQueue.Acknowledge(progress);
             }
-            await Accounts.Refresh(_lifetime.Token);
+            if (refreshProfile) await Accounts.Refresh(_lifetime.Token);
             SaveAccountCache();
             return "Bestiario sincronizado.";
         }

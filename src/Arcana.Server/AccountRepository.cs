@@ -6,8 +6,8 @@ namespace Arcana.Server;
 
 public interface IAccountRepository
 {
-    Task SaveBestiary(BestiaryProgress progress, CancellationToken token = default) =>
-        Task.FromException(new NotSupportedException("El repositorio no admite bestiario."));
+    Task<BestiaryTotals> SaveBestiary(BestiaryProgress progress, CancellationToken token = default) =>
+        Task.FromException<BestiaryTotals>(new NotSupportedException("El repositorio no admite bestiario."));
     Task<AccountProfile> Profile(string uid, string name, CancellationToken token = default);
     Task Equip(string uid, InventoryRequest request, CancellationToken token = default);
     Task SaveLoadout(string uid, EquipmentLoadout loadout, CancellationToken token = default);
