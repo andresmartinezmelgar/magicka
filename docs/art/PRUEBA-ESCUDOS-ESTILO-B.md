@@ -1,23 +1,28 @@
-# Escudos e iconos estilo B: integrados en rama de pruebas
+# Escudos estilo B: corrección de integración visual
 
-Rama: `feature/escudos-visuales-estilo-b`. Prueba: `0.25.6`.
+**Rama de pruebas:** `feature/escudos-visuales-estilo-b` · **Versión:** 0.25.7
 
-## Activos gráficos
+## Fallo corregido
+La textura anterior incluía un mago ilustrado dentro de cada escudo, de modo que se duplicaba la figura sobre el jugador real. Se ha eliminado ese atlas del repositorio. Los nuevos efectos de escudo personal contienen **solo anillos, runas y partículas**, con una zona central totalmente transparente para mostrar al verdadero personaje. La geometría 3D original del escudo sigue siendo la única referencia volumétrica.
 
-- `src/Arcana.Client/Assets/VFX/element-style-b.webp`: atlas de 8 emblemas aprobados, 4 columnas y 2 filas de 96 × 96 px. Orden: agua, vida, escudo, frío, rayo, arcano, tierra, fuego.
-- `src/Arcana.Client/Assets/VFX/shields-style-b.webp`: atlas de 12 propuestas de escudos recortadas de los bocetos, 4 columnas y 3 filas de 96 × 96 px. Se procesaron los fondos negros para transparencia y se redujo su resolución para la ejecución; no son imágenes originales a tamaño completo.
-- Originales sin reducción conservados en la Biblioteca, `/Arcana Arena/Arte aprobado/Elementos/` y archivos de bocetos.
-- `ArcanaSpriteAtlas.cs` almacena en caché las imágenes y cada `AtlasTexture`.
+## Recursos reales
+- `Assets/VFX/element-style-b.webp`: ocho iconos aprobados para el HUD; atlas 4 × 2, celda 96 px.
+- `Assets/VFX/personal-shields-style-b.webp`: ocho escudos personales (E, EW, ER, ES, EF, EQ, ED, EA), sin personajes y con hueco central transparente; atlas 4 × 2, celda 160 px.
+- `Assets/VFX/area-shields-style-b.webp`: ocho círculos de defensa en el suelo, alineados horizontalmente para minas y auras; atlas 4 × 2, celda 160 px.
+- `Assets/VFX/wall-shields-style-b.webp`: ocho motivos para muros frontales y segmentos de barrera de área; atlas 4 × 2, celda 160 px.
 
-## Integración
+**Correspondencias:** `E` escudo; `W` vida; `R` frío; `S` arcano; `F` fuego; `Q` agua; `D` tierra; `A` rayo.
 
-- `ElementIcon.cs`: el HUD dibuja el emblema aprobado en vez de la forma vectorial; fallback a dibujo vectorial cuando falta el recurso.
-- `WizardVisual.Protection.cs`: texturas personales E, EW, ER, ES sobre la burbuja existente y cristales animados; no cambian las colisiones o puntuaciones.
-- `BarrierVisual.cs`: texturas de defensa de campo (ED, EDF, EQR y ES) y círculos elementales sobre geometría 3D; fade sincronizado con la vida restante.
-- `AreaFieldVisual.cs`: adornos de textura sobre minas arcanas y de sanación; no modifican los radios reales.
-- Los anillos de seis muros reutilizan las representaciones gráficas de sus segmentos.
-- Se conserva íntegra la lógica, daño, duración, protocolo y cálculo de hechizos.
+## Cobertura sin combinaciones ficticias
+`ArcanaSpriteAtlas.Defense(form, recipe, layer)` selecciona los componentes por orden canónico, sin depender del orden de pulsación. Las recetas E, EX y EXY combinan 0, 1 o 2 capas por familia, sin dibujar dos veces el mago ni degradarse a un sprite neutro. Las repeticiones (EWW, EDD, etc.) conservan una sola textura y el refuerzo visual de las cargas. Las incompatibilidades se resuelven previamente con `ElementBuffer.Opposite` en la simulación: fuego/frío, vida/arcano, agua/rayo, tierra/rayo y escudo/escudo.
 
-## Validaciones
+Los escudos personales aparecen alrededor del mago real, los círculos de minas se colocan sobre el suelo y los muros siguen la orientación de sus segmentos 3D. Las barreras de área compuestas de seis muros heredan esos sprites. **No se modifica la física, el daño, las recetas ni el protocolo.**
 
-La compilación Godot Mono, la importación WebP, los smoke tests y la exportación Windows/Android se comprueban en GitHub Actions para esta rama. Antes de fusionar, revisar visualmente la transparencia y visibilidad sobre fondos claros, tamaños de pantalla pequeños y rendimiento cuando coincidan múltiples barreras.
+## Validaciones necesarias
+- Compilar C# y comprobar la importación de las tres texturas WebP nuevas.
+- Probar escudos personales E, EW, ER, ES, EF, EQ, ED y EA; comprobar que el personaje no queda tapado.
+- Probar variantes mixtas válidas como EWQ, ESD, EFD, EQR, con sus dos capas.
+- Comprobar áreas (minas de vida y arcanas), muros frontales y segmentos de anillo en móvil y PC.
+- Verificar texturas translúcidas en fondos claros, al sufrir daño, al caducar y con muchas barreras.
+
+La imagen de referencia es arte conceptual; los efectos ejecutables se renderizan sobre la geometría existente.
