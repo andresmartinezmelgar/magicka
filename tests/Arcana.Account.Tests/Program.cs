@@ -134,7 +134,7 @@ await Test("Firestore: las cuatro piezas elegidas sobreviven a otro repositorio,
     var original = await repository.Profile(user, "Equipo persistente");
     var restored = await new FirestoreAccountRepository(database).Profile(user, "Otra versión del cliente");
     Check(restored.Loadout == original.Loadout && restored.SchemaVersion == original.SchemaVersion &&
-        restored.Items.All(i => i.Bonuses.SequenceEqual(items.Single(old => old.Id == i.Id).Bonuses)), "La nueva instancia perdió las piezas o sus valores.");
+        restored.Items.All(i => i.Bonuses.SequenceEqual(items.Single(old => old.Id == i.Id).Bonuses) && i.Affix == items.Single(old => old.Id == i.Id).Affix), "La nueva instancia perdió las piezas o sus valores.");
     var login = await Login(user); Check(login.Profile!.Loadout == original.Loadout, "Una nueva sesión eliminó el equipo guardado.");
     await repository.Equip(user, new("", EquipmentSlot.Hat));
     restored = await new FirestoreAccountRepository(database).Profile(user, "Equipo persistente");
@@ -158,13 +158,13 @@ await Test("Firestore: ocho familias nuevas persisten y el catálogo antiguo con
         var restored = await new FirestoreAccountRepository(database).Profile(user, family.ToString());
         Check(restored.Loadout == original.Loadout && restored.SchemaVersion == 1 && EquipmentModifiers.Calculate(restored).Pieces(family) == 4,
             "Se perdió el conjunto de " + family);
-        Check(restored.Items.All(i => i.GenerationVersion == 2 && i.Bonuses.SequenceEqual(items.Single(old => old.Id == i.Id).Bonuses)),
+        Check(restored.Items.All(i => i.GenerationVersion == EquipmentCatalogue.GenerationVersion && i.Bonuses.SequenceEqual(items.Single(old => old.Id == i.Id).Bonuses)),
             "Se volvió a sortear una pieza de " + family);
     }
     var old = await legacyDefinition.GetSnapshotAsync();
     Check(old.GetValue<string>("legacyMarker") == suffix && old.GetValue<long>("generationVersion") == 1, "Se sobrescribió el catálogo de la versión anterior.");
-    var definitions = await database.Collection("catalogues").Document("2").Collection("bonusDefinitions").GetSnapshotAsync();
-    Check(definitions.Count == 22 && definitions.Documents.All(d => d.GetValue<long>("generationVersion") == 2), "No se archivaron los atributos nuevos.");
+    var definitions = await database.Collection("catalogues").Document(EquipmentCatalogue.GenerationVersion.ToString()).Collection("bonusDefinitions").GetSnapshotAsync();
+    Check(definitions.Count == 22 && definitions.Documents.All(d => d.GetValue<long>("generationVersion") == EquipmentCatalogue.GenerationVersion), "No se archivaron los atributos nuevos.");
 });
 await Test("Acceso: secretos separados para navegador y juego; token inválido y polling ajeno rechazados", async () =>
 {

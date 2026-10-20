@@ -118,6 +118,17 @@ jobs:
           dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
           dotnet build src/Arcana.Server/Arcana.Server.csproj -c Debug --nologo
           "$GODOT" --headless --editor --path src/Arcana.Client --import
+      - name: Verificar bestiario y menú de reliquias en escritorio y móvil
+        run: |
+          set -euo pipefail
+          for viewport in 1280x720 720x540; do
+            "$ARCANA_GODOT" --headless --audio-driver Dummy --path src/Arcana.Client -- --bestiary-smoke "--smoke-viewport=$viewport" 2>&1 | tee "$RUNNER_TEMP/bestiary-$viewport.log"
+            grep -q 'BESTIARY_RELICS_SMOKE_OK' "$RUNNER_TEMP/bestiary-$viewport.log"
+            ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/bestiary-$viewport.log"
+          done
+          "$ARCANA_GODOT" --headless --audio-driver Dummy --path src/Arcana.Client -- --force-mobile --bestiary-smoke --smoke-viewport=720x540 2>&1 | tee "$RUNNER_TEMP/bestiary-mobile.log"
+          grep -q 'BESTIARY_RELICS_SMOKE_OK' "$RUNNER_TEMP/bestiary-mobile.log"
+          ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/bestiary-mobile.log"
       - name: Renderizar capturas de móvil y escritorio y validar los límites
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'

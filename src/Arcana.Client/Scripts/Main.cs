@@ -134,6 +134,7 @@ public partial class Main : Node
         if (arguments.Contains("--regression-smoke")) _ = RunBugRegressionSmoke(arguments);
         if (arguments.Contains("--reconnect-smoke")) _ = VerifyReconnectInterface(arguments);
         if (arguments.Contains("--defense-smoke")) StartDefenseSmoke(arguments);
+        if (arguments.Contains("--bestiary-smoke")) StartBestiarySmoke(arguments);
         if (arguments.Contains("--shop-smoke")) StartShopSmoke(arguments);
         if (arguments.Contains("--sale-smoke")) StartSaleSmoke(arguments);
         if (arguments.Contains("--usability-smoke")) StartUsabilitySmoke(arguments);
@@ -377,6 +378,7 @@ public partial class Main : Node
         if (CheckSaleSmoke()) return;
         if (CheckUsabilitySmoke()) return;
         if (CheckDefenseSmoke()) return;
+        if (CheckBestiarySmoke()) return;
         if (_profiler?.Running == true || _reconnecting) return;
         if (Loading) { ProcessLoading(); _verification?.CheckLoadingFrame(); return; }
         _verification?.BeforeFrame(delta);
