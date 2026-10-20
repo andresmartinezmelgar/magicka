@@ -48,7 +48,7 @@ public partial class ClientVerification
         if (snapshot.Map == ArenaMapId.Relics)
         {
             var buffs = (Label)_runtime.Hud.FindChild("ActiveBuffs", true, false);
-            valid &= buffs.Text.Contains("Potencia ×2") && buffs.Text.Contains("Vitalidad ×1") && objective.Text.Contains("hasta morir");
+            valid &= !buffs.IsVisibleInTree() && buffs.Text.Length == 0 && objective.Text.Contains("hasta morir");
         }
         var local = snapshot.Players.Single(p => p.Id == _runtime.LocalId);
         valid &= _runtime.Renderer.Wizards[_runtime.LocalId].ElementSlotCount == 3 && _runtime.Renderer.Wizards[_runtime.LocalId].DisplayedElements.SequenceEqual(local.DisplayElements);
