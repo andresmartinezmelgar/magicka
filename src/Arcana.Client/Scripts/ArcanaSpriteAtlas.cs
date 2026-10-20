@@ -4,13 +4,13 @@ using Godot;
 namespace Arcana.Client;
 
 /// <summary>
-/// Approved element icons and character-free defense art. Shield sprites are shared
-/// across all recipes (E, EX and EXY), with deterministic layers for two affinities.
+/// Approved elemental icons and character-free area/wall art, mixed by affinity.
+/// Personal wards keep their original procedural 3D visuals.
 /// Purely visual: no gameplay/network logic lives here.
 /// </summary>
 internal static class ArcanaSpriteAtlas
 {
-    internal enum DefenseForm { Personal, Area, Wall }
+    internal enum DefenseForm { Area, Wall }
 
     private const int Columns = 4;
     private const int ElementCell = 96;
@@ -18,7 +18,6 @@ internal static class ArcanaSpriteAtlas
     private const string ElementsPath = "res://Assets/VFX/element-style-b.webp";
     private static readonly string[] DefensePaths =
     [
-        "res://Assets/VFX/personal-shields-style-b.webp",
         "res://Assets/VFX/area-shields-style-b.webp",
         "res://Assets/VFX/wall-shields-style-b.webp"
     ];
@@ -32,11 +31,11 @@ internal static class ArcanaSpriteAtlas
 
     private static Texture2D? _elements;
     private static bool _elementsAttempted;
-    private static readonly Texture2D?[] _defenseAtlases = new Texture2D?[3];
-    private static readonly bool[] _defenseAttempted = new bool[3];
+    private static readonly Texture2D?[] _defenseAtlases = new Texture2D?[2];
+    private static readonly bool[] _defenseAttempted = new bool[2];
     private static readonly Dictionary<int, AtlasTexture> ElementRegions = [];
     private static readonly Dictionary<int, AtlasTexture>[] DefenseRegions =
-        [new(), new(), new()];
+        [new(), new()];
 
     private static Texture2D? Load(string path)
         => ResourceLoader.Exists(path) ? ResourceLoader.Load<Texture2D>(path) : null;

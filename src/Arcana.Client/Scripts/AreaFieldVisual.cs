@@ -3,9 +3,12 @@ using Godot;
 
 namespace Arcana.Client;
 
-/// <summary>Radio estable; el parpadeo de una mina nunca oculta su área de efecto o activación.</summary>
+/// <summary>El límite exterior señala el área real de efecto; la activación solo tiene un marcador central.</summary>
 public partial class AreaFieldVisual : Node3D
 {
+    // El radio lógico de activación sigue estando en FieldSnapshot.TriggerRadius.
+    // No se dibuja como un segundo círculo de alcance.
+    internal const float MineCenterMarkerRadius = 0.18f;
     private MeshInstance3D? _trigger;
     private readonly Sprite3D?[] _approvedAreaArt = new Sprite3D?[2];
     internal AreaVisuals.Pattern Pattern { get; private set; }
@@ -36,7 +39,8 @@ public partial class AreaFieldVisual : Node3D
                     Texture = texture,
                     Position = new(0, 0.032f + i * 0.012f, 0),
                     RotationDegrees = new(-90, 0, 0),
-                    PixelSize = field.Radius * 1.86f / 160f,
+                    // El diámetro del arte equivale exactamente al del área de efecto.
+                    PixelSize = field.Radius * 2f / 160f,
                     Shaded = false,
                     Modulate = new Color(1, 1, 1, i == 0 ? 0.68f : 0.38f)
                 };
@@ -44,8 +48,11 @@ public partial class AreaFieldVisual : Node3D
                 _approvedAreaArt[i] = sprite;
             }
             _trigger = AreaVisuals.Piece(this, field.Kind == "healing_mine" ? AreaVisuals.Pattern.HealingTrigger : AreaVisuals.Pattern.MineTrigger, tint);
+            // El marcador es pequeño y central. Solo AreaBoundary marca el alcance real.
             _trigger.Name = "MineCore"; _trigger.Position = new(0, 0.025f, 0);
-            _trigger.Scale = new(TriggerRadius, 0.8f + SpellVisualStrength.For(field.Elements).Charges * 0.2f, TriggerRadius);
+            _trigger.Scale = new(MineCenterMarkerRadius,
+                0.8f + SpellVisualStrength.For(field.Elements).Charges * 0.2f,
+                MineCenterMarkerRadius);
         }
     }
     internal void Update(FieldSnapshot field, float time)

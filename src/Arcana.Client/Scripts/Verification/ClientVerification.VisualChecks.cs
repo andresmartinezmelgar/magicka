@@ -49,7 +49,12 @@ public partial class ClientVerification
         for (int charges = 1; charges <= 3; charges++)
         {
             _runtime.Renderer.Render(empty with { Players = [wizard with { ShieldCharges = charges }] }, wizard.Id, 1/60.0, true);
-            if (_runtime.Renderer.Wizards[wizard.Id].ProtectionBandCount != charges - 1 || _runtime.Renderer.Wizards[wizard.Id].SpawnProtectionVisible) return false;
+            var personal = _runtime.Renderer.Wizards[wizard.Id];
+            if (personal.ProtectionBandCount != charges - 1 || personal.SpawnProtectionVisible ||
+                personal.GetChildren().OfType<Sprite3D>().Any(n => n.Name.ToString().StartsWith("PersonalWardVisual")) ||
+                personal.GetChildren().OfType<MeshInstance3D>().Any(n =>
+                    n.Name.ToString().StartsWith("ShieldRuneCrystal") ||
+                    n.Name.ToString().StartsWith("ShieldArcaneOrbit"))) return false;
         }
         _runtime.Renderer.Render(empty with { Players = [wizard with { Shield = 0, InvulnerableSeconds = 1 }] }, wizard.Id, 1/60.0, true);
         if (!_runtime.Renderer.Wizards[wizard.Id].SpawnProtectionVisible) return false;

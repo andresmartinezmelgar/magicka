@@ -24,8 +24,16 @@ public partial class ClientVerification
                 area.GetChildren().OfType<MeshInstance3D>().All(m => m.Visible && m.CastShadow == GeometryInstance3D.ShadowCastingSetting.Off);
             if (mine)
             {
-                var trigger = area.GetNode<MeshInstance3D>("MineCore");
-                valid &= trigger.Scale.X == f.TriggerRadius && trigger.Scale.Z == f.TriggerRadius;
+                var centerMarker = area.GetNode<MeshInstance3D>("MineCore");
+                var effectArt = area.GetNode<Sprite3D>("AreaRuneVisual0");
+                // La distancia de activación (0,85) no es el alcance del efecto (2,4).
+                valid &= area.TriggerRadius == f.TriggerRadius &&
+                    centerMarker.Scale.X == AreaFieldVisual.MineCenterMarkerRadius &&
+                    centerMarker.Scale.Z == AreaFieldVisual.MineCenterMarkerRadius &&
+                    effectArt.Texture != null &&
+                    Mathf.IsEqualApprox(effectArt.PixelSize * 160f * 0.5f, f.Radius) &&
+                    effectArt.RotationDegrees.X == -90f &&
+                    boundary.Scale.X == f.Radius && boundary.Scale.Z == f.Radius;
             }
         }
         var original = renderer.Fields.ToDictionary(p => p.Key, p => p.Value);
@@ -107,7 +115,7 @@ public partial class ClientVerification
         }
         for (int i = 0; i < 30; i++) probe.Advance(empty,0.05f,false);
         valid &= probe.ActiveCount == 0; probe.Clear(); probe.QueueFree(); renderer.Clear();
-        if (valid) GD.Print("AREA_PASSIVE_VISUALS_OK: radios estables, 1/2 superficies, mallas compartidas, auras acumuladas, muerte, meteorito, hielo, furia, enlaces reales, descarte, límites y limpieza.");
+        if (valid) GD.Print("AREA_PASSIVE_VISUALS_OK: radio de efecto visible, marcador de activación central, 1/2 superficies, mallas compartidas, auras acumuladas, muerte, meteorito, hielo, furia, enlaces reales, descarte, límites y limpieza.");
         return valid;
     }
 }
