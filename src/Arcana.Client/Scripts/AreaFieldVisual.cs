@@ -7,7 +7,7 @@ namespace Arcana.Client;
 public partial class AreaFieldVisual : Node3D
 {
     private MeshInstance3D? _trigger;
-    private Sprite3D? _approvedMineArt;
+    private readonly Sprite3D?[] _approvedAreaArt = new Sprite3D?[2];
     internal AreaVisuals.Pattern Pattern { get; private set; }
     internal float Radius { get; private set; }
     internal float TriggerRadius { get; private set; }
@@ -22,19 +22,26 @@ public partial class AreaFieldVisual : Node3D
         area.Scale = new(Radius, 1, Radius);
         if (mine)
         {
-            Texture2D? image = ArcanaSpriteAtlas.Mine(field.Elements, field.Kind == "healing_mine");
-            if (image != null)
+            // Flat, concentric rings on the actual ground. Unlike a billboard, the
+            // sprite does not float in front of the mage or hide the playfield.
+            int layers = ArcanaSpriteAtlas.AffinityLayers(field.Elements);
+            for (int i = 0; i < layers; i++)
             {
-                _approvedMineArt = new Sprite3D
+                var texture = ArcanaSpriteAtlas.Defense(
+                    ArcanaSpriteAtlas.DefenseForm.Area, field.Elements, i);
+                if (texture == null) continue;
+                var sprite = new Sprite3D
                 {
-                    Name = "GeneratedMineArtwork",
-                    Texture = image,
-                    Position = new(0, 0.20f, 0),
-                    PixelSize = Math.Min(field.Radius * 0.65f, 1.65f) / 96f,
-                    Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
-                    Shaded = false, Modulate = new Color(1, 1, 1, 0.58f)
+                    Name = "AreaRuneVisual" + i,
+                    Texture = texture,
+                    Position = new(0, 0.032f + i * 0.012f, 0),
+                    RotationDegrees = new(-90, 0, 0),
+                    PixelSize = field.Radius * 1.86f / 160f,
+                    Shaded = false,
+                    Modulate = new Color(1, 1, 1, i == 0 ? 0.68f : 0.38f)
                 };
-                AddChild(_approvedMineArt);
+                AddChild(sprite);
+                _approvedAreaArt[i] = sprite;
             }
             _trigger = AreaVisuals.Piece(this, field.Kind == "healing_mine" ? AreaVisuals.Pattern.HealingTrigger : AreaVisuals.Pattern.MineTrigger, tint);
             _trigger.Name = "MineCore"; _trigger.Position = new(0, 0.025f, 0);
@@ -46,11 +53,12 @@ public partial class AreaFieldVisual : Node3D
         Visible = field.Lifetime > 0;
         // El núcleo se eleva al armarse; ambos radios siguen visibles durante la preparación.
         if (_trigger != null) _trigger.Position = new(0, field.Armed ? 0.055f : 0.025f + MathF.Sin(time * 8) * 0.015f, 0);
-        if (_approvedMineArt != null)
+        for (int i = 0; i < _approvedAreaArt.Length; i++)
         {
-            _approvedMineArt.Visible = field.Lifetime > 0;
-            _approvedMineArt.Modulate = new Color(1, 1, 1, field.Armed ? 0.62f : 0.34f);
-            _approvedMineArt.Position = new(0, 0.20f + MathF.Sin(time * 2.5f) * 0.04f, 0);
+            if (_approvedAreaArt[i] is not { } sprite) continue;
+            sprite.Visible = field.Lifetime > 0;
+            sprite.Modulate = new Color(1, 1, 1,
+                (i == 0 ? 0.68f : 0.38f) * (field.Armed ? 1f : 0.55f));
         }
     }
 }
