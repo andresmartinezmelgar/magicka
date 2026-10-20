@@ -125,7 +125,7 @@ internal static class DefenseBalanceTests
                 Check(State(sample).Minions.All(m => m.Kind != MinionKind.Tank), "Apareció un tanque durante la preparación inicial.");
             }
         });
-        test("Defensa: bots reparten amenazas, posiciones y mantienen la carga del rayo", () =>
+        test("Defensa: bots reparten amenazas y alternan tipos de hechizo sin apelotonarse", () =>
         {
             var world = World(3); world.AddPlayer("Humano")!.Position = new(-25, 0);
             foreach (var bot in world.Players.Values.Where(p => p.Bot)) bot.Position = new(-25, 0);
@@ -133,8 +133,20 @@ internal static class DefenseBalanceTests
             world.Step(); var plans = Plans(world);
             Check(plans.Length == 3 && plans.Select(p => PlanId(p, "TargetId")).Distinct().Count() == 3, "Los tres bots persiguen al mismo objetivo.");
             Check(plans.All(p => world.Walkable(Goal(p))), "Asignó una posición fuera del mapa.");
-            Advance(world, 240); var bots = world.Players.Values.Where(p => p.Bot).ToArray();
-            Check(bots.All(p => p.Channel is { Healing: false } && p.BeamCharge > 0.95f), "Los bots reinician el rayo y pierden su carga.");
+            var bots = world.Players.Values.Where(p => p.Bot).ToArray();
+            var observed = new HashSet<SpellShape>();
+            for (int tick = 0; tick < 240; tick++)
+            {
+                world.Step();
+                foreach (var bot in bots)
+                {
+                    if (bot.Channel is { Healing: false } channel) observed.Add(channel.Shape);
+                    if (bot.Charging is { Healing: false } charging) observed.Add(charging.Shape);
+                    foreach (var beam in world.Snapshot().Beams.Where(b => b.Owner == bot.Id))
+                        observed.Add(beam.Shape);
+                }
+            }
+            Check(observed.Count >= 2, "Los bots vuelven a lanzar siempre el mismo tipo de hechizo.");
             for (int i = 0; i < bots.Length; i++) for (int j = i + 1; j < bots.Length; j++)
                 Check(V2.Distance(bots[i].Position, bots[j].Position) > 2, "Los bots siguen apelotonados en combate.");
             SnapshotValidation.Check(world.Snapshot());
