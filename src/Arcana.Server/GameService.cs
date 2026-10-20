@@ -53,6 +53,8 @@ internal sealed class PlayerSession(int id, GameRoom room, WebSocket socket)
     public long LastInspectionAt { get; set; }
     public int InspectionsInWindow { get; set; }
     public long LastActivityTick { get; set; }
+    public long BestiaryKillsSaved { get; set; }
+    public double NextBestiaryAt { get; set; }
     public long LoadingStartedAt { get; } = Environment.TickCount64;
     public Channel<ClientMessage> Commands { get; } = Channel.CreateBounded<ClientMessage>(new BoundedChannelOptions(64)
     { SingleReader = true, SingleWriter = true, FullMode = BoundedChannelFullMode.Wait });
@@ -435,6 +437,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                 _sessions.TryRemove(session.Key, out _);
                 lock (_gate)
                 {
+                    SaveSessionBestiary(session, force: true);
                     session.Room.Sessions.Remove(session.Id);
                     if ((session.Ready || session.Resumed) && socket?.CloseStatus != WebSocketCloseStatus.NormalClosure &&
                         !_stopping.IsCancellationRequested && !session.Room.World.MatchEnded)
@@ -458,7 +461,12 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
         }
     }
     public override Task StopAsync(CancellationToken cancellationToken)
-    { _stopping.Cancel(); return base.StopAsync(cancellationToken); }
+    {
+        lock (_gate)
+            foreach (var room in _rooms.Values)
+                foreach (var session in room.Sessions.Values) SaveSessionBestiary(session, force: true);
+        _stopping.Cancel(); return base.StopAsync(cancellationToken);
+    }
     private void TrackAccounts(GameRoom room, bool endedBefore)
     {
         if (room.World.IsDefense) { TrackDefenseAccounts(room); return; }

@@ -398,7 +398,12 @@ public sealed partial class GameWorld
         if (boss) _bossesKilled++; _defenseBotPlanClock = 0;
         var discovery = _defenseBestiary[_minions[target.Id].Kind];
         _defenseBestiary[discovery.Kind] = discovery with { Killed = discovery.Killed + 1 };
-        if (_players.TryGetValue(owner, out var killer)) { killer.Kills++; _defenders[killer.Id].Kills = killer.Kills; }
+        if (_players.TryGetValue(owner, out var killer))
+        {
+            killer.Kills++; var progress = _defenders[killer.Id]; progress.Kills = killer.Kills;
+            string kind = BestiaryCatalogue.Key(_minions[target.Id].Kind);
+            progress.BestiaryKills[kind] = progress.BestiaryKills.GetValueOrDefault(kind) + 1;
+        }
         foreach (var defender in _players.Values)
         {
             var progress = _defenders[defender.Id];

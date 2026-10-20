@@ -119,9 +119,12 @@ public partial class BarrierVisual : Node3D
                     float edge = 1.0 - smoothstep(0.0, 0.028, min(min(UV.x, 1.0 - UV.x), min(UV.y, 1.0 - UV.y)));
                     float sweep = pow(0.5 + 0.5 * sin(UV.y * 7.0 - clock * 2.4), 12.0);
                     float scars = pow(0.5 + 0.5 * sin(UV.x * 37.0 + UV.y * 19.0), 28.0) * (1.0 - integrity);
+                    float runes = pow(abs(sin(UV.x * span * 5.0 + clock * 0.22)), 18.0)
+                        * pow(abs(sin(UV.y * 14.0 + UV.x * 9.0)), 8.0);
                     ALBEDO = mix(barrier_color.rgb * 0.72, barrier_color.rgb, grid * 0.7 + edge * 0.3);
                     ALBEDO = mix(ALBEDO, vec3(1.0), hit_flash * 0.18);
-                    EMISSION = barrier_color.rgb * (0.04 + reinforcement * 0.025 + hit_flash * 0.14);
+                    EMISSION = barrier_color.rgb * (0.075 + reinforcement * 0.025
+                        + runes * 0.28 + hit_flash * 0.14);
                     ALPHA = fade * clamp(0.42 + edge * 0.48 + grid * 0.24
                         + reinforcement * 0.06 + sweep * 0.05 + scars * 0.20 + hit_flash * 0.12, 0.0, 0.94);
                 }
@@ -207,6 +210,7 @@ public partial class BarrierVisual : Node3D
             _approvedWallArt[i] = sprite;
         }
         BuildElements(wall, length, stone);
+        BuildStyleBCrests(length, stone);
     }
 
     private static ArrayMesh StoneMesh(Vector3 size, int seed)
@@ -266,6 +270,7 @@ public partial class BarrierVisual : Node3D
             sprite.Modulate = new Color(1, 1, 1, (i == 0 ? 0.62f : 0.36f) * fade);
         }
         UpdateElements(fade, time);
+        UpdateStyleBCrests(time);
         Visible = wall.Health > 0 && wall.Lifetime > 0;
     }
 }

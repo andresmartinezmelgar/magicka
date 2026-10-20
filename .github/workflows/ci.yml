@@ -829,3 +829,45 @@ jobs:
             test "$attempt" -lt 3 || exit 1
             sleep 3
           done
+
+
+  cleanup-integrated-branches-0270:
+    name: Limpiar ramas integradas de 0.27.0
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build, docker-server, firestore-rules, visual-audit, package-windows, package-android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Eliminar solo las ramas incluidas en esta integración
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            if (fs.readFileSync('VERSION', 'utf8').trim() !== '0.27.0') return;
+            const { owner, repo } = context.repo;
+            const main = await github.rest.repos.getBranch({ owner, repo, branch: 'main' });
+            if (main.data.commit.sha !== context.sha) {
+              core.info('main ha avanzado; no se limpian ramas desde una revisión antigua.');
+              return;
+            }
+            const branches = [{"name":"feature/escudos-estilo-b-ingame","sha":"b0a9d340a515770711005784b11a1bbbb78b39f6"},{"name":"feature/escudos-visuales-estilo-b","sha":"0ca7d328a967f53d2182ba2ccf920634df1f1dfb"},{"name":"feature/supervivencia-enemigos-escalado","sha":"ea0fb3011f2d687c53a6f6295de8412e6fbfd61f"},{"name":"feature/supervivencia-ia-hechizos-conos","sha":"c11c2a3f632e0761d1de4fcccdfaf63bf0e9fa01"},{"name":"codex/bestiario-afijos-reliquias","sha":null}];
+            for (const branch of branches) {
+              let current;
+              try { current = await github.rest.repos.getBranch({ owner, repo, branch: branch.name }); }
+              catch (error) { if (error.status === 404) continue; throw error; }
+              if (branch.sha && current.data.commit.sha !== branch.sha) {
+                core.setFailed('La rama ha avanzado y se conserva: ' + branch.name);
+                continue;
+              }
+              const comparison = await github.rest.repos.compareCommits({
+                owner, repo, base: current.data.commit.sha, head: context.sha
+              });
+              if (!['ahead', 'identical'].includes(comparison.data.status)) {
+                core.setFailed('La rama contiene cambios sin integrar y se conserva: ' + branch.name);
+                continue;
+              }
+              await github.rest.git.deleteRef({ owner, repo, ref: 'heads/' + branch.name });
+              core.info('Rama integrada eliminada: ' + branch.name);
+            }

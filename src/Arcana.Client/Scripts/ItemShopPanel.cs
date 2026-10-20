@@ -118,6 +118,7 @@ public partial class ItemShopPanel : Control
                 Ui.TableCell(stats, EquipmentCatalogue.Percent(bonus.Current), true, bonus.Current < 0 ? Ui.Red : Ui.Blue);
                 Ui.TableCell(stats, EquipmentCatalogue.StatName(bonus.Stat)).TooltipText = EquipmentCatalogue.Percent(bonus.Minimum) + " / " + EquipmentCatalogue.Percent(bonus.Maximum);
             }
+            if (offer.Item.Affix != null) Wrapped(box, "Especial: " + ItemAffixes.Describe(offer.Item.Affix), 16, Ui.Gold);
             var purchaseRow = new HBoxContainer(); purchaseRow.AddThemeConstantOverride("separation", 6); box.AddChild(purchaseRow);
             var compare = Ui.Button("Comparar", () =>
             {

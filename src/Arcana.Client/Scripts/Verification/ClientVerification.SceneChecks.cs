@@ -164,7 +164,7 @@ public partial class ClientVerification
             _runtime.Renderer.Clear(); valid &= effects.ActiveCount == 0 && _runtime.Renderer.ActiveBeamSegments == 0;
             if (valid) CompleteSmoke("EFFECTS_SMOKE_OK: 1/2/3 cargas, elementos repetidos, 12 eventos, límites, expiración, reutilización y limpieza");
         }
-        if (!valid) { GD.PushError("EFFECTS_SMOKE_FAILED: efectos o tipo de mago inválidos"); GetTree().Quit(1); }
+        if (!valid) { GD.PushError($"EFFECTS_SMOKE_FAILED: frame={_renderFrames}, active={effects.ActiveCount}, particles={effects.ActiveParticles}, rings={effects.ActiveRings}, pool={effects.PooledCount}, emitted={effects.EmittedLastFrame}, kinds={string.Join(",", effects.SeenKinds)}, charges={string.Join(",", effects.SeenCharges)}, affinity={((Label)_runtime.Hud!.FindChild("WizardAffinity", true, false)).Text}"); GetTree().Quit(1); }
     }
     private bool CheckSpellStrength()
     {

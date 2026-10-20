@@ -51,12 +51,7 @@ public partial class DefensePanel : Control
         var stack = new VBoxContainer(); stack.AddThemeConstantOverride("separation", 5); _summary.AddChild(stack);
         _stats = Ui.Label("", Ui.IsMobile ? 13 : 15); _stats.AutowrapMode = TextServer.AutowrapMode.WordSmart; _stats.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 13 : 15); stack.AddChild(_stats);
         _metrics = Ui.Label("", 12, Ui.Muted); _metrics.AutowrapMode = TextServer.AutowrapMode.WordSmart; _metrics.AddThemeFontSizeOverride("font_size", 12); stack.AddChild(_metrics);
-        var bonusScroll = new ContentScrollContainer { Name = "DefenseBonusScroll", CustomMinimumSize = new(0, 112),
-            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-        stack.AddChild(bonusScroll); Ui.VisibleVerticalScroll(bonusScroll);
-        _bonuses = Ui.Label("Sin bonificaciones", 13, Ui.Gold); _bonuses.Name = "DefenseVerticalBonuses";
-        _bonuses.AutowrapMode = TextServer.AutowrapMode.WordSmart; _bonuses.SizeFlagsHorizontal = SizeFlags.ExpandFill; bonusScroll.AddChild(_bonuses);
-        var open = Ui.Button("Equipo / tienda", OpenShop); open.Name = "DefenseShopButton";
+                var open = Ui.Button("Equipo / tienda", OpenShop); open.Name = "DefenseShopButton";
         open.CustomMinimumSize = new(0, Ui.IsMobile ? 46 : 40); stack.AddChild(open);
         _shop = new Control { Name = "DefenseShop", Visible = false }; AddChild(_shop); Ui.Full(_shop);
         var shade = new ColorRect { Color = new(0.01f, 0.025f, 0.045f, 0.94f), MouseFilter = MouseFilterEnum.Stop };
@@ -74,7 +69,7 @@ public partial class DefensePanel : Control
         _shopStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart; body.AddChild(_shopStatus);
         _navigation = new GridContainer { Columns = 5 }; _navigation.AddThemeConstantOverride("h_separation", 4);
         _navigation.AddThemeConstantOverride("v_separation", 4); body.AddChild(_navigation);
-        string[] names = ["Partida", "Equipo", "Poderes", "Estadísticas", "Guía"];
+        string[] names = ["Partida", "Equipo", "Poderes", "Estadísticas", "Guía", "Reliquias"];
         for (int i = 0; i < names.Length; i++)
         {
             int section = i;
@@ -90,6 +85,9 @@ public partial class DefensePanel : Control
             var section = new VBoxContainer { Name = "DefenseSection" + i, SizeFlagsHorizontal = SizeFlags.ExpandFill, Visible = i == 0 };
             section.AddThemeConstantOverride("separation", 10); content.AddChild(section); _sections.Add(section);
         }
+        _bonuses = Wrapped(_sections[5], "Sin mejoras recogidas", 18, Ui.Gold);
+        _bonuses.Name = "DefenseCollectedRelics";
+        Wrapped(_sections[5], "Las reliquias recogidas se conservan durante esta partida. Sus efectos están separados del equipo.", 16, Ui.Muted);
         var survival = _sections[0];
         _result = Wrapped(survival, "", 18, Ui.Gold);
         Wrapped(survival, "Tienes dos vidas: tras la primera muerte reapareces; la segunda te elimina. En cooperativo la partida sigue mientras quede un humano con vidas.", 16);
@@ -210,7 +208,7 @@ public partial class DefensePanel : Control
         _summary.Position = new(22 * scale, 194 * scale + ScreenPlacement.MinimumGap);
         _window.CustomMinimumSize = new(Math.Min(790, size.X - 28), Math.Min(700, size.Y - 28));
         _window.Size = _window.CustomMinimumSize;
-        _navigation.Columns = size.X < 660 ? 3 : 5;
+        _navigation.Columns = size.X < 660 ? 3 : 6;
     }
 
     public void Update(WorldSnapshot snapshot, int id, bool online, bool rewardsAvailable)
@@ -286,7 +284,7 @@ public partial class DefensePanel : Control
         if (_lastBonuses != null && _lastBonuses.AsSpan().SequenceEqual(buffs)) return;
         _lastBonuses = buffs;
         _bonuses.Text = buffs.Length > 0 ? "MEJORAS RECOGIDAS\n" +
-            string.Join("\n", buffs.Select(b => RelicBuffs.Name(b.Kind) + " ×" + b.Stacks)) : "Sin mejoras recogidas";
+            string.Join("\n\n", buffs.Select(b => RelicBuffs.Name(b.Kind) + " ×" + b.Stacks + "\n" + RelicBuffs.Description(b.Kind))) : "Sin mejoras recogidas";
     }
 
     private void UpdateTotals()

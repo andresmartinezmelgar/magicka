@@ -72,13 +72,13 @@ public sealed partial class GameWorld
     }
 
     private V2 BeamEnd(V2 from, V2 direction, float range, int ignoredWizard, out Wall? wall, out Wizard? target,
-        int owner, BeamPart[]? parts = null)
+        int owner, BeamPart[]? parts = null, HashSet<int>? pierced = null)
     {
         var end = RayEnd(from, direction, range, out wall, owner, parts);
         target = null; float nearest = 1;
         foreach (var player in _combatants.Values)
         {
-            if (!player.Alive || player.Id == ignoredWizard) continue;
+            if (!player.Alive || player.Id == ignoredWizard || pierced?.Contains(player.Id) == true) continue;
             float radius = IsDefense && _minions.TryGetValue(player.Id, out var minion) && minion.Kind == MinionKind.Boss ? 1.4f : player.Shield > 0 && player.ShieldTime > 0 ? 0.95f : 0.6f;
             if (Geometry.SegmentCircle(from, end, player.Position, radius) is not float t || t >= nearest) continue;
             nearest = t; target = player;
@@ -122,9 +122,12 @@ public sealed partial class GameWorld
     private void TraceBeam(V2 from, V2 direction, float range, BeamPart[] parts, int owner, int ignoredWizard,
         float dt, string interaction)
     {
-        for (int bounce = 0; bounce <= 2 && range > 0.08f; bounce++)
+        int penetrations = parts.Where(p => !p.Recipe.Healing).Select(p =>
+            _combatants.TryGetValue(p.Owner, out var source) ? source.Equipment.BeamPierce : 0).DefaultIfEmpty(0).Max();
+        HashSet<int>? pierced = penetrations > 0 ? [] : null;
+        for (int step = 0, bounce = 0; step < 6 && range > 0.08f; step++)
         {
-            var end = BeamEnd(from, direction, range, ignoredWizard, out var wall, out var target, owner, parts);
+            var end = BeamEnd(from, direction, range, ignoredWizard, out var wall, out var target, owner, parts, pierced);
             AddBeam(owner, from, end, parts, interaction);
             range -= V2.Distance(from, end);
             V2 normal;
@@ -139,7 +142,12 @@ public sealed partial class GameWorld
                 if (target.Shield <= 0 || target.ShieldTime <= 0 || alliedHealing)
                 {
                     foreach (var part in parts) Hit(target, part.Recipe, dt * part.Scale, part.Owner, direction, part.DamageMultiplier);
-                    return;
+                    bool hostile = parts.Any(part => !part.Recipe.Healing &&
+                        _combatants.TryGetValue(part.Owner, out var source) && Hostile(source, target));
+                    if (penetrations <= 0 || !hostile) return;
+                    penetrations--; pierced!.Add(target.Id);
+                    from = end + direction * 0.04f; range = Math.Max(0, range - 0.04f);
+                    continue;
                 }
                 foreach (var part in parts)
                     if (!_combatants.TryGetValue(part.Owner, out var source) || source.Id == target.Id || !Allied(source, target) || Options.FriendlyFire && !IsDefense)
@@ -169,7 +177,8 @@ public sealed partial class GameWorld
                 reflector = wall.Owner;
             }
             else return;
-            if (bounce == 2) return;
+            if (bounce++ == 2) return;
+            penetrations = 0; // Reflection ends penetration from the original caster.
             direction = (direction - normal * (2 * V2.Dot(direction, normal))).Normalized;
             parts = parts.Select(p => p with { Owner = reflector, Scale = p.Scale * 0.8f }).ToArray();
             interaction = ward.Length > 0 ? "refracted" : "reflected";

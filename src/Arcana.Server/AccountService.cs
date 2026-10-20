@@ -132,6 +132,12 @@ public sealed class AccountService
         else _ = await GameRequest<ApiError>("award", match, null, token);
     }
 
+    public async Task SaveBestiaryGame(BestiaryProgress progress, CancellationToken token)
+    {
+        if (Enabled) await Repository!.SaveBestiary(progress, token);
+        else _ = await GameRequest<ApiError>("bestiary", progress, null, token);
+    }
+
     public AccountService(AccountOptions options, IAccountIdentityVerifier? verifier = null, IAccountRepository? repository = null)
     {
         Options = options;

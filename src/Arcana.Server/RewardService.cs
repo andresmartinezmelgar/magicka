@@ -11,6 +11,15 @@ public sealed class RewardService(AccountService accounts, ILogger<RewardService
     private readonly string _directory = string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ARCANA_REWARD_OUTBOX"))
         ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ArcanaArena", "rewards")
         : Path.GetFullPath(Environment.GetEnvironmentVariable("ARCANA_REWARD_OUTBOX")!);
+    private BestiaryOutbox? _bestiaryQueue;
+    private BestiaryOutbox BestiaryQueue
+    { get { lock (_journalGate) return _bestiaryQueue ??= new(Path.Combine(_directory, "bestiary")); } }
+    public bool EnqueueBestiary(BestiaryProgress progress)
+    {
+        try { BestiaryQueue.Enqueue(progress); return true; }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        { logger.LogWarning(error, "Bestiario pendiente de guardar; se reintentará."); return false; }
+    }
     public event Action<RewardMatch>? Delivered;
 
     /// <returns>True cuando el hito ya está guardado en disco, aunque el servicio de cuentas esté caído.</returns>
@@ -83,6 +92,20 @@ public sealed class RewardService(AccountService accounts, ILogger<RewardService
                     PrepareDirectory();
                     RecoverInterruptedWrites();
                     foreach (var match in _unwritten.Values) Persist(match);
+                    if (accounts.GameEnabled)
+                    foreach (var progress in BestiaryQueue.Pending())
+                    {
+                        string retryKey = "bestiary:" + progress.Uid + ":" + progress.RunId;
+                        if (retry.TryGetValue(retryKey, out var nextBestiary) && nextBestiary > DateTimeOffset.UtcNow) continue;
+                        try
+                        {
+                            await accounts.SaveBestiaryGame(progress, stoppingToken);
+                            BestiaryQueue.Acknowledge(progress); retry.Remove(retryKey);
+                        }
+                        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { throw; }
+                        catch (Exception error)
+                        { logger.LogWarning(error, "Bestiario pendiente de sincronizar; se reintentará."); retry[retryKey] = DateTimeOffset.UtcNow.AddSeconds(15); }
+                    }
                     // Sin conexión o sin configuración de cuentas, el diario sigue conservando todos los premios.
                     if (accounts.GameEnabled)
                     foreach (string path in Directory.EnumerateFiles(_directory, "*.json"))

@@ -51,6 +51,14 @@ app.MapPost("/internal/award", async (HttpContext context, AccountService accoun
     return Results.Json(new ApiError(""), Protocol.Json);
 });
 
+app.MapPost("/internal/bestiary", async (HttpContext context, AccountService accounts, BestiaryProgress progress) =>
+{
+    if (!Authorized(context)) return Results.Unauthorized();
+    if (!BestiaryCatalogue.Valid(progress)) return Results.BadRequest();
+    await accounts.Repository!.SaveBestiary(progress, context.RequestAborted);
+    return Results.Json(new ApiError(""), Protocol.Json);
+});
+
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "accounts", version = BuildInfo.Version }));
 app.MapGet("/", () => Results.Text("Arcana Arena · servicio independiente de cuentas"));
 await app.RunAsync();

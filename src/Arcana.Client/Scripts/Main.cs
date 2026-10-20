@@ -296,6 +296,7 @@ public partial class Main : Node
     {
         _playing = true; _paused = false; _moveTo = false; _snapshotAge = 0; _lastTick = -1;
         ClosePlayerEquipment();
+        BeginLocalBestiary();
         _inputTime = 0;
         _networkStatsTime = 0; _statsConnection = null; _previousSent = _previousReceived = 0;
         Diagnostics.Info("game.start", "Partida iniciada.", Context());
@@ -323,6 +324,8 @@ public partial class Main : Node
         CancelReconnect();
         CancelGameLoading();
         CancelPendingConnection();
+        CaptureLocalBestiary(); _localBestiaryRun = ""; _localBestiaryUid = ""; _bestiaryClock = 10;
+        CloseRelics();
         if (_playing) Diagnostics.Info("game.leave", "Vuelta al launcher.", Context());
         ClosePlayerEquipment();
         _defensePanel?.QueueFree(); _defensePanel = null;
@@ -363,6 +366,7 @@ public partial class Main : Node
                 if (_verification?.FailFrame(e) == true) return;
             }
         TickGoogleAuth(delta);
+        TickBestiary(delta);
         _renderFrames++;
         if (CheckDesktopHeaderSmoke()) return;
         if (CheckMobileMenuSmoke()) return;
@@ -540,7 +544,7 @@ public partial class Main : Node
     private void Submit(ClientMessage message)
     {
         if (Loading) return;
-        if (_practice != null) { message.Sequence = ++_localSequence; if (message.Type == "defense_restart") _practice.RestartDefense(); else _practice.ApplyMessage(_localId, message); }
+        if (_practice != null) { message.Sequence = ++_localSequence; if (message.Type == "defense_restart") { CaptureLocalBestiary(); if (_practice.RestartDefense()) BeginLocalBestiary(); } else _practice.ApplyMessage(_localId, message); }
         else _connection?.Send(message);
     }
     public override void _UnhandledInput(InputEvent input)
@@ -561,11 +565,13 @@ public partial class Main : Node
             if (key.PhysicalKeycode == Key.F1) { if (!InspectingEquipment) ToggleHelp(); GetViewport().SetInputAsHandled(); return; }
             if (key.PhysicalKeycode == Key.Escape)
             {
-                if (ControlsOpen) _controlsSettings!.HandleBack();
+                if (GodotObject.IsInstanceValid(_relicWindow) && _relicWindow!.Visible) CloseRelics();
+                else if (ControlsOpen) _controlsSettings!.HandleBack();
                 else if (GodotObject.IsInstanceValid(_itemShopPanel)) _itemShopPanel!.HandleBack();
                 else if (_defensePanel?.ShopOpen == true) _defensePanel.HandleBack();
                 else if (InspectingEquipment) ClosePlayerEquipment();
                 else if (GodotObject.IsInstanceValid(_equipmentPanel)) _equipmentPanel!.HandleBack();
+                else if (GodotObject.IsInstanceValid(_bestiaryPanel)) CloseBestiary();
                 else if (GodotObject.IsInstanceValid(_accountProfilePanel)) CloseAccountProfile();
                 else if (GodotObject.IsInstanceValid(_optionAHelp)) CloseOptionAHelp();
                 else if (_help.Visible) { _help.Visible = false; UpdateTouchVisibility(); }
@@ -619,6 +625,7 @@ public partial class Main : Node
     private void TogglePause()
     {
         _paused = !_paused; _pause.Visible = _paused;
+        if (_relicMenuButton != null) _relicMenuButton.Visible = HasRelics;
         if (_paused) StopInput();
         UpdateTouchVisibility();
     }
@@ -769,6 +776,8 @@ public partial class Main : Node
         var root = Modal(out var box); box.AddChild(Ui.Label("PARTIDA", 30, Ui.Gold));
         box.AddChild(Ui.Label("En red, la partida continúa mientras estás en este menú.", 17, Ui.Muted));
         box.AddChild(Ui.Button("Continuar", TogglePause, true));
+        _relicMenuButton = Ui.Button("Reliquias recogidas", OpenRelics);
+        _relicMenuButton.Name = "PauseRelics"; _relicMenuButton.Visible = false; box.AddChild(_relicMenuButton);
         box.AddChild(Ui.Button("Volver al launcher", () => ReturnToLauncher()));
         box.AddChild(Ui.Button("Exportar diagnóstico", ExportDiagnostics));
         _diagnosticStatus = Ui.Label("", 15, Ui.Muted); _diagnosticStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -819,6 +828,7 @@ public partial class Main : Node
     }
     public override void _ExitTree()
     {
+        CaptureLocalBestiary();
         RenderingServer.FramePostDraw -= FrameDrawn;
         GetViewport().SizeChanged -= UpdateInGameHelpResponsive;
         CancelGameLoading();

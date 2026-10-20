@@ -155,6 +155,7 @@ PerformanceRegressionTests.Run(Test);
 LoadingTests.Run(Test);
 ElementInteractionTests.Run(Test);
 EquipmentTests.Run(Test);
+BestiaryAndAffixTests.Run(Test);
 AccountLoadoutTests.Run(Test);
 UsabilityTests.Run(Test);
 AccountSessionTests.Run(Test);

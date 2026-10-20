@@ -6,10 +6,10 @@ namespace Arcana.Core;
 
 public static class Protocol
 {
-    public const int Version = 27;
+    public const int Version = 28;
     public const int GamePort = 27015;
     public const int DiscoveryPort = 27016;
-    public const string DiscoveryMagic = "ARCANA_DISCOVER_V27";
+    public const string DiscoveryMagic = "ARCANA_DISCOVER_V28";
     public const int LoadingTimeoutSeconds = 120;
     public const int MaxMessageBytes = 4096;
     public static readonly JsonSerializerOptions Json = new()

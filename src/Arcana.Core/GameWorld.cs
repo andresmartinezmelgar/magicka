@@ -443,6 +443,8 @@ public sealed partial class GameWorld
                     _beams.Add(new(p.Id, last, target.Position, spell.Elements, spell.Shape));
                     last = target.Position;
                 }
+                if (targets.Count > 0 && p.Equipment.LightningChains > 0)
+                    ChainEquipmentLightning(p, spell, targets.Take(3).Select(t => t.Target).ToArray(), dt);
                 if (targets.Count == 0) _beams.Add(new(p.Id, from, end, spell.Elements, spell.Shape));
                 return;
             }
@@ -472,6 +474,7 @@ public sealed partial class GameWorld
             p.ShieldTime = p.WardTime;
             p.ShieldCharges = spell.Elements.Length;
             p.RegenerationRate = 38 * spell.Count(Element.Life);
+            if (spell.Has(Element.Water) && p.Equipment.WaterShieldPool) CreateEquipmentWaterPool(p);
         }
         else if (spell.Healing)
         {
@@ -615,7 +618,7 @@ public sealed partial class GameWorld
         {
             if (target.Wet > 0) target.Wet = Math.Max(0, target.Wet - 12 * scale);
             else { target.Burning = SpellBalance.BurnDuration * (_combatants.TryGetValue(owner, out var burner) ? burner.Equipment.BurnDuration : 1);
-                target.BurnOwner = owner; target.BurnMultiplier = Outgoing(owner, Element.Fire); }
+                target.BurnOwner = owner; target.BurnMultiplier = Outgoing(owner, Element.Fire) * equipment.BurnPotency; }
             target.Chill = Math.Max(0, target.Chill - 100 * scale);
             target.Frozen = Math.Max(0, target.Frozen - 5 * scale);
         }
@@ -747,6 +750,14 @@ public sealed partial class GameWorld
         {
             f.Lifetime -= dt; f.Delay -= dt;
             if (f.Lifetime <= 0 || f.Delay > 0) continue;
+            if (f.Kind == "equipment_water_pool")
+            {
+                foreach (var target in _combatants.Values)
+                    if (target.Alive && target.Invulnerable <= 0 && V2.Distance(target.Position, f.Position) < f.Radius &&
+                        Visible(f.Position, target.Position, f.Owner))
+                    { target.Wet = Math.Max(target.Wet, 1); target.Burning = 0; }
+                continue;
+            }
             if (f.Kind is "burning_ground" or "frost_ground" or "water_pool")
             {
                 foreach (var p in _combatants.Values)

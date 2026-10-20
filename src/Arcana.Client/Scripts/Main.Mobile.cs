@@ -83,11 +83,13 @@ public partial class Main
         if (_reconnecting && what == NotificationWMGoBackRequest) { ReturnToLauncher(); return; }
         if (what == NotificationWMGoBackRequest)
         {
-            if (ControlsOpen) _controlsSettings!.HandleBack();
+            if (GodotObject.IsInstanceValid(_relicWindow) && _relicWindow!.Visible) CloseRelics();
+            else if (ControlsOpen) _controlsSettings!.HandleBack();
             else if (GodotObject.IsInstanceValid(_itemShopPanel)) _itemShopPanel!.HandleBack();
             else if (_defensePanel?.ShopOpen == true) _defensePanel.HandleBack();
             else if (InspectingEquipment) ClosePlayerEquipment();
             else if (GodotObject.IsInstanceValid(_equipmentPanel)) _equipmentPanel!.HandleBack();
+            else if (GodotObject.IsInstanceValid(_bestiaryPanel)) CloseBestiary();
             else if (GodotObject.IsInstanceValid(_accountProfilePanel)) CloseAccountProfile();
             else if (GodotObject.IsInstanceValid(_optionAHelp)) CloseOptionAHelp();
             else if (_help.Visible) { _help.Visible = false; UpdateTouchVisibility(); }
@@ -96,7 +98,7 @@ public partial class Main
         }
         if ((long)what is NotificationApplicationPaused or NotificationApplicationFocusOut && _playing)
         {
-            StopInput();
+            StopInput(); CaptureLocalBestiary();
             if (!_paused && !_help.Visible) TogglePause();
         }
     }

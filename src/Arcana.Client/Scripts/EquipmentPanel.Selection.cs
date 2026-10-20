@@ -104,6 +104,7 @@ public partial class EquipmentPanel
             var equippedLabel = Ui.Label(selected ? "EQUIPADA" : "Sin equipar", 15, selected ? Ui.Gold : Ui.Muted);
             equippedLabel.MouseFilter = MouseFilterEnum.Ignore; description.AddChild(equippedLabel);
             string attributes = string.Join("\n", item.Bonuses.Select(b => StatName(b.Stat) + " " + EquipmentCatalogue.Percent(b.Current)));
+            if (item.Affix != null) attributes += "\nEspecial: " + ItemAffixes.Describe(item.Affix);
             var stats = Ui.Label(attributes, Ui.IsMobile ? 18 : 17);
             stats.Name = "EquipmentItemStats_" + item.Id;
             stats.AutowrapMode = TextServer.AutowrapMode.WordSmart;

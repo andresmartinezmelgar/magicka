@@ -39,6 +39,13 @@ public static class AccountEndpoints
             return new InventoryResult(await accounts.Repository.Profile(user.Uid, user.Name, context.RequestAborted),
                 gold > 0 ? $"Objeto eliminado: +{gold} de oro." : "Esta venta ya estaba registrada.");
         }));
+        app.MapPost("/account/bestiary", (BestiaryProgress progress, AccountService accounts, HttpContext context) => Auth(accounts, context, async user =>
+        {
+            if (progress.Uid != user.Uid || !BestiaryCatalogue.Valid(progress)) throw new ArgumentException("Registro de bestiario inválido.");
+            if (accounts.Repository == null) throw new InvalidOperationException("El servicio de cuentas no está disponible.");
+            await accounts.Repository.SaveBestiary(progress, context.RequestAborted);
+            return new InventoryResult(await accounts.Repository.Profile(user.Uid, user.Name, context.RequestAborted), "Bestiario guardado.");
+        }));
         app.MapPost("/account/logout", (AccountService accounts, HttpContext context) => Auth(accounts, context, user =>
         { accounts.Logout(Bearer(context)); return Task.FromResult<object>(new ApiError("")); }));
     }

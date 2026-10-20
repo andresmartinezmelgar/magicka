@@ -13,7 +13,10 @@ public enum EquipmentStat { MovementSpeed, SpellRange, Defense, Power, HealingPo
 // Los intervalos pertenecen a la instancia: una nueva versión del catálogo no vuelve a sortear un objeto.
 public sealed record ItemBonus(EquipmentStat Stat, float Minimum, float Maximum, float Current);
 public sealed record EquipmentItem(string Id, EquipmentSlot Slot, ItemTier Tier, EquipmentFamily Family,
-    ItemBonus[] Bonuses, int SaleGold, int GenerationVersion = 1, string SourceMatchId = "", DateTimeOffset CreatedAt = default);
+    ItemBonus[] Bonuses, int SaleGold, int GenerationVersion = 1, string SourceMatchId = "", DateTimeOffset CreatedAt = default)
+{
+    public ItemAffix? Affix { get; init; }
+}
 public sealed record EquipmentLoadout(string Boots = "", string Hat = "", string Chest = "", string Weapon = "")
 {
     public string Get(EquipmentSlot slot) => slot switch { EquipmentSlot.Boots => Boots, EquipmentSlot.Hat => Hat, EquipmentSlot.Chest => Chest, _ => Weapon };
@@ -21,7 +24,10 @@ public sealed record EquipmentLoadout(string Boots = "", string Hat = "", string
     { EquipmentSlot.Boots => this with { Boots = id }, EquipmentSlot.Hat => this with { Hat = id }, EquipmentSlot.Chest => this with { Chest = id }, _ => this with { Weapon = id } };
 }
 public sealed record AccountProfile(string Uid, string Name, long Gold, int Wins, int Losses, EquipmentLoadout Loadout,
-    EquipmentItem[] Items, int SchemaVersion = 1);
+    EquipmentItem[] Items, int SchemaVersion = 1)
+{
+    public Dictionary<string, long> Bestiary { get; init; } = new(StringComparer.Ordinal);
+}
 public sealed record InventoryRequest(string ItemId, EquipmentSlot Slot = EquipmentSlot.Boots);
 public sealed record InventoryResult(AccountProfile Profile, string Message);
 public sealed record EquipmentAppearance(ItemTier? Boots = null, ItemTier? Hat = null, ItemTier? Chest = null, ItemTier? Weapon = null,
@@ -59,6 +65,10 @@ public sealed record EquipmentModifiers
     public float WetLightningPower { get; init; } = 1;
     public float BeamChargeSpeed { get; init; } = 1;
     public float RockChargeSpeed { get; init; } = 1;
+    public int BeamPierce { get; init; }
+    public int LightningChains { get; init; }
+    public float BurnPotency { get; init; } = 1;
+    public bool WaterShieldPool { get; init; }
     public int LifePieces { get; init; }
     public int ShieldPieces { get; init; }
     public int FirePieces { get; init; }
@@ -97,6 +107,8 @@ public sealed record EquipmentModifiers
         var sets = new int[Enum.GetValues<EquipmentFamily>().Length];
         var tiers = new ItemTier?[4];
         var families = new int[sets.Length];
+        int beamPierce = 0, lightningChains = 0;
+        bool doubleBurn = false, waterPool = false;
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
             string id = profile.Loadout.Get(slot);
@@ -104,6 +116,14 @@ public sealed record EquipmentModifiers
             var item = profile.Items.SingleOrDefault(i => i.Id == id);
             if (item == null || item.Slot != slot || !EquipmentCatalogue.Valid(item)) throw new InvalidDataException("Equipamiento inválido o ajeno.");
             tiers[(int)slot] = item.Tier; families[(int)item.Family]++;
+            if (item.Affix is { } affix)
+                switch (affix.Kind)
+                {
+                    case ItemAffixKind.BeamPierce: beamPierce = Math.Max(beamPierce, affix.Value); break;
+                    case ItemAffixKind.LightningChain: lightningChains = Math.Max(lightningChains, affix.Value); break;
+                    case ItemAffixKind.DoubleBurn: doubleBurn = true; break;
+                    case ItemAffixKind.WaterShieldPool: waterPool = true; break;
+                }
             foreach (var b in item.Bonuses) stats[(int)b.Stat] += b.Current;
             if (item.Tier == ItemTier.Mythic) sets[(int)item.Family]++;
         }
@@ -115,6 +135,8 @@ public sealed record EquipmentModifiers
         var dominant = Enumerable.Range(1, families.Length - 1).OrderByDescending(i => families[i]).ThenBy(i => i).First();
         var modifiers = new EquipmentModifiers
         {
+            BeamPierce = beamPierce, LightningChains = lightningChains,
+            BurnPotency = doubleBurn ? 2 : 1, WaterShieldPool = waterPool,
             Speed = 1 + Bonus(EquipmentStat.MovementSpeed), Range = 1 + Bonus(EquipmentStat.SpellRange),
             Incoming = 1 - Bonus(EquipmentStat.Defense), Power = 1 + Bonus(EquipmentStat.Power),
             Healing = 1 + Bonus(EquipmentStat.HealingPower), Fire = 1 + Bonus(EquipmentStat.FirePower),
@@ -135,7 +157,7 @@ public sealed record EquipmentModifiers
 
 public static partial class EquipmentCatalogue
 {
-    public const int GenerationVersion = 2, InventoryLimit = 500;
+    public const int GenerationVersion = 3, InventoryLimit = 500;
     private static readonly int[] Sales = [10, 25, 60, 150, 400];
     private static readonly float[] MainMin = [0.01f, 0.02f, 0.03f, 0.06f, 0.08f], MainMax = [0.05f, 0.07f, 0.09f, 0.11f, 0.13f];
     private static readonly float[] ExtraMin = [-0.04f, -0.03f, -0.02f, 0.04f, 0.07f], ExtraMax = [0.06f, 0.08f, 0.10f, 0.10f, 0.14f];
@@ -220,7 +242,8 @@ public static partial class EquipmentCatalogue
             var b = bonuses[n]; float decrease = Math.Min(excess, Math.Max(0, b.Current - Math.Max(0, b.Minimum)));
             bonuses[n] = b with { Current = MathF.Round(b.Current - decrease, 4) }; excess -= decrease;
         }
-        return new(id ?? Guid.NewGuid().ToString("N"), position, quality, identity, bonuses.ToArray(), Sales[t], GenerationVersion, sourceMatchId, DateTimeOffset.UtcNow);
+        return new(id ?? Guid.NewGuid().ToString("N"), position, quality, identity, bonuses.ToArray(), Sales[t], GenerationVersion, sourceMatchId, DateTimeOffset.UtcNow)
+        { Affix = ItemAffixes.Roll(random, quality) };
     }
     public static int TierChance(ItemTier tier) => tier switch
     { ItemTier.Silver => 48, ItemTier.Gold => 27, ItemTier.Platinum => 15, ItemTier.Diamond => 8, ItemTier.Mythic => 2, _ => 0 };
@@ -232,6 +255,7 @@ public static partial class EquipmentCatalogue
     }
     public static bool Valid(EquipmentItem item) => item != null && Guid.TryParseExact(item.Id, "N", out _) &&
         Enum.IsDefined(item.Slot) && Enum.IsDefined(item.Tier) && Enum.IsDefined(item.Family) && item.GenerationVersion > 0 &&
+        ItemAffixes.Valid(item.Affix, item.Tier) &&
         item.SaleGold is > 0 and <= 100000 && item.Bonuses is { Length: >= 1 and <= 4 } &&
         item.Bonuses.Select(b => b.Stat).Distinct().Count() == item.Bonuses.Length && item.Bonuses.Any(b => b.Current > 0) &&
         item.Bonuses.All(b => Enum.IsDefined(b.Stat) && float.IsFinite(b.Minimum) && float.IsFinite(b.Maximum) && float.IsFinite(b.Current) &&

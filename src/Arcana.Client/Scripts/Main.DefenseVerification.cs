@@ -119,10 +119,12 @@ public partial class Main
                 GD.Print($"SURVIVAL_PRELOAD_OK: {_renderer.PreparedSurvivalSectors} sectores y {_renderer.PreparedMinionCapacity} enemigos preparados.");
                 Check(_renderer.FindChild("DefenseCastle", true, false) == null && panel.FindChild("DefenseRepairButton", true, false) == null,
                     "Sigue presente el castillo o su reparación.");
-                var bonuses = (Label)panel.FindChild("DefenseVerticalBonuses", true, false);
+                var bonuses = (Label)panel.FindChild("DefenseCollectedRelics", true, false);
                 Check(bonuses.Text.Contains("Energía ×2") && !bonuses.Text.Contains("TOTALES") && !bonuses.Text.Contains("Vida máxima extra") &&
-                    !bonuses.Text.Contains("Aura") && panel.SummaryRectForVerification.End.X < GetViewport().GetVisibleRect().Size.X / 2,
-                    "El lateral debe mostrar solo las mejoras recogidas.");
+                    !bonuses.Text.Contains("Aura") && !bonuses.IsVisibleInTree() &&
+                    panel.FindChild("DefenseBonusScroll", true, false) == null &&
+                    panel.SummaryRectForVerification.End.X < GetViewport().GetVisibleRect().Size.X / 2,
+                    "Las reliquias deben estar en su menú, sin ocupar el lateral.");
                 Check(!panel.FindChildren("*", "Button", true, false).OfType<Button>().Any(b => b.Text == "Volver al menú"),
                     "La tienda conserva el botón de volver al menú.");
                 panel.Update(state, _localId, false, false);

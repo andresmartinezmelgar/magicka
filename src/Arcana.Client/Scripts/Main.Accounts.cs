@@ -71,6 +71,7 @@ public partial class Main
             if (page != 4) _equipmentPanel.Close(() => NavigateOptionAMenu(page));
             return;
         }
+        CloseBestiary();
         CloseAccountProfile();
         CloseOptionAHelp();
         _launcher.CloseRooms();

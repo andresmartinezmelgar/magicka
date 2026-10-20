@@ -22,6 +22,7 @@ if (!Uri.TryCreate("http://" + emulator, UriKind.Absolute, out var emulatorUri) 
     throw new InvalidOperationException("Estas pruebas requieren FIRESTORE_EMULATOR_HOST apuntando a un emulador local; nunca usan la base real.");
 var database = new FirestoreDbBuilder { ProjectId = "demo-arcana-accounts", EmulatorDetection = EmulatorDetection.EmulatorOnly }.Build();
 var repository = new FirestoreAccountRepository(database);
+await BestiaryEmulatorTests.Run(database);
 string suffix = Guid.NewGuid().ToString("N");
 string alice = "alice_" + suffix, bob = "bob_" + suffix;
 var options = new AccountOptions("demo-arcana-accounts", "test-only-key", "demo-arcana-accounts.firebaseapp.com", "http://127.0.0.1:28339");

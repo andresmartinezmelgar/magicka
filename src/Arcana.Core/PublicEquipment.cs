@@ -1,7 +1,10 @@
 namespace Arcana.Core;
 
 public sealed record PublicEquipmentBonus(EquipmentStat Stat, float Current);
-public sealed record PublicEquipmentItem(EquipmentSlot Slot, ItemTier Tier, EquipmentFamily Family, PublicEquipmentBonus[] Bonuses);
+public sealed record PublicEquipmentItem(EquipmentSlot Slot, ItemTier Tier, EquipmentFamily Family, PublicEquipmentBonus[] Bonuses)
+{
+    public ItemAffix? Affix { get; init; }
+}
 public sealed record PublicEquipmentSet(EquipmentFamily Family, int Pieces);
 public sealed record EquipmentInspection(int PlayerId, string Name, WizardType WizardType, bool Bot, PublicEquipment Equipment);
 
@@ -15,7 +18,7 @@ public sealed record PublicEquipment(PublicEquipmentItem[] Items, PublicEquipmen
         var summary = EquipmentModifiers.Summarize(profile);
         var items = Enum.GetValues<EquipmentSlot>().Select(slot => profile.Items.FirstOrDefault(i => i.Id == profile.Loadout.Get(slot)))
             .Where(i => i != null).Select(i => new PublicEquipmentItem(i!.Slot, i.Tier, i.Family,
-                i.Bonuses.Select(b => new PublicEquipmentBonus(b.Stat, b.Current)).ToArray())).ToArray();
+                i.Bonuses.Select(b => new PublicEquipmentBonus(b.Stat, b.Current)).ToArray()) { Affix = i.Affix }).ToArray();
         var sets = EquipmentCatalogue.FocusedFamilies.Where(f => summary.Modifiers.Pieces(f) > 0)
             .Select(f => new PublicEquipmentSet(f, summary.Modifiers.Pieces(f))).ToArray();
         return new(summary.Modifiers, new(items, sets, summary.Stats));
@@ -34,7 +37,7 @@ public sealed record PublicEquipment(PublicEquipmentItem[] Items, PublicEquipmen
         foreach (var item in view.Items)
         {
             if (item == null || !Enum.IsDefined(item.Slot) || !slots.Add(item.Slot) || !Enum.IsDefined(item.Tier) ||
-                !Enum.IsDefined(item.Family) || item.Bonuses == null || item.Bonuses.Length is < 1 or > 4)
+                !Enum.IsDefined(item.Family) || !ItemAffixes.Valid(item.Affix, item.Tier) || item.Bonuses == null || item.Bonuses.Length is < 1 or > 4)
                 throw new InvalidDataException("Pieza pública inválida.");
             var bonuses = new HashSet<EquipmentStat>();
             foreach (var bonus in item.Bonuses)

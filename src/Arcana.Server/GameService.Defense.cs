@@ -12,15 +12,29 @@ public sealed partial class GameService
 
     private void RestartDefenseRoom(GameRoom room)
     {
+        foreach (var session in room.Sessions.Values) SaveSessionBestiary(session, force: true);
         if (!room.World.RestartDefense()) return;
+        foreach (var session in room.Sessions.Values) { session.BestiaryKillsSaved = 0; session.NextBestiaryAt = 0; }
         room.MatchId = Guid.NewGuid().ToString("N");
         room.DefenseRewards.Clear(); room.RewardStatus = "";
         foreach (var session in room.Sessions.Values)
             if (session.Account != null) room.World.AttachDefenseAccount(session.Id, session.Account.Uid);
     }
 
+    private void SaveSessionBestiary(PlayerSession session, bool force = false)
+    {
+        if (session.Account == null || !session.Room.World.IsDefense) return;
+        double now = session.Room.World.Time;
+        if (!force && !session.Room.World.MatchEnded && now < session.NextBestiaryAt) return;
+        session.NextBestiaryAt = now + 10;
+        var progress = session.Room.World.BestiaryProgress(session.Id, session.Room.MatchId, session.Account.Uid);
+        if (progress == null || progress.Kills.Values.Sum() <= session.BestiaryKillsSaved) return;
+        if (rewards.EnqueueBestiary(progress)) session.BestiaryKillsSaved = progress.Kills.Values.Sum();
+    }
+
     private void TrackDefenseAccounts(GameRoom room)
     {
+        foreach (var session in room.Sessions.Values) SaveSessionBestiary(session);
         if (!room.Sessions.Values.Any(s => s.Account != null))
         {
             room.RewardStatus = "Los premios permanentes requieren una cuenta de Google verificada por el servidor.";

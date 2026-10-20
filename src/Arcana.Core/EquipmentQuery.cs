@@ -59,6 +59,9 @@ public sealed record EquipmentPreview(EquipmentSummary Before, EquipmentSummary 
             lines.Add("Conjunto " + EquipmentCatalogue.FamilyName(family) + $": {old}/4 → {next}/4 · " +
                 (next >= 4 ? "bono de 4" : next >= 2 ? "bono de 2" : "bono perdido"));
         }
+        string beforeEffects = ItemAffixes.Summary(Before.Modifiers), afterEffects = ItemAffixes.Summary(After.Modifiers);
+        if (beforeEffects != afterEffects)
+            lines.Add("Efectos especiales al equipar:\n" + (afterEffects.Length == 0 ? "Ninguno." : afterEffects));
         return lines.Count == 0 ? "Sin cambios en los atributos efectivos del equipo." : string.Join('\n', lines);
     }
 }

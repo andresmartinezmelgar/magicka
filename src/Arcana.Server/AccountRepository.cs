@@ -6,6 +6,8 @@ namespace Arcana.Server;
 
 public interface IAccountRepository
 {
+    Task SaveBestiary(BestiaryProgress progress, CancellationToken token = default) =>
+        Task.FromException(new NotSupportedException("El repositorio no admite bestiario."));
     Task<AccountProfile> Profile(string uid, string name, CancellationToken token = default);
     Task Equip(string uid, InventoryRequest request, CancellationToken token = default);
     Task SaveLoadout(string uid, EquipmentLoadout loadout, CancellationToken token = default);
@@ -30,7 +32,10 @@ internal static class FirestoreData
     public static T Read<T>(DocumentSnapshot snapshot) => Protocol.Deserialize<T>(JsonSerializer.Serialize(snapshot.ToDictionary(), Protocol.Json))
         ?? throw new InvalidDataException("Documento de cuenta inválido.");
 }
-internal sealed record AccountHeader(string Uid, string Name, long Gold = 0, int Wins = 0, int Losses = 0, int ItemCount = 0, int SchemaVersion = 1);
+internal sealed record AccountHeader(string Uid, string Name, long Gold = 0, int Wins = 0, int Losses = 0, int ItemCount = 0, int SchemaVersion = 1)
+{
+    public Dictionary<string, long> Bestiary { get; init; } = new(StringComparer.Ordinal);
+}
 
 /// <summary>Las escrituras cruzadas usan transacciones: inventario, saldo, equipamiento y recibo no divergen.</summary>
 public sealed partial class FirestoreAccountRepository(FirestoreDb database) : IAccountRepository
@@ -91,7 +96,7 @@ public sealed partial class FirestoreAccountRepository(FirestoreDb database) : I
             var items = inventory.Documents.Select(FirestoreData.Read<EquipmentItem>).OrderByDescending(i => i.CreatedAt).ToArray();
             if (items.Length > EquipmentCatalogue.InventoryLimit || items.Any(i => !EquipmentCatalogue.Valid(i))) throw new InvalidDataException("Inventario inválido.");
             var profile = new AccountProfile(uid, h.Name, h.Gold, h.Wins, h.Losses,
-                saved.Exists ? FirestoreData.Read<EquipmentLoadout>(saved) : new(), items);
+                saved.Exists ? FirestoreData.Read<EquipmentLoadout>(saved) : new(), items) { Bestiary = h.Bestiary };
             _ = EquipmentModifiers.Calculate(profile); return profile;
         }, cancellationToken: token);
     }

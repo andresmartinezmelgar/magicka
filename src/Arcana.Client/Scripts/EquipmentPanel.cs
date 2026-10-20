@@ -252,6 +252,9 @@ public partial class EquipmentPanel : Control
               " (sin Defensa serían 100). Escudo básico al crearlo: " +
               (420 * m.ShieldCapacity).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) +
               " puntos (sin Absorción serían 420). La Defensa reduce daño, no aumenta los puntos que muestra el escudo.";
+        string specialEffects = ItemAffixes.Summary(m);
+        if (specialEffects.Length > 0) _combatPreview.Text += "\n\nEFECTOS ESPECIALES ACTIVOS\n" + specialEffects +
+            "\nLos efectos iguales usan el valor más alto; no se suman entre piezas.";
         var activeSets = EquipmentCatalogue.FocusedFamilies.Where(f => m.Pieces(f) >= 2).ToArray();
         _sets.Text = activeSets.Length == 0 ? "Sin conjuntos activos." : "Conjuntos activos · " +
             string.Join(" · ", activeSets.Select(f => EquipmentCatalogue.FamilyName(f) + " " + m.Pieces(f) + "/4"));
@@ -285,6 +288,11 @@ public partial class EquipmentPanel : Control
             Cell(_details, EquipmentCatalogue.Percent(bonus.Current), true, bonus.Current < 0 ? Ui.Red : Ui.Blue);
             Cell(_details, EquipmentCatalogue.Percent(bonus.Minimum) + " / " + EquipmentCatalogue.Percent(bonus.Maximum), true, Ui.Muted);
             Cell(_details, StatName(bonus.Stat)).TooltipText = EquipmentCatalogue.StatDescription(bonus.Stat);
+        }
+        if (item?.Affix is { } affix)
+        {
+            Cell(_details, "Especial", true, Ui.Gold); Cell(_details, "Fijo", true, Ui.Muted);
+            Cell(_details, ItemAffixes.Describe(affix));
         }
         _empty.Text = item == null ? "Sin pieza equipada. Pulsa una posición para abrir sus objetos ordenados por calidad." :
             "Pulsa una posición para comparar sus objetos. Los cambios se guardan al salir del inventario.";

@@ -42,7 +42,7 @@ internal static class AreaVisuals
 
     internal static Pattern GroundPattern(string kind) => kind switch
     {
-        "burning_ground" => Pattern.Fire, "frost_ground" => Pattern.Frost, "water_pool" => Pattern.Water,
+        "burning_ground" => Pattern.Fire, "frost_ground" => Pattern.Frost, "water_pool" or "equipment_water_pool" => Pattern.Water,
         "healing_mine" => Pattern.HealingMine, _ => Pattern.Mine
     };
     internal static Pattern AuraPattern(int index) => index switch

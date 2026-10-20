@@ -120,12 +120,20 @@ public partial class PlayerEquipmentPanel : Control
             _pieces.AddChild(Ui.Label(EquipmentCatalogue.SlotName(slot) + " · " + (item == null ? "Sin equipo" : EquipmentCatalogue.TierName(item.Tier)
                 + " · " + EquipmentCatalogue.FamilyName(item.Family)), 20, item == null ? Ui.Muted : EquipmentPanel.TierColor(item.Tier)));
             if (item == null) continue;
+            if (item.Affix != null)
+            {
+                var special = Ui.Label(ItemAffixes.Describe(item.Affix), 16, Ui.Gold);
+                special.AutowrapMode = TextServer.AutowrapMode.WordSmart; _pieces.AddChild(special);
+            }
             var grid = Ui.Table(2, "PlayerPiece" + slot + "Table"); _pieces.AddChild(grid);
             Ui.TableCell(grid, "Actual", true, header: true); Ui.TableCell(grid, "Atributo", header: true);
             foreach (var bonus in item.Bonuses)
             { Ui.TableCell(grid, EquipmentCatalogue.Percent(bonus.Current), true, bonus.Current < 0 ? Ui.Red : Ui.Blue); Ui.TableCell(grid, EquipmentPanel.StatName(bonus.Stat)); }
         }
         _summary.AddChild(Ui.Label("TOTAL DEL EQUIPO", 22, Ui.Gold));
+        var specials = view.Equipment.Items.Where(i => i.Affix != null).Select(i => ItemAffixes.Describe(i.Affix)).Distinct();
+        var specialText = Ui.Label(string.Join("\n", specials), 16, Ui.Gold);
+        specialText.AutowrapMode = TextServer.AutowrapMode.WordSmart; _summary.AddChild(specialText);
         var activeSets = view.Equipment.Sets.Where(s => s.Pieces >= 2).ToArray();
         string sets = activeSets.Length == 0 ? "Sin conjuntos activos." : string.Join("\n", activeSets.Select(s =>
             EquipmentCatalogue.FamilyName(s.Family) + " " + s.Pieces + "/4 · " + EquipmentPanel.SetDescription(s.Family, s.Pieces == 4)));

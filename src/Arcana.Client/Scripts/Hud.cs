@@ -325,7 +325,7 @@ public partial class Hud : Control
         }
         if (old == null || !(old.Buffs ?? []).AsSpan().SequenceEqual(player.Buffs ?? []))
         {
-            _buffs.Text = RelicBuffs.Summary(player.Buffs); _buffs.Visible = (player.Buffs?.Length ?? 0) > 0;
+            _buffs.Text = ""; _buffs.Visible = false; // Consultar las reliquias desde el menú de partida.
             _buffs.TooltipText = string.Join("\n", (player.Buffs ?? []).Select(b => RelicBuffs.Name(b.Kind) + " ×" + b.Stacks + ": " + RelicBuffs.Description(b.Kind)));
         }
         _objective.Text = MatchRules.Objective(snapshot.Mode, snapshot.ScoreLimit, snapshot.StartingTickets, snapshot.Map);
@@ -393,7 +393,7 @@ public partial class Hud : Control
         {
             _teams.Visible = false; _match.Visible = true;
             int lives = Math.Max(0, DefenseRules.PlayerLives - player.Deaths);
-            _buffs.Visible = false; // Las bonificaciones se muestran en la columna izquierda de Defensa.
+            _buffs.Visible = false; // Las reliquias se consultan desde el menú.
             _match.Text = (defense.Paused ? "PAUSA · " : "") + $"SUPERVIVENCIA · VIDAS {lives}/2";
             _match.AddThemeColorOverride("font_color", lives <= 1 ? Ui.Red : Ui.Gold);
             _objective.Text = $"{DefenseRules.Clock(defense.Elapsed)} · Dificultad {defense.Difficulty} · Enemigos {defense.Minions.Length}/{defense.MinionLimit}\n" +

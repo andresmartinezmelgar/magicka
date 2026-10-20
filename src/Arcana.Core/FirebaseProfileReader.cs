@@ -113,7 +113,10 @@ public sealed class FirebaseProfileReader : IDisposable
         return Protocol.Deserialize<T>(JsonSerializer.Serialize(Fields(fields), Protocol.Json))
             ?? throw new InvalidDataException("Datos Firestore inválidos.");
     }
-    private sealed record Header(string Uid, string Name, long Gold, int Wins, int Losses, int ItemCount, int SchemaVersion);
+    private sealed record Header(string Uid, string Name, long Gold, int Wins, int Losses, int ItemCount, int SchemaVersion)
+    {
+        public Dictionary<string, long> Bestiary { get; init; } = new(StringComparer.Ordinal);
+    }
     public async Task<AccountProfile> Read(string uid, string idToken, string displayName = "Mago", CancellationToken token = default)
     {
         if (uid.Length is < 1 or > 128 || uid.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not '-' and not '_'))
@@ -151,7 +154,7 @@ public sealed class FirebaseProfileReader : IDisposable
         } while (!string.IsNullOrEmpty(pageToken));
         if (items.Any(i => !EquipmentCatalogue.Valid(i))) throw new InvalidDataException("Inventario inválido.");
         var profile = new AccountProfile(uid, header.Name, header.Gold, header.Wins, header.Losses,
-            loadout.HasValue ? Parse<EquipmentLoadout>(loadout.Value) : new(), items.ToArray());
+            loadout.HasValue ? Parse<EquipmentLoadout>(loadout.Value) : new(), items.ToArray()) { Bestiary = header.Bestiary };
         _ = EquipmentModifiers.Calculate(profile);
         return profile;
     }

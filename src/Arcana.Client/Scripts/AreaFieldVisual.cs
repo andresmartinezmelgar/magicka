@@ -10,6 +10,8 @@ public partial class AreaFieldVisual : Node3D
     // No se dibuja como un segundo círculo de alcance.
     internal const float MineCenterMarkerRadius = 0.18f;
     private MeshInstance3D? _trigger;
+    private ShaderMaterial? _styleBSigil;
+    private bool? _lastArmed;
     private readonly Sprite3D?[] _approvedAreaArt = new Sprite3D?[2];
     internal AreaVisuals.Pattern Pattern { get; private set; }
     internal float Radius { get; private set; }
@@ -25,6 +27,9 @@ public partial class AreaFieldVisual : Node3D
         area.Scale = new(Radius, 1, Radius);
         if (mine)
         {
+            // Capa ornamental sobre las runas existentes, sin alterar los radios.
+            var (_, skin) = ShieldArt.GroundSigil(this, Radius, tint ?? Ui.Shield);
+            _styleBSigil = skin;
             // Flat, concentric rings on the actual ground. Unlike a billboard, the
             // sprite does not float in front of the mage or hide the playfield.
             int layers = ArcanaSpriteAtlas.AffinityLayers(field.Elements);
@@ -57,9 +62,15 @@ public partial class AreaFieldVisual : Node3D
     }
     internal void Update(FieldSnapshot field, float time)
     {
+        Position = ArenaRenderer.World(field.Position, 0.055f);
         Visible = field.Lifetime > 0;
         // El núcleo se eleva al armarse; ambos radios siguen visibles durante la preparación.
         if (_trigger != null) _trigger.Position = new(0, field.Armed ? 0.055f : 0.025f + MathF.Sin(time * 8) * 0.015f, 0);
+        if (_styleBSigil != null && _lastArmed != field.Armed)
+        {
+            _styleBSigil.SetShaderParameter("armed", field.Armed ? 1f : 0f);
+            _lastArmed = field.Armed;
+        }
         for (int i = 0; i < _approvedAreaArt.Length; i++)
         {
             if (_approvedAreaArt[i] is not { } sprite) continue;
