@@ -20,6 +20,7 @@ public partial class BarrierVisual : Node3D
     internal int StoneSourceVertices { get; private set; }
     internal int StoneBatchedVertices { get; private set; }
     private float _reinforcement;
+    private Sprite3D? _approvedWallArt, _approvedAreaArt;
 
     public void Build(WallSnapshot wall)
     {
@@ -183,6 +184,34 @@ public partial class BarrierVisual : Node3D
             glyph.Name = "BarrierRuneCrystal" + i;
             glyph.Rotation = new(MathF.PI / 4, i * 0.35f, 0);
         }
+        // Display the generated artwork as lightweight additive-looking ornaments,
+        // retaining the 3D wall, collision silhouette and elemental shader.
+        Texture2D? wallTexture = ArcanaSpriteAtlas.Barrier(wall.Elements);
+        if (wallTexture != null)
+        {
+            _approvedWallArt = new Sprite3D
+            {
+                Name = "GeneratedWallArtwork", Texture = wallTexture,
+                Position = new(stone ? StoneThickness * 0.55f : 0.1f, 1.18f, 0),
+                PixelSize = Math.Min(2.15f, length * 0.75f) / 56f,
+                Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+                Shaded = false, Modulate = new Color(1, 1, 1, 0.50f)
+            };
+            _geometry.AddChild(_approvedWallArt);
+        }
+        Texture2D? areaTexture = ArcanaSpriteAtlas.Area(wall.Elements);
+        if (areaTexture != null)
+        {
+            _approvedAreaArt = new Sprite3D
+            {
+                Name = "GeneratedAreaArtwork", Texture = areaTexture,
+                Position = new(stone ? StoneThickness * 0.55f + 0.045f : 0.145f, 0.48f, 0),
+                PixelSize = Math.Min(1.20f, length * 0.42f) / 56f,
+                Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+                Shaded = false, Modulate = new Color(1, 1, 1, 0.34f)
+            };
+            _geometry.AddChild(_approvedAreaArt);
+        }
         BuildElements(wall, length, stone);
     }
 
@@ -237,6 +266,10 @@ public partial class BarrierVisual : Node3D
             _surface.SetShaderParameter("hit_flash", _flash);
             _surface.SetShaderParameter("clock", time);
         }
+        if (_approvedWallArt != null)
+            _approvedWallArt.Modulate = new Color(1, 1, 1, 0.50f * fade);
+        if (_approvedAreaArt != null)
+            _approvedAreaArt.Modulate = new Color(1, 1, 1, 0.34f * fade);
         UpdateElements(fade, time);
         Visible = wall.Health > 0 && wall.Lifetime > 0;
     }
