@@ -172,13 +172,16 @@ public partial class BarrierVisual : Node3D
                     new(0, 0.58f + band * 0.64f, 0), _rim);
         }
         Piece(new BoxMesh { Size = new(0.19f, 0.055f, length) }, new(0, 0.08f, 0), _rim);
-        int glyphs = charges == 1 ? 1 : charges == 2 ? 2 : 4;
+        // Runic crystals trace the wall silhouette; the collider remains untouched.
+        int glyphs = charges == 1 ? 3 : charges == 2 ? 5 : 7;
         for (int i = 0; i < glyphs; i++)
         {
             float z = ((i + 1) / (float)(glyphs + 1) - 0.5f) * length;
-            var glyph = Piece(new PrismMesh { Size = new(0.035f, 0.23f, 0.13f) },
-                new(stone ? StoneThickness / 2 + 0.025f : 0.025f, 0.82f, z), _rim);
-            glyph.Rotation = new(MathF.PI / 4, 0, 0);
+            float x = stone ? StoneThickness / 2 + 0.055f : 0.065f;
+            var glyph = Piece(new PrismMesh { Size = new(0.11f, 0.28f + (i % 2) * 0.11f, 0.18f) },
+                new(x, 0.91f + (i % 2) * 0.2f, z), _rim);
+            glyph.Name = "BarrierRuneCrystal" + i;
+            glyph.Rotation = new(MathF.PI / 4, i * 0.35f, 0);
         }
         BuildElements(wall, length, stone);
     }
