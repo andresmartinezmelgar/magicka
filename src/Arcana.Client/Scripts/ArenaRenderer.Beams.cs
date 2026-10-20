@@ -119,18 +119,40 @@ public partial class ArenaRenderer
         }
         else if (beam.Shape is SpellShape.Spray or SpellShape.Force)
         {
-            if (!details)
+            // Keep the cone silhouette readable at every graphics quality.
+            // Previous high-quality rendering lost the translucent volume entirely;
+            // on mobile its 0.055 alpha was virtually invisible on dark maps.
+            bool spray = beam.Shape == SpellShape.Spray;
+            float length = from.DistanceTo(to);
+            float tipRadius = spray ? 0.085f : 0.07f;
+            float outerRadius = Math.Min(spray ? 1.65f : 1.15f,
+                length * (spray ? 0.24f : 0.18f));
+            var volume = new Color(color,
+                spray ? details ? 0.11f + strength.Charges * 0.018f
+                                : 0.14f + strength.Charges * 0.022f
+                      : details ? 0.075f : 0.060f);
+            BeamSegment(from, to, volume, tipRadius, outerRadius);
+            if (!details) return;
+
+            bool fireSpray = beam.Elements.Contains(Element.Fire);
+            bool coldSpray = beam.Elements.Contains(Element.Cold);
+            bool waterSpray = beam.Elements.Contains(Element.Water);
+            Color bright = (fireSpray ? new Color("ffe3a5")
+                : coldSpray ? new Color("e0fbff")
+                : waterSpray ? new Color("b1f2ff") : color.Lightened(0.42f));
+            // Animated ribbons run from the caster to the far edge of the cone,
+            // with element-specific highlights. They use the existing beam pool.
+            int strands = strength.SprayStrands;
+            for (int i = 0; i < strands; i++)
             {
-                color.A = beam.Shape == SpellShape.Force ? 0.035f : 0.055f + strength.Charges * 0.012f;
-                BeamSegment(from, to, color, 0.09f, from.DistanceTo(to) * 0.28f);
-                return;
-            }
-            color.A = 0.36f;
-            for (int i = 0; i < strength.SprayStrands; i++)
-            {
-                float t = Mathf.PosMod((float)_time * 1.6f + i / (float)strength.SprayStrands, 1);
-                var p = from.Lerp(to, t) + side * (Mathf.Sin(i * 4.23f + (float)_time * 5) * t * 1.2f);
-                BeamSegment(p, p + direction * (0.24f + strength.Charges * 0.055f), color, 0.025f + 0.045f * t);
+                float t = Mathf.PosMod((float)_time * 1.15f + i / (float)strands, 1);
+                float spread = Math.Min(outerRadius, length * t * 0.24f);
+                float oscillation = Mathf.Sin(i * 4.23f + (float)_time * (fireSpray ? 10 : 5));
+                var p = from.Lerp(to, t) + side * oscillation * spread * 0.7f;
+                Color strandColor = i % 3 == 0 ? bright : color;
+                strandColor.A = 0.64f;
+                BeamSegment(p, p + direction * (0.24f + strength.Charges * 0.06f),
+                    strandColor, 0.023f + 0.045f * t, 0.006f, profile: 6);
             }
         }
         else
