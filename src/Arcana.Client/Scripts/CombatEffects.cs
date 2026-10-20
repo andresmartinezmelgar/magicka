@@ -267,11 +267,29 @@ public partial class CombatEffects : Node3D
             foreach (var b in snapshot.Beams)
             {
                 var strength = SpellVisualStrength.For(b.Elements); SeenCharges.Add(strength.Charges);
-                for (int i = 0; i < strength.ChannelSamples; i++)
+                bool cone = b.Shape == SpellShape.Spray;
+                bool fire = cone && b.Elements.Contains(Element.Fire);
+                bool frost = cone && b.Elements.Contains(Element.Cold);
+                bool water = cone && b.Elements.Contains(Element.Water);
+                var forward = ArenaRenderer.World(b.To - b.From).Normalized();
+                var side = forward.Cross(Vector3.Up).Normalized();
+                var baseColor = Ui.SpellColor(b.Elements);
+                int samples = strength.ChannelSamples + (cone ? strength.Charges : 0);
+                for (int i = 0; i < samples; i++)
                 {
-                    float t = (i + (float)_random.NextDouble()) / strength.ChannelSamples;
-                    Emit(ArenaRenderer.World(V2.Lerp(b.From, b.To, t), 1), Ui.SpellColor(b.Elements),
-                        Direction() * 0.35f, 0.20f, 0, strength.SparkSize * 0.7f, 0);
+                    float t = (i + (float)_random.NextDouble()) / samples;
+                    float width = cone ? V2.Distance(b.From, b.To) * 0.18f * t : 0;
+                    float lateral = ((float)_random.NextDouble() * 2 - 1) * width;
+                    var at = ArenaRenderer.World(V2.Lerp(b.From, b.To, t), 1)
+                        + side * lateral;
+                    Color accent = fire ? new Color("ffd78b") : frost ? new Color("d5f5ff")
+                        : water ? new Color("92eaff") : baseColor;
+                    Color particleColor = i % 3 == 0 ? accent : baseColor;
+                    Emit(at, particleColor, forward * (cone ? 1.55f : 0.35f)
+                        + side * (cone ? lateral * 0.38f : 0) + Vector3.Up * (fire ? 0.45f : 0.06f),
+                        cone ? 0.30f : 0.20f,
+                        fire ? 2 : frost ? 1 : 0,
+                        strength.SparkSize * (cone ? 0.92f : 0.7f), fire ? -0.15f : 0);
                 }
             }
             foreach (var meteor in snapshot.Fields)
