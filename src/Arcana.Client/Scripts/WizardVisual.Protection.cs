@@ -11,6 +11,9 @@ public partial class WizardVisual
     private Color? _bandColor, _bandEmission;
     private Node3D _stoneArmor = null!;
     private readonly List<MeshInstance3D> _stonePlates = [];
+    private MeshInstance3D _styleBRuneRing = null!;
+    private StandardMaterial3D _styleBRuneRingMaterial = null!;
+    private Color? _styleBRuneColor;
     private Material? _stoneArmorMaterial;
     internal int StoneArmorPlates => _stoneArmor.Visible ? _stonePlates.Count(p => p.Visible) : 0;
     internal int ProtectionBandCount => _protectionBands.Count(b => b.Visible);
@@ -36,6 +39,19 @@ public partial class WizardVisual
             new StandardMaterial3D { AlbedoColor = new("fff2a3"),
                 ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
         _spawnProtection.Visible = false;
+        _styleBRuneRingMaterial = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(Ui.Shield, 0.45f),
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            EmissionEnabled = true,
+            Emission = Ui.Shield,
+            EmissionEnergyMultiplier = 0.30f
+        };
+        _styleBRuneRing = Mesh(this, new TorusMesh { InnerRadius = 0.92f, OuterRadius = 1.02f,
+            Rings = 32, RingSegments = 6 }, new(0, 0.065f, 0), _styleBRuneRingMaterial);
+        _styleBRuneRing.Name = "StyleBPersonalWardRing";
+        _styleBRuneRing.Visible = false;
         _stoneArmor = new Node3D { Name = "StoneArmor", Visible = false }; AddChild(_stoneArmor);
         _stoneArmorMaterial = StoneVisuals.Surface([Element.Earth]);
         for (int i = 0; i < 6; i++)
@@ -85,5 +101,19 @@ public partial class WizardVisual
         }
         _spawnProtection.Visible = invulnerable;
         if (invulnerable) _spawnProtection.Scale = Vector3.One * (1 + Mathf.Sin(time * 12) * 0.035f);
+        // Silueta ornamental legible sobre el terreno, también cuando la guarda es de tierra.
+        _styleBRuneRing.Visible = player.Alive && player.Shield > 0 && !invulnerable;
+        if (_styleBRuneRing.Visible)
+        {
+            var wardColor = player.Ward.Length > 0 ? Ui.SpellColor(player.Ward) : Ui.Shield;
+            if (_styleBRuneColor != wardColor)
+            {
+                _styleBRuneColor = wardColor;
+                _styleBRuneRingMaterial.AlbedoColor = new(wardColor, 0.25f + integrity * 0.42f);
+                _styleBRuneRingMaterial.Emission = wardColor;
+            }
+            float radius = 1.0f + 0.045f * MathF.Sin(time * 2.2f);
+            _styleBRuneRing.Scale = new(radius, 1, radius);
+        }
     }
 }
