@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.27.0 — Bestiario, reliquias y efectos especiales del equipo
+
+- El perfil incorpora un bestiario de los trece enemigos de supervivencia, con sus habilidades y las bajas causadas por cada jugador. Los contadores se guardan en Firestore mediante registros por partida que evitan duplicados al reintentar. Las partidas locales con una cuenta guardada conservan sus datos pendientes hasta recuperar el servidor de cuentas.
+- Las reliquias recogidas se consultan desde el menú de partida y desde su pestaña en la tienda de supervivencia. El contador deja libre el lateral del mapa y cada reliquia incluye la descripción de su efecto.
+- Los nuevos objetos Diamante y Míticos incorporan un efecto especial: penetración de haces de hasta tres enemigos adicionales, hasta dos saltos eléctricos adicionales, doble daño periódico de quemadura o un charco de agua al crear un escudo de agua. El charco dura cinco segundos, tiene tres metros de radio y moja a quienes entran, incluido el lanzador.
+- Las piezas, la tienda, las comparaciones y la inspección de otros magos muestran estos efectos. Al combinar varias piezas con el mismo efecto se aplica el valor más alto.
+- Se integran los nuevos enemigos de supervivencia, los hechizos variados de la IA, los grandes refuerzos del comandante, el crecimiento moderado del escudo por nivel y los límites de enemigos según rendimiento.
+- Se integran los escudos y runas de estilo B. Los conos distinguen visualmente una, dos y tres cargas tanto en escritorio como en móvil, con un máximo de seis filamentos en escritorio y tres en móvil.
+- La sincronización del bestiario intercambia solo sus contadores para reducir consultas y tráfico.
+
 ## 0.25.4 — PvP adaptable y correcciones de sincronización
 
 - Los campos de creación de salas agrupan etiqueta y control en una misma columna flexible. La rejilla pasa de una a tres columnas según el espacio disponible, sin estrechar los textos a una letra por línea. Las acciones se compactan en pantallas pequeñas para dejar espacio útil al formulario.

@@ -150,7 +150,7 @@ public partial class ArenaRenderer
             }
             BeamSegment(previous, from, edgeColor, 0.029f, 0.018f, profile: 6);
             // Compact elemental ribbons inside the wedge.
-            int strands = Ui.IsMobile ? strength.Charges : Math.Min(strength.SprayStrands, 6);
+            int strands = strength.Charges * (Ui.IsMobile ? 1 : 2);
             for (int i = 0; i < strands; i++)
             {
                 float t = Mathf.PosMod((float)_time * 0.75f + i / (float)strands, 1);
