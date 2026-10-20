@@ -35,7 +35,7 @@ internal static class EquipmentElementTests
             for (int n = 0; n < 150; n++)
             {
                 var item = EquipmentCatalogue.Generate(random, tier: tier, slot: slot, family: family);
-                Check(item.Family == family && item.GenerationVersion == 2 && EquipmentCatalogue.Valid(item), "Familia o versión de tirada incorrecta.");
+                Check(item.Family == family && item.GenerationVersion == EquipmentCatalogue.GenerationVersion && EquipmentCatalogue.Valid(item), "Familia o versión de tirada incorrecta.");
                 Check(item.Bonuses[0].Stat == EquipmentCatalogue.MainStat(slot, family), "Se perdió el atributo principal de la posición.");
                 Check(item.Bonuses.Skip(1).All(b => EquipmentCatalogue.Pool(family).Contains(b.Stat) && b.Minimum > 0 && b.Current > 0), "Secundario ajeno a la familia.");
                 Check(item.Bonuses.Length == (tier == ItemTier.Mythic ? 4 : 3), "Cantidad de atributos incorrecta.");

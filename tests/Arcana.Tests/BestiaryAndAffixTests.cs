@@ -69,8 +69,8 @@ internal static class BestiaryAndAffixTests
         test("Afijos: el relámpago busca dos saltos nuevos fuera del cono", () =>
         {
             var (world, caster, targets) = Line(new() { LightningChains = 2 });
-            targets[0].Position = new(-1, 0); targets[1].Position = new(-1, 2);
-            targets[2].Position = new(-1, 4); targets[3].Position = new(-1, 6);
+            targets[0].Position = new(-1, 0); targets[1].Position = new(-5, 0);
+            targets[2].Position = new(-7, 0); targets[3].Position = new(-9, 0);
             caster.Channel = new([Element.Lightning]); world.Step();
             Check(targets[0].Health < 1000 && targets[1].Health < 1000 && targets[2].Health < 1000 && targets[3].Health == 1000,
                 "Los saltos no respetaron el límite o repitieron objetivos.");
