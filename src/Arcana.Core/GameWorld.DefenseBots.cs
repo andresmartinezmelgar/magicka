@@ -109,6 +109,16 @@ public sealed partial class GameWorld
             _ => [Element.Fire, Element.Arcane, Element.Arcane]
         };
     }
+    private static Element[] SafeDefenseBotAttack(float distance, int turn, bool wet)
+    {
+        var selection = DefenseBotAttack(distance, turn);
+        // An electrical discharge hurts its caster while wet. AI must use a
+        // valid alternative instead of repeatedly self-damaging.
+        if (!wet || !selection.Contains(Element.Lightning)) return selection;
+        return distance <= 6f
+            ? [Element.Fire, Element.Fire, Element.Fire]
+            : [Element.Water, Element.Cold, Element.Cold];
+    }
     private void ThinkDefenseBot(Wizard bot, float dt)
     {
         if (!_defenseBotPlans.TryGetValue(bot.Id, out var plan)) return;
@@ -161,7 +171,7 @@ public sealed partial class GameWorld
         // charged, and targeting remains updated while aiming at moving enemies.
         if (!healing && bot.Charging != null) return;
         Element[] recipe = healing ? [Element.Life, Element.Life, Element.Life]
-            : DefenseBotAttack(distance, plan.SpellTurn + bot.Id);
+            : SafeDefenseBotAttack(distance, plan.SpellTurn + bot.Id, bot.Wet > 0);
         var spell = new SpellRecipe(recipe);
         bot.BotDecision = (spell.Shape is SpellShape.Rock or SpellShape.Shards ? 0.8f : 0.45f)
             + bot.Id % 3 * 0.07f;

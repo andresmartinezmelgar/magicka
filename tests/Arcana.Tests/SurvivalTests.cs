@@ -35,6 +35,18 @@ internal static class SurvivalTests
     }
     public static void Run(Action<string, Action> test)
     {
+        test("Supervivencia: IA mojada no descarga rayos sobre sí misma", () =>
+        {
+            var choose = typeof(GameWorld).GetMethod("SafeDefenseBotAttack",
+                BindingFlags.NonPublic | BindingFlags.Static)!;
+            foreach (float range in new[] { 4f, 7.5f, 13f })
+                for (int turn = 0; turn < 14; turn++)
+                {
+                    var elements = (Element[])choose.Invoke(null, [range, turn, true])!;
+                    Check(!elements.Contains(Element.Lightning) && new SpellRecipe(elements).Elements.Length == 3,
+                        "La IA mojada conserva una descarga eléctrica peligrosa o receta incompleta.");
+                }
+        });
         test("Supervivencia: IA alterna conos, descargas, rocas, hielo y rayos a distancias válidas", () =>
         {
             var choose = typeof(GameWorld).GetMethod("DefenseBotAttack",
