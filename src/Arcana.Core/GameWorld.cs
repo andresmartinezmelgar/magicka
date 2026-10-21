@@ -76,6 +76,7 @@ public sealed partial class GameWorld
             if (!opponent.Bot) return null;
             // Al crear un duelo con un bot, el creador también puede elegir su lado.
             opponent.Team = 1 - team;
+            _statistics.Bind(opponent, spawn: false);
             opponent.Position = TeamSpawn(opponent.Team, 0); opponent.Facing = new(opponent.Team == 0 ? 1 : -1, 0);
         }
         string cleanName = new((name ?? "Mago").Where(c => !char.IsControl(c) && c != '[' && c != ']').Take(24).ToArray());
@@ -103,6 +104,7 @@ public sealed partial class GameWorld
         if (Options.Mode == GameMode.Duel && _players.Values.Any(p => p.Id != id && p.Team == team)) return false;
         if (wizard.Team == team) return true;
         wizard.Team = team;
+        _statistics.Bind(wizard, spawn: false);
         wizard.Position = TeamSpawn(team, _players.Values.Count(p => p.Team == team) - 1);
         wizard.Facing = new(team == 0 ? 1 : -1, 0);
         CancelCast(wizard);

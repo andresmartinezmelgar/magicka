@@ -188,18 +188,24 @@ jobs:
           python3 - <<'PY'
           import glob, struct, pathlib, hashlib
           files = sorted(glob.glob('artifacts/visual-review/*/*.png'))
-          if len(files) != 47:
-              raise SystemExit(f'Faltan capturas: {len(files)}/47')
+          expected = 47 + 2 * 6  # Seis vistas estadísticas en escritorio y móvil.
+          if len(files) != expected:
+              raise SystemExit(f'Faltan capturas: {len(files)}/{expected}')
+          for surface in ('desktop', 'mobile'):
+              for view in range(6):
+                  path = pathlib.Path('artifacts/visual-review') / f'statistics-{surface}' / f'statistics-{view}.png'
+                  if not path.is_file() or path.stat().st_size == 0:
+                      raise SystemExit(f'Falta captura de estadísticas: {path}')
           for name in files:
               raw = pathlib.Path(name).read_bytes()
               if len(raw) < 12000 or raw[:8] != b'\x89PNG\r\n\x1a\n':
                   raise SystemExit(f'PNG vacío o inválido: {name}: {len(raw)} bytes')
               w, h = struct.unpack('>II', raw[16:24])
-              if (w, h) not in ((1440, 900), (1024, 640), (720, 540), (1024, 720)):
+              if (w, h) not in ((1440, 900), (1024, 640), (720, 540), (1024, 720), (1280, 720), (640, 450)):
                   raise SystemExit(f'Tamaño inesperado {w}x{h}: {name}')
           unique = len({hashlib.sha256(pathlib.Path(p).read_bytes()).digest() for p in files})
-          if unique < 38: raise SystemExit(f'Escenas indistinguibles: {unique}/44')
-          print(f'VISUAL_QA_OK: 44 PNG válidos, {unique} fotogramas distintos, 5 escenarios de tamaño y auras de piedra en móvil/escritorio.')
+          if unique < 38: raise SystemExit(f'Escenas indistinguibles: {unique}/{len(files)}')
+          print(f'VISUAL_QA_OK: {len(files)} PNG válidos, {unique} fotogramas distintos, escenarios de tamaño, auras de piedra y seis vistas estadísticas en móvil/escritorio.')
           PY
       - name: Comprobar bonificaciones activas, persistencia y consulta de otros magos
         run: |

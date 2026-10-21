@@ -58,6 +58,17 @@ internal static class MatchStatisticsTests
             var (w, _, _) = Arena(); w.SetStatisticsNetwork(); var r = w.MatchStatistics(); w.ResetForWaitingRoom(); w.Step();
             var next = w.MatchStatistics(); Check(next.RunId != r.RunId && next.Network && next.Revision == 1 && next.Sum(StatisticGroup.Total, StatisticMeasure.Spawns) == 2, "Ronda no aislada.");
         });
+        test("Estadísticas: mover un bot de duelo y cambiar equipo en lobby actualiza la atribución", () =>
+        {
+            var w = new GameWorld(new() { Mode = GameMode.Duel, Bots = 1, MaxPlayers = 2 });
+            var bot = w.Players.Values.Single(); var human = w.AddPlayer("Mago", 0)!;
+            Check(bot.Team == 1, "El duelo no movió el bot al equipo libre.");
+            human.Invulnerable = bot.Invulnerable = 0; w.Step(); Damage(w, human, 25, bot);
+            Check(w.MatchStatistics().Sum(StatisticGroup.Actor, StatisticMeasure.Damage, (int)bot.WizardType + 16 + 32) == 25, "El bot conserva su equipo anterior en las estadísticas.");
+            var lobby = new GameWorld(new() { Mode = GameMode.Warfare }); var p = lobby.AddPlayer("Mago", 0)!;
+            Check(lobby.SetPlayerTeam(p.Id, 1), "No cambió el equipo."); p.Invulnerable = 0; Damage(lobby, p, 10, p);
+            Check(lobby.MatchStatistics().Sum(StatisticGroup.Actor, StatisticMeasure.DamageReceived, 32 + (int)p.WizardType) == 10, "La atribución humana conserva el equipo anterior.");
+        });
         test("Estadísticas: supervivencia guarda acumulados y bifurca un guardado anterior", () =>
         {
             var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4 }); var a = w.AddPlayer("Mago")!;
