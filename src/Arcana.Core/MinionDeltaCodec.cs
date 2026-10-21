@@ -3,7 +3,7 @@ namespace Arcana.Core;
 /// <summary>Campos exactos de cada enemigo respecto a una base inmutable. No cuantiza el combate.</summary>
 public sealed class MinionDeltaCodec(MinionSnapshot[] baseline)
 {
-    private const ushort All = 16383;
+    private const ushort All = ushort.MaxValue;
     private readonly Dictionary<int, MinionSnapshot> _baseline = baseline.ToDictionary(m => m.Id);
     public byte[] Encode(MinionSnapshot[] current)
     {
@@ -30,6 +30,8 @@ public sealed class MinionDeltaCodec(MinionSnapshot[] baseline)
                 if (m.SpeedBoostSeconds != old.SpeedBoostSeconds) mask |= 2048;
                 if (m.AttackWarningSeconds != old.AttackWarningSeconds) mask |= 4096;
                 if (m.Kind != old.Kind) mask |= 8192;
+                if (m.Shield != old.Shield || m.ShieldMax != old.ShieldMax || m.VulnerableElement != old.VulnerableElement) mask |= 16384;
+                if (m.FocusTargetId != old.FocusTargetId) mask |= 32768;
             }
             writer.Write(m.Id); writer.Write(mask);
             if ((mask & 1) != 0) { writer.Write(m.Position.X); writer.Write(m.Position.Y); }
@@ -46,6 +48,8 @@ public sealed class MinionDeltaCodec(MinionSnapshot[] baseline)
             if ((mask & 2048) != 0) writer.Write(m.SpeedBoostSeconds);
             if ((mask & 4096) != 0) writer.Write(m.AttackWarningSeconds);
             if ((mask & 8192) != 0) writer.Write((byte)m.Kind);
+            if ((mask & 16384) != 0) { writer.Write(m.Shield); writer.Write(m.ShieldMax); writer.Write((sbyte)(m.VulnerableElement.HasValue ? (int)m.VulnerableElement.Value : -1)); }
+            if ((mask & 32768) != 0) writer.Write(m.FocusTargetId);
         }
         return stream.ToArray();
     }
@@ -83,8 +87,17 @@ public sealed class MinionDeltaCodec(MinionSnapshot[] baseline)
                 float speed = (mask & 2048) != 0 ? reader.ReadSingle() : old.SpeedBoostSeconds;
                 float warning = (mask & 4096) != 0 ? reader.ReadSingle() : old.AttackWarningSeconds;
                 var kind = (mask & 8192) != 0 ? (MinionKind)reader.ReadByte() : old.Kind;
+                float shield = old.Shield, shieldMax = old.ShieldMax; Element? weakness = old.VulnerableElement;
+                if ((mask & 16384) != 0)
+                {
+                    shield = reader.ReadSingle(); shieldMax = reader.ReadSingle(); int element = reader.ReadSByte();
+                    if (element != -1 && (element < 0 || !DefenseRules.ValidPrismElement((Element)element))) throw new InvalidDataException("Punto débil inválido.");
+                    weakness = element == -1 ? null : (Element)element;
+                }
+                int focus = (mask & 32768) != 0 ? reader.ReadInt32() : old.FocusTargetId;
                 result[i] = new(id, kind, position, facing, health, maximum, wet, burning, chill, frozen, casting, elements, empowered)
-                    { SpeedBoostSeconds = speed, AttackWarningSeconds = warning };
+                    { SpeedBoostSeconds = speed, AttackWarningSeconds = warning, Shield = shield, ShieldMax = shieldMax,
+                        VulnerableElement = weakness, FocusTargetId = focus };
             }
             if (stream.Position != stream.Length) throw new InvalidDataException("Datos de enemigos adicionales.");
             return result;

@@ -29,7 +29,8 @@ public sealed partial class GameWorld
         // At most three arrivals per pulse; avoid allocating hundreds of entities
         // in the same simulation frame and never exceed the live FPS budget.
         int available = Math.Max(0, DefenseMinionLimit - _minions.Count);
-        int count = Math.Min(3, Math.Min(available, _commanderReinforcements));
+        int packet = DefensePerformanceLimit <= 64 ? 1 : DefensePerformanceLimit <= 128 ? 2 : 3;
+        int count = Math.Min(packet, Math.Min(available, _commanderReinforcements));
         for (int i = 0; i < count; i++)
         {
             var kind = _random.Next(100) switch
@@ -43,7 +44,7 @@ public sealed partial class GameWorld
             if (!TrySpawnMinion(kind)) break;
             _commanderReinforcements--;
         }
-        _commanderSpawnClock = 0.15f;
+        _commanderSpawnClock = DefensePerformanceLimit <= 64 ? 0.3f : 0.18f;
     }
 
     // There are no new combat primitives: every attack is resolved through the
@@ -72,7 +73,7 @@ public sealed partial class GameWorld
     }
 
     private static bool RangedDefenseEnemy(MinionKind kind) => kind is
-        MinionKind.Archer or MinionKind.Mage or MinionKind.Warlock or MinionKind.Cryomancer;
+        MinionKind.Archer or MinionKind.Mage or MinionKind.Warlock or MinionKind.Cryomancer or MinionKind.Oracle;
 
     private void UpdateDefenseEnemyDefense(DefenseMinion minion, float dt)
     {

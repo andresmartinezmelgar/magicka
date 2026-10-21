@@ -330,6 +330,16 @@ public partial class ArenaRenderer : Node3D
     {
         foreach (var field in snapshot.Fields)
         {
+            if (field.Kind == "oracle_bombardment")
+            {
+                if (!_fields.TryGetValue(field.Id, out var existingStrike))
+                {
+                    var strike = new OracleStrikeVisual(); AddChild(strike); strike.Build(field);
+                    _fields[field.Id] = existingStrike = strike;
+                }
+                ((OracleStrikeVisual)existingStrike).Update(field, (float)_time);
+                continue;
+            }
             if (field.Kind is "meteor" or "defense_meteor")
             {
                 if (!_fields.TryGetValue(field.Id, out var existing))

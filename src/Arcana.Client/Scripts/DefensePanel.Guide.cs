@@ -95,6 +95,7 @@ public partial class DefensePanel
                 MinionKind.Mage => "Primer haz · daño/s",
                 MinionKind.Cryomancer => "Cono de frío · daño/s",
                 MinionKind.Warlock => "Roca arcana · daño por impacto",
+                MinionKind.Oracle => "Bombardeo · daño por cristal",
                 _ => "Ataque base · daño por impacto"
             };
             Row(table, attackName, enemy.AttackMaximum != enemy.Attack
@@ -117,6 +118,8 @@ public partial class DefensePanel
                 MinionKind.Cryomancer => BestiaryCatalogue.Description(enemy.Kind),
                 MinionKind.Warlock => BestiaryCatalogue.Description(enemy.Kind),
                 MinionKind.Sentinel => BestiaryCatalogue.Description(enemy.Kind),
+                MinionKind.Prism => BestiaryCatalogue.Description(enemy.Kind),
+                MinionKind.Oracle => BestiaryCatalogue.Description(enemy.Kind),
                 _ => "Persigue a los jugadores por todo el mapa y ataca cuerpo a cuerpo."
             };
             Wrapped(card, description + (enemy.Kind != MinionKind.Boss ? " Puede obtener un impulso temporal de velocidad del 60 %." : ""), 15, Ui.Muted);

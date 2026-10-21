@@ -2,7 +2,7 @@ namespace Arcana.Core;
 
 public sealed partial class GameWorld
 {
-    private float Resistance(Wizard player, Element element) => ElementInteractions.ProtectionMultiplier(element,
+    private float Resistance(Wizard player, Element element) => !AcceptsDefenseElement(player, element) ? 0 : ElementInteractions.ProtectionMultiplier(element,
         player.Ward.Length > 0 && player.WardTime > 0 ? player.Ward
         : player.Shield > 0 && player.ShieldTime > 0 ? ElementInteractions.ShieldProtection : ReadOnlySpan<Element>.Empty);
 
@@ -27,7 +27,7 @@ public sealed partial class GameWorld
     }
     private float UtilityPressure(Wizard target, SpellRecipe spell, int owner)
     {
-        float pressure = SpellBalance.Component(spell, Element.Water) == 0
+        float pressure = target.VulnerableElement != Element.Water && SpellBalance.Component(spell, Element.Water) == 0
             ? ElementDamage(target, owner, Element.Water, SpellBalance.UtilityPressure * spell.Count(Element.Water)) : 0;
         if (!_combatants.TryGetValue(owner, out var source) || !Allied(source, target))
             pressure += ElementDamage(target, owner, Element.Life, SpellBalance.UtilityPressure * spell.Count(Element.Life));

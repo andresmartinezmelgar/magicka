@@ -26,14 +26,15 @@ internal static class DefenseHordeTests
         test("Supervivencia: FPS sostenidos, reducción inmediata y recuperación gradual sin oscilación", () =>
         {
             var budget = new DefensePerformanceBudget();
-            Check(budget.Limit == 96, "Límite inicial incorrecto.");
-            Check(budget.Observe(20) && budget.Limit == 48, "No redujo para el dispositivo lento.");
-            budget.Observe(60); budget.Observe(60);
-            Check(budget.Limit == 48, "Aumentó sin tres ventanas estables.");
-            budget.Observe(20); budget.Observe(60); budget.Observe(60);
-            Check(budget.Limit == 48, "Una caída no reinició la recuperación.");
-            budget.Observe(60); Check(budget.Limit == 64, "Saltó varias bandas de golpe.");
-            for (int i = 0; i < 30; i++) budget.Observe(120);
+            Check(budget.Limit == 48, "Límite inicial incorrecto.");
+            Check(budget.Observe(20) && budget.Limit == 16, "No redujo para el dispositivo lento.");
+            for (int i = 0; i < 4; i++) budget.Observe(120);
+            Check(budget.Limit == 16, "Aumentó sin cinco ventanas estables.");
+            budget.Observe(20);
+            for (int i = 0; i < 4; i++) budget.Observe(120);
+            Check(budget.Limit == 16, "Una caída no reinició la recuperación.");
+            budget.Observe(120); Check(budget.Limit == 24, "Saltó varias bandas de golpe.");
+            for (int i = 0; i < 40; i++) budget.Observe(120);
             Check(budget.Limit == DefenseRules.MaxMinions, "El dispositivo fluido no permite la horda máxima.");
             foreach (float fps in new[] { float.NaN, float.PositiveInfinity, -1, 0, 241 })
                 Check(!budget.Observe(fps) && budget.Limit == DefenseRules.MaxMinions, "Aceptó FPS inválidos.");
@@ -43,10 +44,10 @@ internal static class DefenseHordeTests
             var w = World(); var fast = w.AddPlayer("Rápido")!; var slow = w.AddPlayer("Lento")!;
             fast.Invulnerable = slow.Invulnerable = 1000;
             Check(Fps(w, slow, 20), "Rechazó FPS válidos.");
-            Check(State(w).PerformanceLimit == 48, "No cuenta el dispositivo lento.");
+            Check(State(w).PerformanceLimit == 16, "No cuenta el dispositivo lento.");
             Check(!Fps(w, slow, 60), "Aceptó informes sin intervalo.");
-            for (int i = 0; i < 9; i++) { Step(w, 301); Fps(w, fast, 60); Fps(w, slow, 20); }
-            Check(State(w).PerformanceLimit == 48, "La máquina rápida impuso su límite.");
+            for (int i = 0; i < 25; i++) { Step(w, 121); Fps(w, fast, 120); Fps(w, slow, 20); }
+            Check(State(w).PerformanceLimit == 16, "La máquina rápida impuso su límite.");
             Check(State(w).Defenders.All(p => p.ActiveSeconds == 0), "La telemetría generó tiempo activo y recompensas.");
             w.RemovePlayer(slow.Id);
             Check(State(w).PerformanceLimit == DefenseRules.MaxMinions, "No liberó el límite al salir el lento.");
@@ -89,7 +90,7 @@ internal static class DefenseHordeTests
             Set(w, "_defenseElapsed", 1800.0);
             Check(Fps(w, p, 15), "No aceptó el presupuesto lento.");
             Step(w, 2400);
-            Check(State(w).PerformanceLimit == 32 && State(w).MinionLimit == 32 && State(w).Minions.Length is >= 24 and <= 32,
+            Check(State(w).PerformanceLimit == 16 && State(w).MinionLimit == 16 && State(w).Minions.Length is >= 12 and <= 16,
                 "El generador ignoró los FPS o dejó de generar enemigos.");
         });
         test("Supervivencia: bruto y detonador avisan, permiten escapar y se interrumpen al congelar", () =>
@@ -151,6 +152,7 @@ internal static class DefenseHordeTests
             var w = World(); var player = w.AddPlayer("Mago")!;
             player.Position = new(-25, 0); player.Invulnerable = 200;
             Set(w, "_defenseDifficulty", 8);
+            Set(((IDictionary)Field(w, "_defenders"))[player.Id]!, "Performance", new DefensePerformanceBudget(192));
             int normal = DefenseRules.SpawnLimit(8, 1);
             Enemy(w, MinionKind.Captain, new(10, 0));
             Check(State(w).MinionLimit > normal, "El comandante no aumenta el límite durante la oleada.");
@@ -166,7 +168,7 @@ internal static class DefenseHordeTests
             Enemy(slow, MinionKind.Captain, new(10, 0));
             Set(slow, "_spawnClock", 10000f); Set(slow, "_bossClock", 10000f);
             Step(slow, 400);
-            Check(State(slow).MinionLimit == 32 && State(slow).Minions.Length <= 32,
+            Check(State(slow).MinionLimit == 16 && State(slow).Minions.Length <= 16,
                 "La oleada del comandante excede el límite de un móvil lento.");
         });
         test("Supervivencia: magos élite usan ataques con áreas reales y el guardián se protege", () =>

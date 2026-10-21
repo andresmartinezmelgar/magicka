@@ -30,7 +30,7 @@ public sealed partial class GameWorld
             if (!_defenseBotPlans.TryGetValue(bot.Id, out var plan)) _defenseBotPlans[bot.Id] = plan = new();
             float lane = bots.Length == 1 ? 0 : (index / (float)(bots.Length - 1) * 2 - 1) * 5;
             var anchor = humans.MinBy(p => (p.Position - bot.Position).LengthSquared)!.Position;
-            var home = SafeDefenseBotGoal(anchor + new V2(3 + index % 2 * 3, lane * 0.7f), anchor);
+            var home = SpacedDefenseBotGoal(anchor + new V2(5 + index % 2 * 2, lane), anchor, bot.Id);
             Wizard? healing = bot.Health < bot.MaxHealth * 0.4f ? bot : null;
             if (healing == null && (threats.Length == 0 || medics < Math.Max(1, bots.Length - 1)))
             {
@@ -43,8 +43,8 @@ public sealed partial class GameWorld
             if (healing != null)
             {
                 plan.TargetId = 0; plan.HealTargetId = healing.Id; healers.Add(healing.Id); medics++;
-                plan.Goal = healing == bot ? SafeDefenseBotGoal(bot.Position, home)
-                    : SafeDefenseBotGoal(healing.Position + new V2(2, lane * 0.3f), home);
+                plan.Goal = healing == bot ? SpacedDefenseBotGoal(bot.Position, home, bot.Id)
+                    : SpacedDefenseBotGoal(healing.Position + new V2(4.5f, lane * 0.5f), home, bot.Id);
                 continue;
             }
             plan.HealTargetId = 0;
@@ -57,16 +57,32 @@ public sealed partial class GameWorld
             var forward = (target.Body.Position - anchor).Normalized;
             var lateral = new V2(-forward.Y, forward.X);
             float flank = bots.Length == 1 ? 0 : (index - (bots.Length - 1) * 0.5f) * 3;
-            var goal = target.Body.Position - forward * 6 + lateral * flank;
+            var goal = target.Body.Position - forward * (target.Body.VulnerableElement == Element.Water ? 4.5f : 6) + lateral * flank;
             if (V2.Distance(goal, anchor) > 18) goal = anchor + (goal - anchor).Normalized * 18;
-            plan.Goal = SafeDefenseBotGoal(goal, home);
+            plan.Goal = SpacedDefenseBotGoal(goal, home, bot.Id);
         }
     }
     private float DefenseThreatScore(DefenseMinion minion, Wizard bot, V2 anchor, int previous)
     {
         float distance = V2.Distance(minion.Body.Position, anchor);
         return distance * 2 + V2.Distance(minion.Body.Position, bot.Position) * 0.35f
-            - (distance < 7 ? 16 : 0) - (minion.Kind == MinionKind.Captain ? 5 : 0) - (minion.Body.Id == previous ? 3 : 0);
+            - (distance < 7 ? 16 : 0) - (minion.Kind is MinionKind.Captain or MinionKind.Oracle ? 5 : 0) - (minion.Body.Id == previous ? 3 : 0);
+    }
+    private V2 SpacedDefenseBotGoal(V2 goal, V2 home, int botId)
+    {
+        bool Free(V2 at) => Walkable(at) && _players.Values.All(p => p.Bot || !p.Alive || V2.Distance(at, p.Position) >= 3.5f);
+        if (Free(goal)) return goal;
+        if (Free(home)) return home;
+        var anchor = _players.Values.Where(p => !p.Bot && p.Alive).MinBy(p => V2.Distance(goal, p.Position));
+        if (anchor == null) return SafeDefenseBotGoal(goal, home);
+        for (int ring = 0; ring < 3; ring++)
+            for (int i = 0; i < 8; i++)
+            {
+                float angle = (i + botId % 8) * MathF.Tau / 8;
+                var candidate = anchor.Position + new V2(MathF.Cos(angle), MathF.Sin(angle)) * (4.5f + ring * 2);
+                if (Free(candidate)) return candidate;
+            }
+        return SafeDefenseBotGoal(goal, home);
     }
     private V2 SafeDefenseBotGoal(V2 goal, V2 home)
     {
@@ -119,6 +135,24 @@ public sealed partial class GameWorld
             ? [Element.Fire, Element.Fire, Element.Fire]
             : [Element.Water, Element.Cold, Element.Cold];
     }
+    private static Element[] AttunedDefenseBotAttack(WizardType type, float distance, int turn, Element? weakness)
+    {
+        Element? element = weakness ?? WizardTypes.Affinity(type);
+        int phase = Math.Abs(turn % 3);
+        return element switch
+        {
+            Element.Fire => distance <= 6 && phase == 0 ? [Element.Fire, Element.Fire, Element.Fire]
+                : phase == 1 ? [Element.Earth, Element.Fire, Element.Fire] : [Element.Arcane, Element.Fire, Element.Fire],
+            Element.Cold => distance <= 6 && phase == 0 ? [Element.Cold, Element.Cold, Element.Cold]
+                : phase == 1 ? [Element.Water, Element.Cold, Element.Cold] : [Element.Earth, Element.Cold, Element.Cold],
+            Element.Lightning => distance <= 9 && phase == 0 ? [Element.Lightning, Element.Lightning, Element.Lightning]
+                : [Element.Arcane, Element.Lightning, Element.Lightning],
+            Element.Earth => phase == 1 && weakness == null ? [Element.Earth, Element.Earth, Element.Fire] : [Element.Earth, Element.Earth, Element.Earth],
+            Element.Water => distance <= 6 ? [Element.Water, Element.Water, Element.Water] : [Element.Earth, Element.Water, Element.Water],
+            Element.Arcane => [Element.Arcane, Element.Arcane, Element.Arcane],
+            _ => DefenseBotAttack(distance, turn)
+        };
+    }
     private void ThinkDefenseBot(Wizard bot, float dt)
     {
         if (!_defenseBotPlans.TryGetValue(bot.Id, out var plan)) return;
@@ -129,10 +163,25 @@ public sealed partial class GameWorld
             if (ally.Id == bot.Id || !ally.Alive) continue;
             var away = bot.Position - ally.Position;
             if (away.LengthSquared >= 2.6f * 2.6f) continue;
-            if (away.LengthSquared < 0.0001f) away = new V2(0, bot.Id < ally.Id ? -1 : 1);
+            if (away.LengthSquared < 0.0001f)
+            { float angle = bot.Id % 8 * MathF.Tau / 8; away = new(MathF.Cos(angle), MathF.Sin(angle)); }
             separation += away.Normalized * (1 - Math.Min(1, away.Length / 2.6f));
         }
         var movement = direction + separation * 1.8f;
+        Wizard? closeHuman = null; float humanDistance = 3.5f;
+        foreach (var player in _players.Values)
+        {
+            if (player.Bot || !player.Alive) continue;
+            float distanceToHuman = V2.Distance(player.Position, bot.Position);
+            if (distanceToHuman < humanDistance) { closeHuman = player; humanDistance = distanceToHuman; }
+        }
+        if (closeHuman != null)
+        {
+            var away = bot.Position - closeHuman.Position;
+            if (away.LengthSquared < 0.001f)
+            { float angle = bot.Id % 8 * MathF.Tau / 8; away = new(MathF.Cos(angle), MathF.Sin(angle)); }
+            movement = away.Normalized * 1.6f + separation * 0.8f;
+        }
         bot.Input.MoveX = movement.X; bot.Input.MoveY = movement.Y; bot.Input.MoveTo = false; bot.LastInput = Time;
         Wizard? target = plan.HealTargetId != 0 ? _players.GetValueOrDefault(plan.HealTargetId)
             : _minions.GetValueOrDefault(plan.TargetId)?.Body;
@@ -170,8 +219,15 @@ public sealed partial class GameWorld
         // Do not abort rocks mid-charge: the normal simulation releases them when
         // charged, and targeting remains updated while aiming at moving enemies.
         if (!healing && bot.Charging != null) return;
+        Element? preferred = target.VulnerableElement ?? WizardTypes.Affinity(bot.WizardType);
+        if (!healing && preferred == Element.Lightning && bot.Wet > 0)
+        {
+            CancelCast(bot); bot.Selection.Clear(); bot.Selection.Add(Element.Fire);
+            SelfCast(bot); bot.BotDecision = 0.4f; return;
+        }
         Element[] recipe = healing ? [Element.Life, Element.Life, Element.Life]
-            : SafeDefenseBotAttack(distance, plan.SpellTurn + bot.Id, bot.Wet > 0);
+            : preferred == null ? SafeDefenseBotAttack(distance, plan.SpellTurn + bot.Id, bot.Wet > 0)
+            : AttunedDefenseBotAttack(bot.WizardType, distance, plan.SpellTurn + bot.Id, target.VulnerableElement);
         var spell = new SpellRecipe(recipe);
         bot.BotDecision = (spell.Shape is SpellShape.Rock or SpellShape.Shards ? 0.8f : 0.45f)
             + bot.Id % 3 * 0.07f;

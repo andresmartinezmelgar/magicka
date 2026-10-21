@@ -37,7 +37,8 @@ public sealed partial class GameWorld
                         foreach (var target in targets)
                         {
                             Damage(target.Body, 65 * level * player.Equipment.ElementPower(Element.Cold), player.Id, [Element.Cold]);
-                            target.Body.Chill = Math.Min(95, target.Body.Chill + 35 + 8 * level);
+                            if (AcceptsDefenseElement(target.Body, Element.Cold))
+                                target.Body.Chill = Math.Min(95, target.Body.Chill + 35 + 8 * level);
                         }
                         progress.PassiveCooldowns[i] = 5;
                         Emit("nova", player.Position, [Element.Cold], "Pulso glacial", 5);

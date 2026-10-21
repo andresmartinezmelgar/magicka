@@ -10,7 +10,7 @@ public sealed partial class GameWorld
     {
         if (!IsDefense || !double.IsFinite(milliseconds) || milliseconds < 0 || DefensePaused || MatchEnded) return;
         _simulationCost += milliseconds;
-        if (++_simulationSamples < 300) return;
+        if (++_simulationSamples < 120) return;
         double mean = _simulationCost / _simulationSamples;
         float equivalentFps = mean switch { < 8 => 60, < 10 => 52, < 12 => 44, < 16 => 36, < 22 => 28, < 32 => 20, _ => 15 };
         _simulationBudget.Observe(equivalentFps);

@@ -27,6 +27,8 @@ public static partial class BestiaryCatalogue
         MinionKind.Warlock => "Conjurador ígneo que lanza rocas explosivas de fuego y arcanas. Las rocas de fuego pueden dejar suelo ardiente.",
         MinionKind.Cryomancer => "Tejedor glacial que combina conos de frío, esquirlas de hielo y rocas heladas para ralentizar y congelar. Tras descongelarte dispones de tres segundos de recuperación antes de que el frío vuelva a acumularse.",
         MinionKind.Sentinel => "Guardián rúnico de gran resistencia. Regenera periódicamente un escudo de tierra y prepara golpes de área.",
+        MinionKind.Prism => "Solo recibe daño del elemento de su color: Fuego, Arcano, Frío, Agua, Rayo o Tierra. Una combinación aporta únicamente ese componente. Vida y Escudo nunca son puntos débiles. Persigue a un defensor y cambia de objetivo al caer, escapar o terminar su fijación.",
+        MinionKind.Oracle => "Mantiene distancia, retrocede si te acercas y anuncia una línea de tres cristales que explotan desde arriba. Su gran aura concede escudos a los invasores y los repara periódicamente. Congelarlo interrumpe su apoyo; derrotarlo cancela sus bombardeos pendientes.",
         _ => throw new ArgumentOutOfRangeException(nameof(kind))
     };
 }

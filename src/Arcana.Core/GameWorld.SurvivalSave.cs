@@ -38,7 +38,12 @@ public sealed partial class GameWorld
     }
     private sealed record SavedMinion(SurvivalWizard Body, MinionKind Kind, float Strength, float Attack,
         float ChannelTime, float SpeedBoost, float SpeedClock, float NavigationClock, V2 Navigation,
-        float Windup, float SupportCooldown, float ShieldCooldown, int SpellTurn);
+        float Windup, float SupportCooldown, float ShieldCooldown, int SpellTurn)
+    {
+        public int FocusTargetId { get; init; }
+        public float FocusTime { get; init; }
+        public float AuraRepairCooldown { get; init; }
+    }
     private sealed record SavedProjectile(int Id, int Owner, V2 Position, V2 Velocity, Element[] Elements, float Radius, float Power, float Lifetime);
     private sealed record SavedWall(int Id, int Owner, V2 A, V2 B, float Health, float Lifetime, Element[] Elements);
     private sealed record SavedField(int Id, int Owner, V2 Position, float Radius, float Lifetime, float Delay,
@@ -73,7 +78,9 @@ public sealed partial class GameWorld
             }).ToArray(),
             Minions = _minions.Values.Where(m => m.Body.Alive).Select(m => new SavedMinion(SurvivalWizard.Capture(m.Body),
                 m.Kind, m.Strength, m.Attack, m.ChannelTime, m.SpeedBoost, m.SpeedClock, m.NavigationClock, m.Navigation,
-                m.Windup, m.SupportCooldown, m.ShieldCooldown, m.SpellTurn)).ToArray(),
+                m.Windup, m.SupportCooldown, m.ShieldCooldown, m.SpellTurn)
+                { FocusTargetId = _players.ContainsKey(m.FocusTargetId) ? m.FocusTargetId : 0,
+                    FocusTime = m.FocusTime, AuraRepairCooldown = m.AuraRepairCooldown }).ToArray(),
             Projectiles = _projectiles.Select(p => new SavedProjectile(p.Id, p.Owner, p.Position, p.Velocity,
                 p.Recipe.Elements, p.Radius, p.Power, p.Lifetime)).ToArray(),
             Walls = _walls.Select(w => new SavedWall(w.Id, w.Owner, w.A, w.B, w.Health, w.Lifetime, w.Recipe.Elements)).ToArray(),
@@ -134,7 +141,8 @@ public sealed partial class GameWorld
             {
                 Attack = m.Attack, ChannelTime = m.ChannelTime, SpeedBoost = m.SpeedBoost, SpeedClock = m.SpeedClock,
                 NavigationClock = m.NavigationClock, Navigation = m.Navigation, Windup = m.Windup,
-                SupportCooldown = m.SupportCooldown, ShieldCooldown = m.ShieldCooldown, SpellTurn = m.SpellTurn
+                SupportCooldown = m.SupportCooldown, ShieldCooldown = m.ShieldCooldown, SpellTurn = m.SpellTurn,
+                FocusTargetId = m.FocusTargetId, FocusTime = m.FocusTime, AuraRepairCooldown = m.AuraRepairCooldown
             });
             world._combatants.Add(p.Id, p); world._orderedPlayers.Add(p);
         }
@@ -170,14 +178,14 @@ public sealed partial class GameWorld
             s.Defenders is { Length: >= 1 and <= DefenseRules.MaxDefenders } && s.Defenders.Length <= s.Options.MaxPlayers &&
             s.Minions is { Length: <= DefenseRules.MaxMinions } && s.Drops is { Length: <= DefenseRules.MaxDrops } &&
             s.Projectiles is { Length: <= 2048 } && s.Walls is { Length: <= 2048 } && s.Fields is { Length: <= 2048 } &&
-            s.Bestiary is { Length: <= 13 } && s.BotPlans is { Length: <= 3 });
+            s.Bestiary != null && s.Bestiary.Length <= DefenseRules.MinionTypeCount && s.BotPlans is { Length: <= 3 });
         Require(s!.Tick is >= 0 and <= 1892160000 && double.IsFinite(s.Elapsed) && s.Elapsed is >= 0 and <= 31536000 &&
             s.Kills >= 0 && s.Bosses >= 0 && s.PartySize is >= 1 and <= 4 && s.RandomState != 0 && s.NextEvent > 0 &&
             new[] { s.SpawnClock, s.AuraClock, s.BossClock, s.SurgeTime, s.SurgeCooldown, s.SurgeClock, s.BotClock }.All(float.IsFinite));
         var ids = new HashSet<int>();
         foreach (var entry in s.Defenders)
         {
-            Require(entry?.Body != null && entry.Body.Valid() && ids.Add(entry.Body.Id) && entry.Progress != null);
+            Require(entry?.Body != null && entry.Body.Valid() && entry.Body.VulnerableElement == null && ids.Add(entry.Body.Id) && entry.Progress != null);
             var d = entry!.Progress;
             Require(d.Level is >= 1 and <= 100 && d.Experience >= 0 && d.Gold is >= 0 and <= 100000000 &&
                 d.ActiveTicks >= 0 && d.ActiveTicks <= s.Tick && double.IsFinite(d.LastActivity) && float.IsFinite(d.BerserkerRemaining) &&
@@ -195,7 +203,12 @@ public sealed partial class GameWorld
             d.Body.Id == save.LocalPlayerId && !d.Body.Bot && d.Body.Deaths < DefenseRules.PlayerLives));
         foreach (var m in s.Minions)
             Require(m?.Body != null && m.Body.Valid() && m.Body.Bot && ids.Add(m.Body.Id) && Enum.IsDefined(m.Kind) &&
-                m.Navigation.IsFinite && m.Strength > 0 && new[] { m.Strength, m.Attack, m.ChannelTime, m.SpeedBoost,
+                m.Navigation.IsFinite && m.Strength > 0 &&
+                (m.Kind == MinionKind.Prism ? m.Body.VulnerableElement.HasValue : !m.Body.VulnerableElement.HasValue) &&
+                (m.FocusTargetId == 0 || s.Defenders.Any(d => d.Body.Id == m.FocusTargetId)) &&
+                float.IsFinite(m.FocusTime) && m.FocusTime is >= 0 and <= DefenseRules.PrismFocusSeconds &&
+                float.IsFinite(m.AuraRepairCooldown) && m.AuraRepairCooldown is >= 0 and <= DefenseRules.OracleShieldInterval &&
+                new[] { m.Strength, m.Attack, m.ChannelTime, m.SpeedBoost,
                     m.SpeedClock, m.NavigationClock, m.Windup, m.SupportCooldown, m.ShieldCooldown }.All(float.IsFinite));
         Require(s.NextMinion > ids.Max() && s.NextMinion < int.MaxValue - 1);
         var entities = new HashSet<int>();

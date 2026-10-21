@@ -50,6 +50,7 @@ internal static class DefenseBalanceTests
         int peak = 0, ticks = 0, waypoint = 0;
         for (; ticks < seconds * 60 && !world.MatchEnded; ticks++)
         {
+            if (ticks % 120 == 0) Send(world, human, new() { Type = "defense_performance", FramesPerSecond = 60, FrameTime95 = 17 });
             var enemies = ((Dictionary<int, Wizard>)Field(world, "_combatants")).Values.Where(p => p.Team == 1 && p.Alive);
             if (human.Alive && ticks % 12 == 0)
             {

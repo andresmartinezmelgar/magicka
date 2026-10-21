@@ -27,7 +27,7 @@ internal static class BestiaryStatsTests
     }
     public static void Run(Action<string, Action> test)
     {
-        test("Bestiario: vida y velocidad coinciden con los trece enemigos al escalar dificultad y grupo", () =>
+        test("Bestiario: vida y velocidad coinciden con todos los enemigos al escalar dificultad y grupo", () =>
         {
             foreach (int stage in new[] { 1, 5, 61 })
             foreach (int party in new[] { 1, 4 })
@@ -77,7 +77,7 @@ internal static class BestiaryStatsTests
             var sentinel = Spawn(w, MinionKind.Sentinel); var sentinelState = ((IDictionary)Field(w, "_minions"))[sentinel.Id]!;
             Call(w, "UpdateDefenseEnemyDefense", sentinelState, 0f);
             Check(Row(MinionKind.Sentinel, "Escudo de tierra") == N(sentinel.Shield), "Escudo incorrecto.");
-            foreach (var kind in Enum.GetValues<MinionKind>().Where(k => !DefenseRules.SpellcastingEnemy(k)))
+            foreach (var kind in Enum.GetValues<MinionKind>().Where(k => !DefenseRules.SpellcastingEnemy(k) && k != MinionKind.Oracle))
             {
                 var enemy = Spawn(w, kind); target.Health = 1000;
                 float amount = kind == MinionKind.Archer ? SpellBalance.Earth * DefenseRules.ArrowPower : DefenseRules.MinionMeleeAttack(kind);

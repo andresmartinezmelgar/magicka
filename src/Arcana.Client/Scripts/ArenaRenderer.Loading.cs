@@ -84,7 +84,8 @@ public partial class ArenaRenderer
             new(4001, actors[0].Id, center + new V2(-5, -3), 2, 0.2f, [Element.Earth, Element.Fire], "meteor"),
             new(4002, actors[0].Id, center + new V2(4, -3), 2, 6, [Element.Fire], "burning_ground"),
             new(4003, actors[0].Id, center + new V2(-5, 4), 2, 6, [Element.Cold], "frost_ground"),
-            new(4004, actors[0].Id, center + new V2(4, 4), 2, 6, [Element.Water], "water_pool")];
+            new(4004, actors[0].Id, center + new V2(4, 4), 2, 6, [Element.Water], "water_pool"),
+            new(4005, actors[0].Id, center + new V2(0, -5), 3, 1.2f, [Element.Earth, Element.Arcane], "oracle_bombardment")];
         var bursts = new[] { Element.Fire, Element.Cold, Element.Life, Element.Shield, Element.Earth }.Select((e, i) =>
             new GameEvent(10000 + i, i == 4 ? "explosion" : "nova", center + new V2(i - 2, 0), [e], i == 4 ? "Meteoro" : "", 3)).ToArray();
         yield return ("Preparando meteoros y explosiones…", () =>

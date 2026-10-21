@@ -85,9 +85,19 @@ public partial class Main
             if (_bestiarySmokePhase == 1)
             {
                 if (Loading || !_playing || _defensePanel == null) return false;
+                _practice!.Players[_localId].Position = V2.Zero;
+                _bestiarySmokePhase = 4; _bestiarySmokeFrames = 0; return false;
+            }
+            if (_bestiarySmokePhase == 4)
+            {
+                RenderEliteSmoke();
+                if (_bestiarySmokeFrames < 45) return true;
+                _renderer.VerifyEliteModels();
+                if (_bestiaryCaptures != null)
+                    GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(_bestiaryCaptures, "elite-lineup.png"));
                 _practice!.Players[_localId].BuffStacks[(int)BuffKind.Energy] = 2;
                 _snapshot = _practice.Snapshot();
-                _defensePanel.Update(_snapshot, _localId, false, false);
+                _defensePanel!.Update(_snapshot, _localId, false, false);
                 var relics = (Control)_defensePanel.FindChild("DefenseCollectedRelics", true, false);
                 Check(!relics.IsVisibleInTree() && _defensePanel.FindChild("DefenseBonusScroll", true, false) == null,
                     "Las reliquias siguen ocupando el lateral.");
@@ -98,11 +108,25 @@ public partial class Main
             Check(_relicWindow.Visible && texts.Any(l => l.Text.Contains("Energía ×2") && l.Text.Contains("energía por segundo")),
                 "La ventana no muestra las reliquias y sus efectos.");
             CloseRelics(); ReturnToLauncher();
-            GD.Print("BESTIARY_RELICS_SMOKE_OK: trece enemigos, retratos, estadísticas escalables, contadores, texto adaptable y reliquias fuera del lateral.");
+            GD.Print("BESTIARY_RELICS_SMOKE_OK: quince enemigos, retratos, estadísticas escalables, contadores, texto adaptable y reliquias fuera del lateral.");
             GetTree().Quit(0); _bestiarySmoke = false;
         }
         catch (Exception error)
         { GD.PushError("BESTIARY_RELICS_SMOKE_FAILED: " + error.Message); GetTree().Quit(1); _bestiarySmoke = false; }
         return false;
+    }
+
+    private void RenderEliteSmoke()
+    {
+        var live = _practice!.Snapshot();
+        var samples = DefenseRules.PrismElements.ToArray().Select((e, i) => new MinionSnapshot(9000 + i, MinionKind.Prism,
+            new(-7 + i * 2.8f, -3), new(0, 1), 640, 640, 0, 0, 0, i == 0 ? 1 : 0, false, [], false)
+            { VulnerableElement = e }).ToList();
+        foreach (var (kind, x) in new[] { (MinionKind.Sentinel, -6f), (MinionKind.Boss, 0f), (MinionKind.Oracle, 6f) })
+            samples.Add(new(9000 + samples.Count, kind, new(x, 5), new(0, 1), 1000, 1000, 0, 0, 0, 0, false, [], false)
+                { Shield = 220, ShieldMax = 220 });
+        var sample = live with { Defense = live.Defense! with { Minions = samples.ToArray(), Drops = [] },
+            Fields = [new(9900, 9008, new(0, -7), DefenseRules.OracleStrikeRadius, 1.1f, [Element.Earth, Element.Arcane], "oracle_bombardment")] };
+        _renderer.Render(sample, _localId, 1 / 60.0, true);
     }
 }

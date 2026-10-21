@@ -33,8 +33,8 @@ public static partial class BestiaryCatalogue
         Add("Vida máxima", Number(DefenseRules.MinionHealth(kind, difficulty, defenders)));
         Add("Velocidad", Number(Wizard.BaseMovementSpeed * DefenseRules.MinionSpeed(kind, difficulty)) + " m/s");
         Add("Distancia para atacar", Number(DefenseRules.MinionRange(kind)) + " m");
-        Add("Pausa entre ataques", kind == MinionKind.Bomber ? "Una explosión" : Number(DefenseRules.AttackDelay(difficulty)) + " s");
-        if (!DefenseRules.SpellcastingEnemy(kind))
+        Add("Pausa entre ataques", kind == MinionKind.Bomber ? "Una explosión" : Number(DefenseRules.AttackPause(kind, difficulty)) + " s");
+        if (!DefenseRules.SpellcastingEnemy(kind) && kind != MinionKind.Oracle)
             Add(kind == MinionKind.Archer ? "Daño por flecha" : "Daño por golpe",
                 Number((kind == MinionKind.Archer ? SpellBalance.Earth * DefenseRules.ArrowPower : DefenseRules.MinionMeleeAttack(kind)) * strength));
         foreach (var spell in DefenseRules.EnemySpells(kind))
@@ -71,6 +71,24 @@ public static partial class BestiaryCatalogue
         }
         if (kind == MinionKind.Cryomancer)
             Add("Recuperación del defensor", Number(DefenseRules.FreezeRecoverySeconds) + " s sin enfriamiento ni nueva congelación tras descongelarse; sigue recibiendo daño");
+        if (kind == MinionKind.Prism)
+        {
+            Add("Único punto débil", "El elemento de su color; solo ese componente de las mezclas causa daño");
+            Add("Variantes", string.Join(" · ", DefenseRules.PrismElements.ToArray().Select(e => SpellCatalogue.Name([e]))));
+            Add("Agua sin fusión", Number(DefenseRules.PrismWaterDamage) + " de daño base por carga, solo al prisma de Agua");
+            Add("Fijación de objetivo", "Hasta " + Number(DefenseRules.PrismFocusSeconds) + " s; rota entre defensores próximos");
+        }
+        if (kind == MinionKind.Oracle)
+        {
+            Add("Bombardeo rúnico", Number(DefenseRules.OracleStrikeDamage * strength) + " por cristal ×3");
+            Add("Radio de cada explosión", Number(DefenseRules.OracleStrikeRadius) + " m");
+            Add("Aviso antes del impacto", Number(DefenseRules.OracleStrikeDelay) + "–" + Number(DefenseRules.OracleStrikeDelay + 0.6f) + " s");
+            Add("Distancia de retirada", Number(DefenseRules.OracleRetreatRange) + " m");
+            Add("Radio del aura de escudos", Number(DefenseRules.OracleAuraRadius) + " m, sin atravesar muros");
+            Add("Escudo concedido", Number(DefenseRules.OracleShield * strength));
+            Add("Reparación del escudo", Number(DefenseRules.OracleShieldRepair * strength) + " cada " + Number(DefenseRules.OracleShieldInterval) + " s; sin acumular frecuencias");
+            Add("Duración tras el último pulso", Number(DefenseRules.OracleShieldDuration) + " s");
+        }
         if (kind is MinionKind.Captain or MinionKind.Boss) Add("Refuerzos por llamada",
             "Hasta " + (kind == MinionKind.Boss ? DefenseRules.CommanderSurgeBonus : DefenseRules.CaptainReinforcements) +
             " en " + Number(DefenseRules.CommanderSurgeSeconds) + " s; según límite de enemigos");

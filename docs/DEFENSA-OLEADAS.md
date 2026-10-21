@@ -1,6 +1,6 @@
 # Supervivencia en Anillos
 
-Versión estable **0.27.3**, protocolo **28**, integrada en `main`. Se publican APK directas, paquetes Windows y deltas de hasta tres versiones estables anteriores. Las dos cuentas autorizadas conservan el [canal de pruebas](CANALES-ACTUALIZACION.md); el resto recibe el canal estable. La horda ampliada requiere actualizar también el servidor incluido en el paquete Windows a una versión compatible.
+Versión estable **0.28.0**, protocolo **29**, integrada en `main`. Se publican APK directas, paquetes Windows y deltas de hasta tres versiones estables anteriores. Las dos cuentas autorizadas conservan el [canal de pruebas](CANALES-ACTUALIZACION.md); el resto recibe el canal estable. La horda ampliada requiere actualizar también el servidor incluido en el paquete Windows a una versión compatible.
 
 ## Partida y vidas
 
@@ -59,17 +59,19 @@ La dificultad sube cada **90 segundos**. Cada una de las primeras cuatro subidas
 
 Las apariciones siguen una cadencia continua de 0,32–0,48 s antes de escalar por dificultad y grupo, sin descansos entre grupos. Se prioriza el entorno de los defensores, manteniendo al menos 16 m de separación al aparecer. Si la población está completa, un enemigo normal a más de 60 m de todos los defensores puede volver a sus alrededores: conserva identidad, salud y estados, sin generar bajas ni premios. Los colosos y los enemigos próximos no se recolocan. El límite aumenta ocho plazas por dificultad; se reserva una para el coloso, con un máximo global de **192 enemigos**. La vida y el daño base se conservan. La pausa entre ataques empieza en 1,35 s y baja hasta 0,4 s. Los minions recorren pasillos y pueden romper barreras temporales.
 
-El tope real también depende de los FPS de cada dispositivo. Se empieza con un presupuesto de 96; cada 5 s de juego activo se mide la media, excluyendo carga, tienda, pausa y ventana sin foco. Una ventana lenta reduce el presupuesto; tres ventanas estables permiten subir una banda. En cooperativo se usa el menor presupuesto de los humanos conectados. Si ya hay demasiados enemigos, se frenan las apariciones y solo se retiran los que estén a más de 60 m de todos los defensores, excluyendo colosos, sin bajas, experiencia ni botín. Los cercanos siguen visibles y activos. El HUD muestra enemigos actuales/límite y la guía también el presupuesto por rendimiento.
+El tope real también depende de los FPS de cada dispositivo. Se empieza con un presupuesto de 48; cada 2 s de juego activo se miden la media y el percentil 95, excluyendo carga, tienda, pausa y ventana sin foco. Una ventana lenta reduce el presupuesto; cinco ventanas estables permiten subir una banda, dejando margen sobre el objetivo de 30 FPS. El mínimo es 16 enemigos. No es una garantía absoluta de FPS para cualquier hardware. En cooperativo se usa el menor presupuesto de los humanos conectados. Si ya hay demasiados enemigos, se frenan las apariciones y solo se retiran los que estén a más de 60 m de todos los defensores, excluyendo colosos, sin bajas, experiencia ni botín. Los cercanos siguen visibles y activos. El HUD muestra enemigos actuales/límite y la guía también el presupuesto por rendimiento.
 
 | FPS sostenidos | Presupuesto máximo |
 | ---: | ---: |
-| Menos de 18 | 32 |
-| 18–24 | 48 |
-| 25–31 | 64 |
-| 32–39 | 96 |
-| 40–47 | 128 |
-| 48–55 | 160 |
-| 56 o más | 192 |
+| Menos de 24 | 16 |
+| 24–29 | 24 |
+| 30–33 | 32 |
+| 34–39 | 48 |
+| 40–47 | 64 |
+| 48–55 | 96 |
+| 56–63 | 128 |
+| 64–79 | 160 |
+| 80 o más | 192 |
 
 | Tipo | Introducción | Vida base individual | Ataque base |
 | --- | --- | ---: | --- |
@@ -82,10 +84,12 @@ El tope real también depende de los FPS de cada dispositivo. Se empieza con un 
 | Mago | Dificultad 4 | 380 | Alterna haces, relámpagos y conos de arcano y fuego |
 | Chamán | Dificultad 3 | 540 | 30; cura 90 × fuerza a otro enemigo a 8 m cada 3 s |
 | Capitán | Dificultad 5 | 700 | 95 en 3,4 m, avisa 1,05 s; potencia un 35 % a otros enemigos a menos de 8 m |
-| Coloso | Intervalos variables | 4200 | 280 en 5 m; avisa 1,6 s |
+| Coloso | Intervalos variables | 4200 | 280 en 5 m; avisa 1,05 s y tiene una pausa un 35 % menor |
 | Tejedor glacial | Dificultad 4 | 760 | Conos de frío, cinco esquirlas y rocas heladas |
 | Conjurador ígneo | Dificultad 5 | 920 | Rocas arcanas o de fuego, con explosión y suelo ardiente |
 | Guardián rúnico | Dificultad 6 | 1900 | 160 en 3,8 m, avisa 1,2 s; escudo de tierra de 280 × fuerza |
+| Prisma elemental | Dificultad 3 | 640 | 48; solo recibe el elemento de su color y fija una víctima hasta 10 s |
+| Oráculo de asedio | Dificultad 6 | 1100 | Tres cristales de 160, radio 3 m, alcance 24 m; aura de escudos de 14 m |
 
 Las cifras de la tabla son las bases a dificultad 1 antes de multiplicarlas por la fuerza de aparición. El bestiario del perfil permite consultar cualquier dificultad y grupo. Los magos usan una potencia de 0,42 (el conjurador ígneo añade un 20 %), canalizan haces y relámpagos durante **1,2 s**, y conos durante **0,9 s**. La velocidad básica empieza en 3,67 m/s y aumenta hasta 5,27 m/s; cada tipo aplica su propio multiplicador.
 
@@ -95,7 +99,7 @@ El primer coloso aparece entre **120 y 180 s**. Tras derrotarlo se espera un int
 
 Los minions normales tienen oportunidades periódicas de acelerar: un **60 % más de velocidad durante 2–4 s**, señalado por un anillo azul. El impulso termina y recuperan su velocidad base. Los colosos no reciben este impulso.
 
-Los bots escoltan a los humanos, reparten amenazas y posiciones y asignan un sanador por aliado herido. Conservan la carga de sus rayos y compran auras con su oro.
+Los bots escoltan a los humanos, buscan puestos a un mínimo de 3,5 m y se apartan si coinciden con ellos. Reparten amenazas y posiciones y asignan un sanador por aliado herido. Sus ataques priorizan la afinidad del mago; ante un prisma utilizan su único punto débil. Conservan la carga de sus rayos y compran auras con su oro.
 
 ## Tienda y progreso temporal
 
@@ -111,9 +115,9 @@ Las bajas normales dan 10 EXP compartida y los colosos 60 EXP a los defensores c
 | --- | ---: | --- |
 | Oro | 35 % | Recogerlo concede su importe a los defensores presentes |
 | Equipo | 6 % por defensor | Personal |
-| Reliquia | 2 % por defensor | Personal y acumulable |
+| Reliquia | 0,5 % por defensor | Personal y acumulable |
 
-Las recogidas duran 75 s, con un máximo de 96; el inventario temporal admite 24 piezas. Los sprites distinguen monedas giratorias, las cuatro piezas y cada mejora. La columna izquierda muestra en vertical solo las mejoras recogidas, además de nivel, EXP, oro, bajas y vidas. Las aportaciones del equipo se consultan en el inventario y en Estadísticas.
+Las recogidas duran 75 s, con un máximo de 96; el inventario temporal admite 24 piezas. Los sprites distinguen monedas giratorias, las cuatro piezas y cada mejora. Las mejoras recogidas se consultan en Reliquias del menú o de la tienda. El HUD muestra nivel, EXP, oro, bajas y vidas. Las aportaciones del equipo se consultan en el inventario y en Estadísticas.
 
 Las auras de fuego, rayo y regeneración siguen al personaje. Admiten diez niveles y cuestan `80 × (nivel actual + 1)²`. Las habilidades automáticas admiten cinco niveles y cuestan `140 × (nivel actual + 1)²`:
 
@@ -152,3 +156,11 @@ Ante una caída de red, el cliente intenta recuperar la misma conexión durante 
 El ajuste gráfico reduce primero partículas decorativas, manteniendo las áreas y avisos de ataque. Las ventanas incorporan el percentil 95 del tiempo por fotograma; los picos persistentes y la carga de simulación del servidor también limitan las apariciones. Los enemigos cercanos y los colosos siguen protegidos frente a la retirada por rendimiento.
 
 El chamán puede aparecer desde el minuto 3, el bruto y el mago desde 4:30 y el capitán desde 6:00; no cambian sus atributos base.
+
+El prisma conserva su color elemental incluso al arder o congelarse. Las mezclas solo aportan el daño de ese elemento. Agua pura causa 55 de daño base por carga contra la variante azul. Vida y Escudo no aparecen como vulnerabilidades.
+
+El oráculo retrocede por debajo de 16 m, bombardea desde hasta 24 m y concede escudos a 14 m sin atravesar paredes. El escudo base es 220 × fuerza, con reparaciones de hasta 110 × fuerza cada 4 s; dura seis segundos desde el último pulso. Varias auras no aceleran la reparación. Los cristales avisan entre 1,4 y 2 s y se cancelan al morir el lanzador. Hay como máximo dos oráculos y ocho prismas en la generación natural.
+
+Las hordas respetan un intervalo mínimo de aparición de 0,4 s con presupuesto de hasta 48 enemigos, 0,25 s hasta 96 y 0,18 s por encima. Los refuerzos llegan en paquetes de uno, dos o tres según el presupuesto. La reducción de población retira únicamente enemigos lejanos.
+
+El [equipamiento compartido de bots](EQUIPAMIENTO-BOTS-ANALISIS.md) queda analizado y sin implementar.

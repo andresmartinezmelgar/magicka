@@ -604,18 +604,20 @@ public sealed partial class GameWorld
     {
         if (!target.Alive) return;
         var equipment = _combatants.TryGetValue(owner, out var attacker) ? attacker.Equipment : EquipmentModifiers.None;
-        if (spell.Healing) Heal(target, SpellBalance.Heal * spell.Count(Element.Life) * scale * HealingPower(owner));
+        if (spell.Healing && target.VulnerableElement == null) Heal(target, SpellBalance.Heal * spell.Count(Element.Life) * scale * HealingPower(owner));
         if (target.Invulnerable > 0) return;
         if (_combatants.TryGetValue(owner, out var source) && source.Id != target.Id && Allied(source, target) && (!Options.FriendlyFire || IsDefense)) return;
         float damage = 0;
         foreach (var element in SpellBalance.Offensive)
             damage += ElementDamage(target, owner, element, SpellBalance.Component(spell, element, target.Wet > 0));
+        if (target.VulnerableElement == Element.Water && SpellBalance.Component(spell, Element.Water) == 0)
+            damage += ElementDamage(target, owner, Element.Water, DefenseRules.PrismWaterDamage * spell.Count(Element.Water));
         if (spell.Has(Element.Water) && !spell.Steam && !spell.Ice && Resistance(target, Element.Water) > 0.5f)
         {
             target.Wet = 6 * equipment.WetDuration; target.Burning = 0;
             target.Knockback += force * (18 * scale * equipment.Water);
         }
-        if (spell.Shape == SpellShape.Force) target.Knockback += force * (45 * scale);
+        if (spell.Shape == SpellShape.Force && target.VulnerableElement == null) target.Knockback += force * (45 * scale);
         if (spell.Has(Element.Fire) && !spell.Steam && Resistance(target, Element.Fire) > 0.5f)
         {
             if (target.Wet > 0) target.Wet = Math.Max(0, target.Wet - 12 * scale);
@@ -640,9 +642,9 @@ public sealed partial class GameWorld
                 }
             }
         }
-        if (spell.Has(Element.Earth)) target.Knockback += force * (10 * scale);
+        if (spell.Has(Element.Earth) && AcceptsDefenseElement(target, Element.Earth)) target.Knockback += force * (10 * scale);
         damage *= damageMultiplier;
-        Damage(target, damage * scale, owner, spell.Elements);
+        ApplyDamage(target, damage * scale, owner, spell.Elements, false, true);
         if (target.Shield > 0) DamageProtection(target, UtilityPressure(target, spell, owner) * scale, owner, spell.Elements);
         if (_combatants.TryGetValue(owner, out var caster) && caster.Id != target.Id)
             caster.Energy = Math.Min(100, caster.Energy + damage * scale * 0.015f);
@@ -651,10 +653,12 @@ public sealed partial class GameWorld
     private void Damage(Wizard target, float amount, int owner, Element[]? elements = null)
         => ApplyDamage(target, amount, owner, elements, false);
     private void DamageProtection(Wizard target, float amount, int owner, Element[] elements)
-        => ApplyDamage(target, amount, owner, elements, true);
-    private void ApplyDamage(Wizard target, float amount, int owner, Element[]? elements, bool shieldOnly)
+        => ApplyDamage(target, amount, owner, elements, true, true);
+    private void ApplyDamage(Wizard target, float amount, int owner, Element[]? elements, bool shieldOnly, bool resolvedElements = false)
     {
         if (!target.Alive || target.Invulnerable > 0 || amount <= 0) return;
+        if (!resolvedElements) amount *= DefenseElementFraction(target, elements);
+        if (amount <= 0) return;
         amount *= DamagePower(owner) * RelicBuffs.Incoming(target) * target.Equipment.Incoming;
         float absorbed = Math.Min(target.Shield, amount);
         target.Shield -= absorbed; amount -= absorbed;
@@ -765,7 +769,7 @@ public sealed partial class GameWorld
             if (f.Kind == "equipment_water_pool")
             {
                 foreach (var target in _combatants.Values)
-                    if (target.Alive && target.Invulnerable <= 0 && V2.Distance(target.Position, f.Position) < f.Radius &&
+                    if (target.Alive && target.Invulnerable <= 0 && AcceptsDefenseElement(target, Element.Water) && V2.Distance(target.Position, f.Position) < f.Radius &&
                         Visible(f.Position, target.Position, f.Owner))
                     { target.Wet = Math.Max(target.Wet, 1); target.Burning = 0; }
                 continue;
@@ -783,6 +787,14 @@ public sealed partial class GameWorld
                     if (minion.Body.Alive && V2.Distance(minion.Body.Position, f.Position) < f.Radius && Visible(f.Position, minion.Body.Position, f.Owner))
                         Damage(minion.Body, f.Power, f.Owner, [Element.Earth, Element.Fire]);
                 Emit("explosion", f.Position, [Element.Earth, Element.Fire], "Meteorito", f.Radius);
+                f.Lifetime = 0; continue;
+            }
+            if (f.Kind == "oracle_bombardment")
+            {
+                foreach (var defender in _players.Values)
+                    if (defender.Alive && V2.Distance(defender.Position, f.Position) < f.Radius && Visible(f.Position, defender.Position, f.Owner))
+                        Damage(defender, f.Power, f.Owner, f.Recipe.Elements);
+                Emit("explosion", f.Position, f.Recipe.Elements, "Bombardeo rúnico", f.Radius);
                 f.Lifetime = 0; continue;
             }
             bool trigger = f.Kind == "meteor" || _combatants.Values.Any(p => EligibleForMine(p, f) && V2.Distance(p.Position, f.Position) < f.TriggerRadius);

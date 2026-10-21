@@ -30,7 +30,9 @@ public static partial class SnapshotValidation
         var ids = new HashSet<int>();
         foreach (var m in d!.Minions!)
             if (m == null || m.Id < 1000 || !ids.Add(m.Id) || !Enum.IsDefined(m.Kind) ||
-                !Position(map, m.Position) || !Direction(m.Facing) || !NonNegative([m.Health, m.MaxHealth, m.Wet, m.Burning, m.Chill, m.Frozen]) ||
+                !Position(map, m.Position) || !Direction(m.Facing) || !NonNegative([m.Health, m.MaxHealth, m.Wet, m.Burning, m.Chill, m.Frozen, m.Shield, m.ShieldMax]) ||
+                m.Shield > m.ShieldMax || m.FocusTargetId != 0 && !state.Players.Any(p => p.Id == m.FocusTargetId) ||
+                (m.Kind == MinionKind.Prism ? m.VulnerableElement == null || !DefenseRules.ValidPrismElement(m.VulnerableElement.Value) : m.VulnerableElement != null) ||
                 !Size(m.SpeedBoostSeconds, 4.01f) || !Size(m.AttackWarningSeconds, DefenseRules.AttackWindup(m.Kind) + 0.01f) ||
                 m.Health <= 0 || m.Health > m.MaxHealth || !Elements(m.Elements)) Invalid();
         ids.Clear();

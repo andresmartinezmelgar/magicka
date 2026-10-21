@@ -108,10 +108,10 @@ internal static class UpgradeTests
         test("Rendimiento: picos sostenidos y sobrecarga del servidor reducen el presupuesto", () =>
         {
             var budget = new DefensePerformanceBudget(192); budget.Observe(60, 55);
-            Check(budget.Limit == 48, "Ignoró el percentil 95.");
+            Check(budget.Limit == 16, "Ignoró el percentil 95.");
             var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4 }); w.AddPlayer("Mago");
             for (int i = 0; i < 300; i++) w.ReportSimulationStep(40);
-            Check(w.Snapshot().Defense!.PerformanceLimit == 32, "Ignoró la carga del servidor.");
+            Check(w.Snapshot().Defense!.PerformanceLimit == 16, "Ignoró la carga del servidor.");
         });
         test("Reconexión: suspender cancela órdenes sin curar ni restituir vidas", () =>
         {

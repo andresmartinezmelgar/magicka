@@ -1,6 +1,6 @@
 # Bestiario, reliquias y afijos — 0.27.0
 
-El perfil incorpora un catálogo de los 13 enemigos de supervivencia. Cada entrada describe su comportamiento y muestra las bajas guardadas de ese tipo. Solo recibe crédito el autor del golpe final, incluida la quemadura atribuida a ese jugador.
+El perfil incorpora un catálogo de los 15 enemigos de supervivencia. Cada entrada describe su comportamiento y muestra las bajas guardadas de ese tipo. Solo recibe crédito el autor del golpe final, incluida la quemadura atribuida a ese jugador.
 
 El servidor acumula las bajas por cuenta y partida. Conserva una cola en disco, la vacía al recuperar el servicio de cuentas y guarda el último acumulado en users/{uid}/bestiaryRuns/{runId}. Una transacción añade únicamente la diferencia positiva a users/{uid}.bestiary. Los reintentos, las peticiones antiguas y las reconexiones no vuelven a contar lo ya confirmado. El bestiario no modifica oro, victorias, inventario ni premios.
 

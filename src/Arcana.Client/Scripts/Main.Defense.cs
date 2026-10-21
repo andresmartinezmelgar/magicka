@@ -19,7 +19,7 @@ public partial class Main
         { ResetDefenseSample(); return; }
         _defenseSampleSeconds += delta; _defenseSampleFrames++;
         _defenseFrameTimes[Math.Clamp((int)Math.Ceiling(delta * 1000), 1, 1000)]++;
-        if (_defenseSampleSeconds < 5) return;
+        if (_defenseSampleSeconds < 2) return;
         int percentile = 1, count = 0;
         for (; percentile < 1000; percentile++)
         { count += _defenseFrameTimes[percentile]; if (count >= Math.Ceiling(_defenseSampleFrames * 0.95)) break; }
@@ -29,7 +29,7 @@ public partial class Main
         _renderer.Effects.DetailScale = slow ? percentile > 45 ? 0.35f : 0.6f : 1;
         // Primero reduce partículas decorativas; los avisos y las áreas de daño conservan su representación.
         Submit(new() { Type = "defense_performance", FramesPerSecond = fps,
-            FrameTime95 = _defenseSlowWindows >= 2 ? percentile : 0 });
+            FrameTime95 = _defenseSlowWindows >= 1 ? percentile : 0 });
         ResetDefenseSample();
     }
     private void ResetDefenseSample()

@@ -7,7 +7,7 @@ namespace Arcana.Client;
 internal static class AreaVisuals
 {
     internal enum Pattern { Fire, Water, Frost, Mine, HealingMine, MineTrigger, HealingTrigger,
-        FireAura, LightningAura, RegenerationAura, Berserker, FrostPulse, Impact, LightningLink }
+        FireAura, LightningAura, RegenerationAura, Berserker, FrostPulse, Impact, LightningLink, ShieldAura }
 
     private static readonly Dictionary<Pattern, ArrayMesh> Shapes = [];
     private static readonly Dictionary<Color, ShaderMaterial> Skins = [];
@@ -122,6 +122,17 @@ internal static class AreaVisuals
                     b.Line(p, q, 0.025f, new(Electric, 0.9f));
                     b.Line(q, r, 0.025f, new(Electric, 0.9f));
                     b.Line(r, s, 0.025f, new(Ice, 0.9f));
+                }
+                break;
+            case Pattern.ShieldAura:
+                b.Ring(0.988f, 1, new(Colors.White, 0.6f));
+                for (int i = 0; i < 6; i++)
+                {
+                    float a = i * Mathf.Tau / 6;
+                    var center = At(0.78f, a); var up = At(1, a); var side = At(1, a + Mathf.Pi / 2);
+                    Vector3[] shield = [center + up * 0.07f - side * 0.045f, center + up * 0.07f + side * 0.045f,
+                        center - up * 0.02f + side * 0.045f, center - up * 0.085f, center - up * 0.02f - side * 0.045f];
+                    for (int j = 0; j < shield.Length; j++) b.Line(shield[j], shield[(j + 1) % shield.Length], 0.012f, new(Colors.White, 0.8f));
                 }
                 break;
             case Pattern.RegenerationAura:

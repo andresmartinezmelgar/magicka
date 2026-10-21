@@ -9,7 +9,11 @@ public partial class ArenaRenderer
     {
         public required Node3D Root;
         public MinionKind Kind;
-        public MeshInstance3D? Body, Health, Aura, Warning;
+        public MeshInstance3D? Body, Health, Aura, Warning, Shield, SupportArea;
+        public Node3D? Details;
+        public MeshInstance3D[] Tinted = [];
+        public Label3D? ElementLabel;
+        public Element? LabelElement;
         public WizardVisual? Mage;
         public MinionSnapshot? Sample;
         public WizardSnapshot? Wizard;
@@ -56,8 +60,9 @@ public partial class ArenaRenderer
     }
 
     private static WizardSnapshot MinionWizard(MinionSnapshot m) => new(m.Id, DefenseRules.MinionName(m.Kind), 1, true, m.Position,
-        m.Facing, m.Health, m.MaxHealth, 0, [], [], true, 0, m.Wet, m.Burning, m.Chill, m.Frozen, 0,
+        m.Facing, m.Health, m.MaxHealth, m.Shield, [], [], true, 0, m.Wet, m.Burning, m.Chill, m.Frozen, 0,
         100, MinionCooldowns, 0, 0, 0, m.Casting,
+        ShieldMax: m.ShieldMax, ShieldSeconds: m.Shield > 0 ? 1 : 0,
         WizardType: MinionArt.CasterType(m.Kind) ?? WizardType.Pyromancer,
             CastingElements: m.Elements);
 
@@ -86,8 +91,16 @@ public partial class ArenaRenderer
                 v.Mage.Position -= World(m.Position); // La raíz ya está en coordenadas del mundo.
             }
             if (v.Health != null) v.Health.Scale = new(Math.Max(0.001f, m.Health / m.MaxHealth), 1, 1);
-            if (v.Body != null) v.Body.MaterialOverride = Material(m.Frozen > 0 ? new("8bdeff") : m.Burning > 0 ? Ui.ElementColor(Element.Fire) : MinionColor(m.Kind));
-            v.Aura!.Visible = m.Empowered || m.Kind is MinionKind.Captain or MinionKind.Sentinel or MinionKind.Warlock or MinionKind.Cryomancer || m.SpeedBoostSeconds > 0 || m.Kind == MinionKind.Boss;
+            Color bodyColor = m.VulnerableElement is { } weakness ? Ui.ElementColor(weakness)
+                : m.Frozen > 0 ? new("8bdeff") : m.Burning > 0 ? Ui.ElementColor(Element.Fire) : MinionColor(m.Kind);
+            bool fixedColor = m.Kind is MinionKind.Prism or MinionKind.Oracle;
+            if (v.Body != null) v.Body.MaterialOverride = Material(bodyColor, 0, fixedColor);
+            foreach (var part in v.Tinted) part.MaterialOverride = Material(bodyColor.Darkened(0.18f), 0, fixedColor);
+            if (v.Details != null) v.Details.Rotation = new(0, MathF.Atan2(m.Facing.X, m.Facing.Y), 0);
+            if (v.ElementLabel != null && m.VulnerableElement is { } shown && shown != v.LabelElement)
+            { v.ElementLabel.Text = SpellCatalogue.Name([shown]); v.ElementLabel.Modulate = Ui.ElementColor(shown); v.LabelElement = shown; }
+            if (v.Shield != null) v.Shield.Visible = m.Shield > 0;
+            v.Aura!.Visible = m.Empowered || m.Kind is MinionKind.Captain or MinionKind.Sentinel or MinionKind.Warlock or MinionKind.Cryomancer or MinionKind.Prism or MinionKind.Oracle || m.SpeedBoostSeconds > 0 || m.Kind == MinionKind.Boss;
             v.Aura.MaterialOverride = Material(m.SpeedBoostSeconds > 0 ? new("65e5ff") :
                 m.Kind is MinionKind.Warlock or MinionKind.Cryomancer or MinionKind.Sentinel
                     ? MinionColor(m.Kind) : Ui.Gold, 0.5f);
@@ -145,7 +158,7 @@ public partial class ArenaRenderer
     private static int PreparedMinionCount(MinionKind kind) => kind switch
     { MinionKind.Melee => 64, MinionKind.Archer => 24, MinionKind.Mage or MinionKind.Tank => 16,
         MinionKind.Captain or MinionKind.Shaman => 10, MinionKind.Warlock or MinionKind.Cryomancer => 12,
-        MinionKind.Sentinel => 8, MinionKind.Boss => 2, MinionKind.Runner => 24,
+        MinionKind.Sentinel => 8, MinionKind.Boss => 2, MinionKind.Runner => 24, MinionKind.Prism => 8, MinionKind.Oracle => 2,
         MinionKind.Brute => 12, MinionKind.Bomber => 14, _ => 0 };
 
     private void ReturnMinionVisual(MinionVisual visual)
@@ -174,13 +187,31 @@ public partial class ArenaRenderer
                 _minionShapes[m.Kind] = shape;
             }
             float height = MinionArt.BodyHeight(m.Kind);
-            float healthHeight = m.Kind == MinionKind.Boss ? 3.15f : m.Kind == MinionKind.Brute ? 2.25f : m.Kind == MinionKind.Sentinel ? 2.65f : m.Kind == MinionKind.Tank ? 1.65f : 1.3f;
+            float healthHeight = m.Kind == MinionKind.Boss ? 4.05f : m.Kind == MinionKind.Brute ? 2.25f : m.Kind == MinionKind.Sentinel ? 2.65f : m.Kind == MinionKind.Tank ? 1.65f : m.Kind == MinionKind.Prism ? 2.05f : m.Kind == MinionKind.Oracle ? 3.15f : 1.3f;
             v.Body = Mesh(root, shape, new(0, height, 0), MinionColor(m.Kind));
+            var details = MinionArt.Decorate(root, m.Kind, m.VulnerableElement, color => Material(color));
+            v.Details = details.Root; v.Tinted = details.Tinted;
+            float shieldRadius = m.Kind == MinionKind.Boss ? 1.55f : m.Kind == MinionKind.Sentinel ? 1.15f : 0.8f;
+            v.Shield = Mesh(root, new TorusMesh { InnerRadius = shieldRadius - 0.06f, OuterRadius = shieldRadius, Rings = 16, RingSegments = 4 },
+                new(0, 0.14f, 0), new("8dbdff"), 0.65f);
+            v.Shield.Name = "EnemyShield"; v.Shield.Visible = m.Shield > 0;
             Mesh(root, new BoxMesh { Size = new(1.3f, 0.1f, 0.12f) }, new(0, healthHeight, 0), new("17232d"));
             v.Health = Mesh(root, new BoxMesh { Size = new(1.25f, 0.12f, 0.13f) }, new(0, healthHeight, 0.01f), Ui.Red);
         }
+        if (m.Kind == MinionKind.Prism)
+        {
+            v.ElementLabel = new Label3D { Name = "PrismElement", Position = new(0, 2.3f, 0), FontSize = 24,
+                PixelSize = 0.012f, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled };
+            root.AddChild(v.ElementLabel);
+        }
+        if (m.Kind == MinionKind.Oracle)
+        {
+            v.SupportArea = AreaVisuals.Piece(root, AreaVisuals.Pattern.ShieldAura, new("8dbdff"));
+            v.SupportArea.Name = "OracleShieldArea"; v.SupportArea.Position = new(0, 0.07f, 0);
+            v.SupportArea.Scale = new(DefenseRules.OracleAuraRadius, 1, DefenseRules.OracleAuraRadius);
+        }
         if (m.Kind == MinionKind.Boss)
-            root.AddChild(new Label3D { Text = "COLOSO", Position = new(0, 3.7f, 0), FontSize = 34, PixelSize = 0.015f,
+            root.AddChild(new Label3D { Text = "COLOSO", Position = new(0, 4.55f, 0), FontSize = 34, PixelSize = 0.015f,
                 Modulate = Ui.Gold, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled });
         v.Aura = Mesh(root, new TorusMesh { InnerRadius = 0.88f, OuterRadius = 0.97f, Rings = 20, RingSegments = 6 },
             new(0, 0.06f, 0), Ui.Gold, 0.5f);
@@ -213,4 +244,25 @@ public partial class ArenaRenderer
     }
 
     private static Color MinionColor(MinionKind kind) => MinionArt.ColorFor(kind);
+
+    internal void VerifyEliteModels()
+    {
+        foreach (var element in DefenseRules.PrismElements.ToArray())
+        {
+            var visual = _minionVisuals.Values.First(v => v.Sample?.VulnerableElement == element ||
+                v.Kind == MinionKind.Prism && v.LabelElement == element);
+            if (visual.Body?.MaterialOverride is not StandardMaterial3D skin || skin.AlbedoColor != Ui.ElementColor(element) ||
+                skin.ShadingMode != BaseMaterial3D.ShadingModeEnum.Unshaded)
+                throw new InvalidOperationException("El color del prisma no coincide con su punto débil: " + element);
+        }
+        var sentinel = _minionVisuals.Values.First(v => v.Kind == MinionKind.Sentinel);
+        var boss = _minionVisuals.Values.First(v => v.Kind == MinionKind.Boss);
+        var oracle = _minionVisuals.Values.First(v => v.Kind == MinionKind.Oracle);
+        if (sentinel.Details?.FindChild("KnightShield", true, false) is not MeshInstance3D ||
+            boss.Details?.FindChild("ColossusHorn1", true, false) is not MeshInstance3D || boss.Body?.Mesh is not CapsuleMesh)
+            throw new InvalidOperationException("El guardián y el coloso no tienen sus siluetas nuevas.");
+        if (oracle.SupportArea == null || oracle.SupportArea.Scale.X != DefenseRules.OracleAuraRadius ||
+            oracle.Shield is not { Visible: true } || _fields.Values.All(v => v is not OracleStrikeVisual))
+            throw new InvalidOperationException("Falta el aura, escudo o bombardeo del oráculo.");
+    }
 }

@@ -8,7 +8,7 @@ public sealed partial class GameWorld
     private void DiscoverDefenseEnemy(DefenseMinion enemy)
     {
         var kind = enemy.Kind;
-        float attack = enemy.Strength * (kind == MinionKind.Archer ? SpellBalance.Earth * DefenseRules.ArrowPower
+        float attack = enemy.Strength * (kind == MinionKind.Oracle ? DefenseRules.OracleStrikeDamage : kind == MinionKind.Archer ? SpellBalance.Earth * DefenseRules.ArrowPower
             : DefenseRules.MinionMeleeAttack(kind));
         float maximum = attack;
         if (DefenseRules.SpellcastingEnemy(kind))
@@ -20,7 +20,7 @@ public sealed partial class GameWorld
         }
         _defenseBestiary.TryGetValue(kind, out var previous);
         _defenseBestiary[kind] = new(kind, _defenseDifficulty, enemy.Body.MaxHealth, attack, maximum,
-            DefenseRules.AttackDelay(_defenseDifficulty), Wizard.BaseMovementSpeed * enemy.Body.Equipment.Speed, DefenseRules.MinionRange(kind),
+            DefenseRules.AttackPause(kind, _defenseDifficulty), Wizard.BaseMovementSpeed * enemy.Body.Equipment.Speed, DefenseRules.MinionRange(kind),
             (previous?.Spawned ?? 0) + 1, previous?.Killed ?? 0);
     }
 }

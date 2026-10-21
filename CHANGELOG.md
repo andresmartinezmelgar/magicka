@@ -1,5 +1,16 @@
 # Cambios
 
+## 0.28.0 — Prisma elemental, oráculo de asedio e IA de supervivencia
+
+- Nuevo prisma elemental desde dificultad 3. Su color y rótulo muestran el único elemento que lo daña: Fuego, Arcano, Frío, Agua, Rayo o Tierra. Las mezclas aportan solo ese componente; Vida y Escudo nunca son puntos débiles. La variante de Agua recibe daño del agua pura. La inmunidad incluye estados, poderes automáticos y daño periódico.
+- Nuevo oráculo de asedio desde dificultad 6. Mantiene distancia, se retira por debajo de 16 m y anuncia tres cristales explosivos desde hasta 24 m. Su aura de 14 m concede 220 × fuerza de escudo y repara hasta 110 × fuerza cada 4 s, sin acumular frecuencias entre oráculos ni sobrescribir guardas propias. Derrotarlo cancela los bombardeos pendientes.
+- Los prismas mantienen una víctima hasta diez segundos y después rotan entre humanos y bots próximos; abandonan objetivos muertos o demasiado alejados. El coloso persigue al defensor más cercano, se mueve un 37,5 % más rápido y reduce su preparación de 1,6 a 1,05 s y su pausa de ataque un 35 %.
+- Los aliados buscan puestos al menos a 3,5 m de los humanos y se apartan al coincidir. Piromantes, criomantes, tempestarios y geomantes priorizan su afinidad, con repertorios adecuados al alcance. Contra un prisma usan su punto débil; los atacantes eléctricos se secan antes de disparar.
+- Las reliquias bajan del 2 % al 0,5 % por baja y defensor, con una tirada que conserva la precisión decimal. El equipo, oro y auras de los bots mantienen su funcionamiento previo; su reparto de equipo compartido se analiza por separado.
+- La generación empieza con un presupuesto de 48 enemigos y mide ventanas activas de 2 s. Reduce inmediatamente al caer por debajo del margen de 30 FPS y recupera una banda tras cinco ventanas estables. Los refuerzos llegan en paquetes menores con presupuestos bajos, las apariciones tienen un intervalo mínimo y se limita la presencia natural a dos oráculos y ocho prismas.
+- Modelos compartidos entre combate y bestiario: guardián con casco, espada y escudo; coloso con cabeza, cuernos y grandes puños; prisma de seis colores y oráculo con órbitas. Se precargan sus representaciones, escudos y bombardeos. El catálogo pasa a quince enemigos con imágenes, estadísticas y contadores.
+- Protocolo 29: cliente y servidor deben actualizarse juntos. Los puntos débiles, escudos y fijaciones viajan también en las deltas y se conservan al guardar localmente. El formato de guardado sigue admitiendo las versiones anteriores.
+
 ## 0.27.3 — Amenaza de la horda y recuperación tras congelarse
 
 - Los ataques de supervivencia ganan daño: el minion básico pasa de 20 a 48, el corredor de 14 a 32 y la flecha de 18 a 40. Los golpes de área de brutos, detonadores, guardianes, comandantes y colosos castigan permanecer dentro del aviso; se conservan sus radios y tiempos de preparación.
