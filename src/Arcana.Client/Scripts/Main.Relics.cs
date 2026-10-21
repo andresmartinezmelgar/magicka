@@ -19,11 +19,13 @@ public partial class Main
         _relicWindow = new AcceptDialog { Name = "CollectedRelics", Title = "Reliquias recogidas",
             OkButtonText = "Volver al menú", Exclusive = true };
         _ui.AddChild(_relicWindow);
+        Ui.ConfigureDialog(_relicWindow);
         var scroll = new ContentScrollContainer { Name = "RelicsScroll",
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         _relicWindow.AddChild(scroll); Ui.VisibleVerticalScroll(scroll);
         var entries = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         entries.AddThemeConstantOverride("separation", 14); scroll.AddChild(entries);
+        entries.AddChild(Ui.Label("RELIQUIAS RECOGIDAS", 24, Ui.Gold));
         if (buffs.Length == 0) entries.AddChild(Ui.Label("Todavía no has recogido reliquias.", 18, Ui.Muted));
         foreach (var buff in buffs)
         {

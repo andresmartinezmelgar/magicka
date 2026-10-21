@@ -154,7 +154,7 @@ public partial class ReleaseUpdateNotice : Node
     private static PanelContainer Card()
     {
         var panel = new PanelContainer();
-        panel.AddThemeStyleboxOverride("panel", Ui.Panel(new Color("0b172a"), 18, new Color("44617e")));
+        panel.AddThemeStyleboxOverride("panel", Ui.ModalPanel());
         return panel;
     }
 
@@ -189,7 +189,7 @@ public partial class ReleaseUpdateNotice : Node
         _canvas.AddChild(_overlay);
         _overlay.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
 
-        var dim = new ColorRect { Color = new Color(0.015f, 0.03f, 0.055f, 0.94f), MouseFilter = Control.MouseFilterEnum.Stop };
+        var dim = new ColorRect { Color = Ui.ModalDim, MouseFilter = Control.MouseFilterEnum.Stop };
         _overlay.AddChild(dim);
         Ui.Full(dim);
 

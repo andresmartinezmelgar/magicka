@@ -27,10 +27,10 @@ public partial class PlayerEquipmentPanel : Control
     {
         _main = main; _players = players; _load = load; _selected = localId;
         Name = "PlayerEquipmentPanel"; Theme = Ui.Theme(); Ui.Full(this);
-        AddChild(new ColorRect { Color = new(0.01f, 0.025f, 0.045f, 0.98f), LayoutMode = 1, AnchorRight = 1, AnchorBottom = 1 });
+        AddChild(new ColorRect { Color = Ui.ModalDim, LayoutMode = 1, AnchorRight = 1, AnchorBottom = 1 });
         var margin = new MarginContainer(); AddChild(margin); Ui.Full(margin);
         foreach (string side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, 20);
-        var panel = new PanelContainer(); margin.AddChild(panel);
+        var panel = new PanelContainer(); panel.AddThemeStyleboxOverride("panel", Ui.ModalPanel()); margin.AddChild(panel);
         var box = new VBoxContainer(); box.AddThemeConstantOverride("separation", 10); panel.AddChild(box);
         box.AddChild(Ui.Label("BONOS DE LOS MAGOS", 25, Ui.Gold));
         var header = new GridContainer { Columns = 3 }; _headerGrid = header;

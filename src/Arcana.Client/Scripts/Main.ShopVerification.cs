@@ -90,9 +90,21 @@ public partial class Main
                     "El primer objeto no permite ver el botón de compra junto con sus atributos.");
                 Check(Button("ShopRefreshAd").Disabled, "La renovación por anuncios está activa.");
                 Button("ShopComparison_" + _shopBoughtId).EmitSignal(Godot.Button.SignalName.Pressed);
+                Ui.VerifyDialog((AcceptDialog)shop.FindChild("ShopComparison", true, false));
                 Check(((AcceptDialog)shop.FindChild("ShopComparison", true, false)).Visible &&
                     ((Label)shop.FindChild("ShopComparisonText", true, false)).Text.Contains("→"), "La tienda no muestra la comparación antes de comprar.");
-                shop.HandleBack();
+                _shopSmokePhase = 21; return false;
+            }
+            if (_shopSmokePhase == 21)
+            {
+                var comparison = (AcceptDialog)shop!.FindChild("ShopComparison", true, false);
+                if (DisplayServer.GetName() != "headless")
+                {
+                    Check(GetViewport().GetVisibleRect().Grow(2).Encloses(new Rect2(comparison.Position, comparison.Size)), "Comparación sale de la pantalla.");
+                    Check(new Rect2(Vector2.Zero, comparison.Size).Grow(2).Encloses(comparison.GetOkButton().GetGlobalRect()), "El botón de comparación queda fuera de su ventana.");
+                }
+                CaptureShop("03-comparacion"); shop.HandleBack();
+                Check(!comparison.Visible, "Atrás no cierra la comparación.");
                 CaptureShop("03-ofertas"); Button("ShopBuy_" + _shopBoughtId).EmitSignal(Godot.Button.SignalName.Pressed);
                 Button("ShopBuy_" + _shopBoughtId).EmitSignal(Godot.Button.SignalName.Pressed); _shopSmokePhase = 3; return false;
             }

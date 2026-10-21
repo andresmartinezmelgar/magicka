@@ -58,14 +58,23 @@ public partial class Main
                     metrics.Add(new(StatisticGroup.Enemy, (int)kind, StatisticMeasure.Deaths, 28));
                     metrics.Add(new(StatisticGroup.Enemy, (int)kind, StatisticMeasure.Damage, 800 * ((int)kind + 1)));
                     metrics.Add(new(StatisticGroup.Enemy, (int)kind, StatisticMeasure.ShieldDamage, 150 * ((int)kind + 1)));
+                    metrics.Add(new(StatisticGroup.Enemy, (int)kind, StatisticMeasure.DamageReceived, 4000 * ((int)kind + 1)));
+                    metrics.Add(new(StatisticGroup.Enemy, (int)kind, StatisticMeasure.ShieldAbsorbed, 250 * ((int)kind + 1)));
                     metrics.Add(new(StatisticGroup.Actor, 64 + (int)kind, StatisticMeasure.Damage, 800 * ((int)kind + 1)));
+                    metrics.Add(new(StatisticGroup.Actor, 64 + (int)kind, StatisticMeasure.Healing, 7));
+                    metrics.Add(new(StatisticGroup.Actor, 64 + (int)kind, StatisticMeasure.ShieldAbsorbed, 11));
                     for (int e = 0; e < 9; e++) metrics.Add(new(StatisticGroup.EnemyElement, (int)kind * 9 + e, StatisticMeasure.DamageReceived, 4200));
                 }
                 foreach (var attack in Enum.GetValues<StatisticAttack>())
-                { metrics.Add(new(StatisticGroup.Attack, (int)attack, StatisticMeasure.Damage, 545 * ((int)attack + 1))); metrics.Add(new(StatisticGroup.Attack, (int)attack, StatisticMeasure.Casts, 3 * ((int)attack + 1))); }
+                {
+                    foreach (var (group, damage, casts) in new[] { (StatisticGroup.Attack, 545, 3), (StatisticGroup.HumanAttack, 400, 1), (StatisticGroup.BotAttack, 140, 1), (StatisticGroup.EnemyAttack, 5, 1) })
+                    { metrics.Add(new(group, (int)attack, StatisticMeasure.Damage, damage * ((int)attack + 1))); metrics.Add(new(group, (int)attack, StatisticMeasure.Casts, casts * ((int)attack + 1))); }
+                }
                 for (int d = 1; d <= 8; d++) { metrics.Add(new(StatisticGroup.Difficulty, d, StatisticMeasure.Spawns, 20)); metrics.Add(new(StatisticGroup.Difficulty, d, StatisticMeasure.SpawnHealth, d * 10000)); }
                 foreach (int a in new[] { 0, 1, 16, 17, 32 })
-                { metrics.Add(new(StatisticGroup.Actor, a, StatisticMeasure.Damage, 2500 * (a + 1))); metrics.Add(new(StatisticGroup.Actor, a, StatisticMeasure.AliveSeconds, 300)); metrics.Add(new(StatisticGroup.Actor, a, StatisticMeasure.FrozenSeconds, a + 9)); }
+                { metrics.Add(new(StatisticGroup.Actor, a, StatisticMeasure.Damage, 2500 * (a + 1))); metrics.Add(new(StatisticGroup.Actor, a, StatisticMeasure.AliveSeconds, 300)); metrics.Add(new(StatisticGroup.Actor, a, StatisticMeasure.FrozenSeconds, a + 9));
+                    metrics.Add(new(StatisticGroup.Actor, a, StatisticMeasure.Healing, a + 10));
+                    metrics.Add(new(StatisticGroup.Actor, a, StatisticMeasure.ShieldAbsorbed, a + 20)); }
                 foreach (var tier in Enum.GetValues<ItemTier>()) metrics.Add(new(StatisticGroup.Equipment, (int)tier, StatisticMeasure.Collected, 30.0 / ((int)tier + 1)));
                 var report = world.MatchStatistics() with { Metrics = metrics.ToArray(), Revision = 18000, Seconds = 300, Status = MatchRecordStatus.Completed };
                 report.Validate();
@@ -87,19 +96,49 @@ public partial class Main
                 _statisticsPanel!.SelectViewForVerification(1);
                 void CheckWater(double expected)
                 { if (Math.Abs(_statisticsPanel.ChartValueForVerification("Daño por elemento", "Agua") - expected) > 0.001) throw new InvalidOperationException("Las gráficas mezclan modos u orígenes de ataque."); }
-                CheckWater(2769.75);
+                CheckWater(2700);
+                void CheckSupport(double healing, double absorbed)
+                {
+                    if (Math.Abs(_statisticsPanel.ChartValueForVerification("Daño por elemento", "Vida") - healing) > 0.001 ||
+                        Math.Abs(_statisticsPanel.ChartValueForVerification("Daño por elemento", "Escudo") - absorbed) > 0.001)
+                        throw new InvalidOperationException("Vida o Escudo no usan la curación/absorción efectiva del origen filtrado.");
+                }
+                CheckSupport(348, 498);
+                int species = Enum.GetValues<MinionKind>().Length;
+                _statisticsPanel.SelectSourceForVerification(3); CheckSupport(species * 14, species * 22);
+                _statisticsPanel.SelectSourceForVerification(4); CheckSupport(348 + species * 14, 498 + species * 22);
+                _statisticsPanel.SelectSourceForVerification(0);
                 _statisticsPanel!.SelectModeForVerification(1);
                 if (!_statisticsPanel.FindChildren("*", "Label", true, false).OfType<Label>().Any(l => l.Text.StartsWith("1 partida ·", StringComparison.Ordinal))) throw new InvalidOperationException("El filtro de modo no aísla los informes.");
-                CheckWater(923.25);
-                _statisticsPanel.SelectSourceForVerification(1); CheckWater(600);
-                _statisticsPanel.SelectSourceForVerification(2); CheckWater(300);
-                _statisticsPanel.SelectSourceForVerification(3); CheckWater(23.25);
+                CheckWater(900); CheckSupport(116, 166);
+                _statisticsPanel.SelectSourceForVerification(1); CheckWater(600); CheckSupport(63, 93);
+                _statisticsPanel.SelectSourceForVerification(2); CheckWater(300); CheckSupport(53, 73);
+                _statisticsPanel.SelectSourceForVerification(3); CheckWater(23.25); CheckSupport(0, 0);
+                _statisticsPanel.SelectSourceForVerification(4); CheckWater(923.25); CheckSupport(116, 166);
                 _statisticsPanel.SelectSourceForVerification(0); _statisticsPanel.SelectModeForVerification(0);
+                _statisticsPanel.SelectViewForVerification(2);
+                const string enemyTitle = "Daño realizado y recibido por enemigo";
+                foreach (var kind in Enum.GetValues<MinionKind>())
+                    if (Math.Abs(_statisticsPanel.ChartValueForVerification(enemyTitle, DefenseRules.MinionName(kind)) - 1900 * ((int)kind + 1)) > 0.001 ||
+                        Math.Abs(_statisticsPanel.ChartSecondValueForVerification(enemyTitle, DefenseRules.MinionName(kind)) - 8500 * ((int)kind + 1)) > 0.001)
+                        throw new InvalidOperationException("Las barras por enemigo no suman el daño real a vida y escudos.");
+                _statisticsPanel.SelectModeForVerification(1);
+                var emptyEnemies = (StatisticsBarChart)_statisticsPanel.FindChild("EnemyDamageBars", true, false);
+                if (emptyEnemies.Categories.Length != Enum.GetValues<MinionKind>().Length || emptyEnemies.Categories.Any(c => c.First != 0 || c.Second != 0))
+                    throw new InvalidOperationException("Las especies sin datos desaparecen o muestran daño inexistente.");
+                _statisticsPanel.SelectModeForVerification(0);
+                _statisticsPanel.SelectViewForVerification(3);
+                if (Math.Abs(_statisticsPanel.ChartValueForVerification("Ataques con más daño", "Regeneración") - 42120) > 0.001)
+                    throw new InvalidOperationException("Hechizos no suma humanos y bots sin duplicar los totales.");
+                _statisticsPanel.SelectViewForVerification(5);
+                string actor = $"Magos · {WizardTypes.Name((WizardType)0)} · equipo 1";
+                if (Math.Abs(_statisticsPanel.ChartValueForVerification("Daño de las clases y equipos", actor) - 135000) > 0.001)
+                    throw new InvalidOperationException("Las clases no suman humanos y bots en un registro.");
                 _statisticsSmokePhase = 2; _statisticsSmokeFrame = 0; return true;
             }
             int view = (_statisticsSmokePhase - 2) / 2;
             if (view >= 6)
-            { CleanupStatisticsSmoke(); GD.Print("MATCH_STATISTICS_SMOKE_OK: dos UID, cierre de sesión, archivos locales, seis vistas, gráficas, filtros, tablas y aislamiento de telemetría."); GetTree().Quit(0); _statisticsSmoke = false; return true; }
+            { CleanupStatisticsSmoke(); GD.Print("MATCH_STATISTICS_SMOKE_OK: dos UID, cierre de sesión, archivos locales, seis vistas, barras verticales por elemento y enemigo, soporte efectivo, humanos+bots, filtros, tablas y aislamiento de telemetría."); GetTree().Quit(0); _statisticsSmoke = false; return true; }
             var scroll = (ScrollContainer)_statisticsPanel!.FindChild("StatisticsScroll", true, false);
             if (_statisticsSmokePhase % 2 == 0)
             {
@@ -121,7 +160,13 @@ public partial class Main
             }
             if (_statisticsCaptures != null)
             {
-                if (_statisticsSmokeFrame == 12) { scroll.ScrollVertical = (int)((Control)scroll.GetChild(0)).GetChild<Control>(4).Position.Y; return true; }
+                if (_statisticsSmokeFrame == 12)
+                {
+                    var plot = _statisticsPanel.FindChildren("*", "Control", true, false).OfType<StatisticsBarChart>().FirstOrDefault();
+                    scroll.ScrollVertical = plot != null ? scroll.ScrollVertical + (int)(plot.GlobalPosition.Y - bounds.Position.Y)
+                        : (int)((Control)scroll.GetChild(0)).GetChild<Control>(4).Position.Y;
+                    return true;
+                }
                 if (_statisticsSmokeFrame < 24) return true;
                 System.IO.Directory.CreateDirectory(_statisticsCaptures);
                 GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(_statisticsCaptures, "statistics-" + view + ".png"));

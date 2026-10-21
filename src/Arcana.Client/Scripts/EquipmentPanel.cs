@@ -117,15 +117,18 @@ public partial class EquipmentPanel : Control
         hint.AutowrapMode = TextServer.AutowrapMode.WordSmart; hint.SizeFlagsHorizontal = SizeFlags.ExpandFill; footer.AddChild(hint);
         var close = Action(footer, _defensePlayer == null ? "Volver" : "Volver a la tienda", () => Close()); _actions.Remove(close);
         BuildSaleModal();
-        _setsInfo = new AcceptDialog { Title = "Conjuntos Míticos de los ocho elementos", OkButtonText = "Cerrar" }; AddChild(_setsInfo);
+        _setsInfo = new AcceptDialog { Name = "EquipmentSets", Title = "Conjuntos Míticos de los ocho elementos", OkButtonText = "Cerrar" }; AddChild(_setsInfo);
+        Ui.ConfigureDialog(_setsInfo);
         var setsScroll = new ContentScrollContainer { CustomMinimumSize = new(600, 300),
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; _setsInfo.AddChild(setsScroll);
         _setsScroll = setsScroll;
         Ui.VisibleVerticalScroll(setsScroll);
+        var setsBody = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; setsScroll.AddChild(setsBody);
+        setsBody.AddThemeConstantOverride("separation", 12); setsBody.AddChild(Ui.Label("CONJUNTOS MÍTICOS", 24, Ui.Gold));
         var descriptions = Ui.Label(string.Join("\n\n", EquipmentCatalogue.FocusedFamilies.Select(f => EquipmentCatalogue.FamilyName(f) + "\n"
             + "2 o 3 piezas: " + SetDescription(f, false) + "\n4 piezas: " + SetDescription(f, true)))
             + "\n\nEl bono de cuatro sustituye al de dos. Se pueden combinar dos conjuntos de dos piezas.", 17);
-        descriptions.AutowrapMode = TextServer.AutowrapMode.WordSmart; descriptions.SizeFlagsHorizontal = SizeFlags.ExpandFill; setsScroll.AddChild(descriptions);
+        descriptions.AutowrapMode = TextServer.AutowrapMode.WordSmart; descriptions.SizeFlagsHorizontal = SizeFlags.ExpandFill; setsBody.AddChild(descriptions);
         ApplyOptionAEquipment(margin, panel, box, columns, inventoryScroll, totalsScroll, footer);
         BuildItemPicker();
         GetViewport().SizeChanged += UpdateEquipmentResponsive;

@@ -126,6 +126,34 @@ internal static class SurvivalSaveTests
             }
             finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
         });
+        test("Guardado local: continuar consume el punto y su copia, otro guardado habilita solo el nuevo", () =>
+        {
+            string root = Path.Combine(Path.GetTempPath(), "arcana-consume-" + RunId());
+            try
+            {
+                string path = Path.Combine(root, "survival.json"); var store = new SurvivalSaveStore(path);
+                var (world, player) = World(0); Advance(world, 30); string run = RunId();
+                store.Write(world.SaveSurvival(player.Id, run)); Advance(world, 30);
+                store.Write(world.SaveSurvival(player.Id, run));
+                var loaded = store.Load();
+                Check(store.Exists, "Leer para preparar/cancelar la carga consumió el punto.");
+                Check(Reject(() => store.Consume(loaded.Save with { SavedAt = loaded.Save.SavedAt.AddSeconds(-1) })) && store.Exists,
+                    "Consumir un punto distinto deshabilitó el guardado actual.");
+                store.Consume(loaded.Save);
+                Check(!store.Exists && !new SurvivalSaveStore(path).Exists && Reject(() => store.Load()) &&
+                    Reject(() => new SurvivalSaveStore(path).Load()) && Reject(() => store.Consume(loaded.Save)),
+                    "Reiniciar o leer otra vez permite reutilizar el punto consumido.");
+                File.WriteAllText(path, "roto");
+                Check(Reject(() => store.Load()), "El respaldo permite cargar un punto consumido.");
+                Advance(world, 60); var next = world.SaveSurvival(player.Id, run); store.Write(next);
+                Check(store.Exists && store.Load().World.Tick == world.Tick, "Otro guardado no habilitó el punto nuevo.");
+                File.WriteAllText(path, "roto");
+                var recovered = store.Load();
+                Check(recovered.RecoveredBackup && recovered.World.Tick == world.Tick, "La copia recuperó un punto anterior consumido.");
+                store.Consume(recovered.Save); Check(!store.Exists && Reject(() => store.Load()), "La copia recuperada permite dos continuaciones.");
+            }
+            finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        });
         test("Guardado local: rechaza multijugador, finalizadas, versiones desconocidas y estados incompletos", () =>
         {
             var (w, p) = World(0); var save = w.SaveSurvival(p.Id, RunId());

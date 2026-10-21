@@ -54,11 +54,11 @@ public partial class DefensePanel : Control
                 var open = Ui.Button("Equipo / tienda", OpenShop); open.Name = "DefenseShopButton";
         open.CustomMinimumSize = new(0, Ui.IsMobile ? 46 : 40); stack.AddChild(open);
         _shop = new Control { Name = "DefenseShop", Visible = false }; AddChild(_shop); Ui.Full(_shop);
-        var shade = new ColorRect { Color = new(0.01f, 0.025f, 0.045f, 0.94f), MouseFilter = MouseFilterEnum.Stop };
+        var shade = new ColorRect { Color = Ui.ModalDim, MouseFilter = MouseFilterEnum.Stop };
         _shop.AddChild(shade); Ui.Full(shade);
         var center = new CenterContainer(); _shop.AddChild(center); Ui.Full(center);
         _window = new PanelContainer { Name = "DefenseShopWindow" }; center.AddChild(_window);
-        _window.AddThemeStyleboxOverride("panel", Ui.Panel(new("102039"), 9, Ui.Gold.Darkened(0.45f)));
+        _window.AddThemeStyleboxOverride("panel", Ui.ModalPanel());
         var body = new VBoxContainer(); body.AddThemeConstantOverride("separation", 8); _window.AddChild(body);
         var header = new HBoxContainer(); body.AddChild(header);
         var title = Ui.Label("SUPERVIVENCIA · EQUIPO DE PARTIDA", Ui.IsMobile ? 19 : 23, Ui.Gold);

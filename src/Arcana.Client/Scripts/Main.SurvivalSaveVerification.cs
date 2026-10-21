@@ -60,6 +60,10 @@ public partial class Main
                 Check(_launcher.FindChild("ContinueSurvival", true, false) is Button { Visible: true, Disabled: false },
                     "El menú no ofrece continuar la partida guardada.");
                 ContinueSurvival();
+                Check(Loading && HasSurvivalSave, "Preparar los recursos consume el archivo antes de activar el juego.");
+                ReturnToLauncher();
+                Check(HasSurvivalSave, "Cancelar la carga consumió la partida.");
+                ContinueSurvival();
                 Check(_practice!.Tick == _survivalSaveSmokeTick && _practice.Players[_localId].Health == 712 &&
                     _practice.Players.Count == 2 && _practice.Players[_localId].Deaths == 1, "Continuar creó una partida nueva.");
                 _survivalSaveSmokePhase = 2; return false;
@@ -67,8 +71,17 @@ public partial class Main
             Check(_localBestiaryRun == _survivalSaveSmokeRun && _localBestiaryUid == "survival-save-ui", "Cambió la identidad del bestiario al continuar.");
             Check(_practice!.Players[_localId].BuffStacks[(int)BuffKind.Energy] == 2 && _practice.Tick >= _survivalSaveSmokeTick,
                 "Se perdió el progreso al terminar de cargar.");
+            Check(!HasSurvivalSave, "La partida ya continuada sigue disponible para rebobinar.");
+            if (_survivalSaveSmokePhase == 2)
+            {
+                TogglePause(); _survivalSaveSmokeTick = _practice.Tick;
+                Check(SaveLocalSurvival(true) && HasSurvivalSave, "Guardar otra vez no habilita el punto nuevo.");
+                ContinueSurvival(); Check(Loading && _practice!.Tick == _survivalSaveSmokeTick, "No preparó el nuevo punto guardado.");
+                _survivalSaveSmokePhase = 3; return false;
+            }
             ReturnToLauncher();
-            GD.Print("SURVIVAL_SAVE_SMOKE_OK: guardar, salir y continuar conservan estado local, aliados e identidad.");
+            ContinueSurvival(); Check(!Loading && !_playing, "El mismo archivo se pudo continuar por segunda vez.");
+            GD.Print("SURVIVAL_SAVE_SMOKE_OK: estado, aliados e identidad; cancelar conserva el punto, activarlo lo consume, guardar de nuevo habilita otro punto y se bloquea una segunda carga.");
             GetTree().Quit(0); _survivalSaveSmoke = false;
         }
         catch (Exception error)

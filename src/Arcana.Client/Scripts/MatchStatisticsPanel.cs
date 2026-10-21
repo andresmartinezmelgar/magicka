@@ -39,7 +39,7 @@ public partial class MatchStatisticsPanel : Control
         _period = Select("Periodo", ["Todo el periodo", "Últimos 7 días", "Últimos 30 días", "Últimos 90 días"]);
         _version = Select("Versión", ["Todas las versiones"]);
         _view = Select("Vista", ["Resumen", "Elementos", "Monstruos", "Hechizos", "Progresión", "Clases y equipos"]);
-        _source = Select("Origen del ataque", ["Todos los orígenes", "Humanos", "Bots", "Monstruos"]);
+        _source = Select("Origen del ataque", ["Humanos + bots", "Humanos", "Bots", "Monstruos", "Todos los orígenes"]);
         _unfinished = new CheckBox { Text = "Incluir partidas interrumpidas", ButtonPressed = true }; _unfinished.Toggled += _ => Render(); _filters.AddChild(_unfinished);
         _status = Ui.Label("Cargando informes…", 16, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; content.AddChild(_status);
         _body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; _body.AddThemeConstantOverride("separation", 12); content.AddChild(_body);
@@ -55,7 +55,15 @@ public partial class MatchStatisticsPanel : Control
         foreach (string text in choices) select.AddItem(text);
         select.ItemSelected += _ => { if (_body != null) Render(); }; box.AddChild(select); _filters.AddChild(box); return select;
     }
-    private void ResizeFilters() => _filters.Columns = GetViewport().GetVisibleRect().Size.X < 720 ? 1 : 3;
+    private void ResizeFilters()
+    {
+        _filters.Columns = GetViewport().GetVisibleRect().Size.X < 720 ? 1 : 3;
+        foreach (var chart in _body.FindChildren("*", "Control", true, false).OfType<StatisticsBarChart>())
+        {
+            chart.CustomMinimumSize = new(chart.CustomMinimumSize.X, BarChartHeight);
+            ((Control)chart.GetParent()).CustomMinimumSize = new(0, BarChartHeight + 22);
+        }
+    }
     private void Versions()
     {
         string selected = _version.GetItemText(_version.Selected);
@@ -87,8 +95,24 @@ public partial class MatchStatisticsPanel : Control
         finally { _loading = false; if (!_lifetime.IsCancellationRequested) _more.Disabled = false; }
     }
     private double Sum(StatisticGroup group, StatisticMeasure measure, int key = 0) => _totals.GetValueOrDefault((group, key, measure));
-    private StatisticGroup ElementGroup => _source.Selected switch { 1 => StatisticGroup.HumanElement, 2 => StatisticGroup.BotElement, 3 => StatisticGroup.EnemyElementDealt, _ => StatisticGroup.Element };
-    private StatisticGroup AttackGroup => _source.Selected switch { 1 => StatisticGroup.HumanAttack, 2 => StatisticGroup.BotAttack, 3 => StatisticGroup.EnemyAttack, _ => StatisticGroup.Attack };
+    private double ElementSum(StatisticMeasure measure, int key) => _source.Selected switch
+    {
+        0 => Sum(StatisticGroup.HumanElement, measure, key) + Sum(StatisticGroup.BotElement, measure, key),
+        1 => Sum(StatisticGroup.HumanElement, measure, key), 2 => Sum(StatisticGroup.BotElement, measure, key),
+        3 => Sum(StatisticGroup.EnemyElementDealt, measure, key), _ => Sum(StatisticGroup.Element, measure, key)
+    };
+    private double AttackSum(StatisticMeasure measure, int key) => _source.Selected switch
+    {
+        0 => Sum(StatisticGroup.HumanAttack, measure, key) + Sum(StatisticGroup.BotAttack, measure, key),
+        1 => Sum(StatisticGroup.HumanAttack, measure, key), 2 => Sum(StatisticGroup.BotAttack, measure, key),
+        3 => Sum(StatisticGroup.EnemyAttack, measure, key), _ => Sum(StatisticGroup.Attack, measure, key)
+    };
+    private double SupportSum(StatisticMeasure measure) => _totals.Where(p => p.Key.Item1 == StatisticGroup.Actor && p.Key.Item3 == measure &&
+        (_source.Selected switch { 0 => p.Key.Item2 < 64, 1 => p.Key.Item2 < 64 && p.Key.Item2 % 32 < 16,
+            2 => p.Key.Item2 < 64 && p.Key.Item2 % 32 >= 16, 3 => p.Key.Item2 >= 64, _ => true })).Sum(p => p.Value);
+    private static int CombinedActor(int actor) => actor < 64 ? actor & ~16 : actor;
+    private double ActorSum(int actor, StatisticMeasure measure) => Sum(StatisticGroup.Actor, measure, actor) +
+        (actor < 64 ? Sum(StatisticGroup.Actor, measure, actor + 16) : 0);
     private GridContainer Table(params string[] headers)
     {
         var table = Ui.Table(headers.Length, "StatisticsTable_" + _tableIndex++); _body.AddChild(table);
@@ -130,7 +154,7 @@ public partial class MatchStatisticsPanel : Control
             case 1:
                 ElementChart();
                 var elements = Table("Elemento", "Daño / vida", "Escudos", "Inmunes");
-                for (int e = 0; e < 9; e++) Row(elements, Elements[e], N(Sum(ElementGroup, StatisticMeasure.Damage, e)), N(Sum(ElementGroup, StatisticMeasure.ShieldDamage, e)), N(Sum(ElementGroup, StatisticMeasure.ImmuneHits, e)));
+                for (int e = 0; e < 9; e++) Row(elements, Elements[e], N(ElementSum(StatisticMeasure.Damage, e)), N(ElementSum(StatisticMeasure.ShieldDamage, e)), N(ElementSum(StatisticMeasure.ImmuneHits, e)));
                 Note("El daño de una mezcla se reparte por la aportación real de sus componentes después de resistencias. Las inmunidades del prisma se cuentan por componente rechazado.");
                 break;
             case 2:
@@ -152,7 +176,7 @@ public partial class MatchStatisticsPanel : Control
                 AttackCharts();
                 var attacks = Table("Ataque", "Usos", "Daño / vida", "Escudos");
                 foreach (var attack in Enum.GetValues<StatisticAttack>())
-                { int k = (int)attack; Row(attacks, Attacks[k], N(Sum(AttackGroup, StatisticMeasure.Casts, k)), N(Sum(AttackGroup, StatisticMeasure.Damage, k)), N(Sum(AttackGroup, StatisticMeasure.ShieldDamage, k))); }
+                { int k = (int)attack; Row(attacks, Attacks[k], N(AttackSum(StatisticMeasure.Casts, k)), N(AttackSum(StatisticMeasure.Damage, k)), N(AttackSum(StatisticMeasure.ShieldDamage, k))); }
                 Note("Un haz cuenta un lanzamiento al iniciarse; sus impactos son acumulados. Las auras continuas aportan daño sin multiplicar los usos por fotograma.");
                 var combos = Table("Combinación (todos los orígenes)", "Usos", "Daño / vida");
                 foreach (int recipe in _totals.Keys.Where(k => k.Item1 == StatisticGroup.Recipe).Select(k => k.Item2).Distinct().OrderByDescending(k => Sum(StatisticGroup.Recipe, StatisticMeasure.Damage, k)).Take(20))
@@ -171,11 +195,11 @@ public partial class MatchStatisticsPanel : Control
                 break;
             case 5:
                 ClassChart();
-                foreach (int actor in _totals.Keys.Where(k => k.Item1 == StatisticGroup.Actor).Select(k => k.Item2).Distinct().Order())
+                foreach (int actor in _totals.Keys.Where(k => k.Item1 == StatisticGroup.Actor).Select(k => CombinedActor(k.Item2)).Distinct().Order())
                 {
                     Note(ActorName(actor));
                     var stats = Table("Métrica", "Valor");
-                    foreach (var (title, measure) in new[] { ("Daño causado", StatisticMeasure.Damage), ("Daño recibido", StatisticMeasure.DamageReceived), ("Curación", StatisticMeasure.Healing), ("Bajas", StatisticMeasure.Kills), ("Muertes", StatisticMeasure.Deaths), ("Tiempo vivo (s)", StatisticMeasure.AliveSeconds), ("Mojado (s)", StatisticMeasure.WetSeconds), ("Ardiendo (s)", StatisticMeasure.BurningSeconds), ("Congelado (s)", StatisticMeasure.FrozenSeconds) }) Row(stats, title, N(Sum(StatisticGroup.Actor, measure, actor)));
+                    foreach (var (title, measure) in new[] { ("Daño causado", StatisticMeasure.Damage), ("Daño recibido", StatisticMeasure.DamageReceived), ("Curación", StatisticMeasure.Healing), ("Bajas", StatisticMeasure.Kills), ("Muertes", StatisticMeasure.Deaths), ("Tiempo vivo (s)", StatisticMeasure.AliveSeconds), ("Mojado (s)", StatisticMeasure.WetSeconds), ("Ardiendo (s)", StatisticMeasure.BurningSeconds), ("Congelado (s)", StatisticMeasure.FrozenSeconds) }) Row(stats, title, N(ActorSum(actor, measure)));
                 }
                 break;
         }

@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.29.5 — Barras de balance, continuación única y modales coherentes
+
+- Elementos incorpora barras verticales para los ocho elementos: daño real acumulado, curación efectiva para Vida y absorción para Escudo. Monstruos compara el daño realizado y recibido por especie con dos barras y una escala común desde cero. Las categorías sin actividad se conservan y las gráficas permiten desplazamiento horizontal.
+- Humanos y bots se suman por defecto en Elementos y Hechizos, y en un único registro por clase y equipo. Los filtros individuales y los informes existentes se mantienen, sin duplicar los totales ni modificar Firebase.
+- Continuar una supervivencia consume su punto local y su respaldo al activar el juego. Cancelar la carga lo conserva. Guardar otra vez crea un punto nuevo, también recuperable si se daña el archivo principal.
+- Las ventanas de venta, comparación, conjuntos y reliquias comparten marco azul, títulos dorados, botones y sombreado. También se unifican pausa, ayuda, inventario, tienda de supervivencia, salas, inspección y aviso de actualización, incluidos menús desplegables.
+- La prueba larga de supervivencia libera sus escenas y finaliza los recursos C# antes de cerrar Godot; los errores de limpieza siguen provocando fallo de la verificación.
+- Se documenta cómo se agrupan partículas, rayos y muros, cómo se reutilizan los buffers y qué miden las comparaciones de rendimiento. Trabajo en `codex/visual-performance`; la versión estable continúa en 0.29.2.
+
 ## 0.29.4 — Segunda optimización visual en pruebas
 
 - Los cristales, postes y runas de cada muro se agrupan por material y padre animado. Conservan todos sus vértices, normales, UV, colores, sombras y animación; las coronas de hielo y las crestas mantienen sus materiales y su desvanecimiento. Cada muro conserva su propia visibilidad.

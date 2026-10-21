@@ -44,17 +44,31 @@ public partial class Main
             if (_renderFrames % 6 != 0 || _saleFixture == null || _equipmentPanel == null) return false;
             var panel = _equipmentPanel; var fixture = _saleFixture;
             var dialog = panel.GetChildren().OfType<ConfirmationDialog>().Single();
+            Ui.VerifyDialog(dialog);
+            Ui.VerifyDialog(panel.GetChildren().OfType<AcceptDialog>().Single(d => d is not ConfirmationDialog));
             Button Trash(string id) => (Button)panel.FindChild("EquipmentTrash_" + id, true, false);
             if (_salePhase == 0)
             {
                 if (panel.Saving) return false;
+                var sets = panel.GetChildren().OfType<AcceptDialog>().Single(d => d is not ConfirmationDialog);
+                sets.PopupCentered(new((int)Math.Min(680, GetViewport().GetVisibleRect().Size.X - 32),
+                    (int)Math.Min(460, GetViewport().GetVisibleRect().Size.Y - 48)));
+                _salePhase = 10; return false;
+            }
+            if (_salePhase == 10)
+            {
+                var sets = panel.GetChildren().OfType<AcceptDialog>().Single(d => d is not ConfirmationDialog);
+                if (DisplayServer.GetName() != "headless")
+                    Check(GetViewport().GetVisibleRect().Grow(2).Encloses(new Rect2(sets.Position, sets.Size)), "Conjuntos sale de la pantalla.");
+                CaptureSale("00-conjuntos"); panel.HandleBack();
+                Check(!sets.Visible, "Atrás no cierra la ventana de conjuntos.");
                 panel.PressInspect(EquipmentSlot.Weapon);
                 if (!_saleLogoutProbe)
                 {
                     Check(Trash(fixture.Weapon.Id).Disabled, "Se permite vender antes de conectar el servidor.");
                     _saleServerReady.SetResult("wss://sales.example/play");
                 }
-                _salePhase++; return false;
+                _salePhase = 1; return false;
             }
             if (_salePhase == 1)
             {

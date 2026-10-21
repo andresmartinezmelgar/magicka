@@ -16,7 +16,8 @@ public sealed record RestoredSurvival(GameWorld World, SurvivalSave Save, bool R
 public sealed class SurvivalSaveStore(string path)
 {
     private const int MaximumBytes = 4 * 1024 * 1024;
-    public bool Exists => File.Exists(path) || File.Exists(path + ".bak");
+    private readonly object _gate = new();
+    public bool Exists => !File.Exists(path + ".used") && (File.Exists(path) || File.Exists(path + ".bak"));
 
     private static SurvivalSave Read(string file)
     {
@@ -26,7 +27,11 @@ public sealed class SurvivalSaveStore(string path)
     }
 
     public RestoredSurvival Load()
+    { lock (_gate) return LoadAvailable(); }
+
+    private RestoredSurvival LoadAvailable()
     {
+        if (File.Exists(path + ".used")) throw new InvalidDataException("Esta partida ya se ha continuado. Hace falta otro guardado.");
         Exception? failure = null;
         foreach (string file in new[] { path, path + ".bak" })
         {
@@ -42,7 +47,26 @@ public sealed class SurvivalSaveStore(string path)
         throw new InvalidDataException("No se pudo leer una partida de supervivencia compatible.", failure);
     }
 
+    /// <summary>Consume el punto validado al activar la partida, también su respaldo.</summary>
+    public void Consume(SurvivalSave expected)
+    {
+        lock (_gate)
+        {
+            var current = LoadAvailable().Save;
+            if (current.RunId != expected.RunId || current.SavedAt != expected.SavedAt ||
+                current.LocalPlayerId != expected.LocalPlayerId || current.State.GetRawText() != expected.State.GetRawText())
+                throw new InvalidDataException("El guardado cambió mientras se preparaba la partida.");
+            // La existencia del marcador es la transacción: CreateNew permite
+            // un único consumidor y un cierre posterior no reactiva el .bak.
+            using var marker = new FileStream(path + ".used", FileMode.CreateNew, FileAccess.Write, FileShare.None, 1, FileOptions.WriteThrough);
+            marker.WriteByte(1); marker.Flush(true);
+        }
+    }
+
     public void Write(SurvivalSave save)
+    { lock (_gate) WriteAvailable(save); }
+
+    private void WriteAvailable(SurvivalSave save)
     {
         // También valida la estructura antes de sustituir el punto de continuación anterior.
         GameWorld.ValidateSurvivalSave(save);
@@ -52,7 +76,15 @@ public sealed class SurvivalSaveStore(string path)
         string temporary = path + ".tmp";
         using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
         { stream.Write(bytes); stream.Flush(true); }
-        if (File.Exists(path))
+        bool consumed = File.Exists(path + ".used");
+        if (consumed)
+        {
+            // El respaldo nuevo contiene este nuevo punto. Nunca se vuelve a
+            // ofrecer el archivo anterior aunque se corrompa el principal.
+            File.Copy(temporary, path + ".bak.tmp", true);
+            File.Move(path + ".bak.tmp", path + ".bak", true);
+        }
+        else if (File.Exists(path))
         {
             try
             {
@@ -64,6 +96,7 @@ public sealed class SurvivalSaveStore(string path)
             { /* Si se recuperó la copia, no sustituirla por un archivo corrupto. */ }
         }
         File.Move(temporary, path, true);
+        if (consumed) File.Delete(path + ".used");
     }
 }
 

@@ -29,13 +29,13 @@ public partial class EquipmentPanel
         _itemPicker = new Control { Name = "EquipmentItemPicker", Visible = false, MouseFilter = MouseFilterEnum.Stop };
         // El selector comparte el área central; cabecera y navegación siguen recibiendo entrada.
         (_optionAChrome?.ContentHost ?? this).AddChild(_itemPicker); Ui.Full(_itemPicker);
-        var backdrop = new ColorRect { Color = new(0.01f, 0.02f, 0.04f, 0.97f) };
+        var backdrop = new ColorRect { Color = Ui.ModalDim };
         _itemPicker.AddChild(backdrop); Ui.Full(backdrop);
         var margin = new MarginContainer(); _itemPicker.AddChild(margin); Ui.Full(margin);
         foreach (string side in new[] { "left", "right", "top", "bottom" })
             margin.AddThemeConstantOverride("margin_" + side, Ui.IsMobile ? 12 : 24);
         var panel = new PanelContainer();
-        var panelStyle = Ui.Panel(new Color("0a1d33"), 11, new Color("2b719d"));
+        var panelStyle = Ui.ModalPanel();
         panelStyle.ContentMarginTop = panelStyle.ContentMarginBottom = 8;
         panel.AddThemeStyleboxOverride("panel", panelStyle);
         margin.AddChild(panel);
@@ -199,6 +199,7 @@ public partial class EquipmentPanel
     public void HandleBack()
     {
         if (_confirm.Visible) { CancelSale(); return; }
+        if (_setsInfo.Visible) { _setsInfo.Hide(); return; }
         if (_itemPicker.Visible) CloseItemPicker();
         else Close();
     }

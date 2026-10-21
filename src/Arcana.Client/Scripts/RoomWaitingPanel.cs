@@ -21,14 +21,14 @@ public partial class RoomWaitingPanel : Control
         Theme = Ui.Theme();
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         MouseFilter = MouseFilterEnum.Stop;
-        var shade = new ColorRect { Color = new Color(0.01f, 0.025f, 0.05f, 0.94f),
+        var shade = new ColorRect { Color = Ui.ModalDim,
             MouseFilter = MouseFilterEnum.Stop };
         AddChild(shade); Ui.Full(shade);
 
         var center = new CenterContainer { MouseFilter = MouseFilterEnum.Ignore };
         AddChild(center); Ui.Full(center);
         _panel = new PanelContainer();
-        _panel.AddThemeStyleboxOverride("panel", Ui.Panel(new Color("10243b"), 12, new Color("3975aa")));
+        _panel.AddThemeStyleboxOverride("panel", Ui.ModalPanel());
         center.AddChild(_panel);
         var content = new VBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
         content.AddThemeConstantOverride("separation", 8);

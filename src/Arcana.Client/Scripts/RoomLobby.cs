@@ -39,14 +39,14 @@ public partial class RoomLobby : Control
     {
         _main = main; _address = address; _serverPassword = password; _playerName = name; _wizardType = wizardType;
         Theme = Ui.Theme(); Ui.Full(this);
-        var shade = new ColorRect { Color = new(0.01f, 0.025f, 0.045f, 0.94f) }; AddChild(shade); Ui.Full(shade);
+        var shade = new ColorRect { Color = Ui.ModalDim }; AddChild(shade); Ui.Full(shade);
         var safeMargin = new MarginContainer();
         AddChild(safeMargin); Ui.Full(safeMargin);
         foreach (string side in new[] { "left", "right", "top", "bottom" })
             safeMargin.AddThemeConstantOverride("margin_" + side, Ui.IsMobile ? 8 : 15);
         var panel = new PanelContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill };
-        var panelStyle = Ui.Panel(new Color("091a2c"), 10, new Color("2876a3"));
+        var panelStyle = Ui.ModalPanel();
         panelStyle.ContentMarginTop = panelStyle.ContentMarginBottom = 8;
         panel.AddThemeStyleboxOverride("panel", panelStyle);
         safeMargin.AddChild(panel);

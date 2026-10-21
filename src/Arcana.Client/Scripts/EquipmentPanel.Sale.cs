@@ -13,15 +13,9 @@ public partial class EquipmentPanel
 
     private void BuildSaleModal()
     {
-        _saleDimmer = new ColorRect { Name = "SaleBackdrop", Color = new(0.005f, 0.01f, 0.025f, 0.75f), Visible = false };
+        _saleDimmer = new ColorRect { Name = "SaleBackdrop", Color = Ui.ModalDim, Visible = false };
         AddChild(_saleDimmer); Ui.Full(_saleDimmer);
-        var theme = Ui.Theme();
-        var surface = Ui.Panel(ArcanaMenuChrome.Surface, 14, ArcanaMenuChrome.Border);
-        surface.ContentMarginLeft = surface.ContentMarginRight = 16;
-        surface.ContentMarginTop = surface.ContentMarginBottom = 12;
-        theme.SetStylebox("panel", "AcceptDialog", surface);
-        theme.SetConstant("buttons_separation", "AcceptDialog", 12);
-        _confirm = new ConfirmationDialog { Name = "SaleConfirmation", Title = "Vender objeto", Theme = theme,
+        _confirm = new ConfirmationDialog { Name = "SaleConfirmation", Title = "Vender objeto",
             Borderless = true, Unresizable = true, Exclusive = true, Transient = true, CancelButtonText = "Conservar objeto" };
         AddChild(_confirm); _confirm.GetLabel().Hide();
         _confirm.Confirmed += () => _ = Sell();
@@ -51,28 +45,7 @@ public partial class EquipmentPanel
         _saleWarning = Ui.Label("", 15, Ui.Muted); _saleWarning.Name = "SaleWarning";
         _saleWarning.AutowrapMode = TextServer.AutowrapMode.WordSmart; body.AddChild(_saleWarning);
 
-        foreach (var button in new[] { _confirm.GetOkButton(), _confirm.GetCancelButton() })
-        {
-            button.CustomMinimumSize = new(0, 46); button.MouseDefaultCursorShape = CursorShape.PointingHand;
-            button.AddThemeFontSizeOverride("font_size", 17);
-            foreach (string state in new[] { "normal", "hover", "pressed", "disabled" })
-            {
-                var style = (StyleBoxFlat)button.GetThemeStylebox(state).Duplicate();
-                style.ContentMarginTop = style.ContentMarginBottom = 8;
-                style.ContentMarginLeft = style.ContentMarginRight = 18;
-                button.AddThemeStyleboxOverride(state, style);
-            }
-            var focus = Ui.Panel(new Color(0, 0, 0, 0), 8, Ui.Gold);
-            focus.BorderWidthTop = focus.BorderWidthBottom = focus.BorderWidthLeft = focus.BorderWidthRight = 2;
-            button.AddThemeStyleboxOverride("focus", focus);
-        }
-        var sell = _confirm.GetOkButton();
-        foreach (var (state, color) in new[] { ("normal", "c7a568"), ("hover", "e5c587"), ("pressed", "ad8a50") })
-        {
-            var style = (StyleBoxFlat)sell.GetThemeStylebox(state).Duplicate(); style.BgColor = new(color); style.BorderColor = Ui.Gold;
-            sell.AddThemeStyleboxOverride(state, style);
-        }
-        foreach (string state in new[] { "font_color", "font_hover_color", "font_pressed_color" }) sell.AddThemeColorOverride(state, new Color("111a26"));
+        Ui.ConfigureDialog(_confirm, backdrop: false);
     }
 
     private EquipmentItem? SelectSaleItem(string id)

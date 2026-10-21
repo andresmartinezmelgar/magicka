@@ -57,9 +57,12 @@ public partial class ItemShopPanel : Control
         _scroll.Resized += ResizeOffers;
         _comparison = new AcceptDialog { Name = "ShopComparison", Title = "Comparación del equipo", OkButtonText = "Volver a la oferta",
             Theme = Ui.Theme(), Exclusive = true, Transient = true }; AddChild(_comparison);
+        Ui.ConfigureDialog(_comparison);
         var comparisonScroll = new ContentScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         _comparison.AddChild(comparisonScroll); Ui.VisibleVerticalScroll(comparisonScroll);
-        _comparisonText = Wrapped(comparisonScroll, "", 17); _comparisonText.Name = "ShopComparisonText";
+        var comparisonBody = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; comparisonScroll.AddChild(comparisonBody);
+        comparisonBody.AddThemeConstantOverride("separation", 12); comparisonBody.AddChild(Ui.Label("COMPARACIÓN DEL EQUIPO", 24, Ui.Gold));
+        _comparisonText = Wrapped(comparisonBody, "", 17); _comparisonText.Name = "ShopComparisonText";
         ArcanaMenuChrome.Attach(this, margin, main, "Tienda de objetos", 7, main.NavigateOptionAMenu);
         ShowUnavailable("Conectando con la tienda…");
         _ = Load();

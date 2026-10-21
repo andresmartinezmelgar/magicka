@@ -299,6 +299,7 @@ public partial class Main : Node
     }
     private void ActivateGame(WorldSnapshot snapshot, bool prepared = false)
     {
+        if (_resumingSurvival is { } checkpoint) SurvivalSaves.Consume(checkpoint);
         _playing = true; _paused = false; _moveTo = false; _snapshotAge = 0; _lastTick = -1;
         ClosePlayerEquipment();
         BeginLocalBestiary();
@@ -647,10 +648,11 @@ public partial class Main : Node
     private Control Modal(out VBoxContainer content, bool scrollable = false, bool trackHelp = true)
     {
         var root = new Control { Theme = Ui.Theme() }; Ui.Full(root);
-        var shade = new ColorRect { Color = new Color(0.018f, 0.03f, 0.05f, 0.86f) }; root.AddChild(shade); Ui.Full(shade);
+        var shade = new ColorRect { Color = Ui.ModalDim }; root.AddChild(shade); Ui.Full(shade);
         var center = new CenterContainer(); root.AddChild(center); Ui.Full(center);
         float available = GetViewport().GetVisibleRect().Size.X;
         var panel = new PanelContainer { CustomMinimumSize = new(Math.Max(280, Math.Min(750, available - 50)), 0) };
+        panel.AddThemeStyleboxOverride("panel", Ui.ModalPanel());
         center.AddChild(panel);
         // Solo el modal de ayuda se actualiza tras construirlo.
         if (trackHelp) { _responsiveHelpModal = panel; _responsiveHelpScroll = null; }

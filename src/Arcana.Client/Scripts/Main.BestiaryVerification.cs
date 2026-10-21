@@ -109,9 +109,14 @@ public partial class Main
                 TogglePause(); Check(_relicMenuButton!.Visible, "Falta el botón de reliquias del menú.");
                 OpenRelics(); _bestiarySmokePhase = 2; return false;
             }
+            Ui.VerifyDialog(_relicWindow!);
             var texts = _relicWindow!.FindChildren("*", "Label", true, false).OfType<Label>();
             Check(_relicWindow.Visible && texts.Any(l => l.Text.Contains("Energía ×2") && l.Text.Contains("energía por segundo")),
                 "La ventana no muestra las reliquias y sus efectos.");
+            if (DisplayServer.GetName() != "headless")
+                Check(GetViewport().GetVisibleRect().Grow(2).Encloses(new Rect2(_relicWindow.Position, _relicWindow.Size)), "Reliquias sale de la pantalla.");
+            if (_bestiaryCaptures != null)
+                GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(_bestiaryCaptures, "relics-modal.png"));
             CloseRelics(); ReturnToLauncher();
             GD.Print("BESTIARY_RELICS_SMOKE_OK: quince enemigos, retratos, estadísticas escalables, contadores, texto adaptable y reliquias fuera del lateral.");
             GetTree().Quit(0); _bestiarySmoke = false;

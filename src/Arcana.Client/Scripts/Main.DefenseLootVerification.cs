@@ -104,12 +104,30 @@ public partial class Main
             foreach (var label in _defenseLootLabels) label.QueueFree();
             _defenseLootLabels.Clear(); _renderer.PreviewFocus = null; _renderer.Clear();
             if (_engineLog.ErrorCount > 0) throw new InvalidOperationException("Godot registró errores al dibujar el botín.");
-            GD.Print("DEFENSE_LOOT_SMOKE_OK: moneda vertical animada, cuatro piezas, siete mejoras, privacidad y retirada de recogidas.");
-            GD.Print("DEFENSE_SMOKE_OK: mapa, tanques, pausa con bots, inventario compartido, selección al salir, compra/mejora/venta, aislamiento de cuenta, controles y botín.");
-            GetTree().Quit();
+            _defenseSmoke = false; _defenseLootReview = null;
+            var tree = GetTree(); var errors = _engineLog;
+            // Finalizar los envoltorios C# antes de apagar los servidores nativos,
+            // igual que en la galería de combinaciones que crea muchas mallas.
+            QueueFree(); _ = FinishDefenseSmokeAfterCleanup(tree, errors);
         }
         catch (Exception error)
         { CaptureDefense("00-error"); GD.PrintErr("DEFENSE_SMOKE_FAILED: " + error); GetTree().Quit(1); }
         return true;
+    }
+
+    private static async Task FinishDefenseSmokeAfterCleanup(SceneTree tree, EngineLogBridge errors)
+    {
+        try
+        {
+            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            GC.Collect(); GC.WaitForPendingFinalizers();
+            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            if (errors.ErrorCount > 0) throw new InvalidOperationException("Godot registró errores al liberar la prueba de defensa.");
+            GD.Print("DEFENSE_LOOT_SMOKE_OK: moneda vertical animada, cuatro piezas, siete mejoras, privacidad y retirada de recogidas.");
+            GD.Print("DEFENSE_SMOKE_OK: mapa, tanques, pausa con bots, inventario compartido, selección al salir, compra/mejora/venta, aislamiento de cuenta, controles y botín; limpieza final verificada.");
+            tree.Quit();
+        }
+        catch (Exception error) { GD.PushError("DEFENSE_SMOKE_FAILED: limpieza: " + error); tree.Quit(1); }
     }
 }

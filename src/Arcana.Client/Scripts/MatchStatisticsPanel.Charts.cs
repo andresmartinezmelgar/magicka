@@ -56,17 +56,47 @@ public partial class MatchStatisticsPanel
     }
     private void OverviewCharts()
     {
-        Bars("Daño por origen", "Daño efectivo acumulado en las partidas seleccionadas; cada origen conserva su propia barra.",
-            new[] { ("Humanos", StatisticGroup.HumanElement, Ui.Blue), ("Bots", StatisticGroup.BotElement, Ui.Health),
-                ("Monstruos", StatisticGroup.EnemyElementDealt, Ui.Red), ("Entorno", StatisticGroup.EnvironmentElement, Ui.Muted) }
-            .Select(p => new Bar(p.Item1, GroupSum(p.Item2, StatisticMeasure.Damage), GroupSum(p.Item2, StatisticMeasure.ShieldDamage), p.Item3)));
+        Bars("Daño por origen", "Humanos y bots se suman en un único registro, sin duplicar los totales de los informes.",
+            new[] { new Bar("Humanos + bots", GroupSum(StatisticGroup.HumanElement, StatisticMeasure.Damage) + GroupSum(StatisticGroup.BotElement, StatisticMeasure.Damage),
+                    GroupSum(StatisticGroup.HumanElement, StatisticMeasure.ShieldDamage) + GroupSum(StatisticGroup.BotElement, StatisticMeasure.ShieldDamage), Ui.Blue),
+                new Bar("Monstruos", GroupSum(StatisticGroup.EnemyElementDealt, StatisticMeasure.Damage), GroupSum(StatisticGroup.EnemyElementDealt, StatisticMeasure.ShieldDamage), Ui.Red),
+                new Bar("Entorno", GroupSum(StatisticGroup.EnvironmentElement, StatisticMeasure.Damage), GroupSum(StatisticGroup.EnvironmentElement, StatisticMeasure.ShieldDamage), Ui.Muted) });
         Note("El filtro Origen del ataque se aplica a Elementos y Hechizos. Las demás vistas comparan todos los orígenes.");
     }
-    private void ElementChart() => Bars("Daño por elemento", "Las mezclas reparten el daño real entre sus componentes. Las barras comparten la misma escala.",
-        Enumerable.Range(0, 9).Select(e => new Bar(Elements[e], Sum(ElementGroup, StatisticMeasure.Damage, e), Sum(ElementGroup, StatisticMeasure.ShieldDamage, e), ElementTint(e)))
-            .OrderByDescending(p => p.Value + p.Shield));
+    private float BarChartHeight => GetViewport().GetVisibleRect().Size.Y < 500 ? 190 : 340;
+    private void VerticalChart(string title, string description, StatisticsBarChart.Category[] categories, bool paired = false)
+    {
+        var box = Chart(title, description);
+        var scroll = new ContentScrollContainer { Name = paired ? "EnemyBarsScroll" : "ElementBarsScroll",
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Auto, VerticalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new(0, BarChartHeight + 22) };
+        box.AddChild(scroll);
+        var chart = new StatisticsBarChart { Name = paired ? "EnemyDamageBars" : "ElementDamageBars", Categories = categories,
+            CustomMinimumSize = new(0, BarChartHeight), Paired = paired, HorizontalTitle = paired ? "Tipo de enemigo" : "Elemento",
+            FirstTitle = paired ? "Daño realizado" : "Daño / curación / absorción" };
+        scroll.AddChild(chart);
+        var bar = scroll.GetHScrollBar(); bar.CustomMinimumSize = new(0, Ui.IsMobile ? 20 : 16);
+        bar.AddThemeStyleboxOverride("scroll", Ui.Panel(ArcanaMenuChrome.Backdrop, 6, ArcanaMenuChrome.Border));
+        bar.AddThemeStyleboxOverride("grabber", Ui.Panel(Ui.Blue.Darkened(0.35f), 6, Ui.Blue));
+        foreach (var category in categories) _chartValues[title + "/" + category.Label] = (category.First, category.Second);
+        if (categories.All(c => c.First == 0 && c.Second == 0)) box.AddChild(Ui.Label("Sin actividad registrada para esta selección.", 15, Ui.Muted));
+        var legend = Ui.Label(paired ? "Rojo: daño realizado · Azul: daño recibido. Desliza para ver todos los enemigos."
+            : "Desliza horizontalmente si no caben todos los elementos.", 14, Ui.Muted);
+        legend.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(legend);
+    }
+    private void ElementChart() => VerticalChart("Daño por elemento",
+        "Daño acumulado por elemento. Vida: curación efectiva; Escudo: daño absorbido. Incluye daño a escudos y la aportación real de las mezclas.",
+        Enumerable.Range(0, 8).Select(e => new StatisticsBarChart.Category(Elements[e], (Element)e switch
+        {
+            Element.Life => SupportSum(StatisticMeasure.Healing), Element.Shield => SupportSum(StatisticMeasure.ShieldAbsorbed),
+            _ => ElementSum(StatisticMeasure.Damage, e) + ElementSum(StatisticMeasure.ShieldDamage, e)
+        }, 0, ElementTint(e))).ToArray());
     private void EnemyChart()
     {
+        VerticalChart("Daño realizado y recibido por enemigo", "Rojo: daño que inflige cada especie. Azul: daño que recibe. Incluye vida y escudos; la escala parte de cero.",
+            Enum.GetValues<MinionKind>().Select(kind => new StatisticsBarChart.Category(DefenseRules.MinionName(kind),
+                Sum(StatisticGroup.Enemy, StatisticMeasure.Damage, (int)kind) + Sum(StatisticGroup.Enemy, StatisticMeasure.ShieldDamage, (int)kind),
+                Sum(StatisticGroup.Enemy, StatisticMeasure.DamageReceived, (int)kind) + Sum(StatisticGroup.Enemy, StatisticMeasure.ShieldAbsorbed, (int)kind), Ui.Red)).ToArray(), paired: true);
         Bars("Amenaza media por monstruo", "Daño causado dividido entre apariciones de cada especie. Ayuda a comparar enemigos frecuentes y raros; no representa daño por segundo.",
             Enum.GetValues<MinionKind>().Select(kind =>
             {
@@ -78,10 +108,10 @@ public partial class MatchStatisticsPanel
     private void AttackCharts()
     {
         Bars("Ataques con más daño", "Los diez ataques con más daño acumulado del origen seleccionado. Los usos y combinaciones aparecen en las tablas.",
-            Enum.GetValues<StatisticAttack>().Select(attack => new Bar(Attacks[(int)attack], Sum(AttackGroup, StatisticMeasure.Damage, (int)attack),
-                Sum(AttackGroup, StatisticMeasure.ShieldDamage, (int)attack), Ui.Energy)).Where(p => p.Value + p.Shield > 0).OrderByDescending(p => p.Value + p.Shield).Take(10));
+            Enum.GetValues<StatisticAttack>().Select(attack => new Bar(Attacks[(int)attack], AttackSum(StatisticMeasure.Damage, (int)attack),
+                AttackSum(StatisticMeasure.ShieldDamage, (int)attack), Ui.Energy)).Where(p => p.Value + p.Shield > 0).OrderByDescending(p => p.Value + p.Shield).Take(10));
         Bars("Ataques más utilizados", "Lanzamientos acumulados del mismo origen. Las auras continuas pueden causar daño sin generar nuevos usos.",
-            Enum.GetValues<StatisticAttack>().Select(attack => new Bar(Attacks[(int)attack], Sum(AttackGroup, StatisticMeasure.Casts, (int)attack), 0, Ui.Blue))
+            Enum.GetValues<StatisticAttack>().Select(attack => new Bar(Attacks[(int)attack], AttackSum(StatisticMeasure.Casts, (int)attack), 0, Ui.Blue))
                 .Where(p => p.Value > 0).OrderByDescending(p => p.Value).Take(10), damage: false, unit: "usos");
     }
     private void ProgressionChart()
@@ -97,17 +127,18 @@ public partial class MatchStatisticsPanel
             .Select(tier => new Bar(EquipmentCatalogue.TierName(tier), Sum(StatisticGroup.Equipment, StatisticMeasure.Collected, (int)tier), 0, Ui.Blue)), damage: false, unit: "objetos");
     }
     private static string ActorName(int actor) => actor >= 64 ? DefenseRules.MinionName((MinionKind)(actor - 64)) :
-        $"{(actor % 32 >= 16 ? "Bot" : "Humano")} · {WizardTypes.Name((WizardType)(actor % 16))} · equipo {actor / 32 + 1}";
+        $"Magos · {WizardTypes.Name((WizardType)(actor % 16))} · equipo {actor / 32 + 1}";
     private void ClassChart()
     {
-        int[] actors = _totals.Keys.Where(k => k.Item1 == StatisticGroup.Actor).Select(k => k.Item2).Distinct().Where(k => k < 64).ToArray();
-        Bars("Daño de las clases y equipos", "Solo magos humanos y bots, agrupados por clase y equipo. Se muestran los diez grupos con más daño acumulado.",
-            actors.Select(actor => new Bar(ActorName(actor), Sum(StatisticGroup.Actor, StatisticMeasure.Damage, actor), Sum(StatisticGroup.Actor, StatisticMeasure.ShieldDamage, actor), actor % 32 >= 16 ? Ui.Health : Ui.Blue))
+        int[] actors = _totals.Keys.Where(k => k.Item1 == StatisticGroup.Actor).Select(k => CombinedActor(k.Item2)).Distinct().Where(k => k < 64).ToArray();
+        Bars("Daño de las clases y equipos", "Humanos y bots sumados en un registro por clase y equipo. Se muestran los diez grupos con más daño acumulado.",
+            actors.Select(actor => new Bar(ActorName(actor), ActorSum(actor, StatisticMeasure.Damage), ActorSum(actor, StatisticMeasure.ShieldDamage), actor % 32 >= 16 ? Ui.Health : Ui.Blue))
                 .Where(p => p.Value + p.Shield > 0).OrderByDescending(p => p.Value + p.Shield).Take(10));
         Bars("Tiempo congelado", "Porcentaje del tiempo vivo de cada clase y equipo pasado bajo congelación. No atribuye el estado a un hechizo concreto.",
-            actors.Where(actor => Sum(StatisticGroup.Actor, StatisticMeasure.AliveSeconds, actor) > 0).Select(actor => new Bar(ActorName(actor),
-                100 * Sum(StatisticGroup.Actor, StatisticMeasure.FrozenSeconds, actor) / Sum(StatisticGroup.Actor, StatisticMeasure.AliveSeconds, actor), 0, Ui.ElementColor(Element.Cold)))
+            actors.Where(actor => ActorSum(actor, StatisticMeasure.AliveSeconds) > 0).Select(actor => new Bar(ActorName(actor),
+                100 * ActorSum(actor, StatisticMeasure.FrozenSeconds) / ActorSum(actor, StatisticMeasure.AliveSeconds), 0, Ui.ElementColor(Element.Cold)))
                 .OrderByDescending(p => p.Value).Take(10), damage: false, unit: "%");
     }
     internal double ChartValueForVerification(string title, string row) => _chartValues.GetValueOrDefault(title + "/" + row).Value;
+    internal double ChartSecondValueForVerification(string title, string row) => _chartValues.GetValueOrDefault(title + "/" + row).Shield;
 }

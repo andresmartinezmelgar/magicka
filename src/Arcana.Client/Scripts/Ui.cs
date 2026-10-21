@@ -3,7 +3,7 @@ using Arcana.Core;
 
 namespace Arcana.Client;
 
-public static class Ui
+public static partial class Ui
 {
     public static bool IsMobile { get; } = OS.HasFeature("mobile") || OS.GetCmdlineUserArgs().Any(a => a is "--mobile" or "--mobile-smoke" or "--mobile-fixture" or "--account-entry-smoke" or "--mobile-menu-smoke");
     public static readonly Color Gold = new("f1cd83"), Text = new("f4f7ff"), Muted = new("b0bfd4"), Blue = new("37b9ff"), Red = new("ff526c");
@@ -96,9 +96,10 @@ public static class Ui
         theme.SetStylebox("focus", "LineEdit", Panel(new("0c1626"), 7, Gold));
         theme.SetColor("font_color", "LineEdit", Text);
         theme.SetColor("font_placeholder_color", "LineEdit", Muted);
-        theme.SetStylebox("panel", "PanelContainer", Panel());
+        theme.SetStylebox("panel", "PanelContainer", Panel(ArcanaMenuChrome.Surface, 12, ArcanaMenuChrome.Border));
         theme.SetStylebox("background", "ProgressBar", Panel(new("1d2b41"), 4));
         theme.SetStylebox("fill", "ProgressBar", Panel(Blue, 4, Blue));
+        ApplyModalTheme(theme);
         return theme;
     }
     public static Label Label(string text, int size = 17, Color? color = null)

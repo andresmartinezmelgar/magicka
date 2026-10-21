@@ -34,7 +34,7 @@ public partial class Main
     {
         if (_survivalSaveActions == null || _survivalSaveStatus == null) return;
         _survivalSaveActions.Visible = CanSaveSurvival; _survivalSaveStatus.Visible = CanSaveSurvival;
-        _survivalSaveStatus.Text = "Una partida guardada en este dispositivo. Guardar sustituye la anterior.";
+        _survivalSaveStatus.Text = "Un punto de continuación local. Cargarlo lo consume; debes guardar de nuevo para volver a continuar.";
         UpdatePauseResponsive();
     }
 
@@ -77,7 +77,7 @@ public partial class Main
 
     public void ContinueSurvival()
     {
-        if (_playing || Loading) return;
+        if (_playing || Loading || !HasSurvivalSave) return;
         try
         {
             // Leer y validar todo antes de sustituir la vista del launcher.

@@ -24,6 +24,8 @@ En una supervivencia local, abre el menú de partida y elige **Guardar partida**
 
 Se conservan el mago, sus aliados IA, vidas, salud y estados, equipo y afijos, mejoras, auras, habilidades pasivas, reliquias, enemigos, botín y el tiempo de dificultad y jefes. Los controles se sueltan al continuar y el tiempo fuera del juego no avanza la simulación. La escritura es atómica y se conserva una copia válida anterior que se usa si el archivo principal está dañado.
 
+Desde 0.29.5, el punto se puede continuar una sola vez. Se consume cuando termina la carga y el juego se activa; cancelar mientras se preparan los recursos no lo consume. Volver al menú o reiniciar la app después de continuar no permite reutilizarlo. Hay que guardar de nuevo para habilitar otra continuación. Un marcador local exclusivo invalida a la vez el archivo principal y su copia. Al guardar después de consumirlo, ambos archivos contienen el punto nuevo, de modo que recuperar un respaldo nunca reactiva el anterior ya utilizado.
+
 La partida se guarda únicamente en el dispositivo; no se almacena en Firestore. Este guardado se ofrece para supervivencia local, también con bots aliados. Las salas online conservan sus reglas de conexión. Las bajas del bestiario mantienen su identificador de partida y su acumulado al continuar.
 
 En móvil, toca **Traslación** o **Meteoro**, ajusta dirección y distancia con el joystick derecho y suelta para lanzar. Una marca muestra el destino; el meteoro indica además su área. Tocar otra vez el mismo botón o cancelar el gesto no consume energía. Traslación recorre hasta 7 m sin atravesar muros ni conservar empujes anteriores. Meteoro alcanza 14 m, avisa durante 1,4 s y no daña a los defensores.
