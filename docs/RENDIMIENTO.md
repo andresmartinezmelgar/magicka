@@ -1,6 +1,6 @@
 # Mediciones del renderer
 
-La comparación de la rama de pruebas 0.29.3 y sus informes JSON están en [benchmarks/visual-0.29.3](benchmarks/visual-0.29.3/README.md). Distingue la reducción de trabajo gráfico del coste de la simulación y del rendimiento de un dispositivo físico.
+La segunda comparación de la rama de pruebas, 0.29.3 → 0.29.4, está en [benchmarks/visual-0.29.4](benchmarks/visual-0.29.4/README.md), con informes JSON y comprobaciones visuales. La comparación anterior permanece en [benchmarks/visual-0.29.3](benchmarks/visual-0.29.3/README.md). Ambas distinguen la reducción de trabajo gráfico del coste de la simulación y del rendimiento de un dispositivo físico.
 
 En **Práctica → Medir rendimiento gráfico**, elegir el mapa y ejecutar la medición. La misma opción está disponible en PC y móvil. Calienta la escena durante 5 segundos y recoge muestras durante 20 segundos. Cancelar, pulsar Atrás o enviar la app móvil a segundo plano guarda un informe parcial, marcado `canceled`, y vuelve al launcher.
 

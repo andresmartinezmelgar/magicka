@@ -7,19 +7,22 @@ internal sealed class InstanceDrawBatch
 {
     private readonly MultiMesh _instances;
     private readonly MultiMeshInstance3D _visual;
-    private readonly float[] _buffer;
+    private float[] _buffer;
     private readonly Aabb _meshBounds;
     private readonly int _stride;
+    private readonly int _maximum, _initialCapacity;
     private Aabb _bounds;
     private int _visible;
     internal int Count { get; private set; }
 
     internal InstanceDrawBatch(Node3D parent, string name, Godot.Mesh mesh, Material material, int capacity, bool custom = false)
     {
-        _stride = custom ? 16 : 12; _buffer = new float[capacity * _stride];
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
+        _maximum = capacity; _initialCapacity = Math.Min(16, capacity);
+        _stride = custom ? 16 : 12; _buffer = new float[_initialCapacity * _stride];
         _meshBounds = mesh.GetAabb();
         _instances = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
-            UseCustomData = custom, Mesh = mesh, InstanceCount = capacity, VisibleInstanceCount = 0 };
+            UseCustomData = custom, Mesh = mesh, InstanceCount = _initialCapacity, VisibleInstanceCount = 0 };
         _visual = new MultiMeshInstance3D { Name = name, Multimesh = _instances, MaterialOverride = material,
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Visible = false };
         parent.AddChild(_visual);
@@ -29,7 +32,15 @@ internal sealed class InstanceDrawBatch
     internal void Add(Transform3D transform, Vector4 custom = default)
     {
         int offset = Count * _stride;
-        if (offset + _stride > _buffer.Length) throw new InvalidOperationException("Se agotó el lote de instancias visuales.");
+        if (Count >= _maximum) throw new InvalidOperationException("Se agotó el lote de instancias visuales.");
+        if (offset + _stride > _buffer.Length)
+        {
+            // Crece solo al superar el máximo usado. Los fotogramas normales
+            // reutilizan el buffer y no suben cientos de matrices vacías.
+            int capacity = Math.Min(_maximum, _buffer.Length / _stride * 2);
+            Array.Resize(ref _buffer, capacity * _stride);
+            _instances.InstanceCount = capacity; _visible = -1;
+        }
         var b = transform.Basis; var p = transform.Origin;
         // MultiMesh almacena tres filas de cuatro floats; Basis expone sus columnas.
         _buffer[offset] = b.X.X; _buffer[offset + 1] = b.Y.X; _buffer[offset + 2] = b.Z.X; _buffer[offset + 3] = p.X;
@@ -51,5 +62,13 @@ internal sealed class InstanceDrawBatch
         if (_visible == Count) return;
         _instances.VisibleInstanceCount = Count; _visual.Visible = Count > 0; _visible = Count;
     }
-    internal void Clear() { Begin(); Commit(); }
+    internal void Clear()
+    {
+        Begin(); Commit();
+        // Al terminar/cambiar de escena libera la reserva de un pico anterior.
+        // Nunca se reduce el lote durante una animación activa.
+        if (_buffer.Length == _initialCapacity * _stride) return;
+        _buffer = new float[_initialCapacity * _stride];
+        _instances.InstanceCount = _initialCapacity; _instances.VisibleInstanceCount = 0;
+    }
 }

@@ -31,6 +31,8 @@ public partial class ClientVerification
             if (!valid) throw new InvalidDataException("INSTANCE_BATCH_FAILED: limpieza o límites del lote.");
             valid &= _runtime.Renderer.VerifySimpleBeamBatch();
             if (!valid) throw new InvalidDataException("INSTANCE_BATCH_FAILED: extremos o radios de los rayos.");
+            valid &= _runtime.Renderer.VerifyBeamCoreBatch();
+            if (!valid) throw new InvalidDataException("INSTANCE_BATCH_FAILED: núcleos, radios, alfa variable o presupuesto de canales.");
         }
 
         var probe = new CombatEffects(); AddChild(probe);
@@ -45,7 +47,7 @@ public partial class ClientVerification
         Burst();
         var draws = probe.GetChildren().OfType<MultiMeshInstance3D>().ToArray();
         int children = probe.GetChildCount();
-        valid &= draws.Length == 3 && draws.Sum(d => d.Multimesh.VisibleInstanceCount) == probe.ActiveParticles &&
+        valid &= draws.Length == 3 && draws.All(d => d.Multimesh.InstanceCount == 16) && draws.Sum(d => d.Multimesh.VisibleInstanceCount) == probe.ActiveParticles &&
             probe.ActiveParticles == 18 && draws.All(d => d.Visible && d.CastShadow == GeometryInstance3D.ShadowCastingSetting.Off);
         if (!valid) throw new InvalidDataException($"INSTANCE_BATCH_FAILED: partículas: {draws.Length} lotes, {probe.ActiveParticles} partículas.");
         for (int i = 0; i < 20; i++) probe.Advance(empty, 0.05f, false);
@@ -54,7 +56,7 @@ public partial class ClientVerification
         probe.Clear(); valid &= draws.All(d => !d.Visible && d.Multimesh.VisibleInstanceCount == 0);
         probe.QueueFree();
         if (valid) GD.Print(gpu
-            ? "INSTANCE_BATCHES_OK: transformaciones y datos reales de MultiMesh, extremos y radios, colores, límites, expiración y reutilización sin nodos por partícula."
+            ? "INSTANCE_BATCHES_OK: buffers reales, extremos y radios, alfa por instancia, crecimiento 16→512, liberación de reservas y reutilización, colores y expiración."
             : "INSTANCE_BATCHES_POOL_OK: colores, cantidades, límites, caducidad y reutilización; lectura GPU verificada por CI con viewport real.");
         return valid;
     }

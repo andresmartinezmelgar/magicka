@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "beforeVersion": "0.29.3",
+  "afterVersion": "0.29.4",
+  "captureFrame": 90,
+  "comparison": "native_viewport_same_fixture",
+  "renderer": "gl_compatibility",
+  "gpu": "llvmpipe (LLVM 20.1.2, 256 bits)",
+  "note": "El HUD de FPS y pequeñas diferencias de rasterizado/transparencia pueden cambiar píxeles. Estas cifras acompañan una inspección visual; no prueban identidad píxel a píxel ni equivalencia en todos los dispositivos.",
+  "captures": [
+    {
+      "view": "shield-elements",
+      "width": 1600,
+      "height": 720,
+      "beforeSha256": "abedd877a83f9c51252ff2cc643d7ebbd281ee93496f73fb0cfe8ced8a2ea1a5",
+      "afterSha256": "6ba423ef7f42e63a2408d165d2b7e1ba9d158f86d174da6ec72c5949147bff5e",
+      "meanAbsoluteDifferenceRgb255": [
+        0.01403298611111111,
+        0.024044270833333332,
+        0.009550347222222222
+      ],
+      "fractionPixelsLumaDifferenceOver8": 0.0006970486111111111
+    },
+    {
+      "view": "beam-charge",
+      "width": 1600,
+      "height": 720,
+      "beforeSha256": "abccf005ddcd46d19ac60c5e4b4c1fe4cdad61dfe657204c47c4d499fa498f76",
+      "afterSha256": "283a2c6d56c71a1a02acac93a237b63eb993a6a08bc844964a534b753138318a",
+      "meanAbsoluteDifferenceRgb255": [
+        0.03667708333333333,
+        0.06725086805555555,
+        0.051555555555555556
+      ],
+      "fractionPixelsLumaDifferenceOver8": 0.001971354166666667
+    }
+  ]
+}

@@ -109,6 +109,7 @@ public partial class ArenaRenderer : Node3D
         foreach (var point in _points.Values) point.Reset();
         foreach (var beam in _beamPool) beam.Root.Visible = false;
         foreach (var batch in _simpleBeamBatches.Values) batch.Clear();
+        foreach (var batch in _beamCoreBatches.Values) batch.Clear();
         _beamUsed = _beamMeshUsed = 0; BeamGeometryUpdates = 0;
         _lastEvent = 0; _lastSnapshot = null;
     }
@@ -244,10 +245,12 @@ public partial class ArenaRenderer : Node3D
         if (_fresh) RemoveMissing(_pickups, snapshot.Pickups ?? [], static p => p.Id);
         _beamUsed = _beamMeshUsed = 0; BeamGeometryUpdates = 0;
         foreach (var batch in _simpleBeamBatches.Values) batch.Begin();
+        foreach (var batch in _beamCoreBatches.Values) batch.Begin();
         // Dibuja primero todos los canales; el presupuesto de detalle nunca oculta un rayo.
         foreach (var beam in visibleState.Beams) DrawBeam(beam, false);
         foreach (var beam in visibleState.Beams) DrawBeam(beam, true);
         foreach (var batch in _simpleBeamBatches.Values) batch.Commit();
+        foreach (var batch in _beamCoreBatches.Values) batch.Commit();
         for (int i = _beamMeshUsed; i < _beamPool.Count; i++) _beamPool[i].Root.Visible = false;
         foreach (var e in snapshot.Events)
         {

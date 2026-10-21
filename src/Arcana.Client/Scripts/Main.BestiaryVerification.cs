@@ -129,7 +129,8 @@ public partial class Main
             new(-7 + i * 2.8f, -3), new(0, 1), 640, 640, 0, 0, 0, i == 0 ? 1 : 0, false, [], false)
             { VulnerableElement = e }).ToList();
         foreach (var (kind, x) in new[] { (MinionKind.Sentinel, -6f), (MinionKind.Boss, 0f), (MinionKind.Oracle, 6f) })
-            samples.Add(new(9000 + samples.Count, kind, new(x, 5), new(0, 1), 1000, 1000, 0, 0, 0, 0, false, [], false)
+            samples.Add(new(9000 + samples.Count, kind, new(x, 5), new(0, 1), 1000 * Math.Max(0.05f, shieldFactor), 1000,
+                0, _bestiarySmokeFrames is >= 15 and < 25 ? 1 : 0, 0, _bestiarySmokeFrames is >= 25 and < 35 ? 1 : 0, false, [], false)
                 { Shield = 220 * shieldFactor, ShieldMax = 220 });
         int caster = 0;
         foreach (var kind in Enum.GetValues<MinionKind>().Where(k => MinionArt.CasterType(k) != null))

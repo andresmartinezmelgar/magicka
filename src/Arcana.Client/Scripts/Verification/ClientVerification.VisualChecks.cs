@@ -20,6 +20,8 @@ public partial class ClientVerification
                 visual.Charges != combination.Elements.Length) return false;
             if (visual.Stone && (visual.StoneDrawMeshes != 3 || visual.StoneDrawMeshes >= visual.StoneSourceMeshes ||
                 visual.StoneSourceVertices <= 0 || visual.StoneBatchedVertices != visual.StoneSourceVertices)) return false;
+            if (visual.DetailDrawMeshes is < 2 or > 3 || visual.DetailSourceMeshes <= visual.DetailDrawMeshes ||
+                visual.DetailSourceVertices <= 0 || visual.DetailBatchedVertices != visual.DetailSourceVertices) return false;
             if (!visual.Stone)
             {
                 var geometry = visual.GetChildren().OfType<Node3D>().First();
@@ -28,6 +30,18 @@ public partial class ClientVerification
                     color.Mesh.GetAabb().Size.Z < 6 || color.Mesh.GetAabb().Size.Y < 0.65f ||
                     geometry.GetChildren().OfType<MeshInstance3D>().Count() > 32) return false;
             }
+            var parts = visual.GetChildren().OfType<Node3D>().First();
+            var runes = parts.GetNode<MeshInstance3D>("BarrierRuneBatch");
+            var crest = parts.GetNode<MeshInstance3D>("StyleBBarrierCrests/BarrierCrestBatch");
+            var ice = parts.GetNodeOrNull<MeshInstance3D>("BarrierIceBatch");
+            ulong meshId = runes.Mesh.GetInstanceId();
+            _runtime.Renderer.Render(empty with { Tick=2, Walls=[wall with { Health=wall.Health-50, Lifetime=0.4f }] },0,1/60.0,true);
+            if (runes.MaterialOverride != crest.MaterialOverride ||
+                runes.MaterialOverride is not StandardMaterial3D rim || Math.Abs(rim.AlbedoColor.A - 0.5f) > 0.001f ||
+                ice != null && (ice.MaterialOverride is not StandardMaterial3D frost || Math.Abs(frost.AlbedoColor.A - 0.34f) > 0.001f)) return false;
+            _runtime.Renderer.Render(empty with { Tick=3, Walls=[wall] },0,1/60.0,true);
+            if (runes.Mesh.GetInstanceId() != meshId || rim.AlbedoColor.A != 1 ||
+                ice?.MaterialOverride is StandardMaterial3D restored && Math.Abs(restored.AlbedoColor.A - 0.68f) > 0.001f) return false;
             _runtime.Renderer.Render(empty with { Tick=2, Walls=[wall with { Health=0, Lifetime=0 }] },0,1/60.0,true);
             if (visual.Visible) return false;
             _runtime.Renderer.Render(empty with { Tick=3 },0,1/60.0,true);

@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.29.4 — Segunda optimización visual en pruebas
+
+- Los cristales, postes y runas de cada muro se agrupan por material y padre animado. Conservan todos sus vértices, normales, UV, colores, sombras y animación; las coronas de hielo y las crestas mantienen sus materiales y su desvanecimiento. Cada muro conserva su propia visibilidad.
+- Los núcleos, filamentos y pulsos de los canales comparten mallas MultiMesh. Sus radios y transparencia viajan por instancia, sin crear materiales nuevos mientras se carga el hechizo. Se conservan los extremos suavizados y el límite global de 512 tramos.
+- Los lotes de partículas y rayos empiezan con una reserva pequeña, crecen por duplicación cuando hace falta y liberan el exceso al cambiar de escena. Se evitan subidas de cientos de matrices vacías en escenas con pocos efectos, manteniendo los mismos límites.
+- Las barras de vida y escudo, tintes, orientación y auras de los monstruos solo actualizan propiedades del motor cuando cambian. Los muros también reutilizan su estado visual; sus superficies y crestas siguen animándose cada fotograma.
+- Las pruebas cubren daño, congelación, quemadura, reparación y reutilización de enemigos, así como desvanecimiento y recuperación de los materiales de los muros. Los buffers de los canales se leen con un viewport real y se comparan capturas y mediciones con 0.29.3.
+- Se mantiene la rama `codex/visual-performance` y el canal de pruebas; `main` continúa en 0.29.2.
+
 ## 0.29.3 — Pruebas de rendimiento visual
 
 - Las partículas con la misma forma y material se dibujan en lotes MultiMesh, con una sola subida de transformaciones por lote. Conservan colores, sombreado de las facetas, cantidad, trayectorias, duración y presupuestos; los enlaces eléctricos y las ondas mantienen su representación específica.

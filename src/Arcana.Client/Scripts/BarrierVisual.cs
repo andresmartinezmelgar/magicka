@@ -12,6 +12,9 @@ public partial class BarrierVisual : Node3D
     private readonly StandardMaterial3D _rim = new();
     private Color _color;
     private float _previousHealth, _maximumHealth, _flash, _age;
+    private float _renderedFade = -1, _renderedHeight = -1, _renderedFlash = -1, _renderedIntegrity = -1;
+    private static readonly StringName ClockParameter = "clock", FadeParameter = "fade";
+    private static readonly StringName IntegrityParameter = "integrity", FlashParameter = "hit_flash";
     internal int Charges { get; private set; }
     internal int StoneRows { get; private set; }
     internal float StoneThickness { get; private set; }
@@ -211,6 +214,7 @@ public partial class BarrierVisual : Node3D
         }
         BuildElements(wall, length, stone);
         BuildStyleBCrests(length, stone);
+        BatchDetails();
     }
 
     private static ArrayMesh StoneMesh(Vector3 size, int seed)
@@ -255,21 +259,25 @@ public partial class BarrierVisual : Node3D
         _previousHealth = wall.Health;
         float fade = Math.Clamp(wall.Lifetime / 0.8f, 0, 1);
         float height = Mathf.Lerp(0.25f, 1, Math.Clamp(_age * 8, 0, 1));
-        _geometry.Scale = new(1, height * (_surface == null ? Math.Max(0.02f, fade) : 1), 1);
-        _rim.AlbedoColor = new(_color.Lightened(_flash * 0.18f), fade);
+        float scale = height * (_surface == null ? Math.Max(0.02f, fade) : 1);
+        bool fading = fade != _renderedFade;
+        if (scale != _renderedHeight) { _geometry.Scale = new(1, scale, 1); _renderedHeight = scale; }
+        if (fading || _flash != _renderedFlash) _rim.AlbedoColor = new(_color.Lightened(_flash * 0.18f), fade);
         if (_surface != null)
         {
-            _surface.SetShaderParameter("integrity", Math.Clamp(wall.Health / _maximumHealth, 0, 1));
-            _surface.SetShaderParameter("fade", fade);
-            _surface.SetShaderParameter("hit_flash", _flash);
-            _surface.SetShaderParameter("clock", time);
+            float integrity = Math.Clamp(wall.Health / _maximumHealth, 0, 1);
+            if (integrity != _renderedIntegrity) { _surface.SetShaderParameter(IntegrityParameter, integrity); _renderedIntegrity = integrity; }
+            if (fading) _surface.SetShaderParameter(FadeParameter, fade);
+            if (_flash != _renderedFlash) _surface.SetShaderParameter(FlashParameter, _flash);
+            _surface.SetShaderParameter(ClockParameter, time);
         }
-        for (int i = 0; i < _approvedWallArt.Length; i++)
+        if (fading) for (int i = 0; i < _approvedWallArt.Length; i++)
         {
             if (_approvedWallArt[i] is not { } sprite) continue;
             sprite.Modulate = new Color(1, 1, 1, (i == 0 ? 0.62f : 0.36f) * fade);
         }
-        UpdateElements(fade, time);
+        UpdateElements(fade, time, fading);
+        _renderedFade = fade; _renderedFlash = _flash;
         UpdateStyleBCrests(time);
         Visible = wall.Health > 0 && wall.Lifetime > 0;
     }

@@ -17,6 +17,11 @@ public partial class ArenaRenderer
         public WizardVisual? Mage;
         public MinionSnapshot? Sample;
         public WizardSnapshot? Wizard;
+        public Color? BodyColor, AuraColor;
+        public Basis? VitalsBasis;
+        public V2? DetailFacing;
+        public float HealthFraction = -1, ShieldFraction = -1;
+        public bool? ShieldVisible, AuraVisible, WarningVisible;
     }
     private readonly Dictionary<int, MinionVisual> _minionVisuals = [];
     private readonly Stack<MinionVisual>[] _freeMinions = Enum.GetValues<MinionKind>().Select(_ => new Stack<MinionVisual>()).ToArray();
@@ -73,6 +78,7 @@ public partial class ArenaRenderer
         foreach (var m in defense.Minions) if (NearSurvival(m.Position)) _visibleMinionIds.Add(m.Id);
         foreach (int id in _minionVisuals.Keys) if (!_visibleMinionIds.Contains(id)) _missingMinionIds.Add(id);
         foreach (int id in _missingMinionIds) { ReturnMinionVisual(_minionVisuals[id]); _minionVisuals.Remove(id); }
+        var vitalsBasis = Camera.GlobalBasis;
         foreach (var m in defense.Minions.Where(m => NearSurvival(m.Position)))
         {
             if (!_minionVisuals.TryGetValue(m.Id, out var v))
@@ -91,38 +97,56 @@ public partial class ArenaRenderer
                 v.Mage.Position -= World(m.Position); // La raíz ya está en coordenadas del mundo.
             }
             else v.Sample = m;
-            if (v.Vitals != null) v.Vitals.Basis = Camera.GlobalBasis;
+            if (v.Vitals != null && v.VitalsBasis != vitalsBasis)
+            { v.Vitals.Basis = vitalsBasis; v.VitalsBasis = vitalsBasis; }
             if (v.Health != null)
             {
                 float health = Math.Clamp(m.Health / Math.Max(1, m.MaxHealth), 0, 1);
-                v.Health.Scale = new(Math.Max(0.001f, health), 1, 1);
-                v.Health.Position = new(-(1 - health) * 0.625f, 0, 0.01f);
+                if (health != v.HealthFraction)
+                {
+                    v.Health.Scale = new(Math.Max(0.001f, health), 1, 1);
+                    v.Health.Position = new(-(1 - health) * 0.625f, 0, 0.01f); v.HealthFraction = health;
+                }
             }
             Color bodyColor = m.VulnerableElement is { } weakness ? Ui.ElementColor(weakness)
                 : m.Frozen > 0 ? new("8bdeff") : m.Burning > 0 ? Ui.ElementColor(Element.Fire) : MinionColor(m.Kind);
             bool fixedColor = m.Kind is MinionKind.Prism or MinionKind.Oracle;
-            if (v.Body != null) v.Body.MaterialOverride = Material(bodyColor, 0, fixedColor);
-            foreach (var part in v.Tinted) part.MaterialOverride = Material(bodyColor.Darkened(0.18f), 0, fixedColor);
-            if (v.Details != null) v.Details.Rotation = new(0, MathF.Atan2(m.Facing.X, m.Facing.Y), 0);
+            if (bodyColor != v.BodyColor)
+            {
+                if (v.Body != null) v.Body.MaterialOverride = Material(bodyColor, 0, fixedColor);
+                foreach (var part in v.Tinted) part.MaterialOverride = Material(bodyColor.Darkened(0.18f), 0, fixedColor);
+                v.BodyColor = bodyColor;
+            }
+            if (v.Details != null && v.DetailFacing != m.Facing)
+            { v.Details.Rotation = new(0, MathF.Atan2(m.Facing.X, m.Facing.Y), 0); v.DetailFacing = m.Facing; }
             if (v.ElementLabel != null && m.VulnerableElement is { } shown && shown != v.LabelElement)
             { v.ElementLabel.Text = SpellCatalogue.Name([shown]); v.ElementLabel.Modulate = Ui.ElementColor(shown); v.LabelElement = shown; }
             if (v.Shield != null)
             {
                 bool shielded = m.Shield > 0;
-                v.Shield.Visible = v.ShieldTrack!.Visible = shielded;
+                if (shielded != v.ShieldVisible)
+                { v.Shield.Visible = v.ShieldTrack!.Visible = shielded; v.ShieldVisible = shielded; }
                 if (shielded)
                 {
                     float fraction = Math.Clamp(m.Shield / (m.ShieldMax > 0 ? m.ShieldMax : m.Shield), 0, 1);
-                    v.Shield.Scale = new(fraction, 1, 1);
-                    v.Shield.Position = new(-(1 - fraction) * 0.625f, 0.17f, 0.01f);
+                    if (fraction != v.ShieldFraction)
+                    {
+                        v.Shield.Scale = new(fraction, 1, 1);
+                        v.Shield.Position = new(-(1 - fraction) * 0.625f, 0.17f, 0.01f); v.ShieldFraction = fraction;
+                    }
                 }
             }
-            v.Aura!.Visible = m.Empowered || m.Kind is MinionKind.Captain or MinionKind.Sentinel or MinionKind.Warlock or MinionKind.Cryomancer or MinionKind.Prism or MinionKind.Oracle || m.SpeedBoostSeconds > 0 || m.Kind == MinionKind.Boss;
-            v.Aura.MaterialOverride = Material(m.SpeedBoostSeconds > 0 ? new("65e5ff") :
+            bool auraVisible = m.Empowered || m.Kind is MinionKind.Captain or MinionKind.Sentinel or MinionKind.Warlock or MinionKind.Cryomancer or MinionKind.Prism or MinionKind.Oracle || m.SpeedBoostSeconds > 0 || m.Kind == MinionKind.Boss;
+            if (auraVisible != v.AuraVisible) { v.Aura!.Visible = auraVisible; v.AuraVisible = auraVisible; }
+            Color auraColor = m.SpeedBoostSeconds > 0 ? new("65e5ff") :
                 m.Kind is MinionKind.Warlock or MinionKind.Cryomancer or MinionKind.Sentinel
-                    ? MinionColor(m.Kind) : Ui.Gold, 0.5f);
+                    ? MinionColor(m.Kind) : Ui.Gold;
+            if (auraColor != v.AuraColor) { v.Aura!.MaterialOverride = Material(auraColor, 0.5f); v.AuraColor = auraColor; }
             if (v.Warning != null)
-                v.Warning.Visible = m.AttackWarningSeconds > 0;
+            {
+                bool warning = m.AttackWarningSeconds > 0;
+                if (warning != v.WarningVisible) { v.Warning.Visible = warning; v.WarningVisible = warning; }
+            }
         }
         _visibleLootIds.Clear();
         foreach (var drop in defense.Drops)
@@ -290,6 +314,16 @@ public partial class ArenaRenderer
         foreach (var visual in _minionVisuals.Values)
         {
             var sample = visual.Sample ?? throw new InvalidOperationException("Falta la muestra del enemigo.");
+            if (visual.Mage == null)
+            {
+                float health = Math.Clamp(sample.Health / Math.Max(1, sample.MaxHealth), 0, 1);
+                Color expected = sample.VulnerableElement is { } weakness ? Ui.ElementColor(weakness) : sample.Frozen > 0
+                    ? new("8bdeff") : sample.Burning > 0 ? Ui.ElementColor(Element.Fire) : MinionColor(sample.Kind);
+                if (visual.Health == null || Math.Abs(visual.Health.Scale.X - Math.Max(0.001f, health)) > 0.001f ||
+                    Math.Abs(visual.Health.Position.X + (1 - health) * 0.625f) > 0.001f ||
+                    visual.Body?.MaterialOverride is not StandardMaterial3D body || body.AlbedoColor != expected)
+                    throw new InvalidOperationException("La vida o el color del enemigo conserva un estado anterior: " + sample.Kind);
+            }
             var fill = visual.Mage?.FindChild("ShieldFill", true, false) as MeshInstance3D ?? visual.Shield!;
             var track = visual.Mage?.FindChild("ShieldTrack", true, false) as MeshInstance3D ?? visual.ShieldTrack!;
             bool shielded = sample.Shield > 0;

@@ -186,16 +186,16 @@ public partial class BarrierVisual
         material.SetShaderParameter("electric_color", Ui.ElementColor(Element.Lightning));
     }
 
-    private void UpdateElements(float fade, float time)
+    private void UpdateElements(float fade, float time, bool fading)
     {
         if (_elementSkin == null) return;
-        _elementSkin.SetShaderParameter("clock", time);
-        _elementSkin.SetShaderParameter("fade", fade);
+        _elementSkin.SetShaderParameter(ClockParameter, time);
+        if (fading) _elementSkin.SetShaderParameter(FadeParameter, fade);
         if (_foamSkin != null)
         {
-            _foamSkin.SetShaderParameter("clock", time);
-            _foamSkin.SetShaderParameter("fade", fade);
+            _foamSkin.SetShaderParameter(ClockParameter, time);
+            if (fading) _foamSkin.SetShaderParameter(FadeParameter, fade);
         }
-        if (_iceSkin != null) _iceSkin.AlbedoColor = new(Ui.IsMobile ? Ui.ElementColor(Element.Cold) : new Color("9cddf1"), 0.68f * fade);
+        if (fading && _iceSkin != null) _iceSkin.AlbedoColor = new(Ui.IsMobile ? Ui.ElementColor(Element.Cold) : new Color("9cddf1"), 0.68f * fade);
     }
 }

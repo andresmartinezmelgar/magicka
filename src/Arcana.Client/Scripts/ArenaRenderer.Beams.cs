@@ -14,6 +14,8 @@ public partial class ArenaRenderer
         if (_beamUsed >= 512 || length < 0.05f) return;
         if (profile == 0)
         { BatchSimpleBeam(from, to, length, color, radius, endRadius); _beamUsed++; return; }
+        if (profile >= 6)
+        { BatchBeamCore(from, to, length, color, radius, endRadius); _beamUsed++; return; }
         if (_beamMeshUsed == _beamPool.Count)
         {
             _beamShader ??= new Shader { Code = """
@@ -42,15 +44,9 @@ public partial class ArenaRenderer
                         filament = pow(0.5 + 0.5 * sin(along * 12.0 - clock * 15.0), 14.0);
                     }
                     float ends = smoothstep(0.0, 0.055, UV.y) * smoothstep(0.0, 0.11, 1.0 - UV.y);
-                    if (profile > 5.5) {
-                        ALBEDO = beam_color.rgb;
-                        EMISSION = ALBEDO * 0.2;
-                        ALPHA = beam_color.a * ends;
-                    } else {
-                        ALBEDO = mix(beam_color.rgb, accent_color.rgb, filament * 0.55);
-                        EMISSION = ALBEDO * (0.16 + pulse * 0.16) * (0.7 + clamp(power, 0.0, 1.5) * 0.2);
-                        ALPHA = beam_color.a * ends * (0.58 + pulse * 0.25 + filament * (0.13 + detail * 0.025));
-                    }
+                    ALBEDO = mix(beam_color.rgb, accent_color.rgb, filament * 0.55);
+                    EMISSION = ALBEDO * (0.16 + pulse * 0.16) * (0.7 + clamp(power, 0.0, 1.5) * 0.2);
+                    ALPHA = beam_color.a * ends * (0.58 + pulse * 0.25 + filament * (0.13 + detail * 0.025));
                 }
                 """ };
             var root = new Node3D(); AddChild(root);
@@ -80,7 +76,7 @@ public partial class ArenaRenderer
         if (beam.Profile != profile) { beam.Skin.SetShaderParameter("profile", profile); beam.Profile = profile; }
         if (beam.Charges != charges) { beam.Skin.SetShaderParameter("detail", charges); beam.Charges = charges; }
         if (beam.Power != power) { beam.Skin.SetShaderParameter("power", power); beam.Power = power; }
-        if (profile < 6) beam.Skin.SetShaderParameter("clock", (float)_time);
+        beam.Skin.SetShaderParameter("clock", (float)_time);
         Godot.Material material = beam.Skin;
         if (!ReferenceEquals(beam.Material, material)) { beam.Mesh.MaterialOverride = material; beam.Material = material; }
     }
