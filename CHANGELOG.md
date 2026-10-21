@@ -7,6 +7,7 @@
 - La potencia de los magos pasa de 0,22 a 0,42. Sostienen haces y relámpagos durante 1,2 s y conos durante 0,9 s, para que sus ataques alcancen una potencia significativa.
 - El frío no renueva una congelación activa sobre los defensores. Tras descongelarse disponen de tres segundos sin acumulación de frío ni nuevas congelaciones; los impactos siguen causando daño. Se aplica también a los aliados IA y el fuego permite descongelar antes. El comportamiento del hielo en PvP se conserva.
 - El bestiario refleja las nuevas cifras y explica la recuperación. Esta se conserva al guardar localmente, continuar o reconectar; los guardados anteriores siguen siendo compatibles.
+- Al volver a una supervivencia online, la fase de carga respeta la invulnerabilidad y recuperación que tenía el personaje. Se evita que la protección de entrada de un jugador nuevo sobrescriba un estado restaurado.
 - Se añaden regresiones de presión frente a escudos regeneradores, daño real del haz, varios magos helados, guardado y PvP. La simulación de equilibrio compara desplazamiento por el anillo con permanecer inmóvil.
 
 ## 0.27.2 — Estadísticas de los monstruos en el bestiario

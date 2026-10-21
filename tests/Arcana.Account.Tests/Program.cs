@@ -366,6 +366,8 @@ await Test("Defensa online: salida voluntaria y nueva entrada conservan recursos
     await ally.ConnectAsync("127.0.0.1:28339", "Aliado", 0, "", roomId: room.Id, accountToken: bobLogin.AccessToken);
     var player = new ArenaConnection();
     await player.ConnectAsync("127.0.0.1:28339", "Defensor", 0, "", roomId: room.Id, accountToken: aliceLogin.AccessToken);
+    for (int n = 0; n < 150 && (!player.Ready || !ally.Ready); n++) await Task.Delay(20);
+    Check(player.Ready && ally.Ready, "Los jugadores no terminaron la carga inicial.");
     var gate = typeof(GameService).GetField("_gate", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(game)!;
     var rooms = (Dictionary<string, GameRoom>)typeof(GameService).GetField("_rooms", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(game)!;
     lock (gate)
@@ -373,6 +375,7 @@ await Test("Defensa online: salida voluntaria y nueva entrada conservan recursos
         var world = rooms[room.Id].World;
         typeof(GameWorld).GetField("_spawnClock", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(world, 10000f);
         var body = world.Players[player.PlayerId]; body.Health = 100; body.Energy = 5; body.Invulnerable = 0; body.MagickCooldowns[1] = 10;
+        typeof(Wizard).GetProperty("FreezeRecovery", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(body, 2.5f);
     }
     int oldId = player.PlayerId; await player.DisposeAsync();
     bool removed = false;
@@ -384,12 +387,26 @@ await Test("Defensa online: salida voluntaria y nueva entrada conservan recursos
     }
     Check(removed, "La salida no eliminó la sesión anterior.");
     await using var returned = new ArenaConnection();
-    await returned.ConnectAsync("127.0.0.1:28339", "Defensor", 0, "", roomId: room.Id, accountToken: aliceLogin.AccessToken);
+    await returned.ConnectAsync("127.0.0.1:28339", "Defensor", 0, "", roomId: room.Id, accountToken: aliceLogin.AccessToken, deferReady: true);
+    // La sala sigue avanzando con el aliado mientras el cliente que vuelve carga.
+    // El servidor no debe reemplazar el estado restaurado con la protección de un jugador nuevo.
+    await Task.Delay(150);
+    lock (gate)
+    {
+        var body = rooms[room.Id].World.Players[returned.PlayerId];
+        Check(body.Invulnerable == 0, "La fase de carga volvió a conceder invulnerabilidad al personaje restaurado.");
+        float recovery = (float)typeof(Wizard).GetProperty("FreezeRecovery", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(body)!;
+        Check(recovery is > 0 and <= 2.5f, "La fase de carga eliminó o reinició la recuperación del frío.");
+    }
+    Check(returned.CompleteLoading(), "No pudo confirmar la carga al volver.");
+    for (int n = 0; n < 150 && !returned.Ready; n++) await Task.Delay(20);
+    Check(returned.Ready, "El personaje restaurado no terminó de cargar.");
     lock (gate)
     {
         var body = rooms[room.Id].World.Players[returned.PlayerId];
         Check(body.Id != oldId && body.Health is > 0 and <= 100 && body.Energy < 25 && body.MagickCooldowns[1] > 8 &&
-            body.Invulnerable == 0 && body.Deaths == 0, "La nueva entrada curó, rellenó energía o concedió recarga/protección.");
+            body.Invulnerable == 0 && body.Deaths == 0,
+            $"La nueva entrada cambió recursos: vida {body.Health}, energía {body.Energy}, recarga {body.MagickCooldowns[1]}, invulnerable {body.Invulnerable}, muertes {body.Deaths}.");
     }
 });
 await ShopEmulatorTests.Run(database, repository, new Uri(options.PublicUrl), Test);

@@ -42,6 +42,7 @@ internal sealed class PlayerSession(int id, GameRoom room, WebSocket socket)
     public WebSocket Socket { get; } = socket;
     public SnapshotSender Network { get; set; } = null!;
     public bool Resumed { get; init; }
+    public bool RestoredDefense { get; init; }
     public long ReconnectUntil { get; init; }
     public string ResumeToken { get; init; } = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
     public long LastPacketAt = Environment.TickCount64;
@@ -221,7 +222,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                             // Entrar en una partida iniciada no la pausa: el nuevo jugador
                             // permanece protegido y sin acciones hasta terminar su carga.
                             foreach (var session in room.Sessions.Values)
-                                if (!session.Ready && !session.Resumed && room.World.Players.TryGetValue(session.Id, out var player)) player.Invulnerable = 1.2f;
+                                if (!session.Ready && !session.Resumed && !session.RestoredDefense && room.World.Players.TryGetValue(session.Id, out var player)) player.Invulnerable = 1.2f;
                             bool endedBefore = room.World.MatchEnded;
                             long simulationStarted = Stopwatch.GetTimestamp();
                             room.World.Step();
@@ -365,7 +366,8 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                             session = new(player.Id, room, socket) { Account = identity, Equipment = resume ? reservation!.Equipment : equipment,
                                 LastActivityTick = resume ? reservation!.LastActivityTick : room.World.Tick,
                                 ResumeToken = resume ? hello.ResumeToken : Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)),
-                                Resumed = resume, ReconnectUntil = resume ? reservation!.ExpiresAt : 0, LobbyReady = resume && reservation!.LobbyReady };
+                                Resumed = resume, RestoredDefense = restoredDefense,
+                                ReconnectUntil = resume ? reservation!.ExpiresAt : 0, LobbyReady = resume && reservation!.LobbyReady };
                             Diagnostics.Log.ProtectSecret(session.ResumeToken);
                             if (room.HostPlayerId == 0) room.HostPlayerId = player.Id;
                             room.Sessions.Add(player.Id, session); _sessions[session.Key] = session; room.LastOccupied = Environment.TickCount64;
