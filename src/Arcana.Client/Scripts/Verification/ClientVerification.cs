@@ -40,12 +40,12 @@ public partial class ClientVerification : Node
     private int _smokeFrames, _renderFrames;
     private string? _capturePath;
     private bool _captureReview, _mapOverview;
-    private bool _smokeFailed;
+    private bool _smokeFailed, _smokeCompleting;
     private bool SmokeMode => _smoke || _hostSmoke || _diagnosticsSmoke || _hudSmoke || _effectsSmoke || _spritesSmoke || _combinationsSmoke || _mapsSmoke || _mobileSmoke || _practiceSmoke || _loadingSmoke || _aimMarkerSmoke || _lobbySmoke != null;
 
     internal bool CheckSmokeErrors()
     {
-        if (_smokeFailed) return true;
+        if (_smokeFailed || _smokeCompleting) return true;
         if (!SmokeMode || _runtime.EngineLog.ErrorCount == 0) return false;
         _smokeFailed = true;
         GD.PushError($"SMOKE_FAILED: {_runtime.EngineLog.ErrorCount} errores del motor o de scripts.");
@@ -55,7 +55,29 @@ public partial class ClientVerification : Node
     private void CompleteSmoke(string message)
     {
         if (CheckSmokeErrors()) return;
-        GD.Print(message); GetTree().Quit();
+        if (!_combinationsSmoke) { GD.Print(message); GetTree().Quit(); return; }
+        _smokeCompleting = true;
+        var tree = GetTree();
+        var errors = _runtime.EngineLog;
+        // Libera escenas y envoltorios C# mientras los servidores de Godot siguen activos.
+        // Quit inmediato deja recursos de las diez demostraciones pendientes de finalizar.
+        GetParent().QueueFree();
+        _runtime = null!;
+        _ = FinishSmokeAfterCleanup(tree, errors, message);
+    }
+    private static async Task FinishSmokeAfterCleanup(SceneTree tree, EngineLogBridge errors, string message)
+    {
+        try
+        {
+            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            GC.Collect(); GC.WaitForPendingFinalizers();
+            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            if (errors.ErrorCount > 0)
+            { GD.PushError($"SMOKE_FAILED: {errors.ErrorCount} errores durante la limpieza."); tree.Quit(1); return; }
+            GD.Print(message); tree.Quit();
+        }
+        catch (Exception error) { GD.PushError("SMOKE_FAILED: limpieza: " + error); tree.Quit(1); }
     }
 
     private Main.VerificationAccess _runtime = null!;
@@ -241,6 +263,7 @@ public partial class ClientVerification : Node
     }
     internal void BeforeFrame(double delta)
     {
+        if (_smokeCompleting) return;
         _renderFrames++;
         if (_lobbySmoke != null || _previewRooms != null) CheckLobbyFrame();
         if (_mapOverview && _previewMap != null && _renderFrames == 2)
@@ -268,6 +291,7 @@ public partial class ClientVerification : Node
     }
     internal void AfterRender(WorldSnapshot latest)
     {
+        if (_smokeCompleting) return;
         if (_previewSpells == "stone-close" && _runtime.Touch != null) _runtime.Touch.Visible = false;
         if (_previewSpells is "stone-auras" or "areas" or "auras" or "passives")
         {
@@ -303,6 +327,7 @@ public partial class ClientVerification : Node
     }
     internal void AfterFrame()
     {
+        if (_smokeCompleting) return;
         if (_aimMarkerSmoke && !_aimMarkerRunning && _renderFrames >= 3)
         { _aimMarkerRunning = true; _ = CheckAimMarkers(); }
         if (_diagnosticsSmoke && _renderFrames == 30) _runtime.ExportDiagnostics();
@@ -310,6 +335,7 @@ public partial class ClientVerification : Node
     }
     internal void AfterPhysics()
     {
+        if (_smokeCompleting) return;
         if (_practiceSmoke) StepPracticeSmoke();
         if (_smoke)
         {

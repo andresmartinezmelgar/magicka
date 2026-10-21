@@ -5,6 +5,7 @@
 - El botón Estadísticas de partidas aparece en Perfil para los dos UID indicados, incluido su perfil guardado sin conexión. Abre las gráficas de los informes JSON del dispositivo y permite actualizar su lectura. Ya no consulta permisos ni partidas en Firestore para abrir este visor.
 - Una barra azul fina sobre la vida muestra el escudo de los monstruos y su integridad. Se oculta al agotarse y reaparece con las reparaciones. Los magos enemigos usan la misma señal compacta, sin cifras de escudo, burbujas protectoras ni anillos adicionales.
 - Las barras miran a la cámara y los nodos se reutilizan. Se comprueban ambos UID, otras cuentas, cierre de sesión, lectura local y transiciones de escudo completo, dañado, agotado y reparado, también al reutilizar enemigos. No se modifica la configuración de Firebase.
+- La simulación de combinaciones libera sus escenas y finaliza los recursos C# antes de cerrar Godot; los errores de limpieza siguen provocando fallo de la prueba.
 
 ## 0.29.1 — Gráficas de balance
 
