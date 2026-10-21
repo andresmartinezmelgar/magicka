@@ -23,6 +23,7 @@ internal sealed class SurvivalWizard
     public float HitEffectCooldown = 0;
     public float Chill = 0;
     public float Frozen = 0;
+    public float FreezeRecovery = 0;
     public float Haste = 0;
     public float Energy = 0;
     public float Respawn = 0;
@@ -72,6 +73,7 @@ internal sealed class SurvivalWizard
         HitEffectCooldown = p.HitEffectCooldown,
         Chill = p.Chill,
         Frozen = p.Frozen,
+        FreezeRecovery = p.FreezeRecovery,
         Haste = p.Haste,
         Energy = p.Energy,
         Respawn = p.Respawn,
@@ -125,6 +127,7 @@ internal sealed class SurvivalWizard
             HitEffectCooldown = HitEffectCooldown,
             Chill = Chill,
             Frozen = Frozen,
+            FreezeRecovery = FreezeRecovery,
             Haste = Haste,
             Energy = Energy,
             Respawn = Respawn,
@@ -165,6 +168,7 @@ internal sealed class SurvivalWizard
         ValidElements(Ward) && ValidElements(Selection) && (Channel == null || ValidElements(Channel)) &&
         (Charging == null || ValidElements(Charging)) && Kills >= 0 && Deaths is >= 0 and <= DefenseRules.PlayerLives &&
         MaxHealth > 0 && Health <= MaxHealth && ShieldMax >= 0 && Shield <= ShieldMax &&
+        float.IsFinite(FreezeRecovery) && FreezeRecovery is >= 0 and <= DefenseRules.FreezeRecoverySeconds &&
         new float[] { Health, MaxHealth, Shield, ShieldMax, ShieldTime, RegenerationRate, WardTime, Wet, Burning, BurnMultiplier, HitEffectCooldown, Chill, Frozen, Haste, Energy, Respawn, Invulnerable, TeleportCooldown, ActionCooldown, ChargeTime, BotDecision }.All(f => float.IsFinite(f) && Math.Abs(f) <= 1e12f);
 
     internal static bool ValidElements(Element[]? elements) => elements is { Length: <= 3 } && elements.All(Enum.IsDefined);

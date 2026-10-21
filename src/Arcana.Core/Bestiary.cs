@@ -25,7 +25,7 @@ public static partial class BestiaryCatalogue
         MinionKind.Bomber => "Detonador rápido y frágil. Se aproxima y prepara una explosión de área; mantén distancia cuando aparece el aviso.",
         MinionKind.Shaman => "Cura periódicamente a los invasores cercanos. Mantenerlo vivo prolonga la resistencia del grupo.",
         MinionKind.Warlock => "Conjurador ígneo que lanza rocas explosivas de fuego y arcanas. Las rocas de fuego pueden dejar suelo ardiente.",
-        MinionKind.Cryomancer => "Tejedor glacial que combina conos de frío, esquirlas de hielo y rocas heladas para ralentizar y congelar.",
+        MinionKind.Cryomancer => "Tejedor glacial que combina conos de frío, esquirlas de hielo y rocas heladas para ralentizar y congelar. Tras descongelarte dispones de tres segundos de recuperación antes de que el frío vuelva a acumularse.",
         MinionKind.Sentinel => "Guardián rúnico de gran resistencia. Regenera periódicamente un escudo de tierra y prepara golpes de área.",
         _ => throw new ArgumentOutOfRangeException(nameof(kind))
     };

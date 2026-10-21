@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.27.3 — Amenaza de la horda y recuperación tras congelarse
+
+- Los ataques de supervivencia ganan daño: el minion básico pasa de 20 a 48, el corredor de 14 a 32 y la flecha de 18 a 40. Los golpes de área de brutos, detonadores, guardianes, comandantes y colosos castigan permanecer dentro del aviso; se conservan sus radios y tiempos de preparación.
+- Los enemigos se acercan más rápido desde el comienzo. La vida y el daño crecen un 18 % en las primeras cuatro subidas de dificultad y un 22 % en las siguientes, hasta el mismo límite de ×1000. La vida inicial y el escalado por número de defensores se conservan.
+- La potencia de los magos pasa de 0,22 a 0,42. Sostienen haces y relámpagos durante 1,2 s y conos durante 0,9 s, para que sus ataques alcancen una potencia significativa.
+- El frío no renueva una congelación activa sobre los defensores. Tras descongelarse disponen de tres segundos sin acumulación de frío ni nuevas congelaciones; los impactos siguen causando daño. Se aplica también a los aliados IA y el fuego permite descongelar antes. El comportamiento del hielo en PvP se conserva.
+- El bestiario refleja las nuevas cifras y explica la recuperación. Esta se conserva al guardar localmente, continuar o reconectar; los guardados anteriores siguen siendo compatibles.
+- Se añaden regresiones de presión frente a escudos regeneradores, daño real del haz, varios magos helados, guardado y PvP. La simulación de equilibrio compara desplazamiento por el anillo con permanecer inmóvil.
+
 ## 0.27.2 — Estadísticas de los monstruos en el bestiario
 
 - Las trece fichas incluyen tablas con vida máxima, daño, velocidad, distancia para atacar y pausa entre ataques. Los enemigos especiales muestran también radio y preparación de sus áreas, curación, escudo, refuerzos y debilidad elemental.

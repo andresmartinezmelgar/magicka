@@ -248,6 +248,8 @@ public sealed partial class GameWorld
     private void TickStatus(Wizard p, float dt)
     {
         p.Wet = Math.Max(0, p.Wet - dt);
+        if (IsDefense && p.Role == CombatantRole.Player)
+            p.FreezeRecovery = p.Frozen > 0 ? DefenseRules.FreezeRecoverySeconds : Math.Max(0, p.FreezeRecovery - dt);
         p.Frozen = Math.Max(0, p.Frozen - dt);
         p.Chill = Math.Max(0, p.Chill - 10 * dt);
         p.Haste = Math.Max(0, p.Haste - dt);
@@ -625,8 +627,18 @@ public sealed partial class GameWorld
         if (spell.Has(Element.Cold) && Resistance(target, Element.Cold) > 0.5f)
         {
             target.Burning = 0;
-            target.Chill = Math.Min(100, target.Chill + 38 * spell.Count(Element.Cold) * (target.Wet > 0 ? 2 : 1) * scale * equipment.ChillPower);
-            if (target.Chill >= 99) { target.Frozen = 1.4f * equipment.FreezeDuration; target.Wet = 0; }
+            bool recovery = IsDefense && target.Role == CombatantRole.Player;
+            // La horda sigue causando daño de frío, pero no renueva el bloqueo ni
+            // acumula la siguiente congelación durante el margen de recuperación.
+            if (!recovery || target.Frozen <= 0 && target.FreezeRecovery <= 0)
+            {
+                target.Chill = Math.Min(100, target.Chill + 38 * spell.Count(Element.Cold) * (target.Wet > 0 ? 2 : 1) * scale * equipment.ChillPower);
+                if (target.Chill >= 99)
+                {
+                    target.Frozen = 1.4f * equipment.FreezeDuration; target.Wet = 0;
+                    if (recovery) { target.Chill = 0; target.FreezeRecovery = DefenseRules.FreezeRecoverySeconds; }
+                }
+            }
         }
         if (spell.Has(Element.Earth)) target.Knockback += force * (10 * scale);
         damage *= damageMultiplier;
@@ -897,6 +909,7 @@ public sealed partial class GameWorld
         if (Map.IsPractice)
             _walls.RemoveAll(w => Geometry.DistanceToSegment(p.Position, w.A, w.B) < ArenaMap.WizardRadius + 0.18f);
         p.Wet = p.Burning = p.Chill = p.Frozen = p.Haste = p.Shield = p.ShieldMax = p.ShieldTime = 0;
+        p.FreezeRecovery = 0;
         p.RegenerationRate = 0;
         p.Ward = []; p.Knockback = V2.Zero; p.Selection.Clear(); CancelCast(p);
         p.BurnMultiplier = 1; p.HitEffectCooldown = 0;

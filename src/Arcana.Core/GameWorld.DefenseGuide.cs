@@ -9,14 +9,14 @@ public sealed partial class GameWorld
     {
         var kind = enemy.Kind;
         float attack = enemy.Strength * (kind == MinionKind.Archer ? SpellBalance.Earth * DefenseRules.ArrowPower
-            : kind is MinionKind.Mage or MinionKind.Warlock or MinionKind.Cryomancer ?
-                (SpellBalance.Arcane + SpellBalance.Fire * WizardTypes.Bonus) * DefenseRules.MagePower
             : DefenseRules.MinionMeleeAttack(kind));
         float maximum = attack;
-        if (kind is MinionKind.Mage or MinionKind.Warlock or MinionKind.Cryomancer)
+        if (DefenseRules.SpellcastingEnemy(kind))
         {
-            maximum *= SpellBalance.BeamDamageMultiplier(DefenseRules.MageChannelDuration);
-            attack *= SpellBalance.BeamMinimumDamage;
+            var spell = new SpellRecipe(DefenseRules.EnemySpell(kind, 0, 4, false));
+            var damage = BestiaryCatalogue.SpellDamage(kind, spell);
+            attack = enemy.Strength * damage.Minimum;
+            maximum = enemy.Strength * damage.Maximum;
         }
         _defenseBestiary.TryGetValue(kind, out var previous);
         _defenseBestiary[kind] = new(kind, _defenseDifficulty, enemy.Body.MaxHealth, attack, maximum,

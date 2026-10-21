@@ -52,7 +52,7 @@ public partial class DefensePanel
         _enemyGuide.AddThemeConstantOverride("separation", 12);
         _enemyCards = new VBoxContainer { Name = "DefenseEnemyCards" }; _enemyCards.AddThemeConstantOverride("separation", 12); _enemyGuide.AddChild(_enemyCards);
         _guideStatus = Wrapped(_enemyGuide, "", 15, Ui.Muted); _guideStatus.Name = "DefenseGuideStatus";
-        Wrapped(_enemyGuide, "Se descubre un tipo cuando aparece en la partida. Su ficha conserva las estadísticas del último ejemplar aparecido, aunque haya muerto. Daño contra un objetivo sin defensas, sin mejoras de capitán ni estados alterados.", 15, Ui.Muted);
+        Wrapped(_enemyGuide, "Se descubre un tipo cuando aparece en la partida. Su ficha conserva las estadísticas del último ejemplar aparecido, aunque haya muerto. Los magos muestran su primer hechizo; todas las variantes están en el bestiario de Mi perfil. Daño contra un objetivo sin defensas, sin mejoras de capitán ni estados alterados.", 15, Ui.Muted);
         ShowGuide(false);
     }
 
@@ -90,8 +90,15 @@ public partial class DefensePanel
             Wrapped(card, DefenseRules.MinionName(enemy.Kind) + $" · última versión: dificultad {enemy.Difficulty}", 18, Ui.Gold);
             var table = Ui.Table(2, "DefenseEnemyStats" + enemy.Kind); card.AddChild(table);
             Row(table, "Vida máxima", $"{enemy.MaxHealth:0.#}");
-            Row(table, enemy.Kind == MinionKind.Mage ? "Ataque base · daño/s del rayo" : "Ataque base · daño por impacto",
-                enemy.Kind == MinionKind.Mage ? $"{enemy.Attack:0.#}–{enemy.AttackMaximum:0.#}" : $"{enemy.Attack:0.#}");
+            string attackName = enemy.Kind switch
+            {
+                MinionKind.Mage => "Primer haz · daño/s",
+                MinionKind.Cryomancer => "Cono de frío · daño/s",
+                MinionKind.Warlock => "Roca arcana · daño por impacto",
+                _ => "Ataque base · daño por impacto"
+            };
+            Row(table, attackName, enemy.AttackMaximum != enemy.Attack
+                ? $"{enemy.Attack:0.#}–{enemy.AttackMaximum:0.#}" : $"{enemy.Attack:0.#}");
             Row(table, "Pausa entre ataques", $"{enemy.AttackInterval:0.###} s");
             Row(table, "Velocidad al caminar", $"{enemy.Speed:0.##} m/s");
             Row(table, "Alcance contra defensores", $"{enemy.Range:0.#} m");
@@ -101,12 +108,15 @@ public partial class DefensePanel
                 MinionKind.Tank => "Mucha vida y movimiento lento; golpea cuerpo a cuerpo.",
                 MinionKind.Captain => "Potencia un 35 % el daño de otros enemigos a menos de 8 m. No se potencia a sí mismo. Desde dificultad 5.",
                 MinionKind.Archer => "Dispara proyectiles de tierra que pueden interceptarse con barreras.",
-                MinionKind.Mage => $"Canaliza arcano y fuego durante {DefenseRules.MageChannelDuration:0.##} s por ataque. El rayo gana potencia al cargar y puede provocar quemaduras adicionales.",
+                MinionKind.Mage => $"Alterna haces y relámpagos de {DefenseRules.EnemyChannelDuration:0.##} s con conos de {DefenseRules.EnemySprayDuration:0.##} s. El rayo gana potencia al cargar y puede provocar quemaduras adicionales.",
                 MinionKind.Boss => "Coloso con mucha vida y gran alcance cuerpo a cuerpo. Aparece a intervalos variables; solo puede haber uno activo.",
                 MinionKind.Runner => "Corre un 45 % más que un minion básico, pero tiene menos vida y daño. Aparece desde dificultad 2.",
                 MinionKind.Brute => "Mucha vida. Se detiene y avisa 0,9 s antes de golpear en un radio de 2,8 m. Puedes esquivarlo o interrumpirlo con congelación. Desde dificultad 4.",
                 MinionKind.Bomber => "Se detiene y avisa 1,1 s antes de explotar en 3,2 m. Muere al explotar; matarlo o congelarlo interrumpe el aviso. Desde dificultad 4.",
                 MinionKind.Shaman => $"Cada {DefenseRules.ShamanHealInterval:0} s cura a otro enemigo herido a {DefenseRules.ShamanHealRadius:0} m, sin atravesar muros. Curación base: {DefenseRules.ShamanHealAmount * DefenseRules.EnemyStrength(enemy.Difficulty):0.#}. Desde dificultad 3.",
+                MinionKind.Cryomancer => BestiaryCatalogue.Description(enemy.Kind),
+                MinionKind.Warlock => BestiaryCatalogue.Description(enemy.Kind),
+                MinionKind.Sentinel => BestiaryCatalogue.Description(enemy.Kind),
                 _ => "Persigue a los jugadores por todo el mapa y ataca cuerpo a cuerpo."
             };
             Wrapped(card, description + (enemy.Kind != MinionKind.Boss ? " Puede obtener un impulso temporal de velocidad del 60 %." : ""), 15, Ui.Muted);

@@ -32,6 +32,7 @@ public sealed class Wizard
     public float HitEffectCooldown { get; set; }
     public float Chill { get; set; }
     public float Frozen { get; set; }
+    internal float FreezeRecovery { get; set; }
     public float Haste { get; set; }
     public float Energy { get; set; } = 100;
     public float Respawn { get; set; }

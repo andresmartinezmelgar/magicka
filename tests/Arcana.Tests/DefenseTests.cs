@@ -45,7 +45,7 @@ internal static class DefenseTests
             var w = World(); var p = w.AddPlayer("Mago")!;
             Check(State(w).Bestiary.Length == 0, "Se revelaron enemigos antes de aparecer.");
             var first = Enemy(w); var initial = State(w).Bestiary.Single();
-            Check(initial.Kind == MinionKind.Melee && initial.MaxHealth == first.MaxHealth && initial.Attack == 20 &&
+            Check(initial.Kind == MinionKind.Melee && initial.MaxHealth == first.MaxHealth && initial.Attack == 48 &&
                 initial.Spawned == 1 && initial.Killed == 0, "La ficha no coincide con el primer ejemplar.");
             Damage(w, first, 100000, p.Id); Invoke(w, "CleanupDefense");
             Check(State(w).Minions.Length == 0 && State(w).Bestiary.Single().Killed == 1, "Se perdió la ficha del muerto.");

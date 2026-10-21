@@ -2,7 +2,7 @@ namespace Arcana.Core;
 
 public static partial class DefenseRules
 {
-    public const float EnemyRockPower = 0.7f, EnemySprayDuration = 0.72f, EnemyChannelDuration = 0.55f;
+    public const float EnemyRockPower = 0.7f, EnemySprayDuration = 0.9f, EnemyChannelDuration = 1.2f;
     public const float SentinelShield = 280, SentinelShieldDuration = 7, SentinelShieldCooldown = 16;
     public const int CaptainReinforcements = 84;
     public static bool SpellcastingEnemy(MinionKind kind) => kind is MinionKind.Mage or MinionKind.Warlock or MinionKind.Cryomancer;

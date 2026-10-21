@@ -1,6 +1,6 @@
 # Supervivencia en Anillos
 
-Versión estable **0.27.2**, protocolo **28**, integrada en `main`. Se publican APK directas, paquetes Windows y deltas de hasta tres versiones estables anteriores. Las dos cuentas autorizadas conservan el [canal de pruebas](CANALES-ACTUALIZACION.md); el resto recibe el canal estable. La horda ampliada requiere actualizar también el servidor incluido en el paquete Windows a una versión compatible.
+Versión estable **0.27.3**, protocolo **28**, integrada en `main`. Se publican APK directas, paquetes Windows y deltas de hasta tres versiones estables anteriores. Las dos cuentas autorizadas conservan el [canal de pruebas](CANALES-ACTUALIZACION.md); el resto recibe el canal estable. La horda ampliada requiere actualizar también el servidor incluido en el paquete Windows a una versión compatible.
 
 ## Partida y vidas
 
@@ -48,7 +48,7 @@ En 0.20.0, la IA evita recrear el equipo de cada minion si su daño y velocidad 
 
 ## Enemigos y dificultad
 
-La dificultad sube cada **90 segundos**. Se ajustan vida, daño y frecuencia al número de defensores presentes, humanos o bots. Los enemigos existentes mantienen su vida cuando cambia el grupo.
+La dificultad sube cada **90 segundos**. Cada una de las primeras cuatro subidas aumenta vida y daño un **18 % acumulativo**; las siguientes, un **22 %**, hasta un máximo de ×1000. Se ajustan vida y apariciones al número de defensores presentes, humanos o bots. Los enemigos existentes mantienen la vida máxima y fuerza con las que aparecieron, incluso al cambiar el grupo o la dificultad; su velocidad y pausa entre ataques sí siguen la dificultad actual.
 
 | Defensores | Vida inicial normal | Límite inicial de enemigos |
 | ---: | ---: | ---: |
@@ -73,16 +73,23 @@ El tope real también depende de los FPS de cada dispositivo. Se empieza con un 
 
 | Tipo | Introducción | Vida base individual | Ataque base |
 | --- | --- | ---: | --- |
-| Minion | Desde el inicio | 340 | 20, cuerpo a cuerpo |
-| Corredor | Dificultad 2 | 200 | 14; corre un 45 % más que el básico |
-| Arquero | Dificultad 4 | 260 | Proyectiles de tierra |
-| Detonador | Dificultad 4 | 240 | 95 en 3,2 m; avisa 1,1 s y muere al explotar |
-| Tanque | Dificultad 5 | 1200 | 45; movimiento un 35 % más lento |
-| Bruto | Dificultad 4 | 1500 | 70 en 2,8 m; avisa 0,9 s y se detiene |
-| Mago | Dificultad 4 | 380 | Canaliza arcano y fuego durante 0,45 s |
-| Chamán | Dificultad 3 | 540 | 12; cura 90 × fuerza a otro enemigo a 8 m cada 3 s |
-| Capitán | Dificultad 5 | 700 | 32; potencia un 35 % a otros enemigos a menos de 8 m |
-| Coloso | Intervalos variables | 4200 | 65; cuerpo a cuerpo de 2,4 m |
+| Minion | Desde el inicio | 340 | 48, cuerpo a cuerpo |
+| Corredor | Dificultad 2 | 200 | 32; corre un 45 % más que el básico |
+| Arquero | Dificultad 4 | 260 | 40 por flecha de tierra |
+| Detonador | Dificultad 4 | 240 | 260 en 3,2 m; avisa 1,1 s y muere al explotar |
+| Tanque | Dificultad 5 | 1200 | 110; movimiento un 35 % más lento |
+| Bruto | Dificultad 4 | 1500 | 180 en 2,8 m; avisa 0,9 s y se detiene |
+| Mago | Dificultad 4 | 380 | Alterna haces, relámpagos y conos de arcano y fuego |
+| Chamán | Dificultad 3 | 540 | 30; cura 90 × fuerza a otro enemigo a 8 m cada 3 s |
+| Capitán | Dificultad 5 | 700 | 95 en 3,4 m, avisa 1,05 s; potencia un 35 % a otros enemigos a menos de 8 m |
+| Coloso | Intervalos variables | 4200 | 280 en 5 m; avisa 1,6 s |
+| Tejedor glacial | Dificultad 4 | 760 | Conos de frío, cinco esquirlas y rocas heladas |
+| Conjurador ígneo | Dificultad 5 | 920 | Rocas arcanas o de fuego, con explosión y suelo ardiente |
+| Guardián rúnico | Dificultad 6 | 1900 | 160 en 3,8 m, avisa 1,2 s; escudo de tierra de 280 × fuerza |
+
+Las cifras de la tabla son las bases a dificultad 1 antes de multiplicarlas por la fuerza de aparición. El bestiario del perfil permite consultar cualquier dificultad y grupo. Los magos usan una potencia de 0,42 (el conjurador ígneo añade un 20 %), canalizan haces y relámpagos durante **1,2 s**, y conos durante **0,9 s**. La velocidad básica empieza en 3,67 m/s y aumenta hasta 5,27 m/s; cada tipo aplica su propio multiplicador.
+
+Una congelación no se renueva por nuevos impactos sobre un defensor. Al congelarse se limpia el frío acumulado y, tras descongelarse, el defensor dispone de **tres segundos sin acumular frío ni volver a congelarse**. Los ataques helados siguen causando daño. El fuego puede liberar antes del hielo. La protección incluye a los bots y se conserva al guardar, continuar o reconectar; el hielo PvP mantiene sus reglas.
 
 El primer coloso aparece entre **120 y 180 s**. Tras derrotarlo se espera un intervalo nuevo de **90 a 150 s**. Solo hay uno activo; su vida aumenta un 40 % por defensor adicional, además de la dificultad. La guía muestra los valores del último ejemplar descubierto.
 

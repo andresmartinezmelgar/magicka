@@ -73,6 +73,7 @@ public sealed partial class GameWorld
         player.BurnOwner = previous.BurnOwner == previous.Id ? player.Id : previous.BurnOwner;
         player.BurnMultiplier = previous.BurnMultiplier; player.HitEffectCooldown = previous.HitEffectCooldown;
         player.Chill = previous.Chill; player.Frozen = previous.Frozen; player.Haste = previous.Haste;
+        player.FreezeRecovery = previous.FreezeRecovery;
         player.Invulnerable = previous.Invulnerable; player.ActionCooldown = previous.ActionCooldown;
         player.TeleportCooldown = previous.TeleportCooldown; player.TeleportNeedsExit = previous.TeleportNeedsExit;
         player.Knockback = previous.Knockback;

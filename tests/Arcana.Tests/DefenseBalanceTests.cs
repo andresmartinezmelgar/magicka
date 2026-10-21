@@ -43,17 +43,20 @@ internal static class DefenseBalanceTests
         return new(defenders, string.Join('+', elements), initial, ticks / 60.0);
     }
     private sealed record SurvivalSample(string Flow, int Defenders, int Seed, double Seconds, int LivesRemaining, int Kills, int PeakMinions);
-    private static SurvivalSample Survive(int bots, DefenseFlow flow, int seed = 37, int seconds = 180)
+    private static SurvivalSample Survive(int bots, DefenseFlow flow, int seed = 37, int seconds = 180, bool moving = true)
     {
         var world = World(bots, flow, seed); var human = world.AddPlayer("Defensor")!;
-        int peak = 0, ticks = 0;
+        V2[] route = [new(-48, -32), new(48, -32), new(48, 32), new(-48, 32)];
+        int peak = 0, ticks = 0, waypoint = 0;
         for (; ticks < seconds * 60 && !world.MatchEnded; ticks++)
         {
             var enemies = ((Dictionary<int, Wizard>)Field(world, "_combatants")).Values.Where(p => p.Team == 1 && p.Alive);
             if (human.Alive && ticks % 12 == 0)
             {
                 var target = enemies.OrderBy(p => V2.Distance(p.Position, human.Position)).FirstOrDefault();
-                Send(world, human, new() { Type = "input", AimX = target?.Position.X ?? 0, AimY = target?.Position.Y ?? 0 });
+                if (V2.Distance(human.Position, route[waypoint]) < 3) waypoint = (waypoint + 1) % route.Length;
+                Send(world, human, new() { Type = "input", AimX = target?.Position.X ?? 0, AimY = target?.Position.Y ?? 0,
+                    MoveTo = moving, TargetX = route[waypoint].X, TargetY = route[waypoint].Y });
                 if (human.ActionCooldown <= 0 && human.Health < human.MaxHealth * 0.45f)
                 {
                     Send(world, human, new() { Type = "clear" });
@@ -188,14 +191,18 @@ internal static class DefenseBalanceTests
         var kills = Enumerable.Range(1, 4).SelectMany(n => new[] { new[] { Element.Fire }, new[] { Element.Fire, Element.Fire, Element.Fire },
             new[] { Element.Arcane, Element.Arcane, Element.Fire } }.Select(spell => KillTime(n, spell))).ToArray();
         var survival = new[] { DefenseFlow.Continuous }.SelectMany(flow => Enumerable.Range(0, 4).Select(n => Survive(n, flow))).ToArray();
+        var stationary = Enumerable.Range(0, 2).Select(n => Survive(n, DefenseFlow.Continuous, moving: false)).ToArray();
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
-        File.WriteAllText(path, JsonSerializer.Serialize(new { kills, survival, note = "Simulación con hechizos reales, sin equipo inicial, sin oro añadido ni invulnerabilidad. El humano apunta al enemigo más cercano y se cura." }, new JsonSerializerOptions { WriteIndented = true }));
+        File.WriteAllText(path, JsonSerializer.Serialize(new { kills, survival, stationary,
+            note = "Hechizos reales, sin equipo inicial, oro añadido ni invulnerabilidad. El humano recorre el anillo interior, apunta y se cura. stationary repite la prueba sin moverse." }, new JsonSerializerOptions { WriteIndented = true }));
         foreach (var k in kills) Console.WriteLine($"DEFENSE_KILL_TIME: {k.Defenders} defensores · {k.Spell} · {k.EnemyHealth:0} vida · {k.Seconds:0.00} s");
         foreach (var s in survival) Console.WriteLine($"DEFENSE_SURVIVAL: {s.Flow} · {s.Defenders} defensores · {s.Seconds:0} s · vidas {s.LivesRemaining} · bajas {s.Kills} · pico {s.PeakMinions}");
+        foreach (var s in stationary) Console.WriteLine($"DEFENSE_STATIONARY: {s.Defenders} defensores · {s.Seconds:0} s · vidas {s.LivesRemaining} · bajas {s.Kills}");
         if (verify)
         {
             Check(kills.All(k => k.Seconds < (k.Spell == "Fire" ? 7 : 4)), "Un minion inicial tarda demasiado en caer.");
             Check(survival.All(s => s.Seconds >= 180 && s.LivesRemaining > 0), "El comienzo no permite aprender y combatir durante tres minutos.");
+            Check(stationary.All(s => s.LivesRemaining < 2), "Quedarse quieto sigue anulando la amenaza de la horda.");
             Console.WriteLine("DEFENSE_BALANCE_OK");
         }
     }

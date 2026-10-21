@@ -69,6 +69,8 @@ public static partial class BestiaryCatalogue
             Add("Duración del escudo", Number(DefenseRules.SentinelShieldDuration) + " s");
             Add("Recarga del escudo", Number(DefenseRules.SentinelShieldCooldown) + " s");
         }
+        if (kind == MinionKind.Cryomancer)
+            Add("Recuperación del defensor", Number(DefenseRules.FreezeRecoverySeconds) + " s sin enfriamiento ni nueva congelación tras descongelarse; sigue recibiendo daño");
         if (kind is MinionKind.Captain or MinionKind.Boss) Add("Refuerzos por llamada",
             "Hasta " + (kind == MinionKind.Boss ? DefenseRules.CommanderSurgeBonus : DefenseRules.CaptainReinforcements) +
             " en " + Number(DefenseRules.CommanderSurgeSeconds) + " s; según límite de enemigos");

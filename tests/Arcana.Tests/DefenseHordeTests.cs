@@ -114,7 +114,10 @@ internal static class DefenseHordeTests
             var w = World(); var p = w.AddPlayer("Mago")!; p.Position = new(-25, 0); p.Invulnerable = 0; p.Shield = 100;
             var brute = Enemy(w, MinionKind.Brute, new(-24, 0));
             Invoke(w, "ResolveDefenseAreaAttack", brute.Runtime);
-            Check(p.Health == p.MaxHealth && p.Shield == 30, "El golpe de área ignoró el escudo.");
+            Check(p.Health == p.MaxHealth - 80 && p.Shield == 0, "El golpe de área no absorbió primero el escudo ni transfirió el exceso a la vida.");
+            p.Health = p.MaxHealth; p.Shield = 250;
+            Invoke(w, "ResolveDefenseAreaAttack", brute.Runtime);
+            Check(p.Health == p.MaxHealth && p.Shield == 70, "El golpe de área ignoró un escudo suficiente.");
             var shaman = Enemy(w, MinionKind.Shaman, new(-24, 2));
             var wounded = Enemy(w, MinionKind.Melee, new(-24, 3)); wounded.Body.Health = 20;
             var distant = Enemy(w, MinionKind.Melee, new(76, 52)); distant.Body.Health = 1;

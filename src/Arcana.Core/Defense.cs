@@ -26,10 +26,11 @@ public static partial class DefenseRules
     public static int SurgeLimit(int stage, int party) =>
         Math.Min(MaxMinions, SpawnLimit(stage, party) + CommanderSurgeBonus);
     public const int GoldDropChance = 35, EquipmentDropChance = 6, RelicDropChance = 2;
-    public const float ArrowPower = 0.18f, MagePower = 0.22f, MageChannelDuration = 0.45f;
+    public const float ArrowPower = 0.4f, MagePower = 0.42f;
+    public const float FreezeRecoverySeconds = 3;
     public static float MinionMeleeAttack(MinionKind kind) => kind switch
-    { MinionKind.Boss => 65, MinionKind.Tank => 45, MinionKind.Captain => 32, MinionKind.Runner => 14,
-        MinionKind.Brute => 70, MinionKind.Bomber => 95, MinionKind.Shaman => 12, MinionKind.Sentinel => 60, MinionKind.Warlock => 28, MinionKind.Cryomancer => 25, _ => 20 };
+    { MinionKind.Boss => 280, MinionKind.Tank => 110, MinionKind.Captain => 95, MinionKind.Runner => 32,
+        MinionKind.Brute => 180, MinionKind.Bomber => 260, MinionKind.Shaman => 30, MinionKind.Sentinel => 160, MinionKind.Warlock => 65, MinionKind.Cryomancer => 55, _ => 48 };
     public static float MinionRange(MinionKind kind) => kind switch
     { MinionKind.Archer or MinionKind.Mage or MinionKind.Warlock or MinionKind.Cryomancer => 10, MinionKind.Boss => 5.0f, MinionKind.Captain => 3.4f, MinionKind.Sentinel => 3.8f, MinionKind.Brute or MinionKind.Bomber => 2, _ => 1.4f };
     public static float AreaAttackRadius(MinionKind kind) => kind switch
@@ -40,7 +41,7 @@ public static partial class DefenseRules
         MinionKind.Sentinel => 1.2f, MinionKind.Boss => 1.6f, _ => 0 };
     public const float ShamanHealInterval = 3, ShamanHealRadius = 8, ShamanHealAmount = 90;
     public static float MinionSpeed(MinionKind kind, int stage) =>
-        (0.5f + Math.Min(0.35f, stage * 0.012f)) * (kind switch
+        (0.58f + Math.Min(0.27f, stage * 0.012f)) * (kind switch
         { MinionKind.Tank => 0.65f, MinionKind.Boss => 0.8f, MinionKind.Runner => 1.45f,
             MinionKind.Brute => 0.6f, MinionKind.Bomber => 1.15f, MinionKind.Shaman => 0.85f, MinionKind.Sentinel => 0.72f, MinionKind.Warlock => 0.85f, MinionKind.Cryomancer => 0.95f, _ => 1 });
     public static float PartyPressure(int defenders) => 1 + (Math.Clamp(defenders, 1, MaxDefenders) - 1) * 0.3f;
@@ -53,7 +54,7 @@ public static partial class DefenseRules
     public static float EnemyStrength(int stage)
     {
         int growth = Math.Clamp(stage - 1, 0, 60);
-        return MathF.Min(1000, MathF.Pow(1.1f, Math.Min(4, growth)) * MathF.Pow(1.14f, Math.Max(0, growth - 4)));
+        return MathF.Min(1000, MathF.Pow(1.18f, Math.Min(4, growth)) * MathF.Pow(1.22f, Math.Max(0, growth - 4)));
     }
     public static float AttackDelay(int stage) => Math.Max(0.4f, 1.35f - Math.Max(0, stage - 1) * 0.035f);
     public static float MinionHealth(MinionKind kind, int stage, int party) => (kind switch
