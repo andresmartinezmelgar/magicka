@@ -132,6 +132,13 @@ public sealed class AccountService
         else _ = await GameRequest<ApiError>("award", match, null, token);
     }
 
+    public async Task SaveMatchStatisticsGame(MatchStatisticsReport report, CancellationToken token)
+    {
+        if (Enabled) await Repository!.SaveMatchStatistics(report, token);
+        else if (GameEnabled) _ = await GameRequest<ApiError>("statistics", report, null, token);
+        else throw new InvalidOperationException("Firebase no está disponible.");
+    }
+
     public async Task SaveBestiaryGame(BestiaryProgress progress, CancellationToken token)
     {
         if (Enabled) await Repository!.SaveBestiary(progress, token);

@@ -118,6 +118,20 @@ jobs:
           dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
           dotnet build src/Arcana.Server/Arcana.Server.csproj -c Debug --nologo
           "$GODOT" --headless --editor --path src/Arcana.Client --import
+      - name: Verificar visor privado de estadísticas en escritorio y móvil
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          for surface in desktop mobile; do
+            args=(); viewport=1280x720
+            if [ "$surface" = mobile ]; then args+=(--mobile); viewport=640x450; fi
+            target="$PWD/artifacts/visual-review/statistics-$surface"
+            mkdir -p "$target"
+            xvfb-run -a -s "-screen 0 1440x1024x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --statistics-smoke "${args[@]}" "--smoke-viewport=$viewport" "--statistics-captures=$target" 2>&1 | tee "$RUNNER_TEMP/statistics-$surface.log"
+            grep -q 'MATCH_STATISTICS_SMOKE_OK' "$RUNNER_TEMP/statistics-$surface.log"
+            ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/statistics-$surface.log"
+          done
       - name: Verificar retratos del bestiario, reliquias y guardado local en escritorio y móvil
         run: |
           set -euo pipefail

@@ -23,6 +23,7 @@ if (!Uri.TryCreate("http://" + emulator, UriKind.Absolute, out var emulatorUri) 
 var database = new FirestoreDbBuilder { ProjectId = "demo-arcana-accounts", EmulatorDetection = EmulatorDetection.EmulatorOnly }.Build();
 var repository = new FirestoreAccountRepository(database);
 await BestiaryEmulatorTests.Run(database);
+await MatchStatisticsEmulatorTests.Run(database);
 string suffix = Guid.NewGuid().ToString("N");
 string alice = "alice_" + suffix, bob = "bob_" + suffix;
 var options = new AccountOptions("demo-arcana-accounts", "test-only-key", "demo-arcana-accounts.firebaseapp.com", "http://127.0.0.1:28339");
@@ -186,7 +187,11 @@ builder.Services.ConfigureHttpJsonOptions(json =>
 { foreach (var converter in Protocol.Json.Converters) json.SerializerOptions.Converters.Add(converter); });
 builder.Logging.ClearProviders(); builder.Services.AddSingleton(accounts);
 builder.Services.AddSingleton(new ServerSettings { Port = 28339, DiscoveryPort = 28340, World = new() { Mode = GameMode.Duel, MaxPlayers = 2, ScoreLimit = 5 } });
-builder.Services.AddSingleton<RewardService>(); builder.Services.AddSingleton<GameService>();
+builder.Services.AddSingleton<RewardService>();
+Environment.SetEnvironmentVariable("ARCANA_MATCH_STATISTICS_DIR", Path.Combine(Path.GetTempPath(), "arcana-statistics-live-" + suffix));
+builder.Services.AddSingleton<MatchStatisticsService>();
+builder.Services.AddHostedService(p => p.GetRequiredService<MatchStatisticsService>());
+builder.Services.AddSingleton<GameService>();
 builder.Services.AddHostedService(p => p.GetRequiredService<GameService>());
 builder.Services.AddHostedService(p => p.GetRequiredService<RewardService>());
 var app = builder.Build(); app.UseWebSockets(); app.MapAccounts(); app.MapItemShop(); app.Map("/play", (HttpContext context, GameService game) => game.HandleConnection(context));

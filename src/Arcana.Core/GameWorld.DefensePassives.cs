@@ -26,6 +26,7 @@ public sealed partial class GameWorld
                         _fields.Add(new Field { Id = _nextEntity++, Owner = player.Id, Position = targets[0].Body.Position,
                             Radius = 3, Lifetime = 1.5f, Delay = 1.4f, Kind = "defense_meteor", Power = 260 * level,
                             Recipe = new SpellRecipe([Element.Earth, Element.Fire]) });
+                        _statistics.Cast(player.Id, StatisticAttack.AutoMeteor, [Element.Earth, Element.Fire]);
                         progress.PassiveCooldowns[i] = 3;
                         break;
                     case DefensePassive.Berserker:
@@ -34,9 +35,10 @@ public sealed partial class GameWorld
                         Emit("nova", player.Position, [Element.Fire, Element.Arcane], "Berserker", 1.8f);
                         break;
                     case DefensePassive.FrostNova:
+                        _statistics.Cast(player.Id, StatisticAttack.FrostNova, [Element.Cold]);
                         foreach (var target in targets)
                         {
-                            Damage(target.Body, 65 * level * player.Equipment.ElementPower(Element.Cold), player.Id, [Element.Cold]);
+                            DamageAs(StatisticAttack.FrostNova, target.Body, 65 * level * player.Equipment.ElementPower(Element.Cold), player.Id, [Element.Cold]);
                             if (AcceptsDefenseElement(target.Body, Element.Cold))
                                 target.Body.Chill = Math.Min(95, target.Body.Chill + 35 + 8 * level);
                         }
@@ -44,11 +46,12 @@ public sealed partial class GameWorld
                         Emit("nova", player.Position, [Element.Cold], "Pulso glacial", 5);
                         break;
                     case DefensePassive.ChainLightning:
+                        _statistics.Cast(player.Id, StatisticAttack.ChainLightning, [Element.Lightning]);
                         // Cabecera cosmética: conserva el origen y el orden real de los objetivos sin cambiar el protocolo.
                         Emit("passive_chain", player.Position, [Element.Lightning], "");
                         foreach (var target in targets.Take(Math.Min(6, 2 + level)))
                         {
-                            Damage(target.Body, 140 * level * player.Equipment.ElementPower(Element.Lightning), player.Id, [Element.Lightning]);
+                            DamageAs(StatisticAttack.ChainLightning, target.Body, 140 * level * player.Equipment.ElementPower(Element.Lightning), player.Id, [Element.Lightning]);
                             Emit("hurt", target.Body.Position, [Element.Lightning], "Relámpago");
                         }
                         progress.PassiveCooldowns[i] = 4;

@@ -18,6 +18,12 @@ builder.Services.ConfigureHttpJsonOptions(json =>
 });
 builder.Services.AddSingleton(new AccountService(options));
 var app = builder.Build();
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path == "/internal/statistics" && context.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
+        limit.MaxRequestBodySize = MatchStatisticsReport.MaxBytes;
+    await next(context);
+});
 app.MapAccounts();
 app.MapItemShop();
 
@@ -57,6 +63,18 @@ app.MapPost("/internal/bestiary", async (HttpContext context, AccountService acc
     if (!BestiaryCatalogue.Valid(progress)) return Results.BadRequest();
     await accounts.Repository!.SaveBestiary(progress, context.RequestAborted);
     return Results.Json(new ApiError(""), Protocol.Json);
+});
+
+app.MapPost("/internal/statistics", async (HttpContext context, AccountService accounts) =>
+{
+    if (!Authorized(context)) return Results.Unauthorized();
+    try
+    {
+        string json = await RoomBrowser.ReadBoundedAsync(new StreamContent(context.Request.Body), MatchStatisticsReport.MaxBytes, context.RequestAborted);
+        await accounts.Repository!.SaveMatchStatistics(MatchStatisticsReport.Parse(json), context.RequestAborted);
+        return Results.Json(new ApiError(""), Protocol.Json);
+    }
+    catch (Exception e) when (e is System.Text.Json.JsonException or InvalidDataException) { return Results.BadRequest(); }
 });
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "accounts", version = BuildInfo.Version }));

@@ -157,7 +157,7 @@ public sealed partial class GameWorld
                 foreach (var part in parts)
                     if (!_combatants.TryGetValue(part.Owner, out var source) || source.Id == target.Id || !Allied(source, target) || Options.FriendlyFire && !IsDefense)
                     {
-                        Damage(target, BeamPressure(target, part) * 0.2f * dt, part.Owner, part.Recipe.Elements);
+                        DamageAs(StatisticAttack.Beam, target, BeamPressure(target, part) * 0.2f * dt, part.Owner, part.Recipe.Elements);
                         if (target.Shield > 0) DamageProtection(target, UtilityPressure(target, part.Recipe, part.Owner) * part.Scale * 0.2f * dt,
                             part.Owner, part.Recipe.Elements);
                     }
@@ -175,7 +175,14 @@ public sealed partial class GameWorld
                 double pressure = 0;
                 foreach (var part in parts) pressure += WallDamage(wall, part.Recipe, part.Owner,
                     110 * part.Recipe.Power * part.Scale * part.DamageMultiplier);
+                float before = wall.Health;
                 wall.Health -= (float)pressure * dt * 0.2f;
+                double actual = Math.Min(Math.Max(0, before), before - wall.Health);
+                if (pressure > 0 && actual > 0) foreach (var part in parts)
+                {
+                    double contribution = WallDamage(wall, part.Recipe, part.Owner, 110 * part.Recipe.Power * part.Scale * part.DamageMultiplier);
+                    _statistics.BarrierDamage(part.Owner, wall.Owner, actual * contribution / pressure, part.Recipe.Elements, StatisticAttack.Beam);
+                }
                 if (wall.Health <= 0) return;
                 normal = (wall.B - wall.A).Perpendicular.Normalized;
                 ward = wall.Recipe.Elements.Where(e => e != Element.Shield).ToArray();

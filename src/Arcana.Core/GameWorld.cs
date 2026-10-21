@@ -90,6 +90,7 @@ public sealed partial class GameWorld
         _combatants.Add(wizard.Id, wizard);
         AddDefender(wizard);
         _orderedPlayers.Add(wizard);
+        _statistics.Bind(wizard);
         Emit("join", wizard.Position, [], $"{wizard.Name} entra en la arena");
         return wizard;
     }
@@ -112,6 +113,7 @@ public sealed partial class GameWorld
     {
         if (!_players.Remove(id, out var wizard)) return;
         _orderedPlayers.Remove(wizard); _combatants.Remove(id); _defenders.Remove(id);
+        _statistics.Retire(id); _statisticsPerformanceTime.Remove(id);
         _defenseDrops.RemoveAll(d => d.OwnerId == id);
         _defenseBotPlans.Remove(id); _defenseBotPlanClock = 0;
         _routes.Remove(id);
@@ -140,6 +142,8 @@ public sealed partial class GameWorld
     public bool ApplyMessage(int id, ClientMessage message)
     {
         if (!_players.TryGetValue(id, out var p) || message.Sequence <= p.LastSequence) return false;
+        if (message.Type == "match_performance")
+        { p.LastSequence = message.Sequence; return ObserveStatisticsPerformance(id, message.FramesPerSecond, message.FrameTime95); }
         if (message.Type?.StartsWith("defense_", StringComparison.Ordinal) == true)
         {
             p.LastSequence = message.Sequence;
@@ -203,6 +207,9 @@ public sealed partial class GameWorld
             if (RestartIn <= 0) ResetMatch();
             return;
         }
+        int humans = 0, bots = 0;
+        foreach (var player in _players.Values) { if (player.Bot) bots++; else humans++; }
+        _statistics.Step(humans, bots, _minions.Count);
         if (IsDefense) PlanDefenseBots(dt);
         foreach (var p in _players.Values)
         {
@@ -247,6 +254,7 @@ public sealed partial class GameWorld
 
     private void TickStatus(Wizard p, float dt)
     {
+        _statistics.Status(p, dt);
         p.Wet = Math.Max(0, p.Wet - dt);
         if (IsDefense && p.Role == CombatantRole.Player)
             p.FreezeRecovery = p.Frozen > 0 ? DefenseRules.FreezeRecoverySeconds : Math.Max(0, p.FreezeRecovery - dt);
@@ -258,12 +266,12 @@ public sealed partial class GameWorld
         p.WardTime -= dt;
         if (p.ShieldTime <= 0) p.Shield = p.ShieldMax = p.RegenerationRate = 0;
         if (p.Shield <= 0) p.RegenerationRate = 0;
-        Heal(p, (p.RegenerationRate * RelicBuffs.Healing(p) * p.Equipment.Healing + RelicBuffs.Regeneration(p)) * dt);
+        HealAs(StatisticAttack.Regeneration, p, (p.RegenerationRate * RelicBuffs.Healing(p) * p.Equipment.Healing + RelicBuffs.Regeneration(p)) * dt, p.Id);
         if (p.WardTime <= 0) p.Ward = [];
         if (p.Burning > 0)
         {
             p.Burning = Math.Max(0, p.Burning - dt);
-            Damage(p, SpellBalance.BurnPerSecond * dt * p.BurnMultiplier * WizardTypes.Incoming(p.WizardType, Element.Fire) * Resistance(p, Element.Fire), p.BurnOwner, [Element.Fire]);
+            DamageAs(StatisticAttack.Burn, p, SpellBalance.BurnPerSecond * dt * p.BurnMultiplier * WizardTypes.Incoming(p.WizardType, Element.Fire) * Resistance(p, Element.Fire), p.BurnOwner, [Element.Fire]);
         }
     }
 
@@ -296,7 +304,9 @@ public sealed partial class GameWorld
         var walking = move * (speed * dt);
         var delta = walking + p.Knockback * dt;
         p.Knockback *= MathF.Max(0, 1 - 8 * dt);
+        var before = p.Position;
         MoveWithCollisions(p, delta, walking);
+        _statistics.Actor(p.Id, StatisticMeasure.Distance, V2.Distance(before, p.Position));
     }
 
     private bool ClearMovement(V2 from, V2 to) => Map.ClearPath(from, to) && ClearWalls(from, to);
@@ -328,6 +338,7 @@ public sealed partial class GameWorld
         if (!Ready(p)) return;
         CancelCast(p);
         var spell = new SpellRecipe(p.Selection.Consume());
+        _statistics.Cast(p.Id, MatchStatisticsCollector.Shape(spell.Shape), spell.Elements);
         if (spell.Shape == SpellShape.Rock)
         {
             p.Charging = spell; p.ChargeTime = 0;
@@ -415,7 +426,7 @@ public sealed partial class GameWorld
         var spell = p.Channel!;
         var from = SpellOrigin(p, p.Facing, 0.7f);
         var end = RayEnd(from, p.Facing, spell.Range * p.Equipment.Range, out var wall, p.Id);
-        if (wall != null) wall.Health -= WallDamage(wall, spell, p.Id, 110 * spell.Power * dt);
+        if (wall != null) DamageWall(wall, spell, p.Id, 110 * spell.Power * dt);
         // Los rayos rectos se resuelven juntos en TickChannels. Este método mantiene chorros y cadenas.
         if (spell.Shape != SpellShape.Beam)
         {
@@ -468,19 +479,22 @@ public sealed partial class GameWorld
         Release(p);
         var spell = new SpellRecipe(p.Selection.Consume());
         p.ActionCooldown = 0.45f;
+        _statistics.Cast(p.Id, StatisticAttack.Self, spell.Elements);
+        float shieldBefore = p.Shield;
         if (spell.Has(Element.Shield))
         {
             p.Ward = spell.Elements.Where(e => e != Element.Shield).Distinct().ToArray();
             p.WardTime = 12 * p.Equipment.ShieldDuration;
             p.Shield = p.ShieldMax = (spell.Has(Element.Earth) ? 650 : p.Ward.Length == 0 ? 420 : 180) * p.Equipment.ShieldCapacity;
             p.ShieldTime = p.WardTime;
+            _statistics.Shield(p.Id, p.Shield - shieldBefore);
             p.ShieldCharges = spell.Elements.Length;
             p.RegenerationRate = 38 * spell.Count(Element.Life);
             if (spell.Has(Element.Water) && p.Equipment.WaterShieldPool) CreateEquipmentWaterPool(p);
         }
         else if (spell.Healing)
         {
-            Heal(p, SpellBalance.SelfHeal * spell.Count(Element.Life) * HealingPower(p.Id));
+            HealAs(StatisticAttack.Self, p, SpellBalance.SelfHeal * spell.Count(Element.Life) * HealingPower(p.Id), p.Id);
         }
         else if (spell.Has(Element.Fire) && (p.Wet > 0 || p.Frozen > 0 || p.Chill > 0))
         {
@@ -490,7 +504,7 @@ public sealed partial class GameWorld
         {
             p.Wet = 6 * p.Equipment.WetDuration; p.Burning = 0;
         }
-        else if (spell.Elements.Length > 0) Hit(p, spell, 1, p.Id, V2.Zero);
+        else if (spell.Elements.Length > 0) HitAs(StatisticAttack.Self, p, spell, 1, p.Id, V2.Zero);
         Emit("self", p.Position, spell.Elements, "");
     }
 
@@ -500,6 +514,7 @@ public sealed partial class GameWorld
         Release(p);
         var spell = new SpellRecipe(p.Selection.Consume());
         p.ActionCooldown = 0.8f;
+        _statistics.Cast(p.Id, StatisticAttack.Nova, spell.Elements);
         if (spell.Has(Element.Shield))
         {
             if (spell.Healing || spell.Has(Element.Arcane))
@@ -518,7 +533,7 @@ public sealed partial class GameWorld
         else
         {
             foreach (var target in _combatants.Values.Where(q => q.Id != p.Id && q.Alive && V2.Distance(q.Position, p.Position) < 4 * p.Equipment.Range))
-                if (Visible(p.Position, target.Position, p.Id)) Hit(target, spell, 1.0f, p.Id, (target.Position - p.Position).Normalized);
+                if (Visible(p.Position, target.Position, p.Id)) HitAs(StatisticAttack.Nova, target, spell, 1.0f, p.Id, (target.Position - p.Position).Normalized);
         }
         Emit("nova", p.Position, spell.Elements, "", 4 * p.Equipment.Range);
     }
@@ -540,6 +555,7 @@ public sealed partial class GameWorld
         if (_walls.Count >= 40 || !Map.Inside(a) || !Map.Inside(b) || Map.BoundaryHit(a, b) != null) return;
         // Evita encerrar a alguien dentro de una pared recién creada.
         if (_combatants.Values.Any(q => q.Alive && Geometry.DistanceToSegment(q.Position, a, b) < 0.7f)) return;
+        _statistics.Shield(p.Id, (recipe.Has(Element.Earth) ? 1300 : 650) * p.Equipment.ShieldCapacity);
         _walls.Add(new Wall { Id = _nextEntity++, Owner = p.Id, A = a, B = b, Recipe = recipe,
             Health = (recipe.Has(Element.Earth) ? 1300 : 650) * p.Equipment.ShieldCapacity,
             Lifetime = (recipe.Has(Element.Earth) ? 10 : 7) * p.Equipment.ShieldDuration });
@@ -549,10 +565,11 @@ public sealed partial class GameWorld
     {
         if (!Ready(p)) return;
         p.ActionCooldown = 0.5f;
+        _statistics.Cast(p.Id, StatisticAttack.Melee);
         foreach (var q in _combatants.Values.Where(q => q.Id != p.Id && q.Alive && V2.Distance(q.Position, p.Position) < 1.8f))
             if (V2.Dot((q.Position - p.Position).Normalized, p.Facing) > 0.2f &&
                 Visible(p.Position, q.Position) &&
-                (Options.FriendlyFire && !IsDefense || !Allied(p, q))) Damage(q, 90, p.Id);
+                (Options.FriendlyFire && !IsDefense || !Allied(p, q))) DamageAs(StatisticAttack.Melee, q, 90, p.Id);
         Emit("melee", p.Position + p.Facing, [], "");
     }
 
@@ -592,9 +609,13 @@ public sealed partial class GameWorld
                 .OrderBy(q => V2.Distance(q.Position, p.Position)).ThenBy(q => q.Id).FirstOrDefault();
             if (ally == null) return;
             var location = ally.Position;
+            _statistics.Actor(p.Id, StatisticMeasure.Revives); _statistics.Actor(ally.Id, StatisticMeasure.Revived);
+            _statistics.Total(StatisticMeasure.Revives);
             Respawn(ally); if (Walkable(location)) ally.Position = location; ally.Health = Math.Min(600, ally.MaxHealth);
         }
         if (slot != 0) CancelCast(p);
+        _statistics.Cast(p.Id, slot switch { 0 => StatisticAttack.Haste, 1 => StatisticAttack.Teleport, 2 => StatisticAttack.Meteor, _ => StatisticAttack.Revive },
+            slot == 2 ? [Element.Earth, Element.Fire, Element.Fire] : slot == 3 ? [Element.Life] : null);
         p.Energy -= cost; p.MagickCooldowns[slot] = magick.Cooldown;
         p.ActionCooldown = 0.2f;
         Emit("magick", p.Position, [], magick.Name);
@@ -604,14 +625,16 @@ public sealed partial class GameWorld
     {
         if (!target.Alive) return;
         var equipment = _combatants.TryGetValue(owner, out var attacker) ? attacker.Equipment : EquipmentModifiers.None;
-        if (spell.Healing && target.VulnerableElement == null) Heal(target, SpellBalance.Heal * spell.Count(Element.Life) * scale * HealingPower(owner));
+        if (spell.Healing && target.VulnerableElement == null) HealAs(_statisticsAttack ?? MatchStatisticsCollector.Shape(spell.Shape), target, SpellBalance.Heal * spell.Count(Element.Life) * scale * HealingPower(owner), owner);
         if (target.Invulnerable > 0) return;
         if (_combatants.TryGetValue(owner, out var source) && source.Id != target.Id && Allied(source, target) && (!Options.FriendlyFire || IsDefense)) return;
         float damage = 0;
+        Span<float> weights = stackalloc float[9];
+        _statistics.Immune(owner, target, spell.Elements);
         foreach (var element in SpellBalance.Offensive)
-            damage += ElementDamage(target, owner, element, SpellBalance.Component(spell, element, target.Wet > 0));
+        { float component = ElementDamage(target, owner, element, SpellBalance.Component(spell, element, target.Wet > 0)); weights[(int)element] = component; damage += component; }
         if (target.VulnerableElement == Element.Water && SpellBalance.Component(spell, Element.Water) == 0)
-            damage += ElementDamage(target, owner, Element.Water, DefenseRules.PrismWaterDamage * spell.Count(Element.Water));
+            { float component = ElementDamage(target, owner, Element.Water, DefenseRules.PrismWaterDamage * spell.Count(Element.Water)); damage += component; weights[(int)Element.Water] += component; }
         if (spell.Has(Element.Water) && !spell.Steam && !spell.Ice && Resistance(target, Element.Water) > 0.5f)
         {
             target.Wet = 6 * equipment.WetDuration; target.Burning = 0;
@@ -644,7 +667,7 @@ public sealed partial class GameWorld
         }
         if (spell.Has(Element.Earth) && AcceptsDefenseElement(target, Element.Earth)) target.Knockback += force * (10 * scale);
         damage *= damageMultiplier;
-        ApplyDamage(target, damage * scale, owner, spell.Elements, false, true);
+        ApplyDamage(target, damage * scale, owner, spell.Elements, false, true, weights, _statisticsAttack ?? MatchStatisticsCollector.Shape(spell.Shape));
         if (target.Shield > 0) DamageProtection(target, UtilityPressure(target, spell, owner) * scale, owner, spell.Elements);
         if (_combatants.TryGetValue(owner, out var caster) && caster.Id != target.Id)
             caster.Energy = Math.Min(100, caster.Energy + damage * scale * 0.015f);
@@ -654,12 +677,14 @@ public sealed partial class GameWorld
         => ApplyDamage(target, amount, owner, elements, false);
     private void DamageProtection(Wizard target, float amount, int owner, Element[] elements)
         => ApplyDamage(target, amount, owner, elements, true, true);
-    private void ApplyDamage(Wizard target, float amount, int owner, Element[]? elements, bool shieldOnly, bool resolvedElements = false)
+    private void ApplyDamage(Wizard target, float amount, int owner, Element[]? elements, bool shieldOnly, bool resolvedElements = false, ReadOnlySpan<float> weights = default, StatisticAttack? cause = null)
     {
         if (!target.Alive || target.Invulnerable > 0 || amount <= 0) return;
-        if (!resolvedElements) amount *= DefenseElementFraction(target, elements);
+        if (!resolvedElements)
+        { if (elements != null) _statistics.Immune(owner, target, elements); amount *= DefenseElementFraction(target, elements); }
         if (amount <= 0) return;
         amount *= DamagePower(owner) * RelicBuffs.Incoming(target) * target.Equipment.Incoming;
+        float healthBefore = target.Health, shieldBefore = target.Shield;
         float absorbed = Math.Min(target.Shield, amount);
         target.Shield -= absorbed; amount -= absorbed;
         if (shieldOnly) amount = 0;
@@ -669,6 +694,10 @@ public sealed partial class GameWorld
             reading.Absorbed += absorbed; reading.Damage += Math.Min(target.Health, amount);
         }
         target.Health = Math.Max(0, target.Health - amount);
+        _statistics.Damage(owner, target, healthBefore - target.Health, shieldBefore - target.Shield, Math.Max(0, amount - healthBefore), elements,
+            cause ?? _statisticsAttack ?? (elements is { Length: > 0 } ? MatchStatisticsCollector.Shape(new SpellRecipe(elements).Shape) : StatisticAttack.EnemyMelee),
+            _combatants.TryGetValue(owner, out var statisticsSource) && Allied(statisticsSource, target), weights);
+        if (healthBefore > 0 && target.Health <= 0) _statistics.Death(target, owner, cause ?? _statisticsAttack ?? StatisticAttack.EnemyMelee);
         // Un rayo golpea a 60 Hz; limita sus impactos, pero nunca omite la rotura del escudo.
         bool broken = absorbed > 0 && target.Shield <= 0;
         if (broken) { target.RegenerationRate = 0; Emit("shield_break", target.Position, [Element.Shield], ""); }
@@ -731,7 +760,7 @@ public sealed partial class GameWorld
             }
             if (wallHit != null)
             {
-                wallHit.Health -= WallDamage(wallHit, projectile.Recipe, projectile.Owner, 170 * projectile.Power * projectile.Recipe.Power);
+                DamageWall(wallHit, projectile.Recipe, projectile.Owner, 170 * projectile.Power * projectile.Recipe.Power);
                 if (wallHit.Recipe.Elements.Length == 1)
                 {
                     var normal = (wallHit.B - wallHit.A).Perpendicular.Normalized;
@@ -759,7 +788,7 @@ public sealed partial class GameWorld
             if (w.Recipe.Has(Element.Fire) || w.Recipe.Has(Element.Cold) || w.Recipe.Has(Element.Lightning) || w.Recipe.Has(Element.Water))
                 foreach (var p in _combatants.Values)
                     if (p.Alive && Geometry.DistanceToSegment(p.Position, w.A, w.B) < 1)
-                        Hit(p, w.Recipe, dt, w.Owner, (p.Position - (w.A + w.B) / 2).Normalized);
+                        HitAs(StatisticAttack.Barrier, p, w.Recipe, dt, w.Owner, (p.Position - (w.A + w.B) / 2).Normalized);
         }
         _walls.RemoveAll(w => w.Lifetime <= 0 || w.Health <= 0);
         foreach (var f in _fields)
@@ -785,7 +814,7 @@ public sealed partial class GameWorld
             {
                 foreach (var minion in _minions.Values)
                     if (minion.Body.Alive && V2.Distance(minion.Body.Position, f.Position) < f.Radius && Visible(f.Position, minion.Body.Position, f.Owner))
-                        Damage(minion.Body, f.Power, f.Owner, [Element.Earth, Element.Fire]);
+                        DamageAs(StatisticAttack.AutoMeteor, minion.Body, f.Power, f.Owner, [Element.Earth, Element.Fire]);
                 Emit("explosion", f.Position, [Element.Earth, Element.Fire], "Meteorito", f.Radius);
                 f.Lifetime = 0; continue;
             }
@@ -793,7 +822,7 @@ public sealed partial class GameWorld
             {
                 foreach (var defender in _players.Values)
                     if (defender.Alive && V2.Distance(defender.Position, f.Position) < f.Radius && Visible(f.Position, defender.Position, f.Owner))
-                        Damage(defender, f.Power, f.Owner, f.Recipe.Elements);
+                        DamageAs(StatisticAttack.OracleBombardment, defender, f.Power, f.Owner, f.Recipe.Elements);
                 Emit("explosion", f.Position, f.Recipe.Elements, "Bombardeo rúnico", f.Radius);
                 f.Lifetime = 0; continue;
             }
@@ -806,9 +835,9 @@ public sealed partial class GameWorld
                 if (f.Kind == "healing_mine")
                 {
                     if (_combatants.TryGetValue(f.Owner, out var owner) && Allied(owner, p))
-                        Heal(p, SpellBalance.MineHeal * f.Recipe.Count(Element.Life) * HealingPower(owner.Id));
+                        HealAs(StatisticAttack.Mine, p, SpellBalance.MineHeal * f.Recipe.Count(Element.Life) * HealingPower(owner.Id), owner.Id);
                 }
-                else Hit(p, f.Recipe, f.Kind == "meteor" ? SpellBalance.MeteorPower : SpellBalance.MinePower, f.Owner, (p.Position - f.Position).Normalized);
+                else HitAs(f.Kind == "meteor" ? StatisticAttack.Meteor : StatisticAttack.Mine, p, f.Recipe, f.Kind == "meteor" ? SpellBalance.MeteorPower : SpellBalance.MinePower, f.Owner, (p.Position - f.Position).Normalized);
             }
             Emit(f.Kind == "healing_mine" ? "mine_heal" : "explosion", f.Position, f.Recipe.Elements, f.Kind == "meteor" ? "Meteoro" : "", f.Radius);
             f.Lifetime = 0;
@@ -833,10 +862,16 @@ public sealed partial class GameWorld
             if (blue > 0 && red > 0 || blue + red == 0) continue;
             int team = red > 0 ? 1 : 0;
             if (ConquestToWin && point.Owner != team && point.Id != (team == 0 ? blueTarget : redTarget)) continue;
+            int previousOwner = point.Owner;
             point.Progress = Math.Clamp(point.Progress + (red > 0 ? 1 : -1) * dt * 0.24f, -1, 1);
             if (point.Owner == 0 && point.Progress > -0.6f || point.Owner == 1 && point.Progress < 0.6f) point.Owner = -1;
             if (point.Progress <= -0.99f) point.Owner = 0;
             if (point.Progress >= 0.99f) point.Owner = 1;
+            if (point.Owner >= 0 && point.Owner != previousOwner)
+            {
+                _statistics.Total(StatisticMeasure.Captures);
+                foreach (var p in _players.Values) if (p.Alive && p.Team == point.Owner && V2.Distance(p.Position, point.Position) < 3) _statistics.Actor(p.Id, StatisticMeasure.Captures);
+            }
         }
         if (ConquestToWin) return;
         if (HoldToWin)
@@ -904,6 +939,7 @@ public sealed partial class GameWorld
     private void ResetMatch()
     {
         MatchEnded = false; Winner = -1; RestartIn = 0;
+        ResetStatistics();
         ResetScores(); _projectiles.Clear(); _walls.Clear(); _fields.Clear();
         ResetFrontline();
         ResetDefense();
@@ -918,6 +954,7 @@ public sealed partial class GameWorld
         _routes.Remove(p.Id);
         ResetSlide(p);
         p.Position = RespawnPosition(p); p.Health = p.MaxHealth;
+        _statistics.Bind(p);
         if (Map.IsPractice)
             _walls.RemoveAll(w => Geometry.DistanceToSegment(p.Position, w.A, w.B) < ArenaMap.WizardRadius + 0.18f);
         p.Wet = p.Burning = p.Chill = p.Frozen = p.Haste = p.Shield = p.ShieldMax = p.ShieldTime = 0;

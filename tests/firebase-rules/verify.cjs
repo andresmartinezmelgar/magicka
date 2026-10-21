@@ -1,7 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { initializeTestEnvironment, assertSucceeds, assertFails } = require("@firebase/rules-unit-testing");
-const { doc, collection, setDoc, getDoc, getDocs } = require("firebase/firestore");
+const { doc, collection, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, orderBy, limit } = require("firebase/firestore");
 
 async function main() {
   const projectId = "demo-arcana-arena";
@@ -46,6 +46,34 @@ async function main() {
       { boots: "", hat: hatId, chest: "", weapon: "" }));
     await assertFails(setDoc(doc(google, "users/alice/loadouts/active"),
       { boots: "", hat: "", chest: "", weapon: "", gold: 100 }));
+    const readerA = env.authenticatedContext("readerA", { firebase: { sign_in_provider: "google.com" } }).firestore();
+    const readerB = env.authenticatedContext("readerB", { firebase: { sign_in_provider: "google.com" } }).firestore();
+    const wrongProvider = env.authenticatedContext("readerA", { firebase: { sign_in_provider: "password" } }).firestore();
+    await env.withSecurityRulesDisabled(async context => {
+      for (const uid of ["readerA", "readerB"]) await setDoc(doc(context.firestore(), "statisticsReaders/" + uid), { enabled: true });
+      await setDoc(doc(context.firestore(), "matchStatistics/fixture"), { day: "2026-10-21", payload: "{}" });
+    });
+    for (const reader of [readerA, readerB]) {
+      await assertSucceeds(getDoc(doc(reader, "matchStatistics/fixture")));
+      await assertSucceeds(getDocs(query(collection(reader, "matchStatistics"), orderBy("day", "desc"), limit(10))));
+    }
+    await assertSucceeds(getDoc(doc(readerA, "statisticsReaders/readerA")));
+    for (const denied of [google, other, anonymous, wrongProvider]) {
+      await assertFails(getDoc(doc(denied, "matchStatistics/fixture")));
+      await assertFails(getDocs(collection(denied, "matchStatistics")));
+    }
+    for (const client of [google, anonymous, readerA, readerB]) {
+      await assertFails(setDoc(doc(client, "matchStatistics/new"), { payload: "identity" }));
+      await assertFails(updateDoc(doc(client, "matchStatistics/fixture"), { payload: "changed" }));
+      await assertFails(deleteDoc(doc(client, "matchStatistics/fixture")));
+      await assertFails(setDoc(doc(client, "statisticsReaders/alice"), { enabled: true }));
+      await assertFails(updateDoc(doc(client, "statisticsReaders/readerA"), { enabled: true }));
+      await assertFails(getDocs(collection(client, "statisticsReaders")));
+    }
+    await assertFails(getDoc(doc(readerA, "statisticsReaders/readerB")));
+    await env.withSecurityRulesDisabled(async context => { await updateDoc(doc(context.firestore(), "statisticsReaders/readerA"), { enabled: false }); });
+    await assertFails(getDocs(collection(readerA, "matchStatistics")));
+    console.log("MATCH_STATISTICS_RULES_OK: two readers, query, revocation, anonymous denial, role escalation and writes rejected.");
     console.log("FIRESTORE_RULES_OK: Google owner reads, zero-balance registration, owned equipment; illegal writes rejected.");
   } finally { await env.cleanup(); }
 }

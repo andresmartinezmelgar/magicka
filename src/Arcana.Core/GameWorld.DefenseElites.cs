@@ -72,10 +72,12 @@ public sealed partial class GameWorld
             if (!body.Alive || ally.AuraRepairCooldown > 0.02f ||
                 V2.Distance(body.Position, oracle.Body.Position) > DefenseRules.OracleAuraRadius ||
                 !Visible(oracle.Body.Position, body.Position, oracle.Body.Id)) continue;
+            float shieldBefore = body.Shield;
             float capacity = DefenseRules.OracleShield * oracle.Strength;
             bool first = body.ShieldMax <= 0;
             body.ShieldMax = Math.Max(body.ShieldMax, capacity);
             body.Shield = Math.Min(body.ShieldMax, body.Shield + (first ? capacity : DefenseRules.OracleShieldRepair * oracle.Strength));
+            _statistics.Shield(oracle.Body.Id, body.Shield - shieldBefore, !first);
             body.ShieldTime = Math.Max(body.ShieldTime, DefenseRules.OracleShieldDuration);
             // Varias auras no multiplican la frecuencia de reparación de un aliado.
             ally.AuraRepairCooldown = DefenseRules.OracleShieldInterval;
@@ -86,6 +88,7 @@ public sealed partial class GameWorld
     private void CastOracleBombardment(DefenseMinion oracle, Wizard target)
     {
         if (_fields.Count > 37) return;
+        _statistics.Cast(oracle.Body.Id, StatisticAttack.OracleBombardment, [Element.Earth, Element.Arcane]);
         var forward = (target.Position - oracle.Body.Position).Normalized;
         var side = forward.Perpendicular;
         // En los pasillos estrechos, orientar la línea a lo largo del suelo disponible.

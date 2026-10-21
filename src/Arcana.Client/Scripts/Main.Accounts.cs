@@ -45,6 +45,7 @@ public partial class Main
         _accountProfilePanel = new AccountProfilePanel();
         _ui.AddChild(_accountProfilePanel);
         _accountProfilePanel.Build(this);
+        _ = RefreshStatisticsAccess();
     }
     private void CloseAccountProfile()
     {
@@ -71,6 +72,7 @@ public partial class Main
             if (page != 4) _equipmentPanel.Close(() => NavigateOptionAMenu(page));
             return;
         }
+        CloseMatchStatistics();
         CloseBestiary();
         CloseAccountProfile();
         CloseOptionAHelp();

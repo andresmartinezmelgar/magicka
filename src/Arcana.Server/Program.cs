@@ -8,6 +8,7 @@ Diagnostics.Log = log;
 using var processDiagnostics = new ProcessDiagnostics(log);
 try
 {
+    if (args.FirstOrDefault() == "--statistics-readers") { await StatisticsReaderSetup.Run(args.Skip(1).ToArray()); return; }
     var settings = ServerSettings.FromEnvironment();
     log.ProtectSecret(settings.Password);
     // El launcher pasa ARCANA_FIREBASE_CONFIG y GOOGLE_APPLICATION_CREDENTIALS
@@ -36,6 +37,8 @@ try
             settings.Port, service.GetRequiredService<ILogger<PublicAccountServerPublisher>>()));
     builder.Services.AddSingleton<RewardService>();
     builder.Services.AddHostedService(provider => provider.GetRequiredService<RewardService>());
+    builder.Services.AddSingleton<MatchStatisticsService>();
+    builder.Services.AddHostedService(provider => provider.GetRequiredService<MatchStatisticsService>());
     builder.Services.AddSingleton<GameService>();
     builder.Services.AddHostedService(provider => provider.GetRequiredService<GameService>());
     builder.Services.AddHostedService<DiscoveryService>();
@@ -119,6 +122,7 @@ try
                 gold > 0 ? $"Objeto vendido: +{gold} de oro." : "Esta venta ya estaba registrada.");
         }));
     app.MapItemShop();
+    app.MapMatchStatistics();
     app.Map("/play", async (HttpContext context, GameService game) => await game.HandleConnection(context));
     app.MapGet("/", () => $"Arcana Arena v{BuildInfo.Version}. Cliente: /play. Salas: /rooms. Estado: /health.");
     Diagnostics.Info("server.start", "Iniciando servidor.", new Dictionary<string, object?>

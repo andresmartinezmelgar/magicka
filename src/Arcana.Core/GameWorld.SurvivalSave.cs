@@ -7,6 +7,7 @@ public sealed partial class GameWorld
     private sealed class SavedSurvival
     {
         public WorldOptions Options = new();
+        public MatchStatisticsReport? Statistics;
         public long Tick, NextEvent;
         public int NextMinion, NextEntity, Kills, Bosses, PartySize;
         public ulong RandomState;
@@ -60,6 +61,7 @@ public sealed partial class GameWorld
             throw new InvalidOperationException("Solo se puede guardar una supervivencia local en curso.");
         var state = new SavedSurvival
         {
+            Statistics = MatchStatistics(MatchRecordStatus.Suspended),
             Options = Options, Tick = Tick, NextEvent = _nextEvent, NextMinion = _nextMinion, NextEntity = _nextEntity,
             RandomState = ((SurvivalRandom)_random).State, Kills = _defenseKills, Bosses = _bossesKilled,
             Elapsed = _defenseElapsed, PartySize = _defensePartySize, SpawnClock = _spawnClock, AuraClock = _auraClock,
@@ -160,6 +162,7 @@ public sealed partial class GameWorld
             { TargetId = b.TargetId, HealTargetId = b.HealTargetId, Goal = b.Goal, SpellTime = b.SpellTime, SpellTurn = b.SpellTurn });
         world._defenseBotPlanClock = s.BotClock;
         ((SurvivalRandom)world._random).State = s.RandomState;
+        world.RestoreStatistics(s.Statistics);
         world.BuildDefenseCells();
         return world;
     }
@@ -182,6 +185,8 @@ public sealed partial class GameWorld
         Require(s!.Tick is >= 0 and <= 1892160000 && double.IsFinite(s.Elapsed) && s.Elapsed is >= 0 and <= 31536000 &&
             s.Kills >= 0 && s.Bosses >= 0 && s.PartySize is >= 1 and <= 4 && s.RandomState != 0 && s.NextEvent > 0 &&
             new[] { s.SpawnClock, s.AuraClock, s.BossClock, s.SurgeTime, s.SurgeCooldown, s.SurgeClock, s.BotClock }.All(float.IsFinite));
+        s.Statistics?.Validate();
+        Require(s.Statistics == null || s.Statistics.Mode == GameMode.Defense && s.Statistics.Map == s.Options.Map && !s.Statistics.Complete);
         var ids = new HashSet<int>();
         foreach (var entry in s.Defenders)
         {

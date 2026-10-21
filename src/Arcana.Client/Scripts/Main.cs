@@ -105,6 +105,7 @@ public partial class Main : Node
         _help = BuildHelp(); _ui.AddChild(_help); _help.Visible = false;
         _pause = BuildPause(); _ui.AddChild(_pause); _pause.Visible = false;
         var arguments = OS.GetCmdlineUserArgs();
+        InitializeMatchStatistics(arguments);
         _accountEntrySmoke = arguments.Contains("--account-entry-smoke");
         _mobileMenuSmoke = arguments.Contains("--mobile-menu-smoke");
         _visualReview = arguments.Contains("--visual-review");
@@ -134,6 +135,7 @@ public partial class Main : Node
         if (arguments.Contains("--regression-smoke")) _ = RunBugRegressionSmoke(arguments);
         if (arguments.Contains("--reconnect-smoke")) _ = VerifyReconnectInterface(arguments);
         if (arguments.Contains("--defense-smoke")) StartDefenseSmoke(arguments);
+        if (arguments.Contains("--statistics-smoke")) StartStatisticsSmoke(arguments);
         if (arguments.Contains("--bestiary-smoke")) StartBestiarySmoke(arguments);
         if (arguments.Contains("--survival-save-smoke")) StartSurvivalSaveSmoke(arguments);
         if (arguments.Contains("--shop-smoke")) StartShopSmoke(arguments);
@@ -324,6 +326,7 @@ public partial class Main : Node
     }
     public void ReturnToLauncher(string error = "")
     {
+        CaptureStatistics(MatchRecordStatus.Left, true);
         CancelReconnect();
         CancelGameLoading();
         CancelPendingConnection();
@@ -336,7 +339,7 @@ public partial class Main : Node
         _aimMarker.Hide();
         _practicePanel?.QueueFree(); _practicePanel = null;
         var old = _connection; _connection = null;
-        if (old != null) _ = old.DisposeAsync();
+        if (old != null) _ = CloseStatisticsConnection(old);
         _hud?.QueueFree(); _hud = null;
         _waitingPanel?.QueueFree(); _waitingPanel = null;
         _pause.Visible = false; _help.Visible = false;
@@ -370,6 +373,7 @@ public partial class Main : Node
             }
         TickGoogleAuth(delta);
         TickBestiary(delta);
+        TickMatchStatistics(delta);
         _renderFrames++;
         if (CheckDesktopHeaderSmoke()) return;
         if (CheckMobileMenuSmoke()) return;
@@ -380,6 +384,7 @@ public partial class Main : Node
         if (CheckSaleSmoke()) return;
         if (CheckUsabilitySmoke()) return;
         if (CheckDefenseSmoke()) return;
+        if (CheckStatisticsSmoke()) return;
         if (CheckBestiarySmoke()) return;
         if (CheckSurvivalSaveSmoke()) return;
         if (_profiler?.Running == true || _reconnecting) return;
@@ -549,7 +554,7 @@ public partial class Main : Node
     private void Submit(ClientMessage message)
     {
         if (Loading) return;
-        if (_practice != null) { message.Sequence = ++_localSequence; if (message.Type == "defense_restart") { CaptureLocalBestiary(); if (_practice.RestartDefense()) BeginLocalBestiary(); } else _practice.ApplyMessage(_localId, message); }
+        if (_practice != null) { message.Sequence = ++_localSequence; if (message.Type == "defense_restart") { CaptureStatistics(MatchRecordStatus.Playing, true); CaptureLocalBestiary(); if (_practice.RestartDefense()) BeginLocalBestiary(); } else _practice.ApplyMessage(_localId, message); }
         else _connection?.Send(message);
     }
     public override void _UnhandledInput(InputEvent input)
@@ -838,6 +843,7 @@ public partial class Main : Node
     }
     public override void _ExitTree()
     {
+        CaptureStatistics(MatchRecordStatus.Interrupted, true);
         CaptureLocalBestiary();
         RenderingServer.FramePostDraw -= FrameDrawn;
         GetViewport().SizeChanged -= UpdateInGameHelpResponsive;

@@ -530,6 +530,15 @@ internal static class DefenseTests
             for (int i = 0; i < 50 && (a.Latest!.Defense!.PerformanceLimit != slowLimit || b.Latest!.Defense!.PerformanceLimit != slowLimit); i++) await Task.Delay(50);
             Check(a.Latest!.Defense!.PerformanceLimit == slowLimit && b.Latest!.Defense!.PerformanceLimit == slowLimit,
                 "Los clientes no comparten el límite de rendimiento de la sala.");
+            a.RequestMatchStatistics();
+            for (int i = 0; i < 50 && a.LatestStatistics?.Humans != 2; i++) await Task.Delay(50);
+            Check(a.LatestStatistics is { Network: true, Humans: 2, Bots: 1 }, "El cliente no recibió el informe cooperativo.");
+            string report = a.LatestStatistics!.ToJson();
+            using var http = new HttpClient();
+            using var accepted = await http.PostAsync(RoomBrowser.Endpoint(address, "analytics/matches"), new StringContent(report, System.Text.Encoding.UTF8, "application/json"));
+            Check(accepted.StatusCode == System.Net.HttpStatusCode.Accepted, "El relé no guardó el informe.");
+            using var rejected = await http.PostAsync(RoomBrowser.Endpoint(address, "analytics/matches"), new StringContent(report[..^1] + ",\"email\":\"private@example.com\"}", System.Text.Encoding.UTF8, "application/json"));
+            Check(rejected.StatusCode == System.Net.HttpStatusCode.BadRequest, "El relé aceptó identidad fuera del contrato.");
             SnapshotValidation.Check(a.Latest);
         });
     }

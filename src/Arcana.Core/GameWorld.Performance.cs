@@ -8,7 +8,10 @@ public sealed partial class GameWorld
     /// <summary>Coste real de la simulación; el anfitrión lo comunica sin alterar el reloj del juego.</summary>
     public void ReportSimulationStep(double milliseconds)
     {
-        if (!IsDefense || !double.IsFinite(milliseconds) || milliseconds < 0 || DefensePaused || MatchEnded) return;
+        if (!double.IsFinite(milliseconds) || milliseconds < 0 || DefensePaused || MatchEnded) return;
+        _statistics.Add(StatisticGroup.Performance, 1, StatisticMeasure.Samples, 1);
+        _statistics.Add(StatisticGroup.Performance, 1, StatisticMeasure.ValueSum, milliseconds);
+        if (!IsDefense) return;
         _simulationCost += milliseconds;
         if (++_simulationSamples < 120) return;
         double mean = _simulationCost / _simulationSamples;

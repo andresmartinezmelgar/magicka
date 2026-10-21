@@ -6,6 +6,8 @@ namespace Arcana.Server;
 
 public interface IAccountRepository
 {
+    Task SaveMatchStatistics(MatchStatisticsReport report, CancellationToken token = default) =>
+        Task.FromException(new NotSupportedException("El repositorio no admite estadísticas."));
     Task<BestiaryTotals> SaveBestiary(BestiaryProgress progress, CancellationToken token = default) =>
         Task.FromException<BestiaryTotals>(new NotSupportedException("El repositorio no admite bestiario."));
     Task<AccountProfile> Profile(string uid, string name, CancellationToken token = default);

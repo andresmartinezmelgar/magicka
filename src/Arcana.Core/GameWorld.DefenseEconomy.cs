@@ -33,6 +33,7 @@ public sealed partial class GameWorld
             if (player.Bot || !float.IsFinite(command.FramesPerSecond) || command.FramesPerSecond is < 1 or > 240 ||
                 Time - progress.LastPerformanceReport < 1.5) return false;
             progress.LastPerformanceReport = Time;
+            ObserveStatisticsPerformance(player.Id, command.FramesPerSecond, command.FrameTime95);
             progress.Performance.Observe(command.FramesPerSecond, command.FrameTime95);
             TrimDistantDefenseMinions();
             return true;
@@ -65,6 +66,7 @@ public sealed partial class GameWorld
                 if (command.Slot is < 0 or > 2) return false;
                 int level = progress.Auras[command.Slot], cost = DefenseRules.AuraCost(level);
                 if (level >= DefenseRules.MaxAuraLevel || progress.Gold < cost) return false;
+                StatisticsEconomy(player.Id, StatisticMeasure.GoldSpent, cost);
                 progress.Gold -= cost; progress.Auras[command.Slot]++;
                 Emit("defense_shop", player.Position, [], DefenseRules.AuraName((DefenseAura)command.Slot) + $" · nivel {level + 1}");
                 return true;
@@ -72,12 +74,14 @@ public sealed partial class GameWorld
                 if (command.Slot is < 0 or > 3) return false;
                 int passiveLevel = progress.Passives[command.Slot], passiveCost = DefenseRules.PassiveCost(passiveLevel);
                 if (passiveLevel >= DefenseRules.MaxPassiveLevel || progress.Gold < passiveCost) return false;
+                StatisticsEconomy(player.Id, StatisticMeasure.GoldSpent, passiveCost);
                 progress.Gold -= passiveCost; progress.Passives[command.Slot]++;
                 if (passiveLevel == 0) progress.PassiveCooldowns[command.Slot] = command.Slot switch { 0 => 3, 1 => 16, 2 => 5, _ => 4 };
                 Emit("defense_shop", player.Position, [], DefenseRules.PassiveName((DefensePassive)command.Slot) + $" · nivel {passiveLevel + 1}");
                 return true;
             case "defense_supply":
                 if (progress.Gold < 100 || progress.Items.Count >= DefenseRules.InventoryLimit) return false;
+                StatisticsEconomy(player.Id, StatisticMeasure.GoldSpent, 100);
                 progress.Gold -= 100;
                 GrantDefenseItem(player, EquipmentCatalogue.Generate(_random));
                 return true;
@@ -92,7 +96,7 @@ public sealed partial class GameWorld
                 {
                     if (progress.Loadout.Get(item.Slot) == item.Id) progress.Loadout = progress.Loadout.With(item.Slot, "");
                     progress.Items.Remove(item); progress.Upgrades.Remove(item.Id);
-                    progress.Gold = Math.Min(100000000, progress.Gold + item.SaleGold);
+                    { int earned = Math.Min(100000000 - progress.Gold, item.SaleGold); StatisticsEconomy(player.Id, StatisticMeasure.GoldEarned, earned); progress.Gold += earned; }
                 }
                 else
                 {
@@ -102,7 +106,8 @@ public sealed partial class GameWorld
                     if (progress.Gold < price) return false;
                     var improved = item with { Bonuses = item.Bonuses.Select(b => b with
                         { Current = MathF.Round(Math.Min(b.Maximum, b.Current + DefenseRules.ItemUpgradeStep), 4) }).ToArray() };
-                    progress.Gold -= price; progress.Upgrades[item.Id] = upgrades + 1;
+                    StatisticsEconomy(player.Id, StatisticMeasure.GoldSpent, price);
+                progress.Gold -= price; progress.Upgrades[item.Id] = upgrades + 1;
                     progress.Items[progress.Items.IndexOf(item)] = improved;
                 }
                 RecalculateDefender(player);
@@ -124,9 +129,11 @@ public sealed partial class GameWorld
 
     private void GrantDefenseItem(Wizard player, EquipmentItem item)
     {
+        _statistics.Add(StatisticGroup.Equipment, (int)item.Tier, StatisticMeasure.Collected, 1);
+        StatisticsEconomy(player.Id, StatisticMeasure.Collected, 1);
         var progress = _defenders[player.Id];
         if (progress.Items.Count >= DefenseRules.InventoryLimit)
-            progress.Gold = Math.Min(100000000, progress.Gold + item.SaleGold);
+            { int earned = Math.Min(100000000 - progress.Gold, item.SaleGold); StatisticsEconomy(player.Id, StatisticMeasure.GoldEarned, earned); progress.Gold += earned; }
         else
         {
             // Solo el equipo temporal: cada tirada dispone de diez incrementos
@@ -155,10 +162,12 @@ public sealed partial class GameWorld
             }
             if (receiver == null) continue;
             if (drop.Kind == DefenseDropKind.Gold)
-                foreach (var defender in _defenders.Values) defender.Gold = Math.Min(100000000, defender.Gold + drop.Gold);
+                foreach (var pair in _defenders)
+                { int earned = Math.Min(100000000 - pair.Value.Gold, drop.Gold); pair.Value.Gold += earned; StatisticsEconomy(pair.Key, StatisticMeasure.GoldEarned, earned); }
             else if (drop.Kind == DefenseDropKind.Equipment && drop.Item != null) GrantDefenseItem(receiver, drop.Item);
             else
             {
+                _statistics.Add(StatisticGroup.Relic, (int)drop.Buff, StatisticMeasure.Collected, 1);
                 RelicBuffs.Add(receiver, drop.Buff);
                 Array.Copy(receiver.BuffStacks, _defenders[receiver.Id].Buffs, RelicBuffs.Count);
                 Emit("pickup", receiver.Position, [], receiver.Name + ": " + RelicBuffs.Name(drop.Buff));
@@ -181,7 +190,7 @@ public sealed partial class GameWorld
                 foreach (var minion in _minions.Values)
                     if (minion.Body.Alive && V2.Distance(minion.Body.Position, player.Position) < DefenseRules.AuraRadius(level) &&
                         Visible(player.Position, minion.Body.Position, player.Id))
-                        Damage(minion.Body, 24 * level * dt * player.Equipment.ElementPower(i == 0 ? Element.Fire : Element.Lightning),
+                        DamageAs(i == 0 ? StatisticAttack.FireAura : StatisticAttack.LightningAura, minion.Body, 24 * level * dt * player.Equipment.ElementPower(i == 0 ? Element.Fire : Element.Lightning),
                             player.Id, [i == 0 ? Element.Fire : Element.Lightning]);
             }
             int regeneration = progress.Auras[2];
@@ -189,7 +198,7 @@ public sealed partial class GameWorld
                 foreach (var ally in _players.Values)
                     if (ally.Alive && V2.Distance(ally.Position, player.Position) < DefenseRules.AuraRadius(regeneration) &&
                         Visible(player.Position, ally.Position, player.Id))
-                        Heal(ally, 10 * regeneration * dt * HealingPower(player.Id));
+                        HealAs(StatisticAttack.RegenerationAura, ally, 10 * regeneration * dt * HealingPower(player.Id), player.Id);
         }
     }
 

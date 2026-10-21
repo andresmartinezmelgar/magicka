@@ -6,6 +6,23 @@ service cloud.firestore {
         && request.auth.token.firebase.sign_in_provider == 'google.com';
     }
 
+    // matchStatistics/{runId}: contrato anónimo validado por el servidor Admin.
+    // statisticsReaders/{uid}: { enabled: bool }; solo Admin concede o revoca roles.
+    function statisticsReader() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && exists(/databases/$(database)/documents/statisticsReaders/$(request.auth.uid))
+        && get(/databases/$(database)/documents/statisticsReaders/$(request.auth.uid)).data.enabled == true;
+    }
+    match /statisticsReaders/{uid} {
+      allow get: if googleOwner(uid);
+      allow list, write: if false;
+    }
+    match /matchStatistics/{runId} {
+      allow read: if statisticsReader();
+      allow write: if false;
+    }
+
     // Aviso publico del antiguo servicio, conservado para compatibilidad.
     match /publicAccountServer/current {
       allow get: if resource.data.keys().hasOnly(['url', 'expiresAt', 'protocol'])

@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.29.0 — Informes anónimos de partidas y visor de balance
+
+- Todas las rondas locales/IA y PvP guardan informes JSON locales: daño real por elemento, combinación y ataque, escudos, monstruos, bajas, curación, estados, economía, progresión y rendimiento. Los grupos de humanos, bots y monstruos se distinguen sin identificar jugadores.
+- Cola persistente con reintentos al relé oficial y Firebase, revisiones idempotentes y protección frente a duplicados. Una confirmación antigua no elimina una revisión nueva. Guardar/continuar supervivencia conserva el acumulado; rebobinar o cambiar de versión abre otro tramo.
+- Visor en Perfil con seis vistas y filtros por modo, versión, periodo y partidas incompletas. Acceso restringido mediante permisos Firestore para las dos cuentas Google autorizadas. La activación requiere sus correos/UID reales y desplegar las reglas con credenciales Admin; hasta entonces el acceso permanece cerrado.
+- Contrato sin nombres, correos, UID, IP, dispositivos ni horas exactas; envío sin tokens ni cookies. Los informes tienen límites de tamaño y rechazan campos extra. Las herramientas de QA no envían telemetría de producción.
+- Protocolo 30: actualizar cliente y servidor juntos. Pruebas de motor, red, transacciones, reglas y visor móvil/escritorio. Detalles y puesta en marcha en `docs/ESTADISTICAS-PARTIDAS.md`.
+
 ## 0.28.0 — Prisma elemental, oráculo de asedio e IA de supervivencia
 
 - Nuevo prisma elemental desde dificultad 3. Su color y rótulo muestran el único elemento que lo daña: Fuego, Arcano, Frío, Agua, Rayo o Tierra. Las mezclas aportan solo ese componente; Vida y Escudo nunca son puntos débiles. La variante de Agua recibe daño del agua pura. La inmunidad incluye estados, poderes automáticos y daño periódico.

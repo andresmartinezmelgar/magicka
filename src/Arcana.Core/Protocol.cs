@@ -6,10 +6,10 @@ namespace Arcana.Core;
 
 public static class Protocol
 {
-    public const int Version = 29;
+    public const int Version = 30;
     public const int GamePort = 27015;
     public const int DiscoveryPort = 27016;
-    public const string DiscoveryMagic = "ARCANA_DISCOVER_V29";
+    public const string DiscoveryMagic = "ARCANA_DISCOVER_V30";
     public const int LoadingTimeoutSeconds = 120;
     public const int MaxMessageBytes = 4096;
     public static readonly JsonSerializerOptions Json = new()
@@ -76,7 +76,7 @@ public static class Protocol
     public static byte[] SerializeAction(ClientMessage message) => message.Type switch
     {
         "baseline_ack" => JsonSerializer.SerializeToUtf8Bytes(new { type = message.Type, sequence = message.Sequence, baselineId = message.BaselineId }, Json),
-        "defense_performance" => JsonSerializer.SerializeToUtf8Bytes(new { type = message.Type, sequence = message.Sequence,
+        "defense_performance" or "match_performance" => JsonSerializer.SerializeToUtf8Bytes(new { type = message.Type, sequence = message.Sequence,
             framesPerSecond = message.FramesPerSecond, frameTime95 = message.FrameTime95 }, Json),
         "input" => SerializeInput(message),
         "element" => JsonSerializer.SerializeToUtf8Bytes(new
@@ -213,6 +213,7 @@ public sealed class ServerMessage
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? AccountNotice { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public long InspectionRequestId { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public EquipmentInspection? Inspection { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public MatchStatisticsReport? Statistics { get; set; }
 }
 
 public sealed record WizardSnapshot(int Id, string Name, int Team, bool Bot, V2 Position,

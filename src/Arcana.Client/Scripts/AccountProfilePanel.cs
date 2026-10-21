@@ -8,7 +8,7 @@ public partial class AccountProfilePanel : Control
 {
     private Main _main = null!;
     private Label _heading = null!, _status = null!;
-    private Button _login = null!, _logout = null!, _checkUpdate = null!, _touchControls = null!, _bestiary = null!;
+    private Button _login = null!, _logout = null!, _checkUpdate = null!, _touchControls = null!, _bestiary = null!, _statistics = null!;
     private Label _updateStatus = null!;
     private GridContainer _profileActions = null!;
     private bool _checkingUpdate;
@@ -20,7 +20,7 @@ public partial class AccountProfilePanel : Control
     private PanelContainer? _responsiveCard;
     private int _responsivePadding;
 
-    internal Button[] VisibleFooterButtons => new[] { _login, _logout, _checkUpdate, _touchControls, _bestiary }
+    internal Button[] VisibleFooterButtons => new[] { _login, _logout, _checkUpdate, _touchControls, _bestiary, _statistics }
         .Where(b => GodotObject.IsInstanceValid(b) && b.IsVisibleInTree()).ToArray();
 
     public void Build(Main main)
@@ -75,13 +75,15 @@ public partial class AccountProfilePanel : Control
         _checkUpdate.Name = "ProfileCheckUpdates";
         _bestiary = Ui.Button("Bestiario y bajas", main.OpenBestiary);
         _bestiary.Name = "ProfileBestiary";
+        _statistics = Ui.Button("Estadísticas de partidas", main.OpenMatchStatistics);
+        _statistics.Name = "ProfileMatchStatistics";
         _touchControls = Ui.Button("Configurar joystick y botones", main.OpenTouchSettings);
         _touchControls.Name = "ProfileTouchControls";
         _touchControls.TooltipText = "Tamaño, posiciones, zona muerta, sensibilidad y modo zurdo. Se guardan en este dispositivo.";
         _profileActions = new GridContainer { Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _profileActions.AddThemeConstantOverride("h_separation", 10); _profileActions.AddThemeConstantOverride("v_separation", 8);
         content.AddChild(_profileActions);
-        foreach (var button in new[] { _login, _logout, _checkUpdate, _touchControls, _bestiary })
+        foreach (var button in new[] { _login, _logout, _checkUpdate, _touchControls, _bestiary, _statistics })
         {
             button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             button.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -108,7 +110,7 @@ public partial class AccountProfilePanel : Control
             Math.Max(220, Math.Min(Ui.IsMobile ? 1050 : 860, width - 2 * _responsivePadding - 36)), 0);
         _profileActions.Columns = width < 560 ? 1 : 2;
         float height = GetViewport().GetVisibleRect().Size.Y < 640 ? 60 : 76;
-        foreach (var button in new[] { _login, _logout, _checkUpdate, _touchControls, _bestiary }) button.CustomMinimumSize = new(0, height);
+        foreach (var button in new[] { _login, _logout, _checkUpdate, _touchControls, _bestiary, _statistics }) button.CustomMinimumSize = new(0, height);
     }
 
     /// <summary>Selecciona el JSON OAuth sin copiarlo ni renombrarlo manualmente.</summary>
@@ -138,9 +140,12 @@ public partial class AccountProfilePanel : Control
         Render();
     }
 
+    public void RefreshStatisticsAccess() => Render();
+
     private void Render()
     {
         if (!IsInsideTree()) return;
+        _statistics.Visible = _main.CanViewMatchStatistics;
         bool google = _main.GoogleIdentityKnown || _main.Accounts.SignedIn;
         bool firestoreError = _message.StartsWith("Error al leer Firestore:", StringComparison.Ordinal);
         _heading.Text = google

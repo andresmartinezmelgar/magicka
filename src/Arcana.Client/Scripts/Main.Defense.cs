@@ -11,10 +11,10 @@ public partial class Main
     private readonly int[] _defenseFrameTimes = new int[1001];
     private void ReportDefensePerformance(WorldSnapshot snapshot, double delta)
     {
-        if (snapshot.Defense is not { } defense) return;
-        bool reset = defense.Elapsed < _defenseSampleElapsed;
-        _defenseSampleElapsed = defense.Elapsed;
-        if (reset || snapshot.MatchEnded || snapshot.WaitingForPlayers || defense.Paused || _paused || _help.Visible ||
+        var defense = snapshot.Defense;
+        bool reset = defense != null && defense.Elapsed < _defenseSampleElapsed;
+        _defenseSampleElapsed = defense?.Elapsed ?? 0;
+        if (reset || snapshot.MatchEnded || snapshot.WaitingForPlayers || defense?.Paused == true || _paused || _help.Visible ||
             _defensePanel?.ShopOpen == true || InspectingEquipment || !GetWindow().HasFocus())
         { ResetDefenseSample(); return; }
         _defenseSampleSeconds += delta; _defenseSampleFrames++;
@@ -28,8 +28,8 @@ public partial class Main
         _defenseSlowWindows = slow ? _defenseSlowWindows + 1 : 0;
         _renderer.Effects.DetailScale = slow ? percentile > 45 ? 0.35f : 0.6f : 1;
         // Primero reduce partículas decorativas; los avisos y las áreas de daño conservan su representación.
-        Submit(new() { Type = "defense_performance", FramesPerSecond = fps,
-            FrameTime95 = _defenseSlowWindows >= 1 ? percentile : 0 });
+        Submit(new() { Type = defense != null ? "defense_performance" : "match_performance", FramesPerSecond = fps,
+            FrameTime95 = percentile });
         ResetDefenseSample();
     }
     private void ResetDefenseSample()

@@ -1,0 +1,6 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    { "collectionGroup": "matchStatistics", "fieldPath": "payload", "indexes": [] }
+  ]
+}

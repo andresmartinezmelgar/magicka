@@ -4,7 +4,7 @@
 
 Abrir el paquete con doble clic y elegir **Alojar**. Introducir nombre, TCP, UDP y contraseña; pulsar **Iniciar servidor y ver salas**. El proceso incluido es autónomo y no abre consola. **Permitir LAN** abre el permiso UAC y añade reglas de entrada únicamente para este ejecutable, los puertos elegidos y el perfil de red privado. **Ver registros** abre la carpeta de logs dentro de los datos de usuario del juego. **Diagnóstico** exporta un ZIP con los registros de cliente y servidor.
 
-El anfitrión puede entrar en una sala mientras el servidor continúa atendiendo las demás. Cerrar el juego o pulsar **Detener servidor** detiene el proceso y pierde las salas y estadísticas en memoria. Para un servidor que permanezca activo sin el cliente, usar Docker o ejecutar el servidor dedicado aparte.
+El anfitrión puede entrar en una sala mientras el servidor continúa atendiendo las demás. Cerrar el juego o pulsar **Detener servidor** detiene el proceso y pierde las salas. Los informes de estadísticas y sus envíos pendientes se conservan en disco. Para un servidor que permanezca activo sin el cliente, usar Docker o ejecutar el servidor dedicado aparte.
 
 ## Salas
 
@@ -28,6 +28,7 @@ Hay hasta 16 salas, cada una con 2–16 plazas, incluidas las de bots. Duelo uti
 | `TICKETS` | 75 | Tickets iniciales por equipo en guerra |
 | `SERVER_PASSWORD` | vacía | Contraseña opcional del saludo; máximo 128 caracteres |
 | `ARCANA_LOG_LEVEL` | Information | `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical` |
+| `ARCANA_MATCH_STATISTICS_DIR` | Carpeta `match-statistics` junto a `logs`; Docker `/app/data/match-statistics` | Historial JSON y cola de estadísticas anónimas; conservar el volumen `/app/data` |
 | `ARCANA_LOG_DIRECTORY` | Datos locales de usuario / ArcanaArena / logs | Carpeta del servidor dedicado; Docker usa `/app/logs` |
 
 Estos ajustes configuran la **sala principal** del servidor dedicado. Las salas adicionales tienen sus propias opciones, elegidas desde el launcher. La contraseña del servidor autoriza tanto entrar como crear salas.

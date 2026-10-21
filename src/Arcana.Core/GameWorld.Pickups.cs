@@ -64,6 +64,7 @@ public sealed partial class GameWorld
                 { player = candidate; closest = distance; }
             }
             if (player == null) continue;
+            _statistics.Add(StatisticGroup.Relic, (int)item.Kind, StatisticMeasure.Collected, 1);
             RelicBuffs.Add(player, item.Kind); item.Respawn = RelicBuffs.RespawnSeconds;
             Emit("pickup", item.Position, [], player.Name + ": " + RelicBuffs.Name(item.Kind) + " ×" + player.BuffStacks[(int)item.Kind]);
         }

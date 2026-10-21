@@ -12,6 +12,7 @@ public sealed partial class GameService
 
     private void RestartDefenseRoom(GameRoom room)
     {
+        if (room.World.MatchEnded) CaptureStatistics(room);
         foreach (var session in room.Sessions.Values) SaveSessionBestiary(session, force: true);
         if (!room.World.RestartDefense()) return;
         foreach (var session in room.Sessions.Values) { session.BestiaryKillsSaved = 0; session.NextBestiaryAt = 0; }

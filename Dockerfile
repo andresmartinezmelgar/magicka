@@ -14,7 +14,7 @@ WORKDIR /app
 COPY --from=build /app/publish .
 RUN mkdir -p /app/logs /app/data/rewards && chown -R app:app /app/logs /app/data
 USER app
-ENV GAME_PORT=27015 DISCOVERY_PORT=27016 DOTNET_EnableDiagnostics=0 ARCANA_LOG_DIRECTORY=/app/logs ARCANA_REWARD_OUTBOX=/app/data/rewards
+ENV GAME_PORT=27015 DISCOVERY_PORT=27016 DOTNET_EnableDiagnostics=0 ARCANA_LOG_DIRECTORY=/app/logs ARCANA_REWARD_OUTBOX=/app/data/rewards ARCANA_MATCH_STATISTICS_DIR=/app/data/match-statistics
 EXPOSE 27015/tcp 27016/udp
 ARG ARCANA_VERSION=0.21.0
 LABEL org.opencontainers.image.title="Arcana Arena Server" org.opencontainers.image.version="$ARCANA_VERSION"

@@ -14,7 +14,11 @@ internal sealed class GameRoom(string id, string name, string password, WorldOpt
     public string Name { get; } = name;
     public string Password { get; } = password;
     public WorldOptions Options { get; } = options;
-    public GameWorld World { get; } = new(options);
+    public GameWorld World { get; } = NetworkWorld(options);
+    private static GameWorld NetworkWorld(WorldOptions options) { var world = new GameWorld(options); world.SetStatisticsNetwork(); return world; }
+    public string StatisticsRun = "";
+    public long NextStatisticsTick;
+    public bool StatisticsFinal;
     public Dictionary<int, PlayerSession> Sessions { get; } = [];
     public Dictionary<string, ReservedPlayer> Reservations { get; } = new(StringComparer.Ordinal);
     public long LastOccupied { get; set; } = Environment.TickCount64;
@@ -51,6 +55,7 @@ internal sealed class PlayerSession(int id, GameRoom room, WebSocket socket)
     public AccountIdentity? Account { get; init; }
     public PreparedEquipment Equipment { get; set; } = new(EquipmentModifiers.None, PublicEquipment.Empty);
     public SemaphoreSlim SendGate { get; } = new(1, 1);
+    public long LastStatisticsAt { get; set; }
     public long LastInspectionAt { get; set; }
     public int InspectionsInWindow { get; set; }
     public long LastActivityTick { get; set; }
@@ -63,7 +68,7 @@ internal sealed class PlayerSession(int id, GameRoom room, WebSocket socket)
     { SingleReader = true, SingleWriter = true, FullMode = BoundedChannelFullMode.DropOldest });
 }
 
-public sealed partial class GameService(ServerSettings settings, ILogger<GameService> logger, AccountService accounts, RewardService rewards) : BackgroundService
+public sealed partial class GameService(ServerSettings settings, ILogger<GameService> logger, AccountService accounts, RewardService rewards, MatchStatisticsService statistics) : BackgroundService
 {
     private readonly object _gate = new();
     private readonly Dictionary<string, GameRoom> _rooms = new(StringComparer.Ordinal)
@@ -195,7 +200,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                                     { RestartDefenseRoom(room); continue; }
                                     if (!room.Started && room.BestOf > 1) { _ignoredCommands++; continue; }
                                     if (!session.Ready || !room.World.ApplyMessage(session.Id, message)) _ignoredCommands++;
-                                    else if (message.Type != "defense_performance" &&
+                                    else if (message.Type is not ("defense_performance" or "match_performance") &&
                                         (message.Type != "input" || message.MoveTo || Math.Abs(message.MoveX) + Math.Abs(message.MoveY) > 0.05f))
                                         session.LastActivityTick = room.World.Tick;
                                 }
@@ -228,6 +233,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                             room.World.Step();
                             room.World.ReportSimulationStep(Stopwatch.GetElapsedTime(simulationStarted).TotalMilliseconds);
                             TrackAccounts(room, endedBefore);
+                            TrackStatistics(room);
                             room.LastOccupied = Environment.TickCount64;
                             // Comunicar el desenlace inmediatamente a TODOS los participantes,
                             // sin esperar al siguiente ciclo de envío periódico.
@@ -399,6 +405,16 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                     if (++count > 180)
                     { Diagnostics.Warn("connection.rate_limit", "Límite de mensajes o cola de comandos alcanzado.", context: Context()); socket.Abort(); break; }
                     if (message.Type == "baseline_ack") { session.Network.Acknowledge(message.BaselineId); }
+                    else if (message.Type == "statistics")
+                    {
+                        MatchStatisticsReport? report = null;
+                        lock (_gate)
+                        {
+                            if (session.Ready && now - session.LastStatisticsAt >= 250)
+                            { session.LastStatisticsAt = now; report = session.Room.World.MatchStatistics(); statistics.Record(report); }
+                        }
+                        if (report != null) await SendSession(session, Protocol.SerializeUtf8(new ServerMessage { Type = "statistics", Statistics = report }), connection.Token);
+                    }
                     else if (message.Type == "inspect")
                     {
                         var response = new ServerMessage { Type = "equipment", InspectionRequestId = message.InspectionRequestId };
@@ -439,6 +455,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                 _sessions.TryRemove(session.Key, out _);
                 lock (_gate)
                 {
+                    CaptureStatistics(session.Room, MatchRecordStatus.Disconnected);
                     SaveSessionBestiary(session, force: true);
                     session.Room.Sessions.Remove(session.Id);
                     if ((session.Ready || session.Resumed) && socket?.CloseStatus != WebSocketCloseStatus.NormalClosure &&
@@ -466,7 +483,8 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
     {
         lock (_gate)
             foreach (var room in _rooms.Values)
-                foreach (var session in room.Sessions.Values) SaveSessionBestiary(session, force: true);
+                { CaptureStatistics(room, MatchRecordStatus.Interrupted);
+                foreach (var session in room.Sessions.Values) SaveSessionBestiary(session, force: true); }
         _stopping.Cancel(); return base.StopAsync(cancellationToken);
     }
     private void TrackAccounts(GameRoom room, bool endedBefore)

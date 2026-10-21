@@ -6,7 +6,7 @@ using System.Text.Json;
 namespace Arcana.Core;
 
 /// <summary>Lectura Firestore con ID token Firebase, independiente del servidor de partidas/cuentas.</summary>
-public sealed class FirebaseProfileReader : IDisposable
+public sealed partial class FirebaseProfileReader : IDisposable
 {
     private readonly HttpClient _http;
     private readonly bool _ownsHttp;

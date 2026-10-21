@@ -61,7 +61,7 @@ public sealed partial class GameWorld
             // burning/frozen ground, not a fake visual explosion.
             if (SpawnProjectile(body, spell, body.Facing, DefenseRules.EnemyRockPower,
                     minion.Kind == MinionKind.Cryomancer ? 12 : 13, 0.32f))
-                Emit("cast", body.Position, spell.Elements, "");
+                { _statistics.Cast(body.Id, StatisticAttack.Rock, spell.Elements); Emit("cast", body.Position, spell.Elements, ""); }
         }
         else
         {
@@ -85,7 +85,9 @@ public sealed partial class GameWorld
         body.WardTime = DefenseRules.SentinelShieldDuration;
         body.ShieldTime = DefenseRules.SentinelShieldDuration;
         body.ShieldCharges = 2;
+        float before = body.Shield;
         body.Shield = body.ShieldMax = DefenseRules.SentinelShield * minion.Strength;
+        _statistics.Shield(body.Id, body.Shield - before);
         minion.ShieldCooldown = DefenseRules.SentinelShieldCooldown;
         Emit("self", body.Position, [Element.Shield, Element.Earth], "");
     }

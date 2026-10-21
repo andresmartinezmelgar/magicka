@@ -106,6 +106,7 @@ public sealed partial class GameWorld
         foreach (var m in distant)
         {
             CancelCast(m.Body);
+            _statistics.Retire(m.Body.Id);
             _minions.Remove(m.Body.Id); _combatants.Remove(m.Body.Id); _orderedPlayers.Remove(m.Body); _routes.Remove(m.Body.Id);
             _projectiles.RemoveAll(p => p.Owner == m.Body.Id); _fields.RemoveAll(f => f.Owner == m.Body.Id);
         }
@@ -182,6 +183,9 @@ public sealed partial class GameWorld
             Equipment = EquipmentModifiers.None with { Speed = DefenseRules.MinionSpeed(kind, _defenseDifficulty),
                 Power = strength * DefenseRules.EnemySpellPower(kind) } };
         var minion = new DefenseMinion(body, kind, strength) { SpeedClock = 7 + (float)_random.NextDouble() * 12, SupportCooldown = kind == MinionKind.Oracle ? 0.1f : 3 };
+        _statistics.Bind(body, kind);
+        _statistics.Add(StatisticGroup.Difficulty, _defenseDifficulty, StatisticMeasure.Spawns, 1);
+        _statistics.Add(StatisticGroup.Difficulty, _defenseDifficulty, StatisticMeasure.SpawnHealth, health);
         _minions.Add(body.Id, minion);
         _combatants.Add(body.Id, body); _orderedPlayers.Add(body);
         DiscoverDefenseEnemy(minion);
@@ -314,7 +318,9 @@ public sealed partial class GameWorld
         var blockingWall = _walls.FirstOrDefault(w => w.Health > 0 && Geometry.DistanceToSegment(p.Position, w.A, w.B) < 2.2f);
         if (!canAttack && blockingWall != null)
         {
+            float before = blockingWall.Health;
             blockingWall.Health -= 90 * minion.Strength;
+            _statistics.BarrierDamage(p.Id, blockingWall.Owner, Math.Min(Math.Max(0, before), before - blockingWall.Health), null, StatisticAttack.EnemyMelee);
             minion.Attack = DefenseRules.AttackPause(minion.Kind, _defenseDifficulty);
             return;
         }
@@ -333,11 +339,12 @@ public sealed partial class GameWorld
         {
             if (_projectiles.Count >= 160) return;
             var recipe = new SpellRecipe([Element.Earth]);
+            _statistics.Cast(p.Id, StatisticAttack.Rock, recipe.Elements);
             _projectiles.Add(new Projectile { Id = _nextEntity++, Owner = p.Id, Position = SpellOrigin(p, p.Facing, 0.75f),
                 Velocity = p.Facing * 14, Recipe = recipe, Radius = 0.14f, Power = DefenseRules.ArrowPower, Lifetime = 1.3f });
             Emit("cast", p.Position, [Element.Earth], "");
         }
-        else Damage(target, DefenseRules.MinionMeleeAttack(minion.Kind), p.Id);
+        else { _statistics.Cast(p.Id, StatisticAttack.EnemyMelee); DamageAs(StatisticAttack.EnemyMelee, target, DefenseRules.MinionMeleeAttack(minion.Kind), p.Id); }
     }
 
     private void TickDefenseShaman(DefenseMinion minion, float dt)
@@ -356,17 +363,21 @@ public sealed partial class GameWorld
             if (missing > mostMissing) { mostMissing = missing; wounded = body; }
         }
         if (wounded == null) return;
+        float before = wounded.Health;
+        _statistics.Cast(minion.Body.Id, StatisticAttack.Regeneration);
         wounded.Health = Math.Min(wounded.MaxHealth, wounded.Health + DefenseRules.ShamanHealAmount * minion.Strength);
+        _statistics.Heal(minion.Body.Id, wounded, wounded.Health - before, StatisticAttack.Regeneration);
         Emit("mine_heal", wounded.Position, [Element.Life], "");
     }
 
     private void ResolveDefenseAreaAttack(DefenseMinion minion)
     {
+        _statistics.Cast(minion.Body.Id, StatisticAttack.EnemyArea);
         float radius = DefenseRules.AreaAttackRadius(minion.Kind);
         foreach (var defender in _players.Values)
             if (defender.Alive && V2.Distance(defender.Position, minion.Body.Position) <= radius &&
                 Visible(minion.Body.Position, defender.Position, minion.Body.Id))
-                Damage(defender, DefenseRules.MinionMeleeAttack(minion.Kind), minion.Body.Id);
+                DamageAs(StatisticAttack.EnemyArea, defender, DefenseRules.MinionMeleeAttack(minion.Kind), minion.Body.Id);
         Emit("nova", minion.Body.Position,
             [minion.Kind is MinionKind.Bomber or MinionKind.Boss ? Element.Fire :
              minion.Kind == MinionKind.Sentinel ? Element.Shield : Element.Earth], "", radius);
@@ -381,6 +392,7 @@ public sealed partial class GameWorld
     private bool DefenseDeath(Wizard target, int owner)
     {
         if (!IsDefense) return false;
+        _statistics.Death(target, owner);
         if (target.Role == CombatantRole.Player)
         {
             target.Deaths = Math.Min(DefenseRules.PlayerLives, target.Deaths + 1);
@@ -416,6 +428,7 @@ public sealed partial class GameWorld
             while (progress.Level < 100 && progress.Experience >= DefenseRules.ExperienceForLevel(progress.Level))
             {
                 progress.Experience -= DefenseRules.ExperienceForLevel(progress.Level); progress.Level++; levelled = true;
+                StatisticsEconomy(defender.Id, StatisticMeasure.Levels, 1);
             }
             if (progress.Level == 100) progress.Experience = Math.Min(progress.Experience, DefenseRules.ExperienceForLevel(100) - 1);
             if (levelled) RecalculateDefender(defender);
@@ -432,6 +445,7 @@ public sealed partial class GameWorld
         foreach (int id in _minions.Where(m => !m.Value.Body.Alive).Select(m => m.Key).ToArray())
         {
             var body = _minions[id].Body;
+            _statistics.Retire(id);
             _minions.Remove(id); _combatants.Remove(id); _orderedPlayers.Remove(body); _routes.Remove(id);
         }
     }

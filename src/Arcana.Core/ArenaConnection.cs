@@ -28,6 +28,9 @@ public sealed class ArenaConnection : IAsyncDisposable
     public long BytesSent => Interlocked.Read(ref _bytesSent);
     public long BytesReceived => Interlocked.Read(ref _bytesReceived);
     private WorldSnapshot? _latest;
+    private MatchStatisticsReport? _latestStatistics;
+    public MatchStatisticsReport? LatestStatistics => Volatile.Read(ref _latestStatistics);
+    public bool RequestMatchStatistics() => Send(new ClientMessage { Type = "statistics" });
     private SnapshotReceiver? _snapshotReceiver;
     public string ResumeToken { get; private set; } = "";
     private Task? _reader, _writer, _disposal, _connecting;
@@ -209,6 +212,8 @@ public sealed class ArenaConnection : IAsyncDisposable
                 { _snapshotReceiver!.Accept(message); Send(new() { Type = "baseline_ack", BaselineId = message.BaselineId }); }
                 else if (message.Type == "snapshot" && message.Snapshot != null)
                 { ApplyReadiness(message); Volatile.Write(ref _latest, message.Snapshot); }
+                else if (message.Type == "statistics" && message.Statistics != null)
+                { message.Statistics.Validate(); Volatile.Write(ref _latestStatistics, message.Statistics); }
                 else if (message.Type == "account" && message.AccountNotice != null) AccountChanged?.Invoke(message.AccountNotice);
                 else if (message.Type == "equipment")
                 {
