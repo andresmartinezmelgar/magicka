@@ -8,7 +8,7 @@ public enum DefensePassive { Meteor, Berserker, FrostNova, ChainLightning }
 internal enum CombatantRole { Player, Minion }
 
 /// <summary>Reglas de la versión experimental. No alteran el catálogo ni el equilibrio PvP.</summary>
-public static class DefenseRules
+public static partial class DefenseRules
 {
     public const int MaxDefenders = 4, MaxMinions = 192, MaxDrops = 96, InventoryLimit = 24;
     public const int PlayerLives = 2;

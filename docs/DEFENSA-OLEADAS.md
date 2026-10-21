@@ -1,6 +1,6 @@
 # Supervivencia en Anillos
 
-Versión estable **0.27.1**, protocolo **28**, integrada en `main`. Se publican APK directas, paquetes Windows y deltas de hasta tres versiones estables anteriores. Las dos cuentas autorizadas conservan el [canal de pruebas](CANALES-ACTUALIZACION.md); el resto recibe el canal estable. La horda ampliada requiere actualizar también el servidor incluido en el paquete Windows a una versión compatible.
+Versión estable **0.27.2**, protocolo **28**, integrada en `main`. Se publican APK directas, paquetes Windows y deltas de hasta tres versiones estables anteriores. Las dos cuentas autorizadas conservan el [canal de pruebas](CANALES-ACTUALIZACION.md); el resto recibe el canal estable. La horda ampliada requiere actualizar también el servidor incluido en el paquete Windows a una versión compatible.
 
 ## Partida y vidas
 
@@ -11,6 +11,12 @@ El modo Defensa ahora es **Supervivencia**, con enemigos continuos. Se han retir
 - Cada jugador tiene **dos vidas**. La primera muerte permite reaparecer a los **4,5 segundos**, en el lugar de la caída; la segunda lo elimina. Las curaciones, la reanimación y reconectar con la misma cuenta no restituyen vidas agotadas.
 - En cooperativo termina cuando todos los humanos han agotado sus vidas. Los bots vivos no prolongan la partida. Si el último humano con vidas sale y quedan humanos eliminados, también termina.
 - El resultado permanece hasta volver al menú o iniciar otra partida. En red reinicia el anfitrión.
+
+## Bestiario del perfil
+
+Cada monstruo muestra su imagen, descripción, bajas de la cuenta y una tabla con vida máxima, daño, velocidad, distancia para atacar y pausa entre ataques. Las fichas incluyen también sus áreas, preparación, curaciones, escudos y refuerzos cuando corresponden. Los magos desglosan sus hechizos: daño por segundo para los canales, por impacto para las rocas y por fragmento para las esquirlas.
+
+Los selectores de dificultad y defensores permiten consultar las cifras del combate para distintos grupos, incluidos los bots. La dificultad aumenta cada 90 segundos. Las cifras de daño se calculan contra un mago equilibrado, seco y sin defensas ni potenciadores temporales. La preparación y canalización se añaden a la pausa indicada entre ataques. Consultar otra dificultad no modifica las bajas ni guarda datos en Firestore.
 
 ## Guardar y continuar en local
 

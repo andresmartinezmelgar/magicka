@@ -129,10 +129,10 @@ jobs:
             grep -q 'SURVIVAL_SAVE_SMOKE_OK' "$RUNNER_TEMP/survival-save-$viewport.log"
             ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/survival-save-$viewport.log"
           done
-          "$ARCANA_GODOT" --headless --audio-driver Dummy --path src/Arcana.Client -- --force-mobile --bestiary-smoke --smoke-viewport=720x540 2>&1 | tee "$RUNNER_TEMP/bestiary-mobile.log"
+          "$ARCANA_GODOT" --headless --audio-driver Dummy --path src/Arcana.Client -- --mobile --bestiary-smoke --smoke-viewport=720x540 2>&1 | tee "$RUNNER_TEMP/bestiary-mobile.log"
           grep -q 'BESTIARY_RELICS_SMOKE_OK' "$RUNNER_TEMP/bestiary-mobile.log"
           ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/bestiary-mobile.log"
-          "$ARCANA_GODOT" --headless --audio-driver Dummy --path src/Arcana.Client -- --force-mobile --survival-save-smoke --smoke-viewport=720x540 2>&1 | tee "$RUNNER_TEMP/survival-save-mobile.log"
+          "$ARCANA_GODOT" --headless --audio-driver Dummy --path src/Arcana.Client -- --mobile --survival-save-smoke --smoke-viewport=720x540 2>&1 | tee "$RUNNER_TEMP/survival-save-mobile.log"
           grep -q 'SURVIVAL_SAVE_SMOKE_OK' "$RUNNER_TEMP/survival-save-mobile.log"
           ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/survival-save-mobile.log"
       - name: Renderizar capturas de móvil y escritorio y validar los límites

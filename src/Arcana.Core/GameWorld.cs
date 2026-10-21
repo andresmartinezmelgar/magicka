@@ -285,7 +285,7 @@ public sealed partial class GameWorld
             move = move.Normalized;
         }
         else if (p.Bot || move.LengthSquared > 1) move = move.Normalized;
-        float speed = 6.2f * RelicBuffs.Speed(p) * p.Equipment.Speed * DefenseSpeed(p) * (p.Haste > 0 ? 1.65f : 1) * (1 - p.Chill * 0.005f);
+        float speed = Wizard.BaseMovementSpeed * RelicBuffs.Speed(p) * p.Equipment.Speed * DefenseSpeed(p) * (p.Haste > 0 ? 1.65f : 1) * (1 - p.Chill * 0.005f);
         if (p.Channel != null) speed *= 0.48f;
         if (p.Charging != null) speed *= 0.35f;
         if (p.Ward.Contains(Element.Earth)) speed *= 0.78f;

@@ -13,6 +13,7 @@ public sealed class Wizard
     public V2 Position { get; set; }
     public V2 Facing { get; set; } = new(1, 0);
     public const float BaseMaxHealth = 1000;
+    public const float BaseMovementSpeed = 6.2f;
     public float Health { get; set; } = BaseMaxHealth;
     public float MaxHealth { get; set; } = BaseMaxHealth;
     public int[] BuffStacks { get; } = new int[RelicBuffs.Count];

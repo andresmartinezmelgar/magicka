@@ -12,7 +12,7 @@ public sealed partial class GameWorld
         if (!boss && _commanderSurgeCooldown > 0) return;
         _commanderSurgeTime = DefenseRules.CommanderSurgeSeconds;
         _commanderSurgeCooldown = DefenseRules.CommanderSurgeCooldown;
-        _commanderReinforcements = boss ? 112 : 84;
+        _commanderReinforcements = boss ? DefenseRules.CommanderSurgeBonus : DefenseRules.CaptainReinforcements;
         _commanderSpawnClock = 0;
         Emit("environment", _players.Values.FirstOrDefault(p => !p.Bot)?.Position ?? V2.Zero, [],
             boss ? "El coloso reúne una horda masiva" : "¡El comandante llama refuerzos!");
@@ -52,30 +52,13 @@ public sealed partial class GameWorld
     {
         var body = minion.Body;
         int turn = minion.SpellTurn++;
-        Element[] recipe = minion.Kind switch
-        {
-            MinionKind.Warlock => turn % 3 == 0
-                ? [Element.Earth, Element.Arcane, Element.Arcane]
-                : [Element.Earth, Element.Fire, Element.Fire],
-            MinionKind.Cryomancer => turn % 3 == 0 && distance < 5.8f
-                ? [Element.Cold, Element.Cold, Element.Cold]
-                : turn % 3 == 1
-                    ? [Element.Water, Element.Cold, Element.Cold]
-                    : [Element.Earth, Element.Cold, Element.Cold],
-            _ => (turn % 4) switch
-            {
-                0 => [Element.Arcane, Element.Fire],
-                1 when body.Wet <= 0 => [Element.Lightning, Element.Fire, Element.Fire],
-                2 when distance < 5.8f => [Element.Fire, Element.Fire, Element.Fire],
-                _ => [Element.Arcane, Element.Arcane, Element.Arcane]
-            }
-        };
+        Element[] recipe = DefenseRules.EnemySpell(minion.Kind, turn, distance, body.Wet > 0);
         var spell = new SpellRecipe(recipe);
         if (spell.Shape == SpellShape.Rock)
         {
             // Enemy rocks use the existing projectile splash and persistent
             // burning/frozen ground, not a fake visual explosion.
-            if (SpawnProjectile(body, spell, body.Facing, 0.7f,
+            if (SpawnProjectile(body, spell, body.Facing, DefenseRules.EnemyRockPower,
                     minion.Kind == MinionKind.Cryomancer ? 12 : 13, 0.32f))
                 Emit("cast", body.Position, spell.Elements, "");
         }
@@ -84,7 +67,7 @@ public sealed partial class GameWorld
             body.Selection.Clear();
             foreach (var element in recipe) body.Selection.Add(element);
             BeginCast(body);
-            minion.ChannelTime = spell.Shape is SpellShape.Spray ? 0.72f : 0.55f;
+            minion.ChannelTime = DefenseRules.EnemyChannelSeconds(spell);
         }
     }
 
@@ -98,11 +81,11 @@ public sealed partial class GameWorld
         var body = minion.Body;
         if (body.Shield > 0 || minion.ShieldCooldown > 0 || body.Frozen > 0) return;
         body.Ward = [Element.Earth];
-        body.WardTime = 7;
-        body.ShieldTime = 7;
+        body.WardTime = DefenseRules.SentinelShieldDuration;
+        body.ShieldTime = DefenseRules.SentinelShieldDuration;
         body.ShieldCharges = 2;
-        body.Shield = body.ShieldMax = 280 * minion.Strength;
-        minion.ShieldCooldown = 16;
+        body.Shield = body.ShieldMax = DefenseRules.SentinelShield * minion.Strength;
+        minion.ShieldCooldown = DefenseRules.SentinelShieldCooldown;
         Emit("self", body.Position, [Element.Shield, Element.Earth], "");
     }
 }

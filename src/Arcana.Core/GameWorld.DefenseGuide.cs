@@ -20,7 +20,7 @@ public sealed partial class GameWorld
         }
         _defenseBestiary.TryGetValue(kind, out var previous);
         _defenseBestiary[kind] = new(kind, _defenseDifficulty, enemy.Body.MaxHealth, attack, maximum,
-            DefenseRules.AttackDelay(_defenseDifficulty), 6.2f * enemy.Body.Equipment.Speed, DefenseRules.MinionRange(kind),
+            DefenseRules.AttackDelay(_defenseDifficulty), Wizard.BaseMovementSpeed * enemy.Body.Equipment.Speed, DefenseRules.MinionRange(kind),
             (previous?.Spawned ?? 0) + 1, previous?.Killed ?? 0);
     }
 }

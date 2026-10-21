@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.27.2 — Estadísticas de los monstruos en el bestiario
+
+- Las trece fichas incluyen tablas con vida máxima, daño, velocidad, distancia para atacar y pausa entre ataques. Los enemigos especiales muestran también radio y preparación de sus áreas, curación, escudo, refuerzos y debilidad elemental.
+- El bestiario permite elegir dificultad y número de defensores, incluidos los bots, para consultar el escalado real. Las cifras se actualizan sin reconstruir los retratos ni modificar los contadores de bajas.
+- Los magos desglosan sus hechizos con daño por segundo, por impacto o por fragmento. Se muestran la carga de los haces, la duración de los canales y las quemaduras adicionales. Las recetas y los parámetros se comparten con la IA, conservando el equilibrio actual.
+- Se comprueba que las cifras coinciden con impactos, curaciones, escudos y atributos de enemigos reales, además de validar las tablas y selectores en escritorio y móvil.
+
 ## 0.27.1 — Continuar supervivencia y retratos del bestiario
 
 - El menú de supervivencia local permite guardar la partida o guardar y salir. El launcher ofrece continuarla después de cerrar el juego, con el mismo mago, aliados IA, vidas, salud, equipo, afijos, mejoras, reliquias, enemigos, botín y relojes de dificultad y jefes.

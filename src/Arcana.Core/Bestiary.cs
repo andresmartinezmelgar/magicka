@@ -2,7 +2,7 @@ namespace Arcana.Core;
 
 public sealed record BestiaryProgress(string RunId, string Uid, double ActiveSeconds, Dictionary<string, long> Kills);
 public sealed record BestiaryTotals(Dictionary<string, long> Kills);
-public static class BestiaryCatalogue
+public static partial class BestiaryCatalogue
 {
     public static string Key(MinionKind kind) => kind.ToString().ToLowerInvariant();
     public static bool Valid(BestiaryProgress? progress) => progress != null &&

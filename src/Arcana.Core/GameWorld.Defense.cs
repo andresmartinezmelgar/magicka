@@ -170,13 +170,10 @@ public sealed partial class GameWorld
         float strength = DefenseRules.EnemyStrength(_defenseDifficulty);
         float health = DefenseRules.MinionHealth(kind, _defenseDifficulty, _defensePartySize);
         var body = new Wizard { Id = _nextMinion++, Name = DefenseRules.MinionName(kind), Team = 1, Bot = true,
-            Role = CombatantRole.Minion, WizardType = kind is MinionKind.Mage or MinionKind.Warlock ? WizardType.Pyromancer :
-                kind == MinionKind.Cryomancer ? WizardType.Cryomancer :
-                kind == MinionKind.Shaman ? WizardType.Geomancer : WizardType.Balanced,
+            Role = CombatantRole.Minion, WizardType = DefenseRules.EnemyWizardType(kind),
             Position = at, Health = health, MaxHealth = health, Invulnerable = 0,
             Equipment = EquipmentModifiers.None with { Speed = DefenseRules.MinionSpeed(kind, _defenseDifficulty),
-                Power = strength * (kind is MinionKind.Mage or MinionKind.Warlock or MinionKind.Cryomancer
-                    ? DefenseRules.MagePower * (kind == MinionKind.Warlock ? 1.20f : 1f) : 1) } };
+                Power = strength * DefenseRules.EnemySpellPower(kind) } };
         var minion = new DefenseMinion(body, kind, strength) { SpeedClock = 7 + (float)_random.NextDouble() * 12 };
         _minions.Add(body.Id, minion);
         _combatants.Add(body.Id, body); _orderedPlayers.Add(body);
@@ -247,9 +244,7 @@ public sealed partial class GameWorld
             minion.SpeedClock = 8 + (float)_random.NextDouble() * 14;
             if (minion.Kind != MinionKind.Boss && _random.Next(100) < 35) minion.SpeedBoost = 2 + (float)_random.NextDouble() * 2;
         }
-        float power = minion.Strength *
-            (minion.Kind is MinionKind.Mage or MinionKind.Warlock or MinionKind.Cryomancer
-                ? DefenseRules.MagePower * (minion.Kind == MinionKind.Warlock ? 1.2f : 1f) : 1)
+        float power = minion.Strength * DefenseRules.EnemySpellPower(minion.Kind)
             * (Empowered(minion) ? 1.35f : 1);
         float speed = DefenseRules.MinionSpeed(minion.Kind, _defenseDifficulty) * (minion.SpeedBoost > 0 ? DefenseRules.SpeedBoostMultiplier : 1);
         if (p.Equipment.Power != power || p.Equipment.Speed != speed)

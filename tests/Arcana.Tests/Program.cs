@@ -156,6 +156,7 @@ LoadingTests.Run(Test);
 ElementInteractionTests.Run(Test);
 EquipmentTests.Run(Test);
 BestiaryAndAffixTests.Run(Test);
+BestiaryStatsTests.Run(Test);
 SurvivalSaveTests.Run(Test);
 AccountLoadoutTests.Run(Test);
 UsabilityTests.Run(Test);

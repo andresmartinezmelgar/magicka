@@ -40,9 +40,25 @@ public partial class Main
                     _bestiaryPanel.FindChild("BestiaryPortrait_" + k, true, false) is BestiaryPortrait portrait &&
                     portrait.FindChild("PortraitModel", true, false) is Node3D && portrait.Size.X >= 88 && portrait.Size.Y >= 100),
                     "Falta la imagen de un enemigo o su tamaño no es legible.");
+                Check(Enum.GetValues<MinionKind>().All(k => _bestiaryPanel.FindChild("BestiaryStats_" + k, true, false) is GridContainer
+                    { Columns: 2 } table && table.GetChildCount() >= 10), "Faltan estadísticas o bordes tabulares en una ficha.");
+                var melee = (GridContainer)_bestiaryPanel.FindChild("BestiaryStats_Melee", true, false);
+                Check(((Label)melee.GetChild(1)).Text == "340", "La vida inicial del minion es incorrecta.");
+                ulong portraitId = _bestiaryPanel.FindChild("BestiaryPortrait_Melee", true, false)!.GetInstanceId();
+                var difficulty = (SpinBox)_bestiaryPanel.FindChild("BestiaryDifficulty", true, false);
+                var defenders = (OptionButton)_bestiaryPanel.FindChild("BestiaryDefenders", true, false);
+                defenders.Select(3); defenders.EmitSignal(OptionButton.SignalName.ItemSelected, 3L); difficulty.Value = 5;
+                Check(((Label)melee.GetChild(1)).Text == DefenseRules.MinionHealth(MinionKind.Melee, 5, 4).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture),
+                    "Las estadísticas no se actualizan al cambiar dificultad y grupo.");
+                Check(_bestiaryPanel.FindChild("BestiaryPortrait_Melee", true, false)!.GetInstanceId() == portraitId &&
+                    labels.Any(l => l.Text.Contains("Corredor · Bajas: 7")), "Consultar otras cifras reconstruye retratos o altera las bajas.");
+                difficulty.Value = 1; defenders.Select(0); defenders.EmitSignal(OptionButton.SignalName.ItemSelected, 0L);
                 var scroll = (Control)_bestiaryPanel.FindChild("BestiaryScroll", true, false);
                 Check(GetViewport().GetVisibleRect().Encloses(scroll.GetGlobalRect()) && scroll.Size.X > 240,
                     "El bestiario desborda la pantalla o comprime el texto.");
+                Check(_bestiaryPanel.FindChildren("BestiaryStats_*", "GridContainer", true, false).OfType<Control>().All(table =>
+                    table.GetGlobalRect().Position.X >= scroll.GetGlobalRect().Position.X && table.GetGlobalRect().End.X <= scroll.GetGlobalRect().End.X + 1),
+                    "Las tablas desbordan horizontalmente el área de lectura.");
                 if (_bestiaryCaptures != null)
                 {
                     System.IO.Directory.CreateDirectory(_bestiaryCaptures);
@@ -53,9 +69,17 @@ public partial class Main
                         var viewport = (SubViewport)portrait.FindChild("PortraitViewport", true, false);
                         viewport.GetTexture().GetImage().SavePng(System.IO.Path.Combine(_bestiaryCaptures, kind + ".png"));
                     }
+                    ((ScrollContainer)scroll).ScrollVertical = (int)((Control)_bestiaryPanel.FindChild("Bestiary_Melee", true, false)).Position.Y;
+                    _bestiarySmokePhase = 3; _bestiarySmokeFrames = 0; return false;
                 }
                 CloseBestiary();
                 StartPractice("Defensor", 0, GameMode.Defense, 0, map: ArenaMapId.Bastion);
+                _bestiarySmokePhase = 1; return false;
+            }
+            if (_bestiarySmokePhase == 3)
+            {
+                GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(_bestiaryCaptures!, "bestiary-stats.png"));
+                CloseBestiary(); StartPractice("Defensor", 0, GameMode.Defense, 0, map: ArenaMapId.Bastion);
                 _bestiarySmokePhase = 1; return false;
             }
             if (_bestiarySmokePhase == 1)
@@ -74,7 +98,7 @@ public partial class Main
             Check(_relicWindow.Visible && texts.Any(l => l.Text.Contains("Energía ×2") && l.Text.Contains("energía por segundo")),
                 "La ventana no muestra las reliquias y sus efectos.");
             CloseRelics(); ReturnToLauncher();
-            GD.Print("BESTIARY_RELICS_SMOKE_OK: trece enemigos, contadores, texto adaptable y reliquias fuera del lateral.");
+            GD.Print("BESTIARY_RELICS_SMOKE_OK: trece enemigos, retratos, estadísticas escalables, contadores, texto adaptable y reliquias fuera del lateral.");
             GetTree().Quit(0); _bestiarySmoke = false;
         }
         catch (Exception error)
