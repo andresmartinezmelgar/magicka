@@ -45,7 +45,7 @@ public partial class Main
         _accountProfilePanel = new AccountProfilePanel();
         _ui.AddChild(_accountProfilePanel);
         _accountProfilePanel.Build(this);
-        _ = RefreshStatisticsAccess();
+        RefreshStatisticsAccess();
     }
     private void CloseAccountProfile()
     {

@@ -102,7 +102,7 @@ public partial class WizardVisual
         _spawnProtection.Visible = invulnerable;
         if (invulnerable) _spawnProtection.Scale = Vector3.One * (1 + Mathf.Sin(time * 12) * 0.035f);
         // Silueta ornamental legible sobre el terreno, también cuando la guarda es de tierra.
-        _styleBRuneRing.Visible = player.Alive && player.Shield > 0 && !invulnerable;
+        _styleBRuneRing.Visible = !_compactEnemy && player.Alive && player.Shield > 0 && !invulnerable;
         if (_styleBRuneRing.Visible)
         {
             var wardColor = player.Ward.Length > 0 ? Ui.SpellColor(player.Ward) : Ui.Shield;

@@ -8,6 +8,7 @@ public static class Ui
     public static bool IsMobile { get; } = OS.HasFeature("mobile") || OS.GetCmdlineUserArgs().Any(a => a is "--mobile" or "--mobile-smoke" or "--mobile-fixture" or "--account-entry-smoke" or "--mobile-menu-smoke");
     public static readonly Color Gold = new("f1cd83"), Text = new("f4f7ff"), Muted = new("b0bfd4"), Blue = new("37b9ff"), Red = new("ff526c");
     public static readonly Color Health = new(IsMobile ? "30ed69" : "2ce273"), Shield = new(IsMobile ? "ffda00" : "ffcf00"), Energy = new(IsMobile ? "b16aff" : "aa65ff");
+    public static readonly Color EnemyShield = new("71bff3");
     public static OptionButton TeamChoice(int team = -1)
     {
         // -1 es el ID automático del propio OptionButton, no un ID de equipo.

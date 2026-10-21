@@ -8,13 +8,14 @@ public partial class Main
     private MatchStatisticsArchive? _statisticsArchive;
     private MatchStatisticsTransport? _statisticsTransport;
     private MatchStatisticsPanel? _statisticsPanel;
-    private string _statisticsReaderUid = "", _statisticsSavedRun = "";
+    private string _statisticsProfileUid = "", _statisticsSavedRun = "";
     private long _statisticsSavedRevision = -1;
     private MatchRecordStatus _statisticsSavedStatus;
-    private double _statisticsClock = 15, _statisticsSendClock = 30, _statisticsAccessClock = 60;
-    private bool _statisticsSending, _statisticsCheckingAccess, _statisticsEnded;
+    private double _statisticsClock = 15, _statisticsSendClock = 30;
+    private bool _statisticsSending, _statisticsEnded;
     private ArenaConnection? _statisticsConnection;
-    public bool CanViewMatchStatistics => Accounts.IsDirectFirebaseSession && _statisticsReaderUid.Length > 0 && Accounts.Profile?.Uid == _statisticsReaderUid;
+    public bool CanViewMatchStatistics => Accounts.Profile?.Uid is
+        "hg7F74kCNVQU3tU2itdjWu9SkyS2" or "qRUza2DieeTypFqBIRA5KhbtXoY2";
     private void InitializeMatchStatistics(string[] arguments)
     {
         if (ClientVerification.Requested(arguments) || RenderProfiler.Requested(arguments) || arguments.Any(a => a.Contains("smoke", StringComparison.Ordinal) || a.Contains("preview", StringComparison.Ordinal) || a.Contains("profiler", StringComparison.Ordinal) || a == "--visual-review")) return;
@@ -53,11 +54,9 @@ public partial class Main
     }
     private void TickMatchStatistics(double delta)
     {
+        if (_statisticsProfileUid != (Accounts.Profile?.Uid ?? "")) RefreshStatisticsAccess();
         if (_statisticsArchive == null) return;
-        if (_statisticsReaderUid.Length > 0 && !CanViewMatchStatistics) { _statisticsReaderUid = ""; CloseMatchStatistics(); _accountProfilePanel?.RefreshStatisticsAccess(); }
-        _statisticsClock += delta; _statisticsSendClock += delta; _statisticsAccessClock += delta;
-        if (_statisticsAccessClock >= 60 && !_statisticsCheckingAccess && Accounts.IsDirectFirebaseSession)
-        { _statisticsAccessClock = 0; _ = RefreshStatisticsAccess(); }
+        _statisticsClock += delta; _statisticsSendClock += delta;
         if (_connection != _statisticsConnection) { _statisticsConnection = _connection; _statisticsClock = 15; _statisticsEnded = false; }
         bool ended = _practice?.MatchEnded == true || _connection?.Latest?.MatchEnded == true;
         bool final = ended && !_statisticsEnded; _statisticsEnded = ended;
@@ -78,26 +77,20 @@ public partial class Main
         catch (Exception e) when (e is System.IO.IOException or HttpRequestException or OperationCanceledException or InvalidOperationException or System.Text.Json.JsonException) { }
         finally { _statisticsSending = false; }
     }
-    private async Task RefreshStatisticsAccess()
+    private void RefreshStatisticsAccess()
     {
-        if (_statisticsCheckingAccess) return;
-        _statisticsCheckingAccess = true;
         string uid = Accounts.Profile?.Uid ?? "";
-        bool allowed = false;
-        try { allowed = await Accounts.CanReadMatchStatistics(_lifetime.Token); }
-        catch (Exception e) when (e is System.IO.IOException or HttpRequestException or UnauthorizedAccessException or InvalidOperationException or OperationCanceledException or System.Text.Json.JsonException) { }
-        finally { _statisticsCheckingAccess = false; }
-        Post(() =>
-        {
-            _statisticsReaderUid = allowed && Accounts.Profile?.Uid == uid ? uid : "";
-            if (!CanViewMatchStatistics) CloseMatchStatistics();
-            if (GodotObject.IsInstanceValid(_accountProfilePanel)) _accountProfilePanel!.RefreshStatisticsAccess();
-        });
+        if (_statisticsProfileUid != uid || !CanViewMatchStatistics) CloseMatchStatistics();
+        _statisticsProfileUid = uid;
+        if (GodotObject.IsInstanceValid(_accountProfilePanel)) _accountProfilePanel!.RefreshStatisticsAccess();
     }
+    internal Task<MatchStatisticsReport[]> ReadLocalMatchStatistics(CancellationToken token) =>
+        _statisticsArchive is { } archive ? Task.Run(() => archive.LocalReports(1000), token) : Task.FromResult(Array.Empty<MatchStatisticsReport>());
     public void OpenMatchStatistics()
     {
         if (_playing || !CanViewMatchStatistics || GodotObject.IsInstanceValid(_statisticsPanel)) return;
-        _statisticsPanel = new(); _ui.AddChild(_statisticsPanel); _statisticsPanel.Build(this);
+        _statisticsProfileUid = Accounts.Profile!.Uid;
+        _statisticsPanel = new(); _ui.AddChild(_statisticsPanel); _statisticsPanel.Build(this, verification: _statisticsSmoke);
     }
     private void CloseMatchStatistics() { _statisticsPanel?.QueueFree(); _statisticsPanel = null; }
 }

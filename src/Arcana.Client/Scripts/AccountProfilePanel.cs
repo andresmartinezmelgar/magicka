@@ -20,7 +20,7 @@ public partial class AccountProfilePanel : Control
     private PanelContainer? _responsiveCard;
     private int _responsivePadding;
 
-    internal Button[] VisibleFooterButtons => new[] { _login, _logout, _checkUpdate, _touchControls, _bestiary, _statistics }
+    internal Button[] VisibleFooterButtons => new[] { _login, _logout, _statistics, _checkUpdate, _touchControls, _bestiary }
         .Where(b => GodotObject.IsInstanceValid(b) && b.IsVisibleInTree()).ToArray();
 
     public void Build(Main main)
@@ -77,13 +77,14 @@ public partial class AccountProfilePanel : Control
         _bestiary.Name = "ProfileBestiary";
         _statistics = Ui.Button("Estadísticas de partidas", main.OpenMatchStatistics);
         _statistics.Name = "ProfileMatchStatistics";
+        _statistics.TooltipText = "Gráficas de las partidas guardadas en este dispositivo.";
         _touchControls = Ui.Button("Configurar joystick y botones", main.OpenTouchSettings);
         _touchControls.Name = "ProfileTouchControls";
         _touchControls.TooltipText = "Tamaño, posiciones, zona muerta, sensibilidad y modo zurdo. Se guardan en este dispositivo.";
         _profileActions = new GridContainer { Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _profileActions.AddThemeConstantOverride("h_separation", 10); _profileActions.AddThemeConstantOverride("v_separation", 8);
         content.AddChild(_profileActions);
-        foreach (var button in new[] { _login, _logout, _checkUpdate, _touchControls, _bestiary, _statistics })
+        foreach (var button in new[] { _login, _logout, _statistics, _checkUpdate, _touchControls, _bestiary })
         {
             button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             button.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -110,7 +111,7 @@ public partial class AccountProfilePanel : Control
             Math.Max(220, Math.Min(Ui.IsMobile ? 1050 : 860, width - 2 * _responsivePadding - 36)), 0);
         _profileActions.Columns = width < 560 ? 1 : 2;
         float height = GetViewport().GetVisibleRect().Size.Y < 640 ? 60 : 76;
-        foreach (var button in new[] { _login, _logout, _checkUpdate, _touchControls, _bestiary, _statistics }) button.CustomMinimumSize = new(0, height);
+        foreach (var button in new[] { _login, _logout, _statistics, _checkUpdate, _touchControls, _bestiary }) button.CustomMinimumSize = new(0, height);
     }
 
     /// <summary>Selecciona el JSON OAuth sin copiarlo ni renombrarlo manualmente.</summary>

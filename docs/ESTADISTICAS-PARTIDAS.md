@@ -1,4 +1,4 @@
-# Estadísticas de balance — 0.29.1
+# Estadísticas de balance — 0.29.2
 
 Duelo, Arena, Guerra y Supervivencia generan un informe acumulado por ronda, tanto en local con IA como en red. El laboratorio también usa el motor instrumentado; se distingue por su mapa. Cada reinicio empieza otro identificador. El servidor recoge las partidas en red y envía el informe a los clientes; todos utilizan el mismo identificador aleatorio y las revisiones se sustituyen, no se suman.
 
@@ -43,11 +43,13 @@ Esto describe el contenido de los informes. Los proveedores de red y alojamiento
 
 ## Visor y autorización
 
-En Perfil aparece **Estadísticas de partidas** únicamente después de comprobar el permiso de la cuenta Google actual. El visor ofrece resumen, elementos, monstruos, hechizos/combinaciones, progresión y clases/equipos, con filtros de modo, versión, periodo y partidas interrumpidas. Carga páginas de 10 hasta 1000 informes y muestra explícitamente cuántos ha cargado; sus filtros y cifras se refieren a esa muestra cargada, no a un agregado completo de toda la base.
+Desde 0.29.2, en Perfil aparece **Estadísticas de partidas** para cualquiera de los dos UID indicados por el propietario y definidos en `Main.Statistics.cs`. También funciona con ese perfil guardado sin conexión. La comprobación es local e inmediata. Al cambiar de cuenta o cerrar sesión se cierra el visor.
+
+El visor lee hasta 1000 informes JSON de `user://match-statistics/matches` fuera del hilo de interfaz y permite volver a leerlos con **Actualizar archivos locales**. Ofrece resumen, elementos, monstruos, hechizos/combinaciones, progresión y clases/equipos, con filtros de modo, versión, periodo y partidas interrumpidas. Sus cifras corresponden únicamente a los archivos de ese dispositivo. Si no hay informes, muestra el estado vacío. Mostrar el botón y abrir las gráficas no consulta roles ni informes de Firestore.
 
 Desde 0.29.1, las seis vistas incluyen gráficas nativas adaptadas a escritorio y móvil, además de las tablas numéricas. El resumen compara daño de humanos, bots, monstruos y entorno. Elementos y Hechizos aplican el filtro de origen; las demás vistas comparan todos los orígenes. Las barras separan vida y escudos sobre una escala común que parte de cero. La amenaza de cada especie divide daño causado entre apariciones; no es DPS. La curva de dificultad divide vida inicial total entre apariciones de cada etapa y combina las especies presentes; no representa el escalado aislado de una especie. Clases compara daño y porcentaje de tiempo vivo congelado. Las gráficas usan únicamente los informes cargados y filtrados, sin nuevas solicitudes ni identidades.
 
-Las reglas incluyen pruebas de emulador: únicamente una cuenta Google con `statisticsReaders/<uid>.enabled == true` puede consultar la colección. Nadie puede escribir informes ni concederse ese permiso desde el cliente. Un usuario puede leer únicamente su propio documento de permiso; no puede enumerar las cuentas autorizadas. Los perfiles e inventarios conservan sus permisos anteriores.
+La lectura remota preparada en 0.29.0 queda separada del visor local actual. Esta versión no despliega reglas ni concede permisos en Firebase. Para una futura activación remota, las reglas incluyen pruebas de emulador: únicamente una cuenta Google con `statisticsReaders/<uid>.enabled == true` puede consultar la colección. Nadie puede escribir informes ni concederse ese permiso desde el cliente. Un usuario puede leer únicamente su propio documento de permiso; no puede enumerar las cuentas autorizadas. Los perfiles e inventarios conservan sus permisos anteriores.
 
 Para autorizar exactamente dos cuentas existentes, con credenciales Admin del proyecto:
 
@@ -65,8 +67,8 @@ npx firebase-tools deploy --only firestore:rules,firestore:indexes --project arc
 
 Antes de desplegar, comprobar la edición y configuración de la base existente con `firestore:databases:list` y `firestore:databases:get '(default)'`; esta función no crea otra base. Las consultas usan la API de documentos existente y ordenan por `day`; `payload` no necesita indexación.
 
-Los dos correos/UID reales y una sesión administrativa no estaban disponibles en el entorno de implementación. La activación de permisos y el despliegue real se deben completar con esos datos; el visor falla cerrado hasta entonces.
+El visor local actual no requiere la activación remota anterior. Los informes y las colas de sincronización mantienen su formato; los UID del botón no se incorporan al contenido anónimo de las partidas.
 
 ## Verificación reproducible
 
-`MatchStatisticsTests` comprueba anonimato, daño efectivo y resistencias, escudos, curación, rondas, guardados, reenvíos, interrupciones y corrupción. Las pruebas de red ejercitan la entrega del informe y el relé real. `MatchStatisticsEmulatorTests` prueba transacciones concurrentes y revisiones antiguas. `tests/firebase-rules/verify.cjs` comprueba ambas cuentas, consultas, revocación, denegación anónima, escalación y escrituras rechazadas. `--statistics-smoke` verifica seis vistas con gráficas, filtros numéricos de modo/origen, medias ponderadas, permisos y límites horizontales en escritorio y móvil; CI conserva sus capturas.
+`MatchStatisticsTests` comprueba anonimato, daño efectivo y resistencias, escudos, curación, rondas, guardados, reenvíos, interrupciones y corrupción. Las pruebas de red ejercitan la entrega del informe y el relé real. `MatchStatisticsEmulatorTests` prueba transacciones concurrentes y revisiones antiguas. `tests/firebase-rules/verify.cjs` comprueba ambas cuentas, consultas, revocación, denegación anónima, escalación y escrituras rechazadas. `--statistics-smoke` verifica los dos UID exactos y su botón sin sesión de red, otras cuentas, cierre de sesión, carga desde archivos locales, seis vistas con gráficas, filtros numéricos de modo/origen, medias ponderadas y límites horizontales en escritorio y móvil; CI conserva sus capturas.

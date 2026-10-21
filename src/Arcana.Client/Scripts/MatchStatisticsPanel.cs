@@ -4,7 +4,7 @@ using System.Globalization;
 
 namespace Arcana.Client;
 
-/// <summary>Balance global sobre informes sin identidad; Firestore comprueba el permiso en cada página.</summary>
+/// <summary>Gráficas sobre los informes anónimos guardados en este dispositivo.</summary>
 public partial class MatchStatisticsPanel : Control
 {
     private Main _main = null!;
@@ -16,14 +16,13 @@ public partial class MatchStatisticsPanel : Control
     private GridContainer _filters = null!;
     private OptionButton _mode = null!, _period = null!, _version = null!, _view = null!, _source = null!;
     private CheckBox _unfinished = null!;
-    private string _next = "";
     private bool _loading;
     private int _tableIndex;
     private readonly Dictionary<(StatisticGroup, int, StatisticMeasure), double> _totals = [];
     private static readonly string[] Elements = ["Agua", "Vida", "Escudo", "Frío", "Rayo", "Arcano", "Tierra", "Fuego", "Físico"];
     private static readonly string[] Attacks = ["Haz", "Relámpago", "Cono", "Roca", "Fragmentos", "Empuje", "Barrera", "Cuerpo a cuerpo", "Sobre uno mismo", "Nova", "Mina", "Meteorito", "Prisa", "Teletransporte", "Reanimar", "Aura de fuego", "Aura de rayo", "Aura de regeneración", "Meteorito pasivo", "Pulso glacial", "Cadena de rayos", "Quemadura", "Golpe enemigo", "Área enemiga", "Bombardeo rúnico", "Regeneración"];
     private static string N(double value) => value.ToString(value >= 100 ? "N0" : "N1", CultureInfo.GetCultureInfo("es-ES"));
-    public void Build(Main main, MatchStatisticsReport[]? fixture = null)
+    public void Build(Main main, bool verification = false)
     {
         _main = main; Name = "MatchStatisticsPanel"; Theme = Ui.Theme(); Ui.Full(this);
         var shade = new ColorRect { Color = ArcanaMenuChrome.Backdrop }; AddChild(shade); Ui.Full(shade);
@@ -33,7 +32,7 @@ public partial class MatchStatisticsPanel : Control
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; margin.AddChild(scroll); Ui.VisibleVerticalScroll(scroll);
         var content = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; content.AddThemeConstantOverride("separation", 12); scroll.AddChild(content);
         content.AddChild(Ui.Label("ESTADÍSTICAS DE PARTIDAS", 24, Ui.Gold));
-        var explanation = Ui.Label(fixture == null ? "Balance global · sin nombres ni cuentas en los informes" : "Datos de prueba de QA · sin lectura ni envío a Firebase", 16, Ui.Muted); explanation.AutowrapMode = TextServer.AutowrapMode.WordSmart; content.AddChild(explanation);
+        var explanation = Ui.Label(verification ? "Datos de prueba de QA · archivos locales" : "Archivos de este dispositivo · sin nombres ni cuentas en los informes", 16, Ui.Muted); explanation.AutowrapMode = TextServer.AutowrapMode.WordSmart; content.AddChild(explanation);
         _filters = new GridContainer { Columns = 3, SizeFlagsHorizontal = SizeFlags.ExpandFill }; content.AddChild(_filters);
         _filters.AddThemeConstantOverride("h_separation", 10); _filters.AddThemeConstantOverride("v_separation", 8);
         _mode = Select("Modo", ["Todos los modos", "Duelo", "Arena", "Guerra", "Supervivencia"]);
@@ -44,11 +43,10 @@ public partial class MatchStatisticsPanel : Control
         _unfinished = new CheckBox { Text = "Incluir partidas interrumpidas", ButtonPressed = true }; _unfinished.Toggled += _ => Render(); _filters.AddChild(_unfinished);
         _status = Ui.Label("Cargando informes…", 16, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; content.AddChild(_status);
         _body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; _body.AddThemeConstantOverride("separation", 12); content.AddChild(_body);
-        _more = Ui.Button("Cargar más partidas", () => _ = Fetch()); content.AddChild(_more);
+        _more = Ui.Button("Actualizar archivos locales", () => _ = Fetch()); content.AddChild(_more);
         ArcanaMenuChrome.Attach(this, margin, main, "Estadísticas", 3, main.NavigateOptionAMenu);
         GetViewport().SizeChanged += ResizeFilters; ResizeFilters();
-        if (fixture != null) { foreach (var report in fixture) _reports[report.RunId] = report; Versions(); Render(); _more.Visible = false; }
-        else _ = Fetch();
+        _ = Fetch();
     }
     private OptionButton Select(string title, string[] choices)
     {
@@ -67,23 +65,23 @@ public partial class MatchStatisticsPanel : Control
     }
     private async Task Fetch()
     {
-        if (_loading || _reports.Count >= 1000) return;
+        if (_loading) return;
         _loading = true; _more.Disabled = true;
+        string? uid = _main.Accounts.Profile?.Uid;
         try
         {
-            var page = await _main.Accounts.ReadMatchStatistics(_next, _lifetime.Token);
-            if (_lifetime.IsCancellationRequested || !_main.CanViewMatchStatistics) return;
-            foreach (var report in page.Reports)
+            var reports = await _main.ReadLocalMatchStatistics(_lifetime.Token);
+            if (_lifetime.IsCancellationRequested || !_main.CanViewMatchStatistics || _main.Accounts.Profile?.Uid != uid) return;
+            _reports.Clear();
+            foreach (var report in reports)
                 if (!_reports.TryGetValue(report.RunId, out var previous) || MatchStatisticsReport.IsNewer(report, previous)) _reports[report.RunId] = report;
-            _next = page.NextPageToken; Versions(); Render();
-            _more.Visible = _next.Length > 0 && _reports.Count < 1000;
+            Versions(); Render();
         }
         catch (OperationCanceledException) { }
-        catch (Exception error) when (error is HttpRequestException or System.IO.IOException or UnauthorizedAccessException or InvalidOperationException or System.Text.Json.JsonException)
+        catch (Exception error) when (error is System.IO.IOException or UnauthorizedAccessException or InvalidOperationException or System.Text.Json.JsonException)
         {
             if (_lifetime.IsCancellationRequested) return;
-            if (error is UnauthorizedAccessException) { _reports.Clear(); Render(); }
-            _status.Text = error is UnauthorizedAccessException ? "Esta cuenta no tiene acceso a las estadísticas." : "No se pudieron cargar los informes. Puedes reintentar.";
+            _status.Text = "No se pudieron leer los archivos locales. Puedes reintentar.";
             _more.Visible = true; _more.Text = "Reintentar";
         }
         finally { _loading = false; if (!_lifetime.IsCancellationRequested) _more.Disabled = false; }
@@ -113,8 +111,8 @@ public partial class MatchStatisticsPanel : Control
             (days == 0 || string.CompareOrdinal(p.Day, since) >= 0) && (_unfinished.ButtonPressed || p.Complete)).ToArray();
         foreach (var report in reports) foreach (var m in report.Metrics)
         { var key = (m.Group, m.Key, m.Measure); _totals[key] = _totals.GetValueOrDefault(key) + m.Value; }
-        _status.Text = $"{reports.Length} {(reports.Length == 1 ? "partida" : "partidas")} · {_reports.Count} informes cargados · {reports.Count(p => p.Complete)} finalizados\nLos filtros se aplican a los informes cargados (máximo 1000).";
-        if (reports.Length == 0) { Note("No hay partidas para esta selección."); return; }
+        _status.Text = $"{reports.Length} {(reports.Length == 1 ? "partida" : "partidas")} · {_reports.Count} informes locales · {reports.Count(p => p.Complete)} finalizados\nLos filtros se aplican a los archivos cargados (máximo 1000).";
+        if (reports.Length == 0) { Note("No hay partidas guardadas en este dispositivo para esta selección."); return; }
         if (reports.Any(p => p.DroppedBuckets > 0)) Note("Algunos informes agotaron el límite de detalle; los totales se conservan. Consulta otra selección para comparar el desglose.");
         double seconds = reports.Sum(p => p.Seconds);
         switch (_view.Selected)

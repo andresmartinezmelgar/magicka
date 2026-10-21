@@ -11,7 +11,7 @@ public partial class WizardVisual : Node3D
     private ShaderMaterial _spriteMaterial = null!;
     private MeshInstance3D _shadow = null!;
     private WizardType _wizardType;
-    private bool _local;
+    private bool _local, _compactEnemy;
     private int _team, _facingRow;
     private float _castPose, _hitFlash, _previousHealth, _renderedFlash = -1;
     private readonly WizardMotion _motion = new();
@@ -53,8 +53,9 @@ public partial class WizardVisual : Node3D
         _spriteMaterial?.Dispose();
     }
 
-    public void Build(WizardSnapshot p, bool local)
+    public void Build(WizardSnapshot p, bool local, bool compactEnemy = false)
     {
+        _compactEnemy = compactEnemy;
         _color = p.Team == 0 ? Ui.Blue : Ui.Red;
         _team = p.Team; _wizardType = p.WizardType; _local = local;
         _previousHealth = p.Health;
@@ -81,6 +82,7 @@ public partial class WizardVisual : Node3D
         var shieldMat = ShieldArt.Bubble();
         _shieldMaterial = shieldMat;
         _shield = Mesh(this, new SphereMesh { Radius = 1.05f, Height = 3.1f }, new(0, 1.45f, 0), shieldMat);
+        _shield.Name = "ProtectionBubble";
         BuildProtectionBands();
         _ghost = Mesh(this, new SphereMesh { Radius = 0.4f, Height = 1.5f }, new(0, 0.7f, 0),
             new StandardMaterial3D { AlbedoColor = new Color(_color.R, _color.G, _color.B, 0.14f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha });
@@ -91,11 +93,13 @@ public partial class WizardVisual : Node3D
         Mesh(_healthRoot, new BoxMesh { Size = new(1.42f, 0.13f, 0.025f) }, Vector3.Zero, new StandardMaterial3D { AlbedoColor = new("121c28"), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
         _healthFill = Mesh(_healthRoot, new BoxMesh { Size = new(1.34f, 0.09f, 0.04f) }, new(0, 0, 0.03f),
             new StandardMaterial3D { AlbedoColor = local ? Ui.Health : _color, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
-        _shieldTrack = Mesh(_healthRoot, new BoxMesh { Size = new(1.42f, 0.14f, 0.025f) }, new(0, 0.19f, 0),
-            new StandardMaterial3D { AlbedoColor = new("332b0b"), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
-        _shieldFill = Mesh(_healthRoot, new BoxMesh { Size = new(1.34f, 0.10f, 0.04f) }, new(0, 0.19f, 0.03f),
-            new StandardMaterial3D { AlbedoColor = Ui.Shield, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
-        _shieldAmount = new Label3D { Position = new(0, 0.48f, 0.06f), FontSize = 30, PixelSize = 0.012f,
+        _shieldTrack = Mesh(_healthRoot, new BoxMesh { Size = new(1.42f, compactEnemy ? 0.12f : 0.14f, 0.025f) }, new(0, compactEnemy ? 0.16f : 0.19f, 0),
+            new StandardMaterial3D { AlbedoColor = new(compactEnemy ? "132a3b" : "332b0b"), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
+        _shieldTrack.Name = "ShieldTrack";
+        _shieldFill = Mesh(_healthRoot, new BoxMesh { Size = new(1.34f, compactEnemy ? 0.08f : 0.10f, 0.04f) }, new(0, compactEnemy ? 0.16f : 0.19f, 0.03f),
+            new StandardMaterial3D { AlbedoColor = compactEnemy ? Ui.EnemyShield : Ui.Shield, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
+        _shieldFill.Name = "ShieldFill";
+        _shieldAmount = new Label3D { Name = "ShieldAmount", Position = new(0, 0.48f, 0.06f), FontSize = 30, PixelSize = 0.012f,
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, Modulate = Ui.Shield,
             OutlineModulate = new("060a12"), OutlineSize = 8, NoDepthTest = true };
         _healthRoot.AddChild(_shieldAmount);
@@ -189,8 +193,8 @@ public partial class WizardVisual : Node3D
         _affinityRing.Scale = Vector3.One * (1 + Mathf.Sin(time * 2 + p.Id) * 0.04f);
         bool spawnProtected = p.Alive && p.InvulnerableSeconds > 0;
         bool protectedBody = p.Alive && (p.Shield > 0 || p.Frozen > 0 || spawnProtected);
-        _shield.Visible = protectedBody && (!p.Ward.Contains(Element.Earth) || p.Frozen > 0 || spawnProtected);
-        if (protectedBody)
+        _shield.Visible = protectedBody && (!_compactEnemy || p.Frozen > 0 || spawnProtected) && (!p.Ward.Contains(Element.Earth) || p.Frozen > 0 || spawnProtected);
+        if (protectedBody && (!_compactEnemy || _shield.Visible))
         {
             var c = p.Frozen > 0 ? Ui.ElementColor(Element.Cold) : p.Ward.Length > 0 ? Ui.SpellColor(p.Ward) : Ui.Shield;
             c.A = p.Frozen > 0 ? 0.42f : 0.12f + 0.10f * Math.Clamp(p.Shield / Ui.ShieldMaximum(p), 0, 1);
@@ -217,14 +221,16 @@ public partial class WizardVisual : Node3D
         if (_healthFraction != hp)
         { _healthFill.Scale = new(hp, 1, 1); _healthFill.Position = new(-(1 - hp) * 0.67f, 0, 0.03f); _healthFraction = hp; }
         bool shielded = p.Alive && p.Shield > 0;
-        _shieldTrack.Visible = _shieldFill.Visible = _shieldAmount.Visible = shielded;
+        _shieldTrack.Visible = _shieldFill.Visible = shielded;
+        _shieldAmount.Visible = shielded && !_compactEnemy;
         if (shielded)
         {
-            float fraction = Math.Clamp(p.Shield / Ui.ShieldMaximum(p), 0, 1);
+            float maximum = _compactEnemy && p.ShieldMax <= 0 ? p.Shield : Ui.ShieldMaximum(p);
+            float fraction = Math.Clamp(p.Shield / maximum, 0, 1);
             if (_shieldFraction != fraction)
-            { _shieldFill.Scale = new(fraction, 1, 1); _shieldFill.Position = new(-(1 - fraction) * 0.67f, 0.19f, 0.03f); _shieldFraction = fraction; }
+            { _shieldFill.Scale = new(fraction, 1, 1); _shieldFill.Position = new(-(1 - fraction) * 0.67f, _compactEnemy ? 0.16f : 0.19f, 0.03f); _shieldFraction = fraction; }
             var reading = (Math.Ceiling(p.Shield), Ui.ShieldMaximum(p));
-            if (_shieldReading != reading)
+            if (!_compactEnemy && _shieldReading != reading)
             { _shieldAmount.Text = $"{reading.Item1:0}/{reading.Item2:0}"; _shieldReading = reading; }
         }
     }

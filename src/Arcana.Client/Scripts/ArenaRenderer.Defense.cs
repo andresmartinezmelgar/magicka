@@ -9,8 +9,8 @@ public partial class ArenaRenderer
     {
         public required Node3D Root;
         public MinionKind Kind;
-        public MeshInstance3D? Body, Health, Aura, Warning, Shield, SupportArea;
-        public Node3D? Details;
+        public MeshInstance3D? Body, Health, Aura, Warning, Shield, ShieldTrack, SupportArea;
+        public Node3D? Details, Vitals;
         public MeshInstance3D[] Tinted = [];
         public Label3D? ElementLabel;
         public Element? LabelElement;
@@ -90,7 +90,14 @@ public partial class ArenaRenderer
                 v.Mage.Update(v.Wizard!, dt, (float)_time, Camera, snapshot.Time, InterpolationDelay);
                 v.Mage.Position -= World(m.Position); // La raíz ya está en coordenadas del mundo.
             }
-            if (v.Health != null) v.Health.Scale = new(Math.Max(0.001f, m.Health / m.MaxHealth), 1, 1);
+            else v.Sample = m;
+            if (v.Vitals != null) v.Vitals.Basis = Camera.GlobalBasis;
+            if (v.Health != null)
+            {
+                float health = Math.Clamp(m.Health / Math.Max(1, m.MaxHealth), 0, 1);
+                v.Health.Scale = new(Math.Max(0.001f, health), 1, 1);
+                v.Health.Position = new(-(1 - health) * 0.625f, 0, 0.01f);
+            }
             Color bodyColor = m.VulnerableElement is { } weakness ? Ui.ElementColor(weakness)
                 : m.Frozen > 0 ? new("8bdeff") : m.Burning > 0 ? Ui.ElementColor(Element.Fire) : MinionColor(m.Kind);
             bool fixedColor = m.Kind is MinionKind.Prism or MinionKind.Oracle;
@@ -99,7 +106,17 @@ public partial class ArenaRenderer
             if (v.Details != null) v.Details.Rotation = new(0, MathF.Atan2(m.Facing.X, m.Facing.Y), 0);
             if (v.ElementLabel != null && m.VulnerableElement is { } shown && shown != v.LabelElement)
             { v.ElementLabel.Text = SpellCatalogue.Name([shown]); v.ElementLabel.Modulate = Ui.ElementColor(shown); v.LabelElement = shown; }
-            if (v.Shield != null) v.Shield.Visible = m.Shield > 0;
+            if (v.Shield != null)
+            {
+                bool shielded = m.Shield > 0;
+                v.Shield.Visible = v.ShieldTrack!.Visible = shielded;
+                if (shielded)
+                {
+                    float fraction = Math.Clamp(m.Shield / (m.ShieldMax > 0 ? m.ShieldMax : m.Shield), 0, 1);
+                    v.Shield.Scale = new(fraction, 1, 1);
+                    v.Shield.Position = new(-(1 - fraction) * 0.625f, 0.17f, 0.01f);
+                }
+            }
             v.Aura!.Visible = m.Empowered || m.Kind is MinionKind.Captain or MinionKind.Sentinel or MinionKind.Warlock or MinionKind.Cryomancer or MinionKind.Prism or MinionKind.Oracle || m.SpeedBoostSeconds > 0 || m.Kind == MinionKind.Boss;
             v.Aura.MaterialOverride = Material(m.SpeedBoostSeconds > 0 ? new("65e5ff") :
                 m.Kind is MinionKind.Warlock or MinionKind.Cryomancer or MinionKind.Sentinel
@@ -176,7 +193,7 @@ public partial class ArenaRenderer
         var v = new MinionVisual { Root = root, Kind = m.Kind };
         if (MinionArt.CasterType(m.Kind) != null)
         {
-            v.Mage = new WizardVisual(); root.AddChild(v.Mage); v.Mage.Build(MinionWizard(m), false);
+            v.Mage = new WizardVisual(); root.AddChild(v.Mage); v.Mage.Build(MinionWizard(m), false, compactEnemy: true);
             v.Mage.Position = Vector3.Zero;
         }
         else
@@ -191,12 +208,14 @@ public partial class ArenaRenderer
             v.Body = Mesh(root, shape, new(0, height, 0), MinionColor(m.Kind));
             var details = MinionArt.Decorate(root, m.Kind, m.VulnerableElement, color => Material(color));
             v.Details = details.Root; v.Tinted = details.Tinted;
-            float shieldRadius = m.Kind == MinionKind.Boss ? 1.55f : m.Kind == MinionKind.Sentinel ? 1.15f : 0.8f;
-            v.Shield = Mesh(root, new TorusMesh { InnerRadius = shieldRadius - 0.06f, OuterRadius = shieldRadius, Rings = 16, RingSegments = 4 },
-                new(0, 0.14f, 0), new("8dbdff"), 0.65f);
-            v.Shield.Name = "EnemyShield"; v.Shield.Visible = m.Shield > 0;
-            Mesh(root, new BoxMesh { Size = new(1.3f, 0.1f, 0.12f) }, new(0, healthHeight, 0), new("17232d"));
-            v.Health = Mesh(root, new BoxMesh { Size = new(1.25f, 0.12f, 0.13f) }, new(0, healthHeight, 0.01f), Ui.Red);
+            v.Vitals = new Node3D { Name = "EnemyVitals", Position = new(0, healthHeight, 0) }; root.AddChild(v.Vitals);
+            var healthTrack = Mesh(v.Vitals, new BoxMesh { Size = new(1.3f, 0.1f, 0.025f) }, Vector3.Zero, new("17232d"), unshaded: true);
+            v.Health = Mesh(v.Vitals, new BoxMesh { Size = new(1.25f, 0.08f, 0.04f) }, new(0, 0, 0.01f), Ui.Red, unshaded: true);
+            v.ShieldTrack = Mesh(v.Vitals, new BoxMesh { Size = new(1.3f, 0.12f, 0.025f) }, new(0, 0.17f, 0), new("132a3b"), unshaded: true);
+            v.Shield = Mesh(v.Vitals, new BoxMesh { Size = new(1.25f, 0.08f, 0.04f) }, new(0, 0.17f, 0.01f), Ui.EnemyShield, unshaded: true);
+            v.Shield.Name = "EnemyShield"; v.ShieldTrack.Name = "EnemyShieldTrack";
+            v.Shield.Visible = v.ShieldTrack.Visible = m.Shield > 0;
+            foreach (var bar in new[] { healthTrack, v.Health, v.ShieldTrack, v.Shield }) bar.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
         }
         if (m.Kind == MinionKind.Prism)
         {
@@ -264,5 +283,28 @@ public partial class ArenaRenderer
         if (oracle.SupportArea == null || oracle.SupportArea.Scale.X != DefenseRules.OracleAuraRadius ||
             oracle.Shield is not { Visible: true } || _fields.Values.All(v => v is not OracleStrikeVisual))
             throw new InvalidOperationException("Falta el aura, escudo o bombardeo del oráculo.");
+    }
+
+    internal void VerifyEnemyShieldIndicators()
+    {
+        foreach (var visual in _minionVisuals.Values)
+        {
+            var sample = visual.Sample ?? throw new InvalidOperationException("Falta la muestra del enemigo.");
+            var fill = visual.Mage?.FindChild("ShieldFill", true, false) as MeshInstance3D ?? visual.Shield!;
+            var track = visual.Mage?.FindChild("ShieldTrack", true, false) as MeshInstance3D ?? visual.ShieldTrack!;
+            bool shielded = sample.Shield > 0;
+            if (fill.Visible != shielded || track.Visible != shielded)
+                throw new InvalidOperationException("La barra de escudo no aparece o no se oculta: " + sample.Kind);
+            if (shielded)
+            {
+                float expected = Math.Clamp(sample.Shield / (sample.ShieldMax > 0 ? sample.ShieldMax : sample.Shield), 0, 1);
+                if (Math.Abs(fill.Scale.X - expected) > 0.001f || fill.MaterialOverride is not StandardMaterial3D material || material.AlbedoColor != Ui.EnemyShield)
+                    throw new InvalidOperationException("La barra no refleja la integridad del escudo: " + sample.Kind);
+            }
+            if (visual.Mage != null && (visual.Mage.FindChild("ShieldAmount", true, false) is not Label3D { Visible: false } ||
+                visual.Mage.FindChild("ProtectionBubble", true, false) is not MeshInstance3D { Visible: false } ||
+                visual.Mage.FindChild("StyleBPersonalWardRing", true, false) is not MeshInstance3D { Visible: false }))
+                throw new InvalidOperationException("El mago enemigo acumula cifras, burbujas o anillos de escudo.");
+        }
     }
 }

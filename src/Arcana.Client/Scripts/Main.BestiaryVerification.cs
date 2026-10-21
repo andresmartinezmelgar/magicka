@@ -8,6 +8,7 @@ public partial class Main
     private bool _bestiarySmoke;
     private string? _bestiaryCaptures;
     private int _bestiarySmokePhase, _bestiarySmokeFrames;
+    private int _enemyShieldSmokeBuilds;
     private void StartBestiarySmoke(string[] arguments)
     {
         _bestiarySmoke = true;
@@ -91,6 +92,10 @@ public partial class Main
             if (_bestiarySmokePhase == 4)
             {
                 RenderEliteSmoke();
+                _renderer.VerifyEnemyShieldIndicators();
+                if (_enemyShieldSmokeBuilds == 0) _enemyShieldSmokeBuilds = _renderer.DefenseMinionBuilds;
+                else if (_renderer.DefenseMinionBuilds != _enemyShieldSmokeBuilds)
+                    throw new InvalidOperationException("Cambiar los escudos reconstruye los enemigos.");
                 if (_bestiarySmokeFrames < 45) return true;
                 _renderer.VerifyEliteModels();
                 if (_bestiaryCaptures != null)
@@ -119,12 +124,21 @@ public partial class Main
     private void RenderEliteSmoke()
     {
         var live = _practice!.Snapshot();
+        float shieldFactor = _bestiarySmokeFrames < 15 || _bestiarySmokeFrames >= 35 ? 1 : _bestiarySmokeFrames < 25 ? 0.5f : 0;
         var samples = DefenseRules.PrismElements.ToArray().Select((e, i) => new MinionSnapshot(9000 + i, MinionKind.Prism,
             new(-7 + i * 2.8f, -3), new(0, 1), 640, 640, 0, 0, 0, i == 0 ? 1 : 0, false, [], false)
             { VulnerableElement = e }).ToList();
         foreach (var (kind, x) in new[] { (MinionKind.Sentinel, -6f), (MinionKind.Boss, 0f), (MinionKind.Oracle, 6f) })
             samples.Add(new(9000 + samples.Count, kind, new(x, 5), new(0, 1), 1000, 1000, 0, 0, 0, 0, false, [], false)
-                { Shield = 220, ShieldMax = 220 });
+                { Shield = 220 * shieldFactor, ShieldMax = 220 });
+        int caster = 0;
+        foreach (var kind in Enum.GetValues<MinionKind>().Where(k => MinionArt.CasterType(k) != null))
+        {
+            if (caster == 0 && _bestiarySmokeFrames is >= 28 and <= 32) { caster++; continue; }
+            samples.Add(new(9200 + caster, kind, new(-8 + caster * 5.3f, 0.5f), new(0, 1), 1000, 1000, 0, 0, 0, 0, false, [], false)
+                { Shield = 66 * shieldFactor, ShieldMax = caster == 0 ? 0 : 220 });
+            caster++;
+        }
         var sample = live with { Defense = live.Defense! with { Minions = samples.ToArray(), Drops = [] },
             Fields = [new(9900, 9008, new(0, -7), DefenseRules.OracleStrikeRadius, 1.1f, [Element.Earth, Element.Arcane], "oracle_bombardment")] };
         _renderer.Render(sample, _localId, 1 / 60.0, true);

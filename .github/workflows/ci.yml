@@ -125,6 +125,7 @@ jobs:
           set -euo pipefail
           for surface in desktop mobile; do
             args=(); viewport=1280x720
+            export XDG_DATA_HOME="$RUNNER_TEMP/statistics-cache-$surface"
             if [ "$surface" = mobile ]; then args+=(--mobile); viewport=640x450; fi
             target="$PWD/artifacts/visual-review/statistics-$surface"
             mkdir -p "$target"
