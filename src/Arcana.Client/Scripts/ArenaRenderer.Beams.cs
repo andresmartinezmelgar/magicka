@@ -12,7 +12,9 @@ public partial class ArenaRenderer
     {
         float length = from.DistanceTo(to);
         if (_beamUsed >= 512 || length < 0.05f) return;
-        if (_beamUsed == _beamPool.Count)
+        if (profile == 0)
+        { BatchSimpleBeam(from, to, length, color, radius, endRadius); _beamUsed++; return; }
+        if (_beamMeshUsed == _beamPool.Count)
         {
             _beamShader ??= new Shader { Code = """
                 shader_type spatial;
@@ -52,13 +54,13 @@ public partial class ArenaRenderer
                 }
                 """ };
             var root = new Node3D(); AddChild(root);
-            var shape = new CylinderMesh { RadialSegments = 10, Height = 1 };
+            var shape = new CylinderMesh { RadialSegments = 10, Rings = 0, Height = 1 };
             var mesh = Mesh(root, shape, Vector3.Zero, color, 0.35f);
             mesh.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
             mesh.RotationDegrees = new(90, 0, 0);
             _beamPool.Add(new(root, mesh, shape, new ShaderMaterial { Shader = _beamShader }));
         }
-        var beam = _beamPool[_beamUsed++];
+        var beam = _beamPool[_beamMeshUsed++]; _beamUsed++;
         beam.Root.Visible = true; beam.Root.Position = from; beam.Root.LookAt(to);
         // Cambiar Height reconstruía los vértices de cientos de cilindros por frame.
         // La escala conserva sus extremos, UV y radio; solo cambian los radios si lo pide el hechizo.
@@ -71,20 +73,15 @@ public partial class ArenaRenderer
             BeamGeometryUpdates++;
         }
         beam.Mesh.Position = new(0, 0, -length / 2);
-        Godot.Material material;
-        if (profile == 0) material = Material(color, 0.25f, true);
-        else
-        {
-            Color detailColor = accent ?? color;
-            if (beam.Color != color) { beam.Skin.SetShaderParameter("beam_color", color); beam.Color = color; }
-            if (beam.Accent != detailColor) { beam.Skin.SetShaderParameter("accent_color", detailColor); beam.Accent = detailColor; }
-            if (beam.Span != length) { beam.Skin.SetShaderParameter("span", length); beam.Span = length; }
-            if (beam.Profile != profile) { beam.Skin.SetShaderParameter("profile", profile); beam.Profile = profile; }
-            if (beam.Charges != charges) { beam.Skin.SetShaderParameter("detail", charges); beam.Charges = charges; }
-            if (beam.Power != power) { beam.Skin.SetShaderParameter("power", power); beam.Power = power; }
-            beam.Skin.SetShaderParameter("clock", (float)_time);
-            material = beam.Skin;
-        }
+        Color detailColor = accent ?? color;
+        if (beam.Color != color) { beam.Skin.SetShaderParameter("beam_color", color); beam.Color = color; }
+        if (beam.Accent != detailColor) { beam.Skin.SetShaderParameter("accent_color", detailColor); beam.Accent = detailColor; }
+        if (beam.Span != length) { beam.Skin.SetShaderParameter("span", length); beam.Span = length; }
+        if (beam.Profile != profile) { beam.Skin.SetShaderParameter("profile", profile); beam.Profile = profile; }
+        if (beam.Charges != charges) { beam.Skin.SetShaderParameter("detail", charges); beam.Charges = charges; }
+        if (beam.Power != power) { beam.Skin.SetShaderParameter("power", power); beam.Power = power; }
+        if (profile < 6) beam.Skin.SetShaderParameter("clock", (float)_time);
+        Godot.Material material = beam.Skin;
         if (!ReferenceEquals(beam.Material, material)) { beam.Mesh.MaterialOverride = material; beam.Material = material; }
     }
 

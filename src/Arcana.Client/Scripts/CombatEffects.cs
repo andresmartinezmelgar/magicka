@@ -3,16 +3,18 @@ using Godot;
 
 namespace Arcana.Client;
 
-/// <summary>Efectos locales. Reutiliza nodos y mallas con límites fijos; nunca modifica el combate.</summary>
+/// <summary>Efectos locales. Reutiliza buffers, objetos y mallas con límites fijos; nunca modifica el combate.</summary>
 public partial class CombatEffects : Node3D
 {
     public float DetailScale { get; set; } = 1;
     public const int ParticleLimit = 320, RingLimit = 24, EmissionBudget = 64;
-    private sealed class Spark(MeshInstance3D node)
+    private sealed class Spark
     {
-        public readonly MeshInstance3D Node = node;
-        public Vector3 Velocity, Size;
-        public float Life, Duration, Gravity;
+        public MeshInstance3D? Node; // Solo los enlaces eléctricos conservan geometría individual.
+        public InstanceDrawBatch? Batch;
+        public Vector3 Position, Velocity, Size, Scale;
+        public float Life, Duration, Gravity, Angle;
+        public int Shape;
         public bool FixedSpan;
     }
     private sealed class Wave(MeshInstance3D node)
@@ -25,6 +27,7 @@ public partial class CombatEffects : Node3D
     private readonly List<Wave> _waves = [];
     private readonly Stack<Wave> _freeWaves = [];
     private readonly Dictionary<(Color Color, bool Stone), StandardMaterial3D> _materials = [];
+    private readonly Dictionary<(int Shape, Color Color), InstanceDrawBatch> _particleBatches = [];
     private readonly Random _random = new(37);
     private readonly Godot.Mesh[] _shapes =
     [
@@ -46,9 +49,7 @@ public partial class CombatEffects : Node3D
     {
         for (int i = 0; i < 32 && _sparkCount < ParticleLimit; i++)
         {
-            var node = new MeshInstance3D { Mesh = _shapes[0], Visible = false,
-                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
-            AddChild(node); _freeSparks.Push(new(node)); _sparkCount++;
+            _freeSparks.Push(new()); _sparkCount++;
         }
         for (int i = 0; i < 8 && _waveCount < RingLimit; i++)
         {
@@ -86,13 +87,28 @@ public partial class CombatEffects : Node3D
         else
         {
             if (_sparkCount >= ParticleLimit) return null;
-            var node = new MeshInstance3D { CastShadow = GeometryInstance3D.ShadowCastingSetting.Off }; AddChild(node);
-            spark = new(node); _sparkCount++;
+            spark = new(); _sparkCount++;
         }
-        spark.Node.Mesh = _shapes[shape]; spark.Node.MaterialOverride = shape == 4 ? AreaVisuals.Skin(color) : Material(color, shape == 3);
-        spark.Node.Position = position; spark.Node.Rotation = Vector3.Zero; spark.Node.Visible = true;
+        spark.Shape = shape; spark.Position = position; spark.Angle = 0;
         spark.Size = shape is 0 or 3 ? Vector3.One * size : new(size, size * 2.2f, size);
-        spark.Node.Scale = spark.Size; spark.Velocity = velocity; spark.Gravity = gravity;
+        spark.Scale = spark.Size; spark.Velocity = velocity; spark.Gravity = gravity;
+        if (shape == 4)
+        {
+            if (spark.Node == null)
+            { spark.Node = new MeshInstance3D { CastShadow = GeometryInstance3D.ShadowCastingSetting.Off }; AddChild(spark.Node); }
+            spark.Node.Mesh = _shapes[shape]; spark.Node.MaterialOverride = AreaVisuals.Skin(color);
+            spark.Node.Position = position; spark.Node.Rotation = Vector3.Zero; spark.Node.Scale = spark.Size; spark.Node.Visible = true;
+            spark.Batch = null;
+        }
+        else
+        {
+            if (spark.Node != null) spark.Node.Visible = false;
+            var key = (shape, color);
+            if (!_particleBatches.TryGetValue(key, out var batch))
+                _particleBatches[key] = batch = new(this, "ParticleBatch" + _particleBatches.Count,
+                    _shapes[shape], Material(color, shape == 3), ParticleLimit);
+            spark.Batch = batch;
+        }
         spark.FixedSpan = false;
         spark.Life = spark.Duration = duration; _sparks.Add(spark); _emittedThisFrame++; return spark;
     }
@@ -197,14 +213,14 @@ public partial class CombatEffects : Node3D
             if (spark != null)
             {
                 spark.FixedSpan = true; spark.Size = new(direction.Length(), 1, 1);
-                spark.Node.Scale = spark.Size; spark.Node.Rotation = new(0, MathF.Atan2(-direction.Z, direction.X), 0);
+                spark.Node!.Scale = spark.Size; spark.Node.Rotation = new(0, MathF.Atan2(-direction.Z, direction.X), 0);
             }
         }
         // El impacto y el enlace reemplazan las tres chispas genéricas; no añaden emisiones.
         var bolt = Emit(ArenaRenderer.World(target, 0.35f), color, Vector3.Zero, 0.3f, 4, 1, 0);
         if (bolt != null)
         {
-            bolt.FixedSpan = true; bolt.Size = new(1.8f, 1, 1); bolt.Node.Scale = bolt.Size;
+            bolt.FixedSpan = true; bolt.Size = new(1.8f, 1, 1); bolt.Node!.Scale = bolt.Size;
             bolt.Node.Rotation = new(0, Mathf.Pi / 2, Mathf.Pi / 2);
         }
         for (int i = 0; i < (link ? 1 : 2); i++)
@@ -220,14 +236,17 @@ public partial class CombatEffects : Node3D
             var p = _sparks[i]; p.Life -= dt;
             if (p.Life <= 0)
             {
-                p.Node.Visible = false; _freeSparks.Push(p); _sparks[i] = _sparks[^1]; _sparks.RemoveAt(_sparks.Count - 1); continue;
+                if (p.Node != null) p.Node.Visible = false;
+                _freeSparks.Push(p); _sparks[i] = _sparks[^1]; _sparks.RemoveAt(_sparks.Count - 1); continue;
             }
             if (p.FixedSpan)
-                p.Node.Scale = new(p.Size.X, 1, Math.Max(0.04f, p.Life / p.Duration));
+                p.Node!.Scale = new(p.Size.X, 1, Math.Max(0.04f, p.Life / p.Duration));
             else
             {
-                p.Velocity -= Vector3.Up * p.Gravity * dt; p.Node.Position += p.Velocity * dt;
-                p.Node.Scale = p.Size * Math.Max(0.04f, p.Life / p.Duration); p.Node.RotateY(dt * 4);
+                p.Velocity -= Vector3.Up * p.Gravity * dt; p.Position += p.Velocity * dt;
+                p.Scale = p.Size * Math.Max(0.04f, p.Life / p.Duration); p.Angle += dt * 4;
+                if (p.Shape == 4)
+                { p.Node!.Position = p.Position; p.Node.Scale = p.Scale; p.Node.RotateY(dt * 4); }
             }
         }
         for (int i = _waves.Count - 1; i >= 0; i--)
@@ -362,13 +381,18 @@ public partial class CombatEffects : Node3D
     }
     private void FinishFrame()
     {
+        foreach (var batch in _particleBatches.Values) batch.Begin();
+        foreach (var spark in _sparks)
+            spark.Batch?.Add(new Transform3D(new Basis(Vector3.Up, spark.Angle).Scaled(spark.Scale), spark.Position));
+        foreach (var batch in _particleBatches.Values) batch.Commit();
         EmittedLastFrame = _emittedThisFrame; _emittedThisFrame = 0;
         // No unir tandas distintas si una base de red descartó la cabecera de origen.
         _chainFrom = null; _chainLinks = 0;
     }
     public void Clear()
     {
-        foreach (var p in _sparks) { p.Node.Visible = false; _freeSparks.Push(p); } _sparks.Clear();
+        foreach (var p in _sparks) { if (p.Node != null) p.Node.Visible = false; _freeSparks.Push(p); } _sparks.Clear();
+        foreach (var batch in _particleBatches.Values) batch.Clear();
         foreach (var w in _waves) { w.Node.Visible = false; _freeWaves.Push(w); } _waves.Clear();
         _trailClock = _statusClock = 0; _emittedThisFrame = EmittedLastFrame = 0;
         _chainFrom = null; _chainLinks = 0;

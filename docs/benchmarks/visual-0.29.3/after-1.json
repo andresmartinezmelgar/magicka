@@ -1,0 +1,143 @@
+{
+  "schema": 1,
+  "version": "0.29.3",
+  "timestampUtc": "2026-10-21T20:09:57.3860015+00:00",
+  "environment": "local-software-opengl",
+  "scope": "synthetic_local_render_scene",
+  "canceled": false,
+  "map": "Classic",
+  "seed": 271,
+  "device": {
+    "os": "Linux",
+    "model": "GenericDevice",
+    "gpu": "llvmpipe (LLVM 20.1.2, 256 bits)",
+    "renderer": "gl_compatibility",
+    "driver": "opengl3",
+    "editor": true,
+    "mobile": true,
+    "maxFps": 0,
+    "windowWidth": 1600,
+    "windowHeight": 720,
+    "viewportWidth": 1600,
+    "viewportHeight": 720
+  },
+  "scene": {
+    "players": 16,
+    "projectiles": 128,
+    "walls": 40,
+    "fields": 40,
+    "beams": 64,
+    "eventsPerFrame": 160
+  },
+  "survival": null,
+  "warmupSeconds": 5,
+  "requestedSeconds": 20,
+  "measuredSeconds": 20.1148219,
+  "samples": 130,
+  "averageFps": 6.4628959006592055,
+  "metrics": {
+    "frameMs": {
+      "samples": 130,
+      "mean": 154.72939923076925,
+      "p50": 150.8269999999975,
+      "p95": 177.56979999999749,
+      "maximum": 220.2465000000011
+    },
+    "clientCpuMs": {
+      "samples": 130,
+      "mean": 4.606314615384617,
+      "p50": 4.2278,
+      "p95": 5.5154,
+      "maximum": 24.0583
+    },
+    "sceneCpuMs": {
+      "samples": 130,
+      "mean": 0.17125461538461537,
+      "p50": 0.1414,
+      "p95": 0.271,
+      "maximum": 0.7803
+    },
+    "renderUpdateCpuMs": {
+      "samples": 130,
+      "mean": 4.434301538461538,
+      "p50": 4.0767,
+      "p95": 5.3624,
+      "maximum": 23.8758
+    },
+    "engineProcessMs": {
+      "samples": 130,
+      "mean": 171.3827307692308,
+      "p50": 171.67,
+      "p95": 203.313,
+      "maximum": 219.973
+    },
+    "physicsMs": {
+      "samples": 130,
+      "mean": 0.10382307692307689,
+      "p50": 0.082,
+      "p95": 0.257,
+      "maximum": 0.321
+    },
+    "renderCpuMs": {
+      "samples": 130,
+      "mean": 78.82873086195725,
+      "p50": 80.06300354003906,
+      "p95": 87.83799743652344,
+      "maximum": 99.96600341796875
+    },
+    "gpuMs": {
+      "samples": 130,
+      "mean": 141.4641922583947,
+      "p50": 138.23599243164062,
+      "p95": 161.5290069580078,
+      "maximum": 187.86000061035156
+    },
+    "drawCalls": {
+      "samples": 130,
+      "mean": 2738.8076923076924,
+      "p50": 2740,
+      "p95": 2740,
+      "maximum": 2740
+    },
+    "primitives": {
+      "samples": 130,
+      "mean": 434183.6615384615,
+      "p50": 434892,
+      "p95": 435244,
+      "maximum": 435286
+    },
+    "staticBytes": {
+      "samples": 130,
+      "mean": 79858001.73846154,
+      "p50": 79377733,
+      "p95": 82093069,
+      "maximum": 82093501
+    },
+    "managedBytes": {
+      "samples": 130,
+      "mean": 14690804.861538462,
+      "p50": 15383552,
+      "p95": 19314544,
+      "maximum": 19988912
+    },
+    "videoBytes": {
+      "samples": 130,
+      "mean": 76525331,
+      "p50": 76525331,
+      "p95": 76525331,
+      "maximum": 76525331
+    },
+    "nodes": {
+      "samples": 130,
+      "mean": 3860,
+      "p50": 3860,
+      "p95": 3860,
+      "maximum": 3860
+    }
+  },
+  "unavailableCountersAreNull": true,
+  "particleLimit": 320,
+  "ringLimit": 24,
+  "peakActiveParticles": 320,
+  "peakActiveRings": 24
+}

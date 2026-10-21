@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.29.3 — Pruebas de rendimiento visual
+
+- Las partículas con la misma forma y material se dibujan en lotes MultiMesh, con una sola subida de transformaciones por lote. Conservan colores, sombreado de las facetas, cantidad, trayectorias, duración y presupuestos; los enlaces eléctricos y las ondas mantienen su representación específica.
+- Los segmentos sencillos de relámpagos, conos y empujes comparten geometría y se agrupan por material. Conservan sus extremos y radios. Los cilindros de los canales eliminan subdivisiones longitudinales innecesarias; los núcleos sin animación dejan de actualizar un reloj de shader que no utilizan.
+- El perfilador separa el coste de crear/simular la escena del coste de actualizar el renderizador. Las pruebas comprueban las transformaciones y los datos reales del buffer, extremos, radios, colores, caducidad, limpieza y reutilización.
+- Trabajo aislado en `codex/visual-performance`, distribuido por el canal de pruebas. La versión estable de `main` permanece en 0.29.2.
+
 ## 0.29.2 — Acceso local a estadísticas y escudos enemigos legibles
 
 - El botón Estadísticas de partidas aparece en Perfil para los dos UID indicados, incluido su perfil guardado sin conexión. Abre las gráficas de los informes JSON del dispositivo y permite actualizar su lectura. Ya no consulta permisos ni partidas en Firestore para abrir este visor.

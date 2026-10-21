@@ -1,5 +1,7 @@
 # Mediciones del renderer
 
+La comparación de la rama de pruebas 0.29.3 y sus informes JSON están en [benchmarks/visual-0.29.3](benchmarks/visual-0.29.3/README.md). Distingue la reducción de trabajo gráfico del coste de la simulación y del rendimiento de un dispositivo físico.
+
 En **Práctica → Medir rendimiento gráfico**, elegir el mapa y ejecutar la medición. La misma opción está disponible en PC y móvil. Calienta la escena durante 5 segundos y recoge muestras durante 20 segundos. Cancelar, pulsar Atrás o enviar la app móvil a segundo plano guarda un informe parcial, marcado `canceled`, y vuelve al launcher.
 
 El informe se guarda en `user://profiles/latest.json`, dentro de los datos de la app; cada ejecución sustituye ese informe. El resultado también queda en el registro de diagnóstico y en el contexto de la siguiente exportación del ZIP de diagnóstico. El botón Diagnóstico del launcher permite extraerlo desde el propio móvil.
@@ -22,6 +24,8 @@ Es una escena artificial, local y reproducible, con semilla 271. Utiliza `ArenaR
 Los eventos saturan los presupuestos normales; no se amplían sus límites. La escena usa un paso visual fijo de 1/60 s y desactiva el audio. Mantiene los objetos representados, pero no ejecuta la simulación, los bots o las conexiones. Los solapamientos y la carga continua son deliberados. El resultado sirve para comparar coste gráfico con una carga conocida; no representa los FPS de una partida completa.
 
 Cada informe JSON incluye versión, fecha UTC, entorno, mapa, GPU, modelo, sistema operativo, backend y resolución física/lógica. Los tiempos y contadores guardan media, mediana, percentil 95 y máximo. `frameMs` mide tiempo real entre fotogramas; `clientCpuMs` mide creación del estado artificial y actualización de `ArenaRenderer`. Los tiempos del proceso, física y renderer proceden del motor. Los contadores de CPU/GPU de render requieren un viewport que dibuje: se rechaza `--headless`.
+
+Desde 0.29.3, `sceneCpuMs` mide la creación del estado de prueba, incluida la simulación real cuando se mide Supervivencia. `renderUpdateCpuMs` mide únicamente la llamada a `ArenaRenderer.Render`; excluye la simulación y el dibujo posterior del motor/GPU. Ambos usan tiempo transcurrido en CPU y pueden reflejar contención del equipo. `clientCpuMs` conserva la medida conjunta anterior.
 
 Los contadores de GPU, CPU de render y memoria que el backend o la compilación no ofrecen quedan en `null`, sin inferir valores. El calentamiento reduce el efecto de la primera creación de geometría y shaders. Los picos de partículas y ondas permiten comprobar que se conserva el presupuesto.
 

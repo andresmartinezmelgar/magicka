@@ -118,6 +118,19 @@ jobs:
           dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
           dotnet build src/Arcana.Server/Arcana.Server.csproj -c Debug --nologo
           "$GODOT" --headless --editor --path src/Arcana.Client --import
+      - name: Verificar lotes gráficos con viewport real en escritorio y móvil
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          for surface in desktop mobile; do
+            args=(); viewport=1280x720
+            if [ "$surface" = mobile ]; then args+=(--mobile); viewport=640x450; fi
+            timeout 120s xvfb-run -a -s "-screen 0 1440x900x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --effects-smoke "${args[@]}" --smoke-viewport="$viewport" 2>&1 | tee "$RUNNER_TEMP/batch-native-$surface.log"
+            grep -q 'INSTANCE_BATCHES_OK:' "$RUNNER_TEMP/batch-native-$surface.log"
+            grep -q 'EFFECTS_SMOKE_OK:' "$RUNNER_TEMP/batch-native-$surface.log"
+            ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/batch-native-$surface.log"
+          done
       - name: Verificar visor privado de estadísticas en escritorio y móvil
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'

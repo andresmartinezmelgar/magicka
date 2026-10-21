@@ -17,9 +17,13 @@ public partial class ClientVerification
         var recipes = SpellCatalogue.All.Where(c => c.Recipe.Shape == SpellShape.Rock).ToArray();
         var covered = new HashSet<Element>(); int mixed = 0;
         var probe = new CombatEffects(); AddChild(probe);
-        bool ColoredParticle(Element element) => probe.GetChildren().OfType<MeshInstance3D>().Any(m => m.Visible &&
-            m.MaterialOverride is StandardMaterial3D material && material.AlbedoColor.IsEqualApprox(Expected(element)) &&
-            (element == Element.Fire ? m.Mesh is CylinderMesh : element == Element.Cold ? m.Mesh is PrismMesh : m.Mesh is SphereMesh));
+        bool ColoredParticle(Element element)
+        {
+            probe.Advance(empty, 0, false); // Sube el lote por la misma ruta que un fotograma normal.
+            return probe.GetChildren().OfType<MultiMeshInstance3D>().Any(m => m.Visible && m.Multimesh.VisibleInstanceCount > 0 &&
+                m.MaterialOverride is StandardMaterial3D material && material.AlbedoColor.IsEqualApprox(Expected(element)) &&
+                (element == Element.Fire ? m.Multimesh.Mesh is CylinderMesh : element == Element.Cold ? m.Multimesh.Mesh is PrismMesh : m.Multimesh.Mesh is SphereMesh));
+        }
         foreach (var combination in recipes)
         {
             var elements = combination.Elements;

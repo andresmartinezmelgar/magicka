@@ -9,7 +9,7 @@ namespace Arcana.Client;
 /// <summary>Mide la escena local y conserva la procedencia de los datos y los contadores no disponibles.</summary>
 public partial class RenderProfiler : Node
 {
-    private sealed record Sample(double FrameMs, double ClientCpuMs, double EngineProcessMs, double PhysicsMs,
+    private sealed record Sample(double FrameMs, double ClientCpuMs, double SceneCpuMs, double RenderUpdateCpuMs, double EngineProcessMs, double PhysicsMs,
         double? RenderCpuMs, double? GpuMs, double DrawCalls, double Primitives, double? StaticBytes, long ManagedBytes, double? VideoBytes, double Nodes);
     private readonly List<Sample> _samples = [];
     private readonly Stopwatch _clock = new();
@@ -23,7 +23,7 @@ public partial class RenderProfiler : Node
     private Action<string, JsonElement>? _finished;
     private ArenaMapId _map;
     private string _output = "", _environment = "local";
-    private double _warmup = 5, _seconds = 20, _lastTime, _warmStart, _measureStart, _lastCpu;
+    private double _warmup = 5, _seconds = 20, _lastTime, _warmStart, _measureStart, _lastCpu, _lastSceneCpu, _lastRenderUpdateCpu;
     private int _frame;
     private int _peakParticles, _peakRings;
     private float _savedZoom;
@@ -81,7 +81,7 @@ public partial class RenderProfiler : Node
             if (_measuring)
             {
                 var viewport = GetViewport().GetViewportRid();
-                _samples.Add(new(now - _lastTime, _lastCpu, Monitor(Performance.Monitor.TimeProcess) * 1000,
+                _samples.Add(new(now - _lastTime, _lastCpu, _lastSceneCpu, _lastRenderUpdateCpu, Monitor(Performance.Monitor.TimeProcess) * 1000,
                     Monitor(Performance.Monitor.TimePhysicsProcess) * 1000, Available(RenderingServer.ViewportGetMeasuredRenderTimeCpu(viewport)),
                     Available(RenderingServer.ViewportGetMeasuredRenderTimeGpu(viewport)), Monitor(Performance.Monitor.RenderTotalDrawCallsInFrame),
                     Monitor(Performance.Monitor.RenderTotalPrimitivesInFrame), Available(Monitor(Performance.Monitor.MemoryStatic)),
@@ -95,9 +95,12 @@ public partial class RenderProfiler : Node
             var began = Stopwatch.GetTimestamp();
             ++_frame;
             var frame = _survival?.Frame(delta) ?? (_scenery ? _scenerySnapshot! : _scene.Frame(_frame));
+            _lastSceneCpu = Stopwatch.GetElapsedTime(began).TotalMilliseconds;
             if (_survival != null) _survivalFrame = frame;
             int localId = _survival == null ? 0 : frame.Players.First(p => !p.Bot).Id;
+            var renderBegan = Stopwatch.GetTimestamp();
             _renderer.Render(frame, localId, _survival == null ? 1 / 60.0 : delta, true);
+            _lastRenderUpdateCpu = Stopwatch.GetElapsedTime(renderBegan).TotalMilliseconds;
             _lastCpu = Stopwatch.GetElapsedTime(began).TotalMilliseconds;
             _status.Text = $"Medición gráfica · {(_survival != null ? "Supervivencia: horda, poderes y portales" : _scenery ? "decoración del mapa" : "16 magos y carga máxima")}\n{(_measuring ? "Midiendo" : "Calentando")} · {_samples.Count} muestras";
         }
@@ -129,7 +132,8 @@ public partial class RenderProfiler : Node
                 players = _survival.World.Players.Count, minions = _survival.World.Snapshot().Defense!.Minions.Length, inventoryItems = 96, liveSimulation = true },
             warmupSeconds = _warmup, requestedSeconds = _seconds, measuredSeconds = measured, samples = _samples.Count,
             averageFps = measured > 0 ? _samples.Count / measured : (double?)null,
-            metrics = new { frameMs = Stats(s => s.FrameMs), clientCpuMs = Stats(s => s.ClientCpuMs), engineProcessMs = Stats(s => s.EngineProcessMs),
+            metrics = new { frameMs = Stats(s => s.FrameMs), clientCpuMs = Stats(s => s.ClientCpuMs),
+                sceneCpuMs = Stats(s => s.SceneCpuMs), renderUpdateCpuMs = Stats(s => s.RenderUpdateCpuMs), engineProcessMs = Stats(s => s.EngineProcessMs),
                 physicsMs = Stats(s => s.PhysicsMs), renderCpuMs = Stats(s => s.RenderCpuMs), gpuMs = Stats(s => s.GpuMs),
                 drawCalls = Stats(s => s.DrawCalls), primitives = Stats(s => s.Primitives), staticBytes = Stats(s => s.StaticBytes),
                 managedBytes = Stats(s => s.ManagedBytes), videoBytes = Stats(s => s.VideoBytes), nodes = Stats(s => s.Nodes) },

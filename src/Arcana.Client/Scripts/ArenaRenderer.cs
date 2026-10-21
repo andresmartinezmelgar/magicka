@@ -46,7 +46,7 @@ public partial class ArenaRenderer : Node3D
     private long _lastEvent;
     private double _time;
     private float _zoom = 27;
-    private int _beamUsed;
+    private int _beamUsed, _beamMeshUsed;
     internal int ActiveBeamSegments => _beamUsed;
     internal int BeamGeometryUpdates { get; private set; }
     private Godot.Environment _environment = null!;
@@ -108,7 +108,8 @@ public partial class ArenaRenderer : Node3D
         _effects.Clear();
         foreach (var point in _points.Values) point.Reset();
         foreach (var beam in _beamPool) beam.Root.Visible = false;
-        _beamUsed = 0; BeamGeometryUpdates = 0;
+        foreach (var batch in _simpleBeamBatches.Values) batch.Clear();
+        _beamUsed = _beamMeshUsed = 0; BeamGeometryUpdates = 0;
         _lastEvent = 0; _lastSnapshot = null;
     }
 
@@ -241,11 +242,13 @@ public partial class ArenaRenderer : Node3D
             visual.Update(item, (float)_time);
         }
         if (_fresh) RemoveMissing(_pickups, snapshot.Pickups ?? [], static p => p.Id);
-        _beamUsed = 0; BeamGeometryUpdates = 0;
+        _beamUsed = _beamMeshUsed = 0; BeamGeometryUpdates = 0;
+        foreach (var batch in _simpleBeamBatches.Values) batch.Begin();
         // Dibuja primero todos los canales; el presupuesto de detalle nunca oculta un rayo.
         foreach (var beam in visibleState.Beams) DrawBeam(beam, false);
         foreach (var beam in visibleState.Beams) DrawBeam(beam, true);
-        for (int i = _beamUsed; i < _beamPool.Count; i++) _beamPool[i].Root.Visible = false;
+        foreach (var batch in _simpleBeamBatches.Values) batch.Commit();
+        for (int i = _beamMeshUsed; i < _beamPool.Count; i++) _beamPool[i].Root.Visible = false;
         foreach (var e in snapshot.Events)
         {
             if (e.Id <= _lastEvent) continue;
