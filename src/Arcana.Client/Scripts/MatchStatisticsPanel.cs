@@ -33,7 +33,7 @@ public partial class MatchStatisticsPanel : Control
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; margin.AddChild(scroll); Ui.VisibleVerticalScroll(scroll);
         var content = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; content.AddThemeConstantOverride("separation", 12); scroll.AddChild(content);
         content.AddChild(Ui.Label("ESTADÍSTICAS DE PARTIDAS", 24, Ui.Gold));
-        var explanation = Ui.Label("Balance global · sin nombres ni cuentas en los informes", 16, Ui.Muted); explanation.AutowrapMode = TextServer.AutowrapMode.WordSmart; content.AddChild(explanation);
+        var explanation = Ui.Label(fixture == null ? "Balance global · sin nombres ni cuentas en los informes" : "Datos de prueba de QA · sin lectura ni envío a Firebase", 16, Ui.Muted); explanation.AutowrapMode = TextServer.AutowrapMode.WordSmart; content.AddChild(explanation);
         _filters = new GridContainer { Columns = 3, SizeFlagsHorizontal = SizeFlags.ExpandFill }; content.AddChild(_filters);
         _filters.AddThemeConstantOverride("h_separation", 10); _filters.AddThemeConstantOverride("v_separation", 8);
         _mode = Select("Modo", ["Todos los modos", "Duelo", "Arena", "Guerra", "Supervivencia"]);
@@ -103,7 +103,9 @@ public partial class MatchStatisticsPanel : Control
     private void Render()
     {
         foreach (Node child in _body.GetChildren()) { _body.RemoveChild(child); child.QueueFree(); }
-        _totals.Clear(); _tableIndex = 0;
+        _totals.Clear(); _tableIndex = 0; _chartIndex = 0; _chartValues.Clear();
+        _source.Disabled = _view.Selected is not (1 or 3);
+        _source.TooltipText = "El origen del ataque filtra las vistas Elementos y Hechizos.";
         int days = _period.Selected switch { 1 => 7, 2 => 30, 3 => 90, _ => 0 };
         string since = DateTime.UtcNow.AddDays(-Math.Max(0, days - 1)).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         var reports = _reports.Values.Where(p => (_mode.Selected == 0 || (int)p.Mode == _mode.Selected - 1) &&
@@ -118,6 +120,7 @@ public partial class MatchStatisticsPanel : Control
         switch (_view.Selected)
         {
             case 0:
+                OverviewCharts();
                 var summary = Table("Métrica", "Valor");
                 Row(summary, "Tiempo jugado", N(seconds / 60) + " min");
                 foreach (var (title, measure) in new[] { ("Daño a vida", StatisticMeasure.Damage), ("Daño a escudos", StatisticMeasure.ShieldDamage), ("Bajas", StatisticMeasure.Kills), ("Muertes", StatisticMeasure.Deaths), ("Lanzamientos", StatisticMeasure.Casts), ("Curación efectiva", StatisticMeasure.Healing), ("Escudo concedido", StatisticMeasure.ShieldGranted), ("Escudo reparado", StatisticMeasure.ShieldRepaired), ("Fuego amigo", StatisticMeasure.FriendlyDamage), ("Daño propio", StatisticMeasure.SelfDamage), ("Reanimaciones", StatisticMeasure.Revives) }) Row(summary, title, N(Sum(StatisticGroup.Total, measure)));
@@ -127,11 +130,13 @@ public partial class MatchStatisticsPanel : Control
                 Note($"{reports.Count(p => p.Continuation)} tramos de partidas continuadas tras un cambio de versión o al recuperar un guardado anterior.");
                 break;
             case 1:
+                ElementChart();
                 var elements = Table("Elemento", "Daño / vida", "Escudos", "Inmunes");
                 for (int e = 0; e < 9; e++) Row(elements, Elements[e], N(Sum(ElementGroup, StatisticMeasure.Damage, e)), N(Sum(ElementGroup, StatisticMeasure.ShieldDamage, e)), N(Sum(ElementGroup, StatisticMeasure.ImmuneHits, e)));
                 Note("El daño de una mezcla se reparte por la aportación real de sus componentes después de resistencias. Las inmunidades del prisma se cuentan por componente rechazado.");
                 break;
             case 2:
+                EnemyChart();
                 foreach (var kind in Enum.GetValues<MinionKind>())
                 {
                     int k = (int)kind; double spawns = Sum(StatisticGroup.Enemy, StatisticMeasure.Spawns, k);
@@ -146,6 +151,7 @@ public partial class MatchStatisticsPanel : Control
                 Note("Los estados acumulados y el tiempo con vida se muestran por clase en Clases y equipos.");
                 break;
             case 3:
+                AttackCharts();
                 var attacks = Table("Ataque", "Usos", "Daño / vida", "Escudos");
                 foreach (var attack in Enum.GetValues<StatisticAttack>())
                 { int k = (int)attack; Row(attacks, Attacks[k], N(Sum(AttackGroup, StatisticMeasure.Casts, k)), N(Sum(AttackGroup, StatisticMeasure.Damage, k)), N(Sum(AttackGroup, StatisticMeasure.ShieldDamage, k))); }
@@ -155,6 +161,7 @@ public partial class MatchStatisticsPanel : Control
                 { int key = recipe; var parts = new List<string>(); while (key > 0) { parts.Insert(0, Elements[(key % 9) - 1]); key /= 9; } Row(combos, parts.Count == 0 ? "Sin elementos" : string.Join(" + ", parts), N(Sum(StatisticGroup.Recipe, StatisticMeasure.Casts, recipe)), N(Sum(StatisticGroup.Recipe, StatisticMeasure.Damage, recipe))); }
                 break;
             case 4:
+                ProgressionChart();
                 var progression = Table("Dificultad", "Apariciones", "Vida inicial media");
                 foreach (int stage in _totals.Keys.Where(k => k.Item1 == StatisticGroup.Difficulty).Select(k => k.Item2).Distinct().Order())
                 { double count = Sum(StatisticGroup.Difficulty, StatisticMeasure.Spawns, stage); Row(progression, stage.ToString(), N(count), N(count > 0 ? Sum(StatisticGroup.Difficulty, StatisticMeasure.SpawnHealth, stage) / count : 0)); }
@@ -165,9 +172,10 @@ public partial class MatchStatisticsPanel : Control
                 var relics = Table("Reliquia", "Recogidas"); foreach (var relic in Enum.GetValues<BuffKind>()) Row(relics, RelicBuffs.Name(relic), N(Sum(StatisticGroup.Relic, StatisticMeasure.Collected, (int)relic)));
                 break;
             case 5:
+                ClassChart();
                 foreach (int actor in _totals.Keys.Where(k => k.Item1 == StatisticGroup.Actor).Select(k => k.Item2).Distinct().Order())
                 {
-                    Note(actor >= 64 ? DefenseRules.MinionName((MinionKind)(actor - 64)) : $"{(actor % 32 >= 16 ? "Bot" : "Humano")} · {WizardTypes.Name((WizardType)(actor % 16))} · equipo {actor / 32 + 1}");
+                    Note(ActorName(actor));
                     var stats = Table("Métrica", "Valor");
                     foreach (var (title, measure) in new[] { ("Daño causado", StatisticMeasure.Damage), ("Daño recibido", StatisticMeasure.DamageReceived), ("Curación", StatisticMeasure.Healing), ("Bajas", StatisticMeasure.Kills), ("Muertes", StatisticMeasure.Deaths), ("Tiempo vivo (s)", StatisticMeasure.AliveSeconds), ("Mojado (s)", StatisticMeasure.WetSeconds), ("Ardiendo (s)", StatisticMeasure.BurningSeconds), ("Congelado (s)", StatisticMeasure.FrozenSeconds) }) Row(stats, title, N(Sum(StatisticGroup.Actor, measure, actor)));
                 }
@@ -176,5 +184,6 @@ public partial class MatchStatisticsPanel : Control
     }
     internal void SelectViewForVerification(int view) { _view.Select(view); Render(); }
     internal void SelectModeForVerification(int mode) { _mode.Select(mode); Render(); }
+    internal void SelectSourceForVerification(int source) { _source.Select(source); Render(); }
     public override void _ExitTree() { GetViewport().SizeChanged -= ResizeFilters; _lifetime.Cancel(); _lifetime.Dispose(); }
 }

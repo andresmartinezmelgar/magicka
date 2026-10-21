@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.29.1 — Gráficas de balance
+
+- Las seis vistas incorporan gráficas con datos de los informes filtrados: daño por origen y elemento, amenaza media por aparición de cada monstruo, ataques con más daño y más usos, vida inicial por dificultad, objetos recogidos y comparación de clases/equipos.
+- Las barras distinguen daño a vida y a escudos; la curva de vida pondera las apariciones de cada etapa y permite consultar sus valores. El porcentaje congelado usa el tiempo vivo de cada clase. Se conservan las tablas numéricas.
+- Verificación de filtros de modo y origen, medias ponderadas y límites de gráficas en escritorio y móvil. El acceso sigue requiriendo los permisos de las dos cuentas Google en Firestore; no se han configurado cuentas sin sus identificadores reales ni credenciales Admin.
+
 ## 0.29.0 — Informes anónimos de partidas y visor de balance
 
 - Todas las rondas locales/IA y PvP guardan informes JSON locales: daño real por elemento, combinación y ataque, escudos, monstruos, bajas, curación, estados, economía, progresión y rendimiento. Los grupos de humanos, bots y monstruos se distinguen sin identificar jugadores.

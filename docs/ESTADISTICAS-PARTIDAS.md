@@ -1,4 +1,4 @@
-# Estadísticas de balance — 0.29.0
+# Estadísticas de balance — 0.29.1
 
 Duelo, Arena, Guerra y Supervivencia generan un informe acumulado por ronda, tanto en local con IA como en red. El laboratorio también usa el motor instrumentado; se distingue por su mapa. Cada reinicio empieza otro identificador. El servidor recoge las partidas en red y envía el informe a los clientes; todos utilizan el mismo identificador aleatorio y las revisiones se sustituyen, no se suman.
 
@@ -45,7 +45,9 @@ Esto describe el contenido de los informes. Los proveedores de red y alojamiento
 
 En Perfil aparece **Estadísticas de partidas** únicamente después de comprobar el permiso de la cuenta Google actual. El visor ofrece resumen, elementos, monstruos, hechizos/combinaciones, progresión y clases/equipos, con filtros de modo, versión, periodo y partidas interrumpidas. Carga páginas de 10 hasta 1000 informes y muestra explícitamente cuántos ha cargado; sus filtros y cifras se refieren a esa muestra cargada, no a un agregado completo de toda la base.
 
-Las reglas nuevas son un prototipo restrictivo con pruebas de emulador: únicamente una cuenta Google con `statisticsReaders/<uid>.enabled == true` puede consultar la colección. Nadie puede escribir informes ni concederse ese permiso desde el cliente. Un usuario puede leer únicamente su propio documento de permiso; no puede enumerar las cuentas autorizadas. Los perfiles e inventarios conservan sus permisos anteriores.
+Desde 0.29.1, las seis vistas incluyen gráficas nativas adaptadas a escritorio y móvil, además de las tablas numéricas. El resumen compara daño de humanos, bots, monstruos y entorno. Elementos y Hechizos aplican el filtro de origen; las demás vistas comparan todos los orígenes. Las barras separan vida y escudos sobre una escala común que parte de cero. La amenaza de cada especie divide daño causado entre apariciones; no es DPS. La curva de dificultad divide vida inicial total entre apariciones de cada etapa y combina las especies presentes; no representa el escalado aislado de una especie. Clases compara daño y porcentaje de tiempo vivo congelado. Las gráficas usan únicamente los informes cargados y filtrados, sin nuevas solicitudes ni identidades.
+
+Las reglas incluyen pruebas de emulador: únicamente una cuenta Google con `statisticsReaders/<uid>.enabled == true` puede consultar la colección. Nadie puede escribir informes ni concederse ese permiso desde el cliente. Un usuario puede leer únicamente su propio documento de permiso; no puede enumerar las cuentas autorizadas. Los perfiles e inventarios conservan sus permisos anteriores.
 
 Para autorizar exactamente dos cuentas existentes, con credenciales Admin del proyecto:
 
@@ -67,4 +69,4 @@ Los dos correos/UID reales y una sesión administrativa no estaban disponibles e
 
 ## Verificación reproducible
 
-`MatchStatisticsTests` comprueba anonimato, daño efectivo y resistencias, escudos, curación, rondas, guardados, reenvíos, interrupciones y corrupción. Las pruebas de red ejercitan la entrega del informe y el relé real. `MatchStatisticsEmulatorTests` prueba transacciones concurrentes y revisiones antiguas. `tests/firebase-rules/verify.cjs` comprueba ambas cuentas, consultas, revocación, denegación anónima, escalación y escrituras rechazadas. `--statistics-smoke` verifica seis vistas, filtros, permisos y límites horizontales en escritorio y móvil; CI conserva sus capturas.
+`MatchStatisticsTests` comprueba anonimato, daño efectivo y resistencias, escudos, curación, rondas, guardados, reenvíos, interrupciones y corrupción. Las pruebas de red ejercitan la entrega del informe y el relé real. `MatchStatisticsEmulatorTests` prueba transacciones concurrentes y revisiones antiguas. `tests/firebase-rules/verify.cjs` comprueba ambas cuentas, consultas, revocación, denegación anónima, escalación y escrituras rechazadas. `--statistics-smoke` verifica seis vistas con gráficas, filtros numéricos de modo/origen, medias ponderadas, permisos y límites horizontales en escritorio y móvil; CI conserva sus capturas.
