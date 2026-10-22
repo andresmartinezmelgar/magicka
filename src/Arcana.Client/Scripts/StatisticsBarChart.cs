@@ -6,12 +6,11 @@ namespace Arcana.Client;
 /// <summary>Barras verticales con ejes comunes y categorías legibles, sin proceso por fotograma.</summary>
 public partial class StatisticsBarChart : Control
 {
-    public readonly record struct Category(string Label, double First, double Second, Color Color);
+    public readonly record struct Category(string Label, double Value, Color Color);
     public Category[] Categories { get; init; } = [];
-    public bool Paired { get; init; }
+    public float CategoryWidth { get; init; } = 80;
     public string HorizontalTitle { get; init; } = "Elemento";
-    public string FirstTitle { get; init; } = "Total";
-    public string SecondTitle { get; init; } = "Daño recibido";
+    public string ValueTitle { get; init; } = "Total";
     private const float Left = 72, Right = 20, Top = 28, Bottom = 64;
     private static readonly CultureInfo Spanish = CultureInfo.GetCultureInfo("es-ES");
 
@@ -20,15 +19,15 @@ public partial class StatisticsBarChart : Control
         CustomMinimumSize = new(0, 340); SizeFlagsHorizontal = SizeFlags.ExpandFill;
         MouseFilter = MouseFilterEnum.Pass; Resized += QueueRedraw;
     }
-    public override void _Ready() => CustomMinimumSize = new(Left + Right + Categories.Length * (Paired ? 116 : 80), CustomMinimumSize.Y);
-    private double Maximum => Math.Max(1, Categories.Length == 0 ? 0 : Categories.Max(c => Math.Max(c.First, c.Second)));
+    public override void _Ready() => CustomMinimumSize = new(Left + Right + Categories.Length * CategoryWidth, CustomMinimumSize.Y);
+    internal double ScaleMaximum => Math.Max(1, Categories.Length == 0 ? 0 : Categories.Max(c => c.Value));
     private static string Short(double n) => n >= 1_000_000 ? (n / 1_000_000).ToString("0.#", Spanish) + " M"
         : n >= 1000 ? (n / 1000).ToString("0.#", Spanish) + " k" : n.ToString("0.##", Spanish);
     public override void _Draw()
     {
         var font = GetThemeDefaultFont(); const int textSize = 14;
         float width = Math.Max(1, Size.X - Left - Right), height = Math.Max(1, Size.Y - Top - Bottom);
-        double maximum = Maximum;
+        double maximum = ScaleMaximum;
         DrawString(font, new(Left, 18), "Puntos acumulados", fontSize: textSize, modulate: Ui.Muted);
         for (int tick = 0; tick <= 4; tick++)
         {
@@ -45,13 +44,12 @@ public partial class StatisticsBarChart : Control
             void Bar(double value, float x, Color color)
             {
                 float barHeight = (float)(value / maximum) * height;
-                float barWidth = Math.Min(Paired ? 29 : 40, slot * (Paired ? 0.28f : 0.55f));
+                float barWidth = Math.Min(40, slot * 0.55f);
                 if (value > 0) DrawRect(new(x - barWidth / 2, Top + height - barHeight, barWidth, barHeight), color);
                 DrawString(font, new(x - slot * 0.25f, Top + height - barHeight - 6), Short(value),
                     HorizontalAlignment.Center, slot * 0.5f, 12, Ui.Text);
             }
-            Bar(category.First, center - (Paired ? slot * 0.18f : 0), category.Color);
-            if (Paired) Bar(category.Second, center + slot * 0.18f, Ui.Blue);
+            Bar(category.Value, center, category.Color);
             var lines = new List<string>(); string line = "";
             foreach (string word in category.Label.Split(' '))
             {
@@ -70,7 +68,6 @@ public partial class StatisticsBarChart : Control
         if (Categories.Length == 0) return "";
         int index = Math.Clamp((int)((position.X - Left) / Math.Max(1, Size.X - Left - Right) * Categories.Length), 0, Categories.Length - 1);
         var c = Categories[index];
-        return c.Label + "\n" + FirstTitle + ": " + c.First.ToString("N1", Spanish) +
-            (Paired ? "\n" + SecondTitle + ": " + c.Second.ToString("N1", Spanish) : "");
+        return c.Label + "\n" + ValueTitle + ": " + c.Value.ToString("N1", Spanish);
     }
 }

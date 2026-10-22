@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.29.6 — Daño enemigo en gráficas separadas
+
+- Monstruos separa el daño realizado y el recibido en dos gráficas verticales, cada una con escala propia desde cero. El daño recibido elevado deja de aplanar las diferencias de daño realizado.
+- Se conservan los mismos enemigos, orden, valores acumulados, escudos y desplazamiento horizontal. Realizado utiliza rojo; recibido, azul.
+- La verificación comprueba escalas independientes con daño recibido miles de veces superior, categorías sin actividad y capturas de ambas gráficas en móvil y escritorio.
+
 ## 0.29.5 — Barras de balance, continuación única y modales coherentes
 
 - Elementos incorpora barras verticales para los ocho elementos: daño real acumulado, curación efectiva para Vida y absorción para Escudo. Monstruos compara el daño realizado y recibido por especie con dos barras y una escala común desde cero. Las categorías sin actividad se conservan y las gráficas permiten desplazamiento horizontal.

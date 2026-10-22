@@ -64,23 +64,24 @@ public partial class MatchStatisticsPanel
         Note("El filtro Origen del ataque se aplica a Elementos y Hechizos. Las demás vistas comparan todos los orígenes.");
     }
     private float BarChartHeight => GetViewport().GetVisibleRect().Size.Y < 500 ? 190 : 340;
-    private void VerticalChart(string title, string description, StatisticsBarChart.Category[] categories, bool paired = false)
+    private void VerticalChart(string title, string description, StatisticsBarChart.Category[] categories,
+        string name = "ElementDamageBars", bool enemies = false, string valueTitle = "Daño / curación / absorción")
     {
         var box = Chart(title, description);
-        var scroll = new ContentScrollContainer { Name = paired ? "EnemyBarsScroll" : "ElementBarsScroll",
+        var scroll = new ContentScrollContainer { Name = name + "Scroll",
             HorizontalScrollMode = ScrollContainer.ScrollMode.Auto, VerticalScrollMode = ScrollContainer.ScrollMode.Disabled,
             SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new(0, BarChartHeight + 22) };
         box.AddChild(scroll);
-        var chart = new StatisticsBarChart { Name = paired ? "EnemyDamageBars" : "ElementDamageBars", Categories = categories,
-            CustomMinimumSize = new(0, BarChartHeight), Paired = paired, HorizontalTitle = paired ? "Tipo de enemigo" : "Elemento",
-            FirstTitle = paired ? "Daño realizado" : "Daño / curación / absorción" };
+        var chart = new StatisticsBarChart { Name = name, Categories = categories,
+            CustomMinimumSize = new(0, BarChartHeight), CategoryWidth = enemies ? 116 : 80,
+            HorizontalTitle = enemies ? "Tipo de enemigo" : "Elemento", ValueTitle = valueTitle };
         scroll.AddChild(chart);
         var bar = scroll.GetHScrollBar(); bar.CustomMinimumSize = new(0, Ui.IsMobile ? 20 : 16);
         bar.AddThemeStyleboxOverride("scroll", Ui.Panel(ArcanaMenuChrome.Backdrop, 6, ArcanaMenuChrome.Border));
         bar.AddThemeStyleboxOverride("grabber", Ui.Panel(Ui.Blue.Darkened(0.35f), 6, Ui.Blue));
-        foreach (var category in categories) _chartValues[title + "/" + category.Label] = (category.First, category.Second);
-        if (categories.All(c => c.First == 0 && c.Second == 0)) box.AddChild(Ui.Label("Sin actividad registrada para esta selección.", 15, Ui.Muted));
-        var legend = Ui.Label(paired ? "Rojo: daño realizado · Azul: daño recibido. Desliza para ver todos los enemigos."
+        foreach (var category in categories) _chartValues[title + "/" + category.Label] = (category.Value, 0);
+        if (categories.All(c => c.Value == 0)) box.AddChild(Ui.Label("Sin actividad registrada para esta selección.", 15, Ui.Muted));
+        var legend = Ui.Label(enemies ? "Desliza horizontalmente para ver todos los enemigos."
             : "Desliza horizontalmente si no caben todos los elementos.", 14, Ui.Muted);
         legend.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(legend);
     }
@@ -90,13 +91,17 @@ public partial class MatchStatisticsPanel
         {
             Element.Life => SupportSum(StatisticMeasure.Healing), Element.Shield => SupportSum(StatisticMeasure.ShieldAbsorbed),
             _ => ElementSum(StatisticMeasure.Damage, e) + ElementSum(StatisticMeasure.ShieldDamage, e)
-        }, 0, ElementTint(e))).ToArray());
+        }, ElementTint(e))).ToArray());
     private void EnemyChart()
     {
-        VerticalChart("Daño realizado y recibido por enemigo", "Rojo: daño que inflige cada especie. Azul: daño que recibe. Incluye vida y escudos; la escala parte de cero.",
+        VerticalChart("Daño realizado por enemigo", "Rojo: daño que inflige cada especie, incluido el daño a escudos. Escala propia desde cero, independiente del daño recibido.",
             Enum.GetValues<MinionKind>().Select(kind => new StatisticsBarChart.Category(DefenseRules.MinionName(kind),
-                Sum(StatisticGroup.Enemy, StatisticMeasure.Damage, (int)kind) + Sum(StatisticGroup.Enemy, StatisticMeasure.ShieldDamage, (int)kind),
-                Sum(StatisticGroup.Enemy, StatisticMeasure.DamageReceived, (int)kind) + Sum(StatisticGroup.Enemy, StatisticMeasure.ShieldAbsorbed, (int)kind), Ui.Red)).ToArray(), paired: true);
+                Sum(StatisticGroup.Enemy, StatisticMeasure.Damage, (int)kind) + Sum(StatisticGroup.Enemy, StatisticMeasure.ShieldDamage, (int)kind), Ui.Red)).ToArray(),
+            name: "EnemyDamageDealtBars", enemies: true, valueTitle: "Daño realizado");
+        VerticalChart("Daño recibido por enemigo", "Azul: daño que recibe cada especie en vida y escudos. Escala propia desde cero; el orden de los enemigos coincide con la gráfica de daño realizado.",
+            Enum.GetValues<MinionKind>().Select(kind => new StatisticsBarChart.Category(DefenseRules.MinionName(kind),
+                Sum(StatisticGroup.Enemy, StatisticMeasure.DamageReceived, (int)kind) + Sum(StatisticGroup.Enemy, StatisticMeasure.ShieldAbsorbed, (int)kind), Ui.Blue)).ToArray(),
+            name: "EnemyDamageReceivedBars", enemies: true, valueTitle: "Daño recibido");
         Bars("Amenaza media por monstruo", "Daño causado dividido entre apariciones de cada especie. Ayuda a comparar enemigos frecuentes y raros; no representa daño por segundo.",
             Enum.GetValues<MinionKind>().Select(kind =>
             {
@@ -140,5 +145,4 @@ public partial class MatchStatisticsPanel
                 .OrderByDescending(p => p.Value).Take(10), damage: false, unit: "%");
     }
     internal double ChartValueForVerification(string title, string row) => _chartValues.GetValueOrDefault(title + "/" + row).Value;
-    internal double ChartSecondValueForVerification(string title, string row) => _chartValues.GetValueOrDefault(title + "/" + row).Shield;
 }

@@ -58,7 +58,7 @@ public partial class Main
                     metrics.Add(new(StatisticGroup.Enemy, (int)kind, StatisticMeasure.Deaths, 28));
                     metrics.Add(new(StatisticGroup.Enemy, (int)kind, StatisticMeasure.Damage, 800 * ((int)kind + 1)));
                     metrics.Add(new(StatisticGroup.Enemy, (int)kind, StatisticMeasure.ShieldDamage, 150 * ((int)kind + 1)));
-                    metrics.Add(new(StatisticGroup.Enemy, (int)kind, StatisticMeasure.DamageReceived, 4000 * ((int)kind + 1)));
+                    metrics.Add(new(StatisticGroup.Enemy, (int)kind, StatisticMeasure.DamageReceived, 4_000_000 * ((int)kind + 1)));
                     metrics.Add(new(StatisticGroup.Enemy, (int)kind, StatisticMeasure.ShieldAbsorbed, 250 * ((int)kind + 1)));
                     metrics.Add(new(StatisticGroup.Actor, 64 + (int)kind, StatisticMeasure.Damage, 800 * ((int)kind + 1)));
                     metrics.Add(new(StatisticGroup.Actor, 64 + (int)kind, StatisticMeasure.Healing, 7));
@@ -117,15 +117,23 @@ public partial class Main
                 _statisticsPanel.SelectSourceForVerification(4); CheckWater(923.25); CheckSupport(116, 166);
                 _statisticsPanel.SelectSourceForVerification(0); _statisticsPanel.SelectModeForVerification(0);
                 _statisticsPanel.SelectViewForVerification(2);
-                const string enemyTitle = "Daño realizado y recibido por enemigo";
+                const string dealtTitle = "Daño realizado por enemigo", receivedTitle = "Daño recibido por enemigo";
                 foreach (var kind in Enum.GetValues<MinionKind>())
-                    if (Math.Abs(_statisticsPanel.ChartValueForVerification(enemyTitle, DefenseRules.MinionName(kind)) - 1900 * ((int)kind + 1)) > 0.001 ||
-                        Math.Abs(_statisticsPanel.ChartSecondValueForVerification(enemyTitle, DefenseRules.MinionName(kind)) - 8500 * ((int)kind + 1)) > 0.001)
-                        throw new InvalidOperationException("Las barras por enemigo no suman el daño real a vida y escudos.");
+                    if (Math.Abs(_statisticsPanel.ChartValueForVerification(dealtTitle, DefenseRules.MinionName(kind)) - 1900 * ((int)kind + 1)) > 0.001 ||
+                        Math.Abs(_statisticsPanel.ChartValueForVerification(receivedTitle, DefenseRules.MinionName(kind)) - 8_000_500 * ((int)kind + 1)) > 0.001)
+                        throw new InvalidOperationException("Las gráficas por enemigo no suman el daño real a vida y escudos.");
+                var dealt = (StatisticsBarChart)_statisticsPanel.FindChild("EnemyDamageDealtBars", true, false);
+                var received = (StatisticsBarChart)_statisticsPanel.FindChild("EnemyDamageReceivedBars", true, false);
+                if (dealt.ScaleMaximum != 1900 * species || received.ScaleMaximum != 8_000_500 * species ||
+                    !dealt.Categories.Select(c => c.Label).SequenceEqual(received.Categories.Select(c => c.Label)))
+                    throw new InvalidOperationException("El daño recibido aplana la escala del realizado o cambia el orden de las especies.");
                 _statisticsPanel.SelectModeForVerification(1);
-                var emptyEnemies = (StatisticsBarChart)_statisticsPanel.FindChild("EnemyDamageBars", true, false);
-                if (emptyEnemies.Categories.Length != Enum.GetValues<MinionKind>().Length || emptyEnemies.Categories.Any(c => c.First != 0 || c.Second != 0))
-                    throw new InvalidOperationException("Las especies sin datos desaparecen o muestran daño inexistente.");
+                foreach (string name in new[] { "EnemyDamageDealtBars", "EnemyDamageReceivedBars" })
+                {
+                    var emptyEnemies = (StatisticsBarChart)_statisticsPanel.FindChild(name, true, false);
+                    if (emptyEnemies.Categories.Length != species || emptyEnemies.Categories.Any(c => c.Value != 0) || emptyEnemies.ScaleMaximum != 1)
+                        throw new InvalidOperationException("Las especies sin datos desaparecen o muestran daño inexistente.");
+                }
                 _statisticsPanel.SelectModeForVerification(0);
                 _statisticsPanel.SelectViewForVerification(3);
                 if (Math.Abs(_statisticsPanel.ChartValueForVerification("Ataques con más daño", "Regeneración") - 42120) > 0.001)
@@ -138,7 +146,7 @@ public partial class Main
             }
             int view = (_statisticsSmokePhase - 2) / 2;
             if (view >= 6)
-            { CleanupStatisticsSmoke(); GD.Print("MATCH_STATISTICS_SMOKE_OK: dos UID, cierre de sesión, archivos locales, seis vistas, barras verticales por elemento y enemigo, soporte efectivo, humanos+bots, filtros, tablas y aislamiento de telemetría."); GetTree().Quit(0); _statisticsSmoke = false; return true; }
+            { CleanupStatisticsSmoke(); GD.Print("MATCH_STATISTICS_SMOKE_OK: dos UID, cierre de sesión, archivos locales, seis vistas, barras verticales por elemento y dos gráficas por enemigo con escalas independientes, soporte efectivo, humanos+bots, filtros, tablas y aislamiento de telemetría."); GetTree().Quit(0); _statisticsSmoke = false; return true; }
             var scroll = (ScrollContainer)_statisticsPanel!.FindChild("StatisticsScroll", true, false);
             if (_statisticsSmokePhase % 2 == 0)
             {
@@ -169,7 +177,18 @@ public partial class Main
                 }
                 if (_statisticsSmokeFrame < 24) return true;
                 System.IO.Directory.CreateDirectory(_statisticsCaptures);
-                GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(_statisticsCaptures, "statistics-" + view + ".png"));
+                if (view == 2 && _statisticsSmokeFrame < 36)
+                {
+                    if (_statisticsSmokeFrame == 24)
+                    {
+                        GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(_statisticsCaptures, "statistics-2.png"));
+                        var received = (Control)_statisticsPanel.FindChild("EnemyDamageReceivedBars", true, false);
+                        scroll.ScrollVertical += (int)(received.GlobalPosition.Y - bounds.Position.Y);
+                    }
+                    return true;
+                }
+                GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(_statisticsCaptures,
+                    view == 2 ? "statistics-2-received.png" : "statistics-" + view + ".png"));
             }
             _statisticsSmokePhase++; _statisticsSmokeFrame = 0; return true;
         }
