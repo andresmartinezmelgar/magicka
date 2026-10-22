@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.29.7 — Integración estable y reliquias al 1 %
+
+- Se integran en main todas las mejoras de la rama de pruebas: partículas, rayos y muros agrupados, buffers reutilizables y actualizaciones visuales solo cuando cambia su estado.
+- Estadísticas incorpora las barras por elemento y dos gráficas independientes de daño realizado y recibido por monstruo. Humanos y bots se suman por defecto, con los filtros y tablas numéricas disponibles.
+- Continuar supervivencia consume el punto local al activar la partida. Guardar otra vez habilita una nueva continuación; cancelar la carga conserva el punto.
+- Las modales comparten marco, colores, botones y sombreado con el resto de pantallas.
+- La aparición de reliquias en supervivencia sube del 0,5 % al 1 % por baja y defensor. Se comprueban las tiradas inmediatamente antes y después del umbral.
+
 ## 0.29.6 — Daño enemigo en gráficas separadas
 
 - Monstruos separa el daño realizado y el recibido en dos gráficas verticales, cada una con escala propia desde cero. El daño recibido elevado deja de aplanar las diferencias de daño realizado.

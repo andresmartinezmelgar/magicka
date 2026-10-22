@@ -117,7 +117,7 @@ Las bajas normales dan 10 EXP compartida y los colosos 60 EXP a los defensores c
 | --- | ---: | --- |
 | Oro | 35 % | Recogerlo concede su importe a los defensores presentes |
 | Equipo | 6 % por defensor | Personal |
-| Reliquia | 0,5 % por defensor | Personal y acumulable |
+| Reliquia | 1 % por defensor | Personal y acumulable |
 
 Las recogidas duran 75 s, con un máximo de 96; el inventario temporal admite 24 piezas. Los sprites distinguen monedas giratorias, las cuatro piezas y cada mejora. Las mejoras recogidas se consultan en Reliquias del menú o de la tienda. El HUD muestra nivel, EXP, oro, bajas y vidas. Las aportaciones del equipo se consultan en el inventario y en Estadísticas.
 

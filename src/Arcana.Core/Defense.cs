@@ -26,7 +26,7 @@ public static partial class DefenseRules
     public static int SurgeLimit(int stage, int party) =>
         Math.Min(MaxMinions, SpawnLimit(stage, party) + CommanderSurgeBonus);
     public const int GoldDropChance = 35, EquipmentDropChance = 6;
-    public const float RelicDropChance = 0.5f;
+    public const float RelicDropChance = 1f;
     public const float ArrowPower = 0.4f, MagePower = 0.42f;
     public const float FreezeRecoverySeconds = 3;
     public static float MinionMeleeAttack(MinionKind kind) => kind switch

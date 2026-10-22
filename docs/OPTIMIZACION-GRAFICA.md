@@ -1,6 +1,6 @@
 # Cómo se ha optimizado la parte gráfica
 
-Las versiones de pruebas 0.29.3 y 0.29.4 reducen la preparación y el envío de trabajo gráfico. La intención es conservar el aspecto de los hechizos y aprovechar que muchos objetos pequeños comparten forma y material. 0.29.5 conserva estas optimizaciones y añade las gráficas, la continuación de un solo uso y la unificación de modales.
+Las versiones de pruebas 0.29.3 y 0.29.4 reducen la preparación y el envío de trabajo gráfico. La intención es conservar el aspecto de los hechizos y aprovechar que muchos objetos pequeños comparten forma y material. Desde 0.29.7, estas optimizaciones están integradas en main junto a las gráficas con escalas independientes, la continuación de un solo uso y la unificación de modales.
 
 ## Por qué unos gráficos sencillos pueden resultar costosos
 

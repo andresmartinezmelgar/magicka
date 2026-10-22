@@ -199,14 +199,14 @@ internal static class DefenseEliteTests
                 d.Minions.Count(m => m.Kind == MinionKind.Prism) <= 8, "La generación ignoró la carga o los límites de élites.");
             p.Invulnerable = 0; SnapshotValidation.Check(w.Snapshot());
         });
-        test("Reliquias: la tirada distingue 0,49 % de 0,50 % sin redondear a un uno por ciento", () =>
+        test("Reliquias: el uno por ciento incluye la tirada 99 y excluye la 100", () =>
         {
-            foreach (int roll in new[] { 49, 50, 99 })
+            foreach (int roll in new[] { 0, 49, 50, 99, 100, 101, 9999 })
             {
                 var (w, p) = World(); Set(w, "_random", new DropRandom(roll));
                 var (enemy, _) = Spawn(w, MinionKind.Melee, new(-5, 0));
                 Call(w, "Damage", enemy, 100000f, p.Id, new[] { Element.Fire });
-                Check(w.Snapshot().Defense!.Drops.Any(d => d.Kind == DefenseDropKind.Relic) == (roll < 50), "La probabilidad de reliquia no es exactamente 0,5 %.");
+                Check(w.Snapshot().Defense!.Drops.Any(d => d.Kind == DefenseDropKind.Relic) == (roll < 100), "La probabilidad de reliquia no es exactamente 1 %.");
             }
         });
     }
