@@ -241,7 +241,8 @@ jobs:
             mkdir -p "$target"
             xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --shop-smoke "${args[@]}" "--shop-captures=$target" 2>&1 | tee "$RUNNER_TEMP/shop-$surface.log"
             grep -q 'SHOP_SMOKE_OK' "$RUNNER_TEMP/shop-$surface.log"
-            test "$(find "$target" -name '*.png' | wc -l)" -eq 6
+            test "$(find "$target" -name '*.png' | wc -l)" -eq 7
+            test -s "$target/03-comparacion.png"
             ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/shop-$surface.log"
           done
       - name: Verificar y capturar la venta en escritorio y pantallas móviles pequeñas
@@ -257,7 +258,8 @@ jobs:
             export XDG_DATA_HOME="$RUNNER_TEMP/sale-cache-$surface"
             timeout 50s xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --sale-smoke "${args[@]}" "--sale-captures=$target" 2>&1 | tee "$RUNNER_TEMP/sale-$surface.log"
             grep -q 'SALE_SMOKE_OK' "$RUNNER_TEMP/sale-$surface.log"
-            test "$(find "$target" -name '*.png' | wc -l)" -eq 2
+            test "$(find "$target" -name '*.png' | wc -l)" -eq 3
+            test -s "$target/00-conjuntos.png"
             ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/sale-$surface.log"
             timeout 50s xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --sale-smoke --quick-item-actions "${args[@]}" 2>&1 | tee "$RUNNER_TEMP/quick-sale-$surface.log"
             grep -q 'QUICK_SALE_OK' "$RUNNER_TEMP/quick-sale-$surface.log"
