@@ -202,12 +202,13 @@ jobs:
           python3 - <<'PY'
           import glob, struct, pathlib, hashlib
           files = sorted(glob.glob('artifacts/visual-review/*/*.png'))
-          expected = 47 + 2 * 6  # Seis vistas estadísticas en escritorio y móvil.
+          statistics = [f'statistics-{view}.png' for view in range(6)] + ['statistics-2-received.png']
+          expected = 47 + 2 * len(statistics)  # Seis vistas y la segunda gráfica de enemigos.
           if len(files) != expected:
               raise SystemExit(f'Faltan capturas: {len(files)}/{expected}')
           for surface in ('desktop', 'mobile'):
-              for view in range(6):
-                  path = pathlib.Path('artifacts/visual-review') / f'statistics-{surface}' / f'statistics-{view}.png'
+              for name in statistics:
+                  path = pathlib.Path('artifacts/visual-review') / f'statistics-{surface}' / name
                   if not path.is_file() or path.stat().st_size == 0:
                       raise SystemExit(f'Falta captura de estadísticas: {path}')
           for name in files:
