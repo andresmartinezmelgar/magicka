@@ -73,7 +73,8 @@ public partial class Main
     {
         if (_statisticsArchive == null || _statisticsTransport == null) return;
         _statisticsSending = true;
-        try { await _statisticsArchive.Flush(_statisticsTransport.Upload, _lifetime.Token); }
+        try { await _statisticsArchive.Flush(_statisticsTransport.Upload, _lifetime.Token,
+            report => report.Status != MatchRecordStatus.Playing); }
         catch (Exception e) when (e is System.IO.IOException or HttpRequestException or OperationCanceledException or InvalidOperationException or System.Text.Json.JsonException) { }
         finally { _statisticsSending = false; }
     }

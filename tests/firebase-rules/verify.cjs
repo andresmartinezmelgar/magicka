@@ -71,9 +71,39 @@ async function main() {
       await assertFails(getDocs(collection(client, "statisticsReaders")));
     }
     await assertFails(getDoc(doc(readerA, "statisticsReaders/readerB")));
+    const runId = "cccccccccccccccccccccccccccccccc";
+    const statistics = { schemaVersion: 1, runId, revision: 60, status: 1, day: "2026-10-22",
+      mode: "Arena", map: "Classic", gameVersion: "0.29.8", complete: true, payload: "{}" };
+    const statisticsId = data => `${data.runId}-${data.revision}-${data.status}`;
+    const direct = doc(anonymous, "matchStatistics/" + statisticsId(statistics));
+    await assertSucceeds(setDoc(direct, statistics));
+    await assertSucceeds(setDoc(direct, statistics));
+    await assertFails(getDoc(direct));
+    await assertFails(getDocs(collection(anonymous, "matchStatistics")));
+    await assertFails(updateDoc(direct, { payload: "changed" }));
+    await assertFails(updateDoc(direct, { revision: 120 }));
+    await assertFails(deleteDoc(direct));
+    const later = { ...statistics, revision: 120 };
+    await assertSucceeds(setDoc(doc(anonymous, "matchStatistics/" + statisticsId(later)), later));
+    const before = { ...statistics, revision: 30, status: 2, complete: false };
+    await assertSucceeds(setDoc(doc(anonymous, "matchStatistics/" + statisticsId(before)), before));
+    await assertSucceeds(getDoc(doc(readerA, "matchStatistics/" + statisticsId(statistics))));
+    const invalid = [
+      { schemaVersion: 2 }, { runId: "not-a-guid" }, { revision: 0 }, { revision: -1 }, { revision: 1892160001 },
+      { revision: "60" }, { status: 0, complete: false }, { status: 6 }, { complete: false }, { day: "2026-99-99" },
+      { mode: "invented" }, { map: "invented" }, { gameVersion: "1.2.3-private" }, { payload: "" },
+      { payload: "x".repeat(245761) }, { payload: {} }, { uid: "alice" }, { email: "private@example.com" }
+    ];
+    for (let i = 0; i < invalid.length; i++) {
+      const data = { ...statistics, runId: i.toString(16).padStart(32, "0"), ...invalid[i] };
+      await assertFails(setDoc(doc(anonymous, "matchStatistics/" + statisticsId(data)), data));
+    }
+    const missing = { ...statistics, runId: "dddddddddddddddddddddddddddddddd" }; delete missing.payload;
+    await assertFails(setDoc(doc(anonymous, "matchStatistics/" + statisticsId(missing)), missing));
+    await assertFails(setDoc(doc(anonymous, "matchStatistics/mismatched-id"), statistics));
     await env.withSecurityRulesDisabled(async context => { await updateDoc(doc(context.firestore(), "statisticsReaders/readerA"), { enabled: false }); });
     await assertFails(getDocs(collection(readerA, "matchStatistics")));
-    console.log("MATCH_STATISTICS_RULES_OK: two readers, query, revocation, anonymous denial, role escalation and writes rejected.");
+    console.log("MATCH_STATISTICS_RULES_OK: private reads, anonymous immutable reports, exact retries, bounded schema, no overwrite, role escalation rejected.");
     console.log("FIRESTORE_RULES_OK: Google owner reads, zero-balance registration, owned equipment; illegal writes rejected.");
   } finally { await env.cleanup(); }
 }

@@ -6,7 +6,11 @@ service cloud.firestore {
         && request.auth.token.firebase.sign_in_provider == 'google.com';
     }
 
-    // matchStatistics/{runId}: contrato anónimo validado por el servidor Admin.
+    // matchStatistics/{runId}-{revision}-{status}: informe anónimo inmutable.
+    // Campos obligatorios: schemaVersion=1, runId hexadecimal de 32 caracteres,
+    // revision/status enteros acotados, day ISO, mode/map enumerados,
+    // gameVersion semántica, complete booleano y payload JSON de hasta 240 KiB.
+    // El cliente valida el JSON. Las cifras no son autoritativas para premios.
     // statisticsReaders/{uid}: { enabled: bool }; solo Admin concede o revoca roles.
     function statisticsReader() {
       return request.auth != null
@@ -18,9 +22,28 @@ service cloud.firestore {
       allow get: if googleOwner(uid);
       allow list, write: if false;
     }
-    match /matchStatistics/{runId} {
+    function validStatistics(id, data) {
+      return data.keys().hasOnly(['schemaVersion', 'runId', 'revision', 'status', 'day', 'mode', 'map', 'gameVersion', 'complete', 'payload'])
+        && data.keys().hasAll(['schemaVersion', 'runId', 'revision', 'status', 'day', 'mode', 'map', 'gameVersion', 'complete', 'payload'])
+        && data.schemaVersion is int && data.schemaVersion == 1
+        && data.runId is string && data.runId.matches('^[0-9a-f]{32}$')
+        && data.revision is int && data.revision > 0 && data.revision <= 1892160000
+        && data.status is int && data.status >= 1 && data.status <= 5
+        && id == data.runId + '-' + string(data.revision) + '-' + string(data.status)
+        && data.day is string && data.day.matches('^(20[2-9][0-9]|2100)-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$')
+        && data.mode in ['Duel', 'Arena', 'Warfare', 'Defense']
+        && data.map in ['Classic', 'Citadel', 'Ascension', 'Relics', 'Frontline', 'Practice', 'Bastion']
+        && data.gameVersion is string && data.gameVersion.matches('^[0-9]{1,3}[.][0-9]{1,3}[.][0-9]{1,3}$')
+        && data.complete is bool && data.complete == (data.status == 1)
+        && data.payload is string && data.payload.size() > 0 && data.payload.size() <= 245760;
+    }
+    match /matchStatistics/{id} {
       allow read: if statisticsReader();
-      allow write: if false;
+      // La telemetría admite remitentes sin sesión. No concede acceso a perfiles.
+      allow create: if validStatistics(id, request.resource.data);
+      // Solo reintentos idénticos; nunca se sobrescribe o borra otro informe.
+      allow update: if validStatistics(id, request.resource.data) && request.resource.data == resource.data;
+      allow delete: if false;
     }
 
     // Aviso publico del antiguo servicio, conservado para compatibilidad.

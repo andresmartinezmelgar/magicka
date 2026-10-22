@@ -117,22 +117,63 @@ internal static class MatchStatisticsTests
             Reject(() => (r with { Metrics = [new(StatisticGroup.Total, 0, StatisticMeasure.Damage, double.NaN)] }).Validate());
             Reject(() => (r with { Metrics = [r.Metrics[0], r.Metrics[0]] }).Validate());
         });
-        test("Estadísticas: envío anónimo sin cabecera de sesión ni cookie", () =>
+        test("Estadísticas: envío directo a Firestore sin sesión, cookie ni relé", () =>
         {
-            var (w, _, _) = Arena(); var handler = new Handler(request =>
+            var (w, _, _) = Arena(); var report = w.MatchStatistics(MatchRecordStatus.Completed);
+            var handler = new Handler(request =>
             {
-                Check(request.RequestUri!.AbsolutePath == "/analytics/matches" && request.Headers.Authorization == null && !request.Headers.Contains("Cookie"), "Se envió identidad.");
-                return new(HttpStatusCode.Accepted);
+                Check(request.Method == HttpMethod.Post && request.RequestUri!.Scheme == "https" && request.RequestUri.Host == "firestore.googleapis.com" &&
+                    request.RequestUri.AbsolutePath == "/v1/projects/demo-arcana/databases/(default)/documents/matchStatistics", "El informe pasó por un servidor intermedio.");
+                Check(request.Headers.Authorization == null && !request.Headers.Contains("Cookie"), "Se envió identidad.");
+                Check(request.RequestUri!.Query.Contains("documentId=" + report.RunId + "-" + report.Revision + "-1"), "La clave no es idempotente.");
+                using var body = JsonDocument.Parse(request.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
+                var fields = body.RootElement.GetProperty("fields");
+                Check(fields.EnumerateObject().Count() == 10 && fields.GetProperty("runId").GetProperty("stringValue").GetString() == report.RunId &&
+                    fields.GetProperty("status").GetProperty("integerValue").GetString() == "1" && fields.GetProperty("complete").GetProperty("booleanValue").GetBoolean(), "Cabecera Firestore incorrecta.");
+                Check(MatchStatisticsReport.Parse(fields.GetProperty("payload").GetProperty("stringValue").GetString()!).ToJson() == report.ToJson(), "Alteró el daño acumulado.");
+                return new(HttpStatusCode.OK);
             });
-            using var http = new HttpClient(handler); using var transport = new MatchStatisticsTransport("demo-arcana", http, _ => Task.FromResult("ws://127.0.0.1:12345/play"));
-            transport.Upload(w.MatchStatistics()).GetAwaiter().GetResult(); Check(handler.Calls == 1, "No envió el informe.");
+            using var http = new HttpClient(handler); using var transport = new MatchStatisticsTransport("demo-arcana", http);
+            transport.Upload(report).GetAwaiter().GetResult(); Check(handler.Calls == 1, "No envió el informe.");
+            bool rejected = false;
+            try { transport.Upload(w.MatchStatistics()).GetAwaiter().GetResult(); } catch (InvalidOperationException) { rejected = true; }
+            Check(rejected && handler.Calls == 1, "Intentó subir una partida todavía en curso.");
         });
-        test("Estadísticas: lector comprueba permiso y pagina informes acotados", () =>
+        test("Estadísticas: Firestore confirma duplicados y conserva la cola ante permisos, cuota y red", () =>
+        {
+            var (w, _, _) = Arena(); var report = w.MatchStatistics(MatchRecordStatus.Completed);
+            foreach (var status in new[] { HttpStatusCode.Forbidden, HttpStatusCode.TooManyRequests, HttpStatusCode.ServiceUnavailable, HttpStatusCode.Conflict })
+            {
+                string dir = DirectoryForTest(); var archive = new MatchStatisticsArchive(dir); archive.Save(report);
+                using var http = new HttpClient(new Handler(_ => new(status) { Content = new StringContent("{\"error\":{\"status\":\"ABORTED\"}}") }));
+                using var transport = new MatchStatisticsTransport("demo-arcana", http);
+                try { archive.Flush(transport.Upload).GetAwaiter().GetResult(); throw new Exception("Se confirmó un envío fallido."); }
+                catch (IOException) { }
+                Check(Directory.GetFiles(Path.Combine(dir, "pending"), "*.json").Length == 1, "El fallo borró el informe pendiente.");
+                using var success = new HttpClient(new Handler(_ => new(HttpStatusCode.Conflict) { Content = new StringContent("{\"error\":{\"status\":\"ALREADY_EXISTS\"}}") }));
+                using var retry = new MatchStatisticsTransport("demo-arcana", success);
+                archive.Flush(retry.Upload).GetAwaiter().GetResult();
+                Check(Directory.GetFiles(Path.Combine(dir, "pending"), "*.json").Length == 0 && archive.Find(report.RunId) != null,
+                    "El reintento duplicado no confirmó la cola o borró el historial.");
+            }
+        });
+        test("Estadísticas: el envío espera al cierre sin perder partidas en curso ni el historial", () =>
+        {
+            var (w, _, _) = Arena(); string dir = DirectoryForTest(); var archive = new MatchStatisticsArchive(dir); var report = w.MatchStatistics();
+            archive.Save(report); int sent = 0;
+            archive.Flush((_, _) => { sent++; return Task.CompletedTask; }, include: r => r.Status != MatchRecordStatus.Playing).GetAwaiter().GetResult();
+            Check(sent == 0 && Directory.GetFiles(Path.Combine(dir, "pending")).Length == 1, "El filtro perdió el informe en curso.");
+            archive.Save(report with { Status = MatchRecordStatus.Suspended });
+            archive.Flush((r, _) => { sent++; Check(r.Status == MatchRecordStatus.Suspended, "No envió el guardado."); return Task.CompletedTask; }, include: r => r.Status != MatchRecordStatus.Playing).GetAwaiter().GetResult();
+            Check(sent == 1 && archive.Find(report.RunId) != null && Directory.GetFiles(Path.Combine(dir, "pending")).Length == 0, "Perdió historial o no confirmó la cola.");
+        });
+        test("Estadísticas: lector comprueba permiso, omite informes corruptos y conserva la paginación", () =>
         {
             var (w, _, _) = Arena(); var report = w.MatchStatistics();
             using var http = new HttpClient(new Handler(request => new(HttpStatusCode.OK) { Content = new StringContent(request.RequestUri!.AbsolutePath.Contains("statisticsReaders")
                 ? "{\"fields\":{\"enabled\":{\"booleanValue\":true}}}"
-                : JsonSerializer.Serialize(new { documents = new[] { new { fields = new { payload = new { stringValue = report.ToJson() } } } }, nextPageToken = "next-page" })) }));
+                : JsonSerializer.Serialize(new { documents = new object[] { new { fields = new { } }, new { fields = new { payload = new { stringValue = "{broken" } } },
+                    new { fields = new { payload = new { integerValue = "1" } } }, new { fields = new { payload = new { stringValue = report.ToJson() } } } }, nextPageToken = "next-page" })) }));
             using var reader = new FirebaseProfileReader("demo-arcana", http);
             Check(reader.CanReadMatchStatistics("reader", "TOKEN").GetAwaiter().GetResult(), "Rol ignorado.");
             var page = reader.ReadMatchStatistics("TOKEN").GetAwaiter().GetResult(); Check(page.Reports.Single().RunId == report.RunId && page.NextPageToken == "next-page", "Página incorrecta.");

@@ -29,7 +29,11 @@ public sealed partial class FirebaseProfileReader
         {
             if (docs.ValueKind != JsonValueKind.Array || docs.GetArrayLength() > 10) throw new InvalidDataException("Página demasiado grande.");
             foreach (var doc in docs.EnumerateArray())
-                reports.Add(MatchStatisticsReport.Parse(doc.GetProperty("fields").GetProperty("payload").GetProperty("stringValue").GetString() ?? ""));
+            {
+                try { reports.Add(MatchStatisticsReport.Parse(doc.GetProperty("fields").GetProperty("payload").GetProperty("stringValue").GetString() ?? "")); }
+                catch (Exception error) when (error is InvalidDataException or JsonException or InvalidOperationException or KeyNotFoundException)
+                { /* Un informe no fiable no bloquea las demás partidas ni la página siguiente. */ }
+            }
         }
         string next = document.RootElement.TryGetProperty("nextPageToken", out var nextToken) ? nextToken.GetString() ?? "" : "";
         if (next.Length > 8192) throw new InvalidDataException("Página inválida.");

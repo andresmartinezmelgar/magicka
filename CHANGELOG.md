@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.29.8 — Estadísticas directas a Firestore
+
+- Android y Windows envían los informes directamente a Firestore por HTTPS, sin descubrir ni contactar el servidor de cuentas o partidas y sin enviar tokens, cookies ni identificadores de cuenta.
+- El historial local se actualiza durante el juego. Los informes terminados, abandonados, guardados o interrumpidos entran en el envío; los errores de conexión, permisos o cuota conservan la cola para reintentar.
+- Cada revisión cerrada tiene una clave estable por partida, revisión y estado. Los reintentos no crean copias, una revisión tardía no sobrescribe el final y las lecturas deben agrupar por partida antes de sumar estadísticas.
+- Se preparan reglas de escritura anónima con campos y tamaños acotados. Los informes existentes son inmutables y la lectura conserva sus permisos. Publicar estas reglas en Firebase es necesario para habilitar el envío real.
+- Las pruebas ejercitan el transporte REST real contra el emulador, envíos concurrentes, informes antiguos, permisos, cuota, anonimato y documentos malformados. El visor sigue leyendo los archivos locales.
+
 ## 0.29.7 — Integración estable y reliquias al 1 %
 
 - Se integran en main todas las mejoras de la rama de pruebas: partículas, rayos y muros agrupados, buffers reutilizables y actualizaciones visuales solo cuando cambia su estado.

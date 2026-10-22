@@ -1,4 +1,4 @@
-# Estadísticas de balance — 0.29.6
+# Estadísticas de balance — 0.29.8
 
 Duelo, Arena, Guerra y Supervivencia generan un informe acumulado por ronda, tanto en local con IA como en red. El laboratorio también usa el motor instrumentado; se distingue por su mapa. Cada reinicio empieza otro identificador. El servidor recoge las partidas en red y envía el informe a los clientes; todos utilizan el mismo identificador aleatorio y las revisiones se sustituyen, no se suman.
 
@@ -27,9 +27,21 @@ El cliente usa `user://match-statistics/matches/<runId>.json` y `user://match-st
 
 Se captura cada 15 segundos activos aproximadamente, al terminar, al guardar supervivencia y al salir. La cola se escribe con renombrado atómico y vaciado a disco antes de actualizar el historial. El envío se hace fuera de la simulación. Al arrancar se recuperan las escrituras y los informes que seguían abiertos se marcan como interrumpidos. Los archivos inválidos se conservan con extensión `.invalid-…` y no bloquean los demás.
 
-El cliente descubre el relé oficial a través del anuncio público de Firestore y envía `POST /analytics/matches` por HTTPS, sin autenticación, cookies ni redirecciones. El relé confirma con 202 después de guardar su propia cola en disco. El cliente conserva su historial y retira solo la revisión confirmada de su cola. El servidor reintenta la escritura Firebase mediante el SDK Admin o su servicio de cuentas, conservando el informe hasta recibir confirmación. Si la red, el relé o Firebase están caídos, la cola continúa pendiente. No basta con que Firebase esté disponible si el relé oficial sigue apagado.
+Desde 0.29.8, Android y Windows envían directamente a la API REST de Firestore por HTTPS. No consultan el anuncio público, no utilizan `/analytics/matches` ni necesitan que el servidor de juego o cuentas esté encendido. El envío no contiene ID token, cookies ni UID y funciona también sin iniciar sesión con Google. El servicio de Firebase sigue siendo necesario.
 
-Una transacción en `matchStatistics/<runId>` conserva la revisión más reciente y nunca sustituye un resultado final por uno parcial. Dos clientes de la misma sala y el servidor no generan tres partidas en el visor. No se guarda un identificador de transporte junto al informe.
+Se comprueba la cola cada 30 s. Los informes con estado `Playing` permanecen locales; se envían al terminar, abandonar, desconectar, guardar o recuperar una interrupción. Así no se crea una escritura en Firebase por cada actualización del combate. Si se cierra la aplicación antes de enviar, el informe pendiente se conserva para el siguiente arranque. Un error de permisos, conexión o cuota no borra el informe.
+
+Los clientes crean documentos inmutables en `matchStatistics/<runId>-<revision>-<status>`, con una envoltura de diez campos: `schemaVersion`, `runId`, `revision`, `status`, `day`, `mode`, `map`, `gameVersion`, `complete` y el JSON `payload`. El identificador determinista permite tratar `ALREADY_EXISTS` como confirmación de un reintento. Una revisión tardía tiene otro documento y no puede sobrescribir el final.
+
+Para calcular estadísticas globales, agrupar por `runId` y conservar el informe más reciente según `MatchStatisticsReport.IsNewer`, que da prioridad al resultado completo. Nunca sumar revisiones de una misma partida. Los documentos antiguos del servidor en `matchStatistics/<runId>` siguen siendo legibles y se agrupan con la misma regla. El servidor conserva su ruta de compatibilidad para clientes anteriores, pero no interviene en el nuevo envío del móvil o Windows. Los documentos malformados se omiten al leer una página sin bloquear los demás informes.
+
+Las reglas de `firebase/firestore.rules` admiten la creación anónima únicamente de estas estadísticas, validan identificador, cabecera, tipos y tamaño, y rechazan cambios o borrados. Un reintento idéntico no modifica el contenido. No pueden comprobar la veracidad de los números del JSON; los informes enviados por un cliente son datos no autoritativos para balance. Los permisos de perfiles, inventario y lectura de estadísticas se mantienen.
+
+**Activación necesaria en el proyecto real:** publicar las reglas desde una sesión administradora. Actualizar el juego no despliega reglas de Firebase. Hasta publicarlas, las reglas anteriores rechazan el envío directo y los informes permanecen en `pending`:
+
+```sh
+npx -y firebase-tools@latest deploy --only firestore:rules --project arcana-arena-f2997
+```
 
 Guardar supervivencia conserva el acumulado dentro del archivo local. Continuar normalmente mantiene el identificador; recuperar un guardado anterior a un informe ya archivado o continuar tras cambiar de versión abre un tramo nuevo, con contadores nuevos y `continuation: true`. Así no se sobrescribe el desenlace anterior ni se mezclan dos versiones de balance.
 
@@ -55,7 +67,7 @@ Humanos y bots se agrupan por defecto en un único origen. Elementos y Hechizos 
 
 Las seis vistas conservan las tablas numéricas. La amenaza media de cada especie divide daño causado entre apariciones; no es DPS. La curva de dificultad divide vida inicial total entre apariciones de cada etapa y combina las especies presentes; no representa el escalado aislado de una especie. Las gráficas usan únicamente los informes cargados y filtrados, sin nuevas solicitudes ni identidades.
 
-La lectura remota preparada en 0.29.0 queda separada del visor local actual. Esta versión no despliega reglas ni concede permisos en Firebase. Para una futura activación remota, las reglas incluyen pruebas de emulador: únicamente una cuenta Google con `statisticsReaders/<uid>.enabled == true` puede consultar la colección. Nadie puede escribir informes ni concederse ese permiso desde el cliente. Un usuario puede leer únicamente su propio documento de permiso; no puede enumerar las cuentas autorizadas. Los perfiles e inventarios conservan sus permisos anteriores.
+La lectura remota preparada en 0.29.0 queda separada del visor local actual. Esta versión no concede roles de lectura en Firebase. Para una futura activación remota, las reglas incluyen pruebas de emulador: únicamente una cuenta Google con `statisticsReaders/<uid>.enabled == true` puede consultar la colección. El cliente puede aportar estadísticas anónimas pero no concederse permisos de lectura. Un usuario puede leer únicamente su propio documento de permiso; no puede enumerar las cuentas autorizadas. Los perfiles e inventarios conservan sus permisos anteriores.
 
 Para autorizar exactamente dos cuentas existentes, con credenciales Admin del proyecto:
 

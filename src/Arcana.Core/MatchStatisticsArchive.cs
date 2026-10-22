@@ -68,7 +68,8 @@ public sealed class MatchStatisticsArchive(string directory)
                 if (report.Status == MatchRecordStatus.Playing) Save(report with { Status = MatchRecordStatus.Interrupted });
         }
     }
-    public async Task Flush(Func<MatchStatisticsReport, CancellationToken, Task> send, CancellationToken token = default)
+    public async Task Flush(Func<MatchStatisticsReport, CancellationToken, Task> send, CancellationToken token = default,
+        Func<MatchStatisticsReport, bool>? include = null)
     {
         await _sending.WaitAsync(token).ConfigureAwait(false);
         try
@@ -80,7 +81,7 @@ public sealed class MatchStatisticsArchive(string directory)
                 token.ThrowIfCancellationRequested();
                 MatchStatisticsReport? report;
                 lock (_gate) report = Read(path);
-                if (report == null) continue;
+                if (report == null || include != null && !include(report)) continue;
                 await send(report, token).ConfigureAwait(false);
                 lock (_gate)
                 {
