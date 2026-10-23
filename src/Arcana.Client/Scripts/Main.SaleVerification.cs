@@ -90,7 +90,7 @@ public partial class Main
                 var stats = (GridContainer)dialog.FindChild("SaleStats", true, false);
                 Check(stats.GetChildren().OfType<Label>().Count() == (fixture.Weapon.Bonuses.Length + 1) * 2 &&
                     ((Label)dialog.FindChild("SaleGold", true, false)).Text.Contains("400") &&
-                    ((Label)dialog.FindChild("SaleWarning", true, false)).Text.Contains("protegidas"), "La confirmación no muestra atributos, precio o protección de equipadas.");
+                    ((Label)dialog.FindChild("SaleWarning", true, false)).Text.Contains("sin equipar"), "La confirmación no muestra atributos, precio o estado de la pieza.");
                 // Los límites de ventanas y texto se verifican con render real en tres tamaños.
                 if (DisplayServer.GetName() != "headless")
                 {

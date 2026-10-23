@@ -179,7 +179,7 @@ public partial class EquipmentPanel
         }
         long gold = items.Sum(i => (long)i.SaleGold);
         _saleGold.Text = $"+{gold} oro"; _confirm.OkButtonText = $"Vender {items.Length} · +{gold} oro";
-        _saleWarning.Text = "Venta definitiva. Las piezas equipadas y favoritas están excluidas. Si se interrumpe la conexión, se conservarán los objetos pendientes.";
+        _saleWarning.Text = "Venta definitiva. Equipadas y favoritas protegidas. Los objetos pendientes se conservan si se pierde la conexión.";
         MoveChild(_saleDimmer, GetChildCount() - 1); UpdateSaleDensity(); _confirm.PopupCentered(SaleModalSize());
         _confirm.GetCancelButton().GrabFocus();
     }

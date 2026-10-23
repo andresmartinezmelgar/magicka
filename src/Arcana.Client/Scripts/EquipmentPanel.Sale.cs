@@ -83,7 +83,7 @@ public partial class EquipmentPanel
             StatCell(StatName(bonus.Stat), false);
         }
         _saleGold.Text = $"+{item.SaleGold} oro";
-        _saleWarning.Text = "Venta definitiva. La pieza se eliminará del inventario. Las equipadas están protegidas.";
+        _saleWarning.Text = "Venta definitiva. Se eliminará esta pieza sin equipar.";
         _confirm.OkButtonText = $"Vender · +{item.SaleGold} oro";
         MoveChild(_saleDimmer, GetChildCount() - 1);
         UpdateSaleDensity(); _confirm.PopupCentered(SaleModalSize());
