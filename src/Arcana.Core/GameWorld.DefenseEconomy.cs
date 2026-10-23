@@ -6,7 +6,7 @@ public sealed partial class GameWorld
     {
         var progress = _defenders[player.Id];
         var profile = new AccountProfile("", player.Name, 0, 0, 0, progress.Loadout, progress.Items.ToArray());
-        var prepared = PublicEquipment.Prepare(profile);
+        var prepared = PublicEquipment.Prepare(profile, progress.Upgrades);
         float previousCapacity = player.Equipment.ShieldCapacity;
         player.Equipment = prepared.Modifiers with { Power = prepared.Modifiers.Power * (1 + (progress.Level - 1) * 0.08f),
             Healing = prepared.Modifiers.Healing * (1 + (progress.Level - 1) * 0.04f),
@@ -101,7 +101,7 @@ public sealed partial class GameWorld
                 else
                 {
                     int upgrades = progress.Upgrades.GetValueOrDefault(item.Id);
-                    if (upgrades >= DefenseRules.ItemUpgradeLimit || item.Bonuses.All(b => b.Current >= b.Maximum)) return false;
+                    if (!ItemAffixes.CanUpgrade(item, upgrades)) return false;
                     int price = DefenseRules.UpgradeCost(item.Tier, upgrades);
                     if (progress.Gold < price) return false;
                     var improved = item with { Bonuses = item.Bonuses.Select(b => b with
@@ -166,7 +166,7 @@ public sealed partial class GameWorld
                 {
                     var progress = pair.Value;
                     var gear = _players[pair.Key].Equipment;
-                    int total = GoldBonuses.Apply(drop.Gold, gear.ExtraGoldPerTwo, gear.GoldBonusPercent,
+                    int total = GoldBonuses.Apply(drop.Gold, gear.ExtraGoldEvery, gear.GoldBonusPercent,
                         ref progress.GoldCoinRemainder, ref progress.GoldPercentRemainder);
                     int earned = Math.Min(100000000 - progress.Gold, total);
                     progress.Gold += earned; StatisticsEconomy(pair.Key, StatisticMeasure.GoldEarned, earned);

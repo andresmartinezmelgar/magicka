@@ -122,7 +122,7 @@ public partial class PlayerEquipmentPanel : Control
             if (item == null) continue;
             if (item.Affix != null)
             {
-                var special = Ui.Label(ItemAffixes.Describe(item.Affix), 16, Ui.Gold);
+                var special = Ui.Label(ItemAffixes.Describe(item.Affix, item.UpgradeLevel), 16, Ui.Gold);
                 special.AutowrapMode = TextServer.AutowrapMode.WordSmart; _pieces.AddChild(special);
             }
             var grid = Ui.Table(2, "PlayerPiece" + slot + "Table"); _pieces.AddChild(grid);
@@ -131,7 +131,7 @@ public partial class PlayerEquipmentPanel : Control
             { Ui.TableCell(grid, EquipmentCatalogue.Percent(bonus.Current), true, bonus.Current < 0 ? Ui.Red : Ui.Blue); Ui.TableCell(grid, EquipmentPanel.StatName(bonus.Stat)); }
         }
         _summary.AddChild(Ui.Label("TOTAL DEL EQUIPO", 22, Ui.Gold));
-        var specials = view.Equipment.Items.Where(i => i.Affix != null).Select(i => ItemAffixes.Describe(i.Affix)).Distinct();
+        var specials = view.Equipment.Items.Where(i => i.Affix != null).Select(i => ItemAffixes.Describe(i.Affix, i.UpgradeLevel)).Distinct();
         var specialText = Ui.Label(string.Join("\n", specials), 16, Ui.Gold);
         specialText.AutowrapMode = TextServer.AutowrapMode.WordSmart; _summary.AddChild(specialText);
         var activeSets = view.Equipment.Sets.Where(s => s.Pieces >= 2).ToArray();

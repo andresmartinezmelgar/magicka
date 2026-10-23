@@ -14,17 +14,17 @@ public static class EquipmentQuery
                 .ThenByDescending(i => i.Tier)).ThenBy(i => i.Id, StringComparer.Ordinal).ToArray();
 
     /// <summary>Previsualiza una sustitución con los cuatro objetos, conjuntos y límites reales de combate.</summary>
-    public static EquipmentPreview Preview(AccountProfile profile, EquipmentItem candidate)
+    public static EquipmentPreview Preview(AccountProfile profile, EquipmentItem candidate, IReadOnlyDictionary<string, int>? itemLevels = null)
     {
         if (!EquipmentCatalogue.Valid(candidate)) throw new ArgumentException("Objeto inválido.");
-        var before = EquipmentModifiers.Summarize(profile);
+        var before = EquipmentModifiers.Summarize(profile, itemLevels);
         // Las ofertas no están en el inventario todavía. Esta copia nunca se guarda.
         var items = profile.Items.Where(i => i.Id != candidate.Id).Append(candidate).ToArray();
         var next = profile with { Items = items, Loadout = profile.Loadout.With(candidate.Slot, candidate.Id) };
         // Un inventario lleno puede consultar una oferta sin crear una pieza número 501.
         var equippedIds = Enum.GetValues<EquipmentSlot>().Select(next.Loadout.Get).ToHashSet(StringComparer.Ordinal);
         if (items.Length > EquipmentCatalogue.InventoryLimit) next = next with { Items = items.Where(i => equippedIds.Contains(i.Id)).ToArray() };
-        var after = EquipmentModifiers.Summarize(next);
+        var after = EquipmentModifiers.Summarize(next, itemLevels);
         return new(before, after);
     }
 

@@ -27,13 +27,17 @@ public static class ItemAffixes
             ItemAffixKind.LightningChain => tier == ItemTier.Mythic ? 2 : 1,
             _ => 1
         }));
-    public static string Describe(ItemAffix? affix) => affix == null ? "" : affix.Kind switch
+    public static bool CanUpgrade(EquipmentItem item, int level) => level is >= 0 and < DefenseRules.ItemUpgradeLimit &&
+        (item.Bonuses.Any(b => b.Current < b.Maximum) || item.Affix?.Kind == ItemAffixKind.CoinDividend);
+    public static string Describe(ItemAffix? affix, int level = 0) => affix == null ? "" : affix.Kind switch
     {
         ItemAffixKind.BeamPierce => $"Los haces ofensivos atraviesan {affix.Value} enemigo(s) adicionales. Los escudos y las paredes detienen la penetración.",
         ItemAffixKind.LightningChain => $"Los relámpagos saltan a {affix.Value} enemigo(s) adicionales a un máximo de 5 m por salto, con línea de visión.",
         ItemAffixKind.DoubleBurn => "Las quemaduras infligen el doble de daño por segundo. Su duración y el impacto inicial no cambian.",
         ItemAffixKind.WaterShieldPool => "Al ponerte un escudo de agua creas un charco de 3 m durante 5 s. Moja a todos dentro, incluido tú.",
-        ItemAffixKind.CoinDividend => "Por cada 2 de oro base, recibes 1 extra. Supervivencia: oro recogido durante la partida. PvP: recompensa final. No afecta a ventas.",
+        ItemAffixKind.CoinDividend => $"1 oro extra cada {GoldBonuses.EveryForLevel(level)} moneda(s) base · nivel {level}/10. " +
+            (level < 10 ? "Cada mejora reduce el intervalo en 1; al nivel 10, 1 extra por moneda. " : "") +
+            "Supervivencia: recogidas. PvP: premio final. No afecta a ventas.",
         ItemAffixKind.GoldBonus => $"+{affix.Value}% de oro base. Supervivencia: oro recogido durante la partida. PvP: recompensa final. No afecta a ventas.",
         _ => ""
     };
@@ -43,7 +47,7 @@ public static class ItemAffixes
         modifiers.LightningChains > 0 ? Describe(new(ItemAffixKind.LightningChain, modifiers.LightningChains)) : "",
         modifiers.BurnPotency > 1 ? Describe(new(ItemAffixKind.DoubleBurn)) : "",
         modifiers.WaterShieldPool ? Describe(new(ItemAffixKind.WaterShieldPool)) : "",
-        modifiers.ExtraGoldPerTwo > 0 ? Describe(new(ItemAffixKind.CoinDividend)) : "",
+        modifiers.ExtraGoldEvery > 0 ? Describe(new(ItemAffixKind.CoinDividend), 11 - modifiers.ExtraGoldEvery) : "",
         modifiers.GoldBonusPercent > 0 ? Describe(new(ItemAffixKind.GoldBonus, modifiers.GoldBonusPercent)) : ""
     }.Where(s => s.Length > 0));
 }

@@ -129,17 +129,17 @@ await Test("Firestore: oro PvP y afijos se abonan una vez al cerrar, también co
     string winUid = "gold_win_" + suffix, loseUid = "gold_lose_" + suffix;
     var beforeWin = await repository.Profile(winUid, "Gana");
     var beforeLose = await repository.Profile(loseUid, "Pierde");
-    var win = new MatchParticipant(winUid, 1, 0, 30, true) { ExtraGoldPerTwo = 1, GoldBonusPercent = 10 };
+    var win = new MatchParticipant(winUid, 1, 0, 30, true) { ExtraGoldEvery = 11, GoldBonusPercent = 10 };
     var lose = new MatchParticipant(loseUid, 2, 1, 30, false) { GoldBonusPercent = 20 };
     var match = new RewardMatch(Guid.NewGuid().ToString("N"), "test-server", GameMode.Duel, ArenaMapId.Classic,
-        DateTimeOffset.UtcNow, [win, lose], RulesVersion: 3);
+        DateTimeOffset.UtcNow, [win, lose], RulesVersion: 4);
     await Task.WhenAll(Enumerable.Range(0, 4).Select(_ => repository.Award(match)));
     var afterWin = await repository.Profile(winUid, "Gana");
     var afterLose = await repository.Profile(loseUid, "Pierde");
-    Check(afterWin.Gold == beforeWin.Gold + 80 && afterLose.Gold == beforeLose.Gold + 30 &&
+    Check(afterWin.Gold == beforeWin.Gold + 59 && afterLose.Gold == beforeLose.Gold + 30 &&
         afterWin.Wins == beforeWin.Wins + 1 && afterLose.Losses == beforeLose.Losses + 1,
         "Se duplicó el pago o no se aplicó el bono al premio final.");
-    Check((await database.Collection("users").Document(winUid).Collection("rewards").Document(match.Id).GetSnapshotAsync()).GetValue<long>("gold") == 80,
+    Check((await database.Collection("users").Document(winUid).Collection("rewards").Document(match.Id).GetSnapshotAsync()).GetValue<long>("gold") == 59,
         "El recibo no conserva el pago exacto.");
 });
 await Test("Firestore: práctica, IA y cuenta repetida no conceden objetos ni victorias", async () =>

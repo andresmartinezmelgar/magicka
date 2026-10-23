@@ -7,6 +7,12 @@ namespace Arcana.Client;
 public partial class EquipmentPanel
 {
     private DefensePlayerSnapshot? _defensePlayer;
+    private readonly Dictionary<string, int> _itemLevels = new(StringComparer.Ordinal);
+    private void UpdateItemLevels(DefensePlayerSnapshot player)
+    {
+        _itemLevels.Clear();
+        foreach (var item in player.Items) _itemLevels[item.Item.Id] = item.Upgrades;
+    }
     private WizardSnapshot? _defenseWizard;
     private bool _defenseMatchEnded;
     private Action<ClientMessage>? _defenseSubmit;
@@ -24,7 +30,7 @@ public partial class EquipmentPanel
 
     internal void BuildDefense(Main main, DefensePlayerSnapshot player, WizardSnapshot wizard, bool ended, Action<ClientMessage> submit)
     {
-        _defensePlayer = player; _defenseWizard = wizard; _defenseMatchEnded = ended; _defenseSubmit = submit;
+        _defensePlayer = player; UpdateItemLevels(player); _defenseWizard = wizard; _defenseMatchEnded = ended; _defenseSubmit = submit;
         Build(main, "");
     }
 
@@ -54,7 +60,7 @@ public partial class EquipmentPanel
 
     internal void UpdateDefenseInventory(DefensePlayerSnapshot player, WizardSnapshot wizard, bool ended)
     {
-        _defensePlayer = player; _defenseWizard = wizard; _defenseMatchEnded = ended;
+        _defensePlayer = player; UpdateItemLevels(player); _defenseWizard = wizard; _defenseMatchEnded = ended;
         string stamp = player.Gold + ":" + wizard.Alive + ":" + ended + ":" +
             string.Join('|', player.Items.Select(i => $"{i.Item.Id}:{i.Upgrades}:{i.Equipped}"));
         if (stamp != _defenseInventoryStamp)
@@ -103,8 +109,7 @@ public partial class EquipmentPanel
     private bool CanUpgradeDefenseItem(string id)
     {
         var entry = _defensePlayer?.Items.FirstOrDefault(i => i.Item.Id == id);
-        return !_busy && CanChangeDefenseItems && entry != null && entry.Upgrades < 10 &&
-            entry.Item.Bonuses.Any(b => b.Current < b.Maximum) && _defensePlayer!.Gold >= DefenseRules.UpgradeCost(entry.Item.Tier, entry.Upgrades);
+        return !_busy && CanChangeDefenseItems && entry != null && ItemAffixes.CanUpgrade(entry.Item, entry.Upgrades) && _defensePlayer!.Gold >= DefenseRules.UpgradeCost(entry.Item.Tier, entry.Upgrades);
     }
 
     private void UpgradeDefenseItem(string id)

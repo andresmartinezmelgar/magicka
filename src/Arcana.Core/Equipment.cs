@@ -69,7 +69,7 @@ public sealed record EquipmentModifiers
     public int LightningChains { get; init; }
     public float BurnPotency { get; init; } = 1;
     public bool WaterShieldPool { get; init; }
-    public int ExtraGoldPerTwo { get; init; }
+    public int ExtraGoldEvery { get; init; }
     public int GoldBonusPercent { get; init; }
     public int LifePieces { get; init; }
     public int ShieldPieces { get; init; }
@@ -100,8 +100,8 @@ public sealed record EquipmentModifiers
         EquipmentStat.WetLightningPower => WetLightningPower - 1, EquipmentStat.BeamChargeSpeed => BeamChargeSpeed - 1,
         EquipmentStat.RockChargeSpeed => RockChargeSpeed - 1, _ => throw new ArgumentOutOfRangeException(nameof(stat))
     };
-    public static EquipmentModifiers Calculate(AccountProfile profile) => Summarize(profile).Modifiers;
-    public static EquipmentSummary Summarize(AccountProfile profile)
+    public static EquipmentModifiers Calculate(AccountProfile profile, IReadOnlyDictionary<string, int>? itemLevels = null) => Summarize(profile, itemLevels).Modifiers;
+    public static EquipmentSummary Summarize(AccountProfile profile, IReadOnlyDictionary<string, int>? itemLevels = null)
     {
         if (profile.Items.Length > EquipmentCatalogue.InventoryLimit) throw new InvalidDataException("Inventario demasiado grande.");
         var stats = new float[Enum.GetValues<EquipmentStat>().Length];
@@ -109,7 +109,7 @@ public sealed record EquipmentModifiers
         var sets = new int[Enum.GetValues<EquipmentFamily>().Length];
         var tiers = new ItemTier?[4];
         var families = new int[sets.Length];
-        int beamPierce = 0, lightningChains = 0, extraGoldPerTwo = 0, goldBonusPercent = 0;
+        int beamPierce = 0, lightningChains = 0, extraGoldEvery = 0, goldBonusPercent = 0;
         bool doubleBurn = false, waterPool = false;
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
@@ -117,6 +117,8 @@ public sealed record EquipmentModifiers
             if (id.Length == 0) continue;
             var item = profile.Items.SingleOrDefault(i => i.Id == id);
             if (item == null || item.Slot != slot || !EquipmentCatalogue.Valid(item)) throw new InvalidDataException("Equipamiento inválido o ajeno.");
+            int level = itemLevels?.GetValueOrDefault(item.Id) ?? 0;
+            if (level is < 0 or > 10) throw new InvalidDataException("Nivel de pieza inválido.");
             tiers[(int)slot] = item.Tier; families[(int)item.Family]++;
             if (item.Affix is { } affix)
                 switch (affix.Kind)
@@ -125,7 +127,10 @@ public sealed record EquipmentModifiers
                     case ItemAffixKind.LightningChain: lightningChains = Math.Max(lightningChains, affix.Value); break;
                     case ItemAffixKind.DoubleBurn: doubleBurn = true; break;
                     case ItemAffixKind.WaterShieldPool: waterPool = true; break;
-                    case ItemAffixKind.CoinDividend: extraGoldPerTwo = 1; break;
+                    case ItemAffixKind.CoinDividend:
+                        int every = GoldBonuses.EveryForLevel(level);
+                        extraGoldEvery = extraGoldEvery == 0 ? every : Math.Min(extraGoldEvery, every);
+                        break;
                     case ItemAffixKind.GoldBonus: goldBonusPercent = Math.Max(goldBonusPercent, affix.Value); break;
                 }
             foreach (var b in item.Bonuses) stats[(int)b.Stat] += b.Current;
@@ -139,7 +144,7 @@ public sealed record EquipmentModifiers
         var dominant = Enumerable.Range(1, families.Length - 1).OrderByDescending(i => families[i]).ThenBy(i => i).First();
         var modifiers = new EquipmentModifiers
         {
-            ExtraGoldPerTwo = extraGoldPerTwo, GoldBonusPercent = goldBonusPercent,
+            ExtraGoldEvery = extraGoldEvery, GoldBonusPercent = goldBonusPercent,
             BeamPierce = beamPierce, LightningChains = lightningChains,
             BurnPotency = doubleBurn ? 2 : 1, WaterShieldPool = waterPool,
             Speed = 1 + Bonus(EquipmentStat.MovementSpeed), Range = 1 + Bonus(EquipmentStat.SpellRange),

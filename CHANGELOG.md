@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.29.13 — Oro extra según el nivel de la pieza
+
+- El afijo de monedas da 1 de oro extra cada 11 monedas base en nivel 0. Cada mejora reduce el intervalo en una moneda: cada 6 en nivel 5 y una extra por moneda en nivel 10.
+- El bono depende de la mejora de esa pieza, no del nivel del personaje. Si hay varias piezas con el efecto se usa la mejor, y se puede mejorar hasta nivel 10 aunque sus atributos ya estén al máximo.
+- El inventario, la comparación de equipo y las fichas de otros magos muestran el nivel y el intervalo actuales. Los porcentajes de oro del otro afijo mantienen sus valores del 10 % y 20 %.
+- Guardar y continuar conserva las fracciones exactas; mejorar, cambiar o quitar equipo no pierde el progreso ni genera pagos retroactivos. Los puntos antiguos y premios PvP pendientes siguen siendo compatibles.
+- En Supervivencia actúa al recoger oro; en PvP, sobre el premio final. Las ventas siguen excluidas. Cliente y servidor deben actualizarse juntos al protocolo 32.
+
 ## 0.29.12 — Inventario protegido, equipo de oro y estadísticas claras
 
 - Las piezas equipadas aparecen siempre primero, incluso al filtrar u ordenar por atributo, y no se pueden vender de forma individual, rápida o múltiple en ningún modo.

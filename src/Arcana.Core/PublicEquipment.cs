@@ -4,6 +4,7 @@ public sealed record PublicEquipmentBonus(EquipmentStat Stat, float Current);
 public sealed record PublicEquipmentItem(EquipmentSlot Slot, ItemTier Tier, EquipmentFamily Family, PublicEquipmentBonus[] Bonuses)
 {
     public ItemAffix? Affix { get; init; }
+    public int UpgradeLevel { get; init; }
 }
 public sealed record PublicEquipmentSet(EquipmentFamily Family, int Pieces);
 public sealed record EquipmentInspection(int PlayerId, string Name, WizardType WizardType, bool Bot, PublicEquipment Equipment);
@@ -13,12 +14,13 @@ public sealed record PublicEquipment(PublicEquipmentItem[] Items, PublicEquipmen
 {
     public static PublicEquipment Empty { get; } = new([], [], Enum.GetValues<EquipmentStat>().Select(s => new EquipmentStatTotal(s, 0, 0, 0)).ToArray());
 
-    public static PreparedEquipment Prepare(AccountProfile profile)
+    public static PreparedEquipment Prepare(AccountProfile profile, IReadOnlyDictionary<string, int>? itemLevels = null)
     {
-        var summary = EquipmentModifiers.Summarize(profile);
+        var summary = EquipmentModifiers.Summarize(profile, itemLevels);
         var items = Enum.GetValues<EquipmentSlot>().Select(slot => profile.Items.FirstOrDefault(i => i.Id == profile.Loadout.Get(slot)))
             .Where(i => i != null).Select(i => new PublicEquipmentItem(i!.Slot, i.Tier, i.Family,
-                i.Bonuses.Select(b => new PublicEquipmentBonus(b.Stat, b.Current)).ToArray()) { Affix = i.Affix }).ToArray();
+                i.Bonuses.Select(b => new PublicEquipmentBonus(b.Stat, b.Current)).ToArray())
+                { Affix = i.Affix, UpgradeLevel = itemLevels?.GetValueOrDefault(i.Id) ?? 0 }).ToArray();
         var sets = EquipmentCatalogue.FocusedFamilies.Where(f => summary.Modifiers.Pieces(f) > 0)
             .Select(f => new PublicEquipmentSet(f, summary.Modifiers.Pieces(f))).ToArray();
         return new(summary.Modifiers, new(items, sets, summary.Stats));
@@ -37,7 +39,8 @@ public sealed record PublicEquipment(PublicEquipmentItem[] Items, PublicEquipmen
         foreach (var item in view.Items)
         {
             if (item == null || !Enum.IsDefined(item.Slot) || !slots.Add(item.Slot) || !Enum.IsDefined(item.Tier) ||
-                !Enum.IsDefined(item.Family) || !ItemAffixes.Valid(item.Affix, item.Tier) || item.Bonuses == null || item.Bonuses.Length is < 1 or > 4)
+                !Enum.IsDefined(item.Family) || !ItemAffixes.Valid(item.Affix, item.Tier) || item.UpgradeLevel is < 0 or > 10 ||
+                item.Bonuses == null || item.Bonuses.Length is < 1 or > 4)
                 throw new InvalidDataException("Pieza pública inválida.");
             var bonuses = new HashSet<EquipmentStat>();
             foreach (var bonus in item.Bonuses)

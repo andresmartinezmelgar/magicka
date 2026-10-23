@@ -105,7 +105,7 @@ public partial class EquipmentPanel
             var equippedLabel = Ui.Label(selected ? "EQUIPADA" : "Sin equipar", 15, selected ? Ui.Gold : Ui.Muted);
             equippedLabel.MouseFilter = MouseFilterEnum.Ignore; description.AddChild(equippedLabel);
             string attributes = string.Join("\n", item.Bonuses.Select(b => StatName(b.Stat) + " " + EquipmentCatalogue.Percent(b.Current)));
-            if (item.Affix != null) attributes += "\nEspecial: " + ItemAffixes.Describe(item.Affix);
+            if (item.Affix != null) attributes += "\nEspecial: " + ItemAffixes.Describe(item.Affix, _itemLevels.GetValueOrDefault(item.Id));
             var stats = Ui.Label(attributes, Ui.IsMobile ? 18 : 17);
             stats.Name = "EquipmentItemStats_" + item.Id;
             stats.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -129,7 +129,7 @@ public partial class EquipmentPanel
                 selected ? "Quitar" : "Equipar", selected ? "Quitar esta pieza equipada." : "Equipar esta pieza. Se guardará al salir del inventario.",
                 () => ChooseItem(selected ? "" : item.Id));
             _itemButtons.Add(item.Id, equip);
-            bool maximum = entry != null && (entry.Upgrades >= 10 || item.Bonuses.All(b => b.Current >= b.Maximum));
+            bool maximum = entry != null && !ItemAffixes.CanUpgrade(item, entry.Upgrades);
             int cost = maximum ? 0 : DefenseRules.UpgradeCost(item.Tier, entry?.Upgrades ?? 0);
             var upgrade = PickerAction(actions, "EquipmentUpgrade_", item.Id, _upgradeIcon, Ui.Health,
                 entry == null ? "Defensa" : maximum ? "Máximo" : $"{cost} oro",

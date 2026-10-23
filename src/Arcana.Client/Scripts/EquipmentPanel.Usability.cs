@@ -100,7 +100,7 @@ public partial class EquipmentPanel
         string protection = Preferences.Protected(id) ? "Favorito: venta bloqueada. " : "";
         if (entry == null) return protection + "Mejoras: solo durante Defensa.";
         if (!CanChangeDefenseItems) return protection + "Mejoras bloqueadas: mago caído o partida terminada.";
-        if (entry.Upgrades >= 10 || entry.Item.Bonuses.All(b => b.Current >= b.Maximum)) return protection + "Límite de mejora alcanzado.";
+        if (!ItemAffixes.CanUpgrade(entry.Item, entry.Upgrades)) return protection + "Límite de mejora alcanzado.";
         int cost = DefenseRules.UpgradeCost(entry.Item.Tier, entry.Upgrades);
         return protection + (_defensePlayer!.Gold < cost ? $"Para mejorar faltan {cost - _defensePlayer.Gold} oro." : "");
     }

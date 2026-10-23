@@ -518,7 +518,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                 if (!room.Participants.TryGetValue(account.Uid, out var entry))
                     entry = new(account.Uid, session.Id, player.Team, 0, false)
                     {
-                        ExtraGoldPerTwo = session.Equipment.Modifiers.ExtraGoldPerTwo,
+                        ExtraGoldEvery = session.Equipment.Modifiers.ExtraGoldEvery,
                         GoldBonusPercent = session.Equipment.Modifiers.GoldBonusPercent
                     };
                 room.Participants[account.Uid] = entry with
@@ -554,7 +554,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
         // Premios solo al terminar toda la serie; ambos equipos humanos, mismo número,
         // sin bots, y cada participante autenticado con al menos 15 s de actividad.
         var match = new RewardMatch(room.MatchId, settings.InstanceId, room.Options.Mode,
-            room.Options.Map, DateTimeOffset.UtcNow, participants, RulesVersion: 3);
+            room.Options.Map, DateTimeOffset.UtcNow, participants, RulesVersion: 4);
         bool balanced = BalancedMatchRules.RewardsEnabled(
             room.World.Players.Values.Count(p => !p.Bot && p.Team == 0),
             room.World.Players.Values.Count(p => !p.Bot && p.Team == 1), 0, 0);

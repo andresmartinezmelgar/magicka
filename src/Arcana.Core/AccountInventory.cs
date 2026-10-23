@@ -39,6 +39,7 @@ public static class AccountInventory
 public sealed record MatchParticipant(string Uid, int PlayerId, int Team, float ActiveSeconds, bool Winner)
 {
     public int ExtraGoldPerTwo { get; init; }
+    public int ExtraGoldEvery { get; init; }
     public int GoldBonusPercent { get; init; }
 }
 public sealed record RewardMatch(string Id, string ServerId, GameMode Mode, ArenaMapId Map, DateTimeOffset FinishedAt,
@@ -50,10 +51,11 @@ public static class RewardRules
     public static int Gold(RewardMatch match, MatchParticipant player, int convertedItemGold = 0)
     {
         if (convertedItemGold is < 0 or > 100000) throw new ArgumentException("Oro de conversión inválido.");
-        if (match.Mode == GameMode.Defense || match.RulesVersion != 3) return convertedItemGold;
+        if (match.Mode == GameMode.Defense || match.RulesVersion is not (3 or 4)) return convertedItemGold;
         int coins = 0, percentage = 0;
         return GoldBonuses.Apply((player.Winner ? PvpWinGold : PvpLossGold) + convertedItemGold,
-            player.ExtraGoldPerTwo, player.GoldBonusPercent, ref coins, ref percentage);
+            match.RulesVersion == 3 ? player.ExtraGoldPerTwo > 0 ? 2 : 0 : player.ExtraGoldEvery,
+            player.GoldBonusPercent, ref coins, ref percentage);
     }
     public static string DefenseReceiptId(string runId, string uid, int checkpoint)
     {
@@ -73,7 +75,8 @@ public static class RewardRules
                 match.Id == DefenseReceiptId(match.DefenseRunId, p.Uid, match.DefenseCheckpoint) ? [p] : [];
         }
         if (match.DefenseCheckpoint != 0 || match.DefenseRunId.Length > 0 || match.Map == ArenaMapId.Bastion ||
-            match.RulesVersion is not (1 or 3) || match.Participants.Any(p => !GoldBonuses.Valid(p.ExtraGoldPerTwo, p.GoldBonusPercent))) return [];
+            match.RulesVersion is not (1 or 3 or 4) || match.Participants.Any(p =>
+                !GoldBonuses.Valid(p.ExtraGoldEvery, p.GoldBonusPercent) || p.ExtraGoldPerTwo is < 0 or > 1)) return [];
         var players = match.Participants.Where(p => p.Uid.Length > 0 && p.ActiveSeconds >= MinimumActiveSeconds &&
             float.IsFinite(p.ActiveSeconds) && p.Team is 0 or 1).GroupBy(p => p.Uid, StringComparer.Ordinal).Where(g => g.Count() == 1).Select(g => g.Single()).ToArray();
         return players.Where(p => players.Any(q => q.Uid != p.Uid && (match.Mode == GameMode.Arena || q.Team != p.Team))).ToArray();

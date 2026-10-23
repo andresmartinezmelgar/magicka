@@ -245,7 +245,7 @@ public partial class EquipmentPanel : Control
         }
         RenderDetails();
         RenderSavedEquipment();
-        var breakdown = PublicEquipment.Prepare(account ?? new("", "", 0, 0, 0, new(), []));
+        var breakdown = PublicEquipment.Prepare(account ?? new("", "", 0, 0, 0, new(), []), _itemLevels);
         _totalsEmpty.Visible = !RenderTotals(_totals, breakdown.View.Stats, breakdown.View.Items);
         var m = breakdown.Modifiers;
         _combatPreview.Text = account == null
@@ -294,8 +294,9 @@ public partial class EquipmentPanel : Control
         }
         if (item?.Affix is { } affix)
         {
-            Cell(_details, "Especial", true, Ui.Gold); Cell(_details, "Fijo", true, Ui.Muted);
-            Cell(_details, ItemAffixes.Describe(affix));
+            Cell(_details, "Especial", true, Ui.Gold);
+            Cell(_details, affix.Kind == ItemAffixKind.CoinDividend ? $"Nivel {_itemLevels.GetValueOrDefault(item.Id)}/10" : "Fijo", true, Ui.Muted);
+            Cell(_details, ItemAffixes.Describe(affix, _itemLevels.GetValueOrDefault(item.Id)));
         }
         _empty.Text = item == null ? "Sin pieza equipada. Pulsa una posición para abrir sus objetos ordenados por calidad." :
             "Pulsa una posición para comparar sus objetos. Los cambios se guardan al salir del inventario.";

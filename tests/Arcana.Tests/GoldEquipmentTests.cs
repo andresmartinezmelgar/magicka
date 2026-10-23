@@ -35,6 +35,93 @@ internal static class GoldEquipmentTests
 
     public static void Run(Action<string, Action> test)
     {
+        test("Oro: el afijo progresa de una moneda extra cada once a una por moneda", () =>
+        {
+            var item = Item(EquipmentSlot.Boots, ItemAffixKind.CoinDividend);
+            var profile = Profile(item);
+            int[] expected = [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+            for (int level = 0; level <= 10; level++)
+            {
+                var levels = new Dictionary<string, int> { [item.Id] = level };
+                var gear = EquipmentModifiers.Calculate(profile, levels);
+                Check(gear.ExtraGoldEvery == expected[level], "El bono usa el nivel del mago o una progresión incorrecta.");
+                int coin = 0, percent = 0;
+                Check(GoldBonuses.Apply(expected[level], gear.ExtraGoldEvery, 0, ref coin, ref percent) == expected[level] + 1 && coin == 0,
+                    "No se entrega exactamente un oro extra al completar el intervalo.");
+                var prepared = PublicEquipment.Prepare(profile, levels);
+                var copy = Protocol.Deserialize<EquipmentInspection>(Protocol.Serialize(new EquipmentInspection(1, "Mago", WizardType.Balanced, false, prepared.View)))!;
+                PublicEquipment.Check(copy);
+                Check(copy.Equipment.Items.Single().UpgradeLevel == level && ItemAffixes.Summary(gear).Contains($"nivel {level}/10"),
+                    "La ficha o la descripción no muestran el nivel real de la pieza.");
+            }
+            var second = Item(EquipmentSlot.Weapon, ItemAffixKind.CoinDividend);
+            Check(EquipmentModifiers.Calculate(Profile(item, second), new Dictionary<string, int> { [item.Id] = 5, [second.Id] = 10 }).ExtraGoldEvery == 1,
+                "Varias piezas suman sus bonos en vez de usar la mejor.");
+        });
+        test("Oro: mejorar o quitar una pieza conserva fracciones sin pagar bonos retroactivos", () =>
+        {
+            int coin = 0, percent = 0;
+            Check(GoldBonuses.Apply(10, 11, 0, ref coin, ref percent) == 10, "El nivel cero paga antes de once monedas.");
+            int fraction = coin;
+            Check(GoldBonuses.Apply(1, 1, 0, ref coin, ref percent) == 2 && coin == fraction,
+                "El nivel diez premia retroactivamente las monedas anteriores o pierde su fracción.");
+            Check(GoldBonuses.Apply(1, 0, 0, ref coin, ref percent) == 1 && coin == fraction, "Una pieza quitada sigue concediendo oro.");
+            Check(GoldBonuses.Apply(1, 11, 0, ref coin, ref percent) == 2 && coin == 0, "Se perdió el progreso al cambiar de pieza.");
+        });
+        test("Supervivencia: el afijo llega a nivel diez aunque los atributos estén al máximo", () =>
+        {
+            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, Seed = 77, MaxPlayers = 4 });
+            var player = world.AddPlayer("Mago")!;
+            var item = Item(EquipmentSlot.Boots, ItemAffixKind.CoinDividend);
+            item = item with { Bonuses = item.Bonuses.Select(b => b with { Current = b.Maximum }).ToArray() };
+            Call(world, "GrantDefenseItem", player, item);
+            var progress = ((IDictionary)typeof(GameWorld).GetField("_defenders", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(world)!)[player.Id]!;
+            progress.GetType().GetField("Gold")!.SetValue(progress, 1000000);
+            Check(world.ApplyMessage(player.Id, new() { Type = "defense_shop", Slot = 1, Sequence = player.LastSequence + 1 }), "No abre la tienda.");
+            for (int level = 1; level <= 10; level++)
+            {
+                Check(world.ApplyMessage(player.Id, new() { Type = "defense_upgrade", ItemId = item.Id, Sequence = player.LastSequence + 1 }),
+                    "Los atributos máximos bloquean la mejora del afijo.");
+                var entry = world.Snapshot().Defense!.Defenders.Single().Items.Single();
+                Check(entry.Upgrades == level && player.Equipment.ExtraGoldEvery == 11 - level &&
+                    player.PublicEquipment!.Items.Single().UpgradeLevel == level, "La mejora no se refleja en combate y en la ficha.");
+            }
+            long before = Gold(world, player); Pickup(world, player, 1);
+            Check(Gold(world, player) == before + 2, "El nivel diez no entrega un extra por moneda.");
+            Check(!world.ApplyMessage(player.Id, new() { Type = "defense_upgrade", ItemId = item.Id, Sequence = player.LastSequence + 1 }), "Acepta nivel once.");
+            var saved = world.SaveSurvival(player.Id, Guid.NewGuid().ToString("N"));
+            var restored = GameWorld.RestoreSurvival(saved); var continued = restored.Players[player.Id];
+            before = Gold(restored, continued); Pickup(restored, continued, 1);
+            Check(Gold(restored, continued) == before + 2 && continued.Equipment.ExtraGoldEvery == 1, "Continuar pierde el nivel del afijo.");
+            SnapshotValidation.Check(restored.Snapshot());
+        });
+        test("Supervivencia: los restos del afijo anterior siguen siendo válidos al continuar", () =>
+        {
+            var (world, player) = World();
+            var save = world.SaveSurvival(player.Id, Guid.NewGuid().ToString("N"));
+            var node = System.Text.Json.Nodes.JsonNode.Parse(save.State.GetRawText())!;
+            var progress = node["Defenders"]![0]!["Progress"]!.AsObject();
+            progress.Remove("GoldCoinRemainderScale");
+            progress["Gold"] = 7; progress["GoldCoinRemainder"] = 1; progress["GoldPercentRemainder"] = 50;
+            var legacy = save with { State = System.Text.Json.JsonSerializer.SerializeToElement(node) };
+            var restored = GameWorld.RestoreSurvival(legacy); var continued = restored.Players[player.Id];
+            Pickup(restored, continued, 6);
+            Check(Gold(restored, continued) == 15 && continued.Equipment.ExtraGoldEvery == 11, "La migración pierde o multiplica el progreso anterior.");
+            var next = GameWorld.RestoreSurvival(restored.SaveSurvival(continued.Id, Guid.NewGuid().ToString("N")));
+            Check(Gold(next, next.Players[continued.Id]) == 15, "Volver a guardar altera el oro ya confirmado.");
+        });
+        test("PvP: usa el intervalo nuevo en el premio final y valida sus límites", () =>
+        {
+            var winner = new MatchParticipant("a", 1, 0, 30, true) { ExtraGoldEvery = 11, GoldBonusPercent = 10 };
+            var loser = new MatchParticipant("b", 2, 1, 30, false) { ExtraGoldEvery = 11, GoldBonusPercent = 10 };
+            var match = new RewardMatch(Guid.NewGuid().ToString("N"), "server", GameMode.Duel, ArenaMapId.Classic,
+                DateTimeOffset.UtcNow, [winner, loser], RulesVersion: 4);
+            Check(RewardRules.Eligible(match).Length == 2 && RewardRules.Gold(match, winner) == 59 && RewardRules.Gold(match, loser) == 29,
+                "El premio final usa el bono antiguo.");
+            Check(RewardRules.Gold(match, winner with { ExtraGoldEvery = 1 }) == 105 && RewardRules.Gold(match, winner, 100) == 178,
+                "No respeta el intervalo o la conversión del premio.");
+            Check(RewardRules.Eligible(match with { Participants = [winner with { ExtraGoldEvery = 12 }, loser] }).Length == 0, "Acepta un intervalo inválido.");
+        });
         test("Inventario: la pieza equipada precede a una mítica incluso al ordenar por atributo", () =>
         {
             var low = EquipmentCatalogue.Generate(new(5), tier: ItemTier.Silver, slot: EquipmentSlot.Weapon);
@@ -75,9 +162,9 @@ internal static class GoldEquipmentTests
                 Item(EquipmentSlot.Chest, ItemAffixKind.GoldBonus, 20), Item(EquipmentSlot.Weapon, ItemAffixKind.GoldBonus, 20) };
             var profile = Profile(items);
             var gear = EquipmentModifiers.Calculate(profile);
-            Check(gear.ExtraGoldPerTwo == 1 && gear.GoldBonusPercent == 20, "Se sumaron porcentajes duplicados.");
+            Check(gear.ExtraGoldEvery == 11 && gear.GoldBonusPercent == 20, "Se sumaron porcentajes duplicados.");
             var empty = EquipmentModifiers.Calculate(profile with { Loadout = new() });
-            Check(empty.ExtraGoldPerTwo == 0 && empty.GoldBonusPercent == 0, "Una pieza de la mochila concede oro.");
+            Check(empty.ExtraGoldEvery == 0 && empty.GoldBonusPercent == 0, "Una pieza de la mochila concede oro.");
             var publicGear = PublicEquipment.Prepare(profile).View;
             PublicEquipment.Check(new(1, "Mago", WizardType.Balanced, false, publicGear));
             Check(Protocol.Deserialize<EquipmentItem>(Protocol.Serialize(items[0]))!.Affix == items[0].Affix, "Se perdió el afijo al guardar.");
@@ -85,15 +172,16 @@ internal static class GoldEquipmentTests
         test("Oro: conserva monedas y decimales entre recogidas y suma bonos sobre la base", () =>
         {
             int coin = 0, percent = 0, total = 0;
-            for (int i = 0; i < 10; i++) total += GoldBonuses.Apply(1, 1, 10, ref coin, ref percent);
-            Check(total == 16 && coin == 0 && percent == 0, "Se pierden restos de recogidas pequeñas.");
-            Check(GoldBonuses.Apply(100, 1, 20, ref coin, ref percent) == 170, "Los bonos se multiplicaron entre sí.");
+            for (int i = 0; i < 11; i++) total += GoldBonuses.Apply(1, 11, 10, ref coin, ref percent);
+            Check(total == 13 && coin == 0 && percent == 10, "Se pierden restos de recogidas pequeñas.");
+            coin = percent = 0;
+            Check(GoldBonuses.Apply(100, 11, 20, ref coin, ref percent) == 129, "Los bonos se multiplicaron entre sí.");
         });
         test("Supervivencia: cada aliado aplica su propio bono al oro compartido", () =>
         {
             var (world, player) = World(); var ally = world.AddPlayer("Aliado")!; ally.Position = player.Position;
-            Pickup(world, player, 5); Check(Gold(world, player) == 7 && Gold(world, ally) == 5, "Un aliado recibió un bono ajeno.");
-            Pickup(world, player, 5); Check(Gold(world, player) == 16 && Gold(world, ally) == 10, "Se perdió oro o se aplicó dos veces al grupo.");
+            Pickup(world, player, 5); Check(Gold(world, player) == 5 && Gold(world, ally) == 5, "Un aliado recibió un bono ajeno.");
+            Pickup(world, player, 5); Check(Gold(world, player) == 11 && Gold(world, ally) == 10, "Se perdió oro o se aplicó dos veces al grupo.");
             SnapshotValidation.Check(world.Snapshot());
         });
         test("Supervivencia: guardar y continuar conserva el oro y los restos de los dos bonos", () =>
@@ -102,7 +190,7 @@ internal static class GoldEquipmentTests
             var save = world.SaveSurvival(player.Id, Guid.NewGuid().ToString("N"));
             var restored = GameWorld.RestoreSurvival(save); var continued = restored.Players[player.Id];
             Pickup(restored, continued, 5);
-            Check(Gold(restored, continued) == 16 && continued.Equipment.ExtraGoldPerTwo == 1 && continued.Equipment.GoldBonusPercent == 10,
+            Check(Gold(restored, continued) == 11 && continued.Equipment.ExtraGoldEvery == 11 && continued.Equipment.GoldBonusPercent == 10,
                 "La continuación reinició los bonos o sus restos.");
         });
         test("PvP: la recompensa final aplica los bonos y respeta informes antiguos y Defensa", () =>

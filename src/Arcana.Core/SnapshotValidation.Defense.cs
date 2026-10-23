@@ -46,7 +46,7 @@ public static partial class SnapshotValidation
                 p.Passives is not { Length: 4 } || p.Passives.Any(a => a is < 0 or > DefenseRules.MaxPassiveLevel) ||
                 p.PassiveCooldowns is not { Length: 4 } || p.PassiveCooldowns.Any(a => !Size(a, 16.01f)) ||
                 !Size(p.BerserkerRemaining, DefenseRules.BerserkerDuration(DefenseRules.MaxPassiveLevel) + 0.01f) ||
-                p.Modifiers == null || !GoldBonuses.Valid(p.Modifiers.ExtraGoldPerTwo, p.Modifiers.GoldBonusPercent) ||
+                p.Modifiers == null || !GoldBonuses.Valid(p.Modifiers.ExtraGoldEvery, p.Modifiers.GoldBonusPercent) ||
                 !NonNegative([p.DamageMultiplier, p.IncomingMultiplier, p.Regeneration, p.SpeedMultiplier]) ||
                 !NonNegative([p.Modifiers.Power, p.Modifiers.Healing, p.Modifiers.Range, p.Modifiers.Incoming, p.Modifiers.Speed])) Invalid();
             var items = new HashSet<string>(); var slots = new HashSet<EquipmentSlot>();
