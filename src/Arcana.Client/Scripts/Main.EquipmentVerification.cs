@@ -172,7 +172,7 @@ public partial class Main
                 "Los nombres de atributos no ocupan la última columna.");
             int attack = Array.FindIndex(cells, l => l.Text == "Ataque");
             Check(attack >= 0 && (totals.Columns == 2
-                ? cells[attack - 1].Text == "Botas: +2% · Gorro: -1%\nPecho: +5% · Arma: +7%\nAnillo de oro: — · Anillo mágico: —\nConjunto: 0% · Suma: +13%\nAplicado: +13%"
+                ? cells[attack - 1].Text == "Botas: +2% · Gorro: -1%\nPecho: +5% · Arma: +7%\nConjunto: 0% · Suma: +13%\nAplicado: +13%"
                 : cells.Skip(attack - 9).Take(9).Select(l => l.Text).SequenceEqual(new[] { "+2%", "-1%", "+5%", "+7%", "—", "—", "0%", "+13%", "+13%" })),
                 "El desglose no separa las cuatro piezas, pierde el signo o suma piezas sin equipar.");
             panel.PressInspect(EquipmentSlot.Hat); panel.PressChoice("");

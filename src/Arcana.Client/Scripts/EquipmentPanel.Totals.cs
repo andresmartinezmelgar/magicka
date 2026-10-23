@@ -13,6 +13,7 @@ public partial class EquipmentPanel
         table.Visible = active.Length > 0;
         if (!table.Visible) return false;
         bool compact = table.Columns == 2;
+        bool hasRings = equipped.Any(i => RingEffects.IsRing(i.Slot));
         var slots = Enum.GetValues<EquipmentSlot>();
         if (compact) Cell(table, "Piezas y total aplicado", true, header: true);
         else
@@ -26,6 +27,8 @@ public partial class EquipmentPanel
             var lines = new List<string>();
             foreach (var slot in slots)
             {
+                // Las dos posiciones nuevas vacías no añaden una línea alta en móvil.
+                if (compact && !hasRings && RingEffects.IsRing(slot)) continue;
                 var piece = equipped.FirstOrDefault(i => i.Slot == slot);
                 float value = piece?.Bonuses.Where(b => b.Stat == stat.Stat).Sum(b => b.Current) ?? 0;
                 string amount = piece == null ? "—" : EquipmentCatalogue.Percent(value);
