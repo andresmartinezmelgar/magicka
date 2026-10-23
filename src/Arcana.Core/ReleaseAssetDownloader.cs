@@ -10,12 +10,22 @@ public sealed record VerifiedReleaseAsset(ReleaseUpdatePlan Plan, string Path, s
 /// <summary>Transporte verificable: reintenta la red sin confundirla con la compatibilidad de un parche.</summary>
 public sealed class ReleaseAssetDownloader(HttpClient metadataHttp, HttpClient downloadHttp)
 {
+    // Cerrar y reabrir el aviso no puede dejar dos tareas escribiendo el mismo parcial.
+    private static readonly SemaphoreSlim TransferGate = new(1, 1);
     public const int MaximumAttempts = 3;
     public TimeSpan RetryDelay { get; init; } = TimeSpan.FromSeconds(1);
 
     public async Task<VerifiedReleaseAsset> DownloadAsync(ReleaseUpdatePlan plan, string folder,
         Action<long, long, double>? progress = null, Action<int>? retrying = null,
         CancellationToken token = default)
+    {
+        await TransferGate.WaitAsync(token).ConfigureAwait(false);
+        try { return await DownloadLockedAsync(plan, folder, progress, retrying, token).ConfigureAwait(false); }
+        finally { TransferGate.Release(); }
+    }
+
+    private async Task<VerifiedReleaseAsset> DownloadLockedAsync(ReleaseUpdatePlan plan, string folder,
+        Action<long, long, double>? progress, Action<int>? retrying, CancellationToken token)
     {
         if (string.IsNullOrWhiteSpace(plan.ChecksumUrl) || string.IsNullOrWhiteSpace(plan.Filename))
             throw new InvalidDataException("Esta versión no incluye un manifiesto de integridad verificable.");
@@ -30,44 +40,105 @@ public sealed class ReleaseAssetDownloader(HttpClient metadataHttp, HttpClient d
             catch (IOException error) { throw new HttpRequestException("Se interrumpió la lectura del manifiesto.", error); }
         }, retrying, token).ConfigureAwait(false);
         byte[] expectedHash = ReleaseDownloadVerifier.ReadExpectedHash(manifest, plan.Filename);
-        if (plan.Filename is "." or "..") throw new InvalidDataException("Nombre de descarga inválido.");
+        if (plan.Bytes <= 0 || plan.Bytes > ReleaseUpdatePlan.MaximumBytes)
+            throw new InvalidDataException("Tamaño de descarga inválido.");
+        string target = ReleaseUpdateCache.Target(folder, plan.Filename);
         Directory.CreateDirectory(folder);
+        ReleaseUpdateCache.KeepPlan(folder, plan);
 
         // También se reutiliza un paquete completo ya verificado tras un intento de instalación.
         if (plan.FullPackage is { } full)
         {
             byte[] fullHash = ReleaseDownloadVerifier.ReadExpectedHash(manifest, full.Filename);
-            string cached = Path.Combine(folder, full.Filename);
+            string cached = ReleaseUpdateCache.Target(folder, full.Filename);
             if (await ReleaseDownloadVerifier.IsVerifiedFileAsync(cached, full.Bytes, fullHash, token).ConfigureAwait(false))
                 return new(full, cached, manifest, fullHash);
         }
-        string target = Path.Combine(folder, plan.Filename);
         if (await ReleaseDownloadVerifier.IsVerifiedFileAsync(target, plan.Bytes, expectedHash, token).ConfigureAwait(false))
             return new(plan, target, manifest, expectedHash);
 
         await RetryAsync(async () =>
         {
-            // Cada intento posee su temporal: cancelar uno nunca borra el del siguiente.
-            string temporary = target + ".part-" + Guid.NewGuid().ToString("N");
+            string temporary = target + ".part";
             try
             {
+                var state = ReleaseUpdateCache.ReadState(target);
+                long offset = ReleaseUpdateCache.Matches(state, plan, expectedHash)
+                    ? ReleaseUpdateCache.SavedBytes(plan, folder) : 0;
+                if (offset == plan.Bytes)
+                {
+                    if (await ReleaseDownloadVerifier.IsVerifiedFileAsync(temporary, plan.Bytes, expectedHash, token).ConfigureAwait(false))
+                    {
+                        token.ThrowIfCancellationRequested();
+                        File.Move(temporary, target, overwrite: true);
+                        progress?.Invoke(plan.Bytes, plan.Bytes, 0);
+                        return true;
+                    }
+                    ReleaseUpdateCache.DiscardPartial(target);
+                    offset = 0;
+                }
                 using var inactivity = CancellationTokenSource.CreateLinkedTokenSource(token);
                 inactivity.CancelAfter(TimeSpan.FromSeconds(60));
                 using var request = Request(plan.DownloadUrl);
-                using var response = await downloadHttp.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, inactivity.Token).ConfigureAwait(false);
-                response.EnsureSuccessStatusCode();
-                long? declared = response.Content.Headers.ContentLength;
-                if (plan.Bytes <= 0 || plan.Bytes > ReleaseUpdatePlan.MaximumBytes ||
-                    declared.HasValue && declared.Value != plan.Bytes)
-                    throw new InvalidDataException("El tamaño descargado no coincide con la Release.");
-                await using (var input = await response.Content.ReadAsStreamAsync(inactivity.Token).ConfigureAwait(false))
-                await using (var output = File.Create(temporary))
+                request.Headers.AcceptEncoding.ParseAdd("identity");
+                if (offset > 0)
                 {
+                    request.Headers.Range = new RangeHeaderValue(offset, null);
+                    if (EntityTagHeaderValue.TryParse(state?.ETag, out var etag) && !etag.IsWeak)
+                        request.Headers.IfRange = new RangeConditionHeaderValue(etag);
+                }
+                using var response = await downloadHttp.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, inactivity.Token).ConfigureAwait(false);
+                if (response.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable && offset > 0)
+                {
+                    ReleaseUpdateCache.DiscardPartial(target);
+                    throw new HttpRequestException("El servidor ha rechazado el tramo guardado; se reiniciará la descarga.");
+                }
+                response.EnsureSuccessStatusCode();
+                if (response.Content.Headers.ContentEncoding.Any(encoding => !encoding.Equals("identity", StringComparison.OrdinalIgnoreCase)))
+                    throw new InvalidDataException("La descarga no permite verificar sus rangos de bytes.");
+                // Si el servidor ignora Range o cambia la representación, 200 reemplaza el parcial.
+                if (response.StatusCode == HttpStatusCode.OK) offset = 0;
+                else if (response.StatusCode == HttpStatusCode.PartialContent)
+                {
+                    var range = response.Content.Headers.ContentRange;
+                    if (range?.Unit != "bytes" || range.From != offset || range.Length != plan.Bytes ||
+                        range.To is not { } end || end < offset || end >= plan.Bytes ||
+                        response.Content.Headers.ContentLength is { } rangeBytes && rangeBytes != end - offset + 1)
+                        throw new InvalidDataException("El tramo descargado no coincide con la actualización guardada.");
+                    if (offset > 0 && state?.ETag is { } previous && response.Headers.ETag is { } current &&
+                        previous != current.ToString())
+                    {
+                        ReleaseUpdateCache.DiscardPartial(target);
+                        throw new HttpRequestException("La actualización ha cambiado; se reiniciará la descarga.");
+                    }
+                }
+                else throw new InvalidDataException("El servidor no ha entregado un paquete de actualización.");
+                long? declared = response.Content.Headers.ContentLength;
+                if (response.StatusCode == HttpStatusCode.OK && declared.HasValue && declared.Value != plan.Bytes)
+                    throw new InvalidDataException("El tamaño descargado no coincide con la Release.");
+                long responseEnd = response.StatusCode == HttpStatusCode.PartialContent
+                    ? response.Content.Headers.ContentRange!.To!.Value + 1 : plan.Bytes;
+                await using (var input = await response.Content.ReadAsStreamAsync(inactivity.Token).ConfigureAwait(false))
+                await using (var output = new FileStream(temporary, offset == 0 ? FileMode.Create : FileMode.Open,
+                    FileAccess.ReadWrite, FileShare.None, 65536, FileOptions.Asynchronous))
+                {
+                    ReleaseUpdateCache.WriteState(target, new(plan.Identity, plan.DownloadUrl, plan.Bytes,
+                        Convert.ToHexString(expectedHash), response.Headers.ETag is { IsWeak: false } tag ? tag.ToString() : null));
                     byte[] buffer = new byte[65536];
                     using var hasher = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-                    long received = 0, lastReported = 0;
+                    // El hash incluye todos los bytes conservados, incluso tras terminar el proceso.
+                    if (offset > 0)
+                    {
+                        if (output.Length != offset) throw new InvalidDataException("El parcial ha cambiado durante la reanudación.");
+                        int prefix;
+                        while ((prefix = await output.ReadAsync(buffer, token).ConfigureAwait(false)) != 0)
+                            hasher.AppendData(buffer, 0, prefix);
+                    }
+                    long received = offset, lastReported = offset;
+                    progress?.Invoke(received, plan.Bytes, 0);
                     var watch = Stopwatch.StartNew();
                     var lastUpdate = TimeSpan.Zero;
+                    var lastFlush = TimeSpan.Zero;
                     while (true)
                     {
                         int count;
@@ -76,9 +147,14 @@ public sealed class ReleaseAssetDownloader(HttpClient metadataHttp, HttpClient d
                         if (count == 0) break;
                         inactivity.CancelAfter(TimeSpan.FromSeconds(60));
                         received += count;
-                        if (received > plan.Bytes) throw new InvalidDataException("La descarga supera el tamaño publicado.");
+                        if (received > responseEnd) throw new InvalidDataException("La descarga supera el tramo publicado.");
                         hasher.AppendData(buffer, 0, count);
                         await output.WriteAsync(buffer.AsMemory(0, count), token).ConfigureAwait(false);
+                        if (watch.Elapsed - lastFlush >= TimeSpan.FromSeconds(1))
+                        {
+                            await output.FlushAsync(token).ConfigureAwait(false);
+                            lastFlush = watch.Elapsed;
+                        }
                         if (watch.Elapsed - lastUpdate >= TimeSpan.FromMilliseconds(180))
                         {
                             double seconds = Math.Max(0.001, (watch.Elapsed - lastUpdate).TotalSeconds);
@@ -89,7 +165,11 @@ public sealed class ReleaseAssetDownloader(HttpClient metadataHttp, HttpClient d
                     }
                     if (received != plan.Bytes) throw new HttpRequestException("La conexión terminó antes de completar la descarga.");
                     if (!CryptographicOperations.FixedTimeEquals(hasher.GetHashAndReset(), expectedHash))
+                    {
+                        // Un prefijo corrupto se recupera descargando el archivo completo.
+                        if (offset > 0) throw new CorruptPartialException();
                         throw new InvalidDataException("El SHA-256 descargado no coincide con GitHub Releases. No se instalará el archivo.");
+                    }
                     await output.FlushAsync(token).ConfigureAwait(false);
                     progress?.Invoke(received, plan.Bytes, 0);
                 }
@@ -97,14 +177,18 @@ public sealed class ReleaseAssetDownloader(HttpClient metadataHttp, HttpClient d
                 File.Move(temporary, target, overwrite: true);
                 return true;
             }
-            finally
+            catch (CorruptPartialException)
             {
-                try { File.Delete(temporary); }
-                catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+                ReleaseUpdateCache.DiscardPartial(target);
+                throw new HttpRequestException("El tramo guardado está alterado; se reiniciará la descarga.");
             }
+            catch (InvalidDataException) { ReleaseUpdateCache.DiscardPartial(target); throw; }
+            // Cancelar, cerrar o perder la conexión conserva el parcial y su identidad en disco.
         }, retrying, token).ConfigureAwait(false);
         return new(plan, target, manifest, expectedHash);
     }
+
+    private sealed class CorruptPartialException : Exception { }
 
     private async Task<T> RetryAsync<T>(Func<Task<T>> operation, Action<int>? retrying, CancellationToken token)
     {

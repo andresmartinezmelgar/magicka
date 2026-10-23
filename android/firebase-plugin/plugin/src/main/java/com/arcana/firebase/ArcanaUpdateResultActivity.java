@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageInstaller;
 import android.os.Bundle;
+import java.io.File;
 
 /** Callback explícito del instalador; sigue existiendo después de actualizar nuestra APK. */
 public final class ArcanaUpdateResultActivity extends Activity {
@@ -25,7 +26,14 @@ public final class ArcanaUpdateResultActivity extends Activity {
             fail(intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE));
             return;
         }
-        getSharedPreferences(ArcanaUpdatesPlugin.PREFS, 0).edit().clear().apply();
+        var preferences = getSharedPreferences(ArcanaUpdatesPlugin.PREFS, 0);
+        // Solo se retira la descarga después de que Android confirme la instalación.
+        try {
+            File apk = new File(preferences.getString("path", "")).getCanonicalFile();
+            File root = getFilesDir().getCanonicalFile();
+            if (apk.toPath().startsWith(root.toPath()) && apk.getName().endsWith(".apk")) apk.delete();
+        } catch (Exception ignored) { /* El arranque nuevo limpia también los paquetes anteriores. */ }
+        preferences.edit().clear().apply();
         Intent game = getPackageManager().getLaunchIntentForPackage(getPackageName());
         if (game != null) {
             game.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);

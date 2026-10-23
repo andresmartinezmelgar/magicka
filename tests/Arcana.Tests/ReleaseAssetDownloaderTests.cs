@@ -30,7 +30,8 @@ static class ReleaseAssetDownloaderTests
         new(metadata, download) { RetryDelay = TimeSpan.Zero };
     private static void NoPartial(string folder)
     {
-        if (Directory.EnumerateFiles(folder, "*.part-*").Any()) throw new Exception("Quedaron temporales de un intento anterior.");
+        if (Directory.EnumerateFiles(folder, "*.part-*").Any() || Directory.EnumerateFiles(folder, "*.part").Any())
+            throw new Exception("Quedaron temporales de un intento anterior.");
     }
 
     public static void Run(Action<string, Action> test)
@@ -55,7 +56,7 @@ static class ReleaseAssetDownloaderTests
                 throw new Exception("El primer fallo no se recuperó automáticamente.");
             NoPartial(folder);
         }));
-        test("Descarga: EOF prematuro elimina el temporal y reinicia con bytes completos", () => InFolder(folder =>
+        test("Descarga: EOF prematuro permite recuperarse aunque el servidor entregue de nuevo el paquete completo", () => InFolder(folder =>
         {
             int requests = 0;
             using var metadata = new HttpClient(new Handler((_, _) => Task.FromResult(Metadata())));

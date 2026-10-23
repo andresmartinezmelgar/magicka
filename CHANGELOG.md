@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.29.11 — Descargas reanudables y limpieza de actualizaciones
+
+- Puedes pausar o cerrar el juego durante una actualización y continuar después con los bytes conservados. El aviso recupera el progreso y muestra «Continuar descarga».
+- La continuación valida la versión, compilación, tamaño y SHA-256. Si el servidor no admite continuar o el parcial está alterado, se descarga el paquete completo sin instalar archivos incompletos.
+- Android elimina la APK descargada solo tras confirmar una instalación correcta. El arranque también limpia paquetes, parches, parciales y metadatos de versiones ya instaladas, incluidos los restos antiguos.
+- Solo se conserva la descarga pendiente del destino seleccionado y su alternativa completa; las partidas y los datos de usuario se mantienen.
+- Conservar el progreso no mantiene una descarga activa cuando Android cierra el proceso. Al abrir de nuevo el juego puedes continuarla desde el aviso.
+
 ## 0.29.10 — Estadísticas exclusivamente en Firebase
 
 - Las partidas envían sus estadísticas directamente a Firestore al terminar o abandonar, sin crear un historial ni una cola de archivos locales.

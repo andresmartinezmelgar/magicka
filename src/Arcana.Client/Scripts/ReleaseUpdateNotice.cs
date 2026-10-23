@@ -53,6 +53,7 @@ public partial class ReleaseUpdateNotice : Node
         _disabled = OS.HasFeature("editor") || !OS.HasFeature("windows") && !_android ||
             OS.GetCmdlineUserArgs().Any(a => a.Contains("smoke") || a.Contains("preview"));
         if (_disabled) return;
+        ReleaseUpdateCache.CleanInstalled(_updatesFolder, BuildInfo.Version, BuildInfo.UpdateBuildNumber);
         _identity = GetParent<Main>().UpdateIdentityUid;
         if (_android)
         {
@@ -301,6 +302,7 @@ public partial class ReleaseUpdateNotice : Node
         _primary = Ui.Button("Descargar actualización", PrimaryAction, true);
         _primary.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         actions.AddChild(_primary);
+        ShowSavedDownload();
         ResizeUpdateCard();
         _overlay.Visible = true;
         string? previousFailure = OS.HasFeature("windows") ? WindowsUpdateInstaller.PreviousFailure(
@@ -379,6 +381,18 @@ public partial class ReleaseUpdateNotice : Node
         else StartDownload();
     }
 
+    private void ShowSavedDownload()
+    {
+        long saved = _activePlan == null ? 0 : ReleaseUpdateCache.SavedBytes(_activePlan, _updatesFolder);
+        if (saved <= 0 || _expectedBytes <= 0) return;
+        double percent = 100d * saved / _expectedBytes;
+        _progress!.Value = percent;
+        _percentLabel!.Text = $"{percent:0} %";
+        _progressLabel!.Text = Size(saved) + " de " + Size(_expectedBytes);
+        _primary!.Text = "Continuar descarga";
+        _speedLabel!.Text = "Descarga guardada. Puedes continuar desde este punto.";
+    }
+
     private void StartDownload()
     {
         if (_downloading || _completed || _stop.IsCancellationRequested || !CurrentIdentity) return;
@@ -391,11 +405,13 @@ public partial class ReleaseUpdateNotice : Node
         _progress.Value = 0;
         _percentLabel!.Text = "0 %";
         _progressLabel!.Text = _expectedBytes > 0 ? "0 B de " + Size(_expectedBytes) : "0 B descargados";
-        _secondary!.Text = "Cancelar descarga";
+        _secondary!.Text = "Pausar descarga";
         _headline!.Text = "Descargando actualización";
         _subtitle!.Text = _activePlan?.Differential == true ? "Solo se descargan los cambios compatibles con tu versión." :
             "Descargando el paquete completo de esta versión.";
         _speedLabel!.Text = "Conectando con GitHub…";
+        ShowSavedDownload();
+        _primary.Text = "Descargando…";
         _ = DownloadUpdate(_downloadUrl, _downloadStop.Token, ++_progressGeneration);
     }
 
@@ -431,8 +447,6 @@ public partial class ReleaseUpdateNotice : Node
         if (generation != _progressGeneration || !_downloading || !GodotObject.IsInstanceValid(_overlay)) return;
         _subtitle!.Text = "La conexión se ha interrumpido. Se reintentará automáticamente.";
         _speedLabel!.Text = $"Reconectando · intento {attempt} de {ReleaseAssetDownloader.MaximumAttempts}";
-        _progress!.Value = 0;
-        _percentLabel!.Text = "0 %";
     }
 
     private async Task CompleteTransfer(ReleaseUpdatePlan plan, string path, string manifest, byte[] transportHash,
@@ -458,6 +472,7 @@ public partial class ReleaseUpdateNotice : Node
                     full.Version, targetHash, full.Bytes, token), token);
             }
             try { System.IO.File.Delete(path); } catch (IOException) { }
+            ReleaseUpdateCache.DeleteDownloadedMetadata(path);
             path = destination;
         }
         token.ThrowIfCancellationRequested();
