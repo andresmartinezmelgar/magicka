@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.29.10 — Estadísticas exclusivamente en Firebase
+
+- Las partidas envían sus estadísticas directamente a Firestore al terminar o abandonar, sin crear un historial ni una cola de archivos locales.
+- Las dos cuentas autorizadas consultan las gráficas globales de Firebase desde Perfil, con filtros, paginación y revisiones agrupadas por partida.
+- Los envíos fallidos se reintentan cada 30 segundos únicamente en memoria mientras la aplicación está abierta; cerrar el proceso pierde los pendientes sin confirmar.
+- El archivo de supervivencia guarda solo el estado de la partida y omite el informe estadístico y sus métricas. Cada continuación abre un tramo nuevo para no duplicar lo ya jugado.
+- Los puntos antiguos que contienen estadísticas siguen abriendo y al guardar de nuevo se omite su telemetría. Se verifica guardar, cargar y volver a guardar sin informes locales.
+
 ## 0.29.9 — Estadísticas al cierre y gráficas globales
 
 - Las estadísticas se envían directamente a Firestore al terminar o abandonar una partida. Durante el combate solo se acumulan en memoria; guardar un punto de supervivencia sin salir no dispara un envío.

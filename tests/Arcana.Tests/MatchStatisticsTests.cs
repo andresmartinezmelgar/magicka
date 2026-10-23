@@ -68,22 +68,26 @@ internal static class MatchStatisticsTests
             Check(lobby.SetPlayerTeam(p.Id, 1), "No cambió el equipo."); p.Invulnerable = 0; Damage(lobby, p, 10, p);
             Check(lobby.MatchStatistics().Sum(StatisticGroup.Actor, StatisticMeasure.DamageReceived, 32 + (int)p.WizardType) == 10, "La atribución humana conserva el equipo anterior.");
         });
-        test("Estadísticas: supervivencia guarda acumulados y bifurca un guardado anterior", () =>
+        test("Estadísticas: supervivencia guarda solo estado y abre un tramo nuevo sin telemetría local", () =>
         {
             var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4 }); var a = w.AddPlayer("Mago")!;
             for (int i = 0; i < 60; i++) w.Step();
             var save = w.SaveSurvival(a.Id, Guid.NewGuid().ToString("N")); var report = w.MatchStatistics();
-            var restored = GameWorld.RestoreSurvival(save); Check(restored.MatchStatistics().RunId == report.RunId && restored.MatchStatistics().Revision == report.Revision, "Perdió el acumulado.");
-            restored.StartStatisticsContinuation();
-            Check(restored.MatchStatistics().RunId != report.RunId && restored.MatchStatistics().Continuation && restored.MatchStatistics().Revision == 0, "Rebobinado duplica el acumulado.");
+            Check(!save.State.TryGetProperty("Statistics", out _), "El punto local contiene un informe de telemetría.");
+            var restored = GameWorld.RestoreSurvival(save);
+            Check(restored.Tick == w.Tick && restored.MatchStatistics().RunId != report.RunId && restored.MatchStatistics().Continuation && restored.MatchStatistics().Revision == 0, "Continuar pierde el estado del juego o duplica el acumulado anterior.");
         });
-        test("Estadísticas: guardados antiguos sin informe siguen abriendo", () =>
+        test("Estadísticas: guardados antiguos con informe siguen abriendo sin reescribir telemetría", () =>
         {
             var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4 }); var a = w.AddPlayer("Mago")!; w.Step();
             var save = w.SaveSurvival(a.Id, Guid.NewGuid().ToString("N"));
-            var node = System.Text.Json.Nodes.JsonNode.Parse(save.State.GetRawText())!.AsObject(); Check(node.Remove("Statistics"), "No encontró el campo del guardado.");
+            var node = System.Text.Json.Nodes.JsonNode.Parse(save.State.GetRawText())!.AsObject();
+            node["Statistics"] = JsonSerializer.SerializeToNode(w.MatchStatistics(MatchRecordStatus.Suspended));
             var old = save with { State = JsonSerializer.SerializeToElement(node) };
-            Check(GameWorld.RestoreSurvival(old).MatchStatistics().Continuation, "No admite el guardado anterior.");
+            var restored = GameWorld.RestoreSurvival(old);
+            Check(restored.MatchStatistics().Continuation && restored.MatchStatistics().Revision == 0 && restored.Tick == w.Tick, "No admite el punto anterior con telemetría.");
+            var next = restored.SaveSurvival(a.Id, Guid.NewGuid().ToString("N"));
+            Check(!next.State.TryGetProperty("Statistics", out _), "Continuar un punto antiguo volvió a escribir telemetría.");
         });
         test("Estadísticas: reintentos en memoria conservan una revisión nueva durante el envío", () =>
         {

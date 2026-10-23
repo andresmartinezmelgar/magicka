@@ -68,7 +68,7 @@ public partial class Main
     private async Task SendMatchStatistics()
     {
         if (_statisticsOutbox == null || _statisticsTransport == null || _statisticsSending) return;
-        _statisticsSending = true;
+        _statisticsSending = true; _statisticsSendClock = 0;
         try
         {
             do { await _statisticsOutbox.Flush(_statisticsTransport.Upload, _lifetime.Token); }

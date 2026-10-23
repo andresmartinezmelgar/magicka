@@ -84,7 +84,6 @@ public partial class Main
             CancelPendingConnection();
             var old = _connection; _connection = null; if (old != null) _ = old.DisposeAsync();
             _practiceSession = null; _practice = restored.World; _localId = restored.Save.LocalPlayerId; _localSequence = 0;
-            _practice.StartStatisticsContinuation();
             _resumingSurvival = restored.Save;
             _serverName = restored.RecoveredBackup ? "Supervivencia · copia recuperada" : "Supervivencia · partida guardada";
             StartGame(_practice.Snapshot());

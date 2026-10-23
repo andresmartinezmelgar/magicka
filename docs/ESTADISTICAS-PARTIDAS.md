@@ -1,4 +1,4 @@
-# Estadísticas de balance — 0.29.9
+# Estadísticas de balance — 0.29.10
 
 Duelo, Arena, Guerra y Supervivencia generan un informe acumulado por ronda, tanto en local con IA como en red. El laboratorio también usa el motor instrumentado; se distingue por su mapa. Cada reinicio empieza otro identificador. El servidor recoge las partidas en red y envía el informe a los clientes; todos utilizan el mismo identificador aleatorio y las revisiones se sustituyen, no se suman.
 
@@ -33,7 +33,7 @@ Los clientes crean documentos inmutables en `matchStatistics/<runId>-<revision>-
 
 Las reglas publicadas admiten la creación anónima de estas estadísticas con cabecera, tipos, ID y tamaño acotados. Solo permiten repetir un documento idéntico, sin cambios ni borrados. El JSON de un informe remoto se valida al leerlo; los documentos corruptos o todavía en curso se omiten sin bloquear las páginas siguientes. Las cifras son telemetría no autoritativa para balance y no conceden premios ni modifican perfiles o inventario.
 
-El punto local de supervivencia conserva el estado necesario para continuar la partida; no es un archivo de telemetría independiente. Al activar una continuación se abre siempre un tramo con identificador nuevo, contadores nuevos y `continuation: true`. Así un punto anterior a una partida ya terminada no vuelve a contar el mismo acumulado y no hace falta consultar un historial local para detectar rebobinados. Los tramos miden lo jugado efectivamente en cada sesión. El visor agrupa las revisiones de cada identificador antes de calcular cifras.
+Desde 0.29.10 el punto local de supervivencia conserva solo el estado necesario para continuar la partida y omite el informe `Statistics` y sus métricas. Los puntos antiguos con ese campo siguen abriendo, pero su telemetría no se restaura ni se vuelve a guardar. Al activar una continuación se abre siempre un tramo con identificador nuevo, contadores nuevos y `continuation: true`. Así un punto anterior a una partida ya terminada no vuelve a contar el mismo acumulado y no hace falta consultar un historial local para detectar rebobinados. Los tramos miden lo jugado efectivamente en cada sesión. El visor agrupa las revisiones de cada identificador antes de calcular cifras.
 
 Las verificaciones visuales, perfiles de rendimiento y modos de prueba desactivan el envío de producción. El visor de QA recibe páginas simuladas en memoria; no escribe informes ni consulta Firestore real.
 

@@ -21,8 +21,6 @@ public sealed partial class GameWorld
         foreach (var p in _players.Values) _statistics.Bind(p, spawn: !carry);
         foreach (var m in _minions.Values) _statistics.Bind(m.Body, m.Kind, spawn: !carry);
     }
-    /// <summary>Continuar un punto abre otro tramo sin depender de un historial local ni volver a contar lo ya jugado.</summary>
-    public void StartStatisticsContinuation() => RestoreStatistics(null);
     private void HitAs(StatisticAttack cause, Wizard target, SpellRecipe spell, float scale, int owner, V2 force)
     {
         var previous = _statisticsAttack; _statisticsAttack = cause;

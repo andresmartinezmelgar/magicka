@@ -7,7 +7,8 @@ public sealed partial class GameWorld
     private sealed class SavedSurvival
     {
         public WorldOptions Options = new();
-        public MatchStatisticsReport? Statistics;
+        [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public MatchStatisticsReport? Statistics = null; // Solo lectura de puntos antiguos; nunca se escribe telemetría nueva.
         public long Tick, NextEvent;
         public int NextMinion, NextEntity, Kills, Bosses, PartySize;
         public ulong RandomState;
@@ -61,7 +62,6 @@ public sealed partial class GameWorld
             throw new InvalidOperationException("Solo se puede guardar una supervivencia local en curso.");
         var state = new SavedSurvival
         {
-            Statistics = MatchStatistics(MatchRecordStatus.Suspended),
             Options = Options, Tick = Tick, NextEvent = _nextEvent, NextMinion = _nextMinion, NextEntity = _nextEntity,
             RandomState = ((SurvivalRandom)_random).State, Kills = _defenseKills, Bosses = _bossesKilled,
             Elapsed = _defenseElapsed, PartySize = _defensePartySize, SpawnClock = _spawnClock, AuraClock = _auraClock,
@@ -162,7 +162,7 @@ public sealed partial class GameWorld
             { TargetId = b.TargetId, HealTargetId = b.HealTargetId, Goal = b.Goal, SpellTime = b.SpellTime, SpellTurn = b.SpellTurn });
         world._defenseBotPlanClock = s.BotClock;
         ((SurvivalRandom)world._random).State = s.RandomState;
-        world.RestoreStatistics(s.Statistics);
+        world.RestoreStatistics(null);
         world.BuildDefenseCells();
         return world;
     }
