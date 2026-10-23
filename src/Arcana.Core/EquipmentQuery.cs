@@ -13,7 +13,7 @@ public static class EquipmentQuery
                 .ThenByDescending(i => i.Bonuses.FirstOrDefault(b => b.Stat == stat)?.Current ?? 0)
                 .ThenByDescending(i => i.Tier)).ThenBy(i => i.Id, StringComparer.Ordinal).ToArray();
 
-    /// <summary>Previsualiza una sustitución con los cuatro objetos, conjuntos y límites reales de combate.</summary>
+    /// <summary>Previsualiza una sustitución con las piezas equipadas, conjuntos y límites reales de combate.</summary>
     public static EquipmentPreview Preview(AccountProfile profile, EquipmentItem candidate, IReadOnlyDictionary<string, int>? itemLevels = null)
     {
         if (!EquipmentCatalogue.Valid(candidate)) throw new ArgumentException("Objeto inválido.");

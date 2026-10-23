@@ -20,7 +20,7 @@ public partial class EquipmentPanel : Control
     private Label _salesHelp = null!;
     private ConfirmationDialog _confirm = null!;
     private AcceptDialog _setsInfo = null!;
-    private readonly Button[] _slots = new Button[4];
+    private readonly Button[] _slots = new Button[Enum.GetValues<EquipmentSlot>().Length];
     private readonly CancellationTokenSource _lifetime = new();
     private readonly List<Button> _actions = [];
     private EquipmentSlot _selectedSlot;
@@ -102,18 +102,18 @@ public partial class EquipmentPanel : Control
         var summaryHeading = _summaryHeading = new HBoxContainer(); summaryHeading.AddThemeConstantOverride("separation", 10); summary.AddChild(summaryHeading);
         var summaryTitle = _summaryTitle = Ui.Label("DESGLOSE Y TOTAL DEL EQUIPO", 22, Ui.Gold); summaryTitle.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         summaryTitle.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        summaryTitle.TooltipText = "Suma = botas + gorro + pecho + arma + conjunto. Aplicado incluye los límites de combate. Valores respecto al mago base.";
+        summaryTitle.TooltipText = "Suma = botas + gorro + pecho + arma + anillos + conjunto. Aplicado incluye los límites de combate. Valores respecto al mago base.";
         summaryHeading.AddChild(summaryTitle);
         var setsButton = Action(summaryHeading, "Conjuntos", () => _setsInfo.PopupCentered());
         setsButton.CustomMinimumSize = new(0, 48);
         _sets = Ui.Label("", 16, Ui.Gold); _sets.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _sets.SizeFlagsHorizontal = SizeFlags.ExpandFill; summary.AddChild(_sets);
-        _totals = Ui.Table(8, "EquipmentTotalsTable"); summary.AddChild(_totals);
+        _totals = Ui.Table(Enum.GetValues<EquipmentSlot>().Length + 4, "EquipmentTotalsTable"); summary.AddChild(_totals);
         _totalsEmpty = Ui.Label("No hay bonificaciones activas en el equipo actual.", 16, Ui.Muted);
         _totalsEmpty.Name = "EquipmentNoActiveBonuses";
         _totalsEmpty.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_totalsEmpty);
         var footer = new HBoxContainer(); footer.AddThemeConstantOverride("separation", 14); box.AddChild(footer);
-        var hint = Ui.Label("Suma = botas + gorro + pecho + arma + conjunto. Aplicado = valor real en combate.", 14, Ui.Muted);
+        var hint = Ui.Label("Suma = botas + gorro + pecho + arma + anillos + conjunto. Aplicado = valor real en combate.", 14, Ui.Muted);
         hint.AutowrapMode = TextServer.AutowrapMode.WordSmart; hint.SizeFlagsHorizontal = SizeFlags.ExpandFill; footer.AddChild(hint);
         var close = Action(footer, _defensePlayer == null ? "Volver" : "Volver a la tienda", () => Close()); _actions.Remove(close);
         BuildSaleModal();
@@ -179,7 +179,7 @@ public partial class EquipmentPanel : Control
             _selectorsGrid.Columns = ResponsiveLayout.Columns(available, Ui.IsMobile ? 365 : 340, 2, 10);
         // Tabla completa en escritorio; fichas de dos columnas en pantallas estrechas.
         // Su contenido se regenera solo si cambia realmente el formato.
-        int columns = compact ? 2 : 8;
+        int columns = viewportWidth < 1250 ? 2 : Enum.GetValues<EquipmentSlot>().Length + 4;
         if (_totals != null && _totals.Columns != columns)
         {
             _totals.Columns = columns;
@@ -281,6 +281,7 @@ public partial class EquipmentPanel : Control
         SetStatus("La cuenta ha cambiado. Se ha cargado su inventario sin conservar la selección anterior.");
     }
     private static string Set(string name, int pieces, string two, string four) => name + " " + pieces + "/4 · " + (pieces == 4 ? four : pieces >= 2 ? two : "sin bonificación");
+    private int ItemLevel(EquipmentItem item) => _itemLevels.GetValueOrDefault(item.Id, item.UpgradeLevel);
     private void RenderDetails()
     {
         Clear(_details); var item = Selected();
@@ -295,8 +296,14 @@ public partial class EquipmentPanel : Control
         if (item?.Affix is { } affix)
         {
             Cell(_details, "Especial", true, Ui.Gold);
-            Cell(_details, affix.Kind == ItemAffixKind.CoinDividend ? $"Nivel {_itemLevels.GetValueOrDefault(item.Id)}/10" : "Fijo", true, Ui.Muted);
-            Cell(_details, ItemAffixes.Describe(affix, _itemLevels.GetValueOrDefault(item.Id)));
+            Cell(_details, affix.Kind == ItemAffixKind.CoinDividend ? $"Nivel {ItemLevel(item)}/10" : "Fijo", true, Ui.Muted);
+            Cell(_details, ItemAffixes.Describe(affix, ItemLevel(item)));
+        }
+        if (item != null && RingEffects.IsRing(item.Slot))
+        {
+            Cell(_details, "Anillo", true, Ui.Gold);
+            Cell(_details, $"Nivel {ItemLevel(item)}/10", true, Ui.Muted);
+            Cell(_details, RingEffects.Describe(item, ItemLevel(item)));
         }
         _empty.Text = item == null ? "Sin pieza equipada. Pulsa una posición para abrir sus objetos ordenados por calidad." :
             "Pulsa una posición para comparar sus objetos. Los cambios se guardan al salir del inventario.";

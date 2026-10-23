@@ -26,7 +26,7 @@ public partial class DefenseLootVisual : Node3D
         IconFrame = drop.Kind switch
         {
             DefenseDropKind.Gold => 11,
-            DefenseDropKind.Equipment => (int)(drop.Slot ?? EquipmentSlot.Chest),
+            DefenseDropKind.Equipment => FrameForSlot(drop.Slot ?? EquipmentSlot.Chest),
             _ => 4 + (int)drop.Buff
         };
         if (_coin)
@@ -53,12 +53,15 @@ public partial class DefenseLootVisual : Node3D
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
     }
 
+    internal static int FrameForSlot(EquipmentSlot slot) => slot switch
+    { EquipmentSlot.GoldRing => 12, EquipmentSlot.MagicRing => 13, _ => (int)slot };
+
     internal void Reset(DefenseDropSnapshot drop)
     { _id = drop.Id; Name = "DefenseDrop" + drop.Id; Position = ArenaRenderer.World(drop.Position); Visible = true; }
 
     private Sprite3D Icon(float size, bool billboard) => new()
     {
-        Name = "LootIcon", Texture = _atlas, Hframes = 6, Vframes = 2, Frame = IconFrame,
+        Name = "LootIcon", Texture = _atlas, Hframes = 6, Vframes = 3, Frame = IconFrame,
         PixelSize = size, Billboard = billboard ? BaseMaterial3D.BillboardModeEnum.Enabled : BaseMaterial3D.BillboardModeEnum.Disabled,
         Shaded = false, DoubleSided = false, TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmaps,
         AlphaCut = SpriteBase3D.AlphaCutMode.Discard, AlphaScissorThreshold = 0.12f,

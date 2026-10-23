@@ -34,7 +34,7 @@ internal static class AccountLoadoutTests
                 Check(profile.Loadout == new EquipmentLoadout(), "La validación aplicó parte de un equipo inválido.");
             }
             using var client = new AccountClient(); client.RestoreOfflineProfile(updated); client.EquipOffline(new EquipmentLoadout());
-            Check(client.Profile!.Loadout == new EquipmentLoadout() && client.Profile.Items.Length == 4, "Desequipar las cuatro piezas perdió el inventario.");
+            Check(client.Profile!.Loadout == new EquipmentLoadout() && client.Profile.Items.Length == profile.Items.Length, "Desequipar las cuatro piezas perdió el inventario.");
         });
         test("Inventario Firebase: cuatro ranuras se guardan con un único PATCH y el fallo conserva el perfil", () =>
         {
@@ -49,10 +49,17 @@ internal static class AccountLoadoutTests
                     Check(request.RequestUri!.AbsolutePath.EndsWith("/users/inventory-test/loadouts/active"), "Se escribió fuera del equipamiento.");
                     using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(token));
                     var fields = body.RootElement.GetProperty("fields");
-                    Check(fields.EnumerateObject().Count() == 4 && fields.GetProperty("boots").GetProperty("stringValue").GetString() == loadout.Boots &&
+                    Check(fields.EnumerateObject().Count() == 4 + (loadout.GoldRing.Length > 0 ? 1 : 0) + (loadout.MagicRing.Length > 0 ? 1 : 0) && fields.GetProperty("boots").GetProperty("stringValue").GetString() == loadout.Boots &&
                         fields.GetProperty("hat").GetProperty("stringValue").GetString() == loadout.Hat &&
                         fields.GetProperty("chest").GetProperty("stringValue").GetString() == loadout.Chest &&
                         fields.GetProperty("weapon").GetProperty("stringValue").GetString() == loadout.Weapon, "La escritura no contiene las cuatro posiciones finales.");
+                    foreach (var ringSlot in new[] { EquipmentSlot.GoldRing, EquipmentSlot.MagicRing })
+                    {
+                        string key = Protocol.Json.PropertyNamingPolicy!.ConvertName(ringSlot.ToString());
+                        if (loadout.Get(ringSlot).Length > 0)
+                            Check(fields.GetProperty(key).GetProperty("stringValue").GetString() == loadout.Get(ringSlot), "El PATCH pierde el anillo.");
+                        else Check(!fields.TryGetProperty(key, out _), "Una ranura vacía rompe las reglas antiguas.");
+                    }
                     return fail ? new(HttpStatusCode.ServiceUnavailable) : Json(new { });
                 }
                 Check(request.Method == HttpMethod.Get, "Seleccionar o leer creó una escritura inesperada.");
@@ -76,6 +83,13 @@ internal static class AccountLoadoutTests
             try { client.SaveLoadout(loadout with { Hat = loadout.Chest }).GetAwaiter().GetResult(); throw new Exception("Se guardó una posición ajena."); }
             catch (ArgumentException) { }
             Check(patches == 1, "Un equipo inválido llegó a Firebase.");
+            loadout = loadout with { GoldRing = profile.Items.Single(i => i.Slot == EquipmentSlot.GoldRing).Id,
+                MagicRing = profile.Items.Single(i => i.Slot == EquipmentSlot.MagicRing).Id };
+            client.SaveLoadout(loadout).GetAwaiter().GetResult();
+            Check(patches == 2 && client.Profile!.Loadout == loadout, "No guarda las seis posiciones juntas.");
+            loadout = loadout with { GoldRing = "", MagicRing = "" };
+            client.SaveLoadout(loadout).GetAwaiter().GetResult();
+            Check(patches == 3 && client.Profile!.Loadout == loadout, "No permite desequipar ambos anillos.");
         });
         test("Inventario heredado: el cliente envía una sola operación con las cuatro posiciones", () =>
         {

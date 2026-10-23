@@ -129,7 +129,7 @@ public partial class Main
             {
                 _equipmentRestoreSmoke = false;
                 var restored = Accounts.Profile;
-                Check(restored is { Uid: "fixture-user", Items.Length: 20 } && restored.Loadout.Get(EquipmentSlot.Hat).Length > 0,
+                Check(restored is { Uid: "fixture-user", Items.Length: 30 } && restored.Loadout.Get(EquipmentSlot.Hat).Length > 0,
                     "La reapertura del juego no cargó el inventario del disco.");
                 var modifiers = EquipmentModifiers.Calculate(restored!);
                 Check(modifiers.LifePieces == 3 && restored!.Items.Single(i => i.Id == restored.Loadout.Hat).Tier == ItemTier.Diamond,
@@ -142,7 +142,7 @@ public partial class Main
                 GetTree().Quit(); return true;
             }
             var panel = _equipmentPanel!;
-            Check(_engineLog.ErrorCount == 0 && panel.VisibleItems == 20 && panel.Details.Contains("Límites (mín.") &&
+            Check(_engineLog.ErrorCount == 0 && panel.VisibleItems == 30 && panel.Details.Contains("Límites (mín.") &&
                 panel.Totals.Contains("Suma") && panel.Totals.Contains("Aplicado"), "Faltan los atributos o los totales del inventario.");
             Check(!panel.FindChildren("*", "Button", true, false).OfType<Button>().Any(b => b.Text is "‹" or "›"), "El inventario conserva las flechas.");
             var original = Accounts.Profile!;
@@ -159,7 +159,7 @@ public partial class Main
             EquipmentItem Piece(EquipmentSlot slot, ItemTier tier, params ItemBonus[] bonuses) =>
                 new(Guid.NewGuid().ToString("N"), slot, tier, EquipmentFamily.Life, bonuses, 100);
             var contributions = new[] { 0.02f, -0.01f, 0.05f, 0.07f };
-            var separated = Enum.GetValues<EquipmentSlot>().Select(slot => Piece(slot, ItemTier.Silver,
+            var separated = Enum.GetValues<EquipmentSlot>().Where(s => !RingEffects.IsRing(s)).Select(slot => Piece(slot, ItemTier.Silver,
                 new ItemBonus(EquipmentStat.Power, -0.5f, 0.5f, contributions[(int)slot]),
                 new ItemBonus(EquipmentStat.SpellRange, 0, 0.5f, 0.01f))).ToArray();
             var unused = Piece(EquipmentSlot.Weapon, ItemTier.Silver, new ItemBonus(EquipmentStat.Power, 0, 0.5f, 0.4f));
@@ -172,8 +172,8 @@ public partial class Main
                 "Los nombres de atributos no ocupan la última columna.");
             int attack = Array.FindIndex(cells, l => l.Text == "Ataque");
             Check(attack >= 0 && (totals.Columns == 2
-                ? cells[attack - 1].Text == "Botas: +2% · Gorro: -1%\nPecho: +5% · Arma: +7%\nConjunto: 0% · Suma: +13%\nAplicado: +13%"
-                : cells.Skip(attack - 7).Take(7).Select(l => l.Text).SequenceEqual(new[] { "+2%", "-1%", "+5%", "+7%", "0%", "+13%", "+13%" })),
+                ? cells[attack - 1].Text == "Botas: +2% · Gorro: -1%\nPecho: +5% · Arma: +7%\nAnillo de oro: — · Anillo mágico: —\nConjunto: 0% · Suma: +13%\nAplicado: +13%"
+                : cells.Skip(attack - 9).Take(9).Select(l => l.Text).SequenceEqual(new[] { "+2%", "-1%", "+5%", "+7%", "—", "—", "0%", "+13%", "+13%" })),
                 "El desglose no separa las cuatro piezas, pierde el signo o suma piezas sin equipar.");
             panel.PressInspect(EquipmentSlot.Hat); panel.PressChoice("");
             Check(panel.Totals.Contains("+14%") && (totals.Columns == 2 ? panel.Totals.Contains("Gorro: —") : panel.Totals.Contains("—")),
@@ -207,6 +207,9 @@ public partial class Main
                 Check(panel.PickerVisible && tiers.SequenceEqual(Enum.GetValues<ItemTier>().Reverse()) && panel.PickerColumns is >= 1 and <= 3,
                     "El selector no abre una rejilla ordenada de mayor a menor calidad.");
                 panel.PressChoice(original.Items.Single(i => i.Slot == slot && i.Tier == ItemTier.Diamond).Id);
+                if (RingEffects.IsRing(slot))
+                    Check(panel.Details.Contains("Nivel 0/10") && panel.Details.Contains(slot == EquipmentSlot.GoldRing ? "cada 11" : "se repone"),
+                        "La ficha del anillo omite nivel, progresión o renovación automática.");
                 Check(!panel.Saving && panel.PickerVisible && panel.SelectedSlot == slot && panel.PreviewProfile!.Loadout.Get(slot) != before.Get(slot),
                     "Equipar debe actualizar la previsualización manteniendo abierto el selector.");
                 Check(Enum.GetValues<EquipmentSlot>().Where(s => s != slot).All(s => panel.PreviewProfile!.Loadout.Get(s) == before.Get(s)), "La selección cambió otra posición.");

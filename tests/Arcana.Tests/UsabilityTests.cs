@@ -11,7 +11,7 @@ internal static class UsabilityTests
             new(Guid.NewGuid().ToString("N"), slot, tier, family, [new(EquipmentStat.FirePower, -.5f, .5f, value), new(EquipmentStat.Defense, 0, .5f, .01f)], 100);
         test("Comparación: al cambiar una oferta se pierden conjuntos y se aplican límites reales", () =>
         {
-            var items = Enum.GetValues<EquipmentSlot>().Select(s => Item(s, EquipmentFamily.Fire, .3f)).ToArray();
+            var items = Enum.GetValues<EquipmentSlot>().Where(s => !RingEffects.IsRing(s)).Select(s => Item(s, EquipmentFamily.Fire, .3f)).ToArray();
             var p = new AccountProfile("a", "A", 0, 0, 0, new(items[0].Id, items[1].Id, items[2].Id, items[3].Id), items);
             var offer = Item(EquipmentSlot.Weapon, EquipmentFamily.Cold, -.1f, ItemTier.Silver);
             var preview = EquipmentQuery.Preview(p, offer);

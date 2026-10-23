@@ -240,7 +240,7 @@ public sealed partial class AccountClient : IDisposable
         var result = await Request<InventoryResult>(HttpMethod.Post, "account/equip", new InventoryRequest(itemId, slot), token, identity).ConfigureAwait(false);
         return result with { Profile = PublishLoadout(result.Profile.Loadout, identity.Generation) };
     }
-    /// <summary>Guarda las cuatro posiciones juntas, con una sola escritura del equipamiento.</summary>
+    /// <summary>Guarda las posiciones juntas, con una sola escritura del equipamiento.</summary>
     public async Task<InventoryResult> SaveLoadout(EquipmentLoadout loadout, CancellationToken token = default)
     {
         var identity = CaptureIdentity();

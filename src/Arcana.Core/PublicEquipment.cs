@@ -20,7 +20,7 @@ public sealed record PublicEquipment(PublicEquipmentItem[] Items, PublicEquipmen
         var items = Enum.GetValues<EquipmentSlot>().Select(slot => profile.Items.FirstOrDefault(i => i.Id == profile.Loadout.Get(slot)))
             .Where(i => i != null).Select(i => new PublicEquipmentItem(i!.Slot, i.Tier, i.Family,
                 i.Bonuses.Select(b => new PublicEquipmentBonus(b.Stat, b.Current)).ToArray())
-                { Affix = i.Affix, UpgradeLevel = itemLevels?.GetValueOrDefault(i.Id) ?? 0 }).ToArray();
+                { Affix = i.Affix, UpgradeLevel = itemLevels?.GetValueOrDefault(i.Id, i.UpgradeLevel) ?? i.UpgradeLevel }).ToArray();
         var sets = EquipmentCatalogue.FocusedFamilies.Where(f => summary.Modifiers.Pieces(f) > 0)
             .Select(f => new PublicEquipmentSet(f, summary.Modifiers.Pieces(f))).ToArray();
         return new(summary.Modifiers, new(items, sets, summary.Stats));
@@ -32,7 +32,7 @@ public sealed record PublicEquipment(PublicEquipmentItem[] Items, PublicEquipmen
             inspection.Name.Any(char.IsControl) || !Enum.IsDefined(inspection.WizardType) || inspection.Equipment == null)
             throw new InvalidDataException("Ficha de mago inválida.");
         var view = inspection.Equipment;
-        if (view.Items == null || view.Items.Length > 4 || view.Sets == null || view.Sets.Length > 4 ||
+        if (view.Items == null || view.Items.Length > Enum.GetValues<EquipmentSlot>().Length || view.Sets == null || view.Sets.Length > 4 ||
             view.Stats == null || view.Stats.Length != Enum.GetValues<EquipmentStat>().Length)
             throw new InvalidDataException("Ficha de equipamiento inválida.");
         var slots = new HashSet<EquipmentSlot>(); var items = new float[view.Stats.Length];
@@ -54,12 +54,12 @@ public sealed record PublicEquipment(PublicEquipmentItem[] Items, PublicEquipmen
         foreach (var set in view.Sets)
         {
             if (set == null || !EquipmentCatalogue.FocusedFamilies.Contains(set.Family) || !families.Add(set.Family) ||
-                set.Pieces is < 1 or > 4 || set.Pieces != view.Items.Count(i => i.Tier == ItemTier.Mythic && i.Family == set.Family))
+                set.Pieces is < 1 or > 4 || set.Pieces != view.Items.Count(i => !RingEffects.IsRing(i.Slot) && i.Tier == ItemTier.Mythic && i.Family == set.Family))
                 throw new InvalidDataException("Conjunto público inválido.");
             if (set.Pieces >= 2) foreach (var bonus in EquipmentCatalogue.SetBonuses(set.Family))
                 setStats[(int)bonus.Stat] += set.Pieces == 4 ? bonus.FourPieces : bonus.TwoPieces;
         }
-        if (view.Items.Any(i => i.Tier == ItemTier.Mythic && i.Family != EquipmentFamily.Mixed && !families.Contains(i.Family)))
+        if (view.Items.Any(i => !RingEffects.IsRing(i.Slot) && i.Tier == ItemTier.Mythic && i.Family != EquipmentFamily.Mixed && !families.Contains(i.Family)))
             throw new InvalidDataException("Falta un conjunto equipado.");
         var stats = new HashSet<EquipmentStat>();
         foreach (var stat in view.Stats)

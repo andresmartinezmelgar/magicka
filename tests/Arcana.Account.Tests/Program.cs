@@ -283,6 +283,26 @@ await Test("HTTP: inventario exige sesión y no permite vender objetos de otro u
     using var noAuthBulk = await http.PostAsJsonAsync("/account/loadout", saved.Profile.Loadout, Protocol.Json);
     Check((int)noAuthBulk.StatusCode == 401, "El guardado conjunto no exige sesión.");
 });
+await Test("HTTP: mejorar un anillo exige sesión y propietario; repetir el nivel esperado no cobra dos veces", async () =>
+{
+    var ring = EquipmentCatalogue.Generate(new(917), tier: ItemTier.Silver, slot: EquipmentSlot.MagicRing, family: EquipmentFamily.Fire);
+    await Seed(alice, ring);
+    await database.Collection("users").Document(alice).UpdateAsync(new Dictionary<string, object> { ["gold"] = 100000L });
+    async Task<HttpResponseMessage> Upgrade(string token)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, "/account/ring/upgrade")
+            { Content = JsonContent.Create(new RingUpgradeRequest(ring.Id, 0), options: Protocol.Json) };
+        if (token.Length > 0) request.Headers.Authorization = new("Bearer", token);
+        return await http.SendAsync(request);
+    }
+    using var denied = await Upgrade(""); Check((int)denied.StatusCode == 401, "La mejora es pública.");
+    using var foreign = await Upgrade(bobLogin.AccessToken); Check((int)foreign.StatusCode == 409, "La mejora acepta un anillo ajeno.");
+    using var first = await Upgrade(aliceLogin.AccessToken); Check(first.IsSuccessStatusCode, "La API rechaza el anillo del propietario.");
+    var before = await repository.Profile(alice, "Alice");
+    using var again = await Upgrade(aliceLogin.AccessToken); Check(again.IsSuccessStatusCode, "El reintento seguro no se reconoce.");
+    var after = await repository.Profile(alice, "Alice");
+    Check(after.Gold == before.Gold && after.Items.Single(i => i.Id == ring.Id).UpgradeLevel == 1, "El reintento HTTP vuelve a cobrar la mejora.");
+});
 await Test("Red: el servidor aplica el equipo guardado y rechaza sesiones duplicadas o inventadas", async () =>
 {
     var item = EquipmentCatalogue.Generate(new(11), tier: ItemTier.Mythic, slot: EquipmentSlot.Weapon, family: EquipmentFamily.Shield);
@@ -472,6 +492,39 @@ await Test("Defensa Firestore: cuatro hitos idempotentes, sorteo PvP y tope de p
         ArenaMapId.Bastion, DateTimeOffset.UtcNow, [new(uid, 1, 0, 1500, true)], 2, run, 5);
     await repository.Award(invalid);
     Check((await repository.Profile(uid, "Defensa")).Items.Length == 4, "Se entregó un quinto premio.");
+});
+await Test("Anillos Firestore: seis ranuras y mejoras concurrentes se conservan sin doble cobro", async () =>
+{
+    string uid = "rings_" + suffix;
+    await repository.Profile(uid, "Anillos");
+    var items = Enum.GetValues<EquipmentSlot>().Select(slot => EquipmentCatalogue.Generate(new(800 + (int)slot),
+        tier: ItemTier.Silver, slot: slot, family: EquipmentFamily.Fire)).ToArray();
+    foreach (var item in items) await Seed(uid, item);
+    var loadout = new EquipmentLoadout(); foreach (var item in items) loadout = loadout.With(item.Slot, item.Id);
+    await repository.SaveLoadout(uid, loadout);
+    await database.Collection("users").Document(uid).UpdateAsync(new Dictionary<string, object> { ["gold"] = 1000000L });
+    var ring = items.Single(i => i.Slot == EquipmentSlot.GoldRing); long gold = 1000000;
+    for (int level = 0; level < 10; level++)
+    {
+        var request = new RingUpgradeRequest(ring.Id, level);
+        await Task.WhenAll(Enumerable.Range(0, 4).Select(_ => repository.UpgradeRing(uid, request)));
+        gold -= DefenseRules.UpgradeCost(ring.Tier, level);
+        var profile = await new FirestoreAccountRepository(database).Profile(uid, "Otra sesión");
+        Check(profile.Gold == gold && profile.Items.Single(i => i.Id == ring.Id).UpgradeLevel == level + 1 &&
+            profile.Loadout == loadout && EquipmentModifiers.Calculate(profile).ExtraGoldEvery == 10 - level,
+            "Las mejoras concurrentes repiten el cobro o no persisten el nivel y las seis ranuras.");
+    }
+    await Reject<ArgumentException>(() => repository.UpgradeRing(bob, new(ring.Id, 0)));
+    await Reject<ArgumentException>(() => repository.UpgradeRing(uid, new(items[0].Id, 0)));
+    await Reject<ArgumentException>(() => repository.UpgradeRing(uid, new(ring.Id, 10)));
+    await Reject<ArgumentException>(() => repository.Sell(uid, ring.Id));
+    var magic = items.Single(i => i.Slot == EquipmentSlot.MagicRing);
+    await repository.UpgradeRing(uid, new(magic.Id, 0));
+    var stored = await repository.Profile(uid, "Anillos");
+    Check(EquipmentModifiers.Calculate(stored).MagicRingLevel == 1 && stored.Items.Single(i => i.Id == magic.Id).UpgradeLevel == 1,
+        "La mejora del anillo mágico no modifica el efecto.");
+    await database.Collection("users").Document(uid).UpdateAsync(new Dictionary<string, object> { ["gold"] = 0L });
+    await Reject<ArgumentException>(() => repository.UpgradeRing(uid, new(magic.Id, 1)));
 });
 Console.WriteLine($"RESULTADO CUENTAS: {passed} correctas, {failed} fallidas.");
 Environment.ExitCode = failed == 0 ? 0 : 1;

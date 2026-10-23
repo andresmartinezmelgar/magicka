@@ -22,7 +22,7 @@ public partial class Main
         }
         Add(DefenseDropKind.Gold, "Oro");
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
-            Add(DefenseDropKind.Equipment, EquipmentCatalogue.SlotName(slot), slot, (ItemTier)(int)slot);
+            Add(DefenseDropKind.Equipment, EquipmentCatalogue.SlotName(slot), slot, (ItemTier)((int)slot % 5));
         foreach (var buff in Enum.GetValues<BuffKind>()) Add(DefenseDropKind.Relic, RelicBuffs.Name(buff), buff: buff);
         for (int i = 0; i < drops.Count; i++)
         {
@@ -51,8 +51,8 @@ public partial class Main
             _renderer.Render(_defenseLootReview!, _localId, 1 / 60.0, true);
             if (++_defenseSmokeFrame == 60)
             {
-                if (_renderer.DefenseLootVisuals.Count != 12 || _renderer.DefenseLootVisuals.ContainsKey(99999))
-                    throw new InvalidOperationException("El botín visible no respeta las doce variantes o su propietario.");
+                if (_renderer.DefenseLootVisuals.Count != 14 || _renderer.DefenseLootVisuals.ContainsKey(99999))
+                    throw new InvalidOperationException("El botín visible no respeta las catorce variantes o su propietario.");
                 _defenseCoinRotation = _renderer.DefenseLootVisuals[90000].BodyRotation;
                 CaptureDefense("06-botin");
             }
@@ -124,7 +124,7 @@ public partial class Main
             GC.Collect(); GC.WaitForPendingFinalizers();
             await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
             if (errors.ErrorCount > 0) throw new InvalidOperationException("Godot registró errores al liberar la prueba de defensa.");
-            GD.Print("DEFENSE_LOOT_SMOKE_OK: moneda vertical animada, cuatro piezas, siete mejoras, privacidad y retirada de recogidas.");
+            GD.Print("DEFENSE_LOOT_SMOKE_OK: moneda vertical animada, seis piezas, siete mejoras, privacidad y retirada de recogidas.");
             GD.Print("DEFENSE_SMOKE_OK: mapa, tanques, pausa con bots, inventario compartido, selección al salir, compra/mejora/venta, aislamiento de cuenta, controles y botín; limpieza final verificada.");
             tree.Quit();
         }

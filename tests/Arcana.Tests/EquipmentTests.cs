@@ -5,9 +5,12 @@ internal static class EquipmentTests
 {
     private static void Check(bool value, string message) { if (!value) throw new Exception(message); }
     private static void Near(float a, float b) => Check(Math.Abs(a - b) < 0.02f, $"{a} != {b}");
-    private static AccountProfile Profile(params EquipmentItem[] items) => new("test-user", "Mago", 0, 0, 0,
-        new(items.FirstOrDefault(i => i.Slot == EquipmentSlot.Boots)?.Id ?? "", items.FirstOrDefault(i => i.Slot == EquipmentSlot.Hat)?.Id ?? "",
-            items.FirstOrDefault(i => i.Slot == EquipmentSlot.Chest)?.Id ?? "", items.FirstOrDefault(i => i.Slot == EquipmentSlot.Weapon)?.Id ?? ""), items);
+    private static AccountProfile Profile(params EquipmentItem[] items)
+    {
+        var loadout = new EquipmentLoadout();
+        foreach (var item in items) loadout = loadout.With(item.Slot, item.Id);
+        return new("test-user", "Mago", 0, 0, 0, loadout, items);
+    }
     private static EquipmentItem Item(EquipmentSlot slot, EquipmentStat stat, float value, EquipmentFamily family = EquipmentFamily.Mixed, ItemTier tier = ItemTier.Silver) =>
         new(Guid.NewGuid().ToString("N"), slot, tier, family, [new(stat, Math.Min(-0.04f, value), Math.Max(0.14f, value), value)], 10);
     private static object? Call(GameWorld world, string name, params object?[] args) => typeof(GameWorld).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(world, args);
@@ -41,8 +44,8 @@ internal static class EquipmentTests
                 Check(item.Bonuses[0].Stat == EquipmentCatalogue.MainStat(slot, item.Family), "Se perdió la especialidad de la posición.");
                 Check(item.Bonuses[0].Current > 0, "El atributo principal debe ofrecer una ventaja.");
                 if (tier >= ItemTier.Diamond)
-                    Check(item.Family != EquipmentFamily.Mixed && item.Bonuses.All(b => b.Minimum > 0 && b.Current > 0), "Un nivel alto tiene penalizaciones o no está especializado.");
-                else { Check(item.Family == EquipmentFamily.Mixed, "Una mezcla baja quedó atada a una familia."); penalty |= item.Bonuses.Any(b => b.Current < 0); }
+                    Check((slot == EquipmentSlot.MagicRing || item.Family != EquipmentFamily.Mixed) && item.Bonuses.All(b => b.Minimum > 0 && b.Current > 0), "Un nivel alto tiene penalizaciones o no está especializado.");
+                else { Check(slot == EquipmentSlot.MagicRing || item.Family == EquipmentFamily.Mixed, "Una mezcla baja quedó atada a una familia."); penalty |= item.Bonuses.Any(b => b.Current < 0); }
             }
             Check(penalty, "Los tres niveles bajos no generan compensaciones.");
         });
@@ -54,7 +57,7 @@ internal static class EquipmentTests
         });
         test("Equipo: bonus Mítico de dos y cuatro piezas; conjuntos mixtos y reemplazo", () =>
         {
-            var slots = Enum.GetValues<EquipmentSlot>();
+            var slots = Enum.GetValues<EquipmentSlot>().Where(s => !RingEffects.IsRing(s)).ToArray();
             EquipmentItem Piece(int n, EquipmentFamily family) => Item(slots[n], EquipmentStat.EnergyRegeneration, 0.01f, family, ItemTier.Mythic);
             var two = EquipmentModifiers.Calculate(Profile(Piece(0, EquipmentFamily.Life), Piece(1, EquipmentFamily.Life)));
             Near(two.Healing, 1.05f);
@@ -69,7 +72,7 @@ internal static class EquipmentTests
         });
         test("Equipo: desglose suma piezas y conjunto y distingue los límites reales del combate", () =>
         {
-            var items = Enum.GetValues<EquipmentSlot>().Select(s => new EquipmentItem(Guid.NewGuid().ToString("N"), s,
+            var items = Enum.GetValues<EquipmentSlot>().Where(s => !RingEffects.IsRing(s)).Select(s => new EquipmentItem(Guid.NewGuid().ToString("N"), s,
                 ItemTier.Mythic, EquipmentFamily.Life, [new(EquipmentStat.HealingPower, 0, 0.5f, 0.2f),
                     new(EquipmentStat.MovementSpeed, -0.1f, 0.1f, s == EquipmentSlot.Boots ? -0.04f : 0.01f)], 400)).ToArray();
             var summary = EquipmentModifiers.Summarize(Profile(items));

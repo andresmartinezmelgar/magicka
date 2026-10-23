@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.29.14 — Dos anillos de equipo
+
+- Dos posiciones nuevas: anillo de oro y anillo mágico, disponibles como botín y en la tienda en PvP y Supervivencia sin sustituir botas, gorro, pecho o arma. Sus efectos básicos existen en todas las calidades.
+- Anillo de oro: una moneda extra cada 11 de base en nivel 0; cada mejora reduce el intervalo hasta una extra por moneda en nivel 10. En Supervivencia actúa al recoger y en PvP sobre el premio final.
+- Anillo mágico: renueva su escudo cada 16–8 s según nivel, incluso después de romperse, sin consumir elementos ni interrumpir lanzamientos. Niveles 0–5: escudo y elemento; 6–10: elemento duplicado. Nueve acciones: repulsión, pulso sanador, amparo compartido, brasas, salpicadura, escarcha, descarga selectiva, pulso arcano y sacudida de piedra.
+- Los anillos admiten diez mejoras: oro temporal en Supervivencia y oro permanente de cuenta en PvP. Las mejoras de cuenta son transacciones idempotentes; el nivel y los atributos persisten.
+- Inventario, equipos guardados, fichas públicas, límites, venta protegida y estadísticas incluyen los anillos. Sus aportaciones se suman al equipo, pero no aumentan los conjuntos de cuatro piezas. Se conservan nivel y recarga al guardar, continuar o reconectar.
+- Catálogo 5 y protocolo 33; actualizar cliente y servidor. Las reglas Firestore admiten las dos posiciones opcionales, conservan las selecciones antiguas y validan propiedad y tipo de cada pieza.
+
 ## 0.29.13 — Oro extra según el nivel de la pieza
 
 - El afijo de monedas da 1 de oro extra cada 11 monedas base en nivel 0. Cada mejora reduce el intervalo en una moneda: cada 6 en nivel 5 y una extra por moneda en nivel 10.

@@ -1,7 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { initializeTestEnvironment, assertSucceeds, assertFails } = require("@firebase/rules-unit-testing");
-const { doc, collection, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, orderBy, limit } = require("firebase/firestore");
+const { doc, collection, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, orderBy, limit, deleteField } = require("firebase/firestore");
 
 async function main() {
   const projectId = "demo-arcana-arena";
@@ -46,6 +46,44 @@ async function main() {
       { boots: "", hat: hatId, chest: "", weapon: "" }));
     await assertFails(setDoc(doc(google, "users/alice/loadouts/active"),
       { boots: "", hat: "", chest: "", weapon: "", gold: 100 }));
+    // Anillos: misma validación en creación y actualizaciones, seis lecturas máximas.
+    const ringId = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+    const magicId = "ffffffffffffffffffffffffffffffff";
+    const chestId = "11111111111111111111111111111111";
+    const weaponId = "22222222222222222222222222222222";
+    const ownHatId = "33333333333333333333333333333333";
+    await env.withSecurityRulesDisabled(async context => {
+      for (const [id, slot] of [[ringId, "goldRing"], [magicId, "magicRing"], [chestId, "chest"], [weaponId, "weapon"], [ownHatId, "hat"]])
+        await setDoc(doc(context.firestore(), "users/alice/items/" + id), { id, slot });
+    });
+    const six = { boots: bootsId, hat: ownHatId, chest: chestId, weapon: weaponId, goldRing: ringId, magicRing: magicId };
+    const active = doc(google, "users/alice/loadouts/active");
+    await assertSucceeds(setDoc(active, six));
+    await assertSucceeds(updateDoc(active, { goldRing: "" }));
+    await assertSucceeds(updateDoc(active, { goldRing: ringId }));
+    await assertFails(setDoc(doc(other, "users/alice/loadouts/active"), six));
+    await assertFails(setDoc(doc(anonymous, "users/alice/loadouts/active"), six));
+    await assertFails(setDoc(doc(password, "users/alice/loadouts/active"), six));
+    await assertFails(setDoc(doc(google, "users/alice/loadouts/other"), six));
+    for (const invalid of [magicId, hatId, "99999999999999999999999999999999", 42, null, "../" + ringId, "a".repeat(100000)]) {
+      await assertFails(setDoc(active, { ...six, goldRing: invalid }));
+      await assertFails(updateDoc(active, { goldRing: invalid }));
+    }
+    for (const bad of [{ gold: 100 }, { admin: true }, { boots: deleteField() }]) await assertFails(updateDoc(active, bad));
+    await assertFails(updateDoc(doc(google, "users/alice/items/" + ringId), { upgradeLevel: 10 }));
+    await assertSucceeds(setDoc(active, { boots: "", hat: "", chest: "", weapon: "" }));
+    const cleared = (await getDoc(active)).data();
+    if ("goldRing" in cleared || "magicRing" in cleared) throw new Error("Los anillos no se desequipan al sustituir el documento.");
+    // El cliente C# usa PATCH sin máscara: sustituye las claves, no las fusiona.
+    await assertSucceeds(setDoc(active, six));
+    const patched = await fetch("http://127.0.0.1:8085/v1/projects/demo-arcana-arena/databases/(default)/documents/users/alice/loadouts/active", {
+      method: "PATCH", headers: { Authorization: "Bearer owner", "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: { boots: { stringValue: bootsId }, hat: { stringValue: "" }, chest: { stringValue: "" }, weapon: { stringValue: "" } } })
+    });
+    if (!patched.ok) throw new Error("El PATCH real del emulador falló: " + patched.status);
+    const restCleared = (await getDoc(active)).data();
+    if ("goldRing" in restCleared || "magicRing" in restCleared) throw new Error("El PATCH conserva anillos que el usuario quitó.");
+    console.log("RING_RULES_OK: six owned slots, old loadouts, replacement removal; ownership/type/slot/update bypass attacks rejected.");
     const readerA = env.authenticatedContext("readerA", { firebase: { sign_in_provider: "google.com" } }).firestore();
     const readerB = env.authenticatedContext("readerB", { firebase: { sign_in_provider: "google.com" } }).firestore();
     const wrongProvider = env.authenticatedContext("readerA", { firebase: { sign_in_provider: "password" } }).firestore();

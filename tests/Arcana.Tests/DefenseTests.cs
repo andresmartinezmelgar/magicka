@@ -82,7 +82,7 @@ internal static class DefenseTests
             }
             Check(Enum.GetValues<ItemTier>().Sum(EquipmentCatalogue.TierChance) == 100, "Las calidades no suman 100%.");
         });
-        test("Defensa: inventario compartido aplica cuatro ranuras de forma atómica sin importar equipo permanente", () =>
+        test("Defensa: inventario compartido aplica seis ranuras de forma atómica sin importar equipo permanente", () =>
         {
             var world = World(); var owner = world.AddPlayer("Defensor")!; var other = world.AddPlayer("Aliado")!;
             var random = new Random(173);
@@ -102,8 +102,8 @@ internal static class DefenseTests
                 return world.ApplyMessage(owner.Id, wire);
             }
             Command(world, owner, "defense_shop", 1);
-            Check(Apply(desired) && Player(world, owner).Items.Count(i => i.Equipped && i.Item.Tier == ItemTier.Diamond) == 4,
-                "No aplicó las cuatro posiciones desde el mensaje de red.");
+            Check(Apply(desired) && Player(world, owner).Items.Count(i => i.Equipped && i.Item.Tier == ItemTier.Diamond) == 6,
+                "No aplicó las seis posiciones desde el mensaje de red.");
             int gold = Player(world, owner).Gold;
             var invalid = desired.With(EquipmentSlot.Boots, items.First(i => i.Item.Slot == EquipmentSlot.Boots && i.Item.Tier == ItemTier.Gold).Item.Id)
                 .With(EquipmentSlot.Weapon, new string('a', 32));

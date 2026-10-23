@@ -4,7 +4,7 @@ internal static class ShopRulesTests
 {
     public static void Run(Action<string, Action> test)
     {
-        test("Tienda: seis ofertas válidas, cuatro posiciones y precio superior a su reventa", () =>
+        test("Tienda: seis ofertas válidas, seis posiciones y precio superior a su reventa", () =>
         {
             var random = new Random(73); var ids = new HashSet<string>();
             for (int n = 1; n <= 200; n++)

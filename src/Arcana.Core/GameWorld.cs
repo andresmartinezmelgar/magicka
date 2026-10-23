@@ -216,6 +216,7 @@ public sealed partial class GameWorld
         foreach (var p in _players.Values)
         {
             p.ActionCooldown = Math.Max(0, p.ActionCooldown - dt);
+            p.RingCooldown = Math.Max(0, p.RingCooldown - dt);
             p.HitEffectCooldown = Math.Max(0, p.HitEffectCooldown - dt);
             p.Invulnerable = p.Invulnerable <= dt + 0.00001f ? 0 : p.Invulnerable - dt;
             for (int i = 0; i < 4; i++) p.MagickCooldowns[i] = Math.Max(0, p.MagickCooldowns[i] - dt);
@@ -234,6 +235,7 @@ public sealed partial class GameWorld
             }
             TickStatus(p, dt);
             if (!p.Alive) continue;
+            TickRing(p);
             UpdateFacing(p);
             Move(p, dt);
             if (p.Charging != null && p.Frozen <= 0)

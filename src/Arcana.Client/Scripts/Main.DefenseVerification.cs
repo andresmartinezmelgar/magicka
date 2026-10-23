@@ -46,9 +46,9 @@ public partial class Main
         var progress = ((IDictionary)Field("_defenders"))[p.Id]!;
         progress.GetType().GetField("Gold")!.SetValue(progress, 1500);
         progress.GetType().GetField("Level")!.SetValue(progress, 6);
-        foreach (var slot in Enum.GetValues<EquipmentSlot>())
+        foreach (var slot in Enum.GetValues<EquipmentSlot>().Where(s => !RingEffects.IsRing(s)))
             Call("GrantDefenseItem", p, EquipmentCatalogue.Generate(new(100 + (int)slot), tier: ItemTier.Gold, slot: slot));
-        foreach (var slot in Enum.GetValues<EquipmentSlot>())
+        foreach (var slot in Enum.GetValues<EquipmentSlot>().Where(s => !RingEffects.IsRing(s)))
             Call("GrantDefenseItem", p, EquipmentCatalogue.Generate(new(200 + (int)slot), tier: ItemTier.Platinum, slot: slot));
         typeof(GameWorld).GetField("_defenseDifficulty", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(world, 10);
         typeof(GameWorld).GetField("_defenseElapsed", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(world, 810.0);
@@ -221,7 +221,7 @@ public partial class Main
                 inventory.PressInspect(EquipmentSlot.Chest); inventory.PressChoice("");
                 Check(inventory.PickerVisible && inventory.PreviewProfile!.Loadout.Chest == "" && lookup.Values.Any(i => i.Equipped && i.Item.Slot == EquipmentSlot.Chest),
                     "Quitar una pieza no se previsualiza manteniendo el equipo actual hasta salir.");
-                foreach (var slot in Enum.GetValues<EquipmentSlot>())
+                foreach (var slot in Enum.GetValues<EquipmentSlot>().Where(s => !RingEffects.IsRing(s)))
                 {
                     inventory.PressInspect(slot);
                     inventory.PressChoice(lookup.Values.Single(i => i.Item.Slot == slot && i.Item.Tier == ItemTier.Platinum).Item.Id);

@@ -34,9 +34,10 @@ public partial class EquipmentPanel
             }
             if (compact)
             {
-                lines[0] += " · " + lines[1];
-                lines[1] = lines[2] + " · " + lines[3];
-                lines.RemoveRange(2, 2);
+                var pairs = new List<string>();
+                for (int i = 0; i < lines.Count; i += 2)
+                    pairs.Add(lines[i] + (i + 1 < lines.Count ? " · " + lines[i + 1] : ""));
+                lines = pairs;
                 lines.Add("Conjunto: " + EquipmentCatalogue.Percent(stat.Set) + " · Suma: " + EquipmentCatalogue.Percent(stat.Sum));
                 lines.Add("Aplicado: " + EquipmentCatalogue.Percent(stat.Effective));
             }
@@ -48,7 +49,7 @@ public partial class EquipmentPanel
             var applied = Cell(table, compact ? string.Join('\n', lines) : EquipmentCatalogue.Percent(stat.Effective), true,
                 stat.Limited ? Ui.Gold : stat.Effective < 0 ? Ui.Red : Ui.Blue);
             applied.TooltipText = EquipmentCatalogue.StatDescription(stat.Stat) +
-                "\nSuma = botas + gorro + pecho + arma + conjunto. — indica que no hay pieza equipada." +
+                "\nSuma = botas + gorro + pecho + arma + anillos + conjunto. — indica que no hay pieza equipada." +
                 (stat.Limited ? "\nLa suma está limitada: se aplica el valor indicado en Aplicado." : "");
             Cell(table, StatName(stat.Stat)).TooltipText = EquipmentCatalogue.StatDescription(stat.Stat);
         }

@@ -31,6 +31,7 @@ internal sealed class SurvivalWizard
     public float Invulnerable = 0;
     public float TeleportCooldown = 0;
     public float ActionCooldown = 0;
+    public float RingCooldown = 0;
     public float ChargeTime = 0;
     public float BotDecision = 0;
     public int ShieldCharges = 0;
@@ -82,6 +83,7 @@ internal sealed class SurvivalWizard
         Invulnerable = p.Invulnerable,
         TeleportCooldown = p.TeleportCooldown,
         ActionCooldown = p.ActionCooldown,
+        RingCooldown = p.RingCooldown,
         ChargeTime = p.ChargeTime,
         BotDecision = p.BotDecision,
         ShieldCharges = p.ShieldCharges,
@@ -137,6 +139,7 @@ internal sealed class SurvivalWizard
             Invulnerable = Invulnerable,
             TeleportCooldown = TeleportCooldown,
             ActionCooldown = ActionCooldown,
+            RingCooldown = RingCooldown,
             ChargeTime = Bot ? ChargeTime : 0,
             BotDecision = BotDecision,
             ShieldCharges = ShieldCharges,
@@ -163,7 +166,7 @@ internal sealed class SurvivalWizard
     }
 
     public bool Valid() => Id > 0 && Id < int.MaxValue - 1 && Name is { Length: > 0 and <= 24 } &&
-        Enum.IsDefined(WizardType) && Equipment != null && Position.IsFinite && Facing.IsFinite &&
+        RingCooldown is >= 0 and <= 16 && Enum.IsDefined(WizardType) && Equipment != null && Position.IsFinite && Facing.IsFinite &&
         Knockback.IsFinite && SlideIntent.IsFinite && SlideTangent.IsFinite &&
         Math.Abs(Position.X) <= 1000 && Math.Abs(Position.Y) <= 1000 &&
         BuffStacks is { Length: RelicBuffs.Count } && BuffStacks.All(n => n >= 0) &&
@@ -173,7 +176,7 @@ internal sealed class SurvivalWizard
         MaxHealth > 0 && Health <= MaxHealth && ShieldMax >= 0 && Shield <= ShieldMax &&
         float.IsFinite(FreezeRecovery) && FreezeRecovery is >= 0 and <= DefenseRules.FreezeRecoverySeconds &&
         (!VulnerableElement.HasValue || DefenseRules.ValidPrismElement(VulnerableElement.Value)) &&
-        new float[] { Health, MaxHealth, Shield, ShieldMax, ShieldTime, RegenerationRate, WardTime, Wet, Burning, BurnMultiplier, HitEffectCooldown, Chill, Frozen, Haste, Energy, Respawn, Invulnerable, TeleportCooldown, ActionCooldown, ChargeTime, BotDecision }.All(f => float.IsFinite(f) && Math.Abs(f) <= 1e12f);
+        new float[] { Health, MaxHealth, Shield, ShieldMax, ShieldTime, RegenerationRate, WardTime, Wet, Burning, BurnMultiplier, HitEffectCooldown, Chill, Frozen, Haste, Energy, Respawn, Invulnerable, TeleportCooldown, ActionCooldown, ChargeTime, BotDecision, RingCooldown }.All(f => float.IsFinite(f) && Math.Abs(f) <= 1e12f);
 
     internal static bool ValidElements(Element[]? elements) => elements is { Length: <= 3 } && elements.All(Enum.IsDefined);
 }

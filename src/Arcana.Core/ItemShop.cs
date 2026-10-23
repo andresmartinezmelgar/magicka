@@ -22,7 +22,7 @@ public static class ShopRules
         if (revision < 1) throw new ArgumentException("Revisión de tienda inválida.");
         var offers = Enumerable.Range(0, OfferCount).Select(i =>
         {
-            var item = EquipmentCatalogue.Generate(random, slot: i < 4 ? (EquipmentSlot)i : null);
+            var item = EquipmentCatalogue.Generate(random, slot: (EquipmentSlot)i);
             return new ShopOffer(item, Price(item.Tier));
         }).ToArray();
         return new(Guid.NewGuid().ToString("N"), revision, offers);

@@ -98,7 +98,15 @@ public partial class EquipmentPanel
     {
         var entry = _defensePlayer?.Items.FirstOrDefault(i => i.Item.Id == id);
         string protection = Preferences.Protected(id) ? "Favorito: venta bloqueada. " : "";
-        if (entry == null) return protection + "Mejoras: solo durante Defensa.";
+        if (entry == null)
+        {
+            var ring = _draft?.Items.FirstOrDefault(i => i.Id == id);
+            if (ring == null || !RingEffects.IsRing(ring.Slot)) return protection + "Mejoras: solo durante Defensa.";
+            if (ring.UpgradeLevel >= 10) return protection + "Límite de mejora alcanzado.";
+            if (!CanSellInventory) return protection + "Mejoras de anillos: inicia sesión y conecta el servicio de cuenta.";
+            int price = DefenseRules.UpgradeCost(ring.Tier, ring.UpgradeLevel);
+            return protection + (_draft!.Gold < price ? $"Para mejorar faltan {price - _draft.Gold} oro de cuenta." : "");
+        }
         if (!CanChangeDefenseItems) return protection + "Mejoras bloqueadas: mago caído o partida terminada.";
         if (!ItemAffixes.CanUpgrade(entry.Item, entry.Upgrades)) return protection + "Límite de mejora alcanzado.";
         int cost = DefenseRules.UpgradeCost(entry.Item.Tier, entry.Upgrades);

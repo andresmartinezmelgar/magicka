@@ -44,7 +44,7 @@ public sealed partial class GameWorld
             var inventory = new AccountProfile("", player.Name, progress.Gold, 0, 0, progress.Loadout, progress.Items.ToArray());
             try
             {
-                // Valida las cuatro ranuras antes de cambiar ninguna. También permite quitar piezas.
+                // Valida las seis ranuras antes de cambiar ninguna. También permite quitar piezas.
                 var updated = AccountInventory.ApplyLoadout(inventory, command.Loadout);
                 progress.Loadout = updated.Loadout;
                 RecalculateDefender(player);

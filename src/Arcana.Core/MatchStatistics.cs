@@ -9,7 +9,7 @@ namespace Arcana.Core;
 public enum MatchRecordStatus { Playing, Completed, Left, Disconnected, Suspended, Interrupted }
 public enum StatisticGroup { Total, Actor, Element, Attack, Recipe, Enemy, EnemyElement, Difficulty, Equipment, Relic, Performance, HumanElement, BotElement, EnemyElementDealt, HumanAttack, BotAttack, EnemyAttack, EnvironmentElement, EnvironmentAttack, HumanElementSource, BotElementSource, EnemyElementSource, EnvironmentElementSource }
 public enum StatisticMeasure { Damage, ShieldDamage, DamageReceived, ShieldAbsorbed, Overkill, ImmuneHits, Hits, Kills, Deaths, Spawns, Casts, Healing, HealingReceived, ShieldGranted, ShieldRepaired, AliveSeconds, WetSeconds, BurningSeconds, FrozenSeconds, FriendlyDamage, SelfDamage, Revives, Revived, Collected, GoldEarned, GoldSpent, Levels, SpawnHealth, Samples, ValueSum, Distance, Captures }
-public enum StatisticAttack { Beam, Lightning, Spray, Rock, Shards, Force, Barrier, Melee, Self, Nova, Mine, Meteor, Haste, Teleport, Revive, FireAura, LightningAura, RegenerationAura, AutoMeteor, FrostNova, ChainLightning, Burn, EnemyMelee, EnemyArea, OracleBombardment, Regeneration }
+public enum StatisticAttack { Beam, Lightning, Spray, Rock, Shards, Force, Barrier, Melee, Self, Nova, Mine, Meteor, Haste, Teleport, Revive, FireAura, LightningAura, RegenerationAura, AutoMeteor, FrostNova, ChainLightning, Burn, EnemyMelee, EnemyArea, OracleBombardment, Regeneration, RingShield, RingPulse }
 public enum StatisticDamageSource { Direct, Area, Aura, Burn }
 public sealed record MatchStatistic(StatisticGroup Group, int Key, StatisticMeasure Measure, double Value);
 

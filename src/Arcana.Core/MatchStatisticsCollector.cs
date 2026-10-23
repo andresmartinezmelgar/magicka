@@ -87,6 +87,7 @@ internal sealed class MatchStatisticsCollector
         {
             StatisticAttack.FireAura or StatisticAttack.LightningAura => StatisticDamageSource.Aura,
             StatisticAttack.Burn => StatisticDamageSource.Burn,
+            StatisticAttack.RingPulse when element != (int)Element.Lightning => StatisticDamageSource.Area,
             StatisticAttack.Barrier or StatisticAttack.Nova or StatisticAttack.Mine or StatisticAttack.Meteor or StatisticAttack.AutoMeteor or
                 StatisticAttack.FrostNova or StatisticAttack.EnemyArea or StatisticAttack.OracleBombardment => StatisticDamageSource.Area,
             _ => StatisticDamageSource.Direct

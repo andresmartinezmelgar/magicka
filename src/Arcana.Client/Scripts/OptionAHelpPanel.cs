@@ -306,6 +306,7 @@ public partial class OptionAHelpPanel : Control
         examples.AddChild(Ui.Label("DEFENSA NO ES CAPACIDAD DE ESCUDO", 20, Ui.Gold));
         Wrapped(examples, EquipmentCatalogue.StatExample(EquipmentStat.Defense));
         Wrapped(examples, EquipmentCatalogue.StatExample(EquipmentStat.ShieldCapacity));
+        Wrapped(examples, "DOS ANILLOS · El de oro da una moneda extra cada 11 en nivel 0 y cada moneda en nivel 10. El mágico renueva su escudo cada 16–8 s según nivel y activa una acción según su familia: repulsión, curación, protección de aliados, brasas, salpicadura, escarcha, rayo selectivo, pulso arcano o sacudida de tierra. Desde nivel 6 duplica el elemento. Diez mejoras con oro de cuenta; en Supervivencia, oro de partida. No cuentan para conjuntos.");
         Wrapped(examples, "AFIJOS DE ORO · Diamante y Mítico pueden dar 1 oro extra cada 11 monedas base en nivel 0. Cada mejora reduce el intervalo en 1, hasta 1 extra por moneda en nivel 10. Otro afijo da +10 % / +20 % de oro. En Supervivencia mejoran el oro recogido durante la partida; en PvP actúan al finalizar la serie. Los bonos iguales no se acumulan y las ventas no los activan.");
         Wrapped(examples, "PvP con recompensas habilitadas: 50 oro por victoria y 25 por derrota, más el bono del equipo usado al comenzar. El ganador conserva su tirada de objeto. Se requieren Google verificado, equipos humanos equilibrados y 15 segundos de actividad.");
         var attributes = new GridContainer { Name = "HelpEquipmentStats", Columns = 3,

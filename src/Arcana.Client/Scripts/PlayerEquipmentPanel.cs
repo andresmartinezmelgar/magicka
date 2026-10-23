@@ -57,7 +57,7 @@ public partial class PlayerEquipmentPanel : Control
         if (_contentGrid != null) _contentGrid.Columns = ResponsiveLayout.Columns(Math.Max(250, width - 100), 480, 2, 24);
         int columns = _contentGrid?.Columns ?? 1;
         float summaryWidth = (width - 100 - 24 * (columns - 1)) / columns;
-        bool compact = summaryWidth < 900;
+        bool compact = summaryWidth < 1100;
         if (_compactStats != compact)
         {
             _compactStats = compact;
@@ -120,6 +120,11 @@ public partial class PlayerEquipmentPanel : Control
             _pieces.AddChild(Ui.Label(EquipmentCatalogue.SlotName(slot) + " · " + (item == null ? "Sin equipo" : EquipmentCatalogue.TierName(item.Tier)
                 + " · " + EquipmentCatalogue.FamilyName(item.Family)), 20, item == null ? Ui.Muted : EquipmentPanel.TierColor(item.Tier)));
             if (item == null) continue;
+            if (RingEffects.IsRing(item.Slot))
+            {
+                var effect = Ui.Label(RingEffects.Describe(item), 16, Ui.Gold);
+                effect.AutowrapMode = TextServer.AutowrapMode.WordSmart; _pieces.AddChild(effect);
+            }
             if (item.Affix != null)
             {
                 var special = Ui.Label(ItemAffixes.Describe(item.Affix, item.UpgradeLevel), 16, Ui.Gold);
@@ -131,14 +136,14 @@ public partial class PlayerEquipmentPanel : Control
             { Ui.TableCell(grid, EquipmentCatalogue.Percent(bonus.Current), true, bonus.Current < 0 ? Ui.Red : Ui.Blue); Ui.TableCell(grid, EquipmentPanel.StatName(bonus.Stat)); }
         }
         _summary.AddChild(Ui.Label("TOTAL DEL EQUIPO", 22, Ui.Gold));
-        var specials = view.Equipment.Items.Where(i => i.Affix != null).Select(i => ItemAffixes.Describe(i.Affix, i.UpgradeLevel)).Distinct();
+        var specials = view.Equipment.Items.SelectMany(i => new[] { ItemAffixes.Describe(i.Affix, i.UpgradeLevel), RingEffects.Describe(i) }).Where(s => s.Length > 0).Distinct();
         var specialText = Ui.Label(string.Join("\n", specials), 16, Ui.Gold);
         specialText.AutowrapMode = TextServer.AutowrapMode.WordSmart; _summary.AddChild(specialText);
         var activeSets = view.Equipment.Sets.Where(s => s.Pieces >= 2).ToArray();
         string sets = activeSets.Length == 0 ? "Sin conjuntos activos." : string.Join("\n", activeSets.Select(s =>
             EquipmentCatalogue.FamilyName(s.Family) + " " + s.Pieces + "/4 · " + EquipmentPanel.SetDescription(s.Family, s.Pieces == 4)));
         var setLabel = Ui.Label(sets, 16, Ui.Gold); setLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart; _summary.AddChild(setLabel);
-        var totals = Ui.Table(_compactStats ? 2 : 8, "PlayerEquipmentTotalsTable"); _summary.AddChild(totals);
+        var totals = Ui.Table(_compactStats ? 2 : Enum.GetValues<EquipmentSlot>().Length + 4, "PlayerEquipmentTotalsTable"); _summary.AddChild(totals);
         if (!EquipmentPanel.RenderTotals(totals, view.Equipment.Stats, view.Equipment.Items))
         {
             var empty = Ui.Label("No hay bonificaciones activas en el equipo actual.", 16, Ui.Muted);

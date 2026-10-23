@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 
 namespace Arcana.Core;
 
-public enum EquipmentSlot { Boots, Hat, Chest, Weapon }
+public enum EquipmentSlot { Boots, Hat, Chest, Weapon, GoldRing, MagicRing }
 public enum ItemTier { Silver, Gold, Platinum, Diamond, Mythic }
 // Se añaden valores al final: las instancias existentes conservan sus identificadores.
 public enum EquipmentFamily { Mixed = 0, Life = 1, Shield = 2, Fire = 3, Water = 4, Cold = 5, Lightning = 6, Arcane = 7, Earth = 8 }
@@ -16,12 +16,14 @@ public sealed record EquipmentItem(string Id, EquipmentSlot Slot, ItemTier Tier,
     ItemBonus[] Bonuses, int SaleGold, int GenerationVersion = 1, string SourceMatchId = "", DateTimeOffset CreatedAt = default)
 {
     public ItemAffix? Affix { get; init; }
+    public int UpgradeLevel { get; init; }
 }
-public sealed record EquipmentLoadout(string Boots = "", string Hat = "", string Chest = "", string Weapon = "")
+public sealed record EquipmentLoadout(string Boots = "", string Hat = "", string Chest = "", string Weapon = "", string GoldRing = "", string MagicRing = "")
 {
-    public string Get(EquipmentSlot slot) => slot switch { EquipmentSlot.Boots => Boots, EquipmentSlot.Hat => Hat, EquipmentSlot.Chest => Chest, _ => Weapon };
+    public string Get(EquipmentSlot slot) => slot switch { EquipmentSlot.Boots => Boots, EquipmentSlot.Hat => Hat, EquipmentSlot.Chest => Chest, EquipmentSlot.Weapon => Weapon, EquipmentSlot.GoldRing => GoldRing, EquipmentSlot.MagicRing => MagicRing, _ => throw new ArgumentOutOfRangeException(nameof(slot)) };
     public EquipmentLoadout With(EquipmentSlot slot, string id) => slot switch
-    { EquipmentSlot.Boots => this with { Boots = id }, EquipmentSlot.Hat => this with { Hat = id }, EquipmentSlot.Chest => this with { Chest = id }, _ => this with { Weapon = id } };
+    { EquipmentSlot.Boots => this with { Boots = id }, EquipmentSlot.Hat => this with { Hat = id }, EquipmentSlot.Chest => this with { Chest = id }, EquipmentSlot.Weapon => this with { Weapon = id },
+        EquipmentSlot.GoldRing => this with { GoldRing = id }, EquipmentSlot.MagicRing => this with { MagicRing = id }, _ => throw new ArgumentOutOfRangeException(nameof(slot)) };
 }
 public sealed record AccountProfile(string Uid, string Name, long Gold, int Wins, int Losses, EquipmentLoadout Loadout,
     EquipmentItem[] Items, int SchemaVersion = 1)
@@ -71,6 +73,8 @@ public sealed record EquipmentModifiers
     public bool WaterShieldPool { get; init; }
     public int ExtraGoldEvery { get; init; }
     public int GoldBonusPercent { get; init; }
+    public EquipmentFamily? MagicRingFamily { get; init; }
+    public int MagicRingLevel { get; init; }
     public int LifePieces { get; init; }
     public int ShieldPieces { get; init; }
     public int FirePieces { get; init; }
@@ -111,15 +115,22 @@ public sealed record EquipmentModifiers
         var families = new int[sets.Length];
         int beamPierce = 0, lightningChains = 0, extraGoldEvery = 0, goldBonusPercent = 0;
         bool doubleBurn = false, waterPool = false;
+        EquipmentFamily? ringFamily = null; int ringLevel = 0;
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
             string id = profile.Loadout.Get(slot);
             if (id.Length == 0) continue;
             var item = profile.Items.SingleOrDefault(i => i.Id == id);
             if (item == null || item.Slot != slot || !EquipmentCatalogue.Valid(item)) throw new InvalidDataException("Equipamiento inválido o ajeno.");
-            int level = itemLevels?.GetValueOrDefault(item.Id) ?? 0;
+            int level = itemLevels?.GetValueOrDefault(item.Id, item.UpgradeLevel) ?? item.UpgradeLevel;
             if (level is < 0 or > 10) throw new InvalidDataException("Nivel de pieza inválido.");
-            tiers[(int)slot] = item.Tier; families[(int)item.Family]++;
+            if (!RingEffects.IsRing(slot)) { tiers[(int)slot] = item.Tier; families[(int)item.Family]++; }
+            if (slot == EquipmentSlot.GoldRing)
+            {
+                int every = GoldBonuses.EveryForLevel(level);
+                extraGoldEvery = extraGoldEvery == 0 ? every : Math.Min(extraGoldEvery, every);
+            }
+            if (slot == EquipmentSlot.MagicRing) { ringFamily = item.Family; ringLevel = level; }
             if (item.Affix is { } affix)
                 switch (affix.Kind)
                 {
@@ -134,7 +145,7 @@ public sealed record EquipmentModifiers
                     case ItemAffixKind.GoldBonus: goldBonusPercent = Math.Max(goldBonusPercent, affix.Value); break;
                 }
             foreach (var b in item.Bonuses) stats[(int)b.Stat] += b.Current;
-            if (item.Tier == ItemTier.Mythic) sets[(int)item.Family]++;
+            if (!RingEffects.IsRing(slot) && item.Tier == ItemTier.Mythic) sets[(int)item.Family]++;
         }
         foreach (var family in EquipmentCatalogue.FocusedFamilies)
             if (sets[(int)family] >= 2)
@@ -145,6 +156,7 @@ public sealed record EquipmentModifiers
         var modifiers = new EquipmentModifiers
         {
             ExtraGoldEvery = extraGoldEvery, GoldBonusPercent = goldBonusPercent,
+            MagicRingFamily = ringFamily, MagicRingLevel = ringLevel,
             BeamPierce = beamPierce, LightningChains = lightningChains,
             BurnPotency = doubleBurn ? 2 : 1, WaterShieldPool = waterPool,
             Speed = 1 + Bonus(EquipmentStat.MovementSpeed), Range = 1 + Bonus(EquipmentStat.SpellRange),
@@ -167,12 +179,13 @@ public sealed record EquipmentModifiers
 
 public static partial class EquipmentCatalogue
 {
-    public const int GenerationVersion = 4, InventoryLimit = 500;
+    public const int GenerationVersion = 5, InventoryLimit = 500;
     private static readonly int[] Sales = [10, 25, 60, 150, 400];
     private static readonly float[] MainMin = [0.01f, 0.02f, 0.03f, 0.06f, 0.08f], MainMax = [0.05f, 0.07f, 0.09f, 0.11f, 0.13f];
     private static readonly float[] ExtraMin = [-0.04f, -0.03f, -0.02f, 0.04f, 0.07f], ExtraMax = [0.06f, 0.08f, 0.10f, 0.10f, 0.14f];
     private static readonly float[] RollBudget = [0.10f, 0.19f, 0.25f, 0.30f, 0.46f];
-    public static string SlotName(EquipmentSlot slot) => slot switch { EquipmentSlot.Boots => "Botas", EquipmentSlot.Hat => "Gorro", EquipmentSlot.Chest => "Pecho", _ => "Arma" };
+    public static string SlotName(EquipmentSlot slot) => slot switch { EquipmentSlot.Boots => "Botas", EquipmentSlot.Hat => "Gorro", EquipmentSlot.Chest => "Pecho", EquipmentSlot.Weapon => "Arma",
+        EquipmentSlot.GoldRing => "Anillo de oro", EquipmentSlot.MagicRing => "Anillo mágico", _ => throw new ArgumentOutOfRangeException(nameof(slot)) };
     public static string TierName(ItemTier tier) => tier switch { ItemTier.Silver => "Plata", ItemTier.Gold => "Oro", ItemTier.Platinum => "Platino", ItemTier.Diamond => "Diamante", _ => "Mítico" };
     public static string FamilyName(EquipmentFamily family) => family switch
     { EquipmentFamily.Life => "Vida", EquipmentFamily.Shield => "Escudo", EquipmentFamily.Fire => "Fuego", EquipmentFamily.Water => "Agua",
@@ -194,6 +207,7 @@ public static partial class EquipmentCatalogue
     public static EquipmentStat MainStat(EquipmentSlot slot, EquipmentFamily family) => slot switch
     {
         EquipmentSlot.Boots => EquipmentStat.MovementSpeed, EquipmentSlot.Hat => EquipmentStat.SpellRange, EquipmentSlot.Chest => EquipmentStat.Defense,
+        EquipmentSlot.GoldRing => EquipmentStat.EnergyRegeneration, EquipmentSlot.MagicRing => EquipmentStat.ShieldCapacity,
         _ => family switch
         {
             EquipmentFamily.Life => EquipmentStat.HealingPower, EquipmentFamily.Shield => EquipmentStat.ShieldCapacity, EquipmentFamily.Fire => EquipmentStat.FirePower,
@@ -230,9 +244,10 @@ public static partial class EquipmentCatalogue
     {
         int roll = random.Next(100);
         var quality = tier ?? TierForRoll(roll);
-        var position = slot ?? (EquipmentSlot)random.Next(4);
+        var position = slot ?? (EquipmentSlot)random.Next(Enum.GetValues<EquipmentSlot>().Length);
         if (family.HasValue && !Enum.IsDefined(family.Value)) throw new ArgumentException("Familia de objeto inválida.");
-        var identity = quality >= ItemTier.Diamond ? family.HasValue && family != EquipmentFamily.Mixed ? family.Value
+        var identity = position == EquipmentSlot.MagicRing ? family ?? (EquipmentFamily)random.Next(Enum.GetValues<EquipmentFamily>().Length)
+            : quality >= ItemTier.Diamond ? family.HasValue && family != EquipmentFamily.Mixed ? family.Value
             : FocusedFamilies[random.Next(FocusedFamilies.Count)] : EquipmentFamily.Mixed;
         if (!Enum.IsDefined(quality) || !Enum.IsDefined(position)) throw new ArgumentException("Tipo de objeto inválido.");
         var primary = MainStat(position, identity);
@@ -252,6 +267,8 @@ public static partial class EquipmentCatalogue
             var b = bonuses[n]; float decrease = Math.Min(excess, Math.Max(0, b.Current - Math.Max(0, b.Minimum)));
             bonuses[n] = b with { Current = MathF.Round(b.Current - decrease, 4) }; excess -= decrease;
         }
+        if (RingEffects.IsRing(position))
+            bonuses = bonuses.Select(b => b with { Maximum = MathF.Round(b.Current + 0.10f, 4) }).ToList();
         return new(id ?? Guid.NewGuid().ToString("N"), position, quality, identity, bonuses.ToArray(), Sales[t], GenerationVersion, sourceMatchId, DateTimeOffset.UtcNow)
         { Affix = ItemAffixes.Roll(random, quality) };
     }
@@ -264,7 +281,7 @@ public static partial class EquipmentCatalogue
         throw new ArgumentOutOfRangeException(nameof(roll));
     }
     public static bool Valid(EquipmentItem item) => item != null && Guid.TryParseExact(item.Id, "N", out _) &&
-        Enum.IsDefined(item.Slot) && Enum.IsDefined(item.Tier) && Enum.IsDefined(item.Family) && item.GenerationVersion > 0 &&
+        item.UpgradeLevel is >= 0 and <= 10 && Enum.IsDefined(item.Slot) && Enum.IsDefined(item.Tier) && Enum.IsDefined(item.Family) && item.GenerationVersion > 0 &&
         ItemAffixes.Valid(item.Affix, item.Tier) &&
         item.SaleGold is > 0 and <= 100000 && item.Bonuses is { Length: >= 1 and <= 4 } &&
         item.Bonuses.Select(b => b.Stat).Distinct().Count() == item.Bonuses.Length && item.Bonuses.Any(b => b.Current > 0) &&

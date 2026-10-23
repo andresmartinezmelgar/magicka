@@ -1,6 +1,10 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // users/{uid}/loadouts/active: four required string item IDs (boots/hat/chest/weapon),
+    // plus optional goldRing/magicRing strings. Empty means unequipped; otherwise
+    // a 32-hex ID of an owned item matching its slot. Only the Google owner writes.
+    // Item rolls and UpgradeLevel are server managed; clients cannot change items or gold.
     function googleOwner(uid) {
       return request.auth != null && request.auth.uid == uid
         && request.auth.token.firebase.sign_in_provider == 'google.com';
@@ -85,19 +89,22 @@ service cloud.firestore {
         function slotValid(itemId, expectedSlot) {
           return itemId is string
             && (itemId == '' || (itemId.matches('^[0-9a-f]{32}$')
-              && exists(/databases/$(database)/documents/users/$(uid)/items/$(itemId))
               && get(/databases/$(database)/documents/users/$(uid)/items/$(itemId)).data.slot == expectedSlot));
         }
 
-        // Una unica selección de hasta cuatro piezas propias. Oro y objetos no cambian.
-        allow create, update: if googleOwner(uid)
-          && loadoutId == 'active'
-          && request.resource.data.keys().hasOnly(['boots', 'hat', 'chest', 'weapon'])
-          && request.resource.data.keys().hasAll(['boots', 'hat', 'chest', 'weapon'])
-          && slotValid(request.resource.data.boots, 'boots')
-          && slotValid(request.resource.data.hat, 'hat')
-          && slotValid(request.resource.data.chest, 'chest')
-          && slotValid(request.resource.data.weapon, 'weapon');
+        function validLoadout(data) {
+          return data.keys().hasOnly(['boots', 'hat', 'chest', 'weapon', 'goldRing', 'magicRing'])
+            && data.keys().hasAll(['boots', 'hat', 'chest', 'weapon'])
+            && slotValid(data.boots, 'boots')
+            && slotValid(data.hat, 'hat')
+            && slotValid(data.chest, 'chest')
+            && slotValid(data.weapon, 'weapon')
+            && slotValid(data.get('goldRing', ''), 'goldRing')
+            && slotValid(data.get('magicRing', ''), 'magicRing');
+        }
+        // Selección atómica de hasta seis piezas propias; no modifica oro ni objetos.
+        allow create, update: if googleOwner(uid) && loadoutId == 'active'
+          && validLoadout(request.resource.data);
         allow delete: if false;
       }
 

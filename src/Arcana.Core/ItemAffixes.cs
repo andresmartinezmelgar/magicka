@@ -28,7 +28,7 @@ public static class ItemAffixes
             _ => 1
         }));
     public static bool CanUpgrade(EquipmentItem item, int level) => level is >= 0 and < DefenseRules.ItemUpgradeLimit &&
-        (item.Bonuses.Any(b => b.Current < b.Maximum) || item.Affix?.Kind == ItemAffixKind.CoinDividend);
+        (item.Bonuses.Any(b => b.Current < b.Maximum) || item.Affix?.Kind == ItemAffixKind.CoinDividend || RingEffects.IsRing(item.Slot));
     public static string Describe(ItemAffix? affix, int level = 0) => affix == null ? "" : affix.Kind switch
     {
         ItemAffixKind.BeamPierce => $"Los haces ofensivos atraviesan {affix.Value} enemigo(s) adicionales. Los escudos y las paredes detienen la penetración.",
@@ -47,6 +47,7 @@ public static class ItemAffixes
         modifiers.LightningChains > 0 ? Describe(new(ItemAffixKind.LightningChain, modifiers.LightningChains)) : "",
         modifiers.BurnPotency > 1 ? Describe(new(ItemAffixKind.DoubleBurn)) : "",
         modifiers.WaterShieldPool ? Describe(new(ItemAffixKind.WaterShieldPool)) : "",
+        modifiers.MagicRingFamily is { } family ? RingEffects.Describe(EquipmentSlot.MagicRing, family, modifiers.MagicRingLevel) : "",
         modifiers.ExtraGoldEvery > 0 ? Describe(new(ItemAffixKind.CoinDividend), 11 - modifiers.ExtraGoldEvery) : "",
         modifiers.GoldBonusPercent > 0 ? Describe(new(ItemAffixKind.GoldBonus, modifiers.GoldBonusPercent)) : ""
     }.Where(s => s.Length > 0));

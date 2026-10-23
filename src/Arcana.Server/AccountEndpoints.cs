@@ -33,6 +33,11 @@ public static class AccountEndpoints
             await accounts.Repository!.SaveLoadout(user.Uid, loadout, context.RequestAborted);
             return new InventoryResult(await accounts.Repository.Profile(user.Uid, user.Name, context.RequestAborted), "Equipamiento guardado.");
         }));
+        app.MapPost("/account/ring/upgrade", (RingUpgradeRequest request, AccountService accounts, HttpContext context) => Auth(accounts, context, async user =>
+        {
+            await accounts.Repository!.UpgradeRing(user.Uid, request, context.RequestAborted);
+            return new InventoryResult(await accounts.Repository.Profile(user.Uid, user.Name, context.RequestAborted), "Anillo mejorado.");
+        }));
         app.MapPost("/account/sell", (InventoryRequest request, AccountService accounts, HttpContext context) => Auth(accounts, context, async user =>
         {
             int gold = await accounts.Repository!.Sell(user.Uid, request.ItemId, context.RequestAborted);

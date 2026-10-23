@@ -25,6 +25,7 @@ public partial class DefensePanel
         Row(drops, "Reliquia pasiva · por defensor", Percent(DefenseRules.RelicDropChance));
         Wrapped(_lootGuide, "Probabilidades por enemigo derrotado. Cada categoría se sortea por separado: puede haber varias recogidas o ninguna. Equipo y reliquias tienen una tirada por defensor; solo ves lo que te corresponde.", 15, Ui.Muted);
         Wrapped(_lootGuide, "Monedas: 8 + 2 × dificultad (máximo 208 oro). No se divide entre aliados. Las recogidas duran 75 s de combate; con 96 en el suelo se retira primero la más antigua.", 15, Ui.Muted);
+        Wrapped(_lootGuide, "Dos ranuras de anillo: oro y magia, con efectos básicos en todas las calidades. El anillo mágico repone el escudo y activa su acción cada 16–8 s según nivel. Tras nivel 5 duplica el elemento. Las mejoras usan oro de esta partida y se conservan al guardar.", 15, Ui.Muted);
         Wrapped(_lootGuide, "Afijos de oro: 1 oro extra cada 11 monedas en nivel 0, cada 6 en nivel 5 y cada moneda en nivel 10; o +10 % (Diamante) o +20 % (Mítico). Cada defensor aplica sus piezas equipadas a su parte del oro. Los efectos iguales usan el mayor; los distintos se suman sobre la base. Se conservan los restos al guardar. Las ventas y la conversión por inventario lleno no reciben este bono.", 15, Ui.Muted);
         Wrapped(_lootGuide, "RANURAS DEL EQUIPO", 18, Ui.Gold);
         var slots = Ui.Table(3, "DefenseSlotRates"); _lootGuide.AddChild(slots);

@@ -46,7 +46,7 @@ Cada objeto es una instancia con ID propio. Botas: velocidad; gorro: alcance; pe
 | Diamante | 8 % | 2 | 150 |
 | Mítico | 2 % | 3 | 400 |
 
-El catálogo define mínimos, máximos, posiciones y familias permitidas. Cada instancia guarda `minimum`, `maximum` y `current` para cada atributo, además de `generationVersion`. El sorteo inicial tiene un presupuesto por calidad; los intervalos originales se conservan para permitir futuras mejoras con oro. La mejora todavía no está habilitada en esta versión.
+El catálogo define mínimos, máximos, posiciones y familias permitidas. Cada instancia guarda `minimum`, `maximum` y `current` para cada atributo, además de `generationVersion`. El sorteo inicial tiene un presupuesto por calidad; los intervalos originales se conservan para permitir futuras mejoras con oro. Los anillos admiten diez mejoras permanentes con oro de cuenta; en Supervivencia se mejoran las piezas temporales con el oro de esa partida.
 
 | Familia | Principal del arma | Secundarios posibles |
 | --- | --- | --- |
@@ -71,7 +71,7 @@ El principal de botas, gorro y pecho sigue siendo velocidad, alcance y defensa, 
 
 La potencia de agua aumenta su empuje y presión sobre protecciones, además de su componente de daño en vapor e hielo. El agua pura mantiene su efecto de estado. La bonificación de Rayo contra mojados multiplica el daño eléctrico solo cuando el objetivo está mojado, además del multiplicador base de mojado. Las cargas rápidas del haz Arcano y las rocas de Tierra aceleran la llegada al máximo; no elevan el techo de potencia ni la curación del haz.
 
-Las cuatro posiciones suman atributos y el núcleo calcula una sola vez los modificadores efectivos. Límites del equipo: +30 % velocidad, +35 % alcance, 35 % reducción de daño, +40 % ataque, +50 % potencia o daño de Agua, Frío, Rayo, Arcano, Tierra y Fuego; +60 % curación, absorción, duración de escudos, energía, quemaduras, duración de mojado, enfriamiento, congelación y rapidez de cargas. La bonificación adicional de Rayo contra mojados alcanza el 35 %. El ahorro al reanimar alcanza el 35 %. Las penalizaciones agregadas se limitan al 25 %. Las reliquias temporales y las afinidades de clase mantienen sus reglas y se combinan con el equipo.
+Las seis posiciones suman atributos y el núcleo calcula una sola vez los modificadores efectivos. Límites del equipo: +30 % velocidad, +35 % alcance, 35 % reducción de daño, +40 % ataque, +50 % potencia o daño de Agua, Frío, Rayo, Arcano, Tierra y Fuego; +60 % curación, absorción, duración de escudos, energía, quemaduras, duración de mojado, enfriamiento, congelación y rapidez de cargas. La bonificación adicional de Rayo contra mojados alcanza el 35 %. El ahorro al reanimar alcanza el 35 %. Las penalizaciones agregadas se limitan al 25 %. Las reliquias temporales y las afinidades de clase mantienen sus reglas y se combinan con el equipo.
 
 ## Conjuntos Míticos
 
@@ -90,9 +90,9 @@ El bonus de cuatro sustituye al de dos. Se pueden activar dos conjuntos de dos p
 
 ## Uso y recompensas
 
-El equipamiento se selecciona desde **Inventario**. Al pulsar **Botas**, **Gorro**, **Pecho** o **Arma**, se abre una ventana con las piezas de esa posición, sus familias y atributos, con la pieza equipada siempre primero y el resto de mayor a menor calidad, en columnas según el ancho disponible. La lista se desplaza con la rueda o arrastrando sobre las tarjetas. Elegir una pieza muestra sus atributos individuales: valor actual, mínimo y máximo. **Quitar pieza equipada** deja esa posición vacía. La tabla **Suma de todo el equipo** separa las piezas, el conjunto, la suma y el valor aplicado después de los límites.
+El equipamiento se selecciona desde **Inventario**. Al pulsar **Botas**, **Gorro**, **Pecho**, **Arma**, **Anillo de oro** o **Anillo mágico**, se abre una ventana con las piezas de esa posición, sus familias y atributos, con la pieza equipada siempre primero y el resto de mayor a menor calidad, en columnas según el ancho disponible. La lista se desplaza con la rueda o arrastrando sobre las tarjetas. Elegir una pieza muestra sus atributos individuales: valor actual, mínimo y máximo. **Quitar pieza equipada** deja esa posición vacía. La tabla **Suma de todo el equipo** separa las piezas, el conjunto, la suma y el valor aplicado después de los límites.
 
-Los cambios se previsualizan en memoria. Al salir del inventario por el menú inferior, Escape o Atrás de Android, las cuatro posiciones se guardan juntas con una sola escritura del equipamiento. Cerrar únicamente el selector o cambiar a la pestaña de bonificaciones no guarda; salir sin cambios tampoco escribe. Un fallo mantiene el inventario abierto con la selección pendiente para reintentar al salir. Actualizar o vender conserva las selecciones pendientes que sigan siendo válidas. En práctica sin conexión, la configuración se guarda en la caché local al salir. El servidor recupera el equipamiento guardado antes de admitir al jugador y no acepta estadísticas enviadas por el cliente.
+Los cambios se previsualizan en memoria. Al salir del inventario por el menú inferior, Escape o Atrás de Android, las seis posiciones se guardan juntas con una sola escritura del equipamiento. Cerrar únicamente el selector o cambiar a la pestaña de bonificaciones no guarda; salir sin cambios tampoco escribe. Un fallo mantiene el inventario abierto con la selección pendiente para reintentar al salir. Actualizar o vender conserva las selecciones pendientes que sigan siendo válidas. En práctica sin conexión, la configuración se guarda en la caché local al salir. El servidor recupera el equipamiento guardado antes de admitir al jugador y no acepta estadísticas enviadas por el cliente.
 
 Desde 0.29.12, una victoria PvP válida entrega un objeto y 50 oro; una derrota válida entrega 25 oro. El oro se paga al terminar la serie y admite las bonificaciones económicas de las piezas usadas en ella. Debe haber cuentas distintas de humanos rivales con al menos 15 segundos de participación activa; lanzar continuamente y disputar puntos también cuentan. Una partida contra bots, práctica, cuentas repetidas o participantes inactivos no concede progresión. Los perdedores elegibles registran su derrota. El diario de resultados se entrega fuera del bucle de simulación y se reintenta tras fallos o reinicios. La partida no espera a Firestore para avanzar. Si el inventario alcanza 500 objetos, el premio se convierte automáticamente en su valor de oro.
 
@@ -106,7 +106,7 @@ Las piezas equipadas y favoritas están protegidas frente a ventas individuales,
 | --- | --- |
 | `users/{uid}` | Perfil, oro entero de 64 bits, victorias, derrotas, número de objetos y `schemaVersion` |
 | `users/{uid}/items/{itemId}` | Posición, calidad, familia, tiradas con mínimo/máximo/actual, valor de venta, origen y versión de generación |
-| `users/{uid}/loadouts/active` | IDs de las cuatro piezas seleccionadas |
+| `users/{uid}/loadouts/active` | IDs de las seis piezas seleccionadas (anillos opcionales) |
 | `users/{uid}/rewards/{matchId}` | Resultado y premio ya entregado |
 | `users/{uid}/sales/{itemId}` | Oro entregado por una eliminación |
 | `matches/{matchId}` | Resultado del servidor y participantes elegibles |
@@ -135,18 +135,47 @@ Las comprobaciones cubren premios concurrentes, venta repetida, precisión de or
 
 ### Desglose de bonificaciones
 
-La suma de bonificaciones presenta botas, gorro, pecho y arma por separado, seguidos por el bono de conjunto, la suma y el valor aplicado tras los límites. Solo cuentan las piezas equipadas; las penalizaciones conservan su signo y las posiciones vacías aparecen con una raya. En móvil se muestran las mismas aportaciones dentro de cada atributo. Defensa añade el total efectivo de la partida después del desglose del equipo, conservando por separado los efectos de nivel, reliquias y poderes.
+La suma de bonificaciones presenta botas, gorro, pecho, arma y los dos anillos por separado, seguidos por el bono de conjunto, la suma y el valor aplicado tras los límites. Solo cuentan las piezas equipadas; las penalizaciones conservan su signo y las posiciones vacías aparecen con una raya. En móvil se muestran las mismas aportaciones dentro de cada atributo. Defensa añade el total efectivo de la partida después del desglose del equipo, conservando por separado los efectos de nivel, reliquias y poderes.
 
 Las papeleras de cada tarjeta del selector venden la pieza indicada tras confirmarla, sin tener que equiparla. La venta no aplica otras selecciones provisionales y conserva el selector abierto.
 
-La tarjeta utiliza tres iconos verticales: papelera, equipar/quitar y aumentar estadísticas; los atributos son texto y no un botón inferior. El icono de equipar guarda la selección provisional al salir del inventario. Las mejoras con oro corresponden a los objetos temporales de Defensa: permiten mejorar directamente cualquier pieza, muestran coste y nivel, y respetan sus límites; el inventario permanente las muestra desactivadas.
+La tarjeta utiliza tres iconos verticales: papelera, equipar/quitar y aumentar estadísticas; los atributos son texto y no un botón inferior. El icono de equipar guarda la selección provisional al salir del inventario. Las mejoras con oro corresponden a los objetos temporales de Defensa: permiten mejorar directamente cualquier pieza, muestran coste y nivel, y respetan sus límites; el inventario permanente permite mejorar los dos anillos con el servicio de cuentas y desactiva la mejora de las otras cuatro posiciones.
 
 ## Efectos económicos del equipo (0.29.13)
 
-Las piezas Diamante y Míticas pueden generar, como efecto especial adicional a sus atributos normales, **un oro extra por cada 11 monedas base en nivel 0 de la pieza** o **+10 % de oro** (Diamante) / **+20 % de oro** (Mítico). De varias copias del mismo efecto se usa la más alta; los dos efectos distintos se suman sobre el oro base sin multiplicarse entre sí. Cada mejora de la pieza reduce el intervalo en uno: nivel 0 = 11 monedas, nivel 5 = 6 y nivel 10 = 1. El nivel es el de mejora del objeto, que actualmente se mejora durante Supervivencia, no el del mago. Una pieza con este efecto puede llegar a nivel 10 aunque sus atributos normales ya estén al máximo. Si hay varias piezas con el efecto se usa el intervalo más bajo. Por ejemplo, 100 oro base con una pieza de nivel 0 y otro bono del 20 % produce 129; con la pieza de nivel 10 produce 220. No se aplican a ventas manuales.
+Las piezas Diamante y Míticas pueden generar, como efecto especial adicional a sus atributos normales, **un oro extra por cada 11 monedas base en nivel 0 de la pieza** o **+10 % de oro** (Diamante) / **+20 % de oro** (Mítico). De varias copias del mismo efecto se usa la más alta; los dos efectos distintos se suman sobre el oro base sin multiplicarse entre sí. Cada mejora de la pieza reduce el intervalo en uno: nivel 0 = 11 monedas, nivel 5 = 6 y nivel 10 = 1. El nivel es el de mejora del objeto, no el del mago. Los anillos se mejoran de forma permanente con oro de cuenta o temporalmente durante Supervivencia. Una pieza con este efecto puede llegar a nivel 10 aunque sus atributos normales ya estén al máximo. Si hay varias piezas con el efecto se usa el intervalo más bajo. Por ejemplo, 100 oro base con una pieza de nivel 0 y otro bono del 20 % produce 129; con la pieza de nivel 10 produce 220. No se aplican a ventas manuales.
 
 En Supervivencia, cada defensor aplica su propio equipo al oro compartido que recibe de las monedas. Los restos fraccionarios se acumulan exactamente para no perder el bono al recoger cantidades pequeñas y se guardan en el punto de continuación local. Cambiar de intervalo al mejorar o cambiar una pieza conserva la fracción ganada; no vuelve a premiar las monedas ya recogidas. Los puntos de versiones anteriores conservan el oro existente y convierten su fracción pendiente al formato actual. El oro inicial y las conversiones automáticas de equipo por inventario lleno no activan estos bonos en Supervivencia.
 
-En PvP se aplican al premio de oro del cierre de la serie, incluida la conversión automática del objeto si el inventario está lleno; las fracciones finales se redondean hacia abajo. El servidor captura los efectos del equipo usado, valida sus límites y entrega el oro con el mismo recibo idempotente del resultado. Se mantienen los requisitos de humanos rivales, cuentas Google, actividad y sala equilibrada sin bots. Las partidas de práctica contra IA no conceden progreso permanente. Cliente y servidor usan protocolo 32 y deben actualizarse juntos.
+En PvP se aplican al premio de oro del cierre de la serie, incluida la conversión automática del objeto si el inventario está lleno; las fracciones finales se redondean hacia abajo. El servidor captura los efectos del equipo usado, valida sus límites y entrega el oro con el mismo recibo idempotente del resultado. Se mantienen los requisitos de humanos rivales, cuentas Google, actividad y sala equilibrada sin bots. Las partidas de práctica contra IA no conceden progreso permanente. Cliente y servidor usan protocolo 33 y deben actualizarse juntos.
 
 Los premios PvP nuevos usan las reglas de recompensa 4. Los informes pendientes con reglas 3 conservan el cálculo que tenían al cerrar aquella partida; su recibo sigue evitando pagos duplicados.
+
+
+## Anillos de equipo (0.29.14)
+
+Son dos posiciones independientes, añadidas al final del enum y de la selección; los perfiles y puntos de continuación antiguos usan anillos vacíos. Las seis posiciones tienen igual probabilidad al generar botín, con la misma distribución de calidades. La tienda permanente ofrece una pieza de cada posición. Los anillos no necesitan un afijo raro para su función básica, suman sus atributos normales y no cuentan para los conjuntos de dos/cuatro piezas. Se conservan los afijos de las piezas anteriores y, si coinciden con el anillo de oro, se usa el mejor intervalo sin sumar copias.
+
+El anillo de oro aplica `11 − nivel` monedas base por moneda extra. Usa el nivel 0–10 de esa pieza. En PvP su nivel permanente se recupera al fijar el equipo de la ronda; en Supervivencia utiliza las mejoras temporales de la partida y sus fracciones se guardan localmente.
+
+El anillo mágico renueva el escudo de su elemento y activa su acción cada `16 − 0,8 × nivel` segundos (16 s al nivel 0 y 8 s al 10). Su primera activación ocurre al entrar en combate. No consume energía, selección ni tiempo de lanzamiento. Sigue el tiempo de simulación: no avanza mientras Supervivencia esté pausada. Equipar, mejorar o cambiar anillo no reinicia la recarga, que se conserva al guardar/continuar y reconectar. No se activa muerto ni reanima; los escudos manuales activos con mayor capacidad se conservan.
+
+Niveles 0–5: escudo + un elemento; desde el 6, escudo + dos copias del elemento, doble capacidad base y mayor potencia de la acción. Vida regenera 38/76 por segundo mientras el escudo dure; los multiplicadores de curación siguen aplicándose. La protección elemental conserva las relaciones de resistencias ya existentes; duplicar un elemento no concede inmunidad total.
+
+| Familia | Acción periódica | Efecto base |
+| --- | --- | --- |
+| Mixto | Repulsión | Escudo básico y empuje radial sin daño |
+| Vida | Pulso sanador | Escudo de vida y 60/120 de curación a portador y aliados |
+| Escudo | Amparo compartido | Escudo propio de 420/840 y protección 100/200 para aliados |
+| Fuego | Onda de brasas | Daño de fuego y quemadura |
+| Agua | Salpicadura | Moja y empuja a enemigos |
+| Frío | Pulso de escarcha | Daño de frío y enfriamiento |
+| Rayo | Descarga selectiva | Un objetivo cercano; dos desde nivel 6 |
+| Arcano | Pulso arcano | Daño arcano a enemigos cercanos |
+| Tierra | Sacudida de piedra | Daño de tierra y empuje |
+
+Las acciones tienen 3 m de radio y línea de visión; el rayo alcanza 4 m. Solo las acciones de apoyo afectan a aliados. Los escudos elementales tienen 180/360 puntos base, excepto los básicos/de Escudo con 420/840, y duran 12 s antes de multiplicadores. Los impulsos reutilizan los efectos gráficos existentes: no añaden luces ni nodos permanentes.
+
+Las mejoras permanentes usan la misma tarifa por calidad y nivel de Supervivencia, validada en servidor. `POST /account/ring/upgrade` recibe el ID de pieza y nivel esperado; una transacción descuenta oro y guarda atributos/nivel juntos. Repetir el mismo nivel esperado no cobra de nuevo. Sin sesión o servicio de cuentas se puede consultar/equipar el inventario disponible, pero no mejorar con oro permanente. Las reglas mantienen prohibidas las escrituras cliente de objetos/oro.
+
+Firestore `users/{uid}/loadouts/active` admite las claves opcionales `goldRing` y `magicRing`; las cuatro claves originales siguen siendo obligatorias. Cada anillo debe existir dentro del inventario de esa UID y tener la posición correspondiente. Hay que publicar `firebase/firestore.rules` antes de guardar anillos directamente en la base. La actualización no modifica las reglas de estadísticas ni sus permisos.

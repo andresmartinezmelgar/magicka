@@ -163,16 +163,18 @@ public sealed partial class FirebaseProfileReader : IDisposable
     {
         if (uid.Length is < 1 or > 128 || uid.Any(ch => !char.IsAsciiLetterOrDigit(ch) && ch is not '-' and not '_'))
             throw new ArgumentException("UID inválido.");
-        var fields = new
+        var values = new Dictionary<string, object>
         {
-            fields = new
-            {
-                boots = new { stringValue = equipment.Boots },
-                hat = new { stringValue = equipment.Hat },
-                chest = new { stringValue = equipment.Chest },
-                weapon = new { stringValue = equipment.Weapon }
-            }
+            ["boots"] = new { stringValue = equipment.Boots },
+            ["hat"] = new { stringValue = equipment.Hat },
+            ["chest"] = new { stringValue = equipment.Chest },
+            ["weapon"] = new { stringValue = equipment.Weapon }
         };
+        // Las selecciones antiguas siguen usando cuatro claves. PATCH sin máscara
+        // sustituye el documento, por lo que omitir un anillo también lo desequipa.
+        if (equipment.GoldRing.Length > 0) values["goldRing"] = new { stringValue = equipment.GoldRing };
+        if (equipment.MagicRing.Length > 0) values["magicRing"] = new { stringValue = equipment.MagicRing };
+        var fields = new { fields = values };
         using var request = new HttpRequestMessage(HttpMethod.Patch,
             $"https://firestore.googleapis.com/v1/projects/{_projectId}/databases/(default)/documents/users/{uid}/loadouts/active");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", idToken);

@@ -40,7 +40,7 @@ internal static class EquipmentElementTests
                 Check(item.Bonuses.Skip(1).All(b => EquipmentCatalogue.Pool(family).Contains(b.Stat) && b.Minimum > 0 && b.Current > 0), "Secundario ajeno a la familia.");
                 Check(item.Bonuses.Length == (tier == ItemTier.Mythic ? 4 : 3), "Cantidad de atributos incorrecta.");
             }
-            for (int n = 0; n < 2000; n++) found.Add(EquipmentCatalogue.Generate(random, tier: ItemTier.Mythic).Family);
+            for (int n = 0; n < 2000; n++) found.Add(EquipmentCatalogue.Generate(random, tier: ItemTier.Mythic, slot: EquipmentSlot.Weapon).Family);
             Check(found.SetEquals(EquipmentCatalogue.FocusedFamilies), "El sorteo aleatorio omite un elemento.");
             Check(EquipmentCatalogue.Definitions().Count() == 22, "No se publican todos los atributos.");
         });

@@ -26,6 +26,24 @@ public static class AccountInventory
         }
         return profile with { Loadout = profile.Loadout.With(request.Slot, request.ItemId) };
     }
+    public static AccountProfile UpgradeRing(AccountProfile profile, RingUpgradeRequest request)
+    {
+        if (!Guid.TryParseExact(request.ItemId, "N", out _) || request.ExpectedLevel is < 0 or >= 10)
+            throw new ArgumentException("Mejora de anillo inválida.");
+        var item = profile.Items.SingleOrDefault(i => i.Id == request.ItemId)
+            ?? throw new ArgumentException("El anillo ya no está en tu inventario.");
+        if (!EquipmentCatalogue.Valid(item) || !RingEffects.IsRing(item.Slot))
+            throw new ArgumentException("Esta mejora requiere un anillo propio.");
+        // Una respuesta perdida puede repetirse con el mismo nivel esperado.
+        if (item.UpgradeLevel > request.ExpectedLevel) return profile;
+        if (item.UpgradeLevel != request.ExpectedLevel) throw new ArgumentException("Actualiza el inventario antes de mejorar.");
+        int cost = DefenseRules.UpgradeCost(item.Tier, item.UpgradeLevel);
+        if (profile.Gold < cost) throw new ArgumentException("No tienes suficiente oro para mejorar el anillo.");
+        var upgraded = item with { UpgradeLevel = item.UpgradeLevel + 1,
+            Bonuses = item.Bonuses.Select(b => b with { Current = Math.Min(b.Maximum, MathF.Round(b.Current + DefenseRules.ItemUpgradeStep, 4)) }).ToArray() };
+        return profile with { Gold = profile.Gold - cost, Items = profile.Items.Select(i => i.Id == item.Id ? upgraded : i).ToArray() };
+    }
+
     public static AccountProfile Sell(AccountProfile profile, string itemId)
     {
         var item = profile.Items.SingleOrDefault(i => i.Id == itemId) ?? throw new ArgumentException("El objeto ya no está en tu inventario.");

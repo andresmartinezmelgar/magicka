@@ -70,7 +70,7 @@ public partial class EquipmentPanel
     private void ClickUpgrade(string id)
     {
         CancelPendingSaleClick();
-        if (!CanUpgradeDefenseItem(id)) return;
+        if (!CanUpgradeItem(id)) return;
         if (_pointerFrame == Engine.GetProcessFrames())
         {
             ulong now = Time.GetTicksMsec();
@@ -80,7 +80,7 @@ public partial class EquipmentPanel
             _lastUpgradeClick = id; _lastUpgradeAt = now;
             _lastUpgradeRect = _upgradeButtons[id].GetGlobalRect();
         }
-        UpgradeDefenseItem(id);
+        if (_defensePlayer != null) UpgradeDefenseItem(id); else _ = UpgradePermanentRing(id);
     }
 
     private void CancelPendingSaleClick()

@@ -13,6 +13,8 @@ public interface IAccountRepository
     Task<AccountProfile> Profile(string uid, string name, CancellationToken token = default);
     Task Equip(string uid, InventoryRequest request, CancellationToken token = default);
     Task SaveLoadout(string uid, EquipmentLoadout loadout, CancellationToken token = default);
+    Task UpgradeRing(string uid, RingUpgradeRequest request, CancellationToken token = default) =>
+        Task.FromException(new NotSupportedException("El repositorio no admite mejoras de anillos."));
     Task<int> Sell(string uid, string itemId, CancellationToken token = default);
     Task Award(RewardMatch match, CancellationToken token = default);
     Task<ItemShop> Shop(string uid, string name, CancellationToken token = default);
@@ -152,6 +154,24 @@ public sealed partial class FirestoreAccountRepository(FirestoreDb database) : I
             transaction.Set(user.Collection("loadouts").Document("active"), FirestoreData.Map(loadout));
         }, cancellationToken: token);
     }
+    public async Task UpgradeRing(string uid, RingUpgradeRequest request, CancellationToken token = default)
+    {
+        if (!Guid.TryParseExact(request.ItemId, "N", out _)) throw new ArgumentException("Anillo inválido.");
+        var user = User(uid); var itemRef = user.Collection("items").Document(request.ItemId);
+        await database.RunTransactionAsync(async transaction =>
+        {
+            var account = await transaction.GetSnapshotAsync(user, token);
+            var stored = await transaction.GetSnapshotAsync(itemRef, token);
+            if (!account.Exists || !stored.Exists) throw new ArgumentException("El anillo ya no está en tu inventario.");
+            var header = Header(account); var item = FirestoreData.Read<EquipmentItem>(stored);
+            var profile = new AccountProfile(uid, header.Name, header.Gold, header.Wins, header.Losses, new(), [item]);
+            var upgraded = AccountInventory.UpgradeRing(profile, request);
+            if (upgraded == profile) return;
+            transaction.Set(itemRef, FirestoreData.Map(upgraded.Items.Single()));
+            transaction.Update(user, new Dictionary<string, object> { ["gold"] = upgraded.Gold });
+        }, cancellationToken: token);
+    }
+
     public async Task<int> Sell(string uid, string itemId, CancellationToken token = default)
     {
         if (!Guid.TryParseExact(itemId, "N", out _)) throw new ArgumentException("Objeto inválido.");

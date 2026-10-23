@@ -114,6 +114,12 @@ try
             await accounts.Repository!.SaveLoadout(identity.Uid, loadout, token);
             return new InventoryResult(await accounts.Repository.Profile(identity.Uid, identity.Name, token), "Equipamiento guardado.");
         }));
+    app.MapPost("/account/ring/upgrade", (RingUpgradeRequest request, HttpContext context, AccountService accounts) =>
+        AccountMutation(context, accounts, async (identity, token) =>
+        {
+            await accounts.Repository!.UpgradeRing(identity.Uid, request, token);
+            return new InventoryResult(await accounts.Repository.Profile(identity.Uid, identity.Name, token), "Anillo mejorado.");
+        }));
     app.MapPost("/account/sell", (InventoryRequest request, HttpContext context, AccountService accounts) =>
         AccountMutation(context, accounts, async (identity, token) =>
         {

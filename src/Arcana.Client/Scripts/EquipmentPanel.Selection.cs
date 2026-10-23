@@ -82,7 +82,7 @@ public partial class EquipmentPanel
             _sort.Selected > 0 ? (EquipmentStat)(_sort.GetSelectedId() - 1) : null, equipped);
         _pickerTitle.Text = EquipmentCatalogue.SlotName(slot).ToUpperInvariant() + $" · {choices.Length}/{allChoices.Length} objetos";
         _pickerHelp.Text = "La pieza equipada siempre aparece primero. Equipadas y favoritas no se venden." +
-            (_defensePlayer == null ? " Las mejoras con oro están disponibles en Defensa." : $" Oro de partida: {_defensePlayer.Gold}.");
+            (_defensePlayer == null ? " Los anillos también se mejoran con oro de cuenta." : $" Oro de partida: {_defensePlayer.Gold}.");
         if (Ui.IsMobile) _pickerHelp.Text = "Equipada primero · Equipadas y favoritas protegidas." +
             (_defensePlayer == null ? "" : $" Oro de partida: {_defensePlayer.Gold}.");
         PrepareIcons();
@@ -105,7 +105,8 @@ public partial class EquipmentPanel
             var equippedLabel = Ui.Label(selected ? "EQUIPADA" : "Sin equipar", 15, selected ? Ui.Gold : Ui.Muted);
             equippedLabel.MouseFilter = MouseFilterEnum.Ignore; description.AddChild(equippedLabel);
             string attributes = string.Join("\n", item.Bonuses.Select(b => StatName(b.Stat) + " " + EquipmentCatalogue.Percent(b.Current)));
-            if (item.Affix != null) attributes += "\nEspecial: " + ItemAffixes.Describe(item.Affix, _itemLevels.GetValueOrDefault(item.Id));
+            if (RingEffects.IsRing(item.Slot)) attributes += "\n" + RingEffects.Describe(item, ItemLevel(item));
+            if (item.Affix != null) attributes += "\nEspecial: " + ItemAffixes.Describe(item.Affix, ItemLevel(item));
             var stats = Ui.Label(attributes, Ui.IsMobile ? 18 : 17);
             stats.Name = "EquipmentItemStats_" + item.Id;
             stats.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -129,13 +130,15 @@ public partial class EquipmentPanel
                 selected ? "Quitar" : "Equipar", selected ? "Quitar esta pieza equipada." : "Equipar esta pieza. Se guardará al salir del inventario.",
                 () => ChooseItem(selected ? "" : item.Id));
             _itemButtons.Add(item.Id, equip);
-            bool maximum = entry != null && !ItemAffixes.CanUpgrade(item, entry.Upgrades);
-            int cost = maximum ? 0 : DefenseRules.UpgradeCost(item.Tier, entry?.Upgrades ?? 0);
+            int itemLevel = entry?.Upgrades ?? item.UpgradeLevel;
+            bool supportsUpgrade = entry != null || RingEffects.IsRing(item.Slot);
+            bool maximum = supportsUpgrade && !ItemAffixes.CanUpgrade(item, itemLevel);
+            int cost = maximum ? 0 : DefenseRules.UpgradeCost(item.Tier, itemLevel);
+            string currency = entry == null ? "de cuenta" : "de partida";
             var upgrade = PickerAction(actions, "EquipmentUpgrade_", item.Id, _upgradeIcon, Ui.Health,
-                entry == null ? "Defensa" : maximum ? "Máximo" : $"{cost} oro",
-                entry == null ? "Mejorar estadísticas con oro durante una partida de Defensa." : maximum ? "Esta pieza ha alcanzado su límite de mejora." :
-                $"Mejorar esta pieza por {cost} oro de partida. Suma un punto porcentual a cada atributo; diez puntos sobre su valor inicial. Mejora {entry.Upgrades + 1} / 10." +
-                (_defensePlayer!.Gold < cost ? $" Faltan {cost - _defensePlayer.Gold} oro." : ""), () => ClickUpgrade(item.Id));
+                !supportsUpgrade ? "Defensa" : maximum ? "Máximo" : $"{cost} oro",
+                !supportsUpgrade ? "Mejorar estadísticas con oro durante una partida de Defensa." : maximum ? "Esta pieza ha alcanzado su límite de mejora." :
+                $"Mejorar por {cost} oro {currency}. Mejora {itemLevel + 1} / 10. El efecto del anillo progresa con su nivel.", () => ClickUpgrade(item.Id));
             _upgradeButtons.Add(item.Id, upgrade);
             string blocked = UpgradeBlockedReason(item.Id);
             if (blocked.Length > 0)
@@ -170,7 +173,7 @@ public partial class EquipmentPanel
     {
         foreach (var button in _itemButtons.Values) button.Disabled = _busy || (_defensePlayer != null && !CanChangeDefenseItems);
         foreach (var (id, button) in _trashButtons) button.Disabled = _busy || !CanSellInventory || SaleProtected(id);
-        foreach (var (id, button) in _upgradeButtons) button.Disabled = !CanUpgradeDefenseItem(id);
+        foreach (var (id, button) in _upgradeButtons) button.Disabled = !CanUpgradeItem(id);
         UpdatePreferenceActions();
     }
 
