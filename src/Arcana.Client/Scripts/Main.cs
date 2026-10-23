@@ -327,7 +327,7 @@ public partial class Main : Node
     }
     public void ReturnToLauncher(string error = "")
     {
-        CaptureStatistics(MatchRecordStatus.Left, true);
+        CaptureStatistics(MatchRecordStatus.Left);
         CancelReconnect();
         CancelGameLoading();
         CancelPendingConnection();
@@ -555,7 +555,7 @@ public partial class Main : Node
     private void Submit(ClientMessage message)
     {
         if (Loading) return;
-        if (_practice != null) { message.Sequence = ++_localSequence; if (message.Type == "defense_restart") { CaptureStatistics(MatchRecordStatus.Playing, true); CaptureLocalBestiary(); if (_practice.RestartDefense()) BeginLocalBestiary(); } else _practice.ApplyMessage(_localId, message); }
+        if (_practice != null) { message.Sequence = ++_localSequence; if (message.Type == "defense_restart") { CaptureStatistics(MatchRecordStatus.Left); CaptureLocalBestiary(); if (_practice.RestartDefense()) BeginLocalBestiary(); } else _practice.ApplyMessage(_localId, message); }
         else _connection?.Send(message);
     }
     public override void _UnhandledInput(InputEvent input)
@@ -845,7 +845,7 @@ public partial class Main : Node
     }
     public override void _ExitTree()
     {
-        CaptureStatistics(MatchRecordStatus.Interrupted, true);
+        CaptureStatistics(MatchRecordStatus.Interrupted);
         CaptureLocalBestiary();
         RenderingServer.FramePostDraw -= FrameDrawn;
         GetViewport().SizeChanged -= UpdateInGameHelpResponsive;

@@ -29,7 +29,8 @@ public static class MatchStatisticsEndpoints
                 while ((read = await context.Request.Body.ReadAsync(buffer, context.RequestAborted)) > 0)
                 { if (stream.Length + read > MatchStatisticsReport.MaxBytes) return Results.StatusCode(413); stream.Write(buffer, 0, read); }
                 var report = MatchStatisticsReport.Parse(Encoding.UTF8.GetString(stream.GetBuffer(), 0, (int)stream.Length));
-                statistics.Accept(report); // 202 solo después de guardar la cola en disco.
+                if (report.Status == MatchRecordStatus.Playing || report.Revision == 0) return Results.BadRequest();
+                statistics.Accept(report); // Compatibilidad: cola en memoria, sin archivos.
                 return Results.StatusCode(202);
             }
             catch (Exception e) when (e is JsonException or InvalidDataException or BadHttpRequestException) { return Results.BadRequest(); }

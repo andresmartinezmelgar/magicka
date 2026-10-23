@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.29.9 — Estadísticas al cierre y gráficas globales
+
+- Las estadísticas se envían directamente a Firestore al terminar o abandonar una partida. Durante el combate solo se acumulan en memoria; guardar un punto de supervivencia sin salir no dispara un envío.
+- Se elimina el historial y la cola de archivos JSON tanto del cliente como del servicio de compatibilidad del servidor. Los errores conservan el informe únicamente en memoria y se reintentan cada 30 segundos mientras la aplicación sigue abierta; al cerrarla se pierden los pendientes no confirmados.
+- Las dos cuentas autorizadas abren desde Perfil las gráficas de los informes de Firebase de todos los dispositivos. La consulta comprueba la sesión y el permiso, carga por páginas y permite actualizar o ampliar la muestra hasta 1000 documentos sin duplicar revisiones de una partida.
+- Se mantienen los filtros, la suma de humanos y bots y las dos escalas separadas de daño enemigo. Un error de lectura conserva la muestra ya cargada; cambiar de cuenta o cerrar sesión cierra el visor.
+- El punto local de supervivencia permite continuar el estado del juego. Cada continuación abre un tramo estadístico nuevo para evitar contar de nuevo el acumulado anterior. No se crean ni consultan archivos de estadísticas; los archivos de versiones anteriores no se importan automáticamente.
+- Pruebas de reintentos en memoria, cierre de partida, mutación concurrente de contadores, envío REST real al emulador, paginación y gráficos en móvil y escritorio.
+
 ## 0.29.8 — Estadísticas directas a Firestore
 
 - Android y Windows envían los informes directamente a Firestore por HTTPS, sin descubrir ni contactar el servidor de cuentas o partidas y sin enviar tokens, cookies ni identificadores de cuenta.

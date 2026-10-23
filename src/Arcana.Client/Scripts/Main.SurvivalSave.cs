@@ -57,7 +57,6 @@ public partial class Main
             // Al pausar ya se han soltado los controles; ningún hechizo humano queda atascado al continuar.
             var save = _practice!.SaveSurvival(_localId, _localBestiaryRun, _localBestiaryUid);
             SurvivalSaves.Write(save); CaptureLocalBestiary();
-            CaptureStatistics(MatchRecordStatus.Suspended, true);
             if (leave)
             {
                 ReturnToLauncher(); _launcher.ShowStatus("Supervivencia guardada en este dispositivo.");
@@ -85,7 +84,7 @@ public partial class Main
             CancelPendingConnection();
             var old = _connection; _connection = null; if (old != null) _ = old.DisposeAsync();
             _practiceSession = null; _practice = restored.World; _localId = restored.Save.LocalPlayerId; _localSequence = 0;
-            _practice.ReconcileMatchStatistics(_statisticsArchive?.Find(_practice.MatchStatisticsRunId));
+            _practice.StartStatisticsContinuation();
             _resumingSurvival = restored.Save;
             _serverName = restored.RecoveredBackup ? "Supervivencia · copia recuperada" : "Supervivencia · partida guardada";
             StartGame(_practice.Snapshot());

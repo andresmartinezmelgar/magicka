@@ -30,7 +30,11 @@ public sealed partial class FirebaseProfileReader
             if (docs.ValueKind != JsonValueKind.Array || docs.GetArrayLength() > 10) throw new InvalidDataException("Página demasiado grande.");
             foreach (var doc in docs.EnumerateArray())
             {
-                try { reports.Add(MatchStatisticsReport.Parse(doc.GetProperty("fields").GetProperty("payload").GetProperty("stringValue").GetString() ?? "")); }
+                try
+                {
+                    var report = MatchStatisticsReport.Parse(doc.GetProperty("fields").GetProperty("payload").GetProperty("stringValue").GetString() ?? "");
+                    if (report.Status != MatchRecordStatus.Playing) reports.Add(report);
+                }
                 catch (Exception error) when (error is InvalidDataException or JsonException or InvalidOperationException or KeyNotFoundException)
                 { /* Un informe no fiable no bloquea las demás partidas ni la página siguiente. */ }
             }

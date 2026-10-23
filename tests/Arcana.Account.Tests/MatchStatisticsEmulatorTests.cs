@@ -37,6 +37,16 @@ internal static class MatchStatisticsEmulatorTests
         if (reports.Count(r => r.Complete && r.Revision == 600) != 1 || reports.Any(r => r.ToJson().Contains("PRIVATE_NAME")))
             throw new InvalidOperationException("El informe tardío sobrescribió el final.");
         Console.WriteLine("MATCH_STATISTICS_DIRECT_FIRESTORE_OK: REST anónimo real, reglas, reintentos concurrentes y final conservado sin relé.");
+
+        var outbox = new MatchStatisticsOutbox();
+        if (outbox.Enqueue(report)) throw new InvalidOperationException("Se encoló una partida en curso.");
+        var queued = final with { RunId = Guid.NewGuid().ToString("N") };
+        outbox.Enqueue(queued);
+        await Task.WhenAll(Enumerable.Range(0, 3).Select(_ => outbox.Flush(transport.Upload)));
+        var uploaded = await directDatabase.Collection("matchStatistics").WhereEqualTo("runId", queued.RunId).GetSnapshotAsync();
+        if (uploaded.Count != 1 || outbox.PendingCount != 0 || !MatchStatisticsReport.Parse(uploaded.Documents.Single().GetValue<string>("payload")).Complete)
+            throw new InvalidOperationException("La cola en memoria perdió el final o duplicó el envío.");
+        Console.WriteLine("MATCH_STATISTICS_MEMORY_OUTBOX_OK: solo cierre, envío REST real, confirmación y vaciado de memoria sin historial local.");
     }
 
     private sealed class DirectFirestoreHandler(Uri emulator) : DelegatingHandler(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false })

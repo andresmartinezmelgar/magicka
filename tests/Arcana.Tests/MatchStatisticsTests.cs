@@ -13,7 +13,6 @@ internal static class MatchStatisticsTests
         var w = new GameWorld(new() { Mode = GameMode.Arena }); var a = w.AddPlayer("IDENTITY_MUST_NOT_APPEAR", 0)!; var b = w.AddPlayer("OTHER_IDENTITY", 1)!;
         a.Invulnerable = b.Invulnerable = 0; w.Step(); return (w, a, b);
     }
-    private static string DirectoryForTest() => Path.Combine(Path.GetTempPath(), "arcana-statistics-tests", Guid.NewGuid().ToString("N"));
     private static void Reject(Action action) { try { action(); } catch (Exception e) when (e is InvalidDataException or JsonException) { return; } throw new Exception("Se aceptó un informe inválido."); }
     public static void Run(Action<string, Action> test)
     {
@@ -75,7 +74,7 @@ internal static class MatchStatisticsTests
             for (int i = 0; i < 60; i++) w.Step();
             var save = w.SaveSurvival(a.Id, Guid.NewGuid().ToString("N")); var report = w.MatchStatistics();
             var restored = GameWorld.RestoreSurvival(save); Check(restored.MatchStatistics().RunId == report.RunId && restored.MatchStatistics().Revision == report.Revision, "Perdió el acumulado.");
-            restored.ReconcileMatchStatistics(report with { Revision = 120, Seconds = 2 });
+            restored.StartStatisticsContinuation();
             Check(restored.MatchStatistics().RunId != report.RunId && restored.MatchStatistics().Continuation && restored.MatchStatistics().Revision == 0, "Rebobinado duplica el acumulado.");
         });
         test("Estadísticas: guardados antiguos sin informe siguen abriendo", () =>
@@ -86,27 +85,23 @@ internal static class MatchStatisticsTests
             var old = save with { State = JsonSerializer.SerializeToElement(node) };
             Check(GameWorld.RestoreSurvival(old).MatchStatistics().Continuation, "No admite el guardado anterior.");
         });
-        test("Estadísticas: cola confirma solo la revisión enviada y nunca rebaja un final", () =>
+        test("Estadísticas: reintentos en memoria conservan una revisión nueva durante el envío", () =>
         {
-            var (w, _, _) = Arena(); var archive = new MatchStatisticsArchive(DirectoryForTest()); var r = w.MatchStatistics(); archive.Save(r);
+            var (w, _, _) = Arena(); var outbox = new MatchStatisticsOutbox(); var r = w.MatchStatistics(MatchRecordStatus.Left); outbox.Enqueue(r);
             var next = r with { Revision = r.Revision + 60, Seconds = r.Seconds + 1, Status = MatchRecordStatus.Completed };
-            archive.Flush((sent, _) => { archive.Save(next); return Task.CompletedTask; }).GetAwaiter().GetResult();
-            int count = 0; archive.Save(r); archive.Flush((sent, _) => { count++; Check(sent.Complete && sent.Revision == next.Revision, "Se perdió la nueva revisión."); return Task.CompletedTask; }).GetAwaiter().GetResult();
-            archive.Flush((_, _) => { count++; return Task.CompletedTask; }).GetAwaiter().GetResult(); Check(count == 1 && archive.LocalReports().Single().Complete, "Cola o historial incorrectos.");
+            outbox.Flush((sent, _) => { outbox.Enqueue(next); return Task.CompletedTask; }).GetAwaiter().GetResult();
+            int count = 0; Check(!outbox.Enqueue(r), "Una revisión antigua reemplazó el final.");
+            outbox.Flush((sent, _) => { count++; Check(sent.Complete && sent.Revision == next.Revision, "Se perdió la nueva revisión."); return Task.CompletedTask; }).GetAwaiter().GetResult();
+            Check(count == 1 && outbox.PendingCount == 0, "La confirmación perdió o duplicó una revisión.");
         });
-        test("Estadísticas: interrupción y red caída conservan el archivo pendiente", () =>
+        test("Estadísticas: la cola solo vive en memoria y aísla los contadores del mundo", () =>
         {
-            var (w, _, _) = Arena(); string dir = DirectoryForTest(); var archive = new MatchStatisticsArchive(dir); archive.Save(w.MatchStatistics());
-            archive = new(dir); archive.RecoverInterrupted();
-            try { archive.Flush((_, _) => Task.FromException(new IOException())).GetAwaiter().GetResult(); } catch (IOException) { }
-            Check(archive.LocalReports().Single().Status == MatchRecordStatus.Interrupted && Directory.GetFiles(Path.Combine(dir, "pending"), "*.json").Length == 1, "Perdió el informe sin conexión.");
-        });
-        test("Estadísticas: informe corrupto aislado no bloquea otros envíos", () =>
-        {
-            var (w, _, _) = Arena(); string dir = DirectoryForTest(); var archive = new MatchStatisticsArchive(dir); archive.Save(w.MatchStatistics());
-            File.WriteAllText(Path.Combine(dir, "pending", new string('b', 32) + ".json"), "{invalid"); int sent = 0;
-            archive.Flush((_, _) => { sent++; return Task.CompletedTask; }).GetAwaiter().GetResult();
-            Check(sent == 1 && Directory.GetFiles(Path.Combine(dir, "pending"), "*.invalid-*").Length == 1, "No aisló la corrupción.");
+            var (w, _, _) = Arena(); var report = w.MatchStatistics(MatchRecordStatus.Completed); var outbox = new MatchStatisticsOutbox();
+            Check(!outbox.Enqueue(w.MatchStatistics()), "Se encoló una partida en curso.");
+            string expected = report.ToJson(); outbox.Enqueue(report);
+            report.Metrics[0] = report.Metrics[0] with { Value = 999999 };
+            outbox.Flush((sent, _) => { Check(sent.ToJson() == expected, "La simulación modificó el informe ya cerrado."); return Task.CompletedTask; }).GetAwaiter().GetResult();
+            Check(outbox.PendingCount == 0 && new MatchStatisticsOutbox().PendingCount == 0, "La cola mantiene un historial o recupera archivos.");
         });
         test("Estadísticas: rechaza identidad, claves arbitrarias, duplicados y fechas imposibles", () =>
         {
@@ -144,35 +139,24 @@ internal static class MatchStatisticsTests
             var (w, _, _) = Arena(); var report = w.MatchStatistics(MatchRecordStatus.Completed);
             foreach (var status in new[] { HttpStatusCode.Forbidden, HttpStatusCode.TooManyRequests, HttpStatusCode.ServiceUnavailable, HttpStatusCode.Conflict })
             {
-                string dir = DirectoryForTest(); var archive = new MatchStatisticsArchive(dir); archive.Save(report);
+                var outbox = new MatchStatisticsOutbox(); outbox.Enqueue(report);
                 using var http = new HttpClient(new Handler(_ => new(status) { Content = new StringContent("{\"error\":{\"status\":\"ABORTED\"}}") }));
                 using var transport = new MatchStatisticsTransport("demo-arcana", http);
-                try { archive.Flush(transport.Upload).GetAwaiter().GetResult(); throw new Exception("Se confirmó un envío fallido."); }
+                try { outbox.Flush(transport.Upload).GetAwaiter().GetResult(); throw new Exception("Se confirmó un envío fallido."); }
                 catch (IOException) { }
-                Check(Directory.GetFiles(Path.Combine(dir, "pending"), "*.json").Length == 1, "El fallo borró el informe pendiente.");
+                Check(outbox.PendingCount == 1, "El fallo borró el informe pendiente.");
                 using var success = new HttpClient(new Handler(_ => new(HttpStatusCode.Conflict) { Content = new StringContent("{\"error\":{\"status\":\"ALREADY_EXISTS\"}}") }));
                 using var retry = new MatchStatisticsTransport("demo-arcana", success);
-                archive.Flush(retry.Upload).GetAwaiter().GetResult();
-                Check(Directory.GetFiles(Path.Combine(dir, "pending"), "*.json").Length == 0 && archive.Find(report.RunId) != null,
-                    "El reintento duplicado no confirmó la cola o borró el historial.");
+                outbox.Flush(retry.Upload).GetAwaiter().GetResult();
+                Check(outbox.PendingCount == 0, "El reintento duplicado no confirmó la cola en memoria.");
             }
-        });
-        test("Estadísticas: el envío espera al cierre sin perder partidas en curso ni el historial", () =>
-        {
-            var (w, _, _) = Arena(); string dir = DirectoryForTest(); var archive = new MatchStatisticsArchive(dir); var report = w.MatchStatistics();
-            archive.Save(report); int sent = 0;
-            archive.Flush((_, _) => { sent++; return Task.CompletedTask; }, include: r => r.Status != MatchRecordStatus.Playing).GetAwaiter().GetResult();
-            Check(sent == 0 && Directory.GetFiles(Path.Combine(dir, "pending")).Length == 1, "El filtro perdió el informe en curso.");
-            archive.Save(report with { Status = MatchRecordStatus.Suspended });
-            archive.Flush((r, _) => { sent++; Check(r.Status == MatchRecordStatus.Suspended, "No envió el guardado."); return Task.CompletedTask; }, include: r => r.Status != MatchRecordStatus.Playing).GetAwaiter().GetResult();
-            Check(sent == 1 && archive.Find(report.RunId) != null && Directory.GetFiles(Path.Combine(dir, "pending")).Length == 0, "Perdió historial o no confirmó la cola.");
         });
         test("Estadísticas: lector comprueba permiso, omite informes corruptos y conserva la paginación", () =>
         {
-            var (w, _, _) = Arena(); var report = w.MatchStatistics();
+            var (w, _, _) = Arena(); var report = w.MatchStatistics(MatchRecordStatus.Completed);
             using var http = new HttpClient(new Handler(request => new(HttpStatusCode.OK) { Content = new StringContent(request.RequestUri!.AbsolutePath.Contains("statisticsReaders")
                 ? "{\"fields\":{\"enabled\":{\"booleanValue\":true}}}"
-                : JsonSerializer.Serialize(new { documents = new object[] { new { fields = new { } }, new { fields = new { payload = new { stringValue = "{broken" } } },
+                : JsonSerializer.Serialize(new { documents = new object[] { new { fields = new { payload = new { stringValue = w.MatchStatistics().ToJson() } } }, new { fields = new { } }, new { fields = new { payload = new { stringValue = "{broken" } } },
                     new { fields = new { payload = new { integerValue = "1" } } }, new { fields = new { payload = new { stringValue = report.ToJson() } } } }, nextPageToken = "next-page" })) }));
             using var reader = new FirebaseProfileReader("demo-arcana", http);
             Check(reader.CanReadMatchStatistics("reader", "TOKEN").GetAwaiter().GetResult(), "Rol ignorado.");

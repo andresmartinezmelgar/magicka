@@ -1,4 +1,4 @@
-# Estadísticas de balance — 0.29.8
+# Estadísticas de balance — 0.29.9
 
 Duelo, Arena, Guerra y Supervivencia generan un informe acumulado por ronda, tanto en local con IA como en red. El laboratorio también usa el motor instrumentado; se distingue por su mapa. Cada reinicio empieza otro identificador. El servidor recoge las partidas en red y envía el informe a los clientes; todos utilizan el mismo identificador aleatorio y las revisiones se sustituyen, no se suman.
 
@@ -21,31 +21,21 @@ Los usos de un haz se cuentan al iniciarlo; sus impactos se acumulan durante la 
 
 Las clases y equipos son grupos agregados: no representan jugadores identificables. Una baja de monstruo suicida figura como muerte de ese tipo; no concede una baja al jugador. Los informes son telemetría para balance y no autorizan premios ni cambios de inventario. Los datos locales enviados por un cliente no son una prueba autoritativa de sus acciones.
 
-## Archivos y sincronización
+## Almacenamiento y envío al cierre
 
-El cliente usa `user://match-statistics/matches/<runId>.json` y `user://match-statistics/pending/<runId>.json`. `user://` es la carpeta de datos del juego que utiliza Godot en cada dispositivo. El servidor usa `ARCANA_MATCH_STATISTICS_DIR`; por defecto es `match-statistics` junto a la carpeta `logs`. En Docker se guarda en `/app/data/match-statistics`, dentro del volumen persistente existente.
+Desde 0.29.9 las estadísticas tienen como almacenamiento persistente exclusivamente Firestore, en la base Standard existente `(default)` de `arcana-arena-f2997` (europe-southwest1). Android y Windows envían directamente por HTTPS, sin relé ni servidor de cuentas. El contenido del envío no incluye ID token, cookies ni UID y funciona también sin iniciar sesión con Google.
 
-Se captura cada 15 segundos activos aproximadamente, al terminar, al guardar supervivencia y al salir. La cola se escribe con renombrado atómico y vaciado a disco antes de actualizar el historial. El envío se hace fuera de la simulación. Al arrancar se recuperan las escrituras y los informes que seguían abiertos se marcan como interrumpidos. Los archivos inválidos se conservan con extensión `.invalid-…` y no bloquean los demás.
+Durante el combate los contadores se acumulan en memoria. Al terminar, abandonar, reiniciar o desconectar una partida se captura el informe cerrado y comienza el primer envío inmediatamente. Guardar supervivencia sin salir solo crea el punto de continuación del juego; no publica estadísticas de una partida en curso. Guardar y salir cierra el tramo como abandonado. El servidor transmite sus capturas por la conexión de juego y solo encola informes cerrados para la ruta de compatibilidad.
 
-Desde 0.29.8, Android y Windows envían directamente a la API REST de Firestore por HTTPS. No consultan el anuncio público, no utilizan `/analytics/matches` ni necesitan que el servidor de juego o cuentas esté encendido. El envío no contiene ID token, cookies ni UID y funciona también sin iniciar sesión con Google. El servicio de Firebase sigue siendo necesario.
+`MatchStatisticsOutbox` mantiene los pendientes exclusivamente en memoria. Un fallo de red, cuota o permisos permite reintentar cada 30 segundos mientras la aplicación permanece abierta. La confirmación borra solo la revisión enviada, nunca una revisión nueva que haya llegado durante el envío. Al cerrar o perder el proceso se pierden los pendientes sin confirmar; no hay recuperación desde disco. No se crean `match-statistics/matches` ni `match-statistics/pending`, y se elimina `ARCANA_MATCH_STATISTICS_DIR`. Los archivos históricos de versiones anteriores no se leen, modifican ni suben automáticamente.
 
-Se comprueba la cola cada 30 s. Los informes con estado `Playing` permanecen locales; se envían al terminar, abandonar, desconectar, guardar o recuperar una interrupción. Así no se crea una escritura en Firebase por cada actualización del combate. Si se cierra la aplicación antes de enviar, el informe pendiente se conserva para el siguiente arranque. Un error de permisos, conexión o cuota no borra el informe.
+Los clientes crean documentos inmutables en `matchStatistics/<runId>-<revision>-<status>`, con diez campos: `schemaVersion`, `runId`, `revision`, `status`, `day`, `mode`, `map`, `gameVersion`, `complete` y el JSON `payload`. El ID determinista confirma los reintentos con `ALREADY_EXISTS`. Una revisión tardía tiene otro documento y no sobrescribe el final. Los documentos antiguos del servidor en `matchStatistics/<runId>` siguen siendo legibles. Al agregar, agrupar siempre por `runId` y conservar la revisión más reciente según `MatchStatisticsReport.IsNewer`, que prioriza el resultado completo.
 
-Los clientes crean documentos inmutables en `matchStatistics/<runId>-<revision>-<status>`, con una envoltura de diez campos: `schemaVersion`, `runId`, `revision`, `status`, `day`, `mode`, `map`, `gameVersion`, `complete` y el JSON `payload`. El identificador determinista permite tratar `ALREADY_EXISTS` como confirmación de un reintento. Una revisión tardía tiene otro documento y no puede sobrescribir el final.
+Las reglas publicadas admiten la creación anónima de estas estadísticas con cabecera, tipos, ID y tamaño acotados. Solo permiten repetir un documento idéntico, sin cambios ni borrados. El JSON de un informe remoto se valida al leerlo; los documentos corruptos o todavía en curso se omiten sin bloquear las páginas siguientes. Las cifras son telemetría no autoritativa para balance y no conceden premios ni modifican perfiles o inventario.
 
-Para calcular estadísticas globales, agrupar por `runId` y conservar el informe más reciente según `MatchStatisticsReport.IsNewer`, que da prioridad al resultado completo. Nunca sumar revisiones de una misma partida. Los documentos antiguos del servidor en `matchStatistics/<runId>` siguen siendo legibles y se agrupan con la misma regla. El servidor conserva su ruta de compatibilidad para clientes anteriores, pero no interviene en el nuevo envío del móvil o Windows. Los documentos malformados se omiten al leer una página sin bloquear los demás informes.
+El punto local de supervivencia conserva el estado necesario para continuar la partida; no es un archivo de telemetría independiente. Al activar una continuación se abre siempre un tramo con identificador nuevo, contadores nuevos y `continuation: true`. Así un punto anterior a una partida ya terminada no vuelve a contar el mismo acumulado y no hace falta consultar un historial local para detectar rebobinados. Los tramos miden lo jugado efectivamente en cada sesión. El visor agrupa las revisiones de cada identificador antes de calcular cifras.
 
-Las reglas de `firebase/firestore.rules` admiten la creación anónima únicamente de estas estadísticas, validan identificador, cabecera, tipos y tamaño, y rechazan cambios o borrados. Un reintento idéntico no modifica el contenido. No pueden comprobar la veracidad de los números del JSON; los informes enviados por un cliente son datos no autoritativos para balance. Los permisos de perfiles, inventario y lectura de estadísticas se mantienen.
-
-**Activación necesaria en el proyecto real:** publicar las reglas desde una sesión administradora. Actualizar el juego no despliega reglas de Firebase. Hasta publicarlas, las reglas anteriores rechazan el envío directo y los informes permanecen en `pending`:
-
-```sh
-npx -y firebase-tools@latest deploy --only firestore:rules --project arcana-arena-f2997
-```
-
-Guardar supervivencia conserva el acumulado dentro del archivo local. Continuar normalmente mantiene el identificador; recuperar un guardado anterior a un informe ya archivado o continuar tras cambiar de versión abre un tramo nuevo, con contadores nuevos y `continuation: true`. Así no se sobrescribe el desenlace anterior ni se mezclan dos versiones de balance.
-
-Las verificaciones visuales, perfiles de rendimiento y modos de prueba desactivan el archivo/envío de telemetría de producción.
+Las verificaciones visuales, perfiles de rendimiento y modos de prueba desactivan el envío de producción. El visor de QA recibe páginas simuladas en memoria; no escribe informes ni consulta Firestore real.
 
 ## Anonimato del contenido
 
@@ -57,7 +47,9 @@ Esto describe el contenido de los informes. Los proveedores de red y alojamiento
 
 Desde 0.29.2, en Perfil aparece **Estadísticas de partidas** para cualquiera de los dos UID indicados por el propietario y definidos en `Main.Statistics.cs`. También funciona con ese perfil guardado sin conexión. La comprobación es local e inmediata. Al cambiar de cuenta o cerrar sesión se cierra el visor.
 
-El visor lee hasta 1000 informes JSON de `user://match-statistics/matches` fuera del hilo de interfaz y permite volver a leerlos con **Actualizar archivos locales**. Ofrece resumen, elementos, monstruos, hechizos/combinaciones, progresión y clases/equipos, con filtros de modo, versión, periodo y partidas interrumpidas. Sus cifras corresponden únicamente a los archivos de ese dispositivo. Si no hay informes, muestra el estado vacío. Mostrar el botón y abrir las gráficas no consulta roles ni informes de Firestore.
+Desde 0.29.9 el visor consulta directamente Firestore con la sesión Google del usuario y comprueba su permiso en `statisticsReaders/<uid>.enabled`. Las dos cuentas indicadas conservan el botón en Perfil; para obtener los informes globales necesitan una sesión válida y el permiso remoto habilitado. La lectura funciona sin servidor de cuentas ni partidas.
+
+Se consultan páginas de diez documentos, hasta diez páginas por acción. **Cargar más partidas** amplía la muestra hasta un máximo de 1000 documentos; **Actualizar desde Firebase** reinicia la consulta. Se omiten informes inválidos y se agrupan revisiones por partida antes de sumar. El texto de la pantalla indica si quedan páginas y si se alcanzó el límite. Los filtros de modo, versión, periodo, origen y partidas interrumpidas se aplican a la muestra cargada. Si falla la conexión se conserva la muestra ya consultada en la pantalla, exclusivamente en memoria; al cambiar de cuenta o cerrar sesión se cierra el visor.
 
 Desde 0.29.5, Elementos muestra una gráfica de barras verticales con los ocho elementos en X y puntos acumulados en Y. Vida representa curación efectiva registrada, sin sobrecuración; Escudo representa absorción real, sin contar capacidad concedida o reparada que nunca recibe daño. Los demás elementos suman daño a vida y a escudos, repartido por la contribución real de las mezclas. El daño físico queda en la tabla, fuera de los ocho elementos. La curación incluye las fuentes de soporte registradas, como las habilidades pasivas; no se atribuye toda ella a un hechizo específico de Vida.
 
@@ -67,26 +59,16 @@ Humanos y bots se agrupan por defecto en un único origen. Elementos y Hechizos 
 
 Las seis vistas conservan las tablas numéricas. La amenaza media de cada especie divide daño causado entre apariciones; no es DPS. La curva de dificultad divide vida inicial total entre apariciones de cada etapa y combina las especies presentes; no representa el escalado aislado de una especie. Las gráficas usan únicamente los informes cargados y filtrados, sin nuevas solicitudes ni identidades.
 
-La lectura remota preparada en 0.29.0 queda separada del visor local actual. Esta versión no concede roles de lectura en Firebase. Para una futura activación remota, las reglas incluyen pruebas de emulador: únicamente una cuenta Google con `statisticsReaders/<uid>.enabled == true` puede consultar la colección. El cliente puede aportar estadísticas anónimas pero no concederse permisos de lectura. Un usuario puede leer únicamente su propio documento de permiso; no puede enumerar las cuentas autorizadas. Los perfiles e inventarios conservan sus permisos anteriores.
+Las reglas permiten leer la colección únicamente a cuentas Google con `statisticsReaders/<uid>.enabled == true`. El cliente no puede concederse este permiso ni enumerar las cuentas autorizadas. El administrador habilita los dos UID indicados en esos documentos de permiso. Los UID y correos no se incorporan a los informes anónimos.
 
-Para autorizar exactamente dos cuentas existentes, con credenciales Admin del proyecto:
-
-```sh
-FIREBASE_PROJECT_ID=arcana-arena-f2997 dotnet src/Arcana.Server/bin/Release/net8.0/Arcana.Server.dll --statistics-readers 'CORREO_GOOGLE_1' 'CORREO_GOOGLE_2'
-```
-
-También admite `uid:UID`. Comprueba que ambas cuentas sean Google, estén activas y sean distintas; revoca los demás documentos de `statisticsReaders` y concede ambas autorizaciones en un único lote. Los correos no se incorporan al informe ni al documento de permiso.
-
-Publicar las reglas y la exclusión de índices del cuerpo JSON en la base existente `(default)`:
+Publicar las reglas y la exclusión de índices del cuerpo JSON en la base existente:
 
 ```sh
 npx firebase-tools deploy --only firestore:rules,firestore:indexes --project arcana-arena-f2997
 ```
 
-Antes de desplegar, comprobar la edición y configuración de la base existente con `firestore:databases:list` y `firestore:databases:get '(default)'`; esta función no crea otra base. Las consultas usan la API de documentos existente y ordenan por `day`; `payload` no necesita indexación.
-
-El visor local actual no requiere la activación remota anterior. Los informes y las colas de sincronización mantienen su formato; los UID del botón no se incorporan al contenido anónimo de las partidas.
+Esta función no crea otra base ni requiere habilitar Firebase Anonymous Authentication. Las consultas usan la API de documentos y ordenan por `day`; `payload` no necesita indexación.
 
 ## Verificación reproducible
 
-`MatchStatisticsTests` comprueba anonimato, daño efectivo y resistencias, escudos, curación, rondas, guardados, reenvíos, interrupciones y corrupción. Las pruebas de red ejercitan la entrega del informe y el relé real. `MatchStatisticsEmulatorTests` prueba transacciones concurrentes y revisiones antiguas. `tests/firebase-rules/verify.cjs` comprueba ambas cuentas, consultas, revocación, denegación anónima, escalación y escrituras rechazadas. `--statistics-smoke` verifica los dos UID exactos y su botón sin sesión de red, otras cuentas, cierre de sesión, carga desde archivos locales, seis vistas con gráficas, barras verticales, daño por especie en ambas direcciones con dos gráficas y escalas independientes incluso con valores muy desproporcionados, curación/absorción efectivas, agrupación humano+bot, categorías a cero, filtros numéricos de modo/origen, medias ponderadas y límites horizontales en escritorio y móvil; CI conserva sus capturas.
+`MatchStatisticsTests` comprueba anonimato, daño efectivo y resistencias, escudos, curación, rondas, guardados, reintentos en memoria, revisiones concurrentes y documentos corruptos. Las pruebas de red ejercitan la entrega del informe y el relé real. `MatchStatisticsEmulatorTests` prueba transacciones concurrentes y revisiones antiguas. `tests/firebase-rules/verify.cjs` comprueba ambas cuentas, consultas, revocación, denegación anónima, escalación y escrituras rechazadas. `--statistics-smoke` verifica los dos UID exactos y su botón sin sesión de red, otras cuentas, cierre de sesión, consulta paginada simulada sin archivos ni red de producción, seis vistas con gráficas, barras verticales, daño por especie en ambas direcciones con dos gráficas y escalas independientes incluso con valores muy desproporcionados, curación/absorción efectivas, agrupación humano+bot, categorías a cero, filtros numéricos de modo/origen, medias ponderadas y límites horizontales en escritorio y móvil; CI conserva sus capturas.

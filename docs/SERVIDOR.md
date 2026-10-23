@@ -28,7 +28,6 @@ Hay hasta 16 salas, cada una con 2–16 plazas, incluidas las de bots. Duelo uti
 | `TICKETS` | 75 | Tickets iniciales por equipo en guerra |
 | `SERVER_PASSWORD` | vacía | Contraseña opcional del saludo; máximo 128 caracteres |
 | `ARCANA_LOG_LEVEL` | Information | `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical` |
-| `ARCANA_MATCH_STATISTICS_DIR` | Carpeta `match-statistics` junto a `logs`; Docker `/app/data/match-statistics` | Historial JSON y cola de estadísticas anónimas; conservar el volumen `/app/data` |
 | `ARCANA_LOG_DIRECTORY` | Datos locales de usuario / ArcanaArena / logs | Carpeta del servidor dedicado; Docker usa `/app/logs` |
 
 Estos ajustes configuran la **sala principal** del servidor dedicado. Las salas adicionales tienen sus propias opciones, elegidas desde el launcher. La contraseña del servidor autoriza tanto entrar como crear salas.

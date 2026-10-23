@@ -188,7 +188,6 @@ builder.Services.ConfigureHttpJsonOptions(json =>
 builder.Logging.ClearProviders(); builder.Services.AddSingleton(accounts);
 builder.Services.AddSingleton(new ServerSettings { Port = 28339, DiscoveryPort = 28340, World = new() { Mode = GameMode.Duel, MaxPlayers = 2, ScoreLimit = 5 } });
 builder.Services.AddSingleton<RewardService>();
-Environment.SetEnvironmentVariable("ARCANA_MATCH_STATISTICS_DIR", Path.Combine(Path.GetTempPath(), "arcana-statistics-live-" + suffix));
 builder.Services.AddSingleton<MatchStatisticsService>();
 builder.Services.AddHostedService(p => p.GetRequiredService<MatchStatisticsService>());
 builder.Services.AddSingleton<GameService>();

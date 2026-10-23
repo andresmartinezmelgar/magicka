@@ -533,10 +533,10 @@ internal static class DefenseTests
             a.RequestMatchStatistics();
             for (int i = 0; i < 50 && a.LatestStatistics?.Humans != 2; i++) await Task.Delay(50);
             Check(a.LatestStatistics is { Network: true, Humans: 2, Bots: 1 }, "El cliente no recibió el informe cooperativo.");
-            string report = a.LatestStatistics!.ToJson();
+            string report = (a.LatestStatistics! with { Status = MatchRecordStatus.Left }).ToJson();
             using var http = new HttpClient();
             using var accepted = await http.PostAsync(RoomBrowser.Endpoint(address, "analytics/matches"), new StringContent(report, System.Text.Encoding.UTF8, "application/json"));
-            Check(accepted.StatusCode == System.Net.HttpStatusCode.Accepted, "El relé no guardó el informe.");
+            Check(accepted.StatusCode == System.Net.HttpStatusCode.Accepted, "El relé no aceptó el informe cerrado en memoria.");
             using var rejected = await http.PostAsync(RoomBrowser.Endpoint(address, "analytics/matches"), new StringContent(report[..^1] + ",\"email\":\"private@example.com\"}", System.Text.Encoding.UTF8, "application/json"));
             Check(rejected.StatusCode == System.Net.HttpStatusCode.BadRequest, "El relé aceptó identidad fuera del contrato.");
             SnapshotValidation.Check(a.Latest);

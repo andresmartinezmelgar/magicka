@@ -21,13 +21,8 @@ public sealed partial class GameWorld
         foreach (var p in _players.Values) _statistics.Bind(p, spawn: !carry);
         foreach (var m in _minions.Values) _statistics.Bind(m.Body, m.Kind, spawn: !carry);
     }
-    /// <summary>Rebobinar un guardado ya avanzado abre un tramo nuevo y no reenvía el mismo acumulado.</summary>
-    public void ReconcileMatchStatistics(MatchStatisticsReport? archived)
-    {
-        var current = MatchStatistics();
-        if (archived?.RunId != current.RunId || !archived.Complete && archived.Revision <= current.Revision) return;
-        RestoreStatistics(null);
-    }
+    /// <summary>Continuar un punto abre otro tramo sin depender de un historial local ni volver a contar lo ya jugado.</summary>
+    public void StartStatisticsContinuation() => RestoreStatistics(null);
     private void HitAs(StatisticAttack cause, Wizard target, SpellRecipe spell, float scale, int owner, V2 force)
     {
         var previous = _statisticsAttack; _statisticsAttack = cause;

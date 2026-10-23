@@ -4,7 +4,7 @@ using System.Globalization;
 
 namespace Arcana.Client;
 
-/// <summary>Gráficas sobre los informes anónimos guardados en este dispositivo.</summary>
+/// <summary>Gráficas sobre los informes anónimos de Firestore, agrupados por partida.</summary>
 public partial class MatchStatisticsPanel : Control
 {
     private Main _main = null!;
@@ -12,7 +12,10 @@ public partial class MatchStatisticsPanel : Control
     private readonly Dictionary<string, MatchStatisticsReport> _reports = new(StringComparer.Ordinal);
     private VBoxContainer _body = null!;
     private Label _status = null!;
-    private Button _more = null!;
+    private Button _more = null!, _refresh = null!;
+    private string _nextPageToken = "";
+    private int _loadedPages;
+    private readonly HashSet<string> _pageTokens = new(StringComparer.Ordinal);
     private GridContainer _filters = null!;
     private OptionButton _mode = null!, _period = null!, _version = null!, _view = null!, _source = null!;
     private CheckBox _unfinished = null!;
@@ -32,7 +35,7 @@ public partial class MatchStatisticsPanel : Control
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; margin.AddChild(scroll); Ui.VisibleVerticalScroll(scroll);
         var content = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; content.AddThemeConstantOverride("separation", 12); scroll.AddChild(content);
         content.AddChild(Ui.Label("ESTADÍSTICAS DE PARTIDAS", 24, Ui.Gold));
-        var explanation = Ui.Label(verification ? "Datos de prueba de QA · archivos locales" : "Archivos de este dispositivo · sin nombres ni cuentas en los informes", 16, Ui.Muted); explanation.AutowrapMode = TextServer.AutowrapMode.WordSmart; content.AddChild(explanation);
+        var explanation = Ui.Label(verification ? "Datos de prueba de QA · consulta paginada simulada" : "Estadísticas globales de Firebase · informes anónimos de todos los dispositivos", 16, Ui.Muted); explanation.AutowrapMode = TextServer.AutowrapMode.WordSmart; content.AddChild(explanation);
         _filters = new GridContainer { Columns = 3, SizeFlagsHorizontal = SizeFlags.ExpandFill }; content.AddChild(_filters);
         _filters.AddThemeConstantOverride("h_separation", 10); _filters.AddThemeConstantOverride("v_separation", 8);
         _mode = Select("Modo", ["Todos los modos", "Duelo", "Arena", "Guerra", "Supervivencia"]);
@@ -43,10 +46,11 @@ public partial class MatchStatisticsPanel : Control
         _unfinished = new CheckBox { Text = "Incluir partidas interrumpidas", ButtonPressed = true }; _unfinished.Toggled += _ => Render(); _filters.AddChild(_unfinished);
         _status = Ui.Label("Cargando informes…", 16, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; content.AddChild(_status);
         _body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; _body.AddThemeConstantOverride("separation", 12); content.AddChild(_body);
-        _more = Ui.Button("Actualizar archivos locales", () => _ = Fetch()); content.AddChild(_more);
+        _refresh = Ui.Button("Actualizar desde Firebase", () => _ = Fetch(true)); content.AddChild(_refresh);
+        _more = Ui.Button("Cargar más partidas", () => _ = Fetch(false)); _more.Visible = false; content.AddChild(_more);
         ArcanaMenuChrome.Attach(this, margin, main, "Estadísticas", 3, main.NavigateOptionAMenu);
         GetViewport().SizeChanged += ResizeFilters; ResizeFilters();
-        _ = Fetch();
+        _ = Fetch(true);
     }
     private OptionButton Select(string title, string[] choices)
     {
@@ -71,28 +75,41 @@ public partial class MatchStatisticsPanel : Control
         foreach (string version in _reports.Values.Select(p => p.GameVersion).Distinct().OrderDescending()) _version.AddItem(version);
         for (int i = 0; i < _version.ItemCount; i++) if (_version.GetItemText(i) == selected) _version.Select(i);
     }
-    private async Task Fetch()
+    private async Task Fetch(bool reset)
     {
         if (_loading) return;
-        _loading = true; _more.Disabled = true;
+        _loading = true; _more.Disabled = _refresh.Disabled = true;
         string? uid = _main.Accounts.Profile?.Uid;
         try
         {
-            var reports = await _main.ReadLocalMatchStatistics(_lifetime.Token);
-            if (_lifetime.IsCancellationRequested || !_main.CanViewMatchStatistics || _main.Accounts.Profile?.Uid != uid) return;
-            _reports.Clear();
-            foreach (var report in reports)
-                if (!_reports.TryGetValue(report.RunId, out var previous) || MatchStatisticsReport.IsNewer(report, previous)) _reports[report.RunId] = report;
+            string cursor = reset ? "" : _nextPageToken;
+            for (int i = 0; i < 10; i++)
+            {
+                var page = await _main.ReadCloudMatchStatistics(cursor, _lifetime.Token);
+                if (_lifetime.IsCancellationRequested || !_main.CanViewMatchStatistics || _main.Accounts.Profile?.Uid != uid) return;
+                if (reset && i == 0) { _reports.Clear(); _pageTokens.Clear(); _loadedPages = 0; }
+                if (page.NextPageToken.Length > 0 && !_pageTokens.Add(page.NextPageToken))
+                    throw new System.IO.InvalidDataException("Firebase devolvió una página repetida.");
+                foreach (var report in page.Reports)
+                    if (!_reports.TryGetValue(report.RunId, out var previous) || MatchStatisticsReport.IsNewer(report, previous)) _reports[report.RunId] = report;
+                _nextPageToken = cursor = page.NextPageToken; _loadedPages++;
+                if (cursor.Length == 0 || _loadedPages >= 100) break;
+            }
             Versions(); Render();
+            _more.Visible = _nextPageToken.Length > 0 && _loadedPages < 100;
+            _refresh.Text = "Actualizar desde Firebase";
         }
         catch (OperationCanceledException) { }
-        catch (Exception error) when (error is System.IO.IOException or UnauthorizedAccessException or InvalidOperationException or System.Text.Json.JsonException)
+        catch (Exception error) when (error is System.IO.IOException or UnauthorizedAccessException or HttpRequestException or InvalidOperationException or System.Text.Json.JsonException)
         {
             if (_lifetime.IsCancellationRequested) return;
-            _status.Text = "No se pudieron leer los archivos locales. Puedes reintentar.";
-            _more.Visible = true; _more.Text = "Reintentar";
+            Versions(); Render();
+            _status.Text = error is UnauthorizedAccessException ? error.Message
+                : "No se pudo consultar Firebase. Los datos ya cargados se conservan en esta pantalla.";
+            _refresh.Text = "Reintentar consulta";
+            _more.Visible = _nextPageToken.Length > 0 && _loadedPages < 100;
         }
-        finally { _loading = false; if (!_lifetime.IsCancellationRequested) _more.Disabled = false; }
+        finally { _loading = false; if (!_lifetime.IsCancellationRequested) _more.Disabled = _refresh.Disabled = false; }
     }
     private double Sum(StatisticGroup group, StatisticMeasure measure, int key = 0) => _totals.GetValueOrDefault((group, key, measure));
     private double ElementSum(StatisticMeasure measure, int key) => _source.Selected switch
@@ -135,8 +152,9 @@ public partial class MatchStatisticsPanel : Control
             (days == 0 || string.CompareOrdinal(p.Day, since) >= 0) && (_unfinished.ButtonPressed || p.Complete)).ToArray();
         foreach (var report in reports) foreach (var m in report.Metrics)
         { var key = (m.Group, m.Key, m.Measure); _totals[key] = _totals.GetValueOrDefault(key) + m.Value; }
-        _status.Text = $"{reports.Length} {(reports.Length == 1 ? "partida" : "partidas")} · {_reports.Count} informes locales · {reports.Count(p => p.Complete)} finalizados\nLos filtros se aplican a los archivos cargados (máximo 1000).";
-        if (reports.Length == 0) { Note("No hay partidas guardadas en este dispositivo para esta selección."); return; }
+        _status.Text = $"{reports.Length} {(reports.Length == 1 ? "partida" : "partidas")} · {_reports.Count} partidas de Firebase · {reports.Count(p => p.Complete)} finalizadas\nLos filtros se aplican a los informes consultados (máximo 1000 documentos).";
+        if (_nextPageToken.Length > 0) _status.Text += _loadedPages < 100 ? " Carga más partidas para ampliar la muestra." : " Se alcanzó el límite de consulta.";
+        if (reports.Length == 0) { Note("No hay partidas de Firebase para esta selección."); return; }
         if (reports.Any(p => p.DroppedBuckets > 0)) Note("Algunos informes agotaron el límite de detalle; los totales se conservan. Consulta otra selección para comparar el desglose.");
         double seconds = reports.Sum(p => p.Seconds);
         switch (_view.Selected)
