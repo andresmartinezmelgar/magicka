@@ -135,10 +135,15 @@ public partial class EquipmentPanel
             bool maximum = supportsUpgrade && !ItemAffixes.CanUpgrade(item, itemLevel);
             int cost = maximum ? 0 : DefenseRules.UpgradeCost(item.Tier, itemLevel);
             string currency = entry == null ? "de cuenta" : "de partida";
+            long availableGold = entry == null ? _draft!.Gold : _defensePlayer!.Gold;
+            string improvement = RingEffects.IsRing(item.Slot)
+                ? " El efecto del anillo progresa con su nivel."
+                : " Suma un punto porcentual a cada atributo; diez puntos sobre su valor inicial.";
             var upgrade = PickerAction(actions, "EquipmentUpgrade_", item.Id, _upgradeIcon, Ui.Health,
                 !supportsUpgrade ? "Defensa" : maximum ? "Máximo" : $"{cost} oro",
                 !supportsUpgrade ? "Mejorar estadísticas con oro durante una partida de Defensa." : maximum ? "Esta pieza ha alcanzado su límite de mejora." :
-                $"Mejorar por {cost} oro {currency}. Mejora {itemLevel + 1} / 10. El efecto del anillo progresa con su nivel.", () => ClickUpgrade(item.Id));
+                $"Mejorar por {cost} oro {currency}. Mejora {itemLevel + 1} / 10." + improvement +
+                (availableGold < cost ? $" Faltan {cost - availableGold} oro {currency}." : ""), () => ClickUpgrade(item.Id));
             _upgradeButtons.Add(item.Id, upgrade);
             string blocked = UpgradeBlockedReason(item.Id);
             if (blocked.Length > 0)
