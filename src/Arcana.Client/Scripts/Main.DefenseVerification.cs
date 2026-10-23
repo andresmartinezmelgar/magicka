@@ -16,6 +16,7 @@ public partial class Main
     private EquipmentLoadout? _defenseChosenLoadout;
     private string _defenseSoldItem = "";
     private EquipmentItem? _defenseUpgradeBefore;
+    private string[] _defenseItemsBeforeSupply = [];
     private long _defenseGoldAfterSale;
     private int _defenseTotalsReview, _defenseBulkReview;
     private string[] _defenseBulkItems = [];
@@ -281,6 +282,7 @@ public partial class Main
                     ((Label)inventory.FindChild("EquipmentItemStats_" + improved.Item.Id, true, false)).Text.Contains(EquipmentCatalogue.Percent(improved.Item.Bonuses[0].Current)),
                     "El selector no actualiza el siguiente coste y las estadísticas mejoradas.");
                 CaptureDefense("05-mejora-pieza");
+                _defenseItemsBeforeSupply = player.Items.Select(i => i.Item.Id).ToArray();
                 inventory.HandleBack();
                 ((Button)panel.EquipmentInventory!.FindChild("DefenseInventorySupply", true, false)).EmitSignal(Button.SignalName.Pressed);
                 _defenseSmokePhase++; return false;
@@ -291,6 +293,12 @@ public partial class Main
                 Check(player.Items.Length == 9 && player.Gold == 1180 - DefenseRules.UpgradeCost(_defenseUpgradeBefore!.Tier, 0) && panel.EquipmentInventory?.Saving == false,
                     "Comprar una pieza no actualizó el inventario y el oro de partida.");
                 var inventory = panel.EquipmentInventory!;
+                var supplied = player.Items.Single(i => !_defenseItemsBeforeSupply.Contains(i.Item.Id));
+                var expectedLoadout = _defenseChosenLoadout!.Get(supplied.Item.Slot).Length == 0
+                    ? _defenseChosenLoadout.With(supplied.Item.Slot, supplied.Item.Id) : _defenseChosenLoadout;
+                Check(inventory.PreviewProfile!.Loadout == expectedLoadout,
+                    "Comprar una pieza reemplazó equipo o no equipó una posición vacía.");
+                _defenseChosenLoadout = expectedLoadout;
                 inventory.PressInspect(EquipmentSlot.Boots);
                 _defenseSoldItem = player.Items.First(i => !i.Equipped && i.Item.Slot == EquipmentSlot.Boots).Item.Id;
                 _defenseGoldAfterSale = player.Gold + player.Items.Single(i => i.Item.Id == _defenseSoldItem).Item.SaleGold;
