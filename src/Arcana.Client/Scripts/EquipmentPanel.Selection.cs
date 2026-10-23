@@ -77,13 +77,14 @@ public partial class EquipmentPanel
         _selectedSlot = slot; Render();
         _itemButtons.Clear(); _trashButtons.Clear(); _upgradeButtons.Clear(); Clear(_pickerGrid);
         var allChoices = Choices(slot);
-        var choices = EquipmentQuery.Sort(allChoices.Where(PickerFilter.Matches),
-            _sort.Selected > 0 ? (EquipmentStat)(_sort.GetSelectedId() - 1) : null);
         string equipped = _draft?.Loadout.Get(slot) ?? "";
+        var choices = EquipmentQuery.Sort(allChoices.Where(i => i.Id == equipped || PickerFilter.Matches(i)),
+            _sort.Selected > 0 ? (EquipmentStat)(_sort.GetSelectedId() - 1) : null, equipped);
         _pickerTitle.Text = EquipmentCatalogue.SlotName(slot).ToUpperInvariant() + $" · {choices.Length}/{allChoices.Length} objetos";
-        _pickerHelp.Text = "Orden descendente. Marca favoritos para protegerlos de cualquier venta." +
+        _pickerHelp.Text = "La pieza equipada siempre aparece primero. Equipadas y favoritas no se venden." +
             (_defensePlayer == null ? " Las mejoras con oro están disponibles en Defensa." : $" Oro de partida: {_defensePlayer.Gold}.");
-        if (Ui.IsMobile) _pickerHelp.Text = _defensePlayer == null ? "Orden descendente · Los favoritos no se venden." : $"Oro de partida: {_defensePlayer.Gold} · Favoritos protegidos.";
+        if (Ui.IsMobile) _pickerHelp.Text = "Equipada primero · Equipadas y favoritas protegidas." +
+            (_defensePlayer == null ? "" : $" Oro de partida: {_defensePlayer.Gold}.");
         PrepareIcons();
         foreach (var item in choices)
         {
@@ -123,6 +124,7 @@ public partial class EquipmentPanel
                 (Ui.IsMobile ? " Doble toque para vender sin confirmar." : " Doble clic para vender sin confirmar."), () => ClickSell(item.Id));
             trash.SetMeta("sale_item_id", item.Id);
             _trashButtons.Add(item.Id, trash);
+            if (SaleEquipped(item.Id)) trash.TooltipText = "Pieza equipada: venta bloqueada. Desequípala y guarda el equipo al salir antes de venderla.";
             var equip = PickerAction(actions, "EquipmentEquip_", item.Id, _equipIcon, selected ? Ui.Gold : Ui.Blue,
                 selected ? "Quitar" : "Equipar", selected ? "Quitar esta pieza equipada." : "Equipar esta pieza. Se guardará al salir del inventario.",
                 () => ChooseItem(selected ? "" : item.Id));
@@ -167,7 +169,7 @@ public partial class EquipmentPanel
     private void UpdatePickerActions()
     {
         foreach (var button in _itemButtons.Values) button.Disabled = _busy || (_defensePlayer != null && !CanChangeDefenseItems);
-        foreach (var (id, button) in _trashButtons) button.Disabled = _busy || !CanSellInventory || Preferences.Protected(id);
+        foreach (var (id, button) in _trashButtons) button.Disabled = _busy || !CanSellInventory || SaleProtected(id);
         foreach (var (id, button) in _upgradeButtons) button.Disabled = !CanUpgradeDefenseItem(id);
         UpdatePreferenceActions();
     }

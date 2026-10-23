@@ -73,6 +73,10 @@ public partial class Main
             if (_salePhase == 1)
             {
                 if (Accounts.ServerAddress.Length == 0) return false;
+                Check(Trash(fixture.EquippedWeapon.Id).Disabled && panel.PickerItems.First() == fixture.EquippedWeapon.Id,
+                    "La pieza equipada de plata no aparece primero o se permite venderla.");
+                panel.PressTrash(fixture.EquippedWeapon.Id);
+                Check(!dialog.Visible && fixture.SaleAttempts == 0, "Forzar la papelera permite vender una equipada.");
                 Check(!Trash(fixture.Weapon.Id).Disabled, "Conectar el servidor no habilita la venta en el selector que ya estaba abierto.");
                 if (_quickItemActions) ClickItemWithPointer(panel, "EquipmentTrash_" + fixture.Weapon.Id, 1);
                 else panel.PressTrash(fixture.Weapon.Id);
@@ -86,7 +90,7 @@ public partial class Main
                 var stats = (GridContainer)dialog.FindChild("SaleStats", true, false);
                 Check(stats.GetChildren().OfType<Label>().Count() == (fixture.Weapon.Bonuses.Length + 1) * 2 &&
                     ((Label)dialog.FindChild("SaleGold", true, false)).Text.Contains("400") &&
-                    ((Label)dialog.FindChild("SaleWarning", true, false)).Text.Contains("desequipará"), "La confirmación no muestra atributos, precio o aviso de pieza equipada.");
+                    ((Label)dialog.FindChild("SaleWarning", true, false)).Text.Contains("protegidas"), "La confirmación no muestra atributos, precio o protección de equipadas.");
                 // Los límites de ventanas y texto se verifican con render real en tres tamaños.
                 if (DisplayServer.GetName() != "headless")
                 {
@@ -99,13 +103,14 @@ public partial class Main
                     Check(scroll.ScrollVertical == 0 && scroll.GetGlobalRect().Grow(2).Encloses(((Control)dialog.FindChild("SaleWarning", true, false)).GetGlobalRect()),
                         "La venta requiere desplazar el contenido para leer el aviso.");
                 }
-                CaptureSale("01-mitico-equipado"); panel.HandleBack();
+                CaptureSale("01-mitico-sin-equipar"); panel.HandleBack();
                 Check(!dialog.Visible && panel.PickerVisible && fixture.Sales == 0, "Cancelar vendió la pieza o cerró el selector.");
                 if (_quickItemActions)
                 {
                     panel.PressChoice("");
                     Check(panel.PreviewProfile!.Loadout.Weapon == "" && !Trash(fixture.Weapon.Id).Disabled,
                         "Quitar una pieza impide venderla.");
+                    Check(Trash(fixture.EquippedWeapon.Id).Disabled, "Una retirada pendiente de guardar permite vender la pieza anterior.");
                     panel.PressChoice(fixture.Spare.Id);
                     ClickItemWithPointer(panel, "EquipmentTrash_" + fixture.Weapon.Id, 2);
                 }
@@ -126,11 +131,11 @@ public partial class Main
             {
                 if (panel.Saving) return false;
                 Check(fixture.Sales == 1 && fixture.SaleAttempts == 1 && Accounts.Profile!.Gold == 2900 && panel.PreviewProfile!.Items.All(i => i.Id != fixture.Weapon.Id) &&
-                    panel.PreviewProfile.Loadout.Weapon == (_quickItemActions ? fixture.Spare.Id : "") && panel.PickerVisible && !dialog.Visible,
+                    panel.PreviewProfile.Loadout.Weapon == (_quickItemActions ? fixture.Spare.Id : fixture.EquippedWeapon.Id) && panel.PickerVisible && !dialog.Visible,
                     "Vender no actualiza el oro, elimina otra pieza, duplica la venta o conserva la ventana.");
                 if (_quickItemActions)
                 {
-                    Check(Accounts.Profile!.Loadout.Weapon == "" && panel.PreviewProfile!.Items.Any(i => i.Id == fixture.Spare.Id),
+                    Check(Accounts.Profile!.Loadout.Weapon == fixture.EquippedWeapon.Id && panel.PreviewProfile!.Items.Any(i => i.Id == fixture.Spare.Id),
                         "El doble clic elimina otra pieza o guarda la selección pendiente antes de salir.");
                     GD.Print("QUICK_SALE_OK: clic simple con modal, doble clic/toque vende una vez sin modal y conserva la selección pendiente.");
                 }
@@ -165,7 +170,7 @@ public partial class Main
                 if (Accounts.Profile != null) return false;
                 Check(!dialog.Visible && !panel.PickerVisible && fixture.Sales == (_saleLogoutProbe ? 0 : 1), "Cerrar sesión deja visible una venta de la cuenta anterior.");
                 Check(_engineLog.ErrorCount == 0, "Godot registró errores durante la venta.");
-                GD.Print("SALE_SMOKE_OK: conexión tardía, pieza y atributos, saldo, cancelar, venta única, desequipado y cierre de sesión.");
+                GD.Print("SALE_SMOKE_OK: equipada primero y protegida, conexión tardía, saldo, cancelar, venta única y cierre de sesión.");
                 _saleSmoke = false; GetTree().Quit(); return true;
             }
         }
@@ -185,12 +190,13 @@ public partial class Main
         public readonly EquipmentItem Weapon = EquipmentCatalogue.Generate(new(81), tier: ItemTier.Mythic, slot: EquipmentSlot.Weapon, family: EquipmentFamily.Fire);
         public readonly EquipmentItem Boots = EquipmentCatalogue.Generate(new(82), tier: ItemTier.Gold, slot: EquipmentSlot.Boots);
         public readonly EquipmentItem Spare = EquipmentCatalogue.Generate(new(83), tier: ItemTier.Mythic, slot: EquipmentSlot.Weapon);
+        public readonly EquipmentItem EquippedWeapon = EquipmentCatalogue.Generate(new(84), tier: ItemTier.Silver, slot: EquipmentSlot.Weapon);
         public bool IncludeSpare;
         public int Sales, SaleAttempts;
         private long _gold = 2500;
         private bool _sold;
-        private EquipmentLoadout Loadout => new(Weapon: _sold ? "" : Weapon.Id);
-        private EquipmentItem[] Items => (_sold ? new[] { Boots } : new[] { Weapon, Boots }).Concat(IncludeSpare ? [Spare] : Array.Empty<EquipmentItem>()).ToArray();
+        private EquipmentLoadout Loadout => new(Weapon: EquippedWeapon.Id);
+        private EquipmentItem[] Items => (_sold ? new[] { Boots, EquippedWeapon } : new[] { Weapon, Boots, EquippedWeapon }).Concat(IncludeSpare ? [Spare] : Array.Empty<EquipmentItem>()).ToArray();
         private AccountProfile Profile => new("sale-fixture", "Mercader", _gold, 0, 0, Loadout, Items);
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
         {

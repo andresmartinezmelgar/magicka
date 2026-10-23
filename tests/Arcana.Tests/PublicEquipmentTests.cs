@@ -20,7 +20,7 @@ internal static class PublicEquipmentTests
                 Check(copy.Equipment.Items.Length == 4 && copy.Equipment.Sets.Single().Pieces == 4, "No se publicaron las cuatro piezas.");
                 Check(copy.Equipment.Stats.All(s => Math.Abs(s.Effective - prepared.Modifiers.Bonus(s.Stat)) < 0.00001f), "El bono publicado no coincide con combate.");
                 Check(!json.Contains("private-user") && !json.Contains(hidden.Id) && !json.Contains("saleGold") && !json.Contains("sourceMatchId") &&
-                    items.All(i => !json.Contains(i.Id)) && !json.Contains("gold") && !json.Contains("minimum") && !json.Contains("maximum"), "Se publicaron datos privados.");
+                    items.All(i => !json.Contains(i.Id)) && !json.Contains("\"gold\":") && !json.Contains("minimum") && !json.Contains("maximum"), "Se publicaron datos privados.");
                 var world = new GameWorld(new()); var player = world.AddPlayer("Mago")!; world.EquipPlayer(player.Id, prepared);
                 Check(player.Equipment == prepared.Modifiers && ReferenceEquals(player.PublicEquipment, prepared.View), "La ficha y el combate usan equipos diferentes.");
                 Check(!Protocol.Serialize(world.Snapshot()).Contains("inspection") && !Protocol.Serialize(world.Snapshot()).Contains("bonuses"), "Se añadieron las fichas a cada snapshot.");

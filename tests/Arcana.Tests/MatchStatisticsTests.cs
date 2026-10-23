@@ -16,6 +16,49 @@ internal static class MatchStatisticsTests
     private static void Reject(Action action) { try { action(); } catch (Exception e) when (e is InvalidDataException or JsonException) { return; } throw new Exception("Se aceptó un informe inválido."); }
     public static void Run(Action<string, Action> test)
     {
+        test("Estadísticas: separa fuego directo, áreas, aura y quemadura sin duplicar totales", () =>
+        {
+            var (w, a, b) = Arena(); b.Health = b.MaxHealth = 500; b.Shield = 20;
+            foreach (var (attack, damage) in new[] { (StatisticAttack.Spray, 40f), (StatisticAttack.Nova, 15f), (StatisticAttack.FireAura, 10f), (StatisticAttack.Burn, 5f) })
+                Call(w, "DamageAs", attack, b, damage, a.Id, new[] { Element.Fire });
+            var r = MatchStatisticsReport.Parse(w.MatchStatistics().ToJson());
+            int fire = (int)Element.Fire;
+            double Part(StatisticDamageSource source, StatisticMeasure measure) => r.Sum(StatisticGroup.HumanElementSource, measure, (int)source * 9 + fire);
+            Check(Part(StatisticDamageSource.Direct, StatisticMeasure.Damage) == 20 && Part(StatisticDamageSource.Direct, StatisticMeasure.ShieldDamage) == 20 &&
+                Part(StatisticDamageSource.Area, StatisticMeasure.Damage) == 15 && Part(StatisticDamageSource.Aura, StatisticMeasure.Damage) == 10 &&
+                Part(StatisticDamageSource.Burn, StatisticMeasure.Damage) == 5, "El daño pasivo se atribuye al ataque directo.");
+            foreach (var measure in new[] { StatisticMeasure.Damage, StatisticMeasure.ShieldDamage })
+                Check(r.Sum(StatisticGroup.HumanElementSource, measure) == r.Sum(StatisticGroup.HumanElement, measure) &&
+                    r.Sum(StatisticGroup.Total, measure) == r.Sum(StatisticGroup.HumanElement, measure), "El desglose duplica o pierde daño.");
+        });
+        test("Estadísticas: las áreas mixtas conservan la ponderación real y el entorno tiene su propio origen", () =>
+        {
+            var (w, a, b) = Arena(); b.Health = b.MaxHealth = 500;
+            Call(w, "HitAs", StatisticAttack.Meteor, b, new SpellRecipe([Element.Fire, Element.Arcane]), .1f, a.Id, V2.Zero);
+            var r = w.MatchStatistics();
+            foreach (var element in new[] { Element.Fire, Element.Arcane })
+                Check(r.Sum(StatisticGroup.HumanElementSource, StatisticMeasure.Damage, 9 + (int)element) ==
+                    r.Sum(StatisticGroup.HumanElement, StatisticMeasure.Damage, (int)element), "La mezcla del área cambia de elemento.");
+            Call(w, "DamageAs", StatisticAttack.FireAura, b, 3f, -1, new[] { Element.Fire });
+            r = w.MatchStatistics();
+            Check(r.Sum(StatisticGroup.EnvironmentElementSource, StatisticMeasure.Damage, 18 + (int)Element.Fire) == 3,
+                "El daño del entorno se atribuye al humano.");
+            Reject(() => (r with { Metrics = [new(StatisticGroup.HumanElementSource, 36, StatisticMeasure.Damage, 1)] }).Validate());
+        });
+        test("Gráficas: la escala automática hace visibles los valores pequeños y mantiene ejes reversibles", () =>
+        {
+            var scale = new MatchStatisticsScale([0, 1, 1000, 100000000]);
+            Check(scale.Logarithmic && scale.Normalize(0) == 0 && scale.Normalize(100000000) == 1 && scale.Normalize(1) > .03,
+                "El valor pequeño sigue aplastado o el cero no parte del eje.");
+            foreach (double v in new[] { 0, 1, 1000, 100000000 })
+                Check(Math.Abs(scale.ValueAt(scale.Normalize(v)) - v) <= Math.Max(1e-8, v * 1e-10), "Los rótulos del eje no corresponden al valor.");
+            Check(!new MatchStatisticsScale([4, 5, 10]).Logarithmic && !new MatchStatisticsScale([1, 100000000], false).Logarithmic,
+                "No respeta la escala lineal.");
+            var empty = new MatchStatisticsScale([0, 0], true);
+            Check(empty.Maximum == 1 && empty.Normalize(0) == 0 && double.IsFinite(empty.ValueAt(.5)), "La selección vacía produce un eje inválido.");
+            var tiny = new MatchStatisticsScale([.00001, 100000000]);
+            Check(tiny.Normalize(.00001) > .02 && tiny.ValueAt(0) == 0, "El daño fraccional desaparece.");
+        });
         test("Estadísticas: todos los modos generan un contrato cerrado sin identidad", () =>
         {
             foreach (var mode in Enum.GetValues<GameMode>())

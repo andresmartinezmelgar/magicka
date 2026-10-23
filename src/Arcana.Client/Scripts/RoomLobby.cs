@@ -401,7 +401,7 @@ public partial class RoomLobby : Control
                 ? "SIN RECOMPENSAS: las partidas con IA no conceden premios."
                 : (GameMode)_mode.GetSelectedId() == GameMode.Arena
                     ? "Sin premios por equipos: selecciona Guerra o Duelo para recompensas PvP."
-                    : "Recompensas al ganar la serie: todos con Google, equipos humanos equilibrados (1v1–4v4), actividad mínima de 15 s.";
+                    : "Al finalizar la serie: 50 oro por victoria, 25 por derrota y bonos equipados. Botín para el ganador. Google, equipos humanos equilibrados (1v1–4v4) y 15 s activos.";
     }
 
     private void ShowCreationObjective()

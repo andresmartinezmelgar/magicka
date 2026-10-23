@@ -157,6 +157,7 @@ PerformanceRegressionTests.Run(Test);
 LoadingTests.Run(Test);
 ElementInteractionTests.Run(Test);
 EquipmentTests.Run(Test);
+GoldEquipmentTests.Run(Test);
 BestiaryAndAffixTests.Run(Test);
 BestiaryStatsTests.Run(Test);
 DefenseThreatTests.Run(Test);

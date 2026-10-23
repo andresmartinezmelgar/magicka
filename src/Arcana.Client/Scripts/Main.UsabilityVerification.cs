@@ -69,7 +69,7 @@ public partial class Main
                     Check(saved[fixture.Profile.Uid].Favorites.Count == 2 && saved[fixture.Profile.Uid].Loadouts.Count == 2, "Favoritos y equipos no se guardan en el disco.");
                     var sort = (OptionButton)panel.FindChild("EquipmentSort", true, false);
                     sort.Select((int)EquipmentStat.ColdPower + 1); sort.EmitSignal(OptionButton.SignalName.ItemSelected, sort.Selected);
-                    Check(panel.PickerItems.SequenceEqual(EquipmentQuery.Sort(fixture.Profile.Items.Where(i => i.Slot == EquipmentSlot.Weapon), EquipmentStat.ColdPower).Select(i => i.Id)), "La interfaz no ordena por el atributo elegido.");
+                    Check(panel.PickerItems.SequenceEqual(EquipmentQuery.Sort(fixture.Profile.Items.Where(i => i.Slot == EquipmentSlot.Weapon), EquipmentStat.ColdPower, panel.PreviewProfile!.Loadout.Weapon).Select(i => i.Id)), "La interfaz no fija primero la equipada al ordenar por atributo.");
                     Check(((Label)panel.FindChild("EquipmentComparison_" + fixture.Extras[1].Id, true, false)).Text.Contains("4/4 → 3/4"), "Falta el cambio de conjunto en la comparación.");
                     Button("EquipmentBulkToggle").EmitSignal(BaseButton.SignalName.Pressed);
                     Button("EquipmentBulkAll").EmitSignal(BaseButton.SignalName.Pressed);
@@ -84,7 +84,7 @@ public partial class Main
                     CaptureUsability("02-venta-multiple");
                     dialog.EmitSignal(ConfirmationDialog.SignalName.Confirmed); _usabilityStage++; return false;
                 case 3:
-                    Check(fixture.Sold == 1 && fixture.Attempts == 2 && panel.VisibleItems == 6 && panel.PreviewProfile!.Gold == fixture.Profile.Gold,
+                    Check(fixture.Sold == 1 && fixture.Attempts == 2 && panel.VisibleItems == 7 && panel.PreviewProfile!.Gold == fixture.Profile.Gold,
                         "Un fallo parcial pierde objetos, oro o duplica ventas.");
                     teams.Select(1); teams.EmitSignal(OptionButton.SignalName.ItemSelected, 1);
                     Check(Button("EquipmentApplyTeam").Disabled, "Se permite aplicar un equipo con una pieza vendida.");
@@ -92,7 +92,7 @@ public partial class Main
                     Button("EquipmentBulkSell").EmitSignal(BaseButton.SignalName.Pressed); dialog.EmitSignal(ConfirmationDialog.SignalName.Confirmed);
                     _usabilityStage++; return false;
                 case 4:
-                    Check(fixture.Sold == 2 && fixture.Attempts == 3 && panel.VisibleItems == 5 && panel.PreviewProfile!.Items.Any(i => i.Id == fixture.Extras[0].Id),
+                    Check(fixture.Sold == 2 && fixture.Attempts == 3 && panel.VisibleItems == 6 && panel.PreviewProfile!.Items.Any(i => i.Id == fixture.Extras[0].Id),
                         "Reintentar no conserva la favorita o repite una venta confirmada.");
                     Button("EquipmentFavorite_" + fixture.Extras[0].Id).EmitSignal(BaseButton.SignalName.Pressed);
                     Button("EquipmentBulkAll").EmitSignal(BaseButton.SignalName.Pressed);
@@ -142,17 +142,17 @@ public partial class Main
                     VerifyCustomTouchRouting();
                     _usabilityWait = Time.GetTicksMsec() + 400; _usabilityStage = 99; return false;
                 case 8:
-                    Check(fixture.Sold == 3 && fixture.Attempts == 4 && panel.VisibleItems == 4 && panel.PreviewProfile!.Gold == fixture.Profile.Gold && !Accounts.InventoryNeedsRefresh,
+                    Check(fixture.Sold == 3 && fixture.Attempts == 4 && panel.VisibleItems == 5 && panel.PreviewProfile!.Gold == fixture.Profile.Gold && !Accounts.InventoryNeedsRefresh,
                         "Perder una respuesta de venta no recupera el inventario real o vuelve a enviar la escritura.");
-                    var boots = fixture.Profile.Items.Single(i => i.Slot == EquipmentSlot.Boots);
+                    var boots = fixture.Profile.Items.Single(i => i.Slot == EquipmentSlot.Boots && i.Id != fixture.Profile.Loadout.Boots);
                     panel.PressInspect(EquipmentSlot.Boots);
                     fixture.LoseNextResponse = true; fixture.ReadsOffline = true;
                     panel.PressTrash(boots.Id); dialog.EmitSignal(ConfirmationDialog.SignalName.Confirmed);
                     _usabilityStage = 9; return false;
                 case 9:
-                    Check(Accounts.InventoryNeedsRefresh && fixture.Sold == 4 && fixture.Attempts == 5 && panel.VisibleItems == 4 &&
+                    Check(Accounts.InventoryNeedsRefresh && fixture.Sold == 4 && fixture.Attempts == 5 && panel.VisibleItems == 5 &&
                         ((Label)panel.FindChild("EquipmentPickerStatus", true, false)).Text.Contains("sin confirmar"), "La pérdida de respuesta sin lectura fiable se muestra como una venta descartada.");
-                    var pendingId = panel.PreviewProfile!.Items.Single(i => i.Slot == EquipmentSlot.Boots).Id;
+                    var pendingId = panel.PreviewProfile!.Items.Single(i => i.Slot == EquipmentSlot.Boots && i.Id != fixture.Profile.Loadout.Boots).Id;
                     Check(Button("EquipmentTrash_" + pendingId).Disabled, "Se puede reenviar una venta sin confirmar.");
                     panel.PressTrash(pendingId);
                     Check(fixture.Attempts == 5 && !dialog.Visible, "Un botón desactivado reenvía la operación pendiente.");
@@ -160,7 +160,7 @@ public partial class Main
                     panel.FindChildren("*", "Button", true, false).OfType<Button>().Single(b => b.Text == "Actualizar").EmitSignal(BaseButton.SignalName.Pressed);
                     _usabilityStage = 10; return false;
                 case 10:
-                    Check(!Accounts.InventoryNeedsRefresh && panel.VisibleItems == 3 && panel.PreviewProfile!.Gold == fixture.Profile.Gold && fixture.Attempts == 5,
+                    Check(!Accounts.InventoryNeedsRefresh && panel.VisibleItems == 4 && panel.PreviewProfile!.Gold == fixture.Profile.Gold && fixture.Attempts == 5,
                         "Actualizar no resuelve la venta pendiente o repite su cobro.");
                     GD.Print("SALE_RESPONSE_RECOVERY_OK: respuesta perdida, sincronización automática, bloqueo sin lectura y recuperación manual sin reenvíos.");
                     Check(!_pause.FindChildren("*", "Button", true, false).OfType<Button>().Any(b => b.Text is "Controles táctiles" or "Configurar controles táctiles") &&
@@ -196,7 +196,8 @@ public partial class Main
         {
             var items = Enum.GetValues<EquipmentSlot>().Select(s => EquipmentCatalogue.Generate(new(111 + (int)s),
                 tier: ItemTier.Mythic, slot: s, family: EquipmentFamily.Fire)).ToArray();
-            Profile = new("usability-fixture", "Mago", 10000, 0, 0, new(items[0].Id, items[1].Id, items[2].Id, items[3].Id), [.. items, .. Extras]);
+            var spareBoots = EquipmentCatalogue.Generate(new(143), tier: ItemTier.Silver, slot: EquipmentSlot.Boots);
+            Profile = new("usability-fixture", "Mago", 10000, 0, 0, new(items[0].Id, items[1].Id, items[2].Id, items[3].Id), [.. items, .. Extras, spareBoots]);
         }
         protected override async Task<System.Net.Http.HttpResponseMessage> SendAsync(System.Net.Http.HttpRequestMessage request, CancellationToken token)
         {

@@ -69,6 +69,8 @@ public sealed record EquipmentModifiers
     public int LightningChains { get; init; }
     public float BurnPotency { get; init; } = 1;
     public bool WaterShieldPool { get; init; }
+    public int ExtraGoldPerTwo { get; init; }
+    public int GoldBonusPercent { get; init; }
     public int LifePieces { get; init; }
     public int ShieldPieces { get; init; }
     public int FirePieces { get; init; }
@@ -107,7 +109,7 @@ public sealed record EquipmentModifiers
         var sets = new int[Enum.GetValues<EquipmentFamily>().Length];
         var tiers = new ItemTier?[4];
         var families = new int[sets.Length];
-        int beamPierce = 0, lightningChains = 0;
+        int beamPierce = 0, lightningChains = 0, extraGoldPerTwo = 0, goldBonusPercent = 0;
         bool doubleBurn = false, waterPool = false;
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
@@ -123,6 +125,8 @@ public sealed record EquipmentModifiers
                     case ItemAffixKind.LightningChain: lightningChains = Math.Max(lightningChains, affix.Value); break;
                     case ItemAffixKind.DoubleBurn: doubleBurn = true; break;
                     case ItemAffixKind.WaterShieldPool: waterPool = true; break;
+                    case ItemAffixKind.CoinDividend: extraGoldPerTwo = 1; break;
+                    case ItemAffixKind.GoldBonus: goldBonusPercent = Math.Max(goldBonusPercent, affix.Value); break;
                 }
             foreach (var b in item.Bonuses) stats[(int)b.Stat] += b.Current;
             if (item.Tier == ItemTier.Mythic) sets[(int)item.Family]++;
@@ -135,6 +139,7 @@ public sealed record EquipmentModifiers
         var dominant = Enumerable.Range(1, families.Length - 1).OrderByDescending(i => families[i]).ThenBy(i => i).First();
         var modifiers = new EquipmentModifiers
         {
+            ExtraGoldPerTwo = extraGoldPerTwo, GoldBonusPercent = goldBonusPercent,
             BeamPierce = beamPierce, LightningChains = lightningChains,
             BurnPotency = doubleBurn ? 2 : 1, WaterShieldPool = waterPool,
             Speed = 1 + Bonus(EquipmentStat.MovementSpeed), Range = 1 + Bonus(EquipmentStat.SpellRange),
@@ -157,7 +162,7 @@ public sealed record EquipmentModifiers
 
 public static partial class EquipmentCatalogue
 {
-    public const int GenerationVersion = 3, InventoryLimit = 500;
+    public const int GenerationVersion = 4, InventoryLimit = 500;
     private static readonly int[] Sales = [10, 25, 60, 150, 400];
     private static readonly float[] MainMin = [0.01f, 0.02f, 0.03f, 0.06f, 0.08f], MainMax = [0.05f, 0.07f, 0.09f, 0.11f, 0.13f];
     private static readonly float[] ExtraMin = [-0.04f, -0.03f, -0.02f, 0.04f, 0.07f], ExtraMax = [0.06f, 0.08f, 0.10f, 0.10f, 0.14f];

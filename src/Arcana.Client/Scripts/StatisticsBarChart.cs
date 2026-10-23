@@ -1,3 +1,4 @@
+using Arcana.Core;
 using Godot;
 using System.Globalization;
 
@@ -11,6 +12,7 @@ public partial class StatisticsBarChart : Control
     public float CategoryWidth { get; init; } = 80;
     public string HorizontalTitle { get; init; } = "Elemento";
     public string ValueTitle { get; init; } = "Total";
+    public bool? Logarithmic { get; init; }
     private const float Left = 72, Right = 20, Top = 28, Bottom = 64;
     private static readonly CultureInfo Spanish = CultureInfo.GetCultureInfo("es-ES");
 
@@ -20,20 +22,21 @@ public partial class StatisticsBarChart : Control
         MouseFilter = MouseFilterEnum.Pass; Resized += QueueRedraw;
     }
     public override void _Ready() => CustomMinimumSize = new(Left + Right + Categories.Length * CategoryWidth, CustomMinimumSize.Y);
-    internal double ScaleMaximum => Math.Max(1, Categories.Length == 0 ? 0 : Categories.Max(c => c.Value));
+    internal MatchStatisticsScale DataScale => new(Categories.Select(c => c.Value), Logarithmic);
+    internal double ScaleMaximum => DataScale.Maximum;
     private static string Short(double n) => n >= 1_000_000 ? (n / 1_000_000).ToString("0.#", Spanish) + " M"
         : n >= 1000 ? (n / 1000).ToString("0.#", Spanish) + " k" : n.ToString("0.##", Spanish);
     public override void _Draw()
     {
         var font = GetThemeDefaultFont(); const int textSize = 14;
         float width = Math.Max(1, Size.X - Left - Right), height = Math.Max(1, Size.Y - Top - Bottom);
-        double maximum = ScaleMaximum;
-        DrawString(font, new(Left, 18), "Puntos acumulados", fontSize: textSize, modulate: Ui.Muted);
+        var scale = DataScale;
+        DrawString(font, new(Left, 18), scale.Logarithmic ? "Puntos · escala logarítmica" : "Puntos · escala lineal", fontSize: textSize, modulate: Ui.Muted);
         for (int tick = 0; tick <= 4; tick++)
         {
             float y = Top + height * (1 - tick / 4f);
             DrawLine(new(Left, y), new(Size.X - Right, y), ArcanaMenuChrome.Border.Darkened(0.45f));
-            DrawString(font, new(0, y + 5), Short(maximum * tick / 4), HorizontalAlignment.Right, Left - 8, textSize, Ui.Muted);
+            DrawString(font, new(0, y + 5), Short(scale.ValueAt(tick / 4.0)), HorizontalAlignment.Right, Left - 8, textSize, Ui.Muted);
         }
         DrawLine(new(Left, Top), new(Left, Top + height), Ui.Muted);
         DrawLine(new(Left, Top + height), new(Size.X - Right, Top + height), Ui.Muted);
@@ -43,7 +46,7 @@ public partial class StatisticsBarChart : Control
             var category = Categories[i]; float center = Left + (i + 0.5f) * slot;
             void Bar(double value, float x, Color color)
             {
-                float barHeight = (float)(value / maximum) * height;
+                float barHeight = (float)scale.Normalize(value) * height;
                 float barWidth = Math.Min(40, slot * 0.55f);
                 if (value > 0) DrawRect(new(x - barWidth / 2, Top + height - barHeight, barWidth, barHeight), color);
                 DrawString(font, new(x - slot * 0.25f, Top + height - barHeight - 6), Short(value),
@@ -68,6 +71,7 @@ public partial class StatisticsBarChart : Control
         if (Categories.Length == 0) return "";
         int index = Math.Clamp((int)((position.X - Left) / Math.Max(1, Size.X - Left - Right) * Categories.Length), 0, Categories.Length - 1);
         var c = Categories[index];
-        return c.Label + "\n" + ValueTitle + ": " + c.Value.ToString("N1", Spanish);
+        return c.Label + "\n" + ValueTitle + ": " + StatisticsPresentation.Number(c.Value) + "\n" +
+            StatisticsPresentation.Percent(c.Value, Categories.Sum(c => c.Value)) + " del total de esta gráfica";
     }
 }

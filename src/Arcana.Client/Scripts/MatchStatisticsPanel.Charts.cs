@@ -26,7 +26,10 @@ public partial class MatchStatisticsPanel
         var box = Chart(title, description);
         double maximum = data.Length == 0 ? 0 : data.Max(p => p.Value + p.Shield);
         if (maximum <= 0) { box.AddChild(Ui.Label(data.Length == 0 ? "Sin datos para esta selección." : "Todos los valores de esta selección son cero.", 16, Ui.Muted)); return; }
-        var legend = Ui.Label(damage ? $"Color: daño a vida · Dorado: daño a escudos · Escala 0–{N(maximum)}" : $"Escala 0–{N(maximum)} {unit}", 14, Ui.Muted);
+        var scale = new MatchStatisticsScale(data.Select(p => p.Value + p.Shield), unit == "%" ? false : Logarithmic);
+        double total = data.Sum(p => p.Value + p.Shield);
+        var legend = Ui.Label((damage ? "Color: daño a vida · Dorado: daño a escudos. " : "") + StatisticsPresentation.ScaleNote(scale) +
+            (unit == "%" ? " Cada porcentaje se calcula sobre el tiempo vivo de su grupo." : $" Porcentajes sobre el total mostrado: {StatisticsPresentation.Number(total)}{(unit.Length > 0 ? " " + unit : " puntos")}.") , 14, Ui.Muted);
         legend.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(legend);
         foreach (var item in data)
         {
@@ -34,21 +37,25 @@ public partial class MatchStatisticsPanel
             var row = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; row.AddThemeConstantOverride("separation", 4); box.AddChild(row);
             var labels = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; labels.AddThemeConstantOverride("separation", 12); row.AddChild(labels);
             var name = Ui.Label(item.Label, 15, item.Color); name.AutowrapMode = TextServer.AutowrapMode.WordSmart; name.SizeFlagsHorizontal = SizeFlags.ExpandFill; labels.AddChild(name);
-            string text = damage ? $"{N(item.Value)} vida · {N(item.Shield)} escudo" : N(item.Value) + (unit.Length > 0 ? " " + unit : "");
+            string text = damage ? $"{StatisticsPresentation.Number(item.Value)} vida · {StatisticsPresentation.Number(item.Shield)} escudo"
+                : StatisticsPresentation.Number(item.Value) + (unit.Length > 0 ? " " + unit : "");
+            if (unit != "%") text += " · " + StatisticsPresentation.Percent(item.Value + item.Shield, total);
             var value = Ui.Label(text, 15); value.HorizontalAlignment = HorizontalAlignment.Right; value.AutowrapMode = TextServer.AutowrapMode.WordSmart; value.SizeFlagsHorizontal = SizeFlags.ExpandFill; labels.AddChild(value);
             var plot = new Control { CustomMinimumSize = new(0, 12), SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore };
             row.AddChild(plot);
             var track = new ColorRect { Color = new("24364d"), MouseFilter = MouseFilterEnum.Ignore }; plot.AddChild(track); Ui.Full(track);
+            double amount = item.Value + item.Shield, width = scale.Normalize(amount);
+            double split = amount > 0 ? width * item.Value / amount : 0;
             void Segment(double start, double end, Color tint)
             {
                 if (end <= start) return;
-                var segment = new ColorRect { Color = tint, AnchorLeft = (float)(start / maximum), AnchorRight = (float)(end / maximum), AnchorBottom = 1, MouseFilter = MouseFilterEnum.Ignore };
+                var segment = new ColorRect { Color = tint, AnchorLeft = (float)start, AnchorRight = (float)end, AnchorBottom = 1, MouseFilter = MouseFilterEnum.Ignore };
                 plot.AddChild(segment);
             }
-            Segment(0, item.Value, item.Color); Segment(item.Value, item.Value + item.Shield, Ui.Shield);
+            Segment(0, split, item.Color); Segment(split, width, Ui.Shield);
             if (item.Value > 0 && item.Shield > 0)
             {
-                float edge = (float)(item.Value / maximum);
+                float edge = (float)split;
                 plot.AddChild(new ColorRect { Color = new("101f32"), AnchorLeft = edge, AnchorRight = edge, AnchorBottom = 1,
                     OffsetLeft = -1, OffsetRight = 1, MouseFilter = MouseFilterEnum.Ignore });
             }
@@ -74,24 +81,44 @@ public partial class MatchStatisticsPanel
         box.AddChild(scroll);
         var chart = new StatisticsBarChart { Name = name, Categories = categories,
             CustomMinimumSize = new(0, BarChartHeight), CategoryWidth = enemies ? 116 : 80,
-            HorizontalTitle = enemies ? "Tipo de enemigo" : "Elemento", ValueTitle = valueTitle };
+            HorizontalTitle = enemies ? "Tipo de enemigo" : "Elemento", ValueTitle = valueTitle, Logarithmic = Logarithmic };
         scroll.AddChild(chart);
         var bar = scroll.GetHScrollBar(); bar.CustomMinimumSize = new(0, Ui.IsMobile ? 20 : 16);
         bar.AddThemeStyleboxOverride("scroll", Ui.Panel(ArcanaMenuChrome.Backdrop, 6, ArcanaMenuChrome.Border));
         bar.AddThemeStyleboxOverride("grabber", Ui.Panel(Ui.Blue.Darkened(0.35f), 6, Ui.Blue));
         foreach (var category in categories) _chartValues[title + "/" + category.Label] = (category.Value, 0);
         if (categories.All(c => c.Value == 0)) box.AddChild(Ui.Label("Sin actividad registrada para esta selección.", 15, Ui.Muted));
-        var legend = Ui.Label(enemies ? "Desliza horizontalmente para ver todos los enemigos."
-            : "Desliza horizontalmente si no caben todos los elementos.", 14, Ui.Muted);
+        var legend = Ui.Label(StatisticsPresentation.ScaleNote(chart.DataScale) + " Porcentajes sobre la suma de los valores de esta gráfica. " +
+            (enemies ? "Desliza horizontalmente para ver todos los enemigos." : "Vida mide curación y Escudo, absorción. Desliza si no caben los elementos."), 14, Ui.Muted);
         legend.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(legend);
+        var values = Ui.Table(3, name + "Values"); box.AddChild(values);
+        foreach (string header in new[] { enemies ? "Enemigo" : "Elemento", "Valor", "% del total" }) Ui.TableCell(values, header, header: true, size: 14);
+        double total = categories.Sum(c => c.Value);
+        foreach (var category in categories)
+            foreach (string cell in new[] { category.Label, StatisticsPresentation.Number(category.Value), StatisticsPresentation.Percent(category.Value, total) })
+                Ui.TableCell(values, cell, size: 14);
     }
-    private void ElementChart() => VerticalChart("Daño por elemento",
-        "Daño acumulado por elemento. Vida: curación efectiva; Escudo: daño absorbido. Incluye daño a escudos y la aportación real de las mezclas.",
+    private void ElementChart()
+    {
+        VerticalChart("Daño por elemento",
+        "Totales de daño directo, áreas, auras y quemaduras. Vida: curación efectiva; Escudo: daño absorbido. Las mezclas reparten el daño según su aportación real. Abajo puedes separar cada origen.",
         Enumerable.Range(0, 8).Select(e => new StatisticsBarChart.Category(Elements[e], (Element)e switch
         {
             Element.Life => SupportSum(StatisticMeasure.Healing), Element.Shield => SupportSum(StatisticMeasure.ShieldAbsorbed),
             _ => ElementSum(StatisticMeasure.Damage, e) + ElementSum(StatisticMeasure.ShieldDamage, e)
         }, ElementTint(e))).ToArray());
+        var selector = new OptionButton { Name = "DamageBreakdownElement", CustomMinimumSize = new(0, 44), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        foreach (int e in new[] { 0, 3, 4, 5, 6, 7, 8 }) selector.AddItem("Desglose de daño: " + Elements[e], e);
+        selector.Select(selector.GetItemIndex(_damageElement));
+        selector.ItemSelected += index => { _damageElement = selector.GetItemId((int)index); Render(); }; _body.AddChild(selector);
+        string[] names = ["Ataques directos", "Áreas de hechizos", "Auras pasivas", "Quemaduras"];
+        var parts = Enum.GetValues<StatisticDamageSource>().Select(source => new Bar(names[(int)source],
+            DamageSourceSum(StatisticMeasure.Damage, _damageElement, source), DamageSourceSum(StatisticMeasure.ShieldDamage, _damageElement, source), ElementTint(_damageElement))).ToList();
+        parts.Add(new("Sin desglose", Math.Max(0, ElementSum(StatisticMeasure.Damage, _damageElement) - parts.Sum(p => p.Value)),
+            Math.Max(0, ElementSum(StatisticMeasure.ShieldDamage, _damageElement) - parts.Sum(p => p.Shield)), Ui.Muted));
+        Bars("Origen del daño de " + Elements[_damageElement],
+            "Directos: haces, conos, rayos, proyectiles y golpes. Áreas: barreras, novas, minas, meteoritos y bombardeos. Auras: zonas pasivas de fuego o rayo. Quemaduras: daño posterior por arder. Sin desglose: informes anteriores o detalle incompleto. Cada daño se cuenta una sola vez.", parts);
+    }
     private void EnemyChart()
     {
         VerticalChart("Daño realizado por enemigo", "Rojo: daño que inflige cada especie, incluido el daño a escudos. Escala propia desde cero, independiente del daño recibido.",
@@ -127,7 +154,9 @@ public partial class MatchStatisticsPanel
         if (stages.Length == 0) { box.AddChild(Ui.Label("Sin apariciones de supervivencia para esta selección.", 16, Ui.Muted)); return; }
         var points = stages.Select(stage => new StatisticsTrendChart.Sample(stage,
             Sum(StatisticGroup.Difficulty, StatisticMeasure.SpawnHealth, stage) / Sum(StatisticGroup.Difficulty, StatisticMeasure.Spawns, stage))).ToArray();
-        box.AddChild(new StatisticsTrendChart { Name = "StatisticsTrend", Points = points });
+        var scale = new MatchStatisticsScale(points.Select(p => p.Health), Logarithmic);
+        var scaleNote = Ui.Label(StatisticsPresentation.ScaleNote(scale), 14, Ui.Muted); scaleNote.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(scaleNote);
+        box.AddChild(new StatisticsTrendChart { Name = "StatisticsTrend", Points = points, Logarithmic = Logarithmic });
         Bars("Objetos recogidos por calidad", "Recuento de objetos recogidos en las partidas seleccionadas.", Enum.GetValues<ItemTier>()
             .Select(tier => new Bar(EquipmentCatalogue.TierName(tier), Sum(StatisticGroup.Equipment, StatisticMeasure.Collected, (int)tier), 0, Ui.Blue)), damage: false, unit: "objetos");
     }

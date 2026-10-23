@@ -350,6 +350,7 @@ public partial class EquipmentPanel : Control
             _draft = AccountInventory.Equip(_draft, new InventoryRequest(id, _selectedSlot));
             Render();
             RefreshPickerItems();
+            if (id.Length > 0 && PickerVisible) _pickerScroll.ScrollVertical = 0;
             string message = HasChanges ? "Cambios pendientes. Se guardarán al salir del inventario." : "La configuración coincide con el equipo guardado.";
             SetStatus(message, routine: true);
             if (PickerVisible) { _pickerStatus.Text = message; _pickerStatus.Visible = true; }
@@ -360,7 +361,7 @@ public partial class EquipmentPanel : Control
     {
         if (_busy || _selling.Length == 0) return;
         if (_confirmingBatch) { await SellBatch(); return; }
-        if (Preferences.Protected(_selling) || !CanSellInventory || _saleOwner != _draft?.Uid ||
+        if (SaleProtected(_selling) || !CanSellInventory || _saleOwner != _draft?.Uid ||
             (_defensePlayer == null && _saleOwner != _main.Accounts.Profile?.Uid)) { CancelSale(); return; }
         _confirm.Hide();
         if (_defensePlayer != null) { SellDefenseItem(); return; }

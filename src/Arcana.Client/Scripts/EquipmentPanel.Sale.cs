@@ -51,7 +51,7 @@ public partial class EquipmentPanel
     private EquipmentItem? SelectSaleItem(string id)
     {
         var item = _draft?.Items.FirstOrDefault(i => i.Id == id && i.Slot == _selectedSlot);
-        if (_busy || item == null || !CanSellInventory || Preferences.Protected(id)) return null;
+        if (_busy || item == null || !CanSellInventory || SaleProtected(id)) return null;
         _confirmingBatch = false;
         _selling = item.Id; _saleOwner = _draft!.Uid;
         return item;
@@ -60,14 +60,13 @@ public partial class EquipmentPanel
     {
         var item = SelectSaleItem(id);
         if (item == null) return;
-        bool equipped = _draft!.Loadout.Get(item.Slot) == item.Id;
         Color rarity = TierColor(item.Tier);
         var card = Ui.Panel(ArcanaMenuChrome.SurfaceRaised, 8, rarity);
         card.BorderWidthLeft = 4; card.ContentMarginLeft = card.ContentMarginRight = 12;
         card.ContentMarginTop = card.ContentMarginBottom = 5; _saleCard.AddThemeStyleboxOverride("panel", card);
         _saleItem.Text = EquipmentCatalogue.ItemName(item); _saleItem.AddThemeColorOverride("font_color", rarity);
-        _saleState.Text = equipped ? "EQUIPADA · Se quitará de tu equipo" : "SIN EQUIPAR";
-        _saleState.AddThemeColorOverride("font_color", equipped ? Ui.Gold : Ui.Muted);
+        _saleState.Text = "SIN EQUIPAR";
+        _saleState.AddThemeColorOverride("font_color", Ui.Muted);
         Clear(_saleStats);
         void StatCell(string text, bool number, Color? color = null, bool header = false)
         {
@@ -84,8 +83,7 @@ public partial class EquipmentPanel
             StatCell(StatName(bonus.Stat), false);
         }
         _saleGold.Text = $"+{item.SaleGold} oro";
-        _saleWarning.Text = equipped ? "Venta definitiva. La pieza se desequipará y se eliminará."
-            : "Venta definitiva. La pieza se eliminará del inventario.";
+        _saleWarning.Text = "Venta definitiva. La pieza se eliminará del inventario. Las equipadas están protegidas.";
         _confirm.OkButtonText = $"Vender · +{item.SaleGold} oro";
         MoveChild(_saleDimmer, GetChildCount() - 1);
         UpdateSaleDensity(); _confirm.PopupCentered(SaleModalSize());

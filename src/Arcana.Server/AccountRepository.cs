@@ -168,7 +168,7 @@ public sealed partial class FirestoreAccountRepository(FirestoreDb database) : I
             var item = FirestoreData.Read<EquipmentItem>(itemDoc); var h = Header(accountDoc);
             if (!EquipmentCatalogue.Valid(item)) throw new InvalidDataException("Objeto inválido.");
             var loadout = equippedDoc.Exists ? FirestoreData.Read<EquipmentLoadout>(equippedDoc) : new();
-            if (loadout.Get(item.Slot) == itemId) transaction.Set(active, FirestoreData.Map(loadout.With(item.Slot, "")));
+            if (loadout.Get(item.Slot) == itemId) throw new ArgumentException("Desequipa y guarda el equipo antes de vender este objeto.");
             transaction.Delete(itemRef);
             transaction.Update(user, new Dictionary<string, object> { ["gold"] = checked(h.Gold + item.SaleGold), ["itemCount"] = Math.Max(0, h.ItemCount - 1) });
             transaction.Create(receipt, new Dictionary<string, object> { ["gold"] = item.SaleGold, ["soldAt"] = Timestamp.GetCurrentTimestamp() });
@@ -198,7 +198,7 @@ public sealed partial class FirestoreAccountRepository(FirestoreDb database) : I
                 if (!account.Exists) throw new InvalidDataException("Falta la cuenta del participante.");
                 var h = Header(account);
                 bool full = h.ItemCount >= EquipmentCatalogue.InventoryLimit;
-                int gold = item != null && full ? item.SaleGold : 0;
+                int gold = RewardRules.Gold(match, player, item != null && full ? item.SaleGold : 0);
                 if (item != null && !full) transaction.Create(user.Collection("items").Document(item.Id), FirestoreData.Map(item));
                 transaction.Update(user, new Dictionary<string, object>
                 {

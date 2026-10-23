@@ -7,9 +7,10 @@ using System.Text.RegularExpressions;
 namespace Arcana.Core;
 
 public enum MatchRecordStatus { Playing, Completed, Left, Disconnected, Suspended, Interrupted }
-public enum StatisticGroup { Total, Actor, Element, Attack, Recipe, Enemy, EnemyElement, Difficulty, Equipment, Relic, Performance, HumanElement, BotElement, EnemyElementDealt, HumanAttack, BotAttack, EnemyAttack, EnvironmentElement, EnvironmentAttack }
+public enum StatisticGroup { Total, Actor, Element, Attack, Recipe, Enemy, EnemyElement, Difficulty, Equipment, Relic, Performance, HumanElement, BotElement, EnemyElementDealt, HumanAttack, BotAttack, EnemyAttack, EnvironmentElement, EnvironmentAttack, HumanElementSource, BotElementSource, EnemyElementSource, EnvironmentElementSource }
 public enum StatisticMeasure { Damage, ShieldDamage, DamageReceived, ShieldAbsorbed, Overkill, ImmuneHits, Hits, Kills, Deaths, Spawns, Casts, Healing, HealingReceived, ShieldGranted, ShieldRepaired, AliveSeconds, WetSeconds, BurningSeconds, FrozenSeconds, FriendlyDamage, SelfDamage, Revives, Revived, Collected, GoldEarned, GoldSpent, Levels, SpawnHealth, Samples, ValueSum, Distance, Captures }
 public enum StatisticAttack { Beam, Lightning, Spray, Rock, Shards, Force, Barrier, Melee, Self, Nova, Mine, Meteor, Haste, Teleport, Revive, FireAura, LightningAura, RegenerationAura, AutoMeteor, FrostNova, ChainLightning, Burn, EnemyMelee, EnemyArea, OracleBombardment, Regeneration }
+public enum StatisticDamageSource { Direct, Area, Aura, Burn }
 public sealed record MatchStatistic(StatisticGroup Group, int Key, StatisticMeasure Measure, double Value);
 
 /// <summary>Contrato cerrado: no acepta nombres, cuentas, direcciones ni identificadores de dispositivo.</summary>
@@ -58,6 +59,7 @@ public sealed record MatchStatisticsReport(int SchemaVersion, string RunId, long
         StatisticGroup.Total => key == 0,
         StatisticGroup.Actor => key >= 64 ? Enum.IsDefined((MinionKind)(key - 64)) : key >= 0 && key < 64 && Enum.IsDefined((WizardType)(key % 16)),
         StatisticGroup.Element or StatisticGroup.HumanElement or StatisticGroup.BotElement or StatisticGroup.EnemyElementDealt or StatisticGroup.EnvironmentElement => key is >= 0 and <= 8,
+        StatisticGroup.HumanElementSource or StatisticGroup.BotElementSource or StatisticGroup.EnemyElementSource or StatisticGroup.EnvironmentElementSource => key >= 0 && Enum.IsDefined((StatisticDamageSource)(key / 9)),
         StatisticGroup.Attack or StatisticGroup.HumanAttack or StatisticGroup.BotAttack or StatisticGroup.EnemyAttack or StatisticGroup.EnvironmentAttack => Enum.IsDefined((StatisticAttack)key),
         StatisticGroup.Recipe => ValidRecipe(key),
         StatisticGroup.Enemy => Enum.IsDefined((MinionKind)key),

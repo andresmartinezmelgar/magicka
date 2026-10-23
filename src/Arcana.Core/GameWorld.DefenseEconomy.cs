@@ -94,7 +94,7 @@ public sealed partial class GameWorld
                 if (command.Type == "defense_equip") progress.Loadout = progress.Loadout.With(item.Slot, item.Id);
                 else if (command.Type == "defense_sell")
                 {
-                    if (progress.Loadout.Get(item.Slot) == item.Id) progress.Loadout = progress.Loadout.With(item.Slot, "");
+                    if (progress.Loadout.Get(item.Slot) == item.Id) return false;
                     progress.Items.Remove(item); progress.Upgrades.Remove(item.Id);
                     { int earned = Math.Min(100000000 - progress.Gold, item.SaleGold); StatisticsEconomy(player.Id, StatisticMeasure.GoldEarned, earned); progress.Gold += earned; }
                 }
@@ -163,7 +163,14 @@ public sealed partial class GameWorld
             if (receiver == null) continue;
             if (drop.Kind == DefenseDropKind.Gold)
                 foreach (var pair in _defenders)
-                { int earned = Math.Min(100000000 - pair.Value.Gold, drop.Gold); pair.Value.Gold += earned; StatisticsEconomy(pair.Key, StatisticMeasure.GoldEarned, earned); }
+                {
+                    var progress = pair.Value;
+                    var gear = _players[pair.Key].Equipment;
+                    int total = GoldBonuses.Apply(drop.Gold, gear.ExtraGoldPerTwo, gear.GoldBonusPercent,
+                        ref progress.GoldCoinRemainder, ref progress.GoldPercentRemainder);
+                    int earned = Math.Min(100000000 - progress.Gold, total);
+                    progress.Gold += earned; StatisticsEconomy(pair.Key, StatisticMeasure.GoldEarned, earned);
+                }
             else if (drop.Kind == DefenseDropKind.Equipment && drop.Item != null) GrantDefenseItem(receiver, drop.Item);
             else
             {

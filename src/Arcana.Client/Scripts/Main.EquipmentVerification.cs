@@ -215,6 +215,9 @@ public partial class Main
                 panel.PressChoice("");
                 Check(panel.PickerVisible && panel.PreviewProfile!.Loadout.Get(slot) == "", "Quitar debe mantener abierto el selector.");
                 panel.PressInspect(slot); panel.PressChoice(original.Items.Single(i => i.Slot == slot && i.Tier == ItemTier.Silver).Id);
+                Check(panel.PickerItems.First() == panel.PreviewProfile!.Loadout.Get(slot) &&
+                    ((Button)panel.FindChild("EquipmentTrash_" + panel.PreviewProfile.Loadout.Get(slot), true, false)).Disabled,
+                    "La plata equipada no aparece primero o permite venderla.");
                 panel.PressInspect(slot); panel.PressChoice(before.Get(slot));
                 Check(panel.PreviewProfile!.Loadout == before && !panel.HasChanges, "Volver al equipo original deja un guardado innecesario.");
             }

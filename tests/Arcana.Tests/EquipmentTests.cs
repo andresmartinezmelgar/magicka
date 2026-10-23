@@ -87,9 +87,11 @@ internal static class EquipmentTests
             Near(three.Stats.Single(s => s.Stat == EquipmentStat.HealingPower).Set, 0.05f);
             Check(three.Modifiers.LifePieces == 3 && saved.Loadout.Boots == items[0].Id, "Quitar una pieza alteró la selección guardada original.");
         });
-        test("Equipo: vender desequipa, paga oro y rechaza ventas repetidas o ajenas", () =>
+        test("Equipo: vender exige desequipar, paga oro exacto y rechaza ventas repetidas o ajenas", () =>
         {
             var item = EquipmentCatalogue.Generate(new(5)); var profile = Profile(item) with { Gold = 9007199254740993L };
+            try { AccountInventory.Sell(profile, item.Id); throw new Exception("Se vendió una pieza equipada."); } catch (ArgumentException) { }
+            profile = AccountInventory.Equip(profile, new("", item.Slot));
             var sold = AccountInventory.Sell(profile, item.Id);
             Check(sold.Items.Length == 0 && sold.Loadout.Get(item.Slot) == "" && sold.Gold == profile.Gold + item.SaleGold, "La venta perdió precisión o dejó equipo colgante.");
             try { AccountInventory.Sell(sold, item.Id); throw new Exception("Se pagó dos veces."); } catch (ArgumentException) { }

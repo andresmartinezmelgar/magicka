@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.29.12 — Inventario protegido, equipo de oro y estadísticas claras
+
+- Las piezas equipadas aparecen siempre primero, incluso al filtrar u ordenar por atributo, y no se pueden vender de forma individual, rápida o múltiple en ningún modo.
+- Nuevos efectos de equipo Diamante/Mítico: una moneda extra por cada dos de oro base y +10 %/+20 % de oro. En Supervivencia se aplican durante la partida y conservan los restos al guardar.
+- El PvP válido entrega 50 oro por victoria y 25 por derrota al acabar la serie, con los bonos del equipo y pagos idempotentes. Los mismos efectos no se acumulan; las ventas no generan bonos.
+- El daño de cada elemento se desglosa en ataques directos, áreas, auras y quemaduras, respetando las mezclas. Los informes anteriores conservan su total como «Sin desglose».
+- Gráficas con escala automática, lineal o logarítmica, cifras numéricas y porcentajes del total mostrado. Las barras pequeñas siguen siendo legibles; daño enemigo realizado y recibido mantienen gráficas separadas.
+
 ## 0.29.11 — Descargas reanudables y limpieza de actualizaciones
 
 - Puedes pausar o cerrar el juego durante una actualización y continuar después con los bytes conservados. El aviso recupera el progreso y muestra «Continuar descarga».

@@ -203,6 +203,9 @@ internal static class DefenseTests
             var improved = Player(w, a).Items.Single();
             Check(improved.Upgrades == 1 && improved.Item.Bonuses.Zip(item.Item.Bonuses).All(v => v.First.Current >= v.Second.Current && v.First.Current <= v.First.Maximum), "Mejora fuera del rango.");
             int gold = Player(w, a).Gold;
+            Check(!Command(w, a, "defense_sell", itemId: item.Item.Id) && Player(w, a).Gold == gold, "Se vendió una pieza equipada.");
+            var empty = new EquipmentLoadout();
+            Check(w.ApplyMessage(a.Id, new() { Type = "defense_loadout", Sequence = a.LastSequence + 1, Loadout = empty }), "No se confirmó la retirada del equipo.");
             Check(Command(w, a, "defense_sell", itemId: item.Item.Id) && Player(w, a).Gold == gold + item.Item.SaleGold, "No vendió la pieza temporal.");
             Check(!Command(w, a, "defense_sell", itemId: item.Item.Id), "Pagó dos veces por la misma pieza.");
             Invoke(w, "AddDefenseDrop", a.Position, b.Id, DefenseDropKind.Equipment); b.Position = new(30, 20);

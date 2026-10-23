@@ -25,6 +25,7 @@ public partial class DefensePanel
         Row(drops, "Reliquia pasiva · por defensor", Percent(DefenseRules.RelicDropChance));
         Wrapped(_lootGuide, "Probabilidades por enemigo derrotado. Cada categoría se sortea por separado: puede haber varias recogidas o ninguna. Equipo y reliquias tienen una tirada por defensor; solo ves lo que te corresponde.", 15, Ui.Muted);
         Wrapped(_lootGuide, "Monedas: 8 + 2 × dificultad (máximo 208 oro). No se divide entre aliados. Las recogidas duran 75 s de combate; con 96 en el suelo se retira primero la más antigua.", 15, Ui.Muted);
+        Wrapped(_lootGuide, "Afijos de oro: una moneda extra por cada dos y +10 % (Diamante) o +20 % (Mítico). Cada defensor aplica sus piezas equipadas a su parte del oro. Los efectos iguales usan el mayor; los distintos se suman sobre la base. Se conservan los restos al guardar. Las ventas y la conversión por inventario lleno no reciben este bono.", 15, Ui.Muted);
         Wrapped(_lootGuide, "RANURAS DEL EQUIPO", 18, Ui.Gold);
         var slots = Ui.Table(3, "DefenseSlotRates"); _lootGuide.AddChild(slots);
         Row(slots, "Pieza", "Dentro del equipo", "Por baja", true);

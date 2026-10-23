@@ -17,7 +17,9 @@ public partial class MatchStatisticsPanel : Control
     private int _loadedPages;
     private readonly HashSet<string> _pageTokens = new(StringComparer.Ordinal);
     private GridContainer _filters = null!;
-    private OptionButton _mode = null!, _period = null!, _version = null!, _view = null!, _source = null!;
+    private OptionButton _mode = null!, _period = null!, _version = null!, _view = null!, _source = null!, _scale = null!;
+    private int _damageElement = (int)Element.Fire;
+    private bool? Logarithmic => _scale.Selected switch { 1 => false, 2 => true, _ => null };
     private CheckBox _unfinished = null!;
     private bool _loading;
     private int _tableIndex;
@@ -43,6 +45,7 @@ public partial class MatchStatisticsPanel : Control
         _version = Select("Versión", ["Todas las versiones"]);
         _view = Select("Vista", ["Resumen", "Elementos", "Monstruos", "Hechizos", "Progresión", "Clases y equipos"]);
         _source = Select("Origen del ataque", ["Humanos + bots", "Humanos", "Bots", "Monstruos", "Todos los orígenes"]);
+        _scale = Select("Escala de las gráficas", ["Automática", "Lineal", "Logarítmica"]);
         _unfinished = new CheckBox { Text = "Incluir partidas interrumpidas", ButtonPressed = true }; _unfinished.Toggled += _ => Render(); _filters.AddChild(_unfinished);
         _status = Ui.Label("Cargando informes…", 16, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; content.AddChild(_status);
         _body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; _body.AddThemeConstantOverride("separation", 12); content.AddChild(_body);
@@ -124,6 +127,13 @@ public partial class MatchStatisticsPanel : Control
         1 => Sum(StatisticGroup.HumanAttack, measure, key), 2 => Sum(StatisticGroup.BotAttack, measure, key),
         3 => Sum(StatisticGroup.EnemyAttack, measure, key), _ => Sum(StatisticGroup.Attack, measure, key)
     };
+    private double DamageSourceSum(StatisticMeasure measure, int element, StatisticDamageSource source)
+    {
+        int key = (int)source * 9 + element;
+        double humans = Sum(StatisticGroup.HumanElementSource, measure, key), bots = Sum(StatisticGroup.BotElementSource, measure, key),
+            enemies = Sum(StatisticGroup.EnemyElementSource, measure, key), environment = Sum(StatisticGroup.EnvironmentElementSource, measure, key);
+        return _source.Selected switch { 0 => humans + bots, 1 => humans, 2 => bots, 3 => enemies, _ => humans + bots + enemies + environment };
+    }
     private double SupportSum(StatisticMeasure measure) => _totals.Where(p => p.Key.Item1 == StatisticGroup.Actor && p.Key.Item3 == measure &&
         (_source.Selected switch { 0 => p.Key.Item2 < 64, 1 => p.Key.Item2 < 64 && p.Key.Item2 % 32 < 16,
             2 => p.Key.Item2 < 64 && p.Key.Item2 % 32 >= 16, 3 => p.Key.Item2 >= 64, _ => true })).Sum(p => p.Value);
@@ -225,5 +235,7 @@ public partial class MatchStatisticsPanel : Control
     internal void SelectViewForVerification(int view) { _view.Select(view); Render(); }
     internal void SelectModeForVerification(int mode) { _mode.Select(mode); Render(); }
     internal void SelectSourceForVerification(int source) { _source.Select(source); Render(); }
+    internal void SelectScaleForVerification(int scale) { _scale.Select(scale); Render(); }
+    internal void SelectDamageElementForVerification(int element) { _damageElement = element; Render(); }
     public override void _ExitTree() { GetViewport().SizeChanged -= ResizeFilters; _lifetime.Cancel(); _lifetime.Dispose(); }
 }

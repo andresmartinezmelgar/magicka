@@ -7,9 +7,9 @@ public sealed record EquipmentFilter(EquipmentFamily? Family = null, ItemTier? T
 }
 public static class EquipmentQuery
 {
-    public static EquipmentItem[] Sort(IEnumerable<EquipmentItem> items, EquipmentStat? stat = null) =>
-        (stat == null ? items.OrderByDescending(i => i.Tier).ThenBy(i => i.Family) :
-            items.OrderByDescending(i => i.Bonuses.Any(b => b.Stat == stat))
+    public static EquipmentItem[] Sort(IEnumerable<EquipmentItem> items, EquipmentStat? stat = null, string equippedId = "") =>
+        (stat == null ? items.OrderByDescending(i => i.Id == equippedId).ThenByDescending(i => i.Tier).ThenBy(i => i.Family) :
+            items.OrderByDescending(i => i.Id == equippedId).ThenByDescending(i => i.Bonuses.Any(b => b.Stat == stat))
                 .ThenByDescending(i => i.Bonuses.FirstOrDefault(b => b.Stat == stat)?.Current ?? 0)
                 .ThenByDescending(i => i.Tier)).ThenBy(i => i.Id, StringComparer.Ordinal).ToArray();
 

@@ -140,7 +140,7 @@ public partial class RoomWaitingPanel : Control
         _prizes.Text = !string.IsNullOrWhiteSpace(snapshot.RewardStatus)
             ? snapshot.RewardStatus
             : awardsConfigured
-                ? "Recompensas: se conceden al ganar la serie, solo con Google en el servidor, equipos humanos equilibrados y actividad suficiente."
+                ? "Al finalizar la serie: 50 oro al ganar, 25 al perder, más los bonos de oro equipados. Botín para el ganador. Requiere Google, equipos humanos equilibrados y actividad suficiente."
                 : "SIN RECOMPENSAS: este servidor no tiene habilitado el servicio de cuentas Firebase.";
     }
 

@@ -28,6 +28,7 @@ public sealed partial class GameWorld
     private sealed class SavedProgress
     {
         public int Level, Experience, Gold;
+        public int GoldCoinRemainder, GoldPercentRemainder;
         public long ActiveTicks;
         public Dictionary<string, long> BestiaryKills = new(StringComparer.Ordinal);
         public float BerserkerRemaining;
@@ -73,6 +74,7 @@ public sealed partial class GameWorld
                 return new SavedDefender(SurvivalWizard.Capture(p), new()
                 {
                     Level = s.Level, Experience = s.Experience, Gold = s.Gold, ActiveTicks = s.ActiveTicks,
+                    GoldCoinRemainder = s.GoldCoinRemainder, GoldPercentRemainder = s.GoldPercentRemainder,
                     BestiaryKills = new(s.BestiaryKills, StringComparer.Ordinal), BerserkerRemaining = s.BerserkerRemaining,
                     Passives = s.Passives.ToArray(), PassiveCooldowns = s.PassiveCooldowns.ToArray(), LastActivity = s.LastActivity,
                     Items = s.Items.ToArray(), Loadout = s.Loadout, Upgrades = new(s.Upgrades), Auras = s.Auras.ToArray()
@@ -122,6 +124,7 @@ public sealed partial class GameWorld
             var progress = new DefenseProgress
             {
                 Level = d.Level, Experience = d.Experience, Gold = d.Gold, ActiveTicks = d.ActiveTicks,
+                GoldCoinRemainder = d.GoldCoinRemainder, GoldPercentRemainder = d.GoldPercentRemainder,
                 Kills = p.Kills, Deaths = p.Deaths, BerserkerRemaining = d.BerserkerRemaining,
                 LastActivity = d.LastActivity, Loadout = d.Loadout, CombatState = p
             };
@@ -193,6 +196,7 @@ public sealed partial class GameWorld
             Require(entry?.Body != null && entry.Body.Valid() && entry.Body.VulnerableElement == null && ids.Add(entry.Body.Id) && entry.Progress != null);
             var d = entry!.Progress;
             Require(d.Level is >= 1 and <= 100 && d.Experience >= 0 && d.Gold is >= 0 and <= 100000000 &&
+                d.GoldCoinRemainder is >= 0 and <= 1 && d.GoldPercentRemainder is >= 0 and <= 99 &&
                 d.ActiveTicks >= 0 && d.ActiveTicks <= s.Tick && double.IsFinite(d.LastActivity) && float.IsFinite(d.BerserkerRemaining) &&
                 d.Passives is { Length: 4 } && d.Passives.All(n => n is >= 0 and <= DefenseRules.MaxPassiveLevel) &&
                 d.PassiveCooldowns is { Length: 4 } && d.PassiveCooldowns.All(float.IsFinite) &&

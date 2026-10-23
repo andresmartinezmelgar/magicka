@@ -193,17 +193,18 @@ public partial class Main
             if (_defenseSmokePhase == 5)
             {
                 var inventory = panel.EquipmentInventory!;
-                Check(inventory.PickerVisible && inventory.PickerColumns is 2 or 3 && inventory.PickerItems.Length == 2,
+                Check(inventory.PickerVisible && inventory.PickerColumns is >= 1 and <= 3 && inventory.PickerItems.Length == 2,
                     "El selector no muestra columnas de piezas de la ranura.");
                 var lookup = state.Defense!.Defenders.Single(p => p.PlayerId == _localId).Items.ToDictionary(i => i.Item.Id);
-                Check(inventory.PickerItems.Select(id => lookup[id].Item.Tier).SequenceEqual(new[] { ItemTier.Platinum, ItemTier.Gold }),
-                    "Las piezas no están ordenadas por calidad.");
+                Check(inventory.PickerItems.Select(id => lookup[id].Item.Tier).SequenceEqual(new[] { ItemTier.Gold, ItemTier.Platinum }) &&
+                    inventory.PickerItems[0] == inventory.PreviewProfile!.Loadout.Chest,
+                    "La pieza equipada no aparece primero.");
                 if (!_defenseFiltersReviewed)
                 {
                 var tierFilter = (OptionButton)inventory.FindChild("EquipmentTierFilter", true, false);
-                tierFilter.Select((int)ItemTier.Gold + 1); tierFilter.EmitSignal(OptionButton.SignalName.ItemSelected, (long)tierFilter.Selected);
-                Check(inventory.PickerItems.Length == 1 && lookup[inventory.PickerItems[0]].Item.Tier == ItemTier.Gold,
-                    "El filtro de calidad no reduce las piezas correctamente.");
+                tierFilter.Select((int)ItemTier.Platinum + 1); tierFilter.EmitSignal(OptionButton.SignalName.ItemSelected, (long)tierFilter.Selected);
+                Check(inventory.PickerItems.Length == 2 && lookup[inventory.PickerItems[0]].Item.Tier == ItemTier.Gold,
+                    "El filtro oculta la pieza equipada.");
                 tierFilter.Select(0); tierFilter.EmitSignal(OptionButton.SignalName.ItemSelected, 0L);
                 Check(inventory.PickerItems.Length == 2 && !inventory.HasChanges &&
                     inventory.FindChildren("EquipmentComparison_*", "Label", true, false).Count > 0,

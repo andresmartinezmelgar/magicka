@@ -20,6 +20,7 @@ public sealed class InventoryPreferences
     }
     public static int Missing(NamedEquipment saved, AccountProfile profile) => Enum.GetValues<EquipmentSlot>().Count(s =>
         saved.Loadout.Get(s) is { Length: > 0 } id && !profile.Items.Any(i => i.Id == id && i.Slot == s));
-    public EquipmentItem[] Sellable(AccountProfile profile, IEnumerable<string> selection) =>
-        profile.Items.Where(i => selection.Contains(i.Id, StringComparer.Ordinal) && !Protected(i.Id)).ToArray();
+    public EquipmentItem[] Sellable(AccountProfile profile, IEnumerable<string> selection, EquipmentLoadout? saved = null) =>
+        profile.Items.Where(i => selection.Contains(i.Id, StringComparer.Ordinal) && !Protected(i.Id) &&
+            profile.Loadout.Get(i.Slot) != i.Id && saved?.Get(i.Slot) != i.Id).ToArray();
 }

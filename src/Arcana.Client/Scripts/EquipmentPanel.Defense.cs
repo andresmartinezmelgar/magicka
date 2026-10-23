@@ -118,7 +118,7 @@ public partial class EquipmentPanel
 
     private void SellDefenseItem()
     {
-        if (_busy || !CanSellInventory || _selling.Length == 0 || Preferences.Protected(_selling)) return;
+        if (_busy || !CanSellInventory || _selling.Length == 0 || SaleProtected(_selling)) return;
         string id = _selling; _selling = "";
         DefenseOperation(new() { Type = "defense_sell", ItemId = id }, p => p.Items.All(i => i.Item.Id != id),
             message: "Venta confirmada. El oro y las piezas están actualizados.");

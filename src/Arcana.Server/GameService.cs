@@ -516,7 +516,11 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                     !room.World.Players.TryGetValue(session.Id, out var player)) continue;
                 var account = session.Account;
                 if (!room.Participants.TryGetValue(account.Uid, out var entry))
-                    entry = new(account.Uid, session.Id, player.Team, 0, false);
+                    entry = new(account.Uid, session.Id, player.Team, 0, false)
+                    {
+                        ExtraGoldPerTwo = session.Equipment.Modifiers.ExtraGoldPerTwo,
+                        GoldBonusPercent = session.Equipment.Modifiers.GoldBonusPercent
+                    };
                 room.Participants[account.Uid] = entry with
                 {
                     PlayerId = player.Id, Team = player.Team,
@@ -550,7 +554,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
         // Premios solo al terminar toda la serie; ambos equipos humanos, mismo número,
         // sin bots, y cada participante autenticado con al menos 15 s de actividad.
         var match = new RewardMatch(room.MatchId, settings.InstanceId, room.Options.Mode,
-            room.Options.Map, DateTimeOffset.UtcNow, participants);
+            room.Options.Map, DateTimeOffset.UtcNow, participants, RulesVersion: 3);
         bool balanced = BalancedMatchRules.RewardsEnabled(
             room.World.Players.Values.Count(p => !p.Bot && p.Team == 0),
             room.World.Players.Values.Count(p => !p.Bot && p.Team == 1), 0, 0);
@@ -591,13 +595,13 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                 if (room.MatchId == match.Id || match.Mode == GameMode.Defense && room.MatchId == match.DefenseRunId)
                     room.RewardStatus = match.Mode == GameMode.Defense
                         ? "Recompensa de defensa confirmada. Los premios dependen del tiempo activo individual."
-                        : "Resultado registrado en Firebase. La recompensa del equipo ganador está guardada.";
+                        : "Recompensas de oro y botín confirmadas en Firebase.";
             foreach (var session in _sessions.Values)
             {
                 var participant = eligible.FirstOrDefault(p => p.Uid == session.Account?.Uid);
                 if (participant == null) continue;
                 session.Outbox.Writer.TryWrite(Protocol.SerializeUtf8(new ServerMessage { Type = "account",
-                    AccountNotice = match.Mode == GameMode.Defense ? $"Recompensa de defensa {match.DefenseCheckpoint}/4 guardada. Revisa tu inventario." : participant.Winner ? "Recompensa PvP guardada. Revisa tu inventario." : "Resultado PvP guardado." }));
+                    AccountNotice = match.Mode == GameMode.Defense ? $"Recompensa de defensa {match.DefenseCheckpoint}/4 guardada. Revisa tu inventario." : "Recompensa PvP guardada. Revisa tu oro e inventario." }));
             }
         }
     }

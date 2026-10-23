@@ -99,11 +99,16 @@ await Test("Firestore: equipar exige propiedad y posición correctas", async () 
     await repository.Equip(alice, new(item.Id, item.Slot));
     Check((await repository.Profile(alice, "Alice")).Loadout.Get(item.Slot) == item.Id, "No se guardó el equipo.");
 });
-await Test("Firestore: una venta simultánea paga una vez, elimina y desequipa; oro de 64 bits exacto", async () =>
+await Test("Firestore: equipada no se vende; tras desequipar una venta simultánea paga una vez con oro de 64 bits", async () =>
 {
     var item = (await repository.Profile(alice, "Alice")).Items[0];
     long original = 9007199254740993L;
     await database.Collection("users").Document(alice).UpdateAsync("gold", original);
+    await Reject<ArgumentException>(() => repository.Sell(alice, item.Id));
+    Check((await repository.Profile(alice, "Alice")).Gold == original &&
+        !(await database.Collection("users").Document(alice).Collection("sales").Document(item.Id).GetSnapshotAsync()).Exists,
+        "La venta bloqueada pagó oro o creó un recibo.");
+    await repository.Equip(alice, new("", item.Slot));
     var payments = await Task.WhenAll(Enumerable.Range(0, 4).Select(_ => repository.Sell(alice, item.Id)));
     var profile = await repository.Profile(alice, "Alice");
     Check(payments.Sum() == item.SaleGold && profile.Gold == original + item.SaleGold && profile.Items.Length == 0 && profile.Loadout.Get(item.Slot) == "", "Saldo duplicado, impreciso o equipo colgante.");
@@ -112,9 +117,30 @@ await Test("Firestore: vender y equipar al mismo tiempo no deja referencias a ob
 {
     var item = EquipmentCatalogue.Generate(new(9)); await Seed(alice, item);
     async Task Equip() { try { await repository.Equip(alice, new(item.Id, item.Slot)); } catch (ArgumentException) { } }
-    await Task.WhenAll(Equip(), repository.Sell(alice, item.Id));
+    async Task Sell() { try { await repository.Sell(alice, item.Id); } catch (ArgumentException) { } }
+    await Task.WhenAll(Equip(), Sell());
     var profile = await repository.Profile(alice, "Alice");
-    Check(profile.Items.All(i => i.Id != item.Id) && profile.Loadout.Get(item.Slot) != item.Id, "Se conservó una referencia eliminada.");
+    Check(profile.Items.Any(i => i.Id == item.Id) ? profile.Loadout.Get(item.Slot) == item.Id : profile.Loadout.Get(item.Slot) != item.Id,
+        "La carrera vendió una equipada o dejó una referencia eliminada.");
+});
+
+await Test("Firestore: oro PvP y afijos se abonan una vez al cerrar, también con reintentos concurrentes", async () =>
+{
+    string winUid = "gold_win_" + suffix, loseUid = "gold_lose_" + suffix;
+    var beforeWin = await repository.Profile(winUid, "Gana");
+    var beforeLose = await repository.Profile(loseUid, "Pierde");
+    var win = new MatchParticipant(winUid, 1, 0, 30, true) { ExtraGoldPerTwo = 1, GoldBonusPercent = 10 };
+    var lose = new MatchParticipant(loseUid, 2, 1, 30, false) { GoldBonusPercent = 20 };
+    var match = new RewardMatch(Guid.NewGuid().ToString("N"), "test-server", GameMode.Duel, ArenaMapId.Classic,
+        DateTimeOffset.UtcNow, [win, lose], RulesVersion: 3);
+    await Task.WhenAll(Enumerable.Range(0, 4).Select(_ => repository.Award(match)));
+    var afterWin = await repository.Profile(winUid, "Gana");
+    var afterLose = await repository.Profile(loseUid, "Pierde");
+    Check(afterWin.Gold == beforeWin.Gold + 80 && afterLose.Gold == beforeLose.Gold + 30 &&
+        afterWin.Wins == beforeWin.Wins + 1 && afterLose.Losses == beforeLose.Losses + 1,
+        "Se duplicó el pago o no se aplicó el bono al premio final.");
+    Check((await database.Collection("users").Document(winUid).Collection("rewards").Document(match.Id).GetSnapshotAsync()).GetValue<long>("gold") == 80,
+        "El recibo no conserva el pago exacto.");
 });
 await Test("Firestore: práctica, IA y cuenta repetida no conceden objetos ni victorias", async () =>
 {

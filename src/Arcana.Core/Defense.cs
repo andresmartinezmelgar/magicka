@@ -102,6 +102,7 @@ internal sealed class DefenseProgress
 {
     public Wizard? CombatState;
     public int Level = 1, Experience, Gold, Kills, Deaths;
+    public int GoldCoinRemainder, GoldPercentRemainder;
     public long ActiveTicks;
     public readonly Dictionary<string, long> BestiaryKills = new(StringComparer.Ordinal);
     public bool ShopOpen;

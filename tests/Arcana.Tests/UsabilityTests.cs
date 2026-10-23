@@ -36,7 +36,9 @@ internal static class UsabilityTests
             var p = new AccountProfile("a", "A", 0, 0, 0, new(a.Id, b.Id), [a, b]);
             var prefs = new InventoryPreferences(); prefs.Favorites.Add(a.Id); prefs.Save("Fuego", p.Loadout, p);
             prefs = JsonSerializer.Deserialize<InventoryPreferences>(JsonSerializer.Serialize(prefs))!;
-            Check(prefs.Protected(a.Id) && prefs.Sellable(p, [a.Id, b.Id, b.Id, "ajeno"]).Single().Id == b.Id, "Se vende un favorito, una pieza ajena o dos veces la misma.");
+            Check(prefs.Protected(a.Id) && prefs.Sellable(p, [a.Id, b.Id, b.Id, "ajeno"]).Length == 0, "Se vende una pieza equipada.");
+            var unequipped = p with { Loadout = p.Loadout.With(EquipmentSlot.Hat, "") };
+            Check(prefs.Sellable(unequipped, [a.Id, b.Id, b.Id, "ajeno"]).Single().Id == b.Id, "Se vende un favorito, una pieza ajena o dos veces la misma.");
             Check(AccountInventory.ApplyLoadout(p, prefs.Loadouts.Single().Loadout).Loadout == p.Loadout, "No recupera las cuatro posiciones.");
             prefs.Save("fuego", new(a.Id), p); Check(prefs.Loadouts.Count == 1, "El mismo nombre duplica equipos.");
             Check(InventoryPreferences.Missing(new("Viejo", p.Loadout), p with { Items = [a] }) == 1, "No detecta piezas vendidas.");

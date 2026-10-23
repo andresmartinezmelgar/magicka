@@ -65,6 +65,14 @@ public partial class Main
                     metrics.Add(new(StatisticGroup.Actor, 64 + (int)kind, StatisticMeasure.ShieldAbsorbed, 11));
                     for (int e = 0; e < 9; e++) metrics.Add(new(StatisticGroup.EnemyElement, (int)kind * 9 + e, StatisticMeasure.DamageReceived, 4200));
                 }
+                foreach (var (group, multiplier) in new[] { (StatisticGroup.HumanElementSource, 2.0), (StatisticGroup.BotElementSource, 1.0),
+                    (StatisticGroup.EnemyElementSource, .1), (StatisticGroup.EnvironmentElementSource, .05) })
+                    foreach (var source in Enum.GetValues<StatisticDamageSource>())
+                    {
+                        int key = (int)source * 9 + (int)Element.Fire;
+                        metrics.Add(new(group, key, StatisticMeasure.Damage, 200 / Math.Pow(2, (int)source) * multiplier));
+                        metrics.Add(new(group, key, StatisticMeasure.ShieldDamage, 20 / Math.Pow(2, (int)source) * multiplier));
+                    }
                 foreach (var attack in Enum.GetValues<StatisticAttack>())
                 {
                     foreach (var (group, damage, casts) in new[] { (StatisticGroup.Attack, 545, 3), (StatisticGroup.HumanAttack, 400, 1), (StatisticGroup.BotAttack, 140, 1), (StatisticGroup.EnemyAttack, 5, 1) })
@@ -96,6 +104,23 @@ public partial class Main
                 void CheckWater(double expected)
                 { if (Math.Abs(_statisticsPanel.ChartValueForVerification("Daño por elemento", "Agua") - expected) > 0.001) throw new InvalidOperationException("Las gráficas mezclan modos u orígenes de ataque."); }
                 CheckWater(2700);
+                foreach (var (label, expected) in new[] { ("Ataques directos", 1800.0), ("Áreas de hechizos", 900.0), ("Auras pasivas", 450.0), ("Quemaduras", 225.0), ("Sin desglose", 18225.0) })
+                    if (Math.Abs(_statisticsPanel.ChartValueForVerification("Origen del daño de Fuego", label) - expected) > .001)
+                        throw new InvalidOperationException("El desglose de fuego mezcla ataques, áreas, auras, quemaduras o datos antiguos.");
+                _statisticsPanel.SelectDamageElementForVerification((int)Element.Water);
+                if (_statisticsPanel.ChartValueForVerification("Origen del daño de Agua", "Sin desglose") != 2700 ||
+                    _statisticsPanel.ChartValueForVerification("Origen del daño de Agua", "Ataques directos") != 0)
+                    throw new InvalidOperationException("Los informes anteriores se atribuyen a ataques directos sin evidencia.");
+                _statisticsPanel.SelectDamageElementForVerification((int)Element.Fire);
+                foreach (int scale in new[] { 2, 1 })
+                {
+                    _statisticsPanel.SelectScaleForVerification(scale);
+                    var chart = (StatisticsBarChart)_statisticsPanel.FindChild("ElementDamageBars", true, false);
+                    if (chart.DataScale.Logarithmic != (scale == 2)) throw new InvalidOperationException("El selector de escala no cambia la gráfica.");
+                }
+                _statisticsPanel.SelectScaleForVerification(0);
+                if (!_statisticsPanel.FindChildren("*", "Label", true, false).OfType<Label>().Any(l => l.Text == "% del total"))
+                    throw new InvalidOperationException("Faltan los valores y porcentajes legibles bajo las barras.");
                 void CheckSupport(double healing, double absorbed)
                 {
                     if (Math.Abs(_statisticsPanel.ChartValueForVerification("Daño por elemento", "Vida") - healing) > 0.001 ||
@@ -145,7 +170,7 @@ public partial class Main
             }
             int view = (_statisticsSmokePhase - 2) / 2;
             if (view >= 6)
-            { CleanupStatisticsSmoke(); GD.Print("MATCH_STATISTICS_SMOKE_OK: dos UID, cierre de sesión, consulta Firebase paginada sin archivos ni red de producción, revisiones deduplicadas, seis vistas, barras verticales por elemento y dos gráficas por enemigo con escalas independientes, soporte efectivo, humanos+bots, filtros y tablas."); GetTree().Quit(0); _statisticsSmoke = false; return true; }
+            { CleanupStatisticsSmoke(); GD.Print("MATCH_STATISTICS_SMOKE_OK: dos UID, consulta Firebase paginada sin red de producción, seis vistas, daño directo/áreas/auras/quemaduras por elemento, compatibilidad sin desglose, escalas automática/lineal/logarítmica, valores y porcentajes, enemigos separados, soporte efectivo y humanos+bots."); GetTree().Quit(0); _statisticsSmoke = false; return true; }
             var scroll = (ScrollContainer)_statisticsPanel!.FindChild("StatisticsScroll", true, false);
             if (_statisticsSmokePhase % 2 == 0)
             {

@@ -73,6 +73,31 @@ internal sealed class MatchStatisticsCollector
     }
     public void Attack(int owner, StatisticAttack attack, StatisticMeasure measure, double value = 1)
     { Add(StatisticGroup.Attack, (int)attack, measure, value); Add(Role(owner, false), (int)attack, measure, value); }
+    private void ElementDamage(int owner, int element, StatisticAttack attack, double health, double shield)
+    {
+        var role = Role(owner, true);
+        var sourceGroup = role switch
+        {
+            StatisticGroup.HumanElement => StatisticGroup.HumanElementSource,
+            StatisticGroup.BotElement => StatisticGroup.BotElementSource,
+            StatisticGroup.EnemyElementDealt => StatisticGroup.EnemyElementSource,
+            _ => StatisticGroup.EnvironmentElementSource
+        };
+        var source = attack switch
+        {
+            StatisticAttack.FireAura or StatisticAttack.LightningAura => StatisticDamageSource.Aura,
+            StatisticAttack.Burn => StatisticDamageSource.Burn,
+            StatisticAttack.Barrier or StatisticAttack.Nova or StatisticAttack.Mine or StatisticAttack.Meteor or StatisticAttack.AutoMeteor or
+                StatisticAttack.FrostNova or StatisticAttack.EnemyArea or StatisticAttack.OracleBombardment => StatisticDamageSource.Area,
+            _ => StatisticDamageSource.Direct
+        };
+        void AddDamage(StatisticMeasure measure, double value)
+        {
+            Add(StatisticGroup.Element, element, measure, value); Add(role, element, measure, value);
+            Add(sourceGroup, (int)source * 9 + element, measure, value);
+        }
+        AddDamage(StatisticMeasure.Damage, health); AddDamage(StatisticMeasure.ShieldDamage, shield);
+    }
     public void Cast(int owner, StatisticAttack attack, Element[]? elements = null)
     {
         Total(StatisticMeasure.Casts); Actor(owner, StatisticMeasure.Casts); Attack(owner, attack, StatisticMeasure.Casts);
@@ -109,10 +134,7 @@ internal sealed class MatchStatisticsCollector
         for (int e = 0; e < 9; e++) if (contributions[e] > 0)
         {
             double fraction = contributions[e] / total;
-            Add(StatisticGroup.Element, e, StatisticMeasure.Damage, health * fraction);
-            Add(StatisticGroup.Element, e, StatisticMeasure.ShieldDamage, shield * fraction);
-            Add(Role(owner, true), e, StatisticMeasure.Damage, health * fraction);
-            Add(Role(owner, true), e, StatisticMeasure.ShieldDamage, shield * fraction);
+            ElementDamage(owner, e, attack, health * fraction, shield * fraction);
             if (_actors.TryGetValue(target.Id, out var a) && a.Kind is {} kind)
             { Add(StatisticGroup.EnemyElement, (int)kind * 9 + e, StatisticMeasure.DamageReceived, health * fraction); Add(StatisticGroup.EnemyElement, (int)kind * 9 + e, StatisticMeasure.ShieldAbsorbed, shield * fraction); }
         }
@@ -125,8 +147,8 @@ internal sealed class MatchStatisticsCollector
         DamageValue(owner, attack, elements, StatisticMeasure.ShieldDamage, value);
         Actor(defender, StatisticMeasure.ShieldAbsorbed, value);
         int count = elements?.Length ?? 0;
-        if (count == 0) { Add(StatisticGroup.Element, 8, StatisticMeasure.ShieldDamage, value); Add(Role(owner, true), 8, StatisticMeasure.ShieldDamage, value); }
-        else foreach (var e in elements!) { Add(StatisticGroup.Element, (int)e, StatisticMeasure.ShieldDamage, value / count); Add(Role(owner, true), (int)e, StatisticMeasure.ShieldDamage, value / count); }
+        if (count == 0) ElementDamage(owner, 8, attack, 0, value);
+        else foreach (var e in elements!) ElementDamage(owner, (int)e, attack, 0, value / count);
     }
     public void Death(Wizard target, int owner, StatisticAttack attack = StatisticAttack.EnemyArea)
     {
