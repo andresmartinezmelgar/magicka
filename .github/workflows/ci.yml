@@ -4,7 +4,6 @@ on:
   push:
     branches: ['**']
     tags: ['v*']
-    paths-ignore: ['.github/workflows/**']
   pull_request:
   workflow_dispatch:
 
