@@ -69,7 +69,7 @@ public partial class Main
                     Check(panel.FindChild("EquipmentFilters", true, false) == null && panel.FindChild("EquipmentSort", true, false) == null, "Quedan filtros en el inventario.");
                     Check(panel.PickerItems.SequenceEqual(EquipmentQuery.Sort(fixture.Profile.Items.Where(i => i.Slot == EquipmentSlot.Weapon), equippedId: panel.PreviewProfile!.Loadout.Weapon).Select(i => i.Id)), "La interfaz no fija primero la pieza equipada y después la calidad.");
                     Check(((Label)panel.FindChild("EquipmentComparison_" + fixture.Extras[1].Id, true, false)).Text.Contains("4/4 → 3/4"), "Falta el cambio de conjunto en la comparación.");
-                    Button("EquipmentBulkToggle").EmitSignal(BaseButton.SignalName.Pressed);
+                    ((MenuButton)panel.FindChild("EquipmentActions", true, false)).GetPopup().EmitSignal(PopupMenu.SignalName.IdPressed, 2L);
                     Button("EquipmentBulkAll").EmitSignal(BaseButton.SignalName.Pressed);
                     Check(Button("EquipmentBulkSell").Text.Contains("Vender 3"), "Marcar visibles excluye una pieza sin equipar o incluye la equipada.");
                     ((CheckBox)panel.FindChild("EquipmentSelect_" + fixture.Extras[0].Id, true, false)).ButtonPressed = false;
@@ -157,7 +157,7 @@ public partial class Main
                     panel.PressTrash(pendingId);
                     Check(fixture.Attempts == 5 && !dialog.Visible, "Un botón desactivado reenvía la operación pendiente.");
                     fixture.ReadsOffline = false; panel.HandleBack();
-                    panel.FindChildren("*", "Button", true, false).OfType<Button>().Single(b => b.Text == "Actualizar").EmitSignal(BaseButton.SignalName.Pressed);
+                    ((MenuButton)panel.FindChild("EquipmentActions", true, false)).GetPopup().EmitSignal(PopupMenu.SignalName.IdPressed, 0L);
                     _usabilityStage = 10; return false;
                 case 10:
                     Check(!Accounts.InventoryNeedsRefresh && panel.VisibleItems == fixture.InitialItemCount - 4 && panel.PreviewProfile!.Gold == fixture.Profile.Gold && fixture.Attempts == 5,

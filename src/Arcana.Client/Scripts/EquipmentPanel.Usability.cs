@@ -9,7 +9,7 @@ public partial class EquipmentPanel
     private readonly HashSet<string> _saleSelection = new(StringComparer.Ordinal);
     private readonly List<Button> _preferenceActions = [];
     private bool _bulkMode, _confirmingBatch;
-    private Button? _bulkToggle, _bulkAll, _bulkSell;
+    private Button? _bulkAll, _bulkSell;
     private HBoxContainer? _bulkRow;
     private OptionButton? _savedTeams;
     private LineEdit? _teamName;
@@ -19,19 +19,22 @@ public partial class EquipmentPanel
     private int _batchSold, _batchCount;
     private long _batchGold;
 
-    private void BuildBulkActions(VBoxContainer box, HBoxContainer heading)
+    private void BuildBulkActions(VBoxContainer box)
     {
         var row = new HBoxContainer { Name = "EquipmentBulkActions", Visible = false }; _bulkRow = row; box.AddChild(row);
         Button Add(string text, Action action)
         {
             var button = Ui.Button(text, action); button.CustomMinimumSize = new(0, 44);
             button.SizeFlagsHorizontal = SizeFlags.ExpandFill; button.AddThemeFontSizeOverride("font_size", 16);
+            foreach (string state in new[] { "normal", "hover", "pressed", "disabled" })
+            {
+                var style = (StyleBoxFlat)button.GetThemeStylebox(state).Duplicate();
+                style.ContentMarginLeft = style.ContentMarginRight = 8;
+                style.ContentMarginTop = style.ContentMarginBottom = 6;
+                button.AddThemeStyleboxOverride(state, style);
+            }
             row.AddChild(button); return button;
         }
-        _bulkToggle = Add("Venta múltiple", () => { if (_busy) return; _bulkMode = !_bulkMode; _saleSelection.Clear(); ResetQuickActions(); RefreshPickerItems(); });
-        _bulkToggle.Reparent(heading); heading.MoveChild(_bulkToggle, 1);
-        _bulkToggle.SizeFlagsHorizontal = SizeFlags.Fill;
-        _bulkToggle.Name = "EquipmentBulkToggle";
         _bulkAll = Add("Marcar visibles", () =>
         {
             if (_busy || _draft == null) return;
@@ -40,6 +43,11 @@ public partial class EquipmentPanel
         });
         _bulkAll.Name = "EquipmentBulkAll";
         _bulkSell = Add("Vender selección", ConfirmBatchSale); _bulkSell.Name = "EquipmentBulkSell";
+    }
+    private void ToggleBulkMode()
+    {
+        if (_busy) return;
+        _bulkMode = !_bulkMode; _saleSelection.Clear(); ResetQuickActions(); OpenItemPicker(_selectedSlot);
     }
     private bool SaleEquipped(string id) => Equipped(id);
     private bool SaleProtected(string id) => SaleEquipped(id);
@@ -83,8 +91,9 @@ public partial class EquipmentPanel
     }
     private void UpdateBulkActions()
     {
-        if (_bulkToggle == null) return;
-        _bulkToggle.Disabled = _busy; _bulkToggle.Text = _bulkMode ? "Cancelar selección" : "Venta múltiple";
+        if (_bulkAll == null) return;
+        _inventoryMenu.GetPopup().SetItemDisabled(2, _busy);
+        _inventoryMenu.GetPopup().SetItemText(2, _bulkMode ? "Cancelar selección" : "Venta múltiple");
         _bulkAll!.Visible = _bulkSell!.Visible = _bulkMode;
         _bulkRow!.Visible = _bulkMode;
         var items = _draft == null ? [] : Preferences.Sellable(_draft, _saleSelection);
@@ -92,7 +101,8 @@ public partial class EquipmentPanel
         _bulkAll.Disabled = _busy || !CanSellInventory;
         _bulkSell.Disabled = _busy || !CanSellInventory || items.Length == 0;
         _bulkSell.Text = $"Vender {items.Length} · +{items.Sum(i => (long)i.SaleGold)} oro";
-        if (!CanSellInventory) SetPickerMessage(SaleBlockedReason, bringIntoView: false);
+        if (!CanSellInventory && _main.Accounts.InventoryNeedsRefresh) SetPickerMessage(SaleBlockedReason, bringIntoView: false);
+        else if (!CanSellInventory) _pickerHelp.TooltipText = SaleBlockedReason;
     }
     private string UpgradeBlockedReason(string id)
     {

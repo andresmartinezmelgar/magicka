@@ -16,7 +16,6 @@ public partial class EquipmentPanel
     private WizardSnapshot? _defenseWizard;
     private bool _defenseMatchEnded;
     private Action<ClientMessage>? _defenseSubmit;
-    private Button? _defenseSupply;
     private string _defenseInventoryStamp = "";
     private Func<DefensePlayerSnapshot, bool>? _defensePending;
     private Action? _defenseConfirmed;
@@ -42,21 +41,11 @@ public partial class EquipmentPanel
             player.Items.Select(i => i.Item).ToArray());
     }
 
-    private void BuildDefenseActions(VBoxContainer inventory)
-    {
-        _defenseSupply = Action(inventory, "Comprar pieza aleatoria · 100 oro", BuyDefenseItem);
-        _defenseSupply.Name = "DefenseInventorySupply";
-    }
-
     private void RenderDefenseActions()
     {
-        if (_defenseSupply == null || _defensePlayer == null) return;
-        _defenseSupply.Disabled = _busy || !CanChangeDefenseItems || _defensePlayer.Gold < 100 ||
-            _defensePlayer.Items.Length >= DefenseRules.InventoryLimit;
-        _defenseSupply.Text = "Comprar pieza · 100 oro";
-        _defenseSupply.TooltipText = !CanChangeDefenseItems ? "Compra bloqueada · partida terminada o mago caído" :
-            _defensePlayer.Items.Length >= DefenseRules.InventoryLimit ? "Inventario lleno · vende alguna pieza" :
-            _defensePlayer.Gold < 100 ? $"Comprar pieza · faltan {100 - _defensePlayer.Gold} oro" : "Comprar pieza aleatoria · 100 oro";
+        if (_defensePlayer == null) return;
+        _inventoryMenu.GetPopup().SetItemDisabled(0, _busy || !CanChangeDefenseItems || _defensePlayer.Gold < 100 ||
+            _defensePlayer.Items.Length >= DefenseRules.InventoryLimit);
     }
 
     internal void UpdateDefenseInventory(DefensePlayerSnapshot player, WizardSnapshot wizard, bool ended)
@@ -101,7 +90,7 @@ public partial class EquipmentPanel
 
     private void BuyDefenseItem()
     {
-        if (_busy || !CanChangeDefenseItems || _defensePlayer == null || _defenseSupply!.Disabled) return;
+        if (_busy || !CanChangeDefenseItems || _defensePlayer == null || _inventoryMenu.GetPopup().IsItemDisabled(0)) return;
         var ids = _defensePlayer.Items.Select(i => i.Item.Id).ToHashSet(StringComparer.Ordinal);
         DefenseOperation(new() { Type = "defense_supply" }, p => p.Items.Any(i => !ids.Contains(i.Item.Id)),
             message: "Pieza comprada. El oro y el inventario están actualizados.");

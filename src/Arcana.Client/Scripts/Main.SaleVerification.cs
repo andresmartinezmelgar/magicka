@@ -139,7 +139,8 @@ public partial class Main
                         "El doble clic elimina otra pieza o guarda la selección pendiente antes de salir.");
                     GD.Print("QUICK_SALE_OK: clic simple con modal, doble clic/toque vende una vez sin modal y conserva la selección pendiente.");
                 }
-                panel.PressInspect(EquipmentSlot.Weapon); panel.PressChoice(fixture.Spare.Id);
+                panel.PressInspect(EquipmentSlot.Weapon);
+                if (panel.PreviewProfile!.Loadout.Weapon != fixture.Spare.Id) panel.PressChoice(fixture.Spare.Id);
                 Check(!Trash(fixture.EquippedWeapon.Id).Disabled && Trash(fixture.Spare.Id).Disabled,
                     "Cambiar de pieza no libera la anterior o permite vender la nueva.");
                 fixture.FailNextLoadout = true;

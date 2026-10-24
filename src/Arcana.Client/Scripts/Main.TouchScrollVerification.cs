@@ -20,7 +20,7 @@ public partial class Main
                 .FirstOrDefault(rect => rect.Size.X >= 60 && rect.Size.Y >= 60);
         }
         if (area.Size.X < 40 || area.Size.Y < 40)
-            throw new InvalidOperationException(stage + ": no hay contenido visible para deslizar.");
+            throw new InvalidOperationException(stage + ": no hay contenido visible para deslizar. Scroll=" + scroll.GetGlobalRect() + "; zona=" + area + "; padre=" + ((Control)scroll.GetParent()).GetGlobalRect());
         int original = scroll.ScrollVertical;
         bool emulateTouch = Input.EmulateTouchFromMouse, emulateMouse = Input.EmulateMouseFromTouch;
         try

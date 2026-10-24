@@ -282,7 +282,7 @@ public partial class Main
                 CaptureDefense("05-mejora-pieza");
                 _defenseItemsBeforeSupply = player.Items.Select(i => i.Item.Id).ToArray();
                 inventory.HandleBack();
-                ((Button)panel.EquipmentInventory!.FindChild("DefenseInventorySupply", true, false)).EmitSignal(Button.SignalName.Pressed);
+                ((MenuButton)panel.EquipmentInventory!.FindChild("EquipmentActions", true, false)).GetPopup().EmitSignal(PopupMenu.SignalName.IdPressed, 0L);
                 _defenseSmokePhase++; return false;
             }
             if (_defenseSmokePhase == 8)
@@ -329,7 +329,7 @@ public partial class Main
                     inventory.PressTrash(favorite.Id);
                     Check(inventory.GetChildren().OfType<ConfirmationDialog>().Single().Visible, "Un favorito sin equipar sigue bloqueado.");
                     inventory.HandleBack();
-                    ((Button)inventory.FindChild("EquipmentBulkToggle", true, false)).EmitSignal(Button.SignalName.Pressed);
+                    ((MenuButton)inventory.FindChild("EquipmentActions", true, false)).GetPopup().EmitSignal(PopupMenu.SignalName.IdPressed, 2L);
                     var selected = unequipped.Skip(1).Take(2).Select(i => i.Item).ToArray();
                     _defenseBulkItems = selected.Select(i => i.Id).ToArray();
                     _defenseBulkGold = player.Gold + selected.Sum(i => i.SaleGold);

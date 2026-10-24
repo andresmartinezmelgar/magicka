@@ -6,7 +6,7 @@ namespace Arcana.Client;
 public partial class EquipmentPanel
 {
     private Control _itemPicker = null!;
-    private Label _pickerTitle = null!, _pickerHelp = null!, _pickerEmpty = null!, _pickerStatus = null!;
+    private Label _pickerHelp = null!, _pickerEmpty = null!, _pickerStatus = null!;
     private ContentScrollContainer _pickerScroll = null!;
     private GridContainer _pickerGrid = null!;
     private readonly Dictionary<string, Button> _itemButtons = new(StringComparer.Ordinal);
@@ -28,10 +28,7 @@ public partial class EquipmentPanel
     {
         var box = new VBoxContainer { Name = "EquipmentItemPicker" }; _itemPicker = box;
         box.AddThemeConstantOverride("separation", 6); _rightHost.AddChild(box); Ui.Full(box);
-        var heading = new HBoxContainer(); heading.AddThemeConstantOverride("separation", 6); box.AddChild(heading);
-        _pickerTitle = Ui.Label("", Ui.IsMobile ? 17 : 20, Ui.Gold); _pickerTitle.ClipText = true;
-        _pickerTitle.SizeFlagsHorizontal = SizeFlags.ExpandFill; heading.AddChild(_pickerTitle);
-        BuildBulkActions(box, heading);
+        BuildBulkActions(box);
         _pickerHelp = Ui.Label("", 13, Ui.Muted); _pickerHelp.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _pickerStatus = Ui.Label("", 14, Ui.Gold); _pickerStatus.Name = "EquipmentPickerStatus"; _pickerStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart; _pickerStatus.Visible = false;
         _pickerScroll = new ContentScrollContainer { Name = "EquipmentPickerScroll", SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
@@ -53,7 +50,7 @@ public partial class EquipmentPanel
         var allChoices = Choices(slot);
         string equipped = _draft?.Loadout.Get(slot) ?? "";
         var choices = EquipmentQuery.Sort(allChoices, equippedId: equipped);
-        _pickerTitle.Text = EquipmentCatalogue.SlotName(slot).ToUpperInvariant() + $" · {choices.Length} objetos";
+        _optionAItemsTab!.Text = EquipmentCatalogue.SlotName(slot) + $" · {choices.Length}";
         _pickerHelp.Text = "Equipada primero · Solo la pieza equipada está protegida de la venta.";
         PrepareIcons();
         foreach (var item in choices)

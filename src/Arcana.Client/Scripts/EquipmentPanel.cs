@@ -9,7 +9,8 @@ public partial class EquipmentPanel : Control
     private Label _profile = null!, _detailTitle = null!, _empty = null!, _sets = null!, _status = null!;
     private Label _combatPreview = null!;
     private Label _totalsEmpty = null!;
-    private HBoxContainer _equipmentHeading = null!, _equipmentToolbar = null!;
+    private HBoxContainer _equipmentToolbar = null!;
+    private MenuButton _inventoryMenu = null!;
     private bool _showingTotals, _routineStatus = true;
     private GridContainer _details = null!, _totals = null!;
     private ScrollContainer? _setsScroll;
@@ -34,9 +35,6 @@ public partial class EquipmentPanel : Control
     internal string Totals => string.Join("\n", _totals.GetChildren().OfType<Label>().Select(l => l.Text));
     internal bool Saving => _busy;
     internal string Sets => _sets.Text;
-    private bool ShortEquipmentMenu => Ui.IsMobile && _defensePlayer == null &&
-        GetViewport().GetVisibleRect().Size.Y <= 480;
-
     private EquipmentAvatar _avatar = null!;
     private PanelContainer _avatarPane = null!;
     private Control _rightHost = null!;
@@ -57,30 +55,36 @@ public partial class EquipmentPanel : Control
         frame.ContentMarginLeft = frame.ContentMarginRight = 8; frame.ContentMarginTop = frame.ContentMarginBottom = 6; panel.AddThemeStyleboxOverride("panel", frame);
         margin.AddChild(panel);
         var box = new VBoxContainer(); box.AddThemeConstantOverride("separation", 6); panel.AddChild(box);
-        var heading = _equipmentHeading = new HBoxContainer(); box.AddChild(heading);
-        _profile = Ui.Label("", 15, Ui.Gold); _profile.ClipText = true; _profile.SizeFlagsHorizontal = SizeFlags.ExpandFill; heading.AddChild(_profile);
-        _equipmentToolbar = new HBoxContainer(); heading.AddChild(_equipmentToolbar);
+        _profile = Ui.Label("", 14, Ui.Gold); _profile.ClipText = true; _profile.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _equipmentToolbar = new HBoxContainer(); box.AddChild(_equipmentToolbar);
+        _inventoryMenu = new MenuButton { Name = "EquipmentActions", Text = "Opciones", CustomMinimumSize = new(72, 44) };
+        _inventoryMenu.AddThemeFontSizeOverride("font_size", 13); _equipmentToolbar.AddChild(_inventoryMenu);
+        var menu = _inventoryMenu.GetPopup();
+        menu.AddItem(_defensePlayer == null ? "Actualizar inventario" : "Comprar pieza · 100 oro", 0);
+        menu.AddItem(_defensePlayer == null ? "Equipos guardados" : "Volver a la tienda", 1);
+        menu.AddItem("Venta múltiple", 2);
+        menu.IdPressed += id =>
+        {
+            if (_defensePlayer != null && id == 1) { Close(); return; }
+            if (_busy) return;
+            if (id == 2) { ToggleBulkMode(); return; }
+            if (id == 0) { if (_defensePlayer == null) _ = Refresh(); else BuyDefenseItem(); }
+            else _savedEquipmentDialog?.PopupCentered(new((int)Math.Min(600, GetViewport().GetVisibleRect().Size.X - 32), 260));
+        };
         if (_defensePlayer == null)
         {
-            Action(_equipmentToolbar, "Actualizar", () => _ = Refresh());
             _savedEquipmentDialog = new AcceptDialog { Name = "EquipmentSavedTeamsDialog", Title = "Equipos guardados", OkButtonText = "Cerrar" };
-            _equipmentToolbar.AddChild(_savedEquipmentDialog); Ui.ConfigureDialog(_savedEquipmentDialog);
+            _optionAChrome!.ContentHost.AddChild(_savedEquipmentDialog); Ui.ConfigureDialog(_savedEquipmentDialog);
             var teams = new VBoxContainer { CustomMinimumSize = new(360, 0) }; _savedEquipmentDialog.AddChild(teams); BuildSavedEquipment(teams);
-            Action(_equipmentToolbar, "Equipos", () => _savedEquipmentDialog.PopupCentered(new((int)Math.Min(600, GetViewport().GetVisibleRect().Size.X - 32), 260)));
         }
-        else
-        {
-            var supplyBox = new VBoxContainer(); _equipmentToolbar.AddChild(supplyBox); BuildDefenseActions(supplyBox);
-            var close = Action(_equipmentToolbar, "Volver a la tienda", () => Close()); _actions.Remove(close);
-        }
-        _status = Ui.Label("", 15, Ui.Gold); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; _status.MaxLinesVisible = 2; _status.Visible = false; box.AddChild(_status);
+        _status = Ui.Label("", 15, Ui.Gold); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; _status.MaxLinesVisible = 1; _status.Visible = false; box.AddChild(_status);
         var columns = new HBoxContainer { Name = "EquipmentSplit", SizeFlagsVertical = SizeFlags.ExpandFill };
         columns.AddThemeConstantOverride("separation", Ui.IsMobile ? 8 : 16); box.AddChild(columns);
         _avatarPane = new PanelContainer { Name = "EquipmentAvatarPane", SizeFlagsVertical = SizeFlags.ExpandFill };
         var avatarStyle = Ui.Panel(new("0c1a2e"), 9, new("29475e")); avatarStyle.ContentMarginLeft = avatarStyle.ContentMarginRight = avatarStyle.ContentMarginTop = avatarStyle.ContentMarginBottom = 4;
         _avatarPane.AddThemeStyleboxOverride("panel", avatarStyle); columns.AddChild(_avatarPane);
         var left = new VBoxContainer(); left.AddThemeConstantOverride("separation", 4); _avatarPane.AddChild(left);
-        var caption = Ui.Label("SELECCIONA UNA ZONA", 13, Ui.Muted); caption.Name = "EquipmentAvatarHint"; caption.HorizontalAlignment = HorizontalAlignment.Center; left.AddChild(caption);
+        left.AddChild(_profile);
         _avatar = new EquipmentAvatar(); left.AddChild(_avatar);
         _avatar.Build(_defenseWizard?.WizardType ?? main.InventoryWizardType, OpenItemPicker);
         foreach (var slot in Enum.GetValues<EquipmentSlot>()) _slots[(int)slot] = _avatar.Buttons[slot];
@@ -94,6 +98,7 @@ public partial class EquipmentPanel : Control
         _optionAItemsTab = Ui.Button("Objetos", () => OpenItemPicker(_selectedSlot)); _optionAItemsTab.Name = "EquipmentItemsTab";
         _optionAStatsTab = Ui.Button("Ver estadísticas", () => SwitchOptionAEquipment(true)); _optionAStatsTab.Name = "EquipmentTotalsTab";
         foreach (var tab in new[] { _optionAItemsTab, _optionAStatsTab }) { tab.SizeFlagsHorizontal = SizeFlags.ExpandFill; tab.CustomMinimumSize = new(0, 44); tabs.AddChild(tab); }
+        _equipmentToolbar.Reparent(tabs);
         _rightHost = new Control { Name = "EquipmentRightContent", SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsHorizontal = SizeFlags.ExpandFill, ClipContents = true };
         rightBox.AddChild(_rightHost);
         var totalsScroll = new ContentScrollContainer { Name = "EquipmentTotalsScroll", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, Visible = false };
@@ -131,13 +136,21 @@ public partial class EquipmentPanel : Control
         float width = GetViewport().GetVisibleRect().Size.X;
         _avatarPane.CustomMinimumSize = new(Math.Clamp(width * .32f, 178, 430), 0);
         bool shortView = GetViewport().GetVisibleRect().Size.Y <= 500;
-        ((Control)_avatarPane.FindChild("EquipmentAvatarHint", true, false)).Visible = !shortView;
         _salesHelp.Visible = !shortView;
         foreach (var button in _equipmentToolbar.GetChildren().OfType<Button>())
         { button.CustomMinimumSize = new(0, 40); button.AddThemeFontSizeOverride("font_size", width < 800 ? 13 : 15); }
-        if (_defenseSupply != null) { _defenseSupply.CustomMinimumSize = new(0, 40); _defenseSupply.AddThemeFontSizeOverride("font_size", width < 800 ? 13 : 15); }
         foreach (var tab in new[] { _optionAItemsTab, _optionAStatsTab })
-            if (tab != null) tab.AddThemeFontSizeOverride("font_size", width < 800 ? 14 : 17);
+            if (tab != null)
+            {
+                tab.AddThemeFontSizeOverride("font_size", width < 800 ? 14 : 17);
+                foreach (string state in new[] { "normal", "hover", "pressed", "disabled" })
+                {
+                    var style = (StyleBoxFlat)tab.GetThemeStylebox(state).Duplicate();
+                    style.ContentMarginLeft = style.ContentMarginRight = 8;
+                    style.ContentMarginTop = style.ContentMarginBottom = 4;
+                    tab.AddThemeStyleboxOverride(state, style);
+                }
+            }
         _status.Visible = _status.Text.Length > 0 && !_routineStatus;
         if (_setsScroll != null) _setsScroll.CustomMinimumSize = new(Math.Max(240, Math.Min(800, width - 100)), Math.Max(150, Math.Min(400, GetViewport().GetVisibleRect().Size.Y - 180)));
         UpdatePickerColumns(); if (_confirm.Visible) ResizeSaleModal();
@@ -182,7 +195,7 @@ public partial class EquipmentPanel : Control
     private void Render()
     {
         var account = _draft;
-        _profile.Text = account == null ? "Sin cuenta" : $"{account.Name} · {account.Gold} oro{(_defensePlayer == null ? "" : " temporal")} · {account.Items.Length}/{(_defensePlayer == null ? EquipmentCatalogue.InventoryLimit : DefenseRules.InventoryLimit)} objetos";
+        _profile.Text = account == null ? "Sin cuenta" : $"{account.Gold} oro · {account.Items.Length}/{(_defensePlayer == null ? EquipmentCatalogue.InventoryLimit : DefenseRules.InventoryLimit)} objetos";
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
             var view = _slots[(int)slot]; var choices = Choices(slot);
@@ -256,9 +269,8 @@ public partial class EquipmentPanel : Control
     { ItemTier.Silver => new("c4cbd7"), ItemTier.Gold => new("e8c574"), ItemTier.Platinum => new("82dfd6"), ItemTier.Diamond => new("73bfff"), _ => new("cf9cff") };
     private void SetStatus(string message, bool routine = false)
     {
-        _status.Text = message; _routineStatus = routine;
-        _status.Visible = message.Length > 0 && (!_showingTotals || !routine) &&
-            (_defensePlayer == null || !routine || HasChanges) && (!ShortEquipmentMenu || !routine || HasChanges);
+        _status.Text = message; _status.TooltipText = message; _routineStatus = routine;
+        _status.Visible = message.Length > 0 && !routine;
     }
     private void Busy(bool value, string message = "")
     {
@@ -269,6 +281,7 @@ public partial class EquipmentPanel : Control
             SetPickerMessage(message);
         RenderSavedEquipment();
         if (_defensePlayer != null) RenderDefenseActions();
+        else { _inventoryMenu.GetPopup().SetItemDisabled(0, value); _inventoryMenu.GetPopup().SetItemDisabled(1, value); }
     }
     private async Task ConnectInventoryServer()
     {
