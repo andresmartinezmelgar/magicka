@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.29.15 — Inventario visual del mago
+
+- Dos paneles permanentes: el mago a la izquierda y los objetos de la zona seleccionada a la derecha, en inventario de cuenta y Supervivencia.
+- Seis zonas resaltadas: gorro, pechera, botas, arma y un anillo en cada mano. Selección por tacto, ratón y teclado, sin filtros.
+- Estadísticas totales desde el panel derecho, ordenadas de mayor a menor. Los detalles por pieza y los límites se conservan en la información de cada valor.
+- Solo se bloquea la venta de lo equipado actualmente. Cambiar de pieza permite vender la anterior sin salir; los favoritos siguen marcados y también pueden venderse.
+- La venta confirma primero la sustitución cuando es necesaria. Un fallo al guardar no elimina el objeto ni paga oro; se conservan los controles de propiedad y los reintentos.
+
 ## 0.29.14 — Dos anillos de equipo
 
 - Dos posiciones nuevas: anillo de oro y anillo mágico, disponibles como botín y en la tienda en PvP y Supervivencia sin sustituir botas, gorro, pecho o arma. Sus efectos básicos existen en todas las calidades.

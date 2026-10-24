@@ -61,19 +61,19 @@ public partial class Main
                     foreach (string id in new[] { fixture.Profile.Loadout.Weapon, fixture.Extras[0].Id })
                     {
                         Button("EquipmentFavorite_" + id).EmitSignal(BaseButton.SignalName.Pressed);
-                        Check(Button("EquipmentTrash_" + id).Disabled, "Marcar favorito permite vender.");
-                        panel.PressTrash(id); panel.PressTrash(id);
+                        Check(Button("EquipmentTrash_" + id).Disabled == (id == fixture.Profile.Loadout.Weapon), "La venta no protege únicamente la pieza equipada.");
                     }
-                    Check(!dialog.Visible && fixture.Attempts == 0, "Una venta rápida evita la protección del favorito.");
+                    Check(!dialog.Visible && fixture.Attempts == 0, "Marcar favoritos envía una venta o abre una confirmación.");
                     var saved = DevicePreferences.Read<Dictionary<string, InventoryPreferences>>("inventory-preferences")!;
                     Check(saved[fixture.Profile.Uid].Favorites.Count == 2 && saved[fixture.Profile.Uid].Loadouts.Count == 2, "Favoritos y equipos no se guardan en el disco.");
-                    var sort = (OptionButton)panel.FindChild("EquipmentSort", true, false);
-                    sort.Select((int)EquipmentStat.ColdPower + 1); sort.EmitSignal(OptionButton.SignalName.ItemSelected, sort.Selected);
-                    Check(panel.PickerItems.SequenceEqual(EquipmentQuery.Sort(fixture.Profile.Items.Where(i => i.Slot == EquipmentSlot.Weapon), EquipmentStat.ColdPower, panel.PreviewProfile!.Loadout.Weapon).Select(i => i.Id)), "La interfaz no fija primero la equipada al ordenar por atributo.");
+                    Check(panel.FindChild("EquipmentFilters", true, false) == null && panel.FindChild("EquipmentSort", true, false) == null, "Quedan filtros en el inventario.");
+                    Check(panel.PickerItems.SequenceEqual(EquipmentQuery.Sort(fixture.Profile.Items.Where(i => i.Slot == EquipmentSlot.Weapon), equippedId: panel.PreviewProfile!.Loadout.Weapon).Select(i => i.Id)), "La interfaz no fija primero la pieza equipada y después la calidad.");
                     Check(((Label)panel.FindChild("EquipmentComparison_" + fixture.Extras[1].Id, true, false)).Text.Contains("4/4 → 3/4"), "Falta el cambio de conjunto en la comparación.");
                     Button("EquipmentBulkToggle").EmitSignal(BaseButton.SignalName.Pressed);
                     Button("EquipmentBulkAll").EmitSignal(BaseButton.SignalName.Pressed);
-                    Check(Button("EquipmentBulkSell").Text.Contains("Vender 2"), "Marcar visibles incluye favoritas o equipadas.");
+                    Check(Button("EquipmentBulkSell").Text.Contains("Vender 3"), "Marcar visibles excluye una pieza sin equipar o incluye la equipada.");
+                    ((CheckBox)panel.FindChild("EquipmentSelect_" + fixture.Extras[0].Id, true, false)).ButtonPressed = false;
+                    Check(Button("EquipmentBulkSell").Text.Contains("Vender 2"), "Elegir dos piezas cambia la selección de venta.");
                     _usabilityStage++; return false;
                 case 1:
                     CaptureUsability("01-favoritos-y-comparacion");

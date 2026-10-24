@@ -5,6 +5,7 @@ namespace Arcana.Client;
 
 public partial class Main
 {
+    internal WizardType InventoryWizardType => _launcher.SelectedWizardType;
     public AccountClient Accounts { get; private set; } = new();
     private EquipmentPanel? _equipmentPanel;
     private AccountProfilePanel? _accountProfilePanel;

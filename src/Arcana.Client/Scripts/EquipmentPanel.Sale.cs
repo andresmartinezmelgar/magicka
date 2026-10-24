@@ -48,6 +48,33 @@ public partial class EquipmentPanel
         Ui.ConfigureDialog(_confirm, backdrop: false);
     }
 
+    // Vender confirma primero el cambio necesario para liberar la pieza anterior.
+    // Si no se confirma la equipación, no se envía la venta. El servidor vuelve a
+    // comprobar el equipo actual antes de pagar o eliminar cualquier objeto.
+    private async Task PreparePermanentSale(string id)
+    {
+        var item = _draft?.Items.SingleOrDefault(i => i.Id == id);
+        if (item == null || SaleProtected(id)) throw new InvalidOperationException("La pieza está equipada o ya no está disponible.");
+        if (_main.Accounts.Profile?.Loadout.Get(item.Slot) != id) return;
+        await _main.Accounts.SaveLoadout(_draft!.Loadout, _lifetime.Token);
+    }
+
+    private void SellDefenseId(string id, Action? after = null, string message = "Venta confirmada.")
+    {
+        if (!CanSellInventory || SaleProtected(id) || _draft == null) return;
+        var item = _draft.Items.SingleOrDefault(i => i.Id == id);
+        if (item == null) return;
+        if (_savedLoadout.Get(item.Slot) == id)
+        {
+            var desired = _draft.Loadout;
+            DefenseOperation(new() { Type = "defense_loadout", Loadout = desired },
+                p => DefenseProfile(p).Loadout == desired, () => SellDefenseId(id, after, message),
+                "Cambio de equipo confirmado. Vendiendo la pieza anterior…");
+            return;
+        }
+        DefenseOperation(new() { Type = "defense_sell", ItemId = id }, p => p.Items.All(i => i.Item.Id != id), after, message);
+    }
+
     private EquipmentItem? SelectSaleItem(string id)
     {
         var item = _draft?.Items.FirstOrDefault(i => i.Id == id && i.Slot == _selectedSlot);

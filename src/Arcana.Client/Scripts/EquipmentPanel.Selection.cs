@@ -26,48 +26,22 @@ public partial class EquipmentPanel
 
     private void BuildItemPicker()
     {
-        _itemPicker = new Control { Name = "EquipmentItemPicker", Visible = false, MouseFilter = MouseFilterEnum.Stop };
-        // El selector comparte el área central; cabecera y navegación siguen recibiendo entrada.
-        (_optionAChrome?.ContentHost ?? this).AddChild(_itemPicker); Ui.Full(_itemPicker);
-        var backdrop = new ColorRect { Color = Ui.ModalDim };
-        _itemPicker.AddChild(backdrop); Ui.Full(backdrop);
-        var margin = new MarginContainer(); _itemPicker.AddChild(margin); Ui.Full(margin);
-        foreach (string side in new[] { "left", "right", "top", "bottom" })
-            margin.AddThemeConstantOverride("margin_" + side, Ui.IsMobile ? 12 : 24);
-        var panel = new PanelContainer();
-        var panelStyle = Ui.ModalPanel();
-        panelStyle.ContentMarginTop = panelStyle.ContentMarginBottom = 8;
-        panel.AddThemeStyleboxOverride("panel", panelStyle);
-        margin.AddChild(panel);
-        var box = new VBoxContainer(); box.AddThemeConstantOverride("separation", 10); panel.AddChild(box);
-        var heading = new HBoxContainer(); heading.AddThemeConstantOverride("separation", 12); box.AddChild(heading);
-        _pickerTitle = Ui.Label("", Ui.IsMobile ? 24 : 25, Ui.Gold);
-        _pickerTitle.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        var box = new VBoxContainer { Name = "EquipmentItemPicker" }; _itemPicker = box;
+        box.AddThemeConstantOverride("separation", 6); _rightHost.AddChild(box); Ui.Full(box);
+        var heading = new HBoxContainer(); heading.AddThemeConstantOverride("separation", 6); box.AddChild(heading);
+        _pickerTitle = Ui.Label("", Ui.IsMobile ? 17 : 20, Ui.Gold); _pickerTitle.ClipText = true;
         _pickerTitle.SizeFlagsHorizontal = SizeFlags.ExpandFill; heading.AddChild(_pickerTitle);
-        var close = Ui.Button(Ui.IsMobile ? "Volver" : "Volver al inventario", CloseItemPicker);
-        close.CustomMinimumSize = new(0, Ui.IsMobile ? 60 : 48); heading.AddChild(close);
-        _pickerHelp = Ui.Label("", Ui.IsMobile ? 17 : 16, Ui.Muted);
-        _pickerHelp.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_pickerHelp);
-        BuildPickerFilters(box);
         BuildBulkActions(box, heading);
-        _pickerStatus = Ui.Label("", 16, Ui.Gold); _pickerStatus.Name = "EquipmentPickerStatus";
-        _pickerStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart; _pickerStatus.Visible = false; box.AddChild(_pickerStatus);
-        _pickerScroll = new ContentScrollContainer { Name = "EquipmentPickerScroll",
-            SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill,
-            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-        var body = new VBoxContainer { Name = "EquipmentPickerBody", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        body.AddThemeConstantOverride("separation", 6);
-        foreach (var child in box.GetChildren().ToArray()) child.Reparent(body);
-        box.AddChild(_pickerScroll); Ui.VisibleVerticalScroll(_pickerScroll); _pickerScroll.AddChild(body);
-        _pickerGrid = new GridContainer { Name = "EquipmentPickerGrid", Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        _pickerGrid.AddThemeConstantOverride("h_separation", 10);
-        _pickerGrid.AddThemeConstantOverride("v_separation", 10); body.AddChild(_pickerGrid);
-        _pickerScroll.Resized += UpdatePickerColumns;
-        body.MoveChild(_pickerHelp, body.GetChildCount() - 1);
-        body.MoveChild(_pickerStatus, body.GetChildCount() - 1);
-        _pickerEmpty = Ui.Label("No tienes objetos para esta posición.", 19, Ui.Muted);
-        _pickerEmpty.AutowrapMode = TextServer.AutowrapMode.WordSmart; body.AddChild(_pickerEmpty);
-        BuildQuickActions();
+        _pickerHelp = Ui.Label("", 13, Ui.Muted); _pickerHelp.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _pickerStatus = Ui.Label("", 14, Ui.Gold); _pickerStatus.Name = "EquipmentPickerStatus"; _pickerStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart; _pickerStatus.Visible = false;
+        _pickerScroll = new ContentScrollContainer { Name = "EquipmentPickerScroll", SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        box.AddChild(_pickerScroll); Ui.VisibleVerticalScroll(_pickerScroll);
+        var body = new VBoxContainer { Name = "EquipmentPickerBody", SizeFlagsHorizontal = SizeFlags.ExpandFill }; _pickerScroll.AddChild(body);
+        body.AddThemeConstantOverride("separation", 8); body.AddChild(_pickerStatus);
+        _pickerGrid = new GridContainer { Name = "EquipmentPickerGrid", Columns = 1, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _pickerGrid.AddThemeConstantOverride("h_separation", 10); _pickerGrid.AddThemeConstantOverride("v_separation", 10); body.AddChild(_pickerGrid);
+        _pickerEmpty = Ui.Label("No tienes objetos para esta zona.", 17, Ui.Muted); _pickerEmpty.AutowrapMode = TextServer.AutowrapMode.WordSmart; body.AddChild(_pickerEmpty); body.AddChild(_pickerHelp);
+        _pickerScroll.Resized += UpdatePickerColumns; BuildQuickActions();
     }
 
     private void OpenItemPicker(EquipmentSlot slot)
@@ -78,13 +52,9 @@ public partial class EquipmentPanel
         _itemButtons.Clear(); _trashButtons.Clear(); _upgradeButtons.Clear(); Clear(_pickerGrid);
         var allChoices = Choices(slot);
         string equipped = _draft?.Loadout.Get(slot) ?? "";
-        var choices = EquipmentQuery.Sort(allChoices.Where(i => i.Id == equipped || PickerFilter.Matches(i)),
-            _sort.Selected > 0 ? (EquipmentStat)(_sort.GetSelectedId() - 1) : null, equipped);
-        _pickerTitle.Text = EquipmentCatalogue.SlotName(slot).ToUpperInvariant() + $" · {choices.Length}/{allChoices.Length} objetos";
-        _pickerHelp.Text = "La pieza equipada siempre aparece primero. Equipadas y favoritas no se venden." +
-            (_defensePlayer == null ? " Los anillos también se mejoran con oro de cuenta." : $" Oro de partida: {_defensePlayer.Gold}.");
-        if (Ui.IsMobile) _pickerHelp.Text = "Equipada primero · Equipadas y favoritas protegidas." +
-            (_defensePlayer == null ? "" : $" Oro de partida: {_defensePlayer.Gold}.");
+        var choices = EquipmentQuery.Sort(allChoices, equippedId: equipped);
+        _pickerTitle.Text = EquipmentCatalogue.SlotName(slot).ToUpperInvariant() + $" · {choices.Length} objetos";
+        _pickerHelp.Text = "Equipada primero · Solo la pieza equipada está protegida de la venta.";
         PrepareIcons();
         foreach (var item in choices)
         {
@@ -125,7 +95,7 @@ public partial class EquipmentPanel
                 (Ui.IsMobile ? " Doble toque para vender sin confirmar." : " Doble clic para vender sin confirmar."), () => ClickSell(item.Id));
             trash.SetMeta("sale_item_id", item.Id);
             _trashButtons.Add(item.Id, trash);
-            if (SaleEquipped(item.Id)) trash.TooltipText = "Pieza equipada: venta bloqueada. Desequípala y guarda el equipo al salir antes de venderla.";
+            if (SaleEquipped(item.Id)) trash.TooltipText = "Pieza equipada: venta bloqueada. Elige otra pieza para poder vender esta.";
             var equip = PickerAction(actions, "EquipmentEquip_", item.Id, _equipIcon, selected ? Ui.Gold : Ui.Blue,
                 selected ? "Quitar" : "Equipar", selected ? "Quitar esta pieza equipada." : "Equipar esta pieza. Se guardará al salir del inventario.",
                 () => ChooseItem(selected ? "" : item.Id));
@@ -150,11 +120,11 @@ public partial class EquipmentPanel
                 description.AddChild(reason);
             }
         }
-        _pickerEmpty.Text = allChoices.Length == 0 ? "No tienes objetos para esta posición." : "No hay objetos que coincidan con estos filtros.";
+        _pickerEmpty.Text = "No tienes objetos para esta zona.";
         _pickerEmpty.Visible = choices.Length == 0;
         UpdatePickerActions();
         UpdateBulkActions();
-        _itemPicker.Show(); _pickerScroll.ScrollVertical = 0; UpdatePickerColumns();
+        SwitchOptionAEquipment(false); _pickerScroll.ScrollVertical = 0; UpdatePickerColumns();
     }
 
     private static Button PickerAction(VBoxContainer actions, string prefix, string id, Texture2D icon, Color color,
@@ -208,6 +178,8 @@ public partial class EquipmentPanel
     {
         if (_confirm.Visible) { CancelSale(); return; }
         if (_setsInfo.Visible) { _setsInfo.Hide(); return; }
+        if (_savedEquipmentDialog?.Visible == true) { _savedEquipmentDialog.Hide(); return; }
+        if (_showingTotals) { OpenItemPicker(_selectedSlot); return; }
         if (_itemPicker.Visible) CloseItemPicker();
         else Close();
     }

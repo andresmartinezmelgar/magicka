@@ -53,7 +53,8 @@ public partial class EquipmentPanel
         if (_defenseSupply == null || _defensePlayer == null) return;
         _defenseSupply.Disabled = _busy || !CanChangeDefenseItems || _defensePlayer.Gold < 100 ||
             _defensePlayer.Items.Length >= DefenseRules.InventoryLimit;
-        _defenseSupply.Text = !CanChangeDefenseItems ? "Compra bloqueada · partida terminada o mago caído" :
+        _defenseSupply.Text = "Comprar pieza · 100 oro";
+        _defenseSupply.TooltipText = !CanChangeDefenseItems ? "Compra bloqueada · partida terminada o mago caído" :
             _defensePlayer.Items.Length >= DefenseRules.InventoryLimit ? "Inventario lleno · vende alguna pieza" :
             _defensePlayer.Gold < 100 ? $"Comprar pieza · faltan {100 - _defensePlayer.Gold} oro" : "Comprar pieza aleatoria · 100 oro";
     }
@@ -125,8 +126,7 @@ public partial class EquipmentPanel
     {
         if (_busy || !CanSellInventory || _selling.Length == 0 || SaleProtected(_selling)) return;
         string id = _selling; _selling = "";
-        DefenseOperation(new() { Type = "defense_sell", ItemId = id }, p => p.Items.All(i => i.Item.Id != id),
-            message: "Venta confirmada. El oro y las piezas están actualizados.");
+        SellDefenseId(id, message: "Venta confirmada. El oro y las piezas están actualizados.");
     }
 
     private void SaveDefenseAndClose()

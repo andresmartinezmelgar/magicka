@@ -142,6 +142,7 @@ public partial class Main
                 GetTree().Quit(); return true;
             }
             var panel = _equipmentPanel!;
+            AssertInventorySplit(panel);
             Check(_engineLog.ErrorCount == 0 && panel.VisibleItems == 30 && panel.Details.Contains("Límites (mín.") &&
                 panel.Totals.Contains("Suma") && panel.Totals.Contains("Aplicado"), "Faltan los atributos o los totales del inventario.");
             Check(!panel.FindChildren("*", "Button", true, false).OfType<Button>().Any(b => b.Text is "‹" or "›"), "El inventario conserva las flechas.");
@@ -172,11 +173,11 @@ public partial class Main
                 "Los nombres de atributos no ocupan la última columna.");
             int attack = Array.FindIndex(cells, l => l.Text == "Ataque");
             Check(attack >= 0 && (totals.Columns == 2
-                ? cells[attack - 1].Text == "Botas: +2% · Gorro: -1%\nPecho: +5% · Arma: +7%\nConjunto: 0% · Suma: +13%\nAplicado: +13%"
+                ? cells[attack - 1].Text == "+13%\nSuma: +13%" && new[] { "Botas: +2%", "Gorro: -1%", "Pecho: +5%", "Arma: +7%" }.All(cells[attack - 1].TooltipText.Contains)
                 : cells.Skip(attack - 9).Take(9).Select(l => l.Text).SequenceEqual(new[] { "+2%", "-1%", "+5%", "+7%", "—", "—", "0%", "+13%", "+13%" })),
                 "El desglose no separa las cuatro piezas, pierde el signo o suma piezas sin equipar.");
             panel.PressInspect(EquipmentSlot.Hat); panel.PressChoice("");
-            Check(panel.Totals.Contains("+14%") && (totals.Columns == 2 ? panel.Totals.Contains("Gorro: —") : panel.Totals.Contains("—")),
+            Check(panel.Totals.Contains("+14%") && (totals.Columns == 2 ? totals.GetChildren().OfType<Label>().Any(l => l.TooltipText.Contains("Gorro: —")) : panel.Totals.Contains("—")),
                 "Quitar una pieza no actualiza su aportación y la suma provisional.");
             Check(Accounts.Profile!.Loadout.Hat == separated[1].Id, "La vista previa guarda antes de salir.");
             GD.Print("EQUIPMENT_SLOT_TOTALS_OK: cuatro aportaciones, penalización, pieza sin equipar, suma y previsualización sin guardar.");
@@ -266,7 +267,7 @@ public partial class Main
                 baseVisual.QueueFree(); equippedVisual.QueueFree(); ReturnToLauncher();
             }
             Check(_engineLog.ErrorCount == 0, "Godot registró errores durante la comprobación.");
-            GD.Print("EQUIPMENT_SMOKE_OK: selector en cuatro posiciones, cinco calidades, sin escrituras durante la selección, guardado al salir por Atrás/Escape/menú, reapertura y dos partidas IA.");
+            GD.Print("EQUIPMENT_SMOKE_OK: selector en seis posiciones, cinco calidades, sin escrituras durante la selección, guardado al salir por Atrás/Escape/menú, reapertura y dos partidas IA.");
             GetTree().Quit();
         }
         catch (Exception error) { GD.PushError("EQUIPMENT_SMOKE_FAILED: " + error.Message); GetTree().Quit(1); }

@@ -132,8 +132,8 @@ internal static class GoldEquipmentTests
             var prefs = new InventoryPreferences();
             Check(prefs.Sellable(profile, [low.Id, high.Id]).Single().Id == high.Id, "La selección manual vendió una equipada.");
             var draft = profile with { Loadout = new() };
-            Check(prefs.Sellable(draft, [low.Id, high.Id], profile.Loadout).Single().Id == high.Id,
-                "La selección pendiente permite vender antes de guardar el equipo.");
+            Check(prefs.Sellable(draft, [low.Id, high.Id]).Length == 2,
+                "Una pieza que ya no está seleccionada sigue bloqueada por el equipo guardado.");
             try { AccountInventory.Sell(profile, low.Id); throw new Exception("La venta autoritativa retiró una equipada."); }
             catch (ArgumentException) { }
         });

@@ -16,6 +16,7 @@ public partial class Launcher : Control
     private Label _hostInfo = null!;
     private RoomLobby? _lobby;
     private readonly LocalServerHost _host = new();
+    internal WizardType SelectedWizardType => (WizardType)_wizardType.GetSelectedId();
     internal bool Hosting => _host.Running || _busy;
     private TabContainer _tabs = null!;
     private LanServer[] _lan = [];

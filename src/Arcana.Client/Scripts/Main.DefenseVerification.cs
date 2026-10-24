@@ -7,7 +7,7 @@ namespace Arcana.Client;
 
 public partial class Main
 {
-    private bool _defenseFiltersReviewed;
+    private bool _defenseAvatarReviewed;
     private bool _defenseSmoke;
     private int _defenseSmokeFrame, _defenseSmokePhase;
     private long _defensePauseTick;
@@ -22,6 +22,8 @@ public partial class Main
     private string[] _defenseBulkItems = [];
     private string _defenseBulkFavorite = "";
     private long _defenseBulkGold;
+    private int _defenseLiveSale;
+    private EquipmentItem? _defenseOldBoots, _defenseNewBoots;
 
     private void StartDefenseSmoke(string[] arguments)
     {
@@ -183,7 +185,7 @@ public partial class Main
                 if (_defenseTotalsReview == 1)
                 {
                     AssertVisibleTableData(inventory, "EquipmentTotalsTable");
-                    Check(new[] { "Botas", "Gorro", "Pecho", "Arma", "Suma", "Aplicado" }.All(inventory.Totals.Contains),
+                    Check(inventory.Totals.Contains("Suma") && inventory.Totals.Contains("Aplicado"),
                         "El inventario temporal no muestra las cuatro aportaciones y el total.");
                     CaptureDefense("04-desglose-equipo");
                     Tab("EquipmentItemsTab").EmitSignal(Button.SignalName.Pressed);
@@ -200,18 +202,14 @@ public partial class Main
                 Check(inventory.PickerItems.Select(id => lookup[id].Item.Tier).SequenceEqual(new[] { ItemTier.Gold, ItemTier.Platinum }) &&
                     inventory.PickerItems[0] == inventory.PreviewProfile!.Loadout.Chest,
                     "La pieza equipada no aparece primero.");
-                if (!_defenseFiltersReviewed)
+                if (!_defenseAvatarReviewed)
                 {
-                var tierFilter = (OptionButton)inventory.FindChild("EquipmentTierFilter", true, false);
-                tierFilter.Select((int)ItemTier.Platinum + 1); tierFilter.EmitSignal(OptionButton.SignalName.ItemSelected, (long)tierFilter.Selected);
-                Check(inventory.PickerItems.Length == 2 && lookup[inventory.PickerItems[0]].Item.Tier == ItemTier.Gold,
-                    "El filtro oculta la pieza equipada.");
-                tierFilter.Select(0); tierFilter.EmitSignal(OptionButton.SignalName.ItemSelected, 0L);
-                Check(inventory.PickerItems.Length == 2 && !inventory.HasChanges &&
-                    inventory.FindChildren("EquipmentComparison_*", "Label", true, false).Count > 0,
-                    "Filtrar cambia el equipo o falta la comparación de atributos.");
-                GD.Print("EQUIPMENT_FILTERS_OK: filtro y comparación sin alterar la selección.");
-                    _defenseFiltersReviewed = true; return false; // Espera la distribución real de las tarjetas reconstruidas.
+                Check(inventory.FindChild("EquipmentFilters", true, false) == null && inventory.FindChild("EquipmentSort", true, false) == null,
+                    "El inventario conserva los filtros.");
+                Check(!inventory.HasChanges && inventory.FindChildren("EquipmentComparison_*", "Label", true, false).Count > 0,
+                    "Abrir una zona cambia el equipo o falta la comparación de atributos.");
+                GD.Print("EQUIPMENT_AVATAR_OK: seis zonas y objetos a la derecha, sin filtros ni escrituras al seleccionar zona.");
+                    _defenseAvatarReviewed = true; return false; // Espera la distribución real de las tarjetas reconstruidas.
                 }
                 foreach (string id in inventory.PickerItems) AssertPickerActions(inventory, id, checkLayout: true);
                 CaptureDefense("05-selector-calidad");
@@ -329,7 +327,8 @@ public partial class Main
                     inventory.PressInspect(favorite.Slot);
                     ((Button)inventory.FindChild("EquipmentFavorite_" + favorite.Id, true, false)).EmitSignal(Button.SignalName.Pressed);
                     inventory.PressTrash(favorite.Id);
-                    Check(!inventory.GetChildren().OfType<ConfirmationDialog>().Single().Visible, "Un favorito temporal se puede vender.");
+                    Check(inventory.GetChildren().OfType<ConfirmationDialog>().Single().Visible, "Un favorito sin equipar sigue bloqueado.");
+                    inventory.HandleBack();
                     ((Button)inventory.FindChild("EquipmentBulkToggle", true, false)).EmitSignal(Button.SignalName.Pressed);
                     var selected = unequipped.Skip(1).Take(2).Select(i => i.Item).ToArray();
                     _defenseBulkItems = selected.Select(i => i.Id).ToArray();
@@ -346,9 +345,33 @@ public partial class Main
                     _defenseBulkReview = 1; return false;
                 }
                 if (inventory.Saving) return false;
-                Check(player.Items.Length == 6 && player.Gold == _defenseBulkGold && player.Items.All(i => !_defenseBulkItems.Contains(i.Item.Id)) &&
-                    player.Items.Any(i => i.Item.Id == _defenseBulkFavorite) && inventory.PreviewProfile!.Loadout == _defenseChosenLoadout,
-                    "La venta múltiple temporal pierde el favorito, el equipo o una confirmación autoritativa.");
+                if (_defenseLiveSale == 0)
+                {
+                    Check(player.Items.Length == 6 && player.Gold == _defenseBulkGold && player.Items.All(i => !_defenseBulkItems.Contains(i.Item.Id)) &&
+                        player.Items.Any(i => i.Item.Id == _defenseBulkFavorite) && inventory.PreviewProfile!.Loadout == _defenseChosenLoadout,
+                        "La venta múltiple temporal pierde el favorito, el equipo o una confirmación autoritativa.");
+                    _defenseOldBoots = player.Items.Single(i => i.Equipped && i.Item.Slot == EquipmentSlot.Boots).Item;
+                    _defenseNewBoots = EquipmentCatalogue.Generate(new(999), tier: ItemTier.Diamond, slot: EquipmentSlot.Boots);
+                    typeof(GameWorld).GetMethod("GrantDefenseItem", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_practice, [_practice!.Players[_localId], _defenseNewBoots]);
+                    _defenseLiveSale = 1; return false;
+                }
+                if (_defenseLiveSale == 1)
+                {
+                    if (!inventory.PreviewProfile!.Items.Any(i => i.Id == _defenseNewBoots!.Id)) return false;
+                    inventory.PressInspect(EquipmentSlot.Boots); inventory.PressChoice(_defenseNewBoots!.Id);
+                    Check(!((Button)inventory.FindChild("EquipmentTrash_" + _defenseOldBoots!.Id, true, false)).Disabled &&
+                        ((Button)inventory.FindChild("EquipmentTrash_" + _defenseNewBoots.Id, true, false)).Disabled,
+                        "Cambiar las botas temporales no libera las anteriores o deja vender las nuevas.");
+                    _defenseChosenLoadout = inventory.PreviewProfile.Loadout;
+                    inventory.PressTrash(_defenseOldBoots.Id);
+                    inventory.GetChildren().OfType<ConfirmationDialog>().Single().EmitSignal(ConfirmationDialog.SignalName.Confirmed);
+                    _defenseLiveSale = 2; return false;
+                }
+                Check(player.Items.Length == 6 && player.Gold == _defenseBulkGold + _defenseOldBoots!.SaleGold &&
+                    player.Items.All(i => i.Item.Id != _defenseOldBoots.Id) && player.Items.Any(i => i.Item.Id == _defenseNewBoots!.Id && i.Equipped) &&
+                    inventory.PickerVisible && inventory.PreviewProfile!.Loadout == _defenseChosenLoadout,
+                    "La venta de las botas anteriores no confirma el nuevo equipo y el oro sin salir.");
+                GD.Print("DEFENSE_LIVE_EQUIPMENT_SALE_OK: cambiar botas y vender las anteriores sin cerrar, con confirmación autoritativa y una sola recompensa.");
                 Check(Protocol.Serialize(Accounts.Profile) == _defenseAccountBefore &&
                     (System.IO.File.Exists(AccountCache) ? System.IO.File.ReadAllText(AccountCache) : "") == _defenseCacheBefore,
                     "El inventario temporal modificó la cuenta o su caché permanente.");
@@ -361,7 +384,7 @@ public partial class Main
                 Check(((Label)totals.GetChild(totals.Columns - 1)).Text == "Atributo" &&
                     ((Label)panel.FindChild("DefenseTotals", true, false).GetChild(1)).Text == "Atributo",
                     "Los atributos de Supervivencia no están a la derecha de sus valores.");
-                string text = string.Join('\n', totals.GetChildren().OfType<Label>().Select(l => l.Text));
+                string text = string.Join('\n', totals.GetChildren().OfType<Label>().Select(l => l.Text + "\n" + l.TooltipText));
                 Check(new[] { "Botas:", "Gorro:", "Pecho:", "Arma:", "Suma:", "Aplicado:" }.All(text.Contains),
                     "Las estadísticas de Defensa no desglosan las cuatro piezas y su suma.");
                 CaptureDefense("05-bonificaciones"); panel.ShowSection(4); _defenseSmokePhase++; return false;

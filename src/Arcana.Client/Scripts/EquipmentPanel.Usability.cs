@@ -41,12 +41,12 @@ public partial class EquipmentPanel
         _bulkAll.Name = "EquipmentBulkAll";
         _bulkSell = Add("Vender selección", ConfirmBatchSale); _bulkSell.Name = "EquipmentBulkSell";
     }
-    private bool SaleEquipped(string id) => Equipped(id) || Enum.GetValues<EquipmentSlot>().Any(s => _savedLoadout.Get(s) == id);
-    private bool SaleProtected(string id) => Preferences.Protected(id) || SaleEquipped(id);
+    private bool SaleEquipped(string id) => Equipped(id);
+    private bool SaleProtected(string id) => SaleEquipped(id);
     private bool Equipped(string id) => _draft != null && Enum.GetValues<EquipmentSlot>().Any(s => _draft.Loadout.Get(s) == id);
     private void BuildItemPreferences(VBoxContainer box, EquipmentItem item)
     {
-        var favorite = Ui.Button(Preferences.Protected(item.Id) ? "★ FAVORITO · protegido" : "☆ Marcar favorito", () =>
+        var favorite = Ui.Button(Preferences.Protected(item.Id) ? "Favorito" : "Marcar favorito", () =>
         {
             if (_busy) return;
             ResetQuickActions();
@@ -60,7 +60,7 @@ public partial class EquipmentPanel
         favorite.AddThemeFontSizeOverride("font_size", 14); favorite.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         box.AddChild(favorite); _preferenceActions.Add(favorite);
         if (!_bulkMode) return;
-        var check = new CheckBox { Name = "EquipmentSelect_" + item.Id, Text = Preferences.Protected(item.Id) ? "Protegido" : SaleEquipped(item.Id) ? "Equipada · protegida" : "Seleccionar venta",
+        var check = new CheckBox { Name = "EquipmentSelect_" + item.Id, Text = SaleEquipped(item.Id) ? "Equipada · protegida" : "Seleccionar venta",
             ButtonPressed = _saleSelection.Contains(item.Id), Disabled = _busy || SaleProtected(item.Id), CustomMinimumSize = new(0, 44) };
         check.AddThemeFontSizeOverride("font_size", 14); check.ClipText = true;
         check.Toggled += selected => { if (selected) _saleSelection.Add(item.Id); else _saleSelection.Remove(item.Id); UpdateBulkActions(); };
@@ -87,7 +87,7 @@ public partial class EquipmentPanel
         _bulkToggle.Disabled = _busy; _bulkToggle.Text = _bulkMode ? "Cancelar selección" : "Venta múltiple";
         _bulkAll!.Visible = _bulkSell!.Visible = _bulkMode;
         _bulkRow!.Visible = _bulkMode;
-        var items = _draft == null ? [] : Preferences.Sellable(_draft, _saleSelection, _savedLoadout);
+        var items = _draft == null ? [] : Preferences.Sellable(_draft, _saleSelection);
         _saleSelection.IntersectWith(items.Select(i => i.Id));
         _bulkAll.Disabled = _busy || !CanSellInventory;
         _bulkSell.Disabled = _busy || !CanSellInventory || items.Length == 0;
@@ -97,20 +97,19 @@ public partial class EquipmentPanel
     private string UpgradeBlockedReason(string id)
     {
         var entry = _defensePlayer?.Items.FirstOrDefault(i => i.Item.Id == id);
-        string protection = Preferences.Protected(id) ? "Favorito: venta bloqueada. " : "";
         if (entry == null)
         {
             var ring = _draft?.Items.FirstOrDefault(i => i.Id == id);
-            if (ring == null || !RingEffects.IsRing(ring.Slot)) return protection + "Mejoras: solo durante Defensa.";
-            if (ring.UpgradeLevel >= 10) return protection + "Límite de mejora alcanzado.";
-            if (!CanSellInventory) return protection + "Mejoras de anillos: inicia sesión y conecta el servicio de cuenta.";
+            if (ring == null || !RingEffects.IsRing(ring.Slot)) return  "Mejoras: solo durante Defensa.";
+            if (ring.UpgradeLevel >= 10) return  "Límite de mejora alcanzado.";
+            if (!CanSellInventory) return  "Mejoras de anillos: inicia sesión y conecta el servicio de cuenta.";
             int price = DefenseRules.UpgradeCost(ring.Tier, ring.UpgradeLevel);
-            return protection + (_draft!.Gold < price ? $"Para mejorar faltan {price - _draft.Gold} oro de cuenta." : "");
+            return  (_draft!.Gold < price ? $"Para mejorar faltan {price - _draft.Gold} oro de cuenta." : "");
         }
-        if (!CanChangeDefenseItems) return protection + "Mejoras bloqueadas: mago caído o partida terminada.";
-        if (!ItemAffixes.CanUpgrade(entry.Item, entry.Upgrades)) return protection + "Límite de mejora alcanzado.";
+        if (!CanChangeDefenseItems) return  "Mejoras bloqueadas: mago caído o partida terminada.";
+        if (!ItemAffixes.CanUpgrade(entry.Item, entry.Upgrades)) return  "Límite de mejora alcanzado.";
         int cost = DefenseRules.UpgradeCost(entry.Item.Tier, entry.Upgrades);
-        return protection + (_defensePlayer!.Gold < cost ? $"Para mejorar faltan {cost - _defensePlayer.Gold} oro." : "");
+        return  (_defensePlayer!.Gold < cost ? $"Para mejorar faltan {cost - _defensePlayer.Gold} oro." : "");
     }
 
     private void BuildSavedEquipment(VBoxContainer box)
@@ -139,12 +138,12 @@ public partial class EquipmentPanel
         _savedTeams.Clear();
         foreach (var saved in Preferences.Loadouts) _savedTeams.AddItem(saved.Name);
         if (Preferences.Loadouts.Count == 0)
-        { _savedTeams.AddItem("Sin equipos guardados"); _applyTeam!.Disabled = true; _teamStatus!.Text = "Escribe un nombre para guardar las cuatro posiciones actuales."; return; }
+        { _savedTeams.AddItem("Sin equipos guardados"); _applyTeam!.Disabled = true; _teamStatus!.Text = "Escribe un nombre para guardar las seis posiciones actuales."; return; }
         _savedTeams.Select(index);
         int missing = InventoryPreferences.Missing(Preferences.Loadouts[index], _draft);
         _applyTeam!.Disabled = _busy || missing > 0;
         _teamStatus!.Text = missing > 0 ? $"Faltan {missing} piezas de este equipo. Puedes actualizarlo guardando de nuevo con el mismo nombre." :
-            "Aplicar cambia las cuatro posiciones; se guardarán al salir. Guardar el mismo nombre actualiza ese equipo.";
+            "Aplicar cambia las seis posiciones; se guardarán al salir. Guardar el mismo nombre actualiza ese equipo.";
     }
     private void SaveCurrentTeam()
     {
@@ -173,12 +172,12 @@ public partial class EquipmentPanel
     private void ConfirmBatchSale()
     {
         if (_busy || _draft == null || !CanSellInventory) return;
-        var items = Preferences.Sellable(_draft, _saleSelection, _savedLoadout);
+        var items = Preferences.Sellable(_draft, _saleSelection);
         if (items.Length == 0) return;
         ResetQuickActions(); _confirmingBatch = true; _selling = items[0].Id; _saleOwner = _draft.Uid;
         _saleItem.Text = $"{items.Length} OBJETOS SELECCIONADOS";
         _saleItem.AddThemeColorOverride("font_color", Ui.Gold);
-        _saleState.Text = "Equipadas y favoritas excluidas";
+        _saleState.Text = "Piezas equipadas excluidas";
         Clear(_saleStats);
         foreach (var item in items)
         {
@@ -187,7 +186,7 @@ public partial class EquipmentPanel
         }
         long gold = items.Sum(i => (long)i.SaleGold);
         _saleGold.Text = $"+{gold} oro"; _confirm.OkButtonText = $"Vender {items.Length} · +{gold} oro";
-        _saleWarning.Text = "Venta definitiva. Equipadas y favoritas protegidas. Los objetos pendientes se conservan si se pierde la conexión.";
+        _saleWarning.Text = "Venta definitiva. Piezas equipadas protegidas. Los objetos pendientes se conservan si se pierde la conexión.";
         MoveChild(_saleDimmer, GetChildCount() - 1); UpdateSaleDensity(); _confirm.PopupCentered(SaleModalSize());
         _confirm.GetCancelButton().GrabFocus();
     }
@@ -195,7 +194,7 @@ public partial class EquipmentPanel
     {
         if (_draft == null || !CanSellInventory || _saleOwner != _draft.Uid ||
             !TemporaryInventory && _saleOwner != _main.Accounts.Profile?.Uid) { CancelSale(); return; }
-        var items = Preferences.Sellable(_draft, _saleSelection, _savedLoadout);
+        var items = Preferences.Sellable(_draft, _saleSelection);
         string owner = _saleOwner;
         _confirm.Hide(); _confirmingBatch = false; _selling = "";
         _batchSold = _batchCount = 0; _batchGold = 0;
@@ -214,6 +213,7 @@ public partial class EquipmentPanel
             if (SaleProtected(item.Id)) continue;
             try
             {
+                await PreparePermanentSale(item.Id);
                 await _main.Accounts.Sell(item.Id, _lifetime.Token);
                 _batchSold++; _batchGold += item.SaleGold;
                 SaleProgress(owner, _batchSold, _batchCount, _batchGold);
@@ -248,7 +248,7 @@ public partial class EquipmentPanel
             string id = _defenseBatch.Dequeue();
             var item = _draft?.Items.FirstOrDefault(i => i.Id == id);
             if (item == null || SaleProtected(id)) continue;
-            DefenseOperation(new() { Type = "defense_sell", ItemId = id }, p => p.Items.All(i => i.Item.Id != id), () =>
+            SellDefenseId(id, () =>
             {
                 _saleSelection.Remove(id); _batchSold++; _batchGold += item.SaleGold; SellNextDefenseBatch();
             }, $"Vendidos {_batchSold + 1}/{_batchCount} objetos.");

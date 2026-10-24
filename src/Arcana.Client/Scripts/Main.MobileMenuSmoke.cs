@@ -51,6 +51,29 @@ public partial class Main
         GD.Print("VISUAL_REVIEW_BASE64:" + stage + ":" + Convert.ToBase64String(screenshot.SaveJpgToBuffer(0.68f)));
     }
 
+    private void AssertInventorySplit(EquipmentPanel panel)
+    {
+        var left = (Control)panel.FindChild("EquipmentAvatarPane", true, false);
+        var right = (Control)panel.FindChild("EquipmentItemsPane", true, false);
+        var screen = GetViewport().GetVisibleRect().Grow(2);
+        if (!screen.Encloses(left.GetGlobalRect()) || !screen.Encloses(right.GetGlobalRect()) || left.GetGlobalRect().End.X > right.GetGlobalRect().Position.X + 1)
+            throw new InvalidOperationException("El mago y los objetos no forman dos paneles visibles sin superposición: " + left.GetGlobalRect() + " / " + right.GetGlobalRect());
+        var zones = panel.FindChildren("EquipmentSlot*", "Button", true, false).OfType<Button>().ToArray();
+        if (zones.Length != 6 || zones.Any(b => !left.GetGlobalRect().Grow(1).Encloses(b.GetGlobalRect()) || b.Size.X < 44 || b.Size.Y < 44))
+            throw new InvalidOperationException("Falta una de las seis zonas del mago o queda fuera de su panel.");
+        for (int i = 0; i < zones.Length; i++) for (int j = i + 1; j < zones.Length; j++)
+            if (zones[i].GetGlobalRect().Intersects(zones[j].GetGlobalRect())) throw new InvalidOperationException("Dos zonas de equipo se superponen.");
+        if (panel.FindChild("EquipmentFilters", true, false) != null || panel.FindChild("EquipmentSort", true, false) != null)
+            throw new InvalidOperationException("El inventario conserva filtros.");
+        var stats = (Button)panel.FindChild("EquipmentTotalsTab", true, false);
+        if (!right.GetGlobalRect().Encloses(stats.GetGlobalRect())) throw new InvalidOperationException("El botón de estadísticas no está a la derecha.");
+        var table = (GridContainer)panel.FindChild("EquipmentTotalsTable", true, false);
+        var numbers = table.GetChildren().OfType<Label>().Skip(2).Where((_, i) => i % 2 == 0)
+            .Select(l => float.Parse(l.Text.Split('\n')[0].TrimEnd('%'), System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+        if (!numbers.SequenceEqual(numbers.OrderByDescending(n => n))) throw new InvalidOperationException("Las estadísticas no están ordenadas de mayor a menor.");
+        GD.Print("INVENTORY_SPLIT_OK: seis zonas accesibles, mago a la izquierda, objetos y estadísticas a la derecha; filtros ausentes y totales descendentes.");
+    }
+
     private void AssertHudBounds(Hud hud, string stage)
     {
         Rect2 screen = GetViewport().GetVisibleRect();
@@ -565,7 +588,8 @@ public partial class Main
             if (frame == 155)
             {
                 AssertOptionAScreen("EQUIPACION", _equipmentPanel!);
-                AssertTouchScroll(_equipmentPanel!, "EquipmentItemsScroll", "EQUIPACION");
+                AssertInventorySplit(_equipmentPanel!);
+                AssertTouchScroll(_equipmentPanel!, "EquipmentPickerScroll", "EQUIPACION");
             }
             if (frame == 156) _equipmentPanel!.PressInspect(EquipmentSlot.Chest);
             if (frame == 158)

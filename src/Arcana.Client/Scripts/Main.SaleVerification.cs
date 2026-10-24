@@ -26,7 +26,7 @@ public partial class Main
         }
         try
         {
-            _saleFixture = new SaleFixtureHandler { IncludeSpare = _quickItemActions }; Accounts.Dispose(); Accounts = new(new System.Net.Http.HttpClient(_saleFixture));
+            _saleFixture = new SaleFixtureHandler { IncludeSpare = true }; Accounts.Dispose(); Accounts = new(new System.Net.Http.HttpClient(_saleFixture));
             await Accounts.SetFirebaseSession("demo-sale", "sale-fixture", "Mercader", "sale-token", DateTimeOffset.UtcNow.AddHours(1));
             _accountServerResolver = token => _saleServerReady.Task.WaitAsync(token);
             if (_saleLogoutProbe) _saleServerReady.SetResult("wss://sales.example/play");
@@ -110,7 +110,7 @@ public partial class Main
                     panel.PressChoice("");
                     Check(panel.PreviewProfile!.Loadout.Weapon == "" && !Trash(fixture.Weapon.Id).Disabled,
                         "Quitar una pieza impide venderla.");
-                    Check(Trash(fixture.EquippedWeapon.Id).Disabled, "Una retirada pendiente de guardar permite vender la pieza anterior.");
+                    Check(!Trash(fixture.EquippedWeapon.Id).Disabled, "La pieza anterior sigue bloqueada después de quitarla.");
                     panel.PressChoice(fixture.Spare.Id);
                     ClickItemWithPointer(panel, "EquipmentTrash_" + fixture.Weapon.Id, 2);
                 }
@@ -139,7 +139,32 @@ public partial class Main
                         "El doble clic elimina otra pieza o guarda la selección pendiente antes de salir.");
                     GD.Print("QUICK_SALE_OK: clic simple con modal, doble clic/toque vende una vez sin modal y conserva la selección pendiente.");
                 }
-                panel.PressInspect(EquipmentSlot.Boots); panel.PressTrash(fixture.Boots.Id); _salePhase++; return false;
+                panel.PressInspect(EquipmentSlot.Weapon); panel.PressChoice(fixture.Spare.Id);
+                Check(!Trash(fixture.EquippedWeapon.Id).Disabled && Trash(fixture.Spare.Id).Disabled,
+                    "Cambiar de pieza no libera la anterior o permite vender la nueva.");
+                fixture.FailNextLoadout = true;
+                panel.PressTrash(fixture.EquippedWeapon.Id); dialog.EmitSignal(ConfirmationDialog.SignalName.Confirmed);
+                _salePhase = 40; return false;
+            }
+            if (_salePhase == 40)
+            {
+                if (panel.Saving) return false;
+                Check(fixture.Sales == 1 && fixture.SaleAttempts == 1 && Accounts.Profile!.Gold == 2900 &&
+                    panel.PreviewProfile!.Items.Any(i => i.Id == fixture.EquippedWeapon.Id),
+                    "Fallar la sincronización del equipo elimina o paga la pieza anterior.");
+                panel.PressTrash(fixture.EquippedWeapon.Id); dialog.EmitSignal(ConfirmationDialog.SignalName.Confirmed);
+                _salePhase = 41; return false;
+            }
+            if (_salePhase == 41)
+            {
+                if (panel.Saving) return false;
+                Check(fixture.Sales == 2 && fixture.SaleAttempts == 2 && Accounts.Profile!.Loadout.Weapon == fixture.Spare.Id &&
+                    panel.PreviewProfile!.Loadout.Weapon == fixture.Spare.Id && panel.PreviewProfile.Items.All(i => i.Id != fixture.EquippedWeapon.Id) &&
+                    Accounts.Profile.Gold == 2900 + fixture.EquippedWeapon.SaleGold && panel.PickerVisible,
+                    "Vender la pieza anterior pierde el equipo actual, repite el pago o exige salir del inventario.");
+                Check(Trash(fixture.Spare.Id).Disabled, "La nueva pieza equipada se puede vender.");
+                GD.Print("LIVE_EQUIPMENT_SALE_OK: cambiar, fallo al guardar, reintento y venta de la pieza anterior sin salir; equipo nuevo protegido.");
+                panel.PressInspect(EquipmentSlot.Boots); panel.PressTrash(fixture.Boots.Id); _salePhase = 5; return false;
             }
             if (_salePhase == 5)
             {
@@ -160,7 +185,7 @@ public partial class Main
             if (_salePhase == 7)
             {
                 if (Time.GetTicksMsec() < _salePauseUntil) return false;
-                Check(!dialog.Visible && !panel.PickerVisible && fixture.SaleAttempts == 1, "Salir del selector deja un clic pendiente que abre una venta después.");
+                Check(!dialog.Visible && !panel.PickerVisible && fixture.SaleAttempts == 2, "Salir del selector deja un clic pendiente que abre una venta después.");
                 GD.Print("QUICK_CANCEL_OK: salir del selector cancela el clic pendiente sin vender ni abrir una modal tardía.");
                 panel.PressInspect(EquipmentSlot.Boots); panel.PressTrash(fixture.Boots.Id);
                 _ = Accounts.SignOut(); _salePhase = 9; return false;
@@ -168,7 +193,7 @@ public partial class Main
             if (_salePhase == 9)
             {
                 if (Accounts.Profile != null) return false;
-                Check(!dialog.Visible && !panel.PickerVisible && fixture.Sales == (_saleLogoutProbe ? 0 : 1), "Cerrar sesión deja visible una venta de la cuenta anterior.");
+                Check(!dialog.Visible && !panel.PickerVisible && fixture.Sales == (_saleLogoutProbe ? 0 : 2), "Cerrar sesión deja visible una venta de la cuenta anterior.");
                 Check(_engineLog.ErrorCount == 0, "Godot registró errores durante la venta.");
                 GD.Print("SALE_SMOKE_OK: equipada primero y protegida, conexión tardía, saldo, cancelar, venta única y cierre de sesión.");
                 _saleSmoke = false; GetTree().Quit(); return true;
@@ -194,9 +219,11 @@ public partial class Main
         public bool IncludeSpare;
         public int Sales, SaleAttempts;
         private long _gold = 2500;
-        private bool _sold;
-        private EquipmentLoadout Loadout => new(Weapon: EquippedWeapon.Id);
-        private EquipmentItem[] Items => (_sold ? new[] { Boots, EquippedWeapon } : new[] { Weapon, Boots, EquippedWeapon }).Concat(IncludeSpare ? [Spare] : Array.Empty<EquipmentItem>()).ToArray();
+        private readonly HashSet<string> _sold = [];
+        public bool FailNextLoadout;
+        private EquipmentLoadout? _loadout;
+        private EquipmentLoadout Loadout => _loadout ?? new(Weapon: EquippedWeapon.Id);
+        private EquipmentItem[] Items => new[] { Weapon, Boots, EquippedWeapon }.Concat(IncludeSpare ? [Spare] : Array.Empty<EquipmentItem>()).Where(i => !_sold.Contains(i.Id)).ToArray();
         private AccountProfile Profile => new("sale-fixture", "Mercader", _gold, 0, 0, Loadout, Items);
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
         {
@@ -205,8 +232,21 @@ public partial class Main
             {
                 SaleAttempts++;
                 var sale = Protocol.Deserialize<InventoryRequest>(await request.Content!.ReadAsStringAsync(token))!;
-                if (sale.ItemId != Weapon.Id || _sold) return Json(new ApiError("La pieza ya no está disponible."), HttpStatusCode.Conflict);
-                _sold = true; _gold += Weapon.SaleGold; Sales++; return Json(new InventoryResult(Profile, "Venta confirmada."));
+                if (_sold.Contains(sale.ItemId)) return Json(new ApiError("La pieza ya no está disponible."), HttpStatusCode.Conflict);
+                AccountProfile sold;
+                try { sold = AccountInventory.Sell(Profile, sale.ItemId); }
+                catch (ArgumentException error) { return Json(new ApiError(error.Message), HttpStatusCode.Conflict); }
+                _sold.Add(sale.ItemId); _gold = sold.Gold; Sales++; return Json(new InventoryResult(Profile, "Venta confirmada."));
+            }
+            if (path.EndsWith("/loadouts/active", StringComparison.Ordinal) && request.Method == HttpMethod.Patch)
+            {
+                if (FailNextLoadout) { FailNextLoadout = false; return Json(new ApiError("Fallo de guardado simulado."), HttpStatusCode.ServiceUnavailable); }
+                using var data = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(token));
+                var fields = data.RootElement.GetProperty("fields");
+                string Slot(string name) => fields.TryGetProperty(name, out var v) ? v.GetProperty("stringValue").GetString()! : "";
+                var desired = new EquipmentLoadout(Slot("boots"), Slot("hat"), Slot("chest"), Slot("weapon"), Slot("goldRing"), Slot("magicRing"));
+                _loadout = AccountInventory.ApplyLoadout(Profile, desired).Loadout;
+                return Json(Document(Loadout));
             }
             if (path.EndsWith("/items", StringComparison.Ordinal)) return Json(new { documents = Items.Select(Document).ToArray() });
             if (path.EndsWith("/loadouts/active", StringComparison.Ordinal)) return Json(Document(Loadout));

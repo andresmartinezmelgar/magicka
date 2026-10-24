@@ -9,13 +9,13 @@ public partial class EquipmentPanel
         IReadOnlyList<PublicEquipmentItem> equipped)
     {
         Clear(table);
-        var active = stats.Where(s => Math.Abs(s.Effective) > 0.00001f).ToArray();
+        var active = stats.Where(s => Math.Abs(s.Effective) > 0.00001f).OrderByDescending(s => s.Effective).ThenBy(s => s.Stat).ToArray();
         table.Visible = active.Length > 0;
         if (!table.Visible) return false;
         bool compact = table.Columns == 2;
         bool hasRings = equipped.Any(i => RingEffects.IsRing(i.Slot));
         var slots = Enum.GetValues<EquipmentSlot>();
-        if (compact) Cell(table, "Piezas y total aplicado", true, header: true);
+        if (compact) Cell(table, "Aplicado", true, header: true);
         else
         {
             foreach (var slot in slots) Cell(table, EquipmentCatalogue.SlotName(slot), true, header: true);
@@ -49,9 +49,9 @@ public partial class EquipmentPanel
                 Cell(table, EquipmentCatalogue.Percent(stat.Set), true, stat.Set != 0 ? Ui.Gold : Ui.Muted);
                 Cell(table, EquipmentCatalogue.Percent(stat.Sum), true);
             }
-            var applied = Cell(table, compact ? string.Join('\n', lines) : EquipmentCatalogue.Percent(stat.Effective), true,
+            var applied = Cell(table, compact ? EquipmentCatalogue.Percent(stat.Effective) + "\nSuma: " + EquipmentCatalogue.Percent(stat.Sum) : EquipmentCatalogue.Percent(stat.Effective), true,
                 stat.Limited ? Ui.Gold : stat.Effective < 0 ? Ui.Red : Ui.Blue);
-            applied.TooltipText = EquipmentCatalogue.StatDescription(stat.Stat) +
+            applied.TooltipText = EquipmentCatalogue.StatDescription(stat.Stat) + "\n" + string.Join('\n', lines) +
                 "\nSuma = botas + gorro + pecho + arma + anillos + conjunto. — indica que no hay pieza equipada." +
                 (stat.Limited ? "\nLa suma está limitada: se aplica el valor indicado en Aplicado." : "");
             Cell(table, StatName(stat.Stat)).TooltipText = EquipmentCatalogue.StatDescription(stat.Stat);
