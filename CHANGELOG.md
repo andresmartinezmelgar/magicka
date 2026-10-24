@@ -2,6 +2,7 @@
 
 ## 0.29.16 — Instalación de versiones de pruebas
 
+- Halos con arcos eléctricos animados del color de cada calidad, más marcados al mejorar la pieza.
 - Android permite instalar una compilación de pruebas nueva con el mismo código de versión cuando el canal autenticado ha seleccionado una compilación posterior. Las actualizaciones estables siguen exigiendo una versión superior; se mantienen la comprobación SHA-256, el paquete y la firma de Android.
 - Se incrementa el código Android de 29015 a 29016 para que las versiones ya instaladas puedan recibir esta corrección.
 - Windows también admite una compilación de pruebas posterior de la misma versión. El canal estable conserva el bloqueo de reinstalación y ambos canales rechazan versiones inferiores.

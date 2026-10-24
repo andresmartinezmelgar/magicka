@@ -21,6 +21,8 @@ public partial class EquipmentAvatar : Control
         SizeFlagsHorizontal = SizeFlags.ExpandFill; SizeFlagsVertical = SizeFlags.ExpandFill;
         CustomMinimumSize = new(155, 164); TextureFilter = TextureFilterEnum.Linear;
         _atlas = WizardSprites.Load(type);
+        VisibilityChanged += RefreshHaloAnimation;
+        RefreshHaloAnimation();
         foreach (var slot in Order)
         {
             var current = slot;
@@ -43,6 +45,7 @@ public partial class EquipmentAvatar : Control
         _colors[slot] = color;
         if (item == null) _halos.Remove(slot);
         else _halos[slot] = (item.Tier, Math.Clamp(upgradeLevel ?? item.UpgradeLevel, 0, 10));
+        RefreshHaloAnimation();
         var button = _buttons[slot];
         string name = slot switch { EquipmentSlot.GoldRing => "Anillo de oro", EquipmentSlot.MagicRing => "Anillo mágico", _ => EquipmentCatalogue.SlotName(slot) };
         button.Text = slot == EquipmentSlot.GoldRing ? "Anillo\noro" : slot == EquipmentSlot.MagicRing ? "Anillo\nmágico" : name + "\n" + (item == null ? "Vacío" : EquipmentCatalogue.TierName(item.Tier));
