@@ -1,6 +1,6 @@
 # Cambios
 
-## 0.29.17 — Favoritos, venta automática y aura común (pendiente de compilar)
+## 0.29.17 — Favoritos, venta automática y aura común
 
 - Los favoritos vuelven a estar protegidos de las ventas individuales, rápidas y múltiples, también sin equipar. En Supervivencia el servidor valida esta protección y la conserva al guardar o reconectar.
 - Nuevo botón «No más de este estilo de ítem»: vende los objetos nuevos de igual ranura, calidad y familia. Conserva los actuales, favoritos y equipados; puede desactivarse desde la tarjeta o desde Opciones → Venta automática.

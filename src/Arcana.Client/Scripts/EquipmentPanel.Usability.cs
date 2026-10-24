@@ -71,6 +71,7 @@ public partial class EquipmentPanel
             RefreshPickerItems();
         });
         favorite.Name = "EquipmentFavorite_" + item.Id; favorite.CustomMinimumSize = new(0, 42);
+        favorite.MouseFilter = MouseFilterEnum.Pass;
         favorite.AddThemeFontSizeOverride("font_size", 14); favorite.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         box.AddChild(favorite); _preferenceActions.Add(favorite);
         BuildAutoSellButton(box, item);

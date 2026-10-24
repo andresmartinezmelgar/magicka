@@ -18,6 +18,7 @@ public partial class EquipmentPanel
         var button = Ui.Button(AutoSells(style) ? "Conservar nuevos de este estilo" : "No más de este estilo de ítem",
             () => SetAutoSell(style, !AutoSells(style)));
         button.Name = "EquipmentAutoSell_" + item.Id; button.CustomMinimumSize = new(0, 44);
+        button.MouseFilter = MouseFilterEnum.Pass;
         button.AutowrapMode = TextServer.AutowrapMode.WordSmart; button.AddThemeFontSizeOverride("font_size", 14);
         button.TooltipText = style.Describe() + "\nVende automáticamente solo las piezas nuevas de esta ranura, calidad y familia.\n" +
             "Conserva las que ya tienes, los favoritos y el equipo. Puedes desactivarlo desde Opciones → Venta automática.";
@@ -72,6 +73,7 @@ public partial class EquipmentPanel
             var label = Ui.Label(style.Describe(), 15, TierColor(style.Tier));
             label.SizeFlagsHorizontal = SizeFlags.ExpandFill; label.AutowrapMode = TextServer.AutowrapMode.WordSmart; row.AddChild(label);
             var keep = Ui.Button("Conservar", () => SetAutoSell(style, false)); keep.CustomMinimumSize = new(100, 44);
+            keep.MouseFilter = MouseFilterEnum.Pass;
             keep.Disabled = InventoryLocked; row.AddChild(keep); _preferenceActions.Add(keep);
         }
         if (styles.Length == 0) _autoSellList.AddChild(Ui.Label("No hay estilos con venta automática.", 15, Ui.Muted));
