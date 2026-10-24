@@ -2,6 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { initializeTestEnvironment, assertSucceeds, assertFails } = require("@firebase/rules-unit-testing");
 const { doc, collection, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, orderBy, limit, deleteField } = require("firebase/firestore");
+const { createMockUserToken } = require("@firebase/util");
 
 async function main() {
   const projectId = "demo-arcana-arena";
@@ -17,6 +18,27 @@ async function main() {
     const anonymous = env.unauthenticatedContext().firestore();
     const user = doc(google, "users/alice");
     const initial = { uid: "alice", name: "Mago", gold: 0, wins: 0, losses: 0, itemCount: 0, schemaVersion: 1 };
+
+    // REST conserva doubleValue incluso cuando es 0.0; el SDK JS lo enviaría como int.
+    async function restHeader(uid, field, typedValue) {
+      const fields = { uid: { stringValue: uid }, name: { stringValue: "Mago" } };
+      for (const key of ["gold", "wins", "losses", "itemCount", "schemaVersion"])
+        fields[key] = { integerValue: key === "schemaVersion" ? "1" : "0" };
+      if (field) fields[field] = typedValue;
+      const token = createMockUserToken({ sub: uid, iat: Math.floor(Date.now() / 1000),
+        firebase: { sign_in_provider: "google.com", identities: {} } }, projectId);
+      return fetch(`http://127.0.0.1:8085/v1/projects/${projectId}/databases/(default)/documents/users/${uid}`, {
+        method: "PATCH", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({ fields })
+      });
+    }
+    const typedHeader = await restHeader("typed_valid");
+    if (!typedHeader.ok) throw new Error("La cabecera REST entera válida fue rechazada: " + typedHeader.status);
+    for (const field of ["gold", "wins", "losses", "itemCount", "schemaVersion"]) {
+      const response = await restHeader("typed_" + field, field, { doubleValue: field === "schemaVersion" ? 1 : 0 });
+      if (response.status !== 403) throw new Error("Se admitió un double en el contador entero " + field + ": " + response.status);
+    }
+    console.log("ACCOUNT_HEADER_TYPES_OK: REST integer header allowed; double zero/one counter bypass rejected.");
 
     await assertSucceeds(setDoc(user, initial));
     await assertSucceeds(getDoc(user));

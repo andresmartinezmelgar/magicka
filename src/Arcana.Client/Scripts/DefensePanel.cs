@@ -34,7 +34,7 @@ public partial class DefensePanel : Control
     private Label _equipmentTotalsEmpty = null!;
     private string _equipmentTotalsStamp = "";
     private bool _canRestart;
-    private GridContainer _navigation = null!;
+    private HFlowContainer _navigation = null!;
     private WorldSnapshot? _lastSnapshot;
     private int _lastPlayerId;
     private bool _lastOnline, _lastRewardsAvailable, _lastShopOpen;
@@ -67,7 +67,7 @@ public partial class DefensePanel : Control
         _wallet = Ui.Label("", 16); _wallet.AutowrapMode = TextServer.AutowrapMode.WordSmart; body.AddChild(_wallet);
         _shopStatus = Ui.Label("", 14, Ui.Health); _shopStatus.Name = "DefenseShopStatus";
         _shopStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart; body.AddChild(_shopStatus);
-        _navigation = new GridContainer { Columns = 5 }; _navigation.AddThemeConstantOverride("h_separation", 4);
+        _navigation = new HFlowContainer(); _navigation.AddThemeConstantOverride("h_separation", 4);
         _navigation.AddThemeConstantOverride("v_separation", 4); body.AddChild(_navigation);
         string[] names = ["Partida", "Equipo", "Poderes", "Estadísticas", "Guía", "Reliquias"];
         for (int i = 0; i < names.Length; i++)
@@ -96,8 +96,9 @@ public partial class DefensePanel : Control
         Wrapped(survival, "EQUIPO: recoge, equipa y mejora piezas.\nPODERES: compra auras y habilidades automáticas.\nESTADÍSTICAS: consulta los bonos y los premios por supervivencia.", 16);
         var equipment = _sections[1];
         _equipmentSummary = Wrapped(equipment, "", 16, Ui.Gold);
+        _equipmentSummary.Name = "DefenseEquipmentSummary";
         equipment.AddChild(Ui.Button("Abrir inventario de partida", OpenEquipmentInventory));
-        Wrapped(equipment, "Elige botas, gorro, pechera o arma. Compara las piezas por calidad y consulta sus atributos y bonificaciones. La selección se aplica al volver a la tienda.", 16);
+        Wrapped(equipment, "Elige botas, gorro, pechera, arma y los dos anillos. Compara las piezas por calidad y consulta sus atributos y bonificaciones. La selección se aplica al volver a la tienda.", 16);
         var powers = _sections[2];
         var powerNavigation = new HBoxContainer(); powers.AddChild(powerNavigation);
         _passiveTab = Ui.Button("Habilidades automáticas", () => ShowPowers(true));
@@ -207,7 +208,6 @@ public partial class DefensePanel : Control
         _summary.Position = new(22 * scale, 194 * scale + ScreenPlacement.MinimumGap);
         _window.CustomMinimumSize = new(Math.Min(790, size.X - 28), Math.Min(700, size.Y - 28));
         _window.Size = _window.CustomMinimumSize;
-        _navigation.Columns = size.X < 660 ? 3 : 6;
     }
 
     public void Update(WorldSnapshot snapshot, int id, bool online, bool rewardsAvailable)
@@ -238,7 +238,7 @@ public partial class DefensePanel : Control
             ? "PARTIDA EN PAUSA · el combate y el tiempo se reanudan al cerrar la tienda."
             : defense.HumanCount > 1 ? "COMBATE EN CURSO · hay otros humanos en la partida."
             : "Al abrir la tienda se pausa la partida, incluidos los bots aliados.";
-        _equipmentSummary.Text = $"{p.Items.Count(i => i.Equipped)}/4 ranuras equipadas · {p.Items.Length}/{DefenseRules.InventoryLimit} piezas temporales";
+        _equipmentSummary.Text = $"{p.Items.Count(i => i.Equipped)}/{Enum.GetValues<EquipmentSlot>().Length} ranuras equipadas · {p.Items.Length}/{DefenseRules.InventoryLimit} piezas temporales";
         bool buying = _wizard.Alive && !snapshot.MatchEnded;
         for (int i = 0; i < 3; i++)
         {

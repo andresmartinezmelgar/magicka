@@ -65,7 +65,8 @@ public partial class EquipmentPanel : Control
             back.SizeFlagsHorizontal = resume.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             exits.AddChild(back); exits.AddChild(resume);
         }
-        _profile = Ui.Label("", 14, Ui.Gold); _profile.ClipText = true; _profile.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _profile = Ui.Label("", 14, Ui.Gold); _profile.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _profile.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _equipmentToolbar = new HBoxContainer(); box.AddChild(_equipmentToolbar);
         _inventoryMenu = new MenuButton { Name = "EquipmentActions", Text = "Opciones", CustomMinimumSize = new(72, 44) };
         _inventoryMenu.AddThemeFontSizeOverride("font_size", 13); _equipmentToolbar.AddChild(_inventoryMenu);

@@ -110,7 +110,7 @@ public sealed partial class AccountClient : IDisposable
     }
     private void PublishProfile(AccountProfile profile, long generation, long? inventoryRevision = null)
     {
-        _ = EquipmentModifiers.Calculate(profile);
+        AccountInventory.CheckProfile(profile);
         lock (_identityGate)
         {
             RequireIdentity(generation);
@@ -150,7 +150,7 @@ public sealed partial class AccountClient : IDisposable
 
     public void RestoreOfflineProfile(AccountProfile profile)
     {
-        _ = EquipmentModifiers.Calculate(profile);
+        AccountInventory.CheckProfile(profile);
         Profile = profile;
     }
     public void EquipOffline(EquipmentSlot slot, string itemId)
@@ -208,7 +208,7 @@ public sealed partial class AccountClient : IDisposable
         var result = await Read<LoginPoll>(response, token).ConfigureAwait(false);
         if (!result.Ready) return false;
         if (result.Profile == null || result.AccessToken.Length < 32 || result.ExpiresAt <= DateTimeOffset.UtcNow) throw new InvalidDataException("Sesión de cuenta inválida.");
-        _ = EquipmentModifiers.Calculate(result.Profile);
+        AccountInventory.CheckProfile(result.Profile);
         lock (_identityGate)
         {
             RequireIdentity(generation);

@@ -2,6 +2,25 @@ namespace Arcana.Core;
 
 public static class AccountInventory
 {
+    // Frontera de confianza para cachés y respuestas de cuenta: también se
+    // validan los objetos sin equipar antes de publicar el perfil en la interfaz.
+    internal static void CheckProfile(AccountProfile? profile)
+    {
+        if (profile == null || profile.SchemaVersion != 1 || profile.Uid is not { Length: > 0 and <= 128 } ||
+            string.IsNullOrWhiteSpace(profile.Uid) || profile.Uid.Any(c => c == '/' || char.IsControl(c)) ||
+            profile.Name is not { Length: > 0 and <= 64 } || profile.Name.Any(char.IsControl) ||
+            profile.Gold < 0 || profile.Wins < 0 || profile.Losses < 0 || profile.Loadout == null ||
+            profile.Bestiary == null || profile.Bestiary.Values.Any(n => n < 0) ||
+            profile.Items is not { Length: <= EquipmentCatalogue.InventoryLimit } ||
+            profile.Items.Any(i => !EquipmentCatalogue.Valid(i)) ||
+            profile.Items.Select(i => i.Id).Distinct(StringComparer.Ordinal).Count() != profile.Items.Length)
+            throw new InvalidDataException("Datos de cuenta o inventario inválidos.");
+        foreach (var slot in Enum.GetValues<EquipmentSlot>())
+            if (profile.Loadout.Get(slot) is not { Length: <= 32 })
+                throw new InvalidDataException("Equipamiento de cuenta inválido.");
+        _ = EquipmentModifiers.Calculate(profile);
+    }
+
     public static AccountProfile ApplyLoadout(AccountProfile profile, EquipmentLoadout loadout)
     {
         ArgumentNullException.ThrowIfNull(loadout);

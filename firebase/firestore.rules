@@ -1,6 +1,9 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // users/{uid}: uid/name strings; gold/wins/losses/itemCount/schemaVersion ints.
+    // The owner may create only the empty version-1 header. Counters and item
+    // records are subsequently managed by the server; no client header updates.
     // users/{uid}/loadouts/active: four required string item IDs (boots/hat/chest/weapon),
     // plus optional goldRing/magicRing strings. Empty means unequipped; otherwise
     // a 32-hex ID of an owned item matching its slot. Only the Google owner writes.
@@ -71,11 +74,11 @@ service cloud.firestore {
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 64
-        && request.resource.data.gold == 0
-        && request.resource.data.wins == 0
-        && request.resource.data.losses == 0
-        && request.resource.data.itemCount == 0
-        && request.resource.data.schemaVersion == 1;
+        && request.resource.data.gold is int && request.resource.data.gold == 0
+        && request.resource.data.wins is int && request.resource.data.wins == 0
+        && request.resource.data.losses is int && request.resource.data.losses == 0
+        && request.resource.data.itemCount is int && request.resource.data.itemCount == 0
+        && request.resource.data.schemaVersion is int && request.resource.data.schemaVersion == 1;
       allow list, update, delete: if false;
 
       match /items/{itemId} {

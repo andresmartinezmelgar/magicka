@@ -283,7 +283,7 @@ public static partial class EquipmentCatalogue
     public static bool Valid(EquipmentItem item) => item != null && Guid.TryParseExact(item.Id, "N", out _) &&
         item.UpgradeLevel is >= 0 and <= 10 && Enum.IsDefined(item.Slot) && Enum.IsDefined(item.Tier) && Enum.IsDefined(item.Family) && item.GenerationVersion > 0 &&
         ItemAffixes.Valid(item.Affix, item.Tier) &&
-        item.SaleGold is > 0 and <= 100000 && item.Bonuses is { Length: >= 1 and <= 4 } &&
+        item.SaleGold is > 0 and <= 100000 && item.Bonuses is { Length: >= 1 and <= 4 } && item.Bonuses.All(b => b != null) &&
         item.Bonuses.Select(b => b.Stat).Distinct().Count() == item.Bonuses.Length && item.Bonuses.Any(b => b.Current > 0) &&
         item.Bonuses.All(b => Enum.IsDefined(b.Stat) && float.IsFinite(b.Minimum) && float.IsFinite(b.Maximum) && float.IsFinite(b.Current) &&
             b.Minimum >= -0.50f && b.Maximum <= 0.50f && b.Minimum <= b.Maximum && b.Current >= b.Minimum && b.Current <= b.Maximum);

@@ -145,6 +145,8 @@ public partial class Main
                 var window = (PanelContainer)panel.FindChild("DefenseShopWindow", true, false);
                 var viewport = GetViewport().GetVisibleRect(); var rect = window.GetGlobalRect();
                 Check(viewport.Encloses(rect), "La tienda desborda el viewport: " + rect);
+                Check(((Label)panel.FindChild("DefenseEquipmentSummary", true, false)).Text.Contains("/6 ranuras equipadas"),
+                    "El resumen temporal no cuenta las dos ranuras de anillo.");
                 Check(_touch?.Visible != true, "Los controles táctiles cubren la tienda.");
                 Check(state.Defense!.Paused && state.Tick == _defensePauseTick, "La tienda no pausa con un humano y bot.");
                 CaptureDefense("02-supervivencia");
@@ -396,6 +398,10 @@ public partial class Main
                 foreach (var tab in Enumerable.Range(0, 5).Select(i => (Button)panel.FindChild("DefenseTab" + i, true, false)))
                     Check(viewport.Encloses(tab.GetGlobalRect()), "Una pestaña de la tienda desborda la pantalla.");
                 Check(((Control)panel.FindChild("DefenseDropRates", true, false)).IsVisibleInTree(), "No se muestra la tabla de botín.");
+                var slotRates = ((GridContainer)panel.FindChild("DefenseSlotRates", true, false)).GetChildren().OfType<Label>().Skip(3).ToArray();
+                Check(slotRates.Length == 18 && slotRates.Where((_, i) => i % 3 == 2).All(l => l.Text == "1 %") &&
+                    Math.Abs(slotRates.Where((_, i) => i % 3 == 1).Sum(l => double.Parse(l.Text.TrimEnd('%').Trim())) - 100) < .01,
+                    "La guía no reparte la probabilidad entre las seis posiciones del equipo.");
                 CaptureDefense("06-guia-botin"); panel.ShowGuide(true); _defenseSmokePhase++; return false;
             }
             if (_defenseSmokePhase == 12)

@@ -30,15 +30,17 @@ public partial class DefensePanel
         Wrapped(_lootGuide, "RANURAS DEL EQUIPO", 18, Ui.Gold);
         var slots = Ui.Table(3, "DefenseSlotRates"); _lootGuide.AddChild(slots);
         Row(slots, "Pieza", "Dentro del equipo", "Por baja", true);
-        foreach (var slot in Enum.GetValues<EquipmentSlot>())
-            Row(slots, EquipmentCatalogue.SlotName(slot), "25 %", Percent(DefenseRules.EquipmentDropChance / 4.0));
+        var positions = Enum.GetValues<EquipmentSlot>();
+        foreach (var slot in positions)
+            Row(slots, EquipmentCatalogue.SlotName(slot), Percent(100.0 / positions.Length),
+                Percent((double)DefenseRules.EquipmentDropChance / positions.Length));
         Wrapped(_lootGuide, "CALIDAD · mismos porcentajes que PvP", 18, Ui.Gold);
         var tiers = Ui.Table(3, "DefenseTierRates"); _lootGuide.AddChild(tiers);
         Row(tiers, "Calidad", "Dentro del equipo", "Por baja", true);
         foreach (var tier in Enum.GetValues<ItemTier>())
             Row(tiers, EquipmentCatalogue.TierName(tier), Percent(EquipmentCatalogue.TierChance(tier)),
                 Percent(DefenseRules.EquipmentDropChance * EquipmentCatalogue.TierChance(tier) / 100.0));
-        Wrapped(_lootGuide, "Familia mixta: 90 % del equipo. Diamante y mítico eligen entre las ocho familias elementales por igual: 12,5 % dentro de esas calidades (1,25 % de todo el equipo; 0,075 % por baja para cada familia).", 15, Ui.Muted);
+        Wrapped(_lootGuide, "El anillo mágico puede ser básico o de cualquiera de los ocho elementos, con el mismo peso, en todas las calidades. En las demás piezas, Plata, Oro y Platino son mixtos; Diamante y Mítico eligen entre las ocho familias elementales con el mismo peso.", 15, Ui.Muted);
         Wrapped(_lootGuide, string.Join(" · ", EquipmentCatalogue.FocusedFamilies.Select(EquipmentCatalogue.FamilyName)), 15);
         Wrapped(_lootGuide, "RELIQUIAS · mejoras acumulables hasta reiniciar", 18, Ui.Gold);
         Wrapped(_lootGuide, $"Cada una: {Percent(100.0 / RelicBuffs.Count)} dentro de las reliquias; {Percent((double)DefenseRules.RelicDropChance / RelicBuffs.Count)} por baja y defensor (redondeado).", 15, Ui.Muted);

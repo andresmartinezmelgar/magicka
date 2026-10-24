@@ -14,6 +14,30 @@ internal static class AuditRegressionTests
         foreach (string mutation in new[] { "buy", "sell", "loadout", "equip" })
             test($"Inventario: Refresh anterior no sobrescribe {mutation} confirmado", () => StaleRefresh(mutation).GetAwaiter().GetResult());
         test("Tienda: cargar ofertas anteriores no revierte una compra", () => StaleShop().GetAwaiter().GetResult());
+        test("Inventario: una bonificación nula se rechaza sin romper el validador", () =>
+        {
+            var item = EquipmentCatalogue.Generate(new(624));
+            Check(!EquipmentCatalogue.Valid(item with { Bonuses = [item.Bonuses[0], null!] }),
+                "Se admitió una bonificación nula en un objeto.");
+        });
+        test("Caché y respuestas de cuenta: un inventario mal formado no sustituye al válido", () =>
+        {
+            var item = EquipmentCatalogue.Generate(new(625));
+            var valid = new AccountProfile("audit-cache", "Mago", 10, 0, 0, new(), [item]);
+            using var account = new AccountClient(); account.RestoreOfflineProfile(valid);
+            var malformed = new[] { valid with { Items = [null!] }, valid with { Items = [item, item] },
+                valid with { Items = [item with { Bonuses = [item.Bonuses[0], null!] }] },
+                valid with { Loadout = null! }, valid with { Loadout = new(GoldRing: null!) },
+                valid with { Bestiary = null! }, valid with { Gold = -1 }, valid with { Wins = -1 },
+                valid with { Name = null! }, valid with { Uid = "" }, valid with { SchemaVersion = 2 } };
+            foreach (var corrupted in malformed)
+            {
+                var decoded = Protocol.Deserialize<AccountProfile>(Protocol.Serialize(corrupted))!;
+                try { account.RestoreOfflineProfile(decoded); throw new Exception("Se admitió una caché mal formada."); }
+                catch (InvalidDataException) { }
+                Check(ReferenceEquals(account.Profile, valid), "La lectura fallida reemplazó el último perfil válido.");
+            }
+        });
     }
     private static void OAuth()
     {

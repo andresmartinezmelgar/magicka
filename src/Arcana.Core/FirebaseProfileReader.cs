@@ -152,10 +152,9 @@ public sealed partial class FirebaseProfileReader : IDisposable
                 }
             pageToken = result.RootElement.TryGetProperty("nextPageToken", out var next) ? next.GetString() : null;
         } while (!string.IsNullOrEmpty(pageToken));
-        if (items.Any(i => !EquipmentCatalogue.Valid(i))) throw new InvalidDataException("Inventario inválido.");
         var profile = new AccountProfile(uid, header.Name, header.Gold, header.Wins, header.Losses,
             loadout.HasValue ? Parse<EquipmentLoadout>(loadout.Value) : new(), items.ToArray()) { Bestiary = header.Bestiary };
-        _ = EquipmentModifiers.Calculate(profile);
+        AccountInventory.CheckProfile(profile);
         return profile;
     }
     /// <summary>Solo el equipamiento se escribe desde el cliente: reglas verifican propiedad y ranuras.</summary>
