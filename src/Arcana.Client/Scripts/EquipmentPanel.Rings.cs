@@ -8,7 +8,7 @@ public partial class EquipmentPanel
     {
         if (_defensePlayer != null) return CanUpgradeDefenseItem(id);
         var item = _draft?.Items.FirstOrDefault(i => i.Id == id);
-        return !_busy && CanSellInventory && item != null && RingEffects.IsRing(item.Slot) &&
+        return !InventoryLocked && CanSellInventory && item != null && RingEffects.IsRing(item.Slot) &&
             item.UpgradeLevel < 10 && _draft!.Gold >= DefenseRules.UpgradeCost(item.Tier, item.UpgradeLevel);
     }
 

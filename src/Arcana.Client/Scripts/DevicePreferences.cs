@@ -10,10 +10,14 @@ internal static class DevicePreferences
     private static Dictionary<string, InventoryPreferences>? _accounts;
     internal static InventoryPreferences Inventory(string uid, bool temporary)
     {
-        var accounts = temporary ? Temporary : _accounts ??= Read<Dictionary<string, InventoryPreferences>>("inventory-preferences") ?? new(StringComparer.Ordinal);
+        if (!temporary && _accounts == null)
+        {
+            _accounts = Read<Dictionary<string, InventoryPreferences>>("inventory-preferences") ?? new(StringComparer.Ordinal);
+            foreach (string key in _accounts.Keys.ToArray())
+            { if (_accounts[key] == null) _accounts[key] = new(); _accounts[key].Normalize(); }
+        }
+        var accounts = temporary ? Temporary : _accounts!;
         if (!accounts.TryGetValue(uid, out var preferences)) accounts[uid] = preferences = new();
-        preferences.Favorites ??= new(StringComparer.Ordinal);
-        preferences.Loadouts ??= [];
         return preferences;
     }
     internal static bool SaveInventory() => Write("inventory-preferences", _accounts ?? new());

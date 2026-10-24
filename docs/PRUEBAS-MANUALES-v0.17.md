@@ -1,6 +1,6 @@
 # Pruebas manuales — Arcana Arena v0.17
 
-GitHub Actions compila los paquetes Android y Windows y ejecuta pruebas del motor, red, Firebase e interfaces renderizadas con Xvfb. Las comprobaciones en dispositivos físicos de esta lista siguen siendo manuales.
+Cuando el usuario solicita su ejecución, GitHub Actions compila los paquetes Android y Windows y ejecuta pruebas del motor, red, Firebase e interfaces renderizadas con Xvfb. Las comprobaciones en dispositivos físicos de esta lista siguen siendo manuales.
 
 ## Checklist de validación del usuario
 

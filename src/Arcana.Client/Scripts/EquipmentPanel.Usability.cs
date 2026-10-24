@@ -37,7 +37,7 @@ public partial class EquipmentPanel
         }
         _bulkAll = Add("Marcar visibles", () =>
         {
-            if (_busy || _draft == null) return;
+            if (InventoryLocked || _draft == null) return;
             foreach (var id in PickerItems.Where(id => !SaleProtected(id))) _saleSelection.Add(id);
             RefreshPickerItems();
         });
@@ -46,20 +46,26 @@ public partial class EquipmentPanel
     }
     private void ToggleBulkMode()
     {
-        if (_busy) return;
+        if (InventoryLocked) return;
         _bulkMode = !_bulkMode; _saleSelection.Clear(); ResetQuickActions(); OpenItemPicker(_selectedSlot);
     }
     private bool SaleEquipped(string id) => Equipped(id);
-    private bool SaleProtected(string id) => SaleEquipped(id);
+    private bool SaleProtected(string id) => SaleEquipped(id) || Preferences.Protected(id);
     private bool Equipped(string id) => _draft != null && Enum.GetValues<EquipmentSlot>().Any(s => _draft.Loadout.Get(s) == id);
     private void BuildItemPreferences(VBoxContainer box, EquipmentItem item)
     {
         var favorite = Ui.Button(Preferences.Protected(item.Id) ? "Favorito" : "Marcar favorito", () =>
         {
-            if (_busy) return;
+            if (InventoryLocked) return;
             ResetQuickActions();
             if (!Preferences.Favorites.Remove(item.Id)) Preferences.Favorites.Add(item.Id);
             _saleSelection.Remove(item.Id);
+            if (TemporaryInventory)
+            {
+                bool enabled = Preferences.Protected(item.Id);
+                DefenseOperation(new() { Type = "defense_favorite", ItemId = item.Id, Slot = enabled ? 1 : 0 },
+                    p => p.Favorites.Contains(item.Id) == enabled, message: enabled ? "Favorito protegido de la venta." : "Favorito desmarcado.");
+            }
             if (!TemporaryInventory && !DevicePreferences.SaveInventory())
                 SetPickerMessage("No se pudo guardar el favorito en este dispositivo. Se mantiene durante esta sesión.");
             RefreshPickerItems();
@@ -67,9 +73,10 @@ public partial class EquipmentPanel
         favorite.Name = "EquipmentFavorite_" + item.Id; favorite.CustomMinimumSize = new(0, 42);
         favorite.AddThemeFontSizeOverride("font_size", 14); favorite.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         box.AddChild(favorite); _preferenceActions.Add(favorite);
+        BuildAutoSellButton(box, item);
         if (!_bulkMode) return;
-        var check = new CheckBox { Name = "EquipmentSelect_" + item.Id, Text = SaleEquipped(item.Id) ? "Equipada · protegida" : "Seleccionar venta",
-            ButtonPressed = _saleSelection.Contains(item.Id), Disabled = _busy || SaleProtected(item.Id), CustomMinimumSize = new(0, 44) };
+        var check = new CheckBox { Name = "EquipmentSelect_" + item.Id, Text = SaleEquipped(item.Id) ? "Equipada · protegida" : Preferences.Protected(item.Id) ? "Favorito · protegido" : "Seleccionar venta",
+            ButtonPressed = _saleSelection.Contains(item.Id), Disabled = InventoryLocked || SaleProtected(item.Id), CustomMinimumSize = new(0, 44) };
         check.AddThemeFontSizeOverride("font_size", 14); check.ClipText = true;
         check.Toggled += selected => { if (selected) _saleSelection.Add(item.Id); else _saleSelection.Remove(item.Id); UpdateBulkActions(); };
         box.AddChild(check); _preferenceActions.Add(check);
@@ -86,20 +93,20 @@ public partial class EquipmentPanel
     {
         _preferenceActions.RemoveAll(b => !GodotObject.IsInstanceValid(b) || !b.IsInsideTree());
         foreach (var button in _preferenceActions)
-            button.Disabled = _busy || button is CheckBox && SaleProtected(button.Name.ToString()["EquipmentSelect_".Length..]);
+            button.Disabled = InventoryLocked || button is CheckBox && SaleProtected(button.Name.ToString()["EquipmentSelect_".Length..]);
         UpdateBulkActions();
     }
     private void UpdateBulkActions()
     {
         if (_bulkAll == null) return;
-        _inventoryMenu.GetPopup().SetItemDisabled(2, _busy);
+        _inventoryMenu.GetPopup().SetItemDisabled(2, InventoryLocked);
         _inventoryMenu.GetPopup().SetItemText(2, _bulkMode ? "Cancelar selección" : "Venta múltiple");
         _bulkAll!.Visible = _bulkSell!.Visible = _bulkMode;
         _bulkRow!.Visible = _bulkMode;
         var items = _draft == null ? [] : Preferences.Sellable(_draft, _saleSelection);
         _saleSelection.IntersectWith(items.Select(i => i.Id));
-        _bulkAll.Disabled = _busy || !CanSellInventory;
-        _bulkSell.Disabled = _busy || !CanSellInventory || items.Length == 0;
+        _bulkAll.Disabled = InventoryLocked || !CanSellInventory;
+        _bulkSell.Disabled = InventoryLocked || !CanSellInventory || items.Length == 0;
         _bulkSell.Text = $"Vender {items.Length} · +{items.Sum(i => (long)i.SaleGold)} oro";
         if (!CanSellInventory && _main.Accounts.InventoryNeedsRefresh) SetPickerMessage(SaleBlockedReason, bringIntoView: false);
         else if (!CanSellInventory) _pickerHelp.TooltipText = SaleBlockedReason;
@@ -132,7 +139,7 @@ public partial class EquipmentPanel
         _applyTeam = Ui.Button("Aplicar", ApplySavedTeam); _applyTeam.Name = "EquipmentApplyTeam"; row.AddChild(_applyTeam); _actions.Add(_applyTeam);
         var remove = Ui.Button("Borrar equipo", () =>
         {
-            if (_busy || _savedTeams.Selected < 0 || _savedTeams.Selected >= Preferences.Loadouts.Count) return;
+            if (InventoryLocked || _savedTeams.Selected < 0 || _savedTeams.Selected >= Preferences.Loadouts.Count) return;
             Preferences.Loadouts.RemoveAt(_savedTeams.Selected); DevicePreferences.SaveInventory(); _savedTeams.Clear(); RenderSavedEquipment();
         }); row.AddChild(remove); _actions.Add(remove);
         var saveRow = new HBoxContainer(); panel.AddChild(saveRow);
@@ -151,13 +158,13 @@ public partial class EquipmentPanel
         { _savedTeams.AddItem("Sin equipos guardados"); _applyTeam!.Disabled = true; _teamStatus!.Text = "Escribe un nombre para guardar las seis posiciones actuales."; return; }
         _savedTeams.Select(index);
         int missing = InventoryPreferences.Missing(Preferences.Loadouts[index], _draft);
-        _applyTeam!.Disabled = _busy || missing > 0;
+        _applyTeam!.Disabled = InventoryLocked || missing > 0;
         _teamStatus!.Text = missing > 0 ? $"Faltan {missing} piezas de este equipo. Puedes actualizarlo guardando de nuevo con el mismo nombre." :
             "Aplicar cambia las seis posiciones; se guardarán al salir. Guardar el mismo nombre actualiza ese equipo.";
     }
     private void SaveCurrentTeam()
     {
-        if (_busy || _draft == null) return;
+        if (InventoryLocked || _draft == null) return;
         try
         {
             Preferences.Save(_teamName!.Text, _draft.Loadout, _draft);
@@ -170,7 +177,7 @@ public partial class EquipmentPanel
     }
     private void ApplySavedTeam()
     {
-        if (_busy || _draft == null || _savedTeams!.Selected < 0 || _savedTeams.Selected >= Preferences.Loadouts.Count) return;
+        if (InventoryLocked || _draft == null || _savedTeams!.Selected < 0 || _savedTeams.Selected >= Preferences.Loadouts.Count) return;
         try
         {
             _draft = AccountInventory.ApplyLoadout(_draft, Preferences.Loadouts[_savedTeams.Selected].Loadout);
@@ -181,13 +188,13 @@ public partial class EquipmentPanel
 
     private void ConfirmBatchSale()
     {
-        if (_busy || _draft == null || !CanSellInventory) return;
+        if (InventoryLocked || _draft == null || !CanSellInventory) return;
         var items = Preferences.Sellable(_draft, _saleSelection);
         if (items.Length == 0) return;
         ResetQuickActions(); _confirmingBatch = true; _selling = items[0].Id; _saleOwner = _draft.Uid;
         _saleItem.Text = $"{items.Length} OBJETOS SELECCIONADOS";
         _saleItem.AddThemeColorOverride("font_color", Ui.Gold);
-        _saleState.Text = "Piezas equipadas excluidas";
+        _saleState.Text = "Favoritos y piezas equipadas excluidos";
         Clear(_saleStats);
         foreach (var item in items)
         {
@@ -196,7 +203,7 @@ public partial class EquipmentPanel
         }
         long gold = items.Sum(i => (long)i.SaleGold);
         _saleGold.Text = $"+{gold} oro"; _confirm.OkButtonText = $"Vender {items.Length} · +{gold} oro";
-        _saleWarning.Text = "Venta definitiva. Piezas equipadas protegidas. Los objetos pendientes se conservan si se pierde la conexión.";
+        _saleWarning.Text = "Venta definitiva. Favoritos y piezas equipadas protegidos. Los objetos pendientes se conservan si se pierde la conexión.";
         MoveChild(_saleDimmer, GetChildCount() - 1); UpdateSaleDensity(); _confirm.PopupCentered(SaleModalSize());
         _confirm.GetCancelButton().GrabFocus();
     }

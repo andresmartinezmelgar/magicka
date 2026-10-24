@@ -376,6 +376,7 @@ public partial class Main : Node
             }
         TickGoogleAuth(delta);
         TickBestiary(delta);
+        TickInventoryAutoSell(delta);
         TickMatchStatistics(delta);
         _renderFrames++;
         if (CheckDesktopHeaderSmoke()) return;

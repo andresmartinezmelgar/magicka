@@ -240,7 +240,7 @@ dotnet build ArcanaArena.sln -c Release
 dotnet run --project tests/Arcana.Tests/Arcana.Tests.csproj -c Release
 ```
 
-La CI de `main` comprueba código, simulación, partidas LAN, salas PvP, reglas y transacciones Firestore mediante emuladores, además de los paquetes Windows/Android, controles de interfaz y **capturas visuales automatizadas**.
+GitHub Actions se ejecuta manualmente cuando lo indique el usuario. Subir código o abrir una PR no compila ni genera tags. El flujo comprueba código, simulación, partidas LAN, salas PvP, reglas y transacciones Firestore mediante emuladores, además de los paquetes Windows/Android, controles de interfaz y **capturas visuales automatizadas**. Para crear el tag y publicar una versión de pruebas también hay que activar `publish_preview`, desactivado por defecto.
 
 Los test y las capturas automatizadas **no sustituyen** una partida entre dispositivos reales ni la comprobación de permisos de un proyecto Firebase desplegado. Para diagnosticar fallos utiliza **Ver registros** en el juego; los logs locales se almacenan habitualmente en:
 

@@ -21,7 +21,6 @@ public partial class EquipmentAvatar : Control
         SizeFlagsHorizontal = SizeFlags.ExpandFill; SizeFlagsVertical = SizeFlags.ExpandFill;
         CustomMinimumSize = new(155, 164); TextureFilter = TextureFilterEnum.Linear;
         _atlas = WizardSprites.Load(type);
-        VisibilityChanged += RefreshHaloAnimation;
         RefreshHaloAnimation();
         foreach (var slot in Order)
         {
@@ -72,6 +71,7 @@ public partial class EquipmentAvatar : Control
             button.Size = new(bw, bh);
             button.AddThemeFontSizeOverride("font_size", width < 260 ? 12 : 14);
         }
+        ArrangeAura();
         QueueRedraw();
     }
 
@@ -97,10 +97,8 @@ public partial class EquipmentAvatar : Control
     {
         if (_atlas == null || Size.X < 1 || Size.Y < 1) return;
         DrawCircle(Size * new Vector2(.5f, .88f), Size.X * .24f, new Color(.12f, .30f, .44f, .16f));
-        DrawEquipmentHalos(false);
         var source = new Rect2(0, 0, _atlas.Spec.Width / 4f, _atlas.Spec.Height / 4f);
         DrawTextureRectRegion(_atlas.Texture, SpriteBounds(), source);
-        DrawEquipmentHalos(true);
         foreach (var slot in Order)
         {
             var target = Target(slot); var rect = _buttons[slot].GetRect();

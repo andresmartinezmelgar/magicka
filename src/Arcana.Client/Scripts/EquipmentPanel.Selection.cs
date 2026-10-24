@@ -51,7 +51,7 @@ public partial class EquipmentPanel
         string equipped = _draft?.Loadout.Get(slot) ?? "";
         var choices = EquipmentQuery.Sort(allChoices, equippedId: equipped);
         _optionAItemsTab!.Text = EquipmentCatalogue.SlotName(slot) + $" · {choices.Length}";
-        _pickerHelp.Text = "Equipada primero · Solo la pieza equipada está protegida de la venta.";
+        _pickerHelp.Text = "Equipada primero · Favoritos y piezas equipadas protegidos de la venta.";
         PrepareIcons();
         foreach (var item in choices)
         {
@@ -93,6 +93,7 @@ public partial class EquipmentPanel
             trash.SetMeta("sale_item_id", item.Id);
             _trashButtons.Add(item.Id, trash);
             if (SaleEquipped(item.Id)) trash.TooltipText = "Pieza equipada: venta bloqueada. Elige otra pieza para poder vender esta.";
+            else if (Preferences.Protected(item.Id)) trash.TooltipText = "Favorito: venta bloqueada. Desmarca el favorito para poder vender esta pieza.";
             var equip = PickerAction(actions, "EquipmentEquip_", item.Id, _equipIcon, selected ? Ui.Gold : Ui.Blue,
                 selected ? "Quitar" : "Equipar", selected ? "Quitar esta pieza equipada." : "Equipar esta pieza. Se guardará al salir del inventario.",
                 () => ChooseItem(selected ? "" : item.Id));
@@ -141,15 +142,15 @@ public partial class EquipmentPanel
 
     private void UpdatePickerActions()
     {
-        foreach (var button in _itemButtons.Values) button.Disabled = _busy || (_defensePlayer != null && !CanChangeDefenseItems);
-        foreach (var (id, button) in _trashButtons) button.Disabled = _busy || !CanSellInventory || SaleProtected(id);
+        foreach (var button in _itemButtons.Values) button.Disabled = InventoryLocked || (_defensePlayer != null && !CanChangeDefenseItems);
+        foreach (var (id, button) in _trashButtons) button.Disabled = InventoryLocked || !CanSellInventory || SaleProtected(id);
         foreach (var (id, button) in _upgradeButtons) button.Disabled = !CanUpgradeItem(id);
         UpdatePreferenceActions();
     }
 
     private void RefreshPickerItems()
     {
-        if (_itemPicker == null || !_itemPicker.Visible || _busy) return;
+        if (_itemPicker == null || !_itemPicker.Visible || InventoryLocked) return;
         int scroll = _pickerScroll.ScrollVertical;
         OpenItemPicker(_selectedSlot); _pickerScroll.ScrollVertical = scroll;
     }
@@ -176,6 +177,7 @@ public partial class EquipmentPanel
         if (_confirm.Visible) { CancelSale(); return; }
         if (_setsInfo.Visible) { _setsInfo.Hide(); return; }
         if (_savedEquipmentDialog?.Visible == true) { _savedEquipmentDialog.Hide(); return; }
+        if (_autoSellDialog?.Visible == true) { _autoSellDialog.Hide(); return; }
         if (_discardExit?.Visible == true) { _discardExit.Hide(); return; }
         if (_showingTotals) { OpenItemPicker(_selectedSlot); return; }
         if (_itemPicker.Visible) CloseItemPicker();

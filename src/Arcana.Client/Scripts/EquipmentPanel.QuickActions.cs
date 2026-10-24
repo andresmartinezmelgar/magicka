@@ -52,7 +52,7 @@ public partial class EquipmentPanel
 
     private void ClickSell(string id)
     {
-        if (_busy || !CanSellInventory || !PickerVisible || !_trashButtons.TryGetValue(id, out var button) || button.Disabled) return;
+        if (InventoryLocked || !CanSellInventory || !PickerVisible || !_trashButtons.TryGetValue(id, out var button) || button.Disabled) return;
         _lastUpgradeClick = "";
         if (_pointerFrame != Engine.GetProcessFrames())
         { CancelPendingSaleClick(); ConfirmSale(id); return; }

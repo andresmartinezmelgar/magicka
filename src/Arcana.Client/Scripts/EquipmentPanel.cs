@@ -46,6 +46,7 @@ public partial class EquipmentPanel : Control
     {
         _main = main; Name = "EquipmentPanel"; Theme = Ui.Theme(); Ui.Full(this);
         _draft = _defensePlayer == null ? main.Accounts.Profile : DefenseProfile(_defensePlayer);
+        SyncDefensePreferences();
         _savedLoadout = _draft?.Loadout ?? new();
         _onlineInventory = _defensePlayer == null && (main.Accounts.SignedIn || main.Accounts.HasDirectFirebaseSession);
         AddChild(new ColorRect { Color = ArcanaMenuChrome.Backdrop, LayoutMode = 1, AnchorRight = 1, AnchorBottom = 1 });
@@ -76,10 +77,12 @@ public partial class EquipmentPanel : Control
         menu.AddItem("Venta múltiple", 2);
         menu.AddItem("Bonificaciones de conjuntos", 3);
         menu.AddItem("Descartar cambios y salir", 4);
+        menu.AddItem("Venta automática", 5);
         menu.IdPressed += id =>
         {
             if (_defensePlayer != null && id == 1) { Close(); return; }
-            if (_busy) return;
+            if (InventoryLocked) return;
+            if (id == 5) { OpenAutoSellRules(); return; }
             if (id == 4) { ConfirmDiscard(); return; }
             if (id == 3) { _setsInfo.PopupCentered(); return; }
             if (id == 2) { ToggleBulkMode(); return; }
@@ -103,7 +106,7 @@ public partial class EquipmentPanel : Control
         _avatar = new EquipmentAvatar(); left.AddChild(_avatar);
         _avatar.Build(_defenseWizard?.WizardType ?? main.InventoryWizardType, OpenItemPicker);
         foreach (var slot in Enum.GetValues<EquipmentSlot>()) _slots[(int)slot] = _avatar.Buttons[slot];
-        _salesHelp = Ui.Label("Solo las piezas equipadas están protegidas de la venta.", 13, Ui.Muted);
+        _salesHelp = Ui.Label("Los favoritos y las piezas equipadas están protegidos de la venta.", 13, Ui.Muted);
         _salesHelp.AutowrapMode = TextServer.AutowrapMode.WordSmart; left.AddChild(_salesHelp);
         var right = new PanelContainer { Name = "EquipmentItemsPane", SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
         var itemsStyle = Ui.Panel(new("0d2036"), 9, new("29475e")); itemsStyle.ContentMarginLeft = itemsStyle.ContentMarginRight = itemsStyle.ContentMarginTop = itemsStyle.ContentMarginBottom = 8;
@@ -136,8 +139,8 @@ public partial class EquipmentPanel : Control
         descriptions.AutowrapMode = TextServer.AutowrapMode.WordSmart; descriptions.SizeFlagsHorizontal = SizeFlags.ExpandFill; setsBody.AddChild(descriptions);
         BuildItemPicker();
         GetViewport().SizeChanged += UpdateEquipmentResponsive; UpdateEquipmentResponsive();
-        Render(); OpenItemPicker(EquipmentSlot.Hat);
-        if (_defensePlayer == null && _main.Accounts.SignedIn)
+        Render(); OpenItemPicker(EquipmentSlot.Hat); Busy(false);
+        if (_defensePlayer == null && _main.Accounts.SignedIn && !_main.InventoryAutoSelling)
         {
             _ = Refresh();
             if (_main.Accounts.IsDirectFirebaseSession) _ = ConnectInventoryServer();
@@ -241,7 +244,8 @@ public partial class EquipmentPanel : Control
         _sets.Visible = activeSets.Length > 0 || GetViewport().GetVisibleRect().Size.Y > 500;
         _sets.TooltipText = "Solo cuentan las piezas Míticas de la misma familia. Con 3 piezas sigue activo el bonus de 2. El bonus de 4 sustituye al de 2.\n"
             + string.Join("\n", activeSets.Select(f => Set(EquipmentCatalogue.FamilyName(f), m.Pieces(f), SetDescription(f, false), SetDescription(f, true))));
-        _salesHelp.Text = "Solo las piezas equipadas están protegidas.";
+        _salesHelp.Text = _main.InventoryAutoSelling && !TemporaryInventory ? "Terminando la venta automática. Puedes salir de esta pantalla." :
+            "Los favoritos y las piezas equipadas están protegidos.";
         if (!_busy && _status.Text.Length == 0) SetStatus(account == null ? "Inicia sesión con Google para recuperar tu inventario y conseguir objetos en PvP." :
             "Pulsa una posición para elegir una pieza. La configuración se guarda al salir del inventario.", routine: true);
         if (_defensePlayer != null) RenderDefenseActions();
@@ -291,14 +295,14 @@ public partial class EquipmentPanel : Control
     }
     private void Busy(bool value, string message = "")
     {
-        _busy = value; foreach (var button in _actions) button.Disabled = value;
+        _busy = value; foreach (var button in _actions) button.Disabled = InventoryLocked;
         if (message.Length > 0) SetStatus(message);
         UpdatePickerActions();
         if (_itemPicker != null && _itemPicker.Visible && message.Length > 0)
             SetPickerMessage(message);
         RenderSavedEquipment();
         if (_defensePlayer != null) RenderDefenseActions();
-        else { _inventoryMenu.GetPopup().SetItemDisabled(0, value); _inventoryMenu.GetPopup().SetItemDisabled(1, value); }
+        else { _inventoryMenu.GetPopup().SetItemDisabled(0, InventoryLocked); _inventoryMenu.GetPopup().SetItemDisabled(1, InventoryLocked); }
     }
     private async Task ConnectInventoryServer()
     {
@@ -317,7 +321,7 @@ public partial class EquipmentPanel : Control
     private async Task Refresh()
     {
         if (_defensePlayer != null) return;
-        if (_busy) return;
+        if (InventoryLocked) return;
         if (!_main.Accounts.SignedIn) { Busy(false, "Inicia sesión con Google para actualizar el inventario de tu cuenta."); return; }
         Busy(true, "Cargando inventario…");
         try { await _main.Accounts.Refresh(_lifetime.Token); Done("Inventario actualizado; se ha recuperado tu equipo guardado."); }
@@ -325,7 +329,7 @@ public partial class EquipmentPanel : Control
     }
     private void ChooseItem(string id)
     {
-        if (_busy || _draft == null) return;
+        if (InventoryLocked || _draft == null) return;
         ResetQuickActions();
         try
         {
@@ -341,7 +345,7 @@ public partial class EquipmentPanel : Control
     }
     private async Task Sell()
     {
-        if (_busy || _selling.Length == 0) return;
+        if (InventoryLocked || _selling.Length == 0) return;
         if (_confirmingBatch) { await SellBatch(); return; }
         if (SaleProtected(_selling) || !CanSellInventory || _saleOwner != _draft?.Uid ||
             (_defensePlayer == null && _saleOwner != _main.Accounts.Profile?.Uid)) { CancelSale(); return; }

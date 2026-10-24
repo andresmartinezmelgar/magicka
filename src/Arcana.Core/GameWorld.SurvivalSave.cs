@@ -37,6 +37,9 @@ public sealed partial class GameWorld
         public float[] PassiveCooldowns = [];
         public double LastActivity;
         public EquipmentItem[] Items = [];
+        public string[] Favorites = [];
+        public EquipmentStyle[] AutoSellStyles = [];
+        public int AutoSold;
         public EquipmentLoadout Loadout = new();
         public Dictionary<string, int> Upgrades = [];
     }
@@ -79,7 +82,8 @@ public sealed partial class GameWorld
                     GoldCoinRemainderScale = GoldBonuses.CoinFractionScale,
                     BestiaryKills = new(s.BestiaryKills, StringComparer.Ordinal), BerserkerRemaining = s.BerserkerRemaining,
                     Passives = s.Passives.ToArray(), PassiveCooldowns = s.PassiveCooldowns.ToArray(), LastActivity = s.LastActivity,
-                    Items = s.Items.ToArray(), Loadout = s.Loadout, Upgrades = new(s.Upgrades), Auras = s.Auras.ToArray()
+                    Items = s.Items.ToArray(), Loadout = s.Loadout, Upgrades = new(s.Upgrades), Auras = s.Auras.ToArray(),
+                    Favorites = s.Favorites.ToArray(), AutoSellStyles = s.AutoSellStyles.ToArray(), AutoSold = s.AutoSold
                 });
             }).ToArray(),
             Minions = _minions.Values.Where(m => m.Body.Alive).Select(m => new SavedMinion(SurvivalWizard.Capture(m.Body),
@@ -135,6 +139,7 @@ public sealed partial class GameWorld
             d.Passives.CopyTo(progress.Passives, 0); d.PassiveCooldowns.CopyTo(progress.PassiveCooldowns, 0);
             d.Auras.CopyTo(progress.Auras, 0); p.BuffStacks.CopyTo(progress.Buffs, 0);
             progress.Items.AddRange(d.Items);
+            progress.Favorites.UnionWith(d.Favorites); progress.AutoSellStyles.UnionWith(d.AutoSellStyles); progress.AutoSold = d.AutoSold;
             foreach (var pair in d.Upgrades) progress.Upgrades.Add(pair.Key, pair.Value);
             foreach (var pair in d.BestiaryKills) progress.BestiaryKills.Add(pair.Key, pair.Value);
             world._players.Add(p.Id, p); world._combatants.Add(p.Id, p); world._orderedPlayers.Add(p);
@@ -208,6 +213,10 @@ public sealed partial class GameWorld
                 d.PassiveCooldowns is { Length: 4 } && d.PassiveCooldowns.All(float.IsFinite) &&
                 d.Auras is { Length: 3 } && d.Auras.All(n => n is >= 0 and <= DefenseRules.MaxAuraLevel) &&
                 d.Items is { Length: <= DefenseRules.InventoryLimit } && d.Items.All(EquipmentCatalogue.Valid) &&
+                d.Favorites is { Length: <= DefenseRules.InventoryLimit } && d.Favorites.Distinct().Count() == d.Favorites.Length &&
+                d.Favorites.All(id => d.Items.Any(i => i.Id == id)) && d.AutoSold >= 0 &&
+                d.AutoSellStyles != null && d.AutoSellStyles.Length <= EquipmentStyle.Limit && d.AutoSellStyles.All(s => s.Valid) &&
+                d.AutoSellStyles.Distinct().Count() == d.AutoSellStyles.Length &&
                 d.Items.Select(i => i.Id).Distinct().Count() == d.Items.Length && d.Loadout != null && d.Upgrades != null &&
                 d.Upgrades.All(p => d.Items.Any(i => i.Id == p.Key) && p.Value is >= 0 and <= DefenseRules.ItemUpgradeLimit) &&
                 d.BestiaryKills != null && d.BestiaryKills.All(p => Enum.GetValues<MinionKind>().Any(k => BestiaryCatalogue.Key(k) == p.Key) && p.Value >= 0));

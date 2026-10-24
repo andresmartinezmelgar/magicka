@@ -54,7 +54,7 @@ public partial class EquipmentPanel
     private async Task PreparePermanentSale(string id)
     {
         var item = _draft?.Items.SingleOrDefault(i => i.Id == id);
-        if (item == null || SaleProtected(id)) throw new InvalidOperationException("La pieza está equipada o ya no está disponible.");
+        if (item == null || SaleProtected(id)) throw new InvalidOperationException("La pieza está equipada, es favorita o ya no está disponible.");
         if (_main.Accounts.Profile?.Loadout.Get(item.Slot) != id) return;
         await _main.Accounts.SaveLoadout(_draft!.Loadout, _lifetime.Token);
     }
@@ -78,7 +78,7 @@ public partial class EquipmentPanel
     private EquipmentItem? SelectSaleItem(string id)
     {
         var item = _draft?.Items.FirstOrDefault(i => i.Id == id && i.Slot == _selectedSlot);
-        if (_busy || item == null || !CanSellInventory || SaleProtected(id)) return null;
+        if (InventoryLocked || item == null || !CanSellInventory || SaleProtected(id)) return null;
         _confirmingBatch = false;
         _selling = item.Id; _saleOwner = _draft!.Uid;
         return item;

@@ -58,10 +58,22 @@ public partial class Main
                     teams.Select(0); teams.EmitSignal(OptionButton.SignalName.ItemSelected, 0);
                     Button("EquipmentApplyTeam").EmitSignal(BaseButton.SignalName.Pressed);
                     Check(panel.PreviewProfile!.Loadout == fixture.Profile.Loadout && teams.ItemCount == 2, "Guardar y aplicar equipos no restaura las cuatro posiciones.");
+                    string autoId = fixture.Extras[0].Id;
+                    var autoStyle = EquipmentStyle.Of(fixture.Extras[0]);
+                    Button("EquipmentAutoSell_" + autoId).EmitSignal(BaseButton.SignalName.Pressed);
+                    var preferences = DevicePreferences.Inventory(fixture.Profile.Uid, false);
+                    Check(preferences.AutoSells(autoStyle) && preferences.AutomaticSales(panel.PreviewProfile!).Length == 0 &&
+                        Button("EquipmentAutoSell_" + autoId).Text == "Conservar nuevos de este estilo", "El filtro vende piezas anteriores o no se activa.");
+                    ((MenuButton)panel.FindChild("EquipmentActions", true, false)).GetPopup().EmitSignal(PopupMenu.SignalName.IdPressed, 5L);
+                    var autoDialog = (AcceptDialog)panel.FindChild("EquipmentAutoSellDialog", true, false);
+                    Check(autoDialog.Visible, "No se pueden consultar los filtros.");
+                    panel.HandleBack(); Check(!autoDialog.Visible && panel.PickerVisible, "Atrás no cierra los filtros.");
+                    Button("EquipmentAutoSell_" + autoId).EmitSignal(BaseButton.SignalName.Pressed);
+                    Check(!preferences.AutoSells(autoStyle), "El botón no desactiva el filtro.");
                     foreach (string id in new[] { fixture.Profile.Loadout.Weapon, fixture.Extras[0].Id })
                     {
                         Button("EquipmentFavorite_" + id).EmitSignal(BaseButton.SignalName.Pressed);
-                        Check(Button("EquipmentTrash_" + id).Disabled == (id == fixture.Profile.Loadout.Weapon), "La venta no protege únicamente la pieza equipada.");
+                        Check(Button("EquipmentTrash_" + id).Disabled, "La venta no protege un favorito.");
                     }
                     Check(!dialog.Visible && fixture.Attempts == 0, "Marcar favoritos envía una venta o abre una confirmación.");
                     var saved = DevicePreferences.Read<Dictionary<string, InventoryPreferences>>("inventory-preferences")!;
@@ -71,7 +83,7 @@ public partial class Main
                     Check(((Label)panel.FindChild("EquipmentComparison_" + fixture.Extras[1].Id, true, false)).Text.Contains("4/4 → 3/4"), "Falta el cambio de conjunto en la comparación.");
                     ((MenuButton)panel.FindChild("EquipmentActions", true, false)).GetPopup().EmitSignal(PopupMenu.SignalName.IdPressed, 2L);
                     Button("EquipmentBulkAll").EmitSignal(BaseButton.SignalName.Pressed);
-                    Check(Button("EquipmentBulkSell").Text.Contains("Vender 3"), "Marcar visibles excluye una pieza sin equipar o incluye la equipada.");
+                    Check(Button("EquipmentBulkSell").Text.Contains("Vender 2"), "Marcar visibles incluye favoritos o piezas equipadas.");
                     ((CheckBox)panel.FindChild("EquipmentSelect_" + fixture.Extras[0].Id, true, false)).ButtonPressed = false;
                     Check(Button("EquipmentBulkSell").Text.Contains("Vender 2"), "Elegir dos piezas cambia la selección de venta.");
                     _usabilityStage++; return false;

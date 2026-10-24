@@ -28,6 +28,18 @@ public sealed partial class GameWorld
     private bool DefenseCommand(Wizard player, ClientMessage command)
     {
         if (!IsDefense || !_defenders.TryGetValue(player.Id, out var progress)) return false;
+        if (command.Type == "defense_favorite")
+        {
+            if (command.Slot is < 0 or > 1 || !progress.Items.Any(i => i.Id == command.ItemId)) return false;
+            if (command.Slot == 1) progress.Favorites.Add(command.ItemId); else progress.Favorites.Remove(command.ItemId);
+            return true;
+        }
+        if (command.Type == "defense_auto_sell")
+        {
+            if (command.Slot is < 0 or > 1 || command.AutoSellStyle is not { Valid: true } style) return false;
+            if (command.Slot == 1) progress.AutoSellStyles.Add(style); else progress.AutoSellStyles.Remove(style);
+            return true;
+        }
         if (command.Type == "defense_performance")
         {
             if (player.Bot || !float.IsFinite(command.FramesPerSecond) || command.FramesPerSecond is < 1 or > 240 ||
@@ -94,7 +106,7 @@ public sealed partial class GameWorld
                 if (command.Type == "defense_equip") progress.Loadout = progress.Loadout.With(item.Slot, item.Id);
                 else if (command.Type == "defense_sell")
                 {
-                    if (progress.Loadout.Get(item.Slot) == item.Id) return false;
+                    if (progress.Loadout.Get(item.Slot) == item.Id || progress.Favorites.Contains(item.Id)) return false;
                     progress.Items.Remove(item); progress.Upgrades.Remove(item.Id);
                     { int earned = Math.Min(100000000 - progress.Gold, item.SaleGold); StatisticsEconomy(player.Id, StatisticMeasure.GoldEarned, earned); progress.Gold += earned; }
                 }
@@ -132,6 +144,14 @@ public sealed partial class GameWorld
         _statistics.Add(StatisticGroup.Equipment, (int)item.Tier, StatisticMeasure.Collected, 1);
         StatisticsEconomy(player.Id, StatisticMeasure.Collected, 1);
         var progress = _defenders[player.Id];
+        if (progress.AutoSellStyles.Contains(EquipmentStyle.Of(item)))
+        {
+            int earned = Math.Min(100000000 - progress.Gold, item.SaleGold);
+            StatisticsEconomy(player.Id, StatisticMeasure.GoldEarned, earned); progress.Gold += earned;
+            if (progress.AutoSold < int.MaxValue) progress.AutoSold++;
+            Emit("defense_item", player.Position, [], player.Name + $": venta automática · +{earned} oro");
+            return;
+        }
         if (progress.Items.Count >= DefenseRules.InventoryLimit)
             { int earned = Math.Min(100000000 - progress.Gold, item.SaleGold); StatisticsEconomy(player.Id, StatisticMeasure.GoldEarned, earned); progress.Gold += earned; }
         else
@@ -234,7 +254,8 @@ public sealed partial class GameWorld
                     s.ActiveTicks / 60.0, p.Kills, p.Deaths, Copy(s.Auras), s.Items.Select(i => new DefenseItemSnapshot(i with { Bonuses = Copy(i.Bonuses) },
                         s.Upgrades.GetValueOrDefault(i.Id), s.Loadout.Get(i.Slot) == i.Id)).ToArray(), p.Equipment,
                     DamagePower(p.Id), RelicBuffs.Incoming(p) * p.Equipment.Incoming, RelicBuffs.Regeneration(p) + s.Auras[2] * 10 * HealingPower(p.Id),
-                    RelicBuffs.Speed(p) * p.Equipment.Speed * DefenseSpeed(p), Copy(s.Passives), Copy(s.PassiveCooldowns), s.BerserkerRemaining);
+                    RelicBuffs.Speed(p) * p.Equipment.Speed * DefenseSpeed(p), Copy(s.Passives), Copy(s.PassiveCooldowns), s.BerserkerRemaining)
+                    { Favorites = s.Favorites.ToArray(), AutoSellStyles = s.AutoSellStyles.ToArray(), AutoSold = s.AutoSold };
             }).ToArray(), DefensePaused, _players.Values.Count(p => !p.Bot))
             { Bestiary = _defenseBestiary.Values.OrderBy(e => e.Kind).ToArray(), NextBossIn = _bossClock, BossesKilled = _bossesKilled,
                 MinionLimit = DefenseMinionLimit, PerformanceLimit = DefensePerformanceLimit };

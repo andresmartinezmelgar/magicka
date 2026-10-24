@@ -7,6 +7,18 @@ namespace Arcana.Client;
 public partial class EquipmentPanel
 {
     private DefensePlayerSnapshot? _defensePlayer;
+    private string[]? _defenseFavorites;
+    private EquipmentStyle[]? _defenseAutoSellStyles;
+    private int _defensePreferenceRevision;
+    private void SyncDefensePreferences()
+    {
+        if (_defensePlayer == null || _draft == null) return;
+        if (_defenseFavorites != null && _defenseFavorites.SequenceEqual(_defensePlayer.Favorites) &&
+            _defenseAutoSellStyles!.SequenceEqual(_defensePlayer.AutoSellStyles)) return;
+        _defenseFavorites = _defensePlayer.Favorites; _defenseAutoSellStyles = _defensePlayer.AutoSellStyles;
+        Preferences.Favorites = new(_defenseFavorites, StringComparer.Ordinal);
+        _defensePreferenceRevision++;
+    }
     private readonly Dictionary<string, int> _itemLevels = new(StringComparer.Ordinal);
     private void UpdateItemLevels(DefensePlayerSnapshot player)
     {
@@ -25,7 +37,7 @@ public partial class EquipmentPanel
     internal bool TemporaryInventory => _defensePlayer != null;
     private bool CanChangeDefenseItems => _defenseWizard?.Alive == true && !_defenseMatchEnded;
     private bool CanSellInventory => _defensePlayer != null ? CanChangeDefenseItems :
-        !_main.Accounts.InventoryNeedsRefresh && _main.Accounts.SignedIn &&
+        !_main.InventoryAutoSelling && !_main.Accounts.InventoryNeedsRefresh && _main.Accounts.SignedIn &&
         (!_main.Accounts.IsDirectFirebaseSession || _main.Accounts.ServerAddress.Length > 0);
 
     internal void BuildDefense(Main main, DefensePlayerSnapshot player, WizardSnapshot wizard, bool ended, Action<ClientMessage> submit,
@@ -54,7 +66,8 @@ public partial class EquipmentPanel
     internal void UpdateDefenseInventory(DefensePlayerSnapshot player, WizardSnapshot wizard, bool ended)
     {
         _defensePlayer = player; UpdateItemLevels(player); _defenseWizard = wizard; _defenseMatchEnded = ended;
-        string stamp = player.Gold + ":" + wizard.Alive + ":" + ended + ":" +
+        SyncDefensePreferences();
+        string stamp = player.Gold + ":" + wizard.Alive + ":" + ended + ":" + _defensePreferenceRevision + ":" +
             string.Join('|', player.Items.Select(i => $"{i.Item.Id}:{i.Upgrades}:{i.Equipped}"));
         if (stamp != _defenseInventoryStamp)
         {
@@ -95,7 +108,8 @@ public partial class EquipmentPanel
     {
         if (_busy || !CanChangeDefenseItems || _defensePlayer == null || _inventoryMenu.GetPopup().IsItemDisabled(0)) return;
         var ids = _defensePlayer.Items.Select(i => i.Item.Id).ToHashSet(StringComparer.Ordinal);
-        DefenseOperation(new() { Type = "defense_supply" }, p => p.Items.Any(i => !ids.Contains(i.Item.Id)),
+        int sold = _defensePlayer.AutoSold;
+        DefenseOperation(new() { Type = "defense_supply" }, p => p.Items.Any(i => !ids.Contains(i.Item.Id)) || p.AutoSold > sold,
             message: "Pieza comprada. El oro y el inventario están actualizados.");
     }
 

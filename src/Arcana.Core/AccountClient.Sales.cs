@@ -33,13 +33,20 @@ public sealed partial class AccountClient
         }
     }
 
-    public async Task<InventoryResult> Sell(string itemId, CancellationToken token = default)
+    public Task<InventoryResult> Sell(string itemId, CancellationToken token = default) => SellChecked(itemId, null, null, token);
+
+    internal Task<InventoryResult> SellAutomatically(string itemId, string owner, string session, CancellationToken token) =>
+        SellChecked(itemId, owner, session, token);
+
+    private async Task<InventoryResult> SellChecked(string itemId, string? owner, string? session, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
         var identity = CaptureIdentity();
         lock (_identityGate)
         {
             RequireIdentity(identity.Generation);
+            if (owner != null && (Profile?.Uid != owner || Token != session))
+                throw new InvalidOperationException("La cuenta ha cambiado durante la venta automática.");
             if (_inventoryNeedsRefresh) throw new InvalidOperationException("Actualiza el inventario para confirmar la venta anterior antes de volver a vender.");
         }
         try

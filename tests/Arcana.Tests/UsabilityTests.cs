@@ -7,6 +7,7 @@ internal static class UsabilityTests
     public static void Run(Action<string, Action> test)
     {
         SaleRecoveryTests.Run(test);
+        InventoryAutoSellTests.Run(test);
         EquipmentItem Item(EquipmentSlot slot, EquipmentFamily family, float value, ItemTier tier = ItemTier.Mythic) =>
             new(Guid.NewGuid().ToString("N"), slot, tier, family, [new(EquipmentStat.FirePower, -.5f, .5f, value), new(EquipmentStat.Defense, 0, .5f, .01f)], 100);
         test("Comparación: al cambiar una oferta se pierden conjuntos y se aplican límites reales", () =>
@@ -40,8 +41,8 @@ internal static class UsabilityTests
             var unequipped = p with { Loadout = p.Loadout.With(EquipmentSlot.Hat, "") };
             Check(prefs.Sellable(unequipped, [a.Id, b.Id, b.Id, "ajeno"]).Single().Id == b.Id, "Se vende un favorito, una pieza ajena o dos veces la misma.");
             var favoriteRemoved = unequipped with { Loadout = new() };
-            Check(prefs.Sellable(favoriteRemoved, [a.Id, b.Id, b.Id, "ajeno"]).Length == 2,
-                "Un favorito sin equipar sigue bloqueado o una selección repite la venta.");
+            Check(prefs.Sellable(favoriteRemoved, [a.Id, b.Id, b.Id, "ajeno"]).Single().Id == b.Id,
+                "Se vende un favorito sin equipar o se repite una venta.");
             Check(AccountInventory.ApplyLoadout(p, prefs.Loadouts.Single().Loadout).Loadout == p.Loadout, "No recupera las cuatro posiciones.");
             prefs.Save("fuego", new(a.Id), p); Check(prefs.Loadouts.Count == 1, "El mismo nombre duplica equipos.");
             Check(InventoryPreferences.Missing(new("Viejo", p.Loadout), p with { Items = [a] }) == 1, "No detecta piezas vendidas.");

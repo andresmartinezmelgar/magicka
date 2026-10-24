@@ -329,11 +329,16 @@ public partial class Main
                     var favorite = unequipped[0].Item; _defenseBulkFavorite = favorite.Id;
                     inventory.PressInspect(favorite.Slot);
                     ((Button)inventory.FindChild("EquipmentFavorite_" + favorite.Id, true, false)).EmitSignal(Button.SignalName.Pressed);
-                    inventory.PressTrash(favorite.Id);
-                    Check(inventory.GetChildren().OfType<ConfirmationDialog>().Single().Visible, "Un favorito sin equipar sigue bloqueado.");
-                    inventory.HandleBack();
+                    _defenseBulkReview = 1; return false;
+                }
+                if (_defenseBulkReview == 1)
+                {
+                    if (inventory.Saving) return false;
+                    inventory.PressTrash(_defenseBulkFavorite);
+                    Check(!inventory.GetChildren().OfType<ConfirmationDialog>().Single().Visible && player.Favorites.Contains(_defenseBulkFavorite), "La partida no protege el favorito sin equipar.");
+                    var unequipped = player.Items.Where(i => !i.Equipped && i.Item.Id != _defenseBulkFavorite).ToArray();
                     ((MenuButton)inventory.FindChild("EquipmentActions", true, false)).GetPopup().EmitSignal(PopupMenu.SignalName.IdPressed, 2L);
-                    var selected = unequipped.Skip(1).Take(2).Select(i => i.Item).ToArray();
+                    var selected = unequipped.Take(2).Select(i => i.Item).ToArray();
                     _defenseBulkItems = selected.Select(i => i.Id).ToArray();
                     _defenseBulkGold = player.Gold + selected.Sum(i => i.SaleGold);
                     foreach (var item in selected)
@@ -345,7 +350,7 @@ public partial class Main
                     var confirmation = inventory.GetChildren().OfType<ConfirmationDialog>().Single();
                     Check(confirmation.Visible && confirmation.GetOkButton().Text.Contains("Vender 2"), "La selección entre posiciones pierde una pieza.");
                     confirmation.EmitSignal(ConfirmationDialog.SignalName.Confirmed);
-                    _defenseBulkReview = 1; return false;
+                    _defenseBulkReview = 2; return false;
                 }
                 if (inventory.Saving) return false;
                 if (_defenseLiveSale == 0)

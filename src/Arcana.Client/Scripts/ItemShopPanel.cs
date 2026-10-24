@@ -14,7 +14,8 @@ public partial class ItemShopPanel : Control
     private GridContainer _offers = null!;
     private ContentScrollContainer _scroll = null!;
     private readonly Dictionary<string, Button> _buyButtons = new(StringComparer.Ordinal);
-    private bool _busy, _connected;
+    private bool _busy, _connected, _waitingForAutoSales;
+    internal void ResumeAfterAutoSales() { if (_waitingForAutoSales && !_lifetime.IsCancellationRequested) _ = Load(); }
     private string? _owner;
     private int _requestVersion;
     private AcceptDialog _comparison = null!;
@@ -167,6 +168,9 @@ public partial class ItemShopPanel : Control
     private async Task Load()
     {
         if (_busy) return;
+        if (_main.InventoryAutoSelling)
+        { _waitingForAutoSales = true; SetBusy(false, "Terminando la venta automática…"); return; }
+        _waitingForAutoSales = false;
         int request = ++_requestVersion;
         ShowUnavailable("Conectando con el servidor de la tienda…");
         SetBusy(true, "Conectando con el servidor de la tienda…");

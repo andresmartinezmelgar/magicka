@@ -1,11 +1,13 @@
-name: Arcana Arena - compilacion automatica
+name: Arcana Arena - compilacion manual
 
 on:
-  push:
-    branches: ['**']
-    tags: ['v*']
-  pull_request:
+  # Solo por indicación expresa. Subir cambios no compila ni crea tags.
   workflow_dispatch:
+    inputs:
+      publish_preview:
+        description: 'Crear tag y publicar versión de pruebas (solo si se ha solicitado)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -851,7 +853,7 @@ jobs:
 
   publish-preview:
     name: Publicar versiones de prueba de otras ramas
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/') && github.ref != 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_preview && startsWith(github.ref, 'refs/heads/') && github.ref != 'refs/heads/main'
     needs: [build, docker-server, firestore-rules, visual-audit, package-windows, package-android]
     runs-on: ubuntu-latest
     permissions:

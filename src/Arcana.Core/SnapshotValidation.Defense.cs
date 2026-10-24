@@ -43,6 +43,10 @@ public static partial class SnapshotValidation
                 p.Gold is < 0 or > 100000000 || p.Kills < 0 || p.Deaths is < 0 or > DefenseRules.PlayerLives || !double.IsFinite(p.ActiveSeconds) ||
                 p.ActiveSeconds < 0 || p.ActiveSeconds > state.Time + 0.1 || p.Auras is not { Length: 3 } ||
                 p.Auras.Any(a => a is < 0 or > DefenseRules.MaxAuraLevel) || p.Items is not { Length: <= DefenseRules.InventoryLimit } ||
+                p.Favorites is not { Length: <= DefenseRules.InventoryLimit } || p.Favorites.Distinct().Count() != p.Favorites.Length ||
+                p.Favorites.Any(id => !p.Items.Any(i => i?.Item?.Id == id)) || p.AutoSold < 0 ||
+                p.AutoSellStyles == null || p.AutoSellStyles.Length > EquipmentStyle.Limit || p.AutoSellStyles.Any(s => !s.Valid) ||
+                p.AutoSellStyles.Distinct().Count() != p.AutoSellStyles.Length ||
                 p.Passives is not { Length: 4 } || p.Passives.Any(a => a is < 0 or > DefenseRules.MaxPassiveLevel) ||
                 p.PassiveCooldowns is not { Length: 4 } || p.PassiveCooldowns.Any(a => !Size(a, 16.01f)) ||
                 !Size(p.BerserkerRemaining, DefenseRules.BerserkerDuration(DefenseRules.MaxPassiveLevel) + 0.01f) ||

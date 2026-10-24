@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.29.17 — Favoritos, venta automática y aura común (pendiente de compilar)
+
+- Los favoritos vuelven a estar protegidos de las ventas individuales, rápidas y múltiples, también sin equipar. En Supervivencia el servidor valida esta protección y la conserva al guardar o reconectar.
+- Nuevo botón «No más de este estilo de ítem»: vende los objetos nuevos de igual ranura, calidad y familia. Conserva los actuales, favoritos y equipados; puede desactivarse desde la tarjeta o desde Opciones → Venta automática.
+- Las ventas permanentes usan el servicio de cuenta, se detienen al abrir inventario o tienda y no reenvían operaciones inciertas sin consultar antes el inventario.
+- Se eliminan los rayos del equipo. Los colores de las piezas se funden en una sola aura que fluctúa suavemente alrededor del mago, con intensidad según calidad y mejora.
+- Compilación de GitHub Actions solo manual; crear un tag y publicar pruebas exige activar una opción independiente. Subir código no genera instaladores ni tags.
+- Protocolo 34: actualizar cliente y servidor juntos en la próxima compilación autorizada.
+
 ## 0.29.16 — Instalación de versiones de pruebas
 
 - Halos con arcos eléctricos animados del color de cada calidad, más marcados al mejorar la pieza.

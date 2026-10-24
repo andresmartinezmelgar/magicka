@@ -16,6 +16,7 @@ public partial class EquipmentPanel
     }
 
     private string SaleBlockedReason => TemporaryInventory ? "No puedes vender con el mago caído o al terminar la partida." :
+        _main.InventoryAutoSelling ? "Terminando la venta automática. Puedes salir de esta pantalla." :
         _main.Accounts.InventoryNeedsRefresh ? "Venta sin confirmar. Pulsa «Actualizar» en el inventario antes de volver a vender." :
         "Venta bloqueada: inicia sesión y conecta con el servidor de ventas.";
 
