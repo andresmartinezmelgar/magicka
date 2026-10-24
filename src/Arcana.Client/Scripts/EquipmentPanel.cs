@@ -195,7 +195,7 @@ public partial class EquipmentPanel : Control
     private void Render()
     {
         var account = _draft;
-        _profile.Text = account == null ? "Sin cuenta" : $"{account.Gold} oro · {account.Items.Length}/{(_defensePlayer == null ? EquipmentCatalogue.InventoryLimit : DefenseRules.InventoryLimit)} objetos";
+        _profile.Text = account == null ? "Sin cuenta" : $"{account.Gold} oro{(_defensePlayer == null ? "" : " temporal")} · {account.Items.Length}/{(_defensePlayer == null ? EquipmentCatalogue.InventoryLimit : DefenseRules.InventoryLimit)} objetos";
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
             var view = _slots[(int)slot]; var choices = Choices(slot);

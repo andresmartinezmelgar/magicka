@@ -65,7 +65,7 @@ public partial class ClientVerification : Node
         _runtime = null!;
         _ = FinishSmokeAfterCleanup(tree, errors, message);
     }
-    private static async Task FinishSmokeAfterCleanup(SceneTree tree, EngineLogBridge errors, string message)
+    private static async Task FinishSmokeAfterCleanup(SceneTree tree, EngineLogBridge errors, string message, int exitCode = 0)
     {
         try
         {
@@ -75,7 +75,7 @@ public partial class ClientVerification : Node
             await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
             if (errors.ErrorCount > 0)
             { GD.PushError($"SMOKE_FAILED: {errors.ErrorCount} errores durante la limpieza."); tree.Quit(1); return; }
-            GD.Print(message); tree.Quit();
+            GD.Print(message); tree.Quit(exitCode);
         }
         catch (Exception error) { GD.PushError("SMOKE_FAILED: limpieza: " + error); tree.Quit(1); }
     }
@@ -373,13 +373,19 @@ public partial class ClientVerification : Node
     {
         if (DisplayServer.GetName() == "headless") { GD.Print("CAPTURE_SKIPPED: headless"); GetTree().Quit(); return; }
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
-        var captured = GetViewport().GetTexture().GetImage(); var error = captured.SavePng(path);
+        if (_smokeCompleting) return;
+        using var captured = GetViewport().GetTexture().GetImage(); var error = captured.SavePng(path);
         if (_captureReview)
         {
             captured.Resize(_previewStrength > 0 ? 960 : 640, _previewStrength > 0 ? 600 : 400, Image.Interpolation.Lanczos);
             string marker = _previewStrength > 0 ? "EFFECT_REVIEW_BASE64:" + _previewStrength : "MAP_REVIEW_BASE64:" + _previewMap;
             GD.Print(marker + ":" + Convert.ToBase64String(captured.SaveJpgToBuffer(0.8f)));
         }
-        GD.Print($"CAPTURE: {error} {path}"); GetTree().Quit(error == Error.Ok ? 0 : 1);
+        // Las vistas de hechizos crean mallas y materiales que deben finalizar
+        // antes de apagar los servidores nativos, igual que las combinaciones.
+        _smokeCompleting = true;
+        var tree = GetTree(); var errors = _runtime.EngineLog;
+        GetParent().QueueFree(); _runtime = null!;
+        _ = FinishSmokeAfterCleanup(tree, errors, $"CAPTURE: {error} {path}", error == Error.Ok ? 0 : 1);
     }
 }
