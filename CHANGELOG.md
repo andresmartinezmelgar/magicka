@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.29.16 — Instalación de versiones de pruebas
+
+- Android permite instalar una compilación de pruebas nueva con el mismo código de versión cuando el canal autenticado ha seleccionado una compilación posterior. Las actualizaciones estables siguen exigiendo una versión superior; se mantienen la comprobación SHA-256, el paquete y la firma de Android.
+- Se incrementa el código Android de 29015 a 29016 para que las versiones ya instaladas puedan recibir esta corrección.
+- Windows también admite una compilación de pruebas posterior de la misma versión. El canal estable conserva el bloqueo de reinstalación y ambos canales rechazan versiones inferiores.
+- Incluye el desglose de estadísticas por pieza, los halos según calidad y mejora, las salidas visibles de todas las pantallas y las correcciones de la revisión integral de inventario y Supervivencia.
+
 ## 0.29.15 — Inventario visual del mago
 
 - Dos paneles permanentes: el mago a la izquierda y los objetos de la zona seleccionada a la derecha, en inventario de cuenta y Supervivencia.

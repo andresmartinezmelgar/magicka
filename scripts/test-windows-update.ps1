@@ -30,10 +30,12 @@ function Zip($Fixture) {
     & (Join-Path $PSScriptRoot 'write-update-manifest.ps1') -Package $Fixture.package -Version '99.0.1'
     [IO.Compression.ZipFile]::CreateFromDirectory($Fixture.package, $Fixture.zip)
 }
-function Run($Fixture, [string]$Hash = '') {
+function Run($Fixture, [string]$Hash = '', [switch]$Preview) {
     if (!$Hash) { $Hash = (Get-FileHash -LiteralPath $Fixture.zip -Algorithm SHA256).Hash }
+    $options = @()
+    if ($Preview) { $options += '-AllowSameVersion' }
     & $shell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $updater -ArchivePath $Fixture.zip `
-        -InstallDirectory $Fixture.install -ExpectedVersion '99.0.1' -ExpectedSha256 $Hash -WorkDirectory $Fixture.work -NoRestart
+        -InstallDirectory $Fixture.install -ExpectedVersion '99.0.1' -ExpectedSha256 $Hash -WorkDirectory $Fixture.work -NoRestart @options
     return $LASTEXITCODE
 }
 function Untouched($Fixture) {
@@ -52,6 +54,22 @@ try {
     Assert ((Test-Path -LiteralPath (Join-Path $fixture.work 'ready')) -and (Test-Path -LiteralPath (Join-Path $fixture.work 'success'))) 'Falta el handshake de preparacion o resultado.'
     Assert (!(Test-Path -LiteralPath $fixture.zip)) 'La descarga instalada no se limpio.'
     $passed++
+
+    foreach ($installed in @('99.0.1', '99.0.2')) {
+        foreach ($preview in @($false, $true)) {
+            $fixture = Fixture; Text (Join-Path $fixture.install 'VERSION.txt') $installed; Zip $fixture
+            $result = Run $fixture -Preview:$preview
+            if ($installed -eq '99.0.1' -and $preview) {
+                Assert ($result -eq 0) 'Se bloqueo una compilacion de pruebas posterior de igual version.'
+                Assert ((Get-Content -LiteralPath (Join-Path $fixture.install 'ArcanaArena.pck') -Raw) -eq 'new-content') 'No se sustituyo la compilacion de pruebas.'
+            } else {
+                Assert ($result -ne 0) 'Se reinstalo la version estable o se permitio retroceder.'
+                Assert ((Get-Content -LiteralPath (Join-Path $fixture.install 'ArcanaArena.exe') -Raw) -eq 'old-exe') 'La operacion rechazada altero la instalacion.'
+                Assert (!(Test-Path -LiteralPath (Join-Path $fixture.work 'ready'))) 'Se solicito cerrar el juego antes de rechazar la version.'
+            }
+            $passed++
+        }
+    }
 
     $fixture = Fixture; Zip $fixture
     Assert ((Run $fixture ('0' * 64)) -ne 0) 'Se acepto un ZIP con hash incorrecto.'

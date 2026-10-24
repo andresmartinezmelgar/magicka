@@ -15,12 +15,13 @@ public sealed class AndroidUpdateBridge : IDisposable
         _status = Callable.From<string, string>((state, message) => Status?.Invoke(state, message));
         _plugin.Connect("update_status", _status);
     }
-    public void Install(string path, string version, string sha256)
+    public void Install(string path, string version, string sha256, bool preview = false)
     {
         if (_plugin == null) throw new InvalidOperationException("Esta APK no incluye el instalador de actualizaciones.");
         var parts = version.Split('.').Select(int.Parse).ToArray();
         int code = checked(parts[0] * 1_000_000 + parts[1] * 1000 + parts[2]);
-        _plugin.Call("installUpdate", path, code.ToString(System.Globalization.CultureInfo.InvariantCulture), sha256);
+        _plugin.Call(preview ? "installPreviewUpdate" : "installUpdate", path,
+            code.ToString(System.Globalization.CultureInfo.InvariantCulture), sha256);
     }
     public void Dispose()
     {

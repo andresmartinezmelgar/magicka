@@ -6,7 +6,8 @@ param(
     [Parameter(Mandatory=$true)][string]$WorkDirectory,
     [int]$ParentPid = 0,
     [long]$ParentStartTicks = 0,
-    [switch]$NoRestart
+    [switch]$NoRestart,
+    [switch]$AllowSameVersion
 )
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -81,9 +82,12 @@ try {
         throw 'No se ha encontrado la instalacion actual de Arcana Arena.'
     }
     $installedVersionFile = Join-Path $InstallDirectory 'VERSION.txt'
-    if ((Test-Path -LiteralPath $installedVersionFile) -and
-        [version]$ExpectedVersion -le [version](Get-Content -LiteralPath $installedVersionFile -Raw).Trim()) {
-        throw 'La carpeta ya contiene esta version o una posterior; no se sustituira por una anterior.'
+    if (Test-Path -LiteralPath $installedVersionFile) {
+        $installedVersion = [version](Get-Content -LiteralPath $installedVersionFile -Raw).Trim()
+        if ([version]$ExpectedVersion -lt $installedVersion -or
+            ([version]$ExpectedVersion -eq $installedVersion -and !$AllowSameVersion)) {
+            throw 'La carpeta ya contiene esta version o una posterior; no se sustituira por una anterior.'
+        }
     }
     if ($ExpectedVersion -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' -or
         $ExpectedSha256 -notmatch '^[a-fA-F0-9]{64}$' -or

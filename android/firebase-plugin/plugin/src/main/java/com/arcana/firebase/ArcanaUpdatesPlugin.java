@@ -54,6 +54,16 @@ public final class ArcanaUpdatesPlugin extends GodotPlugin {
     }
 
     @UsedByGodot public void installUpdate(String path, String versionCode, String sha256) {
+        startUpdate(path, versionCode, sha256, false);
+    }
+
+    // Solo lo invoca el cliente tras seleccionar una compilación posterior del
+    // canal de pruebas autenticado. Se conserva la entrada estable de tres argumentos.
+    @UsedByGodot public void installPreviewUpdate(String path, String versionCode, String sha256) {
+        startUpdate(path, versionCode, sha256, true);
+    }
+
+    private void startUpdate(String path, String versionCode, String sha256, boolean preview) {
         if (busy) return;
         try {
             Activity activity = activity();
@@ -64,7 +74,8 @@ public final class ArcanaUpdatesPlugin extends GodotPlugin {
                 throw new IllegalArgumentException("APK de actualizacion no valido.");
             long code = Long.parseLong(versionCode);
             activity.getSharedPreferences(PREFS, 0).edit().putString("path", apk.getPath())
-                .putString("sha256", sha256).putLong("version", code).putBoolean("pending", true).apply();
+                .putString("sha256", sha256).putLong("version", code).putBoolean("preview", preview)
+                .putBoolean("pending", true).apply();
             busy = true;
             activity.runOnUiThread(() -> continueUpdate(true));
         } catch (Exception error) { notifyStatus("failed", error.getMessage()); }
@@ -122,7 +133,7 @@ public final class ArcanaUpdatesPlugin extends GodotPlugin {
         long candidateCode = candidate == null ? 0 : Build.VERSION.SDK_INT >= 28 ? candidate.getLongVersionCode() : candidate.versionCode;
         long installedCode = Build.VERSION.SDK_INT >= 28 ? installed.getLongVersionCode() : installed.versionCode;
         if (candidate == null || !activity.getPackageName().equals(candidate.packageName) ||
-            candidateCode != wanted || candidateCode <= installedCode)
+            !UpdateVersionPolicy.accepts(candidateCode, wanted, installedCode, preferences.getBoolean("preview", false)))
             throw new IllegalArgumentException("La APK no es una version nueva de Arcana Arena.");
         // PackageInstaller verifica además la firma contra la app ya instalada.
         PackageInstaller installer = activity.getPackageManager().getPackageInstaller();

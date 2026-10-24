@@ -536,6 +536,7 @@ jobs:
           echo "ARCANA_GODOT=/tmp/godot/Godot_v4.5.2-stable_mono_linux_x86_64/Godot_v4.5.2-stable_mono_linux.x86_64" >> "$GITHUB_ENV"
       - name: Compilar plugin nativo Firebase para Android
         run: |
+          bash scripts/test-android-update-policy.sh
           gradle -p android/firebase-plugin :plugin:assembleRelease --no-daemon
           mkdir -p src/Arcana.Client/addons/arcana_firebase
           cp android/firebase-plugin/plugin/build/outputs/aar/plugin-release.aar src/Arcana.Client/addons/arcana_firebase/ArcanaFirebase.aar

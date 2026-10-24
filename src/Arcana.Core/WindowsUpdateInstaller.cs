@@ -22,7 +22,7 @@ public static class WindowsUpdateInstaller
     }
 
     public static async Task PrepareAsync(string archive, string installation, string version,
-        string sha256, string updatesDirectory, CancellationToken token)
+        string sha256, string updatesDirectory, CancellationToken token, bool preview = false)
     {
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
         string work = Path.Combine(updatesDirectory, "install-" + Guid.NewGuid().ToString("N"));
@@ -45,6 +45,7 @@ public static class WindowsUpdateInstaller
             "-ParentPid", parent.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
             "-ParentStartTicks", parent.StartTime.ToUniversalTime().Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture) })
             start.ArgumentList.Add(arg);
+        if (preview) start.ArgumentList.Add("-AllowSameVersion");
         using var process = Process.Start(start) ?? throw new IOException("No se pudo iniciar el instalador.");
         try
         {

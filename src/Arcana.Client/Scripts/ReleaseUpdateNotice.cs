@@ -620,13 +620,13 @@ public partial class ReleaseUpdateNotice : Node
             if (_android)
             {
                 (_androidInstaller ?? throw new InvalidOperationException("No se ha iniciado el instalador Android."))
-                    .Install(_downloadPath, _version, _expectedHash);
+                    .Install(_downloadPath, _version, _expectedHash, preview: _activePlan?.Preview == true);
             }
             else
             {
                 _subtitle!.Text = "Preparando los archivos y la copia de recuperación.";
                 await WindowsUpdateInstaller.PrepareAsync(_downloadPath, Launcher.PackageDirectory(), _version,
-                    _expectedHash, _updatesFolder, _stop.Token);
+                    _expectedHash, _updatesFolder, _stop.Token, preview: _activePlan?.Preview == true);
                 GetTree().Quit();
             }
         }
