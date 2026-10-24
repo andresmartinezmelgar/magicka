@@ -9,6 +9,8 @@ public partial class EquipmentPanel : Control
     private Label _profile = null!, _detailTitle = null!, _empty = null!, _sets = null!, _status = null!;
     private Label _combatPreview = null!;
     private Label _totalsEmpty = null!;
+    private Label _totalsTitle = null!;
+    private VBoxContainer _totalsSummary = null!;
     private HBoxContainer _equipmentToolbar = null!;
     private MenuButton _inventoryMenu = null!;
     private bool _showingTotals, _routineStatus = true;
@@ -63,10 +65,12 @@ public partial class EquipmentPanel : Control
         menu.AddItem(_defensePlayer == null ? "Actualizar inventario" : "Comprar pieza · 100 oro", 0);
         menu.AddItem(_defensePlayer == null ? "Equipos guardados" : "Volver a la tienda", 1);
         menu.AddItem("Venta múltiple", 2);
+        menu.AddItem("Bonificaciones de conjuntos", 3);
         menu.IdPressed += id =>
         {
             if (_defensePlayer != null && id == 1) { Close(); return; }
             if (_busy) return;
+            if (id == 3) { _setsInfo.PopupCentered(); return; }
             if (id == 2) { ToggleBulkMode(); return; }
             if (id == 0) { if (_defensePlayer == null) _ = Refresh(); else BuyDefenseItem(); }
             else _savedEquipmentDialog?.PopupCentered(new((int)Math.Min(600, GetViewport().GetVisibleRect().Size.X - 32), 260));
@@ -103,10 +107,8 @@ public partial class EquipmentPanel : Control
         rightBox.AddChild(_rightHost);
         var totalsScroll = new ContentScrollContainer { Name = "EquipmentTotalsScroll", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, Visible = false };
         _rightHost.AddChild(totalsScroll); Ui.Full(totalsScroll); Ui.VisibleVerticalScroll(totalsScroll); _optionAStats = totalsScroll;
-        var summary = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; summary.AddThemeConstantOverride("separation", 8); totalsScroll.AddChild(summary);
-        var totalHeading = new HBoxContainer(); summary.AddChild(totalHeading);
-        var totalTitle = Ui.Label("ESTADÍSTICAS TOTALES", 18, Ui.Gold); totalTitle.SizeFlagsHorizontal = SizeFlags.ExpandFill; totalHeading.AddChild(totalTitle);
-        Action(totalHeading, "Conjuntos", () => _setsInfo.PopupCentered());
+        var summary = _totalsSummary = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; summary.AddThemeConstantOverride("separation", 8); totalsScroll.AddChild(summary);
+        _totalsTitle = Ui.Label("ESTADÍSTICAS TOTALES", 18, Ui.Gold); summary.AddChild(_totalsTitle);
         _sets = Ui.Label("", 14, Ui.Gold); _sets.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_sets);
         _totals = Ui.Table(2, "EquipmentTotalsTable"); summary.AddChild(_totals);
         _totalsEmpty = Ui.Label("No hay bonificaciones activas.", 16, Ui.Muted); _totalsEmpty.Name = "EquipmentNoActiveBonuses"; summary.AddChild(_totalsEmpty);
@@ -137,6 +139,9 @@ public partial class EquipmentPanel : Control
         _avatarPane.CustomMinimumSize = new(Math.Clamp(width * .32f, 178, 430), 0);
         bool shortView = GetViewport().GetVisibleRect().Size.Y <= 500;
         _salesHelp.Visible = !shortView;
+        _totalsTitle.Visible = !shortView;
+        _sets.Visible = !shortView || _sets.Text != "Sin conjuntos activos.";
+        _totalsSummary.AddThemeConstantOverride("separation", shortView ? 4 : 8);
         foreach (var button in _equipmentToolbar.GetChildren().OfType<Button>())
         { button.CustomMinimumSize = new(0, 40); button.AddThemeFontSizeOverride("font_size", width < 800 ? 13 : 15); }
         foreach (var tab in new[] { _optionAItemsTab, _optionAStatsTab })
@@ -201,7 +206,7 @@ public partial class EquipmentPanel : Control
             var view = _slots[(int)slot]; var choices = Choices(slot);
             int index = Array.FindIndex(choices, i => i.Id == account?.Loadout.Get(slot));
             var item = index >= 0 ? choices[index] : null;
-            _avatar.UpdateSlot(slot, item, slot == _selectedSlot);
+            _avatar.UpdateSlot(slot, item, slot == _selectedSlot, item == null ? null : ItemLevel(item));
             view.Disabled = _busy;
         }
         RenderDetails();
@@ -222,6 +227,7 @@ public partial class EquipmentPanel : Control
         var activeSets = EquipmentCatalogue.FocusedFamilies.Where(f => m.Pieces(f) >= 2).ToArray();
         _sets.Text = activeSets.Length == 0 ? "Sin conjuntos activos." : "Conjuntos activos · " +
             string.Join(" · ", activeSets.Select(f => EquipmentCatalogue.FamilyName(f) + " " + m.Pieces(f) + "/4"));
+        _sets.Visible = activeSets.Length > 0 || GetViewport().GetVisibleRect().Size.Y > 500;
         _sets.TooltipText = "Solo cuentan las piezas Míticas de la misma familia. Con 3 piezas sigue activo el bonus de 2. El bonus de 4 sustituye al de 2.\n"
             + string.Join("\n", activeSets.Select(f => Set(EquipmentCatalogue.FamilyName(f), m.Pieces(f), SetDescription(f, false), SetDescription(f, true))));
         _salesHelp.Text = "Solo las piezas equipadas están protegidas.";

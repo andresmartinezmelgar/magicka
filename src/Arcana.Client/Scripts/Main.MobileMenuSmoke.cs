@@ -68,7 +68,7 @@ public partial class Main
         var stats = (Button)panel.FindChild("EquipmentTotalsTab", true, false);
         if (!right.GetGlobalRect().Encloses(stats.GetGlobalRect())) throw new InvalidOperationException("El botón de estadísticas no está a la derecha.");
         var table = (GridContainer)panel.FindChild("EquipmentTotalsTable", true, false);
-        var numbers = table.GetChildren().OfType<Label>().Skip(2).Where((_, i) => i % 2 == 0)
+        var numbers = table.GetChildren().OfType<Label>().Where(l => l.Name.ToString().StartsWith("EquipmentTotalApplied_"))
             .Select(l => float.Parse(l.Text.Split('\n')[0].TrimEnd('%'), System.Globalization.CultureInfo.InvariantCulture)).ToArray();
         if (!numbers.SequenceEqual(numbers.OrderByDescending(n => n))) throw new InvalidOperationException("Las estadísticas no están ordenadas de mayor a menor.");
         GD.Print("INVENTORY_SPLIT_OK: seis zonas accesibles, mago a la izquierda, objetos y estadísticas a la derecha; filtros ausentes y totales descendentes.");

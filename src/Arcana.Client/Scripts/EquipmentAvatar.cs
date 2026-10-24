@@ -36,11 +36,13 @@ public partial class EquipmentAvatar : Control
         Arrange();
     }
 
-    internal void UpdateSlot(EquipmentSlot slot, EquipmentItem? item, bool selected)
+    internal void UpdateSlot(EquipmentSlot slot, EquipmentItem? item, bool selected, int? upgradeLevel = null)
     {
         if (selected) _selected = slot;
         var color = item == null ? Ui.Muted : EquipmentPanel.TierColor(item.Tier);
         _colors[slot] = color;
+        if (item == null) _halos.Remove(slot);
+        else _halos[slot] = (item.Tier, Math.Clamp(upgradeLevel ?? item.UpgradeLevel, 0, 10));
         var button = _buttons[slot];
         string name = slot switch { EquipmentSlot.GoldRing => "Anillo de oro", EquipmentSlot.MagicRing => "Anillo mágico", _ => EquipmentCatalogue.SlotName(slot) };
         button.Text = slot == EquipmentSlot.GoldRing ? "Anillo\noro" : slot == EquipmentSlot.MagicRing ? "Anillo\nmágico" : name + "\n" + (item == null ? "Vacío" : EquipmentCatalogue.TierName(item.Tier));
@@ -92,8 +94,10 @@ public partial class EquipmentAvatar : Control
     {
         if (_atlas == null || Size.X < 1 || Size.Y < 1) return;
         DrawCircle(Size * new Vector2(.5f, .88f), Size.X * .24f, new Color(.12f, .30f, .44f, .16f));
+        DrawEquipmentHalos(false);
         var source = new Rect2(0, 0, _atlas.Spec.Width / 4f, _atlas.Spec.Height / 4f);
         DrawTextureRectRegion(_atlas.Texture, SpriteBounds(), source);
+        DrawEquipmentHalos(true);
         foreach (var slot in Order)
         {
             var target = Target(slot); var rect = _buttons[slot].GetRect();

@@ -185,7 +185,8 @@ public partial class Main
                 if (_defenseTotalsReview == 1)
                 {
                     AssertVisibleTableData(inventory, "EquipmentTotalsTable");
-                    Check(inventory.Totals.Contains("Suma") && inventory.Totals.Contains("Aplicado"),
+                    Check(inventory.Totals.Contains("procedencia") && inventory.Totals.Contains("Aplicado") &&
+                        new[] { "Botas ·", "Gorro ·", "Pecho ·", "Arma ·" }.All(inventory.Totals.Contains),
                         "El inventario temporal no muestra las cuatro aportaciones y el total.");
                     CaptureDefense("04-desglose-equipo");
                     Tab("EquipmentItemsTab").EmitSignal(Button.SignalName.Pressed);
@@ -381,11 +382,11 @@ public partial class Main
             if (_defenseSmokePhase == 10)
             {
                 var totals = (GridContainer)panel.FindChild("DefenseEquipmentTotals", true, false);
-                Check(((Label)totals.GetChild(totals.Columns - 1)).Text == "Atributo" &&
+                Check(((Label)totals.GetChild(totals.Columns - 1)).Text.StartsWith("Atributo") &&
                     ((Label)panel.FindChild("DefenseTotals", true, false).GetChild(1)).Text == "Atributo",
                     "Los atributos de Supervivencia no están a la derecha de sus valores.");
-                string text = string.Join('\n', totals.GetChildren().OfType<Label>().Select(l => l.Text + "\n" + l.TooltipText));
-                Check(new[] { "Botas:", "Gorro:", "Pecho:", "Arma:", "Suma:", "Aplicado:" }.All(text.Contains),
+                string text = string.Join('\n', totals.GetChildren().OfType<Label>().Select(l => l.Text));
+                Check(new[] { "Botas ·", "Gorro ·", "Pecho ·", "Arma ·", "Aplicado", "procedencia" }.All(text.Contains),
                     "Las estadísticas de Defensa no desglosan las cuatro piezas y su suma.");
                 CaptureDefense("05-bonificaciones"); panel.ShowSection(4); _defenseSmokePhase++; return false;
             }

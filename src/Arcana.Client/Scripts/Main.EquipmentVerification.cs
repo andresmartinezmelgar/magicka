@@ -90,6 +90,19 @@ public partial class Main
             new(Id(EquipmentSlot.Boots), Id(EquipmentSlot.Hat), Id(EquipmentSlot.Chest), Id(EquipmentSlot.Weapon)), items));
         OpenEquipment("wss://servidor-central.example");
     }
+    private void EquipmentTotalsFixture()
+    {
+        EquipmentFixture(false);
+        _equipmentPanel!.Close();
+        var profile = Accounts.Profile!;
+        ItemTier[] tiers = [ItemTier.Diamond, ItemTier.Silver, ItemTier.Gold, ItemTier.Platinum, ItemTier.Gold, ItemTier.Mythic];
+        var loadout = new EquipmentLoadout();
+        foreach (var slot in Enum.GetValues<EquipmentSlot>())
+            loadout = loadout.With(slot, profile.Items.Single(i => i.Slot == slot && i.Tier == tiers[(int)slot]).Id);
+        Accounts.RestoreOfflineProfile(profile with { Loadout = loadout });
+        OpenEquipment("wss://servidor-central.example");
+        ((Button)_equipmentPanel!.FindChild("EquipmentTotalsTab", true, false)).EmitSignal(Button.SignalName.Pressed);
+    }
     private bool CheckEquipmentSmoke()
     {
         if ((!_equipmentSmoke && !_equipmentRestoreSmoke && !_equipmentElementsSmoke) || _renderFrames < 12) return false;
@@ -144,7 +157,8 @@ public partial class Main
             var panel = _equipmentPanel!;
             AssertInventorySplit(panel);
             Check(_engineLog.ErrorCount == 0 && panel.VisibleItems == 30 && panel.Details.Contains("Límites (mín.") &&
-                panel.Totals.Contains("Suma") && panel.Totals.Contains("Aplicado"), "Faltan los atributos o los totales del inventario.");
+                panel.Totals.Contains("procedencia") && panel.Totals.Contains("Aplicado"), "Faltan los atributos o los totales del inventario.");
+            Check(panel.Totals.Contains("Conjunto Vida (4/4):"), "La procedencia visible no identifica el conjunto activo.");
             Check(!panel.FindChildren("*", "Button", true, false).OfType<Button>().Any(b => b.Text is "‹" or "›"), "El inventario conserva las flechas.");
             var original = Accounts.Profile!;
             void Show(AccountProfile profile)
@@ -153,6 +167,8 @@ public partial class Main
                 OpenEquipment("wss://servidor-central.example"); panel = _equipmentPanel!;
             }
             Show(original with { Loadout = new(), Items = [] });
+            Check(((EquipmentAvatar)panel.FindChild("EquipmentWizardAvatar", true, false)).EquippedHaloCount == 0,
+                "Un mago sin equipo conserva halos de piezas anteriores.");
             panel.PressInspect(EquipmentSlot.Boots);
             Check(panel.PickerVisible && panel.PickerItems.Length == 0 && panel.Totals.Length == 0 && panel.Sets == "Sin conjuntos activos.",
                 "Un inventario vacío no muestra su estado o muestra bonificaciones inactivas.");
@@ -168,19 +184,20 @@ public partial class Main
                 Loadout = new(separated[0].Id, separated[1].Id, separated[2].Id, separated[3].Id) });
             var totals = (GridContainer)panel.FindChild("EquipmentTotalsTable", true, false);
             var cells = totals.GetChildren().OfType<Label>().ToArray();
-            Check(cells[totals.Columns - 1].Text == "Atributo" &&
+            Check(cells[totals.Columns - 1].Text.StartsWith("Atributo") &&
                 ((Label)panel.FindChild("EquipmentDetailsTable", true, false).GetChild(2)).Text == "Atributo",
                 "Los nombres de atributos no ocupan la última columna.");
-            int attack = Array.FindIndex(cells, l => l.Text == "Ataque");
+            int attack = Array.FindIndex(cells, l => l.Text.Split('\n')[0] == "Ataque");
             Check(attack >= 0 && (totals.Columns == 2
-                ? cells[attack - 1].Text == "+13%\nSuma: +13%" && new[] { "Botas: +2%", "Gorro: -1%", "Pecho: +5%", "Arma: +7%" }.All(cells[attack - 1].TooltipText.Contains)
+                ? cells[attack - 1].Text == "+13%" && new[] { "Botas · Plata: +2%", "Gorro · Plata: -1%", "Pecho · Plata: +5%", "Arma · Plata: +7%" }
+                    .All(source => cells.Any(l => l.Name.ToString().StartsWith("EquipmentTotalSource_Power_") && l.Text == source))
                 : cells.Skip(attack - 9).Take(9).Select(l => l.Text).SequenceEqual(new[] { "+2%", "-1%", "+5%", "+7%", "—", "—", "0%", "+13%", "+13%" })),
                 "El desglose no separa las cuatro piezas, pierde el signo o suma piezas sin equipar.");
             panel.PressInspect(EquipmentSlot.Hat); panel.PressChoice("");
-            Check(panel.Totals.Contains("+14%") && (totals.Columns == 2 ? totals.GetChildren().OfType<Label>().Any(l => l.TooltipText.Contains("Gorro: —")) : panel.Totals.Contains("—")),
+            Check(panel.Totals.Contains("+14%") && (totals.Columns == 2 ? !panel.Totals.Contains("Gorro · Plata:") : panel.Totals.Contains("—")),
                 "Quitar una pieza no actualiza su aportación y la suma provisional.");
             Check(Accounts.Profile!.Loadout.Hat == separated[1].Id, "La vista previa guarda antes de salir.");
-            GD.Print("EQUIPMENT_SLOT_TOTALS_OK: cuatro aportaciones, penalización, pieza sin equipar, suma y previsualización sin guardar.");
+            GD.Print("EQUIPMENT_SLOT_TOTALS_OK: procedencia visible sin tooltip, cuatro aportaciones con calidad, penalización, pieza sin equipar y previsualización sin guardar.");
             var boots = Piece(EquipmentSlot.Boots, ItemTier.Mythic,
                 new(EquipmentStat.Defense, -0.5f, 0.5f, 0.031f), new(EquipmentStat.HealingPower, 0, 0.5f, 0.5f));
             var chest = Piece(EquipmentSlot.Chest, ItemTier.Silver,
@@ -190,6 +207,8 @@ public partial class Main
             Check(!panel.Totals.Contains("Defensa") && !panel.Totals.Contains("Velocidad") && !panel.Totals.Contains("Ataque") &&
                 panel.Totals.Contains("-7%") && panel.Totals.Contains("+60%") && panel.Sets == "Sin conjuntos activos.",
                 "El resumen no filtra ceros y cancelaciones, pierde penalizaciones o muestra conjuntos de una sola pieza.");
+            Check(panel.Totals.Contains("Suma: +100%") && panel.Totals.Contains("Botas · Mítico: +50%") &&
+                panel.Totals.Contains("Pecho · Plata: +50%"), "El límite oculta la suma o el origen de las dos aportaciones.");
             Show(original); SaveAccountCache();
             string cacheBefore = System.IO.File.ReadAllText(AccountCache);
             GD.Print("EQUIPMENT_ACTIVE_BONUSES_OK: sin equipo, efectos cancelados, penalización activa, límite real y conjunto inactivo.");
@@ -208,6 +227,9 @@ public partial class Main
                 Check(panel.PickerVisible && tiers.SequenceEqual(Enum.GetValues<ItemTier>().Reverse()) && panel.PickerColumns is >= 1 and <= 3,
                     "El selector no abre una rejilla ordenada de mayor a menor calidad.");
                 panel.PressChoice(original.Items.Single(i => i.Slot == slot && i.Tier == ItemTier.Diamond).Id);
+                Check(((EquipmentAvatar)panel.FindChild("EquipmentWizardAvatar", true, false)).EquippedHaloCount ==
+                    Enum.GetValues<EquipmentSlot>().Count(s => panel.PreviewProfile!.Loadout.Get(s).Length > 0),
+                    "Los halos no siguen las seis ranuras del equipo previsualizado.");
                 if (RingEffects.IsRing(slot))
                     Check(panel.Details.Contains("Nivel 0/10") && panel.Details.Contains(slot == EquipmentSlot.GoldRing ? "cada 11" : "se repone"),
                         "La ficha del anillo omite nivel, progresión o renovación automática.");

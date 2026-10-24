@@ -114,6 +114,7 @@ public partial class Main : Node
         foreach (string arg in arguments)
         {
             if (arg is "--preview-equipment" or "--equipment-smoke") EquipmentFixture(arg == "--equipment-smoke");
+            if (arg == "--preview-equipment-totals") EquipmentTotalsFixture();
             if (arg == "--preview-equipment-picker")
             {
                 EquipmentFixture(false, copies: 12);

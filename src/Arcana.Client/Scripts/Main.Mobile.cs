@@ -21,7 +21,7 @@ public partial class Main
                 or "--touch-layout-smoke" or "--practice-smoke"
                 or "--aim-marker-smoke"
                 or "--regression-smoke" or "--shop-smoke" or "--sale-smoke" or "--usability-smoke"
-                or "--equipment-smoke" or "--preview-equipment-picker"
+                or "--equipment-smoke" or "--preview-equipment-picker" or "--preview-equipment-totals"
                 or "--preview-spells=stone" or "--preview-spells=stone-close" or "--preview-spells=stone-auras"
                 or "--preview-spells=areas" or "--preview-spells=auras" or "--preview-spells=passives"))
             {
