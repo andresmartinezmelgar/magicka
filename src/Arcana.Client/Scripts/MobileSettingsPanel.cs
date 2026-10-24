@@ -38,12 +38,16 @@ public partial class MobileSettingsPanel : Control
         var margin = new MarginContainer(); _form.AddChild(margin); Ui.Full(margin);
         foreach (string side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, 16);
         var panel = new PanelContainer(); margin.AddChild(panel);
+        var frame = new VBoxContainer(); panel.AddChild(frame);
+        var header = new HBoxContainer(); frame.AddChild(header);
+        var title = Ui.Label("CONTROLES TÁCTILES", 22, Ui.Gold); title.ClipText = true;
+        title.SizeFlagsHorizontal = SizeFlags.ExpandFill; header.AddChild(title);
+        header.AddChild(Ui.ExitButton("Cancelar", () => Canceled?.Invoke(), "TouchSettingsCancel"));
         var scroll = new ContentScrollContainer { Name = "TouchSettingsScroll", SizeFlagsVertical = SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-        panel.AddChild(scroll); Ui.VisibleVerticalScroll(scroll);
+        frame.AddChild(scroll); Ui.VisibleVerticalScroll(scroll);
         var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         box.AddThemeConstantOverride("separation", 8); scroll.AddChild(box);
-        box.AddChild(Ui.Label("CONTROLES TÁCTILES", 24, Ui.Gold));
         var help = Ui.Label("Ajustes de este dispositivo. Puedes cambiar cada posición arrastrando los botones y los dos joysticks.", 16, Ui.Muted);
         help.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(help);
         _sliders = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; _sliders.AddThemeConstantOverride("separation", 8); box.AddChild(_sliders);

@@ -1,4 +1,5 @@
 using Arcana.Core;
+using Godot;
 
 namespace Arcana.Client;
 
@@ -6,6 +7,31 @@ public partial class EquipmentPanel
 {
     private bool _needsCacheSave, _closeRequested;
     private Action? _afterClose;
+    private ConfirmationDialog? _discardExit;
+
+    private void ConfirmDiscard()
+    {
+        if (_busy) return;
+        if (!HasChanges) { _needsCacheSave = false; Close(); return; }
+        _discardExit ??= new ConfirmationDialog { Name = "DiscardEquipmentChanges", Title = "Salir del inventario",
+            DialogText = "Se descartarán los cambios de equipación que todavía no se hayan guardado.",
+            OkButtonText = "Descartar y salir", CancelButtonText = "Seguir en el inventario" };
+        if (_discardExit.GetParent() == null)
+        {
+            AddChild(_discardExit); Ui.ConfigureDialog(_discardExit);
+            _discardExit.GetLabel().Show(); _discardExit.GetLabel().AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            _discardExit.Confirmed += () =>
+            {
+                _draft = _defensePlayer == null ? _main.Accounts.Profile : DefenseProfile(_defensePlayer);
+                _savedLoadout = _draft?.Loadout ?? new();
+                _needsCacheSave = false;
+                Close();
+            };
+        }
+        var viewport = GetViewport().GetVisibleRect().Size;
+        _discardExit.PopupCentered(new((int)Math.Min(500, viewport.X - 32), 180));
+        _discardExit.GetCancelButton().GrabFocus();
+    }
 
     // Las lecturas y ventas recuperan datos del servidor sin perder la selección pendiente.
     // Una pieza vendida o retirada del inventario nunca se vuelve a equipar.
@@ -47,9 +73,11 @@ public partial class EquipmentPanel
 
     private async Task SaveAndClose()
     {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        timeout.CancelAfter(TimeSpan.FromSeconds(12));
         try
         {
-            await _main.Accounts.SaveLoadout(_draft!.Loadout, _lifetime.Token);
+            await _main.Accounts.SaveLoadout(_draft!.Loadout, timeout.Token);
             _main.Post(() =>
             {
                 if (_lifetime.IsCancellationRequested) return;
@@ -83,7 +111,8 @@ public partial class EquipmentPanel
     private void CloseFailed(Exception error)
     {
         _closing = false;
-        Render(); Busy(false, error.Message + " La configuración sigue en el inventario; vuelve a intentar salir para guardarla.");
+        string reason = error is OperationCanceledException ? "No se pudo confirmar el guardado a tiempo." : error.Message;
+        Render(); Busy(false, reason + " Reintenta salir para guardar, o elige «Descartar cambios y salir» en Opciones.");
     }
 
     private void ContinueRequestedClose()

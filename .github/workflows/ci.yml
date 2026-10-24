@@ -562,6 +562,17 @@ jobs:
             grep -q 'MOBILE_MENU_LAYOUT_OK' "$RUNNER_TEMP/mobile-menu-$viewport.log"
             ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/mobile-menu-$viewport.log"
           done
+      - name: Verificar salidas de todas las pantallas con clic real, Escape y Atrás
+        run: |
+          set -euo pipefail
+          for surface in desktop mobile; do
+            args=()
+            if [ "$surface" = mobile ]; then args=(--mobile); fi
+            export XDG_DATA_HOME="$RUNNER_TEMP/navigation-$surface"
+            timeout 120s "$ARCANA_GODOT" --headless --audio-driver Dummy --path src/Arcana.Client -- --navigation-smoke "${args[@]}" 2>&1 | tee "$RUNNER_TEMP/navigation-$surface.log"
+            grep -q 'NAVIGATION_SMOKE_OK' "$RUNNER_TEMP/navigation-$surface.log"
+            ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/navigation-$surface.log"
+          done
       - name: Verificar márgenes táctiles y minimapa en los siete mapas
         run: |
           set -euo pipefail

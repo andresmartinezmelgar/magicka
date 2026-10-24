@@ -63,7 +63,7 @@ public partial class DefensePanel : Control
         var header = new HBoxContainer(); body.AddChild(header);
         var title = Ui.Label("SUPERVIVENCIA · EQUIPO DE PARTIDA", Ui.IsMobile ? 19 : 23, Ui.Gold);
         title.SizeFlagsHorizontal = SizeFlags.ExpandFill; title.AutowrapMode = TextServer.AutowrapMode.WordSmart; header.AddChild(title);
-        header.AddChild(Ui.Button("Cerrar", CloseShop));
+        header.AddChild(Ui.ExitButton("Continuar", CloseShop, "DefenseShopClose"));
         _wallet = Ui.Label("", 16); _wallet.AutowrapMode = TextServer.AutowrapMode.WordSmart; body.AddChild(_wallet);
         _shopStatus = Ui.Label("", 14, Ui.Health); _shopStatus.Name = "DefenseShopStatus";
         _shopStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart; body.AddChild(_shopStatus);
@@ -73,9 +73,8 @@ public partial class DefensePanel : Control
         for (int i = 0; i < names.Length; i++)
         {
             int section = i;
-            var tab = Ui.Button(names[i], () => ShowSection(section)); tab.Name = "DefenseTab" + i;
-            tab.SizeFlagsHorizontal = SizeFlags.ExpandFill; tab.CustomMinimumSize = new(0, Ui.IsMobile ? 52 : 44);
-            tab.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 17 : 16); _navigation.AddChild(tab); _tabs.Add(tab);
+            var tab = Ui.ExitButton(names[i], () => ShowSection(section), "DefenseTab" + i);
+            tab.SizeFlagsHorizontal = SizeFlags.ExpandFill; _navigation.AddChild(tab); _tabs.Add(tab);
         }
         _scroll = new ContentScrollContainer { Name = "DefenseShopScroll", SizeFlagsVertical = SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; body.AddChild(_scroll); Ui.VisibleVerticalScroll(_scroll);
@@ -194,7 +193,7 @@ public partial class DefensePanel : Control
     {
         if (!ShopOpen || _equipmentInventory != null || _player == null || _wizard == null) return;
         var inventory = new EquipmentPanel(); _equipmentInventory = inventory; _shop.AddChild(inventory);
-        inventory.BuildDefense(_main, _player, _wizard, _ended, _submit);
+        inventory.BuildDefense(_main, _player, _wizard, _ended, _submit, FinishClosingShop);
         inventory.Closed += () => { if (_equipmentInventory == inventory) _equipmentInventory = null; };
     }
     private void Send(string type) => _submit(new() { Type = type });

@@ -32,13 +32,16 @@ public partial class PlayerEquipmentPanel : Control
         foreach (string side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, 20);
         var panel = new PanelContainer(); panel.AddThemeStyleboxOverride("panel", Ui.ModalPanel()); margin.AddChild(panel);
         var box = new VBoxContainer(); box.AddThemeConstantOverride("separation", 10); panel.AddChild(box);
-        box.AddChild(Ui.Label("BONOS DE LOS MAGOS", 25, Ui.Gold));
-        var header = new GridContainer { Columns = 3 }; _headerGrid = header;
+        var heading = new HBoxContainer(); box.AddChild(heading);
+        var title = Ui.Label("BONOS DE LOS MAGOS", 22, Ui.Gold); title.ClipText = true;
+        title.SizeFlagsHorizontal = SizeFlags.ExpandFill; heading.AddChild(title);
+        heading.AddChild(Ui.ExitButton("Volver", Close, "PlayerEquipmentBack"));
+        var header = new GridContainer { Columns = 2 }; _headerGrid = header;
         header.AddThemeConstantOverride("h_separation", 12); box.AddChild(header);
         _choice = new OptionButton { Name = "InspectedPlayerChoice", CustomMinimumSize = new(240, Ui.IsMobile ? 66 : 48), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _choice.AddThemeFontSizeOverride("font_size", 20); header.AddChild(_choice);
         _choice.ItemSelected += index => { _selected = _choice.GetItemId((int)index); _ = Load(); };
-        header.AddChild(Ui.Button("Actualizar", Refresh)); header.AddChild(Ui.Button("Volver", Close));
+        header.AddChild(Ui.Button("Actualizar", Refresh));
         _name = Ui.Label("", 20, Ui.Gold); box.AddChild(_name);
         _name.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         var columns = new GridContainer { Columns = 2, SizeFlagsVertical = SizeFlags.ExpandFill,
@@ -53,7 +56,7 @@ public partial class PlayerEquipmentPanel : Control
     private void UpdateResponsivePlayerEquipment()
     {
         float width = GetViewport().GetVisibleRect().Size.X;
-        if (_headerGrid != null) _headerGrid.Columns = ResponsiveLayout.Columns(Math.Max(250, width - 85), 250, 3, 12);
+        if (_headerGrid != null) _headerGrid.Columns = ResponsiveLayout.Columns(Math.Max(250, width - 85), 250, 2, 12);
         if (_contentGrid != null) _contentGrid.Columns = ResponsiveLayout.Columns(Math.Max(250, width - 100), 480, 2, 24);
         int columns = _contentGrid?.Columns ?? 1;
         float summaryWidth = (width - 100 - 24 * (columns - 1)) / columns;

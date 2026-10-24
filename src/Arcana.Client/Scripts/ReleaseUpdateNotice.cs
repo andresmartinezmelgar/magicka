@@ -24,7 +24,7 @@ public partial class ReleaseUpdateNotice : Node
     private Label? _changes;
     private string _version = "", _downloadUrl = "", _downloadPath = "", _checksumUrl = "", _assetName = "";
     private long _expectedBytes;
-    private bool _downloading, _completed, _installing, _disabled;
+    private bool _downloading, _completed, _installing, _waitingToInstall, _disabled;
     private Task<ReleaseUpdateQueryResult>? _checkTask;
     private bool Checking => _checkTask is { IsCompleted: false };
     private string _expectedHash = "", _dismissedVersion = "";
@@ -174,7 +174,7 @@ public partial class ReleaseUpdateNotice : Node
         _checksumUrl = checksumUrl;
         _assetName = assetName;
         _expectedBytes = size;
-        _downloading = _completed = _installing = _windowsDelta = false;
+        _downloading = _completed = _installing = _waitingToInstall = _windowsDelta = false;
         _downloadPath = _expectedHash = "";
         _canvas = new CanvasLayer { Layer = 90 };
         AddChild(_canvas);
@@ -366,6 +366,23 @@ public partial class ReleaseUpdateNotice : Node
             if (_overlay != null || _pendingUpdate != null || _activePlan != null || _progressGeneration <= previousGeneration)
                 throw new InvalidOperationException("Cambiar de cuenta conserva una actualización del canal anterior.");
             GD.Print("UPDATE_CHANNEL_IDENTITY_OK: identifica la rama y descarta avisos de pruebas al cerrar la sesión.");
+            ShowNotice("99.0.1", "https://github.com/andresmartinezmelgar/magicka/releases", 12345678);
+            var main = GetParent<Main>(); main.StartPractice("Prueba de salida", 0, GameMode.Duel, 0);
+            _downloadPath = System.IO.Path.Combine(_updatesFolder, "qa-never-install.zip");
+            _completed = true;
+            var pending = InstallDownloaded();
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (!_waitingToInstall || _installing || _secondary!.Disabled)
+                throw new InvalidOperationException("La espera de instalación bloquea la salida del aviso.");
+            if (Ui.IsMobile) main._Notification((int)NotificationWMGoBackRequest);
+            else main._UnhandledInput(new InputEventKey { Pressed = true, PhysicalKeycode = Key.Escape });
+            await pending;
+            if (_overlay != null || _waitingToInstall || _installing || main.CanApplyUpdates)
+                throw new InvalidOperationException("Atrás no cancela solo la espera de instalación o inicia una instalación descartada.");
+            main.ReturnToLauncher();
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            GD.Print("UPDATE_INSTALL_WAIT_EXIT_OK: Escape/Atrás cierra la espera, conserva la partida y no inicia la instalación descartada.");
             GetTree().Quit(0);
         }
         catch (Exception error)
@@ -558,10 +575,10 @@ public partial class ReleaseUpdateNotice : Node
     private void Close()
     {
         if (_installing) return;
+        _progressGeneration++; _waitingToInstall = false;
         _dismissedVersion = _activePlan?.Identity ?? "stable:" + _version;
         if (_downloading)
         {
-            _progressGeneration++;
             _downloadStop?.Cancel();
             _downloadStop?.Dispose();
             _downloadStop = null;
@@ -574,21 +591,32 @@ public partial class ReleaseUpdateNotice : Node
         _responsiveButtons = null;
     }
 
+    internal bool HandleBack()
+    {
+        if (!GodotObject.IsInstanceValid(_overlay)) return false;
+        Close(); return true;
+    }
+
     private async Task InstallDownloaded()
     {
-        if (_downloadPath.Length == 0 || _installing || _stop.IsCancellationRequested || !CurrentIdentity) return;
-        _installing = true;
-        _primary!.Disabled = _secondary!.Disabled = true;
-        _primary.Text = "Instalando…";
+        if (_downloadPath.Length == 0 || _installing || _waitingToInstall || _stop.IsCancellationRequested || !CurrentIdentity) return;
+        int generation = _progressGeneration;
+        _waitingToInstall = true;
+        _primary!.Disabled = true; _secondary!.Disabled = false;
+        _primary.Text = "Esperando para instalar…";
         try
         {
             while (!GetParent<Main>().CanApplyUpdates)
             {
+                if (generation != _progressGeneration || !GodotObject.IsInstanceValid(_overlay)) return;
                 _subtitle!.Text = "La instalación comenzará al terminar la partida y detener el alojamiento local.";
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
                 _stop.Token.ThrowIfCancellationRequested();
-                if (!CurrentIdentity) { _installing = false; return; }
+                if (!CurrentIdentity) return;
             }
+            if (generation != _progressGeneration || !GodotObject.IsInstanceValid(_overlay)) return;
+            _waitingToInstall = false; _installing = true;
+            _primary.Disabled = _secondary.Disabled = true; _primary.Text = "Instalando…";
             if (_android)
             {
                 (_androidInstaller ?? throw new InvalidOperationException("No se ha iniciado el instalador Android."))
@@ -608,6 +636,7 @@ public partial class ReleaseUpdateNotice : Node
             if (_windowsDelta) FallbackToFull(_progressGeneration);
             else ShowFailure(_progressGeneration, error.Message);
         }
+        finally { if (generation == _progressGeneration) _waitingToInstall = false; }
     }
 
     private void AndroidInstallStatus(string status, string message)

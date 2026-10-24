@@ -57,6 +57,14 @@ public partial class EquipmentPanel : Control
         frame.ContentMarginLeft = frame.ContentMarginRight = 8; frame.ContentMarginTop = frame.ContentMarginBottom = 6; panel.AddThemeStyleboxOverride("panel", frame);
         margin.AddChild(panel);
         var box = new VBoxContainer(); box.AddThemeConstantOverride("separation", 6); panel.AddChild(box);
+        if (_defensePlayer != null)
+        {
+            var exits = new HBoxContainer { Name = "EquipmentExitBar" }; box.AddChild(exits);
+            var back = Ui.ExitButton("Volver a tienda", () => Close(), "EquipmentBackToShop");
+            var resume = Ui.ExitButton("Continuar partida", () => Close(_resumeDefense), "EquipmentResumeGame");
+            back.SizeFlagsHorizontal = resume.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            exits.AddChild(back); exits.AddChild(resume);
+        }
         _profile = Ui.Label("", 14, Ui.Gold); _profile.ClipText = true; _profile.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _equipmentToolbar = new HBoxContainer(); box.AddChild(_equipmentToolbar);
         _inventoryMenu = new MenuButton { Name = "EquipmentActions", Text = "Opciones", CustomMinimumSize = new(72, 44) };
@@ -66,10 +74,12 @@ public partial class EquipmentPanel : Control
         menu.AddItem(_defensePlayer == null ? "Equipos guardados" : "Volver a la tienda", 1);
         menu.AddItem("Venta múltiple", 2);
         menu.AddItem("Bonificaciones de conjuntos", 3);
+        menu.AddItem("Descartar cambios y salir", 4);
         menu.IdPressed += id =>
         {
             if (_defensePlayer != null && id == 1) { Close(); return; }
             if (_busy) return;
+            if (id == 4) { ConfirmDiscard(); return; }
             if (id == 3) { _setsInfo.PopupCentered(); return; }
             if (id == 2) { ToggleBulkMode(); return; }
             if (id == 0) { if (_defensePlayer == null) _ = Refresh(); else BuyDefenseItem(); }

@@ -57,7 +57,7 @@ public partial class Main : Node
     private RenderProfiler? _profiler;
     private JsonElement? _lastRenderProfile;
 
-    internal bool CanApplyUpdates => !_playing && _connection == null && _pendingConnection == null &&
+    internal bool CanApplyUpdates => !_playing && !Loading && !_reconnecting && _connection == null && _pendingConnection == null &&
         !_exporting && !_launcher.Hosting;
 
     public override void _Ready()
@@ -134,6 +134,7 @@ public partial class Main : Node
             _verification.Initialize(new VerificationAccess(this), arguments);
         }
         if (arguments.Contains("--regression-smoke")) _ = RunBugRegressionSmoke(arguments);
+        if (arguments.Contains("--navigation-smoke")) _ = RunNavigationSmoke(arguments);
         if (arguments.Contains("--reconnect-smoke")) _ = VerifyReconnectInterface(arguments);
         if (arguments.Contains("--defense-smoke")) StartDefenseSmoke(arguments);
         if (arguments.Contains("--statistics-smoke")) StartStatisticsSmoke(arguments);
@@ -561,35 +562,20 @@ public partial class Main : Node
     }
     public override void _UnhandledInput(InputEvent input)
     {
+        if (input is InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.Escape })
+        { NavigateBack(); GetViewport().SetInputAsHandled(); return; }
         if (Loading)
         {
-            if (input is InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.Escape }) ReturnToLauncher();
             GetViewport().SetInputAsHandled(); return;
         }
         if (_profiler?.Running == true)
         {
-            if (input is InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.Escape }) _profiler.Cancel();
             return;
         }
         if (input is InputEventKey { Pressed: true, Echo: false } key)
         {
             if (ControlsOpen && key.PhysicalKeycode != Key.Escape) { GetViewport().SetInputAsHandled(); return; }
             if (key.PhysicalKeycode == Key.F1) { if (!InspectingEquipment) ToggleHelp(); GetViewport().SetInputAsHandled(); return; }
-            if (key.PhysicalKeycode == Key.Escape)
-            {
-                if (GodotObject.IsInstanceValid(_relicWindow) && _relicWindow!.Visible) CloseRelics();
-                else if (ControlsOpen) _controlsSettings!.HandleBack();
-                else if (GodotObject.IsInstanceValid(_itemShopPanel)) _itemShopPanel!.HandleBack();
-                else if (_defensePanel?.ShopOpen == true) _defensePanel.HandleBack();
-                else if (InspectingEquipment) ClosePlayerEquipment();
-                else if (GodotObject.IsInstanceValid(_equipmentPanel)) _equipmentPanel!.HandleBack();
-                else if (GodotObject.IsInstanceValid(_bestiaryPanel)) CloseBestiary();
-                else if (GodotObject.IsInstanceValid(_accountProfilePanel)) CloseAccountProfile();
-                else if (GodotObject.IsInstanceValid(_optionAHelp)) CloseOptionAHelp();
-                else if (_help.Visible) { _help.Visible = false; UpdateTouchVisibility(); }
-                else if (_playing) TogglePause();
-                return;
-            }
         }
         if (!_playing || _paused || _help.Visible || InspectingEquipment || ControlsOpen ||
             _waitingPanel?.Visible == true) return;
@@ -628,6 +614,7 @@ public partial class Main : Node
         // Solo rediseño de menú. En combate se conserva el libro y los controles originales.
         if (!_playing && !_help.Visible) { ToggleOptionAHelp(); return; }
         _help.Visible = !_help.Visible;
+        if (_help.Visible) _ui.MoveChild(_help, -1);
         _currentObjective.Text = _playing && _snapshot != null
             ? "ESTA PARTIDA: " + MatchRules.Objective(_snapshot.Mode, _snapshot.ScoreLimit, _snapshot.StartingTickets, _snapshot.Map)
             : "Los límites se eligen al crear la sala. Su objetivo aparece antes de entrar.";
@@ -637,6 +624,7 @@ public partial class Main : Node
     private void TogglePause()
     {
         _paused = !_paused; _pause.Visible = _paused;
+        if (_paused) _ui.MoveChild(_pause, -1);
         if (_relicMenuButton != null) _relicMenuButton.Visible = HasRelics;
         UpdateSurvivalSaveActions();
         if (_paused) StopInput();
@@ -646,37 +634,38 @@ public partial class Main : Node
 
     private PanelContainer? _responsiveHelpModal;
     private ScrollContainer? _responsiveHelpScroll;
-    private Control Modal(out VBoxContainer content, bool scrollable = false, bool trackHelp = true)
+    private Control Modal(out VBoxContainer content, bool trackHelp = true)
     {
-        var root = new Control { Theme = Ui.Theme() }; Ui.Full(root);
+        var root = new Control { Name = trackHelp ? "InGameHelp" : "PauseMenu", Theme = Ui.Theme() }; Ui.Full(root);
         var shade = new ColorRect { Color = Ui.ModalDim }; root.AddChild(shade); Ui.Full(shade);
         var center = new CenterContainer(); root.AddChild(center); Ui.Full(center);
         float available = GetViewport().GetVisibleRect().Size.X;
         var panel = new PanelContainer { CustomMinimumSize = new(Math.Max(280, Math.Min(750, available - 50)), 0) };
         panel.AddThemeStyleboxOverride("panel", Ui.ModalPanel());
         center.AddChild(panel);
-        // Solo el modal de ayuda se actualiza tras construirlo.
+        // La cabecera queda fija; el contenido puede crecer sin desplazar la salida.
         if (trackHelp) { _responsiveHelpModal = panel; _responsiveHelpScroll = null; }
         else _responsivePauseModal = panel;
+        var frame = new VBoxContainer(); frame.AddThemeConstantOverride("separation", 8); panel.AddChild(frame);
+        var header = new HBoxContainer(); frame.AddChild(header);
+        var title = Ui.Label(trackHelp ? "CÓMO JUGAR" : "PARTIDA", 22, Ui.Gold);
+        title.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill; title.ClipText = true; header.AddChild(title);
+        header.AddChild(Ui.ExitButton(trackHelp ? "Cerrar" : "Continuar", trackHelp ? CloseInGameHelp : TogglePause,
+            trackHelp ? "InGameHelpClose" : "PauseResume"));
         content = new VBoxContainer(); content.AddThemeConstantOverride("separation", 16);
-        if (Ui.IsMobile || scrollable)
-        {
-            var scroll = new ContentScrollContainer {
-                CustomMinimumSize = new(Math.Max(270, Math.Min(Ui.IsMobile ? 1080 : 750, available - 50)),
-                    Math.Max(240, GetViewport().GetVisibleRect().Size.Y - 64)),
-                HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
-                VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
-            if (trackHelp) _responsiveHelpScroll = scroll;
-            else _responsivePauseScroll = scroll;
-            panel.AddChild(scroll); content.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill; scroll.AddChild(content);
-        }
-        else panel.AddChild(content);
+        var scroll = new ContentScrollContainer {
+            CustomMinimumSize = new(Math.Max(220, Math.Min(718, available - 82)),
+                Math.Max(100, GetViewport().GetVisibleRect().Size.Y - 152)),
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
+        if (trackHelp) _responsiveHelpScroll = scroll;
+        else _responsivePauseScroll = scroll;
+        frame.AddChild(scroll); content.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill; scroll.AddChild(content);
         return root;
     }
     private Control BuildHelp()
     {
         var root = Modal(out var outer);
-        outer.AddChild(Ui.Label("CÓMO JUGAR", 27, Ui.Gold));
         _helpPages = new TabContainer { CustomMinimumSize = new(0, 400),
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             SizeFlagsVertical = Control.SizeFlags.ExpandFill };
@@ -759,7 +748,6 @@ public partial class Main : Node
         }
         HelpText(elementsBox, "Agua moja y Vida cura. También desgastan protecciones enemigas con sus ventajas elementales; su presión no daña la salud al romper el escudo. Curar a un aliado conserva su escudo. Los bonus y debilidades propios del tipo de mago se aplican además de estas relaciones.", Ui.Muted);
         HelpText(elementsBox, "El escudo básico deja pasar los hechizos de su propietario. Las barreras imbuidas bloquean también los propios. Todas las barreras siguen bloqueando el movimiento.", Ui.Muted);
-        outer.AddChild(Ui.Button("Cerrar", () => { _help.Visible = false; UpdateTouchVisibility(); }, true));
         GetViewport().SizeChanged += UpdateInGameHelpResponsive;
         UpdateInGameHelpResponsive();
         return root;
@@ -774,7 +762,7 @@ public partial class Main : Node
             _responsiveHelpModal.CustomMinimumSize = new Vector2(Math.Max(230, Math.Min(750, width - 32)), 0);
         if (_responsiveHelpScroll != null)
             _responsiveHelpScroll.CustomMinimumSize = new Vector2(
-                Math.Max(220, Math.Min(720, width - 52)), Math.Max(170, height - 84));
+                Math.Max(220, Math.Min(718, width - 64)), Math.Max(100, height - 152));
         _helpPages.CustomMinimumSize = new Vector2(
             Math.Max(220, Math.Min(Ui.IsMobile ? 680 : 690, width - (Ui.IsMobile ? 84 : 100))),
             Math.Max(190, Math.Min(510, height - 180)));
@@ -789,9 +777,8 @@ public partial class Main : Node
     }
     private Control BuildPause()
     {
-        var root = Modal(out var box, scrollable: true, trackHelp: false); box.AddChild(Ui.Label("PARTIDA", 30, Ui.Gold));
+        var root = Modal(out var box, trackHelp: false);
         box.AddChild(Ui.Label("En red, la partida continúa mientras estás en este menú.", 17, Ui.Muted));
-        box.AddChild(Ui.Button("Continuar", TogglePause, true));
         AddSurvivalSaveActions(box);
         _relicMenuButton = Ui.Button("Reliquias recogidas", OpenRelics);
         _relicMenuButton.Name = "PauseRelics"; _relicMenuButton.Visible = false; box.AddChild(_relicMenuButton);

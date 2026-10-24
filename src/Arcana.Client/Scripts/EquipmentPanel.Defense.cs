@@ -15,6 +15,7 @@ public partial class EquipmentPanel
     }
     private WizardSnapshot? _defenseWizard;
     private bool _defenseMatchEnded;
+    private Action? _resumeDefense;
     private Action<ClientMessage>? _defenseSubmit;
     private string _defenseInventoryStamp = "";
     private Func<DefensePlayerSnapshot, bool>? _defensePending;
@@ -27,9 +28,11 @@ public partial class EquipmentPanel
         !_main.Accounts.InventoryNeedsRefresh && _main.Accounts.SignedIn &&
         (!_main.Accounts.IsDirectFirebaseSession || _main.Accounts.ServerAddress.Length > 0);
 
-    internal void BuildDefense(Main main, DefensePlayerSnapshot player, WizardSnapshot wizard, bool ended, Action<ClientMessage> submit)
+    internal void BuildDefense(Main main, DefensePlayerSnapshot player, WizardSnapshot wizard, bool ended, Action<ClientMessage> submit,
+        Action? resume = null)
     {
         _defensePlayer = player; UpdateItemLevels(player); _defenseWizard = wizard; _defenseMatchEnded = ended; _defenseSubmit = submit;
+        _resumeDefense = resume;
         Build(main, "");
     }
 

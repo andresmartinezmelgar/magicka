@@ -44,7 +44,7 @@ public partial class Main
         float width = Math.Max(250, Math.Min(750, size.X - 48));
         if (_responsivePauseModal != null) _responsivePauseModal.CustomMinimumSize = new(width, 0);
         if (_responsivePauseScroll != null)
-            _responsivePauseScroll.CustomMinimumSize = new(width - 32, Math.Max(180, size.Y - 96));
+            _responsivePauseScroll.CustomMinimumSize = new(width - 32, Math.Max(100, size.Y - 152));
         if (_survivalSaveActions is GridContainer actions)
             actions.Columns = ResponsiveLayout.Columns(width - 32, 260, 2, 10);
     }

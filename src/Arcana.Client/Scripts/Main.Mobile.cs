@@ -20,7 +20,7 @@ public partial class Main
             if (requested != null && OS.GetCmdlineUserArgs().Any(a => a is "--defense-smoke" or "--mobile-menu-smoke"
                 or "--touch-layout-smoke" or "--practice-smoke"
                 or "--aim-marker-smoke"
-                or "--regression-smoke" or "--shop-smoke" or "--sale-smoke" or "--usability-smoke"
+                or "--regression-smoke" or "--navigation-smoke" or "--shop-smoke" or "--sale-smoke" or "--usability-smoke"
                 or "--equipment-smoke" or "--preview-equipment-picker" or "--preview-equipment-totals"
                 or "--preview-spells=stone" or "--preview-spells=stone-close" or "--preview-spells=stone-auras"
                 or "--preview-spells=areas" or "--preview-spells=auras" or "--preview-spells=passives"))
@@ -76,26 +76,15 @@ public partial class Main
     public override void _Notification(int what)
     {
         if (!Ui.IsMobile || _launcher == null) return;
-        if (Loading && (long)what is NotificationWMGoBackRequest or NotificationApplicationPaused or NotificationApplicationFocusOut)
-        { ReturnToLauncher(); return; }
-        if (_profiler?.Running == true && (long)what is NotificationWMGoBackRequest or NotificationApplicationPaused or NotificationApplicationFocusOut)
-        { _profiler.Cancel(); return; }
-        if (_reconnecting && what == NotificationWMGoBackRequest) { ReturnToLauncher(); return; }
         if (what == NotificationWMGoBackRequest)
         {
-            if (GodotObject.IsInstanceValid(_relicWindow) && _relicWindow!.Visible) CloseRelics();
-            else if (ControlsOpen) _controlsSettings!.HandleBack();
-            else if (GodotObject.IsInstanceValid(_itemShopPanel)) _itemShopPanel!.HandleBack();
-            else if (_defensePanel?.ShopOpen == true) _defensePanel.HandleBack();
-            else if (InspectingEquipment) ClosePlayerEquipment();
-            else if (GodotObject.IsInstanceValid(_equipmentPanel)) _equipmentPanel!.HandleBack();
-            else if (GodotObject.IsInstanceValid(_bestiaryPanel)) CloseBestiary();
-            else if (GodotObject.IsInstanceValid(_accountProfilePanel)) CloseAccountProfile();
-            else if (GodotObject.IsInstanceValid(_optionAHelp)) CloseOptionAHelp();
-            else if (_help.Visible) { _help.Visible = false; UpdateTouchVisibility(); }
-            else if (_playing) TogglePause();
-            else if (!_launcher.HandleBack()) GetTree().Quit();
+            if (!NavigateBack()) GetTree().Quit();
+            return;
         }
+        if (Loading && (long)what is NotificationApplicationPaused or NotificationApplicationFocusOut)
+        { ReturnToLauncher(); return; }
+        if (_profiler?.Running == true && (long)what is NotificationApplicationPaused or NotificationApplicationFocusOut)
+        { _profiler.Cancel(); return; }
         if ((long)what is NotificationApplicationPaused or NotificationApplicationFocusOut && _playing)
         {
             StopInput(); CaptureLocalBestiary();

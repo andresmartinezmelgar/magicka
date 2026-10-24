@@ -176,6 +176,7 @@ public partial class EquipmentPanel
         if (_confirm.Visible) { CancelSale(); return; }
         if (_setsInfo.Visible) { _setsInfo.Hide(); return; }
         if (_savedEquipmentDialog?.Visible == true) { _savedEquipmentDialog.Hide(); return; }
+        if (_discardExit?.Visible == true) { _discardExit.Hide(); return; }
         if (_showingTotals) { OpenItemPicker(_selectedSlot); return; }
         if (_itemPicker.Visible) CloseItemPicker();
         else Close();
