@@ -58,6 +58,7 @@ public partial class ArenaRenderer : Node3D
     public override void _Ready()
     {
         AddChild(_effects);
+        _effects.FlameOrigin = FlameOrigin;
         AddChild(_audio);
         var env = new WorldEnvironment
         {

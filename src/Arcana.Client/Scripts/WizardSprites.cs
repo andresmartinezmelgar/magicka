@@ -13,7 +13,8 @@ internal static class WizardSprites
     private static Shader? _shader;
 
     internal sealed record FrameSpec(float AnchorX, float AnchorY);
-    internal sealed record AtlasSpec(WizardType Type, string Texture, int Width, int Height, float PixelSize, FrameSpec[] Frames);
+    internal sealed record AtlasSpec(WizardType Type, string Texture, int Width, int Height, float PixelSize,
+        FrameSpec[] Frames, FrameSpec[]? CastOrigins = null);
     internal sealed record Atlas(Texture2D Texture, AtlasSpec Spec)
     {
         public Vector2 Offset(int frame) => new(Spec.Width / 8f - Spec.Frames[frame].AnchorX,
@@ -28,7 +29,10 @@ internal static class WizardSprites
         var spec = _specs.Single(s => s.Type == type);
         var texture = ResourceLoader.Load<Texture2D>(spec.Texture)
             ?? throw new InvalidDataException($"No se pudo cargar {spec.Texture}.");
-        if (texture.GetWidth() != spec.Width || texture.GetHeight() != spec.Height || spec.Frames.Length != Columns * Rows || spec.PixelSize <= 0)
+        if (texture.GetWidth() != spec.Width || texture.GetHeight() != spec.Height || spec.Frames.Length != Columns * Rows || spec.PixelSize <= 0 ||
+            spec.CastOrigins is { } origins && (origins.Length != Rows || origins.Any(p =>
+                !float.IsFinite(p.AnchorX) || !float.IsFinite(p.AnchorY) || p.AnchorX < 0 || p.AnchorY < 0 ||
+                p.AnchorX >= spec.Width / (float)Columns || p.AnchorY >= spec.Height / (float)Rows)))
             throw new InvalidDataException($"Atlas de mago inválido: {type}.");
         cached = new(texture, spec); Cache.Add(type, cached);
         Diagnostics.Info("sprites.loaded", "Atlas de mago cargado.", new Dictionary<string, object?>

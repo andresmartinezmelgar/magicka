@@ -18,6 +18,7 @@ public partial class ArenaRenderer
         yield return ("Preparando los sonidos…", () => _audio.Prepare("boom"));
         for (int i = 0; i < CombatEffects.ParticleLimit / 32; i++)
             yield return ("Preparando los efectos…", _effects.PreparePoolBatch);
+        yield return ("Preparando el lanzallamas…", _effects.PrepareFlamethrower);
 
         var player = initial.Players.First(p => p.Id == localId);
         V2 center = player.Position;

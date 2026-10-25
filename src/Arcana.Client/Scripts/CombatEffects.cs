@@ -16,6 +16,8 @@ public partial class CombatEffects : Node3D
         public float Life, Duration, Gravity, Angle;
         public int Shape;
         public bool FixedSpan;
+        public Vector3 FlameOrigin, FlameEnd, FlameForward, FlameSide;
+        public float FlameRange, FlameSeed, FlamePower;
     }
     private sealed class Wave(MeshInstance3D node)
     {
@@ -99,6 +101,11 @@ public partial class CombatEffects : Node3D
             spark.Node.Mesh = _shapes[shape]; spark.Node.MaterialOverride = AreaVisuals.Skin(color);
             spark.Node.Position = position; spark.Node.Rotation = Vector3.Zero; spark.Node.Scale = spark.Size; spark.Node.Visible = true;
             spark.Batch = null;
+        }
+        else if (shape == FlameVisuals.Shape)
+        {
+            if (spark.Node != null) spark.Node.Visible = false;
+            PrepareFlamethrower(); spark.Batch = _flameBatch;
         }
         else
         {
@@ -236,10 +243,12 @@ public partial class CombatEffects : Node3D
             var p = _sparks[i]; p.Life -= dt;
             if (p.Life <= 0)
             {
+                if (p.Shape == FlameVisuals.Shape) _activeFlames--;
                 if (p.Node != null) p.Node.Visible = false;
                 _freeSparks.Push(p); _sparks[i] = _sparks[^1]; _sparks.RemoveAt(_sparks.Count - 1); continue;
             }
-            if (p.FixedSpan)
+            if (p.Shape == FlameVisuals.Shape) AdvanceFlame(p);
+            else if (p.FixedSpan)
                 p.Node!.Scale = new(p.Size.X, 1, Math.Max(0.04f, p.Life / p.Duration));
             else
             {
@@ -260,6 +269,7 @@ public partial class CombatEffects : Node3D
             w.Node.Scale = new(radius, Math.Max(0.03f, w.Life / w.Duration) * 0.6f, radius);
         }
         if (!playing) { FinishFrame(); return; }
+        EmitFlamethrowers(snapshot, dt);
         _trailClock += dt; _statusClock += dt;
         if (_trailClock >= 0.065f)
         {
@@ -285,6 +295,7 @@ public partial class CombatEffects : Node3D
             }
             foreach (var b in snapshot.Beams)
             {
+                if (FlameVisuals.Matches(b)) continue;
                 var strength = SpellVisualStrength.For(b.Elements); SeenCharges.Add(strength.Charges);
                 bool cone = b.Shape == SpellShape.Spray;
                 bool fire = cone && b.Elements.Contains(Element.Fire);
@@ -338,6 +349,7 @@ public partial class CombatEffects : Node3D
                 {
                     var elements = p.CastingElements is { Length: > 0 } ? p.CastingElements : p.Selected;
                     if (elements.Length == 0) continue;
+                    if (HasFlameChannel(snapshot, p.Id)) continue;
                     var strength = SpellVisualStrength.For(elements); SeenCharges.Add(strength.Charges);
                     var imbuements = elements.Contains(Element.Earth) ? StoneVisuals.Imbuements(elements) : [];
                     for (int i = 0; i < strength.ChannelSamples; i++)
@@ -382,9 +394,21 @@ public partial class CombatEffects : Node3D
     private void FinishFrame()
     {
         foreach (var batch in _particleBatches.Values) batch.Begin();
+        _flameBatch?.Begin();
         foreach (var spark in _sparks)
-            spark.Batch?.Add(new Transform3D(new Basis(Vector3.Up, spark.Angle).Scaled(spark.Scale), spark.Position));
+        {
+            if (spark.Shape == FlameVisuals.Shape)
+            {
+                var up = spark.FlameForward.Cross(spark.FlameSide);
+                var basis = new Basis(spark.FlameSide * spark.Scale.X, up * spark.Scale.Y,
+                    spark.FlameForward * spark.Scale.Z);
+                spark.Batch!.Add(new Transform3D(basis, spark.Position),
+                    new(1 - spark.Life / spark.Duration, spark.FlameSeed, spark.FlamePower, .48f));
+            }
+            else spark.Batch?.Add(new Transform3D(new Basis(Vector3.Up, spark.Angle).Scaled(spark.Scale), spark.Position));
+        }
         foreach (var batch in _particleBatches.Values) batch.Commit();
+        _flameBatch?.Commit();
         EmittedLastFrame = _emittedThisFrame; _emittedThisFrame = 0;
         // No unir tandas distintas si una base de red descartó la cabecera de origen.
         _chainFrom = null; _chainLinks = 0;
@@ -393,6 +417,8 @@ public partial class CombatEffects : Node3D
     {
         foreach (var p in _sparks) { if (p.Node != null) p.Node.Visible = false; _freeSparks.Push(p); } _sparks.Clear();
         foreach (var batch in _particleBatches.Values) batch.Clear();
+        _flameBatch?.Clear(); _activeFlames = _flameCursor = 0;
+        _flameClock = 1f / 30; _flameEmitters.Clear();
         foreach (var w in _waves) { w.Node.Visible = false; _freeWaves.Push(w); } _waves.Clear();
         _trailClock = _statusClock = 0; _emittedThisFrame = EmittedLastFrame = 0;
         _chainFrom = null; _chainLinks = 0;

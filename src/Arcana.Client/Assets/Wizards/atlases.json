@@ -70,6 +70,24 @@
         "AnchorX": 189.5,
         "AnchorY": 281.5
       }
+    ],
+    "CastOrigins": [
+      {
+        "AnchorX": 88,
+        "AnchorY": 100
+      },
+      {
+        "AnchorX": 80,
+        "AnchorY": 76
+      },
+      {
+        "AnchorX": 235,
+        "AnchorY": 63
+      },
+      {
+        "AnchorX": 244,
+        "AnchorY": 65
+      }
     ]
   },
   {
@@ -142,6 +160,24 @@
       {
         "AnchorX": 191.5,
         "AnchorY": 283.5
+      }
+    ],
+    "CastOrigins": [
+      {
+        "AnchorX": 85,
+        "AnchorY": 108
+      },
+      {
+        "AnchorX": 82,
+        "AnchorY": 73
+      },
+      {
+        "AnchorX": 239,
+        "AnchorY": 61
+      },
+      {
+        "AnchorX": 239,
+        "AnchorY": 61
       }
     ]
   },
@@ -216,6 +252,24 @@
         "AnchorX": 188.5,
         "AnchorY": 284.5
       }
+    ],
+    "CastOrigins": [
+      {
+        "AnchorX": 100,
+        "AnchorY": 106
+      },
+      {
+        "AnchorX": 102,
+        "AnchorY": 72
+      },
+      {
+        "AnchorX": 243,
+        "AnchorY": 57
+      },
+      {
+        "AnchorX": 244,
+        "AnchorY": 66
+      }
     ]
   },
   {
@@ -289,6 +343,24 @@
         "AnchorX": 193.5,
         "AnchorY": 282.5
       }
+    ],
+    "CastOrigins": [
+      {
+        "AnchorX": 86,
+        "AnchorY": 105
+      },
+      {
+        "AnchorX": 83,
+        "AnchorY": 75
+      },
+      {
+        "AnchorX": 244,
+        "AnchorY": 60
+      },
+      {
+        "AnchorX": 247,
+        "AnchorY": 63
+      }
     ]
   },
   {
@@ -361,6 +433,24 @@
       {
         "AnchorX": 188.5,
         "AnchorY": 280.5
+      }
+    ],
+    "CastOrigins": [
+      {
+        "AnchorX": 104,
+        "AnchorY": 86
+      },
+      {
+        "AnchorX": 110,
+        "AnchorY": 65
+      },
+      {
+        "AnchorX": 250,
+        "AnchorY": 58
+      },
+      {
+        "AnchorX": 248,
+        "AnchorY": 58
       }
     ]
   }

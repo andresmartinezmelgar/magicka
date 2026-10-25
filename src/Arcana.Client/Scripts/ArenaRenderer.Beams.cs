@@ -83,6 +83,8 @@ public partial class ArenaRenderer
 
     private void DrawBeam(BeamSnapshot beam, bool details)
     {
+        // El fuego es una emisión con vida propia. Su cono lógico ya no se dibuja como cilindro.
+        if (FlameVisuals.Matches(beam)) return;
         var from = World(beam.From, 1); var to = World(beam.To, 1);
         if (from.DistanceSquaredTo(to) < 0.01f) return;
         var strength = SpellVisualStrength.For(beam.Elements);
@@ -190,4 +192,9 @@ public partial class ArenaRenderer
             }
         }
     }
+
+    private Vector3 FlameOrigin(BeamSnapshot beam) =>
+        _wizards.TryGetValue(beam.Owner, out var wizard) && wizard.IsVisibleInTree() &&
+        wizard.CastingOrigin is { } origin && origin.DistanceSquaredTo(World(beam.From, origin.Y)) < 16
+            ? origin : World(beam.From, 1);
 }

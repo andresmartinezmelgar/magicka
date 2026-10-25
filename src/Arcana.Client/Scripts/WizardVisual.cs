@@ -18,6 +18,19 @@ public partial class WizardVisual : Node3D
     private bool _wasAlive;
     private int _deaths;
     internal Sprite3D Sprite => _sprite;
+    internal Vector3? CastingOrigin
+    {
+        get
+        {
+            if (_renderedFrame < 0 || _renderedFrame % WizardSprites.Columns != 3 || !_body.Visible ||
+                _atlas.Spec.CastOrigins is not { Length: WizardSprites.Rows } origins) return null;
+            var point = origins[_renderedFrame / WizardSprites.Columns];
+            var feet = _atlas.Spec.Frames[_renderedFrame];
+            float pixels = _atlas.Spec.PixelSize;
+            return _sprite.ToGlobal(new((point.AnchorX - feet.AnchorX) * pixels,
+                (feet.AnchorY - point.AnchorY) * pixels, .01f));
+        }
+    }
     private MeshInstance3D _shield = null!, _halo = null!, _ghost = null!;
     private Label3D _name = null!;
     private Node3D _healthRoot = null!;

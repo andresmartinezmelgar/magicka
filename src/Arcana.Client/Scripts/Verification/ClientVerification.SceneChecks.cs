@@ -158,6 +158,7 @@ public partial class ClientVerification
             valid &= effects.ActiveCount == 0 && effects.SeenCharges.SetEquals([1,2,3]);
             if (valid) valid = CheckSpellStrength();
             if (valid) valid = CheckShieldMeteorVisuals();
+            if (valid) valid = CheckFlamethrowerVisuals();
             if (valid) valid = CheckStoneVisuals();
             if (valid) valid = CheckStoneAuras();
             if (valid) valid = CheckAreaAndPassiveVisuals();

@@ -15,12 +15,13 @@ internal sealed class InstanceDrawBatch
     private int _visible;
     internal int Count { get; private set; }
 
-    internal InstanceDrawBatch(Node3D parent, string name, Godot.Mesh mesh, Material material, int capacity, bool custom = false)
+    internal InstanceDrawBatch(Node3D parent, string name, Godot.Mesh mesh, Material material, int capacity,
+        bool custom = false, float boundsPadding = 0)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
         _maximum = capacity; _initialCapacity = Math.Min(16, capacity);
         _stride = custom ? 16 : 12; _buffer = new float[_initialCapacity * _stride];
-        _meshBounds = mesh.GetAabb();
+        _meshBounds = mesh.GetAabb().Grow(Math.Max(0, boundsPadding));
         _instances = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
             UseCustomData = custom, Mesh = mesh, InstanceCount = _initialCapacity, VisibleInstanceCount = 0 };
         _visual = new MultiMeshInstance3D { Name = name, Multimesh = _instances, MaterialOverride = material,
