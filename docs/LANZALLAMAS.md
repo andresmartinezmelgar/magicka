@@ -36,7 +36,10 @@ emisores simultáneos, detalle reducido y conservación de los efectos de agua,
 frío y vapor. Comprueba también los veinte anclajes y la eliminación del cono
 visible para fuego.
 
-La compilación y la ejecución de estas comprobaciones en Godot quedan
-pendientes de la indicación del usuario. Antes de publicar hay que revisar
-el resultado en las cuatro orientaciones, con movimiento, en PvP, Prácticas
-y Supervivencia, y comprobar que el chorro no tapa al mago ni atraviesa el escenario.
+La compilación y la ejecución de estas comprobaciones en Godot se realizan
+con la publicación manual de pruebas solicitada por el usuario. Las lecturas
+de buffers gráficos se verifican con viewport real en escritorio y móvil;
+en modo headless se comprueban cantidades, límites, caducidad y limpieza.
+La revisión manual debe comprobar el resultado en las cuatro orientaciones,
+con movimiento, en PvP, Prácticas y Supervivencia, y que el chorro no tape al
+mago ni atraviese el escenario.

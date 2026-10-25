@@ -7,6 +7,7 @@ public partial class ClientVerification
 {
     private bool CheckFlamethrowerVisuals()
     {
+        bool gpu = DisplayServer.GetName() != "headless";
         var renderer = _runtime.Renderer;
         var empty = _runtime.Snapshot! with { Players = [], Beams = [], Projectiles = [], Walls = [],
             Fields = [], Points = [], Events = [], Pickups = [], Defense = null };
@@ -28,7 +29,9 @@ public partial class ClientVerification
         int children = probe.GetChildCount();
         // Girar afecta a las nuevas llamas; las anteriores no pivotan con el lanzador.
         probe.Advance(empty with { Beams = [new(1, V2.Zero, new(0, 6), [Element.Fire], SpellShape.Spray)] }, 1 / 60f, true);
-        valid &= Enumerable.Range(0, batch.Multimesh.VisibleInstanceCount)
+        // El servidor Dummy devuelve identidad al leer buffers. Estas lecturas se
+        // verifican en CI con viewport real, como las demás pruebas de MultiMesh.
+        if (gpu) valid &= Enumerable.Range(0, batch.Multimesh.VisibleInstanceCount)
             .Any(i => batch.Multimesh.GetInstanceTransform(i).Origin.X > 3);
         int afterTurn = probe.ActiveFlames;
         probe.Advance(empty, 1 / 60f, true);
@@ -49,10 +52,10 @@ public partial class ClientVerification
                 valid &= probe.ActiveFlames <= Math.Max(48, (int)(FlameVisuals.MaximumParticles * scale)) &&
                     probe.ActiveParticles <= CombatEffects.ParticleLimit &&
                     probe.EmittedLastFrame <= CombatEffects.EmissionBudget && probe.FlameBoundsValid();
-                for (int j = 0; j < batch.Multimesh.VisibleInstanceCount; j++)
+                for (int j = 0; gpu && j < batch.Multimesh.VisibleInstanceCount; j++)
                     visibleCasters.Add(Mathf.FloorToInt(batch.Multimesh.GetInstanceTransform(j).Origin.X / 10));
             }
-            valid &= visibleCasters.Count == 128 && probe.GetChildCount() == children;
+            valid &= (!gpu || visibleCasters.Count == 128) && probe.GetChildCount() == children;
         }
         probe.Clear(); probe.DetailScale = 1;
         var steam = new BeamSnapshot(1, V2.Zero, new(6, 0), [Element.Water, Element.Fire], SpellShape.Spray);
@@ -84,7 +87,9 @@ public partial class ClientVerification
         }
         renderer.Clear();
         valid &= renderer.Effects.ActiveFlames == 0 && renderer.Effects.ActiveCount == 0;
-        if (valid) GD.Print($"FLAMETHROWER_OK: 20 anclajes, cargas {string.Join('/', counts)}, giro, corte, límites, 128 emisores, detalle bajo y mezclas independientes");
+        if (valid) GD.Print(gpu
+            ? $"FLAMETHROWER_OK: 20 anclajes, cargas {string.Join('/', counts)}, giro, corte, límites, 128 emisores, detalle bajo y mezclas independientes"
+            : $"FLAMETHROWER_POOL_OK: 20 anclajes, cargas {string.Join('/', counts)}, corte, límites, caducidad y limpieza; lectura GPU reservada al viewport real");
         return valid;
     }
 }
