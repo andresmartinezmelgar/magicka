@@ -37,7 +37,13 @@ public sealed partial class GameWorld
         if (command.Type == "defense_auto_sell")
         {
             if (command.Slot is < 0 or > 1 || command.AutoSellStyle is not { Valid: true } style) return false;
-            if (command.Slot == 1) progress.AutoSellStyles.Add(style); else progress.AutoSellStyles.Remove(style);
+            if (command.Slot == 1)
+            {
+                if (style.Tier == ItemTier.Silver || !progress.Items.Any(i => i.Id == command.ItemId && EquipmentStyle.Of(i) == style)) return false;
+                progress.AutoSellStyles.RemoveWhere(s => s.SameKind(style));
+                progress.AutoSellStyles.Add(style);
+            }
+            else progress.AutoSellStyles.Remove(style);
             return true;
         }
         if (command.Type == "defense_performance")
@@ -144,7 +150,8 @@ public sealed partial class GameWorld
         _statistics.Add(StatisticGroup.Equipment, (int)item.Tier, StatisticMeasure.Collected, 1);
         StatisticsEconomy(player.Id, StatisticMeasure.Collected, 1);
         var progress = _defenders[player.Id];
-        if (progress.AutoSellStyles.Contains(EquipmentStyle.Of(item)))
+        if (!progress.Favorites.Contains(item.Id) && progress.Loadout.Get(item.Slot) != item.Id &&
+            progress.AutoSellStyles.Any(s => s.MatchesLowerQuality(item)))
         {
             int earned = Math.Min(100000000 - progress.Gold, item.SaleGold);
             StatisticsEconomy(player.Id, StatisticMeasure.GoldEarned, earned); progress.Gold += earned;

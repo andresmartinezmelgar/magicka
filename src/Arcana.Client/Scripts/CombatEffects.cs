@@ -282,7 +282,7 @@ public partial class CombatEffects : Node3D
                 bool stone = p.Elements.Contains(Element.Earth);
                 var imbuements = stone ? StoneVisuals.Imbuements(p.Elements) : [];
                 var strength = SpellVisualStrength.For(p.Elements); SeenCharges.Add(strength.Charges);
-                var color = Ui.SpellColor(p.Elements);
+                var color = !stone && p.Elements.Contains(Element.Cold) ? ElementChannelVisuals.IceBody : Ui.SpellColor(p.Elements);
                 var forward = ArenaRenderer.World(p.Direction);
                 var side = forward.Cross(Vector3.Up);
                 for (int i = 0; i < strength.TrailSamples; i++)

@@ -2,6 +2,11 @@
 
 ## Sin publicar
 
+## 0.29.19
+
+- La venta automática usa la calidad de la pieza como límite exclusivo: solo vende objetos nuevos de la misma ranura y familia con calidad inferior. Conserva iguales, superiores, actuales, favoritos y equipados. Cambiar el límite sustituye la regla anterior; Plata no permite activarla. Las reglas antiguas se desactivan al migrar preferencias y partidas guardadas. Protocolo 35.
+- Las estrellas de hielo usan blancos y cian claro derivados del color del elemento Frío, con la misma paleta en sus caras, estela, acentos y perfil gráfico anterior.
+
 - El anillo mágico solo genera un atributo de capacidad de escudo y conserva su habilidad elemental; no recibe afijos ni estadísticas adicionales. Los anillos antiguos mantienen sus datos, pero los efectos retirados quedan inactivos y no se mejoran ni se suman al equipo. Catálogo 7.
 - Inventario, tienda, comparaciones y fichas públicas muestran los HP del escudo, duración, recarga, HP/s, daño por activación y DMG/s medio del anillo mágico, con los modificadores del equipo. Distinguen regeneración, curación por pulso, quemadura y daño por objetivo del rayo; las cifras excluyen rasgos de mago, reliquias y defensas del objetivo.
 
@@ -10,7 +15,7 @@
 - Los efectos nuevos se seleccionan según el dispositivo y el rendimiento durante la partida. Los móviles con hardware limitado empiezan con los anteriores; una caída sostenida de FPS o tirones activa ese perfil, y los efectos nuevos vuelven tras 12 segundos estables.
 - Fuego más denso, frío con cristales de seis puntas y agua con corrientes animadas, gotas y espuma. Fuego más agua genera vapor; las mezclas con arcano conservan su canal principal. El perfil reducido mantiene el lanzallamas aprobado con menos partículas.
 - Rayo con núcleo blanco, ramificaciones y brillo azul; arcano con núcleo violeta, filamentos y pulsos. Reutilizan los lotes gráficos existentes y conservan sus efectos anteriores como alternativa automática.
-- Presupuestos compartidos y objetos reutilizados para limitar el coste visual. No cambian daños, alcance, colisiones, recetas ni protocolo. Compilación y pruebas en dispositivo pendientes de la próxima solicitud de publicación.
+- Presupuestos compartidos y objetos reutilizados para limitar el coste visual. Estos efectos no cambian daños, alcance, colisiones ni recetas.
 
 ## 0.29.18 — Lanzallamas y partículas del equipo
 

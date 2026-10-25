@@ -8,27 +8,36 @@ public sealed class InventoryPreferences
     public HashSet<string> Favorites { get; set; } = new(StringComparer.Ordinal);
     public List<NamedEquipment> Loadouts { get; set; } = [];
     public List<AutoSellRule> AutoSellRules { get; set; } = [];
+    public int AutoSellRuleVersion { get; set; }
+    public const int CurrentAutoSellRuleVersion = 1;
 
     public void Normalize()
     {
         Favorites ??= new(StringComparer.Ordinal); Loadouts ??= []; AutoSellRules ??= [];
+        // Las reglas antiguas vendían la calidad exacta; no ampliar su alcance al migrar.
+        if (AutoSellRuleVersion != CurrentAutoSellRuleVersion) AutoSellRules.Clear();
+        AutoSellRuleVersion = CurrentAutoSellRuleVersion;
         Favorites.RemoveWhere(id => id is not { Length: 32 });
-        AutoSellRules = AutoSellRules.Where(r => r != null && r.Style.Valid && r.ExistingIds != null &&
+        AutoSellRules = AutoSellRules.Where(r => r != null && r.Style.Valid && r.Style.Tier > ItemTier.Silver && r.ExistingIds != null &&
             r.ExistingIds.Count <= EquipmentCatalogue.InventoryLimit && r.ExistingIds.All(id => id is { Length: 32 }))
-            .DistinctBy(r => r.Style).Take(EquipmentStyle.Limit).ToList();
+            .DistinctBy(r => (r.Style.Slot, r.Style.Family)).Take(EquipmentStyle.Limit).ToList();
     }
 
-    public bool AutoSells(EquipmentStyle style) => AutoSellRules.Any(r => r.Style == style);
+    public bool AutoSells(EquipmentStyle style) => AutoSellRuleVersion == CurrentAutoSellRuleVersion && AutoSellRules.Any(r => r.Style == style);
     public void SetAutoSell(EquipmentStyle style, bool enabled, AccountProfile profile)
     {
         if (!style.Valid) throw new ArgumentException("Estilo de objeto inválido.");
+        Normalize();
         if (!enabled) { AutoSellRules.RemoveAll(r => r.Style == style); return; }
-        if (!AutoSells(style)) AutoSellRules.Add(new(style,
-            profile.Items.Where(style.Matches).Select(i => i.Id).ToHashSet(StringComparer.Ordinal)));
+        if (style.Tier == ItemTier.Silver) throw new ArgumentException("No hay calidades inferiores a Plata.");
+        if (AutoSells(style)) return;
+        AutoSellRules.RemoveAll(r => r.Style.SameKind(style));
+        AutoSellRules.Add(new(style,
+            profile.Items.Where(style.MatchesLowerQuality).Select(i => i.Id).ToHashSet(StringComparer.Ordinal)));
     }
     public EquipmentItem[] AutomaticSales(AccountProfile profile) => profile.Items.Where(i =>
-        !Protected(i.Id) && profile.Loadout.Get(i.Slot) != i.Id &&
-        AutoSellRules.Any(r => r.Style.Matches(i) && !r.ExistingIds.Contains(i.Id))).ToArray();
+        AutoSellRuleVersion == CurrentAutoSellRuleVersion && !Protected(i.Id) && profile.Loadout.Get(i.Slot) != i.Id &&
+        AutoSellRules.Any(r => r.Style.MatchesLowerQuality(i) && !r.ExistingIds.Contains(i.Id))).ToArray();
 
     public bool Protected(string id) => Favorites.Contains(id);
     public void Save(string name, EquipmentLoadout loadout, AccountProfile profile)

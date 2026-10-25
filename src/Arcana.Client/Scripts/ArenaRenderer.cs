@@ -296,7 +296,7 @@ public partial class ArenaRenderer : Node3D
                 bool stone = projectile.Elements.Contains(Element.Earth);
                 bool ice = !stone && projectile.Elements.Contains(Element.Cold);
                 var imbuements = stone ? StoneVisuals.Imbuements(projectile.Elements) : [];
-                var color = Ui.SpellColor(projectile.Elements);
+                var color = ice ? ElementChannelVisuals.IceBody : Ui.SpellColor(projectile.Elements);
                 if (stone)
                 {
                     root.AddChild(new MeshInstance3D { Name = "StoneCore", Mesh = StoneVisuals.Shape(projectile.Id),
@@ -316,7 +316,8 @@ public partial class ArenaRenderer : Node3D
                 var strength = SpellVisualStrength.For(projectile.Elements);
                 for (int i = 0; i < strength.Charges - 1; i++)
                 {
-                    color = imbuements.Length > 0 ? StoneVisuals.AuraColor(imbuements[i % imbuements.Length]) : Ui.SpellColor(projectile.Elements);
+                    color = imbuements.Length > 0 ? StoneVisuals.AuraColor(imbuements[i % imbuements.Length]) :
+                        ice ? ElementChannelVisuals.IceBody : Ui.SpellColor(projectile.Elements);
                     color.A = imbuements.Length > 0 ? 0.62f : 0.3f;
                     float radius = projectile.Radius + 0.09f + i * 0.045f;
                     var accent = Mesh(root, new TorusMesh { InnerRadius = radius - 0.025f, OuterRadius = radius,
@@ -332,7 +333,7 @@ public partial class ArenaRenderer : Node3D
             {
                 var core = root.GetNode<MeshInstance3D>("IceCore");
                 Godot.Mesh mesh = _effects.EnhancedSpells ? ElementChannelVisuals.Mesh(ElementChannelVisuals.Ice) : ElementChannelVisuals.LegacyIce;
-                Godot.Material material = _effects.EnhancedSpells ? ElementChannelVisuals.ProjectileIceMaterial() : Material(Ui.SpellColor(projectile.Elements), .35f);
+                Godot.Material material = _effects.EnhancedSpells ? ElementChannelVisuals.ProjectileIceMaterial() : Material(ElementChannelVisuals.IceBody, .35f);
                 if (core.Mesh != mesh) core.Mesh = mesh;
                 if (core.MaterialOverride != material) core.MaterialOverride = material;
                 core.Basis = _effects.EnhancedSpells

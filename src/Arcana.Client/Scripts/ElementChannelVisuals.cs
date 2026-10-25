@@ -6,6 +6,9 @@ namespace Arcana.Client;
 internal static class ElementChannelVisuals
 {
     internal const int Ice = 6, Water = 7, Steam = 8;
+    internal static readonly Color IceBody = Ui.ElementColor(Element.Cold).Lerp(Colors.White, .72f);
+    private static readonly Color IceShadow = Ui.ElementColor(Element.Cold).Lerp(Colors.White, .30f);
+    private static readonly Color IceHighlight = Ui.ElementColor(Element.Cold).Lerp(Colors.White, .96f);
     private static readonly Dictionary<int, Godot.Mesh> Meshes = [];
     private static readonly Dictionary<int, ShaderMaterial> Materials = [];
     private static ArrayMesh? _waterJet;
@@ -54,7 +57,7 @@ internal static class ElementChannelVisuals
     private static ArrayMesh IceCrystal()
     {
         using var surface = new SurfaceTool(); surface.Begin(Godot.Mesh.PrimitiveType.Triangles);
-        Color dark = new("2e85c7"), light = new("b3ebff"), white = new("edfdff");
+        Color dark = IceShadow, light = IceBody, white = IceHighlight;
         void Vertex(Vector2 p, Color color)
         { surface.SetNormal(Vector3.Back); surface.SetColor(color); surface.AddVertex(new(p.X, p.Y, .025f)); }
         void Arm(Vector2 from, Vector2 to, float width)
