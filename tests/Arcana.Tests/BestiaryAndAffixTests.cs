@@ -29,7 +29,7 @@ internal static class BestiaryAndAffixTests
             {
                 var item = EquipmentCatalogue.Generate(new(seed), tier: tier);
                 Check(EquipmentCatalogue.Valid(item), "Objeto nuevo inválido.");
-                Check((item.Affix != null) == (tier >= ItemTier.Diamond), "Afijo en una calidad incorrecta.");
+                Check((item.Affix != null) == (tier >= ItemTier.Diamond && item.Slot != EquipmentSlot.MagicRing), "Afijo en una calidad o ranura incorrecta.");
                 Check(Protocol.Deserialize<EquipmentItem>(Protocol.Serialize(item))!.Affix == item.Affix, "Se perdió el afijo al guardar.");
                 Check(EquipmentCatalogue.Valid(item with { Affix = null, GenerationVersion = 1 }), "Se rechazó un objeto antiguo.");
             }

@@ -25,6 +25,7 @@ internal static class RingTests
     }
     public static void Run(Action<string, Action> test)
     {
+        RingNumbersTests.Run(test);
         test("Anillos: dos posiciones propias, todas las calidades y compatibilidad con selecciones antiguas", () =>
         {
             var old = Protocol.Deserialize<EquipmentLoadout>("{\"boots\":\"\",\"hat\":\"\",\"chest\":\"\",\"weapon\":\"\"}")!;

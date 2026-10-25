@@ -71,17 +71,19 @@ public partial class EquipmentPanel
             BuildItemPreferences(description, item);
             var equippedLabel = Ui.Label(selected ? "EQUIPADA" : "Sin equipar", 15, selected ? Ui.Gold : Ui.Muted);
             equippedLabel.MouseFilter = MouseFilterEnum.Ignore; description.AddChild(equippedLabel);
-            string attributes = string.Join("\n", item.Bonuses.Select(b => StatName(b.Stat) + " " + EquipmentCatalogue.Percent(b.Current)));
-            if (RingEffects.IsRing(item.Slot)) attributes += "\n" + RingEffects.Describe(item, ItemLevel(item));
+            var ringPreview = item.Slot == EquipmentSlot.MagicRing && _draft != null
+                ? EquipmentQuery.Preview(_draft, item, _itemLevels) : null;
+            string attributes = string.Join("\n", item.Bonuses.Select(b => EquipmentCatalogue.BonusDescription(item.Slot, b)));
+            if (RingEffects.IsRing(item.Slot)) attributes += "\n" + RingEffects.Describe(item, ItemLevel(item), ringPreview?.After.Modifiers);
             if (item.Affix != null) attributes += "\nEspecial: " + ItemAffixes.Describe(item.Affix, ItemLevel(item), item.Slot);
             var stats = Ui.Label(attributes, Ui.IsMobile ? 18 : 17);
             stats.Name = "EquipmentItemStats_" + item.Id;
             stats.AutowrapMode = TextServer.AutowrapMode.WordSmart;
             stats.SizeFlagsHorizontal = SizeFlags.ExpandFill; stats.MouseFilter = MouseFilterEnum.Pass;
-            stats.TooltipText = string.Join("\n", item.Bonuses.Select(b => StatName(b.Stat) + ": " +
-                EquipmentCatalogue.Percent(b.Current) + " (" + EquipmentCatalogue.Percent(b.Minimum) + " / " + EquipmentCatalogue.Percent(b.Maximum) + ")"));
+            stats.TooltipText = string.Join("\n", item.Bonuses.Select(b => EquipmentCatalogue.BonusDescription(item.Slot, b) +
+                " (" + EquipmentCatalogue.Percent(b.Minimum) + " / " + EquipmentCatalogue.Percent(b.Maximum) + ")"));
             description.AddChild(stats);
-            AddComparison(description, item);
+            AddComparison(description, item, ringPreview);
             var entry = _defensePlayer?.Items.FirstOrDefault(i => i.Item.Id == item.Id);
             if (entry != null) description.AddChild(Ui.Label($"Mejoras: {entry.Upgrades} / 10", 15, Ui.Muted));
             var actions = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ShrinkEnd };

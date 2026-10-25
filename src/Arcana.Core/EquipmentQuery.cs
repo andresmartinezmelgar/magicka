@@ -3,14 +3,14 @@ namespace Arcana.Core;
 public sealed record EquipmentFilter(EquipmentFamily? Family = null, ItemTier? Tier = null, EquipmentStat? Stat = null)
 {
     public bool Matches(EquipmentItem item) => (Family == null || item.Family == Family) &&
-        (Tier == null || item.Tier == Tier) && (Stat == null || item.Bonuses.Any(b => b.Stat == Stat));
+        (Tier == null || item.Tier == Tier) && (Stat == null || item.Bonuses.Any(b => b.Stat == Stat && EquipmentCatalogue.BonusActive(item.Slot, b.Stat)));
 }
 public static class EquipmentQuery
 {
     public static EquipmentItem[] Sort(IEnumerable<EquipmentItem> items, EquipmentStat? stat = null, string equippedId = "") =>
         (stat == null ? items.OrderByDescending(i => i.Id == equippedId).ThenByDescending(i => i.Tier).ThenBy(i => i.Family) :
-            items.OrderByDescending(i => i.Id == equippedId).ThenByDescending(i => i.Bonuses.Any(b => b.Stat == stat))
-                .ThenByDescending(i => i.Bonuses.FirstOrDefault(b => b.Stat == stat)?.Current ?? 0)
+            items.OrderByDescending(i => i.Id == equippedId).ThenByDescending(i => i.Bonuses.Any(b => b.Stat == stat && EquipmentCatalogue.BonusActive(i.Slot, b.Stat)))
+                .ThenByDescending(i => i.Bonuses.FirstOrDefault(b => b.Stat == stat && EquipmentCatalogue.BonusActive(i.Slot, b.Stat))?.Current ?? 0)
                 .ThenByDescending(i => i.Tier)).ThenBy(i => i.Id, StringComparer.Ordinal).ToArray();
 
     /// <summary>Previsualiza una sustitución con las piezas equipadas, conjuntos y límites reales de combate.</summary>
@@ -31,8 +31,8 @@ public static class EquipmentQuery
     /// <summary>Diferencias de los atributos de la pieza, sin atribuirle los efectos del conjunto.</summary>
     public static (EquipmentStat Stat, float Difference)[] Compare(EquipmentItem candidate, EquipmentItem? equipped)
     {
-        var old = equipped?.Bonuses.ToDictionary(b => b.Stat, b => b.Current) ?? [];
-        var next = candidate.Bonuses.ToDictionary(b => b.Stat, b => b.Current);
+        var old = equipped?.Bonuses.Where(b => EquipmentCatalogue.BonusActive(equipped.Slot, b.Stat)).ToDictionary(b => b.Stat, b => b.Current) ?? [];
+        var next = candidate.Bonuses.Where(b => EquipmentCatalogue.BonusActive(candidate.Slot, b.Stat)).ToDictionary(b => b.Stat, b => b.Current);
         return next.Keys.Concat(old.Keys).Distinct().OrderBy(s => s)
             .Select(s => (s, MathF.Round(next.GetValueOrDefault(s) - old.GetValueOrDefault(s), 4))).Where(v => v.Item2 != 0).ToArray();
     }

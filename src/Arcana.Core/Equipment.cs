@@ -144,7 +144,7 @@ public sealed record EquipmentModifiers
                         break;
                     case ItemAffixKind.GoldBonus: goldBonusPercent = Math.Max(goldBonusPercent, affix.Value); break;
                 }
-            foreach (var b in item.Bonuses) stats[(int)b.Stat] += b.Current;
+            foreach (var b in item.Bonuses.Where(b => EquipmentCatalogue.BonusActive(slot, b.Stat))) stats[(int)b.Stat] += b.Current;
             if (!RingEffects.IsRing(slot) && item.Tier == ItemTier.Mythic) sets[(int)item.Family]++;
         }
         foreach (var family in EquipmentCatalogue.FocusedFamilies)
@@ -179,7 +179,12 @@ public sealed record EquipmentModifiers
 
 public static partial class EquipmentCatalogue
 {
-    public const int GenerationVersion = 6, InventoryLimit = 500;
+    public const int GenerationVersion = 7, InventoryLimit = 500;
+    public static bool BonusActive(EquipmentSlot slot, EquipmentStat stat) =>
+        slot != EquipmentSlot.MagicRing || stat == EquipmentStat.ShieldCapacity;
+    public static string BonusDescription(EquipmentSlot slot, ItemBonus bonus) =>
+        StatName(bonus.Stat) + " " + Percent(bonus.Current) +
+        (BonusActive(slot, bonus.Stat) ? "" : " · atributo antiguo inactivo");
     private static readonly int[] Sales = [10, 25, 60, 150, 400];
     private static readonly float[] MainMin = [0.01f, 0.02f, 0.03f, 0.06f, 0.08f], MainMax = [0.05f, 0.07f, 0.09f, 0.11f, 0.13f];
     private static readonly float[] ExtraMin = [-0.04f, -0.03f, -0.02f, 0.04f, 0.07f], ExtraMax = [0.06f, 0.08f, 0.10f, 0.10f, 0.14f];
@@ -255,7 +260,7 @@ public static partial class EquipmentCatalogue
         int t = (int)quality;
         var bonuses = new List<ItemBonus> { new(primary, MainMin[t], MainMax[t], Value(MainMin[t], MainMax[t])) };
         var choices = Pool(identity).Where(s => s != primary).ToList();
-        int extra = quality == ItemTier.Silver ? 1 : quality == ItemTier.Mythic ? 3 : 2;
+        int extra = position == EquipmentSlot.MagicRing ? 0 : quality == ItemTier.Silver ? 1 : quality == ItemTier.Mythic ? 3 : 2;
         for (int n = 0; n < extra && choices.Count > 0; n++)
         {
             int pick = random.Next(choices.Count); var stat = choices[pick]; choices.RemoveAt(pick);
@@ -284,6 +289,8 @@ public static partial class EquipmentCatalogue
         item.UpgradeLevel is >= 0 and <= 10 && Enum.IsDefined(item.Slot) && Enum.IsDefined(item.Tier) && Enum.IsDefined(item.Family) && item.GenerationVersion > 0 &&
         ItemAffixes.Valid(item.Affix, item.Tier, item.Slot, item.GenerationVersion) &&
         item.SaleGold is > 0 and <= 100000 && item.Bonuses is { Length: >= 1 and <= 4 } && item.Bonuses.All(b => b != null) &&
+        (item.Slot != EquipmentSlot.MagicRing || item.GenerationVersion < 7 ||
+            item.Bonuses is [{ Stat: EquipmentStat.ShieldCapacity }]) &&
         item.Bonuses.Select(b => b.Stat).Distinct().Count() == item.Bonuses.Length && item.Bonuses.Any(b => b.Current > 0) &&
         item.Bonuses.All(b => Enum.IsDefined(b.Stat) && float.IsFinite(b.Minimum) && float.IsFinite(b.Maximum) && float.IsFinite(b.Current) &&
             b.Minimum >= -0.50f && b.Maximum <= 0.50f && b.Minimum <= b.Maximum && b.Current >= b.Minimum && b.Current <= b.Maximum);

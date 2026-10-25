@@ -267,9 +267,11 @@ public partial class EquipmentPanel : Control
         foreach (string heading in new[] { "Actual", "Límites (mín. / máx.)", "Atributo" }) Cell(_details, heading, heading != "Atributo", header: true);
         if (item != null) foreach (var bonus in item.Bonuses)
         {
-            Cell(_details, EquipmentCatalogue.Percent(bonus.Current), true, bonus.Current < 0 ? Ui.Red : Ui.Blue);
+            bool active = EquipmentCatalogue.BonusActive(item.Slot, bonus.Stat);
+            Cell(_details, active ? EquipmentCatalogue.Percent(bonus.Current) : "Inactivo", true, active ? bonus.Current < 0 ? Ui.Red : Ui.Blue : Ui.Muted);
             Cell(_details, EquipmentCatalogue.Percent(bonus.Minimum) + " / " + EquipmentCatalogue.Percent(bonus.Maximum), true, Ui.Muted);
-            Cell(_details, StatName(bonus.Stat)).TooltipText = EquipmentCatalogue.StatDescription(bonus.Stat);
+            Cell(_details, StatName(bonus.Stat)).TooltipText = active ? EquipmentCatalogue.StatDescription(bonus.Stat)
+                : EquipmentCatalogue.BonusDescription(item.Slot, bonus) + ". El anillo mágico solo aporta capacidad de escudo y su habilidad elemental.";
         }
         if (item?.Affix is { } affix)
         {
@@ -282,7 +284,7 @@ public partial class EquipmentPanel : Control
         {
             Cell(_details, "Anillo", true, Ui.Gold);
             Cell(_details, $"Nivel {ItemLevel(item)}/10", true, Ui.Muted);
-            Cell(_details, RingEffects.Describe(item, ItemLevel(item)));
+            Cell(_details, RingEffects.Describe(item, ItemLevel(item), _draft == null ? null : EquipmentModifiers.Calculate(_draft, _itemLevels)));
         }
         _empty.Text = item == null ? "Sin pieza equipada. Pulsa una posición para abrir sus objetos ordenados por calidad." :
             "Pulsa una posición para comparar sus objetos. Los cambios se guardan al salir del inventario.";

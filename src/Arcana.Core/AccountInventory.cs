@@ -59,7 +59,8 @@ public static class AccountInventory
         int cost = DefenseRules.UpgradeCost(item.Tier, item.UpgradeLevel);
         if (profile.Gold < cost) throw new ArgumentException("No tienes suficiente oro para mejorar el anillo.");
         var upgraded = item with { UpgradeLevel = item.UpgradeLevel + 1,
-            Bonuses = item.Bonuses.Select(b => b with { Current = Math.Min(b.Maximum, MathF.Round(b.Current + DefenseRules.ItemUpgradeStep, 4)) }).ToArray() };
+            Bonuses = item.Bonuses.Select(b => EquipmentCatalogue.BonusActive(item.Slot, b.Stat)
+                ? b with { Current = Math.Min(b.Maximum, MathF.Round(b.Current + DefenseRules.ItemUpgradeStep, 4)) } : b).ToArray() };
         return profile with { Gold = profile.Gold - cost, Items = profile.Items.Select(i => i.Id == item.Id ? upgraded : i).ToArray() };
     }
 

@@ -1,7 +1,7 @@
 namespace Arcana.Core;
 
 /// <summary>Los dos anillos ocupan posiciones propias; sus efectos no dependen de un afijo raro.</summary>
-public static class RingEffects
+public static partial class RingEffects
 {
     public static bool IsRing(EquipmentSlot slot) => slot is EquipmentSlot.GoldRing or EquipmentSlot.MagicRing;
     public static float Interval(int level) => 16 - Math.Clamp(level, 0, 10) * 0.8f;
@@ -34,20 +34,22 @@ public static class RingEffects
         EquipmentFamily.Earth => "Inflige daño de tierra y empuja a los enemigos cercanos.",
         _ => "Empuja a los enemigos cercanos sin causar daño."
     };
-    public static string Describe(EquipmentSlot slot, EquipmentFamily family, int level)
+    public static string Describe(EquipmentSlot slot, EquipmentFamily family, int level, EquipmentModifiers? equipment = null)
     {
         if (slot == EquipmentSlot.GoldRing) return "ANILLO DE ORO · " + ItemAffixes.Describe(new(ItemAffixKind.CoinDividend), level);
         if (slot != EquipmentSlot.MagicRing) return "";
         string element = ElementFor(family).HasValue ? EquipmentCatalogue.FamilyName(family) : "básico";
         string shield = family == EquipmentFamily.Mixed ? "Escudo básico" : "Escudo + " + element + (level >= 6 ? " + " + element : "");
-        return $"{ActionName(family)} · nivel {level}/10. {shield}: se repone cada {Interval(level):0.#} s aunque se rompa. " +
-            "No sustituye un escudo más fuerte ni interrumpe tus hechizos. " + ActionDescription(family) +
-            " Radio: 3 m (rayo: 4 m), con línea de visión. " +
+        return $"{ActionName(family)} · nivel {level}/10. {shield}: se repone cada {Interval(level):0.#} s aunque se rompa.\n" +
+            DescribeNumbers(family, level, equipment ?? EquipmentModifiers.None) + "\n" +
+            "No sustituye un escudo más fuerte ni interrumpe tus hechizos. " + ActionDescription(family) + " " +
             (level < 6 ? "Desde nivel 6 duplica el elemento y potencia la acción. " : "") +
             "Funciona en PvP y Supervivencia. Los anillos no cuentan para conjuntos.";
     }
-    public static string Describe(EquipmentItem item, int? level = null) => Describe(item.Slot, item.Family, level ?? item.UpgradeLevel);
-    public static string Describe(PublicEquipmentItem item) => Describe(item.Slot, item.Family, item.UpgradeLevel);
+    public static string Describe(EquipmentItem item, int? level = null, EquipmentModifiers? equipment = null) =>
+        Describe(item.Slot, item.Family, level ?? item.UpgradeLevel, equipment ?? ItemEquipment(item.Bonuses.Where(b => b.Stat == EquipmentStat.ShieldCapacity).Sum(b => b.Current)));
+    public static string Describe(PublicEquipmentItem item, EquipmentModifiers? equipment = null) =>
+        Describe(item.Slot, item.Family, item.UpgradeLevel, equipment ?? ItemEquipment(item.Bonuses.Where(b => b.Stat == EquipmentStat.ShieldCapacity).Sum(b => b.Current)));
 }
 
 public sealed record RingUpgradeRequest(string ItemId, int ExpectedLevel);

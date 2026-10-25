@@ -119,9 +119,13 @@ public partial class ItemShopPanel : Control
             Ui.TableCell(stats, "Valor", true, header: true); Ui.TableCell(stats, "Atributo", header: true);
             foreach (var bonus in offer.Item.Bonuses)
             {
-                Ui.TableCell(stats, EquipmentCatalogue.Percent(bonus.Current), true, bonus.Current < 0 ? Ui.Red : Ui.Blue);
+                bool active = EquipmentCatalogue.BonusActive(offer.Item.Slot, bonus.Stat);
+                Ui.TableCell(stats, active ? EquipmentCatalogue.Percent(bonus.Current) : "Inactivo", true,
+                    active ? bonus.Current < 0 ? Ui.Red : Ui.Blue : Ui.Muted);
                 Ui.TableCell(stats, EquipmentCatalogue.StatName(bonus.Stat)).TooltipText = EquipmentCatalogue.Percent(bonus.Minimum) + " / " + EquipmentCatalogue.Percent(bonus.Maximum);
             }
+            if (RingEffects.IsRing(offer.Item.Slot))
+                Wrapped(box, RingEffects.Describe(offer.Item, equipment: EquipmentQuery.Preview(result.Profile, offer.Item).After.Modifiers), 16, Ui.Gold);
             if (offer.Item.Affix != null) Wrapped(box, "Especial: " + ItemAffixes.Describe(offer.Item.Affix, offer.Item.UpgradeLevel, offer.Item.Slot), 16, Ui.Gold);
             var purchaseRow = new HBoxContainer(); purchaseRow.AddThemeConstantOverride("separation", 6); box.AddChild(purchaseRow);
             var compare = Ui.Button("Comparar", () =>

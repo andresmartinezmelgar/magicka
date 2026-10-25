@@ -2,6 +2,9 @@
 
 ## Sin publicar
 
+- El anillo mágico solo genera un atributo de capacidad de escudo y conserva su habilidad elemental; no recibe afijos ni estadísticas adicionales. Los anillos antiguos mantienen sus datos, pero los efectos retirados quedan inactivos y no se mejoran ni se suman al equipo. Catálogo 7.
+- Inventario, tienda, comparaciones y fichas públicas muestran los HP del escudo, duración, recarga, HP/s, daño por activación y DMG/s medio del anillo mágico, con los modificadores del equipo. Distinguen regeneración, curación por pulso, quemadura y daño por objetivo del rayo; las cifras excluyen rasgos de mago, reliquias y defensas del objetivo.
+
 - Los bonos de monedas son exclusivos del anillo de oro, tanto al generar objetos como al aplicar el equipo en PvP y Supervivencia. Botas, gorros, pechos, armas y anillos mágicos antiguos conservan sus atributos, nivel e identidad, pero sus afijos de oro quedan inactivos y se indican como tales. El catálogo 6 rechaza estos afijos en piezas nuevas de otra ranura; el anillo mantiene su progresión de nivel 0 a 10 y sus posibles porcentajes de oro.
 
 - Los efectos nuevos se seleccionan según el dispositivo y el rendimiento durante la partida. Los móviles con hardware limitado empiezan con los anteriores; una caída sostenida de FPS o tirones activa ese perfil, y los efectos nuevos vuelven tras 12 segundos estables.

@@ -116,6 +116,7 @@ public partial class PlayerEquipmentPanel : Control
     {
         _view = view;
         Clear(_pieces); Clear(_summary);
+        var ringEquipment = RingEffects.EquipmentFor(view.Equipment);
         _name.Text = view.Name + " · " + WizardTypes.Name(view.WizardType) + (view.Bot ? " · IA" : "");
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
@@ -125,7 +126,7 @@ public partial class PlayerEquipmentPanel : Control
             if (item == null) continue;
             if (RingEffects.IsRing(item.Slot))
             {
-                var effect = Ui.Label(RingEffects.Describe(item), 16, Ui.Gold);
+                var effect = Ui.Label(RingEffects.Describe(item, ringEquipment), 16, Ui.Gold);
                 effect.AutowrapMode = TextServer.AutowrapMode.WordSmart; _pieces.AddChild(effect);
             }
             if (item.Affix != null)
@@ -136,11 +137,16 @@ public partial class PlayerEquipmentPanel : Control
             var grid = Ui.Table(2, "PlayerPiece" + slot + "Table"); _pieces.AddChild(grid);
             Ui.TableCell(grid, "Actual", true, header: true); Ui.TableCell(grid, "Atributo", header: true);
             foreach (var bonus in item.Bonuses)
-            { Ui.TableCell(grid, EquipmentCatalogue.Percent(bonus.Current), true, bonus.Current < 0 ? Ui.Red : Ui.Blue); Ui.TableCell(grid, EquipmentPanel.StatName(bonus.Stat)); }
+            {
+                bool active = EquipmentCatalogue.BonusActive(item.Slot, bonus.Stat);
+                Ui.TableCell(grid, active ? EquipmentCatalogue.Percent(bonus.Current) : "Inactivo", true,
+                    active ? bonus.Current < 0 ? Ui.Red : Ui.Blue : Ui.Muted);
+                Ui.TableCell(grid, EquipmentPanel.StatName(bonus.Stat));
+            }
         }
         _summary.AddChild(Ui.Label("TOTAL DEL EQUIPO", 22, Ui.Gold));
         var specials = view.Equipment.Items.SelectMany(i => new[]
-            { ItemAffixes.Describe(ItemAffixes.Active(i.Affix, i.Slot), i.UpgradeLevel), RingEffects.Describe(i) })
+            { ItemAffixes.Describe(ItemAffixes.Active(i.Affix, i.Slot), i.UpgradeLevel), RingEffects.Describe(i, ringEquipment) })
             .Where(s => s.Length > 0).Distinct();
         var specialText = Ui.Label(string.Join("\n", specials), 16, Ui.Gold);
         specialText.AutowrapMode = TextServer.AutowrapMode.WordSmart; _summary.AddChild(specialText);

@@ -19,7 +19,8 @@ public sealed record PublicEquipment(PublicEquipmentItem[] Items, PublicEquipmen
         var summary = EquipmentModifiers.Summarize(profile, itemLevels);
         var items = Enum.GetValues<EquipmentSlot>().Select(slot => profile.Items.FirstOrDefault(i => i.Id == profile.Loadout.Get(slot)))
             .Where(i => i != null).Select(i => new PublicEquipmentItem(i!.Slot, i.Tier, i.Family,
-                i.Bonuses.Select(b => new PublicEquipmentBonus(b.Stat, b.Current)).ToArray())
+                i.Bonuses.Where(b => EquipmentCatalogue.BonusActive(i.Slot, b.Stat))
+                    .Select(b => new PublicEquipmentBonus(b.Stat, b.Current)).ToArray())
                 { Affix = ItemAffixes.Active(i.Affix, i.Slot), UpgradeLevel = itemLevels?.GetValueOrDefault(i.Id, i.UpgradeLevel) ?? i.UpgradeLevel }).ToArray();
         var sets = EquipmentCatalogue.FocusedFamilies.Where(f => summary.Modifiers.Pieces(f) > 0)
             .Select(f => new PublicEquipmentSet(f, summary.Modifiers.Pieces(f))).ToArray();
@@ -40,7 +41,7 @@ public sealed record PublicEquipment(PublicEquipmentItem[] Items, PublicEquipmen
         {
             if (item == null || !Enum.IsDefined(item.Slot) || !slots.Add(item.Slot) || !Enum.IsDefined(item.Tier) ||
                 !Enum.IsDefined(item.Family) || !ItemAffixes.Valid(item.Affix, item.Tier) || item.UpgradeLevel is < 0 or > 10 ||
-                item.Bonuses == null || item.Bonuses.Length is < 1 or > 4)
+                item.Bonuses == null || item.Bonuses.Length > 4 || item.Bonuses.Length == 0 && item.Slot != EquipmentSlot.MagicRing)
                 throw new InvalidDataException("Pieza pública inválida.");
             var bonuses = new HashSet<EquipmentStat>();
             foreach (var bonus in item.Bonuses)

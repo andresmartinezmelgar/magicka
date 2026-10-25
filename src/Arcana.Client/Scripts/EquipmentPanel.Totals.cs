@@ -35,7 +35,7 @@ public partial class EquipmentPanel
             foreach (var slot in slots)
             {
                 var piece = equipped.FirstOrDefault(i => i.Slot == slot);
-                float value = piece?.Bonuses.Where(b => b.Stat == stat.Stat).Sum(b => b.Current) ?? 0;
+                float value = piece?.Bonuses.Where(b => b.Stat == stat.Stat && EquipmentCatalogue.BonusActive(slot, b.Stat)).Sum(b => b.Current) ?? 0;
                 string amount = piece == null ? "—" : EquipmentCatalogue.Percent(value);
                 // La procedencia debe poder leerse también por tacto, sin depender de un tooltip.
                 if (compact)

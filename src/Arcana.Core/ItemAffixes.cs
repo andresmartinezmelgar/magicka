@@ -10,13 +10,14 @@ public static class ItemAffixes
     private static readonly ItemAffixKind[] GoldRingKinds = Enum.GetValues<ItemAffixKind>();
     public static bool IsGold(ItemAffixKind kind) => kind is ItemAffixKind.CoinDividend or ItemAffixKind.GoldBonus;
     public static bool Allowed(ItemAffixKind kind, EquipmentSlot slot) =>
-        Enum.IsDefined(kind) && Enum.IsDefined(slot) && (!IsGold(kind) || slot == EquipmentSlot.GoldRing);
+        Enum.IsDefined(kind) && Enum.IsDefined(slot) && slot != EquipmentSlot.MagicRing &&
+        (!IsGold(kind) || slot == EquipmentSlot.GoldRing);
     public static ItemAffix? Active(ItemAffix? affix, EquipmentSlot slot) =>
         affix != null && Allowed(affix.Kind, slot) ? affix : null;
 
     public static ItemAffix? Roll(Random random, ItemTier tier, EquipmentSlot slot)
     {
-        if (tier < ItemTier.Diamond) return null;
+        if (tier < ItemTier.Diamond || slot == EquipmentSlot.MagicRing) return null;
         var kinds = slot == EquipmentSlot.GoldRing ? GoldRingKinds : CombatKinds;
         var kind = kinds[random.Next(kinds.Length)];
         if (kind == ItemAffixKind.GoldBonus) return new(kind, tier == ItemTier.Mythic ? 20 : 10);
@@ -37,15 +38,17 @@ public static class ItemAffixes
             ItemAffixKind.LightningChain => tier == ItemTier.Mythic ? 2 : 1,
             _ => 1
         }));
-    // Los catálogos 1–5 siguen pudiendo cargarse, venderse y equiparse sin volver a sortear piezas.
-    // Active desactiva sus afijos de oro fuera del anillo; desde catálogo 6 no pueden generarse ni validarse allí.
+    // Los objetos anteriores conservan sus tiradas. Active excluye sus efectos retirados.
     public static bool Valid(ItemAffix? affix, ItemTier tier, EquipmentSlot slot, int generationVersion) =>
-        Valid(affix, tier) && (affix == null || Allowed(affix.Kind, slot) || generationVersion < 6);
+        Valid(affix, tier) && (affix == null || Allowed(affix.Kind, slot) ||
+            generationVersion < (IsGold(affix.Kind) ? 6 : 7));
     public static bool CanUpgrade(EquipmentItem item, int level) => level is >= 0 and < DefenseRules.ItemUpgradeLimit &&
         (item.Bonuses.Any(b => b.Current < b.Maximum) || RingEffects.IsRing(item.Slot));
     public static string Describe(ItemAffix? affix, int level = 0, EquipmentSlot? slot = null) => affix == null ? ""
         : slot.HasValue && !Allowed(affix.Kind, slot.Value)
-            ? "Afijo de oro antiguo inactivo: los bonos de oro solo funcionan en el anillo de oro."
+            ? slot == EquipmentSlot.MagicRing
+                ? "Afijo antiguo inactivo: el anillo mágico solo aporta capacidad de escudo y su habilidad elemental."
+                : "Afijo de oro antiguo inactivo: los bonos de oro solo funcionan en el anillo de oro."
         : affix.Kind switch
     {
         ItemAffixKind.BeamPierce => $"Los haces ofensivos atraviesan {affix.Value} enemigo(s) adicionales. Los escudos y las paredes detienen la penetración.",
@@ -64,7 +67,7 @@ public static class ItemAffixes
         modifiers.LightningChains > 0 ? Describe(new(ItemAffixKind.LightningChain, modifiers.LightningChains)) : "",
         modifiers.BurnPotency > 1 ? Describe(new(ItemAffixKind.DoubleBurn)) : "",
         modifiers.WaterShieldPool ? Describe(new(ItemAffixKind.WaterShieldPool)) : "",
-        modifiers.MagicRingFamily is { } family ? RingEffects.Describe(EquipmentSlot.MagicRing, family, modifiers.MagicRingLevel) : "",
+        modifiers.MagicRingFamily is { } family ? RingEffects.Describe(EquipmentSlot.MagicRing, family, modifiers.MagicRingLevel, modifiers) : "",
         modifiers.ExtraGoldEvery > 0 ? Describe(new(ItemAffixKind.CoinDividend), 11 - modifiers.ExtraGoldEvery) : "",
         modifiers.GoldBonusPercent > 0 ? Describe(new(ItemAffixKind.GoldBonus, modifiers.GoldBonusPercent)) : ""
     }.Where(s => s.Length > 0));

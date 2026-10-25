@@ -38,7 +38,7 @@ internal static class EquipmentElementTests
                 Check(item.Family == family && item.GenerationVersion == EquipmentCatalogue.GenerationVersion && EquipmentCatalogue.Valid(item), "Familia o versión de tirada incorrecta.");
                 Check(item.Bonuses[0].Stat == EquipmentCatalogue.MainStat(slot, family), "Se perdió el atributo principal de la posición.");
                 Check(item.Bonuses.Skip(1).All(b => EquipmentCatalogue.Pool(family).Contains(b.Stat) && b.Minimum > 0 && b.Current > 0), "Secundario ajeno a la familia.");
-                Check(item.Bonuses.Length == (tier == ItemTier.Mythic ? 4 : 3), "Cantidad de atributos incorrecta.");
+                Check(item.Bonuses.Length == (slot == EquipmentSlot.MagicRing ? 1 : tier == ItemTier.Mythic ? 4 : 3), "Cantidad de atributos incorrecta.");
             }
             for (int n = 0; n < 2000; n++) found.Add(EquipmentCatalogue.Generate(random, tier: ItemTier.Mythic, slot: EquipmentSlot.Weapon).Family);
             Check(found.SetEquals(EquipmentCatalogue.FocusedFamilies), "El sorteo aleatorio omite un elemento.");
