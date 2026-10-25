@@ -73,7 +73,7 @@ public partial class EquipmentPanel
             equippedLabel.MouseFilter = MouseFilterEnum.Ignore; description.AddChild(equippedLabel);
             string attributes = string.Join("\n", item.Bonuses.Select(b => StatName(b.Stat) + " " + EquipmentCatalogue.Percent(b.Current)));
             if (RingEffects.IsRing(item.Slot)) attributes += "\n" + RingEffects.Describe(item, ItemLevel(item));
-            if (item.Affix != null) attributes += "\nEspecial: " + ItemAffixes.Describe(item.Affix, ItemLevel(item));
+            if (item.Affix != null) attributes += "\nEspecial: " + ItemAffixes.Describe(item.Affix, ItemLevel(item), item.Slot);
             var stats = Ui.Label(attributes, Ui.IsMobile ? 18 : 17);
             stats.Name = "EquipmentItemStats_" + item.Id;
             stats.AutowrapMode = TextServer.AutowrapMode.WordSmart;

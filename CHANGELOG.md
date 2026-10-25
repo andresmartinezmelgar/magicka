@@ -2,6 +2,8 @@
 
 ## Sin publicar
 
+- Los bonos de monedas son exclusivos del anillo de oro, tanto al generar objetos como al aplicar el equipo en PvP y Supervivencia. Botas, gorros, pechos, armas y anillos mágicos antiguos conservan sus atributos, nivel e identidad, pero sus afijos de oro quedan inactivos y se indican como tales. El catálogo 6 rechaza estos afijos en piezas nuevas de otra ranura; el anillo mantiene su progresión de nivel 0 a 10 y sus posibles porcentajes de oro.
+
 - Los efectos nuevos se seleccionan según el dispositivo y el rendimiento durante la partida. Los móviles con hardware limitado empiezan con los anteriores; una caída sostenida de FPS o tirones activa ese perfil, y los efectos nuevos vuelven tras 12 segundos estables.
 - Fuego más denso, frío con cristales de seis puntas y agua con corrientes animadas, gotas y espuma. Fuego más agua genera vapor; las mezclas con arcano conservan su canal principal. El perfil reducido mantiene el lanzallamas aprobado con menos partículas.
 - Rayo con núcleo blanco, ramificaciones y brillo azul; arcano con núcleo violeta, filamentos y pulsos. Reutilizan los lotes gráficos existentes y conservan sus efectos anteriores como alternativa automática.

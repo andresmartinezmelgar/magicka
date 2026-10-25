@@ -274,8 +274,9 @@ public partial class EquipmentPanel : Control
         if (item?.Affix is { } affix)
         {
             Cell(_details, "Especial", true, Ui.Gold);
-            Cell(_details, affix.Kind == ItemAffixKind.CoinDividend ? $"Nivel {ItemLevel(item)}/10" : "Fijo", true, Ui.Muted);
-            Cell(_details, ItemAffixes.Describe(affix, ItemLevel(item)));
+            Cell(_details, ItemAffixes.Active(affix, item.Slot) == null ? "Inactivo"
+                : affix.Kind == ItemAffixKind.CoinDividend ? $"Nivel {ItemLevel(item)}/10" : "Fijo", true, Ui.Muted);
+            Cell(_details, ItemAffixes.Describe(affix, ItemLevel(item), item.Slot));
         }
         if (item != null && RingEffects.IsRing(item.Slot))
         {

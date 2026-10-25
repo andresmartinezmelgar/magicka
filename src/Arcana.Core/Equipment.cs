@@ -131,7 +131,7 @@ public sealed record EquipmentModifiers
                 extraGoldEvery = extraGoldEvery == 0 ? every : Math.Min(extraGoldEvery, every);
             }
             if (slot == EquipmentSlot.MagicRing) { ringFamily = item.Family; ringLevel = level; }
-            if (item.Affix is { } affix)
+            if (ItemAffixes.Active(item.Affix, slot) is { } affix)
                 switch (affix.Kind)
                 {
                     case ItemAffixKind.BeamPierce: beamPierce = Math.Max(beamPierce, affix.Value); break;
@@ -179,7 +179,7 @@ public sealed record EquipmentModifiers
 
 public static partial class EquipmentCatalogue
 {
-    public const int GenerationVersion = 5, InventoryLimit = 500;
+    public const int GenerationVersion = 6, InventoryLimit = 500;
     private static readonly int[] Sales = [10, 25, 60, 150, 400];
     private static readonly float[] MainMin = [0.01f, 0.02f, 0.03f, 0.06f, 0.08f], MainMax = [0.05f, 0.07f, 0.09f, 0.11f, 0.13f];
     private static readonly float[] ExtraMin = [-0.04f, -0.03f, -0.02f, 0.04f, 0.07f], ExtraMax = [0.06f, 0.08f, 0.10f, 0.10f, 0.14f];
@@ -270,7 +270,7 @@ public static partial class EquipmentCatalogue
         if (RingEffects.IsRing(position))
             bonuses = bonuses.Select(b => b with { Maximum = MathF.Round(b.Current + 0.10f, 4) }).ToList();
         return new(id ?? Guid.NewGuid().ToString("N"), position, quality, identity, bonuses.ToArray(), Sales[t], GenerationVersion, sourceMatchId, DateTimeOffset.UtcNow)
-        { Affix = ItemAffixes.Roll(random, quality) };
+        { Affix = ItemAffixes.Roll(random, quality, position) };
     }
     public static int TierChance(ItemTier tier) => tier switch
     { ItemTier.Silver => 48, ItemTier.Gold => 27, ItemTier.Platinum => 15, ItemTier.Diamond => 8, ItemTier.Mythic => 2, _ => 0 };
@@ -282,7 +282,7 @@ public static partial class EquipmentCatalogue
     }
     public static bool Valid(EquipmentItem item) => item != null && Guid.TryParseExact(item.Id, "N", out _) &&
         item.UpgradeLevel is >= 0 and <= 10 && Enum.IsDefined(item.Slot) && Enum.IsDefined(item.Tier) && Enum.IsDefined(item.Family) && item.GenerationVersion > 0 &&
-        ItemAffixes.Valid(item.Affix, item.Tier) &&
+        ItemAffixes.Valid(item.Affix, item.Tier, item.Slot, item.GenerationVersion) &&
         item.SaleGold is > 0 and <= 100000 && item.Bonuses is { Length: >= 1 and <= 4 } && item.Bonuses.All(b => b != null) &&
         item.Bonuses.Select(b => b.Stat).Distinct().Count() == item.Bonuses.Length && item.Bonuses.Any(b => b.Current > 0) &&
         item.Bonuses.All(b => Enum.IsDefined(b.Stat) && float.IsFinite(b.Minimum) && float.IsFinite(b.Maximum) && float.IsFinite(b.Current) &&

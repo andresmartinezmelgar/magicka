@@ -5,10 +5,20 @@ public enum ItemAffixKind { BeamPierce, LightningChain, DoubleBurn, WaterShieldP
 public sealed record ItemAffix(ItemAffixKind Kind, int Value = 1);
 public static class ItemAffixes
 {
-    public static ItemAffix? Roll(Random random, ItemTier tier)
+    private static readonly ItemAffixKind[] CombatKinds =
+        [ItemAffixKind.BeamPierce, ItemAffixKind.LightningChain, ItemAffixKind.DoubleBurn, ItemAffixKind.WaterShieldPool];
+    private static readonly ItemAffixKind[] GoldRingKinds = Enum.GetValues<ItemAffixKind>();
+    public static bool IsGold(ItemAffixKind kind) => kind is ItemAffixKind.CoinDividend or ItemAffixKind.GoldBonus;
+    public static bool Allowed(ItemAffixKind kind, EquipmentSlot slot) =>
+        Enum.IsDefined(kind) && Enum.IsDefined(slot) && (!IsGold(kind) || slot == EquipmentSlot.GoldRing);
+    public static ItemAffix? Active(ItemAffix? affix, EquipmentSlot slot) =>
+        affix != null && Allowed(affix.Kind, slot) ? affix : null;
+
+    public static ItemAffix? Roll(Random random, ItemTier tier, EquipmentSlot slot)
     {
         if (tier < ItemTier.Diamond) return null;
-        var kind = (ItemAffixKind)random.Next(Enum.GetValues<ItemAffixKind>().Length);
+        var kinds = slot == EquipmentSlot.GoldRing ? GoldRingKinds : CombatKinds;
+        var kind = kinds[random.Next(kinds.Length)];
         if (kind == ItemAffixKind.GoldBonus) return new(kind, tier == ItemTier.Mythic ? 20 : 10);
         int maximum = kind switch
         {
@@ -27,9 +37,16 @@ public static class ItemAffixes
             ItemAffixKind.LightningChain => tier == ItemTier.Mythic ? 2 : 1,
             _ => 1
         }));
+    // Los catálogos 1–5 siguen pudiendo cargarse, venderse y equiparse sin volver a sortear piezas.
+    // Active desactiva sus afijos de oro fuera del anillo; desde catálogo 6 no pueden generarse ni validarse allí.
+    public static bool Valid(ItemAffix? affix, ItemTier tier, EquipmentSlot slot, int generationVersion) =>
+        Valid(affix, tier) && (affix == null || Allowed(affix.Kind, slot) || generationVersion < 6);
     public static bool CanUpgrade(EquipmentItem item, int level) => level is >= 0 and < DefenseRules.ItemUpgradeLimit &&
-        (item.Bonuses.Any(b => b.Current < b.Maximum) || item.Affix?.Kind == ItemAffixKind.CoinDividend || RingEffects.IsRing(item.Slot));
-    public static string Describe(ItemAffix? affix, int level = 0) => affix == null ? "" : affix.Kind switch
+        (item.Bonuses.Any(b => b.Current < b.Maximum) || RingEffects.IsRing(item.Slot));
+    public static string Describe(ItemAffix? affix, int level = 0, EquipmentSlot? slot = null) => affix == null ? ""
+        : slot.HasValue && !Allowed(affix.Kind, slot.Value)
+            ? "Afijo de oro antiguo inactivo: los bonos de oro solo funcionan en el anillo de oro."
+        : affix.Kind switch
     {
         ItemAffixKind.BeamPierce => $"Los haces ofensivos atraviesan {affix.Value} enemigo(s) adicionales. Los escudos y las paredes detienen la penetración.",
         ItemAffixKind.LightningChain => $"Los relámpagos saltan a {affix.Value} enemigo(s) adicionales a un máximo de 5 m por salto, con línea de visión.",

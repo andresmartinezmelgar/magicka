@@ -9,6 +9,8 @@ internal static class GoldEquipmentTests
         typeof(GameWorld).GetMethod(method, BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(world, args);
     private static EquipmentItem Item(EquipmentSlot slot, ItemAffixKind kind, int value = 1) =>
         EquipmentCatalogue.Generate(new(5 + (int)slot), tier: ItemTier.Mythic, slot: slot) with { Affix = new(kind, value) };
+    private static EquipmentItem Legacy(EquipmentSlot slot, ItemAffixKind kind, int value = 1) =>
+        Item(slot, kind, value) with { GenerationVersion = 5 };
     private static AccountProfile Profile(params EquipmentItem[] items)
     {
         var loadout = new EquipmentLoadout();
@@ -19,8 +21,7 @@ internal static class GoldEquipmentTests
     {
         var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, Seed = 771, MaxPlayers = 4 });
         var player = world.AddPlayer("Mago")!;
-        Call(world, "GrantDefenseItem", player, Item(EquipmentSlot.Boots, ItemAffixKind.CoinDividend));
-        Call(world, "GrantDefenseItem", player, Item(EquipmentSlot.Hat, ItemAffixKind.GoldBonus, 10));
+        Call(world, "GrantDefenseItem", player, Item(EquipmentSlot.GoldRing, ItemAffixKind.GoldBonus, 10));
         return (world, player);
     }
     private static int Gold(GameWorld world, Wizard player) => world.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == player.Id).Gold;
@@ -35,9 +36,9 @@ internal static class GoldEquipmentTests
 
     public static void Run(Action<string, Action> test)
     {
-        test("Oro: el afijo progresa de una moneda extra cada once a una por moneda", () =>
+        test("Oro: el anillo progresa de una moneda extra cada once a una por moneda", () =>
         {
-            var item = Item(EquipmentSlot.Boots, ItemAffixKind.CoinDividend);
+            var item = Item(EquipmentSlot.GoldRing, ItemAffixKind.CoinDividend);
             var profile = Profile(item);
             int[] expected = [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
             for (int level = 0; level <= 10; level++)
@@ -54,9 +55,9 @@ internal static class GoldEquipmentTests
                 Check(copy.Equipment.Items.Single().UpgradeLevel == level && ItemAffixes.Summary(gear).Contains($"nivel {level}/10"),
                     "La ficha o la descripción no muestran el nivel real de la pieza.");
             }
-            var second = Item(EquipmentSlot.Weapon, ItemAffixKind.CoinDividend);
-            Check(EquipmentModifiers.Calculate(Profile(item, second), new Dictionary<string, int> { [item.Id] = 5, [second.Id] = 10 }).ExtraGoldEvery == 1,
-                "Varias piezas suman sus bonos en vez de usar la mejor.");
+            var second = Legacy(EquipmentSlot.Weapon, ItemAffixKind.CoinDividend);
+            Check(EquipmentModifiers.Calculate(Profile(item, second), new Dictionary<string, int> { [item.Id] = 5, [second.Id] = 10 }).ExtraGoldEvery == 6,
+                "Un afijo antiguo de arma altera el intervalo del anillo.");
         });
         test("Oro: mejorar o quitar una pieza conserva fracciones sin pagar bonos retroactivos", () =>
         {
@@ -68,11 +69,11 @@ internal static class GoldEquipmentTests
             Check(GoldBonuses.Apply(1, 0, 0, ref coin, ref percent) == 1 && coin == fraction, "Una pieza quitada sigue concediendo oro.");
             Check(GoldBonuses.Apply(1, 11, 0, ref coin, ref percent) == 2 && coin == 0, "Se perdió el progreso al cambiar de pieza.");
         });
-        test("Supervivencia: el afijo llega a nivel diez aunque los atributos estén al máximo", () =>
+        test("Supervivencia: el anillo llega a nivel diez aunque los atributos estén al máximo", () =>
         {
             var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, Seed = 77, MaxPlayers = 4 });
             var player = world.AddPlayer("Mago")!;
-            var item = Item(EquipmentSlot.Boots, ItemAffixKind.CoinDividend);
+            var item = Item(EquipmentSlot.GoldRing, ItemAffixKind.CoinDividend);
             item = item with { Bonuses = item.Bonuses.Select(b => b with { Current = b.Maximum }).ToArray() };
             Call(world, "GrantDefenseItem", player, item);
             var progress = ((IDictionary)typeof(GameWorld).GetField("_defenders", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(world)!)[player.Id]!;
@@ -125,7 +126,7 @@ internal static class GoldEquipmentTests
         test("Inventario: la pieza equipada precede a una mítica incluso al ordenar por atributo", () =>
         {
             var low = EquipmentCatalogue.Generate(new(5), tier: ItemTier.Silver, slot: EquipmentSlot.Weapon);
-            var high = Item(EquipmentSlot.Weapon, ItemAffixKind.GoldBonus, 20);
+            var high = Item(EquipmentSlot.Weapon, ItemAffixKind.BeamPierce, 3);
             foreach (EquipmentStat? stat in new EquipmentStat?[] { null, EquipmentStat.Power, EquipmentStat.ColdPower })
                 Check(EquipmentQuery.Sort([high, low], stat, low.Id).First().Id == low.Id, "La calidad desplazó a la equipada.");
             var profile = Profile(low) with { Items = [low, high] };
@@ -137,14 +138,20 @@ internal static class GoldEquipmentTests
             try { AccountInventory.Sell(profile, low.Id); throw new Exception("La venta autoritativa retiró una equipada."); }
             catch (ArgumentException) { }
         });
-        test("Oro: se generan ambos afijos en calidades altas y se describen sus dos modos", () =>
+        test("Oro: los dos afijos solo se generan en el anillo de oro y las calidades previstas", () =>
         {
             var kinds = new HashSet<ItemAffixKind>();
-            for (int seed = 0; seed < 1000; seed++)
+            foreach (var slot in Enum.GetValues<EquipmentSlot>())
+            foreach (var tier in Enum.GetValues<ItemTier>())
+            for (int seed = 0; seed < 160; seed++)
             {
-                var item = EquipmentCatalogue.Generate(new(seed), tier: seed % 2 == 0 ? ItemTier.Diamond : ItemTier.Mythic);
+                var item = EquipmentCatalogue.Generate(new(seed), tier: tier, slot: slot);
                 Check(EquipmentCatalogue.Valid(item), "El catálogo generó un afijo inválido.");
-                kinds.Add(item.Affix!.Kind);
+                if (item.Affix == null) continue;
+                kinds.Add(item.Affix.Kind);
+                if (item.Affix.Kind is ItemAffixKind.CoinDividend or ItemAffixKind.GoldBonus)
+                    Check(slot == EquipmentSlot.GoldRing && tier >= ItemTier.Diamond,
+                        "Una pieza distinta del anillo de oro recibió un bono de monedas.");
             }
             foreach (var kind in new[] { ItemAffixKind.CoinDividend, ItemAffixKind.GoldBonus })
             {
@@ -156,18 +163,67 @@ internal static class GoldEquipmentTests
             }
             Check(!ItemAffixes.Valid(new(ItemAffixKind.GoldBonus, 100), ItemTier.Mythic), "Se aceptó un porcentaje sin límite.");
         });
-        test("Oro: solo actúa el equipo puesto y los efectos iguales usan el más alto", () =>
+        test("Oro: solo actúa el anillo equipado y las piezas antiguas no aumentan sus bonos", () =>
         {
-            var items = new[] { Item(EquipmentSlot.Boots, ItemAffixKind.CoinDividend), Item(EquipmentSlot.Hat, ItemAffixKind.GoldBonus, 10),
-                Item(EquipmentSlot.Chest, ItemAffixKind.GoldBonus, 20), Item(EquipmentSlot.Weapon, ItemAffixKind.GoldBonus, 20) };
+            var items = new[] { Legacy(EquipmentSlot.Boots, ItemAffixKind.CoinDividend), Legacy(EquipmentSlot.Hat, ItemAffixKind.GoldBonus, 20),
+                Legacy(EquipmentSlot.Chest, ItemAffixKind.GoldBonus, 20), Legacy(EquipmentSlot.Weapon, ItemAffixKind.GoldBonus, 20),
+                Legacy(EquipmentSlot.MagicRing, ItemAffixKind.GoldBonus, 20), Item(EquipmentSlot.GoldRing, ItemAffixKind.GoldBonus, 10) };
             var profile = Profile(items);
             var gear = EquipmentModifiers.Calculate(profile);
-            Check(gear.ExtraGoldEvery == 11 && gear.GoldBonusPercent == 20, "Se sumaron porcentajes duplicados.");
+            Check(gear.ExtraGoldEvery == 11 && gear.GoldBonusPercent == 10 && gear.MagicRingFamily != null,
+                "Una pieza antigua aportó oro o se desactivó el efecto propio del anillo mágico.");
+            var withoutRing = EquipmentModifiers.Calculate(profile with { Loadout = profile.Loadout.With(EquipmentSlot.GoldRing, "") });
+            Check(withoutRing.ExtraGoldEvery == 0 && withoutRing.GoldBonusPercent == 0, "Quitar el anillo dejó oro activo en otras piezas.");
             var empty = EquipmentModifiers.Calculate(profile with { Loadout = new() });
             Check(empty.ExtraGoldEvery == 0 && empty.GoldBonusPercent == 0, "Una pieza de la mochila concede oro.");
             var publicGear = PublicEquipment.Prepare(profile).View;
             PublicEquipment.Check(new(1, "Mago", WizardType.Balanced, false, publicGear));
+            Check(publicGear.Items.Where(i => i.Slot != EquipmentSlot.GoldRing).All(i => i.Affix == null),
+                "La ficha pública presenta afijos de oro inactivos como efectos equipados.");
             Check(Protocol.Deserialize<EquipmentItem>(Protocol.Serialize(items[0]))!.Affix == items[0].Affix, "Se perdió el afijo al guardar.");
+        });
+        test("Oro: las piezas antiguas conservan identidad, atributos y nivel, pero no compran mejoras de oro", () =>
+        {
+            foreach (var slot in Enum.GetValues<EquipmentSlot>().Where(s => s != EquipmentSlot.GoldRing))
+            foreach (var kind in new[] { ItemAffixKind.CoinDividend, ItemAffixKind.GoldBonus })
+            {
+                var item = Legacy(slot, kind, kind == ItemAffixKind.GoldBonus ? 20 : 1) with { UpgradeLevel = 5 };
+                item = item with { Bonuses = item.Bonuses.Select(b => b with { Current = b.Maximum }).ToArray() };
+                Check(EquipmentCatalogue.Valid(item) && !EquipmentCatalogue.Valid(item with { GenerationVersion = 6 }),
+                    "Se rechazó una pieza antigua o se admitió una tirada nueva fuera del anillo.");
+                var profile = Profile(item);
+                var saved = Protocol.Deserialize<AccountProfile>(Protocol.Serialize(profile))!;
+                var copy = saved.Items.Single();
+                Check(copy.Id == item.Id && copy.Affix == item.Affix && copy.UpgradeLevel == 5 && copy.Bonuses.SequenceEqual(item.Bonuses),
+                    "La corrección volvió a sortear o borró la pieza antigua.");
+                var equipped = AccountInventory.ApplyLoadout(saved, saved.Loadout);
+                var gear = EquipmentModifiers.Calculate(equipped);
+                Check(gear.ExtraGoldEvery == 0 && gear.GoldBonusPercent == 0 &&
+                    ItemAffixes.Describe(copy.Affix, copy.UpgradeLevel, copy.Slot).Contains("inactivo"),
+                    "Una pieza antigua sigue aplicando o anunciando el oro como activo.");
+                Check(ItemAffixes.CanUpgrade(copy, 5) == RingEffects.IsRing(slot),
+                    "Un afijo de oro antiguo permite cobrar mejoras sin estadísticas que mejorar.");
+                Check(AccountInventory.Sell(saved with { Loadout = new() }, copy.Id).Items.Length == 0,
+                    "La pieza antigua no se puede vender al desequiparla.");
+            }
+        });
+        test("Supervivencia: el oro de piezas antiguas queda inactivo también al guardar y continuar", () =>
+        {
+            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, Seed = 771, MaxPlayers = 4 });
+            var player = world.AddPlayer("Mago")!;
+            foreach (var slot in Enum.GetValues<EquipmentSlot>().Where(s => s != EquipmentSlot.GoldRing))
+                Call(world, "GrantDefenseItem", player, Legacy(slot, slot == EquipmentSlot.Boots ? ItemAffixKind.CoinDividend : ItemAffixKind.GoldBonus,
+                    slot == EquipmentSlot.Boots ? 1 : 20));
+            int before = Gold(world, player); Pickup(world, player, 11);
+            Check(Gold(world, player) == before + 11 && player.Equipment.ExtraGoldEvery == 0 && player.Equipment.GoldBonusPercent == 0,
+                "Las recogidas de Supervivencia aplican el oro antiguo sin anillo.");
+            var saved = world.SaveSurvival(player.Id, Guid.NewGuid().ToString("N"));
+            var restored = GameWorld.RestoreSurvival(saved); var continued = restored.Players[player.Id];
+            before = Gold(restored, continued); Pickup(restored, continued, 11);
+            Check(Gold(restored, continued) == before + 11 && continued.Equipment.ExtraGoldEvery == 0 && continued.Equipment.GoldBonusPercent == 0 &&
+                restored.Snapshot().Defense!.Defenders.Single().Items.All(i => i.Item.GenerationVersion == 5 && i.Item.Affix != null),
+                "Continuar reactivó el oro antiguo o perdió las piezas guardadas.");
+            SnapshotValidation.Check(restored.Snapshot());
         });
         test("Oro: conserva monedas y decimales entre recogidas y suma bonos sobre la base", () =>
         {

@@ -20,7 +20,7 @@ public sealed record PublicEquipment(PublicEquipmentItem[] Items, PublicEquipmen
         var items = Enum.GetValues<EquipmentSlot>().Select(slot => profile.Items.FirstOrDefault(i => i.Id == profile.Loadout.Get(slot)))
             .Where(i => i != null).Select(i => new PublicEquipmentItem(i!.Slot, i.Tier, i.Family,
                 i.Bonuses.Select(b => new PublicEquipmentBonus(b.Stat, b.Current)).ToArray())
-                { Affix = i.Affix, UpgradeLevel = itemLevels?.GetValueOrDefault(i.Id, i.UpgradeLevel) ?? i.UpgradeLevel }).ToArray();
+                { Affix = ItemAffixes.Active(i.Affix, i.Slot), UpgradeLevel = itemLevels?.GetValueOrDefault(i.Id, i.UpgradeLevel) ?? i.UpgradeLevel }).ToArray();
         var sets = EquipmentCatalogue.FocusedFamilies.Where(f => summary.Modifiers.Pieces(f) > 0)
             .Select(f => new PublicEquipmentSet(f, summary.Modifiers.Pieces(f))).ToArray();
         return new(summary.Modifiers, new(items, sets, summary.Stats));
