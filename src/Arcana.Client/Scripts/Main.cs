@@ -840,6 +840,7 @@ public partial class Main : Node
         GetViewport().SizeChanged -= UpdateInGameHelpResponsive;
         CancelGameLoading();
         WizardSprites.ClearCache();
+        ElementChannelVisuals.ClearCache();
         Interlocked.Exchange(ref _exiting, 1); _lifetime.Cancel();
         _google?.Dispose();
         _desktopGoogle?.Dispose();

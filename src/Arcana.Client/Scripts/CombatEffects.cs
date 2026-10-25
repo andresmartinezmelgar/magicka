@@ -102,10 +102,10 @@ public partial class CombatEffects : Node3D
             spark.Node.Position = position; spark.Node.Rotation = Vector3.Zero; spark.Node.Scale = spark.Size; spark.Node.Visible = true;
             spark.Batch = null;
         }
-        else if (shape == FlameVisuals.Shape)
+        else if (shape >= FlameVisuals.Shape)
         {
             if (spark.Node != null) spark.Node.Visible = false;
-            PrepareFlamethrower(); spark.Batch = _flameBatch;
+            spark.Batch = ChannelBatch(shape);
         }
         else
         {
@@ -244,10 +244,12 @@ public partial class CombatEffects : Node3D
             if (p.Life <= 0)
             {
                 if (p.Shape == FlameVisuals.Shape) _activeFlames--;
+                if (p.Shape >= FlameVisuals.Shape) _activeChannels--;
+                if (p.Shape == ElementChannelVisuals.Steam) _activeSteam--;
                 if (p.Node != null) p.Node.Visible = false;
                 _freeSparks.Push(p); _sparks[i] = _sparks[^1]; _sparks.RemoveAt(_sparks.Count - 1); continue;
             }
-            if (p.Shape == FlameVisuals.Shape) AdvanceFlame(p);
+            if (p.Shape >= FlameVisuals.Shape) AdvanceChannel(p);
             else if (p.FixedSpan)
                 p.Node!.Scale = new(p.Size.X, 1, Math.Max(0.04f, p.Life / p.Duration));
             else
@@ -268,8 +270,9 @@ public partial class CombatEffects : Node3D
             float radius = Mathf.Lerp(w.Start, w.End, 1 - w.Life / w.Duration);
             w.Node.Scale = new(radius, Math.Max(0.03f, w.Life / w.Duration) * 0.6f, radius);
         }
+        AdvanceWaterJets(snapshot, dt, playing);
         if (!playing) { FinishFrame(); return; }
-        EmitFlamethrowers(snapshot, dt);
+        EmitElementChannels(snapshot, dt);
         _trailClock += dt; _statusClock += dt;
         if (_trailClock >= 0.065f)
         {
@@ -295,15 +298,16 @@ public partial class CombatEffects : Node3D
             }
             foreach (var b in snapshot.Beams)
             {
-                if (FlameVisuals.Matches(b)) continue;
+                if (UsesChannelParticles(b)) continue;
                 var strength = SpellVisualStrength.For(b.Elements); SeenCharges.Add(strength.Charges);
                 bool cone = b.Shape == SpellShape.Spray;
-                bool fire = cone && b.Elements.Contains(Element.Fire);
+                bool steam = ElementChannelVisuals.IsSteam(b.Elements);
+                bool fire = cone && b.Elements.Contains(Element.Fire) && !steam;
                 bool frost = cone && b.Elements.Contains(Element.Cold);
                 bool water = cone && b.Elements.Contains(Element.Water);
                 var forward = ArenaRenderer.World(b.To - b.From).Normalized();
                 var side = forward.Cross(Vector3.Up).Normalized();
-                var baseColor = Ui.SpellColor(b.Elements);
+                var baseColor = steam ? new Color("dce8ec") : Ui.SpellColor(b.Elements);
                 int samples = strength.ChannelSamples + (cone ? strength.Charges : 0);
                 for (int i = 0; i < samples; i++)
                 {
@@ -312,12 +316,12 @@ public partial class CombatEffects : Node3D
                     float lateral = ((float)_random.NextDouble() * 2 - 1) * width;
                     var at = ArenaRenderer.World(V2.Lerp(b.From, b.To, t), 1)
                         + side * lateral;
-                    Color accent = fire ? new Color("ffd78b") : frost ? new Color("d5f5ff")
+                    Color accent = steam ? new Color("edf1f3") : fire ? new Color("ffd78b") : frost ? new Color("d5f5ff")
                         : water ? new Color("92eaff") : baseColor;
                     Color particleColor = i % 3 == 0 ? accent : baseColor;
                     Emit(at, particleColor, forward * (cone ? 1.55f : 0.35f)
-                        + side * (cone ? lateral * 0.38f : 0) + Vector3.Up * (fire ? 0.45f : 0.06f),
-                        cone ? 0.30f : 0.20f,
+                        + side * (cone ? lateral * 0.38f : 0) + Vector3.Up * (steam ? .65f : fire ? 0.45f : 0.06f),
+                        steam ? .4f : cone ? 0.30f : 0.20f,
                         fire ? 2 : frost ? 1 : 0,
                         strength.SparkSize * (cone ? 0.92f : 0.7f), fire ? -0.15f : 0);
                 }
@@ -349,7 +353,7 @@ public partial class CombatEffects : Node3D
                 {
                     var elements = p.CastingElements is { Length: > 0 } ? p.CastingElements : p.Selected;
                     if (elements.Length == 0) continue;
-                    if (HasFlameChannel(snapshot, p.Id)) continue;
+                    if (HasElementChannel(snapshot, p.Id)) continue;
                     var strength = SpellVisualStrength.For(elements); SeenCharges.Add(strength.Charges);
                     var imbuements = elements.Contains(Element.Earth) ? StoneVisuals.Imbuements(elements) : [];
                     for (int i = 0; i < strength.ChannelSamples; i++)
@@ -395,20 +399,35 @@ public partial class CombatEffects : Node3D
     {
         foreach (var batch in _particleBatches.Values) batch.Begin();
         _flameBatch?.Begin();
+        foreach (var batch in _channelBatches.Values) batch.Begin();
         foreach (var spark in _sparks)
         {
-            if (spark.Shape == FlameVisuals.Shape)
+            if (spark.Shape >= FlameVisuals.Shape)
             {
-                var up = spark.FlameForward.Cross(spark.FlameSide);
-                var basis = new Basis(spark.FlameSide * spark.Scale.X, up * spark.Scale.Y,
-                    spark.FlameForward * spark.Scale.Z);
+                float age = 1 - spark.Life / spark.Duration;
+                Basis basis; float opacity;
+                if (spark.Shape == FlameVisuals.Shape)
+                {
+                    var up = spark.FlameForward.Cross(spark.FlameSide);
+                    basis = new(spark.FlameSide * spark.Scale.X, up * spark.Scale.Y, spark.FlameForward * spark.Scale.Z);
+                    opacity = .48f;
+                }
+                else
+                {
+                    float angle = spark.Shape == ElementChannelVisuals.Ice ? spark.FlameSeed * Mathf.Tau + age
+                        : spark.Shape == ElementChannelVisuals.Water ? MathF.Atan2(spark.FlameForward.Dot(Billboard.Y), spark.FlameForward.Dot(Billboard.X)) : 0;
+                    var rotation = Billboard * new Basis(Vector3.Back, angle);
+                    basis = new(rotation.X * spark.Scale.X, rotation.Y * spark.Scale.Y, rotation.Z * spark.Scale.Z);
+                    opacity = spark.Shape == ElementChannelVisuals.Ice ? .94f : spark.Shape == ElementChannelVisuals.Water ? .74f : .22f;
+                }
                 spark.Batch!.Add(new Transform3D(basis, spark.Position),
-                    new(1 - spark.Life / spark.Duration, spark.FlameSeed, spark.FlamePower, .48f));
+                    new(age, spark.FlameSeed, spark.FlamePower, opacity));
             }
             else spark.Batch?.Add(new Transform3D(new Basis(Vector3.Up, spark.Angle).Scaled(spark.Scale), spark.Position));
         }
         foreach (var batch in _particleBatches.Values) batch.Commit();
         _flameBatch?.Commit();
+        foreach (var batch in _channelBatches.Values) batch.Commit();
         EmittedLastFrame = _emittedThisFrame; _emittedThisFrame = 0;
         // No unir tandas distintas si una base de red descartó la cabecera de origen.
         _chainFrom = null; _chainLinks = 0;
@@ -417,8 +436,7 @@ public partial class CombatEffects : Node3D
     {
         foreach (var p in _sparks) { if (p.Node != null) p.Node.Visible = false; _freeSparks.Push(p); } _sparks.Clear();
         foreach (var batch in _particleBatches.Values) batch.Clear();
-        _flameBatch?.Clear(); _activeFlames = _flameCursor = 0;
-        _flameClock = 1f / 30; _flameEmitters.Clear();
+        ClearChannelParticles(); ClearWaterJets();
         foreach (var w in _waves) { w.Node.Visible = false; _freeWaves.Push(w); } _waves.Clear();
         _trailClock = _statusClock = 0; _emittedThisFrame = EmittedLastFrame = 0;
         _chainFrom = null; _chainLinks = 0;

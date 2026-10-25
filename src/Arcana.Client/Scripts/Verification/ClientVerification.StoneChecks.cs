@@ -38,7 +38,10 @@ public partial class ClientVerification
         }
         _runtime.Renderer.Clear();
         _runtime.Renderer.Render(empty with { Projectiles = [new(1, 1, V2.Zero, new(1, 0), [Element.Water, Element.Cold], 0.16f)] }, 0, 1/60.0, true);
-        if (_runtime.Renderer.ProjectileVisuals[1].GetChildren().OfType<MeshInstance3D>().First().Mesh is not PrismMesh) return false;
+        var ice = _runtime.Renderer.ProjectileVisuals[1].GetNode<MeshInstance3D>("IceCore");
+        if (_runtime.Renderer.Effects.EnhancedSpells
+            ? ice.Mesh != ElementChannelVisuals.Mesh(ElementChannelVisuals.Ice)
+            : ice.Mesh != ElementChannelVisuals.LegacyIce) return false;
         _runtime.Renderer.Clear();
         var wizard = VisualFixture.Create("stone").Players[0] with { Shield = 650, ShieldMax = 650, Frozen = 0 };
         void Render(WizardSnapshot player) => _runtime.Renderer.Render(empty with { Players = [player] }, player.Id, 1/60.0, true);

@@ -1,4 +1,5 @@
 using Arcana.Core;
+using Godot;
 
 namespace Arcana.Client;
 
@@ -24,9 +25,13 @@ public partial class Main
         for (; percentile < 1000; percentile++)
         { count += _defenseFrameTimes[percentile]; if (count >= Math.Ceiling(_defenseSampleFrames * 0.95)) break; }
         float fps = (float)Math.Clamp(_defenseSampleFrames / _defenseSampleSeconds, 1, 240);
-        bool slow = fps < 48 || percentile > 28;
+        int target = Math.Clamp(Engine.MaxFps > 0 ? Engine.MaxFps : 60, 30, 60);
+        bool slow = fps < target * .8f || percentile > 1000f / target * 1.7f;
         _defenseSlowWindows = slow ? _defenseSlowWindows + 1 : 0;
         _renderer.Effects.DetailScale = slow ? percentile > 45 ? 0.35f : 0.6f : 1;
+        // Los fixtures de imagen usan un paso fijo y no representan FPS reales del dispositivo.
+        if (_verification?.FixedRenderStep != true)
+            SpellEffectQuality.Observe(fps, percentile, _defenseSampleSeconds);
         // Primero reduce partículas decorativas; los avisos y las áreas de daño conservan su representación.
         Submit(new() { Type = defense != null ? "defense_performance" : "match_performance", FramesPerSecond = fps,
             FrameTime95 = percentile });

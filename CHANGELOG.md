@@ -2,6 +2,11 @@
 
 ## Sin publicar
 
+- Los efectos nuevos se seleccionan según el dispositivo y el rendimiento durante la partida. Los móviles con hardware limitado empiezan con los anteriores; una caída sostenida de FPS o tirones activa ese perfil, y los efectos nuevos vuelven tras 12 segundos estables.
+- Fuego más denso, frío con cristales de seis puntas y agua con corrientes animadas, gotas y espuma. Fuego más agua genera vapor; las mezclas con arcano conservan su canal principal. El perfil reducido mantiene el lanzallamas aprobado con menos partículas.
+- Rayo con núcleo blanco, ramificaciones y brillo azul; arcano con núcleo violeta, filamentos y pulsos. Reutilizan los lotes gráficos existentes y conservan sus efectos anteriores como alternativa automática.
+- Presupuestos compartidos y objetos reutilizados para limitar el coste visual. No cambian daños, alcance, colisiones, recetas ni protocolo. Compilación y pruebas en dispositivo pendientes de la próxima solicitud de publicación.
+
 ## 0.29.18 — Lanzallamas y partículas del equipo
 
 - El lanzallamas emite lenguas de fuego con volumen desde el báculo: avanzan, se abren, se curvan y desaparecen al cortar el ataque. Sustituyen al cono visible sin cambiar daño, alcance ni reglas. Incluye anclajes para los cinco magos y cuatro direcciones, partículas agrupadas y límites adaptados al rendimiento.

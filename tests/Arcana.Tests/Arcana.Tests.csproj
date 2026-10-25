@@ -2,4 +2,5 @@
   <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
   <ItemGroup><ProjectReference Include="../../src/Arcana.Core/Arcana.Core.csproj" /></ItemGroup>
   <ItemGroup><Compile Include="../../src/Arcana.Server/ServerSettings.cs" Link="ServerSettings.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../../src/Arcana.Client/Scripts/AdaptiveSpellQuality.cs" Link="AdaptiveSpellQuality.cs" /></ItemGroup>
 </Project>

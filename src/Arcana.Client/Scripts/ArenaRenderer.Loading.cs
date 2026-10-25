@@ -19,6 +19,8 @@ public partial class ArenaRenderer
         for (int i = 0; i < CombatEffects.ParticleLimit / 32; i++)
             yield return ("Preparando los efectos…", _effects.PreparePoolBatch);
         yield return ("Preparando el lanzallamas…", _effects.PrepareFlamethrower);
+        if (!SpellEffectQuality.Policy.LegacyOnly)
+            yield return ("Preparando hielo, agua y vapor…", _effects.PrepareElementChannels);
 
         var player = initial.Players.First(p => p.Id == localId);
         V2 center = player.Position;

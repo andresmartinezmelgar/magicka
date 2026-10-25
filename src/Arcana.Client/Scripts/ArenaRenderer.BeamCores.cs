@@ -7,7 +7,8 @@ public partial class ArenaRenderer
     private readonly Dictionary<Color, InstanceDrawBatch> _beamCoreBatches = [];
     private Shader? _beamCoreShader;
 
-    private void BatchBeamCore(Vector3 from, Vector3 to, float length, Color color, float radius, float endRadius)
+    private void BatchBeamCore(Vector3 from, Vector3 to, float length, Color color, float radius, float endRadius,
+        bool continuous = false)
     {
         // La carga cambia el alfa continuamente. Agrupar por RGB evita crear
         // un material/lote por cada valor de potencia de un canal.
@@ -19,12 +20,15 @@ public partial class ArenaRenderer
                 render_mode unshaded, cull_disabled, blend_mix, depth_draw_never;
                 uniform vec4 tint : source_color;
                 varying float opacity;
+                varying float continuous_join;
                 void vertex() {
                     VERTEX.xz *= mix(INSTANCE_CUSTOM.y, INSTANCE_CUSTOM.x, VERTEX.y + 0.5);
                     opacity = INSTANCE_CUSTOM.z;
+                    continuous_join = INSTANCE_CUSTOM.w;
                 }
                 void fragment() {
                     float ends = smoothstep(0.0, 0.055, UV.y) * smoothstep(0.0, 0.11, 1.0 - UV.y);
+                    ends = mix(ends, 1.0, continuous_join);
                     ALBEDO = tint.rgb;
                     EMISSION = tint.rgb * 0.2;
                     ALPHA = opacity * ends;
@@ -39,7 +43,7 @@ public partial class ArenaRenderer
         float widest = Math.Max(radius, bottom);
         var orientation = Basis.LookingAt(to - from) * CylinderFacing;
         var basis = new Basis(orientation.X * widest, orientation.Y * length, orientation.Z * widest);
-        batch.Add(new(basis, (from + to) * 0.5f), new(radius / widest, bottom / widest, color.A, 0));
+        batch.Add(new(basis, (from + to) * 0.5f), new(radius / widest, bottom / widest, color.A, continuous ? 1 : 0));
     }
 
     internal bool VerifyBeamCoreBatch()
@@ -69,10 +73,16 @@ public partial class ArenaRenderer
             view.Multimesh.GetInstanceTransform(0).Origin.IsEqualApprox((from + to) * 0.5f) &&
             view.Multimesh.GetInstanceTransform(511).Origin.IsEqualApprox((from + to) * 0.5f);
         Clear(); valid &= view.Multimesh.InstanceCount == 16 && view.Multimesh.VisibleInstanceCount == 0;
+        // Las uniones internas de un rayo no se desvanecen como los extremos del canal.
+        BeamSegment(from, to, color, 0.2f, profile: 7);
+        foreach (var batch in _beamCoreBatches.Values) batch.Commit();
+        valid &= view.Multimesh.GetInstanceCustomData(0).A == 1;
+        Clear();
         BeamSegment(from, to, color, 0.2f, profile: 6);
         foreach (var batch in _beamCoreBatches.Values) batch.Commit();
         valid &= view.Multimesh.InstanceCount == 16 && view.Multimesh.VisibleInstanceCount == 1 &&
-            Math.Abs(view.Multimesh.GetInstanceCustomData(0).B - color.A) < 0.001f;
+            Math.Abs(view.Multimesh.GetInstanceCustomData(0).B - color.A) < 0.001f &&
+            view.Multimesh.GetInstanceCustomData(0).A == 0;
         Clear(); return valid;
     }
 }

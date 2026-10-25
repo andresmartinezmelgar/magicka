@@ -83,7 +83,9 @@ public partial class ClientVerification
                 origin.DistanceTo(wizard.Position) is > .5f and < 3.5f &&
                 renderer.Effects.ActiveFlames > 0 && renderer.ActiveBeamSegments == 0;
             renderer.Render(empty with { Players = [caster], Beams = [fire, water] }, caster.Id, 1 / 60.0, true);
-            valid &= renderer.ActiveBeamSegments > 0;
+            valid &= renderer.Effects.EnhancedSpells
+                ? renderer.Effects.ActiveWaterJets > 0
+                : renderer.ActiveBeamSegments > 0;
         }
         renderer.Clear();
         valid &= renderer.Effects.ActiveFlames == 0 && renderer.Effects.ActiveCount == 0;

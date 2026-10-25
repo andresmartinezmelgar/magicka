@@ -58,6 +58,8 @@ public partial class ArenaRenderer : Node3D
     public override void _Ready()
     {
         AddChild(_effects);
+        _effects.EnhancedSpells = SpellEffectQuality.Policy.Enhanced;
+        if (SpellEffectQuality.Policy.LegacyOnly) _effects.DetailScale = Math.Min(_effects.DetailScale, .6f);
         _effects.FlameOrigin = FlameOrigin;
         AddChild(_audio);
         var env = new WorldEnvironment
@@ -190,6 +192,8 @@ public partial class ArenaRenderer : Node3D
         bool first = _lastSnapshot == null;
         var previous = _lastSnapshot;
         float dt = (float)delta; _time += delta;
+        _effects.EnhancedSpells = SpellEffectQuality.Policy.Enhanced;
+        if (SpellEffectQuality.Policy.LegacyOnly) _effects.DetailScale = Math.Min(_effects.DetailScale, .6f);
         _fresh = !ReferenceEquals(snapshot, _lastSnapshot); _lastSnapshot = snapshot;
         var local = snapshot.Players.FirstOrDefault(p => p.Id == localId);
         UpdateSurvivalGeometry(PreviewFocus is { } preview ? new(preview.X, preview.Z) : local?.Position ?? V2.Zero);
@@ -270,6 +274,7 @@ public partial class ArenaRenderer : Node3D
             }
             _lastEvent = Math.Max(_lastEvent, e.Id);
         }
+        _effects.Billboard = Camera.GlobalBasis;
         _effects.Advance(visibleState, dt, playing);
     }
 
@@ -301,8 +306,13 @@ public partial class ArenaRenderer : Node3D
                             Scale = Vector3.One * (projectile.Radius + 0.10f + (projectile.Elements.Length - 2) * 0.025f),
                             MaterialOverride = aura, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
                 }
-                else Mesh(root, ice ? new PrismMesh { Size = new(0.3f, 0.9f, 0.3f) }
-                    : new SphereMesh { Radius = projectile.Radius, Height = projectile.Radius * 2 }, Vector3.Zero, color, 0.35f);
+                else if (ice)
+                {
+                    var core = Mesh(root, ElementChannelVisuals.LegacyIce, Vector3.Zero, color, .35f);
+                    core.Name = "IceCore";
+                    core.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+                }
+                else Mesh(root, new SphereMesh { Radius = projectile.Radius, Height = projectile.Radius * 2 }, Vector3.Zero, color, 0.35f);
                 var strength = SpellVisualStrength.For(projectile.Elements);
                 for (int i = 0; i < strength.Charges - 1; i++)
                 {
@@ -318,6 +328,17 @@ public partial class ArenaRenderer : Node3D
             }
             root.Position = root.Position.Lerp(World(projectile.Position, 0.9f), 1 - Mathf.Exp(-35 * dt));
             root.Rotation += new Vector3(dt * 4, dt * 3, dt * 2);
+            if (projectile.Elements.Contains(Element.Cold) && !projectile.Elements.Contains(Element.Earth))
+            {
+                var core = root.GetNode<MeshInstance3D>("IceCore");
+                Godot.Mesh mesh = _effects.EnhancedSpells ? ElementChannelVisuals.Mesh(ElementChannelVisuals.Ice) : ElementChannelVisuals.LegacyIce;
+                Godot.Material material = _effects.EnhancedSpells ? ElementChannelVisuals.ProjectileIceMaterial() : Material(Ui.SpellColor(projectile.Elements), .35f);
+                if (core.Mesh != mesh) core.Mesh = mesh;
+                if (core.MaterialOverride != material) core.MaterialOverride = material;
+                core.Basis = _effects.EnhancedSpells
+                    ? (root.GlobalBasis.Inverse() * Camera.GlobalBasis * new Basis(Vector3.Back, (float)_time * 2 + projectile.Id)).Scaled(Vector3.One * .38f)
+                    : Basis.Identity;
+            }
         }
         if (_fresh || snapshot.Defense != null) RemoveMissing(_projectiles, snapshot.Projectiles, static p => p.Id);
     }

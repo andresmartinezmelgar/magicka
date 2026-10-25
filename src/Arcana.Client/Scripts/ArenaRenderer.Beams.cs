@@ -15,7 +15,7 @@ public partial class ArenaRenderer
         if (profile == 0)
         { BatchSimpleBeam(from, to, length, color, radius, endRadius); _beamUsed++; return; }
         if (profile >= 6)
-        { BatchBeamCore(from, to, length, color, radius, endRadius); _beamUsed++; return; }
+        { BatchBeamCore(from, to, length, color, radius, endRadius, continuous: profile == 7); _beamUsed++; return; }
         if (_beamMeshUsed == _beamPool.Count)
         {
             _beamShader ??= new Shader { Code = """
@@ -85,11 +85,14 @@ public partial class ArenaRenderer
     {
         // El fuego es una emisión con vida propia. Su cono lógico ya no se dibuja como cilindro.
         if (FlameVisuals.Matches(beam)) return;
+        if (_effects.EnhancedSpells && ElementChannelVisuals.ReplacesSpray(beam)) return;
+        if (_effects.EnhancedSpells && DrawModernEnergy(beam, details)) return;
         var from = World(beam.From, 1); var to = World(beam.To, 1);
         if (from.DistanceSquaredTo(to) < 0.01f) return;
         var strength = SpellVisualStrength.For(beam.Elements);
         var direction = (to - from).Normalized(); var side = direction.Cross(Vector3.Up).Normalized();
         Color color = Ui.SpellColor(beam.Elements);
+        if (ElementChannelVisuals.IsSteam(beam.Elements) && beam.Shape == SpellShape.Spray) color = new("dce8ec");
         if (beam.Shape == SpellShape.Lightning)
         {
             const int segments = 8; Vector3 previous = from;
@@ -131,13 +134,16 @@ public partial class ArenaRenderer
         else
         {
             bool healing = beam.Elements.Contains(Element.Life);
+            bool steam = ElementChannelVisuals.IsSteam(beam.Elements);
             var primary = healing ? Ui.Health : Ui.ElementColor(Element.Arcane);
             var modifier = beam.Elements.FirstOrDefault(e => e is not Element.Arcane and not Element.Life,
                 healing ? Element.Life : Element.Arcane);
-            var accent = modifier == Element.Cold && !Ui.IsMobile ? new Color("80e5ff") : Ui.ElementColor(modifier);
-            if (modifier is Element.Fire or Element.Cold or Element.Lightning)
+            var accent = steam ? new Color("dce8ec")
+                : modifier == Element.Cold && !Ui.IsMobile ? new Color("80e5ff") : Ui.ElementColor(modifier);
+            if (!steam && (modifier is Element.Fire or Element.Cold or Element.Lightning))
                 primary = primary.Lerp(accent, modifier == Element.Lightning ? 0.65f : 0.78f);
-            int profile = modifier switch { Element.Fire => 3, Element.Cold => 4, Element.Lightning => 5, _ => healing ? 2 : 1 };
+            int profile = steam ? healing ? 2 : 1 : modifier switch
+                { Element.Fire => 3, Element.Cold => 4, Element.Lightning => 5, _ => healing ? 2 : 1 };
             float thickness = Mathf.Sqrt(Math.Clamp(beam.Power, SpellBalance.BeamMinimumDamage, 3));
             float charged = Math.Clamp((beam.Power - SpellBalance.BeamMinimumDamage) /
                 (SpellBalance.BeamMaximumDamage - SpellBalance.BeamMinimumDamage), 0, 1);
@@ -168,7 +174,7 @@ public partial class ArenaRenderer
                     if (modifier == Element.Lightning)
                         offset = side * MathF.Sin((float)_time * 17 + i * 7 + strand * 3) * MathF.Sin(t * MathF.PI) * 0.19f * thickness;
                     var next = from.Lerp(to, t) + offset;
-                    var strandColor = modifier is Element.Fire or Element.Cold or Element.Lightning
+                    var strandColor = !steam && (modifier is Element.Fire or Element.Cold or Element.Lightning)
                         ? strand == 0 ? accent : Ui.ElementColor(healing ? Element.Life : Element.Arcane)
                         : primary;
                     BeamSegment(previous, next, new Color(strandColor, 0.45f + charged * 0.21f), 0.016f * thickness, profile: 6);
@@ -183,7 +189,7 @@ public partial class ArenaRenderer
                 var packetColor = modifier is Element.Cold ? accent.Lightened(0.45f) : accent;
                 BeamSegment(at, at + direction * 0.27f, new Color(packetColor, 0.56f + charged * 0.2f),
                     0.035f * thickness, 0.013f, profile: 6);
-                if (modifier is Element.Fire or Element.Cold or Element.Lightning)
+                if (!steam && (modifier is Element.Fire or Element.Cold or Element.Lightning))
                 {
                     var start = at + side * (i % 2 == 0 ? radius * 1.2f : -radius * 1.2f);
                     BeamSegment(start, start + direction * 0.16f + up * 0.06f, new Color(accent, 0.3f + charged * 0.2f),
