@@ -1,5 +1,10 @@
 # Cambios
 
+## Sin publicar
+
+- Las partículas del halo aumentan con la suma de calidad del equipo: Plata 1, Oro 2, Platino 3, Diamante 4 y Mítico 5; cuatro partículas por punto, hasta 120. Las seis piezas aportan sus colores a un campo común, con aparición y desvanecimiento suaves.
+- El inventario reutiliza la misma textura y limita el redibujado de las partículas a 24 Hz. El efecto deja de actualizarse al ocultar el avatar o quitar todo el equipo.
+
 ## 0.29.17 — Favoritos, venta automática y aura común
 
 - Los favoritos vuelven a estar protegidos de las ventas individuales, rápidas y múltiples, también sin equipar. En Supervivencia el servidor valida esta protección y la conserva al guardar o reconectar.

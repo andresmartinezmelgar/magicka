@@ -16,6 +16,12 @@ El protocolo pasa a **34**: en la próxima compilación deben actualizarse clien
 
 Las piezas equipadas aportan sus colores a una única aura alrededor del mago. El brillo se mezcla entre zonas y respira suavemente con un movimiento común. La calidad y las mejoras aumentan su intensidad. No contiene rayos ni círculos animados independientes.
 
+La cantidad de partículas depende de la suma de calidad de las seis piezas equipadas, incluidos los anillos: Plata vale 1 punto, Oro 2, Platino 3, Diamante 4 y Mítico 5. Cada punto aporta cuatro partículas; una ranura vacía aporta cero. Con seis piezas de igual calidad, el presupuesto es 24, 48, 72, 96 o 120 partículas respectivamente. Tres Plata, dos Oro y una Diamante suman 11 puntos y dan 44 partículas.
+
+Las partículas aparecen y se desvanecen gradualmente, por lo que no todas están en su máximo de brillo al mismo tiempo. Comparten el campo del mago y cada pieza aporta su color según sus puntos. Las mejoras mantienen el refuerzo del brillo del halo dentro de su calidad.
+
+El límite es 120 partículas por avatar. Se reutilizan las texturas, se redibujan como máximo a 24 Hz y se suspende su actualización cuando el avatar está oculto o no hay equipo.
+
 ## Compilación y publicación
 
 Subir cambios no ejecuta compilaciones ni crea tags. El flujo de GitHub Actions se lanza manualmente cuando lo indique el usuario. La opción `publish_preview` empieza desactivada; solo se activa si también se ha solicitado crear el tag y publicar la versión de pruebas.

@@ -30,6 +30,7 @@ public partial class EquipmentAvatar
             _auraMaterial!.SetShaderParameter("piece_" + (int)slot, tint);
         }
         _aura.Visible = _halos.Count > 0;
+        RefreshAuraParticles();
         ArrangeAura();
     }
 
@@ -44,6 +45,7 @@ public partial class EquipmentAvatar
 
     public override void _ExitTree()
     {
+        DisposeAuraParticles();
         _auraMaterial?.Dispose(); _auraMaterial = null;
     }
 }
