@@ -70,7 +70,7 @@ public partial class MatchStatisticsPanel
                 new Bar("Entorno", GroupSum(StatisticGroup.EnvironmentElement, StatisticMeasure.Damage), GroupSum(StatisticGroup.EnvironmentElement, StatisticMeasure.ShieldDamage), Ui.Muted) });
         Note("El filtro Origen del ataque se aplica a Elementos y Hechizos. Las demás vistas comparan todos los orígenes.");
     }
-    private float BarChartHeight => GetViewport().GetVisibleRect().Size.Y < 500 ? 190 : 340;
+    private float BarChartHeight => GetViewport().GetVisibleRect().Size.Y < 500 ? 280 : 400;
     private void VerticalChart(string title, string description, StatisticsBarChart.Category[] categories,
         string name = "ElementDamageBars", bool enemies = false, string valueTitle = "Daño / curación / absorción")
     {

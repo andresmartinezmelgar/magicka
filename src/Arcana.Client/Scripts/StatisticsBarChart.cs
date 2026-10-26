@@ -14,7 +14,18 @@ public partial class StatisticsBarChart : Control
     public string HorizontalTitle { get; init; } = "Elemento";
     public string ValueTitle { get; init; } = "Total";
     public bool? Logarithmic { get; init; }
-    private const float Left = 72, Right = 20, Top = 28, Bottom = 64;
+    private const float Left = 72, Right = 20, Top = 28, Bottom = 146;
+    internal static string ShortLabel(string label) => label switch
+    {
+        "Hechizos directos" or "Ataques directos" => "Daño",
+        "Áreas" or "Áreas de hechizos" => "Área",
+        "Auras" or "Auras pasivas" => "Aura",
+        "Quemaduras" => "Quemadura",
+        "Sin desglose" => "Sin detalle",
+        "Vida" => "Curación",
+        "Escudo" => "Absorción",
+        _ => "Daño"
+    };
     private static readonly CultureInfo Spanish = CultureInfo.GetCultureInfo("es-ES");
 
     public StatisticsBarChart()
@@ -45,21 +56,35 @@ public partial class StatisticsBarChart : Control
         for (int i = 0; i < Categories.Length; i++)
         {
             var category = Categories[i]; float center = Left + (i + 0.5f) * slot;
-            void Bar(double value, float x, Color color, float available)
+            void Bar(double value, float x, Color color, float available, string label)
             {
                 float barHeight = (float)scale.Normalize(value) * height;
                 float barWidth = Math.Min(40, available * 0.72f);
                 if (value > 0) DrawRect(new(x - barWidth / 2, Top + height - barHeight, barWidth, barHeight), color);
                 if (value > 0) DrawString(font, new(x - available / 2, Top + height - barHeight - 6), Short(value),
                     HorizontalAlignment.Center, available, 11, Ui.Text);
+                if (value <= 0) return;
+                string caption = ShortLabel(label);
+                const int captionSize = 12;
+                float textWidth = font.GetStringSize(caption, fontSize: captionSize).X;
+                bool inside = barHeight >= textWidth + 12;
+                float baseline = Top + height;
+                // Las barras pequeñas mantienen su altura real: su etiqueta va debajo del eje.
+                float textY = inside ? baseline - (barHeight - textWidth) / 2 : baseline + textWidth + 8;
+                DrawSetTransform(new(x + 4, textY), -Mathf.Pi / 2);
+                var ink = inside ? new Color("101820") : Ui.Text;
+                DrawStringOutline(font, Vector2.Zero, caption, HorizontalAlignment.Left, -1, captionSize, 2,
+                    inside ? new Color(1, 1, 1, .55f) : ArcanaMenuChrome.Backdrop);
+                DrawString(font, Vector2.Zero, caption, HorizontalAlignment.Left, -1, captionSize, ink);
+                DrawSetTransform(Vector2.Zero);
             }
             if (category.Parts is { Length: > 0 } parts)
             {
                 float available = (slot - 12) / parts.Length;
                 for (int j = 0; j < parts.Length; j++)
-                    Bar(parts[j].Value, center - (slot - 12) / 2 + (j + .5f) * available, parts[j].Color, available);
+                    Bar(parts[j].Value, center - (slot - 12) / 2 + (j + .5f) * available, parts[j].Color, available, parts[j].Label);
             }
-            else Bar(category.Value, center, category.Color, slot * .75f);
+            else Bar(category.Value, center, category.Color, slot * .75f, category.Label);
             var lines = new List<string>(); string line = "";
             foreach (string word in category.Label.Split(' '))
             {
@@ -69,7 +94,7 @@ public partial class StatisticsBarChart : Control
             }
             lines.Add(line);
             for (int j = 0; j < lines.Count; j++)
-                DrawString(font, new(center - slot / 2 + 4, Top + height + 22 + j * 17), lines[j], HorizontalAlignment.Center, slot - 8, textSize, Ui.Text);
+                DrawString(font, new(center - slot / 2 + 4, Top + height + 100 + j * 17), lines[j], HorizontalAlignment.Center, slot - 8, textSize, Ui.Text);
         }
         DrawString(font, new(Left, Size.Y - 8), HorizontalTitle, HorizontalAlignment.Left, width, 14, Ui.Gold);
     }

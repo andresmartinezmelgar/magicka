@@ -1,5 +1,9 @@
 # Cambios
 
+## Sin publicar
+
+- Las barras incluyen etiquetas breves: Daño, Área, Aura, Quemadura, Curación, Absorción y Sin detalle. El texto gira dentro de la barra con contraste; si la barra es demasiado baja, aparece debajo del eje sin alterar la altura ni los datos. Se reserva espacio para evitar solapes con los nombres de los elementos en móvil.
+
 ## 0.29.21
 
 - La gráfica principal de daño por elementos muestra barras agrupadas por origen: hechizos directos, áreas, auras y quemaduras. Incluye daño a vida y escudos una sola vez y conserva los filtros y escalas. Los informes antiguos aparecen como sin desglose. Tabla numérica y porcentajes por elemento, con desplazamiento horizontal en móvil; Vida y Escudo mantienen sus medidas de apoyo.
