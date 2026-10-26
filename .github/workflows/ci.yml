@@ -8,6 +8,10 @@ on:
         description: 'Crear tag y publicar versión de pruebas (solo si se ha solicitado)'
         type: boolean
         default: false
+      publish_stable:
+        description: 'Publicar versión estable y tag desde main (solo por petición expresa)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -743,7 +747,7 @@ jobs:
 
   release-on-tag:
     name: Publicar artefactos al crear un tag
-    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish_stable && github.ref == 'refs/heads/main')
     needs: [build, docker-server, firestore-rules, visual-audit, package-windows, package-android]
     runs-on: ubuntu-latest
     permissions:
@@ -825,7 +829,21 @@ jobs:
           version=$(tr -d '\r\n' < VERSION)
           tag="v$version"
           python3 scripts/release_notes.py --output "$RUNNER_TEMP/release-notes.md"
-          if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && "$GITHUB_REF" == "refs/heads/main" ]]; then
+            grep -qx 'Tipo de firma: PERMANENTE' dist/FIRMA-ANDROID.txt
+            apksigner verify "dist/ArcanaArena-v$version-Android-arm64.apk"
+            shopt -s nullglob
+            assets=(dist/*.zip dist/*.apk dist/*.delta dist/SHA256SUMS*.txt dist/DELTAS-*.json)
+            if gh release view "$tag" >/dev/null 2>&1; then
+              target=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" --jq '.target_commitish')
+              test "$target" = "$GITHUB_SHA" || { echo '::error::La versión pertenece a otro commit.'; exit 1; }
+              gh release upload "$tag" "${assets[@]}" --clobber
+            else
+              gh release create "$tag" "${assets[@]}" --target "$GITHUB_SHA" --latest \
+                --title "Arcana Arena $tag" --notes-file "$RUNNER_TEMP/release-notes.md"
+            fi
+            gh release edit "$tag" --draft=false --prerelease=false --latest
+          elif [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
             # APK firmada: solo publish-android-first. Este job solo publica Windows.
             # Así no compiten dos trabajos por el mismo asset y nunca se borra la APK.
             if gh release view "$tag" >/dev/null 2>&1; then
