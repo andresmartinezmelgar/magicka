@@ -79,6 +79,8 @@ public sealed partial class GameWorld
             {
                 CancelCast(player); player.Input.MoveTo = false; player.Input.MoveX = player.Input.MoveY = 0;
                 progress.AssistanceCooldown = 0;
+                progress.AssistanceNavigationCooldown = progress.AssistanceAttackSeconds = 0;
+                progress.AssistanceGoal = player.Position;
             }
             progress.ShopOpen = open;
             return true;

@@ -124,25 +124,11 @@ public partial class PlayerEquipmentPanel : Control
             _pieces.AddChild(Ui.Label(EquipmentCatalogue.SlotName(slot) + " · " + (item == null ? "Sin equipo" : EquipmentCatalogue.TierName(item.Tier)
                 + " · " + EquipmentCatalogue.FamilyName(item.Family)), 20, item == null ? Ui.Muted : EquipmentPanel.TierColor(item.Tier)));
             if (item == null) continue;
-            if (RingEffects.IsRing(item.Slot))
-            {
-                var effect = Ui.Label(RingEffects.Describe(item, ringEquipment), 16, Ui.Gold);
-                effect.AutowrapMode = TextServer.AutowrapMode.WordSmart; _pieces.AddChild(effect);
-            }
-            if (item.Affix != null)
-            {
-                var special = Ui.Label(ItemAffixes.Describe(item.Affix, item.UpgradeLevel, item.Slot), 16, Ui.Gold);
-                special.AutowrapMode = TextServer.AutowrapMode.WordSmart; _pieces.AddChild(special);
-            }
             var grid = Ui.Table(2, "PlayerPiece" + slot + "Table"); _pieces.AddChild(grid);
-            Ui.TableCell(grid, "Actual", true, header: true); Ui.TableCell(grid, "Atributo", header: true);
-            foreach (var bonus in item.Bonuses)
-            {
-                bool active = EquipmentCatalogue.BonusActive(item.Slot, bonus.Stat);
-                Ui.TableCell(grid, active ? EquipmentCatalogue.Percent(bonus.Current) : "Inactivo", true,
-                    active ? bonus.Current < 0 ? Ui.Red : Ui.Blue : Ui.Muted);
-                Ui.TableCell(grid, EquipmentPanel.StatName(bonus.Stat));
-            }
+            EquipmentPanel.RenderItemStats(grid, item);
+            EquipmentPanel.AddItemEffects(_pieces, string.Join('\n', new[] {
+                item.Affix == null ? "" : ItemAffixes.Describe(item.Affix, item.UpgradeLevel, item.Slot),
+                RingEffects.Describe(item, ringEquipment) }.Where(s => s.Length > 0)));
         }
         _summary.AddChild(Ui.Label("TOTAL DEL EQUIPO", 22, Ui.Gold));
         var specials = view.Equipment.Items.Where(i => ItemAffixes.Active(i.Affix, i.Slot) != null)
@@ -150,7 +136,7 @@ public partial class PlayerEquipmentPanel : Control
             .Select(i => ItemAffixes.Describe(i.Affix, i.UpgradeLevel, i.Slot))
             .Concat(view.Equipment.Items.Select(i => RingEffects.Describe(i, ringEquipment)))
             .Where(s => s.Length > 0).Distinct();
-        var specialText = Ui.Label(string.Join("\n", specials), 16, Ui.Gold);
+        var specialText = Ui.Label(EquipmentPanel.NumberedImprovements(string.Join("\n", specials)), 16, Ui.Gold);
         specialText.AutowrapMode = TextServer.AutowrapMode.WordSmart; _summary.AddChild(specialText);
         var activeSets = view.Equipment.Sets.Where(s => s.Pieces >= 2).ToArray();
         string sets = activeSets.Length == 0 ? "Sin conjuntos activos." : string.Join("\n", activeSets.Select(s =>

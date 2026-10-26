@@ -23,7 +23,7 @@ public partial class Main
         bool open = DefenseInterfaceOpen;
         if (_defenseInterfaceHint != null)
             _defenseInterfaceHint.Text = _snapshot.Defense.HumanCount > 1
-                ? "La partida continúa. Tu mago usa IA defensiva mientras consultas estas pantallas y puede recibir daño."
+                ? "La partida continúa. Supervivencia máxima: tu mago prioriza el escudo y alejarse de los enemigos. Puede recibir daño."
                 : "Partida en pausa: eres el único humano. Los bots y el combate se reanudan al cerrar estas pantallas.";
         if (_lastDefenseInterface == open) return;
         _lastDefenseInterface = open;

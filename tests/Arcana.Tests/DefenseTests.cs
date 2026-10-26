@@ -371,10 +371,38 @@ internal static class DefenseTests
             p.Health = 300; p.Invulnerable = 0;
             Check(Command(w, p, "defense_shop", 1), "No abrió la interfaz.");
             w.Step();
+            Check(p.Shield > 0 && p.Health == 300, "La asistencia cura antes de levantar el escudo.");
+            Advance(w, 30);
             Check(p.Health > 300 && w.Snapshot().Events.Any(e => e.Kind == "self" && e.Elements.Contains(Element.Life)),
                 "La curación no procede de un hechizo de vida.");
             Advance(w, 90);
             Check(w.DefenseActiveSeconds(p.Id) == 0, "La IA genera participación de jugador activo.");
+        });
+        test("Supervivencia: sin bots, la consulta mantiene escudo y retirada antes que ataques", () =>
+        {
+            var w = World(); var p = w.AddPlayer("Inventario")!; var ally = w.AddPlayer("Humano")!;
+            p.Position = new(-8, 0); ally.Position = new(20, 0); p.Invulnerable = 0;
+            p.Selection.Add(Element.Fire); Gold(w, p, 1000);
+            Check(Command(w, p, "defense_shop", 1), "No abrió el inventario."); w.Step();
+            Check(!w.Players.Values.Any(a => a.Bot) && !w.DefensePaused && p.Shield > 0,
+                "El inventario sin bots pausa la partida o deja al humano sin escudo aunque no haya enemigos.");
+            p.Shield = 1; p.ShieldTime = .1f; p.ActionCooldown = 0;
+            p.Channel = new SpellRecipe([Element.Arcane]);
+            Invoke(w, "ThinkDefenseAssistance", p, GameWorld.StepSeconds);
+            Check(p.Channel == null && p.Shield > 1 && p.ShieldTime > 2,
+                "Un ataque o su recarga impide reponer primero el escudo.");
+            p.ActionCooldown = 0; p.Shield = 1100; p.ShieldMax = 2000; p.ShieldTime = 12;
+            Invoke(w, "ThinkDefenseAssistance", p, GameWorld.StepSeconds);
+            Check(p.Shield == 1100, "La asistencia sustituye un escudo que aún absorbe más por otro más débil.");
+            var enemy = Enemy(w); enemy.Position = p.Position + new V2(3, 0);
+            var before = p.Position; var away = p.Position - enemy.Position; w.Step();
+            Check(V2.Dot(p.Position - before, away) > 0 && p.Channel == null,
+                "La asistencia ataca o se acerca al monstruo en vez de ganar distancia.");
+            Check(p.Selection.Elements.SequenceEqual(new[] { Element.Fire }) && Player(w, p).Gold == 1000 && !p.Bot && p.Invulnerable == 0,
+                "La asistencia altera selección, oro, identidad o daño normal.");
+            Check(Command(w, p, "defense_shop", 0) && p.Input.MoveX == 0 && p.Input.MoveY == 0 && p.Channel == null,
+                "Cerrar el inventario deja movimiento o ataques automáticos.");
+            SnapshotValidation.Check(w.Snapshot());
         });
         test("Supervivencia: dos humanos en menús no pausan; al quedar uno se pausa", () =>
         {

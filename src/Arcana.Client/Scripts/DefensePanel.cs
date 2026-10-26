@@ -30,6 +30,8 @@ public partial class DefensePanel : Control
     private WizardSnapshot? _wizard;
     private string _totalsStamp = "";
     private GridContainer _totals = null!;
+    private GridContainer _progressTotals = null!;
+    private string _progressTotalsStamp = "";
     private GridContainer _equipmentTotals = null!;
     private ElementTextLabel _equipmentTotalsEmpty = null!;
     private string _equipmentTotalsStamp = "";
@@ -127,6 +129,8 @@ public partial class DefensePanel : Control
         Wrapped(statistics, "BONIFICACIONES DEL EQUIPO · POR PIEZA", 18, Ui.Gold);
         _equipmentTotals = Ui.Table(2, "DefenseEquipmentTotals"); statistics.AddChild(_equipmentTotals);
         _equipmentTotalsEmpty = Wrapped(statistics, "No hay bonificaciones activas en el equipo actual.", 15, Ui.Muted);
+        Wrapped(statistics, "MEJORAS DE PARTIDA · NIVEL, RELIQUIAS Y PODERES", 18, Ui.Gold);
+        _progressTotals = Ui.Table(2, "DefenseProgressStatsTable"); statistics.AddChild(_progressTotals);
         Wrapped(statistics, "TOTAL EFECTIVO EN PARTIDA · equipo, nivel y mejoras", 18, Ui.Gold);
         _totals = Ui.Table(2, "DefenseTotals"); statistics.AddChild(_totals);
         _rules = Wrapped(statistics, "", 15, Ui.Muted);
@@ -236,7 +240,7 @@ public partial class DefensePanel : Control
         _wallet.Text = $"Oro: {p.Gold} · Nivel {p.Level} · Bajas {p.Kills} · Vidas {p.LivesRemaining}/2";
         _shopStatus.Text = snapshot.MatchEnded ? "PARTIDA TERMINADA" : defense.Paused
             ? "PARTIDA EN PAUSA · el combate y el tiempo se reanudan al cerrar la tienda."
-            : defense.HumanCount > 1 ? "COMBATE EN CURSO · IA defensiva activa mientras consultas esta pantalla. Tu mago puede recibir daño."
+            : defense.HumanCount > 1 ? "SUPERVIVENCIA MÁXIMA · Tu mago mantiene el escudo y se aleja de los enemigos. Atacar es secundario; puede recibir daño."
             : "El menú, la clasificación y el inventario pausan la partida cuando eres el único humano.";
         _equipmentSummary.Text = $"{p.Items.Count(i => i.Equipped)}/{Enum.GetValues<EquipmentSlot>().Length} ranuras equipadas · {p.Items.Length}/{DefenseRules.InventoryLimit} piezas temporales";
         bool buying = _wizard.Alive && !snapshot.MatchEnded;
@@ -283,13 +287,19 @@ public partial class DefensePanel : Control
         if (_lastBonuses != null && _lastBonuses.AsSpan().SequenceEqual(buffs)) return;
         _lastBonuses = buffs;
         _bonuses.Text = buffs.Length > 0 ? "MEJORAS RECOGIDAS\n" +
-            string.Join("\n\n", buffs.Select(b => RelicBuffs.Name(b.Kind) + " ×" + b.Stacks + "\n" + RelicBuffs.Description(b.Kind))) : "Sin mejoras recogidas";
+            string.Join("\n\n", buffs.Select((b, index) => $"{index + 1}. " + RelicBuffs.Name(b.Kind) + " ×" + b.Stacks + "\n" + RelicBuffs.DescribeTotal(b.Kind, b.Stacks))) : "Sin mejoras recogidas";
     }
 
     private void UpdateTotals()
     {
         if (_player == null || _wizard == null) return;
         var p = _player;
+        string progressStamp = EquipmentPanel.ProgressStatsStamp(p, _wizard);
+        if (_progressTotalsStamp != progressStamp)
+        {
+            _progressTotalsStamp = progressStamp;
+            EquipmentPanel.RenderProgressStats(_progressTotals, p, _wizard);
+        }
         var equipped = p.Items.Where(i => i.Equipped).ToArray();
         string equipmentStamp = string.Join('|', equipped.Select(i => i.Item.Id + ":" + i.Upgrades));
         if (equipmentStamp != _equipmentTotalsStamp || _equipmentTotals.GetChildCount() == 0)

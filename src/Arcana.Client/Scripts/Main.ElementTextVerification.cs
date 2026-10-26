@@ -46,11 +46,32 @@ public partial class Main
             if (recipeTitle.SemanticColor != Ui.SpellColor([Element.Arcane, Element.Fire]) || recipeTitle.FormattedText.Contains("[color=#" + Ui.ElementTextColor(Element.Fire).ToHtml(false)))
                 throw new InvalidDataException("La combinación no usa un único color principal.");
             book.QueueFree();
+            VerifyRelicStatisticsSmoke();
             VerifyDefenseInterfaceSmoke();
             GD.Print("ELEMENT_TEXT_SMOKE_OK: colores, recetas mixtas, cambios dinámicos, texto externo, medidas y botones verificados.");
             GetTree().Quit();
         }
         catch (Exception error) { GD.PushError("ELEMENT_TEXT_SMOKE_FAILED: " + error); GetTree().Quit(1); }
+    }
+    private void VerifyRelicStatisticsSmoke()
+    {
+        var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, Bots = 0 });
+        var player = world.AddPlayer("Reliquias")!;
+        player.BuffStacks[(int)BuffKind.Regeneration] = 2;
+        player.Health = 500; player.Shield = 0;
+        world.Step();
+        var state = world.Snapshot();
+        var table = Ui.Table(2, "RelicStatisticsSmoke"); _ui.AddChild(table);
+        try
+        {
+            EquipmentPanel.RenderProgressStats(table, state.Defense!.Defenders.Single(p => p.PlayerId == player.Id), state.Players.Single(p => p.Id == player.Id));
+            var effect = (ElementTextLabel)table.FindChild("RelicStatisticsSmoke_Effect_RelicRegeneration", true, false);
+            var origin = (ElementTextLabel)table.FindChild("RelicStatisticsSmoke_Source_RelicRegeneration", true, false);
+            if (player.Health <= 500 || !effect.Text.Contains("40 vida/s") || !effect.Text.Contains("sin escudo") ||
+                !origin.Text.StartsWith("1.", StringComparison.Ordinal) || !origin.Text.Contains("×2"))
+                throw new InvalidDataException("La tabla no explica la regeneración de reliquias sin escudo ni sus acumulaciones.");
+        }
+        finally { table.QueueFree(); }
     }
     private void VerifyDefenseInterfaceSmoke()
     {

@@ -107,6 +107,8 @@ internal sealed class DefenseProgress
     public readonly Dictionary<string, long> BestiaryKills = new(StringComparer.Ordinal);
     public bool ShopOpen; // Cualquier pantalla que retira el control al jugador.
     public float AssistanceCooldown;
+    public float AssistanceNavigationCooldown, AssistanceAttackSeconds;
+    public V2 AssistanceGoal;
     public DefensePerformanceBudget Performance = new();
     public double LastPerformanceReport = -100;
     public float BerserkerRemaining;

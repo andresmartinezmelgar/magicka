@@ -66,6 +66,7 @@ public partial class EquipmentPanel
     internal void UpdateDefenseInventory(DefensePlayerSnapshot player, WizardSnapshot wizard, bool ended)
     {
         _defensePlayer = player; UpdateItemLevels(player); _defenseWizard = wizard; _defenseMatchEnded = ended;
+        UpdateProgressStats();
         SyncDefensePreferences();
         string stamp = player.Gold + ":" + wizard.Alive + ":" + ended + ":" + _defensePreferenceRevision + ":" +
             string.Join('|', player.Items.Select(i => $"{i.Item.Id}:{i.Upgrades}:{i.Equipped}"));

@@ -116,17 +116,9 @@ public partial class ItemShopPanel : Control
             Wrapped(box, EquipmentCatalogue.SlotName(offer.Item.Slot) + " · " + EquipmentCatalogue.TierName(offer.Item.Tier), 19, EquipmentPanel.TierColor(offer.Item.Tier));
             Wrapped(box, EquipmentCatalogue.FamilyName(offer.Item.Family), 15, Ui.Muted);
             var stats = Ui.Table(2, "ShopStats_" + offer.Item.Id); box.AddChild(stats);
-            Ui.TableCell(stats, "Valor", true, header: true); Ui.TableCell(stats, "Atributo", header: true);
-            foreach (var bonus in offer.Item.Bonuses)
-            {
-                bool active = EquipmentCatalogue.BonusActive(offer.Item.Slot, bonus.Stat);
-                Ui.TableCell(stats, active ? EquipmentCatalogue.Percent(bonus.Current) : "Inactivo", true,
-                    active ? bonus.Current < 0 ? Ui.Red : Ui.Blue : Ui.Muted);
-                Ui.TableCell(stats, EquipmentCatalogue.StatName(bonus.Stat)).TooltipText = EquipmentCatalogue.Percent(bonus.Minimum) + " / " + EquipmentCatalogue.Percent(bonus.Maximum);
-            }
-            if (RingEffects.IsRing(offer.Item.Slot))
-                Wrapped(box, RingEffects.Describe(offer.Item, equipment: EquipmentQuery.Preview(result.Profile, offer.Item).After.Modifiers), 16, Ui.Gold);
-            if (offer.Item.Affix != null) Wrapped(box, "Especial: " + ItemAffixes.Describe(offer.Item.Affix, offer.Item.UpgradeLevel, offer.Item.Slot), 16, Ui.Gold);
+            EquipmentPanel.RenderItemStats(stats, offer.Item);
+            EquipmentPanel.AddItemEffects(box, EquipmentPanel.ItemEffects(offer.Item, offer.Item.UpgradeLevel,
+                EquipmentQuery.Preview(result.Profile, offer.Item).After.Modifiers));
             var purchaseRow = new HBoxContainer(); purchaseRow.AddThemeConstantOverride("separation", 6); box.AddChild(purchaseRow);
             var compare = Ui.Button("Comparar", () =>
             {

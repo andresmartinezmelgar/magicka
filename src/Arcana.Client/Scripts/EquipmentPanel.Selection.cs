@@ -52,7 +52,7 @@ public partial class EquipmentPanel
         var choices = EquipmentQuery.Sort(allChoices, equippedId: equipped);
         _optionAItemsTab!.Text = EquipmentCatalogue.SlotName(slot) + $" · {choices.Length}";
         _pickerHelp.Text = "Equipada primero · Favoritos y piezas equipadas protegidos de la venta.";
-        if (_main.DefensiveAssistanceActive) _pickerHelp.Text += " Tu mago usa IA defensiva y puede recibir daño.";
+        if (_main.DefensiveAssistanceActive) _pickerHelp.Text += " Supervivencia máxima: tu mago mantiene el escudo y se aleja de los enemigos. Puede recibir daño.";
         PrepareIcons();
         foreach (var item in choices)
         {
@@ -63,7 +63,8 @@ public partial class EquipmentPanel
             style.ContentMarginLeft = style.ContentMarginRight = 10;
             style.ContentMarginTop = style.ContentMarginBottom = 10;
             card.AddThemeStyleboxOverride("panel", style); _pickerGrid.AddChild(card);
-            var content = new HBoxContainer(); content.AddThemeConstantOverride("separation", 10); card.AddChild(content);
+            var body = new VBoxContainer(); body.AddThemeConstantOverride("separation", 8); card.AddChild(body);
+            var content = new HBoxContainer(); content.AddThemeConstantOverride("separation", 10); body.AddChild(content);
             var description = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
             description.AddThemeConstantOverride("separation", 8); content.AddChild(description);
             var label = Ui.Label(title, Ui.IsMobile ? 18 : 17, selected ? Ui.Gold : TierColor(item.Tier));
@@ -74,17 +75,10 @@ public partial class EquipmentPanel
             equippedLabel.MouseFilter = MouseFilterEnum.Ignore; description.AddChild(equippedLabel);
             var ringPreview = item.Slot == EquipmentSlot.MagicRing && _draft != null
                 ? EquipmentQuery.Preview(_draft, item, _itemLevels) : null;
-            string attributes = string.Join("\n", item.Bonuses.Select(b => EquipmentCatalogue.BonusDescription(item.Slot, b)));
-            if (RingEffects.IsRing(item.Slot)) attributes += "\n" + RingEffects.Describe(item, ItemLevel(item), ringPreview?.After.Modifiers);
-            if (item.Affix != null) attributes += "\nEspecial: " + ItemAffixes.Describe(item.Affix, ItemLevel(item), item.Slot);
-            var stats = Ui.Label(attributes, Ui.IsMobile ? 18 : 17);
-            stats.Name = "EquipmentItemStats_" + item.Id;
-            stats.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-            stats.SizeFlagsHorizontal = SizeFlags.ExpandFill; stats.MouseFilter = MouseFilterEnum.Pass;
-            stats.TooltipText = string.Join("\n", item.Bonuses.Select(b => EquipmentCatalogue.BonusDescription(item.Slot, b) +
-                " (" + EquipmentCatalogue.Percent(b.Minimum) + " / " + EquipmentCatalogue.Percent(b.Maximum) + ")"));
-            description.AddChild(stats);
-            AddComparison(description, item, ringPreview);
+            var stats = Ui.Table(2, "EquipmentItemStats_" + item.Id); body.AddChild(stats);
+            RenderItemStats(stats, item);
+            AddItemEffects(body, ItemEffects(item, ItemLevel(item), ringPreview?.After.Modifiers), "EquipmentItemEffects_" + item.Id);
+            AddComparison(body, item, ringPreview);
             var entry = _defensePlayer?.Items.FirstOrDefault(i => i.Item.Id == item.Id);
             if (entry != null) description.AddChild(Ui.Label($"Mejoras: {entry.Upgrades} / 10", 15, Ui.Muted));
             var actions = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ShrinkEnd };

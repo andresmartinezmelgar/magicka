@@ -20,6 +20,12 @@ El protocolo actual es **37**: deben actualizarse cliente y servidor juntos para
 
 ## Efecto del equipo
 
+«Ver estadísticas» incluye una tabla numerada con las mejoras de la partida: nivel, reliquias, auras, pasivas y regeneración de un escudo de vida activo. Las reliquias muestran su efecto acumulado; Regeneración explica que cura sin escudo, sin recibir ataques y fuera de las auras. Los porcentajes del equipo mantienen su tabla y sus aportaciones por pieza, también enumeradas.
+
+Todos los objetos del inventario y de la tienda usan la misma tabla de atributos, con valor actual, mínimo y máximo. En tarjetas estrechas los límites aparecen debajo del valor actual. El equipo público usa el mismo formato con los valores que el servidor publica. Los efectos especiales y las habilidades de los anillos se presentan como una lista numerada.
+
+Con varios humanos, consultar el inventario mantiene el combate y activa la asistencia de supervivencia máxima, también cuando no hay bots. Mantiene o repone un escudo, busca una retirada segura, evita áreas enemigas y se cura o se apaga el fuego cuando lo necesita. Solo ataca brevemente desde una posición segura; interrumpe el ataque para defenderse. No compra equipo, no cambia la selección del jugador, no concede inmunidad ni genera tiempo activo de participación. Al cerrar la pantalla devuelve el control. Con un único humano se conserva la pausa de la partida.
+
 Las piezas equipadas aportan sus colores a una única aura alrededor del mago. El brillo se mezcla entre zonas y respira suavemente con un movimiento común. La calidad y las mejoras aumentan su intensidad. No contiene rayos ni círculos animados independientes.
 
 La cantidad de partículas depende de la suma de calidad de las seis piezas equipadas, incluidos los anillos: Plata vale 1 punto, Oro 2, Platino 3, Diamante 4 y Mítico 5. Cada punto aporta cuatro partículas; una ranura vacía aporta cero. Con seis piezas de igual calidad, el presupuesto es 24, 48, 72, 96 o 120 partículas respectivamente. Tres Plata, dos Oro y una Diamante suman 11 puntos y dan 44 partículas.

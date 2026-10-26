@@ -191,7 +191,7 @@ public partial class Main
             int attack = Array.FindIndex(cells, l => l.Text.Split('\n')[0] == "Ataque");
             Check(attack >= 0 && (totals.Columns == 2
                 ? cells[attack - 1].Text == "+13%" && new[] { "Botas · Plata: +2%", "Gorro · Plata: -1%", "Pecho · Plata: +5%", "Arma · Plata: +7%" }
-                    .All(source => cells.Any(l => l.Name.ToString().StartsWith("EquipmentTotalSource_Power_") && l.Text == source))
+                    .All(source => cells.Any(l => l.Name.ToString().StartsWith("EquipmentTotalSource_Power_") && l.Text.EndsWith(". " + source, StringComparison.Ordinal)))
                 : cells.Skip(attack - 9).Take(9).Select(l => l.Text).SequenceEqual(new[] { "+2%", "-1%", "+5%", "+7%", "—", "—", "0%", "+13%", "+13%" })),
                 "El desglose no separa las cuatro piezas, pierde el signo o suma piezas sin equipar.");
             panel.PressInspect(EquipmentSlot.Hat); panel.PressChoice("");

@@ -28,6 +28,16 @@ public static class RelicBuffs
     public static float Speed(Wizard p) => 1 + Math.Min(1, p.BuffStacks[(int)BuffKind.Speed] * 0.05f);
     public static float Energy(Wizard p) => p.BuffStacks[(int)BuffKind.Energy];
     public static float Healing(Wizard p) => 1 + p.BuffStacks[(int)BuffKind.Healing] * 0.1f;
+    public static string DescribeTotal(BuffKind kind, int stacks) => kind switch
+    {
+        BuffKind.Power => $"+{stacks * 10f:0.##} % de daño.",
+        BuffKind.Protection => $"-{(1 - Math.Max(.2f, MathF.Pow(.92f, stacks))) * 100:0.##} % de daño recibido; límite del 80 %.",
+        BuffKind.Regeneration => $"+{stacks * 20f:0.##} vida/s. Cura sin escudo, sin recibir ataques y fuera de las auras.",
+        BuffKind.Vitality => $"+{stacks * 100f:0.##} de vida máxima.",
+        BuffKind.Speed => $"+{Math.Min(100, stacks * 5f):0.##} % de velocidad; límite del 100 %.",
+        BuffKind.Energy => $"+{stacks} energía/s base; se aplica el modificador de regeneración de energía del equipo.",
+        _ => $"+{stacks * 10f:0.##} % a tus curaciones. No amplifica la regeneración de reliquias."
+    };
     public static BuffSnapshot[] Snapshot(Wizard p)
     {
         int count = 0;

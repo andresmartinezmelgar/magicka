@@ -280,7 +280,8 @@ public partial class Main
                 if (_quickItemActions) GD.Print("QUICK_UPGRADE_OK: doble clic/toque aplica una sola mejora y un solo cobro; límites de oro y nivel respetados.");
                 var inventory = panel.EquipmentInventory!;
                 Check(((Button)inventory.FindChild("EquipmentUpgrade_" + improved.Item.Id, true, false)).TooltipText.Contains($"{DefenseRules.UpgradeCost(improved.Item.Tier, 1)} oro") &&
-                    ((ElementTextLabel)inventory.FindChild("EquipmentItemStats_" + improved.Item.Id, true, false)).Text.Contains(EquipmentCatalogue.Percent(improved.Item.Bonuses[0].Current)),
+                    inventory.FindChild("EquipmentItemStats_" + improved.Item.Id, true, false).GetChildren().OfType<ElementTextLabel>()
+                        .Any(label => label.Text.Contains(EquipmentCatalogue.Percent(improved.Item.Bonuses[0].Current))),
                     "El selector no actualiza el siguiente coste y las estadísticas mejoradas.");
                 CaptureDefense("05-mejora-pieza");
                 _defenseItemsBeforeSupply = player.Items.Select(i => i.Item.Id).ToArray();

@@ -64,7 +64,7 @@ public partial class EquipmentPanel
                 stat.Limited ? Ui.Gold : stat.Effective < 0 ? Ui.Red : Ui.Blue);
             applied.Name = "EquipmentTotalApplied_" + stat.Stat;
             if (compact) applied.SizeFlagsHorizontal = SizeFlags.Fill;
-            applied.TooltipText = EquipmentCatalogue.StatDescription(stat.Stat) + "\n" + string.Join('\n', lines) +
+            applied.TooltipText = EquipmentCatalogue.StatDescription(stat.Stat) + "\n" + NumberedImprovements(string.Join('\n', lines)) +
                 "\nSuma = botas + gorro + pecho + arma + anillos + conjunto. — indica que no hay pieza equipada." +
                 (stat.Limited ? "\nLa suma está limitada: se aplica el valor indicado en Aplicado." : "");
             Cell(table, StatName(stat.Stat), color: compact ? Ui.Gold : null).TooltipText = applied.TooltipText;
@@ -77,7 +77,7 @@ public partial class EquipmentPanel
                 {
                     var spacer = Ui.TableCell(table, "", size: 14);
                     spacer.SizeFlagsHorizontal = SizeFlags.Fill;
-                    var source = Ui.TableCell(table, lines[i], color: Ui.Muted, size: 14);
+                    var source = Ui.TableCell(table, $"{i + 1}. {lines[i]}", color: Ui.Muted, size: 14);
                     source.Name = "EquipmentTotalSource_" + stat.Stat + "_" + i;
                     source.TooltipText = applied.TooltipText;
                     foreach (var cell in new[] { spacer, source })

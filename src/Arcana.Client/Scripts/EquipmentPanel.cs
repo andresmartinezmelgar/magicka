@@ -33,7 +33,7 @@ public partial class EquipmentPanel : Control
     internal AccountProfile? PreviewProfile => _draft;
     internal bool HasChanges => _draft != null && _draft.Loadout != _savedLoadout;
     internal EquipmentSlot SelectedSlot => _selectedSlot;
-    internal string Details => string.Join("\n", _details.GetChildren().OfType<ElementTextLabel>().Select(l => l.Text));
+    internal string Details => string.Join("\n", _details.GetChildren().Concat(_detailEffects.GetChildren()).OfType<ElementTextLabel>().Select(l => l.Text));
     internal string Totals => string.Join("\n", _totals.GetChildren().OfType<ElementTextLabel>().Select(l => l.Text));
     internal bool Saving => _busy;
     internal string Sets => _sets.Text;
@@ -126,9 +126,13 @@ public partial class EquipmentPanel : Control
         _sets = Ui.Label("", 14, Ui.Gold); _sets.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_sets);
         _totals = Ui.Table(2, "EquipmentTotalsTable"); summary.AddChild(_totals);
         _totalsEmpty = Ui.Label("No hay bonificaciones activas.", 16, Ui.Muted); _totalsEmpty.Name = "EquipmentNoActiveBonuses"; summary.AddChild(_totalsEmpty);
+        _progressStatsTitle = Ui.Label("MEJORAS DE PARTIDA · NIVEL, RELIQUIAS Y PODERES", 17, Ui.Gold);
+        _progressStatsTitle.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_progressStatsTitle);
+        _progressStats = Ui.Table(2, "EquipmentProgressStatsTable"); summary.AddChild(_progressStats);
         _combatPreview = Ui.Label("", 15, Ui.Muted); _combatPreview.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_combatPreview);
-        _detailTitle = Ui.Label("", 17, Ui.Gold); summary.AddChild(_detailTitle);
+        _detailTitle = Ui.Label("", 17, Ui.Gold); _detailTitle.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_detailTitle);
         _details = Ui.Table(3, "EquipmentDetailsTable"); summary.AddChild(_details);
+        _detailEffects = new VBoxContainer { Name = "EquipmentDetailEffects" }; summary.AddChild(_detailEffects);
         _empty = Ui.Label("", 14, Ui.Muted); _empty.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_empty);
         BuildSaleModal();
         _setsInfo = new AcceptDialog { Name = "EquipmentSets", Title = "Conjuntos Míticos", OkButtonText = "Cerrar" }; AddChild(_setsInfo); Ui.ConfigureDialog(_setsInfo);
@@ -227,6 +231,7 @@ public partial class EquipmentPanel : Control
         RenderSavedEquipment();
         var breakdown = PublicEquipment.Prepare(account ?? new("", "", 0, 0, 0, new(), []), _itemLevels);
         _totalsEmpty.Visible = !RenderTotals(_totals, breakdown.View.Stats, breakdown.View.Items);
+        UpdateProgressStats();
         var m = breakdown.Modifiers;
         _combatPreview.Text = account == null
             ? "Los porcentajes reales aparecen aquí cuando equipas un objeto."
@@ -236,7 +241,7 @@ public partial class EquipmentPanel : Control
               (420 * m.ShieldCapacity).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) +
               " puntos (sin Absorción serían 420). La Defensa reduce daño, no aumenta los puntos que muestra el escudo.";
         string specialEffects = ItemAffixes.Summary(m);
-        if (specialEffects.Length > 0) _combatPreview.Text += "\n\nEFECTOS ESPECIALES ACTIVOS\n" + specialEffects +
+        if (specialEffects.Length > 0) _combatPreview.Text += "\n\nEFECTOS ESPECIALES ACTIVOS\n" + NumberedImprovements(specialEffects) +
             "\nLos efectos iguales usan el valor más alto; no se suman entre piezas.";
         var activeSets = EquipmentCatalogue.FocusedFamilies.Where(f => m.Pieces(f) >= 2).ToArray();
         _sets.Text = activeSets.Length == 0 ? "Sin conjuntos activos." : "Conjuntos activos · " +
@@ -262,29 +267,13 @@ public partial class EquipmentPanel : Control
     private int ItemLevel(EquipmentItem item) => _itemLevels.GetValueOrDefault(item.Id, item.UpgradeLevel);
     private void RenderDetails()
     {
-        Clear(_details); var item = Selected();
+        Clear(_details); Clear(_detailEffects); var item = Selected();
         _detailTitle.Text = EquipmentCatalogue.SlotName(_selectedSlot) + " · ATRIBUTOS INDIVIDUALES";
-        foreach (string heading in new[] { "Actual", "Límites (mín. / máx.)", "Atributo" }) Cell(_details, heading, heading != "Atributo", header: true);
-        if (item != null) foreach (var bonus in item.Bonuses)
+        if (item != null)
         {
-            bool active = EquipmentCatalogue.BonusActive(item.Slot, bonus.Stat);
-            Cell(_details, active ? EquipmentCatalogue.Percent(bonus.Current) : "Inactivo", true, active ? bonus.Current < 0 ? Ui.Red : Ui.Blue : Ui.Muted);
-            Cell(_details, EquipmentCatalogue.Percent(bonus.Minimum) + " / " + EquipmentCatalogue.Percent(bonus.Maximum), true, Ui.Muted);
-            Cell(_details, StatName(bonus.Stat)).TooltipText = active ? EquipmentCatalogue.StatDescription(bonus.Stat)
-                : EquipmentCatalogue.BonusDescription(item.Slot, bonus) + ". El anillo mágico solo aporta capacidad de escudo y su habilidad elemental.";
-        }
-        if (item?.Affix is { } affix)
-        {
-            Cell(_details, "Especial", true, Ui.Gold);
-            Cell(_details, ItemAffixes.Active(affix, item.Slot) == null ? "Inactivo"
-                : affix.Kind == ItemAffixKind.CoinDividend ? $"Nivel {ItemLevel(item)}/10" : "Fijo", true, Ui.Muted);
-            Cell(_details, ItemAffixes.Describe(affix, ItemLevel(item), item.Slot));
-        }
-        if (item != null && RingEffects.IsRing(item.Slot))
-        {
-            Cell(_details, "Anillo", true, Ui.Gold);
-            Cell(_details, $"Nivel {ItemLevel(item)}/10", true, Ui.Muted);
-            Cell(_details, RingEffects.Describe(item, ItemLevel(item), _draft == null ? null : EquipmentModifiers.Calculate(_draft, _itemLevels)));
+            RenderItemStats(_details, item);
+            string effects = ItemEffects(item, ItemLevel(item), _draft == null ? null : EquipmentModifiers.Calculate(_draft, _itemLevels));
+            if (effects.Length > 0) AddItemEffects(_detailEffects, $"Nivel {ItemLevel(item)}/10\n" + effects);
         }
         _empty.Text = item == null ? "Sin pieza equipada. Pulsa una posición para abrir sus objetos ordenados por calidad." :
             "Pulsa una posición para comparar sus objetos. Los cambios se guardan al salir del inventario.";
