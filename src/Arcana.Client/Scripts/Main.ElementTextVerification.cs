@@ -55,7 +55,7 @@ public partial class Main
     }
     private void VerifyRelicStatisticsSmoke()
     {
-        var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, Bots = 0 });
+        var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, Bots = 0, MaxPlayers = 1 });
         var player = world.AddPlayer("Reliquias")!;
         player.BuffStacks[(int)BuffKind.Regeneration] = 2;
         player.Health = 500; player.Shield = 0;

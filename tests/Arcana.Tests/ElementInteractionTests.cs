@@ -40,6 +40,40 @@ internal static class ElementInteractionTests
 
     public static void Run(Action<string, Action> test)
     {
+        test("Rayo: los aliados no ocupan objetivos ni reciben descargas ofensivas, incluso con fuego amigo", () =>
+        {
+            foreach (bool friendlyFire in new[] { false, true })
+            foreach (int chains in new[] { 0, 2 })
+            foreach (var elements in new[] { new[] { Element.Lightning }, new[] { Element.Lightning, Element.Fire }, new[] { Element.Lightning, Element.Cold } })
+            {
+                var world = new GameWorld(new() { Mode = GameMode.Warfare, FriendlyFire = friendlyFire, MaxPlayers = 8 });
+                var caster = world.AddPlayer("Lanzador", 0)!; caster.Position = new(-4, 0); caster.Invulnerable = 0;
+                world.EquipPlayer(caster.Id, new EquipmentModifiers { LightningChains = chains });
+                var allies = Enumerable.Range(0, 3).Select(i =>
+                {
+                    var ally = world.AddPlayer("Aliado " + i, 0)!; ally.Position = new(-1 + i * .5f, (i - 1) * .3f);
+                    ally.Health = 500; ally.Shield = ally.ShieldMax = 100; ally.ShieldTime = 12; ally.Invulnerable = 0;
+                    return ally;
+                }).ToArray();
+                var enemy = world.AddPlayer("Enemigo", 1)!; enemy.Position = new(3, 0); enemy.Invulnerable = 0;
+                caster.Channel = new(elements); world.Step();
+                Check(enemy.Health < 1000, "Los aliados cercanos consumen los tres objetivos y evitan alcanzar al enemigo.");
+                Check(allies.All(a => a.Health == 500 && a.Shield == 100 && a.Burning == 0 && a.Chill == 0),
+                    "Una descarga ofensiva daña, consume escudo o aplica estados a un aliado.");
+                Check(world.Snapshot().Beams.All(b => allies.All(a => V2.Distance(a.Position, b.To) > .1f)),
+                    "El rayo sigue dibujando un aliado como objetivo aunque no le cause daño.");
+            }
+        });
+        test("Rayo con Vida: conserva el objetivo aliado y puede curarlo", () =>
+        {
+            var world = new GameWorld(new() { Mode = GameMode.Warfare, FriendlyFire = false });
+            var caster = world.AddPlayer("Sanador", 0)!; var ally = world.AddPlayer("Aliado", 0)!;
+            caster.Position = new(-4, 0); ally.Position = new(0, 0); caster.Invulnerable = ally.Invulnerable = 0;
+            ally.Health = 500; ally.Shield = ally.ShieldMax = 100; ally.ShieldTime = 12;
+            caster.Channel = new([Element.Lightning, Element.Life]); world.Step();
+            Check(ally.Health > 500 && ally.Shield == 100 && world.Snapshot().Beams.Any(b => V2.Distance(b.To, ally.Position) < 1),
+                "La excepción de Vida bloquea al aliado o impide curarlo.");
+        });
         test("Elementos: ocho ventajas y debilidades completas, distintas y recíprocas", () =>
         {
             var elements = Enum.GetValues<Element>();

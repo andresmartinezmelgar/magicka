@@ -5,7 +5,7 @@ namespace Arcana.Client;
 
 public static partial class Ui
 {
-    public static Color ElementTextColor(Element element) => element == Element.Fire ? new("ff625c") : ElementColor(element);
+    public static Color ElementTextColor(Element element) => ElementColor(element);
 
     public static ElementTextLabel ElementTooltip(string text)
     {

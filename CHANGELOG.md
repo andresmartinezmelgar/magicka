@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.29.26
+
+- El rayo eléctrico ofensivo ignora aliados, también con fuego amigo y cadenas. No consumen sus tres objetivos; la mezcla con Vida sí permite curarlos.
+- Textos con la paleta de los elementos y un color por efecto. Escudo vital, energía, reparaciones y estados usan colores coherentes; fuego amigo conserva el color normal.
+- Inventario sin bordes rojo/verde y con acciones Equipar/Desequipar, Marcar/Desmarcar favorito y Vender/Mantener. La venta automática muestra su límite y permite desactivarlo desde otra calidad.
+- Estadísticas con nivel, reliquias, auras y pasivas. Todos los ítems muestran tablas de valores y límites; desgloses numerados y nombres, costes y recargas de habilidades completos.
+- Supervivencia máxima al consultar pantallas con varios humanos: prioriza escudo y retirada; ataca solo desde una posición segura. Conserva la pausa con un solo humano.
+
 ## 0.29.25
 
 - El arcano avanza en línea recta, sin buscar otros enemigos ni penetración automática. El afijo atraviesa los objetivos de su trayectoria sin atenuación; los escudos conservan reflexión y refracción.

@@ -81,7 +81,7 @@ public static class SpellCatalogue
         {
             SpellShape.Beam => (spell.Healing ? "Rayo de vida: cura al objetivo alcanzado" : "Rayo continuo: golpea al primer objetivo") +
                 ". Al cruzar otro rayo se combinan sus efectos y cambia la dirección. Los escudos pueden desviarlo.",
-            SpellShape.Lightning => "Descarga en cadena hasta tres objetivos. El agua aumenta el daño; lanzar estando mojado también puede dañarte.",
+            SpellShape.Lightning => "Descarga en cadena hasta tres enemigos. Ignora a los aliados; con Vida puede curarlos y adopta forma de haz. El agua aumenta el daño; lanzar estando mojado también puede dañarte.",
             SpellShape.Shards => "Abanico de fragmentos de hielo. Cada fragmento impacta directamente, sin explosión circular.",
             SpellShape.Spray => spell.Steam ? "Chorro de vapor en cono. Daño continuo a los objetivos visibles frente al mago."
                 : "Chorro elemental en cono. Solo alcanza los objetivos visibles frente al mago mientras mantienes el lanzamiento.",

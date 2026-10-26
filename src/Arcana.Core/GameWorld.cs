@@ -451,7 +451,7 @@ public sealed partial class GameWorld
             foreach (var q in _combatants.Values)
             {
                 int index = order++;
-                if (q.Id == p.Id || !q.Alive) continue;
+                if (q.Id == p.Id || !q.Alive || spell.Shape == SpellShape.Lightning && !spell.Healing && Allied(p, q)) continue;
                 float distance = V2.Distance(q.Position, from);
                 if (distance <= range && V2.Dot((q.Position - from).Normalized, p.Facing) >
                     (spell.Shape == SpellShape.Lightning ? SpellBalance.LightningConeDot : SpellBalance.ChannelConeDot) && Visible(from, q.Position, p.Id))

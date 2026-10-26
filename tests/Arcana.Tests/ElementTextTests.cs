@@ -31,5 +31,16 @@ internal static class ElementTextTests
             Check(marked.Contains("[lb]color=red[rb]") && marked.Contains("[lb]/color[rb]") &&
                 !marked.Contains("[img]") && marked.Contains("[color=#123456]Fuego[/color]"), "El marcado externo no está escapado.");
         });
+        test("Textos: los nombres de efectos usan un color coherente con su función", () =>
+        {
+            foreach (var (text, expected) in new[] { ("Escudo vital", Element.Life), ("Escudo regenerativo", Element.Life),
+                ("Escudo personal", Element.Shield), ("Remiendo protector", Element.Shield), ("Batería protectora", Element.Lightning),
+                ("Rayo a mojados", Element.Lightning), ("Remate arcano", Element.Arcane), ("Pulso glacial", Element.Cold) })
+                Check(ElementText.Parse(text) is [var term] && term.Start == 0 && term.Length == text.Length && term.Element == expected,
+                    "El nombre mezcla colores o usa un elemento incorrecto: " + text);
+            Check(ElementText.Parse("Regeneración de energía").All(w => w.Element == Element.Lightning), "La energía se muestra como curación de vida.");
+            Check(ElementText.Parse("Regeneración de escudo").All(w => w.Element == Element.Shield), "Reparar escudo se muestra como curación de vida.");
+            Check(ElementText.Parse("Fuego amigo").Length == 0, "Fuego amigo se confunde con el elemento Fuego.");
+        });
     }
 }
