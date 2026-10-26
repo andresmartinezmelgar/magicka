@@ -108,7 +108,7 @@ public static partial class Ui
         var label = new ElementTextLabel { Text = text };
         label.AddThemeFontSizeOverride("font_size", IsMobile ? Math.Max(size, 16) : size);
         label.AddThemeColorOverride("font_outline_color", new Color("070c16")); label.AddThemeConstantOverride("outline_size", 2);
-        if (color != null) label.AddThemeColorOverride("font_color", color.Value);
+        label.AddThemeColorOverride("font_color", color ?? Text);
         return label;
     }
     public static readonly Color TableBorder = new("7292b5");

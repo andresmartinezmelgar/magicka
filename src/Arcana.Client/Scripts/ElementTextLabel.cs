@@ -14,6 +14,7 @@ public partial class ElementTextLabel : Control
     private string _plainText = "";
     private bool _updatingTheme;
     internal string FormattedText => _content.Text;
+    internal Color PlainColor => _content.GetThemeColor("default_color");
     public string Text
     {
         get => _plainText;

@@ -13,6 +13,7 @@ public partial class Main
             label.AutowrapMode = TextServer.AutowrapMode.WordSmart; label.Size = new(320, 200);
             _ui.AddChild(label);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (label.PlainColor != Ui.Text) throw new InvalidDataException("El texto sin elemento pierde contraste con el fondo.");
             if (label.GetParsedText() != label.Text || !label.FormattedText.Contains("[color=#" + Ui.ElementTextColor(Element.Shield).ToHtml(false) + "]Escudo"))
                 throw new InvalidDataException("La etiqueta muestra marcado o pierde el color del escudo.");
             using var measure = new Label { Text = label.Text, Size = label.Size, AutowrapMode = label.AutowrapMode };
