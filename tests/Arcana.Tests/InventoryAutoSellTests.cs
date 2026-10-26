@@ -40,6 +40,9 @@ internal static class InventoryAutoSellTests
             var fresh = New(a);
             Check(prefs.AutomaticSales(profile with { Items = [.. profile.Items, fresh, New(a) with { Tier = ItemTier.Platinum }] }).Single().Id == fresh.Id,
                 "El nuevo límite vende la calidad de referencia o ignora una inferior.");
+            prefs.SetAutoSell(style with { Tier = ItemTier.Silver }, false, profile);
+            Check(prefs.AutoSellRules.Count == 0 && prefs.AutomaticSales(profile with { Items = [.. profile.Items, fresh] }).Length == 0,
+                "Mantener desde otra calidad no desactiva el límite vigente de la misma ranura y familia.");
         });
         test("Venta automática: cada calidad usa un límite estricto y las reglas antiguas se desactivan al migrar", () =>
         {
@@ -76,7 +79,8 @@ internal static class InventoryAutoSellTests
             var hidden = privateState.Defense!.Defenders.Single(d => d.PlayerId == p.Id);
             Check(hidden.Items.Length == 0 && hidden.Favorites.Length == 0 && hidden.AutoSellStyles.Length == 0, "Filtra preferencias privadas.");
             SnapshotValidation.Check(privateState);
-            Check(Send(w, p, new() { Type = "defense_auto_sell", AutoSellStyle = style, Slot = 0 }), "No desactiva el filtro.");
+            Check(Send(w, p, new() { Type = "defense_auto_sell", AutoSellStyle = style with { Tier = ItemTier.Silver }, Slot = 0 }) &&
+                State(w, p).AutoSellStyles.Length == 0, "Mantener desde una calidad inferior no desactiva el filtro de la partida.");
             Give(w, p, New(fresh)); Check(State(w, p).Items.Length == after.Items.Length + 3, "Sigue vendiendo tras desactivar.");
         });
         test("Supervivencia: favoritos y filtros sobreviven al guardado, y los guardados antiguos siguen abriendo", () =>

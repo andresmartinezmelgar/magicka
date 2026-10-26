@@ -112,17 +112,21 @@ public partial class ElementTextLabel : Control
         {
             var font = GetThemeFont("font"); int size = GetThemeFontSize("font_size");
             float width = Math.Max(0, Size.X - _measure.GetThemeStylebox("normal").GetMinimumSize().X);
-            if (font.GetStringSize(visible, fontSize: size).X > width)
+            // Cada línea conserva su coste, recarga o estado: recortar el bloque entero
+            // podía eliminar el salto de línea y todo lo que venía después del nombre.
+            visible = string.Join('\n', visible.Split('\n').Select(TrimLine));
+            string TrimLine(string line)
             {
-                int low = 0, high = visible.Length;
+                if (font.GetStringSize(line, fontSize: size).X <= width) return line;
+                int low = 0, high = line.Length;
                 while (low < high)
                 {
                     int middle = (low + high + 1) / 2;
-                    if (font.GetStringSize(visible[..middle] + "…", fontSize: size).X <= width) low = middle;
+                    if (font.GetStringSize(line[..middle] + "…", fontSize: size).X <= width) low = middle;
                     else high = middle - 1;
                 }
-                if (low > 0 && char.IsHighSurrogate(visible[low - 1])) low--;
-                visible = visible[..low] + "…";
+                if (low > 0 && char.IsHighSurrogate(line[low - 1])) low--;
+                return line[..low] + "…";
             }
         }
         _content.Text = ElementText.ToBbcode(visible, e => (_semanticColor ?? Ui.ElementTextColor(e)).ToHtml(false));

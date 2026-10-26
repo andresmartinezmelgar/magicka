@@ -34,6 +34,18 @@ public partial class ClientVerification
                     Require(CheckMobilePalette(), "La paleta móvil no distingue los elementos o pierde contraste.");
                     Require(CheckMobileArea(), "El área izquierda no conserva el origen, los dedos o los botones.");
                     Main.VerifyTouchClearance(touch);
+                    for (int i = 0; i < SpellBalance.Magicks.Count; i++)
+                    {
+                        var magickPanel = (PanelContainer)touch.FindChild("TouchMagick" + i, true, false);
+                        var caption = magickPanel.GetChildren().OfType<ElementTextLabel>().Single();
+                        var font = caption.GetThemeFont("font"); int fontSize = caption.GetThemeFontSize("font_size");
+                        var available = magickPanel.Size - magickPanel.GetThemeStylebox("panel").GetMinimumSize();
+                        string[] lines = caption.GetParsedText().Split('\n');
+                        Require(lines.Length == 2 && lines[0] == SpellBalance.Magicks[i].Name &&
+                            lines.All(line => font.GetStringSize(line, fontSize: fontSize).X <= available.X + .1f) &&
+                            font.GetHeight(fontSize) * lines.Length + caption.GetThemeConstant("line_spacing") <= available.Y + .1f,
+                            "El nombre, coste o recarga de una habilidad no cabe completo en su botón.");
+                    }
                     ReadyForSpell();
                     Require(width >= 1440 && height >= 720, "El viewport móvil no respeta la escala horizontal.");
                     float controlScale = Math.Min(1, height / 720f);

@@ -27,6 +27,11 @@ public partial class Main
             if (label.GetParsedText() != label.Text) throw new InvalidDataException("El nombre externo puede inyectar marcado.");
             label.Text = "";
             if (label.GetParsedText() != "") throw new InvalidDataException("Queda contenido después de vaciar la etiqueta.");
+            label.AutowrapMode = TextServer.AutowrapMode.Off; label.ClipText = true;
+            label.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+            label.Size = new(80, 100); label.Text = "Traslación demasiado larga\n50";
+            if (!label.GetParsedText().Contains('…') || !label.GetParsedText().EndsWith("\n50", StringComparison.Ordinal))
+                throw new InvalidDataException("Recortar un nombre elimina la segunda línea del coste o la recarga.");
             label.QueueFree();
             var button = Ui.Button("Fuego + Escudo", () => { }); button.Size = new(320, 60); _ui.AddChild(button);
             button._Notification((int)CanvasItem.NotificationDraw);

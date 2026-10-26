@@ -6,7 +6,9 @@ Los botones muestran la acción disponible: **Equipar / Desequipar** y **Marcar 
 
 El botón **Vender ítems de menor calidad** activa la venta de los futuros objetos de la misma **ranura y familia**, con una calidad **estrictamente inferior a la pieza que activa la regla**. Una regla activada desde Oro conserva Oro, Platino, Diamante y Mítico; vende Plata de la misma ranura y familia. Las tiradas de estadísticas, los afijos y el nivel de mejora no definen otro estilo. Los objetos que ya tienes al activar el filtro se conservan.
 
-Puedes desactivarlo en la tarjeta con **Mantener ítems de menor calidad**, o en **Opciones → Venta automática → Conservar**. Al reactivarlo o cambiar el límite se vuelven a proteger todos los objetos que tengas en ese momento. Solo hay un límite por ranura y familia; activar otro lo sustituye. En Plata el botón está desactivado porque no existe una calidad inferior.
+Puedes desactivarlo en la tarjeta con **Mantener ítems de menor calidad**, o en **Opciones → Venta automática → Conservar**. Al reactivarlo o cambiar el límite se vuelven a proteger todos los objetos que tengas en ese momento. Solo hay un límite por ranura y familia; activar otro lo sustituye. Plata es la calidad mínima: desde ella solo se puede desactivar una regla existente.
+
+Las tarjetas muestran el límite vigente de su ranura y familia. Una pieza de calidad inferior también permite desactivarlo, incluida Plata si hay una regla activa. La confirmación distingue activar de desactivar y recuerda que solo se filtra botín nuevo; no vende objetos anteriores ni otras familias.
 
 Las reglas anteriores, que vendían la calidad exacta, se desactivan al actualizar tanto las preferencias de cuenta como un guardado de Supervivencia. Se conservan los objetos y los favoritos. El protocolo 35 exige clientes y servidores con el mismo criterio; el servidor comprueba la pieza propia que establece el límite.
 

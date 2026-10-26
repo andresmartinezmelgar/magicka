@@ -47,6 +47,7 @@ public partial class MobileControls
             // Escalar el panel entero conserva su mínimo real, iconos, texto y área pulsable.
             action.Panel.Scale = Vector2.One * ControlScale;
             action.Panel.Size = size;
+            if (_magicks.Contains(action)) FitMagickCaption(action);
             Add(action.Panel.Name, center, action.Panel.Size * ControlScale);
         }
         for (int i = 0; i < _utilities.Count; i++) Button(_utilities[i], new(width - (382 - i * 124) * s, 22 * s), new(118, 62));

@@ -44,7 +44,7 @@ public sealed partial class GameWorld
                 progress.AutoSellStyles.RemoveWhere(s => s.SameKind(style));
                 progress.AutoSellStyles.Add(style);
             }
-            else progress.AutoSellStyles.Remove(style);
+            else progress.AutoSellStyles.RemoveWhere(s => s.SameKind(style));
             return true;
         }
         if (command.Type == "defense_performance")

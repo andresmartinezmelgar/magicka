@@ -63,6 +63,8 @@ public partial class MobileControls : Control
         for (int i = 0; i < SpellBalance.Magicks.Count; i++)
         {
             var action = AddButton(SpellBalance.Magicks[i].Name, new() { Type = "magick", Slot = i }, color: Ui.Gold);
+            action.Text.ClipText = true;
+            action.Text.TextOverrunBehavior = TextServer.OverrunBehavior.NoTrimming;
             action.Panel.Name = "TouchMagick" + i; _magicks.Add(action);
         }
         _utilities.Add(AddButton("Ayuda", run: () => HelpRequested?.Invoke()));
@@ -121,11 +123,28 @@ public partial class MobileControls : Control
             bool missingAlly = i == 3 && world != null && MagickRules.ReanimationTarget(world, player) == null;
             bool available = player.Alive && player.Frozen <= 0 && player.Cooldowns[i] <= 0 && player.Energy >= cost && !missingAlly;
             if (_pendingMagick == i && !available) CancelMagickAim();
-            _magicks[i].Text.Text = magick.Name + "\n" + (_pendingMagick == i ? "Apuntando" :
+            string caption = magick.Name + "\n" + (_pendingMagick == i ? "Apuntando" :
                 !player.Alive ? "Caído" : player.Frozen > 0 ? "Congelado" : player.Cooldowns[i] > 0 ? $"{Math.Ceiling(player.Cooldowns[i])}s" :
                 missingAlly ? "Sin aliado" : player.Energy < cost ? $"Faltan {Math.Ceiling(cost - player.Energy)}" : $"{cost:0}");
+            if (_magicks[i].Text.Text != caption)
+            {
+                _magicks[i].Text.Text = caption;
+                FitMagickCaption(_magicks[i]);
+            }
             _magicks[i].Text.AddThemeColorOverride("font_color", available ? Ui.Gold : Ui.Muted);
         }
+    }
+
+    private static void FitMagickCaption(TouchAction action)
+    {
+        var available = action.Panel.Size - action.Panel.GetThemeStylebox("panel").GetMinimumSize();
+        if (available.X <= 0 || available.Y <= 0) return;
+        var font = action.Text.GetThemeFont("font");
+        string[] lines = action.Text.Text.Split('\n');
+        int fontSize = 22;
+        while (fontSize > 12 && (lines.Any(line => font.GetStringSize(line, fontSize: fontSize).X > available.X) ||
+            font.GetHeight(fontSize) * lines.Length + action.Text.GetThemeConstant("line_spacing") * (lines.Length - 1) > available.Y)) fontSize--;
+        if (action.Text.GetThemeFontSize("font_size") != fontSize) action.Text.AddThemeFontSizeOverride("font_size", fontSize);
     }
     public override void _Input(InputEvent input)
     {

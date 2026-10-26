@@ -28,7 +28,7 @@ public sealed class InventoryPreferences
     {
         if (!style.Valid) throw new ArgumentException("Estilo de objeto inválido.");
         Normalize();
-        if (!enabled) { AutoSellRules.RemoveAll(r => r.Style == style); return; }
+        if (!enabled) { AutoSellRules.RemoveAll(r => r.Style.SameKind(style)); return; }
         if (style.Tier == ItemTier.Silver) throw new ArgumentException("No hay calidades inferiores a Plata.");
         if (AutoSells(style)) return;
         AutoSellRules.RemoveAll(r => r.Style.SameKind(style));
