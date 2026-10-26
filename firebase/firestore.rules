@@ -48,9 +48,9 @@ service cloud.firestore {
       allow read: if statisticsReader();
       // La telemetría admite remitentes sin sesión. No concede acceso a perfiles.
       allow create: if validStatistics(id, request.resource.data);
-      // Solo reintentos idénticos; nunca se sobrescribe o borra otro informe.
+      // Solo reintentos idénticos; el borrado global requiere un lector autorizado.
       allow update: if validStatistics(id, request.resource.data) && request.resource.data == resource.data;
-      allow delete: if false;
+      allow delete: if statisticsReader();
     }
 
     // Aviso publico del antiguo servicio, conservado para compatibilidad.

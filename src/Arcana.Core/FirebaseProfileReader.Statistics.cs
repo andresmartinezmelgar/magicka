@@ -43,4 +43,48 @@ public sealed partial class FirebaseProfileReader
         if (next.Length > 8192) throw new InvalidDataException("Página inválida.");
         return new(reports.ToArray(), next);
     }
+    public async Task<int> DeleteMatchStatistics(string uid, string idToken, CancellationToken token = default)
+    {
+        if (!await CanReadMatchStatistics(uid, idToken, token).ConfigureAwait(false))
+            throw new UnauthorizedAccessException("Esta cuenta no puede borrar estadísticas.");
+        string prefix = $"projects/{_projectId}/databases/(default)/documents/matchStatistics/";
+        string collection = $"https://firestore.googleapis.com/v1/projects/{_projectId}/databases/(default)/documents/matchStatistics";
+        var ids = new HashSet<string>(StringComparer.Ordinal); string cursor = "";
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        // Primero se fija la lista completa: los filtros del visor no limitan el borrado.
+        do
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, collection + "?pageSize=100&mask.fieldPaths=runId" +
+                (cursor.Length == 0 ? "" : "&pageToken=" + Uri.EscapeDataString(cursor)));
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", idToken);
+            using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+            await EnsureAllowed(response, "el listado de estadísticas", token).ConfigureAwait(false);
+            using var document = JsonDocument.Parse(await RoomBrowser.ReadBoundedAsync(response.Content, 1024 * 1024, token).ConfigureAwait(false));
+            if (document.RootElement.TryGetProperty("documents", out var docs))
+                foreach (var doc in docs.EnumerateArray())
+                {
+                    string name = doc.GetProperty("name").GetString() ?? "";
+                    if (!name.StartsWith(prefix, StringComparison.Ordinal)) throw new InvalidDataException("Documento fuera del historial.");
+                    string id = name[prefix.Length..];
+                    if (id.Length is < 1 or > 200 || id.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '-')) throw new InvalidDataException("Informe inválido.");
+                    ids.Add(id);
+                    if (ids.Count > 100000) throw new InvalidDataException("Historial demasiado grande; no se ha borrado ningún informe.");
+                }
+            cursor = document.RootElement.TryGetProperty("nextPageToken", out var next) ? next.GetString() ?? "" : "";
+            if (cursor.Length > 8192 || cursor.Length > 0 && !seen.Add(cursor)) throw new InvalidDataException("Paginación inválida; no se ha iniciado el borrado.");
+        } while (cursor.Length > 0);
+        int deleted = 0;
+        foreach (string id in ids)
+        {
+            token.ThrowIfCancellationRequested();
+            using var request = new HttpRequestMessage(HttpMethod.Delete, collection + "/" + Uri.EscapeDataString(id));
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", idToken);
+            using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+            if (response.StatusCode != System.Net.HttpStatusCode.NotFound)
+                await EnsureAllowed(response, "el borrado de estadísticas", token).ConfigureAwait(false);
+            deleted++;
+        }
+        return deleted;
+    }
+
 }

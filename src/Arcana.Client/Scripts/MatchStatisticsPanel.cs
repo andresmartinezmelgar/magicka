@@ -12,7 +12,7 @@ public partial class MatchStatisticsPanel : Control
     private readonly Dictionary<string, MatchStatisticsReport> _reports = new(StringComparer.Ordinal);
     private VBoxContainer _body = null!;
     private Label _status = null!;
-    private Button _more = null!, _refresh = null!;
+    private Button _more = null!, _refresh = null!, _deleteHistory = null!;
     private string _nextPageToken = "";
     private int _loadedPages;
     private readonly HashSet<string> _pageTokens = new(StringComparer.Ordinal);
@@ -51,6 +51,8 @@ public partial class MatchStatisticsPanel : Control
         _body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; _body.AddThemeConstantOverride("separation", 12); content.AddChild(_body);
         _refresh = Ui.Button("Actualizar desde Firebase", () => _ = Fetch(true)); content.AddChild(_refresh);
         _more = Ui.Button("Cargar más partidas", () => _ = Fetch(false)); _more.Visible = false; content.AddChild(_more);
+        _deleteHistory = Ui.Button("Borrar historial global de Firebase", ConfirmDeleteHistory);
+        _deleteHistory.Name = "DeleteCloudStatistics"; _deleteHistory.Disabled = verification; content.AddChild(_deleteHistory);
         ArcanaMenuChrome.Attach(this, margin, main, "Estadísticas", 3, main.NavigateOptionAMenu);
         GetViewport().SizeChanged += ResizeFilters; ResizeFilters();
         _ = Fetch(true);
@@ -80,7 +82,7 @@ public partial class MatchStatisticsPanel : Control
     }
     private async Task Fetch(bool reset)
     {
-        if (_loading) return;
+        if (_loading || _deletingHistory) return;
         _loading = true; _more.Disabled = _refresh.Disabled = true;
         string? uid = _main.Accounts.Profile?.Uid;
         try

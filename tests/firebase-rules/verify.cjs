@@ -125,12 +125,19 @@ async function main() {
     for (const client of [google, anonymous, readerA, readerB]) {
       await assertFails(setDoc(doc(client, "matchStatistics/new"), { payload: "identity" }));
       await assertFails(updateDoc(doc(client, "matchStatistics/fixture"), { payload: "changed" }));
-      await assertFails(deleteDoc(doc(client, "matchStatistics/fixture")));
+      if (client !== readerA && client !== readerB) await assertFails(deleteDoc(doc(client, "matchStatistics/fixture")));
       await assertFails(setDoc(doc(client, "statisticsReaders/alice"), { enabled: true }));
       await assertFails(updateDoc(doc(client, "statisticsReaders/readerA"), { enabled: true }));
       await assertFails(getDocs(collection(client, "statisticsReaders")));
     }
     await assertFails(getDoc(doc(readerA, "statisticsReaders/readerB")));
+    for (const [index, reader] of [readerA, readerB].entries()) {
+      const path = "matchStatistics/deletion-fixture-" + index;
+      await env.withSecurityRulesDisabled(async context => { await setDoc(doc(context.firestore(), path), { day: "2026-10-21", payload: "{}" }); });
+      await assertSucceeds(deleteDoc(doc(reader, path)));
+      if ((await getDoc(doc(reader, path))).exists()) throw new Error("El informe no se borró.");
+    }
+    await assertFails(deleteDoc(doc(wrongProvider, "matchStatistics/fixture")));
     const runId = "cccccccccccccccccccccccccccccccc";
     const statistics = { schemaVersion: 1, runId, revision: 60, status: 1, day: "2026-10-22",
       mode: "Arena", map: "Classic", gameVersion: "0.29.8", complete: true, payload: "{}" };
@@ -163,6 +170,7 @@ async function main() {
     await assertFails(setDoc(doc(anonymous, "matchStatistics/mismatched-id"), statistics));
     await env.withSecurityRulesDisabled(async context => { await updateDoc(doc(context.firestore(), "statisticsReaders/readerA"), { enabled: false }); });
     await assertFails(getDocs(collection(readerA, "matchStatistics")));
+    await assertFails(deleteDoc(doc(readerA, "matchStatistics/fixture")));
     console.log("MATCH_STATISTICS_RULES_OK: private reads, anonymous immutable reports, exact retries, bounded schema, no overwrite, role escalation rejected.");
     console.log("FIRESTORE_RULES_OK: Google owner reads, zero-balance registration, owned equipment; illegal writes rejected.");
   } finally { await env.cleanup(); }

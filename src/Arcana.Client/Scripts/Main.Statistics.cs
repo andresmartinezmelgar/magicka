@@ -98,6 +98,11 @@ public partial class Main
             throw new UnauthorizedAccessException("Esta cuenta no tiene habilitada la lectura de estadísticas en Firebase.");
         return await Accounts.ReadMatchStatistics(pageToken, token);
     }
+    internal Task<int> DeleteCloudMatchStatistics(CancellationToken token)
+    {
+        if (!CanViewMatchStatistics || _statisticsSmoke) throw new UnauthorizedAccessException("Borrado no permitido en esta sesión.");
+        return Accounts.DeleteMatchStatistics(token);
+    }
     public void OpenMatchStatistics()
     {
         if (_playing || !CanViewMatchStatistics || GodotObject.IsInstanceValid(_statisticsPanel)) return;

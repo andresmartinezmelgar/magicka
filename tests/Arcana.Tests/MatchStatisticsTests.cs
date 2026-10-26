@@ -209,6 +209,23 @@ internal static class MatchStatisticsTests
             Check(reader.CanReadMatchStatistics("reader", "TOKEN").GetAwaiter().GetResult(), "Rol ignorado.");
             var page = reader.ReadMatchStatistics("TOKEN").GetAwaiter().GetResult(); Check(page.Reports.Single().RunId == report.RunId && page.NextPageToken == "next-page", "Página incorrecta.");
         });
+        test("Estadísticas: borrado autorizado paginado y restringido a su colección", () =>
+        {
+            int lists = 0, deletes = 0;
+            using var http = new HttpClient(new Handler(request =>
+            {
+                Check(request.Headers.Authorization?.Scheme == "Bearer", "Borrado sin autenticación.");
+                if (request.RequestUri!.AbsolutePath.Contains("statisticsReaders"))
+                    return new(HttpStatusCode.OK) { Content = new StringContent("{\"fields\":{\"enabled\":{\"booleanValue\":true}}}") };
+                if (request.Method == HttpMethod.Delete)
+                { deletes++; Check(lists == 2 && request.RequestUri.AbsolutePath.Contains("/matchStatistics/"), "Borrado antes de paginar o fuera del historial."); return new(HttpStatusCode.NoContent); }
+                lists++;
+                string name = "projects/demo-arcana/databases/(default)/documents/matchStatistics/record-" + lists;
+                return new(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(new { documents = new[] { new { name } }, nextPageToken = lists == 1 ? "next" : "" })) };
+            }));
+            using var reader = new FirebaseProfileReader("demo-arcana", http);
+            Check(reader.DeleteMatchStatistics("reader", "TOKEN").GetAwaiter().GetResult() == 2 && deletes == 2, "Se perdieron páginas del borrado.");
+        });
     }
     private sealed class Handler(Func<HttpRequestMessage, HttpResponseMessage> response) : HttpMessageHandler
     {

@@ -18,4 +18,13 @@ public sealed partial class AccountClient
         lock (_identityGate) RequireIdentity(identity.Generation);
         return page;
     }
+    public async Task<int> DeleteMatchStatistics(CancellationToken token = default)
+    {
+        var identity = CaptureIdentity();
+        if (!identity.Direct) throw new UnauthorizedAccessException("Inicia sesión con una cuenta autorizada.");
+        int count = await identity.Reader!.DeleteMatchStatistics(identity.Uid, identity.AccessToken, token).ConfigureAwait(false);
+        lock (_identityGate) RequireIdentity(identity.Generation);
+        return count;
+    }
+
 }
