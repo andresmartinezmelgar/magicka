@@ -116,7 +116,7 @@ public partial class Main
                 {
                     _statisticsPanel.SelectScaleForVerification(scale);
                     var chart = (StatisticsBarChart)_statisticsPanel.FindChild("ElementDamageBars", true, false);
-                    foreach (var category in chart.Categories.Where(c => c.Parts != null))
+                    foreach (var category in chart.Categories.Where(c => c.Parts != null && c.Label != "Vida" && c.Label != "Escudo"))
                     {
                         if (Math.Abs(category.Parts!.Sum(p => p.Value) - category.Value) > .001 ||
                             category.Parts[0].Label != "Hechizos directos" || category.Parts[1].Label != "Áreas")

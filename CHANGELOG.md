@@ -1,5 +1,9 @@
 # Cambios
 
+## Sin publicar
+
+- Vida desglosa curación directa, áreas, auras, regeneración, anillo y Escudo vital. Escudo separa absorción personal y barreras. El resto de elementos conserva daño directo, áreas, auras y quemaduras; etiquetas breves y datos antiguos sin atribución inventada. Protocolo 38.
+
 ## 0.29.22
 
 - Las barras incluyen etiquetas breves: Daño, Área, Aura, Quemadura, Curación, Absorción y Sin detalle. El texto gira dentro de la barra con contraste; si la barra es demasiado baja, aparece debajo del eje sin alterar la altura ni los datos. Se reserva espacio para evitar solapes con los nombres de los elementos en móvil.

@@ -100,7 +100,7 @@ public partial class MatchStatisticsPanel
         if (categories.Any(c => c.Parts != null))
         {
             var detail = Ui.Table(3, name + "Sources"); box.AddChild(detail);
-            foreach (string header in new[] { "Elemento / origen", "Daño", "% del elemento" }) Ui.TableCell(detail, header, header: true, size: 14);
+            foreach (string header in new[] { "Elemento / origen", "Valor", "% del elemento" }) Ui.TableCell(detail, header, header: true, size: 14);
             foreach (var category in categories.Where(c => c.Parts != null))
                 foreach (var part in category.Parts!)
                     foreach (string cell in new[] { category.Label + " · " + part.Label, StatisticsPresentation.Number(part.Value), StatisticsPresentation.Percent(part.Value, category.Value) })
@@ -110,12 +110,12 @@ public partial class MatchStatisticsPanel
     private void ElementChart()
     {
         VerticalChart("Daño por elemento",
-        "Cada elemento muestra barras separadas: azul, hechizos directos; naranja, áreas; violeta, auras; rojo, quemaduras; gris, informes sin desglose. Incluye daño a vida y escudos, sin duplicarlo. Vida y Escudo mantienen curación y absorción efectivas.",
+        "Cada elemento muestra barras separadas: azul, hechizos directos; naranja, áreas; violeta, auras; rojo, quemaduras; gris, informes sin desglose. Incluye daño a vida y escudos, sin duplicarlo. Vida separa curación directa, área, aura, regeneración, anillo y Escudo vital. Escudo separa absorción personal y barreras.",
         Enumerable.Range(0, 8).Select(e => new StatisticsBarChart.Category(Elements[e], (Element)e switch
         {
             Element.Life => SupportSum(StatisticMeasure.Healing), Element.Shield => SupportSum(StatisticMeasure.ShieldAbsorbed),
             _ => ElementSum(StatisticMeasure.Damage, e) + ElementSum(StatisticMeasure.ShieldDamage, e)
-        }, ElementTint(e), e is (int)Element.Life or (int)Element.Shield ? null : ElementDamageParts(e))).ToArray());
+        }, ElementTint(e), e == (int)Element.Life ? HealingParts() : e == (int)Element.Shield ? AbsorptionParts() : ElementDamageParts(e))).ToArray());
         var selector = new OptionButton { Name = "DamageBreakdownElement", CustomMinimumSize = new(0, 44), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         foreach (int e in new[] { 0, 3, 4, 5, 6, 7, 8 }) selector.AddItem("Desglose de daño: " + Elements[e], e);
         selector.Select(selector.GetItemIndex(_damageElement));
@@ -127,6 +127,41 @@ public partial class MatchStatisticsPanel
             Math.Max(0, ElementSum(StatisticMeasure.ShieldDamage, _damageElement) - parts.Sum(p => p.Shield)), Ui.Muted));
         Bars("Origen del daño de " + Elements[_damageElement],
             "Directos: haces, conos, rayos, proyectiles y golpes. Áreas: barreras, novas, minas, meteoritos y bombardeos. Auras: zonas pasivas de fuego o rayo. Quemaduras: daño posterior por arder. Sin desglose: informes anteriores o detalle incompleto. Cada daño se cuenta una sola vez.", parts);
+    }
+    private StatisticsBarChart.Part[] HealingParts()
+    {
+        var buckets = new Dictionary<string, double>();
+        foreach (var attack in Enum.GetValues<StatisticAttack>())
+        {
+            string label = attack switch
+            {
+                StatisticAttack.ShieldLeech => "Escudo vital",
+                StatisticAttack.Regeneration => "Regeneración",
+                StatisticAttack.RegenerationAura => "Aura",
+                StatisticAttack.RingPulse => "Anillo",
+                StatisticAttack.Nova or StatisticAttack.Mine or StatisticAttack.Meteor or StatisticAttack.Barrier or
+                    StatisticAttack.AutoMeteor or StatisticAttack.FrostNova or StatisticAttack.EnemyArea or StatisticAttack.OracleBombardment => "Área",
+                _ => "Curación"
+            };
+            buckets[label] = buckets.GetValueOrDefault(label) + AttackSum(StatisticMeasure.Healing, (int)attack);
+        }
+        var parts = buckets.Where(p => p.Value > 0).Select(p => new StatisticsBarChart.Part(p.Key, p.Value,
+            p.Key == "Escudo vital" ? Ui.Gold : p.Key == "Área" ? new Color("f0a34a") : p.Key == "Aura" ? new Color("b581ed") : Ui.Health)).ToList();
+        double unknown = Math.Max(0, SupportSum(StatisticMeasure.Healing) - parts.Sum(p => p.Value));
+        if (unknown > 0) parts.Add(new("Sin desglose", unknown, Ui.Muted));
+        return parts.ToArray();
+    }
+    private StatisticsBarChart.Part[] AbsorptionParts()
+    {
+        double Source(int kind) => _totals.Where(p => p.Key.Item1 == StatisticGroup.ActorShieldSource &&
+            p.Key.Item3 == StatisticMeasure.ShieldAbsorbed && p.Key.Item2 % 2 == kind &&
+            (_source.Selected switch { 0 => p.Key.Item2 / 2 < 64, 1 => p.Key.Item2 / 2 < 64 && p.Key.Item2 / 2 % 32 < 16,
+                2 => p.Key.Item2 / 2 < 64 && p.Key.Item2 / 2 % 32 >= 16, 3 => p.Key.Item2 / 2 >= 64, _ => true })).Sum(p => p.Value);
+        double personal = Source(0), barriers = Source(1);
+        var parts = new List<StatisticsBarChart.Part> { new("Personal", personal, Ui.Gold), new("Barrera", barriers, new Color("f0a34a")) };
+        double unknown = Math.Max(0, SupportSum(StatisticMeasure.ShieldAbsorbed) - personal - barriers);
+        if (unknown > 0) parts.Add(new("Sin desglose", unknown, Ui.Muted));
+        return parts.ToArray();
     }
     private StatisticsBarChart.Part[] ElementDamageParts(int element)
     {

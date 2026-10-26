@@ -125,6 +125,7 @@ internal sealed class MatchStatisticsCollector
         DamageValue(owner, attack, elements, StatisticMeasure.ShieldDamage, shield);
         DamageValue(owner, attack, elements, StatisticMeasure.Overkill, overkill);
         Actor(target.Id, StatisticMeasure.DamageReceived, health); Actor(target.Id, StatisticMeasure.ShieldAbsorbed, shield);
+        ShieldSource(target.Id, shield, false);
         if (friendly) Total(owner == target.Id ? StatisticMeasure.SelfDamage : StatisticMeasure.FriendlyDamage, health + shield);
         Span<float> contributions = stackalloc float[9];
         if (weights.Length == 9) weights.CopyTo(contributions);
@@ -147,6 +148,7 @@ internal sealed class MatchStatisticsCollector
         if (!(value > 0)) return;
         DamageValue(owner, attack, elements, StatisticMeasure.ShieldDamage, value);
         Actor(defender, StatisticMeasure.ShieldAbsorbed, value);
+        ShieldSource(defender, value, true);
         int count = elements?.Length ?? 0;
         if (count == 0) ElementDamage(owner, 8, attack, 0, value);
         else foreach (var e in elements!) ElementDamage(owner, (int)e, attack, 0, value / count);
@@ -157,6 +159,8 @@ internal sealed class MatchStatisticsCollector
         Total(StatisticMeasure.Deaths); Actor(target.Id, StatisticMeasure.Deaths);
         if (owner != target.Id) { Total(StatisticMeasure.Kills); Actor(owner, StatisticMeasure.Kills); Attack(owner, attack, StatisticMeasure.Kills); }
     }
+    private void ShieldSource(int id, double actual, bool barrier)
+    { if (_actors.TryGetValue(id, out var actor)) Add(StatisticGroup.ActorShieldSource, actor.Code * 2 + (barrier ? 1 : 0), StatisticMeasure.ShieldAbsorbed, actual); }
     public void Heal(int owner, Wizard target, double actual, StatisticAttack attack)
     { Total(StatisticMeasure.Healing, actual); Actor(owner, StatisticMeasure.Healing, actual); Actor(target.Id, StatisticMeasure.HealingReceived, actual); Attack(owner, attack, StatisticMeasure.Healing, actual); }
     public void Shield(int owner, double actual, bool repair = false)

@@ -22,6 +22,7 @@ public partial class StatisticsBarChart : Control
         "Auras" or "Auras pasivas" => "Aura",
         "Quemaduras" => "Quemadura",
         "Sin desglose" => "Sin detalle",
+        "Curación" or "Escudo vital" or "Regeneración" or "Anillo" or "Personal" or "Barrera" or "Área" or "Aura" => label,
         "Vida" => "Curación",
         "Escudo" => "Absorción",
         _ => "Daño"
