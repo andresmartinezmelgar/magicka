@@ -1,6 +1,6 @@
 # Cambios
 
-## Sin publicar
+## 0.29.23
 
 - Todas las barras de un mismo elemento usan su color elemental, incluidos curación, absorción y datos sin detalle. El origen se distingue por el texto, sin cambiar el color.
 
