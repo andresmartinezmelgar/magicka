@@ -80,7 +80,7 @@ public partial class MatchStatisticsPanel
             SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new(0, BarChartHeight + 22) };
         box.AddChild(scroll);
         var chart = new StatisticsBarChart { Name = name, Categories = categories,
-            CustomMinimumSize = new(0, BarChartHeight), CategoryWidth = enemies ? 116 : 80,
+            CustomMinimumSize = new(0, BarChartHeight), CategoryWidth = categories.Any(c => c.Parts != null) ? 190 : enemies ? 116 : 80,
             HorizontalTitle = enemies ? "Tipo de enemigo" : "Elemento", ValueTitle = valueTitle, Logarithmic = Logarithmic };
         scroll.AddChild(chart);
         var bar = scroll.GetHScrollBar(); bar.CustomMinimumSize = new(0, Ui.IsMobile ? 20 : 16);
@@ -97,16 +97,25 @@ public partial class MatchStatisticsPanel
         foreach (var category in categories)
             foreach (string cell in new[] { category.Label, StatisticsPresentation.Number(category.Value), StatisticsPresentation.Percent(category.Value, total) })
                 Ui.TableCell(values, cell, size: 14);
+        if (categories.Any(c => c.Parts != null))
+        {
+            var detail = Ui.Table(3, name + "Sources"); box.AddChild(detail);
+            foreach (string header in new[] { "Elemento / origen", "Daño", "% del elemento" }) Ui.TableCell(detail, header, header: true, size: 14);
+            foreach (var category in categories.Where(c => c.Parts != null))
+                foreach (var part in category.Parts!)
+                    foreach (string cell in new[] { category.Label + " · " + part.Label, StatisticsPresentation.Number(part.Value), StatisticsPresentation.Percent(part.Value, category.Value) })
+                        Ui.TableCell(detail, cell, size: 14);
+        }
     }
     private void ElementChart()
     {
         VerticalChart("Daño por elemento",
-        "Totales de daño directo, áreas, auras y quemaduras. Vida: curación efectiva; Escudo: daño absorbido. Las mezclas reparten el daño según su aportación real. Abajo puedes separar cada origen.",
+        "Cada elemento muestra barras separadas: azul, hechizos directos; naranja, áreas; violeta, auras; rojo, quemaduras; gris, informes sin desglose. Incluye daño a vida y escudos, sin duplicarlo. Vida y Escudo mantienen curación y absorción efectivas.",
         Enumerable.Range(0, 8).Select(e => new StatisticsBarChart.Category(Elements[e], (Element)e switch
         {
             Element.Life => SupportSum(StatisticMeasure.Healing), Element.Shield => SupportSum(StatisticMeasure.ShieldAbsorbed),
             _ => ElementSum(StatisticMeasure.Damage, e) + ElementSum(StatisticMeasure.ShieldDamage, e)
-        }, ElementTint(e))).ToArray());
+        }, ElementTint(e), e is (int)Element.Life or (int)Element.Shield ? null : ElementDamageParts(e))).ToArray());
         var selector = new OptionButton { Name = "DamageBreakdownElement", CustomMinimumSize = new(0, 44), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         foreach (int e in new[] { 0, 3, 4, 5, 6, 7, 8 }) selector.AddItem("Desglose de daño: " + Elements[e], e);
         selector.Select(selector.GetItemIndex(_damageElement));
@@ -118,6 +127,16 @@ public partial class MatchStatisticsPanel
             Math.Max(0, ElementSum(StatisticMeasure.ShieldDamage, _damageElement) - parts.Sum(p => p.Shield)), Ui.Muted));
         Bars("Origen del daño de " + Elements[_damageElement],
             "Directos: haces, conos, rayos, proyectiles y golpes. Áreas: barreras, novas, minas, meteoritos y bombardeos. Auras: zonas pasivas de fuego o rayo. Quemaduras: daño posterior por arder. Sin desglose: informes anteriores o detalle incompleto. Cada daño se cuenta una sola vez.", parts);
+    }
+    private StatisticsBarChart.Part[] ElementDamageParts(int element)
+    {
+        string[] labels = ["Hechizos directos", "Áreas", "Auras", "Quemaduras"];
+        Color[] colors = [Ui.Blue, new("f0a34a"), new("b581ed"), new("ef6471")];
+        var parts = Enum.GetValues<StatisticDamageSource>().Select(source => new StatisticsBarChart.Part(labels[(int)source],
+            DamageSourceSum(StatisticMeasure.Damage, element, source) + DamageSourceSum(StatisticMeasure.ShieldDamage, element, source), colors[(int)source])).ToList();
+        double unknown = Math.Max(0, ElementSum(StatisticMeasure.Damage, element) + ElementSum(StatisticMeasure.ShieldDamage, element) - parts.Sum(p => p.Value));
+        if (unknown > 0) parts.Add(new("Sin desglose", unknown, Ui.Muted));
+        return parts.ToArray();
     }
     private void EnemyChart()
     {

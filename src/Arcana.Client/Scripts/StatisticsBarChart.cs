@@ -7,7 +7,8 @@ namespace Arcana.Client;
 /// <summary>Barras verticales con ejes comunes y categorías legibles, sin proceso por fotograma.</summary>
 public partial class StatisticsBarChart : Control
 {
-    public readonly record struct Category(string Label, double Value, Color Color);
+    public readonly record struct Part(string Label, double Value, Color Color);
+    public readonly record struct Category(string Label, double Value, Color Color, Part[]? Parts = null);
     public Category[] Categories { get; init; } = [];
     public float CategoryWidth { get; init; } = 80;
     public string HorizontalTitle { get; init; } = "Elemento";
@@ -22,7 +23,7 @@ public partial class StatisticsBarChart : Control
         MouseFilter = MouseFilterEnum.Pass; Resized += QueueRedraw;
     }
     public override void _Ready() => CustomMinimumSize = new(Left + Right + Categories.Length * CategoryWidth, CustomMinimumSize.Y);
-    internal MatchStatisticsScale DataScale => new(Categories.Select(c => c.Value), Logarithmic);
+    internal MatchStatisticsScale DataScale => new(Categories.SelectMany(c => c.Parts is { Length: > 0 } parts ? parts.Select(p => p.Value) : new[] { c.Value }), Logarithmic);
     internal double ScaleMaximum => DataScale.Maximum;
     private static string Short(double n) => n >= 1_000_000 ? (n / 1_000_000).ToString("0.#", Spanish) + " M"
         : n >= 1000 ? (n / 1000).ToString("0.#", Spanish) + " k" : n.ToString("0.##", Spanish);
@@ -44,15 +45,21 @@ public partial class StatisticsBarChart : Control
         for (int i = 0; i < Categories.Length; i++)
         {
             var category = Categories[i]; float center = Left + (i + 0.5f) * slot;
-            void Bar(double value, float x, Color color)
+            void Bar(double value, float x, Color color, float available)
             {
                 float barHeight = (float)scale.Normalize(value) * height;
-                float barWidth = Math.Min(40, slot * 0.55f);
+                float barWidth = Math.Min(40, available * 0.72f);
                 if (value > 0) DrawRect(new(x - barWidth / 2, Top + height - barHeight, barWidth, barHeight), color);
-                DrawString(font, new(x - slot * 0.25f, Top + height - barHeight - 6), Short(value),
-                    HorizontalAlignment.Center, slot * 0.5f, 12, Ui.Text);
+                if (value > 0) DrawString(font, new(x - available / 2, Top + height - barHeight - 6), Short(value),
+                    HorizontalAlignment.Center, available, 11, Ui.Text);
             }
-            Bar(category.Value, center, category.Color);
+            if (category.Parts is { Length: > 0 } parts)
+            {
+                float available = (slot - 12) / parts.Length;
+                for (int j = 0; j < parts.Length; j++)
+                    Bar(parts[j].Value, center - (slot - 12) / 2 + (j + .5f) * available, parts[j].Color, available);
+            }
+            else Bar(category.Value, center, category.Color, slot * .75f);
             var lines = new List<string>(); string line = "";
             foreach (string word in category.Label.Split(' '))
             {
@@ -71,7 +78,8 @@ public partial class StatisticsBarChart : Control
         if (Categories.Length == 0) return "";
         int index = Math.Clamp((int)((position.X - Left) / Math.Max(1, Size.X - Left - Right) * Categories.Length), 0, Categories.Length - 1);
         var c = Categories[index];
-        return c.Label + "\n" + ValueTitle + ": " + StatisticsPresentation.Number(c.Value) + "\n" +
+        string detail = c.Parts == null ? "" : string.Join("\n", c.Parts.Select(p => p.Label + ": " + StatisticsPresentation.Number(p.Value) + " · " + StatisticsPresentation.Percent(p.Value, c.Value))) + "\n";
+        return c.Label + "\n" + detail + ValueTitle + ": " + StatisticsPresentation.Number(c.Value) + "\n" +
             StatisticsPresentation.Percent(c.Value, Categories.Sum(c => c.Value)) + " del total de esta gráfica";
     }
 }

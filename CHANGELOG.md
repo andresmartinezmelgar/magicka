@@ -1,5 +1,9 @@
 # Cambios
 
+## 0.29.21
+
+- La gráfica principal de daño por elementos muestra barras agrupadas por origen: hechizos directos, áreas, auras y quemaduras. Incluye daño a vida y escudos una sola vez y conserva los filtros y escalas. Los informes antiguos aparecen como sin desglose. Tabla numérica y porcentajes por elemento, con desplazamiento horizontal en móvil; Vida y Escudo mantienen sus medidas de apoyo.
+
 ## 0.29.20
 
 - Escudo vital convierte en vida un 10 % (Diamante) o 15 % (Mítico) del daño enemigo absorbido por el escudo personal. Espejo protector devuelve un 15 %/25 % al atacante, conservando sus defensas, elementos y daño exclusivo a escudos. No cuentan barreras colocadas, daño propio ni fuego amigo. El reflejo no genera cadenas ni activa otros afijos de absorción. Curación y reflejo tienen origen propio en las estadísticas. Catálogo 9, protocolo 37.

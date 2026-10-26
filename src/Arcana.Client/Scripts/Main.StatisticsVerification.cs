@@ -116,6 +116,15 @@ public partial class Main
                 {
                     _statisticsPanel.SelectScaleForVerification(scale);
                     var chart = (StatisticsBarChart)_statisticsPanel.FindChild("ElementDamageBars", true, false);
+                    foreach (var category in chart.Categories.Where(c => c.Parts != null))
+                    {
+                        if (Math.Abs(category.Parts!.Sum(p => p.Value) - category.Value) > .001 ||
+                            category.Parts[0].Label != "Hechizos directos" || category.Parts[1].Label != "Áreas")
+                            throw new InvalidOperationException("La gráfica no separa hechizos y áreas o duplica daño.");
+                    }
+                    var water = chart.Categories.Single(c => c.Label == "Agua");
+                    if (water.Parts!.Single(p => p.Label == "Sin desglose").Value != 2700)
+                        throw new InvalidOperationException("La gráfica atribuye daño antiguo a hechizos o áreas.");
                     if (chart.DataScale.Logarithmic != (scale == 2)) throw new InvalidOperationException("El selector de escala no cambia la gráfica.");
                 }
                 _statisticsPanel.SelectScaleForVerification(0);
