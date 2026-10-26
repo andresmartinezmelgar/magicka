@@ -2,6 +2,8 @@
 
 ## Sin publicar
 
+- Todas las barras de un mismo elemento usan su color elemental, incluidos curación, absorción y datos sin detalle. El origen se distingue por el texto, sin cambiar el color.
+
 - Botón restringido para borrar el historial global de estadísticas de Firebase, con dos confirmaciones explícitas, cancelación en ambos pasos y autorización comprobada por Firestore. No modifica perfiles, inventario ni oro.
 
 - Vida desglosa curación directa, áreas, auras, regeneración, anillo y Escudo vital. Escudo separa absorción personal y barreras. El resto de elementos conserva daño directo, áreas, auras y quemaduras; etiquetas breves y datos antiguos sin atribución inventada. Protocolo 38.

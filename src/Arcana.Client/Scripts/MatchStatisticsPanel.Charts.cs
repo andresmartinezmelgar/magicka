@@ -110,7 +110,7 @@ public partial class MatchStatisticsPanel
     private void ElementChart()
     {
         VerticalChart("Daño por elemento",
-        "Cada elemento muestra barras separadas: azul, hechizos directos; naranja, áreas; violeta, auras; rojo, quemaduras; gris, informes sin desglose. Incluye daño a vida y escudos, sin duplicarlo. Vida separa curación directa, área, aura, regeneración, anillo y Escudo vital. Escudo separa absorción personal y barreras.",
+        "Todas las barras de cada elemento comparten su color. Las etiquetas distinguen daño directo, áreas, auras, quemaduras y datos sin detalle. Incluye daño a vida y escudos, sin duplicarlo. Vida separa curación directa, área, aura, regeneración, anillo y Escudo vital. Escudo separa absorción personal y barreras.",
         Enumerable.Range(0, 8).Select(e => new StatisticsBarChart.Category(Elements[e], (Element)e switch
         {
             Element.Life => SupportSum(StatisticMeasure.Healing), Element.Shield => SupportSum(StatisticMeasure.ShieldAbsorbed),
@@ -124,7 +124,7 @@ public partial class MatchStatisticsPanel
         var parts = Enum.GetValues<StatisticDamageSource>().Select(source => new Bar(names[(int)source],
             DamageSourceSum(StatisticMeasure.Damage, _damageElement, source), DamageSourceSum(StatisticMeasure.ShieldDamage, _damageElement, source), ElementTint(_damageElement))).ToList();
         parts.Add(new("Sin desglose", Math.Max(0, ElementSum(StatisticMeasure.Damage, _damageElement) - parts.Sum(p => p.Value)),
-            Math.Max(0, ElementSum(StatisticMeasure.ShieldDamage, _damageElement) - parts.Sum(p => p.Shield)), Ui.Muted));
+            Math.Max(0, ElementSum(StatisticMeasure.ShieldDamage, _damageElement) - parts.Sum(p => p.Shield)), ElementTint(_damageElement)));
         Bars("Origen del daño de " + Elements[_damageElement],
             "Directos: haces, conos, rayos, proyectiles y golpes. Áreas: barreras, novas, minas, meteoritos y bombardeos. Auras: zonas pasivas de fuego o rayo. Quemaduras: daño posterior por arder. Sin desglose: informes anteriores o detalle incompleto. Cada daño se cuenta una sola vez.", parts);
     }
@@ -146,9 +146,9 @@ public partial class MatchStatisticsPanel
             buckets[label] = buckets.GetValueOrDefault(label) + AttackSum(StatisticMeasure.Healing, (int)attack);
         }
         var parts = buckets.Where(p => p.Value > 0).Select(p => new StatisticsBarChart.Part(p.Key, p.Value,
-            p.Key == "Escudo vital" ? Ui.Gold : p.Key == "Área" ? new Color("f0a34a") : p.Key == "Aura" ? new Color("b581ed") : Ui.Health)).ToList();
+            ElementTint((int)Element.Life))).ToList();
         double unknown = Math.Max(0, SupportSum(StatisticMeasure.Healing) - parts.Sum(p => p.Value));
-        if (unknown > 0) parts.Add(new("Sin desglose", unknown, Ui.Muted));
+        if (unknown > 0) parts.Add(new("Sin desglose", unknown, ElementTint((int)Element.Life)));
         return parts.ToArray();
     }
     private StatisticsBarChart.Part[] AbsorptionParts()
@@ -158,19 +158,18 @@ public partial class MatchStatisticsPanel
             (_source.Selected switch { 0 => p.Key.Item2 / 2 < 64, 1 => p.Key.Item2 / 2 < 64 && p.Key.Item2 / 2 % 32 < 16,
                 2 => p.Key.Item2 / 2 < 64 && p.Key.Item2 / 2 % 32 >= 16, 3 => p.Key.Item2 / 2 >= 64, _ => true })).Sum(p => p.Value);
         double personal = Source(0), barriers = Source(1);
-        var parts = new List<StatisticsBarChart.Part> { new("Personal", personal, Ui.Gold), new("Barrera", barriers, new Color("f0a34a")) };
+        var parts = new List<StatisticsBarChart.Part> { new("Personal", personal, ElementTint((int)Element.Shield)), new("Barrera", barriers, ElementTint((int)Element.Shield)) };
         double unknown = Math.Max(0, SupportSum(StatisticMeasure.ShieldAbsorbed) - personal - barriers);
-        if (unknown > 0) parts.Add(new("Sin desglose", unknown, Ui.Muted));
+        if (unknown > 0) parts.Add(new("Sin desglose", unknown, ElementTint((int)Element.Shield)));
         return parts.ToArray();
     }
     private StatisticsBarChart.Part[] ElementDamageParts(int element)
     {
         string[] labels = ["Hechizos directos", "Áreas", "Auras", "Quemaduras"];
-        Color[] colors = [Ui.Blue, new("f0a34a"), new("b581ed"), new("ef6471")];
         var parts = Enum.GetValues<StatisticDamageSource>().Select(source => new StatisticsBarChart.Part(labels[(int)source],
-            DamageSourceSum(StatisticMeasure.Damage, element, source) + DamageSourceSum(StatisticMeasure.ShieldDamage, element, source), colors[(int)source])).ToList();
+            DamageSourceSum(StatisticMeasure.Damage, element, source) + DamageSourceSum(StatisticMeasure.ShieldDamage, element, source), ElementTint(element))).ToList();
         double unknown = Math.Max(0, ElementSum(StatisticMeasure.Damage, element) + ElementSum(StatisticMeasure.ShieldDamage, element) - parts.Sum(p => p.Value));
-        if (unknown > 0) parts.Add(new("Sin desglose", unknown, Ui.Muted));
+        if (unknown > 0) parts.Add(new("Sin desglose", unknown, ElementTint(element)));
         return parts.ToArray();
     }
     private void EnemyChart()
