@@ -1,5 +1,10 @@
 # Cambios
 
+## Sin publicar
+
+- Subir el máximo de vida en Supervivencia o recalcular el equipo conserva los HP actuales; ya no concede curación implícita ni eleva fracciones de HP a 1.
+- El haz arcano ofensivo encadena un enemigo adicional por defecto. Al impactar busca el enemigo vivo y visible más cercano a un máximo de 5 m, dentro del alcance restante. Cada salto conserva el 80 % del daño del anterior. El afijo de penetración puede ampliar el número de saltos sin acumular copias; no repite objetivos y los escudos conservan reflexión y bloqueo. No añade haces paralelos desde el mago.
+
 ## 0.29.23
 
 - Todas las barras de un mismo elemento usan su color elemental, incluidos curación, absorción y datos sin detalle. El origen se distingue por el texto, sin cambiar el color.

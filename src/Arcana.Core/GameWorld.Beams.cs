@@ -126,6 +126,8 @@ public sealed partial class GameWorld
         foreach (var part in parts)
             if (!part.Recipe.Healing && _combatants.TryGetValue(part.Owner, out var source))
                 penetrations = Math.Max(penetrations, source.Equipment.BeamPierce);
+        bool arcaneChain = interaction == "direct" && parts.Length == 1 && !parts[0].Recipe.Healing && parts[0].Recipe.Has(Element.Arcane);
+        if (arcaneChain) penetrations = Math.Max(1, penetrations);
         HashSet<int>? pierced = penetrations > 0 ? [] : null;
         for (int step = 0, bounce = 0; step < 6 && range > 0.08f; step++)
         {
@@ -151,6 +153,22 @@ public sealed partial class GameWorld
                             { hostile = true; break; }
                     if (penetrations <= 0 || !hostile) return;
                     penetrations--; pierced!.Add(target.Id);
+                    if (arcaneChain)
+                    {
+                        if (!_combatants.TryGetValue(parts[0].Owner, out var caster)) return;
+                        Wizard? next = null; float nearest = Math.Min(5, range);
+                        foreach (var candidate in _combatants.Values)
+                        {
+                            if (!candidate.Alive || candidate.Invulnerable > 0 || pierced.Contains(candidate.Id) || !Hostile(caster, candidate)) continue;
+                            float distance = V2.Distance(end, candidate.Position);
+                            if (distance <= .08f || distance > nearest || !Visible(end, candidate.Position, owner)) continue;
+                            if (next != null && distance == nearest && candidate.Id > next.Id) continue;
+                            nearest = distance; next = candidate;
+                        }
+                        if (next == null) return;
+                        direction = (next.Position - end).Normalized;
+                        parts = parts.Select(p => p with { Scale = p.Scale * .8f }).ToArray();
+                    }
                     from = end + direction * 0.04f; range = Math.Max(0, range - 0.04f);
                     continue;
                 }

@@ -21,7 +21,8 @@ public sealed partial class GameWorld
         }
         player.PublicEquipment = prepared.View;
         float health = Wizard.BaseMaxHealth + (progress.Level - 1) * 50 + player.BuffStacks[(int)BuffKind.Vitality] * 100;
-        if (player.Alive) player.Health = Math.Clamp(player.Health + health - player.MaxHealth, 1, health);
+        // Subir el máximo o recalcular equipo no es una fuente de curación.
+        if (player.Alive) player.Health = Math.Min(player.Health, health);
         player.MaxHealth = health;
     }
 

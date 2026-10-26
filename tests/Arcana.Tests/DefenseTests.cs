@@ -37,6 +37,19 @@ internal static class DefenseTests
 
     public static void Run(Action<string, Action> test)
     {
+        test("Defensa: recalcular equipo o nivel no cura sin un efecto curativo", () =>
+        {
+            var world = World(); var player = world.AddPlayer("Mago", 0)!;
+            player.Health = 500;
+            var state = ((IDictionary)Field(world, "_defenders"))[player.Id]!;
+            state.GetType().GetField("Level")!.SetValue(state, 2);
+            Invoke(world, "RecalculateDefender", player);
+            Check(player.MaxHealth == 1050 && player.Health == 500, "Subir el máximo concedió curación implícita.");
+            player.Health = .25f; Invoke(world, "RecalculateDefender", player);
+            Check(player.Health == .25f, "Recalcular elevó la vida mínima a 1.");
+            Invoke(world, "TickStatus", player, 1f);
+            Check(player.Health == .25f, "Se cura sin escudo de Vida, reliquia ni otro efecto.");
+        });
         DefenseBalanceTests.Run(test);
         DefenseHordeTests.Run(test);
         SurvivalTests.Run(test);
