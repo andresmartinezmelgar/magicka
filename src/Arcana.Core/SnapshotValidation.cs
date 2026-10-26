@@ -55,7 +55,8 @@ public static partial class SnapshotValidation
             if (p!.CastingElements != null && !Elements(p.CastingElements) ||
                 p.Buffs is { Length: > RelicBuffs.Count } || hasPickups && p.Buffs == null) Invalid();
             if (p.Equipment is { } gear && (!Enum.IsDefined(gear.Family) ||
-                !Tier(gear.Boots) || !Tier(gear.Hat) || !Tier(gear.Chest) || !Tier(gear.Weapon))) Invalid();
+                !Tier(gear.Boots) || !Tier(gear.Hat) || !Tier(gear.Chest) || !Tier(gear.Weapon) || !Tier(gear.GoldRing) || !Tier(gear.MagicRing) ||
+                (MythicEyes.AllMythic(gear) ? !MythicEyes.ValidMix(gear.MythicFamilies) : gear.MythicFamilies != 0))) Invalid();
             int kinds = 0;
             foreach (var buff in p.Buffs ?? [])
             {

@@ -33,7 +33,15 @@ public sealed record AccountProfile(string Uid, string Name, long Gold, int Wins
 public sealed record InventoryRequest(string ItemId, EquipmentSlot Slot = EquipmentSlot.Boots);
 public sealed record InventoryResult(AccountProfile Profile, string Message);
 public sealed record EquipmentAppearance(ItemTier? Boots = null, ItemTier? Hat = null, ItemTier? Chest = null, ItemTier? Weapon = null,
-    EquipmentFamily Family = EquipmentFamily.Mixed);
+    EquipmentFamily Family = EquipmentFamily.Mixed)
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ItemTier? GoldRing { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ItemTier? MagicRing { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public ulong MythicFamilies { get; init; }
+}
 public sealed record EquipmentStatTotal(EquipmentStat Stat, float Items, float Set, float Effective)
 {
     public float Sum => Items + Set;
@@ -77,6 +85,8 @@ public sealed record EquipmentModifiers
     public int ShieldBattery { get; init; }
     public int MendingWard { get; init; }
     public int ShieldReprisal { get; init; }
+    public int ShieldLeech { get; init; }
+    public int ShieldReflection { get; init; }
     public int ExtraGoldEvery { get; init; }
     public int GoldBonusPercent { get; init; }
     public EquipmentFamily? MagicRingFamily { get; init; }
@@ -117,11 +127,13 @@ public sealed record EquipmentModifiers
         var stats = new float[Enum.GetValues<EquipmentStat>().Length];
         var setStats = new float[stats.Length];
         var sets = new int[Enum.GetValues<EquipmentFamily>().Length];
-        var tiers = new ItemTier?[4];
+        var tiers = new ItemTier?[6];
+        ulong mythicFamilies = 0;
         var families = new int[sets.Length];
         int beamPierce = 0, lightningChains = 0, extraGoldEvery = 0, goldBonusPercent = 0;
         bool doubleBurn = false, waterPool = false;
         int icebreaker = 0, steamImpact = 0, arcaneExecution = 0, shieldBattery = 0, mendingWard = 0, shieldReprisal = 0;
+        int shieldLeech = 0, shieldReflection = 0;
         EquipmentFamily? ringFamily = null; int ringLevel = 0;
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
@@ -131,7 +143,9 @@ public sealed record EquipmentModifiers
             if (item == null || item.Slot != slot || !EquipmentCatalogue.Valid(item)) throw new InvalidDataException("Equipamiento inválido o ajeno.");
             int level = itemLevels?.GetValueOrDefault(item.Id, item.UpgradeLevel) ?? item.UpgradeLevel;
             if (level is < 0 or > 10) throw new InvalidDataException("Nivel de pieza inválido.");
-            if (!RingEffects.IsRing(slot)) { tiers[(int)slot] = item.Tier; families[(int)item.Family]++; }
+            tiers[(int)slot] = item.Tier;
+            if (item.Tier == ItemTier.Mythic) mythicFamilies += 1UL << ((int)item.Family * 4);
+            if (!RingEffects.IsRing(slot)) families[(int)item.Family]++;
             if (slot == EquipmentSlot.GoldRing)
             {
                 int every = GoldBonuses.EveryForLevel(level);
@@ -156,6 +170,8 @@ public sealed record EquipmentModifiers
                     case ItemAffixKind.ShieldBattery: shieldBattery = Math.Max(shieldBattery, affix.Value); break;
                     case ItemAffixKind.MendingWard: mendingWard = Math.Max(mendingWard, affix.Value); break;
                     case ItemAffixKind.ShieldReprisal: shieldReprisal = Math.Max(shieldReprisal, affix.Value); break;
+                    case ItemAffixKind.ShieldLeech: shieldLeech = Math.Max(shieldLeech, affix.Value); break;
+                    case ItemAffixKind.ShieldReflection: shieldReflection = Math.Max(shieldReflection, affix.Value); break;
                 }
             foreach (var b in item.Bonuses.Where(b => EquipmentCatalogue.BonusActive(slot, b.Stat))) stats[(int)b.Stat] += b.Current;
             if (!RingEffects.IsRing(slot) && item.Tier == ItemTier.Mythic) sets[(int)item.Family]++;
@@ -174,6 +190,7 @@ public sealed record EquipmentModifiers
             BurnPotency = doubleBurn ? 2 : 1, WaterShieldPool = waterPool,
             Icebreaker = icebreaker, SteamImpact = steamImpact, ArcaneExecution = arcaneExecution,
             ShieldBattery = shieldBattery, MendingWard = mendingWard, ShieldReprisal = shieldReprisal,
+            ShieldLeech = shieldLeech, ShieldReflection = shieldReflection,
             Speed = 1 + Bonus(EquipmentStat.MovementSpeed), Range = 1 + Bonus(EquipmentStat.SpellRange),
             Incoming = 1 - Bonus(EquipmentStat.Defense), Power = 1 + Bonus(EquipmentStat.Power),
             Healing = 1 + Bonus(EquipmentStat.HealingPower), Fire = 1 + Bonus(EquipmentStat.FirePower),
@@ -187,6 +204,7 @@ public sealed record EquipmentModifiers
             RockChargeSpeed = 1 + Bonus(EquipmentStat.RockChargeSpeed), WaterPieces = sets[4], ColdPieces = sets[5],
             LightningPieces = sets[6], ArcanePieces = sets[7], EarthPieces = sets[8],
             Appearance = new(tiers[0], tiers[1], tiers[2], tiers[3], families[dominant] > 0 ? (EquipmentFamily)dominant : EquipmentFamily.Mixed)
+                { GoldRing = tiers[4], MagicRing = tiers[5], MythicFamilies = tiers.All(t => t == ItemTier.Mythic) ? mythicFamilies : 0 }
         };
         return new(modifiers, Enum.GetValues<EquipmentStat>().Select(s => new EquipmentStatTotal(s, stats[(int)s], setStats[(int)s], modifiers.Bonus(s))).ToArray());
     }
@@ -194,7 +212,7 @@ public sealed record EquipmentModifiers
 
 public static partial class EquipmentCatalogue
 {
-    public const int GenerationVersion = 8, InventoryLimit = 500;
+    public const int GenerationVersion = 9, InventoryLimit = 500;
     public static bool BonusActive(EquipmentSlot slot, EquipmentStat stat) =>
         slot != EquipmentSlot.MagicRing || stat == EquipmentStat.ShieldCapacity;
     public static string BonusDescription(EquipmentSlot slot, ItemBonus bonus) =>

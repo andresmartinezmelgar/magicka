@@ -5,7 +5,7 @@ namespace Arcana.Client;
 
 public partial class EquipmentAvatar
 {
-    private readonly Dictionary<EquipmentSlot, (ItemTier Tier, int Level)> _halos = [];
+    private readonly Dictionary<EquipmentSlot, (ItemTier Tier, int Level, EquipmentFamily Family)> _halos = [];
     private ColorRect? _aura;
     private ShaderMaterial? _auraMaterial;
     internal int EquippedHaloCount => _halos.Count;
@@ -30,6 +30,7 @@ public partial class EquipmentAvatar
             _auraMaterial!.SetShaderParameter("piece_" + (int)slot, tint);
         }
         _aura.Visible = _halos.Count > 0;
+        RefreshMythicEyes();
         RefreshAuraParticles();
         ArrangeAura();
     }
@@ -41,11 +42,13 @@ public partial class EquipmentAvatar
         // Margen para que el resplandor se disuelva antes de los bordes.
         _aura.Position = bounds.Position - bounds.Size * .14f;
         _aura.Size = bounds.Size * 1.28f;
+        ArrangeMythicEyes();
     }
 
     public override void _ExitTree()
     {
         DisposeAuraParticles();
         _auraMaterial?.Dispose(); _auraMaterial = null;
+        _mythicEyeMaterial?.Dispose(); _mythicEyeMaterial = null;
     }
 }

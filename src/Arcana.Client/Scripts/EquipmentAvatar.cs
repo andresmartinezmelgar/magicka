@@ -44,7 +44,7 @@ public partial class EquipmentAvatar : Control
         var color = item == null ? Ui.Muted : EquipmentPanel.TierColor(item.Tier);
         _colors[slot] = color;
         if (item == null) _halos.Remove(slot);
-        else _halos[slot] = (item.Tier, Math.Clamp(upgradeLevel ?? item.UpgradeLevel, 0, 10));
+        else _halos[slot] = (item.Tier, Math.Clamp(upgradeLevel ?? item.UpgradeLevel, 0, 10), item.Family);
         RefreshHaloAnimation();
         var button = _buttons[slot];
         string name = slot switch { EquipmentSlot.GoldRing => "Anillo de oro", EquipmentSlot.MagicRing => "Anillo mágico", _ => EquipmentCatalogue.SlotName(slot) };

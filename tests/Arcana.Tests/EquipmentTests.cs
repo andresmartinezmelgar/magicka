@@ -23,6 +23,7 @@ internal static class EquipmentTests
     }
     public static void Run(Action<string, Action> test)
     {
+        MythicEyeTests.Run(test);
         EquipmentElementTests.Run(test);
         test("Equipo: pieza y total aplicado conservan la misma precisión porcentual", () =>
         {

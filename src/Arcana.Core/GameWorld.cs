@@ -643,6 +643,7 @@ public sealed partial class GameWorld
         if (_combatants.TryGetValue(owner, out var source) && source.Id != target.Id && Allied(source, target) && (!Options.FriendlyFire || IsDefense)) return;
         float damage = 0;
         Span<float> weights = stackalloc float[9];
+        weights.Clear();
         _statistics.Immune(owner, target, spell.Elements);
         foreach (var element in SpellBalance.Offensive)
         { float component = ElementDamage(target, owner, element, SpellBalance.Component(spell, element, target.Wet > 0)); weights[(int)element] = component; damage += component; }
@@ -690,13 +691,13 @@ public sealed partial class GameWorld
         => ApplyDamage(target, amount, owner, elements, false);
     private void DamageProtection(Wizard target, float amount, int owner, Element[] elements)
         => ApplyDamage(target, amount, owner, elements, true, true);
-    private void ApplyDamage(Wizard target, float amount, int owner, Element[]? elements, bool shieldOnly, bool resolvedElements = false, ReadOnlySpan<float> weights = default, StatisticAttack? cause = null)
+    private void ApplyDamage(Wizard target, float amount, int owner, Element[]? elements, bool shieldOnly, bool resolvedElements = false, ReadOnlySpan<float> weights = default, StatisticAttack? cause = null, bool reflected = false)
     {
         if (!target.Alive || target.Invulnerable > 0 || amount <= 0) return;
         if (!resolvedElements)
         { if (elements != null) _statistics.Immune(owner, target, elements); amount *= DefenseElementFraction(target, elements); }
         if (amount <= 0) return;
-        amount *= DamagePower(owner) * RelicBuffs.Incoming(target) * target.Equipment.Incoming;
+        amount *= (reflected ? 1 : DamagePower(owner)) * RelicBuffs.Incoming(target) * target.Equipment.Incoming;
         float healthBefore = target.Health, shieldBefore = target.Shield;
         float absorbed = Math.Min(target.Shield, amount);
         target.Shield -= absorbed; amount -= absorbed;
@@ -714,7 +715,7 @@ public sealed partial class GameWorld
         // Un rayo golpea a 60 Hz; limita sus impactos, pero nunca omite la rotura del escudo.
         bool broken = absorbed > 0 && target.Shield <= 0;
         if (broken) { target.RegenerationRate = 0; Emit("shield_break", target.Position, [Element.Shield], ""); }
-        ApplyDefensiveAffixes(target, owner, absorbed, broken);
+        if (!reflected) ApplyDefensiveAffixes(target, owner, absorbed, broken, elements, weights, shieldOnly);
         if (target.HitEffectCooldown <= 0)
         {
             if (absorbed > 0 && !broken) Emit("shield_hit", target.Position, [Element.Shield], "");

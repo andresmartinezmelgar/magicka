@@ -12,7 +12,7 @@ En el inventario permanente, los favoritos y filtros se guardan por cuenta en es
 
 En Supervivencia, el servidor protege los favoritos y vende el botín nuevo filtrado antes de guardarlo o equiparlo. Estas preferencias pertenecen a la partida y se conservan al guardar o reconectar. Los guardados antiguos empiezan sin filtros de venta.
 
-El protocolo actual es **36**: deben actualizarse cliente y servidor juntos para reconocer los nuevos afijos de combate.
+El protocolo actual es **37**: deben actualizarse cliente y servidor juntos para reconocer los nuevos afijos de combate y la apariencia de ojos míticos.
 
 ## Efecto del equipo
 

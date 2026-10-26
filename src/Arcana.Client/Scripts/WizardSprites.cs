@@ -14,7 +14,7 @@ internal static class WizardSprites
 
     internal sealed record FrameSpec(float AnchorX, float AnchorY);
     internal sealed record AtlasSpec(WizardType Type, string Texture, int Width, int Height, float PixelSize,
-        FrameSpec[] Frames, FrameSpec[]? CastOrigins = null);
+        FrameSpec[] Frames, FrameSpec[]? CastOrigins = null, FrameSpec[][]? EyeAnchors = null);
     internal sealed record Atlas(Texture2D Texture, AtlasSpec Spec)
     {
         public Vector2 Offset(int frame) => new(Spec.Width / 8f - Spec.Frames[frame].AnchorX,
@@ -34,7 +34,13 @@ internal static class WizardSprites
                 !float.IsFinite(p.AnchorX) || !float.IsFinite(p.AnchorY) || p.AnchorX < 0 || p.AnchorY < 0 ||
                 p.AnchorX >= spec.Width / (float)Columns || p.AnchorY >= spec.Height / (float)Rows)))
             throw new InvalidDataException($"Atlas de mago inválido: {type}.");
+        if (spec.EyeAnchors is not { Length: Columns * Rows } eyes ||
+            eyes.Where((p, i) => p == null || p.Length != (i / Columns == 2 ? 0 : i / Columns == 0 ? 2 : 1)).Any() ||
+            eyes.Any(p => p.Any(e => e == null || !float.IsFinite(e.AnchorX) || !float.IsFinite(e.AnchorY) ||
+                e.AnchorX < 0 || e.AnchorY < 0 || e.AnchorX >= spec.Width / (float)Columns || e.AnchorY >= spec.Height / (float)Rows)))
+            throw new InvalidDataException($"Anclajes de ojos inválidos: {type}.");
         cached = new(texture, spec); Cache.Add(type, cached);
+        MythicEyeVisuals.Prepare(cached);
         Diagnostics.Info("sprites.loaded", "Atlas de mago cargado.", new Dictionary<string, object?>
             { ["wizardType"] = type, ["width"] = spec.Width, ["height"] = spec.Height, ["frames"] = spec.Frames.Length });
         return cached;

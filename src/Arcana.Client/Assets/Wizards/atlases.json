@@ -88,6 +88,100 @@
         "AnchorX": 244,
         "AnchorY": 65
       }
+    ],
+    "EyeAnchors": [
+      [
+        {
+          "AnchorX": 149.3,
+          "AnchorY": 125.2
+        },
+        {
+          "AnchorX": 174.6,
+          "AnchorY": 125.3
+        }
+      ],
+      [
+        {
+          "AnchorX": 150.8,
+          "AnchorY": 124.6
+        },
+        {
+          "AnchorX": 176.7,
+          "AnchorY": 125.0
+        }
+      ],
+      [
+        {
+          "AnchorX": 132.6,
+          "AnchorY": 125.8
+        },
+        {
+          "AnchorX": 157.9,
+          "AnchorY": 126.2
+        }
+      ],
+      [
+        {
+          "AnchorX": 147.7,
+          "AnchorY": 129.0
+        },
+        {
+          "AnchorX": 172.3,
+          "AnchorY": 128.5
+        }
+      ],
+      [
+        {
+          "AnchorX": 133.6,
+          "AnchorY": 117.4
+        }
+      ],
+      [
+        {
+          "AnchorX": 133.4,
+          "AnchorY": 115.4
+        }
+      ],
+      [
+        {
+          "AnchorX": 119.3,
+          "AnchorY": 118.6
+        }
+      ],
+      [
+        {
+          "AnchorX": 152.9,
+          "AnchorY": 122.5
+        }
+      ],
+      [],
+      [],
+      [],
+      [],
+      [
+        {
+          "AnchorX": 180.1,
+          "AnchorY": 113.9
+        }
+      ],
+      [
+        {
+          "AnchorX": 184.9,
+          "AnchorY": 113.3
+        }
+      ],
+      [
+        {
+          "AnchorX": 177.0,
+          "AnchorY": 114.5
+        }
+      ],
+      [
+        {
+          "AnchorX": 172.4,
+          "AnchorY": 108.1
+        }
+      ]
     ]
   },
   {
@@ -179,6 +273,100 @@
         "AnchorX": 239,
         "AnchorY": 61
       }
+    ],
+    "EyeAnchors": [
+      [
+        {
+          "AnchorX": 150.6,
+          "AnchorY": 133.6
+        },
+        {
+          "AnchorX": 176.8,
+          "AnchorY": 133.7
+        }
+      ],
+      [
+        {
+          "AnchorX": 152.8,
+          "AnchorY": 131.4
+        },
+        {
+          "AnchorX": 178.4,
+          "AnchorY": 132.7
+        }
+      ],
+      [
+        {
+          "AnchorX": 135.7,
+          "AnchorY": 133.0
+        },
+        {
+          "AnchorX": 162.3,
+          "AnchorY": 133.3
+        }
+      ],
+      [
+        {
+          "AnchorX": 148.8,
+          "AnchorY": 135.1
+        },
+        {
+          "AnchorX": 175.4,
+          "AnchorY": 135.1
+        }
+      ],
+      [
+        {
+          "AnchorX": 131.6,
+          "AnchorY": 122.4
+        }
+      ],
+      [
+        {
+          "AnchorX": 136.2,
+          "AnchorY": 120.5
+        }
+      ],
+      [
+        {
+          "AnchorX": 117.0,
+          "AnchorY": 122.3
+        }
+      ],
+      [
+        {
+          "AnchorX": 154.2,
+          "AnchorY": 125.2
+        }
+      ],
+      [],
+      [],
+      [],
+      [],
+      [
+        {
+          "AnchorX": 183.9,
+          "AnchorY": 115.8
+        }
+      ],
+      [
+        {
+          "AnchorX": 192.1,
+          "AnchorY": 116.3
+        }
+      ],
+      [
+        {
+          "AnchorX": 178.0,
+          "AnchorY": 117.6
+        }
+      ],
+      [
+        {
+          "AnchorX": 171.9,
+          "AnchorY": 109.9
+        }
+      ]
     ]
   },
   {
@@ -270,6 +458,100 @@
         "AnchorX": 244,
         "AnchorY": 66
       }
+    ],
+    "EyeAnchors": [
+      [
+        {
+          "AnchorX": 151.3,
+          "AnchorY": 127.1
+        },
+        {
+          "AnchorX": 177.2,
+          "AnchorY": 127.0
+        }
+      ],
+      [
+        {
+          "AnchorX": 154.6,
+          "AnchorY": 126.9
+        },
+        {
+          "AnchorX": 180.4,
+          "AnchorY": 126.7
+        }
+      ],
+      [
+        {
+          "AnchorX": 139.0,
+          "AnchorY": 127.5
+        },
+        {
+          "AnchorX": 164.8,
+          "AnchorY": 126.9
+        }
+      ],
+      [
+        {
+          "AnchorX": 161.5,
+          "AnchorY": 128.5
+        },
+        {
+          "AnchorX": 186.6,
+          "AnchorY": 125.9
+        }
+      ],
+      [
+        {
+          "AnchorX": 141.6,
+          "AnchorY": 116.6
+        }
+      ],
+      [
+        {
+          "AnchorX": 141.3,
+          "AnchorY": 117.7
+        }
+      ],
+      [
+        {
+          "AnchorX": 118.4,
+          "AnchorY": 117.4
+        }
+      ],
+      [
+        {
+          "AnchorX": 173.3,
+          "AnchorY": 123.8
+        }
+      ],
+      [],
+      [],
+      [],
+      [],
+      [
+        {
+          "AnchorX": 180.2,
+          "AnchorY": 111.1
+        }
+      ],
+      [
+        {
+          "AnchorX": 186.9,
+          "AnchorY": 114.5
+        }
+      ],
+      [
+        {
+          "AnchorX": 181.0,
+          "AnchorY": 114.6
+        }
+      ],
+      [
+        {
+          "AnchorX": 179.8,
+          "AnchorY": 112.5
+        }
+      ]
     ]
   },
   {
@@ -361,6 +643,100 @@
         "AnchorX": 247,
         "AnchorY": 63
       }
+    ],
+    "EyeAnchors": [
+      [
+        {
+          "AnchorX": 150.6,
+          "AnchorY": 125.0
+        },
+        {
+          "AnchorX": 176.9,
+          "AnchorY": 125.1
+        }
+      ],
+      [
+        {
+          "AnchorX": 151.9,
+          "AnchorY": 125.0
+        },
+        {
+          "AnchorX": 178.5,
+          "AnchorY": 125.0
+        }
+      ],
+      [
+        {
+          "AnchorX": 135.6,
+          "AnchorY": 126.0
+        },
+        {
+          "AnchorX": 162.1,
+          "AnchorY": 126.2
+        }
+      ],
+      [
+        {
+          "AnchorX": 150.9,
+          "AnchorY": 130.4
+        },
+        {
+          "AnchorX": 176.2,
+          "AnchorY": 129.7
+        }
+      ],
+      [
+        {
+          "AnchorX": 135.2,
+          "AnchorY": 119.7
+        }
+      ],
+      [
+        {
+          "AnchorX": 136.9,
+          "AnchorY": 117.3
+        }
+      ],
+      [
+        {
+          "AnchorX": 123.2,
+          "AnchorY": 118.7
+        }
+      ],
+      [
+        {
+          "AnchorX": 150.5,
+          "AnchorY": 124.5
+        }
+      ],
+      [],
+      [],
+      [],
+      [],
+      [
+        {
+          "AnchorX": 188.3,
+          "AnchorY": 109.9
+        }
+      ],
+      [
+        {
+          "AnchorX": 199.1,
+          "AnchorY": 113.3
+        }
+      ],
+      [
+        {
+          "AnchorX": 192.5,
+          "AnchorY": 110.9
+        }
+      ],
+      [
+        {
+          "AnchorX": 185.3,
+          "AnchorY": 111.5
+        }
+      ]
     ]
   },
   {
@@ -452,6 +828,100 @@
         "AnchorX": 248,
         "AnchorY": 58
       }
+    ],
+    "EyeAnchors": [
+      [
+        {
+          "AnchorX": 161.3,
+          "AnchorY": 119.9
+        },
+        {
+          "AnchorX": 184.9,
+          "AnchorY": 120.0
+        }
+      ],
+      [
+        {
+          "AnchorX": 150.2,
+          "AnchorY": 123.6
+        },
+        {
+          "AnchorX": 173.5,
+          "AnchorY": 124.0
+        }
+      ],
+      [
+        {
+          "AnchorX": 146.2,
+          "AnchorY": 123.5
+        },
+        {
+          "AnchorX": 170.2,
+          "AnchorY": 123.5
+        }
+      ],
+      [
+        {
+          "AnchorX": 172.7,
+          "AnchorY": 125.5
+        },
+        {
+          "AnchorX": 196.2,
+          "AnchorY": 125.9
+        }
+      ],
+      [
+        {
+          "AnchorX": 142.9,
+          "AnchorY": 118.6
+        }
+      ],
+      [
+        {
+          "AnchorX": 141.6,
+          "AnchorY": 118.2
+        }
+      ],
+      [
+        {
+          "AnchorX": 136.0,
+          "AnchorY": 117.5
+        }
+      ],
+      [
+        {
+          "AnchorX": 178.0,
+          "AnchorY": 117.4
+        }
+      ],
+      [],
+      [],
+      [],
+      [],
+      [
+        {
+          "AnchorX": 178.4,
+          "AnchorY": 103.8
+        }
+      ],
+      [
+        {
+          "AnchorX": 180.7,
+          "AnchorY": 104.6
+        }
+      ],
+      [
+        {
+          "AnchorX": 191.9,
+          "AnchorY": 105.4
+        }
+      ],
+      [
+        {
+          "AnchorX": 180.2,
+          "AnchorY": 106.6
+        }
+      ]
     ]
   }
 ]

@@ -64,6 +64,7 @@ public partial class WizardVisual : Node3D
             _sprite.MaterialOverride = null;
         }
         _spriteMaterial?.Dispose();
+        _mythicEyeMaterial?.Dispose(); _mythicEyeMaterial = null;
     }
 
     public void Build(WizardSnapshot p, bool local, bool compactEnemy = false)
@@ -185,6 +186,7 @@ public partial class WizardVisual : Node3D
         }
         _body.Position = basis.Y * (moving ? Math.Abs(Mathf.Sin(_motion.WalkCycle * Mathf.Tau)) * 0.025f : 0) + new Vector3(0, 0.03f, 0);
         _body.Visible = p.Alive; _ghost.Visible = !p.Alive; _halo.Visible = _shadow.Visible = p.Alive;
+        UpdateMythicEyes(p, frame);
         _hitFlash = Math.Max(0, _hitFlash - dt);
         if (p.Alive && p.Health < _previousHealth - 0.5f) _hitFlash = 0.12f;
         _previousHealth = p.Health;

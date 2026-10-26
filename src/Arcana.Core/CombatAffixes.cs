@@ -11,6 +11,8 @@ public static class CombatAffixes
     public static float BatteryPerHundred(int rank) => RankValue(rank, 15, 30) / 10f;
     public static int MendingPercent(int rank) => RankValue(rank, 10, 15);
     public static int ReprisalForce(int rank) => RankValue(rank, 10, 14);
+    public static int ShieldLeechPercent(int rank) => RankValue(rank, 10, 15);
+    public static int ShieldReflectionPercent(int rank) => RankValue(rank, 15, 25);
     public static float DamageMultiplier(EquipmentModifiers gear, Element element, bool wet, bool frozen, float healthFraction) =>
         1 + (element switch
         {

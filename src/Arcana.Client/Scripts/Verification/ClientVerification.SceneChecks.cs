@@ -160,6 +160,7 @@ public partial class ClientVerification
             if (valid) valid = CheckShieldMeteorVisuals();
             if (valid) valid = CheckFlamethrowerVisuals();
             if (valid) valid = CheckElementChannelVisuals();
+            if (valid) valid = CheckMythicEyesVisuals();
             if (valid) valid = CheckStoneVisuals();
             if (valid) valid = CheckStoneAuras();
             if (valid) valid = CheckAreaAndPassiveVisuals();

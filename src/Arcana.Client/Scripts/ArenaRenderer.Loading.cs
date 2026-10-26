@@ -51,6 +51,14 @@ public partial class ArenaRenderer
         })).ToArray();
         var scene = empty with { Players = actors };
         yield return ("Preparando magos y protecciones…", () => DrawLoadingView(scene, center));
+        var mythic = new EquipmentAppearance(ItemTier.Mythic, ItemTier.Mythic, ItemTier.Mythic, ItemTier.Mythic)
+        {
+            GoldRing = ItemTier.Mythic, MagicRing = ItemTier.Mythic,
+            MythicFamilies = MythicEyes.Encode(EquipmentFamily.Life, EquipmentFamily.Shield, EquipmentFamily.Fire,
+                EquipmentFamily.Cold, EquipmentFamily.Lightning, EquipmentFamily.Arcane)
+        };
+        yield return ("Preparando el poder mítico…", () => DrawLoadingView(scene with
+            { Players = actors.Select(p => p with { Equipment = mythic }).ToArray() }, center));
         var ghosts = scene with { Players = actors.Select(p => p with { Health = 0, Alive = false,
             Shield = 0, InvulnerableSeconds = 0, Respawn = 1 }).ToArray() };
         yield return ("Preparando las animaciones…", () => DrawLoadingView(ghosts, center));
