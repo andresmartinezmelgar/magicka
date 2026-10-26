@@ -1,6 +1,6 @@
 # Cambios
 
-## Sin publicar
+## 0.29.22
 
 - Las barras incluyen etiquetas breves: Daño, Área, Aura, Quemadura, Curación, Absorción y Sin detalle. El texto gira dentro de la barra con contraste; si la barra es demasiado baja, aparece debajo del eje sin alterar la altura ni los datos. Se reserva espacio para evitar solapes con los nombres de los elementos en móvil.
 
