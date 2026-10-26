@@ -84,6 +84,7 @@ public static partial class Ui
     {
         var theme = new Theme { DefaultFontSize = IsMobile ? 21 : 17 };
         theme.SetColor("font_color", "Label", Text);
+        theme.SetColor("default_color", "RichTextLabel", Text);
         theme.SetColor("font_color", "Button", Text);
         theme.SetColor("font_hover_color", "Button", Gold);
         theme.SetColor("font_disabled_color", "Button", Muted);
@@ -102,9 +103,9 @@ public static partial class Ui
         ApplyModalTheme(theme);
         return theme;
     }
-    public static Label Label(string text, int size = 17, Color? color = null)
+    public static ElementTextLabel Label(string text, int size = 17, Color? color = null)
     {
-        var label = new Label { Text = text };
+        var label = new ElementTextLabel { Text = text };
         label.AddThemeFontSizeOverride("font_size", IsMobile ? Math.Max(size, 16) : size);
         label.AddThemeColorOverride("font_outline_color", new Color("070c16")); label.AddThemeConstantOverride("outline_size", 2);
         if (color != null) label.AddThemeColorOverride("font_color", color.Value);
@@ -120,7 +121,7 @@ public static partial class Ui
         return table;
     }
     /// <summary>Celdas con bordes continuos, relleno y altura compartida con su fila.</summary>
-    public static Label TableCell(GridContainer table, string text, bool number = false,
+    public static ElementTextLabel TableCell(GridContainer table, string text, bool number = false,
         Color? color = null, bool header = false, int size = 16)
     {
         var label = Label(text, size, color ?? (header ? Gold : Text));
@@ -140,7 +141,7 @@ public static partial class Ui
     }
     public static Button Button(string text, Action pressed, bool primary = false)
     {
-        var button = new Button { Text = text, CustomMinimumSize = new(0, IsMobile ? 68 : 45),
+        var button = new ElementTextButton { Text = text, CustomMinimumSize = new(0, IsMobile ? 68 : 45),
             MouseDefaultCursorShape = Control.CursorShape.PointingHand };
         if (IsMobile) button.AddThemeFontSizeOverride("font_size", 21);
         if (primary)

@@ -92,7 +92,7 @@ public partial class Main
                 Button("ShopComparison_" + _shopBoughtId).EmitSignal(Godot.Button.SignalName.Pressed);
                 Ui.VerifyDialog((AcceptDialog)shop.FindChild("ShopComparison", true, false));
                 Check(((AcceptDialog)shop.FindChild("ShopComparison", true, false)).Visible &&
-                    ((Label)shop.FindChild("ShopComparisonText", true, false)).Text.Contains("→"), "La tienda no muestra la comparación antes de comprar.");
+                    ((ElementTextLabel)shop.FindChild("ShopComparisonText", true, false)).Text.Contains("→"), "La tienda no muestra la comparación antes de comprar.");
                 _shopSmokePhase = 21; return false;
             }
             if (_shopSmokePhase == 21)

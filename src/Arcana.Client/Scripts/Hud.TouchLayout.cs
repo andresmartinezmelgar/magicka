@@ -31,7 +31,7 @@ public partial class Hud
         _match.AddThemeFontSizeOverride("font_size", Math.Max(12, (int)(24 * s)));
         _match.CustomMinimumSize = new(0, 42 * s);
         _teams.AddThemeConstantOverride("separation", (int)(18 * s));
-        foreach (var label in _teams.GetChildren().OfType<Label>()) label.AddThemeFontSizeOverride("font_size", Math.Max(12, (int)(24 * s)));
+        foreach (var label in _teams.GetChildren().OfType<ElementTextLabel>()) label.AddThemeFontSizeOverride("font_size", Math.Max(12, (int)(24 * s)));
         _teams.CustomMinimumSize = new(0, 42 * s);
         _objective.AddThemeFontSizeOverride("font_size", Math.Max(10, (int)(16 * s)));
         _objective.CustomMinimumSize = new(0, 46 * s);

@@ -80,7 +80,7 @@ public partial class Main
                     Check(saved[fixture.Profile.Uid].Favorites.Count == 2 && saved[fixture.Profile.Uid].Loadouts.Count == 2, "Favoritos y equipos no se guardan en el disco.");
                     Check(panel.FindChild("EquipmentFilters", true, false) == null && panel.FindChild("EquipmentSort", true, false) == null, "Quedan filtros en el inventario.");
                     Check(panel.PickerItems.SequenceEqual(EquipmentQuery.Sort(fixture.Profile.Items.Where(i => i.Slot == EquipmentSlot.Weapon), equippedId: panel.PreviewProfile!.Loadout.Weapon).Select(i => i.Id)), "La interfaz no fija primero la pieza equipada y después la calidad.");
-                    Check(((Label)panel.FindChild("EquipmentComparison_" + fixture.Extras[1].Id, true, false)).Text.Contains("4/4 → 3/4"), "Falta el cambio de conjunto en la comparación.");
+                    Check(((ElementTextLabel)panel.FindChild("EquipmentComparison_" + fixture.Extras[1].Id, true, false)).Text.Contains("4/4 → 3/4"), "Falta el cambio de conjunto en la comparación.");
                     ((MenuButton)panel.FindChild("EquipmentActions", true, false)).GetPopup().EmitSignal(PopupMenu.SignalName.IdPressed, 2L);
                     Button("EquipmentBulkAll").EmitSignal(BaseButton.SignalName.Pressed);
                     Check(Button("EquipmentBulkSell").Text.Contains("Vender 2"), "Marcar visibles incluye favoritos o piezas equipadas.");
@@ -163,7 +163,7 @@ public partial class Main
                     _usabilityStage = 9; return false;
                 case 9:
                     Check(Accounts.InventoryNeedsRefresh && fixture.Sold == 4 && fixture.Attempts == 5 && panel.VisibleItems == fixture.InitialItemCount - 3 &&
-                        ((Label)panel.FindChild("EquipmentPickerStatus", true, false)).Text.Contains("sin confirmar"), "La pérdida de respuesta sin lectura fiable se muestra como una venta descartada.");
+                        ((ElementTextLabel)panel.FindChild("EquipmentPickerStatus", true, false)).Text.Contains("sin confirmar"), "La pérdida de respuesta sin lectura fiable se muestra como una venta descartada.");
                     var pendingId = panel.PreviewProfile!.Items.Single(i => i.Slot == EquipmentSlot.Boots && i.Id != fixture.Profile.Loadout.Boots).Id;
                     Check(Button("EquipmentTrash_" + pendingId).Disabled, "Se puede reenviar una venta sin confirmar.");
                     panel.PressTrash(pendingId);

@@ -14,14 +14,14 @@ public partial class DefensePanel : Control
     internal EquipmentPanel? EquipmentInventory => _equipmentInventory;
     private PanelContainer _summary = null!, _window = null!;
     private Control _shop = null!;
-    private Label _metrics = null!, _stats = null!, _wallet = null!, _result = null!, _rules = null!;
+    private ElementTextLabel _metrics = null!, _stats = null!, _wallet = null!, _result = null!, _rules = null!;
     private Button _restart = null!;
-    private Label _bonuses = null!;
+    private ElementTextLabel _bonuses = null!;
     private bool _ended;
     private readonly List<Button> _auras = [], _passives = [], _tabs = [];
-    private readonly List<Label> _auraHints = [], _passiveHints = [];
+    private readonly List<ElementTextLabel> _auraHints = [], _passiveHints = [];
     private readonly List<VBoxContainer> _sections = [];
-    private Label _shopStatus = null!, _equipmentSummary = null!;
+    private ElementTextLabel _shopStatus = null!, _equipmentSummary = null!;
     private ContentScrollContainer _scroll = null!;
     private VBoxContainer _auraSection = null!, _passiveSection = null!;
     private Button _auraTab = null!, _passiveTab = null!;
@@ -31,7 +31,7 @@ public partial class DefensePanel : Control
     private string _totalsStamp = "";
     private GridContainer _totals = null!;
     private GridContainer _equipmentTotals = null!;
-    private Label _equipmentTotalsEmpty = null!;
+    private ElementTextLabel _equipmentTotalsEmpty = null!;
     private string _equipmentTotalsStamp = "";
     private bool _canRestart;
     private HFlowContainer _navigation = null!;
@@ -142,7 +142,7 @@ public partial class DefensePanel : Control
         Resize(); GetViewport().SizeChanged += Resize;
     }
 
-    private static Label Wrapped(Control parent, string text, int size, Color? color = null)
+    private static ElementTextLabel Wrapped(Control parent, string text, int size, Color? color = null)
     {
         var label = Ui.Label(text, size, color); label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         label.SizeFlagsHorizontal = SizeFlags.ExpandFill; parent.AddChild(label); return label;

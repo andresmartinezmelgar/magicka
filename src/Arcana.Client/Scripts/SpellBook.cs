@@ -9,7 +9,7 @@ public partial class SpellBook : VBoxContainer
     private readonly ElementBuffer _selection = new();
     private readonly ElementIcon[] _slots = new ElementIcon[3];
     private readonly Button[] _modes = new Button[3];
-    private Label _title = null!, _description = null!, _damage = null!;
+    private ElementTextLabel _title = null!, _description = null!, _damage = null!;
     private GridContainer _elements = null!;
     private GridContainer _columns = null!;
     private SubViewportContainer _preview = null!;

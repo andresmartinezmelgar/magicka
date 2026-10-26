@@ -13,7 +13,7 @@ public partial class PlayerEquipmentPanel : Control
     private OptionButton _choice = null!;
     private GridContainer? _headerGrid, _contentGrid;
     private VBoxContainer _pieces = null!, _summary = null!;
-    private Label _status = null!, _name = null!;
+    private ElementTextLabel _status = null!, _name = null!;
     private EquipmentInspection? _view;
     private bool _compactStats;
     private int _selected;
@@ -21,7 +21,7 @@ public partial class PlayerEquipmentPanel : Control
     internal string Details => string.Join("\n", Labels(_pieces).Select(l => l.Text));
     internal string Totals => string.Join("\n", Labels(_summary).Select(l => l.Text));
     internal int SelectedPlayer => _selected;
-    private static IEnumerable<Label> Labels(Node parent) => parent.GetChildren().SelectMany(n => n is Label label ? new[] { label } : Labels(n));
+    private static IEnumerable<ElementTextLabel> Labels(Node parent) => parent.GetChildren().SelectMany(n => n is ElementTextLabel label ? new[] { label } : Labels(n));
 
     public void Build(Main main, Func<WizardSnapshot[]> players, int localId, Func<int, CancellationToken, Task<EquipmentInspection>> load)
     {

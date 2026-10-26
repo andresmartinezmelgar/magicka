@@ -7,9 +7,9 @@ namespace Arcana.Client;
 public partial class AccountProfilePanel : Control
 {
     private Main _main = null!;
-    private Label _heading = null!, _status = null!;
+    private ElementTextLabel _heading = null!, _status = null!;
     private Button _login = null!, _logout = null!, _checkUpdate = null!, _touchControls = null!, _bestiary = null!, _statistics = null!;
-    private Label _updateStatus = null!;
+    private ElementTextLabel _updateStatus = null!;
     private GridContainer _profileActions = null!;
     private bool _checkingUpdate;
     private string _updateIdentity = "";

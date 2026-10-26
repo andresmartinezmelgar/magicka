@@ -94,7 +94,7 @@ public partial class Main
                     var magicks = ((Control)_touch.FindChild("TouchMagick0", true, false)).GetGlobalRect();
                     Check(magicks.Position.Y - selected.End.Y is >= 0 and <= 20,
                         "Los elementos seleccionados no están pegados a los hechizos especiales.");
-                    Check(rectangles.Length == 17 && !_touch.FindChildren("*", "Label", true, false).OfType<Label>().Any(l => l.Text is "Bastón" or "Vaciar"),
+                    Check(rectangles.Length == 17 && !_touch.FindChildren("*", "Control", true, false).OfType<ElementTextLabel>().Any(l => l.Text is "Bastón" or "Vaciar"),
                         "Siguen presentes los botones retirados.");
                     foreach (string name in new[] { "TouchSelf", "TouchNova" })
                     {
@@ -122,7 +122,7 @@ public partial class Main
                 GD.Print($"SURVIVAL_PRELOAD_OK: {_renderer.PreparedSurvivalSectors} sectores y {_renderer.PreparedMinionCapacity} enemigos preparados.");
                 Check(_renderer.FindChild("DefenseCastle", true, false) == null && panel.FindChild("DefenseRepairButton", true, false) == null,
                     "Sigue presente el castillo o su reparación.");
-                var bonuses = (Label)panel.FindChild("DefenseCollectedRelics", true, false);
+                var bonuses = (ElementTextLabel)panel.FindChild("DefenseCollectedRelics", true, false);
                 Check(bonuses.Text.Contains("Energía ×2") && !bonuses.Text.Contains("TOTALES") && !bonuses.Text.Contains("Vida máxima extra") &&
                     !bonuses.Text.Contains("Aura") && !bonuses.IsVisibleInTree() &&
                     panel.FindChild("DefenseBonusScroll", true, false) == null &&
@@ -145,7 +145,7 @@ public partial class Main
                 var window = (PanelContainer)panel.FindChild("DefenseShopWindow", true, false);
                 var viewport = GetViewport().GetVisibleRect(); var rect = window.GetGlobalRect();
                 Check(viewport.Encloses(rect), "La tienda desborda el viewport: " + rect);
-                Check(((Label)panel.FindChild("DefenseEquipmentSummary", true, false)).Text.Contains("/6 ranuras equipadas"),
+                Check(((ElementTextLabel)panel.FindChild("DefenseEquipmentSummary", true, false)).Text.Contains("/6 ranuras equipadas"),
                     "El resumen temporal no cuenta las dos ranuras de anillo.");
                 Check(_touch?.Visible != true, "Los controles táctiles cubren la tienda.");
                 Check(state.Defense!.Paused && state.Tick == _defensePauseTick, "La tienda no pausa con un humano y bot.");
@@ -209,7 +209,7 @@ public partial class Main
                 {
                 Check(inventory.FindChild("EquipmentFilters", true, false) == null && inventory.FindChild("EquipmentSort", true, false) == null,
                     "El inventario conserva los filtros.");
-                Check(!inventory.HasChanges && inventory.FindChildren("EquipmentComparison_*", "Label", true, false).Count > 0,
+                Check(!inventory.HasChanges && inventory.FindChildren("EquipmentComparison_*", "Control", true, false).Count > 0,
                     "Abrir una zona cambia el equipo o falta la comparación de atributos.");
                 GD.Print("EQUIPMENT_AVATAR_OK: seis zonas y objetos a la derecha, sin filtros ni escrituras al seleccionar zona.");
                     _defenseAvatarReviewed = true; return false; // Espera la distribución real de las tarjetas reconstruidas.
@@ -280,7 +280,7 @@ public partial class Main
                 if (_quickItemActions) GD.Print("QUICK_UPGRADE_OK: doble clic/toque aplica una sola mejora y un solo cobro; límites de oro y nivel respetados.");
                 var inventory = panel.EquipmentInventory!;
                 Check(((Button)inventory.FindChild("EquipmentUpgrade_" + improved.Item.Id, true, false)).TooltipText.Contains($"{DefenseRules.UpgradeCost(improved.Item.Tier, 1)} oro") &&
-                    ((Label)inventory.FindChild("EquipmentItemStats_" + improved.Item.Id, true, false)).Text.Contains(EquipmentCatalogue.Percent(improved.Item.Bonuses[0].Current)),
+                    ((ElementTextLabel)inventory.FindChild("EquipmentItemStats_" + improved.Item.Id, true, false)).Text.Contains(EquipmentCatalogue.Percent(improved.Item.Bonuses[0].Current)),
                     "El selector no actualiza el siguiente coste y las estadísticas mejoradas.");
                 CaptureDefense("05-mejora-pieza");
                 _defenseItemsBeforeSupply = player.Items.Select(i => i.Item.Id).ToArray();
@@ -389,10 +389,10 @@ public partial class Main
             if (_defenseSmokePhase == 10)
             {
                 var totals = (GridContainer)panel.FindChild("DefenseEquipmentTotals", true, false);
-                Check(((Label)totals.GetChild(totals.Columns - 1)).Text.StartsWith("Atributo") &&
-                    ((Label)panel.FindChild("DefenseTotals", true, false).GetChild(1)).Text == "Atributo",
+                Check(((ElementTextLabel)totals.GetChild(totals.Columns - 1)).Text.StartsWith("Atributo") &&
+                    ((ElementTextLabel)panel.FindChild("DefenseTotals", true, false).GetChild(1)).Text == "Atributo",
                     "Los atributos de Supervivencia no están a la derecha de sus valores.");
-                string text = string.Join('\n', totals.GetChildren().OfType<Label>().Select(l => l.Text));
+                string text = string.Join('\n', totals.GetChildren().OfType<ElementTextLabel>().Select(l => l.Text));
                 Check(new[] { "Botas ·", "Gorro ·", "Pecho ·", "Arma ·", "Aplicado", "procedencia" }.All(text.Contains),
                     "Las estadísticas de Defensa no desglosan las cuatro piezas y su suma.");
                 CaptureDefense("05-bonificaciones"); panel.ShowSection(4); _defenseSmokePhase++; return false;
@@ -403,7 +403,7 @@ public partial class Main
                 foreach (var tab in Enumerable.Range(0, 5).Select(i => (Button)panel.FindChild("DefenseTab" + i, true, false)))
                     Check(viewport.Encloses(tab.GetGlobalRect()), "Una pestaña de la tienda desborda la pantalla.");
                 Check(((Control)panel.FindChild("DefenseDropRates", true, false)).IsVisibleInTree(), "No se muestra la tabla de botín.");
-                var slotRates = ((GridContainer)panel.FindChild("DefenseSlotRates", true, false)).GetChildren().OfType<Label>().Skip(3).ToArray();
+                var slotRates = ((GridContainer)panel.FindChild("DefenseSlotRates", true, false)).GetChildren().OfType<ElementTextLabel>().Skip(3).ToArray();
                 Check(slotRates.Length == 18 && slotRates.Where((_, i) => i % 3 == 2).All(l => l.Text == "1 %") &&
                     Math.Abs(slotRates.Where((_, i) => i % 3 == 1).Sum(l => double.Parse(l.Text.TrimEnd('%').Trim())) - 100) < .01,
                     "La guía no reparte la probabilidad entre las seis posiciones del equipo.");
@@ -417,7 +417,7 @@ public partial class Main
                 foreach (var enemy in state.Defense.Bestiary)
                 {
                     var table = (GridContainer)panel.FindChild("DefenseEnemyStats" + enemy.Kind, true, false);
-                    Check(table.GetChildren().OfType<Label>().Any(l => l.Text == $"{enemy.MaxHealth:0.#}"), "La ficha no muestra la última vida conocida.");
+                    Check(table.GetChildren().OfType<ElementTextLabel>().Any(l => l.Text == $"{enemy.MaxHealth:0.#}"), "La ficha no muestra la última vida conocida.");
                 }
                 var firstTable = (GridContainer)cards.GetChild(0).GetChild(0).GetChild(1);
                 var scroll = (Control)panel.FindChild("DefenseShopScroll", true, false);

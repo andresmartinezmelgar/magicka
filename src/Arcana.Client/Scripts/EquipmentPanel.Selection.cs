@@ -6,7 +6,7 @@ namespace Arcana.Client;
 public partial class EquipmentPanel
 {
     private Control _itemPicker = null!;
-    private Label _pickerHelp = null!, _pickerEmpty = null!, _pickerStatus = null!;
+    private ElementTextLabel _pickerHelp = null!, _pickerEmpty = null!, _pickerStatus = null!;
     private ContentScrollContainer _pickerScroll = null!;
     private GridContainer _pickerGrid = null!;
     private readonly Dictionary<string, Button> _itemButtons = new(StringComparer.Ordinal);

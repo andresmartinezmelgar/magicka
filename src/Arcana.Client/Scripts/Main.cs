@@ -18,7 +18,7 @@ public partial class Main : Node
     private int _exiting;
     private bool _exporting;
     private double _metricsTime;
-    private Label _networkStats = null!;
+    private ElementTextLabel _networkStats = null!;
     private PanelContainer _networkPanel = null!;
     private double _networkStatsTime;
     private long _previousSent, _previousReceived;
@@ -26,10 +26,10 @@ public partial class Main : Node
     private WorldSnapshot? _backdropSnapshot;
     private ArenaRenderer _renderer = null!;
     private Control _ui = null!, _help = null!, _pause = null!;
-    private Label _diagnosticStatus = null!;
+    private ElementTextLabel _diagnosticStatus = null!;
     private Launcher _launcher = null!;
     private TabContainer _helpPages = null!;
-    private Label _currentObjective = null!;
+    private ElementTextLabel _currentObjective = null!;
     private SpellBook _spellBook = null!;
     private Hud? _hud;
     private RoomWaitingPanel? _waitingPanel;
@@ -106,6 +106,7 @@ public partial class Main : Node
         _pause = BuildPause(); _ui.AddChild(_pause); _pause.Visible = false;
         var arguments = OS.GetCmdlineUserArgs();
         InitializeMatchStatistics(arguments);
+        if (arguments.Contains("--element-text-smoke")) _ = RunElementTextSmoke();
         _accountEntrySmoke = arguments.Contains("--account-entry-smoke");
         _mobileMenuSmoke = arguments.Contains("--mobile-menu-smoke");
         _visualReview = arguments.Contains("--visual-review");
@@ -771,7 +772,7 @@ public partial class Main : Node
             _inGameHelpControls.Columns = ResponsiveLayout.Columns(
                 Math.Max(250, width - (Ui.IsMobile ? 105 : 140)), 325, 2, 20);
     }
-    private static Label HelpText(Node parent, string text, Color? color = null)
+    private static ElementTextLabel HelpText(Node parent, string text, Color? color = null)
     {
         var label = Ui.Label(text, 15, color); label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         parent.AddChild(label); return label;

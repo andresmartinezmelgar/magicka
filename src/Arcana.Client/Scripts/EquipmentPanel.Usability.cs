@@ -14,7 +14,7 @@ public partial class EquipmentPanel
     private OptionButton? _savedTeams;
     private LineEdit? _teamName;
     private Button? _applyTeam;
-    private Label? _teamStatus;
+    private ElementTextLabel? _teamStatus;
     private readonly Queue<string> _defenseBatch = new();
     private int _batchSold, _batchCount;
     private long _batchGold;

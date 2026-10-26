@@ -23,22 +23,29 @@ internal static class BestiaryAndAffixTests
     public static void Run(Action<string, Action> test)
     {
         CombatAffixTests.Run(test);
-        test("Arcano: encadena al enemigo cercano fuera de la dirección inicial y limita los saltos", () =>
+        test("Arcano: sin afijo se detiene en el primer enemigo y nunca busca objetivos laterales", () =>
         {
             var (world, caster, targets) = Line(EquipmentModifiers.None);
-            targets[1].Position = new(-1, 2); targets[2].Position = new(3, 3); targets[3].Position = new(5, 4);
+            targets[2].Position = new(-1, 2); targets[3].Position = new(5, 4);
             caster.Channel = new([Element.Arcane]); world.Step();
-            Check(targets[0].Health < 1000 && targets[1].Health < 1000 && targets[2].Health == 1000,
-                "El arcano no redirige al objetivo más cercano o supera su límite.");
-            Check(1000 - targets[1].Health < 1000 - targets[0].Health, "El salto no atenúa el daño.");
+            Check(targets[0].Health < 1000 && targets.Skip(1).All(p => p.Health == 1000),
+                "El arcano encadena objetivos o atraviesa sin afijo.");
+            Check(world.Snapshot().Beams.All(b => MathF.Abs(b.From.Y - b.To.Y) < .001f),
+                "El rayo cambia de dirección al impactar contra un enemigo.");
             SnapshotValidation.Check(world.Snapshot());
         });
-        test("Arcano: no encadena enemigos fuera del radio", () =>
+        test("Arcano: la penetración ignora enemigos laterales aunque estén más cerca", () =>
         {
-            var (world, caster, targets) = Line(EquipmentModifiers.None);
-            targets[1].Position = new(5, 4); targets[2].Position = new(7, 5); targets[3].Position = new(8, 6);
+            var (world, caster, targets) = Line(new() { BeamPierce = 1 });
+            targets[2].Position = new(-1, 1.5f); targets[3].Position = new(5, 4);
             caster.Channel = new([Element.Arcane]); world.Step();
-            Check(targets[0].Health < 1000 && targets.Skip(1).All(p => p.Health == 1000), "El salto ignora la distancia máxima.");
+            Check(targets[0].Health < 1000 && targets[1].Health < 1000 && targets.Skip(2).All(p => p.Health == 1000),
+                "La penetración se desvía hacia un enemigo lateral.");
+            Check(MathF.Abs(targets[0].Health - targets[1].Health) < .001f,
+                "Atravesar un enemigo atenúa el daño del haz.");
+            Check(world.Snapshot().Beams.All(b => MathF.Abs(b.From.Y - b.To.Y) < .001f),
+                "La penetración dejó de ser rectilínea.");
+            SnapshotValidation.Check(world.Snapshot());
         });
         test("Afijos: calidades, rangos, serialización y objetos antiguos", () =>
         {

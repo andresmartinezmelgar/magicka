@@ -9,7 +9,7 @@ public partial class ItemShopPanel : Control
     private Main _main = null!;
     private readonly CancellationTokenSource _lifetime = new();
     private ItemShop? _shop;
-    private Label _wallet = null!, _status = null!;
+    private ElementTextLabel _wallet = null!, _status = null!;
     private Button _reload = null!, _refresh = null!;
     private GridContainer _offers = null!;
     private ContentScrollContainer _scroll = null!;
@@ -19,7 +19,7 @@ public partial class ItemShopPanel : Control
     private string? _owner;
     private int _requestVersion;
     private AcceptDialog _comparison = null!;
-    private Label _comparisonText = null!;
+    private ElementTextLabel _comparisonText = null!;
     internal ItemShop? Catalogue => _shop;
     internal bool Busy => _busy;
     internal int Columns => _offers.Columns;
@@ -68,7 +68,7 @@ public partial class ItemShopPanel : Control
         ShowUnavailable("Conectando con la tienda…");
         _ = Load();
     }
-    private static Label Wrapped(Control parent, string value, int size, Color? color = null)
+    private static ElementTextLabel Wrapped(Control parent, string value, int size, Color? color = null)
     {
         var label = Ui.Label(value, size, color); label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         label.SizeFlagsHorizontal = SizeFlags.ExpandFill; parent.AddChild(label); return label;

@@ -7,26 +7,26 @@ public partial class Hud : Control
 {
     internal const float GameplayScale = 0.75f;
     internal bool MobileLayout { get; set; } = Ui.IsMobile;
-    private Label _name = null!, _status = null!, _match = null!, _feed = null!, _banner = null!, _server = null!;
+    private ElementTextLabel _name = null!, _status = null!, _match = null!, _feed = null!, _banner = null!, _server = null!;
     private ProgressBar _health = null!, _shield = null!, _energy = null!, _charge = null!;
-    private Label _healthText = null!, _shieldText = null!, _energyText = null!;
-    private Label _objective = null!, _affinity = null!, _buffs = null!;
-    private Label _controls = null!;
-    private Label _reward = null!;
+    private ElementTextLabel _healthText = null!, _shieldText = null!, _energyText = null!;
+    private ElementTextLabel _objective = null!, _affinity = null!, _buffs = null!;
+    private ElementTextLabel _controls = null!;
+    private ElementTextLabel _reward = null!;
     private float _rewardSeconds;
-    private Label _actionNotice = null!;
+    private ElementTextLabel _actionNotice = null!;
     private float _actionNoticeSeconds;
     internal string ActionNoticeForSmoke => _actionNotice.Text;
     public void ActionNotice(string text) { _actionNotice.Text = text; _actionNotice.TooltipText = text; _actionNoticeSeconds = 4; _actionNotice.Visible = true; }
     private HBoxContainer _teams = null!;
-    private Label _blueScore = null!, _redScore = null!;
+    private ElementTextLabel _blueScore = null!, _redScore = null!;
     private StyleBoxFlat _shieldFill = null!, _shieldTrack = null!;
-    private readonly List<Label> _selected = [], _magicks = [];
+    private readonly List<ElementTextLabel> _selected = [], _magicks = [];
     private readonly List<ElementIcon> _selectedIcons = [];
     private readonly List<StyleBoxFlat> _selectedStyles = [];
     private PanelContainer _scorePanel = null!;
     private CenterContainer _scoreCenter = null!;
-    private Label _seriesStatus = null!;
+    private ElementTextLabel _seriesStatus = null!;
     private GridContainer _scoreRows = null!;
     private ScrollContainer _scoreScroll = null!;
     private MiniMap _map = null!;
@@ -40,7 +40,7 @@ public partial class Hud : Control
     private string _feedText = "";
     private float _feedTime, _scoreClock;
     private readonly List<string> _statuses = [];
-    private readonly List<Label> _scoreCells = [];
+    private readonly List<ElementTextLabel> _scoreCells = [];
     private WorldSnapshot? _lastSnapshot;
     private WizardSnapshot? _lastPlayer;
     private string? _lastServerName;
@@ -280,7 +280,7 @@ public partial class Hud : Control
             style.ContentMarginLeft = style.ContentMarginRight = style.ContentMarginTop = style.ContentMarginBottom = 0;
         bar.AddThemeStyleboxOverride("background", track); bar.AddThemeStyleboxOverride("fill", fill); return bar;
     }
-    private static Control Meter(ProgressBar bar, string textName, out Label label, int fontSize = 14)
+    private static Control Meter(ProgressBar bar, string textName, out ElementTextLabel label, int fontSize = 14)
     {
         var root = new Control { CustomMinimumSize = bar.CustomMinimumSize, MouseFilter = MouseFilterEnum.Ignore };
         root.AddChild(bar); Ui.Full(bar);

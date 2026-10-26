@@ -10,7 +10,7 @@ public partial class MobileSettingsPanel : Control
     private TouchSettings _beforeEdit = new();
     private Control _form = null!, _editorBar = null!;
     private VBoxContainer _sliders = null!;
-    private Label _status = null!;
+    private ElementTextLabel _status = null!;
     private MobileControls _preview = null!;
     private Hud _editorHud = null!;
     private Action<List<TouchHudArea>>? _modeAreas;
@@ -137,7 +137,7 @@ public partial class MobileSettingsPanel : Control
             }
             var placeholder = _modePreviews[index++]; placeholder.Show();
             placeholder.Position = area.Bounds.Position; placeholder.Size = area.Bounds.Size;
-            var text = (Label)placeholder.GetChild(0);
+            var text = (ElementTextLabel)placeholder.GetChild(0);
             text.Text = area.Name;
             text.AddThemeFontSizeOverride("font_size", Math.Max(10, (int)(16 * Math.Min(1, Size.Y / 720f))));
         }

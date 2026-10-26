@@ -1,0 +1,25 @@
+name: Publicacion solicitada de Arcana Arena 0.29.25
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-v0.29.25.yml]
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  publish-requested-version:
+    if: github.event.head_commit.message == 'Publicar Arcana Arena 0.29.25'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Comprobar la version y activar su publicacion manual
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(gh api "repos/$GITHUB_REPOSITORY/contents/VERSION?ref=main" --jq '.content' | base64 --decode | tr -d '\r\n')
+          test "$version" = '0.29.25'
+          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref main -f publish_stable=true -f publish_preview=false

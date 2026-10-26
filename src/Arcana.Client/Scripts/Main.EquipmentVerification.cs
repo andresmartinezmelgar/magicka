@@ -184,9 +184,9 @@ public partial class Main
             Show(original with { Items = [.. separated, unused],
                 Loadout = new(separated[0].Id, separated[1].Id, separated[2].Id, separated[3].Id) });
             var totals = (GridContainer)panel.FindChild("EquipmentTotalsTable", true, false);
-            var cells = totals.GetChildren().OfType<Label>().ToArray();
+            var cells = totals.GetChildren().OfType<ElementTextLabel>().ToArray();
             Check(cells[totals.Columns - 1].Text.StartsWith("Atributo") &&
-                ((Label)panel.FindChild("EquipmentDetailsTable", true, false).GetChild(2)).Text == "Atributo",
+                ((ElementTextLabel)panel.FindChild("EquipmentDetailsTable", true, false).GetChild(2)).Text == "Atributo",
                 "Los nombres de atributos no ocupan la última columna.");
             int attack = Array.FindIndex(cells, l => l.Text.Split('\n')[0] == "Ataque");
             Check(attack >= 0 && (totals.Columns == 2

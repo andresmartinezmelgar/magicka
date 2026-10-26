@@ -21,7 +21,7 @@ public partial class Main
         void CheckText(Control root)
         {
             float right = GetViewport().GetVisibleRect().End.X;
-            foreach (var label in root.FindChildren("*", "Label", true, false).OfType<Label>())
+            foreach (var label in root.FindChildren("*", "Control", true, false).OfType<ElementTextLabel>())
             {
                 if (!label.IsVisibleInTree() || label.Text.Length < 16 || label.AutowrapMode == TextServer.AutowrapMode.Off) continue;
                 Check(label.Size.X >= 120 && label.GlobalPosition.X >= 0 && label.GetGlobalRect().End.X <= right + 1,

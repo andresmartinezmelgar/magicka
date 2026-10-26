@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.29.25
+
+- El rayo arcano vuelve a avanzar en línea recta: no busca enemigos laterales ni obtiene penetración automática. El afijo atraviesa únicamente los enemigos situados en su trayectoria, con el mismo daño; los escudos conservan reflexión y refracción.
+- Colores por palabra para los ocho elementos y sus efectos en recetas, ayuda, inventario, tienda, bestiario, estadísticas y mensajes de combate. Las áreas y el daño usan el elemento de su contexto, incluido el rayo arcano. Los textos dinámicos se actualizan al cambiar y el contenido externo se muestra como texto plano.
+
 ## 0.29.24
 
 - Subir el máximo de vida en Supervivencia o recalcular el equipo conserva los HP actuales; ya no concede curación implícita ni eleva fracciones de HP a 1.

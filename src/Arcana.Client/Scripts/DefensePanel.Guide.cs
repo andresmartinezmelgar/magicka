@@ -6,7 +6,7 @@ namespace Arcana.Client;
 public partial class DefensePanel
 {
     private VBoxContainer _lootGuide = null!, _enemyGuide = null!, _enemyCards = null!;
-    private Label _guideStatus = null!;
+    private ElementTextLabel _guideStatus = null!;
     private Button _lootGuideTab = null!, _enemyGuideTab = null!;
     private string _bestiaryStamp = "";
 

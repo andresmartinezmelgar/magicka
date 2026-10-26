@@ -6,7 +6,7 @@ namespace Arcana.Client;
 /// <summary>Entrada multitáctil: cada dedo conserva su control hasta soltarse, incluso fuera del área.</summary>
 public partial class MobileControls : Control
 {
-    private sealed record TouchAction(PanelContainer Panel, Label Text, ClientMessage? Message, Action? Run);
+    private sealed record TouchAction(PanelContainer Panel, ElementTextLabel Text, ClientMessage? Message, Action? Run);
     private readonly List<TouchAction> _actions = [];
     private readonly Dictionary<int, TouchAction> _pressed = [];
     private readonly List<TouchAction> _magicks = [];

@@ -9,7 +9,7 @@ public partial class RoomWaitingPanel : Control
     private PanelContainer _panel = null!;
     private GridContainer _teams = null!, _choose = null!, _actions = null!;
     private VBoxContainer _blue = null!, _red = null!;
-    private Label _headline = null!, _status = null!, _prizes = null!;
+    private ElementTextLabel _headline = null!, _status = null!, _prizes = null!;
     private Button _ready = null!, _start = null!, _exit = null!;
     private string _lastRoster = "";
     private Action<ClientMessage>? _submit;

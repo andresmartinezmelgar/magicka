@@ -9,11 +9,11 @@ public partial class Launcher : Control
     private LineEdit _name = null!, _address = null!, _password = null!, _hostName = null!;
     private OptionButton _team = null!, _practiceMode = null!, _practiceMap = null!, _wizardType = null!;
     private SpinBox _bots = null!, _discoveryPort = null!, _hostPort = null!, _hostDiscovery = null!;
-    private Label _status = null!;
+    private ElementTextLabel _status = null!;
     private Button? _continueSurvival;
     private ItemList _servers = null!;
     private Button _connect = null!, _refresh = null!, _stopHost = null!, _firewall = null!, _officialOnline = null!;
-    private Label _hostInfo = null!;
+    private ElementTextLabel _hostInfo = null!;
     private RoomLobby? _lobby;
     private readonly LocalServerHost _host = new();
     internal WizardType SelectedWizardType => (WizardType)_wizardType.GetSelectedId();
@@ -29,7 +29,7 @@ public partial class Launcher : Control
     private VBoxContainer _playBody = null!;
     private Button _menuBack = null!;
     private int _page;
-    private Label _wizardDescription = null!;
+    private ElementTextLabel _wizardDescription = null!;
     private Button _accountButton = null!;
     private ScrollContainer? _mobileScroll;
 

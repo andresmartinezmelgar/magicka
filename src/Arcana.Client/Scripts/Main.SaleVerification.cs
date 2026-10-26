@@ -88,9 +88,9 @@ public partial class Main
                 Check(dialog.Visible, "No se muestra la confirmación de venta.");
                 if (_saleLogoutProbe) { _ = Accounts.SignOut(); _salePhase = 9; return false; }
                 var stats = (GridContainer)dialog.FindChild("SaleStats", true, false);
-                Check(stats.GetChildren().OfType<Label>().Count() == (fixture.Weapon.Bonuses.Length + 1) * 2 &&
-                    ((Label)dialog.FindChild("SaleGold", true, false)).Text.Contains("400") &&
-                    ((Label)dialog.FindChild("SaleWarning", true, false)).Text.Contains("sin equipar"), "La confirmación no muestra atributos, precio o estado de la pieza.");
+                Check(stats.GetChildren().OfType<ElementTextLabel>().Count() == (fixture.Weapon.Bonuses.Length + 1) * 2 &&
+                    ((ElementTextLabel)dialog.FindChild("SaleGold", true, false)).Text.Contains("400") &&
+                    ((ElementTextLabel)dialog.FindChild("SaleWarning", true, false)).Text.Contains("sin equipar"), "La confirmación no muestra atributos, precio o estado de la pieza.");
                 // Los límites de ventanas y texto se verifican con render real en tres tamaños.
                 if (DisplayServer.GetName() != "headless")
                 {
@@ -169,7 +169,7 @@ public partial class Main
             }
             if (_salePhase == 5)
             {
-                Check(dialog.Visible && !((Label)dialog.FindChild("SaleWarning", true, false)).Text.Contains("desequipará"), "El aviso dice que se desequipará una pieza sin equipar.");
+                Check(dialog.Visible && !((ElementTextLabel)dialog.FindChild("SaleWarning", true, false)).Text.Contains("desequipará"), "El aviso dice que se desequipará una pieza sin equipar.");
                 CaptureSale("02-pieza-sin-equipar");
                 if (_quickItemActions)
                 {

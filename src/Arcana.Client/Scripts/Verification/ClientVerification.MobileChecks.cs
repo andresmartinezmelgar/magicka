@@ -251,7 +251,7 @@ public partial class ClientVerification
                 touch.Touch(20, Vector2.Zero, false, true);
                 Require(touch.Movement.IsZeroApprox(), "cancelar fuera del área conserva movimiento.");
             }
-            Require(!touch.FindChildren("*", "Label", true, false).OfType<Label>().Any(l => l.Text is "Vaciar" or "Bastón"),
+            Require(!touch.FindChildren("*", "Control", true, false).OfType<ElementTextLabel>().Any(l => l.Text is "Vaciar" or "Bastón"),
                 "siguen visibles los botones retirados.");
             var self = ((Control)touch.FindChild("TouchSelf", true, false)).GetRect().GetCenter();
             Require(touch.Touch(22, global + self, true) && actions.SequenceEqual(["self"]) && touch.Movement.IsZeroApprox(),

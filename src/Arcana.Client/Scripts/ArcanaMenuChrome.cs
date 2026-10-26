@@ -12,14 +12,14 @@ public partial class ArcanaMenuChrome : Control
 {
     private readonly List<Button> _navigation = [];
     private Main _main = null!;
-    private Label _player = null!;
+    private ElementTextLabel _player = null!;
     private double _refreshTimer;
     private MarginContainer? _reservedContent;
     private VBoxContainer _shell = null!;
     private Control _contentHost = null!;
     private GridContainer? _navigationGrid;
     private PanelContainer? _footer;
-    private Label? _sectionLabel, _logoLabel;
+    private ElementTextLabel? _sectionLabel, _logoLabel;
     private bool _dynamicSection;
     private bool _profileScreen;
 

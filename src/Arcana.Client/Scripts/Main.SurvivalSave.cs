@@ -9,7 +9,7 @@ public partial class Main
     private SurvivalSaveStore SurvivalSaves => _survivalSaves ??= new(ProjectSettings.GlobalizePath("user://survival-save.json"));
     private SurvivalSave? _resumingSurvival;
     private Control? _survivalSaveActions;
-    private Label? _survivalSaveStatus;
+    private ElementTextLabel? _survivalSaveStatus;
     private PanelContainer? _responsivePauseModal;
     private ScrollContainer? _responsivePauseScroll;
     internal bool HasSurvivalSave => SurvivalSaves.Exists;

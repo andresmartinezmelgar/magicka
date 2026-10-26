@@ -18,7 +18,7 @@ public partial class RenderProfiler : Node
     private WorldSnapshot? _scenerySnapshot;
     private bool _scenery;
     private EngineLogBridge _engineLog = null!;
-    private Label _status = null!;
+    private ElementTextLabel _status = null!;
     private Control _overlay = null!;
     private Action<string, JsonElement>? _finished;
     private ArenaMapId _map;

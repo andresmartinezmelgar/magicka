@@ -9,7 +9,7 @@ public partial class OptionAHelpPanel : Control
     private Main _main = null!;
     private VBoxContainer _body = null!;
     private ScrollContainer _bodyScroll = null!;
-    private Label _topic = null!, _heading = null!;
+    private ElementTextLabel _topic = null!, _heading = null!;
     private readonly List<Button> _topicButtons = [];
     private GridContainer? _topicNavigation;
     private OptionButton? _topicChoice;

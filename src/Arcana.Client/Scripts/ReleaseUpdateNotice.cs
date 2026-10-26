@@ -18,10 +18,10 @@ public partial class ReleaseUpdateNotice : Node
     private Control? _overlay;
     private PanelContainer? _responsiveCard;
     private GridContainer? _responsiveButtons;
-    private Label? _headline, _subtitle, _sizeLabel, _progressLabel, _percentLabel, _speedLabel, _note;
+    private ElementTextLabel? _headline, _subtitle, _sizeLabel, _progressLabel, _percentLabel, _speedLabel, _note;
     private ProgressBar? _progress;
     private Button? _primary, _secondary;
-    private Label? _changes;
+    private ElementTextLabel? _changes;
     private string _version = "", _downloadUrl = "", _downloadPath = "", _checksumUrl = "", _assetName = "";
     private long _expectedBytes;
     private bool _downloading, _completed, _installing, _waitingToInstall, _disabled;
@@ -159,7 +159,7 @@ public partial class ReleaseUpdateNotice : Node
         return panel;
     }
 
-    private static void AddText(VBoxContainer parent, Label label)
+    private static void AddText(VBoxContainer parent, ElementTextLabel label)
     {
         label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         parent.AddChild(label);

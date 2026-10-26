@@ -6,17 +6,17 @@ namespace Arcana.Client;
 public partial class EquipmentPanel : Control
 {
     private Main _main = null!;
-    private Label _profile = null!, _detailTitle = null!, _empty = null!, _sets = null!, _status = null!;
-    private Label _combatPreview = null!;
-    private Label _totalsEmpty = null!;
-    private Label _totalsTitle = null!;
+    private ElementTextLabel _profile = null!, _detailTitle = null!, _empty = null!, _sets = null!, _status = null!;
+    private ElementTextLabel _combatPreview = null!;
+    private ElementTextLabel _totalsEmpty = null!;
+    private ElementTextLabel _totalsTitle = null!;
     private VBoxContainer _totalsSummary = null!;
     private HBoxContainer _equipmentToolbar = null!;
     private MenuButton _inventoryMenu = null!;
     private bool _showingTotals, _routineStatus = true;
     private GridContainer _details = null!, _totals = null!;
     private ScrollContainer? _setsScroll;
-    private Label _salesHelp = null!;
+    private ElementTextLabel _salesHelp = null!;
     private ConfirmationDialog _confirm = null!;
     private AcceptDialog _setsInfo = null!;
     private readonly Button[] _slots = new Button[Enum.GetValues<EquipmentSlot>().Length];
@@ -33,8 +33,8 @@ public partial class EquipmentPanel : Control
     internal AccountProfile? PreviewProfile => _draft;
     internal bool HasChanges => _draft != null && _draft.Loadout != _savedLoadout;
     internal EquipmentSlot SelectedSlot => _selectedSlot;
-    internal string Details => string.Join("\n", _details.GetChildren().OfType<Label>().Select(l => l.Text));
-    internal string Totals => string.Join("\n", _totals.GetChildren().OfType<Label>().Select(l => l.Text));
+    internal string Details => string.Join("\n", _details.GetChildren().OfType<ElementTextLabel>().Select(l => l.Text));
+    internal string Totals => string.Join("\n", _totals.GetChildren().OfType<ElementTextLabel>().Select(l => l.Text));
     internal bool Saving => _busy;
     internal string Sets => _sets.Text;
     private EquipmentAvatar _avatar = null!;
@@ -201,7 +201,7 @@ public partial class EquipmentPanel : Control
         .Select(b => StatName(b.Stat) + " " + EquipmentCatalogue.Percent(four ? b.FourPieces : b.TwoPieces)));
     private static void Clear(Node parent)
     { foreach (var child in parent.GetChildren()) { parent.RemoveChild(child); child.QueueFree(); } }
-    private static Label Cell(GridContainer grid, string text, bool number = false, Color? color = null, bool header = false)
+    private static ElementTextLabel Cell(GridContainer grid, string text, bool number = false, Color? color = null, bool header = false)
         => Ui.TableCell(grid, text, number, color, header);
     private EquipmentItem[] Choices(EquipmentSlot slot) => (_draft?.Items ?? [])
         .Where(i => i.Slot == slot).OrderByDescending(i => i.Tier).ThenBy(i => i.Family).ThenBy(i => i.Id, StringComparer.Ordinal).ToArray();

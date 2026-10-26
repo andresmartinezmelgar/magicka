@@ -13,14 +13,14 @@ public partial class Launcher
     private Container? _optionAPrimaryActions;
     private VBoxContainer? _optionAPreview;
     private VBoxContainer? _optionAMagic;
-    private Label? _optionAHeading;
-    private Label? _optionAPasswordLabel;
+    private ElementTextLabel? _optionAHeading;
+    private ElementTextLabel? _optionAPasswordLabel;
     private GridContainer? _optionAHomeCards, _optionASettingsGrid, _optionAPracticeGrid, _optionAElements;
 
     private void ApplyOptionALayout(MarginContainer margin, HBoxContainer columns,
         VBoxContainer rightColumn, ScrollContainer scroll,
         PanelContainer panel, VBoxContainer form, HBoxContainer identity, HBoxContainer typeRow,
-        Label typeInfo)
+        ElementTextLabel typeInfo)
     {
         columns.AddThemeConstantOverride("separation", 0);
         columns.SizeFlagsVertical = SizeFlags.ExpandFill;
@@ -107,7 +107,7 @@ public partial class Launcher
         identity.Reparent(settings);
         typeRow.Reparent(settings);
         typeInfo.Reparent(settings);
-        _optionAPasswordLabel = form.GetChildren().OfType<Label>()
+        _optionAPasswordLabel = form.GetChildren().OfType<ElementTextLabel>()
             .FirstOrDefault(label => label.Text == "Contraseña del servidor (si tiene)");
         _optionAPasswordLabel?.Reparent(settings);
         _password.Reparent(settings);
@@ -222,7 +222,7 @@ public partial class Launcher
         if (_tabs.GetChild(2) is not VBoxContainer practice) return;
         var parts = practice.GetChildren().OfType<Control>().ToArray();
         if (parts.Length < 6) return;
-        foreach (var label in parts.OfType<Label>()) label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        foreach (var label in parts.OfType<ElementTextLabel>()) label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         practice.AddThemeConstantOverride("separation", 6);
         var row = new GridContainer { Name = "OptionAIaSettingsColumns", Columns = 2,
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
@@ -242,9 +242,9 @@ public partial class Launcher
         // El mapa, la modalidad y su objetivo a la izquierda; bots y medición a la derecha.
         foreach (var part in parts.Take(5)) part.Reparent(maps);
         foreach (var part in parts.Skip(5)) part.Reparent(bots);
-        if (parts[0] is Label explanation)
+        if (parts[0] is ElementTextLabel explanation)
             explanation.AddThemeFontSizeOverride("font_size", 14);
-        if (parts[4] is Label objective)
+        if (parts[4] is ElementTextLabel objective)
             objective.AddThemeFontSizeOverride("font_size", 14);
     }
 

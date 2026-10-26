@@ -6,7 +6,7 @@ namespace Arcana.Client;
 public partial class EquipmentPanel
 {
     private string _saleOwner = "";
-    private Label _saleHeading = null!, _saleItem = null!, _saleState = null!, _saleGold = null!, _saleWarning = null!;
+    private ElementTextLabel _saleHeading = null!, _saleItem = null!, _saleState = null!, _saleGold = null!, _saleWarning = null!;
     private GridContainer _saleStats = null!;
     private PanelContainer _saleCard = null!;
     private ColorRect _saleDimmer = null!;

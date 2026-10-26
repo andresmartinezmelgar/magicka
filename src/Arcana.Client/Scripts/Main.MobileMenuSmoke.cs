@@ -68,7 +68,7 @@ public partial class Main
         var stats = (Button)panel.FindChild("EquipmentTotalsTab", true, false);
         if (!right.GetGlobalRect().Encloses(stats.GetGlobalRect())) throw new InvalidOperationException("El botón de estadísticas no está a la derecha.");
         var table = (GridContainer)panel.FindChild("EquipmentTotalsTable", true, false);
-        var numbers = table.GetChildren().OfType<Label>().Where(l => l.Name.ToString().StartsWith("EquipmentTotalApplied_"))
+        var numbers = table.GetChildren().OfType<ElementTextLabel>().Where(l => l.Name.ToString().StartsWith("EquipmentTotalApplied_"))
             .Select(l => float.Parse(l.Text.Split('\n')[0].TrimEnd('%'), System.Globalization.CultureInfo.InvariantCulture)).ToArray();
         if (!numbers.SequenceEqual(numbers.OrderByDescending(n => n))) throw new InvalidOperationException("Las estadísticas no están ordenadas de mayor a menor.");
         GD.Print("INVENTORY_SPLIT_OK: seis zonas accesibles, mago a la izquierda, objetos y estadísticas a la derecha; filtros ausentes y totales descendentes.");
@@ -95,7 +95,7 @@ public partial class Main
     {
         var table = root.FindChild(tableName, true, false) as GridContainer
             ?? throw new InvalidOperationException("Falta la tabla " + tableName);
-        var cells = table.GetChildren().OfType<Label>().Where(label => label.Visible).ToArray();
+        var cells = table.GetChildren().OfType<ElementTextLabel>().Where(label => label.Visible).ToArray();
         Rect2 visible = GetViewport().GetVisibleRect();
         for (Node? parent = table.GetParent(); parent != null; parent = parent.GetParent())
             if (parent is ScrollContainer scroll) visible = visible.Intersection(scroll.GetGlobalRect());
@@ -127,7 +127,7 @@ public partial class Main
     private static void AssertHeaderAndHome(Launcher launcher, Rect2 screen, string mode)
     {
         if (launcher.FindChild("OptionAHeader", true, false) is not Control header ||
-            launcher.FindChild("OptionAAccountSummary", true, false) is not Label summary ||
+            launcher.FindChild("OptionAAccountSummary", true, false) is not ElementTextLabel summary ||
             launcher.FindChild("OptionAHomeCards", true, false) is not GridContainer home)
             throw new InvalidOperationException($"{mode}: faltan cabecera, resumen o tarjetas.");
         Rect2 head = header.GetGlobalRect();
@@ -313,13 +313,13 @@ public partial class Main
                 };
                 _smokeScoreHud.Update(won, player.Id, "Servidor LAN", 0.016);
                 Rect2 screen = GetViewport().GetVisibleRect();
-                var banner = (Label)_smokeScoreHud.FindChild("MatchBanner", true, false);
-                var reward = (Label)_smokeScoreHud.FindChild("MatchRewardNotice", true, false);
+                var banner = (ElementTextLabel)_smokeScoreHud.FindChild("MatchBanner", true, false);
+                var reward = (ElementTextLabel)_smokeScoreHud.FindChild("MatchRewardNotice", true, false);
                 if (!banner.Text.Contains("HAS GANADO LA SERIE", StringComparison.Ordinal) ||
                     !reward.Text.Contains("pendiente", StringComparison.OrdinalIgnoreCase))
                     throw new InvalidOperationException("El resultado de la serie o la recompensa no tienen el texto correcto.");
                 // La etiqueta interna «Opción A» no debe mostrarse al jugador.
-                var visibleLabels = _launcher.FindChildren("*", "Label", true, false).OfType<Label>()
+                var visibleLabels = _launcher.FindChildren("*", "Control", true, false).OfType<ElementTextLabel>()
                     .Where(label => label.IsVisibleInTree()).Select(label => label.Text);
                 if (visibleLabels.Any(text => text.Contains("O P C I Ó N", StringComparison.OrdinalIgnoreCase)
                     || text.Contains("OPCIÓN A", StringComparison.OrdinalIgnoreCase)))
@@ -337,8 +337,8 @@ public partial class Main
             {
                 // Los Container de Godot distribuyen a sus hijos en el siguiente fotograma;
                 // comprobar tamaños en el mismo _Process genera falsas posiciones de 1 píxel.
-                var banner = (Label)_smokeScoreHud!.FindChild("MatchBanner", true, false);
-                var reward = (Label)_smokeScoreHud.FindChild("MatchRewardNotice", true, false);
+                var banner = (ElementTextLabel)_smokeScoreHud!.FindChild("MatchBanner", true, false);
+                var reward = (ElementTextLabel)_smokeScoreHud.FindChild("MatchRewardNotice", true, false);
                 Rect2 screen = GetViewport().GetVisibleRect();
                 if (!screen.Encloses(banner.GetGlobalRect()) || !screen.Encloses(reward.GetGlobalRect()))
                     throw new InvalidOperationException($"Resultado/recompensa fuera de pantalla: banner={banner.GetGlobalRect()}, recompensa={reward.GetGlobalRect()}, pantalla={screen}");
@@ -368,7 +368,7 @@ public partial class Main
                 var losing = _smokeRivalHud ?? throw new InvalidOperationException("HUD del perdedor ausente.");
                 if (!losing.RoundAnnouncementVisibleForSmoke)
                     throw new InvalidOperationException("El aviso del equipo perdedor no es visible.");
-                var title = (Label)losing.FindChild("MatchBanner", true, false);
+                var title = (ElementTextLabel)losing.FindChild("MatchBanner", true, false);
                 if (!GetViewport().GetVisibleRect().Encloses(title.GetGlobalRect()))
                     throw new InvalidOperationException("Aviso del perdedor fuera del viewport: " + title.GetGlobalRect());
                 AssertHudBounds(losing, "derrota");
@@ -392,11 +392,11 @@ public partial class Main
                     if (card.Size.X < 170 || card.GetGlobalRect().Position.X < 0 ||
                         card.GetGlobalRect().End.X > GetViewport().GetVisibleRect().End.X)
                         throw new InvalidOperationException("INICIO: tarjeta demasiado estrecha o desbordada: " + card.Text);
-                if (_launcher.FindChild("OptionAAccountSummary", true, false) is not Label accountHeader ||
+                if (_launcher.FindChild("OptionAAccountSummary", true, false) is not ElementTextLabel accountHeader ||
                     !accountHeader.IsVisibleInTree() || accountHeader.Text.Length < 3 ||
                     accountHeader.Text.Contains("V:") || accountHeader.Text.Contains("D:"))
                     throw new InvalidOperationException("INICIO: falta el estado de Google o se duplican los resultados del perfil.");
-                if (_launcher.FindChildren("*", "Label", true, false).OfType<Label>()
+                if (_launcher.FindChildren("*", "Control", true, false).OfType<ElementTextLabel>()
                     .Any(label => label.IsVisibleInTree() && label.Text.Contains("victorias ·") &&
                         label.Name != "OptionAAccountSummary"))
                     throw new InvalidOperationException("INICIO: se muestra el resumen de cuenta dentro del menú.");
@@ -485,8 +485,8 @@ public partial class Main
                     if (action.Disabled || action.Size.Y < 60) throw new InvalidOperationException("El perfil desactiva una acción local o reduce su tamaño táctil.");
                 profileScroll.EnsureControlVisible((Control)_accountProfilePanel.FindChild("ProfileTouchControls", true, false));
                 AssertOptionAScreen("PERFIL_403", _accountProfilePanel);
-                string[] labels = _accountProfilePanel.FindChildren("*", "Label", true, false)
-                    .OfType<Label>().Select(label => label.Text).ToArray();
+                string[] labels = _accountProfilePanel.FindChildren("*", "Control", true, false)
+                    .OfType<ElementTextLabel>().Select(label => label.Text).ToArray();
                 if (!labels.Any(t => t.Contains("Google conectado", StringComparison.Ordinal)) ||
                     !labels.Any(t => t.Contains("403", StringComparison.Ordinal)))
                     throw new InvalidOperationException(
@@ -494,7 +494,7 @@ public partial class Main
                 var update = (Button)_accountProfilePanel.FindChild("ProfileCheckUpdates", true, false);
                 if (update.Disabled || !update.IsVisibleInTree()) throw new InvalidOperationException("El perfil no permite buscar actualizaciones.");
                 update.EmitSignal(Button.SignalName.Pressed);
-                var updateStatus = (Label)_accountProfilePanel.FindChild("ProfileUpdateStatus", true, false);
+                var updateStatus = (ElementTextLabel)_accountProfilePanel.FindChild("ProfileUpdateStatus", true, false);
                 if (updateStatus.Text.Length == 0 || update.Disabled)
                     throw new InvalidOperationException("La búsqueda manual no confirma su estado o deja el botón bloqueado.");
                 GD.Print("PROFILE_UPDATE_BUTTON_OK: botón accesible sin depender de Firestore y resultado visible.");
@@ -553,7 +553,7 @@ public partial class Main
                 var book = (SpellBook)_optionAHelp!.FindChild("MenuSpellCombinations", true, false);
                 void Press(string name) => ((Button)book.FindChild(name, true, false)).EmitSignal(Button.SignalName.Pressed);
                 Press("SpellElementWater"); Press("SpellElementCold");
-                var damage = (Label)book.FindChild("SpellDamageValues", true, false);
+                var damage = (ElementTextLabel)book.FindChild("SpellDamageValues", true, false);
                 if (damage.Text != SpellBalance.Format(new SpellRecipe([Element.Water, Element.Cold]), CastMode.Forward) ||
                     book.FindChildren("*", "ItemList", true, false).Count != 0)
                     throw new InvalidOperationException("La ayuda no combina directamente o conserva la lista compleja.");
@@ -562,7 +562,7 @@ public partial class Main
             {
                 var book = (SpellBook)_optionAHelp!.FindChild("MenuSpellCombinations", true, false);
                 void Press(string name) => ((Button)book.FindChild(name, true, false)).EmitSignal(Button.SignalName.Pressed);
-                var damage = (Label)book.FindChild("SpellDamageValues", true, false);
+                var damage = (ElementTextLabel)book.FindChild("SpellDamageValues", true, false);
                 Press("SpellElementCold");
                 Press("SpellCastMode1");
                 if (damage.Text != SpellBalance.Format(new SpellRecipe([Element.Water, Element.Cold, Element.Cold]), CastMode.Self))
@@ -576,7 +576,7 @@ public partial class Main
             {
                 AssertOptionAScreen("AYUDA_BONIFICACIONES", _optionAHelp!);
                 AssertTouchScroll(_optionAHelp!, "HelpContentScroll", "AYUDA_BONIFICACIONES");
-                var bonusLabels = _optionAHelp!.FindChildren("*", "Label", true, false).OfType<Label>()
+                var bonusLabels = _optionAHelp!.FindChildren("*", "Control", true, false).OfType<ElementTextLabel>()
                     .Select(l => l.Text).ToArray();
                 if (!bonusLabels.Any(t => t.Contains("DEFENSA NO ES CAPACIDAD")) ||
                     !bonusLabels.Any(t => t.Contains("100 de daño")) ||
@@ -611,10 +611,10 @@ public partial class Main
                 // aunque no quepa simultáneamente con su cabecera.
                 if (GetViewport().GetVisibleRect().Size.Y <= 480)
                 {
-                    foreach (var heading in table.GetChildren().OfType<Label>().Take(table.Columns))
+                    foreach (var heading in table.GetChildren().OfType<ElementTextLabel>().Take(table.Columns))
                         if (!scroll.GetGlobalRect().Grow(1).Encloses(heading.GetGlobalRect()))
                             throw new InvalidOperationException("La cabecera de bonificaciones no es accesible.");
-                    scroll.EnsureControlVisible(table.GetChildren().OfType<Label>().ElementAt(table.Columns * 2 - 1));
+                    scroll.EnsureControlVisible(table.GetChildren().OfType<ElementTextLabel>().ElementAt(table.Columns * 2 - 1));
                 }
             }
             if (frame == 162)

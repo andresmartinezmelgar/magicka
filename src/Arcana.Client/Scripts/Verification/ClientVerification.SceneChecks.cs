@@ -23,7 +23,7 @@ public partial class ClientVerification
     private void CheckMaps(WorldSnapshot snapshot)
     {
         var choice = (OptionButton)_runtime.Launcher.FindChild("PracticeMapChoice", true, false);
-        var objective = (Label)_runtime.Hud!.FindChild("MatchObjective", true, false);
+        var objective = (ElementTextLabel)_runtime.Hud!.FindChild("MatchObjective", true, false);
         var map = ArenaMap.Get(snapshot.Map);
         bool valid = choice.ItemCount == Enum.GetValues<ArenaMapId>().Length && _runtime.Renderer.CurrentMap == snapshot.Map && _runtime.Renderer.Points.Count == map.ControlPoints.Count &&
             _runtime.Renderer.SceneryDrawMeshes < _runtime.Renderer.ScenerySourceMeshes &&
@@ -47,7 +47,7 @@ public partial class ClientVerification
         else valid &= _runtime.Renderer.Pickups.Count == 0;
         if (snapshot.Map == ArenaMapId.Relics)
         {
-            var buffs = (Label)_runtime.Hud.FindChild("ActiveBuffs", true, false);
+            var buffs = (ElementTextLabel)_runtime.Hud.FindChild("ActiveBuffs", true, false);
             valid &= !buffs.IsVisibleInTree() && buffs.Text.Length == 0 && objective.Text.Contains("hasta morir");
         }
         var local = snapshot.Players.Single(p => p.Id == _runtime.LocalId);
@@ -95,7 +95,7 @@ public partial class ClientVerification
         var health = (ProgressBar)_runtime.Hud!.FindChild("HealthBar", true, false);
         var charge = (ProgressBar)_runtime.Hud.FindChild("ChargeBar", true, false);
         var shield = (ProgressBar)_runtime.Hud.FindChild("ShieldBar", true, false);
-        var text = (Label)_runtime.Hud.FindChild("ShieldValue", true, false);
+        var text = (ElementTextLabel)_runtime.Hud.FindChild("ShieldValue", true, false);
         var playerPanel = (Control)_runtime.Hud.FindChild("PlayerStatusPanel", true, false);
         var minimap = (Control)_runtime.Hud.FindChild("MiniMapPanel", true, false);
         var metrics = (Control)_runtime.UiRoot.FindChild("NetworkMetricsPanel", true, false);
@@ -125,7 +125,7 @@ public partial class ClientVerification
                 throw new InvalidDataException("La pestaña de combinaciones está oculta o la demostración no avanza.");
             if (item.Kind == DemonstrationKind.Combination)
             {
-                var damageText = (Label)_runtime.SpellBook.FindChild("SpellDamageValues", true, false);
+                var damageText = (ElementTextLabel)_runtime.SpellBook.FindChild("SpellDamageValues", true, false);
                 if (!damageText.IsVisibleInTree() || damageText.Text != SpellBalance.Format(SpellCatalogue.FromKeys(item.Keys)!.Recipe, item.Mode))
                     throw new InvalidDataException("F1 no muestra los valores de daño de la combinación y forma de lanzamiento.");
             }
@@ -152,7 +152,7 @@ public partial class ClientVerification
         bool valid = effects.ActiveParticles <= CombatEffects.ParticleLimit && effects.ActiveRings <= CombatEffects.RingLimit &&
             effects.PooledCount <= CombatEffects.ParticleLimit + CombatEffects.RingLimit && effects.EmittedLastFrame <= CombatEffects.EmissionBudget;
         if (_renderFrames == 130) valid &= effects.ActiveCount > 0 && effects.SeenKinds.Count == 12 &&
-            ((Label)_runtime.Hud!.FindChild("WizardAffinity", true, false)).Text == "Piromante";
+            ((ElementTextLabel)_runtime.Hud!.FindChild("WizardAffinity", true, false)).Text == "Piromante";
         if (_renderFrames == 240)
         {
             valid &= effects.ActiveCount == 0 && effects.SeenCharges.SetEquals([1,2,3]);
@@ -168,7 +168,7 @@ public partial class ClientVerification
             _runtime.Renderer.Clear(); valid &= effects.ActiveCount == 0 && _runtime.Renderer.ActiveBeamSegments == 0;
             if (valid) CompleteSmoke("EFFECTS_SMOKE_OK: 1/2/3 cargas, elementos repetidos, 12 eventos, límites, expiración, reutilización y limpieza");
         }
-        if (!valid) { GD.PushError($"EFFECTS_SMOKE_FAILED: frame={_renderFrames}, active={effects.ActiveCount}, particles={effects.ActiveParticles}, rings={effects.ActiveRings}, pool={effects.PooledCount}, emitted={effects.EmittedLastFrame}, kinds={string.Join(",", effects.SeenKinds)}, charges={string.Join(",", effects.SeenCharges)}, affinity={((Label)_runtime.Hud!.FindChild("WizardAffinity", true, false)).Text}"); GetTree().Quit(1); }
+        if (!valid) { GD.PushError($"EFFECTS_SMOKE_FAILED: frame={_renderFrames}, active={effects.ActiveCount}, particles={effects.ActiveParticles}, rings={effects.ActiveRings}, pool={effects.PooledCount}, emitted={effects.EmittedLastFrame}, kinds={string.Join(",", effects.SeenKinds)}, charges={string.Join(",", effects.SeenCharges)}, affinity={((ElementTextLabel)_runtime.Hud!.FindChild("WizardAffinity", true, false)).Text}"); GetTree().Quit(1); }
     }
     private bool CheckSpellStrength()
     {

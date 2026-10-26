@@ -11,7 +11,7 @@ public partial class MatchStatisticsPanel : Control
     private readonly CancellationTokenSource _lifetime = new();
     private readonly Dictionary<string, MatchStatisticsReport> _reports = new(StringComparer.Ordinal);
     private VBoxContainer _body = null!;
-    private Label _status = null!;
+    private ElementTextLabel _status = null!;
     private Button _more = null!, _refresh = null!, _deleteHistory = null!;
     private string _nextPageToken = "";
     private int _loadedPages;

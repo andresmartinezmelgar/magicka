@@ -98,7 +98,7 @@ public partial class Main
             }
             if (_statisticsSmokePhase == 1)
             {
-                if (!_statisticsPanel!.FindChildren("*", "Label", true, false).OfType<Label>().Any(l => l.Text.StartsWith("3 partidas ·", StringComparison.Ordinal)))
+                if (!_statisticsPanel!.FindChildren("*", "Control", true, false).OfType<ElementTextLabel>().Any(l => l.Text.StartsWith("3 partidas ·", StringComparison.Ordinal)))
                 { if (_statisticsSmokeFrame < 120) return true; throw new InvalidOperationException("El visor no pagina o duplica revisiones de Firebase."); }
                 _statisticsPanel!.SelectViewForVerification(1);
                 void CheckWater(double expected)
@@ -116,19 +116,19 @@ public partial class Main
                 {
                     _statisticsPanel.SelectScaleForVerification(scale);
                     var chart = (StatisticsBarChart)_statisticsPanel.FindChild("ElementDamageBars", true, false);
-                    foreach (var category in chart.Categories.Where(c => c.Parts != null && c.Label != "Vida" && c.Label != "Escudo"))
+                    foreach (var category in chart.Categories.Where(c => c.Parts != null && c.ElementTextLabel != "Vida" && c.ElementTextLabel != "Escudo"))
                     {
                         if (Math.Abs(category.Parts!.Sum(p => p.Value) - category.Value) > .001 ||
-                            category.Parts[0].Label != "Hechizos directos" || category.Parts[1].Label != "Áreas")
+                            category.Parts[0].ElementTextLabel != "Hechizos directos" || category.Parts[1].ElementTextLabel != "Áreas")
                             throw new InvalidOperationException("La gráfica no separa hechizos y áreas o duplica daño.");
                     }
-                    var water = chart.Categories.Single(c => c.Label == "Agua");
-                    if (water.Parts!.Single(p => p.Label == "Sin desglose").Value != 2700)
+                    var water = chart.Categories.Single(c => c.ElementTextLabel == "Agua");
+                    if (water.Parts!.Single(p => p.ElementTextLabel == "Sin desglose").Value != 2700)
                         throw new InvalidOperationException("La gráfica atribuye daño antiguo a hechizos o áreas.");
                     if (chart.DataScale.Logarithmic != (scale == 2)) throw new InvalidOperationException("El selector de escala no cambia la gráfica.");
                 }
                 _statisticsPanel.SelectScaleForVerification(0);
-                if (!_statisticsPanel.FindChildren("*", "Label", true, false).OfType<Label>().Any(l => l.Text == "% del total"))
+                if (!_statisticsPanel.FindChildren("*", "Control", true, false).OfType<ElementTextLabel>().Any(l => l.Text == "% del total"))
                     throw new InvalidOperationException("Faltan los valores y porcentajes legibles bajo las barras.");
                 void CheckSupport(double healing, double absorbed)
                 {
@@ -142,7 +142,7 @@ public partial class Main
                 _statisticsPanel.SelectSourceForVerification(4); CheckSupport(348 + species * 14, 498 + species * 22);
                 _statisticsPanel.SelectSourceForVerification(0);
                 _statisticsPanel!.SelectModeForVerification(1);
-                if (!_statisticsPanel.FindChildren("*", "Label", true, false).OfType<Label>().Any(l => l.Text.StartsWith("1 partida ·", StringComparison.Ordinal))) throw new InvalidOperationException("El filtro de modo no aísla los informes.");
+                if (!_statisticsPanel.FindChildren("*", "Control", true, false).OfType<ElementTextLabel>().Any(l => l.Text.StartsWith("1 partida ·", StringComparison.Ordinal))) throw new InvalidOperationException("El filtro de modo no aísla los informes.");
                 CheckWater(900); CheckSupport(116, 166);
                 _statisticsPanel.SelectSourceForVerification(1); CheckWater(600); CheckSupport(63, 93);
                 _statisticsPanel.SelectSourceForVerification(2); CheckWater(300); CheckSupport(53, 73);
@@ -158,7 +158,7 @@ public partial class Main
                 var dealt = (StatisticsBarChart)_statisticsPanel.FindChild("EnemyDamageDealtBars", true, false);
                 var received = (StatisticsBarChart)_statisticsPanel.FindChild("EnemyDamageReceivedBars", true, false);
                 if (dealt.ScaleMaximum != 1900 * species || received.ScaleMaximum != 8_000_500 * species ||
-                    !dealt.Categories.Select(c => c.Label).SequenceEqual(received.Categories.Select(c => c.Label)))
+                    !dealt.Categories.Select(c => c.ElementTextLabel).SequenceEqual(received.Categories.Select(c => c.ElementTextLabel)))
                     throw new InvalidOperationException("El daño recibido aplana la escala del realizado o cambia el orden de las especies.");
                 _statisticsPanel.SelectModeForVerification(1);
                 foreach (string name in new[] { "EnemyDamageDealtBars", "EnemyDamageReceivedBars" })

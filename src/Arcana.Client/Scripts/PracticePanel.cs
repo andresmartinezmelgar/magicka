@@ -6,7 +6,7 @@ namespace Arcana.Client;
 public partial class PracticePanel : PanelContainer
 {
     private PracticeSession _session = null!;
-    private Label _reading = null!, _spell = null!;
+    private ElementTextLabel _reading = null!, _spell = null!;
     private int _target;
     private ContentScrollContainer? _touchScroll;
     private SpellCombination? _lastSpell;
@@ -49,7 +49,7 @@ public partial class PracticePanel : PanelContainer
         enabled.Toggled += session.SetCasterEnabled; stack.AddChild(enabled);
         if (Ui.IsMobile)
         {
-            foreach (var label in stack.GetChildren().OfType<Label>()) label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            foreach (var label in stack.GetChildren().OfType<ElementTextLabel>()) label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
             foreach (var button in row.GetChildren().OfType<Button>())
             { button.AddThemeFontSizeOverride("font_size", 16); button.CustomMinimumSize = new(0, 44); }
         }

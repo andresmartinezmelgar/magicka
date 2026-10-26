@@ -7,7 +7,7 @@ public partial class BestiaryPanel : Control
 {
     private Main _main = null!;
     private VBoxContainer _entries = null!;
-    private Label _status = null!;
+    private ElementTextLabel _status = null!;
     private Button _refresh = null!;
     private AccountProfile? _lastProfile;
     private bool _busy;
@@ -94,7 +94,7 @@ public partial class BestiaryPanel : Control
             var rows = BestiaryCatalogue.Stats(kind, _difficulty, _defenders);
             if (table.GetChildCount() == 0)
                 foreach (var stat in rows) { Ui.TableCell(table, stat.Name); Ui.TableCell(table, stat.Value); }
-            else for (int i = 0; i < rows.Length; i++) ((Label)table.GetChild(i * 2 + 1)).Text = rows[i].Value;
+            else for (int i = 0; i < rows.Length; i++) ((ElementTextLabel)table.GetChild(i * 2 + 1)).Text = rows[i].Value;
         }
     }
     private void ResizeStats()

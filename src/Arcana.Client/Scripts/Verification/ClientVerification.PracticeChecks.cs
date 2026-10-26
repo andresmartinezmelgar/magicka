@@ -28,8 +28,8 @@ public partial class ClientVerification
         var session = _runtime.PracticeSession!; var renderer = _runtime.Renderer;
         var panel = (PracticePanel)_runtime.UiRoot.FindChild("PracticePanel", true, false);
         var choice = (OptionButton)panel.FindChild("PracticeCasterChoice", true, false);
-        var cadence = (Label)panel.FindChild("PracticeCasterCadence", true, false);
-        var objective = (Label)_runtime.Hud!.FindChild("MatchObjective", true, false);
+        var cadence = (ElementTextLabel)panel.FindChild("PracticeCasterCadence", true, false);
+        var objective = (ElementTextLabel)_runtime.Hud!.FindChild("MatchObjective", true, false);
         SnapshotValidation.Check(snapshot);
         bool valid = snapshot.Map == ArenaMapId.Practice && snapshot.Points.Length == 0 && renderer.Points.Count == 0 &&
             renderer.SceneryDrawMeshes < renderer.ScenerySourceMeshes && renderer.ScenerySourceVertices == renderer.SceneryBatchedVertices &&

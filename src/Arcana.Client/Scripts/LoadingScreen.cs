@@ -5,7 +5,7 @@ namespace Arcana.Client;
 /// <summary>Oculta la preparación real del mundo 3D, sin impedir que se dibuje detrás.</summary>
 public partial class LoadingScreen : Control
 {
-    private Label _stage = null!, _percentage = null!;
+    private ElementTextLabel _stage = null!, _percentage = null!;
     private ProgressBar _bar = null!;
     private PanelContainer _panel = null!;
     private ContentScrollContainer _scroll = null!;

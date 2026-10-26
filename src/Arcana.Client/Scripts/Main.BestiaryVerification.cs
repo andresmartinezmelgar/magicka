@@ -32,7 +32,7 @@ public partial class Main
         {
             if (_bestiarySmokePhase == 0)
             {
-                var labels = _bestiaryPanel!.FindChildren("*", "Label", true, false).OfType<Label>().ToArray();
+                var labels = _bestiaryPanel!.FindChildren("*", "Control", true, false).OfType<ElementTextLabel>().ToArray();
                 Check(labels.Any(l => l.Text.Contains("Corredor · Bajas: 7")) &&
                     labels.Any(l => l.Text.Contains("Coloso · Bajas: 2")), "El bestiario no muestra las bajas de la cuenta.");
                 Check(Enum.GetValues<MinionKind>().All(k => _bestiaryPanel.FindChild("Bestiary_" + k, true, false) != null),
@@ -44,12 +44,12 @@ public partial class Main
                 Check(Enum.GetValues<MinionKind>().All(k => _bestiaryPanel.FindChild("BestiaryStats_" + k, true, false) is GridContainer
                     { Columns: 2 } table && table.GetChildCount() >= 10), "Faltan estadísticas o bordes tabulares en una ficha.");
                 var melee = (GridContainer)_bestiaryPanel.FindChild("BestiaryStats_Melee", true, false);
-                Check(((Label)melee.GetChild(1)).Text == "340", "La vida inicial del minion es incorrecta.");
+                Check(((ElementTextLabel)melee.GetChild(1)).Text == "340", "La vida inicial del minion es incorrecta.");
                 ulong portraitId = _bestiaryPanel.FindChild("BestiaryPortrait_Melee", true, false)!.GetInstanceId();
                 var difficulty = (SpinBox)_bestiaryPanel.FindChild("BestiaryDifficulty", true, false);
                 var defenders = (OptionButton)_bestiaryPanel.FindChild("BestiaryDefenders", true, false);
                 defenders.Select(3); defenders.EmitSignal(OptionButton.SignalName.ItemSelected, 3L); difficulty.Value = 5;
-                Check(((Label)melee.GetChild(1)).Text == DefenseRules.MinionHealth(MinionKind.Melee, 5, 4).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture),
+                Check(((ElementTextLabel)melee.GetChild(1)).Text == DefenseRules.MinionHealth(MinionKind.Melee, 5, 4).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture),
                     "Las estadísticas no se actualizan al cambiar dificultad y grupo.");
                 Check(_bestiaryPanel.FindChild("BestiaryPortrait_Melee", true, false)!.GetInstanceId() == portraitId &&
                     labels.Any(l => l.Text.Contains("Corredor · Bajas: 7")), "Consultar otras cifras reconstruye retratos o altera las bajas.");
@@ -110,7 +110,7 @@ public partial class Main
                 OpenRelics(); _bestiarySmokePhase = 2; return false;
             }
             Ui.VerifyDialog(_relicWindow!);
-            var texts = _relicWindow!.FindChildren("*", "Label", true, false).OfType<Label>();
+            var texts = _relicWindow!.FindChildren("*", "Control", true, false).OfType<ElementTextLabel>();
             Check(_relicWindow.Visible && texts.Any(l => l.Text.Contains("Energía ×2") && l.Text.Contains("energía por segundo")),
                 "La ventana no muestra las reliquias y sus efectos.");
             if (DisplayServer.GetName() != "headless")

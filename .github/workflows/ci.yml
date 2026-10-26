@@ -606,7 +606,7 @@ jobs:
       - name: Simular HUD, mapas, efectos, magos, combinaciones y práctica
         run: |
           set -euo pipefail
-          for mode in hud-smoke maps-smoke effects-smoke sprites-smoke combinations-smoke practice-smoke; do
+          for mode in element-text-smoke hud-smoke maps-smoke effects-smoke sprites-smoke combinations-smoke practice-smoke; do
             bash scripts/test-client-smoke.sh "$mode" "$ARCANA_GODOT"
           done
       - name: Generar APK ARM64
