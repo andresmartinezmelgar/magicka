@@ -15,11 +15,10 @@ public partial class EquipmentPanel
     private void BuildAutoSellButton(VBoxContainer box, EquipmentItem item)
     {
         var style = EquipmentStyle.Of(item);
-        var button = Ui.Button("No más de este estilo de calidad inferior",
+        var button = Ui.Button(AutoSells(style) ? "Mantener ítems de menor calidad" : "Vender ítems de menor calidad",
             () => SetAutoSell(style, !AutoSells(style), item.Id));
         button.Name = "EquipmentAutoSell_" + item.Id; button.CustomMinimumSize = new(0, 44);
         button.Disabled = style.Tier == ItemTier.Silver;
-        Ui.ToggleBorder(button, AutoSells(style));
         button.MouseFilter = MouseFilterEnum.Pass;
         button.AutowrapMode = TextServer.AutowrapMode.WordSmart; button.AddThemeFontSizeOverride("font_size", 14);
         button.TooltipText = style.DescribeAutoSell() + "\nVende solo las piezas nuevas de la misma ranura y familia, con calidad estrictamente inferior a esta pieza.\n" +

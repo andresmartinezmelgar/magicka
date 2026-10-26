@@ -54,7 +54,7 @@ public partial class EquipmentPanel
     private bool Equipped(string id) => _draft != null && Enum.GetValues<EquipmentSlot>().Any(s => _draft.Loadout.Get(s) == id);
     private void BuildItemPreferences(VBoxContainer box, EquipmentItem item)
     {
-        var favorite = Ui.Button("Marcar favorito", () =>
+        var favorite = Ui.Button(Preferences.Protected(item.Id) ? "Desmarcar como favorito" : "Marcar como favorito", () =>
         {
             if (InventoryLocked) return;
             ResetQuickActions();
@@ -73,7 +73,6 @@ public partial class EquipmentPanel
         favorite.Name = "EquipmentFavorite_" + item.Id; favorite.CustomMinimumSize = new(0, 42);
         favorite.MouseFilter = MouseFilterEnum.Pass;
         favorite.AddThemeFontSizeOverride("font_size", 14); favorite.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        Ui.ToggleBorder(favorite, Preferences.Protected(item.Id));
         box.AddChild(favorite); _preferenceActions.Add(favorite);
         BuildAutoSellButton(box, item);
         if (!_bulkMode) return;
@@ -81,8 +80,7 @@ public partial class EquipmentPanel
             ButtonPressed = _saleSelection.Contains(item.Id), Disabled = InventoryLocked || SaleProtected(item.Id), CustomMinimumSize = new(0, 44) };
         check.AddThemeFontSizeOverride("font_size", 14); check.ClipText = true;
         check.TooltipText = SaleEquipped(item.Id) ? "Pieza equipada: venta bloqueada." : Preferences.Protected(item.Id) ? "Favorito: venta bloqueada." : "Seleccionar esta pieza para la venta múltiple.";
-        Ui.ToggleBorder(check, _saleSelection.Contains(item.Id));
-        check.Toggled += selected => { Ui.ToggleBorder(check, selected); if (selected) _saleSelection.Add(item.Id); else _saleSelection.Remove(item.Id); UpdateBulkActions(); };
+        check.Toggled += selected => { if (selected) _saleSelection.Add(item.Id); else _saleSelection.Remove(item.Id); UpdateBulkActions(); };
         box.AddChild(check); _preferenceActions.Add(check);
     }
     private void SetPickerMessage(string text, bool bringIntoView = true)

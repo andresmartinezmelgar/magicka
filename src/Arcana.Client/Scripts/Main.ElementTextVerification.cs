@@ -35,10 +35,6 @@ public partial class Main
             button.Text = "Continuar"; button._Notification((int)CanvasItem.NotificationDraw);
             if (button.GetThemeColor("font_color").A == 0 || button.GetChildren().OfType<ElementTextLabel>().Single().Visible)
                 throw new InvalidDataException("El botón no restaura su título al cambiar a texto sin elementos.");
-            Ui.ToggleBorder(button, true); string caption = button.Text;
-            if (((StyleBoxFlat)button.GetThemeStylebox("normal")).BorderColor != Ui.Health) throw new InvalidDataException("El control activo no tiene marco verde.");
-            Ui.ToggleBorder(button, false);
-            if (button.Text != caption || ((StyleBoxFlat)button.GetThemeStylebox("normal")).BorderColor != Ui.Red) throw new InvalidDataException("El control cambia el texto o pierde el marco rojo.");
             button.QueueFree();
             var book = new SpellBook { ShowPreview = false }; _ui.AddChild(book); book.SelectCombination("SF");
             var recipeTitle = (ElementTextLabel)book.FindChild("SpellCombinationTitle", true, false);

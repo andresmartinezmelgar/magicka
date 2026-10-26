@@ -51,7 +51,7 @@ public partial class EquipmentPanel
         string equipped = _draft?.Loadout.Get(slot) ?? "";
         var choices = EquipmentQuery.Sort(allChoices, equippedId: equipped);
         _optionAItemsTab!.Text = EquipmentCatalogue.SlotName(slot) + $" · {choices.Length}";
-        _pickerHelp.Text = "Equipada primero · Favoritos y piezas equipadas protegidos de la venta. Marco verde: activado; rojo: desactivado.";
+        _pickerHelp.Text = "Equipada primero · Favoritos y piezas equipadas protegidos de la venta.";
         if (_main.DefensiveAssistanceActive) _pickerHelp.Text += " Tu mago usa IA defensiva y puede recibir daño.";
         PrepareIcons();
         foreach (var item in choices)
@@ -98,9 +98,8 @@ public partial class EquipmentPanel
             if (SaleEquipped(item.Id)) trash.TooltipText = "Pieza equipada: venta bloqueada. Elige otra pieza para poder vender esta.";
             else if (Preferences.Protected(item.Id)) trash.TooltipText = "Favorito: venta bloqueada. Desmarca el favorito para poder vender esta pieza.";
             var equip = PickerAction(actions, "EquipmentEquip_", item.Id, _equipIcon, Ui.Blue,
-                "Equipar", selected ? "Quitar esta pieza equipada." : "Equipar esta pieza. Se guardará al salir del inventario.",
+                selected ? "Desequipar" : "Equipar", selected ? "Quitar esta pieza equipada." : "Equipar esta pieza. Se guardará al salir del inventario.",
                 () => ChooseItem(selected ? "" : item.Id));
-            Ui.ToggleBorder(equip, selected);
             _itemButtons.Add(item.Id, equip);
             int itemLevel = entry?.Upgrades ?? item.UpgradeLevel;
             bool supportsUpgrade = entry != null || RingEffects.IsRing(item.Slot);
