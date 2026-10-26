@@ -145,8 +145,10 @@ public partial class PlayerEquipmentPanel : Control
             }
         }
         _summary.AddChild(Ui.Label("TOTAL DEL EQUIPO", 22, Ui.Gold));
-        var specials = view.Equipment.Items.SelectMany(i => new[]
-            { ItemAffixes.Describe(ItemAffixes.Active(i.Affix, i.Slot), i.UpgradeLevel), RingEffects.Describe(i, ringEquipment) })
+        var specials = view.Equipment.Items.Where(i => ItemAffixes.Active(i.Affix, i.Slot) != null)
+            .GroupBy(i => i.Affix!.Kind).Select(g => g.OrderByDescending(i => i.Affix!.Value).First())
+            .Select(i => ItemAffixes.Describe(i.Affix, i.UpgradeLevel, i.Slot))
+            .Concat(view.Equipment.Items.Select(i => RingEffects.Describe(i, ringEquipment)))
             .Where(s => s.Length > 0).Distinct();
         var specialText = Ui.Label(string.Join("\n", specials), 16, Ui.Gold);
         specialText.AutowrapMode = TextServer.AutowrapMode.WordSmart; _summary.AddChild(specialText);

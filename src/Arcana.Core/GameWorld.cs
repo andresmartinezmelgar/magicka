@@ -217,6 +217,7 @@ public sealed partial class GameWorld
         {
             p.ActionCooldown = Math.Max(0, p.ActionCooldown - dt);
             p.RingCooldown = Math.Max(0, p.RingCooldown - dt);
+            p.ReprisalCooldown = Math.Max(0, p.ReprisalCooldown - dt);
             p.HitEffectCooldown = Math.Max(0, p.HitEffectCooldown - dt);
             p.Invulnerable = p.Invulnerable <= dt + 0.00001f ? 0 : p.Invulnerable - dt;
             for (int i = 0; i < 4; i++) p.MagickCooldowns[i] = Math.Max(0, p.MagickCooldowns[i] - dt);
@@ -283,9 +284,17 @@ public sealed partial class GameWorld
     private bool Hostile(Wizard a, Wizard b) => !Allied(a, b);
     private float Outgoing(int owner, Element element) => _combatants.TryGetValue(owner, out var source)
         ? WizardTypes.Outgoing(source.WizardType, element) * source.Equipment.ElementPower(element) : 1;
-    private float ElementDamage(Wizard target, int owner, Element element, float amount) =>
-        amount * Outgoing(owner, element) * WizardTypes.Incoming(target.WizardType, element) * Resistance(target, element) *
-        (element == Element.Lightning && target.Wet > 0 && _combatants.TryGetValue(owner, out var source) ? source.Equipment.WetLightningPower : 1);
+    private float ElementDamage(Wizard target, int owner, Element element, float amount)
+    {
+        if (amount == 0) return 0;
+        _combatants.TryGetValue(owner, out var source);
+        var gear = source?.Equipment ?? EquipmentModifiers.None;
+        float outgoing = source == null ? 1 : WizardTypes.Outgoing(source.WizardType, element) * gear.ElementPower(element);
+        float affix = source != null && Hostile(source, target)
+            ? CombatAffixes.DamageMultiplier(gear, element, target.Wet > 0, target.Frozen > 0, target.Health / target.MaxHealth) : 1;
+        return amount * outgoing * WizardTypes.Incoming(target.WizardType, element) * Resistance(target, element) * affix *
+            (element == Element.Lightning && target.Wet > 0 ? gear.WetLightningPower : 1);
+    }
 
     private void Move(Wizard p, float dt)
     {
@@ -705,6 +714,7 @@ public sealed partial class GameWorld
         // Un rayo golpea a 60 Hz; limita sus impactos, pero nunca omite la rotura del escudo.
         bool broken = absorbed > 0 && target.Shield <= 0;
         if (broken) { target.RegenerationRate = 0; Emit("shield_break", target.Position, [Element.Shield], ""); }
+        ApplyDefensiveAffixes(target, owner, absorbed, broken);
         if (target.HitEffectCooldown <= 0)
         {
             if (absorbed > 0 && !broken) Emit("shield_hit", target.Position, [Element.Shield], "");
@@ -949,7 +959,7 @@ public sealed partial class GameWorld
         ResetDefense();
         foreach (var point in _points) { point.Owner = -1; point.Progress = 0; point.Contested = false; }
         foreach (var item in _pickups) { item.Respawn = 0; if (Map.RandomPickups) RelocatePickup(item); }
-        foreach (var p in _players.Values) { p.Kills = p.Deaths = 0; RelicBuffs.Clear(p); p.MaxHealth = Wizard.BaseMaxHealth; Respawn(p); p.Energy = 100; Array.Clear(p.MagickCooldowns); }
+        foreach (var p in _players.Values) { p.Kills = p.Deaths = 0; RelicBuffs.Clear(p); p.MaxHealth = Wizard.BaseMaxHealth; Respawn(p); p.Energy = 100; p.ReprisalCooldown = 0; Array.Clear(p.MagickCooldowns); }
         Emit("restart", V2.Zero, [], "Nueva partida");
     }
     private void Respawn(Wizard p)

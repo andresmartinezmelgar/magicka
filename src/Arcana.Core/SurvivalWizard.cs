@@ -32,6 +32,7 @@ internal sealed class SurvivalWizard
     public float TeleportCooldown = 0;
     public float ActionCooldown = 0;
     public float RingCooldown = 0;
+    public float ReprisalCooldown = 0;
     public float ChargeTime = 0;
     public float BotDecision = 0;
     public int ShieldCharges = 0;
@@ -84,6 +85,7 @@ internal sealed class SurvivalWizard
         TeleportCooldown = p.TeleportCooldown,
         ActionCooldown = p.ActionCooldown,
         RingCooldown = p.RingCooldown,
+        ReprisalCooldown = p.ReprisalCooldown,
         ChargeTime = p.ChargeTime,
         BotDecision = p.BotDecision,
         ShieldCharges = p.ShieldCharges,
@@ -140,6 +142,7 @@ internal sealed class SurvivalWizard
             TeleportCooldown = TeleportCooldown,
             ActionCooldown = ActionCooldown,
             RingCooldown = RingCooldown,
+            ReprisalCooldown = ReprisalCooldown,
             ChargeTime = Bot ? ChargeTime : 0,
             BotDecision = BotDecision,
             ShieldCharges = ShieldCharges,
@@ -167,6 +170,7 @@ internal sealed class SurvivalWizard
 
     public bool Valid() => Id > 0 && Id < int.MaxValue - 1 && Name is { Length: > 0 and <= 24 } &&
         RingCooldown is >= 0 and <= 16 && Enum.IsDefined(WizardType) && Equipment != null && Position.IsFinite && Facing.IsFinite &&
+        float.IsFinite(ReprisalCooldown) && ReprisalCooldown is >= 0 and <= CombatAffixes.ReprisalSeconds &&
         Knockback.IsFinite && SlideIntent.IsFinite && SlideTangent.IsFinite &&
         Math.Abs(Position.X) <= 1000 && Math.Abs(Position.Y) <= 1000 &&
         BuffStacks is { Length: RelicBuffs.Count } && BuffStacks.All(n => n >= 0) &&

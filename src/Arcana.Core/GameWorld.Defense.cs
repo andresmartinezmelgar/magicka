@@ -76,6 +76,7 @@ public sealed partial class GameWorld
         player.FreezeRecovery = previous.FreezeRecovery;
         player.Invulnerable = previous.Invulnerable; player.ActionCooldown = previous.ActionCooldown;
         player.RingCooldown = previous.RingCooldown;
+        player.ReprisalCooldown = previous.ReprisalCooldown;
         player.TeleportCooldown = previous.TeleportCooldown; player.TeleportNeedsExit = previous.TeleportNeedsExit;
         player.Knockback = previous.Knockback;
         Array.Copy(previous.MagickCooldowns, player.MagickCooldowns, player.MagickCooldowns.Length);

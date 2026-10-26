@@ -36,6 +36,7 @@ public sealed partial class GameWorld
         float before = target.Health;
         Heal(target, amount);
         _statistics.Heal(owner, target, target.Health - before, cause);
+        RepairShieldFromHealing(target, owner, target.Health - before, cause);
     }
     private void StatisticsEconomy(int id, StatisticMeasure measure, int amount)
     { _statistics.Total(measure, amount); _statistics.Actor(id, measure, amount); }

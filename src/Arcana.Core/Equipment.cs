@@ -71,6 +71,12 @@ public sealed record EquipmentModifiers
     public int LightningChains { get; init; }
     public float BurnPotency { get; init; } = 1;
     public bool WaterShieldPool { get; init; }
+    public int Icebreaker { get; init; }
+    public int SteamImpact { get; init; }
+    public int ArcaneExecution { get; init; }
+    public int ShieldBattery { get; init; }
+    public int MendingWard { get; init; }
+    public int ShieldReprisal { get; init; }
     public int ExtraGoldEvery { get; init; }
     public int GoldBonusPercent { get; init; }
     public EquipmentFamily? MagicRingFamily { get; init; }
@@ -115,6 +121,7 @@ public sealed record EquipmentModifiers
         var families = new int[sets.Length];
         int beamPierce = 0, lightningChains = 0, extraGoldEvery = 0, goldBonusPercent = 0;
         bool doubleBurn = false, waterPool = false;
+        int icebreaker = 0, steamImpact = 0, arcaneExecution = 0, shieldBattery = 0, mendingWard = 0, shieldReprisal = 0;
         EquipmentFamily? ringFamily = null; int ringLevel = 0;
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
@@ -143,6 +150,12 @@ public sealed record EquipmentModifiers
                         extraGoldEvery = extraGoldEvery == 0 ? every : Math.Min(extraGoldEvery, every);
                         break;
                     case ItemAffixKind.GoldBonus: goldBonusPercent = Math.Max(goldBonusPercent, affix.Value); break;
+                    case ItemAffixKind.Icebreaker: icebreaker = Math.Max(icebreaker, affix.Value); break;
+                    case ItemAffixKind.SteamImpact: steamImpact = Math.Max(steamImpact, affix.Value); break;
+                    case ItemAffixKind.ArcaneExecution: arcaneExecution = Math.Max(arcaneExecution, affix.Value); break;
+                    case ItemAffixKind.ShieldBattery: shieldBattery = Math.Max(shieldBattery, affix.Value); break;
+                    case ItemAffixKind.MendingWard: mendingWard = Math.Max(mendingWard, affix.Value); break;
+                    case ItemAffixKind.ShieldReprisal: shieldReprisal = Math.Max(shieldReprisal, affix.Value); break;
                 }
             foreach (var b in item.Bonuses.Where(b => EquipmentCatalogue.BonusActive(slot, b.Stat))) stats[(int)b.Stat] += b.Current;
             if (!RingEffects.IsRing(slot) && item.Tier == ItemTier.Mythic) sets[(int)item.Family]++;
@@ -159,6 +172,8 @@ public sealed record EquipmentModifiers
             MagicRingFamily = ringFamily, MagicRingLevel = ringLevel,
             BeamPierce = beamPierce, LightningChains = lightningChains,
             BurnPotency = doubleBurn ? 2 : 1, WaterShieldPool = waterPool,
+            Icebreaker = icebreaker, SteamImpact = steamImpact, ArcaneExecution = arcaneExecution,
+            ShieldBattery = shieldBattery, MendingWard = mendingWard, ShieldReprisal = shieldReprisal,
             Speed = 1 + Bonus(EquipmentStat.MovementSpeed), Range = 1 + Bonus(EquipmentStat.SpellRange),
             Incoming = 1 - Bonus(EquipmentStat.Defense), Power = 1 + Bonus(EquipmentStat.Power),
             Healing = 1 + Bonus(EquipmentStat.HealingPower), Fire = 1 + Bonus(EquipmentStat.FirePower),
@@ -179,7 +194,7 @@ public sealed record EquipmentModifiers
 
 public static partial class EquipmentCatalogue
 {
-    public const int GenerationVersion = 7, InventoryLimit = 500;
+    public const int GenerationVersion = 8, InventoryLimit = 500;
     public static bool BonusActive(EquipmentSlot slot, EquipmentStat stat) =>
         slot != EquipmentSlot.MagicRing || stat == EquipmentStat.ShieldCapacity;
     public static string BonusDescription(EquipmentSlot slot, ItemBonus bonus) =>

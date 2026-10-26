@@ -42,6 +42,7 @@ public sealed class Wizard
     public bool TeleportNeedsExit { get; set; }
     public float ActionCooldown { get; set; }
     public float RingCooldown { get; set; }
+    internal float ReprisalCooldown { get; set; }
     public float[] MagickCooldowns { get; } = new float[4];
     public int Kills { get; set; }
     public int Deaths { get; set; }

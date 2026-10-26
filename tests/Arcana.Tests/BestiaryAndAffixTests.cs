@@ -22,6 +22,7 @@ internal static class BestiaryAndAffixTests
     }
     public static void Run(Action<string, Action> test)
     {
+        CombatAffixTests.Run(test);
         test("Afijos: calidades, rangos, serialización y objetos antiguos", () =>
         {
             foreach (var tier in Enum.GetValues<ItemTier>())

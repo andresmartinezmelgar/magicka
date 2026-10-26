@@ -2,6 +2,10 @@
 
 ## Sin publicar
 
+- Seis nuevos afijos de combate en Diamante/Mítico: Quebrantahielo, Choque térmico, Remate arcano, Batería protectora, Remiendo protector y Última barrera. El botín pasa de cuatro a diez efectos de combate, con rangos diferenciados por calidad y descripciones numéricas en inventario, comparaciones, tienda y fichas públicas. Las copias repetidas solo aplican el rango mayor.
+- El daño condicional conserva elementos, defensas e inmunidades; la batería usa solo daño enemigo absorbido y el remiendo solo curación real con un escudo activo. La repulsión tiene radio 3 m, línea de visión y recarga de 6 s que se conserva al cambiar equipo, guardar o reconectar. No crea daño recursivo ni comprobaciones de área continuas.
+- Catálogo 8 y protocolo 36. Se conservan los afijos y las tiradas existentes, el anillo mágico sin afijos y la probabilidad económica del anillo de oro. Compilación y pruebas de ejecución pendientes de la próxima solicitud.
+
 ## 0.29.19
 
 - La venta automática usa la calidad de la pieza como límite exclusivo: solo vende objetos nuevos de la misma ranura y familia con calidad inferior. Conserva iguales, superiores, actuales, favoritos y equipados. Cambiar el límite sustituye la regla anterior; Plata no permite activarla. Las reglas antiguas se desactivan al migrar preferencias y partidas guardadas. Protocolo 35.
