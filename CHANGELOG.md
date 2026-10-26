@@ -1,13 +1,13 @@
 # Cambios
 
-## Sin publicar
+## 0.29.20
 
 - Escudo vital convierte en vida un 10 % (Diamante) o 15 % (Mítico) del daño enemigo absorbido por el escudo personal. Espejo protector devuelve un 15 %/25 % al atacante, conservando sus defensas, elementos y daño exclusivo a escudos. No cuentan barreras colocadas, daño propio ni fuego amigo. El reflejo no genera cadenas ni activa otros afijos de absorción. Curación y reflejo tienen origen propio en las estadísticas. Catálogo 9, protocolo 37.
 - Con seis piezas míticas equipadas, incluidos los dos anillos, aparecen llamitas animadas en los ojos. Mezclan color y forma según las familias de cada pieza; Vida verde, Escudo amarillo, Rayo con destellos y variantes para el resto. Se muestran en inventario y combate con anclajes para 80 poses y se ocultan de espaldas, al morir o al perder la condición mítica. Comparten shader y no generan partículas ni luces dinámicas.
 
 - También se incorporan Quebrantahielo, Choque térmico, Remate arcano, Batería protectora, Remiendo protector y Última barrera. Junto a Escudo vital y Espejo protector, el botín pasa de cuatro a doce efectos de combate en Diamante/Mítico, con rangos diferenciados por calidad y descripciones numéricas en inventario, comparaciones, tienda y fichas públicas. Las copias repetidas solo aplican el rango mayor.
 - El daño condicional conserva elementos, defensas e inmunidades; la batería usa solo daño enemigo absorbido y el remiendo solo curación real con un escudo activo. La repulsión tiene radio 3 m, línea de visión y recarga de 6 s que se conserva al cambiar equipo, guardar o reconectar. No crea daño recursivo ni comprobaciones de área continuas.
-- Catálogo 9 y protocolo 37. Se conservan los afijos y las tiradas existentes, el anillo mágico sin afijos y la probabilidad económica del anillo de oro. Compilación y pruebas de ejecución pendientes de la próxima solicitud.
+- Catálogo 9 y protocolo 37. Se conservan los afijos y las tiradas existentes, el anillo mágico sin afijos y la probabilidad económica del anillo de oro. Las pruebas de combate, red y efectos visuales se incluyen en la comprobación previa a publicar esta versión.
 
 ## 0.29.19
 
