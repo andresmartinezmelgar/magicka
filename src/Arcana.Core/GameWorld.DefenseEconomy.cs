@@ -74,8 +74,13 @@ public sealed partial class GameWorld
         if (command.Type == "defense_shop")
         {
             if (player.Bot || command.Slot is < 0 or > 1) return false;
-            progress.ShopOpen = command.Slot == 1;
-            if (progress.ShopOpen) { CancelCast(player); player.Input.MoveTo = false; player.Input.MoveX = player.Input.MoveY = 0; }
+            bool open = command.Slot == 1;
+            if (progress.ShopOpen != open)
+            {
+                CancelCast(player); player.Input.MoveTo = false; player.Input.MoveX = player.Input.MoveY = 0;
+                progress.AssistanceCooldown = 0;
+            }
+            progress.ShopOpen = open;
             return true;
         }
         if (!player.Alive || MatchEnded) return false;

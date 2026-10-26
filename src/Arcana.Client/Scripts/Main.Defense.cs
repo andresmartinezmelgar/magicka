@@ -15,7 +15,7 @@ public partial class Main
         var defense = snapshot.Defense;
         bool reset = defense != null && defense.Elapsed < _defenseSampleElapsed;
         _defenseSampleElapsed = defense?.Elapsed ?? 0;
-        if (reset || snapshot.MatchEnded || snapshot.WaitingForPlayers || defense?.Paused == true || _paused || _help.Visible ||
+        if (reset || snapshot.MatchEnded || snapshot.WaitingForPlayers || defense?.Paused == true || DefenseInterfaceOpen || _paused || _help.Visible ||
             _defensePanel?.ShopOpen == true || InspectingEquipment || !GetWindow().HasFocus())
         { ResetDefenseSample(); return; }
         _defenseSampleSeconds += delta; _defenseSampleFrames++;
@@ -41,6 +41,7 @@ public partial class Main
     { _defenseSampleSeconds = 0; _defenseSampleFrames = 0; Array.Clear(_defenseFrameTimes); }
     private void BuildDefenseControls(WorldSnapshot snapshot)
     {
+        _lastDefenseInterface = null;
         _defensePanel?.QueueFree(); _defensePanel = null; _defenseEnded = false;
         ResetDefenseSample(); _defenseSampleElapsed = 0; _defenseSlowWindows = 0; _renderer.Effects.DetailScale = 1;
         if (snapshot.Defense == null) return;
@@ -49,7 +50,7 @@ public partial class Main
         _defensePanel.OpenChanged += () =>
         {
             StopInput();
-            Submit(new() { Type = "defense_shop", Slot = _defensePanel?.ShopOpen == true ? 1 : 0 });
+            SynchronizeDefenseInterface();
             _ignoreLeftUntilRelease = true; UpdateTouchVisibility();
             if (_defensePanel != null) _ui.MoveChild(_defensePanel, -1);
         };

@@ -15,16 +15,17 @@ public partial class EquipmentPanel
     private void BuildAutoSellButton(VBoxContainer box, EquipmentItem item)
     {
         var style = EquipmentStyle.Of(item);
-        var button = Ui.Button(style.Tier == ItemTier.Silver ? "Sin calidades inferiores a Plata" :
-            AutoSells(style) ? "Conservar también los de calidad inferior" : "No más de este estilo de calidad inferior",
+        var button = Ui.Button("No más de este estilo de calidad inferior",
             () => SetAutoSell(style, !AutoSells(style), item.Id));
         button.Name = "EquipmentAutoSell_" + item.Id; button.CustomMinimumSize = new(0, 44);
         button.Disabled = style.Tier == ItemTier.Silver;
+        Ui.ToggleBorder(button, AutoSells(style));
         button.MouseFilter = MouseFilterEnum.Pass;
         button.AutowrapMode = TextServer.AutowrapMode.WordSmart; button.AddThemeFontSizeOverride("font_size", 14);
         button.TooltipText = style.DescribeAutoSell() + "\nVende solo las piezas nuevas de la misma ranura y familia, con calidad estrictamente inferior a esta pieza.\n" +
             "Conserva las de calidad igual o superior, las que ya tienes, los favoritos y el equipo. Sustituye el límite anterior para esta ranura y familia.\n" +
             "Puedes desactivarlo desde Opciones → Venta automática.";
+        if (style.Tier == ItemTier.Silver) button.TooltipText += "\nPlata es la calidad mínima; este ajuste no se puede activar.";
         box.AddChild(button); if (style.Tier > ItemTier.Silver) _preferenceActions.Add(button);
     }
 
@@ -32,17 +33,16 @@ public partial class EquipmentPanel
     {
         if (InventoryLocked || _draft == null || enabled && style.Tier == ItemTier.Silver) return;
         ResetQuickActions();
-        string message = enabled ? "Venta automática: " + style.DescribeAutoSell() + ". Las piezas actuales y las de calidad igual o superior se conservan."
-            : "Venta automática desactivada: " + style.DescribeAutoSell() + ".";
         if (TemporaryInventory)
         {
             DefenseOperation(new() { Type = "defense_auto_sell", AutoSellStyle = style, ItemId = itemId, Slot = enabled ? 1 : 0 },
-                p => p.AutoSellStyles.Contains(style) == enabled, () => { RefreshPickerItems(); RenderAutoSellRules(); }, message);
+                p => p.AutoSellStyles.Contains(style) == enabled, () => { RefreshPickerItems(); RenderAutoSellRules(); });
             return;
         }
         Preferences.SetAutoSell(style, enabled, _draft);
-        if (!DevicePreferences.SaveInventory()) message += " No se pudo guardar el ajuste en el dispositivo.";
-        RefreshPickerItems(); SetPickerMessage(message); RenderAutoSellRules();
+        bool saved = DevicePreferences.SaveInventory();
+        RefreshPickerItems(); RenderAutoSellRules();
+        if (!saved) SetPickerMessage("No se pudo guardar el ajuste en el dispositivo.");
     }
 
     private void OpenAutoSellRules()

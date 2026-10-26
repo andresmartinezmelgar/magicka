@@ -9,7 +9,7 @@ public partial class Main
     {
         try
         {
-            var label = Ui.Label("Escudo + Fuego + Vida-Vida; área eléctrica; rayo arcano", 18);
+            var label = Ui.Label("Escudo; Fuego + Vida-Vida; área eléctrica; rayo arcano", 18);
             label.AutowrapMode = TextServer.AutowrapMode.WordSmart; label.Size = new(320, 200);
             _ui.AddChild(label);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
@@ -35,10 +35,50 @@ public partial class Main
             button.Text = "Continuar"; button._Notification((int)CanvasItem.NotificationDraw);
             if (button.GetThemeColor("font_color").A == 0 || button.GetChildren().OfType<ElementTextLabel>().Single().Visible)
                 throw new InvalidDataException("El botón no restaura su título al cambiar a texto sin elementos.");
+            Ui.ToggleBorder(button, true); string caption = button.Text;
+            if (((StyleBoxFlat)button.GetThemeStylebox("normal")).BorderColor != Ui.Health) throw new InvalidDataException("El control activo no tiene marco verde.");
+            Ui.ToggleBorder(button, false);
+            if (button.Text != caption || ((StyleBoxFlat)button.GetThemeStylebox("normal")).BorderColor != Ui.Red) throw new InvalidDataException("El control cambia el texto o pierde el marco rojo.");
             button.QueueFree();
+            var book = new SpellBook { ShowPreview = false }; _ui.AddChild(book); book.SelectCombination("SF");
+            var recipeTitle = (ElementTextLabel)book.FindChild("SpellCombinationTitle", true, false);
+            if (recipeTitle.SemanticColor != Ui.SpellColor([Element.Arcane, Element.Fire]) || recipeTitle.FormattedText.Contains("[color=#" + Ui.ElementTextColor(Element.Fire).ToHtml(false)))
+                throw new InvalidDataException("La combinación no usa un único color principal.");
+            book.QueueFree();
+            VerifyDefenseInterfaceSmoke();
             GD.Print("ELEMENT_TEXT_SMOKE_OK: colores, recetas mixtas, cambios dinámicos, texto externo, medidas y botones verificados.");
             GetTree().Quit();
         }
         catch (Exception error) { GD.PushError("ELEMENT_TEXT_SMOKE_FAILED: " + error); GetTree().Quit(1); }
     }
+    private void VerifyDefenseInterfaceSmoke()
+    {
+        var previous = (_practice, _snapshot, _playing, _paused, _localId, _hud, _lastDefenseInterface, _localSequence);
+        bool helpVisible = _help.Visible;
+        var score = new Hud();
+        try
+        {
+            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, Bots = 1, MaxPlayers = 4 });
+            var player = world.AddPlayer("Consulta")!;
+            _practice = world; _snapshot = world.Snapshot(); _playing = true; _localId = player.Id; _hud = score; _lastDefenseInterface = null;
+            for (int panel = 0; panel < 3; panel++)
+            {
+                _paused = panel == 0; _help.Visible = panel == 1; score.ScoreOpen = panel == 2;
+                long tick = world.Tick; _PhysicsProcess(1 / 60.0);
+                if (!world.DefensePaused || world.Tick != tick) throw new InvalidDataException("El menú, ayuda o clasificación no pausa con un humano y bots.");
+                _paused = false; _help.Visible = false; score.ScoreOpen = false; _PhysicsProcess(1 / 60.0);
+                if (world.DefensePaused || world.Tick != tick + 1) throw new InvalidDataException("Cerrar la pantalla no reanuda Supervivencia.");
+            }
+            world.AddPlayer("Otro humano"); _snapshot = world.Snapshot(); _paused = true;
+            long before = world.Tick; _PhysicsProcess(1 / 60.0);
+            if (world.DefensePaused || world.Tick != before + 1) throw new InvalidDataException("El menú detiene Supervivencia con dos humanos.");
+            GD.Print("SURVIVAL_INTERFACE_OK: pausa con un humano y bots; combate continuo con varios humanos.");
+        }
+        finally
+        {
+            (_practice, _snapshot, _playing, _paused, _localId, _hud, _lastDefenseInterface, _localSequence) = previous;
+            _help.Visible = helpVisible; score.Free();
+        }
+    }
+
 }

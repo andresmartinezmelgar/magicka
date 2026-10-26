@@ -124,6 +124,9 @@ public partial class SpellBook : VBoxContainer
         if (_arena != null) { _arena.Clear(); _arena.ShowControlPoints = _kind == DemonstrationKind.Capture; }
         bool chosen = elements.Length > 0 || _kind != DemonstrationKind.Combination;
         _preview.Visible = chosen && ShowPreview; _damage.Visible = chosen && _kind == DemonstrationKind.Combination;
+        Color? mainColor = elements.Length > 0 && _kind == DemonstrationKind.Combination ? Ui.SpellColor(elements) : null;
+        _title.SemanticColor = _description.SemanticColor = _damage.SemanticColor = mainColor;
+        _title.AddThemeColorOverride("font_color", mainColor ?? Ui.Gold);
         _damage.Text = _kind == DemonstrationKind.Combination ? SpellBalance.Format(recipe, _mode) : "";
         _title.Text = !chosen ? "Elige hasta tres elementos" : _kind switch
         {

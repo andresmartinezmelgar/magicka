@@ -105,7 +105,8 @@ internal sealed class DefenseProgress
     public int GoldCoinRemainder, GoldPercentRemainder;
     public long ActiveTicks;
     public readonly Dictionary<string, long> BestiaryKills = new(StringComparer.Ordinal);
-    public bool ShopOpen;
+    public bool ShopOpen; // Cualquier pantalla que retira el control al jugador.
+    public float AssistanceCooldown;
     public DefensePerformanceBudget Performance = new();
     public double LastPerformanceReport = -100;
     public float BerserkerRemaining;

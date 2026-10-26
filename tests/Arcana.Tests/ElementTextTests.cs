@@ -6,11 +6,11 @@ internal static class ElementTextTests
     private static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
     public static void Run(Action<string, Action> test)
     {
-        test("Textos: cada componente de una receta conserva su elemento", () =>
+        test("Textos: una combinación utiliza un solo color de su forma principal", () =>
         {
-            var recipe = ElementText.Parse("Fuego-Escudo-Vida-Vida / AGUA + FRÍO + RAYO + ARCANO + TIERRA");
-            Check(recipe.Select(w => w.Element).SequenceEqual(new[] { Element.Fire, Element.Shield, Element.Life, Element.Life,
-                Element.Water, Element.Cold, Element.Lightning, Element.Arcane, Element.Earth }), "Color incorrecto en una receta mixta.");
+            foreach (var (text, expected) in new[] { ("Arcano + Fuego", Element.Arcane), ("Vida-Fuego-Vida", Element.Life), ("Agua + Frío", Element.Cold) })
+                Check(ElementText.Parse(text).All(w => w.Element == expected), "La combinación conserva colores separados: " + text);
+            Check(ElementText.Parse("rayo arcano de fuego").All(w => w.Element == Element.Arcane), "El rayo mezcla colores de componentes.");
         });
         test("Textos: áreas, daños y rayos usan el elemento de su contexto", () =>
         {

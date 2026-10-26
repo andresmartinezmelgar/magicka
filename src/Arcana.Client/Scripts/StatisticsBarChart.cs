@@ -7,8 +7,8 @@ namespace Arcana.Client;
 /// <summary>Barras verticales con ejes comunes y categorías legibles, sin proceso por fotograma.</summary>
 public partial class StatisticsBarChart : Control
 {
-    public readonly record struct Part(string ElementTextLabel, double Value, Color Color);
-    public readonly record struct Category(string ElementTextLabel, double Value, Color Color, Part[]? Parts = null);
+    public readonly record struct Part(string Label, double Value, Color Color);
+    public readonly record struct Category(string Label, double Value, Color Color, Part[]? Parts = null);
     public Category[] Categories { get; init; } = [];
     public float CategoryWidth { get; init; } = 80;
     public string HorizontalTitle { get; init; } = "Elemento";
@@ -83,11 +83,11 @@ public partial class StatisticsBarChart : Control
             {
                 float available = (slot - 12) / parts.Length;
                 for (int j = 0; j < parts.Length; j++)
-                    Bar(parts[j].Value, center - (slot - 12) / 2 + (j + .5f) * available, parts[j].Color, available, parts[j].ElementTextLabel);
+                    Bar(parts[j].Value, center - (slot - 12) / 2 + (j + .5f) * available, parts[j].Color, available, parts[j].Label);
             }
-            else Bar(category.Value, center, category.Color, slot * .75f, category.ElementTextLabel);
+            else Bar(category.Value, center, category.Color, slot * .75f, category.Label);
             var lines = new List<string>(); string line = "";
-            foreach (string word in category.ElementTextLabel.Split(' '))
+            foreach (string word in category.Label.Split(' '))
             {
                 if (line.Length > 0 && font.GetStringSize(line + " " + word, fontSize: textSize).X > slot - 10)
                 { lines.Add(line); line = word; }
@@ -104,8 +104,8 @@ public partial class StatisticsBarChart : Control
         if (Categories.Length == 0) return "";
         int index = Math.Clamp((int)((position.X - Left) / Math.Max(1, Size.X - Left - Right) * Categories.Length), 0, Categories.Length - 1);
         var c = Categories[index];
-        string detail = c.Parts == null ? "" : string.Join("\n", c.Parts.Select(p => p.ElementTextLabel + ": " + StatisticsPresentation.Number(p.Value) + " · " + StatisticsPresentation.Percent(p.Value, c.Value))) + "\n";
-        return c.ElementTextLabel + "\n" + detail + ValueTitle + ": " + StatisticsPresentation.Number(c.Value) + "\n" +
+        string detail = c.Parts == null ? "" : string.Join("\n", c.Parts.Select(p => p.Label + ": " + StatisticsPresentation.Number(p.Value) + " · " + StatisticsPresentation.Percent(p.Value, c.Value))) + "\n";
+        return c.Label + "\n" + detail + ValueTitle + ": " + StatisticsPresentation.Number(c.Value) + "\n" +
             StatisticsPresentation.Percent(c.Value, Categories.Sum(c => c.Value)) + " del total de esta gráfica";
     }
 }

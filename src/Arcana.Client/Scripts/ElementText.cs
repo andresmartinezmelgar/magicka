@@ -10,7 +10,10 @@ public static class ElementText
     private const RegexOptions Options = RegexOptions.IgnoreCase | RegexOptions.CultureInvariant;
     private const string Words = @"agua|aguas|acuátic[oa]s?|mojad[oa]s?|vida|vidas|vital(?:es)?|curación|curaciones|curar|cura[ns]?|curad[oa]s?|regeneración|escudos?|barreras?|absorción|fr[ií][oa]s?|hielos?|congelad[oa]s?|congelación|rayos?|relámpagos?|el[eé]ctric[oa]s?|electricidad|arcan[oa]s?|tierras?|piedras?|rocas?|fuegos?|quemaduras?|ardiendo";
     private static readonly Regex Tokens = new(@"(?<![\p{L}\p{N}_])(?:" + Words + @")(?![\p{L}\p{N}_])", Options);
-    private static readonly Regex Effects = new(@"(?<![\p{L}\p{N}_])(?<effect>daños?|áreas?|auras?|impactos?|pulsos?|haz|haces|rayos?|resistencias?|defensas?|inmunidad(?:es)?)\s+(?:de(?:l)?\s+)?(?<element>" + Words + @")(?![\p{L}\p{N}_])", Options);
+    private const string Component = @"(?<element>" + Words + @")";
+    private const string Mixture = Component + @"(?:\s*(?:\+|-|\by\b|\bde\b)\s*" + Component + @")*";
+    private static readonly Regex Combinations = new(@"(?<![\p{L}\p{N}_])" + Component + @"(?:\s*(?:\+|-)\s*" + Component + @")+(?![\p{L}\p{N}_])", Options);
+    private static readonly Regex Effects = new(@"(?<![\p{L}\p{N}_])(?<effect>daños?|áreas?|auras?|impactos?|pulsos?|haz|haces|rayos?|resistencias?|defensas?|inmunidad(?:es)?)\s+(?:de(?:l)?\s+)?" + Mixture + @"(?![\p{L}\p{N}_])", Options);
 
     public readonly record struct Word(int Start, int Length, Element Element);
 
@@ -30,11 +33,30 @@ public static class ElementText
     public static Word[] Parse(string text)
     {
         var words = Tokens.Matches(text).Select(m => new Word(m.Index, m.Length, Kind(m.Value))).ToList();
+        Element Primary(Match match)
+        {
+            var elements = match.Groups["element"].Captures.Select(c => Kind(c.Value)).ToArray();
+            if (elements.Contains(Element.Earth)) return Element.Earth;
+            if (elements.Contains(Element.Shield)) return elements.FirstOrDefault(e => e != Element.Shield, Element.Shield);
+            if (elements.Contains(Element.Water) && elements.Contains(Element.Cold)) return Element.Cold;
+            if (elements.Contains(Element.Arcane)) return Element.Arcane;
+            if (elements.Contains(Element.Life)) return Element.Life;
+            if (elements.Contains(Element.Lightning)) return Element.Lightning;
+            return elements[0];
+        }
+        void Unify(Match match, Element element)
+        {
+            for (int i = 0; i < words.Count; i++)
+                if (words[i].Start >= match.Index && words[i].Start < match.Index + match.Length)
+                    words[i] = words[i] with { Element = element };
+        }
+        foreach (Match match in Combinations.Matches(text)) Unify(match, Primary(match));
         foreach (Match match in Effects.Matches(text))
         {
-            var effect = match.Groups["effect"];
+            var effect = match.Groups["effect"]; var element = Primary(match);
+            Unify(match, element);
             words.RemoveAll(w => w.Start == effect.Index);
-            words.Add(new(effect.Index, effect.Length, Kind(match.Groups["element"].Value)));
+            words.Add(new(effect.Index, effect.Length, element));
         }
         return words.OrderBy(w => w.Start).ToArray();
     }

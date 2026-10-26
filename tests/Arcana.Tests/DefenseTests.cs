@@ -344,6 +344,48 @@ internal static class DefenseTests
             long tick = w.Tick; Advance(w, 5); Check(w.Tick == tick + 5, "No reanudó.");
             SnapshotValidation.Check(w.Snapshot());
         });
+        test("Supervivencia: consultar pantallas con dos humanos activa defensa sin pausar ni dar inmunidad", () =>
+        {
+            var w = World(bots: 1); var p = w.AddPlayer("Consulta")!; var ally = w.AddPlayer("Compañero")!;
+            p.Position = new(-8, 0); ally.Position = new(20, 0); p.Invulnerable = 0;
+            var enemy = Enemy(w); enemy.Position = p.Position + new V2(3, 0);
+            p.Selection.Add(Element.Fire); Gold(w, p, 1000);
+            var before = p.Position;
+            Check(Command(w, p, "defense_shop", 1), "No abrió la interfaz."); Advance(w, 5);
+            Check(!w.DefensePaused && w.Tick >= 5 && !p.Bot && w.Snapshot().Defense!.HumanCount == 2,
+                "La ayuda cambió la identidad humana o pausó al grupo.");
+            Check(p.Position != before && p.Shield > 0 && p.Invulnerable == 0, "La ayuda no esquiva/protege o concede inmunidad.");
+            Check(p.Selection.Elements.SequenceEqual(new[] { Element.Fire }) && Player(w, p).Gold == 1000,
+                "La ayuda cambia la selección o gasta oro.");
+            Check(!Command(w, p, "cast"), "Se permiten ataques manuales con la interfaz abierta.");
+            float shield = p.Shield;
+            Invoke(w, "Hit", p, new SpellRecipe([Element.Arcane]), 1f, enemy.Id, new V2(1, 0), 1f);
+            Check(p.Shield < shield || p.Health < p.MaxHealth, "Los enemigos ignoran al jugador asistido.");
+            Check(Command(w, p, "defense_shop", 0), "No devolvió el control.");
+            Check(p.Input.MoveX == 0 && p.Input.MoveY == 0, "La ayuda deja movimiento residual.");
+            SnapshotValidation.Check(w.Snapshot());
+        });
+        test("Supervivencia: la asistencia cura con un hechizo real y no acumula participación", () =>
+        {
+            var w = World(); var p = w.AddPlayer("Consulta")!; w.AddPlayer("Otro humano");
+            p.Health = 300; p.Invulnerable = 0;
+            Check(Command(w, p, "defense_shop", 1), "No abrió la interfaz.");
+            w.Step();
+            Check(p.Health > 300 && w.Snapshot().Events.Any(e => e.Kind == "self" && e.Elements.Contains(Element.Life)),
+                "La curación no procede de un hechizo de vida.");
+            Advance(w, 90);
+            Check(w.DefenseActiveSeconds(p.Id) == 0, "La IA genera participación de jugador activo.");
+        });
+        test("Supervivencia: dos humanos en menús no pausan; al quedar uno se pausa", () =>
+        {
+            var w = World(); var a = w.AddPlayer("A")!; var b = w.AddPlayer("B")!;
+            Command(w, a, "defense_shop", 1); Command(w, b, "defense_shop", 1);
+            Advance(w, 3); Check(!w.DefensePaused && w.Tick == 3, "Se pausó con dos humanos en menús.");
+            w.RemovePlayer(b.Id); long tick = w.Tick; Advance(w, 3);
+            Check(w.DefensePaused && w.Tick == tick, "No pausó al quedar un humano.");
+            Command(w, a, "defense_shop", 0); w.Step();
+            Check(!w.DefensePaused && w.Tick == tick + 1, "No reanudó al cerrar la interfaz.");
+        });
         test("Defensa: tanques progresivos y flujo continuo sin pausas entre grupos", () =>
         {
             var w = World(DefenseFlow.Continuous); var p = w.AddPlayer("Humano")!; p.Position = new(76, 52);

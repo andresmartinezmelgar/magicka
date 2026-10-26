@@ -23,10 +23,11 @@ public partial class Main
         else if (GodotObject.IsInstanceValid(_bestiaryPanel)) CloseBestiary();
         else if (GodotObject.IsInstanceValid(_accountProfilePanel)) CloseAccountProfile();
         else if (GodotObject.IsInstanceValid(_optionAHelp)) CloseOptionAHelp();
+        else if (_playing && _hud?.ScoreOpen == true) { _hud.ScoreOpen = false; SynchronizeDefenseInterface(); }
         else if (_playing) TogglePause();
         else return _launcher.HandleBack();
         return true;
     }
 
-    private void CloseInGameHelp() { _help.Hide(); UpdateTouchVisibility(); }
+    private void CloseInGameHelp() { _help.Hide(); SynchronizeDefenseInterface(); UpdateTouchVisibility(); }
 }

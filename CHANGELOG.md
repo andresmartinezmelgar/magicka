@@ -2,8 +2,10 @@
 
 ## 0.29.25
 
-- El rayo arcano vuelve a avanzar en línea recta: no busca enemigos laterales ni obtiene penetración automática. El afijo atraviesa únicamente los enemigos situados en su trayectoria, con el mismo daño; los escudos conservan reflexión y refracción.
-- Colores por palabra para los ocho elementos y sus efectos en recetas, ayuda, inventario, tienda, bestiario, estadísticas y mensajes de combate. Las áreas y el daño usan el elemento de su contexto, incluido el rayo arcano. Los textos dinámicos se actualizan al cambiar y el contenido externo se muestra como texto plano.
+- El arcano avanza en línea recta, sin buscar otros enemigos ni penetración automática. El afijo atraviesa los objetivos de su trayectoria sin atenuación; los escudos conservan reflexión y refracción.
+- Equipar, favorito, venta automática y selección de venta conservan el texto: marco verde al activarse y rojo al desactivarse, también al recuperar los ajustes. Las confirmaciones rutinarias dejan de desplazar el inventario.
+- Menú, clasificación, ayuda e inventario pausan Supervivencia con un solo humano, aunque haya bots. Con varios humanos el combate continúa y el jugador usa IA defensiva temporal: esquiva, se protege y se cura con hechizos normales. Sigue recibiendo daño, conserva su selección y no compra equipo, gasta oro ni acumula participación durante la consulta.
+- Textos con acentos por elemento y un solo color principal en cada combinación, coherente con su efecto en combate. Los mensajes dinámicos se actualizan al cambiar y el contenido externo se muestra como texto plano.
 
 ## 0.29.24
 

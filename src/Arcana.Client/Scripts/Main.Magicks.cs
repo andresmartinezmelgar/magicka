@@ -26,7 +26,7 @@ public partial class Main
         float cost = slot == 3 ? player.ReanimationCost : SpellBalance.Magicks[slot].Cost;
         string reason = !player.Alive ? "No puedes lanzar hechizos mientras estás caído." :
             world!.MatchEnded ? "La partida ha terminado." :
-            world.Defense?.Paused == true ? "Cierra la tienda para lanzar hechizos." :
+            (world.Defense?.Paused == true || DefenseInterfaceOpen) ? "Cierra esta pantalla para volver al combate." :
             player.Frozen > 0 ? "No puedes lanzar hechizos mientras estás congelado." :
             player.Cooldowns[slot] > 0 ? $"{SpellBalance.Magicks[slot].Name}: quedan {Math.Ceiling(player.Cooldowns[slot])} s de recarga." :
             player.Energy < cost ? $"Necesitas {cost:0} de energía para {SpellBalance.Magicks[slot].Name}." :

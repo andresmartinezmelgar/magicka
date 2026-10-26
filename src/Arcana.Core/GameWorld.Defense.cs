@@ -122,7 +122,7 @@ public sealed partial class GameWorld
         foreach (var player in _players.Values)
         {
             var progress = _defenders[player.Id];
-            if (player.Deaths < DefenseRules.PlayerLives && (player.Bot || Time - progress.LastActivity < 8 || player.Channel != null || player.Charging != null)) progress.ActiveTicks++;
+            if (player.Deaths < DefenseRules.PlayerLives && !progress.ShopOpen && (player.Bot || Time - progress.LastActivity < 8 || player.Channel != null || player.Charging != null)) progress.ActiveTicks++;
         }
         _defenseDifficulty = DefenseRules.TimedDifficulty(_defenseElapsed);
         bool bossAlive = _minions.Values.Any(m => m.Kind == MinionKind.Boss && m.Body.Alive);

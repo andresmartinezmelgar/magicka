@@ -54,7 +54,7 @@ public partial class EquipmentPanel
     private bool Equipped(string id) => _draft != null && Enum.GetValues<EquipmentSlot>().Any(s => _draft.Loadout.Get(s) == id);
     private void BuildItemPreferences(VBoxContainer box, EquipmentItem item)
     {
-        var favorite = Ui.Button(Preferences.Protected(item.Id) ? "Favorito" : "Marcar favorito", () =>
+        var favorite = Ui.Button("Marcar favorito", () =>
         {
             if (InventoryLocked) return;
             ResetQuickActions();
@@ -64,7 +64,7 @@ public partial class EquipmentPanel
             {
                 bool enabled = Preferences.Protected(item.Id);
                 DefenseOperation(new() { Type = "defense_favorite", ItemId = item.Id, Slot = enabled ? 1 : 0 },
-                    p => p.Favorites.Contains(item.Id) == enabled, message: enabled ? "Favorito protegido de la venta." : "Favorito desmarcado.");
+                    p => p.Favorites.Contains(item.Id) == enabled);
             }
             if (!TemporaryInventory && !DevicePreferences.SaveInventory())
                 SetPickerMessage("No se pudo guardar el favorito en este dispositivo. Se mantiene durante esta sesión.");
@@ -73,13 +73,16 @@ public partial class EquipmentPanel
         favorite.Name = "EquipmentFavorite_" + item.Id; favorite.CustomMinimumSize = new(0, 42);
         favorite.MouseFilter = MouseFilterEnum.Pass;
         favorite.AddThemeFontSizeOverride("font_size", 14); favorite.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        Ui.ToggleBorder(favorite, Preferences.Protected(item.Id));
         box.AddChild(favorite); _preferenceActions.Add(favorite);
         BuildAutoSellButton(box, item);
         if (!_bulkMode) return;
-        var check = new CheckBox { Name = "EquipmentSelect_" + item.Id, Text = SaleEquipped(item.Id) ? "Equipada · protegida" : Preferences.Protected(item.Id) ? "Favorito · protegido" : "Seleccionar venta",
+        var check = new CheckBox { Name = "EquipmentSelect_" + item.Id, Text = "Seleccionar venta",
             ButtonPressed = _saleSelection.Contains(item.Id), Disabled = InventoryLocked || SaleProtected(item.Id), CustomMinimumSize = new(0, 44) };
         check.AddThemeFontSizeOverride("font_size", 14); check.ClipText = true;
-        check.Toggled += selected => { if (selected) _saleSelection.Add(item.Id); else _saleSelection.Remove(item.Id); UpdateBulkActions(); };
+        check.TooltipText = SaleEquipped(item.Id) ? "Pieza equipada: venta bloqueada." : Preferences.Protected(item.Id) ? "Favorito: venta bloqueada." : "Seleccionar esta pieza para la venta múltiple.";
+        Ui.ToggleBorder(check, _saleSelection.Contains(item.Id));
+        check.Toggled += selected => { Ui.ToggleBorder(check, selected); if (selected) _saleSelection.Add(item.Id); else _saleSelection.Remove(item.Id); UpdateBulkActions(); };
         box.AddChild(check); _preferenceActions.Add(check);
     }
     private void SetPickerMessage(string text, bool bringIntoView = true)

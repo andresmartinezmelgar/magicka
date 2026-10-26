@@ -13,6 +13,12 @@ public partial class ElementTextLabel : Control
     };
     private string _plainText = "";
     private bool _updatingTheme;
+    private Color? _semanticColor;
+    internal Color? SemanticColor
+    {
+        get => _semanticColor;
+        set { if (_semanticColor == value) return; _semanticColor = value; RenderText(); }
+    }
     internal string FormattedText => _content.Text;
     internal Color PlainColor => _content.GetThemeColor("default_color");
     public string Text
@@ -119,7 +125,7 @@ public partial class ElementTextLabel : Control
                 visible = visible[..low] + "…";
             }
         }
-        _content.Text = ElementText.ToBbcode(visible, e => Ui.ElementTextColor(e).ToHtml(false));
+        _content.Text = ElementText.ToBbcode(visible, e => (_semanticColor ?? Ui.ElementTextColor(e)).ToHtml(false));
     }
     public override GodotObject _MakeCustomTooltip(string forText) => string.IsNullOrEmpty(forText) ? null! : Ui.ElementTooltip(forText);
 }

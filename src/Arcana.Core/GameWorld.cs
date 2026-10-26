@@ -154,7 +154,7 @@ public sealed partial class GameWorld
             return applied;
         }
         if (message.Type is "element" or "clear" or "cast" or "self" or "nova") p.SelectionSequence = message.Sequence;
-        if (DefensePaused && message.Type is not ("input" or "release")) { p.LastSequence = message.Sequence; return false; }
+        if ((DefensePaused || IsDefense && _defenders[p.Id].ShopOpen) && message.Type is not ("input" or "release")) { p.LastSequence = message.Sequence; return false; }
         if (message.Type == "input")
         {
             if (!float.IsFinite(message.MoveX) || !float.IsFinite(message.MoveY) ||
@@ -229,6 +229,7 @@ public sealed partial class GameWorld
                 continue;
             }
             if (p.Bot) { if (IsDefense) ThinkDefenseBot(p, dt); else ThinkBot(p, dt); }
+            else if (IsDefense && _defenders[p.Id].ShopOpen) ThinkDefenseAssistance(p, dt);
             if (Time - p.LastInput > 0.6)
             {
                 CancelCast(p);

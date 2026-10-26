@@ -116,14 +116,14 @@ public partial class Main
                 {
                     _statisticsPanel.SelectScaleForVerification(scale);
                     var chart = (StatisticsBarChart)_statisticsPanel.FindChild("ElementDamageBars", true, false);
-                    foreach (var category in chart.Categories.Where(c => c.Parts != null && c.ElementTextLabel != "Vida" && c.ElementTextLabel != "Escudo"))
+                    foreach (var category in chart.Categories.Where(c => c.Parts != null && c.Label != "Vida" && c.Label != "Escudo"))
                     {
                         if (Math.Abs(category.Parts!.Sum(p => p.Value) - category.Value) > .001 ||
-                            category.Parts[0].ElementTextLabel != "Hechizos directos" || category.Parts[1].ElementTextLabel != "Áreas")
+                            category.Parts[0].Label != "Hechizos directos" || category.Parts[1].Label != "Áreas")
                             throw new InvalidOperationException("La gráfica no separa hechizos y áreas o duplica daño.");
                     }
-                    var water = chart.Categories.Single(c => c.ElementTextLabel == "Agua");
-                    if (water.Parts!.Single(p => p.ElementTextLabel == "Sin desglose").Value != 2700)
+                    var water = chart.Categories.Single(c => c.Label == "Agua");
+                    if (water.Parts!.Single(p => p.Label == "Sin desglose").Value != 2700)
                         throw new InvalidOperationException("La gráfica atribuye daño antiguo a hechizos o áreas.");
                     if (chart.DataScale.Logarithmic != (scale == 2)) throw new InvalidOperationException("El selector de escala no cambia la gráfica.");
                 }
@@ -158,7 +158,7 @@ public partial class Main
                 var dealt = (StatisticsBarChart)_statisticsPanel.FindChild("EnemyDamageDealtBars", true, false);
                 var received = (StatisticsBarChart)_statisticsPanel.FindChild("EnemyDamageReceivedBars", true, false);
                 if (dealt.ScaleMaximum != 1900 * species || received.ScaleMaximum != 8_000_500 * species ||
-                    !dealt.Categories.Select(c => c.ElementTextLabel).SequenceEqual(received.Categories.Select(c => c.ElementTextLabel)))
+                    !dealt.Categories.Select(c => c.Label).SequenceEqual(received.Categories.Select(c => c.Label)))
                     throw new InvalidOperationException("El daño recibido aplana la escala del realizado o cambia el orden de las especies.");
                 _statisticsPanel.SelectModeForVerification(1);
                 foreach (string name in new[] { "EnemyDamageDealtBars", "EnemyDamageReceivedBars" })

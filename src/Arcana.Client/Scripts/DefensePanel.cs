@@ -236,8 +236,8 @@ public partial class DefensePanel : Control
         _wallet.Text = $"Oro: {p.Gold} · Nivel {p.Level} · Bajas {p.Kills} · Vidas {p.LivesRemaining}/2";
         _shopStatus.Text = snapshot.MatchEnded ? "PARTIDA TERMINADA" : defense.Paused
             ? "PARTIDA EN PAUSA · el combate y el tiempo se reanudan al cerrar la tienda."
-            : defense.HumanCount > 1 ? "COMBATE EN CURSO · hay otros humanos en la partida."
-            : "Al abrir la tienda se pausa la partida, incluidos los bots aliados.";
+            : defense.HumanCount > 1 ? "COMBATE EN CURSO · IA defensiva activa mientras consultas esta pantalla. Tu mago puede recibir daño."
+            : "El menú, la clasificación y el inventario pausan la partida cuando eres el único humano.";
         _equipmentSummary.Text = $"{p.Items.Count(i => i.Equipped)}/{Enum.GetValues<EquipmentSlot>().Length} ranuras equipadas · {p.Items.Length}/{DefenseRules.InventoryLimit} piezas temporales";
         bool buying = _wizard.Alive && !snapshot.MatchEnded;
         for (int i = 0; i < 3; i++)

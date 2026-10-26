@@ -496,10 +496,11 @@ public partial class Main : Node
             }
             return;
         }
+        SynchronizeDefenseInterface();
         _inputTime += delta;
         if (_practice != null)
         {
-            if (!_paused && !_help.Visible)
+            if (_practice.IsDefense || !_paused && !_help.Visible)
             {
                 Submit(InputMessage());
                 if (_practiceSession != null) _practiceSession.Step(); else _practice.Step();
@@ -543,7 +544,7 @@ public partial class Main : Node
     {
         bool alive = SynchronizeLocalLife();
         float x = 0, y = 0;
-        if (alive && !_paused && !_help.Visible && !InspectingEquipment && !ControlsOpen)
+        if (alive && !_paused && !_help.Visible && !InspectingEquipment && !ControlsOpen && !DefenseInterfaceOpen)
         {
             if (_touch != null) { x = _touch.Movement.X; y = _touch.Movement.Y; }
             else
@@ -553,7 +554,7 @@ public partial class Main : Node
             }
         }
         if (x != 0 || y != 0) _moveTo = false;
-        return new() { Type = "input", MoveX = x, MoveY = y, MoveTo = alive && _moveTo && !_paused && !_help.Visible && !InspectingEquipment && !ControlsOpen,
+        return new() { Type = "input", MoveX = x, MoveY = y, MoveTo = alive && _moveTo && !_paused && !_help.Visible && !InspectingEquipment && !ControlsOpen && !DefenseInterfaceOpen,
             TargetX = _target.X, TargetY = _target.Y, AimX = _aim.X, AimY = _aim.Y };
     }
     private void Submit(ClientMessage message)
@@ -579,7 +580,7 @@ public partial class Main : Node
             if (ControlsOpen && key.PhysicalKeycode != Key.Escape) { GetViewport().SetInputAsHandled(); return; }
             if (key.PhysicalKeycode == Key.F1) { if (!InspectingEquipment) ToggleHelp(); GetViewport().SetInputAsHandled(); return; }
         }
-        if (!_playing || _paused || _help.Visible || InspectingEquipment || ControlsOpen ||
+        if (!_playing || _paused || _help.Visible || InspectingEquipment || ControlsOpen || DefenseInterfaceOpen ||
             _waitingPanel?.Visible == true) return;
         if (input is InputEventKey { Pressed: true, Echo: false } press)
         {
@@ -621,6 +622,7 @@ public partial class Main : Node
             ? "ESTA PARTIDA: " + MatchRules.Objective(_snapshot.Mode, _snapshot.ScoreLimit, _snapshot.StartingTickets, _snapshot.Map)
             : "Los límites se eligen al crear la sala. Su objetivo aparece antes de entrar.";
         if (_playing && _help.Visible) StopInput();
+        SynchronizeDefenseInterface();
         UpdateTouchVisibility();
     }
     private void TogglePause()
@@ -630,6 +632,7 @@ public partial class Main : Node
         if (_relicMenuButton != null) _relicMenuButton.Visible = HasRelics;
         UpdateSurvivalSaveActions();
         if (_paused) StopInput();
+        SynchronizeDefenseInterface();
         UpdateTouchVisibility();
     }
     private void StopInput() { _moveTo = false; _aimMarker.Hide(); _touch?.Reset(); Submit(new() { Type = "release" }); Submit(InputMessage()); }
@@ -780,7 +783,8 @@ public partial class Main : Node
     private Control BuildPause()
     {
         var root = Modal(out var box, trackHelp: false);
-        box.AddChild(Ui.Label("En red, la partida continúa mientras estás en este menú.", 17, Ui.Muted));
+        _defenseInterfaceHint = Ui.Label("En red, la partida continúa mientras estás en este menú.", 17, Ui.Muted);
+        _defenseInterfaceHint.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_defenseInterfaceHint);
         AddSurvivalSaveActions(box);
         _relicMenuButton = Ui.Button("Reliquias recogidas", OpenRelics);
         _relicMenuButton.Name = "PauseRelics"; _relicMenuButton.Visible = false; box.AddChild(_relicMenuButton);

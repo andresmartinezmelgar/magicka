@@ -7,7 +7,7 @@ public partial class MatchStatisticsPanel
 {
     private int _chartIndex;
     private readonly Dictionary<string, (double Value, double Shield)> _chartValues = new(StringComparer.Ordinal);
-    private readonly record struct Bar(string ElementTextLabel, double Value, double Shield, Color Color);
+    private readonly record struct Bar(string Label, double Value, double Shield, Color Color);
     private static Color ElementTint(int element) => element < 8 ? Ui.ElementColor((Element)element) : Ui.Muted;
     private double GroupSum(StatisticGroup group, StatisticMeasure measure) =>
         _totals.Where(p => p.Key.Item1 == group && p.Key.Item3 == measure).Sum(p => p.Value);
@@ -33,10 +33,10 @@ public partial class MatchStatisticsPanel
         legend.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(legend);
         foreach (var item in data)
         {
-            _chartValues[title + "/" + item.ElementTextLabel] = (item.Value, item.Shield);
+            _chartValues[title + "/" + item.Label] = (item.Value, item.Shield);
             var row = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; row.AddThemeConstantOverride("separation", 4); box.AddChild(row);
             var labels = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; labels.AddThemeConstantOverride("separation", 12); row.AddChild(labels);
-            var name = Ui.Label(item.ElementTextLabel, 15, item.Color); name.AutowrapMode = TextServer.AutowrapMode.WordSmart; name.SizeFlagsHorizontal = SizeFlags.ExpandFill; labels.AddChild(name);
+            var name = Ui.Label(item.Label, 15, item.Color); name.AutowrapMode = TextServer.AutowrapMode.WordSmart; name.SizeFlagsHorizontal = SizeFlags.ExpandFill; labels.AddChild(name);
             string text = damage ? $"{StatisticsPresentation.Number(item.Value)} vida · {StatisticsPresentation.Number(item.Shield)} escudo"
                 : StatisticsPresentation.Number(item.Value) + (unit.Length > 0 ? " " + unit : "");
             if (unit != "%") text += " · " + StatisticsPresentation.Percent(item.Value + item.Shield, total);
@@ -86,7 +86,7 @@ public partial class MatchStatisticsPanel
         var bar = scroll.GetHScrollBar(); bar.CustomMinimumSize = new(0, Ui.IsMobile ? 20 : 16);
         bar.AddThemeStyleboxOverride("scroll", Ui.Panel(ArcanaMenuChrome.Backdrop, 6, ArcanaMenuChrome.Border));
         bar.AddThemeStyleboxOverride("grabber", Ui.Panel(Ui.Blue.Darkened(0.35f), 6, Ui.Blue));
-        foreach (var category in categories) _chartValues[title + "/" + category.ElementTextLabel] = (category.Value, 0);
+        foreach (var category in categories) _chartValues[title + "/" + category.Label] = (category.Value, 0);
         if (categories.All(c => c.Value == 0)) box.AddChild(Ui.Label("Sin actividad registrada para esta selección.", 15, Ui.Muted));
         var legend = Ui.Label(StatisticsPresentation.ScaleNote(chart.DataScale) + " Porcentajes sobre la suma de los valores de esta gráfica. " +
             (enemies ? "Desliza horizontalmente para ver todos los enemigos." : "Vida mide curación y Escudo, absorción. Desliza si no caben los elementos."), 14, Ui.Muted);
@@ -95,7 +95,7 @@ public partial class MatchStatisticsPanel
         foreach (string header in new[] { enemies ? "Enemigo" : "Elemento", "Valor", "% del total" }) Ui.TableCell(values, header, header: true, size: 14);
         double total = categories.Sum(c => c.Value);
         foreach (var category in categories)
-            foreach (string cell in new[] { category.ElementTextLabel, StatisticsPresentation.Number(category.Value), StatisticsPresentation.Percent(category.Value, total) })
+            foreach (string cell in new[] { category.Label, StatisticsPresentation.Number(category.Value), StatisticsPresentation.Percent(category.Value, total) })
                 Ui.TableCell(values, cell, size: 14);
         if (categories.Any(c => c.Parts != null))
         {
@@ -103,7 +103,7 @@ public partial class MatchStatisticsPanel
             foreach (string header in new[] { "Elemento / origen", "Valor", "% del elemento" }) Ui.TableCell(detail, header, header: true, size: 14);
             foreach (var category in categories.Where(c => c.Parts != null))
                 foreach (var part in category.Parts!)
-                    foreach (string cell in new[] { category.ElementTextLabel + " · " + part.ElementTextLabel, StatisticsPresentation.Number(part.Value), StatisticsPresentation.Percent(part.Value, category.Value) })
+                    foreach (string cell in new[] { category.Label + " · " + part.Label, StatisticsPresentation.Number(part.Value), StatisticsPresentation.Percent(part.Value, category.Value) })
                         Ui.TableCell(detail, cell, size: 14);
         }
     }

@@ -63,7 +63,8 @@ public partial class Main
                     Button("EquipmentAutoSell_" + autoId).EmitSignal(BaseButton.SignalName.Pressed);
                     var preferences = DevicePreferences.Inventory(fixture.Profile.Uid, false);
                     Check(preferences.AutoSells(autoStyle) && preferences.AutomaticSales(panel.PreviewProfile!).Length == 0 &&
-                        Button("EquipmentAutoSell_" + autoId).Text == "Conservar también los de calidad inferior", "El filtro vende piezas anteriores o no se activa.");
+                        Button("EquipmentAutoSell_" + autoId).Text == "No más de este estilo de calidad inferior" &&
+                        ((StyleBoxFlat)Button("EquipmentAutoSell_" + autoId).GetThemeStylebox("normal")).BorderColor == Ui.Health, "El filtro vende piezas anteriores o no se activa.");
                     ((MenuButton)panel.FindChild("EquipmentActions", true, false)).GetPopup().EmitSignal(PopupMenu.SignalName.IdPressed, 5L);
                     var autoDialog = (AcceptDialog)panel.FindChild("EquipmentAutoSellDialog", true, false);
                     Check(autoDialog.Visible, "No se pueden consultar los filtros.");

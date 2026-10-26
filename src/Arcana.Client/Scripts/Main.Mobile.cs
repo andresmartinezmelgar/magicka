@@ -47,15 +47,15 @@ public partial class Main
         _touch.MagickAvailable = slot => CheckMagickAvailable(slot, checkTarget: false);
         _touch.ActionRequested += message =>
         {
-            if (!_playing || _paused || _help.Visible || InspectingEquipment || ControlsOpen || _waitingPanel?.Visible == true) return;
+            if (!_playing || _paused || _help.Visible || InspectingEquipment || ControlsOpen || DefenseInterfaceOpen || _waitingPanel?.Visible == true) return;
             UpdateTouchAim();
             if (message.Type == "magick") UseMagick(message.Slot);
             else { Submit(InputMessage()); Submit(message); }
         };
-        _touch.AimChanged += () => { if (_playing && !_paused && !_help.Visible && !InspectingEquipment && !ControlsOpen && _waitingPanel?.Visible != true) { UpdateTouchAim(); Submit(InputMessage()); } };
+        _touch.AimChanged += () => { if (_playing && !_paused && !_help.Visible && !InspectingEquipment && !ControlsOpen && !DefenseInterfaceOpen && _waitingPanel?.Visible != true) { UpdateTouchAim(); Submit(InputMessage()); } };
         _touch.HelpRequested += ToggleHelp;
         _touch.MenuRequested += TogglePause;
-        _touch.ScoreRequested += () => { if (_hud != null) { StopInput(); _hud.ScoreOpen = !_hud.ScoreOpen; } };
+        _touch.ScoreRequested += () => { if (_hud != null) { StopInput(); _hud.ScoreOpen = !_hud.ScoreOpen; SynchronizeDefenseInterface(); } };
     }
     private void UpdateTouchAim()
     {
