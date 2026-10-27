@@ -106,9 +106,11 @@ public partial class Main
                 _survivalSaveSmokePhase = 3; return false;
             }
             var human = _practice.Players[_localId];
-            human.Health = 0; human.Deaths = DefenseRules.PlayerLives;
-            _practice.ApplyMessage(_localId, new() { Type = "defense_shop", Slot = 0, Sequence = human.LastSequence + 1 });
-            _practice.Step(); AutosaveSurvival("finished");
+            human.Health = 1; human.Deaths = DefenseRules.PlayerLives - 1; human.Invulnerable = 0; human.Shield = 0;
+            // Usa la muerte real para comprobar también la transición de fin de partida.
+            typeof(GameWorld).GetMethod("Damage", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(_practice, new object?[] { human, 1000000f, human.Id, null });
+            AutosaveSurvival("finished");
             Check(_practice.MatchEnded && !HasSurvivalSave, "La partida terminada conserva un autoguardado recuperable.");
             ReturnToLauncher();
             ContinueSurvival(); Check(!Loading && !_playing, "Una partida terminada reaparece desde el respaldo.");

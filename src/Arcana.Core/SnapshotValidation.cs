@@ -86,7 +86,9 @@ public static partial class SnapshotValidation
         foreach (var b in state.Beams!) if (b == null || !Position(map, b.From) || !Position(map, b.To) ||
             // Una cadena eléctrica puede unir dos objetivos a lados distintos del cono.
             !Size(V2.Distance(b.From, b.To), (b.Shape switch { SpellShape.Beam => 17.1f, SpellShape.Spray => 6.6f, SpellShape.Lightning => 17.2f, SpellShape.Force => 4.1f, _ => -1 }) *
-                (state.Players!.Any(p => p.Id == b.Owner && p.Equipment != null) ? 1.35f : 1)) ||
+                // Un reflejo cambia de propietario, pero conserva el alcance restante del lanzador original.
+                (b.Interaction is "reflected" or "refracted" or "merged" ||
+                    state.Players!.Any(p => p.Id == b.Owner && p.Equipment != null) ? 1.35f : 1)) ||
             !Elements(b.Elements, 10) || !Size(b.Power, 4) || b.Interaction is not ("direct" or "merged" or "reflected" or "refracted")) Invalid();
         ids.Clear();
         foreach (var p in state.Points!) if (p == null || p.Id < 0 || p.Id >= map.ControlPoints.Count || !ids.Add(p.Id) ||

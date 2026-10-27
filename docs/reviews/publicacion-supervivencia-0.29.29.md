@@ -21,8 +21,12 @@ Datos: [medicion-mapas-supervivencia-0.29.29.json](medicion-mapas-supervivencia-
 
 ## Validación y correcciones previas
 
-Las nueve pruebas de continuidad se ejecutaron localmente y pasaron. Se compilaron Core, Tests y Client. Se corrigió la ambigüedad entre `System.Environment` y `Godot.Environment` al medir la suspensión.
+La suite completa se ejecutó localmente: **537 correctas, 0 fallidas**, incluidas las diez regresiones de continuidad. Se compilaron Core, Tests y Client. Se corrigió la ambigüedad entre `System.Environment` y `Godot.Environment` al medir la suspensión.
 
 La suite completa inicial detectó cuatro escenarios dependientes del mapa antiguo. El escenario integral de rendimiento ahora usa los portales del mapa generado y coloca las reliquias dentro de sus salas; la prueba histórica de daño fija explícitamente su terreno original. La comprobación visual de sectores también usa los portales reales y compara la cámara con su destino, sin coordenadas antiguas. La ayuda describe el mapa variable.
+
+Se detectó además que un rayo reflejado cambia de propietario pero mantiene el alcance restante del lanzador equipado. El validador ahora admite ese alcance dentro del máximo de equipo, manteniendo el límite de los rayos directos sin equipo. Una regresión comprueba los tres casos: reflejo válido, directo sin alcance prestado y reflejo por encima del máximo.
+
+La simulación de guardado provoca la última muerte mediante la ruta real de daño; asignar manualmente cero de vida no ejecutaba la transición de fin de partida.
 
 La publicación exige que CI vuelva a ejecutar la suite completa, pruebas LAN, simulaciones visuales, reglas Firestore, Docker y empaquetados. El job de preliminares depende de todas esas comprobaciones y verifica la firma permanente y los SHA-256 antes de publicar. La solicitud del flujo se limita a esta rama, a cambiar su activador y al mensaje explícito de publicación; subir otros cambios no lanza una compilación.

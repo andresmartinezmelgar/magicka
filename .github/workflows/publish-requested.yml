@@ -1,7 +1,7 @@
 name: Publicacion de Supervivencia expresamente solicitada
 
 # Activador limitado a la rama y a la petición de tag/APK del usuario.
-# Revisión 1: coordenadas del escenario de rendimiento adaptadas al mapa generado.
+# Revisión 2: alcance conservado al reflejar rayos y muerte real en la prueba de guardado.
 on:
   push:
     branches: [pruebas/supervivencia-procedural-autoguardado]

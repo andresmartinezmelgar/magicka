@@ -23,6 +23,19 @@ internal static class SurvivalContinuityTests
 
     internal static void Run(Action<string, Action> test)
     {
+        test("Red: un reflejo conserva el alcance del lanzador y los rayos directos siguen acotados", () =>
+        {
+            var world = new GameWorld(new() { Mode = GameMode.Arena });
+            world.AddPlayer("Lanzador", 0); var reflector = world.AddPlayer("Reflector", 1)!;
+            var ray = new BeamSnapshot(reflector.Id, new(-11, 0), new(11, 0), [Element.Arcane],
+                SpellShape.Beam, 1, "reflected");
+            var state = world.Snapshot();
+            SnapshotValidation.Check(state with { Beams = [ray] });
+            Check(Reject(() => SnapshotValidation.Check(state with { Beams = [ray with { Interaction = "direct" }] })),
+                "Un rayo directo sin equipo obtuvo alcance prestado.");
+            Check(Reject(() => SnapshotValidation.Check(state with { Beams = [ray with { To = new(13, 0) }] })),
+                "Un reflejo superó el máximo de alcance del equipo.");
+        });
         test("Mapa procedural: 64 semillas distintas, salas accesibles, portales seguros y límites menores", () =>
         {
             var seen = new HashSet<string>();

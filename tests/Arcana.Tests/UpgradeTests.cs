@@ -77,7 +77,12 @@ internal static class UpgradeTests
                 }
                 var decoded = receiver.Decode(bytes[0] == 0xA1 ? Protocol.DecompressSnapshotPayload(bytes) : bytes)!;
                 Check(Protocol.Serialize(decoded.Snapshot) == Protocol.Serialize(current.Snapshot), "Cambió una entidad o el equipo temporal.");
-                SnapshotValidation.Check(decoded.Snapshot!);
+                try { SnapshotValidation.Check(decoded.Snapshot!); }
+                catch (InvalidDataException error)
+                {
+                    Console.WriteLine($"HORDE_SNAPSHOT_INVALID frame={i} tick={current.Snapshot!.Tick}: {error}");
+                    throw;
+                }
             }
         });
         test("IA: la consulta espacial conserva exactamente la separación anterior", () =>
