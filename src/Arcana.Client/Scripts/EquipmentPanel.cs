@@ -131,7 +131,7 @@ public partial class EquipmentPanel : Control
         _progressStats = Ui.Table(2, "EquipmentProgressStatsTable"); summary.AddChild(_progressStats);
         _combatPreview = Ui.Label("", 15, Ui.Muted); _combatPreview.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_combatPreview);
         _detailTitle = Ui.Label("", 17, Ui.Gold); _detailTitle.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_detailTitle);
-        _details = Ui.Table(3, "EquipmentDetailsTable"); summary.AddChild(_details);
+        _details = Ui.Table(2, "EquipmentDetailsTable"); summary.AddChild(_details);
         _detailEffects = new VBoxContainer { Name = "EquipmentDetailEffects" }; summary.AddChild(_detailEffects);
         _empty = Ui.Label("", 14, Ui.Muted); _empty.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_empty);
         BuildSaleModal();

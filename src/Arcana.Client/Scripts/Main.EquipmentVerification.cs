@@ -157,7 +157,7 @@ public partial class Main
             }
             var panel = _equipmentPanel!;
             AssertInventorySplit(panel);
-            Check(_engineLog.ErrorCount == 0 && panel.VisibleItems == 30 && panel.Details.Contains("Límites (mín.") &&
+            Check(_engineLog.ErrorCount == 0 && panel.VisibleItems == 30 && panel.Details.Contains("Actual (máx.)") &&
                 panel.Totals.Contains("procedencia") && panel.Totals.Contains("Aplicado"), "Faltan los atributos o los totales del inventario.");
             Check(panel.Totals.Contains("Conjunto Vida (4/4):"), "La procedencia visible no identifica el conjunto activo.");
             Check(!panel.FindChildren("*", "Button", true, false).OfType<Button>().Any(b => b.Text is "‹" or "›"), "El inventario conserva las flechas.");
@@ -186,7 +186,7 @@ public partial class Main
             var totals = (GridContainer)panel.FindChild("EquipmentTotalsTable", true, false);
             var cells = totals.GetChildren().OfType<ElementTextLabel>().ToArray();
             Check(cells[totals.Columns - 1].Text.StartsWith("Atributo") &&
-                ((ElementTextLabel)panel.FindChild("EquipmentDetailsTable", true, false).GetChild(2)).Text == "Atributo",
+                ((ElementTextLabel)panel.FindChild("EquipmentDetailsTable", true, false).GetChild(1)).Text == "Atributo",
                 "Los nombres de atributos no ocupan la última columna.");
             int attack = Array.FindIndex(cells, l => l.Text.Split('\n')[0] == "Ataque");
             Check(attack >= 0 && (totals.Columns == 2

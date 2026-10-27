@@ -5,38 +5,33 @@ namespace Arcana.Client;
 
 public partial class EquipmentPanel
 {
-    private readonly record struct ItemStatRow(EquipmentStat Stat, float Current, float? Minimum, float? Maximum);
+    private readonly record struct ItemStatRow(EquipmentStat Stat, float Current, float? Maximum);
 
     internal static string NumberedImprovements(string text) => string.Join("\n\n", text
         .Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
         .Select((line, index) => $"{index + 1}. {line}"));
 
     internal static void RenderItemStats(GridContainer table, EquipmentItem item) => RenderItemStats(table, item.Slot,
-        item.Bonuses.Select(b => new ItemStatRow(b.Stat, b.Current, b.Minimum, b.Maximum)));
+        item.Bonuses.Select(b => new ItemStatRow(b.Stat, b.Current, b.Maximum)));
 
     internal static void RenderItemStats(GridContainer table, PublicEquipmentItem item) => RenderItemStats(table, item.Slot,
-        item.Bonuses.Select(b => new ItemStatRow(b.Stat, b.Current, null, null)));
+        item.Bonuses.Select(b => new ItemStatRow(b.Stat, b.Current, null)));
 
     private static void RenderItemStats(GridContainer table, EquipmentSlot slot, IEnumerable<ItemStatRow> bonuses)
     {
         Clear(table);
-        bool compact = table.Columns == 2;
+        table.Columns = 2;
         var rows = bonuses.ToArray();
-        Cell(table, compact && rows.Any(b => b.Minimum != null) ? "Actual / límites" : "Actual", true, header: true);
-        if (!compact) Cell(table, "Límites (mín. / máx.)", true, header: true);
+        Cell(table, rows.Any(b => b.Maximum != null) ? "Actual (máx.)" : "Actual", true, header: true);
         Cell(table, "Atributo", header: true);
         int index = 0;
         foreach (var bonus in rows)
         {
             bool active = EquipmentCatalogue.BonusActive(slot, bonus.Stat);
             string value = active ? EquipmentCatalogue.Percent(bonus.Current) : "Inactivo";
-            string limits = bonus.Minimum is { } minimum && bonus.Maximum is { } maximum
-                ? EquipmentCatalogue.Percent(minimum) + " / " + EquipmentCatalogue.Percent(maximum) : "No publicados";
-            if (compact && bonus.Minimum != null)
-                value += "\nMín. " + EquipmentCatalogue.Percent(bonus.Minimum.Value) + "\nMáx. " + EquipmentCatalogue.Percent(bonus.Maximum!.Value);
+            if (bonus.Maximum is { } maximum) value += " (" + EquipmentCatalogue.Percent(maximum) + ")";
             var applied = Cell(table, value, true, active ? bonus.Current < 0 ? Ui.Red : Ui.Blue : Ui.Muted);
             applied.SizeFlagsHorizontal = SizeFlags.Fill;
-            if (!compact) Cell(table, limits, true, Ui.Muted).SizeFlagsHorizontal = SizeFlags.Fill;
             var attribute = Cell(table, $"{++index}. {StatName(bonus.Stat)}");
             attribute.TooltipText = active ? EquipmentCatalogue.StatDescription(bonus.Stat)
                 : "Inactivo en esta ranura. El anillo mágico solo aporta capacidad de escudo y su habilidad elemental.";
