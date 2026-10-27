@@ -29,4 +29,6 @@ Se detectó además que un rayo reflejado cambia de propietario pero mantiene el
 
 La simulación de guardado provoca la última muerte mediante la ruta real de daño; asignar manualmente cero de vida no ejecutaba la transición de fin de partida.
 
+Reiniciar cambiaba el terreno, pero dejaba en el snapshot rayos y eventos recientes con coordenadas del mapa anterior. Se retiran al reiniciar; la regresión lanza un rayo desde un portal y comprueba que la nueva partida no reproduce sus efectos ni eventos. La suite completa vuelve a pasar con 537 pruebas.
+
 La publicación exige que CI vuelva a ejecutar la suite completa, pruebas LAN, simulaciones visuales, reglas Firestore, Docker y empaquetados. El job de preliminares depende de todas esas comprobaciones y verifica la firma permanente y los SHA-256 antes de publicar. La solicitud del flujo se limita a esta rama, a cambiar su activador y al mensaje explícito de publicación; subir otros cambios no lanza una compilación.

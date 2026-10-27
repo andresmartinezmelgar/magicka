@@ -5,7 +5,7 @@
 - Supervivencia genera un mapa nuevo de 160 × 120 m en cada partida, con nueve salas, pasillos variables, rutas de escape y portales. Continuar conserva el mismo terreno.
 - El equipo muestra su aura en combate y en el inventario. Una sola pieza mítica activa filamentos de energía; los ojos siguen requiriendo las seis piezas míticas.
 - Autoguardado local cada 20 segundos, al cambiar de aplicación y al salir. Android conserva la carga y la partida al perder el foco; continuar recupera el último punto disponible.
-- Los guardados anteriores conservan su mapa original. La semilla se comparte con el minimapa y la navegación; reiniciar descarta las rutas del terreno anterior.
+- Los guardados anteriores conservan su mapa original. La semilla se comparte con el minimapa y la navegación; reiniciar descarta rutas, rayos y eventos del terreno anterior.
 - Se añaden diez regresiones de continuidad y una medición separada del coste de generar terreno y preparar navegación. Se valida el alcance original de los rayos reflejados aunque cambien de propietario. Protocolo 39, formato de guardado v2.
 
 ## 0.29.28

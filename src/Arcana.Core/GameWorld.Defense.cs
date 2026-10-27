@@ -473,6 +473,8 @@ public sealed partial class GameWorld
     private void ResetDefense()
     {
         if (!IsDefense) return;
+        // Los efectos transitorios del terreno anterior no pertenecen al mapa recién generado.
+        _beams.Clear(); _events.Clear();
         if (Map.SurvivalMap is { } previous)
         {
             Map = ArenaMap.Get(ArenaMapId.Bastion, SurvivalMapSpec.New(previous));

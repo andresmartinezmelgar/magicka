@@ -91,11 +91,22 @@ internal static class SurvivalContinuityTests
             var (world, human) = World(); var (other, _) = World();
             Check(world.Map.SurvivalMap is { Version: 1 } && other.Map.SurvivalMap != world.Map.SurvivalMap,
                 "Dos partidas nuevas usan la misma semilla.");
+            human.Position = world.Map.Teleports[0].A;
+            world.ApplyMessage(human.Id, new() { Type = "input", AimX = human.Position.X + 8,
+                AimY = human.Position.Y, Sequence = human.LastSequence + 1 });
+            world.ApplyMessage(human.Id, new() { Type = "element", Element = Element.Arcane, Sequence = human.LastSequence + 1 });
+            world.ApplyMessage(human.Id, new() { Type = "cast", Sequence = human.LastSequence + 1 });
+            world.Step();
+            Check(world.Snapshot().Beams.Length > 0, "No se preparó el rayo de la partida anterior.");
             var before = world.Map.SurvivalMap; human.Health = 0; human.Deaths = DefenseRules.PlayerLives;
             Call(world, "CheckSurvivalEnd");
+            var previousEvents = world.Snapshot().Events.Select(e => e.Id).ToHashSet();
             Check(world.RestartDefense() && world.Map.SurvivalMap != before && world.Map.Walkable(human.Position),
                 "Reiniciar conserva el mapa anterior o deja al jugador fuera.");
-            SnapshotValidation.Check(world.Snapshot());
+            var restarted = world.Snapshot();
+            Check(restarted.Beams.Length == 0 && restarted.Events.All(e => !previousEvents.Contains(e.Id)),
+                "Reiniciar reproduce ataques o eventos del mapa anterior.");
+            SnapshotValidation.Check(restarted);
         });
         test("Mapa procedural: snapshot JSON y delta reconstruyen exactamente el mapa del servidor", () =>
         {
