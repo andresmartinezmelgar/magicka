@@ -26,13 +26,13 @@ internal static class ComprehensiveAuditTests
     }
     private static void Equipment(Wizard player, EquipmentModifiers equipment) =>
         typeof(Wizard).GetProperty(nameof(Wizard.Equipment))!.SetValue(player, equipment);
-    private static void Ground(GameWorld world, Wizard owner, V2 position, Element element)
+    private static void Ground(GameWorld world, Wizard owner, V2 position, Element element, bool healing = false)
     {
         var type = typeof(GameWorld).Assembly.GetType("Arcana.Core.Field")!;
         object field = Activator.CreateInstance(type)!;
         int id = (int)Get(world, "_nextEntity"); Set(world, "_nextEntity", id + 1);
         foreach (var (name, value) in new (string, object)[] { ("Id", id), ("Owner", owner.Id), ("Position", position),
-            ("Radius", 3f), ("Lifetime", 4f), ("Recipe", new SpellRecipe([element])),
+            ("Radius", 3f), ("Lifetime", 4f), ("Recipe", new SpellRecipe(healing ? [element, Element.Life] : [element])),
             ("Kind", element == Element.Fire ? "burning_ground" : "frost_ground") }) Set(field, name, value);
         ((IList)Get(world, "_fields")).Add(field);
     }
@@ -46,8 +46,10 @@ internal static class ComprehensiveAuditTests
             test($"Revisión integral: el suelo de {element} conserva potencia y bando tras morir su creador", () => PersistentGround(element, false));
             test($"Revisión integral: guardar y continuar conserva el origen del suelo de {element}", () => PersistentGround(element, true));
             test($"Revisión integral: la asistencia sale de su propio suelo dañino de {element}", () => OwnGround(element));
+            test($"Revisión integral: la asistencia evita su suelo de {element} incluso mezclado con Vida", () => OwnGround(element, true));
         }
         test("Revisión integral: un guardado con oro de botín inválido se rechaza antes de jugar", InvalidSavedGold);
+        test("Revisión integral: la asistencia distingue meteoritos propios inocuos de las áreas dañinas", SafeOwnMeteors);
         foreach (bool restore in new[] { false, true })
         {
             test($"Revisión integral: el proyectil póstumo conserva daño y bando; continuación={restore}", () => PersistentProjectile(restore));
@@ -198,11 +200,11 @@ internal static class ComprehensiveAuditTests
         Check(((IDictionary)Get(world, "_lingeringSources")).Count == 0, "La fuente de la quemadura no se libera.");
     }
 
-    private static void OwnGround(Element element)
+    private static void OwnGround(Element element, bool healing = false)
     {
         var (world, player) = World();
         var ally = world.AddPlayer("Aliado")!; ally.Position = new(-8, 5); ally.Invulnerable = 0;
-        Ground(world, player, player.Position, element);
+        Ground(world, player, player.Position, element, healing);
         float health = player.Health;
         Call(world, "TickWallsAndFields", GameWorld.StepSeconds);
         Check(player.Health < health, "El área propia no causa daño en el escenario de prueba.");
@@ -210,5 +212,21 @@ internal static class ComprehensiveAuditTests
         Check(world.ApplyMessage(player.Id, new() { Type = "defense_shop", Slot = 1, Sequence = 1 }), "No pudo activar la asistencia.");
         var before = player.Position; world.Step();
         Check(V2.Distance(before, player.Position) > .01f, "La asistencia no abandona su propio campo.");
+    }
+
+    private static void SafeOwnMeteors()
+    {
+        foreach (string kind in new[] { "meteor", "defense_meteor" })
+        {
+            var (world, player) = World();
+            Ground(world, player, player.Position, Element.Fire);
+            var field = ((IList)Get(world, "_fields"))[0]!;
+            Set(field, "Kind", kind); Set(field, "Power", 260f);
+            Set(field, "Recipe", new SpellRecipe([Element.Earth, Element.Fire]));
+            Check((float)Call(world, "AssistanceHazard", player, player.Position)! == 0,
+                "La asistencia huye de un meteorito propio que no puede dañarla: " + kind);
+            Call(world, "TickWallsAndFields", GameWorld.StepSeconds);
+            Check(player.Health == player.MaxHealth, "El meteorito propio del escenario no es inocuo.");
+        }
     }
 }

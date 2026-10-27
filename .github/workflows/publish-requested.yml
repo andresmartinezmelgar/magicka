@@ -1,6 +1,7 @@
 name: Publicacion expresamente solicitada
 
 # Solo se edita este activador cuando el usuario solicita tag e instaladores.
+# Revisión integral: áreas propias mixtas y meteoritos inocuos incluidos.
 on:
   push:
     branches: [main]

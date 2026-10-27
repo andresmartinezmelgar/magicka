@@ -124,10 +124,15 @@ public sealed partial class GameWorld
     {
         float danger = 0;
         foreach (var field in _fields)
+        {
+            // Una mezcla con Vida también puede dañar; las minas curativas y
+            // los meteoritos propios de Supervivencia sí son inocuos.
+            if (field.Kind == "healing_mine" || field.Owner == player.Id && field.Kind is "meteor" or "defense_meteor") continue;
             // Los campos huérfanos siguen aplicando daño tras retirar al enemigo muerto.
-            if (field.Lifetime > 0 && !field.Recipe.Healing &&
+            if (field.Lifetime > 0 &&
                 (!TryCombatSource(field.Owner, out var owner) || owner.Id == player.Id || Hostile(player, owner)) &&
                 V2.Distance(at, field.Position) < field.Radius + 1) danger++;
+        }
         return danger;
     }
 

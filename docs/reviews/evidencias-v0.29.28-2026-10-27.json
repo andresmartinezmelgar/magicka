@@ -186,10 +186,10 @@
     "failed": 5
   },
   "fixed_core_tests": {
-    "passed": 524,
+    "passed": 527,
     "failed": 0
   },
-  "new_core_regressions": 18,
+  "new_core_regressions": 21,
   "caster_motion_before": "DEFENSE_SMOKE_FAILED: doble interpolación tras teletransporte a 30 FPS",
   "caster_motion_after": "ENEMY_CASTER_MOTION_OK: 24 combinaciones, sprites y auras alineados",
   "local_ui_smokes": [
@@ -200,5 +200,9 @@
   "own_ground_reproductions": {
     "passed": 16,
     "failed": 2
+  },
+  "mixed_ground_and_safe_meteor_reproductions": {
+    "passed": 18,
+    "failed": 3
   }
 }
