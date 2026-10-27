@@ -32,7 +32,7 @@ public static partial class RingEffects
         EquipmentFamily.Lightning => "Alcanza al enemigo cercano más próximo; desde nivel 6, hasta dos.",
         EquipmentFamily.Arcane => "Inflige daño arcano a los enemigos cercanos.",
         EquipmentFamily.Earth => "Inflige daño de tierra y empuja a los enemigos cercanos.",
-        _ => "Empuja a los enemigos cercanos sin causar daño."
+        _ => "Empuja a los enemigos cercanos."
     };
     public static string Describe(EquipmentSlot slot, EquipmentFamily family, int level, EquipmentModifiers? equipment = null)
     {

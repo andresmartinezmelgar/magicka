@@ -48,7 +48,7 @@ public static partial class SnapshotValidation
                 p.AutoSellStyles == null || p.AutoSellStyles.Length > EquipmentStyle.Limit || p.AutoSellStyles.Any(s => !s.Valid) ||
                 p.AutoSellStyles.Distinct().Count() != p.AutoSellStyles.Length ||
                 p.AutoSellStyles.Any(s => s.Tier == ItemTier.Silver) ||
-                p.AutoSellStyles.DistinctBy(s => (s.Slot, s.Family)).Count() != p.AutoSellStyles.Length ||
+                p.AutoSellStyles.DistinctBy(s => s.Slot).Count() != p.AutoSellStyles.Length ||
                 p.Passives is not { Length: 4 } || p.Passives.Any(a => a is < 0 or > DefenseRules.MaxPassiveLevel) ||
                 p.PassiveCooldowns is not { Length: 4 } || p.PassiveCooldowns.Any(a => !Size(a, 16.01f)) ||
                 !Size(p.BerserkerRemaining, DefenseRules.BerserkerDuration(DefenseRules.MaxPassiveLevel) + 0.01f) ||

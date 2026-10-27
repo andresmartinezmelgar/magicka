@@ -268,10 +268,12 @@ public partial class EquipmentPanel : Control
     private void RenderDetails()
     {
         Clear(_details); Clear(_detailEffects); var item = Selected();
+        _details.Visible = _detailTitle.Visible = false;
         _detailTitle.Text = EquipmentCatalogue.SlotName(_selectedSlot) + " · ATRIBUTOS INDIVIDUALES";
         if (item != null)
         {
             RenderItemStats(_details, item);
+            _detailTitle.Visible = _details.Visible;
             string effects = ItemEffects(item, ItemLevel(item), _draft == null ? null : EquipmentModifiers.Calculate(_draft, _itemLevels));
             if (effects.Length > 0) AddItemEffects(_detailEffects, $"Nivel {ItemLevel(item)}/10\n" + effects);
         }

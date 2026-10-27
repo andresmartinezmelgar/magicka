@@ -5,7 +5,9 @@ namespace Arcana.Client;
 
 public partial class EquipmentPanel
 {
-    private InventoryPreferences Preferences => DevicePreferences.Inventory(_draft?.Uid ?? "", TemporaryInventory);
+    private InventoryPreferences Preferences => DevicePreferences.Inventory(_draft?.Uid ?? "", TemporaryInventory,
+        TemporaryInventory || _main.Accounts.SignedIn && !_main.Accounts.InventoryNeedsRefresh &&
+            _main.Accounts.Profile?.Uid == _draft?.Uid ? _draft : null);
     private readonly HashSet<string> _saleSelection = new(StringComparer.Ordinal);
     private readonly List<Button> _preferenceActions = [];
     private bool _bulkMode, _confirmingBatch;

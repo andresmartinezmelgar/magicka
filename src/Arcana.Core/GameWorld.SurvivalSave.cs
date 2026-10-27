@@ -147,7 +147,8 @@ public sealed partial class GameWorld
             d.Auras.CopyTo(progress.Auras, 0); p.BuffStacks.CopyTo(progress.Buffs, 0);
             progress.Items.AddRange(d.Items);
             progress.Favorites.UnionWith(d.Favorites);
-            if (d.AutoSellRuleVersion == InventoryPreferences.CurrentAutoSellRuleVersion) progress.AutoSellStyles.UnionWith(d.AutoSellStyles);
+            if (d.AutoSellRuleVersion is 1 or InventoryPreferences.CurrentAutoSellRuleVersion)
+                progress.AutoSellStyles.UnionWith(EquipmentStyle.SlotLimits(d.AutoSellStyles));
             progress.AutoSold = d.AutoSold;
             foreach (var pair in d.Upgrades) progress.Upgrades.Add(pair.Key, pair.Value);
             foreach (var pair in d.BestiaryKills) progress.BestiaryKills.Add(pair.Key, pair.Value);
@@ -236,6 +237,7 @@ public sealed partial class GameWorld
                 d.AutoSellRuleVersion is >= 0 and <= InventoryPreferences.CurrentAutoSellRuleVersion &&
                 (d.AutoSellRuleVersion == 0 || d.AutoSellStyles.All(s => s.Tier > ItemTier.Silver) &&
                     d.AutoSellStyles.DistinctBy(s => (s.Slot, s.Family)).Count() == d.AutoSellStyles.Length) &&
+                (d.AutoSellRuleVersion < 2 || d.AutoSellStyles.DistinctBy(s => s.Slot).Count() == d.AutoSellStyles.Length) &&
                 d.Items.Select(i => i.Id).Distinct().Count() == d.Items.Length && d.Loadout != null && d.Upgrades != null &&
                 d.Upgrades.All(p => d.Items.Any(i => i.Id == p.Key) && p.Value is >= 0 and <= DefenseRules.ItemUpgradeLimit) &&
                 d.BestiaryKills != null && d.BestiaryKills.All(p => Enum.GetValues<MinionKind>().Any(k => BestiaryCatalogue.Key(k) == p.Key) && p.Value >= 0));

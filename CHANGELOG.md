@@ -1,5 +1,11 @@
 # Cambios
 
+## Sin publicar
+
+- La venta automática por calidad se aplica a toda la ranura y a cualquier elemento; las reglas anteriores se migran conservando los objetos actuales, favoritos y equipados.
+- Las fichas de objetos omiten efectos a cero, atributos inactivos y afijos retirados; los anillos muestran solo las capacidades que aportan.
+- Supervivencia elige entre diez ambientes por semilla, con suelo, bordes, iluminación y decoración propios, conservados al continuar la partida.
+
 ## 0.29.30
 
 - Supervivencia genera mapas con cantidad, tamaño, forma y distribución de salas variables, sin la cuadrícula fija de nueve salas.

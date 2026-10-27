@@ -160,6 +160,7 @@ public partial class ArenaRenderer : Node3D
         // La enumeración prepara trabajos; los nodos se crean al ejecutar cada paso.
         if (definition.Id != ArenaMapId.Bastion)
             foreach (var step in PrepareScenery(() => rootMap!, definition)) yield return step;
+        else yield return () => PrepareSurvivalScenery(rootMap!);
         yield return () => { BuildMapDetails(rootMap!); _mapPrepared = true; };
     }
     private void BuildMapDetails(Node3D rootMap)

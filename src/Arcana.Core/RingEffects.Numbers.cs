@@ -65,10 +65,10 @@ public static partial class RingEffects
         {
             lines.Add($"Regeneración del escudo de vida: {N(n.Regeneration)} HP/s mientras esté activo y tenga HP.");
             lines.Add($"Curación por pulso: {N(n.Healing)} HP por aliado ({N(n.MeanPulseHealing)} HP/s de media).");
-            lines.Add($"Media propia máxima: {N(n.MeanSelfHealing)} HP/s si el escudo aguanta. DMG/s: 0.");
+            lines.Add($"Media propia máxima: {N(n.MeanSelfHealing)} HP/s si el escudo aguanta.");
         }
         else if (family == EquipmentFamily.Shield)
-            lines.Add($"Escudo por aliado: {N(n.AllyShield)} HP por activación. HP/s de curación: 0 · DMG/s: 0.");
+            lines.Add($"Escudo por aliado: {N(n.AllyShield)} HP por activación.");
         else if (n.Damage > 0)
         {
             lines.Add($"Daño por activación: {N(n.Damage)} HP por objetivo · DMG/s medio: {N(n.MeanDamage)}.");
@@ -76,11 +76,10 @@ public static partial class RingEffects
                 lines.Add($"Quemadura adicional: {N(n.BurnPerSecond)} DMG/s durante {N(n.BurnDuration)} s. La media anterior incluye la quemadura.");
             if (family == EquipmentFamily.Lightning)
                 lines.Add($"Hasta {n.Targets} objetivo(s); cada uno recibe el daño indicado. Contra un objetivo mojado: {N(n.WetDamage)} HP por descarga.");
-            lines.Add("HP/s de curación: 0. El DMG/s medio reparte el daño entre activaciones; el pulso no causa daño continuo.");
+            lines.Add("El DMG/s medio reparte el daño entre activaciones.");
         }
         else
         {
-            lines.Add("HP/s de curación: 0 · DMG/s contra vida: 0.");
             if (n.ShieldPressure > 0) lines.Add($"Presión contra escudos: {N(n.ShieldPressure)} HP por activación; moja y empuja.");
         }
         lines.Add("Cifras base con el equipo, sin rasgos del mago, reliquias ni defensas o estados del objetivo.");

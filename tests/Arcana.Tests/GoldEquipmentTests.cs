@@ -199,7 +199,7 @@ internal static class GoldEquipmentTests
                 var equipped = AccountInventory.ApplyLoadout(saved, saved.Loadout);
                 var gear = EquipmentModifiers.Calculate(equipped);
                 Check(gear.ExtraGoldEvery == 0 && gear.GoldBonusPercent == 0 &&
-                    ItemAffixes.Describe(copy.Affix, copy.UpgradeLevel, copy.Slot).Contains("inactivo"),
+                    ItemAffixes.Describe(copy.Affix, copy.UpgradeLevel, copy.Slot).Length == 0,
                     "Una pieza antigua sigue aplicando o anunciando el oro como activo.");
                 Check(ItemAffixes.CanUpgrade(copy, 5) == RingEffects.IsRing(slot),
                     "Un afijo de oro antiguo permite cobrar mejoras sin estadísticas que mejorar.");

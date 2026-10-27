@@ -141,6 +141,7 @@ public partial class Main : Node
         if (arguments.Contains("--statistics-smoke")) StartStatisticsSmoke(arguments);
         if (arguments.Contains("--bestiary-smoke")) StartBestiarySmoke(arguments);
         if (arguments.Contains("--survival-save-smoke")) StartSurvivalSaveSmoke(arguments);
+        if (arguments.Contains("--survival-biomes-smoke")) _ = RunSurvivalBiomeSmoke(arguments);
         if (arguments.Contains("--shop-smoke")) StartShopSmoke(arguments);
         if (arguments.Contains("--sale-smoke")) StartSaleSmoke(arguments);
         if (arguments.Contains("--usability-smoke")) StartUsabilitySmoke(arguments);
@@ -384,6 +385,7 @@ public partial class Main : Node
         TickMatchStatistics(delta);
         TickSurvivalAutosave(delta);
         _renderFrames++;
+        if (_survivalBiomeSmoke) return;
         if (CheckDesktopHeaderSmoke()) return;
         if (CheckMobileMenuSmoke()) return;
         if (CheckAccountEntrySmoke()) return;

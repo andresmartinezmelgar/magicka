@@ -18,7 +18,7 @@ public partial class Main
         _autoSaleClock -= delta;
         if (_autoSaleClock > 0 || InventoryAutoSelling || !CanAutoSell || !Accounts.SignedIn || Accounts.Profile is not { } profile) return;
         _autoSaleClock = 2;
-        var preferences = DevicePreferences.Inventory(profile.Uid, false);
+        var preferences = DevicePreferences.Inventory(profile.Uid, false, Accounts.InventoryNeedsRefresh ? null : profile);
         if (preferences.AutoSellRules.Count == 0 ||
             !Accounts.InventoryNeedsRefresh && preferences.AutomaticSales(profile).Length == 0) return;
         _preparingAutoSales = true;
@@ -35,6 +35,7 @@ public partial class Main
             if (!SameAccount() || !CanAutoSell) return;
             if (Accounts.InventoryNeedsRefresh) await Accounts.Refresh(timeout.Token);
             if (!SameAccount()) return;
+            DevicePreferences.Inventory(owner, false, Accounts.Profile);
             int sold = await _inventoryAutoSeller.Run(Accounts, preferences, owner, () => CanAutoSell && SameAccount(), timeout.Token);
             if (sold > 0 && SameAccount()) _hud?.RewardNotice($"Venta automática: {sold} objetos vendidos.");
         }

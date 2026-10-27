@@ -22,21 +22,21 @@ public partial class EquipmentPanel
     {
         Clear(table);
         table.Columns = 2;
-        var rows = bonuses.ToArray();
+        var rows = bonuses.Where(b => EquipmentCatalogue.BonusActive(slot, b.Stat) && Math.Abs(b.Current) > .00001f).ToArray();
+        table.Visible = rows.Length > 0;
+        if (!table.Visible) return;
         Cell(table, rows.Any(b => b.Maximum != null) ? "Actual (máx.)" : "Actual", true, header: true);
         Cell(table, "Atributo", header: true);
         int index = 0;
         foreach (var bonus in rows)
         {
-            bool active = EquipmentCatalogue.BonusActive(slot, bonus.Stat);
-            string value = active ? EquipmentCatalogue.Percent(bonus.Current) : "Inactivo";
+            string value = EquipmentCatalogue.Percent(bonus.Current);
             if (bonus.Maximum is { } maximum)
                 value += " (Max " + MathF.Round(maximum * 100, 2).ToString("0.##", CultureInfo.InvariantCulture) + ")";
-            var applied = Cell(table, value, true, active ? bonus.Current < 0 ? Ui.Red : Ui.Blue : Ui.Muted);
+            var applied = Cell(table, value, true, bonus.Current < 0 ? Ui.Red : Ui.Blue);
             applied.SizeFlagsHorizontal = SizeFlags.Fill;
             var attribute = Cell(table, $"{++index}. {StatName(bonus.Stat)}");
-            attribute.TooltipText = active ? EquipmentCatalogue.StatDescription(bonus.Stat)
-                : "Inactivo en esta ranura. El anillo mágico solo aporta capacidad de escudo y su habilidad elemental.";
+            attribute.TooltipText = EquipmentCatalogue.StatDescription(bonus.Stat);
         }
     }
 

@@ -235,7 +235,8 @@ public partial class Main
                     Check(panel.Details.Contains("Nivel 0/10") && panel.Details.Contains(slot == EquipmentSlot.GoldRing ? "cada 11" : "se repone"),
                         "La ficha del anillo omite nivel, progresión o renovación automática.");
                 if (slot == EquipmentSlot.MagicRing)
-                    Check(panel.Details.Contains("HP/s") && panel.Details.Contains("DMG/s") && panel.Details.Contains("recarga"),
+                    Check(panel.Details.Contains("Escudo:") && panel.Details.Contains("recarga") &&
+                        !panel.Details.Contains("HP/s de curación: 0") && !panel.Details.Contains("DMG/s: 0"),
                         "La ficha del anillo mágico omite las cifras de su escudo y habilidad.");
                 Check(!panel.Saving && panel.PickerVisible && panel.SelectedSlot == slot && panel.PreviewProfile!.Loadout.Get(slot) != before.Get(slot),
                     "Equipar debe actualizar la previsualización manteniendo abierto el selector.");

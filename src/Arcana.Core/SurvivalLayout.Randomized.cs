@@ -22,7 +22,7 @@ internal static partial class SurvivalLayout
             if (!terrain.PlaceRooms()) continue;
             terrain.ConnectRooms(); Budget();
             var map = Build(terrain.PackFloors(), 160, 120, terrain.Portals(), spec,
-                "Laberinto · supervivencia", terrain.Structure, Budget);
+                SurvivalBiomes.Name(SurvivalBiomes.ThemeFor(spec)) + " · supervivencia", terrain.Structure, Budget);
             Budget(); map.PrepareNavigation(); Budget();
             bool navigable = Navigable(map, Budget); Budget();
             if (navigable) return map;

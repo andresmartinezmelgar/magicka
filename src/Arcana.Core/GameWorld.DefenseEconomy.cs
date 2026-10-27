@@ -41,10 +41,10 @@ public sealed partial class GameWorld
             if (command.Slot == 1)
             {
                 if (style.Tier == ItemTier.Silver || !progress.Items.Any(i => i.Id == command.ItemId && EquipmentStyle.Of(i) == style)) return false;
-                progress.AutoSellStyles.RemoveWhere(s => s.SameKind(style));
+                progress.AutoSellStyles.RemoveWhere(s => s.SameSlot(style));
                 progress.AutoSellStyles.Add(style);
             }
-            else progress.AutoSellStyles.RemoveWhere(s => s.SameKind(style));
+            else progress.AutoSellStyles.RemoveWhere(s => s.SameSlot(style));
             return true;
         }
         if (command.Type == "defense_performance")

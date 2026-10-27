@@ -11,7 +11,8 @@ public partial class EquipmentPanel
 
     private EquipmentStyle? AutoSellLimit(EquipmentStyle style) => (TemporaryInventory
         ? _defensePlayer!.AutoSellStyles : Preferences.AutoSellRules.Select(r => r.Style))
-        .Where(s => s.SameKind(style)).Select(s => (EquipmentStyle?)s).FirstOrDefault();
+        .Where(s => s.SameSlot(style)).OrderByDescending(s => s.Tier).ThenBy(s => s.Family)
+        .Select(s => (EquipmentStyle?)s).FirstOrDefault();
 
     private bool AutoSells(EquipmentStyle style) => AutoSellLimit(style) is { } limit && limit.Tier >= style.Tier;
 
@@ -28,8 +29,8 @@ public partial class EquipmentPanel
         var displayedLimit = active ? AutoSellLimit(style) ?? style : style;
         button.TooltipText = displayedLimit.DescribeAutoSell() +
             (active ? "\nPulsa para desactivar esta regla de venta automática.\n" : "\nPulsa para activar esta regla de venta automática.\n") +
-            "Vende solo las piezas nuevas de la misma ranura y familia, con calidad estrictamente inferior al límite indicado.\n" +
-            "Conserva las de calidad igual o superior, las que ya tienes, los favoritos y el equipo. Sustituye el límite anterior para esta ranura y familia.\n" +
+            "Vende las piezas nuevas de esta ranura, de cualquier elemento, con calidad estrictamente inferior al límite indicado.\n" +
+            "Conserva las de calidad igual o superior, las que ya tienes, los favoritos y el equipo. Sustituye el límite anterior para esta ranura.\n" +
             "Puedes desactivarlo desde Opciones → Venta automática.";
         if (TemporaryInventory) button.TooltipText += "\n" + DefenseRules.InventoryFullNotice;
         if (style.Tier == ItemTier.Silver && !active) button.TooltipText += "\nPlata es la calidad mínima; este ajuste no se puede activar.";
@@ -47,13 +48,13 @@ public partial class EquipmentPanel
         if (InventoryLocked || _draft == null || enabled && style.Tier == ItemTier.Silver) return;
         ResetQuickActions();
         string message = enabled ? "Venta automática activada · " + style.DescribeAutoSell() + ". Solo botín nuevo; los objetos que ya tienes se conservan."
-            : "Venta automática desactivada para " + EquipmentCatalogue.SlotName(style.Slot) + " · " + EquipmentCatalogue.FamilyName(style.Family) +
+            : "Venta automática desactivada para " + EquipmentCatalogue.SlotName(style.Slot) +
                 (TemporaryInventory ? ". Las piezas nuevas se conservarán mientras haya espacio." : ". Se conservará el botín nuevo.");
         if (TemporaryInventory)
         {
             message += " " + DefenseRules.InventoryFullNotice;
             DefenseOperation(new() { Type = "defense_auto_sell", AutoSellStyle = style, ItemId = itemId, Slot = enabled ? 1 : 0 },
-                p => enabled ? p.AutoSellStyles.Contains(style) : !p.AutoSellStyles.Any(s => s.SameKind(style)),
+                p => enabled ? p.AutoSellStyles.Contains(style) : !p.AutoSellStyles.Any(s => s.SameSlot(style)),
                 () => { RefreshPickerItems(); RenderAutoSellRules(); }, message);
             return;
         }
@@ -84,11 +85,11 @@ public partial class EquipmentPanel
         if (_autoSellList == null) return;
         Clear(_autoSellList);
         _autoSellList.AddChild(Ui.Label("VENTA AUTOMÁTICA", 20, Ui.Gold));
-        var help = Ui.Label("Solo objetos nuevos de la misma ranura y familia, con calidad inferior al límite indicado. Los de calidad igual o superior, actuales, favoritos y equipados se conservan.\n" +
-            "Las reglas antiguas de calidad exacta se desactivan al actualizar. Activa el nuevo límite desde una pieza.\n" +
+        var help = Ui.Label("Objetos nuevos de esta ranura, de cualquier elemento, con calidad inferior al límite indicado. Los de calidad igual o superior, actuales, favoritos y equipados se conservan.\n" +
+            "Ejemplo: un límite Mítico para Gorro vende los gorros nuevos Plata, Oro, Platino y Diamante, de cualquier elemento.\n" +
             (TemporaryInventory ? "Estos ajustes se guardan con esta partida.\n" + DefenseRules.InventoryFullNotice : "Estos ajustes se guardan para tu cuenta en este dispositivo."), 15, Ui.Muted);
         help.AutowrapMode = TextServer.AutowrapMode.WordSmart; _autoSellList.AddChild(help);
-        var styles = TemporaryInventory ? _defensePlayer!.AutoSellStyles : Preferences.AutoSellRules.Select(r => r.Style).ToArray();
+        var styles = EquipmentStyle.SlotLimits(TemporaryInventory ? _defensePlayer!.AutoSellStyles : Preferences.AutoSellRules.Select(r => r.Style));
         foreach (var style in styles.OrderBy(s => s.Slot).ThenBy(s => s.Tier).ThenBy(s => s.Family))
         {
             var row = new HBoxContainer(); _autoSellList.AddChild(row);

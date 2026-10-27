@@ -99,7 +99,8 @@ public partial class ArenaRenderer
         void AddFloor((int Start, int End) span, (int Row, int Height) area)
         {
             var tile = Mesh(root, new PlaneMesh { Size = new(span.End - span.Start, area.Height) },
-                new(left + (span.Start + span.End) / 2f, 0, top + area.Row + area.Height / 2f), new("354751"));
+                new(left + (span.Start + span.End) / 2f, 0, top + area.Row + area.Height / 2f), Colors.White);
+            tile.MaterialOverride = _survivalFloorMaterial;
             tile.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
         }
         for (int row = 0; row <= SurvivalSectorSize; row++)
@@ -135,11 +136,9 @@ public partial class ArenaRenderer
                 Wall(new(0.45f, 1.1f, b - a), new(edge.A.X, 0.5f, (a + b) / 2));
             }
         }
-        void Wall(Vector3 size, Vector3 at)
-        {
-            var wall = Box(root, size, at, new("667880")); wall.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
-            Box(root, new(size.X, 0.09f, size.Z), at + Vector3.Up * 0.59f, new("9bb5b6")).CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
-        }
+        BuildSurvivalDecor(root, x, y);
+        BatchScenery(root, append: true);
+        void Wall(Vector3 size, Vector3 at) => BuildSurvivalBorder(root, size, at);
         return root;
     }
 }

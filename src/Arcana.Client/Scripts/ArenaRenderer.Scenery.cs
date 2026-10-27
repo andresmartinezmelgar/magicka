@@ -207,10 +207,10 @@ public partial class ArenaRenderer
             }
         }
     }
-    private void BuildHouse(Node3D parent, V2 at, V2 outward, int variant)
+    private void BuildHouse(Node3D parent, V2 at, V2 outward, int variant, float scale = 1)
     {
         SceneryBuildings++;
-        var root = new Node3D { Position = World(at), Rotation = new(0, MathF.Atan2(outward.X, outward.Y), 0) }; parent.AddChild(root);
+        var root = new Node3D { Position = World(at), Rotation = new(0, MathF.Atan2(outward.X, outward.Y), 0), Scale = Vector3.One * scale }; parent.AddChild(root);
         float height = 3.4f + (variant % 3) * 0.6f;
         Box(root, new(6.5f, 0.35f, 6), new(0, 0.1f, 0), new("60645f"));
         Box(root, new(6, height, 5.5f), new(0, height / 2, 0), Facades[variant % Facades.Length]);

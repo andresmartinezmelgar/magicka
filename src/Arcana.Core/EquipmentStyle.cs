@@ -9,11 +9,14 @@ public readonly record struct EquipmentStyle(EquipmentSlot Slot, ItemTier Tier, 
     [JsonIgnore] public bool Valid => Enum.IsDefined(Slot) && Enum.IsDefined(Tier) && Enum.IsDefined(Family);
     public static EquipmentStyle Of(EquipmentItem item) => new(item.Slot, item.Tier, item.Family);
     public bool Matches(EquipmentItem item) => this == Of(item);
-    public bool SameKind(EquipmentStyle other) => Slot == other.Slot && Family == other.Family;
-    public bool MatchesLowerQuality(EquipmentItem item) => Slot == item.Slot && Family == item.Family && item.Tier < Tier;
+    public bool SameSlot(EquipmentStyle other) => Slot == other.Slot;
+    public bool MatchesLowerQuality(EquipmentItem item) => Slot == item.Slot && item.Tier < Tier;
     public string Describe() => EquipmentCatalogue.SlotName(Slot) + " · " + EquipmentCatalogue.TierName(Tier) + " · " + EquipmentCatalogue.FamilyName(Family);
-    public string DescribeAutoSell() => EquipmentCatalogue.SlotName(Slot) + " · " + EquipmentCatalogue.FamilyName(Family) +
-        " · calidad inferior a " + EquipmentCatalogue.TierName(Tier);
+    public string DescribeAutoSell() => EquipmentCatalogue.SlotName(Slot) + " · calidad inferior a " + EquipmentCatalogue.TierName(Tier) + " · cualquier elemento";
+
+    public static EquipmentStyle[] SlotLimits(IEnumerable<EquipmentStyle> styles) => styles
+        .Where(s => s.Valid && s.Tier > ItemTier.Silver).OrderByDescending(s => s.Tier).ThenBy(s => s.Family)
+        .DistinctBy(s => s.Slot).OrderBy(s => s.Slot).ToArray();
 }
 
 public sealed record AutoSellRule(EquipmentStyle Style, HashSet<string> ExistingIds);

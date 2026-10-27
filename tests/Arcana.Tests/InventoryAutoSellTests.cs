@@ -17,7 +17,8 @@ internal static class InventoryAutoSellTests
 
     public static void Run(Action<string, Action> test)
     {
-        test("Venta automática: vende solo nuevos inferiores de la misma ranura y familia; protege actuales, favoritos y equipo", () =>
+        SlotAutoSellTests.Run(test);
+        test("Venta automática: vende solo nuevos inferiores de la misma ranura; protege actuales, favoritos y equipo", () =>
         {
             var a = Item(); var old = New(a) with { Tier = ItemTier.Silver };
             var b = New(old); var c = New(old); var favorite = New(old);
@@ -26,10 +27,12 @@ internal static class InventoryAutoSellTests
             prefs.SetAutoSell(style, true, profile);
             prefs = JsonSerializer.Deserialize<InventoryPreferences>(JsonSerializer.Serialize(prefs))!; prefs.Normalize();
             prefs.Favorites.Add(favorite.Id);
+            var anotherElement = New(old) with { Family = EquipmentFamily.Fire };
             profile = profile with { Loadout = new(b.Id), Items = [a, old, b, c, favorite, New(a),
                 New(a) with { Tier = ItemTier.Platinum }, New(old) with { Slot = EquipmentSlot.Hat },
-                New(old) with { Family = EquipmentFamily.Fire }] };
-            Check(prefs.AutomaticSales(profile).Single().Id == c.Id, "Se vende una pieza anterior, favorita, equipada o de otro estilo.");
+                anotherElement] };
+            Check(prefs.AutomaticSales(profile).Select(i => i.Id).ToHashSet().SetEquals([c.Id, anotherElement.Id]),
+                "No filtra todos los elementos o vende una pieza anterior, favorita, equipada o de otra ranura.");
             Check(prefs.Sellable(profile, profile.Items.Select(i => i.Id)).All(i => i.Id != b.Id && i.Id != favorite.Id), "La venta manual permite favoritos.");
             prefs.SetAutoSell(style, false, profile); Check(prefs.AutomaticSales(profile).Length == 0, "Desactivar no conserva los objetos.");
             prefs.SetAutoSell(style, true, profile); Check(prefs.AutomaticSales(profile).Length == 0, "Reactivar vende objetos que ya existían.");
@@ -42,7 +45,7 @@ internal static class InventoryAutoSellTests
                 "El nuevo límite vende la calidad de referencia o ignora una inferior.");
             prefs.SetAutoSell(style with { Tier = ItemTier.Silver }, false, profile);
             Check(prefs.AutoSellRules.Count == 0 && prefs.AutomaticSales(profile with { Items = [.. profile.Items, fresh] }).Length == 0,
-                "Mantener desde otra calidad no desactiva el límite vigente de la misma ranura y familia.");
+                "Mantener desde otra calidad no desactiva el límite vigente de la misma ranura.");
         });
         test("Venta automática: cada calidad usa un límite estricto y las reglas antiguas se desactivan al migrar", () =>
         {

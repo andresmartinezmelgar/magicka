@@ -171,6 +171,21 @@ jobs:
           "$ARCANA_GODOT" --headless --audio-driver Dummy --path src/Arcana.Client -- --mobile --survival-save-smoke --smoke-viewport=720x540 2>&1 | tee "$RUNNER_TEMP/survival-save-mobile.log"
           grep -q 'SURVIVAL_SAVE_SMOKE_OK' "$RUNNER_TEMP/survival-save-mobile.log"
           ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/survival-save-mobile.log"
+      - name: Verificar los diez biomas de Supervivencia en escritorio y móvil
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          for surface in desktop mobile; do
+            args=(); viewport=1280x720
+            export XDG_DATA_HOME="$RUNNER_TEMP/biomes-cache-$surface"
+            if [ "$surface" = mobile ]; then args+=(--mobile); viewport=720x540; fi
+            target="$PWD/artifacts/visual-review/biomes-$surface"
+            mkdir -p "$target"
+            xvfb-run -a -s "-screen 0 1440x1024x24" timeout --kill-after=10s 180s "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --survival-biomes-smoke "${args[@]}" "--smoke-viewport=$viewport" "--survival-biome-captures=$target" 2>&1 | tee "$RUNNER_TEMP/biomes-$surface.log"
+            grep -q 'SURVIVAL_BIOMES_SMOKE_OK: 10' "$RUNNER_TEMP/biomes-$surface.log"
+            ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/biomes-$surface.log"
+          done
       - name: Renderizar capturas de móvil y escritorio y validar los límites
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'

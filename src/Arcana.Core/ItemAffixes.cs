@@ -59,10 +59,7 @@ public static class ItemAffixes
     public static bool CanUpgrade(EquipmentItem item, int level) => level is >= 0 and < DefenseRules.ItemUpgradeLimit &&
         (item.Bonuses.Any(b => b.Current < b.Maximum) || RingEffects.IsRing(item.Slot));
     public static string Describe(ItemAffix? affix, int level = 0, EquipmentSlot? slot = null) => affix == null ? ""
-        : slot.HasValue && !Allowed(affix.Kind, slot.Value)
-            ? slot == EquipmentSlot.MagicRing
-                ? "Afijo antiguo inactivo: el anillo mágico solo aporta capacidad de escudo y su habilidad elemental."
-                : "Afijo de oro antiguo inactivo: los bonos de oro solo funcionan en el anillo de oro."
+        : slot.HasValue && !Allowed(affix.Kind, slot.Value) ? ""
         : affix.Kind switch
     {
         ItemAffixKind.BeamPierce => $"Los haces ofensivos atraviesan {affix.Value} enemigo(s) adicionales. Los escudos y las paredes detienen la penetración. El haz arcano continúa en línea recta, sin buscar otros objetivos ni perder daño al atravesarlos.",

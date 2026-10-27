@@ -1,7 +1,7 @@
 namespace Arcana.Core;
 
 public enum ArenaMapId { Classic, Citadel, Ascension, Relics, Frontline, Practice, Bastion }
-public enum ArenaTheme { Forest, City, Ruins, Sanctuary }
+public enum ArenaTheme { Forest, City, Ruins, Sanctuary, Desert, Frozen, Volcanic, Crystal, Marsh, Fungal }
 public sealed record FloorSection(V2 Center, float Width, float Height);
 public sealed record MapEdge(V2 A, V2 B);
 public sealed record TeleportPair(V2 A, V2 B);
@@ -28,7 +28,8 @@ public sealed class ArenaDefinition
         : mode != GameMode.Defense && (!SequentialCapture || mode == GameMode.Warfare);
     public bool HasPickups => Id is ArenaMapId.Ascension or ArenaMapId.Relics;
     public bool RandomPickups => Id == ArenaMapId.Ascension;
-    public ArenaTheme Theme => Id switch { ArenaMapId.Classic => ArenaTheme.Forest, ArenaMapId.Citadel => ArenaTheme.City,
+    public ArenaTheme Theme => Id switch { ArenaMapId.Bastion => SurvivalBiomes.ThemeFor(SurvivalMap),
+        ArenaMapId.Classic => ArenaTheme.Forest, ArenaMapId.Citadel => ArenaTheme.City,
         ArenaMapId.Ascension or ArenaMapId.Frontline => ArenaTheme.Ruins, _ => ArenaTheme.Sanctuary };
     public float Area => Floors.Sum(f => f.Width * f.Height);
     public int HoldSeconds => Id == ArenaMapId.Citadel ? 15 : 0;

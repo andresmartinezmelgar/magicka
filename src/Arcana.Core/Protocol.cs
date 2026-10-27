@@ -6,7 +6,7 @@ namespace Arcana.Core;
 
 public static class Protocol
 {
-    public const int Version = 40;
+    public const int Version = 41;
     public const int GamePort = 27015;
     public const int DiscoveryPort = 27016;
     public const string DiscoveryMagic = "ARCANA_DISCOVER_V30";

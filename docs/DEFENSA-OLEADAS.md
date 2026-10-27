@@ -2,6 +2,8 @@
 
 Versión de pruebas **0.29.30**, basada en la preliminar **0.29.29** y en la estable **0.29.28**. El generador libre v2 utiliza protocolo **40**; la preliminar 0.29.29 utiliza protocolo 39 y el generador v1. Cliente y servidor deben usar el mismo protocolo. La publicación conserva separada la versión estable.
 
+El código posterior a esa publicación añade venta por ranura y biomas visuales, con protocolo **41**. Estos cambios están pendientes de una nueva compilación y publicación solicitadas.
+
 ## Partida y vidas
 
 El modo Defensa ahora es **Supervivencia**, con enemigos continuos. Se han retirado las oleadas, el castillo y sus reparaciones.
@@ -47,6 +49,10 @@ La generación dispone de un presupuesto máximo de **10 segundos**, incluyendo 
 La semilla y la versión del generador viajan en el snapshot y el guardado. Simulación, rutas, colisiones, portales, vista y minimapa reconstruyen el mismo terreno. Continuar conserva ese mapa: los guardados originales mantienen **Anillos** y los de la preliminar mantienen el generador v1 de nueve salas hasta empezar otra partida. El generador usa su propio azar, independiente de la horda y del botín. La geometría v2 utiliza aritmética entera para reproducirse igual en ARM64 y x64.
 
 Dos parejas de portales unen salas alejadas, con cuatro extremos diferentes dentro de suelo seguro y accesible. Su posición depende de las salas que se hayan generado. Cada pareja comparte color. Basta entrar en el círculo para cruzar; hay que salir del portal de destino antes de reutilizarlo. Los minions también pueden cruzar.
+
+La semilla del generador v2 selecciona también uno de diez ambientes: bosque ancestral, ciudad olvidada, ruinas cubiertas de musgo, santuario lunar, oasis de arenisca, fortaleza de hielo, caldera de obsidiana, gruta de cristal, marisma encantada o jardín de hongos. Cambian el material del suelo, los bordes, la iluminación y los elementos decorativos; no se alteran las rutas ni la secuencia de azar de horda y botín. Continuar conserva el ambiente de la semilla. Los generadores históricos v0 y v1 mantienen su tema de santuario.
+
+La decoración de Supervivencia se prepara por sectores, con límite de piezas y agrupación de mallas. Árboles, edificios, cristales, cactus, columnas, juncos y hongos se colocan fuera del suelo transitable y no añaden colisiones a la simulación. Los edificios y árboles de Supervivencia usan una escala reducida para mantener la vista de las rutas.
 
 Las apariciones utilizan posiciones transitables de todo el mapa. La exclusión de **16 m sigue a cada defensor con vidas**, incluso mientras espera reaparecer. Evita apariciones pegadas al personaje; los enemigos ya existentes sí pueden entrar y atacar. Si no hay una posición segura se aplaza la aparición.
 

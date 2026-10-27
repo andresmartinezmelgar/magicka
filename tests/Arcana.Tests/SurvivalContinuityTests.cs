@@ -24,6 +24,7 @@ internal static class SurvivalContinuityTests
     internal static void Run(Action<string, Action> test)
     {
         SurvivalMapDiversityTests.Run(test);
+        SurvivalBiomeTests.Run(test);
         test("Red: un reflejo conserva el alcance del lanzador y los rayos directos siguen acotados", () =>
         {
             var world = new GameWorld(new() { Mode = GameMode.Arena });

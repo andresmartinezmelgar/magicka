@@ -12,9 +12,9 @@ public partial class ArenaRenderer
 
     // Agrupa solo decoración opaca e inmóvil. Las zonas siguen teniendo su propia
     // caja de visibilidad; nunca se convierte todo el mapa en una sola malla.
-    private void BatchScenery(Node3D root)
+    private void BatchScenery(Node3D root, bool append = false)
     {
-        ScenerySourceMeshes = SceneryDrawMeshes = ScenerySourceVertices = SceneryBatchedVertices = 0;
+        if (!append) ScenerySourceMeshes = SceneryDrawMeshes = ScenerySourceVertices = SceneryBatchedVertices = 0;
         var meshes = new List<MeshInstance3D>();
         void Collect(Node node)
         {
@@ -24,7 +24,7 @@ public partial class ArenaRenderer
                 Collect(child);
             }
         }
-        Collect(root); ScenerySourceMeshes = meshes.Count;
+        Collect(root); ScenerySourceMeshes += meshes.Count;
         var inverse = root.GlobalTransform.AffineInverse();
         var groups = new Dictionary<(ulong Material, GeometryInstance3D.ShadowCastingSetting Shadow, int X, int Z), List<(MeshInstance3D Node, Transform3D Transform)>>();
         foreach (var node in meshes)
@@ -66,7 +66,7 @@ public partial class ArenaRenderer
             }
             removed += group.Count - 1;
         }
-        SceneryDrawMeshes = ScenerySourceMeshes - removed;
+        SceneryDrawMeshes += meshes.Count - removed;
         void Prune(Node node)
         {
             foreach (var child in node.GetChildren())
