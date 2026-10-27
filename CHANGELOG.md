@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.29.30
+
+- Supervivencia genera mapas con cantidad, tamaño, forma y distribución de salas variables, sin la cuadrícula fija de nueve salas.
+- Pasillos rectos, diagonales, curvos, con varios giros o recorridos irregulares, con anchuras variables y ciclos de escape aleatorios.
+- Presupuesto de hasta 10 segundos para generar y comprobar el terreno, las apariciones, la navegación y los portales.
+- Continuar conserva el mapa de los guardados anteriores; las partidas nuevas y reinicios utilizan el generador libre v2.
+- Publicación de pruebas con APK de firma permanente, Windows ZIP y RAR verificado, y parches del mismo canal cuando existe una base válida.
+
 ## 0.29.29
 
 - Supervivencia genera un mapa nuevo de 160 × 120 m en cada partida, con nueve salas, pasillos variables, rutas de escape y portales. Continuar conserva el mismo terreno.

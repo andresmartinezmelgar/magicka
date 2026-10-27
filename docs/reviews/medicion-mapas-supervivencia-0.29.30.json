@@ -1,0 +1,41 @@
+{
+  "Version": "0.29.30",
+  "GeneratorVersion": 2,
+  "Width": 160,
+  "Height": 120,
+  "BudgetMilliseconds": 10000,
+  "Rooms": {
+    "Minimum": 5,
+    "Maximum": 15,
+    "DistinctCounts": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ]
+  },
+  "MaximumRoomShapeKinds": 6,
+  "MaximumCorridorShapeKinds": 5,
+  "Runtime": ".NET 8.0.21",
+  "Architecture": "X64",
+  "GeometryAndNavigation": {
+    "Samples": 64,
+    "MedianMs": 29.072,
+    "P95Ms": 54.122,
+    "MaximumMs": 58.591
+  },
+  "WorldIncludingGeometryAndNavigation": {
+    "Samples": 64,
+    "MedianMs": 30.878,
+    "P95Ms": 43.84,
+    "MaximumMs": 56.55
+  },
+  "Scope": "CPU local; 64 semillas nuevas por medida; sin cach\u00E9 ni carga de recursos Godot. No mide Android f\u00EDsico."
+}

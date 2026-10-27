@@ -48,14 +48,28 @@ def prepare(root, dist, branch, commit, build, notes_file, tag_file):
             if not package.is_file() or package.stat().st_size == 0 or entries[package.name] != digest(package):
                 raise ValueError(f'Integridad incorrecta de {package.name}.')
             checksums.append(f'{entries[package.name]}  {package.name}\n')
+    rar_name = f'ArcanaArena-v{version}-Windows-x64.rar'
+    rar_path, rar_manifest = dist / rar_name, dist / 'SHA256SUMS-RAR.txt'
+    has_rar = rar_path.exists() or rar_manifest.exists()
+    if has_rar:
+        if not rar_path.is_file() or not rar_manifest.is_file():
+            raise ValueError('El RAR de Windows exige paquete y manifiesto de integridad.')
+        with rar_path.open('rb') as stream:
+            if stream.read(8) != b'Rar!\x1a\x07\x01\x00':
+                raise ValueError('El paquete de Windows no es RAR 5.')
+        expected = f'{digest(rar_path)}  {rar_name}'
+        if rar_manifest.read_text(encoding='utf-8-sig').strip() != expected:
+            raise ValueError('Integridad incorrecta del RAR de Windows.')
+        checksums.append(expected + '\n')
     (dist / 'SHA256SUMS.txt').write_text(''.join(checksums), encoding='utf-8')
     tag = f'preview-v{version}-r{build}'
     metadata = dict(channel='preview', version=version, branch=branch, commit=commit, build=build, tag=tag)
     (dist / 'PREVIEW.json').write_text(json.dumps(metadata, indent=2) + '\n', encoding='utf-8')
+    packages = 'Windows ZIP y RAR' if has_rar else 'Windows'
     notes_file.write_text('Arcana-Preview-Branch: ' + branch + '\n\n'
                           + f'Versión de pruebas {version}, compilación {build}.\n'
                           + f'Commit: {commit}\n\n' + notes(root, version) + '\n'
-                          + 'Windows y APK Android con firma permanente. Paquetes completos y deltas de esta rama con SHA-256 verificado.\n', encoding='utf-8')
+                          + packages + ' y APK Android con firma permanente. Paquetes completos y deltas de esta rama con SHA-256 verificado.\n', encoding='utf-8')
     tag_file.write_text(tag + '\n', encoding='utf-8')
     return metadata
 

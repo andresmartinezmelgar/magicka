@@ -1,6 +1,6 @@
 # Supervivencia
 
-Rama de pruebas basada en la preliminar **0.29.29** y en la estable **0.29.28**. El generador libre v2 utiliza protocolo **40**; la APK preliminar ya publicada utiliza protocolo 39 y el generador v1. Cliente y servidor deben usar el mismo protocolo. Los cambios de esta rama posteriores a la publicación quedan pendientes de la siguiente compilación expresamente solicitada.
+Versión de pruebas **0.29.30**, basada en la preliminar **0.29.29** y en la estable **0.29.28**. El generador libre v2 utiliza protocolo **40**; la preliminar 0.29.29 utiliza protocolo 39 y el generador v1. Cliente y servidor deben usar el mismo protocolo. La publicación conserva separada la versión estable.
 
 ## Partida y vidas
 

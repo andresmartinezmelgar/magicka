@@ -93,6 +93,41 @@ class PreviewReleaseTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.run_prepare()
 
+    def add_rar(self):
+        path = self.root / 'ArcanaArena-v0.18.1-Windows-x64.rar'
+        # El empaquetador verifica CRC y extracción; aquí se comprueba la barrera de publicación.
+        path.write_bytes(b'Rar!\x1a\x07\x01\x00contenido de prueba')
+        manifest = self.root / 'SHA256SUMS-RAR.txt'
+        manifest.write_text(f'{preview.digest(path)}  {path.name}\n')
+        return path, manifest
+
+    def test_rar_is_included_in_integrity_manifest_and_notes(self):
+        path, _ = self.add_rar()
+        self.run_prepare()
+        self.assertIn(f'{preview.digest(path)}  {path.name}', (self.root / 'SHA256SUMS.txt').read_text())
+        self.assertIn('Windows ZIP y RAR', (self.root / 'notes.md').read_text())
+
+    def test_modified_or_incomplete_rar_is_rejected(self):
+        path, manifest = self.add_rar()
+        path.write_bytes(path.read_bytes() + b'alterado')
+        with self.assertRaises(ValueError):
+            self.run_prepare()
+        path, manifest = self.add_rar()
+        manifest.unlink()
+        with self.assertRaises(ValueError):
+            self.run_prepare()
+        path, manifest = self.add_rar()
+        path.unlink()
+        with self.assertRaises(ValueError):
+            self.run_prepare()
+
+    def test_wrong_rar_signature_is_rejected_even_with_matching_digest(self):
+        path, manifest = self.add_rar()
+        path.write_bytes(b'Un ZIP renombrado no es un RAR')
+        manifest.write_text(f'{preview.digest(path)}  {path.name}\n')
+        with self.assertRaises(ValueError):
+            self.run_prepare()
+
 
 if __name__ == '__main__':
     unittest.main()

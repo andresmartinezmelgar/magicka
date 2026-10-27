@@ -899,6 +899,17 @@ jobs:
         with:
           name: ArcanaArena-Android-arm64
           path: dist
+      - name: Crear RAR de pruebas y verificar su contenido
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(tr -d '\r\n' < VERSION)
+          curl --retry 4 --retry-delay 2 -fL https://www.rarlab.com/rar/rarlinux-x64-723.tar.gz -o "$RUNNER_TEMP/rarlinux.tar.gz"
+          echo "759b4b6aa0d9f77131882162951193f3a0e54bf60e1d8dc4255aa308accab588  $RUNNER_TEMP/rarlinux.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/rarlinux.tar.gz" -C "$RUNNER_TEMP" rar/rar
+          python3 scripts/test-windows-rar.py --rar "$RUNNER_TEMP/rar/rar"
+          python3 scripts/package-windows-rar.py "dist/ArcanaArena-v$version-Windows-x64.zip" "dist/ArcanaArena-v$version-Windows-x64.rar" --rar "$RUNNER_TEMP/rar/rar"
+          (cd dist && sha256sum "ArcanaArena-v$version-Windows-x64.rar" > SHA256SUMS-RAR.txt)
       - name: Validar binarios firmados y preparar la publicación
         run: |
           python3 scripts/prepare-preview-release.py --root . --dist dist \
@@ -911,7 +922,7 @@ jobs:
           set -euo pipefail
           tag=$(cat "$RUNNER_TEMP/preview-tag.txt")
           shopt -s nullglob
-          assets=(dist/*-Windows-x64*.zip dist/*-Android-arm64.apk dist/*-Android-arm64-from-v*.delta dist/DELTAS-*.json dist/SHA256SUMS.txt dist/SHA256SUMS-Windows.txt dist/SHA256SUMS-Android.txt dist/PREVIEW.json)
+          assets=(dist/*-Windows-x64*.zip dist/*-Windows-x64.rar dist/*-Android-arm64.apk dist/*-Android-arm64-from-v*.delta dist/DELTAS-*.json dist/SHA256SUMS.txt dist/SHA256SUMS-Windows.txt dist/SHA256SUMS-Android.txt dist/SHA256SUMS-RAR.txt dist/PREVIEW.json)
           if gh release view "$tag" >/dev/null 2>&1; then
             target=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" --jq '.target_commitish')
             test "$target" = "$GITHUB_SHA" || { echo '::error::La preliminar existente pertenece a otro commit.'; exit 1; }
