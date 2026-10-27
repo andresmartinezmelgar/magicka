@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.29.27
+
+- Corregida la venta automática de Supervivencia en red: el transporte conserva la regla al activarla y desactivarla, también desde otra calidad.
+- La asistencia de supervivencia mantiene el control del apuntado mientras consultas la interfaz, sigue el objetivo durante la ráfaga y deja de atacar si un aliado cruza su trayectoria. También evita los suelos dañinos que permanecen tras morir su creador.
+- El inventario lleno avisa de que las piezas nuevas se convierten en oro aunque no haya reglas de venta. La recogida muestra la conversión, la calidad traducida y el oro recibido.
+- El total de regeneración incluye el escudo de Vida con sus modificadores una sola vez y se actualiza al romperse, expirar o sustituirse.
+- El menú y la tienda comparten el desglose enumerado de reliquias con sus acumulaciones. La regla de muerte corresponde al modo: en Supervivencia se conservan hasta reiniciar la partida.
+- Regresiones de transporte, autoridad, asistencia, capacidad, curación real y presentación de reliquias para los seis hallazgos de la revisión de 0.29.26.
+
 ## 0.29.26
 
 - El rayo eléctrico ofensivo ignora aliados, también con fuego amigo y cadenas. No consumen sus tres objetivos; la mezcla con Vida sí permite curarlos.

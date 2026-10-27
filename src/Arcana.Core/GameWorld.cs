@@ -160,6 +160,12 @@ public sealed partial class GameWorld
             if (!float.IsFinite(message.MoveX) || !float.IsFinite(message.MoveY) ||
                 !float.IsFinite(message.AimX) || !float.IsFinite(message.AimY) ||
                 !float.IsFinite(message.TargetX) || !float.IsFinite(message.TargetY)) return false;
+            if (IsDefense && _defenders[p.Id].ShopOpen)
+            {
+                // La interfaz sigue enviando input, pero la asistencia conserva el control.
+                p.LastSequence = message.Sequence; p.LastInput = Time;
+                return true;
+            }
             // No conserva una referencia mutable recibida del exterior.
             p.Input = new ClientMessage { Type = "input", Sequence = message.Sequence, MoveTo = message.MoveTo,
                 MoveX = Math.Clamp(message.MoveX, -1, 1), MoveY = Math.Clamp(message.MoveY, -1, 1),
@@ -272,7 +278,7 @@ public sealed partial class GameWorld
         p.WardTime -= dt;
         if (p.ShieldTime <= 0) p.Shield = p.ShieldMax = p.RegenerationRate = 0;
         if (p.Shield <= 0) p.RegenerationRate = 0;
-        HealAs(StatisticAttack.Regeneration, p, (p.RegenerationRate * RelicBuffs.Healing(p) * p.Equipment.Healing + RelicBuffs.Regeneration(p)) * dt, p.Id);
+        HealAs(StatisticAttack.Regeneration, p, (ActiveShieldRegeneration(p) + RelicBuffs.Regeneration(p)) * dt, p.Id);
         if (p.WardTime <= 0) p.Ward = [];
         if (p.Burning > 0)
         {
@@ -280,6 +286,9 @@ public sealed partial class GameWorld
             DamageAs(StatisticAttack.Burn, p, SpellBalance.BurnPerSecond * dt * p.BurnMultiplier * WizardTypes.Incoming(p.WizardType, Element.Fire) * Resistance(p, Element.Fire), p.BurnOwner, [Element.Fire]);
         }
     }
+
+    private static float ActiveShieldRegeneration(Wizard player) => player.Shield > 0 && player.ShieldTime > 0
+        ? player.RegenerationRate * RelicBuffs.Healing(player) * player.Equipment.Healing : 0;
 
     private bool Allied(Wizard a, Wizard b) => a.Id == b.Id || Options.Mode != GameMode.Arena && a.Team == b.Team;
     private bool Hostile(Wizard a, Wizard b) => !Allied(a, b);

@@ -286,8 +286,7 @@ public partial class DefensePanel : Control
         var buffs = _wizard!.Buffs ?? [];
         if (_lastBonuses != null && _lastBonuses.AsSpan().SequenceEqual(buffs)) return;
         _lastBonuses = buffs;
-        _bonuses.Text = buffs.Length > 0 ? "MEJORAS RECOGIDAS\n" +
-            string.Join("\n\n", buffs.Select((b, index) => $"{index + 1}. " + RelicBuffs.Name(b.Kind) + " ×" + b.Stacks + "\n" + RelicBuffs.DescribeTotal(b.Kind, b.Stacks))) : "Sin mejoras recogidas";
+        _bonuses.Text = buffs.Length > 0 ? "MEJORAS RECOGIDAS\n" + RelicBuffs.DescribeCollected(buffs, survival: true) : "Sin mejoras recogidas";
     }
 
     private void UpdateTotals()

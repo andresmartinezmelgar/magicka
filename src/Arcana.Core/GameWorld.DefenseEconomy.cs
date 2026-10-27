@@ -168,7 +168,13 @@ public sealed partial class GameWorld
             return;
         }
         if (progress.Items.Count >= DefenseRules.InventoryLimit)
-            { int earned = Math.Min(100000000 - progress.Gold, item.SaleGold); StatisticsEconomy(player.Id, StatisticMeasure.GoldEarned, earned); progress.Gold += earned; }
+        {
+            int earned = Math.Min(100000000 - progress.Gold, item.SaleGold);
+            StatisticsEconomy(player.Id, StatisticMeasure.GoldEarned, earned); progress.Gold += earned;
+            Emit("defense_item", player.Position, [], player.Name + ": inventario lleno · objeto " +
+                EquipmentCatalogue.TierName(item.Tier) + $" convertido en +{earned} oro");
+            return;
+        }
         else
         {
             // Solo el equipo temporal: cada tirada dispone de diez incrementos
@@ -179,7 +185,7 @@ public sealed partial class GameWorld
             if (progress.Loadout.Get(item.Slot).Length == 0) progress.Loadout = progress.Loadout.With(item.Slot, item.Id);
             RecalculateDefender(player);
         }
-        Emit("defense_item", player.Position, [], player.Name + ": objeto temporal " + item.Tier);
+        Emit("defense_item", player.Position, [], player.Name + ": objeto temporal " + EquipmentCatalogue.TierName(item.Tier));
     }
 
     private void TickDefenseDrops(float dt)
@@ -268,7 +274,8 @@ public sealed partial class GameWorld
                 return new DefensePlayerSnapshot(p.Id, s.Level, s.Experience, DefenseRules.ExperienceForLevel(s.Level), s.Gold,
                     s.ActiveTicks / 60.0, p.Kills, p.Deaths, Copy(s.Auras), s.Items.Select(i => new DefenseItemSnapshot(i with { Bonuses = Copy(i.Bonuses) },
                         s.Upgrades.GetValueOrDefault(i.Id), s.Loadout.Get(i.Slot) == i.Id)).ToArray(), p.Equipment,
-                    DamagePower(p.Id), RelicBuffs.Incoming(p) * p.Equipment.Incoming, RelicBuffs.Regeneration(p) + s.Auras[2] * 10 * HealingPower(p.Id),
+                    DamagePower(p.Id), RelicBuffs.Incoming(p) * p.Equipment.Incoming,
+                    ActiveShieldRegeneration(p) + RelicBuffs.Regeneration(p) + s.Auras[2] * 10 * HealingPower(p.Id),
                     RelicBuffs.Speed(p) * p.Equipment.Speed * DefenseSpeed(p), Copy(s.Passives), Copy(s.PassiveCooldowns), s.BerserkerRemaining)
                     { Favorites = s.Favorites.ToArray(), AutoSellStyles = s.AutoSellStyles.ToArray(), AutoSold = s.AutoSold };
             }).ToArray(), DefensePaused, _players.Values.Count(p => !p.Bot))

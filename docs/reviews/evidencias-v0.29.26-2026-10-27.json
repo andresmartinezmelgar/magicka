@@ -1,0 +1,61 @@
+{
+  "assembly_version": "0.29.26",
+  "auto_sell_transport": {
+    "input_style_present": true,
+    "queue_style_present": false,
+    "wire_has_style": false,
+    "authority_accepts_queued": false,
+    "authority_accepts_original": true
+  },
+  "assistance_aim": {
+    "automatic_attack_started": true,
+    "initial_facing": [
+      1.0,
+      0.0
+    ],
+    "facing_after_ui_input": [
+      0.0,
+      1.0
+    ],
+    "automatic_beam_to": [
+      -8.0,
+      4.4
+    ],
+    "ally_position": [
+      -8.0,
+      5.0
+    ],
+    "enemy_position": [
+      6.93883,
+      0.0
+    ]
+  },
+  "orphan_ground_hazard": {
+    "danger_before_caster_death": 1.0,
+    "danger_after_caster_death": 0.0,
+    "ground_lifetime_remaining": 3.9833333492279053,
+    "damage_after_caster_death": 0.38665771484375
+  },
+  "regeneration_totals": {
+    "life_ward_effective_hp_s": 38.0,
+    "defense_total_hp_s": 0.0,
+    "actual_healing_over_one_second": 38.00115966796875
+  },
+  "full_inventory_conversion": {
+    "rules_enabled": 0,
+    "items_before": 24,
+    "items_after": 24,
+    "gold_gained": 60,
+    "incoming_sale_value": 60,
+    "automatic_sales_count": 0,
+    "notification": "Inventario: objeto temporal Platinum",
+    "item_was_kept": false
+  },
+  "relic_menu_description": {
+    "menu_vitality_description": "+100 de vida máxima y actual por acumulación. La capacidad extra desaparece al morir.",
+    "deaths_after_respawn": 1,
+    "alive_after_respawn": true,
+    "vitality_stacks_after_respawn": 1,
+    "maximum_health_after_respawn": 1100.0
+  }
+}

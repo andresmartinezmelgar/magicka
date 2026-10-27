@@ -101,6 +101,8 @@ public partial class Main
                 if (_bestiaryCaptures != null)
                     GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(_bestiaryCaptures, "elite-lineup.png"));
                 _practice!.Players[_localId].BuffStacks[(int)BuffKind.Energy] = 2;
+                _practice.Players[_localId].BuffStacks[(int)BuffKind.Vitality] = 1;
+                _practice.Players[_localId].MaxHealth += 100;
                 _snapshot = _practice.Snapshot();
                 _defensePanel!.Update(_snapshot, _localId, false, false);
                 var relics = (Control)_defensePanel.FindChild("DefenseCollectedRelics", true, false);
@@ -111,7 +113,8 @@ public partial class Main
             }
             Ui.VerifyDialog(_relicWindow!);
             var texts = _relicWindow!.FindChildren("*", "Control", true, false).OfType<ElementTextLabel>();
-            Check(_relicWindow.Visible && texts.Any(l => l.Text.Contains("Energía ×2") && l.Text.Contains("energía por segundo")),
+            Check(_relicWindow.Visible && texts.Any(l => l.Name == "CollectedRelicsDetails" && l.Text.Contains("1. Vitalidad ×1") &&
+                l.Text.Contains("2. Energía ×2") && l.Text.Contains("+2 energía/s") && l.Text.Contains("se conservan al morir") && !l.Text.Contains("desaparece")),
                 "La ventana no muestra las reliquias y sus efectos.");
             if (DisplayServer.GetName() != "headless")
                 Check(GetViewport().GetVisibleRect().Grow(2).Encloses(new Rect2(_relicWindow.Position, _relicWindow.Size)), "Reliquias sale de la pantalla.");

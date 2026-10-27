@@ -50,6 +50,16 @@ public static class RelicBuffs
     }
     public static string Summary(BuffSnapshot[]? buffs) => buffs is { Length: > 0 }
         ? string.Join(" · ", buffs.Select(b => Name(b.Kind) + " ×" + b.Stacks)) : "";
+    public static string DescribeCollected(BuffSnapshot[]? buffs, bool survival)
+    {
+        var active = (buffs ?? []).Where(b => b.Stacks > 0).OrderBy(b => b.Kind).ToArray();
+        if (active.Length == 0) return "Todavía no has recogido reliquias.";
+        string entries = string.Join("\n\n", active.Select((b, index) =>
+            $"{index + 1}. {Name(b.Kind)} ×{b.Stacks}\n" + DescribeTotal(b.Kind, b.Stacks)));
+        return entries + "\n\n" + (survival
+            ? "En Supervivencia, las reliquias se conservan al morir y se pierden al iniciar otra partida."
+            : "Las reliquias recogidas desaparecen al morir.");
+    }
     internal static void Add(Wizard p, BuffKind kind)
     {
         int i = (int)kind;

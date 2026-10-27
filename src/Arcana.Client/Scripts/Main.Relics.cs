@@ -26,13 +26,11 @@ public partial class Main
         var entries = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         entries.AddThemeConstantOverride("separation", 14); scroll.AddChild(entries);
         entries.AddChild(Ui.Label("RELIQUIAS RECOGIDAS", 24, Ui.Gold));
-        if (buffs.Length == 0) entries.AddChild(Ui.Label("Todavía no has recogido reliquias.", 18, Ui.Muted));
-        foreach (var buff in buffs)
-        {
-            var label = Ui.Label(RelicBuffs.Name(buff.Kind) + " ×" + buff.Stacks + "\n" + RelicBuffs.Description(buff.Kind), Ui.IsMobile ? 18 : 17, Ui.Gold);
-            label.AutowrapMode = TextServer.AutowrapMode.WordSmart; label.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            entries.AddChild(label);
-        }
+        var details = Ui.Label(RelicBuffs.DescribeCollected(buffs, state?.Defense != null), Ui.IsMobile ? 18 : 17,
+            buffs.Length > 0 ? Ui.Gold : Ui.Muted);
+        details.Name = "CollectedRelicsDetails";
+        details.AutowrapMode = TextServer.AutowrapMode.WordSmart; details.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        entries.AddChild(details);
         var viewport = GetViewport().GetVisibleRect().Size;
         var size = new Vector2I((int)Math.Min(680, viewport.X - 32), (int)Math.Min(560, viewport.Y - 48));
         scroll.CustomMinimumSize = new(Math.Max(220, size.X - 48), Math.Max(100, size.Y - 96));

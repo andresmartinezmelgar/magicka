@@ -16,6 +16,8 @@ En el inventario permanente, los favoritos y filtros se guardan por cuenta en es
 
 En Supervivencia, el servidor protege los favoritos y vende el botín nuevo filtrado antes de guardarlo o equiparlo. Estas preferencias pertenecen a la partida y se conservan al guardar o reconectar. Los guardados antiguos empiezan sin filtros de venta.
 
+Con 24/24 objetos, el botín nuevo se convierte en su valor de oro aunque la venta automática esté desactivada. Desactivar una regla no amplía la capacidad. La ayuda, la confirmación del ajuste y el aviso de recogida distinguen esta conversión de una venta por regla y muestran el oro recibido.
+
 El protocolo actual es **37**: deben actualizarse cliente y servidor juntos para reconocer los nuevos afijos de combate y la apariencia de ojos míticos.
 
 ## Efecto del equipo

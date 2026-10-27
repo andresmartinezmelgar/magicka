@@ -52,6 +52,8 @@ public partial class EquipmentPanel
         var choices = EquipmentQuery.Sort(allChoices, equippedId: equipped);
         _optionAItemsTab!.Text = EquipmentCatalogue.SlotName(slot) + $" · {choices.Length}";
         _pickerHelp.Text = "Equipada primero · Favoritos y piezas equipadas protegidos de la venta.";
+        if (TemporaryInventory && _defensePlayer!.Items.Length >= DefenseRules.InventoryLimit)
+            _pickerHelp.Text += " " + DefenseRules.InventoryFullNotice;
         if (_main.DefensiveAssistanceActive) _pickerHelp.Text += " Supervivencia máxima: tu mago mantiene el escudo y se aleja de los enemigos. Puede recibir daño.";
         PrepareIcons();
         foreach (var item in choices)

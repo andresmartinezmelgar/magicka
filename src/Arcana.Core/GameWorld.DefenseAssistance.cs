@@ -36,7 +36,17 @@ public sealed partial class GameWorld
         bool shieldNeeded = player.Shield <= 0 || player.ShieldTime < 2 && player.Shield <= shieldCapacity ||
             player.Shield < player.ShieldMax * .6f && player.Shield < shieldCapacity;
         bool safeToAttack = !shieldNeeded && player.ShieldTime >= 2 && !hazard && nearest >= 14 && player.Burning <= 0 && player.Health >= player.MaxHealth * .9f;
-        if (player.Channel != null && (!safeToAttack || progress.AssistanceAttackSeconds <= 0)) CancelCast(player);
+        bool targetClear = safeToAttack && closest != null && nearest <= 18 && closest.Invulnerable <= 0 && closest.VulnerableElement == null &&
+            Visible(player.Position, closest.Position, player.Id) && !AssistanceAllyInLine(player, closest);
+        if (player.Channel != null)
+        {
+            if (!targetClear || progress.AssistanceAttackSeconds <= 0) CancelCast(player);
+            else
+            {
+                player.Input.AimX = closest!.Position.X; player.Input.AimY = closest.Position.Y;
+                UpdateFacing(player); return;
+            }
+        }
         if (!Ready(player)) return;
         // El escudo se repone incluso sin monstruos cerca y puede interrumpir un ataque.
         if (shieldNeeded)
@@ -56,9 +66,8 @@ public sealed partial class GameWorld
             progress.AssistanceCooldown = .7f; return;
         }
         // Solo canaliza brevemente desde una distancia segura y con la línea libre de aliados.
-        if (!safeToAttack || closest == null || nearest > 18 || closest.Invulnerable > 0 || closest.VulnerableElement != null ||
-            !Visible(player.Position, closest.Position, player.Id) || AssistanceAllyInLine(player, closest)) return;
-        player.Input.AimX = closest.Position.X; player.Input.AimY = closest.Position.Y;
+        if (!targetClear) return;
+        player.Input.AimX = closest!.Position.X; player.Input.AimY = closest.Position.Y;
         UpdateFacing(player); CastDefenseAssistance(player, [Element.Arcane, Element.Arcane], attack: true);
         progress.AssistanceAttackSeconds = .3f; progress.AssistanceCooldown = 1.5f;
     }
@@ -115,7 +124,8 @@ public sealed partial class GameWorld
     {
         float danger = 0;
         foreach (var field in _fields)
-            if (field.Lifetime > 0 && !field.Recipe.Healing && _combatants.TryGetValue(field.Owner, out var owner) && Hostile(player, owner) &&
+            // Los campos huérfanos siguen aplicando daño tras retirar al enemigo muerto.
+            if (field.Lifetime > 0 && !field.Recipe.Healing && (!_combatants.TryGetValue(field.Owner, out var owner) || Hostile(player, owner)) &&
                 V2.Distance(at, field.Position) < field.Radius + 1) danger++;
         return danger;
     }

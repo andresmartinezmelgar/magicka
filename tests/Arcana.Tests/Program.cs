@@ -172,6 +172,7 @@ AccountLoadoutTests.Run(Test);
 UsabilityTests.Run(Test);
 AccountSessionTests.Run(Test);
 AuditRegressionTests.Run(Test);
+ReleaseAuditFixTests.Run(Test);
 ShopRulesTests.Run(Test);
 PublicEquipmentTests.Run(Test);
 
