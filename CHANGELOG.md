@@ -8,7 +8,8 @@
 - Los sprites de magos enemigos utilizan una sola interpolación y mantienen sus auras alineadas al caminar o teletransportarse. El haz arcano moderno utiliza su color elemental, coherente con sus controles y textos.
 - Los atributos muestran el actual y «(Max 21.33)», sin mínimo. Se añade un RAR real de Windows con verificación de extracción y SHA-256 de cada archivo, además de APK, ZIP y deltas.
 - Los guardados rechazan oro de botín fuera de los límites de la simulación antes de permitir la continuación.
-- Revisión del motor, valores numéricos, cliente, transporte, cuentas, Android, publicación y recursos gráficos: 16 regresiones nuevas del motor, comprobaciones de movimiento de cuatro tipos de mago a 30/60/120 FPS y cuatro pruebas del empaquetador RAR.
+- La asistencia de supervivencia también abandona los suelos propios de fuego y frío que siguen causando daño; conserva la distinción respecto a las áreas aliadas inocuas.
+- Revisión del motor, valores numéricos, cliente, transporte, cuentas, Android, publicación y recursos gráficos: 18 regresiones nuevas del motor, comprobaciones de movimiento de cuatro tipos de mago a 30/60/120 FPS y cuatro pruebas del empaquetador RAR.
 
 ## 0.29.27
 

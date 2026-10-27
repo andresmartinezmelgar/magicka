@@ -1,6 +1,6 @@
 # Revisión integral para Arcana Arena 0.29.28
 
-Base: `0fb72f2c5116d269007deb1bbbc562cfb6065f0e`, posterior a la versión publicada 0.29.27. La petición autoriza corregir, compilar y publicar tag e instaladores. Se han confirmado y corregido seis fallos; también se unifica el color del haz arcano y se prepara el RAR solicitado.
+Base: `0fb72f2c5116d269007deb1bbbc562cfb6065f0e`, posterior a la versión publicada 0.29.27. La petición autoriza corregir, compilar y publicar tag e instaladores. Se han confirmado y corregido siete fallos; también se unifica el color del haz arcano y se prepara el RAR solicitado.
 
 ## Alcance
 
@@ -18,6 +18,7 @@ La comprobación de recursos incluye los 18 archivos gráficos de Assets: 11 PNG
 | Oro de botín inválido admitido en guardados | Se restaura oro negativo o superior al máximo; recogerlo puede fallar o producir un estado inválido. | La lectura valida el mismo intervalo 0–208 que el estado de red antes de continuar. |
 | Escudos de prismas filtran dos veces las mezclas | La presión ya excluye componentes inmunes, pero el daño vuelve a aplicar la fracción elemental. Agua aporta cero. | Los componentes se resuelven una vez, se incorpora la presión especial de Agua y las estadísticas conservan los pesos reales. Casos de Agua, Fuego, Frío, Rayo y Arcano. |
 | Arrastre de sprites de magos enemigos | La raíz y `WizardVisual` interpolan simultáneamente; el sprite queda atrás tras teletransportarse. | Un solo interpolador mueve la raíz, las auras y los avisos. Se comprueban cuatro magos a 30/60/120 FPS, con y sin demora de red. |
+| La asistencia ignora áreas propias dañinas | El filtro de bando excluye también los suelos del propio jugador, aunque estos sí le causan daño. | Fuego y Frío propios activan la retirada. Se conservan las áreas aliadas inocuas como seguras. Dos regresiones comprueban daño real y movimiento de salida. |
 
 La reproducción de prismas midió 0 en lugar de 0,05683 HP para Agua y aproximadamente la mitad de lo debido para los otros cuatro elementos. Son cifras de un paso con un haz recién iniciado, no daño por segundo.
 
@@ -36,7 +37,8 @@ La reproducción de prismas midió 0 en lugar de 0,05683 HP para Agua y aproxima
 | Batería inicial del motor | 506 correctas, cero fallidas. |
 | Primeras reproducciones añadidas | Siete fallos: barrera, roca curativa, dos suelos con y sin continuación y oro inválido. |
 | Reproducción adicional de prismas | Cinco casos fallidos antes de corregir el cálculo. |
-| Motor corregido | **522 correctas, cero fallidas**, incluidas 16 regresiones nuevas. Las ejecuciones parciales no se suman a esta cifra. |
+| Motor corregido | **524 correctas, cero fallidas**, incluidas 18 regresiones nuevas. Las ejecuciones parciales no se suman a esta cifra. |
+| Áreas propias | Dos reproducciones adicionales fallan antes de corregir el filtro de la asistencia. |
 | Cliente local | Compila sin advertencias de C# tras aclarar la comprobación de los datos de la gráfica. |
 | Inventario móvil, 640 × 450 | `EQUIPMENT_SMOKE_OK`: seis ranuras, calidades, guardado al salir, recuperación y aplicación del equipo. |
 | Supervivencia móvil, 640 × 450 | `DEFENSE_SMOKE_OK`: compras, ventas, mejoras, pausa, controles, portales, botín y reutilización. |

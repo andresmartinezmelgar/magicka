@@ -25,4 +25,10 @@ jobs:
           test "$main_sha" = "$GITHUB_SHA"
           version=$(gh api "repos/$GITHUB_REPOSITORY/contents/VERSION?ref=main" --jq '.content' | base64 --decode | tr -d '\r\n')
           test "$version" = '0.29.28'
+          # Una corrección anterior a la publicación sustituye las compilaciones del main antiguo.
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=main&event=workflow_dispatch&per_page=20" \
+            --jq ".workflow_runs[] | select(.head_sha != \"$GITHUB_SHA\" and .status != \"completed\") | .id" > "$RUNNER_TEMP/arcana-stale-runs"
+          while IFS= read -r stale_run; do
+            [ -z "$stale_run" ] || gh run cancel "$stale_run" --repo "$GITHUB_REPOSITORY" || true
+          done < "$RUNNER_TEMP/arcana-stale-runs"
           gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref main -f publish_stable=true -f publish_preview=false

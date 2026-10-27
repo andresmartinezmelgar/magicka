@@ -45,6 +45,7 @@ internal static class ComprehensiveAuditTests
         {
             test($"Revisión integral: el suelo de {element} conserva potencia y bando tras morir su creador", () => PersistentGround(element, false));
             test($"Revisión integral: guardar y continuar conserva el origen del suelo de {element}", () => PersistentGround(element, true));
+            test($"Revisión integral: la asistencia sale de su propio suelo dañino de {element}", () => OwnGround(element));
         }
         test("Revisión integral: un guardado con oro de botín inválido se rechaza antes de jugar", InvalidSavedGold);
         foreach (bool restore in new[] { false, true })
@@ -195,5 +196,19 @@ internal static class ComprehensiveAuditTests
         Check(Math.Abs(before - player.Health - expected) < .001f, "La quemadura cambia al retirar el último efecto del lanzador.");
         player.Burning = 0; Call(world, "CleanupDefense");
         Check(((IDictionary)Get(world, "_lingeringSources")).Count == 0, "La fuente de la quemadura no se libera.");
+    }
+
+    private static void OwnGround(Element element)
+    {
+        var (world, player) = World();
+        var ally = world.AddPlayer("Aliado")!; ally.Position = new(-8, 5); ally.Invulnerable = 0;
+        Ground(world, player, player.Position, element);
+        float health = player.Health;
+        Call(world, "TickWallsAndFields", GameWorld.StepSeconds);
+        Check(player.Health < health, "El área propia no causa daño en el escenario de prueba.");
+        Check((float)Call(world, "AssistanceHazard", player, player.Position)! > 0, "La asistencia considera seguro un área propia dañina.");
+        Check(world.ApplyMessage(player.Id, new() { Type = "defense_shop", Slot = 1, Sequence = 1 }), "No pudo activar la asistencia.");
+        var before = player.Position; world.Step();
+        Check(V2.Distance(before, player.Position) > .01f, "La asistencia no abandona su propio campo.");
     }
 }

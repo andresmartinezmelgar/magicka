@@ -186,15 +186,19 @@
     "failed": 5
   },
   "fixed_core_tests": {
-    "passed": 522,
+    "passed": 524,
     "failed": 0
   },
-  "new_core_regressions": 16,
+  "new_core_regressions": 18,
   "caster_motion_before": "DEFENSE_SMOKE_FAILED: doble interpolación tras teletransporte a 30 FPS",
   "caster_motion_after": "ENEMY_CASTER_MOTION_OK: 24 combinaciones, sprites y auras alineados",
   "local_ui_smokes": [
     "EQUIPMENT_SMOKE_OK: mobile 640x450",
     "DEFENSE_SMOKE_OK: mobile 640x450"
   ],
-  "rar_fixture_tests": 4
+  "rar_fixture_tests": 4,
+  "own_ground_reproductions": {
+    "passed": 16,
+    "failed": 2
+  }
 }
