@@ -601,7 +601,7 @@ jobs:
       - name: Verificar en simulación táctil el apuntado de hielo y escudos
         run: |
           set -o pipefail
-          timeout 160s "$ARCANA_GODOT" --headless --audio-driver Dummy --path src/Arcana.Client -- --mobile-smoke 2>&1 | tee "$RUNNER_TEMP/mobile-spell-smoke.log"
+          timeout --kill-after=10s 160s "$ARCANA_GODOT" --headless --audio-driver Dummy --path src/Arcana.Client -- --mobile-smoke 2>&1 | tee "$RUNNER_TEMP/mobile-spell-smoke.log"
           grep -q 'MOBILE_ICE_AIM_OK' "$RUNNER_TEMP/mobile-spell-smoke.log"
           grep -q 'MOBILE_SMOKE_OK' "$RUNNER_TEMP/mobile-spell-smoke.log"
           ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/mobile-spell-smoke.log"

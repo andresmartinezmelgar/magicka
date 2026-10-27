@@ -1,7 +1,7 @@
 name: Publicacion de Supervivencia expresamente solicitada
 
 # Activador limitado a la rama y a la petición de tag/APK del usuario.
-# Revisión 3: reiniciar descarta rayos y eventos del terreno anterior.
+# Revisión 4: la simulación táctil completa pausa/reanudación y dispone de cierre forzado al agotar su plazo.
 on:
   push:
     branches: [pruebas/supervivencia-procedural-autoguardado]

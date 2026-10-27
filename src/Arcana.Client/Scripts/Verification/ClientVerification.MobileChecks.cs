@@ -179,6 +179,8 @@ public partial class ClientVerification
                     Require(player.Charging != null, "No empieza la carga antes de pasar a segundo plano.");
                     _runtime.Notify((int)NotificationApplicationPaused);
                     Require(_runtime.Paused && !touch.Visible && touch.Movement.IsZeroApprox() && player.Charging == null, "Pasar a segundo plano no detiene la entrada.");
+                    _runtime.Notify((int)NotificationApplicationResumed);
+                    Require(_runtime.Paused && !touch.Visible, "Volver de segundo plano cerró la pausa sin intervención del jugador.");
                     _runtime.Notify((int)NotificationWMGoBackRequest);
                     Require(!_runtime.Paused && touch.Visible, "Atrás no cierra la pausa.");
                     _runtime.Hud!.ScoreOpen = true; _runtime.Hud.Update(_runtime.Practice.Snapshot(), _runtime.LocalId, "Prueba móvil", 0.1);

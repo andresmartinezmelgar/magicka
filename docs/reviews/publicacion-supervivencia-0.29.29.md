@@ -31,4 +31,6 @@ La simulación de guardado provoca la última muerte mediante la ruta real de da
 
 Reiniciar cambiaba el terreno, pero dejaba en el snapshot rayos y eventos recientes con coordenadas del mapa anterior. Se retiran al reiniciar; la regresión lanza un rayo desde un portal y comprueba que la nueva partida no reproduce sus efectos ni eventos. La suite completa vuelve a pasar con 537 pruebas.
 
+La simulación táctil antigua enviaba pausa de Android pero no reanudación; ahora reproduce ambos eventos antes de cerrar el menú. La espera de CI añade un cierre forzado si Godot no responde a la señal de terminación.
+
 La publicación exige que CI vuelva a ejecutar la suite completa, pruebas LAN, simulaciones visuales, reglas Firestore, Docker y empaquetados. El job de preliminares depende de todas esas comprobaciones y verifica la firma permanente y los SHA-256 antes de publicar. La solicitud del flujo se limita a esta rama, a cambiar su activador y al mensaje explícito de publicación; subir otros cambios no lanza una compilación.
