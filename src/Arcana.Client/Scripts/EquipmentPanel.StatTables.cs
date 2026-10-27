@@ -1,5 +1,6 @@
 using Arcana.Core;
 using Godot;
+using System.Globalization;
 
 namespace Arcana.Client;
 
@@ -29,7 +30,8 @@ public partial class EquipmentPanel
         {
             bool active = EquipmentCatalogue.BonusActive(slot, bonus.Stat);
             string value = active ? EquipmentCatalogue.Percent(bonus.Current) : "Inactivo";
-            if (bonus.Maximum is { } maximum) value += " (" + EquipmentCatalogue.Percent(maximum) + ")";
+            if (bonus.Maximum is { } maximum)
+                value += " (Max " + MathF.Round(maximum * 100, 2).ToString("0.##", CultureInfo.InvariantCulture) + ")";
             var applied = Cell(table, value, true, active ? bonus.Current < 0 ? Ui.Red : Ui.Blue : Ui.Muted);
             applied.SizeFlagsHorizontal = SizeFlags.Fill;
             var attribute = Cell(table, $"{++index}. {StatName(bonus.Stat)}");
