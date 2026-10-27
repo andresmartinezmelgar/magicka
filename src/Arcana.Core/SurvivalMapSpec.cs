@@ -1,11 +1,13 @@
 namespace Arcana.Core;
 
 /// <summary>La misma semilla y versión reconstruyen el mapa en servidor, cliente y guardado.</summary>
-public sealed record SurvivalMapSpec(int Seed, int Version = 1)
+public sealed record SurvivalMapSpec(int Seed, int Version = SurvivalMapSpec.CurrentVersion)
 {
+    public const int CurrentVersion = 2;
+    public const int GenerationBudgetMilliseconds = 10_000;
     public static SurvivalMapSpec Legacy { get; } = new(0, 0);
     [System.Text.Json.Serialization.JsonIgnore]
-    public bool Valid => Version == 1 || Version == 0 && Seed == 0;
+    public bool Valid => Version is 1 or CurrentVersion || Version == 0 && Seed == 0;
 
     internal static SurvivalMapSpec New(SurvivalMapSpec? previous = null)
     {
@@ -14,6 +16,9 @@ public sealed record SurvivalMapSpec(int Seed, int Version = 1)
         return new(seed);
     }
 }
+
+/// <summary>Diagnóstico del terreno generado, sin intervenir en la simulación ni en el protocolo.</summary>
+public sealed record SurvivalMapStructure(int Rooms, int Connections, int Loops, int RoomShapeKinds, int CorridorShapeKinds);
 
 internal static class SurvivalMapCache
 {

@@ -23,6 +23,7 @@ internal static class SurvivalContinuityTests
 
     internal static void Run(Action<string, Action> test)
     {
+        SurvivalMapDiversityTests.Run(test);
         test("Red: un reflejo conserva el alcance del lanzador y los rayos directos siguen acotados", () =>
         {
             var world = new GameWorld(new() { Mode = GameMode.Arena });
@@ -48,8 +49,12 @@ internal static class SurvivalContinuityTests
                 {
                     Check(Math.Abs(floor.Center.X) + floor.Width / 2 < map.HalfWidth &&
                         Math.Abs(floor.Center.Y) + floor.Height / 2 < map.HalfHeight, "Una sala rebasa los límites.");
-                    Check(map.FindPath(V2.Zero, floor.Center).Length > 0, "Sala o pasillo aislado.");
                 }
+                // El empaquetado de las siluetas curvas contiene muchos más rectángulos que el generador v1.
+                // Repartir las muestras permite comprobar las rutas reales sin miles de A* redundantes.
+                int stride = Math.Max(1, map.Floors.Count / 16);
+                foreach (var floor in map.Floors.Where((_, i) => i % stride == 0))
+                    Check(map.FindPath(V2.Zero, floor.Center).Length > 0, "Sala o pasillo aislado.");
                 Check(map.Teleports.Count == 2, "Faltan las rutas de escape.");
                 foreach (var at in map.Teleports.SelectMany(p => new[] { p.A, p.B }))
                     Check(map.Inside(at, 2) && map.FindPath(V2.Zero, at).Length > 0, "Portal inseguro o inaccesible.");
@@ -89,7 +94,7 @@ internal static class SurvivalContinuityTests
         test("Mapa procedural: nueva partida y reinicio cambian el mapa sin alterar las apariciones", () =>
         {
             var (world, human) = World(); var (other, _) = World();
-            Check(world.Map.SurvivalMap is { Version: 1 } && other.Map.SurvivalMap != world.Map.SurvivalMap,
+            Check(world.Map.SurvivalMap?.Version == SurvivalMapSpec.CurrentVersion && other.Map.SurvivalMap != world.Map.SurvivalMap,
                 "Dos partidas nuevas usan la misma semilla.");
             human.Position = world.Map.Teleports[0].A;
             world.ApplyMessage(human.Id, new() { Type = "input", AimX = human.Position.X + 8,

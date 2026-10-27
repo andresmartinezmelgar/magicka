@@ -1,6 +1,6 @@
 # Supervivencia
 
-Versión de pruebas **0.29.29**, basada en la estable **0.29.28**, con protocolo **39**. Incluye el mapa procedural y el autoguardado. Cliente y servidor deben usar la misma rama; la publicación preliminar conserva separada la versión estable.
+Rama de pruebas basada en la preliminar **0.29.29** y en la estable **0.29.28**. El generador libre v2 utiliza protocolo **40**; la APK preliminar ya publicada utiliza protocolo 39 y el generador v1. Cliente y servidor deben usar el mismo protocolo. Los cambios de esta rama posteriores a la publicación quedan pendientes de la siguiente compilación expresamente solicitada.
 
 ## Partida y vidas
 
@@ -38,11 +38,15 @@ Equipar o quitar piezas mantiene abierto el selector; Atrás vuelve al inventari
 
 ## Mapa, aparición y rendimiento
 
-Cada partida nueva y cada reinicio generan **Laberinto**, de **160 × 120 m**: aproximadamente un 31 % menos de superficie delimitadora que los 192 × 144 m anteriores. Cambian las dimensiones y posiciones de nueve salas, las conexiones y los giros de los pasillos. Un árbol de conexiones garantiza acceso a todas las salas y se añaden de dos a cuatro ciclos para escapar. Los pasillos miden de 8 a 12 m de ancho y el centro reserva una sala de 36 × 30 m para aparecer.
+Cada partida nueva y cada reinicio generan **Laberinto**, dentro de **160 × 120 m**: aproximadamente un 31 % menos de superficie delimitadora que los 192 × 144 m anteriores. No hay una cuadrícula de salas ni un total prefijado: se colocan libremente hasta alcanzar una densidad elegida al azar, con distintos tamaños, proporciones y contornos rectangulares, ovalados, en cruz, rombo, lóbulos o con entrantes. Se necesitan al menos cuatro destinos distintos fuera del inicio para colocar los portales. Cualquier sala conserva un núcleo seguro de 12 m; en el centro contiene las cuatro posiciones de aparición.
 
-La semilla y la versión del generador viajan en el snapshot y el guardado. Simulación, rutas, colisiones, portales, vista y minimapa reconstruyen el mismo terreno. Continuar conserva ese mapa; los guardados antiguos mantienen **Anillos** hasta empezar otra partida. El generador usa su propio azar, independiente de la horda y del botín.
+Un árbol sobre las posiciones reales conecta todas las salas y se añaden ciclos en cantidad variable. Cada conexión puede ser recta, diagonal, acodada, tener varios giros, seguir una curva Bézier o un paseo irregular. La anchura cambia durante el recorrido, entre 8 y 16 m. Los caminos pueden cruzarse y formar plazas o salas compuestas. La unión se empaqueta sin superficies duplicadas; paredes, suelo y navegación usan el mismo contorno.
 
-Dos parejas de portales unen salas opuestas, con sus extremos dentro de suelo seguro y accesible. Cada pareja comparte color. Basta entrar en el círculo para cruzar; hay que salir del portal de destino antes de reutilizarlo. Los minions también pueden cruzar.
+La generación dispone de un presupuesto máximo de **10 segundos**, incluyendo su comprobación de navegación. Termina en cuanto tiene un terreno válido; no espera artificialmente a agotar el plazo. El número de intentos está acotado. El reloj solo cancela si se agota el presupuesto, sin escoger un mapa diferente según la velocidad del dispositivo. Antes de aceptar un terreno se comprueban las apariciones, la conexión de toda la navegación y el acceso seguro a los portales. Los tiempos de la preliminar corresponden al generador v1 y no son medidas de este generador libre.
+
+La semilla y la versión del generador viajan en el snapshot y el guardado. Simulación, rutas, colisiones, portales, vista y minimapa reconstruyen el mismo terreno. Continuar conserva ese mapa: los guardados originales mantienen **Anillos** y los de la preliminar mantienen el generador v1 de nueve salas hasta empezar otra partida. El generador usa su propio azar, independiente de la horda y del botín. La geometría v2 utiliza aritmética entera para reproducirse igual en ARM64 y x64.
+
+Dos parejas de portales unen salas alejadas, con cuatro extremos diferentes dentro de suelo seguro y accesible. Su posición depende de las salas que se hayan generado. Cada pareja comparte color. Basta entrar en el círculo para cruzar; hay que salir del portal de destino antes de reutilizarlo. Los minions también pueden cruzar.
 
 Las apariciones utilizan posiciones transitables de todo el mapa. La exclusión de **16 m sigue a cada defensor con vidas**, incluso mientras espera reaparecer. Evita apariciones pegadas al personaje; los enemigos ya existentes sí pueden entrar y atacar. Si no hay una posición segura se aplaza la aparición.
 

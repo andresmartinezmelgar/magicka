@@ -24,7 +24,8 @@ internal static partial class SurvivalLayout
     }
 
     private static ArenaDefinition Build(List<FloorSection> floors, int width, int height,
-        TeleportPair[] portals, SurvivalMapSpec spec, string name)
+        TeleportPair[] portals, SurvivalMapSpec spec, string name, SurvivalMapStructure? structure = null,
+        Action? navigationCheckpoint = null)
     {
         // Extrae las paredes de la unión de rectángulos, incluidos los patios sin suelo.
         int halfWidth = width / 2, halfHeight = height / 2;
@@ -54,6 +55,7 @@ internal static partial class SurvivalLayout
                 edges.Add(new(new(x - halfWidth, start - halfHeight), new(x - halfWidth, y - halfHeight)));
             }
         return new(ArenaMapId.Bastion, name, halfWidth, halfHeight, floors.ToArray(), [], [], [], 0,
-            teleports: portals, boundary: edges.ToArray(), survivalMap: spec);
+            teleports: portals, boundary: edges.ToArray(), survivalMap: spec, survivalStructure: structure,
+            navigationCheckpoint: navigationCheckpoint);
     }
 }

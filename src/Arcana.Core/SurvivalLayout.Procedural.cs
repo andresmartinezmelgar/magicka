@@ -3,6 +3,15 @@ namespace Arcana.Core;
 internal static partial class SurvivalLayout
 {
     internal static ArenaDefinition Create(SurvivalMapSpec spec)
+        => spec.Version switch
+        {
+            1 => CreateVersion1(spec),
+            SurvivalMapSpec.CurrentVersion => CreateRandomized(spec),
+            _ => throw new ArgumentException("Versión de mapa de supervivencia incompatible.", nameof(spec))
+        };
+
+    // Se conserva sin cambios geométricos para continuar las partidas de la primera preliminar.
+    private static ArenaDefinition CreateVersion1(SurvivalMapSpec spec)
     {
         // Azar propio: generar el terreno nunca consume la secuencia de la horda o del botín.
         var random = new SurvivalRandom(spec.Seed);

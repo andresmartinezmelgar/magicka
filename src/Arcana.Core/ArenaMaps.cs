@@ -14,6 +14,7 @@ public sealed class ArenaDefinition
     public float HalfWidth { get; }
     public float HalfHeight { get; }
     public SurvivalMapSpec? SurvivalMap { get; }
+    public SurvivalMapStructure? SurvivalStructure { get; }
     public IReadOnlyList<FloorSection> Floors { get; }
     public IReadOnlyList<MapEdge> Boundary { get; }
     public IReadOnlyList<Obstacle> Obstacles { get; }
@@ -44,17 +45,18 @@ public sealed class ArenaDefinition
     internal ArenaDefinition(ArenaMapId id, string name, float halfWidth, float halfHeight,
         FloorSection[] floors, V2[] outline, Obstacle[] obstacles, V2[] points, float spawnX, V2[]? itemSpawns = null,
         TeleportPair[]? teleports = null, MapEdge[]? eventGates = null, MapEdge[]? boundary = null,
-        SurvivalMapSpec? survivalMap = null)
+        SurvivalMapSpec? survivalMap = null, SurvivalMapStructure? survivalStructure = null,
+        Action? navigationCheckpoint = null)
     {
         Id = id; Name = name; HalfWidth = halfWidth; HalfHeight = halfHeight; _spawnX = spawnX;
-        SurvivalMap = survivalMap;
+        SurvivalMap = survivalMap; SurvivalStructure = survivalStructure;
         _floors = floors; _obstacles = obstacles;
         Floors = Array.AsReadOnly(_floors); Obstacles = Array.AsReadOnly(_obstacles); ControlPoints = Array.AsReadOnly(points);
         ItemSpawns = Array.AsReadOnly(itemSpawns ?? []);
         Teleports = Array.AsReadOnly(teleports ?? []); EventGates = Array.AsReadOnly(eventGates ?? []);
         _boundary = boundary ?? outline.Select((p, i) => new MapEdge(p, outline[(i + 1) % outline.Length])).ToArray();
         Boundary = Array.AsReadOnly(_boundary);
-        _navigation = new(BuildNavigation);
+        _navigation = new(() => BuildNavigation(navigationCheckpoint));
     }
 
     public V2 Spawn(int team, int index, int capturedPoints = 0)
@@ -108,22 +110,28 @@ public sealed class ArenaDefinition
         return true;
     }
 
-    private (V2[] Positions, int[][] Neighbors) BuildNavigation()
+    private (V2[] Positions, int[][] Neighbors) BuildNavigation(Action? checkpoint)
     {
         var cells = new Dictionary<(int X, int Y), int>(); var positions = new List<V2>();
         int nx = (int)MathF.Ceiling(HalfWidth), ny = (int)MathF.Ceiling(HalfHeight);
         for (int x = -nx + 1; x < nx; x += 2)
-        for (int y = -ny + 1; y < ny; y += 2)
         {
-            var p = new V2(x, y);
-            if (!Walkable(p)) continue;
-            cells[(x, y)] = positions.Count; positions.Add(p);
+            checkpoint?.Invoke();
+            for (int y = -ny + 1; y < ny; y += 2)
+            {
+                var p = new V2(x, y);
+                if (!Walkable(p)) continue;
+                cells[(x, y)] = positions.Count; positions.Add(p);
+            }
         }
         var neighbors = positions.Select(_ => new List<int>()).ToArray();
         foreach (var (cell, index) in cells)
+        {
+            if ((index & 127) == 0) checkpoint?.Invoke();
             foreach (var (dx, dy) in new[] { (-2, 0), (2, 0), (0, -2), (0, 2) })
                 if (cells.TryGetValue((cell.X + dx, cell.Y + dy), out int next) && ClearPath(positions[index], positions[next]))
                     neighbors[index].Add(next);
+        }
         return (positions.ToArray(), neighbors.Select(n => n.ToArray()).ToArray());
     }
 
