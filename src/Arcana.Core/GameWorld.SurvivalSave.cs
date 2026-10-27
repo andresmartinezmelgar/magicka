@@ -17,6 +17,7 @@ public sealed partial class GameWorld
         public int Reinforcements;
         public SavedDefender[] Defenders = [];
         public SavedMinion[] Minions = [];
+        public SavedEffectSource[] EffectSources = [];
         public SavedProjectile[] Projectiles = [];
         public SavedWall[] Walls = [];
         public SavedField[] Fields = [];
@@ -53,6 +54,7 @@ public sealed partial class GameWorld
         public float AuraRepairCooldown { get; init; }
     }
     private sealed record SavedProjectile(int Id, int Owner, V2 Position, V2 Velocity, Element[] Elements, float Radius, float Power, float Lifetime);
+    private sealed record SavedEffectSource(int Id, MinionKind Kind, float Power);
     private sealed record SavedWall(int Id, int Owner, V2 A, V2 B, float Health, float Lifetime, Element[] Elements);
     private sealed record SavedField(int Id, int Owner, V2 Position, float Radius, float Lifetime, float Delay,
         float TriggerRadius, float Power, Element[] Elements, string Kind);
@@ -93,6 +95,7 @@ public sealed partial class GameWorld
                 m.Windup, m.SupportCooldown, m.ShieldCooldown, m.SpellTurn)
                 { FocusTargetId = _players.ContainsKey(m.FocusTargetId) ? m.FocusTargetId : 0,
                     FocusTime = m.FocusTime, AuraRepairCooldown = m.AuraRepairCooldown }).ToArray(),
+            EffectSources = _lingeringSources.Select(s => new SavedEffectSource(s.Key, s.Value.Kind, s.Value.Body.Equipment.Power)).ToArray(),
             Projectiles = _projectiles.Select(p => new SavedProjectile(p.Id, p.Owner, p.Position, p.Velocity,
                 p.Recipe.Elements, p.Radius, p.Power, p.Lifetime)).ToArray(),
             Walls = _walls.Select(w => new SavedWall(w.Id, w.Owner, w.A, w.B, w.Health, w.Lifetime, w.Recipe.Elements)).ToArray(),
@@ -164,6 +167,7 @@ public sealed partial class GameWorld
             });
             world._combatants.Add(p.Id, p); world._orderedPlayers.Add(p);
         }
+        foreach (var source in s.EffectSources) world.RememberEffectSource(source.Id, source.Kind, source.Power);
         foreach (var p in s.Projectiles) world._projectiles.Add(new() { Id = p.Id, Owner = p.Owner, Position = p.Position,
             Velocity = p.Velocity, Recipe = new(p.Elements), Radius = p.Radius, Power = p.Power, Lifetime = p.Lifetime });
         foreach (var w in s.Walls) world._walls.Add(new() { Id = w.Id, Owner = w.Owner, A = w.A, B = w.B,
@@ -179,6 +183,8 @@ public sealed partial class GameWorld
         world._defenseBotPlanClock = s.BotClock;
         ((SurvivalRandom)world._random).State = s.RandomState;
         world.RestoreStatistics(null);
+        foreach (var source in world._lingeringSources.Values)
+        { world._statistics.Bind(source.Body, source.Kind, spawn: false); world._statistics.Retire(source.Body.Id); }
         world.BuildDefenseCells();
         return world;
     }
@@ -195,7 +201,7 @@ public sealed partial class GameWorld
         Require(s != null && s.Options != null && s.Options.Mode == GameMode.Defense && s.Options.Map == ArenaMapId.Bastion &&
             s.Options.MaxPlayers is >= 1 and <= DefenseRules.MaxDefenders && Enum.IsDefined(s.Options.DefenseFlow) &&
             s.Defenders is { Length: >= 1 and <= DefenseRules.MaxDefenders } && s.Defenders.Length <= s.Options.MaxPlayers &&
-            s.Minions is { Length: <= DefenseRules.MaxMinions } && s.Drops is { Length: <= DefenseRules.MaxDrops } &&
+            s.Minions is { Length: <= DefenseRules.MaxMinions } && s.EffectSources is { Length: <= 512 } && s.Drops is { Length: <= DefenseRules.MaxDrops } &&
             s.Projectiles is { Length: <= 2048 } && s.Walls is { Length: <= 2048 } && s.Fields is { Length: <= 2048 } &&
             s.Bestiary != null && s.Bestiary.Length <= DefenseRules.MinionTypeCount && s.BotPlans is { Length: <= 3 });
         Require(s!.Tick is >= 0 and <= 1892160000 && double.IsFinite(s.Elapsed) && s.Elapsed is >= 0 and <= 31536000 &&
@@ -241,6 +247,9 @@ public sealed partial class GameWorld
                 float.IsFinite(m.AuraRepairCooldown) && m.AuraRepairCooldown is >= 0 and <= DefenseRules.OracleShieldInterval &&
                 new[] { m.Strength, m.Attack, m.ChannelTime, m.SpeedBoost,
                     m.SpeedClock, m.NavigationClock, m.Windup, m.SupportCooldown, m.ShieldCooldown }.All(float.IsFinite));
+        foreach (var source in s.EffectSources)
+            Require(source != null && source.Id >= 1000 && ids.Add(source.Id) && Enum.IsDefined(source.Kind) &&
+                float.IsFinite(source.Power) && source.Power is > 0 and <= 1350.01f);
         Require(s.NextMinion > ids.Max() && s.NextMinion < int.MaxValue - 1);
         var entities = new HashSet<int>();
         bool Entity(int id) => id > 0 && entities.Add(id);
@@ -252,7 +261,8 @@ public sealed partial class GameWorld
         foreach (var f in s.Fields) Require(f != null && Entity(f.Id) && f.Position.IsFinite && Elements(f.Elements) && f.Kind is { Length: > 0 and < 48 } &&
             new[] { f.Radius, f.Lifetime, f.Delay, f.TriggerRadius, f.Power }.All(float.IsFinite));
         foreach (var d in s.Drops) Require(d != null && Entity(d.Id) && d.Position.IsFinite && Enum.IsDefined(d.Kind) && Enum.IsDefined(d.Buff) &&
-            float.IsFinite(d.Remaining) && (d.Kind != DefenseDropKind.Equipment || d.Item != null && EquipmentCatalogue.Valid(d.Item)));
+            d.Gold is >= 0 and <= 208 && float.IsFinite(d.Remaining) &&
+            (d.Kind != DefenseDropKind.Equipment || d.Item != null && EquipmentCatalogue.Valid(d.Item)));
         Require(s.NextEntity > entities.DefaultIfEmpty(0).Max() && s.NextEntity < int.MaxValue - 1);
         Require(s.Bestiary.All(b => b != null && Enum.IsDefined(b.Kind)) && s.Bestiary.Select(b => b.Kind).Distinct().Count() == s.Bestiary.Length &&
             s.Minions.All(m => s.Bestiary.Any(b => b.Kind == m.Kind)) && s.BotPlans.All(b => b != null &&

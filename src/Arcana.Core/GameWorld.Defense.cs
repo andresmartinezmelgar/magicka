@@ -108,6 +108,7 @@ public sealed partial class GameWorld
         foreach (var m in distant)
         {
             CancelCast(m.Body);
+            RememberEffectSource(m.Body.Id, m.Kind, m.Body.Equipment.Power);
             _statistics.Retire(m.Body.Id);
             _minions.Remove(m.Body.Id); _combatants.Remove(m.Body.Id); _orderedPlayers.Remove(m.Body); _routes.Remove(m.Body.Id);
             _projectiles.RemoveAll(p => p.Owner == m.Body.Id); _fields.RemoveAll(f => f.Owner == m.Body.Id);
@@ -447,9 +448,11 @@ public sealed partial class GameWorld
         foreach (int id in _minions.Where(m => !m.Value.Body.Alive).Select(m => m.Key).ToArray())
         {
             var body = _minions[id].Body;
+            RememberEffectSource(id, _minions[id].Kind, body.Equipment.Power);
             _statistics.Retire(id);
             _minions.Remove(id); _combatants.Remove(id); _orderedPlayers.Remove(body); _routes.Remove(id);
         }
+        CleanupEffectSources();
     }
 
     private void CheckSurvivalEnd()
@@ -471,7 +474,8 @@ public sealed partial class GameWorld
     {
         if (!IsDefense) return;
         foreach (var minion in _minions.Values) { _combatants.Remove(minion.Body.Id); _orderedPlayers.Remove(minion.Body); }
-        _minions.Clear(); _defenseDrops.Clear(); _defenseAccounts.Clear(); _defenseBestiary.Clear();
+        _minions.Clear(); _lingeringSources.Clear(); _effectOwners.Clear();
+        _defenseDrops.Clear(); _defenseAccounts.Clear(); _defenseBestiary.Clear();
         _defenseBotPlans.Clear(); _defenseBotPlanClock = 0;
         _defenseKills = _bossesKilled = 0; _defenseDifficulty = _defensePartySize = 1;
         _defenseElapsed = _spawnClock = _auraClock = 0;

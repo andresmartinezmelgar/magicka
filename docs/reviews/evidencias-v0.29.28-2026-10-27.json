@@ -1,0 +1,200 @@
+{
+  "base": "0fb72f2c5116d269007deb1bbbc562cfb6065f0e",
+  "version": "0.29.28",
+  "source_inventory_before": {
+    "src/Arcana.Core": 111,
+    "src/Arcana.Client/Scripts": 168,
+    "src/Arcana.Server": 23,
+    "src/Arcana.AccountServer": 1,
+    "tests": 61
+  },
+  "assets": [
+    {
+      "path": "src/Arcana.Client/Assets/CapturePoints/arcane.png",
+      "format": "PNG",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA",
+      "sha256": "457c9a68b713cb17046f3febcdb3acba4b82f10b7c19deb9beecefd2778ba67c"
+    },
+    {
+      "path": "src/Arcana.Client/Assets/CapturePoints/crystal.png",
+      "format": "PNG",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA",
+      "sha256": "0739f17a430c29f9bf77c34b914a7a73163d8b76cc224fb9651c5abe891e9aee"
+    },
+    {
+      "path": "src/Arcana.Client/Assets/CapturePoints/fire.png",
+      "format": "PNG",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA",
+      "sha256": "d0a01989acfbfa8d204a28643027b5543f6fad9c25be26c2a79e6749df1b55f2"
+    },
+    {
+      "path": "src/Arcana.Client/Assets/CapturePoints/ice.png",
+      "format": "PNG",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA",
+      "sha256": "5995e12b4d75228d889a99ed2c7c01e6d8020c6165994fd679e95e2d82b53764"
+    },
+    {
+      "path": "src/Arcana.Client/Assets/CapturePoints/nature.png",
+      "format": "PNG",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA",
+      "sha256": "4c7ae43b461cd9cad0c0e597b98c1460d2ea5e2e82cbfa2b58bfc6f9dcebff8d"
+    },
+    {
+      "path": "src/Arcana.Client/Assets/CapturePoints/solar.png",
+      "format": "PNG",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA",
+      "sha256": "164ea6e9d9950a1d5cd02bc0bf76513c1ae6b6e4ea0efb9a4d38b9cefe9ddea7"
+    },
+    {
+      "path": "src/Arcana.Client/Assets/Inventory/equip.svg",
+      "format": "SVG",
+      "sha256": "36b031205036fc970414c741d3a1fc400c3ef4ba84df86f49e29a2f2c2ce100a"
+    },
+    {
+      "path": "src/Arcana.Client/Assets/Inventory/trash.svg",
+      "format": "SVG",
+      "sha256": "fd536ce2b293257cb27c6a5799832213206760c4cb987290125a5e036ddd9a82"
+    },
+    {
+      "path": "src/Arcana.Client/Assets/Inventory/upgrade.svg",
+      "format": "SVG",
+      "sha256": "2f214c32156ecca78309edd07380ac50b9a7e5ba42b6ebc2d0d44d92ed3b1917"
+    },
+    {
+      "path": "src/Arcana.Client/Assets/Loot/pickups.svg",
+      "format": "SVG",
+      "sha256": "42d83ed2e3567c87f7508d226d0603cb787583884d6494a989d07e18407ec94a"
+    },
+    {
+      "path": "src/Arcana.Client/Assets/VFX/area-shields-style-b.webp",
+      "format": "WEBP",
+      "size": [
+        640,
+        320
+      ],
+      "mode": "RGBA",
+      "sha256": "54ebf7d1df2328003046faeb17fc3bfa1edcc0bc355da64c7d0a23b9b0a146cf"
+    },
+    {
+      "path": "src/Arcana.Client/Assets/VFX/element-style-b.webp",
+      "format": "WEBP",
+      "size": [
+        384,
+        192
+      ],
+      "mode": "RGBA",
+      "sha256": "36f51745bd04f6f69ec5e9f486e9f46f8f7304db50467210fba86ab7c27e4aa3"
+    },
+    {
+      "path": "src/Arcana.Client/Assets/VFX/wall-shields-style-b.webp",
+      "format": "WEBP",
+      "size": [
+        640,
+        320
+      ],
+      "mode": "RGBA",
+      "sha256": "31a0fb056316c7c424393fc6fee66114e6d6de4191fb3e9fbbe0bff9d38b1b25"
+    },
+    {
+      "path": "src/Arcana.Client/Assets/Wizards/balanced.png",
+      "format": "PNG",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "sha256": "5dbe842a748784f9f0e6018caf593e1e95bca000fee0a1adf8e860b5a59ad2e6"
+    },
+    {
+      "path": "src/Arcana.Client/Assets/Wizards/cryomancer.png",
+      "format": "PNG",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "sha256": "bb0a9027e7913b3196b8e151dba96622884ac65cc7f009767d501a79bca2b9a7"
+    },
+    {
+      "path": "src/Arcana.Client/Assets/Wizards/geomancer.png",
+      "format": "PNG",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "sha256": "b040e3d4bb526363bfed9d683a001e78ea3144e03019dff1263980c2b454d206"
+    },
+    {
+      "path": "src/Arcana.Client/Assets/Wizards/pyromancer.png",
+      "format": "PNG",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "sha256": "056b913dcb0cf8f6ffaf89a85c3ed94f3f6d43d8d7328d8a64dccfeec6c8d18d"
+    },
+    {
+      "path": "src/Arcana.Client/Assets/Wizards/stormcaller.png",
+      "format": "PNG",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "sha256": "23ed6df04d7bffc9be8438ef63ed1d68c6f680a7c5c63e4d237cb58b1cd9fa13"
+    }
+  ],
+  "wizard_atlases": 5,
+  "wizard_poses": 80,
+  "asset_errors": [],
+  "baseline_tests": {
+    "passed": 506,
+    "failed": 0
+  },
+  "confirmed_initial_reproductions": {
+    "passed": 506,
+    "failed": 7
+  },
+  "prism_reproductions": {
+    "passed": 7,
+    "failed": 5
+  },
+  "fixed_core_tests": {
+    "passed": 522,
+    "failed": 0
+  },
+  "new_core_regressions": 16,
+  "caster_motion_before": "DEFENSE_SMOKE_FAILED: doble interpolación tras teletransporte a 30 FPS",
+  "caster_motion_after": "ENEMY_CASTER_MOTION_OK: 24 combinaciones, sprites y auras alineados",
+  "local_ui_smokes": [
+    "EQUIPMENT_SMOKE_OK: mobile 640x450",
+    "DEFENSE_SMOKE_OK: mobile 640x450"
+  ],
+  "rar_fixture_tests": 4
+}

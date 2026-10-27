@@ -87,6 +87,7 @@ public partial class Main
             if (_defenseSmokePhase == 0)
             {
                 Check(state.Defense!.Minions.Length > 0 && _renderer.DefenseMinionVisualCount > 0, "No se dibujaron minions.");
+                _renderer.VerifyEnemyCasterMotion(state, _localId);
                 if (_touch != null)
                 {
                     var rectangles = _touch.ButtonRectanglesForVerification;

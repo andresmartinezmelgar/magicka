@@ -110,12 +110,21 @@ public sealed partial class GameWorld
         _beams.Add(new(owner, from, to, BeamElements(parts), SpellShape.Beam, (float)power, interaction));
     }
 
-    private float BeamPressure(Wizard target, BeamPart part)
+    private float BeamPressure(Wizard target, BeamPart part, Span<float> weights)
     {
         var s = part.Recipe;
+        weights.Clear();
         double damage = 0;
         foreach (var element in SpellBalance.Offensive)
-            damage += ElementDamage(target, part.Owner, element, SpellBalance.Component(s, element, target.Wet > 0));
+        {
+            float component = ElementDamage(target, part.Owner, element, SpellBalance.Component(s, element, target.Wet > 0));
+            weights[(int)element] = component; damage += component;
+        }
+        if (target.VulnerableElement == Element.Water && SpellBalance.Component(s, Element.Water) == 0)
+        {
+            float component = ElementDamage(target, part.Owner, Element.Water, DefenseRules.PrismWaterDamage * s.Count(Element.Water));
+            weights[(int)Element.Water] += component; damage += component;
+        }
         return part.Scale * part.DamageMultiplier * (float)damage;
     }
 
@@ -124,9 +133,10 @@ public sealed partial class GameWorld
     {
         int penetrations = 0;
         foreach (var part in parts)
-            if (!part.Recipe.Healing && _combatants.TryGetValue(part.Owner, out var source))
+            if (!part.Recipe.Healing && TryCombatSource(part.Owner, out var source))
                 penetrations = Math.Max(penetrations, source.Equipment.BeamPierce);
         HashSet<int>? pierced = penetrations > 0 ? [] : null;
+        Span<float> shieldWeights = stackalloc float[9];
         for (int step = 0, bounce = 0; step < 6 && range > 0.08f; step++)
         {
             var end = BeamEnd(from, direction, range, ignoredWizard, out var wall, out var target, owner, parts, pierced);
@@ -139,7 +149,7 @@ public sealed partial class GameWorld
             {
                 bool alliedHealing = true;
                 foreach (var part in parts)
-                    if (!part.Recipe.Healing || !_combatants.TryGetValue(part.Owner, out var source) || !Allied(source, target))
+                    if (!part.Recipe.Healing || !TryCombatSource(part.Owner, out var source) || !Allied(source, target))
                     { alliedHealing = false; break; }
                 if (target.Shield <= 0 || target.ShieldTime <= 0 || alliedHealing)
                 {
@@ -147,7 +157,7 @@ public sealed partial class GameWorld
                     bool hostile = false;
                     if (penetrations > 0)
                         foreach (var part in parts)
-                            if (!part.Recipe.Healing && _combatants.TryGetValue(part.Owner, out var source) && Hostile(source, target))
+                            if (!part.Recipe.Healing && TryCombatSource(part.Owner, out var source) && Hostile(source, target))
                             { hostile = true; break; }
                     if (penetrations <= 0 || !hostile) return;
                     penetrations--; pierced!.Add(target.Id);
@@ -156,9 +166,12 @@ public sealed partial class GameWorld
                     continue;
                 }
                 foreach (var part in parts)
-                    if (!_combatants.TryGetValue(part.Owner, out var source) || source.Id == target.Id || !Allied(source, target) || Options.FriendlyFire && !IsDefense)
+                    if (!TryCombatSource(part.Owner, out var source) || source.Id == target.Id || !Allied(source, target) || Options.FriendlyFire && !IsDefense)
                     {
-                        DamageAs(StatisticAttack.Beam, target, BeamPressure(target, part) * 0.2f * dt, part.Owner, part.Recipe.Elements);
+                        _statistics.Immune(part.Owner, target, part.Recipe.Elements);
+                        float pressure = BeamPressure(target, part, shieldWeights);
+                        ApplyDamage(target, pressure * 0.2f * dt, part.Owner, part.Recipe.Elements, shieldOnly: false,
+                            resolvedElements: true, weights: shieldWeights, cause: StatisticAttack.Beam);
                         if (target.Shield > 0) DamageProtection(target, UtilityPressure(target, part.Recipe, part.Owner) * part.Scale * 0.2f * dt,
                             part.Owner, part.Recipe.Elements);
                     }

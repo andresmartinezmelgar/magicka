@@ -292,12 +292,12 @@ public sealed partial class GameWorld
 
     private bool Allied(Wizard a, Wizard b) => a.Id == b.Id || Options.Mode != GameMode.Arena && a.Team == b.Team;
     private bool Hostile(Wizard a, Wizard b) => !Allied(a, b);
-    private float Outgoing(int owner, Element element) => _combatants.TryGetValue(owner, out var source)
+    private float Outgoing(int owner, Element element) => TryCombatSource(owner, out var source)
         ? WizardTypes.Outgoing(source.WizardType, element) * source.Equipment.ElementPower(element) : 1;
     private float ElementDamage(Wizard target, int owner, Element element, float amount)
     {
         if (amount == 0) return 0;
-        _combatants.TryGetValue(owner, out var source);
+        TryCombatSource(owner, out var source);
         var gear = source?.Equipment ?? EquipmentModifiers.None;
         float outgoing = source == null ? 1 : WizardTypes.Outgoing(source.WizardType, element) * gear.ElementPower(element);
         float affix = source != null && Hostile(source, target)
@@ -647,10 +647,10 @@ public sealed partial class GameWorld
     private void Hit(Wizard target, SpellRecipe spell, float scale, int owner, V2 force, float damageMultiplier = 1)
     {
         if (!target.Alive) return;
-        var equipment = _combatants.TryGetValue(owner, out var attacker) ? attacker.Equipment : EquipmentModifiers.None;
+        var equipment = TryCombatSource(owner, out var attacker) ? attacker.Equipment : EquipmentModifiers.None;
         if (spell.Healing && target.VulnerableElement == null) HealAs(_statisticsAttack ?? MatchStatisticsCollector.Shape(spell.Shape), target, SpellBalance.Heal * spell.Count(Element.Life) * scale * HealingPower(owner), owner);
         if (target.Invulnerable > 0) return;
-        if (_combatants.TryGetValue(owner, out var source) && source.Id != target.Id && Allied(source, target) && (!Options.FriendlyFire || IsDefense)) return;
+        if (TryCombatSource(owner, out var source) && source.Id != target.Id && Allied(source, target) && (!Options.FriendlyFire || IsDefense)) return;
         float damage = 0;
         Span<float> weights = stackalloc float[9];
         weights.Clear();
@@ -668,7 +668,7 @@ public sealed partial class GameWorld
         if (spell.Has(Element.Fire) && !spell.Steam && Resistance(target, Element.Fire) > 0.5f)
         {
             if (target.Wet > 0) target.Wet = Math.Max(0, target.Wet - 12 * scale);
-            else { target.Burning = SpellBalance.BurnDuration * (_combatants.TryGetValue(owner, out var burner) ? burner.Equipment.BurnDuration : 1);
+            else { target.Burning = SpellBalance.BurnDuration * (TryCombatSource(owner, out var burner) ? burner.Equipment.BurnDuration : 1);
                 target.BurnOwner = owner; target.BurnMultiplier = Outgoing(owner, Element.Fire) * equipment.BurnPotency; }
             target.Chill = Math.Max(0, target.Chill - 100 * scale);
             target.Frozen = Math.Max(0, target.Frozen - 5 * scale);
@@ -693,7 +693,7 @@ public sealed partial class GameWorld
         damage *= damageMultiplier;
         ApplyDamage(target, damage * scale, owner, spell.Elements, false, true, weights, _statisticsAttack ?? MatchStatisticsCollector.Shape(spell.Shape));
         if (target.Shield > 0) DamageProtection(target, UtilityPressure(target, spell, owner) * scale, owner, spell.Elements);
-        if (_combatants.TryGetValue(owner, out var caster) && caster.Id != target.Id)
+        if (TryCombatSource(owner, out var caster) && caster.Id != target.Id)
             caster.Energy = Math.Min(100, caster.Energy + damage * scale * 0.015f);
     }
 
@@ -720,7 +720,7 @@ public sealed partial class GameWorld
         target.Health = Math.Max(0, target.Health - amount);
         _statistics.Damage(owner, target, healthBefore - target.Health, shieldBefore - target.Shield, Math.Max(0, amount - healthBefore), elements,
             cause ?? _statisticsAttack ?? (elements is { Length: > 0 } ? MatchStatisticsCollector.Shape(new SpellRecipe(elements).Shape) : StatisticAttack.EnemyMelee),
-            _combatants.TryGetValue(owner, out var statisticsSource) && Allied(statisticsSource, target), weights);
+            TryCombatSource(owner, out var statisticsSource) && Allied(statisticsSource, target), weights);
         if (healthBefore > 0 && target.Health <= 0) _statistics.Death(target, owner, cause ?? _statisticsAttack ?? StatisticAttack.EnemyMelee);
         // Un rayo golpea a 60 Hz; limita sus impactos, pero nunca omite la rotura del escudo.
         bool broken = absorbed > 0 && target.Shield <= 0;
@@ -740,7 +740,7 @@ public sealed partial class GameWorld
         CancelCast(target); target.Selection.Clear(); target.Shield = target.ShieldMax = target.ShieldTime = target.RegenerationRate = 0;
         if (Options.Mode == GameMode.Warfare && !Map.IsPractice && !HoldToWin && !ConquestToWin) Scores[target.Team] = Math.Max(0, Scores[target.Team] - 1);
         string text = $"{target.Name} ha caído";
-        if (_combatants.TryGetValue(owner, out var killer) && killer.Id != target.Id)
+        if (TryCombatSource(owner, out var killer) && killer.Id != target.Id)
         {
             bool enemy = Hostile(killer, target);
             killer.Kills = Math.Max(0, killer.Kills + (enemy ? 1 : -1));
@@ -774,7 +774,7 @@ public sealed partial class GameWorld
                 { nearest = t; wallHit = w; obstacleHit = false; target = null; }
             foreach (var q in _combatants.Values)
                 if (q.Alive && q.Id != projectile.Owner &&
-                    !(IsDefense && _combatants.TryGetValue(projectile.Owner, out var caster) && Allied(caster, q)) &&
+                    !(IsDefense && !projectile.Recipe.Healing && TryCombatSource(projectile.Owner, out var caster) && Allied(caster, q)) &&
                     Geometry.SegmentCircle(from, to, q.Position, (IsDefense && _minions.TryGetValue(q.Id, out var minion) && minion.Kind == MinionKind.Boss ? 1.4f : ArenaMap.WizardRadius) + projectile.Radius) is float t && t < nearest)
                 { nearest = t; target = q; obstacleHit = false; wallHit = null; }
             projectile.Position = V2.Lerp(from, to, nearest);
@@ -856,10 +856,10 @@ public sealed partial class GameWorld
             foreach (var p in _combatants.Values)
             {
                 if (!p.Alive || !(V2.Distance(p.Position, f.Position) < f.Radius) || !Visible(f.Position, p.Position, f.Owner)) continue;
-                if (IsDefense && f.Kind == "meteor" && _combatants.TryGetValue(f.Owner, out var caster) && Allied(caster, p)) continue;
+                if (IsDefense && f.Kind == "meteor" && TryCombatSource(f.Owner, out var caster) && Allied(caster, p)) continue;
                 if (f.Kind == "healing_mine")
                 {
-                    if (_combatants.TryGetValue(f.Owner, out var owner) && Allied(owner, p))
+                    if (TryCombatSource(f.Owner, out var owner) && Allied(owner, p))
                         HealAs(StatisticAttack.Mine, p, SpellBalance.MineHeal * f.Recipe.Count(Element.Life) * HealingPower(owner.Id), owner.Id);
                 }
                 else HitAs(f.Kind == "meteor" ? StatisticAttack.Meteor : StatisticAttack.Mine, p, f.Recipe, f.Kind == "meteor" ? SpellBalance.MeteorPower : SpellBalance.MinePower, f.Owner, (p.Position - f.Position).Normalized);

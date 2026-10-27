@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.29.28
+
+- Supervivencia admite en red las barreras reforzadas por nivel y equipo, hasta 2808 HP. Las rocas mezcladas con Vida pueden alcanzar y curar aliados; los proyectiles ofensivos siguen atravesándolos sin dañarlos.
+- Los suelos, proyectiles y quemaduras conservan el bando y la potencia del enemigo que los lanzó al morir este, también al guardar y continuar. Sus fuentes se liberan al extinguirse el último efecto.
+- Los haces contra escudos de prismas aplican una sola vez la inmunidad elemental e incluyen el componente de Agua. Las estadísticas registran solo el elemento que realmente causa daño.
+- Los sprites de magos enemigos utilizan una sola interpolación y mantienen sus auras alineadas al caminar o teletransportarse. El haz arcano moderno utiliza su color elemental, coherente con sus controles y textos.
+- Los atributos muestran el actual y «(Max 21.33)», sin mínimo. Se añade un RAR real de Windows con verificación de extracción y SHA-256 de cada archivo, además de APK, ZIP y deltas.
+- Los guardados rechazan oro de botín fuera de los límites de la simulación antes de permitir la continuación.
+- Revisión del motor, valores numéricos, cliente, transporte, cuentas, Android, publicación y recursos gráficos: 16 regresiones nuevas del motor, comprobaciones de movimiento de cuatro tipos de mago a 30/60/120 FPS y cuatro pruebas del empaquetador RAR.
+
 ## 0.29.27
 
 - Corregida la venta automática de Supervivencia en red: el transporte conserva la regla al activarla y desactivarla, también desde otra calidad.

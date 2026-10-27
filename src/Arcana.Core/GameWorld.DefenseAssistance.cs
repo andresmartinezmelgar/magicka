@@ -125,7 +125,7 @@ public sealed partial class GameWorld
         float danger = 0;
         foreach (var field in _fields)
             // Los campos huérfanos siguen aplicando daño tras retirar al enemigo muerto.
-            if (field.Lifetime > 0 && !field.Recipe.Healing && (!_combatants.TryGetValue(field.Owner, out var owner) || Hostile(player, owner)) &&
+            if (field.Lifetime > 0 && !field.Recipe.Healing && (!TryCombatSource(field.Owner, out var owner) || Hostile(player, owner)) &&
                 V2.Distance(at, field.Position) < field.Radius + 1) danger++;
         return danger;
     }

@@ -18,7 +18,7 @@ En Supervivencia, el servidor protege los favoritos y vende el botín nuevo filt
 
 Con 24/24 objetos, el botín nuevo se convierte en su valor de oro aunque la venta automática esté desactivada. Desactivar una regla no amplía la capacidad. La ayuda, la confirmación del ajuste y el aviso de recogida distinguen esta conversión de una venta por regla y muestran el oro recibido.
 
-El protocolo actual es **37**: deben actualizarse cliente y servidor juntos para reconocer los nuevos afijos de combate y la apariencia de ojos míticos.
+El protocolo actual es **38**: deben actualizarse cliente y servidor juntos para reconocer los afijos de combate, la apariencia de ojos míticos y el desglose de daño por origen.
 
 ## Efecto del equipo
 

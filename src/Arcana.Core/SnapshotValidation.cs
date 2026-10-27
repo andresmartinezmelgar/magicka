@@ -73,10 +73,12 @@ public static partial class SnapshotValidation
             if (item == null || item.Id <= 0 || !ids.Add(item.Id) || !Enum.IsDefined(item.Kind) ||
                 !map.Walkable(item.Position) || !NonNegative(item.Respawn) || item.Respawn > RelicBuffs.RespawnSeconds || item.Active != (item.Respawn == 0)) Invalid();
         ids.Clear();
+        float wallCapacity = (1 + EquipmentCatalogue.Maximum(EquipmentStat.ShieldCapacity)) *
+            (defense ? DefenseRules.ShieldLevelMultiplier(100) : 1);
         foreach (var p in state.Projectiles!) if (p == null || p.Id <= 0 || !ids.Add(p.Id) || !Position(map, p.Position) || !Direction(p.Direction) || !Elements(p.Elements) || !Size(p.Radius, 1)) Invalid();
         foreach (var w in state.Walls!) if (w == null || w.Id <= 0 || !ids.Add(w.Id) || !Position(map, w.A) || !Position(map, w.B) ||
             V2.Distance(w.A, w.B) is < 0.01f or > 5 || !Elements(w.Elements) ||
-            !Size(w.Health, state.Players!.Any(p => p.Id == w.Owner && p.Equipment != null) ? 2080.01f : 1300) ||
+            !Size(w.Health, state.Players!.Any(p => p.Id == w.Owner && p.Equipment != null) ? 1300 * wallCapacity + .01f : 1300) ||
             !Size(w.Lifetime, map.SequentialCapture && w.Owner == 0 ? 30.01f : state.Players!.Any(p => p.Id == w.Owner && p.Equipment != null) ? 16.01f : 10.01f)) Invalid();
         foreach (var f in state.Fields!) if (f == null || f.Id <= 0 || !ids.Add(f.Id) || !Position(map, f.Position) || !Elements(f.Elements) ||
             !Size(f.Radius, SpellBalance.MeteorRadius) || !Size(f.Lifetime, 12.01f) || !Size(f.TriggerRadius, 1) || f.Kind is not ("meteor" or "defense_meteor" or "oracle_bombardment" or "mine" or "healing_mine" or "burning_ground" or "frost_ground" or "water_pool" or "equipment_water_pool")) Invalid();

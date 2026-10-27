@@ -89,14 +89,14 @@ public partial class ArenaRenderer
                 v.Mage?.ResetForReuse(MinionWizard(m));
                 _minionVisuals[m.Id] = v;
             }
-            v.Root.Position = v.Root.Position.Lerp(World(m.Position), Math.Min(1, dt * 18));
             if (v.Mage != null)
             {
                 if (!ReferenceEquals(v.Sample, m)) { v.Sample = m; v.Wizard = MinionWizard(m); }
                 v.Mage.Update(v.Wizard!, dt, (float)_time, Camera, snapshot.Time, InterpolationDelay);
-                v.Mage.Position -= World(m.Position); // La raíz ya está en coordenadas del mundo.
+                // Un único interpolador mueve también sus auras y avisos de ataque.
+                v.Root.Position = v.Mage.Position; v.Mage.Position = Vector3.Zero;
             }
-            else v.Sample = m;
+            else { v.Root.Position = v.Root.Position.Lerp(World(m.Position), Math.Min(1, dt * 18)); v.Sample = m; }
             if (v.Vitals != null && v.VitalsBasis != vitalsBasis)
             { v.Vitals.Basis = vitalsBasis; v.VitalsBasis = vitalsBasis; }
             if (v.Health != null)

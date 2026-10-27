@@ -56,7 +56,7 @@ public partial class ArenaRenderer
     private void DrawArcaneChannel(BeamSnapshot beam, Vector3 from, Vector3 to, Vector3 direction,
         Vector3 side, Vector3 up, SpellVisualStrength strength, bool details)
     {
-        var primary = new Color("a66bff");
+        var primary = Ui.ElementColor(Element.Arcane);
         var modifier = beam.Elements.FirstOrDefault(e => e != Element.Arcane, Element.Arcane);
         var accent = ElementChannelVisuals.IsSteam(beam.Elements) ? new Color("dce8ec")
             : modifier == Element.Cold ? new Color("a4eaff")

@@ -4,7 +4,7 @@ public sealed partial class GameWorld
 {
     private void ApplyDefensiveAffixes(Wizard target, int owner, float absorbed, bool broken, Element[]? elements, ReadOnlySpan<float> weights, bool shieldOnly)
     {
-        if (!target.Alive || target.ShieldTime <= 0 || absorbed <= 0 || !_combatants.TryGetValue(owner, out var attacker) || !Hostile(target, attacker)) return;
+        if (!target.Alive || target.ShieldTime <= 0 || absorbed <= 0 || !TryCombatSource(owner, out var attacker) || !Hostile(target, attacker)) return;
         if (target.Equipment.ShieldBattery > 0)
             target.Energy = Math.Min(100, target.Energy + absorbed * CombatAffixes.BatteryPerHundred(target.Equipment.ShieldBattery) / 100);
         if (target.Equipment.ShieldLeech > 0)
@@ -48,7 +48,7 @@ public sealed partial class GameWorld
     private void RepairShieldFromHealing(Wizard target, int owner, float healed, StatisticAttack cause)
     {
         if (healed <= 0 || target.Shield <= 0 || target.ShieldTime <= 0 || cause is StatisticAttack.Regeneration or StatisticAttack.RegenerationAura or StatisticAttack.ShieldLeech ||
-            !_combatants.TryGetValue(owner, out var source) || !source.Alive || !Allied(source, target) || source.Equipment.MendingWard <= 0) return;
+            !TryCombatSource(owner, out var source) || !source.Alive || !Allied(source, target) || source.Equipment.MendingWard <= 0) return;
         float repaired = Math.Min(Math.Max(0, target.ShieldMax - target.Shield), healed * CombatAffixes.MendingPercent(source.Equipment.MendingWard) / 100);
         if (repaired <= 0) return;
         target.Shield += repaired;

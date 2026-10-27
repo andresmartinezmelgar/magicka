@@ -820,6 +820,17 @@ jobs:
           version=$(tr -d '\r\n' < VERSION)
           python3 scripts/generate-update-deltas.py --platform android --target "dist/ArcanaArena-v$version-Android-arm64.apk" --version "$version" --output dist --repository "${{ github.repository }}"
           cat dist/SHA256SUMS-Windows.txt dist/SHA256SUMS-Android.txt > dist/SHA256SUMS.txt
+      - name: Crear RAR de Windows y verificar su contenido
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(tr -d '\r\n' < VERSION)
+          curl --retry 4 --retry-delay 2 -fL https://www.rarlab.com/rar/rarlinux-x64-723.tar.gz -o "$RUNNER_TEMP/rarlinux.tar.gz"
+          echo "759b4b6aa0d9f77131882162951193f3a0e54bf60e1d8dc4255aa308accab588  $RUNNER_TEMP/rarlinux.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/rarlinux.tar.gz" -C "$RUNNER_TEMP" rar/rar
+          python3 scripts/test-windows-rar.py --rar "$RUNNER_TEMP/rar/rar"
+          python3 scripts/package-windows-rar.py "dist/ArcanaArena-v$version-Windows-x64.zip" "dist/ArcanaArena-v$version-Windows-x64.rar" --rar "$RUNNER_TEMP/rar/rar"
+          (cd dist && sha256sum "ArcanaArena-v$version-Windows-x64.rar" > SHA256SUMS-RAR.txt && cat SHA256SUMS-RAR.txt >> SHA256SUMS.txt)
       - name: Crear Release de GitHub
         env:
           GH_TOKEN: ${{ github.token }}
@@ -833,7 +844,7 @@ jobs:
             grep -qx 'Tipo de firma: PERMANENTE' dist/FIRMA-ANDROID.txt
             apksigner verify "dist/ArcanaArena-v$version-Android-arm64.apk"
             shopt -s nullglob
-            assets=(dist/*.zip dist/*.apk dist/*.delta dist/SHA256SUMS*.txt dist/DELTAS-*.json)
+            assets=(dist/*.zip dist/*.rar dist/*.apk dist/*.delta dist/SHA256SUMS*.txt dist/DELTAS-*.json)
             if gh release view "$tag" >/dev/null 2>&1; then
               target=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" --jq '.target_commitish')
               test "$target" = "$GITHUB_SHA" || { echo '::error::La versión pertenece a otro commit.'; exit 1; }

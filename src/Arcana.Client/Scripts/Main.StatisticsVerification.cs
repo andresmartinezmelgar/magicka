@@ -118,8 +118,9 @@ public partial class Main
                     var chart = (StatisticsBarChart)_statisticsPanel.FindChild("ElementDamageBars", true, false);
                     foreach (var category in chart.Categories.Where(c => c.Parts != null && c.Label != "Vida" && c.Label != "Escudo"))
                     {
-                        if (Math.Abs(category.Parts!.Sum(p => p.Value) - category.Value) > .001 ||
-                            category.Parts[0].Label != "Hechizos directos" || category.Parts[1].Label != "Áreas")
+                        var parts = category.Parts!;
+                        if (parts.Length < 2 || Math.Abs(parts.Sum(p => p.Value) - category.Value) > .001 ||
+                            parts[0].Label != "Hechizos directos" || parts[1].Label != "Áreas")
                             throw new InvalidOperationException("La gráfica no separa hechizos y áreas o duplica daño.");
                     }
                     var water = chart.Categories.Single(c => c.Label == "Agua");
