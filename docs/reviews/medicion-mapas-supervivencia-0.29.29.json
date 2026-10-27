@@ -1,0 +1,21 @@
+{
+  "Version": "0.29.29",
+  "GeneratorVersion": 1,
+  "Width": 160,
+  "Height": 120,
+  "Runtime": ".NET 8.0.21",
+  "Architecture": "X64",
+  "Geometry": {
+    "Samples": 64,
+    "MedianMs": 0.411,
+    "P95Ms": 0.954,
+    "MaximumMs": 2.847
+  },
+  "WorldIncludingGeometryAndNavigation": {
+    "Samples": 64,
+    "MedianMs": 9.184,
+    "P95Ms": 14.73,
+    "MaximumMs": 22.409
+  },
+  "Scope": "CPU local; 64 semillas nuevas por medida; sin caché ni carga de recursos Godot. No mide Android físico."
+}

@@ -67,12 +67,13 @@ public partial class Main
             if (_renderer.DefenseLootVisuals.Count != 0) throw new InvalidOperationException("Queda botín después de recogerlo.");
             _renderer.PreviewFocus = null;
             var local = state.Players.Single();
+            var portals = ArenaMap.Get(state).Teleports[0];
             var nearbyMinion = new MinionSnapshot(85000, MinionKind.Melee, V2.Zero, new(1, 0),
                 340, 340, 0, 0, 0, 0, false, [], false);
             var sectorMinions = new[]
             {
-                nearbyMinion with { Id = 85001, Position = new(-76, -52) },
-                nearbyMinion with { Id = 85002, Position = new(76, 52) }
+                nearbyMinion with { Id = 85001, Position = portals.A },
+                nearbyMinion with { Id = 85002, Position = portals.B }
             };
             WorldSnapshot At(V2 position) => state with
             {
@@ -84,19 +85,19 @@ public partial class Main
                         DefenseDropKind.Gold, 10, default, null, null)).ToArray()
                 }
             };
-            _renderer.Render(At(new(-76, -52)), _localId, 1 / 60.0, true);
+            _renderer.Render(At(portals.A), _localId, 1 / 60.0, true);
             var firstSectors = _renderer.SurvivalSectorKeys.ToHashSet();
             int sectorBuilds = _renderer.SurvivalSectorBuilds, minionBuilds = _renderer.DefenseMinionBuilds;
-            _renderer.Render(At(new(76, 52)), _localId, 1 / 60.0, true);
+            _renderer.Render(At(portals.B), _localId, 1 / 60.0, true);
             if (firstSectors.Overlaps(_renderer.SurvivalSectorKeys) || _renderer.VisibleSurvivalSectors >= _renderer.TotalSurvivalSectors ||
-                _renderer.Camera.Position.X < 70 || _renderer.DefenseMinionVisualCount != 1 ||
+                _renderer.Camera.Position.X < portals.B.X - 6 || _renderer.DefenseMinionVisualCount != 1 ||
                 _renderer.DefenseLootVisuals.Count != 1 || !_renderer.DefenseLootVisuals.ContainsKey(85002))
                 throw new InvalidOperationException("Los sectores o la cámara no siguieron el salto de un portal.");
             if (_renderer.SurvivalSectorBuilds != sectorBuilds || _renderer.DefenseMinionBuilds != minionBuilds)
                 throw new InvalidOperationException("El portal reconstruyó sectores o minions en lugar de reutilizar la precarga.");
             GD.Print("SURVIVAL_PRELOAD_REUSE_OK: portal sin construir sectores ni enemigos nuevos.");
             int lootBuilds = _renderer.DefenseLootBuilds;
-            _renderer.Render(At(new(-76, -52)), _localId, 1 / 60.0, true);
+            _renderer.Render(At(portals.A), _localId, 1 / 60.0, true);
             if (_renderer.DefenseLootBuilds != lootBuilds || !_renderer.DefenseLootVisuals.ContainsKey(85001))
                 throw new InvalidOperationException("Volver a la zona reconstruyó el botín preparado.");
             GD.Print("DEFENSE_LOOT_REUSE_OK: regreso por portal sin reconstruir el botín.");

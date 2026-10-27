@@ -92,7 +92,7 @@ public partial class DefensePanel : Control
         var survival = _sections[0];
         _result = Wrapped(survival, "", 18, Ui.Gold);
         Wrapped(survival, "Tienes dos vidas: tras la primera muerte reapareces; la segunda te elimina. En cooperativo la partida sigue mientras quede un humano con vidas.", 16);
-        Wrapped(survival, "Recorre Anillos por sus pasillos y usa los portales del mismo color para cruzar el mapa. Los enemigos te buscan desde cualquier zona, pero nunca aparecen dentro de un radio de 16 m a tu alrededor.", 16);
+        Wrapped(survival, "Recorre el mapa por sus pasillos y usa los portales del mismo color para cruzar el mapa. Los enemigos te buscan desde cualquier zona, pero nunca aparecen dentro de un radio de 16 m a tu alrededor.", 16);
         Wrapped(survival, "Aparecen colosos a intervalos variables. Algunos minions aceleran durante unos segundos: vigila sus anillos azules.", 16, Ui.Muted);
         Wrapped(survival, "Cómo mejorar", 18, Ui.Gold);
         Wrapped(survival, "EQUIPO: recoge, equipa y mejora piezas.\nPODERES: compra auras y habilidades automáticas.\nESTADÍSTICAS: consulta los bonos y los premios por supervivencia.", 16);

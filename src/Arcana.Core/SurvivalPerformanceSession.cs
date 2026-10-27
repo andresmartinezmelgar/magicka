@@ -16,7 +16,7 @@ public sealed class SurvivalPerformanceSession
             foreach (var p in World.Players.Values) p.Invulnerable = 1.2f;
             var human = World.Players.Values.First(p => !p.Bot);
             if (SimulatedTicks % 120 == 0)
-            { human.Position = _portal++ % 2 == 0 ? new(-76, -52) : new(76, -52); PortalCrossings++; }
+            { human.Position = World.Map.Teleports[_portal++ % World.Map.Teleports.Count].A; PortalCrossings++; }
             if (SimulatedTicks % 60 == 0)
             {
                 World.ApplyMessage(human.Id, new() { Type = "input", Sequence = human.LastSequence + 1,
@@ -36,7 +36,7 @@ public sealed partial class GameWorld
 {
     internal static GameWorld CreateSurvivalPerformanceWorld()
     {
-        var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4, Bots = 3, Seed = 271 });
+        var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = new(271), MaxPlayers = 4, Bots = 3, Seed = 271 });
         w.AddPlayer("Medición"); w._defensePartySize = 4; w._defenseElapsed = 810; w._defenseDifficulty = 10; w.Tick = 48600;
         foreach (var player in w.Players.Values)
         {
@@ -50,7 +50,8 @@ public sealed partial class GameWorld
         w.TrySpawnMinion(MinionKind.Boss);
         for (int i = 1; i < DefenseRules.MaxMinions; i++) w.TrySpawnMinion(kinds[i % kinds.Length]);
         foreach (var kind in Enum.GetValues<BuffKind>())
-            w._defenseDrops.Add(new() { Id = w._nextEntity++, Kind = DefenseDropKind.Relic, Buff = kind, Position = new(-70, -52) });
+            w._defenseDrops.Add(new() { Id = w._nextEntity++, Kind = DefenseDropKind.Relic, Buff = kind,
+                Position = w.Map.Teleports[0].A + new V2(3, 0) });
         return w;
     }
 }

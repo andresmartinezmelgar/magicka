@@ -3,7 +3,7 @@ namespace Arcana.Core;
 /// <summary>Textos compartidos por la ayuda, las salas y el HUD; los límites vienen de la simulación.</summary>
 public static class MatchRules
 {
-    public static string Objective(GameMode mode, int scoreLimit, int tickets, ArenaMapId map = ArenaMapId.Classic) => mode == GameMode.Defense ? "Sobrevive en Anillos. Dos vidas por jugador, enemigos continuos y colosos a intervalos variables." : map == ArenaMapId.Practice
+    public static string Objective(GameMode mode, int scoreLimit, int tickets, ArenaMapId map = ArenaMapId.Classic) => mode == GameMode.Defense ? "Sobrevive en un mapa nuevo en cada partida. Dos vidas por jugador, enemigos continuos y colosos a intervalos variables." : map == ArenaMapId.Practice
         ? "Práctica libre: estados, barreras y lanzador. Sin puntos de control ni victoria."
         : (mode switch
     {
@@ -16,7 +16,7 @@ public static class MatchRules
         ? "\nAscensión: +10 de vida por baja; +0,5 s al morir (máx. 10 s). Objetos aleatorios hasta morir."
         : map == ArenaMapId.Relics ? "\nRecoge reliquias: sus mejoras se acumulan y duran hasta morir." : "");
     public static string Details(GameMode mode, ArenaMapId map = ArenaMapId.Classic) => mode == GameMode.Defense
-        ? "Todos los defensores colaboran en Anillos, un mapa de pasillos y portales. Los minions te buscan desde todo el mapa y nunca aparecen dentro de 16 m de un defensor. Algunos aceleran brevemente. Un coloso aparece a intervalos variables, con mucha más vida. Tienes dos vidas; en cooperativo termina cuando todos los humanos las agotan. Recoge oro, equipo y reliquias; compra auras y habilidades en la tienda. Se conservan al morir y se borran en otra partida. La tienda pausa si eres el único humano. Cada 5 minutos activos concede un objeto permanente con cuenta verificada y servidor configurado, hasta cuatro; si falla la entrega queda pendiente. Las partidas locales no conceden premios permanentes."
+        ? "Todos los defensores colaboran en un mapa de salas, pasillos y portales que cambia en cada partida. Los minions te buscan desde todo el mapa y nunca aparecen dentro de 16 m de un defensor. Algunos aceleran brevemente. Un coloso aparece a intervalos variables, con mucha más vida. Tienes dos vidas; en cooperativo termina cuando todos los humanos las agotan. Recoge oro, equipo y reliquias; compra auras y habilidades en la tienda. Se conservan al morir y se borran en otra partida. La tienda pausa si eres el único humano. Cada 5 minutos activos concede un objeto permanente con cuenta verificada y servidor configurado, hasta cuatro; si falla la entrega queda pendiente. Las partidas locales no conceden premios permanentes."
         : map == ArenaMapId.Practice
         ? "Los objetivos reciben daño y curación reales y reaparecen en su estación al morir. Los estados no caducan por tiempo, pero puedes neutralizarlos con hechizos. Restablece una estación para recuperar su estado y escudo iniciales. Todas las combinaciones de barrera y mina están indicadas junto a cada estación y se reconstruyen a los 2 segundos si las destruyes. El lanzador apunta siempre a la derecha: rayos, cadenas y conos continuos; rocas y fragmentos cada 2 segundos. Puedes cambiar su combinación, pausarlo y preparar tu vida al 40 % para medir curación. Al morir reapareces en el único círculo azul al cabo de 1 segundo."
         : (mode switch

@@ -1,6 +1,6 @@
 # Supervivencia
 
-Esta rama parte de la versión estable **0.29.28** e incorpora el mapa procedural y el autoguardado, con protocolo **39**. Cliente y servidor deben usar la misma rama. Los cambios todavía no tienen tag ni instaladores nuevos.
+Versión de pruebas **0.29.29**, basada en la estable **0.29.28**, con protocolo **39**. Incluye el mapa procedural y el autoguardado. Cliente y servidor deben usar la misma rama; la publicación preliminar conserva separada la versión estable.
 
 ## Partida y vidas
 

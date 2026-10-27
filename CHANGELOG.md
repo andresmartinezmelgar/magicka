@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.29.29
+
+- Supervivencia genera un mapa nuevo de 160 × 120 m en cada partida, con nueve salas, pasillos variables, rutas de escape y portales. Continuar conserva el mismo terreno.
+- El equipo muestra su aura en combate y en el inventario. Una sola pieza mítica activa filamentos de energía; los ojos siguen requiriendo las seis piezas míticas.
+- Autoguardado local cada 20 segundos, al cambiar de aplicación y al salir. Android conserva la carga y la partida al perder el foco; continuar recupera el último punto disponible.
+- Los guardados anteriores conservan su mapa original. La semilla se comparte con el minimapa y la navegación; reiniciar descarta las rutas del terreno anterior.
+- Se añaden nueve regresiones de continuidad y una medición separada del coste de generar terreno y preparar navegación. Protocolo 39, formato de guardado v2.
+
 ## 0.29.28
 
 - Supervivencia admite en red las barreras reforzadas por nivel y equipo, hasta 2808 HP. Las rocas mezcladas con Vida pueden alcanzar y curar aliados; los proyectiles ofensivos siguen atravesándolos sin dañarlos.

@@ -15,7 +15,7 @@ public partial class Main
         _applicationSuspended = suspended;
         if (suspended)
         {
-            _applicationSuspendedAt = Environment.TickCount64;
+            _applicationSuspendedAt = System.Environment.TickCount64;
             if (_playing)
             {
                 StopInput();
@@ -28,7 +28,7 @@ public partial class Main
         else
         {
             // El tiempo en otra app no cuenta como un fallo al preparar recursos.
-            if (Loading) _loadingStartedAt += Math.Max(0, Environment.TickCount64 - _applicationSuspendedAt);
+            if (Loading) _loadingStartedAt += Math.Max(0, System.Environment.TickCount64 - _applicationSuspendedAt);
             _snapshotAge = 0; _lastHealthSnapshot = null; _inputTime = 0;
             _ignoreLeftUntilRelease = true; _moveTo = false; _touch?.Reset();
         }

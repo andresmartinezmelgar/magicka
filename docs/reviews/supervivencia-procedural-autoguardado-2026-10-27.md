@@ -1,5 +1,7 @@
 # Supervivencia: mapa, equipo mítico y continuidad en Android
 
+Revisión inicial, anterior a la autorización para compilar. La preparación de 0.29.29 y su medición están en [publicacion-supervivencia-0.29.29.md](publicacion-supervivencia-0.29.29.md).
+
 Rama: `pruebas/supervivencia-procedural-autoguardado`. Base: `26b5f30fabdda744a83f028504d4a77ba71b96fa` (0.29.28). Cambios preparados para revisión en esta rama, sin incrementar la versión de distribución.
 
 ## Cambios

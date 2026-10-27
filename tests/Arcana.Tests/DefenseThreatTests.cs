@@ -15,7 +15,8 @@ internal static class DefenseThreatTests
     private static float Recovery(Wizard p) => (float)typeof(Wizard).GetProperty("FreezeRecovery", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(p)!;
     private static (GameWorld World, Wizard Player) World(GameMode mode = GameMode.Defense)
     {
-        var world = new GameWorld(new() { Mode = mode, Map = mode == GameMode.Defense ? ArenaMapId.Bastion : ArenaMapId.Classic, MaxPlayers = 4, Seed = 831 });
+        var world = new GameWorld(new() { Mode = mode, Map = mode == GameMode.Defense ? ArenaMapId.Bastion : ArenaMapId.Classic,
+            SurvivalMap = mode == GameMode.Defense ? SurvivalMapSpec.Legacy : null, MaxPlayers = 4, Seed = 831 });
         var p = world.AddPlayer("Defensor")!; p.Position = new(-25, 0); p.Invulnerable = 0;
         Set(world, "_spawnClock", 10000f); Set(world, "_bossClock", 10000f);
         return (world, p);

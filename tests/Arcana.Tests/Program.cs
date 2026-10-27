@@ -1,6 +1,12 @@
 using Arcana.Core;
 using System.Text.Json;
 
+if (args.Contains("--profile-survival-generation"))
+{
+    SurvivalMapGenerationBenchmark.Run(args.LastOrDefault(a => a.StartsWith("--profile-output="))?[17..]
+        ?? "artifacts/profiles/survival-map-generation.json");
+    return 0;
+}
 if (args.Contains("--profile-maps"))
 {
     MapPerformanceBenchmarks.Run(args.LastOrDefault(a => a.StartsWith("--profile-output="))?[17..] ?? "artifacts/profiles/map-simulation.json");
