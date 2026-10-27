@@ -82,7 +82,7 @@ internal static class UpgradeTests
         });
         test("IA: la consulta espacial conserva exactamente la separación anterior", () =>
         {
-            var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4 }); w.AddPlayer("Mago");
+            var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 4 }); w.AddPlayer("Mago");
             var random = new Random(27);
             for (int i = 0; i < 90; i++) Call(w, "TrySpawnMinion", MinionKind.Melee);
             var minions = ((IDictionary)Field(w, "_minions")).Values.Cast<object>().ToArray();
@@ -109,13 +109,13 @@ internal static class UpgradeTests
         {
             var budget = new DefensePerformanceBudget(192); budget.Observe(60, 55);
             Check(budget.Limit == 16, "Ignoró el percentil 95.");
-            var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4 }); w.AddPlayer("Mago");
+            var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 4 }); w.AddPlayer("Mago");
             for (int i = 0; i < 300; i++) w.ReportSimulationStep(40);
             Check(w.Snapshot().Defense!.PerformanceLimit == 16, "Ignoró la carga del servidor.");
         });
         test("Reconexión: suspender cancela órdenes sin curar ni restituir vidas", () =>
         {
-            var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4 }); var p = w.AddPlayer("Mago")!;
+            var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 4 }); var p = w.AddPlayer("Mago")!;
             p.Health = 120; p.Deaths = 1; p.Invulnerable = 0;
             w.ApplyMessage(p.Id, new() { Type = "input", Sequence = 45, MoveX = 1 });
             w.SuspendPlayer(p.Id);

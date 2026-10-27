@@ -10,7 +10,7 @@ internal static class DefenseBalanceTests
     private static void Set(GameWorld world, string name, object value) => typeof(GameWorld).GetField(name, BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(world, value);
     private static void Call(GameWorld world, string name, params object[] values) => typeof(GameWorld).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(world, values);
     private static GameWorld World(int bots = 0, DefenseFlow flow = DefenseFlow.Continuous, int seed = 37) => new(new WorldOptions
-        { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4, Bots = bots, DefenseFlow = flow, Seed = seed });
+        { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 4, Bots = bots, DefenseFlow = flow, Seed = seed });
     private static Wizard Enemy(GameWorld world, V2 position)
     {
         Call(world, "SpawnMinion");

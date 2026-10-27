@@ -114,7 +114,7 @@ internal static class BestiaryAndAffixTests
         });
         test("Bestiario: baja real, tipo correcto y crédito exclusivo al autor", () =>
         {
-            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4 });
+            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 4 });
             var a = world.AddPlayer("A", 0)!; var b = world.AddPlayer("B", 0)!;
             Check((bool)Call(world, "TrySpawnMinion", MinionKind.Runner)!, "No se pudo crear el enemigo.");
             int id = world.Snapshot().Defense!.Minions.Single().Id;

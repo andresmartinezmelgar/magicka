@@ -113,7 +113,7 @@ internal static class MatchStatisticsTests
         });
         test("Estadísticas: supervivencia guarda solo estado y abre un tramo nuevo sin telemetría local", () =>
         {
-            var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4 }); var a = w.AddPlayer("Mago")!;
+            var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 4 }); var a = w.AddPlayer("Mago")!;
             for (int i = 0; i < 60; i++) w.Step();
             var save = w.SaveSurvival(a.Id, Guid.NewGuid().ToString("N")); var report = w.MatchStatistics();
             Check(!save.State.TryGetProperty("Statistics", out _), "El punto local contiene un informe de telemetría.");
@@ -122,7 +122,7 @@ internal static class MatchStatisticsTests
         });
         test("Estadísticas: guardados antiguos con informe siguen abriendo sin reescribir telemetría", () =>
         {
-            var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4 }); var a = w.AddPlayer("Mago")!; w.Step();
+            var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 4 }); var a = w.AddPlayer("Mago")!; w.Step();
             var save = w.SaveSurvival(a.Id, Guid.NewGuid().ToString("N"));
             var node = System.Text.Json.Nodes.JsonNode.Parse(save.State.GetRawText())!.AsObject();
             node["Statistics"] = JsonSerializer.SerializeToNode(w.MatchStatistics(MatchRecordStatus.Suspended));

@@ -34,7 +34,8 @@ public static partial class SnapshotValidation
             state.Players is not { Length: <= 16 } || state.Projectiles is not { Length: <= 160 } ||
             state.Walls is not { Length: <= 40 } || state.Fields is not { Length: <= 40 } ||
             state.Beams is not { Length: <= 64 } || state.Points == null || state.Events is not { Length: <= 160 }) Invalid();
-        var map = ArenaMap.Get(state.Map);
+        if (state.SurvivalMap != null && (state.Mode != GameMode.Defense || !state.SurvivalMap.Valid)) Invalid();
+        var map = ArenaMap.Get(state);
         if (!map.SupportsMode(state.Mode) || state.Points!.Length != map.ControlPoints.Count) Invalid();
         bool defense = state.Mode == GameMode.Defense;
         CheckDefense(state);

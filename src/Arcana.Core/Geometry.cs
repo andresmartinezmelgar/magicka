@@ -124,4 +124,7 @@ public static class ArenaMap
     public static readonly V2[] ControlPoints = [new(-9, -7), new(0, 0), new(9, 7)];
     public static bool Inside(V2 p) => MathF.Abs(p.X) < HalfWidth && MathF.Abs(p.Y) < HalfHeight;
     public static ArenaDefinition Get(ArenaMapId id) => ArenaMaps.Get(id);
+    public static ArenaDefinition Get(ArenaMapId id, SurvivalMapSpec? survivalMap) => id == ArenaMapId.Bastion
+        ? SurvivalMapCache.Get(survivalMap ?? SurvivalMapSpec.Legacy) : ArenaMaps.Get(id);
+    public static ArenaDefinition Get(WorldSnapshot state) => Get(state.Map, state.SurvivalMap);
 }

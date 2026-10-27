@@ -6,7 +6,7 @@ namespace Arcana.Core;
 public sealed record SurvivalSave(int Version, DateTimeOffset SavedAt, string RunId, string BestiaryUid,
     int LocalPlayerId, JsonElement State)
 {
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
     internal static readonly JsonSerializerOptions Json = new() { IncludeFields = true, MaxDepth = 32 };
 }
 
@@ -65,6 +65,20 @@ public sealed class SurvivalSaveStore(string path)
 
     public void Write(SurvivalSave save)
     { lock (_gate) WriteAvailable(save); }
+
+    /// <summary>Una partida terminada no puede reaparecer desde el autoguardado ni su respaldo.</summary>
+    public void Discard()
+    {
+        lock (_gate)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
+            using (var marker = new FileStream(path + ".used", FileMode.Create, FileAccess.Write,
+                FileShare.None, 1, FileOptions.WriteThrough))
+            { marker.WriteByte(1); marker.Flush(true); }
+            foreach (string suffix in new[] { "", ".bak", ".tmp", ".bak.tmp" })
+                File.Delete(path + suffix);
+        }
+    }
 
     private void WriteAvailable(SurvivalSave save)
     {

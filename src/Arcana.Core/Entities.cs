@@ -113,6 +113,7 @@ public sealed class WorldOptions
     public DefenseFlow DefenseFlow { get; init; } = DefenseFlow.Continuous;
     public GameMode Mode { get; init; } = GameMode.Warfare;
     public ArenaMapId Map { get; init; } = ArenaMapId.Classic;
+    public SurvivalMapSpec? SurvivalMap { get; init; }
     public int MaxPlayers { get; init; } = 8;
     public bool FriendlyFire { get; init; } = true;
     public int ScoreLimit { get; init; } = 15;

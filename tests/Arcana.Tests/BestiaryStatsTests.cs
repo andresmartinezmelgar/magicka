@@ -13,7 +13,7 @@ internal static class BestiaryStatsTests
     private static string Row(MinionKind kind, string name, int stage = 1, int party = 1) => BestiaryCatalogue.Stats(kind, stage, party).Single(s => s.Name == name).Value;
     private static (GameWorld World, Wizard Target) Setup(int stage = 1, int party = 1)
     {
-        var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4 });
+        var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 4 });
         var target = w.AddPlayer("Objetivo")!; target.Invulnerable = 0;
         for (int i = 1; i < party; i++) w.AddPlayer("Aliado " + i, bot: true);
         Set(w, "_defenseDifficulty", stage); Set(w, "_defensePartySize", party);

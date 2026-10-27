@@ -21,7 +21,7 @@ public partial class Main
         _aimMarker.Hide();
         _launcher.Visible = false; _launcher.CloseRooms(); _help.Visible = _pause.Visible = false;
         _loadingScreen = new LoadingScreen(); _ui.AddChild(_loadingScreen);
-        _loadingScreen.Build(ArenaMap.Get(snapshot.Map).Name, () => ReturnToLauncher());
+        _loadingScreen.Build(ArenaMap.Get(snapshot).Name, () => ReturnToLauncher());
         _loadingAudio = _renderer.AudioEnabled; _renderer.AudioEnabled = false;
         _loadingSteps = resume ? new() : _renderer.PrepareVisuals(snapshot, _localId).ToList();
         _loadingSteps.Add(("Preparando los controles…", () => PrepareGameControls(snapshot)));

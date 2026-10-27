@@ -1,12 +1,12 @@
-# Supervivencia en Anillos
+# Supervivencia
 
-Versión estable **0.28.0**, protocolo **29**, integrada en `main`. Se publican APK directas, paquetes Windows y deltas de hasta tres versiones estables anteriores. Las dos cuentas autorizadas conservan el [canal de pruebas](CANALES-ACTUALIZACION.md); el resto recibe el canal estable. La horda ampliada requiere actualizar también el servidor incluido en el paquete Windows a una versión compatible.
+Esta rama parte de la versión estable **0.29.28** e incorpora el mapa procedural y el autoguardado, con protocolo **39**. Cliente y servidor deben usar la misma rama. Los cambios todavía no tienen tag ni instaladores nuevos.
 
 ## Partida y vidas
 
 El modo Defensa ahora es **Supervivencia**, con enemigos continuos. Se han retirado las oleadas, el castillo y sus reparaciones.
 
-- Local: IA / Defensa → Supervivencia → Anillos, con cero a tres bots aliados.
+- Local: IA / Defensa → Supervivencia, con cero a tres bots aliados.
 - Online: crear sala de Supervivencia, de uno a cuatro defensores incluidos los bots. Todos colaboran y no hay fuego amigo.
 - Cada jugador tiene **dos vidas**. La primera muerte permite reaparecer a los **4,5 segundos**, en el lugar de la caída; la segunda lo elimina. Las curaciones, la reanimación y reconectar con la misma cuenta no restituyen vidas agotadas.
 - En cooperativo termina cuando todos los humanos han agotado sus vidas. Los bots vivos no prolongan la partida. Si el último humano con vidas sale y quedan humanos eliminados, también termina.
@@ -20,11 +20,13 @@ Los selectores de dificultad y defensores permiten consultar las cifras del comb
 
 ## Guardar y continuar en local
 
-En una supervivencia local, abre el menú de partida y elige **Guardar partida** para crear un punto de continuación, o **Guardar y salir** para regresar al launcher. En **Contra IA / Práctica**, el botón **Continuar supervivencia guardada** recupera ese punto incluso después de cerrar el juego. Hay una ranura por dispositivo: guardar sustituye el punto anterior y comenzar una partida nueva no lo borra.
+La supervivencia local se autoguarda al activar la partida, cada **20 segundos**, al cambiar de aplicación y al volver al menú. También puedes usar **Guardar partida** o **Guardar y salir**. En **Contra IA / Práctica**, **Continuar supervivencia guardada** recupera el último punto incluso si Android cerró el proceso. Hay una ranura por dispositivo: activar una partida nueva sustituye el punto anterior; cancelar su carga conserva el anterior.
 
-Se conservan el mago, sus aliados IA, vidas, salud y estados, equipo y afijos, mejoras, auras, habilidades pasivas, reliquias, enemigos, botín y el tiempo de dificultad y jefes. Los controles se sueltan al continuar y el tiempo fuera del juego no avanza la simulación. La escritura es atómica y se conserva una copia válida anterior que se usa si el archivo principal está dañado.
+Se conservan el mapa y su semilla, el mago, sus aliados IA, vidas, salud y estados, equipo y afijos, mejoras, auras, habilidades pasivas, reliquias, enemigos, botín y el tiempo de dificultad y jefes. Los controles se sueltan al continuar y el tiempo fuera del juego no avanza la simulación. La escritura es atómica y se conserva una copia válida anterior que se usa si el archivo principal está dañado.
 
-Desde 0.29.5, el punto se puede continuar una sola vez. Se consume cuando termina la carga y el juego se activa; cancelar mientras se preparan los recursos no lo consume. Volver al menú o reiniciar la app después de continuar no permite reutilizarlo. Hay que guardar de nuevo para habilitar otra continuación. Un marcador local exclusivo invalida a la vez el archivo principal y su copia. Al guardar después de consumirlo, ambos archivos contienen el punto nuevo, de modo que recuperar un respaldo nunca reactiva el anterior ya utilizado.
+Continuar mantiene disponible el último punto y lo renueva al activar el juego. Así, otro cierre de Android durante la recuperación no obliga a empezar de cero. Agotar las vidas humanas invalida tanto el punto como su respaldo. El formato de guardado v2 incluye el mapa; se siguen leyendo los v1 con el terreno antiguo. Los nuevos guardados requieren esta rama o una versión posterior compatible.
+
+Cambiar de aplicación conserva también una carga en curso: el tiempo en segundo plano no agota su plazo. Al volver a una partida activa, se muestra la pausa y puedes reanudarla. No se avanza la simulación local en segundo plano.
 
 La partida se guarda únicamente en el dispositivo; no se almacena en Firestore. Este guardado se ofrece para supervivencia local, también con bots aliados. Las salas online conservan sus reglas de conexión. Las bajas del bestiario mantienen su identificador de partida y su acumulado al continuar.
 
@@ -36,13 +38,15 @@ Equipar o quitar piezas mantiene abierto el selector; Atrás vuelve al inventari
 
 ## Mapa, aparición y rendimiento
 
-**Anillos** ocupa 192 × 144 m: dos circuitos rectangulares, un cruce central y salas amplias en las intersecciones. Los pasillos miden 8 m de ancho. Los patios sin suelo son inaccesibles; las rutas y colisiones son las mismas en cliente y servidor.
+Cada partida nueva y cada reinicio generan **Laberinto**, de **160 × 120 m**: aproximadamente un 31 % menos de superficie delimitadora que los 192 × 144 m anteriores. Cambian las dimensiones y posiciones de nueve salas, las conexiones y los giros de los pasillos. Un árbol de conexiones garantiza acceso a todas las salas y se añaden de dos a cuatro ciclos para escapar. Los pasillos miden de 8 a 12 m de ancho y el centro reserva una sala de 36 × 30 m para aparecer.
 
-Dos parejas de portales unen esquinas opuestas. Cada pareja comparte color. Basta entrar en el círculo para cruzar; hay que salir del portal de destino antes de reutilizarlo. Los minions también pueden cruzar.
+La semilla y la versión del generador viajan en el snapshot y el guardado. Simulación, rutas, colisiones, portales, vista y minimapa reconstruyen el mismo terreno. Continuar conserva ese mapa; los guardados antiguos mantienen **Anillos** hasta empezar otra partida. El generador usa su propio azar, independiente de la horda y del botín.
+
+Dos parejas de portales unen salas opuestas, con sus extremos dentro de suelo seguro y accesible. Cada pareja comparte color. Basta entrar en el círculo para cruzar; hay que salir del portal de destino antes de reutilizarlo. Los minions también pueden cruzar.
 
 Las apariciones utilizan posiciones transitables de todo el mapa. La exclusión de **16 m sigue a cada defensor con vidas**, incluso mientras espera reaparecer. Evita apariciones pegadas al personaje; los enemigos ya existentes sí pueden entrar y atacar. Si no hay una posición segura se aplaza la aparición.
 
-La carga prepara los 48 **sectores de 24 × 24 m**, sus materiales y portales. Durante el juego solo se dibujan los sectores cercanos, y se limita también la representación de minions, botín y efectos a esa zona. Los sectores lejanos permanecen ocultos en una caché; cambiar de zona o saltar por un portal reutiliza la geometría preparada. Una reserva inicial de 192 representaciones de enemigos, repartida por tipos, reduce la creación de nodos al aparecer. La reserva puede crecer de forma acotada si la mezcla de tipos lo necesita. El servidor sigue simulando los enemigos del mapa entero y comparte rutas por objetivo para reducir búsquedas repetidas.
+La carga prepara los **sectores de 24 × 24 m** que cubren el mapa, sus materiales y portales. Durante el juego solo se dibujan los sectores cercanos, y se limita también la representación de minions, botín y efectos a esa zona. Los sectores lejanos permanecen ocultos en una caché; cambiar de zona o saltar por un portal reutiliza la geometría preparada. Una reserva inicial de 192 representaciones de enemigos, repartida por tipos, reduce la creación de nodos al aparecer. La reserva puede crecer de forma acotada si la mezcla de tipos lo necesita. El servidor sigue simulando los enemigos del mapa entero y comparte rutas por objetivo para reducir búsquedas repetidas.
 
 Todos los modos precargan las zonas del mapa, atlas de magos, sonidos, partículas, combinaciones, barreras, meteoros e iconos, dibujando fotogramas de preparación antes de habilitar los controles. Cancelar la carga devuelve al menú sin arrancar la simulación. La precarga reduce los tirones de primera aparición; los FPS también dependen del dispositivo y de los elementos visibles.
 

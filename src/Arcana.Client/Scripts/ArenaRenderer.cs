@@ -142,12 +142,11 @@ public partial class ArenaRenderer : Node3D
 
     private void BuildMap()
     {
-        foreach (var step in PrepareMap(_map.Id, true)) step();
+        foreach (var step in PrepareMap(_map, true)) step();
     }
-    internal IEnumerable<Action> PrepareMap(ArenaMapId id, bool force = false)
+    internal IEnumerable<Action> PrepareMap(ArenaDefinition definition, bool force = false)
     {
-        if (!force && _map.Id == id && _mapPrepared) yield break;
-        var definition = ArenaMap.Get(id);
+        if (!force && _map.Id == definition.Id && _map.SurvivalMap == definition.SurvivalMap && _mapPrepared) yield break;
         Node3D? rootMap = null;
         yield return () =>
         {
@@ -159,7 +158,7 @@ public partial class ArenaRenderer : Node3D
             rootMap = new Node3D { Name = "MapGeometry" }; _mapRoot = rootMap; AddChild(rootMap);
         };
         // La enumeración prepara trabajos; los nodos se crean al ejecutar cada paso.
-        if (id != ArenaMapId.Bastion)
+        if (definition.Id != ArenaMapId.Bastion)
             foreach (var step in PrepareScenery(() => rootMap!, definition)) yield return step;
         yield return () => { BuildMapDetails(rootMap!); _mapPrepared = true; };
     }
@@ -188,7 +187,9 @@ public partial class ArenaRenderer : Node3D
 
     public void Render(WorldSnapshot snapshot, int localId, double delta, bool playing)
     {
-        if (_map.Id != snapshot.Map || !_mapPrepared) { Clear(); _map = ArenaMap.Get(snapshot.Map); BuildMap(); }
+        var definition = ArenaMap.Get(snapshot);
+        if (_map.Id != definition.Id || _map.SurvivalMap != definition.SurvivalMap || !_mapPrepared)
+        { Clear(); _map = definition; BuildMap(); }
         bool first = _lastSnapshot == null;
         var previous = _lastSnapshot;
         float dt = (float)delta; _time += delta;

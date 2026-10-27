@@ -15,7 +15,7 @@ public static partial class SnapshotValidation
             d.MinionLimit is < 1 or > DefenseRules.MaxMinions || d.PerformanceLimit is < DefensePerformanceBudget.MinimumLimit or > DefenseRules.MaxMinions ||
             d.Defenders == null || d.Defenders.Length != state.Players.Length || state.Players.Length > DefenseRules.MaxDefenders ||
             state.Players.Any(p => p.Team != 0)) Invalid();
-        var map = ArenaMap.Get(state.Map);
+        var map = ArenaMap.Get(state);
         var kinds = new HashSet<MinionKind>();
         long discoveredKills = 0;
         foreach (var enemy in d!.Bestiary!)

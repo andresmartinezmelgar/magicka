@@ -9,6 +9,7 @@ public partial class EquipmentAvatar
     private ColorRect? _aura;
     private ShaderMaterial? _auraMaterial;
     internal int EquippedHaloCount => _halos.Count;
+    internal int MythicAuraPieces => _halos.Values.Count(i => i.Tier == ItemTier.Mythic);
 
     private void RefreshHaloAnimation()
     {
@@ -16,19 +17,18 @@ public partial class EquipmentAvatar
         // todo el contorno con el mismo pulso, sin círculos ni arcos por objeto.
         if (_aura == null)
         {
-            _auraMaterial = new ShaderMaterial
-                { Shader = GD.Load<Shader>("res://Assets/Wizards/equipment-aura.gdshader") };
+            _auraMaterial = EquipmentAuraVisuals.Material(true);
             _aura = new ColorRect { Name = "EquipmentMergedAura", Color = Colors.White,
                 MouseFilter = MouseFilterEnum.Ignore, ShowBehindParent = true, Material = _auraMaterial };
             AddChild(_aura);
         }
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
-            var tint = Colors.Transparent;
             if (_halos.TryGetValue(slot, out var item))
-                tint = new Color(EquipmentPanel.TierColor(item.Tier), .38f + .14f * (int)item.Tier + .06f * item.Level / 10);
-            _auraMaterial!.SetShaderParameter("piece_" + (int)slot, tint);
+                EquipmentAuraVisuals.SetPiece(_auraMaterial!, slot, item.Tier, item.Level);
+            else EquipmentAuraVisuals.SetPiece(_auraMaterial!, slot, null);
         }
+        EquipmentAuraVisuals.SetMythicCount(_auraMaterial!, MythicAuraPieces);
         _aura.Visible = _halos.Count > 0;
         RefreshMythicEyes();
         RefreshAuraParticles();

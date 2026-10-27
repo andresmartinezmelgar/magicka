@@ -5,7 +5,7 @@ using System.Reflection;
 internal static class DefenseHordeTests
 {
     private static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
-    private static GameWorld World() => new(new WorldOptions { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, Seed = 214, MaxPlayers = 4 });
+    private static GameWorld World() => new(new WorldOptions { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, Seed = 214, MaxPlayers = 4 });
     private static object Field(object target, string name) => target.GetType().GetField(name, BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance)!.GetValue(target)!;
     private static void Set(object target, string name, object value) => target.GetType().GetField(name, BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance)!.SetValue(target, value);
     private static object? Invoke(GameWorld w, string name, params object[] args) => typeof(GameWorld).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(w, args);

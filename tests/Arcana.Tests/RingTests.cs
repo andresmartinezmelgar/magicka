@@ -140,7 +140,7 @@ internal static class RingTests
         });
         test("Anillos: guardar, continuar y reconectar conservan niveles, piezas y recarga sin renovación gratis", () =>
         {
-            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4 });
+            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 4 });
             var p = world.AddPlayer("Mago")!; world.AttachDefenseAccount(p.Id, "ring-owner");
             var ring = Item(EquipmentSlot.MagicRing, EquipmentFamily.Water);
             Call(world, "GrantDefenseItem", p, ring);

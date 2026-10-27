@@ -14,7 +14,11 @@ public partial class ArenaRenderer
     private V2 _survivalCenter;
     private float _survivalHalfX, _survivalHalfY;
     internal int VisibleSurvivalSectors => _survivalSectors.Count;
-    internal int TotalSurvivalSectors => 48;
+    private int MinSurvivalX => (int)MathF.Floor(-_map.HalfWidth / SurvivalSectorSize);
+    private int MaxSurvivalX => (int)MathF.Ceiling(_map.HalfWidth / SurvivalSectorSize) - 1;
+    private int MinSurvivalY => (int)MathF.Floor(-_map.HalfHeight / SurvivalSectorSize);
+    private int MaxSurvivalY => (int)MathF.Ceiling(_map.HalfHeight / SurvivalSectorSize) - 1;
+    internal int TotalSurvivalSectors => (MaxSurvivalX - MinSurvivalX + 1) * (MaxSurvivalY - MinSurvivalY + 1);
     internal IReadOnlyCollection<(int X, int Y)> SurvivalSectorKeys => _survivalSectors.Keys;
 
     private bool NearSurvival(V2 position, float margin = 4) => _map.Id != ArenaMapId.Bastion ||
@@ -32,24 +36,24 @@ public partial class ArenaRenderer
         // Margen conservador para ambas relaciones de aspecto, paredes y seguimiento suave.
         _survivalHalfX = Math.Max(_zoom, Camera.Size) * Math.Max(1, viewport.X / Math.Max(1, viewport.Y)) / 2 + 12;
         _survivalHalfY = Math.Max(_zoom, Camera.Size) * 0.7f + 14;
-        int minX = Math.Max(-4, (int)MathF.Floor((center.X - _survivalHalfX) / SurvivalSectorSize));
-        int maxX = Math.Min(3, (int)MathF.Floor((center.X + _survivalHalfX) / SurvivalSectorSize));
-        int minY = Math.Max(-3, (int)MathF.Floor((center.Y - _survivalHalfY) / SurvivalSectorSize));
-        int maxY = Math.Min(2, (int)MathF.Floor((center.Y + _survivalHalfY) / SurvivalSectorSize));
+        int minX = Math.Max(MinSurvivalX, (int)MathF.Floor((center.X - _survivalHalfX) / SurvivalSectorSize));
+        int maxX = Math.Min(MaxSurvivalX, (int)MathF.Floor((center.X + _survivalHalfX) / SurvivalSectorSize));
+        int minY = Math.Max(MinSurvivalY, (int)MathF.Floor((center.Y - _survivalHalfY) / SurvivalSectorSize));
+        int maxY = Math.Min(MaxSurvivalY, (int)MathF.Floor((center.Y + _survivalHalfY) / SurvivalSectorSize));
         var window = (minX, maxX, minY, maxY);
         if (_survivalWindow == window) return;
         _survivalWindow = window;
-        var required = new HashSet<(int X, int Y)>();
+        var wanted = new HashSet<(int X, int Y)>();
         for (int x = minX; x <= maxX; x++) for (int y = minY; y <= maxY; y++)
         {
-            var key = (x, y); required.Add(key);
+            var key = (x, y); wanted.Add(key);
             if (!_survivalSectors.ContainsKey(key))
             {
                 var sector = PreparedSurvivalSector(x, y);
                 sector.Visible = true; _survivalSectors[key] = sector;
             }
         }
-        foreach (var key in _survivalSectors.Keys.Where(k => !required.Contains(k)).ToArray())
+        foreach (var key in _survivalSectors.Keys.Where(k => !wanted.Contains(k)).ToArray())
         {
             _survivalSectors[key].Visible = false;
             _survivalSectors.Remove(key);
@@ -64,9 +68,14 @@ public partial class ArenaRenderer
         return sector;
     }
 
-    private IEnumerable<(string Name, Action Work)> PrepareSurvivalSectors()
+    private IEnumerable<(string Name, Action Work)> PrepareSurvivalSectors(ArenaDefinition definition)
     {
-        for (int x = -4; x <= 3; x++) for (int y = -3; y <= 2; y++)
+        // PrepareVisuals enumera antes de ejecutar: usa la definición entrante, no el mapa anterior.
+        int minX = (int)MathF.Floor(-definition.HalfWidth / SurvivalSectorSize);
+        int maxX = (int)MathF.Ceiling(definition.HalfWidth / SurvivalSectorSize) - 1;
+        int minY = (int)MathF.Floor(-definition.HalfHeight / SurvivalSectorSize);
+        int maxY = (int)MathF.Ceiling(definition.HalfHeight / SurvivalSectorSize) - 1;
+        for (int x = minX; x <= maxX; x++) for (int y = minY; y <= maxY; y++)
         {
             int sx = x, sy = y;
             yield return ("Preparando los sectores y portales…", () =>

@@ -6,7 +6,7 @@ internal static class DefenseTests
 {
     private static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
     private static GameWorld World(DefenseFlow flow = DefenseFlow.Continuous, int bots = 0) => new(new WorldOptions
-        { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4, DefenseFlow = flow, Seed = 37, Bots = bots });
+        { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 4, DefenseFlow = flow, Seed = 37, Bots = bots });
     private static object Field(GameWorld world, string name) => typeof(GameWorld).GetField(name, BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(world)!;
     private static void Set(GameWorld world, string name, object value) => typeof(GameWorld).GetField(name, BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(world, value);
     private static object? Invoke(GameWorld world, string name, params object?[] args) => typeof(GameWorld).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(world, args);

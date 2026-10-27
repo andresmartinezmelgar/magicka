@@ -12,6 +12,11 @@ public partial class Main
     private ElementTextLabel? _survivalSaveStatus;
     private PanelContainer? _responsivePauseModal;
     private ScrollContainer? _responsivePauseScroll;
+    private const double SurvivalAutosaveSeconds = 20;
+    private double _survivalAutosaveClock;
+    private bool _survivalAutosaveEnded;
+    private string _autosavedSurvivalRun = "";
+    private long _autosavedSurvivalTick = -1;
     internal bool HasSurvivalSave => SurvivalSaves.Exists;
     private bool CanSaveSurvival => _playing && _connection == null && _practice is { IsDefense: true, MatchEnded: false } &&
         _practice.Players.TryGetValue(_localId, out var player) && !player.Bot && player.Deaths < DefenseRules.PlayerLives;
@@ -34,7 +39,7 @@ public partial class Main
     {
         if (_survivalSaveActions == null || _survivalSaveStatus == null) return;
         _survivalSaveActions.Visible = CanSaveSurvival; _survivalSaveStatus.Visible = CanSaveSurvival;
-        _survivalSaveStatus.Text = "Un punto de continuación local. Cargarlo lo consume; debes guardar de nuevo para volver a continuar.";
+        _survivalSaveStatus.Text = "Autoguardado local cada 20 s y al cambiar de aplicación. Continuar recupera el último punto disponible.";
         UpdatePauseResponsive();
     }
 
@@ -55,8 +60,7 @@ public partial class Main
         try
         {
             // Al pausar ya se han soltado los controles; ningún hechizo humano queda atascado al continuar.
-            var save = _practice!.SaveSurvival(_localId, _localBestiaryRun, _localBestiaryUid);
-            SurvivalSaves.Write(save); CaptureLocalBestiary();
+            WriteSurvivalCheckpoint(); CaptureLocalBestiary();
             if (leave)
             {
                 ReturnToLauncher(); _launcher.ShowStatus("Supervivencia guardada en este dispositivo.");
@@ -72,6 +76,59 @@ public partial class Main
             Diagnostics.Warn("survival.save_failed", "No se pudo guardar la supervivencia local.", error);
             return false;
         }
+    }
+
+    private void WriteSurvivalCheckpoint()
+    {
+        var save = _practice!.SaveSurvival(_localId, _localBestiaryRun, _localBestiaryUid);
+        SurvivalSaves.Write(save);
+        _autosavedSurvivalRun = _localBestiaryRun; _autosavedSurvivalTick = _practice.Tick;
+        _survivalAutosaveClock = 0;
+        _survivalAutosaveEnded = false;
+    }
+
+    private void AutosaveSurvival(string reason)
+    {
+        try
+        {
+            if (_connection == null && _practice is { IsDefense: true, MatchEnded: true } &&
+                _autosavedSurvivalRun.Length > 0 && _autosavedSurvivalRun == _localBestiaryRun)
+            {
+                SurvivalSaves.Discard(); _autosavedSurvivalRun = ""; _autosavedSurvivalTick = -1;
+                return;
+            }
+            if (!CanSaveSurvival || !Guid.TryParseExact(_localBestiaryRun, "N", out _)) return;
+            WriteSurvivalCheckpoint();
+            Diagnostics.Info("survival.autosaved", "Supervivencia autoguardada.",
+                new Dictionary<string, object?> { ["reason"] = reason, ["tick"] = _autosavedSurvivalTick });
+        }
+        catch (Exception error) when (error is System.IO.IOException or UnauthorizedAccessException or
+            System.Text.Json.JsonException or InvalidOperationException or ArgumentException)
+        {
+            // Un fallo de almacenamiento no expulsa de la partida ni sustituye el respaldo válido.
+            Diagnostics.Warn("survival.autosave_failed", "No se pudo autoguardar la supervivencia.", error);
+            if (GodotObject.IsInstanceValid(_survivalSaveStatus))
+                _survivalSaveStatus!.Text = "No se pudo autoguardar. Comprueba el espacio libre y usa Guardar partida.";
+        }
+    }
+
+    private void TickSurvivalAutosave(double delta)
+    {
+        if (_connection != null || !_playing || _practice?.IsDefense != true) return;
+        _survivalAutosaveClock += Math.Clamp(delta, 0, 1);
+        if (_practice.MatchEnded)
+        {
+            if (!_survivalAutosaveEnded || _survivalAutosaveClock >= SurvivalAutosaveSeconds)
+            {
+                _survivalAutosaveEnded = true; _survivalAutosaveClock = 0;
+                AutosaveSurvival("finished");
+            }
+            return;
+        }
+        if (_survivalAutosaveClock < SurvivalAutosaveSeconds) return;
+        _survivalAutosaveClock = 0;
+        // El equipo también puede cambiar en pausa, sin que avance el tick de simulación.
+        AutosaveSurvival("interval");
     }
 
     public void ContinueSurvival()

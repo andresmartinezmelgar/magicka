@@ -60,6 +60,6 @@ public sealed partial class GameWorld
         }
         return new(Tick, Time, Options.Mode, MatchEnded, Winner, Math.Max(0, RestartIn), Copy(Scores),
             players, projectiles, walls, fields, beams, points, events, Options.ScoreLimit, Options.Tickets,
-            Map.Id, HoldingTeam, HoldSeconds, pickups, Defense: DefenseState());
+            Map.Id, HoldingTeam, HoldSeconds, pickups, Defense: DefenseState(), SurvivalMap: Map.SurvivalMap);
     }
 }

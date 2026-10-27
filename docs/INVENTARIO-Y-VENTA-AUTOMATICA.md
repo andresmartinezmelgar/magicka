@@ -18,7 +18,7 @@ En Supervivencia, el servidor protege los favoritos y vende el botín nuevo filt
 
 Con 24/24 objetos, el botín nuevo se convierte en su valor de oro aunque la venta automática esté desactivada. Desactivar una regla no amplía la capacidad. La ayuda, la confirmación del ajuste y el aviso de recogida distinguen esta conversión de una venta por regla y muestran el oro recibido.
 
-El protocolo actual es **38**: deben actualizarse cliente y servidor juntos para reconocer los afijos de combate, la apariencia de ojos míticos y el desglose de daño por origen.
+El protocolo de esta rama es **39**: deben actualizarse cliente y servidor juntos para reconocer los afijos de combate, la apariencia de ojos míticos y el desglose de daño por origen.
 
 ## Efecto del equipo
 
@@ -28,7 +28,7 @@ Todos los objetos del inventario y de la tienda usan la misma tabla de dos colum
 
 Con varios humanos, consultar el inventario mantiene el combate y activa la asistencia de supervivencia máxima, también cuando no hay bots. Mantiene o repone un escudo, busca una retirada segura, evita áreas enemigas y se cura o se apaga el fuego cuando lo necesita. Solo ataca brevemente desde una posición segura; interrumpe el ataque para defenderse. No compra equipo, no cambia la selección del jugador, no concede inmunidad ni genera tiempo activo de participación. Al cerrar la pantalla devuelve el control. Con un único humano se conserva la pausa de la partida.
 
-Las piezas equipadas aportan sus colores a una única aura alrededor del mago. El brillo se mezcla entre zonas y respira suavemente con un movimiento común. La calidad y las mejoras aumentan su intensidad. No contiene rayos ni círculos animados independientes.
+Las piezas equipadas aportan sus colores a una única aura alrededor del mago. El brillo se mezcla entre zonas y respira suavemente con un movimiento común. La calidad y las mejoras aumentan su intensidad. El aura aparece tanto en el inventario como en combate; desde una sola pieza mítica añade filamentos quebrados del color del equipo. Quitar la última pieza mítica elimina esos filamentos y morir oculta el aura. Los ojos de poder siguen requiriendo las seis piezas míticas.
 
 La cantidad de partículas depende de la suma de calidad de las seis piezas equipadas, incluidos los anillos: Plata vale 1 punto, Oro 2, Platino 3, Diamante 4 y Mítico 5. Cada punto aporta cuatro partículas; una ranura vacía aporta cero. Con seis piezas de igual calidad, el presupuesto es 24, 48, 72, 96 o 120 partículas respectivamente. Tres Plata, dos Oro y una Diamante suman 11 puntos y dan 44 partículas.
 

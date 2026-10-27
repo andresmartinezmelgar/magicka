@@ -1,7 +1,7 @@
 namespace Arcana.Core;
 
-/// <summary>Dos anillos comunicados y una plaza central; geometría idéntica en cliente y servidor.</summary>
-internal static class SurvivalLayout
+/// <summary>Conserva el terreno antiguo para continuar guardados anteriores.</summary>
+internal static partial class SurvivalLayout
 {
     internal static ArenaDefinition Create()
     {
@@ -18,30 +18,42 @@ internal static class SurvivalLayout
             Link(right, bottom, left, bottom); Link(left, bottom, left, top);
         }
         Link(96, 20, 96, 124); Link(20, 72, 172, 72);
+        return Build(floors, 192, 144,
+            [new(new(-76, -52), new(76, 52)), new(new(76, -52), new(-76, 52))],
+            SurvivalMapSpec.Legacy, "Supervivencia");
+    }
+
+    private static ArenaDefinition Build(List<FloorSection> floors, int width, int height,
+        TeleportPair[] portals, SurvivalMapSpec spec, string name)
+    {
         // Extrae las paredes de la unión de rectángulos, incluidos los patios sin suelo.
-        var filled = new bool[192, 144];
-        for (int x = 0; x < 192; x++) for (int y = 0; y < 144; y++)
-            filled[x, y] = floors.Any(f => Math.Abs(x - 95.5f - f.Center.X) < f.Width / 2 &&
-                Math.Abs(y - 71.5f - f.Center.Y) < f.Height / 2);
-        bool At(int x, int y) => x >= 0 && x < 192 && y >= 0 && y < 144 && filled[x, y];
+        int halfWidth = width / 2, halfHeight = height / 2;
+        var filled = new bool[width, height];
+        foreach (var floor in floors)
+            for (int x = (int)(floor.Center.X - floor.Width / 2) + halfWidth;
+                x < floor.Center.X + floor.Width / 2 + halfWidth; x++)
+                for (int y = (int)(floor.Center.Y - floor.Height / 2) + halfHeight;
+                    y < floor.Center.Y + floor.Height / 2 + halfHeight; y++)
+                    filled[x, y] = true;
+        bool At(int x, int y) => x >= 0 && x < width && y >= 0 && y < height && filled[x, y];
         var edges = new List<MapEdge>();
-        for (int y = 0; y <= 144; y++)
-            for (int x = 0; x < 192;)
+        for (int y = 0; y <= height; y++)
+            for (int x = 0; x < width;)
             {
                 if (At(x, y - 1) == At(x, y)) { x++; continue; }
                 int start = x++;
-                while (x < 192 && At(x, y - 1) != At(x, y)) x++;
-                edges.Add(new(new(start - 96, y - 72), new(x - 96, y - 72)));
+                while (x < width && At(x, y - 1) != At(x, y)) x++;
+                edges.Add(new(new(start - halfWidth, y - halfHeight), new(x - halfWidth, y - halfHeight)));
             }
-        for (int x = 0; x <= 192; x++)
-            for (int y = 0; y < 144;)
+        for (int x = 0; x <= width; x++)
+            for (int y = 0; y < height;)
             {
                 if (At(x - 1, y) == At(x, y)) { y++; continue; }
                 int start = y++;
-                while (y < 144 && At(x - 1, y) != At(x, y)) y++;
-                edges.Add(new(new(x - 96, start - 72), new(x - 96, y - 72)));
+                while (y < height && At(x - 1, y) != At(x, y)) y++;
+                edges.Add(new(new(x - halfWidth, start - halfHeight), new(x - halfWidth, y - halfHeight)));
             }
-        return new(ArenaMapId.Bastion, "Anillos · supervivencia", 96, 72, floors.ToArray(), [], [], [], 0,
-            teleports: [new(new(-76, -52), new(76, 52)), new(new(76, -52), new(-76, 52))], boundary: edges.ToArray());
+        return new(ArenaMapId.Bastion, name, halfWidth, halfHeight, floors.ToArray(), [], [], [], 0,
+            teleports: portals, boundary: edges.ToArray(), survivalMap: spec);
     }
 }

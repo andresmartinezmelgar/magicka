@@ -473,6 +473,11 @@ public sealed partial class GameWorld
     private void ResetDefense()
     {
         if (!IsDefense) return;
+        if (Map.SurvivalMap is { } previous)
+        {
+            Map = ArenaMap.Get(ArenaMapId.Bastion, SurvivalMapSpec.New(previous));
+            Map.PrepareNavigation(); _routes.Clear(); _survivalCells = null;
+        }
         foreach (var minion in _minions.Values) { _combatants.Remove(minion.Body.Id); _orderedPlayers.Remove(minion.Body); }
         _minions.Clear(); _lingeringSources.Clear(); _effectOwners.Clear();
         _defenseDrops.Clear(); _defenseAccounts.Clear(); _defenseBestiary.Clear();

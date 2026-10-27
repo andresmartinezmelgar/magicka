@@ -14,7 +14,7 @@ internal static class ComprehensiveAuditTests
     private static void Check(bool valid, string reason) { if (!valid) throw new Exception(reason); }
     private static (GameWorld World, Wizard Player) World()
     {
-        var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4, Seed = 381 });
+        var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 4, Seed = 381 });
         Set(world, "_spawnClock", 3600f); Set(world, "_bossClock", 120f);
         var player = world.AddPlayer("Revisión")!; player.Position = new(-8, 0); player.Invulnerable = 0;
         return (world, player);

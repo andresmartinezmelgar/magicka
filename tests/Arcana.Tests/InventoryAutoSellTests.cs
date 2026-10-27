@@ -59,7 +59,7 @@ internal static class InventoryAutoSellTests
         });
         test("Supervivencia: favoritos autoritativos, filtros privados y oro exacto solo para objetos nuevos", () =>
         {
-            var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4, Seed = 902 });
+            var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 4, Seed = 902 });
             var p = w.AddPlayer("Mago")!; var other = w.AddPlayer("Aliado")!;
             var a = Item(); var b = New(a); Give(w, p, a); Give(w, p, b);
             Check(!Send(w, other, new() { Type = "defense_favorite", ItemId = b.Id, Slot = 1 }), "Se marca un objeto de otro jugador.");
@@ -85,7 +85,7 @@ internal static class InventoryAutoSellTests
         });
         test("Supervivencia: favoritos y filtros sobreviven al guardado, y los guardados antiguos siguen abriendo", () =>
         {
-            var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 1, Seed = 903 });
+            var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 1, Seed = 903 });
             var p = w.AddPlayer("Mago")!; var a = Item(); Give(w, p, a);
             Send(w, p, new() { Type = "defense_favorite", ItemId = a.Id, Slot = 1 });
             Send(w, p, new() { Type = "defense_auto_sell", AutoSellStyle = EquipmentStyle.Of(a), ItemId = a.Id, Slot = 1 });

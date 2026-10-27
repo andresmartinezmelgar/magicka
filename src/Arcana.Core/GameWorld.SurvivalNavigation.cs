@@ -15,8 +15,9 @@ public sealed partial class GameWorld
         _survivalCells ??= positions.Select((p, i) => (p, i)).ToDictionary(v => ((int)v.p.X, (int)v.p.Y), v => v.i);
         int Closest(V2 point)
         {
-            int x = (int)(MathF.Round((point.X + 95) / 2) * 2 - 95);
-            int y = (int)(MathF.Round((point.Y + 71) / 2) * 2 - 71);
+            int originX = 1 - (int)MathF.Ceiling(Map.HalfWidth), originY = 1 - (int)MathF.Ceiling(Map.HalfHeight);
+            int x = (int)(MathF.Round((point.X - originX) / 2) * 2 + originX);
+            int y = (int)(MathF.Round((point.Y - originY) / 2) * 2 + originY);
             int best = -1; float distance = float.PositiveInfinity;
             for (int dx = -2; dx <= 2; dx += 2) for (int dy = -2; dy <= 2; dy += 2)
                 if (_survivalCells.TryGetValue((x + dx, y + dy), out int node))

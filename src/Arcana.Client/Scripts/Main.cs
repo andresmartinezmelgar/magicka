@@ -302,7 +302,6 @@ public partial class Main : Node
     }
     private void ActivateGame(WorldSnapshot snapshot, bool prepared = false)
     {
-        if (_resumingSurvival is { } checkpoint) SurvivalSaves.Consume(checkpoint);
         _playing = true; _paused = false; _moveTo = false; _snapshotAge = 0; _lastTick = -1;
         ClosePlayerEquipment();
         BeginLocalBestiary();
@@ -327,9 +326,12 @@ public partial class Main : Node
             _waitingPanel.Update(snapshot, _localId, _connection.Server?.RewardsAvailable == true);
             _ui.MoveChild(_waitingPanel, -1);
         }
+        // El punto anterior permanece disponible mientras carga; activarlo renueva el autoguardado.
+        AutosaveSurvival("start");
     }
     public void ReturnToLauncher(string error = "")
     {
+        AutosaveSurvival("leave");
         CaptureStatistics(MatchRecordStatus.Left);
         CancelReconnect();
         CancelGameLoading();
@@ -355,6 +357,7 @@ public partial class Main : Node
 
     public override void _Process(double delta)
     {
+        if (_applicationSuspended) return;
         if (_verification?.CheckSmokeErrors() == true) return;
         try { ProcessFrame(delta); }
         catch (Exception e)
@@ -379,6 +382,7 @@ public partial class Main : Node
         TickBestiary(delta);
         TickInventoryAutoSell(delta);
         TickMatchStatistics(delta);
+        TickSurvivalAutosave(delta);
         _renderFrames++;
         if (CheckDesktopHeaderSmoke()) return;
         if (CheckMobileMenuSmoke()) return;
@@ -481,7 +485,7 @@ public partial class Main : Node
     public override void _PhysicsProcess(double delta)
     {
         if (_verification?.CheckSmokeErrors() == true) return;
-        if (Loading || _reconnecting) return;
+        if (Loading || _reconnecting || _applicationSuspended) return;
         if (_verification?.FreezeSimulation == true) return;
         if (_profiler?.Running == true) return;
         if (!_playing)
@@ -560,7 +564,7 @@ public partial class Main : Node
     private void Submit(ClientMessage message)
     {
         if (Loading) return;
-        if (_practice != null) { message.Sequence = ++_localSequence; if (message.Type == "defense_restart") { CaptureStatistics(MatchRecordStatus.Left); CaptureLocalBestiary(); if (_practice.RestartDefense()) BeginLocalBestiary(); } else _practice.ApplyMessage(_localId, message); }
+        if (_practice != null) { message.Sequence = ++_localSequence; if (message.Type == "defense_restart") { CaptureStatistics(MatchRecordStatus.Left); CaptureLocalBestiary(); if (_practice.RestartDefense()) { BeginLocalBestiary(); AutosaveSurvival("restart"); } } else _practice.ApplyMessage(_localId, message); }
         else _connection?.Send(message);
     }
     public override void _UnhandledInput(InputEvent input)
@@ -839,6 +843,7 @@ public partial class Main : Node
     }
     public override void _ExitTree()
     {
+        AutosaveSurvival("shutdown");
         CaptureStatistics(MatchRecordStatus.Interrupted);
         CaptureLocalBestiary();
         RenderingServer.FramePostDraw -= FrameDrawn;
@@ -846,6 +851,7 @@ public partial class Main : Node
         CancelGameLoading();
         WizardSprites.ClearCache();
         MythicEyeVisuals.ClearCache();
+        EquipmentAuraVisuals.ClearCache();
         ElementChannelVisuals.ClearCache();
         Interlocked.Exchange(ref _exiting, 1); _lifetime.Cancel();
         _google?.Dispose();

@@ -7,9 +7,9 @@ public partial class ArenaRenderer
 {
     internal IEnumerable<(string Name, Action Work)> PrepareVisuals(WorldSnapshot initial, int localId)
     {
-        foreach (var step in PrepareMap(initial.Map)) yield return ("Construyendo el mapa…", step);
+        foreach (var step in PrepareMap(ArenaMap.Get(initial))) yield return ("Construyendo el mapa…", step);
         if (initial.Map == ArenaMapId.Bastion)
-            foreach (var step in PrepareSurvivalSectors()) yield return step;
+            foreach (var step in PrepareSurvivalSectors(ArenaMap.Get(initial))) yield return step;
         foreach (var type in Enum.GetValues<WizardType>())
             yield return ("Cargando los magos…", () => WizardSprites.Load(type));
         yield return ("Preparando los iconos del inventario…", EquipmentPanel.PrepareIcons);
@@ -30,7 +30,7 @@ public partial class ArenaRenderer
             Defense = initial.Defense is { } d ? d with { Minions = [], Drops = [] } : null };
         if (initial.Map != ArenaMapId.Bastion)
         {
-            var definition = ArenaMap.Get(initial.Map);
+            var definition = ArenaMap.Get(initial);
             for (float x = -definition.HalfWidth + 12; x < definition.HalfWidth; x += 24)
                 for (float y = -definition.HalfHeight + 12; y < definition.HalfHeight; y += 24)
                 {

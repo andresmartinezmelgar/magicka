@@ -182,7 +182,7 @@ internal static class CombatAffixTests
         });
         test("Afijos nuevos: guardar y reconectar conservan el afijo y la recarga de repulsión", () =>
         {
-            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4 });
+            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 4 });
             var player = world.AddPlayer("Mago")!; world.AttachDefenseAccount(player.Id, "affix-owner");
             var item = EquipmentCatalogue.Generate(new(6), tier: ItemTier.Mythic, slot: EquipmentSlot.Weapon) with { Affix = new(ItemAffixKind.ShieldReprisal, 2) };
             Call(world, "GrantDefenseItem", player, item);

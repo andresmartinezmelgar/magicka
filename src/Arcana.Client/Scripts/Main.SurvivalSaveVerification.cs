@@ -10,6 +10,7 @@ public partial class Main
     private string? _survivalSaveCaptures;
     private string _survivalSaveSmokePath = "", _survivalSaveSmokeRun = "";
     private long _survivalSaveSmokeTick;
+    private SurvivalMapSpec? _survivalSaveSmokeMap;
     private void StartSurvivalSaveSmoke(string[] arguments)
     {
         _survivalSaveSmoke = true;
@@ -26,6 +27,15 @@ public partial class Main
         Accounts.RestoreOfflineProfile(new("survival-save-ui", "Defensor", 0, 0, 0, new(), []));
         _launcher.UpdateSurvivalSave();
         StartPractice("Defensor", 0, GameMode.Defense, 1, map: ArenaMapId.Bastion);
+        var world = _practice; long loadingStart = _loadingStartedAt;
+        HandleApplicationLifecycle(NotificationApplicationFocusOut);
+        HandleApplicationLifecycle(NotificationApplicationPaused);
+        _applicationSuspendedAt -= 130_000;
+        HandleApplicationLifecycle(NotificationApplicationResumed);
+        if (!_applicationSuspended) throw new InvalidOperationException("Reanudó antes de recuperar el foco.");
+        HandleApplicationLifecycle(NotificationApplicationFocusIn);
+        if (!Loading || !ReferenceEquals(world, _practice) || _applicationSuspended || _loadingStartedAt < loadingStart + 130_000)
+            throw new InvalidOperationException("Android canceló la carga o contó el tiempo en segundo plano.");
     }
     private bool CheckSurvivalSaveSmoke()
     {
@@ -36,6 +46,8 @@ public partial class Main
             if (Loading || !_playing) return false;
             if (_survivalSaveSmokePhase == 0)
             {
+                Check(HasSurvivalSave, "La partida nueva no crea un autoguardado.");
+                _survivalSaveSmokeMap = _practice!.Map.SurvivalMap;
                 var player = _practice!.Players[_localId]; player.Health = 712; player.Deaths = 1; player.Invulnerable = 8;
                 player.BuffStacks[(int)BuffKind.Energy] = 2;
                 _snapshot = _practice.Snapshot(); TogglePause();
@@ -71,24 +83,43 @@ public partial class Main
             Check(_localBestiaryRun == _survivalSaveSmokeRun && _localBestiaryUid == "survival-save-ui", "Cambió la identidad del bestiario al continuar.");
             Check(_practice!.Players[_localId].BuffStacks[(int)BuffKind.Energy] == 2 && _practice.Tick >= _survivalSaveSmokeTick,
                 "Se perdió el progreso al terminar de cargar.");
-            Check(!HasSurvivalSave, "La partida ya continuada sigue disponible para rebobinar.");
+            Check(HasSurvivalSave && _practice.Map.SurvivalMap == _survivalSaveSmokeMap,
+                "Continuar consumió el autoguardado o cambió el terreno.");
             if (_survivalSaveSmokePhase == 2)
             {
-                TogglePause(); _survivalSaveSmokeTick = _practice.Tick;
+                var running = _practice; long tick = running.Tick;
+                running.Players[_localId].Health = 611;
+                HandleApplicationLifecycle(NotificationApplicationFocusOut);
+                HandleApplicationLifecycle(NotificationApplicationPaused);
+                _PhysicsProcess(1 / 60.0);
+                Check(ReferenceEquals(running, _practice) && running.Tick == tick && HasSurvivalSave &&
+                    SurvivalSaves.Load().World.Players[_localId].Health == 611,
+                    "Cambiar de aplicación pierde la partida, simula el fondo o no guarda el último estado.");
+                HandleApplicationLifecycle(NotificationApplicationFocusIn);
+                Check(_applicationSuspended, "Recuperar el foco ignoró que Android seguía en pausa.");
+                HandleApplicationLifecycle(NotificationApplicationResumed);
+                Check(_playing && _paused && !_applicationSuspended && ReferenceEquals(running, _practice),
+                    "Volver de otra app empezó una partida nueva o perdió la pausa.");
+                _survivalSaveSmokeTick = _practice.Tick;
                 Check(SaveLocalSurvival(true) && HasSurvivalSave, "Guardar otra vez no habilita el punto nuevo.");
                 ContinueSurvival(); Check(Loading && _practice!.Tick == _survivalSaveSmokeTick, "No preparó el nuevo punto guardado.");
                 _survivalSaveSmokePhase = 3; return false;
             }
+            var human = _practice.Players[_localId];
+            human.Health = 0; human.Deaths = DefenseRules.PlayerLives;
+            _practice.ApplyMessage(_localId, new() { Type = "defense_shop", Slot = 0, Sequence = human.LastSequence + 1 });
+            _practice.Step(); AutosaveSurvival("finished");
+            Check(_practice.MatchEnded && !HasSurvivalSave, "La partida terminada conserva un autoguardado recuperable.");
             ReturnToLauncher();
-            ContinueSurvival(); Check(!Loading && !_playing, "El mismo archivo se pudo continuar por segunda vez.");
-            GD.Print("SURVIVAL_SAVE_SMOKE_OK: estado, aliados e identidad; cancelar conserva el punto, activarlo lo consume, guardar de nuevo habilita otro punto y se bloquea una segunda carga.");
+            ContinueSurvival(); Check(!Loading && !_playing, "Una partida terminada reaparece desde el respaldo.");
+            GD.Print("SURVIVAL_SAVE_SMOKE_OK: autoguardado, estado, aliados, identidad y mapa; Android conserva carga y partida al perder foco; finalizar invalida el punto y su respaldo.");
             GetTree().Quit(0); _survivalSaveSmoke = false;
         }
         catch (Exception error)
         { GD.PushError("SURVIVAL_SAVE_SMOKE_FAILED: " + error.Message); GetTree().Quit(1); _survivalSaveSmoke = false; }
         finally
         {
-            if (!_survivalSaveSmoke && System.IO.Directory.Exists(_survivalSaveSmokePath))
+            if (!_survivalSaveSmoke && !_playing && System.IO.Directory.Exists(_survivalSaveSmokePath))
                 System.IO.Directory.Delete(_survivalSaveSmokePath, true);
         }
         return false;

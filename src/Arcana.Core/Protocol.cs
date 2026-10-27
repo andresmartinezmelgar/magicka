@@ -6,7 +6,7 @@ namespace Arcana.Core;
 
 public static class Protocol
 {
-    public const int Version = 38;
+    public const int Version = 39;
     public const int GamePort = 27015;
     public const int DiscoveryPort = 27016;
     public const string DiscoveryMagic = "ARCANA_DISCOVER_V30";
@@ -245,4 +245,5 @@ public sealed record WorldSnapshot(long Tick, double Time, GameMode Mode, bool M
     int ScoreLimit = 15, int StartingTickets = 75, ArenaMapId Map = ArenaMapId.Classic,
     int HoldingTeam = -1, float HoldSeconds = 0, PickupSnapshot[]? Pickups = null,
     bool WaitingForPlayers = false, int LobbyHostId = 0, int[]? LobbyReadyPlayerIds = null,
-    int BestOf = 1, int[]? SeriesWins = null, string RewardStatus = "", bool AwaitingRematch = false, DefenseSnapshot? Defense = null);
+    int BestOf = 1, int[]? SeriesWins = null, string RewardStatus = "", bool AwaitingRematch = false, DefenseSnapshot? Defense = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SurvivalMapSpec? SurvivalMap = null);

@@ -6,7 +6,7 @@ public partial class Main
 {
     private (V2 Target, bool Valid) MagickPreview(WorldSnapshot world, WizardSnapshot player, int slot)
     {
-        var map = ArenaMap.Get(world.Map);
+        var map = ArenaMap.Get(world);
         if (slot == 1)
         {
             bool Clear(V2 from, V2 to) => map.ClearPath(from, to) && !world.Walls.Any(w =>

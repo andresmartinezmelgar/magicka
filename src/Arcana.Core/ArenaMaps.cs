@@ -13,6 +13,7 @@ public sealed class ArenaDefinition
     public string Name { get; }
     public float HalfWidth { get; }
     public float HalfHeight { get; }
+    public SurvivalMapSpec? SurvivalMap { get; }
     public IReadOnlyList<FloorSection> Floors { get; }
     public IReadOnlyList<MapEdge> Boundary { get; }
     public IReadOnlyList<Obstacle> Obstacles { get; }
@@ -42,9 +43,11 @@ public sealed class ArenaDefinition
 
     internal ArenaDefinition(ArenaMapId id, string name, float halfWidth, float halfHeight,
         FloorSection[] floors, V2[] outline, Obstacle[] obstacles, V2[] points, float spawnX, V2[]? itemSpawns = null,
-        TeleportPair[]? teleports = null, MapEdge[]? eventGates = null, MapEdge[]? boundary = null)
+        TeleportPair[]? teleports = null, MapEdge[]? eventGates = null, MapEdge[]? boundary = null,
+        SurvivalMapSpec? survivalMap = null)
     {
         Id = id; Name = name; HalfWidth = halfWidth; HalfHeight = halfHeight; _spawnX = spawnX;
+        SurvivalMap = survivalMap;
         _floors = floors; _obstacles = obstacles;
         Floors = Array.AsReadOnly(_floors); Obstacles = Array.AsReadOnly(_obstacles); ControlPoints = Array.AsReadOnly(points);
         ItemSpawns = Array.AsReadOnly(itemSpawns ?? []);

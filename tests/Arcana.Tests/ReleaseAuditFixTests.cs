@@ -12,7 +12,7 @@ internal static class ReleaseAuditFixTests
         typeof(GameWorld).GetMethod(name, Private)!.Invoke(world, args);
     private static (GameWorld World, Wizard Player, Wizard Ally) World()
     {
-        var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4, Seed = 37 });
+        var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 4, Seed = 37 });
         typeof(GameWorld).GetField("_spawnClock", Private)!.SetValue(world, 3600f);
         typeof(GameWorld).GetField("_bossClock", Private)!.SetValue(world, 3600f);
         var player = world.AddPlayer("Inventario")!; player.Position = new(-8, 0); player.Invulnerable = 0;

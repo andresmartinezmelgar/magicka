@@ -6,7 +6,7 @@ internal static class SurvivalTests
 {
     private static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
     private static GameWorld World(int bots = 0, int seed = 37) => new(new WorldOptions
-        { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4, Bots = bots, Seed = seed });
+        { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 4, Bots = bots, Seed = seed });
     private static object Field(GameWorld w, string name) => typeof(GameWorld).GetField(name, BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(w)!;
     private static void Set(GameWorld w, string name, object value) => typeof(GameWorld).GetField(name, BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(w, value);
     private static object? Call(GameWorld w, string name, params object[] values) => typeof(GameWorld).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(w, values);

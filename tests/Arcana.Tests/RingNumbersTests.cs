@@ -67,7 +67,7 @@ internal static class RingNumbersTests
         });
         test("Anillo mágico: las mejoras de Supervivencia solo alteran capacidad y nivel de la habilidad", () =>
         {
-            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4 });
+            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 4 });
             var player = world.AddPlayer("Mago")!; var item = Legacy(EquipmentStat.Power);
             Call(world, "GrantDefenseItem", player, item);
             var progress = ((IDictionary)typeof(GameWorld).GetField("_defenders", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(world)!)[player.Id]!;

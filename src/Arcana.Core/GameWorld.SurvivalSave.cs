@@ -7,6 +7,7 @@ public sealed partial class GameWorld
     private sealed class SavedSurvival
     {
         public WorldOptions Options = new();
+        public SurvivalMapSpec? SurvivalMap;
         [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
         public MatchStatisticsReport? Statistics = null; // Solo lectura de puntos antiguos; nunca se escribe telemetría nueva.
         public long Tick, NextEvent;
@@ -70,7 +71,7 @@ public sealed partial class GameWorld
             throw new InvalidOperationException("Solo se puede guardar una supervivencia local en curso.");
         var state = new SavedSurvival
         {
-            Options = Options, Tick = Tick, NextEvent = _nextEvent, NextMinion = _nextMinion, NextEntity = _nextEntity,
+            Options = Options, SurvivalMap = Map.SurvivalMap, Tick = Tick, NextEvent = _nextEvent, NextMinion = _nextMinion, NextEntity = _nextEntity,
             RandomState = ((SurvivalRandom)_random).State, Kills = _defenseKills, Bosses = _bossesKilled,
             Elapsed = _defenseElapsed, PartySize = _defensePartySize, SpawnClock = _spawnClock, AuraClock = _auraClock,
             BossClock = _bossClock, SurgeTime = _commanderSurgeTime, SurgeCooldown = _commanderSurgeCooldown,
@@ -120,6 +121,7 @@ public sealed partial class GameWorld
         var world = new GameWorld(new()
         {
             Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = s.Options.MaxPlayers,
+            SurvivalMap = s.SurvivalMap ?? s.Options.SurvivalMap ?? SurvivalMapSpec.Legacy,
             FriendlyFire = s.Options.FriendlyFire, DefenseFlow = s.Options.DefenseFlow, Seed = s.Options.Seed,
             ScoreLimit = s.Options.ScoreLimit, Tickets = s.Options.Tickets
         });
@@ -195,7 +197,7 @@ public sealed partial class GameWorld
     {
         static void Require([System.Diagnostics.CodeAnalysis.DoesNotReturnIf(false)] bool valid)
         { if (!valid) throw new InvalidDataException("Partida de supervivencia incompleta o incompatible."); }
-        Require(save != null && save.Version == SurvivalSave.CurrentVersion && Guid.TryParseExact(save.RunId, "N", out _) &&
+        Require(save != null && (save.Version is 1 or SurvivalSave.CurrentVersion) && Guid.TryParseExact(save.RunId, "N", out _) &&
             save.BestiaryUid is { Length: <= 128 } && save.State.ValueKind == JsonValueKind.Object);
         var s = save!.State.Deserialize<SavedSurvival>(SurvivalSave.Json);
         Require(s != null && s.Options != null && s.Options.Mode == GameMode.Defense && s.Options.Map == ArenaMapId.Bastion &&
@@ -204,7 +206,11 @@ public sealed partial class GameWorld
             s.Minions is { Length: <= DefenseRules.MaxMinions } && s.EffectSources is { Length: <= 512 } && s.Drops is { Length: <= DefenseRules.MaxDrops } &&
             s.Projectiles is { Length: <= 2048 } && s.Walls is { Length: <= 2048 } && s.Fields is { Length: <= 2048 } &&
             s.Bestiary != null && s.Bestiary.Length <= DefenseRules.MinionTypeCount && s.BotPlans is { Length: <= 3 });
-        Require(s!.Tick is >= 0 and <= 1892160000 && double.IsFinite(s.Elapsed) && s.Elapsed is >= 0 and <= 31536000 &&
+        Require((s!.SurvivalMap == null || s.SurvivalMap.Valid) &&
+            (s.Options.SurvivalMap == null || s.Options.SurvivalMap.Valid));
+        Require(save.Version < 2 || s.SurvivalMap != null);
+        Require(save.Version >= 2 || (s.SurvivalMap?.Version ?? 0) == 0 && (s.Options.SurvivalMap?.Version ?? 0) == 0);
+        Require(s.Tick is >= 0 and <= 1892160000 && double.IsFinite(s.Elapsed) && s.Elapsed is >= 0 and <= 31536000 &&
             s.Kills >= 0 && s.Bosses >= 0 && s.PartySize is >= 1 and <= 4 && s.RandomState != 0 && s.NextEvent > 0 &&
             new[] { s.SpawnClock, s.AuraClock, s.BossClock, s.SurgeTime, s.SurgeCooldown, s.SurgeClock, s.BotClock }.All(float.IsFinite));
         s.Statistics?.Validate();

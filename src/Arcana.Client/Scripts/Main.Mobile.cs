@@ -6,6 +6,33 @@ namespace Arcana.Client;
 public partial class Main
 {
     private MobileControls? _touch;
+    private bool _applicationSuspended, _applicationPaused, _applicationFocused = true;
+    private long _applicationSuspendedAt;
+
+    private void SetApplicationSuspended(bool suspended)
+    {
+        if (_applicationSuspended == suspended) return;
+        _applicationSuspended = suspended;
+        if (suspended)
+        {
+            _applicationSuspendedAt = Environment.TickCount64;
+            if (_playing)
+            {
+                StopInput();
+                if (!_paused && !_help.Visible) TogglePause();
+                SynchronizeDefenseInterface();
+                AutosaveSurvival("background"); CaptureLocalBestiary();
+            }
+            if (_profiler?.Running == true) _profiler.Cancel();
+        }
+        else
+        {
+            // El tiempo en otra app no cuenta como un fallo al preparar recursos.
+            if (Loading) _loadingStartedAt += Math.Max(0, Environment.TickCount64 - _applicationSuspendedAt);
+            _snapshotAge = 0; _lastHealthSnapshot = null; _inputTime = 0;
+            _ignoreLeftUntilRelease = true; _moveTo = false; _touch?.Reset();
+        }
+    }
 
     private void PrepareMobileWindow()
     {
@@ -81,14 +108,19 @@ public partial class Main
             if (!NavigateBack()) GetTree().Quit();
             return;
         }
-        if (Loading && (long)what is NotificationApplicationPaused or NotificationApplicationFocusOut)
-        { ReturnToLauncher(); return; }
-        if (_profiler?.Running == true && (long)what is NotificationApplicationPaused or NotificationApplicationFocusOut)
-        { _profiler.Cancel(); return; }
-        if ((long)what is NotificationApplicationPaused or NotificationApplicationFocusOut && _playing)
+        HandleApplicationLifecycle(what);
+    }
+
+    private void HandleApplicationLifecycle(long what)
+    {
+        switch (what)
         {
-            StopInput(); CaptureLocalBestiary();
-            if (!_paused && !_help.Visible) TogglePause();
+            case NotificationApplicationPaused: _applicationPaused = true; break;
+            case NotificationApplicationResumed: _applicationPaused = false; break;
+            case NotificationApplicationFocusOut: _applicationFocused = false; break;
+            case NotificationApplicationFocusIn: _applicationFocused = true; break;
+            default: return;
         }
+        SetApplicationSuspended(_applicationPaused || !_applicationFocused);
     }
 }

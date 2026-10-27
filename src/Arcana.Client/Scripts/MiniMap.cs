@@ -10,7 +10,7 @@ public partial class MiniMap : Control
     public override void _Draw()
     {
         if (State == null) return;
-        var map = ArenaMap.Get(State.Map);
+        var map = ArenaMap.Get(State);
         float scale = Math.Min(Size.X / (map.HalfWidth * 2), Size.Y / (map.HalfHeight * 2));
         Vector2 Point(V2 p) => Size / 2 + new Vector2(p.X, p.Y) * scale;
         DrawRect(new(Vector2.Zero, Size), new("14232d"));

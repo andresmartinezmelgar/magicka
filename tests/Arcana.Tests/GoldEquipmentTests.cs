@@ -19,7 +19,7 @@ internal static class GoldEquipmentTests
     }
     private static (GameWorld World, Wizard Player) World()
     {
-        var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, Seed = 771, MaxPlayers = 4 });
+        var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, Seed = 771, MaxPlayers = 4 });
         var player = world.AddPlayer("Mago")!;
         Call(world, "GrantDefenseItem", player, Item(EquipmentSlot.GoldRing, ItemAffixKind.GoldBonus, 10));
         return (world, player);
@@ -71,7 +71,7 @@ internal static class GoldEquipmentTests
         });
         test("Supervivencia: el anillo llega a nivel diez aunque los atributos estén al máximo", () =>
         {
-            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, Seed = 77, MaxPlayers = 4 });
+            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, Seed = 77, MaxPlayers = 4 });
             var player = world.AddPlayer("Mago")!;
             var item = Item(EquipmentSlot.GoldRing, ItemAffixKind.CoinDividend);
             item = item with { Bonuses = item.Bonuses.Select(b => b with { Current = b.Maximum }).ToArray() };
@@ -209,7 +209,7 @@ internal static class GoldEquipmentTests
         });
         test("Supervivencia: el oro de piezas antiguas queda inactivo también al guardar y continuar", () =>
         {
-            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, Seed = 771, MaxPlayers = 4 });
+            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, Seed = 771, MaxPlayers = 4 });
             var player = world.AddPlayer("Mago")!;
             foreach (var slot in Enum.GetValues<EquipmentSlot>().Where(s => s != EquipmentSlot.GoldRing))
                 Call(world, "GrantDefenseItem", player, Legacy(slot, slot == EquipmentSlot.Boots ? ItemAffixKind.CoinDividend : ItemAffixKind.GoldBonus,

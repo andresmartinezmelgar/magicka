@@ -24,7 +24,7 @@ public partial class ClientVerification
     {
         var choice = (OptionButton)_runtime.Launcher.FindChild("PracticeMapChoice", true, false);
         var objective = (ElementTextLabel)_runtime.Hud!.FindChild("MatchObjective", true, false);
-        var map = ArenaMap.Get(snapshot.Map);
+        var map = ArenaMap.Get(snapshot);
         bool valid = choice.ItemCount == Enum.GetValues<ArenaMapId>().Length && _runtime.Renderer.CurrentMap == snapshot.Map && _runtime.Renderer.Points.Count == map.ControlPoints.Count &&
             _runtime.Renderer.SceneryDrawMeshes < _runtime.Renderer.ScenerySourceMeshes &&
             _runtime.Renderer.ScenerySourceVertices > 0 && _runtime.Renderer.ScenerySourceVertices == _runtime.Renderer.SceneryBatchedVertices &&

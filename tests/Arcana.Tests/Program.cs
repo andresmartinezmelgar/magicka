@@ -50,6 +50,7 @@ if (args.Contains("--desktop-session-only"))
 }
 if (args.Contains("--statistics-only")) { MatchStatisticsTests.Run(Test); Console.WriteLine($"RESULTADO ESTADÍSTICAS: {passed} correctas, {failed} fallidas."); return failed == 0 ? 0 : 1; }
 if (args.Contains("--audit-only")) { ComprehensiveAuditTests.Run(Test); Console.WriteLine($"RESULTADO REVISIÓN: {passed} correctas, {failed} fallidas."); return failed == 0 ? 0 : 1; }
+if (args.Contains("--survival-continuity-only")) { SurvivalContinuityTests.Run(Test); Console.WriteLine($"RESULTADO CONTINUIDAD: {passed} correctas, {failed} fallidas."); return failed == 0 ? 0 : 1; }
 var deltaFixtures = args.FirstOrDefault(a => a.StartsWith("--delta-fixtures="));
 if (deltaFixtures != null)
 {
@@ -169,6 +170,7 @@ DefenseThreatTests.Run(Test);
 DefenseEliteTests.Run(Test);
 MatchStatisticsTests.Run(Test);
 SurvivalSaveTests.Run(Test);
+SurvivalContinuityTests.Run(Test);
 AccountLoadoutTests.Run(Test);
 UsabilityTests.Run(Test);
 AccountSessionTests.Run(Test);

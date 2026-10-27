@@ -12,7 +12,7 @@ internal static class DefenseEliteTests
     private static void Weak(Wizard body, Element element) => typeof(Wizard).GetProperty("VulnerableElement", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(body, element);
     private static (GameWorld W, Wizard P) World()
     {
-        var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4, Seed = 431 });
+        var w = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 4, Seed = 431 });
         var p = w.AddPlayer("Humano")!; p.Position = new(-25, 0); p.Invulnerable = 0;
         Set(w, "_spawnClock", 10000f); Set(w, "_bossClock", 10000f); return (w, p);
     }

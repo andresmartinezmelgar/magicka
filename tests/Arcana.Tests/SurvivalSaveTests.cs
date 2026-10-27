@@ -15,7 +15,7 @@ internal static class SurvivalSaveTests
     private static string RunId() => Guid.NewGuid().ToString("N");
     private static (GameWorld World, Wizard Player) World(int bots = 1)
     {
-        var w = new GameWorld(new() { Map = ArenaMapId.Bastion, Mode = GameMode.Defense, MaxPlayers = 4, Seed = 831, Bots = bots });
+        var w = new GameWorld(new() { Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, Mode = GameMode.Defense, MaxPlayers = 4, Seed = 831, Bots = bots });
         return (w, w.AddPlayer("Defensor", 0, wizardType: WizardType.Cryomancer)!);
     }
     private static void Advance(GameWorld world, int ticks) { for (int i = 0; i < ticks; i++) world.Step(); }

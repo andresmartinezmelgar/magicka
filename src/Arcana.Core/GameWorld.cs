@@ -30,7 +30,7 @@ public sealed partial class GameWorld
         [Element.Cold, Element.Cold, Element.Cold], [Element.Water, Element.Water, Element.Water]
     ];
     public WorldOptions Options { get; }
-    public ArenaDefinition Map { get; }
+    public ArenaDefinition Map { get; private set; }
     public bool HoldToWin => Options.Mode == GameMode.Warfare && Map.HoldSeconds > 0;
     public bool ConquestToWin => Options.Mode == GameMode.Warfare && Map.SequentialCapture;
     public int HoldingTeam { get; private set; } = -1;
@@ -46,7 +46,8 @@ public sealed partial class GameWorld
     public GameWorld(WorldOptions? options = null)
     {
         Options = options ?? new();
-        Map = ArenaMap.Get(Options.Map);
+        Map = ArenaMap.Get(Options.Map, Options.Mode == GameMode.Defense
+            ? Options.SurvivalMap ?? SurvivalMapSpec.New() : null);
         if (!Map.SupportsMode(Options.Mode)) throw new ArgumentException("El modo no es compatible con el mapa.", nameof(options));
         if (!Enum.IsDefined(Options.DefenseFlow) || IsDefense && Options.MaxPlayers is < 1 or > DefenseRules.MaxDefenders)
             throw new ArgumentException("Defensa admite entre uno y cuatro defensores.", nameof(options));
