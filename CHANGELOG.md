@@ -1,6 +1,6 @@
 # Cambios
 
-## Sin publicar
+## 0.29.33
 
 - La venta automática nunca vende objetos Míticos, aunque no correspondan al elemento o a los afijos elegidos. Con inventario lleno, el botín Mítico permanece en el suelo hasta poder recogerlo; su venta manual sigue disponible.
 - Configuración predeterminada resalta con el icono del elemento los afijos que lo potencian. El resaltado cambia inmediatamente sin alterar las prioridades elegidas ni activar ventas.

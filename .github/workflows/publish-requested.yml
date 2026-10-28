@@ -1,8 +1,7 @@
 name: Publicacion de Supervivencia expresamente solicitada
 
 # Activador limitado a la rama y a la petición de tag/APK del usuario.
-# Revisión 8: sincronizar la tabla visible antes de probar el botón de equipo público.
-# Petición de 0.29.32: tag y APK firmado de pruebas, solicitados expresamente por el usuario.
+# Petición de 0.29.33: tag y versión de pruebas, solicitados expresamente por el usuario.
 on:
   push:
     branches: [pruebas/supervivencia-procedural-autoguardado]
@@ -14,7 +13,7 @@ permissions:
 
 jobs:
   publish-requested-version:
-    if: github.event.head_commit.message == 'Publicar pruebas de Supervivencia 0.29.32'
+    if: github.event.head_commit.message == 'Publicar pruebas de Supervivencia 0.29.33'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -26,7 +25,7 @@ jobs:
           branch_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$GITHUB_REF_NAME" --jq '.object.sha')
           test "$branch_sha" = "$GITHUB_SHA"
           version=$(gh api "repos/$GITHUB_REPOSITORY/contents/VERSION?ref=$GITHUB_SHA" --jq '.content' | base64 --decode | tr -d '\r\n')
-          test "$version" = '0.29.32'
+          test "$version" = '0.29.33'
           gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=$GITHUB_REF_NAME&event=workflow_dispatch&per_page=20" \
             --jq ".workflow_runs[] | select(.head_sha != \"$GITHUB_SHA\" and .status != \"completed\") | .id" > "$RUNNER_TEMP/arcana-stale-runs"
           while IFS= read -r stale_run; do
