@@ -39,7 +39,7 @@ public partial class OptionAHelpPanel : Control
         var outer = new VBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
         outer.AddThemeConstantOverride("separation", Ui.IsMobile ? 8 : 14);
         panel.AddChild(outer);
-        var header = _heading = Ui.Label("CÓMO JUGAR  /  GUÍA DEL MAGO", 24, Ui.Gold);
+        var header = _heading = Ui.Label("GUÍA DEL MAGO", 24, Ui.Gold);
         outer.AddChild(header);
         _topicChoice = new OptionButton { Name = "HelpTopicChoice", CustomMinimumSize = new(0, 44), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _topicChoice.AddThemeFontSizeOverride("font_size", 18);
@@ -298,7 +298,7 @@ public partial class OptionAHelpPanel : Control
     private void EquipmentBonusesPage()
     {
         var introduction = Ui.Label(
-            "Las bonificaciones solo se activan si llevas la pieza equipada. En Inventario puedes comprobar cada valor en «Suma» y su porcentaje final en «Aplicado». Algunas reducen el daño recibido sin cambiar los números visibles del escudo.", 18, Ui.Text);
+            "Las bonificaciones requieren equipar la pieza. En Inventario, «Suma» reúne sus aportaciones y «Aplicado» muestra el valor final. Defensa reduce el daño sin aumentar los puntos del escudo.", 18, Ui.Text);
         introduction.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _body.AddChild(introduction);
         var example = SmallCard(); _body.AddChild(example);
@@ -306,12 +306,12 @@ public partial class OptionAHelpPanel : Control
         examples.AddChild(Ui.Label("DEFENSA NO ES CAPACIDAD DE ESCUDO", 20, Ui.Gold));
         Wrapped(examples, EquipmentCatalogue.StatExample(EquipmentStat.Defense));
         Wrapped(examples, EquipmentCatalogue.StatExample(EquipmentStat.ShieldCapacity));
-        Wrapped(examples, "DOS ANILLOS · El de oro da una moneda extra cada 11 en nivel 0 y cada moneda en nivel 10. El mágico solo tiene un atributo de capacidad de escudo y su habilidad elemental, sin afijos ni otras estadísticas. Renueva su escudo cada 16–8 s según nivel y desde nivel 6 duplica el elemento. Su ficha indica HP de escudo, duración, recarga, curación en HP/s y daño por pulso y DMG/s medio. Diez mejoras con oro de cuenta; en Supervivencia, oro de partida. No cuentan para conjuntos.");
-        Wrapped(examples, "AFIJOS DE COMBATE · Diamante y Mítico llevan un efecto especial salvo el anillo mágico. Además de penetración, cadenas, quemadura y charco, pueden tener Quebrantahielo, Choque térmico, Remate arcano, Batería protectora, Remiendo protector o Última barrera. La ficha muestra sus cifras y condiciones. Mítico potencia los nuevos efectos. Varias copias del mismo afijo solo aplican la más fuerte. Última barrera tiene 6 s de recarga; cambiar equipo o reconectar no la reinicia.");
-        Wrapped(examples, "AFIJOS DE ESCUDO · Escudo vital cura un 10 % (Diamante) o 15 % (Mítico) del daño enemigo absorbido por tu escudo personal. Espejo protector devuelve al atacante un 15 % o 25 %, con sus defensas y sin multiplicadores de ataque. Solo cuentan los HP absorbidos, también en el golpe que rompe el escudo si sobrevives. Las barreras colocadas, daño propio y fuego amigo no activan estos efectos. El reflejo no activa otros afijos de absorción.");
-        Wrapped(examples, "OJOS MÍTICOS · Al equipar seis objetos míticos, incluidos los dos anillos, aparecen llamitas de poder en los ojos, en el inventario y en combate. Mezclan las familias según la cantidad de piezas: Vida verde, Escudo amarillo, Fuego naranja, Agua azul, Frío cian y blanco, Rayo violeta con destellos, Arcano magenta y Tierra ámbar. Las piezas mixtas aportan blanco. Quitar una pieza o equipar una de calidad inferior apaga el efecto. Es visual y no añade estadísticas.");
-        Wrapped(examples, "ORO EXCLUSIVO DEL ANILLO DE ORO · En todas las calidades da 1 oro extra cada 11 monedas base en nivel 0 y cada moneda en nivel 10. Solo este anillo puede tener además el afijo de +10 % (Diamante) o +20 % (Mítico). Botas, gorro, pecho, arma y anillo mágico no generan bonos de oro; los afijos antiguos de esas piezas quedan inactivos. En Supervivencia actúa sobre las recogidas y en PvP sobre el premio final. Las ventas no activan estos bonos.");
-        Wrapped(examples, "PvP con recompensas habilitadas: 50 oro por victoria y 25 por derrota, más el bono del equipo usado al comenzar. El ganador conserva su tirada de objeto. Se requieren Google verificado, equipos humanos equilibrados y 15 segundos de actividad.");
+        Wrapped(examples, "DOS ANILLOS · Oro: una moneda extra cada 11 en nivel 0; cada moneda en nivel 10. Mágico: capacidad de escudo y habilidad elemental, sin afijos. Renueva su escudo cada 16–8 s; desde nivel 6 duplica el elemento. La ficha muestra sus efectos y cifras. Admiten diez mejoras con oro de cuenta o de partida en Supervivencia. No cuentan para conjuntos.");
+        Wrapped(examples, "AFIJOS DE COMBATE · Diamante y Mítico añaden un efecto especial, salvo el anillo mágico. Consulta cifras y condiciones en la ficha. Las copias repetidas aplican solo la más fuerte. Última barrera tiene 6 s de recarga, que se conserva al cambiar equipo o reconectar.");
+        Wrapped(examples, "AFIJOS DE ESCUDO · Escudo vital cura un 10 %/15 % del daño enemigo absorbido; Espejo protector devuelve un 15 %/25 % en Diamante/Mítico. Requieren escudo personal y sobrevivir al golpe. Excluyen barreras, daño propio y fuego amigo. El reflejo respeta defensas e inmunidades, sin bonos de ataque ni activar afijos de absorción u otros reflejos.");
+        Wrapped(examples, "OJOS MÍTICOS · Seis piezas míticas equipadas, incluidos los anillos, encienden llamitas en los ojos. Sus colores mezclan las familias del equipo. Quitar una pieza mítica apaga el efecto. Es visual, sin bonificaciones.");
+        Wrapped(examples, "BONOS DE ORO · Exclusivos del anillo de oro: una moneda extra cada 11–1 según nivel, más un posible +10 % en Diamante o +20 % en Mítico. Actúan sobre recogidas en Supervivencia y el premio final en PvP, nunca en ventas. Los antiguos afijos de oro de otras ranuras están inactivos.");
+        Wrapped(examples, "PREMIOS PvP · 50 oro por victoria y 25 por derrota, más el bono del equipo al empezar. El ganador recibe su tirada de objeto. Requiere recompensas habilitadas, Google verificado, equipos humanos equilibrados y 15 segundos de actividad.");
         var attributes = new GridContainer { Name = "HelpEquipmentStats", Columns = 3,
             SizeFlagsHorizontal = SizeFlags.ExpandFill };
         attributes.AddThemeConstantOverride("h_separation", 12);

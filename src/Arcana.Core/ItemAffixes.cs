@@ -62,22 +62,22 @@ public static class ItemAffixes
         : slot.HasValue && !Allowed(affix.Kind, slot.Value) ? ""
         : affix.Kind switch
     {
-        ItemAffixKind.BeamPierce => $"Los haces ofensivos atraviesan {affix.Value} enemigo(s) adicionales. Los escudos y las paredes detienen la penetración. El haz arcano continúa en línea recta, sin buscar otros objetivos ni perder daño al atravesarlos.",
-        ItemAffixKind.LightningChain => $"Los relámpagos saltan a {affix.Value} enemigo(s) adicionales a un máximo de 5 m por salto, con línea de visión.",
-        ItemAffixKind.DoubleBurn => "Las quemaduras infligen el doble de daño por segundo. Su duración y el impacto inicial no cambian.",
+        ItemAffixKind.BeamPierce => $"Los haces ofensivos atraviesan {affix.Value} enemigo{(affix.Value == 1 ? " adicional" : "s adicionales")}. Arcano sigue recto, sin perder daño ni buscar objetivos. La penetración se detiene en escudos y paredes.",
+        ItemAffixKind.LightningChain => $"Los relámpagos alcanzan {affix.Value} enemigo{(affix.Value == 1 ? " adicional" : "s adicionales")}: hasta 5 m por salto, con línea de visión.",
+        ItemAffixKind.DoubleBurn => "Duplica el daño por segundo de las quemaduras, sin cambiar su duración ni el impacto inicial.",
         ItemAffixKind.WaterShieldPool => "Al ponerte un escudo de agua creas un charco de 3 m durante 5 s. Moja a todos dentro, incluido tú.",
         ItemAffixKind.Icebreaker => $"Quebrantahielo: +{CombatAffixes.IcebreakerPercent(affix.Value)} % al daño de Tierra de tus hechizos contra enemigos congelados.",
-        ItemAffixKind.SteamImpact => $"Choque térmico: +{CombatAffixes.SteamImpactPercent(affix.Value)} % al impacto de Fuego de tus hechizos contra enemigos mojados. No aumenta la quemadura ni convierte el agua en daño de vida.",
+        ItemAffixKind.SteamImpact => $"Choque térmico: +{CombatAffixes.SteamImpactPercent(affix.Value)} % al impacto de Fuego contra enemigos mojados; no aumenta la quemadura ni convierte el agua en daño de vida.",
         ItemAffixKind.ArcaneExecution => $"Remate arcano: +{CombatAffixes.ArcaneExecutionPercent(affix.Value)} % al daño Arcano de tus hechizos contra enemigos con un 30 % de vida o menos.",
         ItemAffixKind.ShieldBattery => $"Batería protectora: recuperas {CombatAffixes.BatteryPerHundred(affix.Value)} de energía por cada 100 HP de daño enemigo absorbido por tu escudo. Máximo 100 de energía.",
-        ItemAffixKind.MendingWard => $"Remiendo protector: tus curaciones directas reparan el escudo activo propio o aliado un {CombatAffixes.MendingPercent(affix.Value)} % de los HP realmente curados. No crea escudos, no aumenta su máximo ni duración y no actúa con regeneración.",
-        ItemAffixKind.ShieldReprisal => $"Última barrera: cuando un enemigo rompe tu escudo y sobrevives, empujas a los enemigos visibles hasta {CombatAffixes.ReprisalRadius} m. Fuerza {CombatAffixes.ReprisalForce(affix.Value)}; recarga {CombatAffixes.ReprisalSeconds} s. No causa daño ni interrumpe hechizos.",
-        ItemAffixKind.ShieldLeech => $"Escudo vital: recuperas {CombatAffixes.ShieldLeechPercent(affix.Value)} % de los HP de daño enemigo absorbido por tu escudo personal mientras sigas vivo. No cuenta barreras, daño propio ni fuego amigo. No repara el escudo ni aumenta su duración.",
-        ItemAffixKind.ShieldReflection => $"Espejo protector: devuelve al atacante el {CombatAffixes.ShieldReflectionPercent(affix.Value)} % del daño absorbido por tu escudo personal si sobrevives. Conserva los elementos y respeta sus defensas e inmunidades, sin multiplicadores de ataque. El reflejo no activa afijos de absorción ni otro reflejo.",
-        ItemAffixKind.CoinDividend => $"1 oro extra cada {GoldBonuses.EveryForLevel(level)} moneda(s) base · nivel {level}/10. " +
-            (level < 10 ? "Cada mejora reduce el intervalo en 1; al nivel 10, 1 extra por moneda. " : "") +
+        ItemAffixKind.MendingWard => $"Remiendo protector: tus curaciones directas reparan un escudo activo propio o aliado por el {CombatAffixes.MendingPercent(affix.Value)} % de los HP curados. Respeta su máximo y duración; no crea escudos ni actúa con regeneración.",
+        ItemAffixKind.ShieldReprisal => $"Última barrera: si un enemigo rompe tu escudo y sobrevives, empujas a los enemigos visibles en un radio de {CombatAffixes.ReprisalRadius} m. Fuerza {CombatAffixes.ReprisalForce(affix.Value)} · recarga {CombatAffixes.ReprisalSeconds} s. Sin daño ni interrupción de hechizos.",
+        ItemAffixKind.ShieldLeech => $"Escudo vital: si sobrevives, recuperas el {CombatAffixes.ShieldLeechPercent(affix.Value)} % del daño enemigo absorbido por tu escudo personal. Excluye barreras, daño propio y fuego amigo; no repara ni prolonga el escudo.",
+        ItemAffixKind.ShieldReflection => $"Espejo protector: si sobrevives, devuelve al atacante el {CombatAffixes.ShieldReflectionPercent(affix.Value)} % del daño absorbido por tu escudo personal. Conserva elementos y respeta defensas e inmunidades, sin bonos de ataque. No activa afijos de absorción ni otros reflejos.",
+        ItemAffixKind.CoinDividend => $"1 oro extra cada {GoldBonuses.EveryForLevel(level)} moneda{(GoldBonuses.EveryForLevel(level) == 1 ? "" : "s")} base · nivel {level}/10. " +
+            (level < 10 ? "Cada mejora reduce el intervalo en 1, hasta una por moneda. " : "") +
             "Supervivencia: recogidas. PvP: premio final. No afecta a ventas.",
-        ItemAffixKind.GoldBonus => $"+{affix.Value}% de oro base. Supervivencia: oro recogido durante la partida. PvP: recompensa final. No afecta a ventas.",
+        ItemAffixKind.GoldBonus => $"+{affix.Value}% de oro base: recogidas en Supervivencia y premio final en PvP. No afecta a ventas.",
         _ => ""
     };
     public static string Summary(EquipmentModifiers modifiers) => string.Join("\n", new[]

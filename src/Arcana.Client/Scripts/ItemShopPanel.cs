@@ -40,7 +40,7 @@ public partial class ItemShopPanel : Control
         body.AddThemeConstantOverride("separation", 8); _scroll.AddChild(body);
         if (Ui.IsMobile) Wrapped(body, "TIENDA · OBJETOS PERMANENTES", 20, Ui.Gold);
         _wallet = Wrapped(body, "Oro de cuenta: —", 21, Ui.Gold); _wallet.Name = "ShopWallet";
-        var explanation = Wrapped(body, "Objetos permanentes. Cada oferta se compra una vez; las piezas llegan al inventario sin cambiar tu equipo.", 15, Ui.Muted);
+        var explanation = Wrapped(body, "Ofertas permanentes de una sola compra. Los objetos llegan al inventario sin equiparse.", 15, Ui.Muted);
         explanation.Visible = !Ui.IsMobile;
         var toolbar = new HBoxContainer(); toolbar.AddThemeConstantOverride("separation", 8); body.AddChild(toolbar);
         _reload = Ui.Button("Consultar", () => _ = Load()); _reload.Name = "ShopConnect";
@@ -169,7 +169,7 @@ public partial class ItemShopPanel : Control
         _waitingForAutoSales = false;
         int request = ++_requestVersion;
         ShowUnavailable("Conectando con el servidor de la tienda…");
-        SetBusy(true, "Conectando con el servidor de la tienda…");
+        SetBusy(true, "Consultando ofertas…");
         try
         {
             await _main.EnsureShopServer(_lifetime.Token).ConfigureAwait(false);
@@ -183,8 +183,8 @@ public partial class ItemShopPanel : Control
         if (_busy || !_connected || _shop == null || !_main.Accounts.SignedIn || !_buyButtons.TryGetValue(itemId, out var button) || button.Disabled) return;
         int request = ++_requestVersion;
         var purchase = new ShopPurchaseRequest(_shop.Id, itemId);
-        SetBusy(true, "Comprando y guardando el objeto…");
-        try { var result = await _main.Accounts.BuyShopItem(purchase, _lifetime.Token).ConfigureAwait(false); Publish(request, () => Render(result, "Objeto comprado y guardado en tu inventario.")); }
+        SetBusy(true, "Comprando objeto…");
+        try { var result = await _main.Accounts.BuyShopItem(purchase, _lifetime.Token).ConfigureAwait(false); Publish(request, () => Render(result, "Objeto añadido al inventario.")); }
         catch (Exception error) { Publish(request, () => Failed(error)); }
     }
     internal void HandleBack() { if (_comparison.Visible) _comparison.Hide(); else _main.NavigateOptionAMenu(0); }

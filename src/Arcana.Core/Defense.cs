@@ -11,7 +11,7 @@ internal enum CombatantRole { Player, Minion }
 public static partial class DefenseRules
 {
     public const int MaxDefenders = 4, MaxMinions = 192, MaxDrops = 96, InventoryLimit = 24;
-    public static string InventoryFullNotice => $"Inventario lleno ({InventoryLimit}/{InventoryLimit}): las piezas nuevas se convierten en oro aunque la venta automática esté desactivada.";
+    public static string InventoryFullNotice => $"Con el inventario lleno ({InventoryLimit}/{InventoryLimit}), las piezas nuevas se convierten en oro aunque desactives la venta automática.";
     public const int PlayerLives = 2;
     public static readonly int MinionTypeCount = Enum.GetValues<MinionKind>().Length;
     public const float SafeRadius = 16, DropLifetime = 75, RewardInterval = 300;

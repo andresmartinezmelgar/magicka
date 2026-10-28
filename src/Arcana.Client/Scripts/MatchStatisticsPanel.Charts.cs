@@ -110,7 +110,7 @@ public partial class MatchStatisticsPanel
     private void ElementChart()
     {
         VerticalChart("Daño por elemento",
-        "Todas las barras de cada elemento comparten su color. Las etiquetas distinguen daño directo, áreas, auras, quemaduras y datos sin detalle. Incluye daño a vida y escudos, sin duplicarlo. Vida separa curación directa, área, aura, regeneración, anillo y Escudo vital. Escudo separa absorción personal y barreras.",
+        "Un color por elemento y una barra por origen. El daño incluye vida y escudos, sin duplicarlo. Vida distingue curación directa, área, aura, regeneración, anillo y Escudo vital; Escudo, absorción personal y barreras.",
         Enumerable.Range(0, 8).Select(e => new StatisticsBarChart.Category(Elements[e], (Element)e switch
         {
             Element.Life => SupportSum(StatisticMeasure.Healing), Element.Shield => SupportSum(StatisticMeasure.ShieldAbsorbed),

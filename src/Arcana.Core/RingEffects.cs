@@ -25,7 +25,7 @@ public static partial class RingEffects
     public static string ActionDescription(EquipmentFamily family) => family switch
     {
         EquipmentFamily.Life => "Cura al portador y a sus aliados cercanos.",
-        EquipmentFamily.Shield => "Protege también a los aliados cercanos sin sustituir un escudo más fuerte.",
+        EquipmentFamily.Shield => "Protege también a los aliados cercanos.",
         EquipmentFamily.Fire => "Daña y aplica quemadura a los enemigos cercanos.",
         EquipmentFamily.Water => "Moja y empuja a los enemigos cercanos.",
         EquipmentFamily.Cold => "Daña y enfría a los enemigos cercanos.",
@@ -40,11 +40,11 @@ public static partial class RingEffects
         if (slot != EquipmentSlot.MagicRing) return "";
         string element = ElementFor(family).HasValue ? EquipmentCatalogue.FamilyName(family) : "básico";
         string shield = family == EquipmentFamily.Mixed ? "Escudo básico" : "Escudo + " + element + (level >= 6 ? " + " + element : "");
-        return $"{ActionName(family)} · nivel {level}/10. {shield}: se repone cada {Interval(level):0.#} s aunque se rompa.\n" +
+        return $"{ActionName(family)} · nivel {level}/10. {shield}: se repone incluso si se rompe.\n" +
             DescribeNumbers(family, level, equipment ?? EquipmentModifiers.None) + "\n" +
-            "No sustituye un escudo más fuerte ni interrumpe tus hechizos. " + ActionDescription(family) + " " +
+            "Respeta los escudos más fuertes y permite seguir lanzando hechizos. " + ActionDescription(family) + " " +
             (level < 6 ? "Desde nivel 6 duplica el elemento y potencia la acción. " : "") +
-            "Funciona en PvP y Supervivencia. Los anillos no cuentan para conjuntos.";
+            "Los anillos no cuentan para conjuntos.";
     }
     public static string Describe(EquipmentItem item, int? level = null, EquipmentModifiers? equipment = null) =>
         Describe(item.Slot, item.Family, level ?? item.UpgradeLevel, equipment ?? ItemEquipment(item.Bonuses.Where(b => b.Stat == EquipmentStat.ShieldCapacity).Sum(b => b.Current)));

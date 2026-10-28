@@ -28,10 +28,10 @@ public partial class EquipmentPanel
         button.AutowrapMode = TextServer.AutowrapMode.WordSmart; button.AddThemeFontSizeOverride("font_size", 14);
         var displayedLimit = active ? AutoSellLimit(style) ?? style : style;
         button.TooltipText = displayedLimit.DescribeAutoSell() +
-            (active ? "\nPulsa para desactivar esta regla de venta automática.\n" : "\nPulsa para activar esta regla de venta automática.\n") +
-            "Vende las piezas nuevas de esta ranura, de cualquier elemento, con calidad estrictamente inferior al límite indicado.\n" +
-            "Conserva las de calidad igual o superior, las que ya tienes, los favoritos y el equipo. Sustituye el límite anterior para esta ranura.\n" +
-            "Puedes desactivarlo desde Opciones → Venta automática.";
+            (active ? "\nPulsa para desactivar.\n" : "\nPulsa para activar.\n") +
+            "Solo botín nuevo de esta ranura, de cualquier elemento, por debajo del límite.\n" +
+            "Conserva calidad igual o superior, objetos actuales, favoritos y equipados. Sustituye el límite anterior de la ranura.\n" +
+            "También en Opciones → Venta automática.";
         if (TemporaryInventory) button.TooltipText += "\n" + DefenseRules.InventoryFullNotice;
         if (style.Tier == ItemTier.Silver && !active) button.TooltipText += "\nPlata es la calidad mínima; este ajuste no se puede activar.";
         box.AddChild(button); if (style.Tier > ItemTier.Silver || active) _preferenceActions.Add(button);
@@ -47,7 +47,7 @@ public partial class EquipmentPanel
     {
         if (InventoryLocked || _draft == null || enabled && style.Tier == ItemTier.Silver) return;
         ResetQuickActions();
-        string message = enabled ? "Venta automática activada · " + style.DescribeAutoSell() + ". Solo botín nuevo; los objetos que ya tienes se conservan."
+        string message = enabled ? "Venta automática · " + style.DescribeAutoSell() + ". Solo botín nuevo; conserva los objetos actuales."
             : "Venta automática desactivada para " + EquipmentCatalogue.SlotName(style.Slot) +
                 (TemporaryInventory ? ". Las piezas nuevas se conservarán mientras haya espacio." : ". Se conservará el botín nuevo.");
         if (TemporaryInventory)
@@ -85,8 +85,8 @@ public partial class EquipmentPanel
         if (_autoSellList == null) return;
         Clear(_autoSellList);
         _autoSellList.AddChild(Ui.Label("VENTA AUTOMÁTICA", 20, Ui.Gold));
-        var help = Ui.Label("Objetos nuevos de esta ranura, de cualquier elemento, con calidad inferior al límite indicado. Los de calidad igual o superior, actuales, favoritos y equipados se conservan.\n" +
-            "Ejemplo: un límite Mítico para Gorro vende los gorros nuevos Plata, Oro, Platino y Diamante, de cualquier elemento.\n" +
+        var help = Ui.Label("Vende solo botín nuevo por debajo del límite de su ranura, de cualquier elemento. Conserva calidad igual o superior, objetos actuales, favoritos y equipados.\n" +
+            "Ejemplo: Gorro Mítico vende gorros nuevos Plata, Oro, Platino y Diamante.\n" +
             (TemporaryInventory ? "Estos ajustes se guardan con esta partida.\n" + DefenseRules.InventoryFullNotice : "Estos ajustes se guardan para tu cuenta en este dispositivo."), 15, Ui.Muted);
         help.AutowrapMode = TextServer.AutowrapMode.WordSmart; _autoSellList.AddChild(help);
         var styles = EquipmentStyle.SlotLimits(TemporaryInventory ? _defensePlayer!.AutoSellStyles : Preferences.AutoSellRules.Select(r => r.Style));
@@ -99,7 +99,7 @@ public partial class EquipmentPanel
             keep.MouseFilter = MouseFilterEnum.Pass;
             keep.Disabled = InventoryLocked; row.AddChild(keep); _preferenceActions.Add(keep);
         }
-        if (styles.Length == 0) _autoSellList.AddChild(Ui.Label("No hay estilos con venta automática.", 15, Ui.Muted));
+        if (styles.Length == 0) _autoSellList.AddChild(Ui.Label("No hay reglas de venta automática.", 15, Ui.Muted));
     }
 
     internal void AutomaticSalesFinished()

@@ -59,11 +59,11 @@ public static partial class RingEffects
         var lines = new List<string>
         {
             $"Escudo: {N(n.Shield)} HP · duración {N(n.ShieldDuration)} s · recarga {N(n.Cooldown)} s.",
-            $"Radio de habilidad: {N(n.Radius)} m, con línea de visión."
+            $"Radio: {N(n.Radius)} m · línea de visión."
         };
         if (family == EquipmentFamily.Life)
         {
-            lines.Add($"Regeneración del escudo de vida: {N(n.Regeneration)} HP/s mientras esté activo y tenga HP.");
+            lines.Add($"Recuperas {N(n.Regeneration)} HP/s con el escudo de vida activo y con HP.");
             lines.Add($"Curación por pulso: {N(n.Healing)} HP por aliado ({N(n.MeanPulseHealing)} HP/s de media).");
             lines.Add($"Media propia máxima: {N(n.MeanSelfHealing)} HP/s si el escudo aguanta.");
         }
@@ -71,18 +71,17 @@ public static partial class RingEffects
             lines.Add($"Escudo por aliado: {N(n.AllyShield)} HP por activación.");
         else if (n.Damage > 0)
         {
-            lines.Add($"Daño por activación: {N(n.Damage)} HP por objetivo · DMG/s medio: {N(n.MeanDamage)}.");
+            lines.Add($"Daño por pulso: {N(n.Damage)} HP por objetivo · media {N(n.MeanDamage)} DMG/s.");
             if (n.BurnPerSecond > 0)
-                lines.Add($"Quemadura adicional: {N(n.BurnPerSecond)} DMG/s durante {N(n.BurnDuration)} s. La media anterior incluye la quemadura.");
+                lines.Add($"Quemadura: {N(n.BurnPerSecond)} DMG/s durante {N(n.BurnDuration)} s, incluida en la media.");
             if (family == EquipmentFamily.Lightning)
-                lines.Add($"Hasta {n.Targets} objetivo(s); cada uno recibe el daño indicado. Contra un objetivo mojado: {N(n.WetDamage)} HP por descarga.");
-            lines.Add("El DMG/s medio reparte el daño entre activaciones.");
+                lines.Add($"Hasta {n.Targets} objetivo{(n.Targets == 1 ? "" : "s")}, con el daño indicado por objetivo. Mojado: {N(n.WetDamage)} HP por descarga.");
         }
         else
         {
             if (n.ShieldPressure > 0) lines.Add($"Presión contra escudos: {N(n.ShieldPressure)} HP por activación; moja y empuja.");
         }
-        lines.Add("Cifras base con el equipo, sin rasgos del mago, reliquias ni defensas o estados del objetivo.");
+        lines.Add("Cifras con el equipo, antes de rasgos, reliquias y defensas o estados del objetivo.");
         return string.Join('\n', lines);
     }
 }

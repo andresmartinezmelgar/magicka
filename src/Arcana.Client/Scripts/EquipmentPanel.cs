@@ -233,16 +233,16 @@ public partial class EquipmentPanel : Control
         _totalsEmpty.Visible = !RenderTotals(_totals, breakdown.View.Stats, breakdown.View.Items);
         UpdateProgressStats();
         var m = breakdown.Modifiers;
-        _combatPreview.Text = account == null
-            ? "Los porcentajes reales aparecen aquí cuando equipas un objeto."
-            : "PRUEBA DE EFECTO DEL EQUIPO EQUIPADO: daño recibido por un ataque de 100: " +
-              (100 * m.Incoming).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) +
-              " (sin Defensa serían 100). Escudo básico al crearlo: " +
-              (420 * m.ShieldCapacity).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) +
-              " puntos (sin Absorción serían 420). La Defensa reduce daño, no aumenta los puntos que muestra el escudo.";
+        var examples = new List<string>();
+        if (account != null && m.Incoming != 1)
+            examples.Add("Daño recibido: 100 → " + (100 * m.Incoming).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
+        if (account != null && m.ShieldCapacity != 1)
+            examples.Add("Escudo básico: 420 → " + (420 * m.ShieldCapacity).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + " HP");
+        _combatPreview.Text = examples.Count > 0 ? "Con tu equipo · " + string.Join(" · ", examples) : "";
         string specialEffects = ItemAffixes.Summary(m);
-        if (specialEffects.Length > 0) _combatPreview.Text += "\n\nEFECTOS ESPECIALES ACTIVOS\n" + NumberedImprovements(specialEffects) +
+        if (specialEffects.Length > 0) _combatPreview.Text += (_combatPreview.Text.Length > 0 ? "\n\n" : "") + "EFECTOS ESPECIALES ACTIVOS\n" + NumberedImprovements(specialEffects) +
             "\nLos efectos iguales usan el valor más alto; no se suman entre piezas.";
+        _combatPreview.Visible = _combatPreview.Text.Length > 0;
         var activeSets = EquipmentCatalogue.FocusedFamilies.Where(f => m.Pieces(f) >= 2).ToArray();
         _sets.Text = activeSets.Length == 0 ? "Sin conjuntos activos." : "Conjuntos activos · " +
             string.Join(" · ", activeSets.Select(f => EquipmentCatalogue.FamilyName(f) + " " + m.Pieces(f) + "/4"));
@@ -261,7 +261,7 @@ public partial class EquipmentPanel : Control
         RebaseDraft(); _onlineInventory = _main.Accounts.SignedIn || _main.Accounts.HasDirectFirebaseSession;
         _saleSelection.Clear(); _bulkMode = false;
         CancelSale(); CloseItemPicker(); Render();
-        SetStatus("La cuenta ha cambiado. Se ha cargado su inventario sin conservar la selección anterior.");
+        SetStatus("Cuenta cambiada. Inventario cargado y selección reiniciada.");
     }
     private static string Set(string name, int pieces, string two, string four) => name + " " + pieces + "/4 · " + (pieces == 4 ? four : pieces >= 2 ? two : "sin bonificación");
     private int ItemLevel(EquipmentItem item) => _itemLevels.GetValueOrDefault(item.Id, item.UpgradeLevel);
@@ -318,7 +318,7 @@ public partial class EquipmentPanel : Control
         if (InventoryLocked) return;
         if (!_main.Accounts.SignedIn) { Busy(false, "Inicia sesión con Google para actualizar el inventario de tu cuenta."); return; }
         Busy(true, "Cargando inventario…");
-        try { await _main.Accounts.Refresh(_lifetime.Token); Done("Inventario actualizado; se ha recuperado tu equipo guardado."); }
+        try { await _main.Accounts.Refresh(_lifetime.Token); Done("Inventario y equipo actualizados."); }
         catch (Exception error) { Failed(error); }
     }
     private void ChooseItem(string id)

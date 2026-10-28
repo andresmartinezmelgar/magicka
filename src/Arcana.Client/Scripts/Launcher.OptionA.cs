@@ -136,7 +136,7 @@ public partial class Launcher
         _optionAPreview.AddThemeConstantOverride("separation", 16);
         tabBody.AddChild(_optionAPreview);
         _optionAPreview.AddChild(Ui.Label("PERFIL Y EQUIPACIÓN", 21, Ui.Gold));
-        var profileHelp = Ui.Label("Tu personaje, el inventario, las bonificaciones individuales y el conjunto completo están disponibles desde el mismo perfil.\n\nLa sesión de Google y los datos de Firestore se consultan de forma independiente del servidor de partidas.", 17, Ui.Muted);
+        var profileHelp = Ui.Label("Consulta tu personaje, inventario y bonificaciones desde el perfil.\n\nTu cuenta de Google y tus datos están disponibles independientemente del servidor de partidas.", 17, Ui.Muted);
         profileHelp.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _optionAPreview.AddChild(profileHelp);
         _optionAPreview.AddChild(Ui.Button("Abrir perfil de Google", _main.OpenAccountProfile, true));

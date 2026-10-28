@@ -18,7 +18,7 @@ En Supervivencia, el servidor protege los favoritos y vende el botín nuevo filt
 
 Con 24/24 objetos, el botín nuevo se convierte en su valor de oro aunque la venta automática esté desactivada. Desactivar una regla no amplía la capacidad. La ayuda, la confirmación del ajuste y el aviso de recogida distinguen esta conversión de una venta por regla y muestran el oro recibido.
 
-El código pendiente de publicación utiliza protocolo **41** y reglas de venta v2. La preliminar 0.29.30 publicada utiliza protocolo 40. Cliente y servidor deben actualizarse juntos para compartir el criterio de venta por ranura.
+La versión de pruebas **0.29.31** utiliza protocolo **41** y reglas de venta v2. La preliminar 0.29.30 utiliza protocolo 40. Cliente y servidor deben actualizarse juntos para compartir el criterio de venta por ranura.
 
 ## Efecto del equipo
 

@@ -1,8 +1,6 @@
 # Supervivencia
 
-Versión de pruebas **0.29.30**, basada en la preliminar **0.29.29** y en la estable **0.29.28**. El generador libre v2 utiliza protocolo **40**; la preliminar 0.29.29 utiliza protocolo 39 y el generador v1. Cliente y servidor deben usar el mismo protocolo. La publicación conserva separada la versión estable.
-
-El código posterior a esa publicación añade venta por ranura y biomas visuales, con protocolo **41**. Estos cambios están pendientes de una nueva compilación y publicación solicitadas.
+Versión de pruebas **0.29.31**, con generador libre v2, venta por ranura y diez biomas visuales. Utiliza protocolo **41**; cliente y servidor deben actualizarse juntos. La versión estable **0.29.28** permanece separada en main.
 
 ## Partida y vidas
 

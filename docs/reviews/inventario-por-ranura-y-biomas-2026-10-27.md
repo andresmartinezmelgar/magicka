@@ -23,3 +23,7 @@ Cada tema tiene paleta, material de suelo procedural, bordes y luz propios. Incl
 Se añaden regresiones para el gorro mítico eléctrico frente a todos los elementos y calidades, la migración de reglas con inventario anterior, favoritos, equipados y recuperación de Supervivencia; se actualizan las comprobaciones de fichas sin efectos nulos. Se añaden pruebas de variedad y continuidad de biomas y una simulación Godot que prepara, renderiza, comprueba y captura los diez ambientes en escritorio y móvil. El flujo manual ejecutará estas comprobaciones en la siguiente compilación autorizada.
 
 Esta revisión solo ejecuta comprobaciones estáticas: sintaxis C#, referencias, YAML y scripts del flujo, integridad del diff y metadatos de versión. Quedan pendientes de compilación y ejecución las regresiones C#/Godot y la inspección de las capturas. `AGENTS.md` exige una indicación expresa para compilar o publicar por cada cambio; la petición anterior ya quedó completada con la preliminar r613.
+
+## Publicación solicitada
+
+La petición posterior «Tag y apk» autoriza la compilación y publicación de estos cambios junto a la revisión de textos como 0.29.31. El flujo comprueba cliente, servidor, motor, red, cuentas, diez biomas en escritorio y móvil y paquetes antes de crear el tag.
