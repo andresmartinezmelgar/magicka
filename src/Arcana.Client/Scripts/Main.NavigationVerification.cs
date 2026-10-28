@@ -179,14 +179,24 @@ public partial class Main
                     "Cambiar el elemento no actualiza el resaltado, pierde la prioridad o activa ventas sin aplicar.");
                 SelectSetup("SurvivalSetupElement", (int)Element.Arcane);
                 SelectSetup("SurvivalSetupPriority1", (int)ItemAffixKind.ArcaneMark);
-                setupScroll.ScrollVertical = int.MaxValue; await Frames();
+                async Task ClickSetup(Button button)
+                {
+                    await Frames();
+                    setupScroll.EnsureControlVisible(button);
+                    await Frames();
+                    Check(button.IsVisibleInTree() && !button.Disabled &&
+                        setupScroll.GetGlobalRect().Grow(1).Encloses(button.GetGlobalRect()) &&
+                        GetViewport().GetVisibleRect().Grow(1).Encloses(button.GetGlobalRect()),
+                        "Botón de configuración fuera del área visible: " + button.Name + " " + button.GetGlobalRect());
+                    await Click(button);
+                }
                 var setupApply = (Button)shop.FindChild("SurvivalSetupApply", true, false);
-                await Click(setupApply);
+                await ClickSetup(setupApply);
                 Check(((ElementTextLabel)shop.FindChild("SurvivalSetupStatus", true, false)).Text.Contains("una sola vez") &&
                     !_practice.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId).EquipmentSetup.Enabled,
                     "La configuración admite prioridades duplicadas o borra el error antes de poder leerlo.");
                 SelectSetup("SurvivalSetupPriority1", (int)ItemAffixKind.ArcaneEcho);
-                setupScroll.ScrollVertical = int.MaxValue; await Frames(); await Click(setupApply);
+                await ClickSetup(setupApply);
                 var selectedSetup = _practice.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId);
                 Check(selectedSetup.EquipmentSetup.Enabled && selectedSetup.Modifiers.ArcaneMark == 2 && selectedSetup.Modifiers.ArcaneEcho == 2 &&
                     selectedSetup.Items.Length == 2 && selectedSetup.AutoSold == 2, "La nueva pestaña no equipa Marca y Eco o no vende los descartes.");
@@ -204,13 +214,11 @@ public partial class Main
                     manualSetup.Items.Single(i => i.Item.Id == manualBoots.Id).Equipped && manualSetup.Items.Single(i => i.Item.Id == echoHat.Id).Equipped,
                     "Equipar manualmente desactiva el automático, no conserva la elección o cambia otras ranuras.");
                 await Click(Exit(inventory, "EquipmentBackToShop")); shop.ShowSection(6); await Frames();
-                setupScroll.ScrollVertical = int.MaxValue; await Frames();
-                await Click(setupApply);
+                await ClickSetup(setupApply);
                 var resetSetup = _practice.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId);
                 Check(resetSetup.ManualEquipmentSlots.Length == 0 && resetSetup.Items.Single(i => i.Item.Id == markBoots.Id).Equipped,
                     "Aplicar no restablece la selección automática de una ranura manual.");
-                setupScroll.ScrollVertical = int.MaxValue; await Frames();
-                await Click((Button)shop.FindChild("SurvivalSetupDisable", true, false));
+                await ClickSetup((Button)shop.FindChild("SurvivalSetupDisable", true, false));
                 Check(!_practice.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId).EquipmentSetup.Enabled &&
                     !SurvivalPreferences.SurvivalEquipment.Enabled, "Desactivar no se aplica o no se recuerda.");
                 shop.CloseShop();

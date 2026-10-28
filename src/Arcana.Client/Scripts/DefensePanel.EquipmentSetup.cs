@@ -139,13 +139,27 @@ public partial class DefensePanel
         _setupApply.Disabled = _ended || _setupSubmitted != null;
         _setupDisable.Disabled = _ended || !setup.Enabled || _setupSubmitted != null;
     }
+    private async Task RevealSetupError()
+    {
+        // La descripción de los afijos puede dejar el aviso fuera del área visible.
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        if (GodotObject.IsInstanceValid(this) && IsInsideTree() && _setupError.Length > 0 &&
+            GodotObject.IsInstanceValid(_scroll) && GodotObject.IsInstanceValid(_setupStatus))
+            _scroll.EnsureControlVisible(_setupStatus);
+    }
     private void SubmitEquipmentSetup(bool enabled)
     {
         if (_player == null || _ended || _setupSubmitted != null) return;
         var settings = enabled ? new SurvivalEquipmentSetup { Enabled = true, Element = (Element)_setupElement.GetSelectedId(),
             Priorities = _setupPriorities.Select(p => p.GetSelectedId()).Where(id => id != NoAffixPriority).Select(id => (ItemAffixKind)id).ToArray() }
             : _player.EquipmentSetup with { Enabled = false };
-        if (!settings.Valid) { _setupError = "Elige cada afijo una sola vez; las prioridades no pueden repetirse."; _setupStatus.Text = _setupError; return; }
+        if (!settings.Valid)
+        {
+            _setupError = "Elige cada afijo una sola vez; las prioridades no pueden repetirse.";
+            _setupStatus.Text = _setupError;
+            _ = RevealSetupError();
+            return;
+        }
         bool saved = _main.RememberSurvivalEquipmentSetup(settings);
         _setupSaveFailed = !saved;
         _setupSubmitted = settings.Copy(); _setupSubmittedAt = Time.GetTicksMsec(); _setupEditing = false; _setupError = "";
