@@ -55,6 +55,7 @@ public partial class Main
             if (_equipmentPublicStage == 0)
             {
                 _hud!.ScoreOpen = true;
+                _hud.Update(_practice!.Snapshot(), _localId, "Prueba de equipo", 0);
                 var inspect = _hud.FindChild("InspectEquipmentButton", true, false) as Button;
                 Check(inspect is { Disabled: false } && inspect.IsVisibleInTree(), "La clasificación no ofrece consultar el equipo.");
                 inspect!.EmitSignal(Button.SignalName.Pressed);
