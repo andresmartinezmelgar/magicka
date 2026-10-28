@@ -22,11 +22,11 @@ public static partial class EquipmentCatalogue
         EquipmentStat.LightningPower => "Aumenta el daño de los hechizos de rayo.",
         EquipmentStat.ArcanePower => "Aumenta el daño de los hechizos arcanos.",
         EquipmentStat.EarthPower => "Aumenta el daño de los hechizos de tierra.",
-        EquipmentStat.WetDuration => "Alarga el estado Mojado causado por tus hechizos de agua.",
+        EquipmentStat.WetDuration => "Modifica cuánto dura el estado Mojado que aplicas con agua. Mientras está mojado, el objetivo recibe más daño de rayo y se congela más deprisa con frío. Un porcentaje negativo acorta esa duración.",
         EquipmentStat.ChillPower => "Aumenta el enfriamiento para ralentizar y congelar enemigos.",
         EquipmentStat.FreezeDuration => "Alarga la congelación que provocan tus hechizos.",
-        EquipmentStat.WetLightningPower => "Aumenta el daño adicional de rayo contra objetivos mojados.",
-        EquipmentStat.BeamChargeSpeed => "Acelera la carga de los hechizos de haz compatibles.",
+        EquipmentStat.WetLightningPower => "Aumenta el daño de tus rayos contra objetivos que ya están mojados por agua. Se aplica mientras dure ese estado.",
+        EquipmentStat.BeamChargeSpeed => "Acelera la carga de los haces arcanos para alcanzar la misma potencia en menos tiempo.",
         EquipmentStat.RockChargeSpeed => "Permite cargar los proyectiles de roca en menos tiempo.",
         _ => throw new ArgumentOutOfRangeException(nameof(stat))
     };

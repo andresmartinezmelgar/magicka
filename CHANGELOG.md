@@ -1,5 +1,10 @@
 # Cambios
 
+## Sin publicar
+
+- Los atributos muestran nombres completos y coherentes en inventario, tienda y comparaciones: duración del estado Mojado, regeneración de energía, duración de quemaduras y velocidad de carga, entre otros.
+- Se explica el estado Mojado y el efecto de los porcentajes negativos; los anillos y las ayudas recuperan el contexto de sus cifras, curaciones y bonos por calidad.
+
 ## 0.29.31
 
 - La salida voluntaria espera el cierre confirmado del servidor para evitar dejar al personaje reservado como si hubiera perdido la conexión.

@@ -230,14 +230,14 @@ public static partial class EquipmentCatalogue
         EquipmentFamily.Cold => "Frío", EquipmentFamily.Lightning => "Rayo", EquipmentFamily.Arcane => "Arcano", EquipmentFamily.Earth => "Tierra", _ => "Mixto" };
     public static string StatName(EquipmentStat stat) => stat switch
     {
-        EquipmentStat.MovementSpeed => "Velocidad", EquipmentStat.SpellRange => "Alcance", EquipmentStat.Defense => "Defensa",
-        EquipmentStat.Power => "Potencia de ataque", EquipmentStat.HealingPower => "Curación", EquipmentStat.FirePower => "Daño de fuego",
+        EquipmentStat.MovementSpeed => "Velocidad de movimiento", EquipmentStat.SpellRange => "Alcance de hechizos", EquipmentStat.Defense => "Defensa",
+        EquipmentStat.Power => "Potencia de ataque", EquipmentStat.HealingPower => "Potencia de curación", EquipmentStat.FirePower => "Daño de fuego",
         EquipmentStat.ShieldCapacity => "Absorción del escudo", EquipmentStat.ShieldDuration => "Duración del escudo",
         EquipmentStat.EnergyRegeneration => "Regeneración de energía", EquipmentStat.LifeEfficiency => "Ahorro de energía al reanimar",
-        EquipmentStat.BurnDuration => "Duración de quemaduras", EquipmentStat.WaterPower => "Potencia de agua", EquipmentStat.ColdPower => "Daño de frío",
+        EquipmentStat.BurnDuration => "Duración de las quemaduras", EquipmentStat.WaterPower => "Potencia de agua", EquipmentStat.ColdPower => "Daño de frío",
         EquipmentStat.LightningPower => "Daño de rayo", EquipmentStat.ArcanePower => "Daño arcano", EquipmentStat.EarthPower => "Daño de tierra",
-        EquipmentStat.WetDuration => "Duración de mojado", EquipmentStat.ChillPower => "Potencia de enfriamiento", EquipmentStat.FreezeDuration => "Duración de congelación",
-        EquipmentStat.WetLightningPower => "Rayo contra mojados", EquipmentStat.BeamChargeSpeed => "Velocidad de carga del haz", EquipmentStat.RockChargeSpeed => "Velocidad de carga de rocas",
+        EquipmentStat.WetDuration => "Duración del estado Mojado", EquipmentStat.ChillPower => "Potencia de enfriamiento", EquipmentStat.FreezeDuration => "Duración de la congelación",
+        EquipmentStat.WetLightningPower => "Daño de rayo contra objetivos mojados", EquipmentStat.BeamChargeSpeed => "Velocidad de carga del haz arcano", EquipmentStat.RockChargeSpeed => "Velocidad de carga de rocas",
         _ => throw new ArgumentOutOfRangeException(nameof(stat))
     };
     public static string Percent(float value) => MathF.Round(value * 100, 2).ToString("+0.##;-0.##;0", CultureInfo.InvariantCulture) + "%";

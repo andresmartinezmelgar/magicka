@@ -59,23 +59,23 @@ public static partial class RingEffects
         var lines = new List<string>
         {
             $"Escudo: {N(n.Shield)} HP · duración {N(n.ShieldDuration)} s · recarga {N(n.Cooldown)} s.",
-            $"Radio: {N(n.Radius)} m · línea de visión."
+            $"Radio de la habilidad: {N(n.Radius)} m, con línea de visión."
         };
         if (family == EquipmentFamily.Life)
         {
             lines.Add($"Recuperas {N(n.Regeneration)} HP/s con el escudo de vida activo y con HP.");
             lines.Add($"Curación por pulso: {N(n.Healing)} HP por aliado ({N(n.MeanPulseHealing)} HP/s de media).");
-            lines.Add($"Media propia máxima: {N(n.MeanSelfHealing)} HP/s si el escudo aguanta.");
+            lines.Add($"Curación propia media máxima: {N(n.MeanSelfHealing)} HP/s si el escudo permanece activo.");
         }
         else if (family == EquipmentFamily.Shield)
             lines.Add($"Escudo por aliado: {N(n.AllyShield)} HP por activación.");
         else if (n.Damage > 0)
         {
-            lines.Add($"Daño por pulso: {N(n.Damage)} HP por objetivo · media {N(n.MeanDamage)} DMG/s.");
+            lines.Add($"Daño por pulso: {N(n.Damage)} HP por objetivo. Daño medio entre pulsos: {N(n.MeanDamage)} DMG/s.");
             if (n.BurnPerSecond > 0)
                 lines.Add($"Quemadura: {N(n.BurnPerSecond)} DMG/s durante {N(n.BurnDuration)} s, incluida en la media.");
             if (family == EquipmentFamily.Lightning)
-                lines.Add($"Hasta {n.Targets} objetivo{(n.Targets == 1 ? "" : "s")}, con el daño indicado por objetivo. Mojado: {N(n.WetDamage)} HP por descarga.");
+                lines.Add($"Alcanza hasta {n.Targets} objetivo{(n.Targets == 1 ? "" : "s")}, con el daño indicado por objetivo. Contra un objetivo mojado: {N(n.WetDamage)} HP de daño por descarga.");
         }
         else
         {

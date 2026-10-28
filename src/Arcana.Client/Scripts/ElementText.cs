@@ -18,7 +18,7 @@ public static class ElementText
     [
         (Term(@"escudos?\s+(?:vital(?:es)?|regenerativos?|de\s+vida)"), Element.Life),
         (Term(@"escudos?\s+(?:básicos?|personal(?:es)?|mágicos?)|remiendo\s+protector|espejo\s+protector|última\s+barrera"), Element.Shield),
-        (Term(@"batería\s+protectora|descarga\s+selectiva|rayos?\s+(?:a|contra)\s+(?:enemigos?\s+)?mojados?"), Element.Lightning),
+        (Term(@"batería\s+protectora|descarga\s+selectiva|(?:daño\s+de\s+)?rayos?\s+(?:a|contra)\s+(?:(?:enemigos?|objetivos?)\s+)?mojados?"), Element.Lightning),
         (Term(@"remate\s+arcano"), Element.Arcane),
         (Term(@"choque\s+térmico"), Element.Fire),
         (Term(@"quebrantahielo|pulso\s+glacial"), Element.Cold)

@@ -192,14 +192,7 @@ public partial class EquipmentPanel : Control
         }
         _actions.Add(button); return button;
     }
-    internal static string StatName(EquipmentStat stat) => stat switch
-    {
-        EquipmentStat.Power => "Ataque", EquipmentStat.FirePower => "Daño de fuego", EquipmentStat.ShieldCapacity => "Absorción escudo",
-        EquipmentStat.ShieldDuration => "Duración escudo", EquipmentStat.EnergyRegeneration => "Regen. energía",
-        EquipmentStat.LifeEfficiency => "Ahorro reanimar", EquipmentStat.BurnDuration => "Quemaduras", EquipmentStat.WetDuration => "Mojado",
-        EquipmentStat.ChillPower => "Enfriamiento", EquipmentStat.FreezeDuration => "Congelación", EquipmentStat.WetLightningPower => "Rayo a mojados",
-        EquipmentStat.BeamChargeSpeed => "Carga del haz", EquipmentStat.RockChargeSpeed => "Carga de rocas", _ => EquipmentCatalogue.StatName(stat)
-    };
+    internal static string StatName(EquipmentStat stat) => EquipmentCatalogue.StatName(stat);
     internal static string SetDescription(EquipmentFamily family, bool four) => string.Join(", ", EquipmentCatalogue.SetBonuses(family)
         .Where(b => (four ? b.FourPieces : b.TwoPieces) != 0)
         .Select(b => StatName(b.Stat) + " " + EquipmentCatalogue.Percent(four ? b.FourPieces : b.TwoPieces)));
