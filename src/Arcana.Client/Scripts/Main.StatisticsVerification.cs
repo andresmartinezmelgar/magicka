@@ -200,6 +200,11 @@ public partial class Main
             if (charts.Length == 0) throw new InvalidOperationException("Faltan las gráficas de esta vista.");
             foreach (var chart in charts)
                 if (chart.GetGlobalRect().Position.X < bounds.Position.X - 1 || chart.GetGlobalRect().End.X > bounds.End.X + 1) throw new InvalidOperationException("Una gráfica desborda horizontalmente.");
+            if (view == 2)
+                foreach (var plot in _statisticsPanel.FindChildren("*", "Control", true, false).OfType<StatisticsBarChart>())
+                    if (plot.EnemyPortraits.Count > 0 && (plot.PlotHeight < 100 ||
+                        plot.EnemyPortraits.Values.Any(p => p.Position.Y < plot.PlotBaseline + 40)))
+                        throw new InvalidOperationException("Los retratos comprimen los ejes o se solapan con las etiquetas de las barras.");
             if (view == 4)
             {
                 var trend = (StatisticsTrendChart)_statisticsPanel.FindChild("StatisticsTrend", true, false);

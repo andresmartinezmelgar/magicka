@@ -30,3 +30,7 @@ El publicador exige compilación y pruebas del motor y red, cuentas con emulador
 ### Primera ejecución (r617)
 
 C# compila; las regresiones de Marca, Eco, fragmentación, auras y daño personal pasan. Las tres comprobaciones puras del selector también pasan. Cuatro regresiones de integración nuevas no llegaron al caso probado porque su fixture omitía el mapa Bastión; se explicita el mapa requerido. Las capturas móviles detectaron que los nombres completos de los atributos imponían anchuras excesivas en la ayuda; sus títulos y el encabezado del ejemplo ahora admiten varias líneas sin acortar el texto. Cuentas, Docker en ambas arquitecturas y paquete Windows pasan. La publicación queda bloqueada hasta repetir y completar todos los controles.
+
+### Segunda ejecución (r618)
+
+Motor y red, cuentas, Docker y ambos paquetes pasan. La navegación verifica la configuración predeterminada en las tres resoluciones, tanto con interfaz de escritorio como móvil. La revisión de capturas detecta ejes comprimidos y solapamiento de leyendas con retratos en las gráficas móviles: se amplía la altura en los 82 píxeles que ocupan los nuevos retratos y se separan del texto de las barras. Se añade una comprobación de espacio mínimo para los ejes. La prueba de guardado termina correctamente pero Godot falla al cerrar con referencias C# aún pendientes; se libera la escena y se espera la recolección con el motor activo, igual que en la prueba de botín existente, antes de declarar éxito y cerrar. Se requiere otra ejecución completa para publicar.

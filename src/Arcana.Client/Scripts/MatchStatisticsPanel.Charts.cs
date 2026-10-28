@@ -76,12 +76,13 @@ public partial class MatchStatisticsPanel
         string name = "ElementDamageBars", bool enemies = false, string valueTitle = "Daño / curación / absorción")
     {
         var box = Chart(title, description);
+        float chartHeight = BarChartHeight + (enemies ? 82 : 0);
         var scroll = new ContentScrollContainer { Name = name + "Scroll",
             HorizontalScrollMode = ScrollContainer.ScrollMode.Auto, VerticalScrollMode = ScrollContainer.ScrollMode.Disabled,
-            SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new(0, BarChartHeight + 22) };
+            SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new(0, chartHeight + 22) };
         box.AddChild(scroll);
         var chart = new StatisticsBarChart { Name = name, Categories = categories,
-            CustomMinimumSize = new(0, BarChartHeight), CategoryWidth = categories.Any(c => c.Parts != null) ? 190 : enemies ? 116 : 80,
+            CustomMinimumSize = new(0, chartHeight), CategoryWidth = categories.Any(c => c.Parts != null) ? 190 : enemies ? 116 : 80,
             HorizontalTitle = enemies ? "Tipo de enemigo" : "Elemento", ValueTitle = valueTitle, Logarithmic = Logarithmic };
         scroll.AddChild(chart);
         var bar = scroll.GetHScrollBar(); bar.CustomMinimumSize = new(0, Ui.IsMobile ? 20 : 16);

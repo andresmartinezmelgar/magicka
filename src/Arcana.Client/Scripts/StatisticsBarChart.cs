@@ -18,6 +18,8 @@ public partial class StatisticsBarChart : Control
     private readonly Dictionary<int, BestiaryPortrait> _portraits = [];
     internal IReadOnlyDictionary<int, BestiaryPortrait> EnemyPortraits => _portraits;
     private float PlotBottom => _portraits.Count > 0 ? 228 : Bottom;
+    internal float PlotBaseline => Size.Y - PlotBottom;
+    internal float PlotHeight => Math.Max(1, PlotBaseline - Top);
     internal static string ShortLabel(string label) => label switch
     {
         "Hechizos directos" or "Ataques directos" => "Daño",
@@ -60,7 +62,7 @@ public partial class StatisticsBarChart : Control
     {
         float slot = Math.Max(1, Size.X - Left - Right) / Math.Max(1, Categories.Length);
         foreach (var pair in _portraits)
-            pair.Value.Position = new(Left + (pair.Key + .5f) * slot - 36, Size.Y - PlotBottom + 12);
+            pair.Value.Position = new(Left + (pair.Key + .5f) * slot - 36, PlotBaseline + 44);
     }
     internal MatchStatisticsScale DataScale => new(Categories.SelectMany(c => c.Parts is { Length: > 0 } parts ? parts.Select(p => p.Value) : new[] { c.Value }), Logarithmic);
     internal double ScaleMaximum => DataScale.Maximum;
@@ -69,7 +71,7 @@ public partial class StatisticsBarChart : Control
     public override void _Draw()
     {
         var font = GetThemeDefaultFont(); const int textSize = 14;
-        float width = Math.Max(1, Size.X - Left - Right), height = Math.Max(1, Size.Y - Top - PlotBottom);
+        float width = Math.Max(1, Size.X - Left - Right), height = PlotHeight;
         var scale = DataScale;
         DrawString(font, new(Left, 18), scale.Logarithmic ? "Puntos · escala logarítmica" : "Puntos · escala lineal", fontSize: textSize, modulate: Ui.Muted);
         for (int tick = 0; tick <= 4; tick++)
@@ -122,7 +124,7 @@ public partial class StatisticsBarChart : Control
             }
             lines.Add(line);
             for (int j = 0; j < lines.Count; j++)
-                DrawString(font, new(center - slot / 2 + 4, Top + height + 100 + j * 17), lines[j], HorizontalAlignment.Center, slot - 8, textSize, Ui.Text);
+                DrawString(font, new(center - slot / 2 + 4, Top + height + (_portraits.Count > 0 ? 132 : 100) + j * 17), lines[j], HorizontalAlignment.Center, slot - 8, textSize, Ui.Text);
         }
         DrawString(font, new(Left, Size.Y - 8), HorizontalTitle, HorizontalAlignment.Left, width, 14, Ui.Gold);
     }

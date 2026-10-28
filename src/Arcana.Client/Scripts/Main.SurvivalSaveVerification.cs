@@ -114,8 +114,9 @@ public partial class Main
             Check(_practice.MatchEnded && !HasSurvivalSave, "La partida terminada conserva un autoguardado recuperable.");
             ReturnToLauncher();
             ContinueSurvival(); Check(!Loading && !_playing, "Una partida terminada reaparece desde el respaldo.");
-            GD.Print("SURVIVAL_SAVE_SMOKE_OK: autoguardado, estado, aliados, identidad y mapa; Android conserva carga y partida al perder foco; finalizar invalida el punto y su respaldo.");
-            GetTree().Quit(0); _survivalSaveSmoke = false;
+            _survivalSaveSmoke = false;
+            var tree = GetTree(); var errors = _engineLog;
+            QueueFree(); _ = FinishSurvivalSaveSmokeAfterCleanup(tree, errors);
         }
         catch (Exception error)
         { GD.PushError("SURVIVAL_SAVE_SMOKE_FAILED: " + error.Message); GetTree().Quit(1); _survivalSaveSmoke = false; }
@@ -125,5 +126,20 @@ public partial class Main
                 System.IO.Directory.Delete(_survivalSaveSmokePath, true);
         }
         return false;
+    }
+
+    private static async Task FinishSurvivalSaveSmokeAfterCleanup(SceneTree tree, EngineLogBridge errors)
+    {
+        try
+        {
+            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            GC.Collect(); GC.WaitForPendingFinalizers();
+            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            if (errors.ErrorCount > 0) throw new InvalidOperationException("Godot registró errores al liberar la prueba de guardado.");
+            GD.Print("SURVIVAL_SAVE_SMOKE_OK: autoguardado, estado, aliados, identidad y mapa; Android conserva carga y partida al perder foco; finalizar invalida el punto y su respaldo; limpieza final verificada.");
+            tree.Quit();
+        }
+        catch (Exception error) { GD.PushError("SURVIVAL_SAVE_SMOKE_FAILED: limpieza: " + error); tree.Quit(1); }
     }
 }
