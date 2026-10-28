@@ -290,7 +290,7 @@ public partial class Main
                 AddChild(baseVisual); AddChild(equippedVisual);
                 baseVisual.Build(player with { Equipment = null }, true); equippedVisual.Build(player, true);
                 Check(baseVisual.Sprite.Texture == equippedVisual.Sprite.Texture && baseVisual.Sprite.MaterialOverride is ShaderMaterial &&
-                    equippedVisual.GetChildren().OfType<Node3D>().First().GetChildren().Count == 1,
+                    equippedVisual.Sprite.GetParent().GetChildren().Count == 1,
                     "El equipo añadió adornos o cambió el sprite del mago.");
                 baseVisual.QueueFree(); equippedVisual.QueueFree(); ReturnToLauncher();
             }

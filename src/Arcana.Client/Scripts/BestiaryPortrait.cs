@@ -11,7 +11,9 @@ public partial class BestiaryPortrait : SubViewportContainer
     internal static BestiaryPortrait AddTo(Node parent, MinionKind kind, float side = 72)
     {
         var portrait = new BestiaryPortrait(); parent.AddChild(portrait); portrait.Build(kind);
-        portrait.CustomMinimumSize = portrait.Size = new(side, side); return portrait;
+        // Reducir primero el mínimo: Godot limita Size por el mínimo anterior.
+        portrait.CustomMinimumSize = new(side, side);
+        portrait.Size = new(side, side); return portrait;
     }
     internal static void Heading(Control parent, MinionKind kind, string text)
     {

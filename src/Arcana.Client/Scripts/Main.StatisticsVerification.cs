@@ -203,7 +203,7 @@ public partial class Main
             if (view == 2)
                 foreach (var plot in _statisticsPanel.FindChildren("*", "Control", true, false).OfType<StatisticsBarChart>())
                     if (plot.EnemyPortraits.Count > 0 && (plot.PlotHeight < 100 ||
-                        plot.EnemyPortraits.Values.Any(p => p.Position.Y < plot.PlotBaseline + 40)))
+                        plot.EnemyPortraits.Values.Any(p => p.Position.Y < plot.PlotBaseline + 40 || p.Size.DistanceTo(new(72, 72)) > 1)))
                         throw new InvalidOperationException("Los retratos comprimen los ejes o se solapan con las etiquetas de las barras.");
             if (view == 4)
             {

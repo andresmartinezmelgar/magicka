@@ -40,3 +40,5 @@ Motor y red, cuentas, Docker y ambos paquetes pasan. La navegación verifica la 
 ### Comprobaciones posteriores
 
 La limpieza del guardado y las capturas pasan después del ajuste. La comprobación del desglose aún buscaba la etiqueta antigua «Ataque», aunque la interfaz ya muestra «Potencia de ataque». Se utiliza el nombre completo del catálogo para localizar el atributo; se mantienen las mismas exigencias sobre las cuatro aportaciones, el signo negativo, la suma y la exclusión de piezas sin equipar. La comprobación de atributos cancelados también utiliza los nombres actuales completos.
+
+La inspección de las capturas muestra que Godot conservaba el tamaño anterior de los retratos al asignar el nuevo tamaño antes de reducir su mínimo. Se reduce primero el mínimo y después el tamaño; la prueba visual exige retratos reales de 72 × 72 para evitar solapamientos. El desglose numérico y las cancelaciones ya pasan. La prueba del sprite consultaba el primer nodo 3D, que ahora es el indicador de Marca arcana; se comprueba directamente el padre del sprite para conservar la exigencia de un solo sprite, sin confundirlo con los indicadores de estado.
