@@ -18,7 +18,7 @@ public partial class DefensePanel : Control
     private Button _restart = null!;
     private ElementTextLabel _bonuses = null!;
     private bool _ended;
-    private readonly List<Button> _auras = [], _passives = [], _tabs = [];
+    private readonly List<Button> _auras = [], _passives = [];
     private readonly List<ElementTextLabel> _auraHints = [], _passiveHints = [];
     private readonly List<VBoxContainer> _sections = [];
     private ElementTextLabel _shopStatus = null!, _equipmentSummary = null!;
@@ -36,7 +36,11 @@ public partial class DefensePanel : Control
     private ElementTextLabel _equipmentTotalsEmpty = null!;
     private string _equipmentTotalsStamp = "";
     private bool _canRestart;
-    private HFlowContainer _navigation = null!;
+    private GridContainer _navigation = null!;
+    private Button _sectionBack = null!;
+    private ElementTextLabel _shopTitle = null!;
+    private int _sectionIndex = -1;
+    private static readonly string[] SectionNames = ["Partida", "Equipo", "Poderes", "Estadísticas", "Guía", "Reliquias", "Configuración predeterminada"];
     private WorldSnapshot? _lastSnapshot;
     private int _lastPlayerId;
     private bool _lastOnline, _lastRewardsAvailable, _lastShopOpen;
@@ -63,30 +67,32 @@ public partial class DefensePanel : Control
         _window.AddThemeStyleboxOverride("panel", Ui.ModalPanel());
         var body = new VBoxContainer(); body.AddThemeConstantOverride("separation", 8); _window.AddChild(body);
         var header = new HBoxContainer(); body.AddChild(header);
-        var title = Ui.Label("SUPERVIVENCIA · EQUIPO DE PARTIDA", Ui.IsMobile ? 19 : 23, Ui.Gold);
-        title.SizeFlagsHorizontal = SizeFlags.ExpandFill; title.AutowrapMode = TextServer.AutowrapMode.WordSmart; header.AddChild(title);
+        _sectionBack = Ui.ExitButton("Atrás", HandleBack, "DefenseShopBack"); header.AddChild(_sectionBack);
+        _shopTitle = Ui.Label("SUPERVIVENCIA", Ui.IsMobile ? 19 : 23, Ui.Gold);
+        _shopTitle.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _shopTitle.AutowrapMode = TextServer.AutowrapMode.WordSmart; header.AddChild(_shopTitle);
         header.AddChild(Ui.ExitButton("Continuar", CloseShop, "DefenseShopClose"));
         _wallet = Ui.Label("", 16); _wallet.AutowrapMode = TextServer.AutowrapMode.WordSmart; body.AddChild(_wallet);
         _shopStatus = Ui.Label("", 14, Ui.Health); _shopStatus.Name = "DefenseShopStatus";
         _shopStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart; body.AddChild(_shopStatus);
-        _navigation = new HFlowContainer(); _navigation.AddThemeConstantOverride("h_separation", 4);
-        _navigation.AddThemeConstantOverride("v_separation", 4); body.AddChild(_navigation);
-        string[] names = ["Partida", "Equipo", "Poderes", "Estadísticas", "Guía", "Reliquias", "Configuración predeterminada"];
-        for (int i = 0; i < names.Length; i++)
-        {
-            int section = i;
-            var tab = Ui.ExitButton(names[i], () => ShowSection(section), "DefenseTab" + i);
-            tab.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-            tab.CustomMinimumSize = new(0, Ui.IsMobile ? 54 : 44);
-            tab.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 16 : 15);
-            tab.SizeFlagsHorizontal = SizeFlags.ExpandFill; _navigation.AddChild(tab); _tabs.Add(tab);
-        }
         _scroll = new ContentScrollContainer { Name = "DefenseShopScroll", SizeFlagsVertical = SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; body.AddChild(_scroll); Ui.VisibleVerticalScroll(_scroll);
         var content = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; _scroll.AddChild(content);
-        for (int i = 0; i < names.Length; i++)
+        _navigation = new GridContainer { Name = "DefenseMenu", Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _navigation.AddThemeConstantOverride("h_separation", 10);
+        _navigation.AddThemeConstantOverride("v_separation", 10); content.AddChild(_navigation);
+        for (int i = 0; i < SectionNames.Length; i++)
         {
-            var section = new VBoxContainer { Name = "DefenseSection" + i, SizeFlagsHorizontal = SizeFlags.ExpandFill, Visible = i == 0 };
+            int section = i;
+            var tab = Ui.ExitButton(SectionNames[i], () => ShowSection(section), "DefenseTab" + i);
+            tab.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            tab.CustomMinimumSize = new(0, 54);
+            tab.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 18 : 17);
+            tab.SizeFlagsHorizontal = SizeFlags.ExpandFill; _navigation.AddChild(tab);
+        }
+        for (int i = 0; i < SectionNames.Length; i++)
+        {
+            var section = new VBoxContainer { Name = "DefenseSection" + i, SizeFlagsHorizontal = SizeFlags.ExpandFill, Visible = false };
             section.AddThemeConstantOverride("separation", 10); content.AddChild(section); _sections.Add(section);
         }
         _bonuses = Wrapped(_sections[5], "Sin mejoras recogidas", 18, Ui.Gold);
@@ -139,7 +145,7 @@ public partial class DefensePanel : Control
         _rules = Wrapped(statistics, "", 15, Ui.Muted);
         BuildGuide(_sections[4]);
         BuildEquipmentSetup(_sections[6]);
-        ShowSection(0); ShowPowers(true);
+        ShowMenu(); ShowPowers(true);
         var footer = new HBoxContainer(); footer.AddThemeConstantOverride("separation", 8); body.AddChild(footer);
         _restart = Ui.Button("Otra partida", () => { Send("defense_restart"); CloseShop(); }); footer.AddChild(_restart);
         foreach (var button in new[] { open }.Concat(_auras).Concat(_passives))
@@ -162,15 +168,21 @@ public partial class DefensePanel : Control
     }
     internal void ShowSection(int index)
     {
-        for (int i = 0; i < _sections.Count; i++)
-        {
-            _sections[i].Visible = i == index;
-            _tabs[i].AddThemeColorOverride("font_color", i == index ? Ui.Gold : new Color("edf3ff"));
-        }
+        if (index < 0 || index >= _sections.Count) return;
+        _sectionIndex = index; _navigation.Visible = false; _sectionBack.Visible = true;
+        _shopTitle.Text = "SUPERVIVENCIA · " + SectionNames[index].ToUpperInvariant();
+        for (int i = 0; i < _sections.Count; i++) _sections[i].Visible = i == index;
         _scroll.ScrollVertical = 0;
         if (index == 1) OpenEquipmentInventory();
         if (index == 3 && ShopOpen) UpdateTotals();
         if (index == 4) UpdateGuide();
+    }
+    private void ShowMenu()
+    {
+        _sectionIndex = -1; _navigation.Visible = true;
+        _shopTitle.Text = "SUPERVIVENCIA · MENÚ";
+        foreach (var section in _sections) section.Visible = false;
+        _scroll.ScrollVertical = 0;
     }
     internal void ShowPowers(bool automatic)
     {
@@ -186,7 +198,7 @@ public partial class DefensePanel : Control
     internal Rect2 SummaryRectForVerification => _summary.GetGlobalRect();
     public bool BlocksTouch(Vector2 point) => _summary.GetGlobalRect().HasPoint(point) || ShopOpen;
 
-    public void OpenShop() { _shop.Visible = true; OpenChanged?.Invoke(); }
+    public void OpenShop() { if (!ShopOpen) ShowMenu(); _shop.Visible = true; OpenChanged?.Invoke(); }
     public void CloseShop()
     {
         if (_equipmentInventory != null) { _equipmentInventory.Close(FinishClosingShop); return; }
@@ -196,6 +208,7 @@ public partial class DefensePanel : Control
     internal void HandleBack()
     {
         if (_equipmentInventory != null) _equipmentInventory.HandleBack();
+        else if (_sectionIndex >= 0) ShowMenu();
         else CloseShop();
     }
     private void OpenEquipmentInventory()
@@ -203,7 +216,7 @@ public partial class DefensePanel : Control
         if (!ShopOpen || _equipmentInventory != null || _player == null || _wizard == null) return;
         var inventory = new EquipmentPanel(); _equipmentInventory = inventory; _shop.AddChild(inventory);
         inventory.BuildDefense(_main, _player, _wizard, _ended, _submit, FinishClosingShop);
-        inventory.Closed += () => { if (_equipmentInventory == inventory) _equipmentInventory = null; };
+        inventory.Closed += () => { if (_equipmentInventory == inventory) { _equipmentInventory = null; ShowMenu(); } };
     }
     private void Send(string type) => _submit(new() { Type = type });
 
@@ -215,6 +228,7 @@ public partial class DefensePanel : Control
         _summary.Size = new(296, 0);
         _summary.Position = new(22 * scale, 194 * scale + ScreenPlacement.MinimumGap);
         _window.CustomMinimumSize = new(Math.Min(790, size.X - 28), Math.Min(700, size.Y - 28));
+        _navigation.Columns = size.X < 600 ? 1 : 2;
         _window.Size = _window.CustomMinimumSize;
     }
 

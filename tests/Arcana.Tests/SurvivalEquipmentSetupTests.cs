@@ -1,4 +1,5 @@
 using Arcana.Core;
+using System.Collections;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -79,21 +80,24 @@ internal static class SurvivalEquipmentSetupTests
         test("Equipo predeterminado: activar vende descartes, protege favoritos y mejora el equipo incluso bajo un filtro de calidad", () =>
         {
             var world = World(); var player = world.AddPlayer("Mago")!;
-            var weak = Piece(EquipmentSlot.Hat, EquipmentStat.HealingPower, .01f);
+            var weak = Piece(EquipmentSlot.Hat, EquipmentStat.HealingPower, .01f, tier: ItemTier.Gold);
             var strong = Piece(EquipmentSlot.Hat, EquipmentStat.HealingPower, .2f);
-            var favorite = Piece(EquipmentSlot.Hat, EquipmentStat.HealingPower, .02f);
-            foreach (var item in new[] { weak, strong, favorite }) Give(world, player, item);
+            var favorite = Piece(EquipmentSlot.Hat, EquipmentStat.HealingPower, .02f, tier: ItemTier.Gold);
+            var offElement = Piece(EquipmentSlot.Hat, EquipmentStat.FirePower, .1f, EquipmentFamily.Fire);
+            foreach (var item in new[] { weak, strong, favorite, offElement }) Give(world, player, item);
             Check(Send(world, player, new() { Type = "defense_favorite", ItemId = favorite.Id, Slot = 1 }), "No protege el favorito.");
             Check(Send(world, player, new() { Type = "defense_auto_sell", ItemId = strong.Id, AutoSellStyle = EquipmentStyle.Of(strong), Slot = 1 }), "No activa filtro anterior.");
             int gold = State(world, player).Gold;
             Check(Setup(world, player, Enabled(Element.Life)), "No aplica configuración.");
             var state = State(world, player);
-            Check(state.Items.Length == 2 && state.Items.Single(i => i.Equipped).Item.Id == strong.Id && state.Favorites.Contains(favorite.Id) &&
+            Check(state.Items.Length == 3 && state.Items.Any(i => i.Item.Id == offElement.Id) &&
+                state.Items.Single(i => i.Equipped).Item.Id == strong.Id && state.Favorites.Contains(favorite.Id) &&
                 state.Gold == gold + weak.SaleGold && state.AutoSold == 1, "No vende exactamente el descarte inicial.");
             var next = Piece(EquipmentSlot.Hat, EquipmentStat.HealingPower, .3f, tier: ItemTier.Silver);
             Give(world, player, next); state = State(world, player);
-            Check(state.Items.Single(i => i.Equipped).Item.Id == next.Id && state.Items.Length == 2 && state.AutoSold == 2 &&
-                state.Gold == gold + weak.SaleGold + strong.SaleGold, "El filtro antiguo vende la mejora o no vende la pieza sustituida.");
+            Check(state.Items.Single(i => i.Equipped).Item.Id == next.Id && state.Items.Length == 4 && state.AutoSold == 1 &&
+                state.Gold == gold + weak.SaleGold && state.Items.Any(i => i.Item.Id == strong.Id) && state.Items.Any(i => i.Item.Id == offElement.Id),
+                "El filtro vende la mejora, un Mítico sustituido o un Mítico de otro elemento.");
             Check(!Send(world, player, new() { Type = "defense_equip", ItemId = favorite.Id }) &&
                 !Send(world, player, new() { Type = "defense_loadout", Loadout = new(Hat: favorite.Id) }), "Permite reemplazar manualmente la selección activa.");
             Check(Setup(world, player, Enabled(Element.Life) with { Enabled = false }), "No desactiva.");
@@ -109,12 +113,45 @@ internal static class SurvivalEquipmentSetupTests
                 Give(world, player, item); Check(Send(world, player, new() { Type = "defense_favorite", ItemId = item.Id, Slot = 1 }), "No marca favorito.");
             }
             Check(Setup(world, player, Enabled(Element.Life)), "No activa con inventario lleno.");
-            var previous = State(world, player); var next = Piece(EquipmentSlot.Hat, EquipmentStat.HealingPower, .3f);
+            var previous = State(world, player); var next = Piece(EquipmentSlot.Hat, EquipmentStat.HealingPower, .3f, tier: ItemTier.Silver);
             Give(world, player, next); var state = State(world, player);
             Check(state.Items.Length == 24 && state.Items.All(i => i.Item.Id != next.Id) && state.Favorites.Length == 24 &&
                 state.Gold == previous.Gold + next.SaleGold && state.AutoSold == previous.AutoSold + 1,
                 "Pierde favoritos, desborda o duplica el oro.");
             SnapshotValidation.Check(world.Snapshot()); world.MatchStatistics().Validate();
+        });
+        test("Supervivencia: un Mítico sin espacio queda en el suelo y se recoge una sola vez al liberar una ranura", () =>
+        {
+            foreach (bool automatic in new[] { false, true })
+            {
+                var world = World(); var player = world.AddPlayer("Mago")!;
+                for (int i = 0; i < DefenseRules.InventoryLimit; i++)
+                    Give(world, player, Piece(EquipmentSlot.Hat, EquipmentStat.HealingPower, .01f));
+                if (automatic) Check(Setup(world, player, Enabled(Element.Life)), "No activa el filtro.");
+                var item = Piece(EquipmentSlot.Hat, EquipmentStat.FirePower, .3f, EquipmentFamily.Fire);
+                var call = typeof(GameWorld).GetMethod("AddDefenseDrop", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                call.Invoke(world, [player.Position, player.Id, DefenseDropKind.Equipment]);
+                var drops = (IList)typeof(GameWorld).GetField("_defenseDrops", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(world)!;
+                var drop = drops[0]!; drop.GetType().GetField("Item")!.SetValue(drop, item);
+                var tick = typeof(GameWorld).GetMethod("TickDefenseDrops", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                var before = State(world, player);
+                for (int i = 0; i < 3; i++) tick.Invoke(world, [.1f]);
+                var full = State(world, player);
+                Check(drops.Count == 1 && full.Items.Length == 24 && full.Gold == before.Gold && full.AutoSold == before.AutoSold,
+                    "Convierte un Mítico en oro o lo retira del suelo con inventario lleno.");
+                Check(world.MatchStatistics().Sum(StatisticGroup.Equipment, StatisticMeasure.Collected, (int)ItemTier.Mythic) == 24,
+                    "Los intentos de recogida repetidos inflan las estadísticas.");
+                var manual = full.Items.First(i => !i.Equipped).Item;
+                Check(Send(world, player, new() { Type = "defense_sell", ItemId = manual.Id }), "No permite la venta manual de un Mítico.");
+                tick.Invoke(world, [.1f]); tick.Invoke(world, [.1f]);
+                var after = State(world, player);
+                Check(drops.Count == 0 && after.Items.Length == 24 && after.Items.Count(i => i.Item.Id == item.Id) == 1 &&
+                    after.Gold == before.Gold + manual.SaleGold && after.AutoSold == before.AutoSold,
+                    "Pierde el botín al liberar espacio o contabiliza una venta automática.");
+                Check(world.MatchStatistics().Sum(StatisticGroup.Equipment, StatisticMeasure.Collected, (int)ItemTier.Mythic) == 25,
+                    "La recogida posterior no cuenta exactamente un objeto.");
+                SnapshotValidation.Check(world.Snapshot());
+            }
         });
         test("Equipo predeterminado: red y guardado conservan prioridades; reiniciar mantiene la preferencia, no el equipo", () =>
         {

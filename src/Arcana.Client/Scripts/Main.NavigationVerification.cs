@@ -100,6 +100,10 @@ public partial class Main
                 Check(((GridContainer)_personalDamagePanel.FindChild("PersonalDamageTable", true, false)).GetChildCount() == 40 &&
                     ((StatisticsBarChart)_personalDamagePanel.FindChild("PersonalElementDamageBars", true, false)).Categories.Length == 9,
                     "El resumen personal no incluye los ocho elementos y el daño sin elemento.");
+                var damageBars = (StatisticsBarChart)_personalDamagePanel.FindChild("PersonalElementDamageBars", true, false);
+                Check(damageBars.Percentage && !damageBars.DataScale.Logarithmic && damageBars.ScaleMaximum == 100 &&
+                    ((ElementTextLabel)_personalDamagePanel.FindChild("PersonalDamageAbsorbed", true, false)).Text.Contains("tu escudo"),
+                    "El resumen personal pierde la escala porcentual lineal o la absorción propia.");
                 ((ScrollContainer)_personalDamagePanel.FindChild("PersonalDamageScroll", true, false)).ScrollVertical = int.MaxValue;
                 await Frames(); Capture(size.X + "-dano-personal");
                 await Click(Exit(_personalDamagePanel, "PersonalDamageClose"));
@@ -113,14 +117,22 @@ public partial class Main
                 foreach (int section in new[] { 0, 2, 3, 4, 5, 6 })
                 {
                     shop.OpenShop(); shop.ShowSection(section); await Frames();
+                    Check(!((Control)shop.FindChild("DefenseMenu", true, false)).IsVisibleInTree() &&
+                        ((Control)shop.FindChild("DefenseSection" + section, true, false)).IsVisibleInTree(),
+                        "Un apartado mezcla el menú con su contenido: " + section);
                     ((ScrollContainer)shop.FindChild("DefenseShopScroll", true, false)).ScrollVertical = int.MaxValue;
+                    await Frames(); await Click(Exit(shop, "DefenseShopBack"));
+                    Check(shop.ShopOpen && _practice.DefensePaused && ((Control)shop.FindChild("DefenseMenu", true, false)).IsVisibleInTree() &&
+                        !((Control)shop.FindChild("DefenseSection" + section, true, false)).IsVisibleInTree(),
+                        "Atrás no vuelve al menú o reanuda el combate: " + section);
                     await Frames(); await Click(Exit(shop, "DefenseShopClose"));
                     Check(!shop.ShopOpen && !_practice.DefensePaused, "Una pestaña de Supervivencia no permite continuar: " + section);
                 }
                 shop.OpenShop(); shop.ShowSection(1); await Frames();
                 var inventory = shop.EquipmentInventory!;
                 Exit(inventory, "EquipmentResumeGame"); await Click(Exit(inventory, "EquipmentBackToShop"));
-                Check(shop.EquipmentInventory == null && shop.ShopOpen && _practice.DefensePaused, "Volver a tienda no cierra solo el inventario.");
+                Check(shop.EquipmentInventory == null && shop.ShopOpen && _practice.DefensePaused &&
+                    ((Control)shop.FindChild("DefenseMenu", true, false)).IsVisibleInTree(), "Atrás del inventario no devuelve al menú pausado.");
                 shop.ShowSection(1); await Frames(); inventory = shop.EquipmentInventory!;
                 inventory.PressInspect(EquipmentSlot.Boots); inventory.PressChoice(otherBoots.Id);
                 ((Button)inventory.FindChild("EquipmentTotalsTab", true, false)).EmitSignal(Button.SignalName.Pressed);
@@ -156,6 +168,16 @@ public partial class Main
                 }
                 SelectSetup("SurvivalSetupElement", (int)Element.Arcane);
                 SelectSetup("SurvivalSetupPriority0", (int)ItemAffixKind.ArcaneMark);
+                var priority = (OptionButton)shop.FindChild("SurvivalSetupPriority0", true, false);
+                var elementChoice = (OptionButton)shop.FindChild("SurvivalSetupElement", true, false);
+                int mark = priority.GetItemIndex((int)ItemAffixKind.ArcaneMark), chain = priority.GetItemIndex((int)ItemAffixKind.LightningChain);
+                Check(priority.GetItemIcon(mark) != null && priority.GetItemIcon(chain) == null, "No resalta los afijos de Arcano.");
+                SelectSetup("SurvivalSetupElement", (int)Element.Lightning); await Frames();
+                Check(priority.GetItemIcon(mark) == null && priority.GetItemIcon(chain) != null &&
+                    priority.GetSelectedId() == (int)ItemAffixKind.ArcaneMark && elementChoice.GetSelectedId() == (int)Element.Lightning &&
+                    !_practice.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId).EquipmentSetup.Enabled,
+                    "Cambiar el elemento no actualiza el resaltado, pierde la prioridad o activa ventas sin aplicar.");
+                SelectSetup("SurvivalSetupElement", (int)Element.Arcane);
                 SelectSetup("SurvivalSetupPriority1", (int)ItemAffixKind.ArcaneMark);
                 setupScroll.ScrollVertical = int.MaxValue; await Frames();
                 var setupApply = (Button)shop.FindChild("SurvivalSetupApply", true, false);
@@ -198,7 +220,7 @@ public partial class Main
                 StartPractice("Navegación", 0, GameMode.Duel, 1); await Ready(); OpenPlayerEquipment(); await Frames();
                 await Click(Exit(_playerEquipmentPanel!, "PlayerEquipmentBack")); Check(!InspectingEquipment, "La ficha del jugador no cierra.");
                 ReturnToLauncher(); await Frames();
-                GD.Print("NAVIGATION_VIEWPORT_OK: " + size + " · menús, estadísticas, daño personal al morir/finalizar, controles, salas, carga, siete pestañas de Supervivencia, equipo predeterminado con Marca/Eco y venta, inventario, descarte, ayuda, pausa, reliquias y fichas.");
+                GD.Print("NAVIGATION_VIEWPORT_OK: " + size + " · menús, estadísticas, daño porcentual y absorción, controles, salas, carga, siete apartados con Atrás, afijos resaltados por elemento, equipo predeterminado con Marca/Eco y venta, inventario, descarte, ayuda, pausa, reliquias y fichas.");
             }
             Check(_engineLog.ErrorCount == 0, "Godot registró errores durante la navegación.");
             GD.Print("NAVIGATION_SMOKE_OK: salidas visibles fuera del scroll, clic real, Escape/Atrás y guardado autoritativo antes de continuar.");

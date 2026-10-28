@@ -166,26 +166,30 @@ public sealed partial class GameWorld
             Buff = (BuffKind)_random.Next(RelicBuffs.Count) });
     }
 
-    private void GrantDefenseItem(Wizard player, EquipmentItem item)
+    private bool GrantDefenseItem(Wizard player, EquipmentItem item)
     {
-        _statistics.Add(StatisticGroup.Equipment, (int)item.Tier, StatisticMeasure.Collected, 1);
-        StatisticsEconomy(player.Id, StatisticMeasure.Collected, 1);
         var progress = _defenders[player.Id];
+        // Evita repetir la búsqueda de equipo cada tick si las 24 piezas son intocables.
+        if (item.Tier == ItemTier.Mythic && progress.Items.Count >= DefenseRules.InventoryLimit &&
+            (!progress.EquipmentSetup.Enabled || progress.Items.All(i => i.Tier == ItemTier.Mythic || progress.Favorites.Contains(i.Id))))
+            return false;
         if (progress.EquipmentSetup.Enabled)
         {
             var candidate = item with { Bonuses = item.Bonuses.Select(b => EquipmentCatalogue.BonusActive(item.Slot, b.Stat)
                 ? b with { Maximum = MathF.Round(b.Current + DefenseRules.ItemUpgradeLimit * DefenseRules.ItemUpgradeStep, 4) } : b).ToArray() };
-            ApplySurvivalEquipmentSetup(player, candidate);
-            return;
+            if (!ApplySurvivalEquipmentSetup(player, candidate)) return false;
+            RecordDefenseItemCollection(player.Id, item);
+            return true;
         }
-        if (!progress.Favorites.Contains(item.Id) && progress.Loadout.Get(item.Slot) != item.Id &&
+        RecordDefenseItemCollection(player.Id, item);
+        if (item.Tier != ItemTier.Mythic && !progress.Favorites.Contains(item.Id) && progress.Loadout.Get(item.Slot) != item.Id &&
             progress.AutoSellStyles.Any(s => s.MatchesLowerQuality(item)))
         {
             int earned = Math.Min(100000000 - progress.Gold, item.SaleGold);
             StatisticsEconomy(player.Id, StatisticMeasure.GoldEarned, earned); progress.Gold += earned;
             if (progress.AutoSold < int.MaxValue) progress.AutoSold++;
             Emit("defense_item", player.Position, [], player.Name + $": venta automática · +{earned} oro");
-            return;
+            return true;
         }
         if (progress.Items.Count >= DefenseRules.InventoryLimit)
         {
@@ -193,7 +197,7 @@ public sealed partial class GameWorld
             StatisticsEconomy(player.Id, StatisticMeasure.GoldEarned, earned); progress.Gold += earned;
             Emit("defense_item", player.Position, [], player.Name + ": inventario lleno · objeto " +
                 EquipmentCatalogue.TierName(item.Tier) + $" convertido en +{earned} oro");
-            return;
+            return true;
         }
         else
         {
@@ -206,6 +210,13 @@ public sealed partial class GameWorld
             RecalculateDefender(player);
         }
         Emit("defense_item", player.Position, [], player.Name + ": objeto temporal " + EquipmentCatalogue.TierName(item.Tier));
+        return true;
+    }
+
+    private void RecordDefenseItemCollection(int playerId, EquipmentItem item)
+    {
+        _statistics.Add(StatisticGroup.Equipment, (int)item.Tier, StatisticMeasure.Collected, 1);
+        StatisticsEconomy(playerId, StatisticMeasure.Collected, 1);
     }
 
     private void TickDefenseDrops(float dt)
@@ -232,7 +243,8 @@ public sealed partial class GameWorld
                     int earned = Math.Min(100000000 - progress.Gold, total);
                     progress.Gold += earned; StatisticsEconomy(pair.Key, StatisticMeasure.GoldEarned, earned);
                 }
-            else if (drop.Kind == DefenseDropKind.Equipment && drop.Item != null) GrantDefenseItem(receiver, drop.Item);
+            else if (drop.Kind == DefenseDropKind.Equipment && drop.Item != null)
+            { if (!GrantDefenseItem(receiver, drop.Item)) continue; }
             else
             {
                 _statistics.Add(StatisticGroup.Relic, (int)drop.Buff, StatisticMeasure.Collected, 1);

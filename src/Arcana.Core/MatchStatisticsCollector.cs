@@ -165,7 +165,11 @@ internal sealed class MatchStatisticsCollector
         if (owner != target.Id) { Total(StatisticMeasure.Kills); Actor(owner, StatisticMeasure.Kills); Attack(owner, attack, StatisticMeasure.Kills); }
     }
     private void ShieldSource(int id, double actual, bool barrier)
-    { if (_actors.TryGetValue(id, out var actor)) Add(StatisticGroup.ActorShieldSource, actor.Code * 2 + (barrier ? 1 : 0), StatisticMeasure.ShieldAbsorbed, actual); }
+    {
+        if (!_actors.TryGetValue(id, out var actor)) return;
+        Add(StatisticGroup.ActorShieldSource, actor.Code * 2 + (barrier ? 1 : 0), StatisticMeasure.ShieldAbsorbed, actual);
+        if (actor.Kind == null) actor.Body.MatchDamage.Absorb(actual, barrier);
+    }
     public void Heal(int owner, Wizard target, double actual, StatisticAttack attack)
     { Total(StatisticMeasure.Healing, actual); Actor(owner, StatisticMeasure.Healing, actual); Actor(target.Id, StatisticMeasure.HealingReceived, actual); Attack(owner, attack, StatisticMeasure.Healing, actual); }
     public void Shield(int owner, double actual, bool repair = false)

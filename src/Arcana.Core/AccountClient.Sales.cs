@@ -47,6 +47,8 @@ public sealed partial class AccountClient
             RequireIdentity(identity.Generation);
             if (owner != null && (Profile?.Uid != owner || Token != session))
                 throw new InvalidOperationException("La cuenta ha cambiado durante la venta automática.");
+            if (owner != null && Profile?.Items.Any(i => i.Id == itemId && i.Tier == ItemTier.Mythic) == true)
+                throw new InvalidOperationException("Los objetos Míticos solo se venden manualmente.");
             if (_inventoryNeedsRefresh) throw new InvalidOperationException("Actualiza el inventario para confirmar la venta anterior antes de volver a vender.");
         }
         try

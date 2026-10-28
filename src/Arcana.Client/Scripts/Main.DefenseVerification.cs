@@ -402,8 +402,9 @@ public partial class Main
             if (_defenseSmokePhase == 11)
             {
                 var viewport = GetViewport().GetVisibleRect();
-                foreach (var tab in Enumerable.Range(0, 5).Select(i => (Button)panel.FindChild("DefenseTab" + i, true, false)))
-                    Check(viewport.Encloses(tab.GetGlobalRect()), "Una pestaña de la tienda desborda la pantalla.");
+                Check(!((Control)panel.FindChild("DefenseMenu", true, false)).IsVisibleInTree() &&
+                    ((Button)panel.FindChild("DefenseShopBack", true, false)) is { } back && back.IsVisibleInTree() && viewport.Encloses(back.GetGlobalRect()),
+                    "La guía no separa el menú o deja Atrás fuera de pantalla.");
                 Check(((Control)panel.FindChild("DefenseDropRates", true, false)).IsVisibleInTree(), "No se muestra la tabla de botín.");
                 var slotRates = ((GridContainer)panel.FindChild("DefenseSlotRates", true, false)).GetChildren().OfType<ElementTextLabel>().Skip(3).ToArray();
                 Check(slotRates.Length == 18 && slotRates.Where((_, i) => i % 3 == 2).All(l => l.Text == "1 %") &&

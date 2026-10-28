@@ -14,12 +14,14 @@ public partial class StatisticsBarChart : Control
     public string HorizontalTitle { get; init; } = "Elemento";
     public string ValueTitle { get; init; } = "Total";
     public bool? Logarithmic { get; init; }
+    public bool Percentage { get; init; }
     private const float Left = 72, Right = 20, Top = 28, Bottom = 146;
     private readonly Dictionary<int, BestiaryPortrait> _portraits = [];
     internal IReadOnlyDictionary<int, BestiaryPortrait> EnemyPortraits => _portraits;
-    private float PlotBottom => _portraits.Count > 0 ? 228 : Bottom;
+    private float PlotBottom => _portraits.Count > 0 ? 228 : Percentage ? 100 : Bottom;
+    private float PlotTop => Percentage ? 48 : Top;
     internal float PlotBaseline => Size.Y - PlotBottom;
-    internal float PlotHeight => Math.Max(1, PlotBaseline - Top);
+    internal float PlotHeight => Math.Max(1, PlotBaseline - PlotTop);
     internal static string ShortLabel(string label) => label switch
     {
         "Hechizos directos" or "Ataques directos" => "Daño",
@@ -64,24 +66,26 @@ public partial class StatisticsBarChart : Control
         foreach (var pair in _portraits)
             pair.Value.Position = new(Left + (pair.Key + .5f) * slot - 36, PlotBaseline + 44);
     }
-    internal MatchStatisticsScale DataScale => new(Categories.SelectMany(c => c.Parts is { Length: > 0 } parts ? parts.Select(p => p.Value) : new[] { c.Value }), Logarithmic);
+    internal MatchStatisticsScale DataScale => Percentage ? new([100d], false)
+        : new(Categories.SelectMany(c => c.Parts is { Length: > 0 } parts ? parts.Select(p => p.Value) : new[] { c.Value }), Logarithmic);
     internal double ScaleMaximum => DataScale.Maximum;
     private static string Short(double n) => n >= 1_000_000 ? (n / 1_000_000).ToString("0.#", Spanish) + " M"
         : n >= 1000 ? (n / 1000).ToString("0.#", Spanish) + " k" : n.ToString("0.##", Spanish);
+    private string AxisNumber(double value) => Percentage ? StatisticsPresentation.Percent(value, 100) : Short(value);
     public override void _Draw()
     {
         var font = GetThemeDefaultFont(); const int textSize = 14;
-        float width = Math.Max(1, Size.X - Left - Right), height = PlotHeight;
+        float width = Math.Max(1, Size.X - Left - Right), height = PlotHeight, top = PlotTop;
         var scale = DataScale;
-        DrawString(font, new(Left, 18), scale.Logarithmic ? "Puntos · escala logarítmica" : "Puntos · escala lineal", fontSize: textSize, modulate: Ui.Muted);
+        DrawString(font, new(Left, 18), Percentage ? "% del daño total · escala lineal" : scale.Logarithmic ? "Puntos · escala logarítmica" : "Puntos · escala lineal", fontSize: textSize, modulate: Ui.Muted);
         for (int tick = 0; tick <= 4; tick++)
         {
-            float y = Top + height * (1 - tick / 4f);
+            float y = top + height * (1 - tick / 4f);
             DrawLine(new(Left, y), new(Size.X - Right, y), ArcanaMenuChrome.Border.Darkened(0.45f));
-            DrawString(font, new(0, y + 5), Short(scale.ValueAt(tick / 4.0)), HorizontalAlignment.Right, Left - 8, textSize, Ui.Muted);
+            DrawString(font, new(0, y + 5), AxisNumber(scale.ValueAt(tick / 4.0)), HorizontalAlignment.Right, Left - 8, textSize, Ui.Muted);
         }
-        DrawLine(new(Left, Top), new(Left, Top + height), Ui.Muted);
-        DrawLine(new(Left, Top + height), new(Size.X - Right, Top + height), Ui.Muted);
+        DrawLine(new(Left, top), new(Left, top + height), Ui.Muted);
+        DrawLine(new(Left, top + height), new(Size.X - Right, top + height), Ui.Muted);
         float slot = width / Math.Max(1, Categories.Length);
         for (int i = 0; i < Categories.Length; i++)
         {
@@ -90,15 +94,15 @@ public partial class StatisticsBarChart : Control
             {
                 float barHeight = (float)scale.Normalize(value) * height;
                 float barWidth = Math.Min(40, available * 0.72f);
-                if (value > 0) DrawRect(new(x - barWidth / 2, Top + height - barHeight, barWidth, barHeight), color);
-                if (value > 0) DrawString(font, new(x - available / 2, Top + height - barHeight - 6), Short(value),
+                if (value > 0) DrawRect(new(x - barWidth / 2, top + height - barHeight, barWidth, barHeight), color);
+                if (value > 0) DrawString(font, new(x - available / 2, top + height - barHeight - 6), AxisNumber(value),
                     HorizontalAlignment.Center, available, 11, Ui.Text);
-                if (value <= 0) return;
+                if (value <= 0 || Percentage) return;
                 string caption = ShortLabel(label);
                 const int captionSize = 12;
                 float textWidth = font.GetStringSize(caption, fontSize: captionSize).X;
                 bool inside = barHeight >= textWidth + 12;
-                float baseline = Top + height;
+                float baseline = top + height;
                 // Las barras pequeñas mantienen su altura real: su etiqueta va debajo del eje.
                 float textY = inside ? baseline - (barHeight - textWidth) / 2 : baseline + textWidth + 8;
                 DrawSetTransform(new(x + 4, textY), -Mathf.Pi / 2);
@@ -124,7 +128,7 @@ public partial class StatisticsBarChart : Control
             }
             lines.Add(line);
             for (int j = 0; j < lines.Count; j++)
-                DrawString(font, new(center - slot / 2 + 4, Top + height + (_portraits.Count > 0 ? 132 : 100) + j * 17), lines[j], HorizontalAlignment.Center, slot - 8, textSize, Ui.Text);
+                DrawString(font, new(center - slot / 2 + 4, top + height + (_portraits.Count > 0 ? 132 : Percentage ? 32 : 100) + j * 17), lines[j], HorizontalAlignment.Center, slot - 8, textSize, Ui.Text);
         }
         DrawString(font, new(Left, Size.Y - 8), HorizontalTitle, HorizontalAlignment.Left, width, 14, Ui.Gold);
     }
@@ -133,6 +137,7 @@ public partial class StatisticsBarChart : Control
         if (Categories.Length == 0) return "";
         int index = Math.Clamp((int)((position.X - Left) / Math.Max(1, Size.X - Left - Right) * Categories.Length), 0, Categories.Length - 1);
         var c = Categories[index];
+        if (Percentage) return c.Label + "\n" + AxisNumber(c.Value) + " del daño total de esta partida";
         string detail = c.Parts == null ? "" : string.Join("\n", c.Parts.Select(p => p.Label + ": " + StatisticsPresentation.Number(p.Value) + " · " + StatisticsPresentation.Percent(p.Value, c.Value))) + "\n";
         return c.Label + "\n" + detail + ValueTitle + ": " + StatisticsPresentation.Number(c.Value) + "\n" +
             StatisticsPresentation.Percent(c.Value, Categories.Sum(c => c.Value)) + " del total de esta gráfica";

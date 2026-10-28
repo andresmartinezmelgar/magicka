@@ -34,7 +34,7 @@ public partial class EquipmentPanel
             "También en Opciones → Venta automática.";
         if (TemporaryInventory) button.TooltipText += "\n" + DefenseRules.InventoryFullNotice;
         if (style.Tier == ItemTier.Silver && !active) button.TooltipText += "\nPlata es la calidad mínima; este ajuste no se puede activar.";
-        if (AutomaticSurvivalEquipment) button.TooltipText = "La configuración predeterminada vende las piezas descartadas. Desactívala en la tienda para usar límites por calidad.";
+        if (AutomaticSurvivalEquipment) button.TooltipText = "La configuración predeterminada vende los descartes y conserva todos los Míticos y favoritos. Desactívala en el menú de supervivencia para usar límites por calidad.";
         box.AddChild(button); if (style.Tier > ItemTier.Silver || active) _preferenceActions.Add(button);
         if (AutoSellLimit(style) is { } limit && !AutomaticSurvivalEquipment)
         {

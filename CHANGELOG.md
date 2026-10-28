@@ -1,5 +1,12 @@
 # Cambios
 
+## Sin publicar
+
+- La venta automática nunca vende objetos Míticos, aunque no correspondan al elemento o a los afijos elegidos. Con inventario lleno, el botín Mítico permanece en el suelo hasta poder recogerlo; su venta manual sigue disponible.
+- Configuración predeterminada resalta con el icono del elemento los afijos que lo potencian. El resaltado cambia inmediatamente sin alterar las prioridades elegidas ni activar ventas.
+- El resumen de daño muestra los elementos por porcentaje del total, con gráfica lineal de 0 a 100 %. Conserva las cifras de daño real y añade absorción del escudo propio y de las barreras, separadas y persistentes al reaparecer o continuar.
+- Supervivencia tiene un menú de botones amplios separado de cada apartado. Atrás devuelve al menú sin cerrar la tienda; el inventario también dispone de Atrás y Continuar partida.
+
 ## 0.29.32
 
 - Configuración predeterminada de Supervivencia: elige entre ocho elementos y ordena hasta cinco afijos Míticos. Compara las seis ranuras y conjuntos, equipa la mejor combinación disponible y vende los descartes por oro temporal, protegiendo los favoritos. Se aplica al botín nuevo y se recuerda al reiniciar, continuar y abrir otra partida.

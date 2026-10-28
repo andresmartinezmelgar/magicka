@@ -61,7 +61,7 @@ public partial class EquipmentPanel : Control
         if (_defensePlayer != null)
         {
             var exits = new HBoxContainer { Name = "EquipmentExitBar" }; box.AddChild(exits);
-            var back = Ui.ExitButton("Volver a tienda", () => Close(), "EquipmentBackToShop");
+            var back = Ui.ExitButton("Atrás", () => Close(), "EquipmentBackToShop");
             var resume = Ui.ExitButton("Continuar partida", () => Close(_resumeDefense), "EquipmentResumeGame");
             back.SizeFlagsHorizontal = resume.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             exits.AddChild(back); exits.AddChild(resume);
@@ -73,7 +73,7 @@ public partial class EquipmentPanel : Control
         _inventoryMenu.AddThemeFontSizeOverride("font_size", 13); _equipmentToolbar.AddChild(_inventoryMenu);
         var menu = _inventoryMenu.GetPopup();
         menu.AddItem(_defensePlayer == null ? "Actualizar inventario" : "Comprar pieza · 100 oro", 0);
-        menu.AddItem(_defensePlayer == null ? "Equipos guardados" : "Volver a la tienda", 1);
+        menu.AddItem(_defensePlayer == null ? "Equipos guardados" : "Atrás · menú de supervivencia", 1);
         menu.AddItem("Venta múltiple", 2);
         menu.AddItem("Bonificaciones de conjuntos", 3);
         menu.AddItem("Descartar cambios y salir", 4);
@@ -243,7 +243,7 @@ public partial class EquipmentPanel : Control
         _sets.TooltipText = "Solo cuentan las piezas Míticas de la misma familia. Con 3 piezas sigue activo el bonus de 2. El bonus de 4 sustituye al de 2.\n"
             + string.Join("\n", activeSets.Select(f => Set(EquipmentCatalogue.FamilyName(f), m.Pieces(f), SetDescription(f, false), SetDescription(f, true))));
         _salesHelp.Text = _main.InventoryAutoSelling && !TemporaryInventory ? "Terminando la venta automática. Puedes salir de esta pantalla." :
-            "Los favoritos y las piezas equipadas están protegidos.";
+            "Favoritos y equipados protegidos. Los Míticos solo se venden manualmente.";
         if (!_busy && _status.Text.Length == 0) SetStatus(account == null ? "Inicia sesión con Google para recuperar tu inventario y conseguir objetos en PvP." :
             "Pulsa una posición para elegir una pieza. La configuración se guarda al salir del inventario.", routine: true);
         if (_defensePlayer != null) RenderDefenseActions();

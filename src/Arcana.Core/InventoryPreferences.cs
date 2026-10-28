@@ -52,7 +52,7 @@ public sealed class InventoryPreferences
     public EquipmentItem[] AutomaticSales(AccountProfile profile)
     {
         Normalize(profile);
-        return profile.Items.Where(i => !Protected(i.Id) && profile.Loadout.Get(i.Slot) != i.Id &&
+        return profile.Items.Where(i => i.Tier != ItemTier.Mythic && !Protected(i.Id) && profile.Loadout.Get(i.Slot) != i.Id &&
             AutoSellRules.Any(r => r.Style.MatchesLowerQuality(i) && !r.ExistingIds.Contains(i.Id))).ToArray();
     }
 
