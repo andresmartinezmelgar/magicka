@@ -33,6 +33,7 @@ public sealed partial class GameWorld
         {
             if (player.Bot || MatchEnded || command.SurvivalEquipmentSetup is not { Valid: true } setup) return false;
             progress.EquipmentSetup = setup.Copy(); progress.EquipmentSetupInitialized = true;
+            progress.ManualEquipmentSlots.Clear();
             if (setup.Enabled) ApplySurvivalEquipmentSetup(player);
             return true;
         }
@@ -68,14 +69,13 @@ public sealed partial class GameWorld
         if (command.Type == "defense_loadout")
         {
             if (command.Loadout == null) return false;
-            if (progress.EquipmentSetup.Enabled) return command.Loadout == progress.Loadout;
+            if (progress.EquipmentSetup.Enabled && (!player.Alive || MatchEnded)) return command.Loadout == progress.Loadout;
             var inventory = new AccountProfile("", player.Name, progress.Gold, 0, 0, progress.Loadout, progress.Items.ToArray());
             try
             {
                 // Valida las seis ranuras antes de cambiar ninguna. También permite quitar piezas.
                 var updated = AccountInventory.ApplyLoadout(inventory, command.Loadout);
-                progress.Loadout = updated.Loadout;
-                RecalculateDefender(player);
+                SetManualDefenseLoadout(player, progress, updated.Loadout);
                 return true;
             }
             catch (ArgumentException) { return false; }
@@ -121,17 +121,26 @@ public sealed partial class GameWorld
                 GrantDefenseItem(player, EquipmentCatalogue.Generate(_random));
                 return true;
             case "defense_equip":
+                EquipmentSlot selectedSlot;
+                if (command.ItemId == "")
+                {
+                    selectedSlot = (EquipmentSlot)command.Slot;
+                    if (!Enum.IsDefined(selectedSlot)) return false;
+                }
+                else
+                {
+                    var selected = progress.Items.FirstOrDefault(i => i.Id == command.ItemId);
+                    if (selected == null) return false;
+                    selectedSlot = selected.Slot;
+                }
+                SetManualDefenseLoadout(player, progress, progress.Loadout.With(selectedSlot, command.ItemId), selectedSlot);
+                return true;
             case "defense_upgrade":
             case "defense_sell":
                 if (command.ItemId == null || command.ItemId.Length != 32) return false;
                 var item = progress.Items.FirstOrDefault(i => i.Id == command.ItemId);
                 if (item == null) return false;
-                if (command.Type == "defense_equip")
-                {
-                    if (progress.EquipmentSetup.Enabled) return false;
-                    progress.Loadout = progress.Loadout.With(item.Slot, item.Id);
-                }
-                else if (command.Type == "defense_sell")
+                if (command.Type == "defense_sell")
                 {
                     if (progress.Loadout.Get(item.Slot) == item.Id || progress.Favorites.Contains(item.Id)) return false;
                     progress.Items.Remove(item); progress.Upgrades.Remove(item.Id);
@@ -323,7 +332,8 @@ public sealed partial class GameWorld
                     ActiveShieldRegeneration(p) + RelicBuffs.Regeneration(p) + s.Auras[2] * 10 * HealingPower(p.Id),
                     RelicBuffs.Speed(p) * p.Equipment.Speed * DefenseSpeed(p), Copy(s.Passives), Copy(s.PassiveCooldowns), s.BerserkerRemaining)
                     { Favorites = s.Favorites.ToArray(), AutoSellStyles = s.AutoSellStyles.ToArray(), AutoSold = s.AutoSold,
-                        EquipmentSetup = s.EquipmentSetup.Copy(), EquipmentSetupInitialized = s.EquipmentSetupInitialized };
+                        EquipmentSetup = s.EquipmentSetup.Copy(), EquipmentSetupInitialized = s.EquipmentSetupInitialized,
+                        ManualEquipmentSlots = s.ManualEquipmentSlots.Order().ToArray() };
             }).ToArray(), DefensePaused, _players.Values.Count(p => !p.Bot))
             { Bestiary = _defenseBestiary.Values.OrderBy(e => e.Kind).ToArray(), NextBossIn = _bossClock, BossesKilled = _bossesKilled,
                 MinionLimit = DefenseMinionLimit, PerformanceLimit = DefensePerformanceLimit };

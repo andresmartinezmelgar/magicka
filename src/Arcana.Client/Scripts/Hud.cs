@@ -190,9 +190,7 @@ public partial class Hud : Control
         _scorePanel = new PanelContainer { Name = "ScorePanel", Visible = false,
             CustomMinimumSize = new(700, 200), MouseFilter = MouseFilterEnum.Stop };
         _scoreCenter.AddChild(_scorePanel);
-        // El aviso de fin de ronda siempre debe quedar por encima del marcador,
-        // incluso cuando un jugador mantenía abierta la clasificación con TAB.
-        MoveChild(_noticeCenter, GetChildCount() - 1);
+        // La clasificación queda delante de los avisos de muerte y fin de partida.
         var scoreBox = new VBoxContainer { Name = "ScoreContent" }; scoreBox.AddThemeConstantOverride("separation", 10); _scorePanel.AddChild(scoreBox);
         _seriesStatus = Ui.Label("", 18, Ui.Gold);
         _seriesStatus.HorizontalAlignment = HorizontalAlignment.Center;
@@ -302,6 +300,8 @@ public partial class Hud : Control
         bool showScore = snapshot.Map != ArenaMapId.Practice && (ScoreOpen || Input.IsPhysicalKeyPressed(Key.Tab));
         bool opened = !_scorePanel.Visible && showScore;
         _scorePanel.Visible = showScore; _scoreClock += (float)delta;
+        if (opened) MoveChild(_scoreCenter, GetChildCount() - 1);
+        _bannerBackdrop.Visible = !showScore && _banner.Text.Length > 0;
         if (_scorePanel.Visible && (opened || _scoreClock >= 0.25f))
         { _scoreClock = 0; UpdateScore(snapshot, id); }
         if (ReferenceEquals(snapshot, _lastSnapshot)) return;
@@ -432,7 +432,7 @@ public partial class Hud : Control
             : !player.Alive && snapshot.Defense != null && player.Deaths >= DefenseRules.PlayerLives ? "VIDAS AGOTADAS\nTus aliados continúan"
             : !player.Alive ? "HAS CAÍDO\nReapareces en " +
                 (snapshot.Map == ArenaMapId.Ascension ? $"{player.Respawn:0.0}" : $"{Math.Ceiling(player.Respawn):0}") + " s" : "";
-        _bannerBackdrop.Visible = _banner.Text.Length > 0;
+        _bannerBackdrop.Visible = !showScore && _banner.Text.Length > 0;
         _banner.AddThemeColorOverride("font_color", snapshot.MatchEnded
             ? RoundPresentation.IsWinner(snapshot, id) ? Ui.Gold : Ui.Red : Ui.Gold);
         if (snapshot.RewardStatus != _lastRewardStatus)

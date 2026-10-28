@@ -98,11 +98,87 @@ internal static class SurvivalEquipmentSetupTests
             Check(state.Items.Single(i => i.Equipped).Item.Id == next.Id && state.Items.Length == 4 && state.AutoSold == 1 &&
                 state.Gold == gold + weak.SaleGold && state.Items.Any(i => i.Item.Id == strong.Id) && state.Items.Any(i => i.Item.Id == offElement.Id),
                 "El filtro vende la mejora, un Mítico sustituido o un Mítico de otro elemento.");
-            Check(!Send(world, player, new() { Type = "defense_equip", ItemId = favorite.Id }) &&
-                !Send(world, player, new() { Type = "defense_loadout", Loadout = new(Hat: favorite.Id) }), "Permite reemplazar manualmente la selección activa.");
+            Check(Send(world, player, new() { Type = "defense_equip", ItemId = favorite.Id }) &&
+                State(world, player).Items.Single(i => i.Equipped).Item.Id == favorite.Id &&
+                State(world, player).ManualEquipmentSlots.SequenceEqual(new[] { EquipmentSlot.Hat }) &&
+                State(world, player).EquipmentSetup.Enabled, "La selección activa bloquea la elección manual o se desactiva.");
             Check(Setup(world, player, Enabled(Element.Life) with { Enabled = false }), "No desactiva.");
             Check(Send(world, player, new() { Type = "defense_equip", ItemId = favorite.Id }), "Desactivar no restaura el control manual.");
             SnapshotValidation.Check(world.Snapshot());
+        });
+        test("Equipo predeterminado: el botín y las mejoras respetan la ranura manual mientras optimizan las demás", () =>
+        {
+            var world = World(); var player = world.AddPlayer("Mago")!;
+            var manual = Piece(EquipmentSlot.Hat, EquipmentStat.HealingPower, .01f);
+            var better = Piece(EquipmentSlot.Hat, EquipmentStat.HealingPower, .2f);
+            var weapon = Piece(EquipmentSlot.Weapon, EquipmentStat.HealingPower, .01f);
+            foreach (var item in new[] { manual, better, weapon }) Give(world, player, item);
+            Check(Setup(world, player, Enabled(Element.Life)), "No activa el equipo automático.");
+            Check(Send(world, player, new() { Type = "defense_equip", ItemId = manual.Id }), "No permite equipar manualmente.");
+            var hatDrop = Piece(EquipmentSlot.Hat, EquipmentStat.HealingPower, .3f, tier: ItemTier.Silver);
+            var weaponDrop = Piece(EquipmentSlot.Weapon, EquipmentStat.HealingPower, .3f, tier: ItemTier.Silver);
+            Give(world, player, hatDrop); Give(world, player, weaponDrop);
+            var state = State(world, player);
+            Check(state.EquipmentSetup.Enabled && state.ManualEquipmentSlots.SequenceEqual(new[] { EquipmentSlot.Hat }) &&
+                state.Items.Single(i => i.Item.Slot == EquipmentSlot.Hat && i.Equipped).Item.Id == manual.Id &&
+                state.Items.Single(i => i.Item.Slot == EquipmentSlot.Weapon && i.Equipped).Item.Id == weaponDrop.Id &&
+                state.Items.All(i => i.Item.Id != hatDrop.Id), "El botín sustituye la elección manual o deja de optimizar otras ranuras.");
+            Check(Send(world, player, new() { Type = "defense_favorite", ItemId = better.Id, Slot = 1 }) &&
+                State(world, player).Items.Single(i => i.Item.Slot == EquipmentSlot.Hat && i.Equipped).Item.Id == manual.Id,
+                "Recalcular favoritos sustituye la elección manual.");
+            Check(Setup(world, player, Enabled(Element.Life)), "No restablece la selección automática.");
+            state = State(world, player);
+            Check(state.ManualEquipmentSlots.Length == 0 && state.Items.Single(i => i.Item.Slot == EquipmentSlot.Hat && i.Equipped).Item.Id == better.Id,
+                "Aplicar conserva el bloqueo manual o no vuelve a elegir la mejor pieza.");
+            SnapshotValidation.Check(world.Snapshot());
+        });
+        test("Equipo predeterminado: valida la equipación completa antes de fijar ranuras y conserva huecos vacíos", () =>
+        {
+            var world = World(); var player = world.AddPlayer("Mago")!;
+            var hat = Piece(EquipmentSlot.Hat, EquipmentStat.HealingPower, .1f);
+            var weapon = Piece(EquipmentSlot.Weapon, EquipmentStat.HealingPower, .1f);
+            Give(world, player, hat); Give(world, player, weapon);
+            Check(Setup(world, player, Enabled(Element.Life)), "No activa el equipo automático.");
+            var before = State(world, player);
+            Check(!Send(world, player, new() { Type = "defense_loadout", Loadout = new(Hat: weapon.Id, Weapon: hat.Id) }) &&
+                State(world, player).ManualEquipmentSlots.Length == 0 && State(world, player).AutoSold == before.AutoSold,
+                "Un equipo inválido modifica las ranuras o vende piezas parcialmente.");
+            Check(!Send(world, player, new() { Type = "defense_equip", ItemId = "", Slot = 99 }) &&
+                !Send(world, player, new() { Type = "defense_equip", ItemId = Guid.NewGuid().ToString("N") }), "Acepta una ranura o pieza ajena.");
+            Check(Send(world, player, new() { Type = "defense_loadout", Loadout = new(Weapon: weapon.Id) }), "No permite desequipar en automático.");
+            Give(world, player, Piece(EquipmentSlot.Hat, EquipmentStat.HealingPower, .3f));
+            var state = State(world, player);
+            Check(state.ManualEquipmentSlots.SequenceEqual(new[] { EquipmentSlot.Hat }) && !state.Items.Any(i => i.Item.Slot == EquipmentSlot.Hat && i.Equipped) &&
+                state.Items.Single(i => i.Item.Slot == EquipmentSlot.Weapon && i.Equipped).Item.Id == weapon.Id,
+                "Reequipa una ranura vacía elegida manualmente o fija ranuras sin cambios.");
+            SnapshotValidation.Check(world.Snapshot());
+        });
+        test("Equipo predeterminado: las elecciones manuales se transportan, se guardan y se reinician con la partida", () =>
+        {
+            var world = World(); var player = world.AddPlayer("Mago")!; var ally = world.AddPlayer("Aliado")!;
+            var hat = Piece(EquipmentSlot.Hat, EquipmentStat.HealingPower, .1f);
+            Give(world, player, hat); Check(Setup(world, player, Enabled(Element.Life)), "No activa el equipo automático.");
+            var unequip = Protocol.Deserialize<ClientMessage>(Protocol.SerializeAction(new() { Type = "defense_equip", ItemId = "", Slot = (int)EquipmentSlot.Hat }))!;
+            Check(Send(world, player, unequip), "El transporte pierde el comando de desequipar.");
+            var snapshot = JsonSerializer.Deserialize<WorldSnapshot>(Protocol.Serialize(world.Snapshot()), Protocol.Json)!;
+            SnapshotValidation.Check(snapshot);
+            Check(snapshot.Defense!.Defenders.Single(p => p.PlayerId == player.Id).ManualEquipmentSlots.SequenceEqual(new[] { EquipmentSlot.Hat }),
+                "La red pierde la ranura manual vacía.");
+            Check(DefenseVisibility.ForPlayer(snapshot, ally.Id).Defense!.Defenders.Single(p => p.PlayerId == player.Id).ManualEquipmentSlots.Length == 0,
+                "Filtra las elecciones privadas a otro jugador.");
+            world.RemovePlayer(ally.Id);
+            var save = world.SaveSurvival(player.Id, Guid.NewGuid().ToString("N"));
+            var restored = GameWorld.RestoreSurvival(save); var human = restored.Players[player.Id];
+            Give(restored, human, Piece(EquipmentSlot.Hat, EquipmentStat.HealingPower, .3f));
+            Check(State(restored, human).ManualEquipmentSlots.SequenceEqual(new[] { EquipmentSlot.Hat }) && !State(restored, human).Items.Any(i => i.Equipped),
+                "Continuar pierde la elección manual.");
+            var legacy = JsonNode.Parse(save.State.GetRawText())!;
+            legacy["Defenders"]![0]!["Progress"]!.AsObject().Remove("ManualEquipmentSlots");
+            var old = GameWorld.RestoreSurvival(save with { State = JsonSerializer.SerializeToElement(legacy) });
+            Check(State(old, old.Players[player.Id]).ManualEquipmentSlots.Length == 0, "Un guardado anterior inventa elecciones manuales.");
+            typeof(GameWorld).GetMethod("ResetDefense", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(restored, []);
+            Check(State(restored, human).EquipmentSetup.Enabled && State(restored, human).ManualEquipmentSlots.Length == 0,
+                "Una partida nueva arrastra ranuras manuales de objetos anteriores.");
         });
         test("Equipo predeterminado: 24 favoritos no desbordan el inventario y cada venta se contabiliza una vez", () =>
         {

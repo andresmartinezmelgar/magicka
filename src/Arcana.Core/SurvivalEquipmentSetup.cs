@@ -17,12 +17,15 @@ public sealed record SurvivalEquipmentSetup
 public static class SurvivalEquipmentSelection
 {
     public static EquipmentLoadout Select(IReadOnlyList<EquipmentItem> items, SurvivalEquipmentSetup setup, EquipmentLoadout current,
-        IReadOnlyDictionary<string, int>? upgrades = null)
+        IReadOnlyDictionary<string, int>? upgrades = null, IReadOnlySet<EquipmentSlot>? manualSlots = null)
     {
         if (!setup.Valid || items.Count > DefenseRules.InventoryLimit + 1 || items.Any(i => !EquipmentCatalogue.Valid(i)) ||
-            items.Select(i => i.Id).Distinct().Count() != items.Count) throw new ArgumentException("Selección automática inválida.");
+            items.Select(i => i.Id).Distinct().Count() != items.Count || manualSlots?.Any(s => !Enum.IsDefined(s)) == true)
+            throw new ArgumentException("Selección automática inválida.");
         var slots = Enum.GetValues<EquipmentSlot>();
-        var choices = slots.Select(slot => items.Where(i => i.Slot == slot).OrderBy(i => i.Id, StringComparer.Ordinal).Cast<EquipmentItem?>().ToArray()).ToArray();
+        var choices = slots.Select(slot => items.Where(i => i.Slot == slot &&
+            (manualSlots?.Contains(slot) != true || i.Id == current.Get(slot)))
+            .OrderBy(i => i.Id, StringComparer.Ordinal).Cast<EquipmentItem?>().ToArray()).ToArray();
         for (int i = 0; i < choices.Length; i++) if (choices[i].Length == 0) choices[i] = [null];
         var selected = new EquipmentItem?[slots.Length]; var best = new EquipmentItem?[slots.Length];
         var stats = new double[Enum.GetValues<EquipmentStat>().Length]; var sets = new int[Enum.GetValues<EquipmentFamily>().Length];

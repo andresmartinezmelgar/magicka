@@ -6,7 +6,7 @@ public sealed partial class GameWorld
     {
         var progress = _defenders[player.Id];
         EquipmentItem[] candidates = incoming == null ? progress.Items.ToArray() : [.. progress.Items, incoming];
-        var chosen = SurvivalEquipmentSelection.Select(candidates, progress.EquipmentSetup, progress.Loadout, progress.Upgrades);
+        var chosen = SurvivalEquipmentSelection.Select(candidates, progress.EquipmentSetup, progress.Loadout, progress.Upgrades, progress.ManualEquipmentSlots);
         var equipped = Enum.GetValues<EquipmentSlot>().Select(chosen.Get).Where(id => id.Length > 0).ToHashSet(StringComparer.Ordinal);
         bool Retain(EquipmentItem item) => item.Tier == ItemTier.Mythic || equipped.Contains(item.Id) || progress.Favorites.Contains(item.Id);
         var retained = candidates.Where(Retain).ToArray();
@@ -32,5 +32,15 @@ public sealed partial class GameWorld
         int earned = Math.Min(100000000 - progress.Gold, item.SaleGold);
         progress.Gold += earned; StatisticsEconomy(playerId, StatisticMeasure.GoldEarned, earned);
         if (progress.AutoSold < int.MaxValue) progress.AutoSold++;
+    }
+
+    private void SetManualDefenseLoadout(Wizard player, DefenseProgress progress, EquipmentLoadout loadout, EquipmentSlot? chosenSlot = null)
+    {
+        if (progress.EquipmentSetup.Enabled)
+            foreach (var slot in Enum.GetValues<EquipmentSlot>())
+                if (slot == chosenSlot || loadout.Get(slot) != progress.Loadout.Get(slot)) progress.ManualEquipmentSlots.Add(slot);
+        progress.Loadout = loadout;
+        if (progress.EquipmentSetup.Enabled) ApplySurvivalEquipmentSetup(player);
+        else RecalculateDefender(player);
     }
 }

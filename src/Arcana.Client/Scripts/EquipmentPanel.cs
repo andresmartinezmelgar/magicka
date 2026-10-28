@@ -316,10 +316,20 @@ public partial class EquipmentPanel : Control
     }
     private void ChooseItem(string id)
     {
-        if (InventoryLocked || _draft == null || AutomaticSurvivalEquipment) return;
+        if (InventoryLocked || _draft == null || TemporaryInventory && !CanChangeDefenseItems) return;
         ResetQuickActions();
         try
         {
+            if (AutomaticSurvivalEquipment)
+            {
+                // Confirmar solo la ranura elegida evita sobrescribir botín recibido mientras el menú está abierto.
+                _ = AccountInventory.Equip(_draft, new InventoryRequest(id, _selectedSlot));
+                var slot = _selectedSlot;
+                DefenseOperation(new() { Type = "defense_equip", ItemId = id, Slot = (int)slot },
+                    p => p.ManualEquipmentSlots.Contains(slot) && DefenseProfile(p).Loadout.Get(slot) == id,
+                    message: "Elección manual confirmada. Esta ranura se mantiene; las demás siguen en automático.");
+                return;
+            }
             _draft = AccountInventory.Equip(_draft, new InventoryRequest(id, _selectedSlot));
             Render();
             RefreshPickerItems();

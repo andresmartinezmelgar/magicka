@@ -193,7 +193,22 @@ public partial class Main
                 shop.ShowSection(1); await Frames(); inventory = shop.EquipmentInventory!; inventory.PressInspect(EquipmentSlot.Boots); await Frames();
                 Check(((Button)inventory.FindChild("EquipmentAutoSell_" + markBoots.Id, true, false)).Disabled,
                     "El filtro por calidad compite con la configuración automática.");
+                var manualBoots = EquipmentCatalogue.Generate(new(965), tier: ItemTier.Mythic, slot: EquipmentSlot.Boots)
+                    with { Affix = new(ItemAffixKind.DoubleBurn) };
+                grant.Invoke(_practice, [player, manualBoots]); await Frames();
+                Check(!((Button)inventory.FindChild("EquipmentEquip_" + manualBoots.Id, true, false)).Disabled,
+                    "La selección automática bloquea el botón de equipar.");
+                inventory.PressChoice(manualBoots.Id); await Frames();
+                var manualSetup = _practice.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId);
+                Check(manualSetup.EquipmentSetup.Enabled && manualSetup.ManualEquipmentSlots.Contains(EquipmentSlot.Boots) &&
+                    manualSetup.Items.Single(i => i.Item.Id == manualBoots.Id).Equipped && manualSetup.Items.Single(i => i.Item.Id == echoHat.Id).Equipped,
+                    "Equipar manualmente desactiva el automático, no conserva la elección o cambia otras ranuras.");
                 await Click(Exit(inventory, "EquipmentBackToShop")); shop.ShowSection(6); await Frames();
+                setupScroll.ScrollVertical = int.MaxValue; await Frames();
+                await Click(setupApply);
+                var resetSetup = _practice.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId);
+                Check(resetSetup.ManualEquipmentSlots.Length == 0 && resetSetup.Items.Single(i => i.Item.Id == markBoots.Id).Equipped,
+                    "Aplicar no restablece la selección automática de una ranura manual.");
                 setupScroll.ScrollVertical = int.MaxValue; await Frames();
                 await Click((Button)shop.FindChild("SurvivalSetupDisable", true, false));
                 Check(!_practice.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId).EquipmentSetup.Enabled &&
@@ -216,6 +231,13 @@ public partial class Main
                 typeof(GameWorld).GetMethod("CheckSurvivalEnd", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(_practice, []); await Frames();
                 Check(ViewingDamageSummary && !_defensePanel!.ShopOpen, "La tienda tapa el resumen final de Supervivencia.");
                 Back(); await Frames(); Check(!ViewingDamageSummary, "Atrás no cierra el resumen final.");
+                var finalSnapshot = _practice.Snapshot();
+                _hud!.ScoreOpen = true; _hud.Update(finalSnapshot, _localId, "Local", 0);
+                Check(((Control)_hud.FindChild("ScorePanel", true, false)).Visible && !_hud.RoundAnnouncementVisibleForSmoke &&
+                    _hud.FindChild("ScoreCenter", true, false).GetIndex() > _hud.FindChild("HudCenteredNotices", true, false).GetIndex(),
+                    "El aviso de fin de Supervivencia tapa la clasificación.");
+                _hud.ScoreOpen = false; _hud.Update(finalSnapshot, _localId, "Local", 0);
+                Check(_hud.RoundAnnouncementVisibleForSmoke, "Cerrar la tabla con el mismo estado no recupera el aviso final.");
                 ReturnToLauncher(); await Frames();
                 StartPractice("Navegación", 0, GameMode.Duel, 1); await Ready(); OpenPlayerEquipment(); await Frames();
                 await Click(Exit(_playerEquipmentPanel!, "PlayerEquipmentBack")); Check(!InspectingEquipment, "La ficha del jugador no cierra.");

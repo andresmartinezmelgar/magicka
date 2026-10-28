@@ -52,6 +52,10 @@ public partial class EquipmentPanel
         var choices = EquipmentQuery.Sort(allChoices, equippedId: equipped);
         _optionAItemsTab!.Text = EquipmentCatalogue.SlotName(slot) + $" · {choices.Length}";
         _pickerHelp.Text = "Equipada primero · Favoritos y piezas equipadas protegidos de la venta.";
+        if (AutomaticSurvivalEquipment)
+            _pickerHelp.Text += _defensePlayer!.ManualEquipmentSlots.Contains(slot)
+                ? " Esta ranura conserva tu elección manual. Aplicar la configuración predeterminada restablece la selección automática."
+                : " Puedes equipar otra pieza: tu elección se mantendrá en esta ranura y las demás seguirán en automático.";
         if (TemporaryInventory && _defensePlayer!.Items.Length >= DefenseRules.InventoryLimit)
             _pickerHelp.Text += " " + DefenseRules.InventoryFullNotice;
         if (_main.DefensiveAssistanceActive) _pickerHelp.Text += " Supervivencia máxima: tu mago mantiene el escudo y se aleja de los enemigos. Puede recibir daño.";
@@ -143,8 +147,8 @@ public partial class EquipmentPanel
     {
         foreach (var button in _itemButtons.Values)
         {
-            button.Disabled = InventoryLocked || AutomaticSurvivalEquipment || (_defensePlayer != null && !CanChangeDefenseItems);
-            if (AutomaticSurvivalEquipment) button.TooltipText = "La configuración predeterminada elige el equipo. Desactívala en la tienda para equipar manualmente.";
+            button.Disabled = InventoryLocked || (_defensePlayer != null && !CanChangeDefenseItems);
+            if (AutomaticSurvivalEquipment) button.TooltipText = "Confirma tu elección manual para esta ranura. La selección automática sigue activa en las demás. Aplicar la configuración predeterminada restablece todas las ranuras.";
         }
         foreach (var (id, button) in _trashButtons) button.Disabled = InventoryLocked || !CanSellInventory || SaleProtected(id);
         foreach (var (id, button) in _upgradeButtons) button.Disabled = !CanUpgradeItem(id);

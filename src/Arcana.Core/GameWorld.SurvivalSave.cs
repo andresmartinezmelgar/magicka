@@ -47,6 +47,7 @@ public sealed partial class GameWorld
         public int AutoSold;
         public SurvivalEquipmentSetup EquipmentSetup = new();
         public bool EquipmentSetupInitialized;
+        public EquipmentSlot[] ManualEquipmentSlots = [];
         public EquipmentLoadout Loadout = new();
         public Dictionary<string, int> Upgrades = [];
     }
@@ -102,6 +103,7 @@ public sealed partial class GameWorld
                     Items = s.Items.ToArray(), Loadout = s.Loadout, Upgrades = new(s.Upgrades), Auras = s.Auras.ToArray(),
                     Favorites = s.Favorites.ToArray(), AutoSellStyles = s.AutoSellStyles.ToArray(), AutoSold = s.AutoSold,
                     EquipmentSetup = s.EquipmentSetup.Copy(), EquipmentSetupInitialized = s.EquipmentSetupInitialized,
+                    ManualEquipmentSlots = s.ManualEquipmentSlots.Order().ToArray(),
                     AutoSellRuleVersion = InventoryPreferences.CurrentAutoSellRuleVersion
                 });
             }).ToArray(),
@@ -164,6 +166,7 @@ public sealed partial class GameWorld
             d.Auras.CopyTo(progress.Auras, 0); p.BuffStacks.CopyTo(progress.Buffs, 0);
             progress.Items.AddRange(d.Items);
             progress.Favorites.UnionWith(d.Favorites);
+            progress.ManualEquipmentSlots.UnionWith(d.ManualEquipmentSlots);
             if (d.AutoSellRuleVersion is 1 or InventoryPreferences.CurrentAutoSellRuleVersion)
                 progress.AutoSellStyles.UnionWith(EquipmentStyle.SlotLimits(d.AutoSellStyles));
             progress.AutoSold = d.AutoSold;
@@ -244,6 +247,9 @@ public sealed partial class GameWorld
             var d = entry!.Progress;
             Require(d.Level is >= 1 and <= 100 && d.Experience >= 0 && d.Gold is >= 0 and <= 100000000 &&
                 d.EquipmentSetup is { Valid: true } && (!d.EquipmentSetup.Enabled || d.EquipmentSetupInitialized) &&
+                d.ManualEquipmentSlots is { Length: <= 6 } && d.ManualEquipmentSlots.All(s => Enum.IsDefined(s)) &&
+                d.ManualEquipmentSlots.Distinct().Count() == d.ManualEquipmentSlots.Length &&
+                (d.EquipmentSetup.Enabled || d.ManualEquipmentSlots.Length == 0) &&
                 (d.GoldCoinRemainderScale == 0 ? d.GoldCoinRemainder is >= 0 and <= 1 :
                     d.GoldCoinRemainderScale == GoldBonuses.CoinFractionScale && d.GoldCoinRemainder is >= 0 and < GoldBonuses.CoinFractionScale) &&
                 d.GoldPercentRemainder is >= 0 and <= 99 &&

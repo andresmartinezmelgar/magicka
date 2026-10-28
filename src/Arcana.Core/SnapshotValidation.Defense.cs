@@ -46,6 +46,9 @@ public static partial class SnapshotValidation
                 p.Favorites is not { Length: <= DefenseRules.InventoryLimit } || p.Favorites.Distinct().Count() != p.Favorites.Length ||
                 p.Favorites.Any(id => !p.Items.Any(i => i?.Item?.Id == id)) || p.AutoSold < 0 ||
                 p.EquipmentSetup is not { Valid: true } || p.EquipmentSetup.Enabled && !p.EquipmentSetupInitialized ||
+                p.ManualEquipmentSlots is not { Length: <= 6 } || p.ManualEquipmentSlots.Any(s => !Enum.IsDefined(s)) ||
+                p.ManualEquipmentSlots.Distinct().Count() != p.ManualEquipmentSlots.Length ||
+                !p.EquipmentSetup.Enabled && p.ManualEquipmentSlots.Length > 0 ||
                 p.AutoSellStyles == null || p.AutoSellStyles.Length > EquipmentStyle.Limit || p.AutoSellStyles.Any(s => !s.Valid) ||
                 p.AutoSellStyles.Distinct().Count() != p.AutoSellStyles.Length ||
                 p.AutoSellStyles.Any(s => s.Tier == ItemTier.Silver) ||

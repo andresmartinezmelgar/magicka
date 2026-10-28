@@ -2,6 +2,8 @@
 
 ## Sin publicar
 
+- La tabla se dibuja delante de los avisos del HUD; el mensaje de muerte o fin de partida se oculta al abrirla y reaparece al cerrarla.
+- La configuración automática permite equipar y desequipar manualmente. Conserva cada elección por ranura, incluso al recibir botín o continuar un guardado, mientras optimiza las demás. Aplicar y activar restablece la selección automática de todas las ranuras.
 - Configuración predeterminada muestra la descripción completa de cada afijo elegido debajo de su selector, con cifras, condiciones y colores de los elementos. Se actualiza al cambiar la selección y al recuperar la configuración guardada.
 
 ## 0.29.33
