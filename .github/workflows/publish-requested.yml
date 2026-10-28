@@ -1,7 +1,7 @@
 name: Publicacion de Supervivencia expresamente solicitada
 
 # Activador limitado a la rama y a la petición de tag/APK del usuario.
-# Revisión 1: configuración predeterminada, prioridades Míticas y revisión completa de los cambios pendientes.
+# Revisión 2: títulos de ayuda adaptables y mapa explícito en las nuevas regresiones.
 # Petición de 0.29.32: tag y APK firmado de pruebas, solicitados expresamente por el usuario.
 on:
   push:

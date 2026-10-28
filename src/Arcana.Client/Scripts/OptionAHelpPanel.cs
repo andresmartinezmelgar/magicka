@@ -303,7 +303,8 @@ public partial class OptionAHelpPanel : Control
         _body.AddChild(introduction);
         var example = SmallCard(); _body.AddChild(example);
         var examples = new VBoxContainer(); example.AddChild(examples);
-        examples.AddChild(Ui.Label("DEFENSA NO ES CAPACIDAD DE ESCUDO", 20, Ui.Gold));
+        var exampleHeading = Ui.Label("DEFENSA NO ES CAPACIDAD DE ESCUDO", 20, Ui.Gold);
+        exampleHeading.AutowrapMode = TextServer.AutowrapMode.WordSmart; examples.AddChild(exampleHeading);
         Wrapped(examples, EquipmentCatalogue.StatExample(EquipmentStat.Defense));
         Wrapped(examples, EquipmentCatalogue.StatExample(EquipmentStat.ShieldCapacity));
         Wrapped(examples, "DOS ANILLOS · Oro: una moneda extra cada 11 en nivel 0; cada moneda en nivel 10. Mágico: capacidad de escudo y habilidad elemental, sin afijos. Renueva su escudo cada 16–8 s; desde nivel 6 duplica el elemento. La ficha muestra sus efectos y cifras. Admiten diez mejoras con oro de cuenta o de partida en Supervivencia. No cuentan para conjuntos.");
@@ -328,7 +329,8 @@ public partial class OptionAHelpPanel : Control
             var contents = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
             contents.AddThemeConstantOverride("separation", 8);
             card.AddChild(contents);
-            contents.AddChild(Ui.Label(EquipmentCatalogue.StatName(stat), 18, Ui.Gold));
+            var statHeading = Ui.Label(EquipmentCatalogue.StatName(stat), 18, Ui.Gold);
+            statHeading.AutowrapMode = TextServer.AutowrapMode.WordSmart; contents.AddChild(statHeading);
             Wrapped(contents, EquipmentCatalogue.StatDescription(stat));
         }
         Wrapped(_body, "Los atributos tienen límites máximos. Los negativos, si los hay, se suman a los positivos. El valor «Aplicado» es el que utiliza el servidor durante la partida.", Ui.Muted);

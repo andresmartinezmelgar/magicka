@@ -26,3 +26,7 @@ La preferencia se recuerda por cuenta o invitado en el dispositivo; el servidor 
 Siete nuevas regresiones del equipo predeterminado cubren ocho elementos, conjuntos completos, anillos, prioridad y coexistencia de afijos, ventas, favoritos, inventario lleno, desactivación, protocolo, visibilidad privada, guardados actuales y anteriores y datos inválidos. La navegación Godot comprueba las siete pestañas, duplicados, activación, venta y desactivación en 640×450, 960×450 y 1440×900.
 
 El publicador exige compilación y pruebas del motor y red, cuentas con emulador, Docker amd64/arm64, verificación Godot y paquetes Windows/Android antes de crear el tag. Se genera APK con firma permanente y manifiestos SHA-256, además de los paquetes de escritorio y parches del mismo canal. Los resultados y enlaces concretos se comprueban una vez terminada la ejecución.
+
+### Primera ejecución (r617)
+
+C# compila; las regresiones de Marca, Eco, fragmentación, auras y daño personal pasan. Las tres comprobaciones puras del selector también pasan. Cuatro regresiones de integración nuevas no llegaron al caso probado porque su fixture omitía el mapa Bastión; se explicita el mapa requerido. Las capturas móviles detectaron que los nombres completos de los atributos imponían anchuras excesivas en la ayuda; sus títulos y el encabezado del ejemplo ahora admiten varias líneas sin acortar el texto. Cuentas, Docker en ambas arquitecturas y paquete Windows pasan. La publicación queda bloqueada hasta repetir y completar todos los controles.

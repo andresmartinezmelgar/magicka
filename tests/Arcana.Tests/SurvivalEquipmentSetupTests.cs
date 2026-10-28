@@ -9,7 +9,8 @@ internal static class SurvivalEquipmentSetupTests
     private static EquipmentItem Piece(EquipmentSlot slot, EquipmentStat stat, float value, EquipmentFamily family = EquipmentFamily.Mixed,
         ItemTier tier = ItemTier.Mythic, ItemAffix? affix = null) => EquipmentCatalogue.Generate(new(932), slot: slot, family: family, tier: tier)
         with { Id = Guid.NewGuid().ToString("N"), Bonuses = [new(stat, -.25f, .5f, value)], Affix = affix };
-    private static GameWorld World() => new(new() { Mode = GameMode.Defense, SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 2 });
+    private static GameWorld World() => new(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion,
+        SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 2 });
     private static void Give(GameWorld world, Wizard player, EquipmentItem item) => typeof(GameWorld)
         .GetMethod("GrantDefenseItem", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(world, [player, item]);
     private static DefensePlayerSnapshot State(GameWorld world, Wizard player) => world.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == player.Id);
