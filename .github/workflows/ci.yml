@@ -226,10 +226,19 @@ jobs:
           import glob, struct, pathlib, hashlib
           files = sorted(glob.glob('artifacts/visual-review/*/*.png'))
           statistics = [f'statistics-{view}.png' for view in range(6)] + ['statistics-2-received.png']
-          expected = 47 + 2 * len(statistics)  # Seis vistas y la segunda gráfica de enemigos.
+          biomes = ['Forest', 'City', 'Ruins', 'Sanctuary', 'Desert', 'Frozen', 'Volcanic', 'Crystal', 'Marsh', 'Fungal']
+          expected = 47 + 2 * (len(statistics) + len(biomes))
           if len(files) != expected:
               raise SystemExit(f'Faltan capturas: {len(files)}/{expected}')
           for surface in ('desktop', 'mobile'):
+              biome_hashes = set()
+              for biome in biomes:
+                  path = pathlib.Path('artifacts/visual-review') / f'biomes-{surface}' / f'{biome}.png'
+                  if not path.is_file() or path.stat().st_size == 0:
+                      raise SystemExit(f'Falta captura del bioma: {path}')
+                  biome_hashes.add(hashlib.sha256(path.read_bytes()).digest())
+              if len(biome_hashes) != len(biomes):
+                  raise SystemExit(f'Biomas indistinguibles en {surface}: {len(biome_hashes)}/{len(biomes)}')
               for name in statistics:
                   path = pathlib.Path('artifacts/visual-review') / f'statistics-{surface}' / name
                   if not path.is_file() or path.stat().st_size == 0:
@@ -243,7 +252,7 @@ jobs:
                   raise SystemExit(f'Tamaño inesperado {w}x{h}: {name}')
           unique = len({hashlib.sha256(pathlib.Path(p).read_bytes()).digest() for p in files})
           if unique < 38: raise SystemExit(f'Escenas indistinguibles: {unique}/{len(files)}')
-          print(f'VISUAL_QA_OK: {len(files)} PNG válidos, {unique} fotogramas distintos, escenarios de tamaño, auras de piedra y seis vistas estadísticas en móvil/escritorio.')
+          print(f'VISUAL_QA_OK: {len(files)} PNG válidos, {unique} fotogramas distintos, diez biomas, escenarios de tamaño, auras de piedra y seis vistas estadísticas en móvil/escritorio.')
           PY
       - name: Comprobar bonificaciones activas, persistencia y consulta de otros magos
         run: |

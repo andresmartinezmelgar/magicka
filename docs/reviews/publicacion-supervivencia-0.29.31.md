@@ -20,3 +20,9 @@ Se generan APK de firma permanente, Windows ZIP y RAR 5 verificado por extracci�
 Motor y red: 569 correctas y 0 fallidas; lobby: 547 correctas y 0 fallidas. Los diez biomas completaron la comprobación en escritorio y móvil. La integración de cuentas detectó que una salida normal podía dejar al jugador reservado para reconexión: el cliente enviaba CloseOutput y abortaba inmediatamente, sin esperar confirmación; el servidor tampoco respondía al estado CloseReceived.
 
 El cliente espera al lector dentro del plazo de cierre ya existente y el servidor confirma los cierres recibidos. La salida explícita no notifica pérdida de red. Se añade una regresión con WebSocket real y confirmación controlada, incluidos dos cierres simultáneos; la integración conserva la prueba original de salida y nueva entrada con recursos intactos. La siguiente compilación vuelve a ejecutar todas las comprobaciones antes de publicar.
+
+## Validación r615
+
+Motor: 547 correctas; motor y red: 570; lobby: 548; cuentas: 31; cero fallos. Docker amd64/arm64 y Windows correctos. La prueba original de salida y reentrada y la nueva regresión del cierre pasan. Las veinte capturas de biomas se generan correctamente y las pantallas de inventario y estadísticas móviles mantienen texto legible y tablas enumeradas.
+
+La comprobación final de imágenes seguía contando las 61 anteriores y rechazó las 81 generadas. Se actualiza el total y se exige cada bioma por nombre en escritorio y móvil, con diez hashes distintos por superficie. Se conserva la validación de tamaño, firma PNG y variedad global. Esta corrección del validador requiere otra ejecución completa antes del tag.
