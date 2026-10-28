@@ -8,13 +8,16 @@ namespace Arcana.Client;
 public partial class StatisticsBarChart : Control
 {
     public readonly record struct Part(string Label, double Value, Color Color);
-    public readonly record struct Category(string Label, double Value, Color Color, Part[]? Parts = null);
+    public readonly record struct Category(string Label, double Value, Color Color, Part[]? Parts = null, MinionKind? Enemy = null);
     public Category[] Categories { get; set; } = [];
     public float CategoryWidth { get; init; } = 80;
     public string HorizontalTitle { get; init; } = "Elemento";
     public string ValueTitle { get; init; } = "Total";
     public bool? Logarithmic { get; init; }
     private const float Left = 72, Right = 20, Top = 28, Bottom = 146;
+    private readonly Dictionary<int, BestiaryPortrait> _portraits = [];
+    internal IReadOnlyDictionary<int, BestiaryPortrait> EnemyPortraits => _portraits;
+    private float PlotBottom => _portraits.Count > 0 ? 228 : Bottom;
     internal static string ShortLabel(string label) => label switch
     {
         "Hechizos directos" or "Ataques directos" => "Daño",
@@ -32,14 +35,32 @@ public partial class StatisticsBarChart : Control
     public StatisticsBarChart()
     {
         CustomMinimumSize = new(0, 340); SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        MouseFilter = MouseFilterEnum.Pass; Resized += QueueRedraw;
+        MouseFilter = MouseFilterEnum.Pass; Resized += () => { PositionPortraits(); QueueRedraw(); };
     }
-    public override void _Ready() => CustomMinimumSize = new(Left + Right + Categories.Length * CategoryWidth, CustomMinimumSize.Y);
+    public override void _Ready()
+    { CustomMinimumSize = new(Left + Right + Categories.Length * CategoryWidth, CustomMinimumSize.Y); PreparePortraits(); }
     internal void ReplaceCategories(Category[] categories)
     {
         Categories = categories;
         CustomMinimumSize = new(Left + Right + Categories.Length * CategoryWidth, CustomMinimumSize.Y);
+        if (IsInsideTree()) PreparePortraits();
         QueueRedraw();
+    }
+    private void PreparePortraits()
+    {
+        if (_portraits.Count == Categories.Count(c => c.Enemy.HasValue) &&
+            _portraits.All(p => p.Key < Categories.Length && Categories[p.Key].Enemy == p.Value.Kind)) return;
+        foreach (var portrait in _portraits.Values) { RemoveChild(portrait); portrait.QueueFree(); }
+        _portraits.Clear();
+        for (int i = 0; i < Categories.Length; i++)
+            if (Categories[i].Enemy is { } kind) _portraits[i] = BestiaryPortrait.AddTo(this, kind);
+        PositionPortraits();
+    }
+    private void PositionPortraits()
+    {
+        float slot = Math.Max(1, Size.X - Left - Right) / Math.Max(1, Categories.Length);
+        foreach (var pair in _portraits)
+            pair.Value.Position = new(Left + (pair.Key + .5f) * slot - 36, Size.Y - PlotBottom + 12);
     }
     internal MatchStatisticsScale DataScale => new(Categories.SelectMany(c => c.Parts is { Length: > 0 } parts ? parts.Select(p => p.Value) : new[] { c.Value }), Logarithmic);
     internal double ScaleMaximum => DataScale.Maximum;
@@ -48,7 +69,7 @@ public partial class StatisticsBarChart : Control
     public override void _Draw()
     {
         var font = GetThemeDefaultFont(); const int textSize = 14;
-        float width = Math.Max(1, Size.X - Left - Right), height = Math.Max(1, Size.Y - Top - Bottom);
+        float width = Math.Max(1, Size.X - Left - Right), height = Math.Max(1, Size.Y - Top - PlotBottom);
         var scale = DataScale;
         DrawString(font, new(Left, 18), scale.Logarithmic ? "Puntos · escala logarítmica" : "Puntos · escala lineal", fontSize: textSize, modulate: Ui.Muted);
         for (int tick = 0; tick <= 4; tick++)

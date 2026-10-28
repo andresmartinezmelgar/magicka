@@ -7,7 +7,7 @@ public partial class MatchStatisticsPanel
 {
     private int _chartIndex;
     private readonly Dictionary<string, (double Value, double Shield)> _chartValues = new(StringComparer.Ordinal);
-    private readonly record struct Bar(string Label, double Value, double Shield, Color Color);
+    private readonly record struct Bar(string Label, double Value, double Shield, Color Color, MinionKind? Enemy = null);
     private static Color ElementTint(int element) => element < 8 ? Ui.ElementColor((Element)element) : Ui.Muted;
     private double GroupSum(StatisticGroup group, StatisticMeasure measure) =>
         _totals.Where(p => p.Key.Item1 == group && p.Key.Item3 == measure).Sum(p => p.Value);
@@ -36,6 +36,7 @@ public partial class MatchStatisticsPanel
             _chartValues[title + "/" + item.Label] = (item.Value, item.Shield);
             var row = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; row.AddThemeConstantOverride("separation", 4); box.AddChild(row);
             var labels = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; labels.AddThemeConstantOverride("separation", 12); row.AddChild(labels);
+            if (item.Enemy is { } kind) BestiaryPortrait.AddTo(labels, kind, 48);
             var name = Ui.Label(item.Label, 15, item.Color); name.AutowrapMode = TextServer.AutowrapMode.WordSmart; name.SizeFlagsHorizontal = SizeFlags.ExpandFill; labels.AddChild(name);
             string text = damage ? $"{StatisticsPresentation.Number(item.Value)} vida · {StatisticsPresentation.Number(item.Shield)} escudo"
                 : StatisticsPresentation.Number(item.Value) + (unit.Length > 0 ? " " + unit : "");
@@ -126,7 +127,7 @@ public partial class MatchStatisticsPanel
         parts.Add(new("Sin desglose", Math.Max(0, ElementSum(StatisticMeasure.Damage, _damageElement) - parts.Sum(p => p.Value)),
             Math.Max(0, ElementSum(StatisticMeasure.ShieldDamage, _damageElement) - parts.Sum(p => p.Shield)), ElementTint(_damageElement)));
         Bars("Origen del daño de " + Elements[_damageElement],
-            "Directos: haces, conos, rayos, proyectiles y golpes. Áreas: barreras, novas, minas, meteoritos y bombardeos. Auras: zonas pasivas de fuego, rayo, arcano o agua. Quemaduras: daño posterior por arder. Sin desglose: informes anteriores o detalle incompleto. Cada daño se cuenta una sola vez.", parts);
+            "Directos: haces, ecos arcanos, conos, rayos, proyectiles y golpes. Áreas: barreras, novas, minas, meteoritos, bombardeos y marcas arcanas. Auras: zonas pasivas de fuego, rayo, arcano o agua. Quemaduras: daño posterior por arder. Sin desglose: informes anteriores o detalle incompleto. Cada daño se cuenta una sola vez.", parts);
     }
     private StatisticsBarChart.Part[] HealingParts()
     {
@@ -176,18 +177,18 @@ public partial class MatchStatisticsPanel
     {
         VerticalChart("Daño realizado por enemigo", "Rojo: daño que inflige cada especie, incluido el daño a escudos. Escala propia desde cero, independiente del daño recibido.",
             Enum.GetValues<MinionKind>().Select(kind => new StatisticsBarChart.Category(DefenseRules.MinionName(kind),
-                Sum(StatisticGroup.Enemy, StatisticMeasure.Damage, (int)kind) + Sum(StatisticGroup.Enemy, StatisticMeasure.ShieldDamage, (int)kind), Ui.Red)).ToArray(),
+                Sum(StatisticGroup.Enemy, StatisticMeasure.Damage, (int)kind) + Sum(StatisticGroup.Enemy, StatisticMeasure.ShieldDamage, (int)kind), Ui.Red, Enemy: kind)).ToArray(),
             name: "EnemyDamageDealtBars", enemies: true, valueTitle: "Daño realizado");
         VerticalChart("Daño recibido por enemigo", "Azul: daño que recibe cada especie en vida y escudos. Escala propia desde cero; el orden de los enemigos coincide con la gráfica de daño realizado.",
             Enum.GetValues<MinionKind>().Select(kind => new StatisticsBarChart.Category(DefenseRules.MinionName(kind),
-                Sum(StatisticGroup.Enemy, StatisticMeasure.DamageReceived, (int)kind) + Sum(StatisticGroup.Enemy, StatisticMeasure.ShieldAbsorbed, (int)kind), Ui.Blue)).ToArray(),
+                Sum(StatisticGroup.Enemy, StatisticMeasure.DamageReceived, (int)kind) + Sum(StatisticGroup.Enemy, StatisticMeasure.ShieldAbsorbed, (int)kind), Ui.Blue, Enemy: kind)).ToArray(),
             name: "EnemyDamageReceivedBars", enemies: true, valueTitle: "Daño recibido");
         Bars("Amenaza media por monstruo", "Daño causado dividido entre apariciones de cada especie. Ayuda a comparar enemigos frecuentes y raros; no representa daño por segundo.",
             Enum.GetValues<MinionKind>().Select(kind =>
             {
                 int key = (int)kind; double count = Sum(StatisticGroup.Enemy, StatisticMeasure.Spawns, key);
                 return new Bar(DefenseRules.MinionName(kind), count > 0 ? Sum(StatisticGroup.Enemy, StatisticMeasure.Damage, key) / count : 0,
-                    count > 0 ? Sum(StatisticGroup.Enemy, StatisticMeasure.ShieldDamage, key) / count : 0, Ui.Red);
+                    count > 0 ? Sum(StatisticGroup.Enemy, StatisticMeasure.ShieldDamage, key) / count : 0, Ui.Red, kind);
             }).Where(p => p.Value + p.Shield > 0).OrderByDescending(p => p.Value + p.Shield));
     }
     private void AttackCharts()

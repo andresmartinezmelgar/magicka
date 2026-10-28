@@ -34,7 +34,8 @@ internal static class CombatAffixTests
     {
         ShieldAbsorptionAffixTests.Run(test);
         RockFragmentationTests.Run(test);
-        test("Afijos nuevos: identificadores antiguos, trece efectos, calidades, anillos y catálogo compatibles", () =>
+        ArcaneAffixTests.Run(test);
+        test("Afijos nuevos: identificadores antiguos, quince efectos, calidades, anillos y catálogo compatibles", () =>
         {
             Check((int)ItemAffixKind.BeamPierce == 0 && (int)ItemAffixKind.GoldBonus == 5, "Se renumeraron los afijos guardados.");
             var seen = new HashSet<ItemAffixKind>();
@@ -56,6 +57,8 @@ internal static class CombatAffixTests
                         Check(!EquipmentCatalogue.Valid(item with { GenerationVersion = 8 }), "Un afijo de absorción se atribuye al catálogo anterior.");
                     if (affix.Kind == ItemAffixKind.RockFragmentation)
                         Check(!EquipmentCatalogue.Valid(item with { GenerationVersion = 9 }), "La fragmentación se atribuye al catálogo anterior.");
+                    if (affix.Kind is ItemAffixKind.ArcaneMark or ItemAffixKind.ArcaneEcho)
+                        Check(!EquipmentCatalogue.Valid(item with { GenerationVersion = 10 }), "Los nuevos afijos arcanos se atribuyen al catálogo anterior.");
                     Check(!ItemAffixes.Valid(affix with { Value = 3 }, tier) && !ItemAffixes.Valid(affix with { Value = 2 }, ItemTier.Diamond),
                         "Se admite un afijo superior al máximo de su calidad.");
                 }

@@ -25,7 +25,7 @@ public partial class MatchStatisticsPanel : Control
     private int _tableIndex;
     private readonly Dictionary<(StatisticGroup, int, StatisticMeasure), double> _totals = [];
     private static readonly string[] Elements = ["Agua", "Vida", "Escudo", "Frío", "Rayo", "Arcano", "Tierra", "Fuego", "Físico"];
-    private static readonly string[] Attacks = ["Haz", "Relámpago", "Cono", "Roca", "Fragmentos", "Empuje", "Barrera", "Cuerpo a cuerpo", "Sobre uno mismo", "Nova", "Mina", "Meteorito", "Prisa", "Teletransporte", "Reanimar", "Aura de fuego", "Aura de rayo", "Aura de regeneración", "Meteorito pasivo", "Pulso glacial", "Cadena de rayos", "Quemadura", "Golpe enemigo", "Área enemiga", "Bombardeo rúnico", "Regeneración", "Escudo del anillo", "Acción del anillo", "Escudo vital", "Reflejo de escudo", "Aura arcana", "Aura de agua"];
+    private static readonly string[] Attacks = ["Haz", "Relámpago", "Cono", "Roca", "Fragmentos", "Empuje", "Barrera", "Cuerpo a cuerpo", "Sobre uno mismo", "Nova", "Mina", "Meteorito", "Prisa", "Teletransporte", "Reanimar", "Aura de fuego", "Aura de rayo", "Aura de regeneración", "Meteorito pasivo", "Pulso glacial", "Cadena de rayos", "Quemadura", "Golpe enemigo", "Área enemiga", "Bombardeo rúnico", "Regeneración", "Escudo del anillo", "Acción del anillo", "Escudo vital", "Reflejo de escudo", "Aura arcana", "Aura de agua", "Marca arcana", "Eco arcano"];
     private static string N(double value) => value.ToString(value >= 100 ? "N0" : "N1", CultureInfo.GetCultureInfo("es-ES"));
     public void Build(Main main, bool verification = false)
     {
@@ -193,7 +193,7 @@ public partial class MatchStatisticsPanel : Control
                 {
                     int k = (int)kind; double spawns = Sum(StatisticGroup.Enemy, StatisticMeasure.Spawns, k);
                     if (spawns == 0) continue;
-                    Note(DefenseRules.MinionName(kind));
+                    BestiaryPortrait.Heading(_body, kind, DefenseRules.MinionName(kind));
                     var monster = Table("Apariciones", "Vida inicial media", "Bajas", "Daño causado");
                     Row(monster, N(spawns), N(Sum(StatisticGroup.Enemy, StatisticMeasure.SpawnHealth, k) / spawns), N(Sum(StatisticGroup.Enemy, StatisticMeasure.Deaths, k)), N(Sum(StatisticGroup.Actor, StatisticMeasure.Damage, 64 + k)));
                     var received = Table("Elemento recibido", "Vida perdida", "Escudo absorbido");

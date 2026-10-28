@@ -3,7 +3,7 @@ namespace Arcana.Core;
 public sealed partial class GameWorld
 {
     private readonly record struct BeamPart(int Owner, SpellRecipe Recipe, float Scale = 1, float DamageMultiplier = 1);
-    private readonly record struct CastRay(Wizard Caster, V2 From, V2 Direction, V2 End, BeamPart Part);
+    private readonly record struct CastRay(Wizard Caster, V2 From, V2 Direction, V2 End, BeamPart Part, int TargetId);
     private readonly List<CastRay> _castRays = [];
     private readonly List<(int A, int B, V2 At, float Distance)> _beamMeetings = [];
     private readonly HashSet<int> _joinedRays = [];
@@ -14,8 +14,8 @@ public sealed partial class GameWorld
         rays.Clear();
         foreach (var player in _orderedPlayers)
         {
-            if (!player.Alive || player.Frozen > 0 || player.Channel == null) continue;
-            if (player.Channel.Shape != SpellShape.Beam) { Channel(player, dt); continue; }
+            if (!player.Alive || player.Frozen > 0 || player.Channel == null) { player.ArcaneEchoActive = false; continue; }
+            if (player.Channel.Shape != SpellShape.Beam) { player.ArcaneEchoActive = false; Channel(player, dt); continue; }
             float multiplier = 1;
             if (SpellBalance.Damage(player.Channel) > 0)
             {
@@ -24,8 +24,8 @@ public sealed partial class GameWorld
                     (player.Channel.Has(Element.Arcane) ? player.Equipment.BeamChargeSpeed : 1));
             }
             var from = SpellOrigin(player, player.Facing, 0.7f);
-            var end = BeamEnd(from, player.Facing, player.Channel.Range * player.Equipment.Range, player.Id, out _, out _, player.Id);
-            rays.Add(new(player, from, player.Facing, end, new(player.Id, player.Channel, DamageMultiplier: multiplier)));
+            var end = BeamEnd(from, player.Facing, player.Channel.Range * player.Equipment.Range, player.Id, out _, out var target, player.Id);
+            rays.Add(new(player, from, player.Facing, end, new(player.Id, player.Channel, DamageMultiplier: multiplier), target?.Id ?? 0));
         }
         rays.RemoveAll(ray => !ray.Caster.Alive || ray.Caster.Frozen > 0 || ray.Caster.Channel == null);
 
@@ -69,6 +69,7 @@ public sealed partial class GameWorld
                 var ray = rays[i];
                 TraceBeam(ray.From, ray.Direction, ray.Part.Recipe.Range * ray.Caster.Equipment.Range, [ray.Part], ray.Caster.Id, ray.Caster.Id, dt, "direct");
             }
+        foreach (var ray in rays) TickArcaneEcho(ray, dt);
     }
 
     private V2 BeamEnd(V2 from, V2 direction, float range, int ignoredWizard, out Wall? wall, out Wizard? target,
@@ -129,11 +130,11 @@ public sealed partial class GameWorld
     }
 
     private void TraceBeam(V2 from, V2 direction, float range, BeamPart[] parts, int owner, int ignoredWizard,
-        float dt, string interaction)
+        float dt, string interaction, bool allowPenetration = true)
     {
         int penetrations = 0;
         foreach (var part in parts)
-            if (!part.Recipe.Healing && TryCombatSource(part.Owner, out var source))
+            if (allowPenetration && !part.Recipe.Healing && TryCombatSource(part.Owner, out var source))
                 penetrations = Math.Max(penetrations, source.Equipment.BeamPierce);
         HashSet<int>? pierced = penetrations > 0 ? [] : null;
         Span<float> shieldWeights = stackalloc float[9];
@@ -171,7 +172,7 @@ public sealed partial class GameWorld
                         _statistics.Immune(part.Owner, target, part.Recipe.Elements);
                         float pressure = BeamPressure(target, part, shieldWeights);
                         ApplyDamage(target, pressure * 0.2f * dt, part.Owner, part.Recipe.Elements, shieldOnly: false,
-                            resolvedElements: true, weights: shieldWeights, cause: StatisticAttack.Beam);
+                            resolvedElements: true, weights: shieldWeights, cause: _statisticsAttack ?? StatisticAttack.Beam);
                         if (target.Shield > 0) DamageProtection(target, UtilityPressure(target, part.Recipe, part.Owner) * part.Scale * 0.2f * dt,
                             part.Owner, part.Recipe.Elements);
                     }
@@ -195,7 +196,7 @@ public sealed partial class GameWorld
                 if (pressure > 0 && actual > 0) foreach (var part in parts)
                 {
                     double contribution = WallDamage(wall, part.Recipe, part.Owner, 110 * part.Recipe.Power * part.Scale * part.DamageMultiplier);
-                    RecordBarrierDamage(part.Owner, wall, actual * contribution / pressure, part.Recipe, StatisticAttack.Beam);
+                    RecordBarrierDamage(part.Owner, wall, actual * contribution / pressure, part.Recipe, _statisticsAttack ?? StatisticAttack.Beam);
                 }
                 if (wall.Health <= 0) return;
                 normal = (wall.B - wall.A).Perpendicular.Normalized;

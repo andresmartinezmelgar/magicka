@@ -2,7 +2,7 @@
 
 Versión de pruebas **0.29.31**, con generador libre v2, venta por ranura y diez biomas visuales. Utiliza protocolo **41**; cliente y servidor deben actualizarse juntos. La versión estable **0.29.28** permanece separada en main.
 
-La rama incorpora, pendiente de otra compilación solicitada, el afijo **Fragmentación de roca** del catálogo 10, auras de Arcano y Agua, el oráculo ocasional y el resumen personal de daño, con protocolo 43. La fragmentación genera cuatro fragmentos en Diamante o seis en Mítico, con la mezcla original y áreas elementales pequeñas al chocar o caer. El guardado conserva las rocas, fragmentos, áreas, cinco auras, daño personal e intervalo del oráculo; los puntos anteriores siguen siendo legibles.
+La rama incorpora, pendiente de otra compilación solicitada, **Fragmentación de roca**, **Marca arcana** y **Eco arcano** del catálogo 11, auras de Arcano y Agua, el oráculo ocasional y el resumen personal de daño, con protocolo 44. La fragmentación genera cuatro fragmentos en Diamante o seis en Mítico, con la mezcla original y áreas elementales pequeñas al chocar o caer. Marca repite el daño de los últimos segundos al morir el objetivo; Eco añade un segundo haz independiente desde el mago hacia otro enemigo. El guardado conserva los efectos en curso, marcas, historial reciente, cinco auras, daño personal e intervalo del oráculo; los puntos anteriores siguen siendo legibles.
 
 ## Partida y vidas
 
@@ -15,6 +15,8 @@ El modo Defensa ahora es **Supervivencia**, con enemigos continuos. Se han retir
 - El resultado permanece hasta volver al menú o iniciar otra partida. En red reinicia el anfitrión.
 
 ## Bestiario del perfil
+
+Durante Supervivencia se ocultan los nombres y clases sobre los enemigos, incluido el coloso. Se conservan barras, preparación de hechizos, punto débil del prisma y marca arcana mediante símbolos. Las fichas del bestiario, la guía de enemigos y las estadísticas mantienen nombres y retratos del sprite o modelo real para identificar cada especie; las dos gráficas de daño por enemigo muestran también su retrato.
 
 Cada monstruo muestra su imagen, descripción, bajas de la cuenta y una tabla con vida máxima, daño, velocidad, distancia para atacar y pausa entre ataques. Las fichas incluyen también sus áreas, preparación, curaciones, escudos y refuerzos cuando corresponden. Los magos desglosan sus hechizos: daño por segundo para los canales, por impacto para las rocas y por fragmento para las esquirlas.
 

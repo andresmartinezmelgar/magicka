@@ -43,6 +43,10 @@ public sealed class Wizard
     public float ActionCooldown { get; set; }
     public float RingCooldown { get; set; }
     internal float ReprisalCooldown { get; set; }
+    internal int ArcaneMarkOwner { get; set; }
+    internal int ArcaneMarkRank { get; set; }
+    internal bool ArcaneEchoActive { get; set; }
+    internal RecentDamageWindow RecentDamage { get; } = new();
     public float[] MagickCooldowns { get; } = new float[4];
     public int Kills { get; set; }
     public int Deaths { get; set; }

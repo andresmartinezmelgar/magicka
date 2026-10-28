@@ -9,6 +9,10 @@ public static class CombatAffixes
     public const float RockFragmentLifetime = RockFragmentRange / RockFragmentSpeed;
     public const float RockFragmentSplashRadius = 1, RockFragmentGroundRadius = 1, RockFragmentGroundSeconds = 2;
     public const int RockFragmentProjectileLimit = 160;
+    public const int ArcaneHistoryTicks = 5 * 60, ArcaneBurstLimit = DefenseRules.MaxMinions + 16;
+    public static int ArcaneMarkSeconds(int rank) => RankValue(rank, 3, 5);
+    public static float ArcaneMarkRadius(int rank) => RankValue(rank, 3, 4);
+    public static int ArcaneEchoPercent(int rank) => RankValue(rank, 25, 40);
     private static int RankValue(int rank, int diamond, int mythic) => rank >= 2 ? mythic : rank == 1 ? diamond : 0;
     public static int IcebreakerPercent(int rank) => RankValue(rank, 25, 40);
     public static int SteamImpactPercent(int rank) => RankValue(rank, 20, 35);

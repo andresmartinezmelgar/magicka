@@ -278,6 +278,7 @@ public sealed partial class GameWorld
                 m.Body.Channel != null, Copy(m.Body.Channel?.Elements ?? []), Empowered(m))
                 { SpeedBoostSeconds = m.SpeedBoost, AttackWarningSeconds = m.Windup,
                     Shield = m.Body.Shield, ShieldMax = m.Body.ShieldMax, VulnerableElement = m.Body.VulnerableElement,
+                    ArcaneMarked = m.Body.ArcaneMarkRank > 0,
                     FocusTargetId = _players.TryGetValue(m.FocusTargetId, out var focused) && focused.Alive ? focused.Id : 0 }).ToArray(),
             _defenseDrops.Select(d => new DefenseDropSnapshot(d.Id, d.OwnerId, d.Position, d.Kind, d.Gold, d.Buff, d.Item?.Slot, d.Item?.Tier)).ToArray(),
             _players.Values.Select(p =>

@@ -26,6 +26,7 @@ public sealed partial class GameWorld
         public SavedDrop[] Drops = [];
         public DefenseEnemySnapshot[] Bestiary = [];
         public SavedBotPlan[] BotPlans = [];
+        public ArcaneBurst[] ArcaneBursts = [];
     }
     private sealed record SavedDefender(SurvivalWizard Body, SavedProgress Progress);
     private sealed class SavedProgress
@@ -80,6 +81,7 @@ public sealed partial class GameWorld
         var state = new SavedSurvival
         {
             Options = Options, SurvivalMap = Map.SurvivalMap, Tick = Tick, NextEvent = _nextEvent, NextMinion = _nextMinion, NextEntity = _nextEntity,
+            ArcaneBursts = _arcaneBursts.ToArray(),
             RandomState = ((SurvivalRandom)_random).State, Kills = _defenseKills, Bosses = _bossesKilled,
             Elapsed = _defenseElapsed, PartySize = _defensePartySize, SpawnClock = _spawnClock, AuraClock = _auraClock,
             OracleSpawnCooldown = _oracleSpawnCooldown,
@@ -196,6 +198,7 @@ public sealed partial class GameWorld
         foreach (var b in s.BotPlans) world._defenseBotPlans.Add(b.Id, new()
             { TargetId = b.TargetId, HealTargetId = b.HealTargetId, Goal = b.Goal, SpellTime = b.SpellTime, SpellTurn = b.SpellTurn });
         world._defenseBotPlanClock = s.BotClock;
+        foreach (var burst in s.ArcaneBursts) world._arcaneBursts.Enqueue(burst);
         ((SurvivalRandom)world._random).State = s.RandomState;
         world.RestoreStatistics(null);
         foreach (var source in world._lingeringSources.Values)
@@ -274,6 +277,14 @@ public sealed partial class GameWorld
             Require(source != null && source.Id >= 1000 && ids.Add(source.Id) && Enum.IsDefined(source.Kind) &&
                 float.IsFinite(source.Power) && source.Power is > 0 and <= 1350.01f);
         Require(s.NextMinion > ids.Max() && s.NextMinion < int.MaxValue - 1);
+        foreach (var body in s.Defenders.Select(d => d.Body).Concat(s.Minions.Select(m => m.Body)))
+            Require(RecentDamageWindow.Valid(body.RecentDamage, s.Tick) &&
+                (body.ArcaneMarkOwner == 0 || s.Defenders.Any(d => d.Body.Id == body.ArcaneMarkOwner)));
+        Require(s.ArcaneBursts is { Length: <= CombatAffixes.ArcaneBurstLimit });
+        foreach (var burst in s.ArcaneBursts)
+            Require(burst != null && s.Defenders.Any(d => d.Body.Id == burst.Owner) && burst.Position.IsFinite &&
+                Math.Abs(burst.Position.X) <= 1000 && Math.Abs(burst.Position.Y) <= 1000 && burst.Rank is >= 1 and <= 2 &&
+                double.IsFinite(burst.Damage) && burst.Damage is > 0 and <= 1e18);
         var entities = new HashSet<int>();
         bool Entity(int id) => id > 0 && entities.Add(id);
         bool Elements(Element[] e) => SurvivalWizard.ValidElements(e);

@@ -48,7 +48,7 @@ public static partial class SnapshotValidation
                 p.Cooldowns is not { Length: 4 } || !NonNegative(p.Cooldowns) ||
                 !NonNegative([p.Health, p.MaxHealth, p.Shield, p.Energy, p.Respawn, p.Wet, p.Burning, p.Chill, p.Frozen, p.Haste, p.Charge]) ||
                 !NonNegative([p.ShieldMax, p.ShieldSeconds, p.RegenerationRate, p.InvulnerableSeconds]) || p.InvulnerableSeconds > 1.2f ||
-                !p.Alive && p.InvulnerableSeconds > 0 || p.ShieldCharges is < 1 or > 3 ||
+                !p.Alive && (p.InvulnerableSeconds > 0 || p.ArcaneMarked) || p.ShieldCharges is < 1 or > 3 ||
                 !hasPickups && p.RegenerationRate > (p.Equipment == null ? 76 : 121.61f) || p.ShieldMax > 0 && p.Shield > p.ShieldMax ||
                 p.MaxHealth <= 0 || p.Health > p.MaxHealth || p.Alive != (p.Health > 0) ||
                 p.Charge > 1 || !p.Alive && p.Casting ||

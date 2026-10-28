@@ -158,6 +158,10 @@ public partial class Main
                         throw new InvalidOperationException("Las gráficas por enemigo no suman el daño real a vida y escudos.");
                 var dealt = (StatisticsBarChart)_statisticsPanel.FindChild("EnemyDamageDealtBars", true, false);
                 var received = (StatisticsBarChart)_statisticsPanel.FindChild("EnemyDamageReceivedBars", true, false);
+                foreach (var chart in new[] { dealt, received })
+                    if (chart.EnemyPortraits.Count != species || chart.EnemyPortraits.Any(p => chart.Categories[p.Key].Enemy != p.Value.Kind ||
+                        p.Value.FindChild("PortraitModel", true, false) is not Node3D))
+                        throw new InvalidOperationException("Una gráfica de enemigos perdió el sprite de su especie.");
                 if (dealt.ScaleMaximum != 1900 * species || received.ScaleMaximum != 8_000_500 * species ||
                     !dealt.Categories.Select(c => c.Label).SequenceEqual(received.Categories.Select(c => c.Label)))
                     throw new InvalidOperationException("El daño recibido aplana la escala del realizado o cambia el orden de las especies.");
@@ -165,7 +169,8 @@ public partial class Main
                 foreach (string name in new[] { "EnemyDamageDealtBars", "EnemyDamageReceivedBars" })
                 {
                     var emptyEnemies = (StatisticsBarChart)_statisticsPanel.FindChild(name, true, false);
-                    if (emptyEnemies.Categories.Length != species || emptyEnemies.Categories.Any(c => c.Value != 0) || emptyEnemies.ScaleMaximum != 1)
+                    if (emptyEnemies.Categories.Length != species || emptyEnemies.Categories.Any(c => c.Value != 0) || emptyEnemies.ScaleMaximum != 1 ||
+                        emptyEnemies.EnemyPortraits.Count != species)
                         throw new InvalidOperationException("Las especies sin datos desaparecen o muestran daño inexistente.");
                 }
                 _statisticsPanel.SelectModeForVerification(0);

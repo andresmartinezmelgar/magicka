@@ -172,6 +172,8 @@ public sealed record MinionSnapshot(int Id, MinionKind Kind, V2 Position, V2 Fac
     public float ShieldMax { get; init; }
     public Element? VulnerableElement { get; init; } = Kind == MinionKind.Prism ? Element.Fire : null;
     public int FocusTargetId { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool ArcaneMarked { get; init; }
 }
 public sealed record DefenseEnemySnapshot(MinionKind Kind, int Difficulty, float MaxHealth, float Attack, float AttackMaximum,
     float AttackInterval, float Speed, float Range, int Spawned, int Killed);

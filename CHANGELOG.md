@@ -2,9 +2,11 @@
 
 ## Sin publicar
 
+- Nuevos afijos Marca arcana y Eco arcano. Marca repite al morir el daño real recibido en los últimos 3/5 segundos, sobre enemigos cercanos; Eco canaliza desde el mago un segundo haz al enemigo cercano distinto del apuntado, al 25/40 % de daño. Catálogo 11, protocolo 44 y continuidad de marcas, historial y explosiones pendientes en el guardado.
+- Supervivencia oculta los nombres y clases de los enemigos durante el combate. Las estadísticas, gráficas y fichas conservan nombres y añaden el retrato del sprite o modelo real de cada especie.
 - Oráculo de asedio ocasional: 1 % por intento, un máximo natural de uno y un intervalo de 90–150 s entre apariciones. Más vida y daño de cristales, conservando la fuerza de sus escudos.
 - Nuevas auras de Arcano y Agua exclusivas de Supervivencia. Agua daña y moja únicamente a enemigos visibles; no afecta al lanzador ni a sus aliados. Se conservan las compras de los guardados anteriores.
-- Resumen personal de daño para todos los modos y cuentas: tabla y gráfica por elemento al morir y terminar, con vida y escudos separados, sin exceso ni fuego amigo. Conserva el total al reaparecer, guardar y reconectar; una partida nueva lo reinicia. Protocolo 43.
+- Resumen personal de daño para todos los modos y cuentas: tabla y gráfica por elemento al morir y terminar, con vida y escudos separados, sin exceso ni fuego amigo. Conserva el total al reaparecer, guardar y reconectar; una partida nueva lo reinicia.
 - Nuevo afijo Fragmentación de roca: cuatro fragmentos en Diamante y seis en Mítico, con la mezcla original, impacto reducido y áreas elementales pequeñas al chocar o caer. Conserva el efecto al guardar y continuar. Catálogo 10.
 - Los atributos muestran nombres completos y coherentes en inventario, tienda y comparaciones: duración del estado Mojado, regeneración de energía, duración de quemaduras y velocidad de carga, entre otros.
 - Se explica el estado Mojado y el efecto de los porcentajes negativos; los anillos y las ayudas recuperan el contexto de sus cifras, curaciones y bonos por calidad.

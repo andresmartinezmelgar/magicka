@@ -115,6 +115,7 @@ public sealed partial class GameWorld
     public void RemovePlayer(int id)
     {
         if (!_players.Remove(id, out var wizard)) return;
+        ClearArcaneTarget(wizard); RemoveArcaneOwner(id);
         _orderedPlayers.Remove(wizard); _combatants.Remove(id); _defenders.Remove(id);
         _statistics.Retire(id); _statisticsPerformanceTime.Remove(id);
         _defenseDrops.RemoveAll(d => d.OwnerId == id);
@@ -211,6 +212,7 @@ public sealed partial class GameWorld
         if (expired > 0) _events.RemoveRange(0, expired);
         if (MatchEnded)
         {
+            if (_arcaneBursts.Count > 0) { ResolveArcaneBursts(); CleanupDefense(); }
             if (IsDefense) return;
             RestartIn -= dt;
             if (RestartIn <= 0) ResetMatch();
@@ -260,6 +262,7 @@ public sealed partial class GameWorld
         TickChannels(dt);
         TickProjectiles(dt);
         TickWallsAndFields(dt);
+        ResolveArcaneBursts();
         if (Options.Mode == GameMode.Warfare && !Map.IsPractice) TickCapture(dt);
         CleanupDefense();
         CheckVictory();
@@ -356,7 +359,7 @@ public sealed partial class GameWorld
         if (aim.Length > 0.05f) p.Facing = aim.Normalized;
     }
     private static void CancelCast(Wizard p)
-    { p.Channel = p.Charging = null; p.ChargeTime = 0; p.BeamTicks = 0; p.BotWallTarget = 0; }
+    { p.Channel = p.Charging = null; p.ChargeTime = 0; p.BeamTicks = 0; p.BotWallTarget = 0; p.ArcaneEchoActive = false; }
     private void BeginCast(Wizard p)
     {
         if (!Ready(p)) return;
@@ -703,13 +706,13 @@ public sealed partial class GameWorld
         => ApplyDamage(target, amount, owner, elements, false);
     private void DamageProtection(Wizard target, float amount, int owner, Element[] elements)
         => ApplyDamage(target, amount, owner, elements, true, true);
-    private void ApplyDamage(Wizard target, float amount, int owner, Element[]? elements, bool shieldOnly, bool resolvedElements = false, ReadOnlySpan<float> weights = default, StatisticAttack? cause = null, bool reflected = false)
+    private void ApplyDamage(Wizard target, float amount, int owner, Element[]? elements, bool shieldOnly, bool resolvedElements = false, ReadOnlySpan<float> weights = default, StatisticAttack? cause = null, bool reflected = false, bool replayed = false)
     {
         if (!target.Alive || target.Invulnerable > 0 || amount <= 0) return;
         if (!resolvedElements)
         { if (elements != null) _statistics.Immune(owner, target, elements); amount *= DefenseElementFraction(target, elements); }
         if (amount <= 0) return;
-        amount *= (reflected ? 1 : DamagePower(owner)) * RelicBuffs.Incoming(target) * target.Equipment.Incoming;
+        amount *= (reflected || replayed ? 1 : DamagePower(owner)) * RelicBuffs.Incoming(target) * target.Equipment.Incoming;
         float healthBefore = target.Health, shieldBefore = target.Shield;
         float absorbed = Math.Min(target.Shield, amount);
         target.Shield -= absorbed; amount -= absorbed;
@@ -720,10 +723,11 @@ public sealed partial class GameWorld
             reading.Absorbed += absorbed; reading.Damage += Math.Min(target.Health, amount);
         }
         target.Health = Math.Max(0, target.Health - amount);
-        _statistics.Damage(owner, target, healthBefore - target.Health, shieldBefore - target.Shield, Math.Max(0, amount - healthBefore), elements,
-            cause ?? _statisticsAttack ?? (elements is { Length: > 0 } ? MatchStatisticsCollector.Shape(new SpellRecipe(elements).Shape) : StatisticAttack.EnemyMelee),
+        var attack = cause ?? _statisticsAttack ?? (elements is { Length: > 0 } ? MatchStatisticsCollector.Shape(new SpellRecipe(elements).Shape) : StatisticAttack.EnemyMelee);
+        _statistics.Damage(owner, target, healthBefore - target.Health, shieldBefore - target.Shield, Math.Max(0, amount - healthBefore), elements, attack,
             TryCombatSource(owner, out var statisticsSource) && Allied(statisticsSource, target), weights);
-        if (healthBefore > 0 && target.Health <= 0) _statistics.Death(target, owner, cause ?? _statisticsAttack ?? StatisticAttack.EnemyMelee);
+        RecordArcaneDamage(target, owner, (double)(healthBefore - target.Health) + shieldBefore - target.Shield, elements, weights, attack);
+        if (healthBefore > 0 && target.Health <= 0) { _statistics.Death(target, owner, attack); QueueArcaneMarkDeath(target); }
         // Un rayo golpea a 60 Hz; limita sus impactos, pero nunca omite la rotura del escudo.
         bool broken = absorbed > 0 && target.Shield <= 0;
         if (broken) { target.RegenerationRate = 0; Emit("shield_break", target.Position, [Element.Shield], ""); }
@@ -976,6 +980,7 @@ public sealed partial class GameWorld
     private void ResetMatch()
     {
         MatchEnded = false; Winner = -1; RestartIn = 0;
+        _arcaneBursts.Clear();
         ResetStatistics();
         ResetScores(); _projectiles.Clear(); _walls.Clear(); _fields.Clear();
         ResetFrontline();
@@ -988,6 +993,7 @@ public sealed partial class GameWorld
     private void Respawn(Wizard p)
     {
         if (IsDefense && p.Deaths >= DefenseRules.PlayerLives) return;
+        ClearArcaneTarget(p);
         _routes.Remove(p.Id);
         ResetSlide(p);
         p.Position = RespawnPosition(p); p.Health = p.MaxHealth;

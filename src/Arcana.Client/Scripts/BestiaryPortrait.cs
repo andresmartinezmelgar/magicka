@@ -7,8 +7,22 @@ namespace Arcana.Client;
 public partial class BestiaryPortrait : SubViewportContainer
 {
     private ShaderMaterial? _cloth;
+    internal MinionKind Kind { get; private set; }
+    internal static BestiaryPortrait AddTo(Node parent, MinionKind kind, float side = 72)
+    {
+        var portrait = new BestiaryPortrait(); parent.AddChild(portrait); portrait.Build(kind);
+        portrait.CustomMinimumSize = portrait.Size = new(side, side); return portrait;
+    }
+    internal static void Heading(Control parent, MinionKind kind, string text)
+    {
+        var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        row.AddThemeConstantOverride("separation", 12); parent.AddChild(row); AddTo(row, kind);
+        var title = Ui.Label(text, 18, Ui.Gold); title.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        title.SizeFlagsHorizontal = SizeFlags.ExpandFill; title.SizeFlagsVertical = SizeFlags.ShrinkCenter; row.AddChild(title);
+    }
     public void Build(MinionKind kind)
     {
+        Kind = kind;
         Name = "BestiaryPortrait_" + kind;
         CustomMinimumSize = new(Ui.IsMobile ? 88 : 112, Ui.IsMobile ? 100 : 124);
         Stretch = true; MouseFilter = MouseFilterEnum.Ignore;

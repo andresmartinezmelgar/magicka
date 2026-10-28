@@ -30,7 +30,7 @@ public sealed class MinionDeltaCodec(MinionSnapshot[] baseline)
                 if (m.SpeedBoostSeconds != old.SpeedBoostSeconds) mask |= 2048;
                 if (m.AttackWarningSeconds != old.AttackWarningSeconds) mask |= 4096;
                 if (m.Kind != old.Kind) mask |= 8192;
-                if (m.Shield != old.Shield || m.ShieldMax != old.ShieldMax || m.VulnerableElement != old.VulnerableElement) mask |= 16384;
+                if (m.Shield != old.Shield || m.ShieldMax != old.ShieldMax || m.VulnerableElement != old.VulnerableElement || m.ArcaneMarked != old.ArcaneMarked) mask |= 16384;
                 if (m.FocusTargetId != old.FocusTargetId) mask |= 32768;
             }
             writer.Write(m.Id); writer.Write(mask);
@@ -48,7 +48,7 @@ public sealed class MinionDeltaCodec(MinionSnapshot[] baseline)
             if ((mask & 2048) != 0) writer.Write(m.SpeedBoostSeconds);
             if ((mask & 4096) != 0) writer.Write(m.AttackWarningSeconds);
             if ((mask & 8192) != 0) writer.Write((byte)m.Kind);
-            if ((mask & 16384) != 0) { writer.Write(m.Shield); writer.Write(m.ShieldMax); writer.Write((sbyte)(m.VulnerableElement.HasValue ? (int)m.VulnerableElement.Value : -1)); }
+            if ((mask & 16384) != 0) { writer.Write(m.Shield); writer.Write(m.ShieldMax); writer.Write((sbyte)(m.VulnerableElement.HasValue ? (int)m.VulnerableElement.Value : -1)); writer.Write(m.ArcaneMarked); }
             if ((mask & 32768) != 0) writer.Write(m.FocusTargetId);
         }
         return stream.ToArray();
@@ -88,16 +88,18 @@ public sealed class MinionDeltaCodec(MinionSnapshot[] baseline)
                 float warning = (mask & 4096) != 0 ? reader.ReadSingle() : old.AttackWarningSeconds;
                 var kind = (mask & 8192) != 0 ? (MinionKind)reader.ReadByte() : old.Kind;
                 float shield = old.Shield, shieldMax = old.ShieldMax; Element? weakness = old.VulnerableElement;
+                bool marked = old.ArcaneMarked;
                 if ((mask & 16384) != 0)
                 {
                     shield = reader.ReadSingle(); shieldMax = reader.ReadSingle(); int element = reader.ReadSByte();
                     if (element != -1 && (element < 0 || !DefenseRules.ValidPrismElement((Element)element))) throw new InvalidDataException("Punto débil inválido.");
                     weakness = element == -1 ? null : (Element)element;
+                    marked = reader.ReadBoolean();
                 }
                 int focus = (mask & 32768) != 0 ? reader.ReadInt32() : old.FocusTargetId;
                 result[i] = new(id, kind, position, facing, health, maximum, wet, burning, chill, frozen, casting, elements, empowered)
                     { SpeedBoostSeconds = speed, AttackWarningSeconds = warning, Shield = shield, ShieldMax = shieldMax,
-                        VulnerableElement = weakness, FocusTargetId = focus };
+                        VulnerableElement = weakness, FocusTargetId = focus, ArcaneMarked = marked };
             }
             if (stream.Position != stream.Length) throw new InvalidDataException("Datos de enemigos adicionales.");
             return result;

@@ -92,7 +92,7 @@ public partial class DefensePanel
         foreach (var enemy in state.Bestiary)
         {
             var card = Card(_enemyCards); card.Name = "DefenseEnemyCard" + enemy.Kind;
-            Wrapped(card, DefenseRules.MinionName(enemy.Kind) + $" · última versión: dificultad {enemy.Difficulty}", 18, Ui.Gold);
+            BestiaryPortrait.Heading(card, enemy.Kind, DefenseRules.MinionName(enemy.Kind) + $" · última versión: dificultad {enemy.Difficulty}");
             var table = Ui.Table(2, "DefenseEnemyStats" + enemy.Kind); card.AddChild(table);
             Row(table, "Vida máxima", $"{enemy.MaxHealth:0.#}");
             string attackName = enemy.Kind switch

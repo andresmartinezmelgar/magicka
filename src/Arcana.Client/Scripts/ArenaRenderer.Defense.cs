@@ -9,7 +9,7 @@ public partial class ArenaRenderer
     {
         public required Node3D Root;
         public MinionKind Kind;
-        public MeshInstance3D? Body, Health, Aura, Warning, Shield, ShieldTrack, SupportArea;
+        public MeshInstance3D? Body, Health, Aura, Warning, Shield, ShieldTrack, SupportArea, ArcaneMark;
         public Node3D? Details, Vitals;
         public MeshInstance3D[] Tinted = [];
         public Label3D? ElementLabel;
@@ -69,7 +69,7 @@ public partial class ArenaRenderer
         100, MinionCooldowns, 0, 0, 0, m.Casting,
         ShieldMax: m.ShieldMax, ShieldSeconds: m.Shield > 0 ? 1 : 0,
         WizardType: MinionArt.CasterType(m.Kind) ?? WizardType.Pyromancer,
-            CastingElements: m.Elements);
+            CastingElements: m.Elements) { ArcaneMarked = m.ArcaneMarked };
 
     private void RenderDefense(WorldSnapshot snapshot, int localId, float dt)
     {
@@ -97,6 +97,7 @@ public partial class ArenaRenderer
                 v.Root.Position = v.Mage.Position; v.Mage.Position = Vector3.Zero;
             }
             else { v.Root.Position = v.Root.Position.Lerp(World(m.Position), Math.Min(1, dt * 18)); v.Sample = m; }
+            if (v.ArcaneMark != null) v.ArcaneMark.Visible = m.ArcaneMarked;
             if (v.Vitals != null && v.VitalsBasis != vitalsBasis)
             { v.Vitals.Basis = vitalsBasis; v.VitalsBasis = vitalsBasis; }
             if (v.Health != null)
@@ -253,9 +254,13 @@ public partial class ArenaRenderer
             v.SupportArea.Name = "OracleShieldArea"; v.SupportArea.Position = new(0, 0.07f, 0);
             v.SupportArea.Scale = new(DefenseRules.OracleAuraRadius, 1, DefenseRules.OracleAuraRadius);
         }
-        if (m.Kind == MinionKind.Boss)
-            root.AddChild(new Label3D { Text = "COLOSO", Position = new(0, 4.55f, 0), FontSize = 34, PixelSize = 0.015f,
-                Modulate = Ui.Gold, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled });
+        if (v.Mage == null)
+        {
+            v.ArcaneMark = AreaVisuals.Piece(root, AreaVisuals.Pattern.ArcaneAura);
+            v.ArcaneMark.Name = "ArcaneMark"; v.ArcaneMark.Position = new(0, .08f, 0);
+            float size = m.Kind == MinionKind.Boss ? 1.5f : .8f;
+            v.ArcaneMark.Scale = new(size, 1, size); v.ArcaneMark.Visible = m.ArcaneMarked;
+        }
         v.Aura = Mesh(root, new TorusMesh { InnerRadius = 0.88f, OuterRadius = 0.97f, Rings = 20, RingSegments = 6 },
             new(0, 0.06f, 0), Ui.Gold, 0.5f);
         if (DefenseRules.AreaAttackRadius(m.Kind) is > 0 and var radius)
@@ -314,6 +319,10 @@ public partial class ArenaRenderer
         foreach (var visual in _minionVisuals.Values)
         {
             var sample = visual.Sample ?? throw new InvalidOperationException("Falta la muestra del enemigo.");
+            if (visual.Mage?.NameVisible == true || visual.Root.GetChildren().OfType<Label3D>().Any(l => l.Visible && l.Text == "COLOSO"))
+                throw new InvalidOperationException("Un enemigo conserva su nombre durante Supervivencia.");
+            if ((visual.Mage?.ArcaneMarkVisible ?? visual.ArcaneMark?.Visible ?? false) != sample.ArcaneMarked)
+                throw new InvalidOperationException("La marca arcana no aparece, no se oculta o se conserva al reutilizar un enemigo.");
             if (visual.Mage == null)
             {
                 float health = Math.Clamp(sample.Health / Math.Max(1, sample.MaxHealth), 0, 1);

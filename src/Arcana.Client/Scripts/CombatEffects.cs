@@ -143,7 +143,7 @@ public partial class CombatEffects : Node3D
     {
         if (e.Kind == "passive_chain") { _chainFrom = e.Position; _chainLinks = 0; return; }
         if (e.Kind is not ("cast" or "self" or "nova" or "impact" or "explosion" or "death" or "blink" or
-            "blink_arrive" or "barrier" or "shield_hit" or "shield_break" or "hurt" or "splash" or "mine_heal" or "mine_place" or "beam_merge" or "beam_refract")) return;
+            "blink_arrive" or "barrier" or "shield_hit" or "shield_break" or "hurt" or "splash" or "mine_heal" or "mine_place" or "beam_merge" or "beam_refract" or "arcane_burst")) return;
         SeenKinds.Add(e.Kind);
         if (e.Kind == "explosion" && e.Text is "Meteoro" or "Meteorito")
         {
@@ -176,10 +176,10 @@ public partial class CombatEffects : Node3D
                 strength.SparkSize * (dust ? 2.4f : e.Kind == "explosion" ? 1.2f : 1), stone && !dust && infusion == null ? 5 : 2);
         }
         color.A = 0.42f;
-        if (e.Kind is "nova" or "explosion" or "splash" or "mine_heal")
+        if (e.Kind is "nova" or "explosion" or "splash" or "mine_heal" or "arcane_burst")
         {
             float radius = e.Radius > 0 ? e.Radius : e.Kind == "nova" ? 4 : 2.4f;
-            AreaVisuals.Pattern? pattern = e.Text == "Berserker" ? AreaVisuals.Pattern.Berserker
+            AreaVisuals.Pattern? pattern = e.Kind == "arcane_burst" ? AreaVisuals.Pattern.ArcaneAura : e.Text == "Berserker" ? AreaVisuals.Pattern.Berserker
                 : e.Kind == "nova" && ice ? AreaVisuals.Pattern.FrostPulse : null;
             Ring(e.Position, color, 0.4f, radius, 0.45f, pattern: pattern);
             if (strength.Charges == 3) Ring(e.Position, color, 0.2f, radius * 0.72f, 0.32f);

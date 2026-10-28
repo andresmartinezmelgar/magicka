@@ -4,7 +4,7 @@ namespace Arcana.Core;
 // Añadir al final: los identificadores guardados nunca cambian.
 public enum ItemAffixKind { BeamPierce, LightningChain, DoubleBurn, WaterShieldPool, CoinDividend, GoldBonus,
     Icebreaker, SteamImpact, ArcaneExecution, ShieldBattery, MendingWard, ShieldReprisal, ShieldLeech, ShieldReflection,
-    RockFragmentation }
+    RockFragmentation, ArcaneMark, ArcaneEcho }
 public sealed record ItemAffix(ItemAffixKind Kind, int Value = 1);
 public static class ItemAffixes
 {
@@ -12,13 +12,15 @@ public static class ItemAffixes
         [ItemAffixKind.BeamPierce, ItemAffixKind.LightningChain, ItemAffixKind.DoubleBurn, ItemAffixKind.WaterShieldPool,
             ItemAffixKind.Icebreaker, ItemAffixKind.SteamImpact, ItemAffixKind.ArcaneExecution,
             ItemAffixKind.ShieldBattery, ItemAffixKind.MendingWard, ItemAffixKind.ShieldReprisal,
-            ItemAffixKind.ShieldLeech, ItemAffixKind.ShieldReflection, ItemAffixKind.RockFragmentation];
+            ItemAffixKind.ShieldLeech, ItemAffixKind.ShieldReflection, ItemAffixKind.RockFragmentation,
+            ItemAffixKind.ArcaneMark, ItemAffixKind.ArcaneEcho];
     private static readonly ItemAffixKind[] GoldRingKinds = [ItemAffixKind.CoinDividend, ItemAffixKind.GoldBonus];
     public static int CombatEffectCount => CombatKinds.Length;
     public static bool IsExtended(ItemAffixKind kind) => kind is ItemAffixKind.Icebreaker or ItemAffixKind.SteamImpact or
         ItemAffixKind.ArcaneExecution or ItemAffixKind.ShieldBattery or ItemAffixKind.MendingWard or ItemAffixKind.ShieldReprisal or
-        ItemAffixKind.ShieldLeech or ItemAffixKind.ShieldReflection or ItemAffixKind.RockFragmentation;
-    public static int MinimumGeneration(ItemAffixKind kind) => kind == ItemAffixKind.RockFragmentation ? 10
+        ItemAffixKind.ShieldLeech or ItemAffixKind.ShieldReflection or ItemAffixKind.RockFragmentation or ItemAffixKind.ArcaneMark or ItemAffixKind.ArcaneEcho;
+    public static int MinimumGeneration(ItemAffixKind kind) => kind is ItemAffixKind.ArcaneMark or ItemAffixKind.ArcaneEcho ? 11
+        : kind == ItemAffixKind.RockFragmentation ? 10
         : kind is ItemAffixKind.ShieldLeech or ItemAffixKind.ShieldReflection
         ? 9 : IsExtended(kind) ? 8 : 1;
     public static bool IsGold(ItemAffixKind kind) => kind is ItemAffixKind.CoinDividend or ItemAffixKind.GoldBonus;
@@ -79,6 +81,9 @@ public static class ItemAffixes
         ItemAffixKind.ShieldReflection => $"Espejo protector: si sobrevives, devuelve al atacante el {CombatAffixes.ShieldReflectionPercent(affix.Value)} % del daño absorbido por tu escudo personal. Conserva elementos y respeta defensas e inmunidades, sin bonos de ataque. No activa afijos de absorción ni otros reflejos.",
         ItemAffixKind.RockFragmentation => $"Fragmentación de roca: al impactar, la roca lanza {CombatAffixes.RockFragmentCount(affix.Value)} fragmentos en todas las direcciones, hasta {CombatAffixes.RockFragmentRange:0.#} m. Cada uno conserva la mezcla y sus estados, con el {CombatAffixes.RockFragmentImpactScale * 100:0} % del daño base de impacto de la roca lanzada. " +
             $"Con Fuego, Frío o Agua dejan un área de {CombatAffixes.RockFragmentGroundRadius:0.#} m durante {CombatAffixes.RockFragmentGroundSeconds:0.#} s al chocar o caer, con el {CombatAffixes.RockFragmentGroundScale * 100:0} % del daño directo habitual del suelo. Los fragmentos no vuelven a dividirse.",
+        ItemAffixKind.ArcaneMark => $"Marca arcana: causar daño arcano marca al enemigo hasta que muera. Al morir, repite sobre cada enemigo visible a {CombatAffixes.ArcaneMarkRadius(affix.Value):0.#} m el daño real que recibió en los últimos {CombatAffixes.ArcaneMarkSeconds(affix.Value)} s, incluido el golpe mortal y el daño a escudos, sin exceso. Cuenta los ataques de cualquier origen. " +
+            "La explosión es arcana y respeta las defensas del nuevo objetivo, sin volver a multiplicar los bonos del lanzador. No crea marcas nuevas. Solo una marca por objetivo; prevalece el rango mayor y, a igual rango, el último autor.",
+        ItemAffixKind.ArcaneEcho => $"Eco arcano: mientras canalizas un haz con Arcano contra un enemigo, lanzas desde tu mago otro haz automático al enemigo más cercano distinto del que apuntas, con trayectoria libre y dentro del alcance original. Conserva mezcla y carga, con el {CombatAffixes.ArcaneEchoPercent(affix.Value)} % del daño. No atraviesa enemigos ni genera más ecos; puede reflejarse en escudos.",
         ItemAffixKind.CoinDividend => $"1 oro extra cada {GoldBonuses.EveryForLevel(level)} moneda{(GoldBonuses.EveryForLevel(level) == 1 ? "" : "s")} base · nivel {level}/10. " +
             (level < 10 ? "Cada mejora reduce el intervalo en 1, hasta una por moneda. " : "") +
             "Supervivencia: recogidas. PvP: premio final. No afecta a ventas.",
@@ -100,6 +105,8 @@ public static class ItemAffixes
         modifiers.ShieldLeech > 0 ? Describe(new(ItemAffixKind.ShieldLeech, modifiers.ShieldLeech)) : "",
         modifiers.ShieldReflection > 0 ? Describe(new(ItemAffixKind.ShieldReflection, modifiers.ShieldReflection)) : "",
         modifiers.RockFragmentation > 0 ? Describe(new(ItemAffixKind.RockFragmentation, modifiers.RockFragmentation)) : "",
+        modifiers.ArcaneMark > 0 ? Describe(new(ItemAffixKind.ArcaneMark, modifiers.ArcaneMark)) : "",
+        modifiers.ArcaneEcho > 0 ? Describe(new(ItemAffixKind.ArcaneEcho, modifiers.ArcaneEcho)) : "",
         modifiers.MagicRingFamily is { } family ? RingEffects.Describe(EquipmentSlot.MagicRing, family, modifiers.MagicRingLevel, modifiers) : "",
         modifiers.ExtraGoldEvery > 0 ? Describe(new(ItemAffixKind.CoinDividend), 11 - modifiers.ExtraGoldEvery) : "",
         modifiers.GoldBonusPercent > 0 ? Describe(new(ItemAffixKind.GoldBonus, modifiers.GoldBonusPercent)) : ""

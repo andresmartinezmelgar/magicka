@@ -38,6 +38,9 @@ public partial class WizardVisual : Node3D
     private MeshInstance3D _shieldFill = null!, _shieldTrack = null!;
     private Label3D _shieldAmount = null!;
     private MeshInstance3D _affinityRing = null!;
+    private MeshInstance3D _arcaneMark = null!;
+    internal bool NameVisible => _name.Visible;
+    internal bool ArcaneMarkVisible => _arcaneMark.Visible;
     private Color _color;
     private Node3D _elementsRoot = null!;
     private readonly List<MeshInstance3D> _elementFills = [];
@@ -71,6 +74,8 @@ public partial class WizardVisual : Node3D
     public void Build(WizardSnapshot p, bool local, bool compactEnemy = false)
     {
         _compactEnemy = compactEnemy;
+        _arcaneMark = AreaVisuals.Piece(this, AreaVisuals.Pattern.ArcaneAura);
+        _arcaneMark.Name = "ArcaneMark"; _arcaneMark.Position = new(0, .08f, 0); _arcaneMark.Scale = new(.8f, 1, .8f); _arcaneMark.Visible = p.ArcaneMarked;
         _color = p.Team == 0 ? Ui.Blue : Ui.Red;
         _team = p.Team; _wizardType = p.WizardType; _local = local;
         _previousHealth = p.Health;
@@ -101,7 +106,7 @@ public partial class WizardVisual : Node3D
         BuildProtectionBands();
         _ghost = Mesh(this, new SphereMesh { Radius = 0.4f, Height = 1.5f }, new(0, 0.7f, 0),
             new StandardMaterial3D { AlbedoColor = new Color(_color.R, _color.G, _color.B, 0.14f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha });
-        _name = new Label3D { Text = p.Name, FontSize = 34, PixelSize = 0.013f,
+        _name = new Label3D { Text = p.Name, Visible = !compactEnemy, FontSize = 34, PixelSize = 0.013f,
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, Modulate = local ? Ui.Text : _color, OutlineModulate = new("060a12"), OutlineSize = 10, NoDepthTest = true };
         AddChild(_name);
         _healthRoot = new Node3D(); AddChild(_healthRoot);
@@ -189,6 +194,7 @@ public partial class WizardVisual : Node3D
         _body.Visible = p.Alive; _ghost.Visible = !p.Alive; _halo.Visible = _shadow.Visible = p.Alive;
         UpdateMythicEyes(p, frame);
         UpdateEquipmentAura(p);
+        _arcaneMark.Visible = p.Alive && p.ArcaneMarked;
         _hitFlash = Math.Max(0, _hitFlash - dt);
         if (p.Alive && p.Health < _previousHealth - 0.5f) _hitFlash = 0.12f;
         _previousHealth = p.Health;
@@ -226,7 +232,8 @@ public partial class WizardVisual : Node3D
         UpdateProtectionBands(p, time);
         int status = !p.Alive ? 5 : spawnProtected ? 4 : p.Frozen > 0 ? 3 : p.Burning > 0 ? 2 : p.Wet > 0 ? 1 : 0;
         var nameState = (p.Name, p.WizardType, status, !p.Alive ? Mathf.CeilToInt(p.Respawn) : 0);
-        if (_nameState != nameState)
+        _name.Visible = !_compactEnemy;
+        if (!_compactEnemy && _nameState != nameState)
         {
             _nameState = nameState;
             _name.Text = p.Name + (!p.Alive ? $"  {nameState.Item4}s" : spawnProtected ? "  INMUNE" : p.Frozen > 0 ? "  CONGELADO" : p.Burning > 0 ? "  FUEGO" : p.Wet > 0 ? "  MOJADO" : "")
