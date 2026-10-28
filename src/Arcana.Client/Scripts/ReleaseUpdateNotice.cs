@@ -641,7 +641,10 @@ public partial class ReleaseUpdateNotice : Node
 
     private void AndroidInstallStatus(string status, string message)
     {
-        if (!GodotObject.IsInstanceValid(_overlay) || _stop.IsCancellationRequested) return;
+        if (_stop.IsCancellationRequested) return;
+        Diagnostics.Info("update.android_status", message, new Dictionary<string, object?>
+            { ["status"] = status, ["version"] = _version, ["asset"] = _assetName });
+        if (status == "diagnostic" || !GodotObject.IsInstanceValid(_overlay)) return;
         if (status == "failed") { ShowFailure(_progressGeneration, message); return; }
         _subtitle!.Text = message;
     }

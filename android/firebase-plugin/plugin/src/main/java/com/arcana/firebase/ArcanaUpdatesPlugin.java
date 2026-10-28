@@ -26,10 +26,13 @@ import java.util.concurrent.Executors;
 /** Instalador de la propia app: sin file://, explorador de archivos ni proveedor publico. */
 public final class ArcanaUpdatesPlugin extends GodotPlugin {
     static final String PREFS = "arcana-updates";
+    static final String SESSION_EXTRA = "com.arcana.arena.UPDATE_SESSION";
     private static final int PERMISSION_REQUEST = 43127;
     private static WeakReference<ArcanaUpdatesPlugin> current = new WeakReference<>(null);
-    private volatile boolean busy;
-    private volatile boolean awaitingPermission;
+    private final UpdateForegroundGate foreground = new UpdateForegroundGate();
+    // Estos estados y la confirmación de la sesión se gestionan en el hilo de la actividad.
+    private boolean busy;
+    private boolean awaitingPermission;
 
     public ArcanaUpdatesPlugin(Godot godot) { super(godot); current = new WeakReference<>(this); }
     @NonNull @Override public String getPluginName() { return "ArcanaUpdates"; }
@@ -39,8 +42,14 @@ public final class ArcanaUpdatesPlugin extends GodotPlugin {
     static void notifyStatus(String status, String message) {
         ArcanaUpdatesPlugin plugin = current.get();
         if (plugin != null) {
-            if (status.equals("failed")) plugin.busy = false;
-            plugin.emitSignal("update_status", status, message == null ? "No se ha completado la actualizacion." : message);
+            plugin.runOnHostThread(() -> {
+                if (status.equals("failed")) {
+                    plugin.busy = false;
+                    plugin.awaitingPermission = false;
+                    plugin.foreground.clear();
+                }
+                plugin.emitSignal("update_status", status, message == null ? "No se ha completado la actualizacion." : message);
+            });
         }
     }
     private Activity activity() {
@@ -64,6 +73,10 @@ public final class ArcanaUpdatesPlugin extends GodotPlugin {
     }
 
     private void startUpdate(String path, String versionCode, String sha256, boolean preview) {
+        runOnHostThread(() -> prepareUpdate(path, versionCode, sha256, preview));
+    }
+
+    private void prepareUpdate(String path, String versionCode, String sha256, boolean preview) {
         if (busy) return;
         try {
             Activity activity = activity();
@@ -75,9 +88,9 @@ public final class ArcanaUpdatesPlugin extends GodotPlugin {
             long code = Long.parseLong(versionCode);
             activity.getSharedPreferences(PREFS, 0).edit().putString("path", apk.getPath())
                 .putString("sha256", sha256).putLong("version", code).putBoolean("preview", preview)
-                .putBoolean("pending", true).apply();
+                .remove("session").putBoolean("pending", true).apply();
             busy = true;
-            activity.runOnUiThread(() -> continueUpdate(true));
+            foreground.runWhenResumed(() -> continueUpdate(true));
         } catch (Exception error) { notifyStatus("failed", error.getMessage()); }
     }
 
@@ -108,7 +121,20 @@ public final class ArcanaUpdatesPlugin extends GodotPlugin {
     @Override public void onMainActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == PERMISSION_REQUEST && awaitingPermission) {
             awaitingPermission = false;
-            continueUpdate(false);
+            // Android entrega el resultado antes de reanudar la actividad.
+            foreground.runWhenResumed(() -> continueUpdate(false));
+        }
+    }
+
+    @Override public void onMainPause() { foreground.pause(); }
+
+    @Override public void onMainResume() {
+        boolean returningFromPermission = awaitingPermission;
+        foreground.resume();
+        // Algunos ajustes de fabricantes solo notifican la vuelta a primer plano.
+        if (returningFromPermission && awaitingPermission) {
+            awaitingPermission = false;
+            foreground.runWhenResumed(() -> continueUpdate(false));
         }
     }
 
@@ -143,26 +169,53 @@ public final class ArcanaUpdatesPlugin extends GodotPlugin {
         if (Build.VERSION.SDK_INT >= 31)
             params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED);
         int sessionId = installer.createSession(params);
-        preferences.edit().putInt("session", sessionId).apply();
-        try (PackageInstaller.Session session = installer.openSession(sessionId)) {
-            try (var input = new FileInputStream(apk); OutputStream output = session.openWrite("base.apk", 0, apk.length())) {
-                int read;
-                while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
-                session.fsync(output);
+        try {
+            if (!preferences.edit().putInt("session", sessionId).commit())
+                throw new IllegalStateException("No se ha podido guardar la sesion de actualizacion.");
+            notifyStatus("diagnostic", "APK verificada; preparando sesion Android " + sessionId + ".");
+            try (PackageInstaller.Session session = installer.openSession(sessionId)) {
+                try (var input = new FileInputStream(apk); OutputStream output = session.openWrite("base.apk", 0, apk.length())) {
+                    int read;
+                    while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
+                    session.fsync(output);
+                }
             }
-            Intent result = new Intent(activity, ArcanaUpdateResultActivity.class)
-                .setAction("com.arcana.arena.UPDATE_RESULT")
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            int flags = PendingIntent.FLAG_UPDATE_CURRENT;
-            if (Build.VERSION.SDK_INT >= 31) flags |= PendingIntent.FLAG_MUTABLE;
-            ActivityOptions options = ActivityOptions.makeBasic();
-            if (Build.VERSION.SDK_INT >= 35)
-                options.setPendingIntentCreatorBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
-            PendingIntent callback = PendingIntent.getActivity(activity, sessionId, result, flags, options.toBundle());
-            session.commit(callback.getIntentSender());
+            // Verificar/copiar una APK puede durar varios segundos. Si el juego perdió
+            // el foco, se conserva la sesión y se confirma al volver, sin fallar ni descargar otra vez.
+            runOnHostThread(() -> foreground.runWhenResumed(() -> commitSession(sessionId)));
         } catch (Exception error) {
-            installer.abandonSession(sessionId);
+            abandonSession(installer, sessionId);
             throw error;
         }
+    }
+
+    private void commitSession(int sessionId) {
+        PackageInstaller installer = null;
+        try {
+            Activity activity = activity();
+            installer = activity.getPackageManager().getPackageInstaller();
+            try (PackageInstaller.Session session = installer.openSession(sessionId)) {
+                notifyStatus("diagnostic", "Confirmando sesion Android " + sessionId + " con la actividad reanudada.");
+                Intent result = new Intent(activity, ArcanaUpdateResultActivity.class)
+                    .setAction("com.arcana.arena.UPDATE_RESULT")
+                    .putExtra(SESSION_EXTRA, sessionId)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+                if (Build.VERSION.SDK_INT >= 31) flags |= PendingIntent.FLAG_MUTABLE;
+                ActivityOptions options = ActivityOptions.makeBasic();
+                if (Build.VERSION.SDK_INT >= 35)
+                    options.setPendingIntentCreatorBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
+                PendingIntent callback = PendingIntent.getActivity(activity, sessionId, result, flags, options.toBundle());
+                session.commit(callback.getIntentSender());
+            }
+        } catch (Exception error) {
+            if (installer != null) abandonSession(installer, sessionId);
+            notifyStatus("failed", error.getMessage());
+        }
+    }
+
+    private static void abandonSession(PackageInstaller installer, int sessionId) {
+        try { installer.abandonSession(sessionId); }
+        catch (Exception ignored) { /* Conservar el error original, aunque Android ya haya cerrado la sesión. */ }
     }
 }

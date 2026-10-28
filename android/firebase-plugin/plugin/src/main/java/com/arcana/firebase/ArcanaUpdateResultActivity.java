@@ -8,11 +8,29 @@ import java.io.File;
 
 /** Callback explícito del instalador; sigue existiendo después de actualizar nuestra APK. */
 public final class ArcanaUpdateResultActivity extends Activity {
-    @Override public void onCreate(Bundle state) { super.onCreate(state); handle(getIntent()); }
-    @Override public void onNewIntent(Intent intent) { super.onNewIntent(intent); setIntent(intent); handle(intent); }
+    private Intent pendingResult;
+    @Override public void onCreate(Bundle state) { super.onCreate(state); pendingResult = getIntent(); }
+    @Override public void onNewIntent(Intent intent) { super.onNewIntent(intent); setIntent(intent); pendingResult = intent; }
+    @Override public void onPostResume() {
+        super.onPostResume();
+        Intent result = pendingResult;
+        pendingResult = null;
+        if (result != null) handle(result);
+    }
 
     private void handle(Intent intent) {
+        var preferences = getSharedPreferences(ArcanaUpdatesPlugin.PREFS, 0);
+        // Un resultado tardío de un intento anterior no puede cancelar el actual
+        // ni borrar su APK. Los callbacks de versiones antiguas usan el extra del sistema.
+        int sessionId = intent.getIntExtra(ArcanaUpdatesPlugin.SESSION_EXTRA,
+            intent.getIntExtra(PackageInstaller.EXTRA_SESSION_ID, -1));
+        if (sessionId != -1 && sessionId != preferences.getInt("session", -1)) {
+            ArcanaUpdatesPlugin.notifyStatus("diagnostic", "Ignorado resultado de la sesion Android anterior " + sessionId + ".");
+            finish(); return;
+        }
         int status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE);
+        ArcanaUpdatesPlugin.notifyStatus("diagnostic", "Resultado de sesion Android " + sessionId + ": estado " + status +
+            "; " + intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE));
         if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
             Intent confirmation = intent.getParcelableExtra(Intent.EXTRA_INTENT);
             if (confirmation == null) { fail("Android no ha proporcionado su confirmacion de instalacion."); return; }
@@ -26,7 +44,6 @@ public final class ArcanaUpdateResultActivity extends Activity {
             fail(intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE));
             return;
         }
-        var preferences = getSharedPreferences(ArcanaUpdatesPlugin.PREFS, 0);
         // Solo se retira la descarga después de que Android confirme la instalación.
         try {
             File apk = new File(preferences.getString("path", "")).getCanonicalFile();
