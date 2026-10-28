@@ -678,10 +678,11 @@ jobs:
           set -euo pipefail
           version=$(tr -d '\r\n' < VERSION)
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "artifacts/android/ArcanaArena-v$version-Android-arm64.apk" AndroidManifest.xml > "$RUNNER_TEMP/update-manifest.txt"
-          for required in android.permission.REQUEST_INSTALL_PACKAGES android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION org.godotengine.plugin.v2.ArcanaUpdates com.arcana.firebase.ArcanaUpdateResultActivity; do
+          for required in android.permission.REQUEST_INSTALL_PACKAGES android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION org.godotengine.plugin.v2.ArcanaUpdates com.arcana.firebase.ArcanaUpdateResultActivity android.permission.FOREGROUND_SERVICE android.permission.FOREGROUND_SERVICE_SPECIAL_USE org.godotengine.plugin.v2.ArcanaSession com.arcana.firebase.ArcanaSessionService android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE; do
             grep -Fq "$required" "$RUNNER_TEMP/update-manifest.txt"
           done
           echo ANDROID_UPDATE_INSTALLER_PACKAGED_OK
+          echo ANDROID_SESSION_RETENTION_PACKAGED_OK
       - name: Generar y reconstruir parches de la APK firmada
         env:
           GH_TOKEN: ${{ github.token }}

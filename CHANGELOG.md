@@ -1,6 +1,10 @@
 # Cambios
 
-## Sin publicar
+## 0.29.34
+
+- Se integran en main todas las mejoras de Supervivencia publicadas en pruebas: mapas procedurales y biomas, autoguardado, configuración automática, nuevos afijos y estadísticas.
+- Android conserva la sesión con un servicio del sistema al cambiar de aplicación; la partida local queda pausada y sigue pausada al volver. El servicio termina al salir de la partida o cerrar la tarea.
+- La instalación Android espera a que la actividad esté reanudada al volver de permisos y al confirmar la APK; ignora resultados de intentos anteriores y registra el estado nativo para diagnóstico.
 
 - La tabla se dibuja delante de los avisos del HUD; el mensaje de muerte o fin de partida se oculta al abrirla y reaparece al cerrarla.
 - La configuración automática permite equipar y desequipar manualmente. Conserva cada elección por ranura, incluso al recibir botín o continuar un guardado, mientras optimiza las demás. Aplicar y activar restablece la selección automática de todas las ranuras.

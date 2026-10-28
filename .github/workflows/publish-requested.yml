@@ -1,35 +1,89 @@
-name: Publicacion de Supervivencia expresamente solicitada
+name: Publicacion estable 0.29.34 y limpieza solicitadas
 
-# Activador limitado a la rama y a la petición de tag/APK del usuario.
-# Petición de 0.29.33: tag y versión de pruebas, solicitados expresamente por el usuario.
-# Revisión 1: liberar la escena y sus recursos antes de cerrar la prueba nativa del bestiario.
+# Petición expresa del usuario: integrar todas las ramas en main, crear tag y APK,
+# y borrar las otras ramas tras verificar su incorporación y la publicación.
+# Solo este mensaje, versión y rama activan la operación concreta.
 on:
   push:
-    branches: [pruebas/supervivencia-procedural-autoguardado]
+    branches: [main]
     paths: [.github/workflows/publish-requested.yml]
 
 permissions:
-  contents: read
+  contents: write
   actions: write
 
 jobs:
   publish-requested-version:
-    if: github.event.head_commit.message == 'Publicar pruebas de Supervivencia 0.29.33'
+    if: github.event.head_commit.message == 'Publicar Arcana Arena 0.29.34'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 75
     steps:
-      - name: Verificar la rama y activar la publicación de pruebas solicitada
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Comprobar la versión y activar la publicación estable
+        id: build
         env:
           GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
           set -euo pipefail
-          branch_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$GITHUB_REF_NAME" --jq '.object.sha')
-          test "$branch_sha" = "$GITHUB_SHA"
-          version=$(gh api "repos/$GITHUB_REPOSITORY/contents/VERSION?ref=$GITHUB_SHA" --jq '.content' | base64 --decode | tr -d '\r\n')
-          test "$version" = '0.29.33'
-          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=$GITHUB_REF_NAME&event=workflow_dispatch&per_page=20" \
-            --jq ".workflow_runs[] | select(.head_sha != \"$GITHUB_SHA\" and .status != \"completed\") | .id" > "$RUNNER_TEMP/arcana-stale-runs"
-          while IFS= read -r stale_run; do
-            [ -z "$stale_run" ] || gh run cancel "$stale_run" --repo "$GITHUB_REPOSITORY" || true
-          done < "$RUNNER_TEMP/arcana-stale-runs"
-          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" -f publish_preview=true -f publish_stable=false
+          test "$GITHUB_REF_NAME" = main
+          test "$(tr -d '\r\n' < VERSION)" = '0.29.34'
+          python3 scripts/version-support.py check .
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" = "$GITHUB_SHA"
+          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref main -f publish_preview=false -f publish_stable=true
+          run_id=''
+          for attempt in $(seq 1 60); do
+            run_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&event=workflow_dispatch&per_page=10" \
+              --jq ".workflow_runs[] | select(.head_sha == \"$GITHUB_SHA\" and .head_branch == \"main\") | .id" | head -n1)
+            if [ -n "$run_id" ]; then break; fi
+            sleep 3
+          done
+          test -n "$run_id"
+          printf 'ci_run_id=%s\n' "$run_id" >> "$GITHUB_OUTPUT"
+          printf 'Compilación y publicación: https://github.com/%s/actions/runs/%s\n' "$GITHUB_REPOSITORY" "$run_id" >> "$GITHUB_STEP_SUMMARY"
+          gh run watch "$run_id" --repo "$GITHUB_REPOSITORY" --exit-status --interval 20
+      - name: Verificar la publicación y la integridad de la APK descargada
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release="repos/$GITHUB_REPOSITORY/releases/tags/v0.29.34"
+          test "$(gh api "$release" --jq '.target_commitish')" = "$GITHUB_SHA"
+          test "$(gh api "$release" --jq '.draft')" = false
+          test "$(gh api "$release" --jq '.prerelease')" = false
+          apk_size=$(gh api "$release" --jq '.assets[] | select(.name == "ArcanaArena-v0.29.34-Android-arm64.apk") | .size')
+          test "$apk_size" -gt 1048576
+          mkdir -p "$RUNNER_TEMP/published-apk"
+          gh release download v0.29.34 --repo "$GITHUB_REPOSITORY" \
+            --pattern ArcanaArena-v0.29.34-Android-arm64.apk \
+            --pattern SHA256SUMS-Android.txt --dir "$RUNNER_TEMP/published-apk"
+          (cd "$RUNNER_TEMP/published-apk" && sha256sum --check SHA256SUMS-Android.txt --ignore-missing)
+          printf 'APK publicada y SHA-256 verificado.\n' >> "$GITHUB_STEP_SUMMARY"
+      - name: Borrar las ramas incorporadas con comprobación de sus commits
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" = "$GITHUB_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/branches?per_page=100" --jq 'length')" -eq 3
+          while read -r branch expected; do
+            test "$branch" != main
+            current=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" --jq '.object.sha')
+            test "$current" = "$expected"
+            status=$(gh api "repos/$GITHUB_REPOSITORY/compare/$expected...$GITHUB_SHA" --jq '.status')
+            test "$status" = ahead -o "$status" = identical
+          done <<'BRANCHES'
+          codex/inventory-visual f9703e0f0ee21e11742f3b272f818aeb159704bc
+          pruebas/supervivencia-procedural-autoguardado 9a6c82a9d213d1e987481f486e6e54c15e365fc2
+          BRANCHES
+          git push --atomic \
+            --force-with-lease=refs/heads/codex/inventory-visual:f9703e0f0ee21e11742f3b272f818aeb159704bc \
+            --force-with-lease=refs/heads/pruebas/supervivencia-procedural-autoguardado:9a6c82a9d213d1e987481f486e6e54c15e365fc2 \
+            origin :refs/heads/codex/inventory-visual :refs/heads/pruebas/supervivencia-procedural-autoguardado
+          remaining=$(gh api "repos/$GITHUB_REPOSITORY/branches?per_page=100" --jq '.[].name')
+          test "$remaining" = main
+          printf 'Ramas verificadas e incorporadas. Solo permanece main.\n' >> "$GITHUB_STEP_SUMMARY"
