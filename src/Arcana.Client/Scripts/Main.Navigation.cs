@@ -13,7 +13,8 @@ public partial class Main
         if (dialog != null) { dialog.EmitSignal(AcceptDialog.SignalName.Canceled); dialog.Hide(); return true; }
         if (_reconnecting || Loading) { ReturnToLauncher(); return true; }
         if (_profiler?.Running == true) { _profiler.Cancel(); return true; }
-        if (ControlsOpen) _controlsSettings!.HandleBack();
+        if (ViewingDamageSummary) ClosePersonalDamageSummary();
+        else if (ControlsOpen) _controlsSettings!.HandleBack();
         else if (_help.Visible) CloseInGameHelp();
         else if (GodotObject.IsInstanceValid(_statisticsPanel)) CloseMatchStatistics();
         else if (GodotObject.IsInstanceValid(_itemShopPanel)) _itemShopPanel!.HandleBack();

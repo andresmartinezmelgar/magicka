@@ -3,7 +3,7 @@ namespace Arcana.Core;
 public enum DefenseFlow { Continuous = 1 }
 public enum MinionKind { Melee, Archer, Mage, Captain, Tank, Boss, Runner, Brute, Bomber, Shaman, Warlock, Cryomancer, Sentinel, Prism, Oracle }
 public enum DefenseDropKind { Gold, Equipment, Relic }
-public enum DefenseAura { Fire, Lightning, Regeneration }
+public enum DefenseAura { Fire, Lightning, Regeneration, Arcane, Water }
 public enum DefensePassive { Meteor, Berserker, FrostNova, ChainLightning }
 internal enum CombatantRole { Player, Minion }
 
@@ -18,6 +18,8 @@ public static partial class DefenseRules
     public const float SpeedBoostMultiplier = 1.6f;
     public static float BossInterval(Random random, bool first) => (first ? 120 : 90) + (float)random.NextDouble() * 60;
     public const int RewardLimit = 4, MaxAuraLevel = 10, MaxPassiveLevel = 5;
+    public static readonly int AuraCount = Enum.GetValues<DefenseAura>().Length;
+    public const float WaterAuraWetSeconds = 2;
     // Moderate permanent improvement; subsequent personal shields and existing active
     // shields scale in the same way. Never amplifies PvP equipment.
     public static float ShieldLevelMultiplier(int level) =>
@@ -64,7 +66,7 @@ public static partial class DefenseRules
     { MinionKind.Boss => Math.Max(0.3f, AttackDelay(stage) * 0.65f), MinionKind.Oracle => Math.Max(3.2f, AttackDelay(stage) * 3.5f), _ => AttackDelay(stage) };
     public static float MinionHealth(MinionKind kind, int stage, int party) => (kind switch
     { MinionKind.Boss => 4200, MinionKind.Tank => 1200, MinionKind.Captain => 700, MinionKind.Mage => 380, MinionKind.Archer => 260,
-        MinionKind.Runner => 200, MinionKind.Brute => 1500, MinionKind.Bomber => 240, MinionKind.Shaman => 540, MinionKind.Sentinel => 1900, MinionKind.Warlock => 920, MinionKind.Cryomancer => 760, MinionKind.Prism => 640, MinionKind.Oracle => 1100, _ => 340 })
+        MinionKind.Runner => 200, MinionKind.Brute => 1500, MinionKind.Bomber => 240, MinionKind.Shaman => 540, MinionKind.Sentinel => 1900, MinionKind.Warlock => 920, MinionKind.Cryomancer => 760, MinionKind.Prism => 640, MinionKind.Oracle => 1400, _ => 340 })
         * EnemyStrength(stage) * (1 + (Math.Clamp(party, 1, MaxDefenders) - 1) * (kind == MinionKind.Boss ? 0.4f : 0.1f));
     public static int PassiveCost(int level) => 140 * (level + 1) * (level + 1);
     public static float BerserkerDuration(int level) => 4 + level * 0.5f;
@@ -92,7 +94,19 @@ public static partial class DefenseRules
     public static int ExperienceForLevel(int level) => 60 + level * 40;
     public static float AuraRadius(int level) => level <= 0 ? 0 : 2.8f + level * 0.25f;
     public static string AuraName(DefenseAura aura) => aura switch
-    { DefenseAura.Fire => "Aura de fuego", DefenseAura.Lightning => "Aura eléctrica", _ => "Aura de regeneración" };
+    { DefenseAura.Fire => "Aura de fuego", DefenseAura.Lightning => "Aura eléctrica", DefenseAura.Arcane => "Aura arcana",
+        DefenseAura.Water => "Aura de agua", _ => "Aura de regeneración" };
+    public static Element AuraElement(DefenseAura aura) => aura switch
+    { DefenseAura.Fire => Element.Fire, DefenseAura.Lightning => Element.Lightning, DefenseAura.Arcane => Element.Arcane,
+        DefenseAura.Water => Element.Water, _ => Element.Life };
+    public static float AuraDamage(DefenseAura aura, int level) => Math.Max(0, level) *
+        (aura == DefenseAura.Water ? 12 : aura == DefenseAura.Regeneration ? 0 : 24);
+    public static string AuraDescription(DefenseAura aura, int level) => aura switch
+    {
+        DefenseAura.Regeneration => $"Recupera {10 * level} vida/s para ti y tus aliados.",
+        DefenseAura.Water => $"Inflige {AuraDamage(aura, level):0} daño de agua/s base y mantiene Mojado a los enemigos hasta {WaterAuraWetSeconds:0} s después de salir (modificable por equipo). Mojado aumenta el daño de rayo y facilita la congelación. No afecta a ti ni a tus aliados.",
+        _ => $"Inflige {AuraDamage(aura, level):0} daño de {SpellCatalogue.Name([AuraElement(aura)]).ToLowerInvariant()}/s base a los enemigos."
+    };
     public static string MinionName(MinionKind kind) => kind switch
     { MinionKind.Melee => "Minion", MinionKind.Archer => "Arquero", MinionKind.Mage => "Mago invasor", MinionKind.Tank => "Tanque", MinionKind.Boss => "Coloso",
         MinionKind.Runner => "Corredor", MinionKind.Brute => "Bruto", MinionKind.Bomber => "Detonador", MinionKind.Shaman => "Chamán", MinionKind.Warlock => "Conjurador ígneo", MinionKind.Cryomancer => "Tejedor glacial", MinionKind.Sentinel => "Guardián rúnico", MinionKind.Prism => "Prisma elemental", MinionKind.Oracle => "Oráculo de asedio", _ => "Comandante" };
@@ -122,7 +136,7 @@ internal sealed class DefenseProgress
     public int AutoSold;
     public EquipmentLoadout Loadout = new();
     public readonly Dictionary<string, int> Upgrades = [];
-    public readonly int[] Auras = new int[3];
+    public readonly int[] Auras = new int[DefenseRules.AuraCount];
     public readonly int[] Buffs = new int[RelicBuffs.Count];
 }
 

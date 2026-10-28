@@ -3,7 +3,7 @@ namespace Arcana.Core;
 internal sealed class MatchStatisticsCollector
 {
     private readonly Dictionary<(StatisticGroup Group, int Key, StatisticMeasure Measure), double> _values = [];
-    private readonly Dictionary<int, (int Code, MinionKind? Kind)> _actors = [];
+    private readonly Dictionary<int, (int Code, MinionKind? Kind, Wizard Body)> _actors = [];
     private readonly HashSet<int> _dead = [];
     private readonly Queue<int> _retired = [];
     private long _ticks;
@@ -28,7 +28,7 @@ internal sealed class MatchStatisticsCollector
     }
     public void Bind(Wizard body, MinionKind? kind = null, bool spawn = true)
     {
-        _actors[body.Id] = (kind == null ? (int)body.WizardType + (body.Bot ? 16 : 0) + body.Team * 32 : 64 + (int)kind, kind);
+        _actors[body.Id] = (kind == null ? (int)body.WizardType + (body.Bot ? 16 : 0) + body.Team * 32 : 64 + (int)kind, kind, body);
         _dead.Remove(body.Id);
         if (spawn) { Total(StatisticMeasure.Spawns); Actor(body.Id, StatisticMeasure.Spawns); Actor(body.Id, StatisticMeasure.SpawnHealth, body.MaxHealth); }
     }
@@ -73,8 +73,10 @@ internal sealed class MatchStatisticsCollector
     }
     public void Attack(int owner, StatisticAttack attack, StatisticMeasure measure, double value = 1)
     { Add(StatisticGroup.Attack, (int)attack, measure, value); Add(Role(owner, false), (int)attack, measure, value); }
-    private void ElementDamage(int owner, int element, StatisticAttack attack, double health, double shield)
+    private void ElementDamage(int owner, int element, StatisticAttack attack, double health, double shield, bool personal = false)
     {
+        if (personal && _actors.TryGetValue(owner, out var actor) && actor.Kind == null)
+            actor.Body.MatchDamage.Add(element, health, shield);
         var role = Role(owner, true);
         var sourceGroup = role switch
         {
@@ -85,7 +87,7 @@ internal sealed class MatchStatisticsCollector
         };
         var source = attack switch
         {
-            StatisticAttack.FireAura or StatisticAttack.LightningAura => StatisticDamageSource.Aura,
+            StatisticAttack.FireAura or StatisticAttack.LightningAura or StatisticAttack.ArcaneAura or StatisticAttack.WaterAura => StatisticDamageSource.Aura,
             StatisticAttack.Burn => StatisticDamageSource.Burn,
             StatisticAttack.RingPulse when element != (int)Element.Lightning => StatisticDamageSource.Area,
             StatisticAttack.Barrier or StatisticAttack.Nova or StatisticAttack.Mine or StatisticAttack.Meteor or StatisticAttack.AutoMeteor or
@@ -128,6 +130,7 @@ internal sealed class MatchStatisticsCollector
         ShieldSource(target.Id, shield, false);
         if (friendly) Total(owner == target.Id ? StatisticMeasure.SelfDamage : StatisticMeasure.FriendlyDamage, health + shield);
         Span<float> contributions = stackalloc float[9];
+        contributions.Clear();
         if (weights.Length == 9) weights.CopyTo(contributions);
         else if (elements is { Length: > 0 }) foreach (var e in elements) { if (target.VulnerableElement == null || e == target.VulnerableElement) contributions[(int)e]++; }
         else contributions[8] = 1;
@@ -136,22 +139,24 @@ internal sealed class MatchStatisticsCollector
         for (int e = 0; e < 9; e++) if (contributions[e] > 0)
         {
             double fraction = contributions[e] / total;
-            ElementDamage(owner, e, attack, health * fraction, shield * fraction);
+            ElementDamage(owner, e, attack, health * fraction, shield * fraction, !friendly && owner != target.Id);
             if (_actors.TryGetValue(target.Id, out var a) && a.Kind is {} kind)
             { Add(StatisticGroup.EnemyElement, (int)kind * 9 + e, StatisticMeasure.DamageReceived, health * fraction); Add(StatisticGroup.EnemyElement, (int)kind * 9 + e, StatisticMeasure.ShieldAbsorbed, shield * fraction); }
         }
     }
     private void DamageValue(int owner, StatisticAttack attack, Element[]? elements, StatisticMeasure measure, double value)
     { Total(measure, value); Actor(owner, measure, value); Attack(owner, attack, measure, value); Add(StatisticGroup.Recipe, Recipe(elements), measure, value); }
-    public void BarrierDamage(int owner, int defender, double value, Element[]? elements, StatisticAttack attack)
+    public void BarrierDamage(int owner, int defender, double value, Element[]? elements, StatisticAttack attack, bool hostile,
+        ReadOnlySpan<float> weights)
     {
         if (!(value > 0)) return;
         DamageValue(owner, attack, elements, StatisticMeasure.ShieldDamage, value);
         Actor(defender, StatisticMeasure.ShieldAbsorbed, value);
         ShieldSource(defender, value, true);
-        int count = elements?.Length ?? 0;
-        if (count == 0) ElementDamage(owner, 8, attack, 0, value);
-        else foreach (var e in elements!) ElementDamage(owner, (int)e, attack, 0, value / count);
+        float total = 0; foreach (float weight in weights) total += weight;
+        if (!(total > 0)) ElementDamage(owner, 8, attack, 0, value, hostile);
+        else for (int e = 0; e < weights.Length; e++) if (weights[e] > 0)
+            ElementDamage(owner, e, attack, 0, value * weights[e] / total, hostile);
     }
     public void Death(Wizard target, int owner, StatisticAttack attack = StatisticAttack.EnemyArea)
     {

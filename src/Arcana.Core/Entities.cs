@@ -46,6 +46,7 @@ public sealed class Wizard
     public float[] MagickCooldowns { get; } = new float[4];
     public int Kills { get; set; }
     public int Deaths { get; set; }
+    internal MatchDamageAccumulator MatchDamage { get; set; } = new();
     public ElementBuffer Selection { get; } = new();
     public ClientMessage Input { get; set; } = new() { Type = "input", AimX = 1 };
     public double LastInput { get; set; }

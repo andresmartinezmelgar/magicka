@@ -6,7 +6,7 @@ namespace Arcana.Core;
 
 public static class Protocol
 {
-    public const int Version = 42;
+    public const int Version = 43;
     public const int GamePort = 27015;
     public const int DiscoveryPort = 27016;
     public const string DiscoveryMagic = "ARCANA_DISCOVER_V30";
@@ -227,6 +227,7 @@ public sealed record WizardSnapshot(int Id, string Name, int Team, bool Bot, V2 
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long SelectionSequence = 0)
 {
     [JsonIgnore] public Element[] DisplayElements => Selected.Length > 0 ? Selected : CastingElements ?? [];
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public MatchDamageSnapshot? Damage { get; init; }
 }
 public sealed record BuffSnapshot(BuffKind Kind, int Stacks);
 public sealed record PickupSnapshot(int Id, V2 Position, BuffKind Kind, bool Active, float Respawn);

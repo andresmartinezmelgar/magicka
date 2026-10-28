@@ -15,6 +15,7 @@ public sealed partial class GameWorld
         public ulong RandomState;
         public double Elapsed;
         public float SpawnClock, AuraClock, BossClock, SurgeTime, SurgeCooldown, SurgeClock, BotClock;
+        public float OracleSpawnCooldown;
         public int Reinforcements;
         public SavedDefender[] Defenders = [];
         public SavedMinion[] Minions = [];
@@ -81,6 +82,7 @@ public sealed partial class GameWorld
             Options = Options, SurvivalMap = Map.SurvivalMap, Tick = Tick, NextEvent = _nextEvent, NextMinion = _nextMinion, NextEntity = _nextEntity,
             RandomState = ((SurvivalRandom)_random).State, Kills = _defenseKills, Bosses = _bossesKilled,
             Elapsed = _defenseElapsed, PartySize = _defensePartySize, SpawnClock = _spawnClock, AuraClock = _auraClock,
+            OracleSpawnCooldown = _oracleSpawnCooldown,
             BossClock = _bossClock, SurgeTime = _commanderSurgeTime, SurgeCooldown = _commanderSurgeCooldown,
             SurgeClock = _commanderSpawnClock, Reinforcements = _commanderReinforcements, BotClock = _defenseBotPlanClock,
             Defenders = _players.Values.Select(p =>
@@ -137,6 +139,7 @@ public sealed partial class GameWorld
         world._defenseElapsed = s.Elapsed; world._defenseDifficulty = DefenseRules.TimedDifficulty(s.Elapsed);
         world._defensePartySize = s.PartySize; world._defenseKills = s.Kills; world._bossesKilled = s.Bosses;
         world._spawnClock = s.SpawnClock; world._auraClock = s.AuraClock; world._bossClock = s.BossClock;
+        world._oracleSpawnCooldown = s.OracleSpawnCooldown;
         world._commanderSurgeTime = s.SurgeTime; world._commanderSurgeCooldown = s.SurgeCooldown;
         world._commanderSpawnClock = s.SurgeClock; world._commanderReinforcements = s.Reinforcements;
         foreach (var entry in s.Defenders)
@@ -223,6 +226,8 @@ public sealed partial class GameWorld
         Require(s.Tick is >= 0 and <= 1892160000 && double.IsFinite(s.Elapsed) && s.Elapsed is >= 0 and <= 31536000 &&
             s.Kills >= 0 && s.Bosses >= 0 && s.PartySize is >= 1 and <= 4 && s.RandomState != 0 && s.NextEvent > 0 &&
             new[] { s.SpawnClock, s.AuraClock, s.BossClock, s.SurgeTime, s.SurgeCooldown, s.SurgeClock, s.BotClock }.All(float.IsFinite));
+        Require(float.IsFinite(s.OracleSpawnCooldown) && s.OracleSpawnCooldown >= 0 &&
+            s.OracleSpawnCooldown <= DefenseRules.OracleMinimumSpawnGap + DefenseRules.OracleSpawnGapVariation);
         s.Statistics?.Validate();
         Require(s.Statistics == null || s.Statistics.Mode == GameMode.Defense && s.Statistics.Map == s.Options.Map && !s.Statistics.Complete);
         var ids = new HashSet<int>();
@@ -237,7 +242,8 @@ public sealed partial class GameWorld
                 d.ActiveTicks >= 0 && d.ActiveTicks <= s.Tick && double.IsFinite(d.LastActivity) && float.IsFinite(d.BerserkerRemaining) &&
                 d.Passives is { Length: 4 } && d.Passives.All(n => n is >= 0 and <= DefenseRules.MaxPassiveLevel) &&
                 d.PassiveCooldowns is { Length: 4 } && d.PassiveCooldowns.All(float.IsFinite) &&
-                d.Auras is { Length: 3 } && d.Auras.All(n => n is >= 0 and <= DefenseRules.MaxAuraLevel) &&
+                d.Auras != null && (d.Auras.Length == 3 || d.Auras.Length == DefenseRules.AuraCount) &&
+                d.Auras.All(n => n is >= 0 and <= DefenseRules.MaxAuraLevel) &&
                 d.Items is { Length: <= DefenseRules.InventoryLimit } && d.Items.All(EquipmentCatalogue.Valid) &&
                 d.Favorites is { Length: <= DefenseRules.InventoryLimit } && d.Favorites.Distinct().Count() == d.Favorites.Length &&
                 d.Favorites.All(id => d.Items.Any(i => i.Id == id)) && d.AutoSold >= 0 &&

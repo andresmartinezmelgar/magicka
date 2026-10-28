@@ -39,6 +39,7 @@ internal sealed class SurvivalWizard
     public int BurnOwner = 0;
     public int Kills = 0;
     public int Deaths = 0;
+    public MatchDamageSnapshot? Damage = null;
     public int BeamTicks = 0;
     public int BotWallTarget = 0;
     public int SlideSurface = 0;
@@ -92,6 +93,7 @@ internal sealed class SurvivalWizard
         BurnOwner = p.BurnOwner,
         Kills = p.Kills,
         Deaths = p.Deaths,
+        Damage = p.MatchDamage.Snapshot(),
         BeamTicks = p.BeamTicks,
         BotWallTarget = p.BotWallTarget,
         SlideSurface = p.SlideSurface,
@@ -163,13 +165,14 @@ internal sealed class SurvivalWizard
             LastInput = time,
         };
         BuffStacks.CopyTo(p.BuffStacks, 0); MagickCooldowns.CopyTo(p.MagickCooldowns, 0);
+        p.MatchDamage.Restore(Damage);
         foreach (var element in Selection) p.Selection.Add(element);
         p.Input = new() { Type = "input", AimX = Position.X + Facing.X, AimY = Position.Y + Facing.Y };
         return p;
     }
 
     public bool Valid() => Id > 0 && Id < int.MaxValue - 1 && Name is { Length: > 0 and <= 24 } &&
-        RingCooldown is >= 0 and <= 16 && Enum.IsDefined(WizardType) && Equipment != null && Position.IsFinite && Facing.IsFinite &&
+        RingCooldown is >= 0 and <= 16 && (Damage == null || Damage.Valid()) && Enum.IsDefined(WizardType) && Equipment != null && Position.IsFinite && Facing.IsFinite &&
         float.IsFinite(ReprisalCooldown) && ReprisalCooldown is >= 0 and <= CombatAffixes.ReprisalSeconds &&
         Knockback.IsFinite && SlideIntent.IsFinite && SlideTangent.IsFinite &&
         Math.Abs(Position.X) <= 1000 && Math.Abs(Position.Y) <= 1000 &&

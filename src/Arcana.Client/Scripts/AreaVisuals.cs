@@ -7,13 +7,13 @@ namespace Arcana.Client;
 internal static class AreaVisuals
 {
     internal enum Pattern { Fire, Water, Frost, Mine, HealingMine, MineTrigger, HealingTrigger,
-        FireAura, LightningAura, RegenerationAura, Berserker, FrostPulse, Impact, LightningLink, ShieldAura }
+        FireAura, LightningAura, RegenerationAura, Berserker, FrostPulse, Impact, LightningLink, ShieldAura, ArcaneAura, WaterAura }
 
     private static readonly Dictionary<Pattern, ArrayMesh> Shapes = [];
     private static readonly Dictionary<Color, ShaderMaterial> Skins = [];
     private static Shader? _shader;
     private static readonly Color Ember = new("ff6b28"), Gold = new("ffd78b"), Water = new("56bcff"),
-        Ice = new("b6f1ff"), Electric = new("c4b5ff"), Green = new("65edbb"), Rage = new("ff705d");
+        Ice = new("b6f1ff"), Electric = new("c4b5ff"), Green = new("65edbb"), Rage = new("ff705d"), Arcane = new("ed59ba");
 
     internal static ShaderMaterial Skin(Color? tint = null)
     {
@@ -46,7 +46,8 @@ internal static class AreaVisuals
         "healing_mine" => Pattern.HealingMine, _ => Pattern.Mine
     };
     internal static Pattern AuraPattern(int index) => index switch
-    { 0 => Pattern.FireAura, 1 => Pattern.LightningAura, 2 => Pattern.RegenerationAura, _ => Pattern.Berserker };
+    { 0 => Pattern.FireAura, 1 => Pattern.LightningAura, 2 => Pattern.RegenerationAura,
+        3 => Pattern.ArcaneAura, 4 => Pattern.WaterAura, _ => Pattern.Berserker };
 
     internal static MeshInstance3D Piece(Node3D root, Pattern pattern, Color? tint = null)
     {
@@ -66,6 +67,28 @@ internal static class AreaVisuals
             b.Disc(new Color("08111c", 0.48f), new Color("101c2a", 0.12f));
         switch (pattern)
         {
+            case Pattern.ArcaneAura:
+                b.Ring(0.985f, 1, new(Arcane, 0.8f));
+                b.Ring(0.62f, 0.64f, new(Arcane, 0.4f));
+                for (int i = 0; i < 6; i++)
+                {
+                    float a = i * Mathf.Tau / 6;
+                    b.Line(At(0.94f, a), At(0.94f, a + Mathf.Tau / 3), 0.013f, new(Arcane, 0.65f));
+                    var at = At(0.8f, a);
+                    b.Line(at + At(0.07f, a), at + At(0.05f, a + Mathf.Pi / 2), 0.02f, new(Arcane, 0.95f));
+                    b.Line(at + At(0.05f, a + Mathf.Pi / 2), at - At(0.07f, a), 0.02f, new(Arcane, 0.95f));
+                }
+                break;
+            case Pattern.WaterAura:
+                b.Ring(0.985f, 1, new(Water, 0.75f));
+                b.RadialMotion = 0.025f;
+                for (int i = 0; i < 3; i++) b.Arc(0.3f + i * 0.23f, 0.315f + i * 0.23f, 0, Mathf.Tau, new(Water, 0.45f), 32);
+                for (int i = 0; i < 8; i++)
+                {
+                    float a = i * Mathf.Tau / 8;
+                    b.Drop(At(0.88f, a), a + Mathf.Pi / 2, new(Water, 0.9f));
+                }
+                break;
             case Pattern.Fire:
             case Pattern.FireAura:
                 b.Ring(0.978f, 1, new(Ember, 0.8f));

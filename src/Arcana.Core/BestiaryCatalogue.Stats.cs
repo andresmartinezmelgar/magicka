@@ -80,6 +80,9 @@ public static partial class BestiaryCatalogue
         }
         if (kind == MinionKind.Oracle)
         {
+            Add("Aparición natural", DefenseRules.OracleSpawnChance + " % por intento desde dificultad 6, tras un intervalo de " +
+                Number(DefenseRules.OracleMinimumSpawnGap) + "–" + Number(DefenseRules.OracleMinimumSpawnGap + DefenseRules.OracleSpawnGapVariation) + " s desde la aparición anterior");
+            Add("Máximo de oráculos simultáneos", DefenseRules.OracleNaturalLimit.ToString());
             Add("Bombardeo rúnico", Number(DefenseRules.OracleStrikeDamage * strength) + " por cristal ×3");
             Add("Radio de cada explosión", Number(DefenseRules.OracleStrikeRadius) + " m");
             Add("Aviso antes del impacto", Number(DefenseRules.OracleStrikeDelay) + "–" + Number(DefenseRules.OracleStrikeDelay + 0.6f) + " s");

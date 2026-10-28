@@ -2,7 +2,7 @@
 
 Versión de pruebas **0.29.31**, con generador libre v2, venta por ranura y diez biomas visuales. Utiliza protocolo **41**; cliente y servidor deben actualizarse juntos. La versión estable **0.29.28** permanece separada en main.
 
-La rama incorpora, pendiente de otra compilación solicitada, el afijo **Fragmentación de roca** del catálogo 10 y protocolo 42. Genera cuatro fragmentos en Diamante o seis en Mítico, con la mezcla original y áreas elementales pequeñas al chocar o caer. El guardado conserva las rocas, fragmentos y áreas en curso; los puntos anteriores siguen siendo legibles.
+La rama incorpora, pendiente de otra compilación solicitada, el afijo **Fragmentación de roca** del catálogo 10, auras de Arcano y Agua, el oráculo ocasional y el resumen personal de daño, con protocolo 43. La fragmentación genera cuatro fragmentos en Diamante o seis en Mítico, con la mezcla original y áreas elementales pequeñas al chocar o caer. El guardado conserva las rocas, fragmentos, áreas, cinco auras, daño personal e intervalo del oráculo; los puntos anteriores siguen siendo legibles.
 
 ## Partida y vidas
 
@@ -105,7 +105,7 @@ El tope real también depende de los FPS de cada dispositivo. Se empieza con un 
 | Conjurador ígneo | Dificultad 5 | 920 | Rocas arcanas o de fuego, con explosión y suelo ardiente |
 | Guardián rúnico | Dificultad 6 | 1900 | 160 en 3,8 m, avisa 1,2 s; escudo de tierra de 280 × fuerza |
 | Prisma elemental | Dificultad 3 | 640 | 48; solo recibe el elemento de su color y fija una víctima hasta 10 s |
-| Oráculo de asedio | Dificultad 6 | 1100 | Tres cristales de 160, radio 3 m, alcance 24 m; aura de escudos de 14 m |
+| Oráculo de asedio | Dificultad 6, ocasional | 1400 | Tres cristales de 200, radio 3 m, alcance 24 m; aura de escudos de 14 m |
 
 Las cifras de la tabla son las bases a dificultad 1 antes de multiplicarlas por la fuerza de aparición. El bestiario del perfil permite consultar cualquier dificultad y grupo. Los magos usan una potencia de 0,42 (el conjurador ígneo añade un 20 %), canalizan haces y relámpagos durante **1,2 s**, y conos durante **0,9 s**. La velocidad básica empieza en 3,67 m/s y aumenta hasta 5,27 m/s; cada tipo aplica su propio multiplicador.
 
@@ -135,7 +135,9 @@ Las bajas normales dan 10 EXP compartida y los colosos 60 EXP a los defensores c
 
 Las recogidas duran 75 s, con un máximo de 96; el inventario temporal admite 24 piezas. Los sprites distinguen monedas giratorias, las cuatro piezas y cada mejora. Las mejoras recogidas se consultan en Reliquias del menú o de la tienda. El HUD muestra nivel, EXP, oro, bajas y vidas. Las aportaciones del equipo se consultan en el inventario y en Estadísticas.
 
-Las auras de fuego, rayo y regeneración siguen al personaje. Admiten diez niveles y cuestan `80 × (nivel actual + 1)²`. Las habilidades automáticas admiten cinco niveles y cuestan `140 × (nivel actual + 1)²`:
+Las auras de fuego, rayo, regeneración, Arcano y Agua siguen al personaje, únicamente en Supervivencia. Admiten diez niveles y cuestan `80 × (nivel actual + 1)²`; el radio es `2,8 + 0,25 × nivel` metros. Fuego, Rayo y Arcano infligen `24 × nivel` de daño/s base. Agua inflige `12 × nivel` y mantiene Mojado a los enemigos hasta dos segundos después del último pulso, ajustados por el atributo de duración del equipo; apaga sus quemaduras y facilita el daño de rayo y la congelación. No afecta al lanzador ni a sus aliados. Todas las auras ofensivas requieren línea de visión y respetan el único elemento vulnerable de los prismas. Regeneración cura `10 × nivel` de vida/s a defensores visibles. Los índices anteriores se conservan y los guardados con tres auras se amplían con las dos nuevas sin comprar.
+
+Las habilidades automáticas admiten cinco niveles y cuestan `140 × (nivel actual + 1)²`:
 
 | Habilidad | Nivel 1 |
 | --- | --- |
@@ -175,7 +177,13 @@ El chamán puede aparecer desde el minuto 3, el bruto y el mago desde 4:30 y el 
 
 El prisma conserva su color elemental incluso al arder o congelarse. Las mezclas solo aportan el daño de ese elemento. Agua pura causa 55 de daño base por carga contra la variante azul. Vida y Escudo no aparecen como vulnerabilidades.
 
-El oráculo retrocede por debajo de 16 m, bombardea desde hasta 24 m y concede escudos a 14 m sin atravesar paredes. El escudo base es 220 × fuerza, con reparaciones de hasta 110 × fuerza cada 4 s; dura seis segundos desde el último pulso. Varias auras no aceleran la reparación. Los cristales avisan entre 1,4 y 2 s y se cancelan al morir el lanzador. Hay como máximo dos oráculos y ocho prismas en la generación natural.
+El oráculo retrocede por debajo de 16 m, bombardea desde hasta 24 m y concede escudos a 14 m sin atravesar paredes. El escudo base es 220 × fuerza, con reparaciones de hasta 110 × fuerza cada 4 s; dura seis segundos desde el último pulso. Varias auras no aceleran la reparación. Los cristales avisan entre 1,4 y 2 s y se cancelan al morir el lanzador. Desde dificultad 6 tiene un 1 % por intento de aparición, un máximo natural de uno vivo y un intervalo aleatorio de 90–150 s desde el anterior; cumplido el intervalo aún necesita superar la tirada, así que puede tardar más. Vida base 1400 y daño base 200 por cristal. El intervalo se conserva al continuar y se reinicia con una partida nueva. Se mantienen hasta ocho prismas naturales.
+
+## Resumen personal de daño
+
+Todos los modos y cuentas muestran una tabla y la misma gráfica de elementos al morir y al finalizar. También se abre desde Tabla / Clasificación con «Ver mi daño de esta partida». Separa daño efectivo a vida y a escudos, incluidos los muros enemigos, en ocho elementos y una fila sin elemento. Las mezclas se reparten según sus componentes reales y resistencias, sin duplicarlas. No suma exceso del golpe mortal, fuego amigo, daño propio ni ataques de otros humanos o bots. Las curaciones y escudos concedidos no se convierten en daño.
+
+El total se conserva entre vidas, al continuar un guardado y al reconectar a la misma supervivencia; empieza a cero al reiniciar. Los guardados anteriores no tienen este desglose y comienzan a acumularlo desde que se cargan. La pantalla automática se cierra al reaparecer y no pausa la cuenta atrás. Consultarla estando vivo conserva las reglas de pausa con un humano y de asistencia con varios. El visor global y sus permisos no cambian.
 
 Las hordas respetan un intervalo mínimo de aparición de 0,4 s con presupuesto de hasta 48 enemigos, 0,25 s hasta 96 y 0,18 s por encima. Los refuerzos llegan en paquetes de uno, dos o tres según el presupuesto. La reducción de población retira únicamente enemigos lejanos.
 

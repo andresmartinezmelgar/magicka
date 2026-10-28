@@ -53,7 +53,7 @@ public static partial class SnapshotValidation
                 p.MaxHealth <= 0 || p.Health > p.MaxHealth || p.Alive != (p.Health > 0) ||
                 p.Charge > 1 || !p.Alive && p.Casting ||
                 p.Energy > 100 || !float.IsFinite(p.ReanimationCost) || p.ReanimationCost is < 38.99f or > 75.01f || p.Kills < 0 || p.Deaths < 0 || p.SelectionSequence < 0) Invalid();
-            if (p!.CastingElements != null && !Elements(p.CastingElements) ||
+            if (p!.Damage != null && !p.Damage.Valid() || p.CastingElements != null && !Elements(p.CastingElements) ||
                 p.Buffs is { Length: > RelicBuffs.Count } || hasPickups && p.Buffs == null) Invalid();
             if (p.Equipment is { } gear && (!Enum.IsDefined(gear.Family) ||
                 !Tier(gear.Boots) || !Tier(gear.Hat) || !Tier(gear.Chest) || !Tier(gear.Weapon) || !Tier(gear.GoldRing) || !Tier(gear.MagicRing) ||

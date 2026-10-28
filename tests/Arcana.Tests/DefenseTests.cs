@@ -262,9 +262,16 @@ internal static class DefenseTests
         test("Defensa: reconexión conserva progreso y tiempo; paquete independiente y acotado", () =>
         {
             var w = World(); var p = w.AddPlayer("A")!; w.AttachDefenseAccount(p.Id, "uid"); Gold(w, p, 190);
-            Command(w, p, "defense_aura", 2); Advance(w, 10); w.RemovePlayer(p.Id);
+            Command(w, p, "defense_aura", 2);
+            var damagedEnemy = Enemy(w); Invoke(w, "Damage", damagedEnemy, 17f, p.Id, new[] { Element.Arcane });
+            Advance(w, 10); w.RemovePlayer(p.Id);
             var reconnect = w.AddPlayer("A")!; w.AttachDefenseAccount(reconnect.Id, "uid");
             Check(Player(w, reconnect).Gold == 110 && Player(w, reconnect).Auras[2] == 1, "Reconexión perdió progreso o reinició compras.");
+            Check(w.Snapshot().Players.Single(q => q.Id == reconnect.Id).Damage?.Health[(int)Element.Arcane] == 17,
+                "Reconectar perdió el daño personal acumulado en la misma partida.");
+            Invoke(w, "Damage", damagedEnemy, 5f, p.Id, new[] { Element.Fire });
+            Check(w.Snapshot().Players.Single(q => q.Id == reconnect.Id).Damage?.Health[(int)Element.Fire] == 5,
+                "Un efecto del identificador anterior dejó de sumar al jugador reconectado.");
             for (int i = 0; i < DefenseRules.MaxMinions; i++) Enemy(w);
             var snapshot = w.Snapshot(); SnapshotValidation.Check(snapshot);
             byte[] encoded = Protocol.SerializeUtf8(new ServerMessage { Type = "snapshot", Snapshot = snapshot });

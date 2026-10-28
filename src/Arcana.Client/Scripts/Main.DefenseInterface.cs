@@ -9,7 +9,8 @@ public partial class Main
     private ElementTextLabel? _defenseInterfaceHint;
     internal bool DefensiveAssistanceActive => DefenseInterfaceOpen && _snapshot?.Defense?.HumanCount > 1;
     private bool DefenseInterfaceOpen => _snapshot?.Defense != null && (_paused || _help.Visible ||
-        InspectingEquipment || ControlsOpen || _hud?.ScoreOpen == true || Input.IsPhysicalKeyPressed(Key.Tab) ||
+        InspectingEquipment || ControlsOpen || ViewingDamageSummary && _snapshot.Players.Any(p => p.Id == _localId && p.Alive) ||
+        _hud?.ScoreOpen == true || Input.IsPhysicalKeyPressed(Key.Tab) ||
         _relicWindow?.Visible == true);
 
     private void SynchronizeDefenseInterface()

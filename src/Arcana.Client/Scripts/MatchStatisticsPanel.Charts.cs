@@ -126,7 +126,7 @@ public partial class MatchStatisticsPanel
         parts.Add(new("Sin desglose", Math.Max(0, ElementSum(StatisticMeasure.Damage, _damageElement) - parts.Sum(p => p.Value)),
             Math.Max(0, ElementSum(StatisticMeasure.ShieldDamage, _damageElement) - parts.Sum(p => p.Shield)), ElementTint(_damageElement)));
         Bars("Origen del daño de " + Elements[_damageElement],
-            "Directos: haces, conos, rayos, proyectiles y golpes. Áreas: barreras, novas, minas, meteoritos y bombardeos. Auras: zonas pasivas de fuego o rayo. Quemaduras: daño posterior por arder. Sin desglose: informes anteriores o detalle incompleto. Cada daño se cuenta una sola vez.", parts);
+            "Directos: haces, conos, rayos, proyectiles y golpes. Áreas: barreras, novas, minas, meteoritos y bombardeos. Auras: zonas pasivas de fuego, rayo, arcano o agua. Quemaduras: daño posterior por arder. Sin desglose: informes anteriores o detalle incompleto. Cada daño se cuenta una sola vez.", parts);
     }
     private StatisticsBarChart.Part[] HealingParts()
     {

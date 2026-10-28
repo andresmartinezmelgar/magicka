@@ -41,7 +41,7 @@ public static partial class SnapshotValidation
             if (p == null || !ids.Add(p.PlayerId) || !state.Players.Any(w => w.Id == p.PlayerId) || p.Level is < 1 or > 100 ||
                 p.Experience < 0 || p.Experience >= DefenseRules.ExperienceForLevel(p.Level) || p.NextLevelExperience != DefenseRules.ExperienceForLevel(p.Level) ||
                 p.Gold is < 0 or > 100000000 || p.Kills < 0 || p.Deaths is < 0 or > DefenseRules.PlayerLives || !double.IsFinite(p.ActiveSeconds) ||
-                p.ActiveSeconds < 0 || p.ActiveSeconds > state.Time + 0.1 || p.Auras is not { Length: 3 } ||
+                p.ActiveSeconds < 0 || p.ActiveSeconds > state.Time + 0.1 || p.Auras == null || p.Auras.Length != DefenseRules.AuraCount ||
                 p.Auras.Any(a => a is < 0 or > DefenseRules.MaxAuraLevel) || p.Items is not { Length: <= DefenseRules.InventoryLimit } ||
                 p.Favorites is not { Length: <= DefenseRules.InventoryLimit } || p.Favorites.Distinct().Count() != p.Favorites.Length ||
                 p.Favorites.Any(id => !p.Items.Any(i => i?.Item?.Id == id)) || p.AutoSold < 0 ||

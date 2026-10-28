@@ -10,7 +10,7 @@ public sealed partial class GameWorld
     private readonly List<DefenseDrop> _defenseDrops = [];
     private int _nextMinion = 1000, _defenseKills, _bossesKilled, _defenseDifficulty = 1;
     private double _defenseElapsed;
-    private float _spawnClock, _auraClock, _bossClock;
+    private float _spawnClock, _auraClock, _bossClock, _oracleSpawnCooldown;
     private int _defensePartySize = 1;
 
     public bool DefensePaused => IsDefense && !MatchEnded && _players.Values.Count(p => !p.Bot) == 1 &&
@@ -79,6 +79,9 @@ public sealed partial class GameWorld
         player.ReprisalCooldown = previous.ReprisalCooldown;
         player.TeleportCooldown = previous.TeleportCooldown; player.TeleportNeedsExit = previous.TeleportNeedsExit;
         player.Knockback = previous.Knockback;
+        // Los efectos del identificador anterior (p. ej. una quemadura) siguen
+        // sumando al mismo contador personal tras una reconexión.
+        player.MatchDamage = previous.MatchDamage;
         Array.Copy(previous.MagickCooldowns, player.MagickCooldowns, player.MagickCooldowns.Length);
     }
 
@@ -119,6 +122,7 @@ public sealed partial class GameWorld
     {
         if (!IsDefense || !_players.Values.Any(p => !p.Bot)) return;
         _defenseElapsed += dt;
+        _oracleSpawnCooldown = Math.Max(0, _oracleSpawnCooldown - dt);
         _defensePartySize = Math.Clamp(_players.Count, 1, DefenseRules.MaxDefenders);
         foreach (var player in _players.Values)
         {
@@ -158,7 +162,7 @@ public sealed partial class GameWorld
         bool Pick(int firstStage, int chance) { if (_defenseDifficulty < firstStage) return false; cursor += chance; return roll < cursor; }
         if (Pick(5, 4)) kind = MinionKind.Captain;
         else if (Pick(6, 5)) kind = MinionKind.Sentinel;
-        else if (Pick(6, 3)) kind = MinionKind.Oracle;
+        else if (Pick(6, DefenseRules.OracleSpawnChance)) kind = MinionKind.Oracle;
         else if (Pick(3, 8)) kind = MinionKind.Prism;
         else if (Pick(5, 6)) kind = MinionKind.Warlock;
         else if (Pick(4, 6)) kind = MinionKind.Cryomancer;
@@ -169,7 +173,8 @@ public sealed partial class GameWorld
         else if (Pick(4, 8)) kind = MinionKind.Bomber;
         else if (Pick(4, 14)) kind = MinionKind.Archer;
         else if (Pick(2, 12)) kind = MinionKind.Runner;
-        if (kind == MinionKind.Oracle && _minions.Values.Count(m => m.Kind == kind && m.Body.Alive) >= 2) kind = MinionKind.Archer;
+        if (kind == MinionKind.Oracle && (_oracleSpawnCooldown > 0 ||
+            _minions.Values.Count(m => m.Kind == kind && m.Body.Alive) >= DefenseRules.OracleNaturalLimit)) kind = MinionKind.Archer;
         if (kind == MinionKind.Prism && _minions.Values.Count(m => m.Kind == kind && m.Body.Alive) >= 8) kind = MinionKind.Runner;
         TrySpawnMinion(kind);
     }
@@ -190,10 +195,13 @@ public sealed partial class GameWorld
         _statistics.Add(StatisticGroup.Difficulty, _defenseDifficulty, StatisticMeasure.Spawns, 1);
         _statistics.Add(StatisticGroup.Difficulty, _defenseDifficulty, StatisticMeasure.SpawnHealth, health);
         _minions.Add(body.Id, minion);
+        if (kind == MinionKind.Oracle)
+            _oracleSpawnCooldown = DefenseRules.OracleMinimumSpawnGap + (float)_random.NextDouble() * DefenseRules.OracleSpawnGapVariation;
         _combatants.Add(body.Id, body); _orderedPlayers.Add(body);
         DiscoverDefenseEnemy(minion);
         if (kind is MinionKind.Boss or MinionKind.Captain) StartCommanderSurge(kind == MinionKind.Boss);
         if (kind == MinionKind.Boss) Emit("defense_boss", at, [], "Un coloso te está buscando");
+        if (kind == MinionKind.Oracle) Emit("defense_oracle", at, [Element.Arcane, Element.Shield], "¡Ha aparecido un oráculo de asedio!");
         return true;
     }
 
@@ -323,7 +331,7 @@ public sealed partial class GameWorld
         {
             float before = blockingWall.Health;
             blockingWall.Health -= 90 * minion.Strength;
-            _statistics.BarrierDamage(p.Id, blockingWall.Owner, Math.Min(Math.Max(0, before), before - blockingWall.Health), null, StatisticAttack.EnemyMelee);
+            RecordBarrierDamage(p.Id, blockingWall, Math.Min(Math.Max(0, before), before - blockingWall.Health), null, StatisticAttack.EnemyMelee);
             minion.Attack = DefenseRules.AttackPause(minion.Kind, _defenseDifficulty);
             return;
         }
@@ -485,7 +493,7 @@ public sealed partial class GameWorld
         _defenseDrops.Clear(); _defenseAccounts.Clear(); _defenseBestiary.Clear();
         _defenseBotPlans.Clear(); _defenseBotPlanClock = 0;
         _defenseKills = _bossesKilled = 0; _defenseDifficulty = _defensePartySize = 1;
-        _defenseElapsed = _spawnClock = _auraClock = 0;
+        _defenseElapsed = _spawnClock = _auraClock = _oracleSpawnCooldown = 0;
         _commanderSurgeTime = _commanderSurgeCooldown = _commanderSpawnClock = 0;
         _commanderReinforcements = 0;
         _simulationBudget = new(DefenseRules.MaxMinions); _simulationCost = 0; _simulationSamples = 0;

@@ -12,7 +12,7 @@ public sealed partial class GameWorld
     private void ResetStatistics()
     {
         _statistics = new() { Network = _statistics.Network }; _statisticsPerformanceTime.Clear();
-        foreach (var p in _players.Values) _statistics.Bind(p, spawn: false);
+        foreach (var p in _players.Values) { p.MatchDamage.Clear(); _statistics.Bind(p, spawn: false); }
     }
     private void RestoreStatistics(MatchStatisticsReport? report)
     {
@@ -44,7 +44,18 @@ public sealed partial class GameWorld
     {
         float before = wall.Health;
         wall.Health -= WallDamage(wall, attack, owner, amount);
-        _statistics.BarrierDamage(owner, wall.Owner, Math.Min(Math.Max(0, before), before - wall.Health), attack.Elements, MatchStatisticsCollector.Shape(attack.Shape));
+        RecordBarrierDamage(owner, wall, Math.Min(Math.Max(0, before), before - wall.Health), attack, MatchStatisticsCollector.Shape(attack.Shape));
+    }
+    private void RecordBarrierDamage(int owner, Wall wall, double actual, SpellRecipe? spell, StatisticAttack attack)
+    {
+        if (!(actual > 0)) return;
+        Span<float> weights = stackalloc float[MatchDamageSnapshot.ElementCount]; weights.Clear();
+        if (spell != null) for (int e = 0; e < 8; e++)
+            weights[e] = SpellBalance.ProtectionWeight(spell, (Element)e) * Outgoing(owner, (Element)e) *
+                ElementInteractions.ProtectionMultiplier((Element)e, wall.Recipe.Elements);
+        bool hostile = TryCombatSource(owner, out var source) && TryCombatSource(wall.Owner, out var target) &&
+            source.Id != target.Id && Hostile(source, target);
+        _statistics.BarrierDamage(owner, wall.Owner, actual, spell?.Elements, attack, hostile, weights);
     }
     public bool ObserveStatisticsPerformance(int id, float fps, float frameTime95)
     {

@@ -56,19 +56,19 @@ public partial class ClientVerification
         renderer.Render(auras, 1, 1/60.0, true);
         var auraNodes = renderer.DefenseAuraVisuals.ToDictionary(p => p.Key, p => p.Value);
         foreach (var defender in auras.Defense!.Defenders)
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i <= DefenseRules.AuraCount; i++)
         {
             var mesh = auraNodes[(defender.PlayerId,i)];
-            bool active = i == 3 ? defender.BerserkerRemaining > 0 : defender.Auras[i] > 0;
+            bool active = i == DefenseRules.AuraCount ? defender.BerserkerRemaining > 0 : defender.Auras[i] > 0;
             valid &= mesh.Visible == active && mesh.Mesh == AreaVisuals.Shape(AreaVisuals.AuraPattern(i));
-            if (active) valid &= mesh.Scale.X == (i == 3 ? 1.6f : DefenseRules.AuraRadius(defender.Auras[i]));
+            if (active) valid &= mesh.Scale.X == (i == DefenseRules.AuraCount ? 1.6f : DefenseRules.AuraRadius(defender.Auras[i]));
         }
         var upgraded = auras with { Tick = 2, Defense = auras.Defense with
-            { Defenders = auras.Defense.Defenders.Select(d => d with { Auras = [10,10,10], BerserkerRemaining = 0 }).ToArray() } };
+            { Defenders = auras.Defense.Defenders.Select(d => d with { Auras = Enumerable.Repeat(10, DefenseRules.AuraCount).ToArray(), BerserkerRemaining = 0 }).ToArray() } };
         renderer.Render(upgraded, 1, 1/60.0, true);
         foreach (var p in auraNodes)
             valid &= ReferenceEquals(renderer.DefenseAuraVisuals[p.Key],p.Value) &&
-                (p.Key.Aura == 3 ? !p.Value.Visible : p.Value.Visible && p.Value.Scale.X == DefenseRules.AuraRadius(10));
+                (p.Key.Aura == DefenseRules.AuraCount ? !p.Value.Visible : p.Value.Visible && p.Value.Scale.X == DefenseRules.AuraRadius(10));
         renderer.Render(upgraded with { Tick = 3,
             Players = upgraded.Players.Select(p => p with { Alive = false, Health = 0 }).ToArray() }, 1, 1/60.0, true);
         valid &= renderer.DefenseAuraVisuals.Values.All(m => !m.Visible);

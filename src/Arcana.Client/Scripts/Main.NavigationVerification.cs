@@ -93,6 +93,17 @@ public partial class Main
                 await Frames(); await Click(Exit(waiting, "WaitingRoomExit")); Check(left, "Salir de la sala de espera no responde."); waiting.QueueFree();
 
                 StartPractice("Navegación", 0, GameMode.Defense, 0, map: ArenaMapId.Bastion); await Ready();
+                OpenPersonalDamageSummary(); await Frames();
+                var damageCard = (Control)_personalDamagePanel!.FindChild("PersonalDamageCard", true, false);
+                Check(ViewingDamageSummary && _practice!.DefensePaused && GetViewport().GetVisibleRect().Encloses(damageCard.GetGlobalRect()),
+                    "El resumen personal no pausa al humano vivo o queda fuera de la pantalla.");
+                Check(((GridContainer)_personalDamagePanel.FindChild("PersonalDamageTable", true, false)).GetChildCount() == 40 &&
+                    ((StatisticsBarChart)_personalDamagePanel.FindChild("PersonalElementDamageBars", true, false)).Categories.Length == 9,
+                    "El resumen personal no incluye los ocho elementos y el daño sin elemento.");
+                ((ScrollContainer)_personalDamagePanel.FindChild("PersonalDamageScroll", true, false)).ScrollVertical = int.MaxValue;
+                await Frames(); Capture(size.X + "-dano-personal");
+                await Click(Exit(_personalDamagePanel, "PersonalDamageClose"));
+                Check(!ViewingDamageSummary && !_practice.DefensePaused, "Cerrar el resumen dejó pausada la partida.");
                 var player = _practice!.Players[_localId];
                 var grant = typeof(GameWorld).GetMethod("GrantDefenseItem", BindingFlags.NonPublic | BindingFlags.Instance)!;
                 var boots = EquipmentCatalogue.Generate(new(961), tier: ItemTier.Silver, slot: EquipmentSlot.Boots);
@@ -136,11 +147,21 @@ public partial class Main
                 Capture(size.X + "-pausa"); await Click(Exit(_pause, "PauseResume")); Check(!_paused && !_pause.Visible, "Continuar queda fuera del menú de pausa.");
                 TogglePause(); OpenRelics(); await Frames(); Check(_relicWindow?.Visible == true, "No se abrió Reliquias.");
                 Back(); await Frames(); Check(_relicWindow?.Visible != true && _paused, "Atrás de Reliquias no vuelve al menú de pausa.");
-                Back(); await Frames(); Check(!_paused, "Atrás de la pausa no restaura el juego."); ReturnToLauncher(); await Frames();
+                Back(); await Frames(); Check(!_paused, "Atrás de la pausa no restaura el juego.");
+                player.Health = 0; player.Deaths = 1; player.Respawn = 4.5f; player.Invulnerable = 0; await Frames();
+                Check(ViewingDamageSummary && !_practice!.DefensePaused && player.Respawn < 4.5f,
+                    "El resumen de muerte no se abre o impide avanzar la reaparición.");
+                typeof(GameWorld).GetMethod("Respawn", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(_practice, [player]); await Frames();
+                Check(!ViewingDamageSummary, "El resumen automático no se cierra al reaparecer.");
+                player.Health = 0; player.Deaths = DefenseRules.PlayerLives; player.Invulnerable = 0;
+                typeof(GameWorld).GetMethod("CheckSurvivalEnd", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(_practice, []); await Frames();
+                Check(ViewingDamageSummary && !_defensePanel!.ShopOpen, "La tienda tapa el resumen final de Supervivencia.");
+                Back(); await Frames(); Check(!ViewingDamageSummary, "Atrás no cierra el resumen final.");
+                ReturnToLauncher(); await Frames();
                 StartPractice("Navegación", 0, GameMode.Duel, 1); await Ready(); OpenPlayerEquipment(); await Frames();
                 await Click(Exit(_playerEquipmentPanel!, "PlayerEquipmentBack")); Check(!InspectingEquipment, "La ficha del jugador no cierra.");
                 ReturnToLauncher(); await Frames();
-                GD.Print("NAVIGATION_VIEWPORT_OK: " + size + " · menús, estadísticas, controles, salas, carga, seis pestañas de Supervivencia, inventario, descarte, ayuda, pausa, reliquias y fichas.");
+                GD.Print("NAVIGATION_VIEWPORT_OK: " + size + " · menús, estadísticas, daño personal al morir/finalizar, controles, salas, carga, seis pestañas de Supervivencia, inventario, descarte, ayuda, pausa, reliquias y fichas.");
             }
             Check(_engineLog.ErrorCount == 0, "Godot registró errores durante la navegación.");
             GD.Print("NAVIGATION_SMOKE_OK: salidas visibles fuera del scroll, clic real, Escape/Atrás y guardado autoritativo antes de continuar.");

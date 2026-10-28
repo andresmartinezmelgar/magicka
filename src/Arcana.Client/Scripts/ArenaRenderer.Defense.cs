@@ -174,7 +174,7 @@ public partial class ArenaRenderer
         {
             var player = snapshot.Players.FirstOrDefault(p => p.Id == defender.PlayerId);
             if (player == null) continue;
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i <= DefenseRules.AuraCount; i++)
             {
                 var key = (defender.PlayerId, i);
                 if (!_defenseAuraVisuals.TryGetValue(key, out var aura))
@@ -182,11 +182,11 @@ public partial class ArenaRenderer
                     aura = AreaVisuals.Piece(this, AreaVisuals.AuraPattern(i));
                     aura.Name = $"DefenseAura{defender.PlayerId}_{i}"; _defenseAuraVisuals[key] = aura;
                 }
-                int level = i == 3 ? defender.BerserkerRemaining > 0 ? 1 : 0 : defender.Auras[i];
+                int level = i == DefenseRules.AuraCount ? defender.BerserkerRemaining > 0 ? 1 : 0 : defender.Auras[i];
                 aura.Visible = player.Alive && level > 0 && NearSurvival(player.Position);
                 if (level > 0)
                 {
-                    float radius = i == 3 ? 1.6f : DefenseRules.AuraRadius(level);
+                    float radius = i == DefenseRules.AuraCount ? 1.6f : DefenseRules.AuraRadius(level);
                     aura.Scale = new(radius, 1, radius);
                     aura.Position = (_wizards.TryGetValue(player.Id, out var wizard) ? wizard.Position : World(player.Position)) + new Vector3(0, 0.08f + i * 0.03f, 0);
                 }

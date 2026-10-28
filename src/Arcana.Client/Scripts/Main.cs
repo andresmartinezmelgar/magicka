@@ -315,6 +315,7 @@ public partial class Main : Node
         if (!prepared) _renderer.Clear(); _snapshot = snapshot;
         var local = snapshot.Players.FirstOrDefault(p => p.Id == _localId);
         _localWasAlive = local?.Alive ?? false; _localDeaths = local?.Deaths ?? 0;
+        ResetPersonalDamageSummary();
         if (!prepared) PrepareGameControls(snapshot);
         _ui.MoveChild(_networkPanel, -1);
         _ui.MoveChild(_help, -1); _ui.MoveChild(_pause, -1);
@@ -339,6 +340,7 @@ public partial class Main : Node
         CancelPendingConnection();
         CaptureLocalBestiary(); _localBestiaryRun = ""; _localBestiaryUid = ""; _bestiaryClock = 10; _resumingSurvival = null;
         CloseRelics();
+        ClosePersonalDamageSummary();
         if (_playing) Diagnostics.Info("game.leave", "Vuelta al launcher.", Context());
         ClosePlayerEquipment();
         _defensePanel?.QueueFree(); _defensePanel = null;
@@ -418,7 +420,7 @@ public partial class Main : Node
             else
             {
                 _aim = _renderer.Cursor(GetViewport().GetMousePosition());
-                bool practiceUi = InspectingEquipment || _practicePanel?.PointerOverPanel == true || _defensePanel?.PointerOverPanel == true || _hud?.PointerOverPanel == true;
+                bool practiceUi = ViewingDamageSummary || InspectingEquipment || _practicePanel?.PointerOverPanel == true || _defensePanel?.PointerOverPanel == true || _hud?.PointerOverPanel == true;
                 if (practiceUi && Input.IsMouseButtonPressed(MouseButton.Left)) _moveTo = false;
                 UpdateMouseMovement(!practiceUi && Input.IsMouseButtonPressed(MouseButton.Left), Input.IsPhysicalKeyPressed(Key.Shift));
             }
@@ -432,11 +434,12 @@ public partial class Main : Node
             if (_practiceSession != null) _renderer.PracticeCasterDescription = _practiceSession.CasterDescription;
             _renderer.Render(latest, _localId, _verification?.FixedRenderStep == true ? 1 / 60.0 : delta, true);
             _hud?.Update(latest, _localId, _serverName, delta);
+            UpdatePersonalDamageSummary(latest, delta);
             if (_defensePanel != null)
             {
                 _defensePanel.Visible = !_paused && !_help.Visible;
                 _defensePanel.Update(latest, _localId, _connection != null, _connection?.Server?.RewardsAvailable == true);
-                if (latest.MatchEnded && !_defenseEnded) _defensePanel.OpenShop();
+                if (latest.MatchEnded && !_defenseEnded) _defensePanel.CloseShop();
                 _defenseEnded = latest.MatchEnded;
             }
             _waitingPanel?.Update(latest, _localId, _connection?.Server?.RewardsAvailable == true);
@@ -550,7 +553,7 @@ public partial class Main : Node
     {
         bool alive = SynchronizeLocalLife();
         float x = 0, y = 0;
-        if (alive && !_paused && !_help.Visible && !InspectingEquipment && !ControlsOpen && !DefenseInterfaceOpen)
+        if (alive && !_paused && !_help.Visible && !InspectingEquipment && !ControlsOpen && !ViewingDamageSummary && !DefenseInterfaceOpen)
         {
             if (_touch != null) { x = _touch.Movement.X; y = _touch.Movement.Y; }
             else
@@ -560,7 +563,7 @@ public partial class Main : Node
             }
         }
         if (x != 0 || y != 0) _moveTo = false;
-        return new() { Type = "input", MoveX = x, MoveY = y, MoveTo = alive && _moveTo && !_paused && !_help.Visible && !InspectingEquipment && !ControlsOpen && !DefenseInterfaceOpen,
+        return new() { Type = "input", MoveX = x, MoveY = y, MoveTo = alive && _moveTo && !_paused && !_help.Visible && !InspectingEquipment && !ControlsOpen && !ViewingDamageSummary && !DefenseInterfaceOpen,
             TargetX = _target.X, TargetY = _target.Y, AimX = _aim.X, AimY = _aim.Y };
     }
     private void Submit(ClientMessage message)
@@ -583,10 +586,10 @@ public partial class Main : Node
         }
         if (input is InputEventKey { Pressed: true, Echo: false } key)
         {
-            if (ControlsOpen && key.PhysicalKeycode != Key.Escape) { GetViewport().SetInputAsHandled(); return; }
+            if ((ControlsOpen || ViewingDamageSummary) && key.PhysicalKeycode != Key.Escape) { GetViewport().SetInputAsHandled(); return; }
             if (key.PhysicalKeycode == Key.F1) { if (!InspectingEquipment) ToggleHelp(); GetViewport().SetInputAsHandled(); return; }
         }
-        if (!_playing || _paused || _help.Visible || InspectingEquipment || ControlsOpen || DefenseInterfaceOpen ||
+        if (!_playing || _paused || _help.Visible || InspectingEquipment || ControlsOpen || ViewingDamageSummary || DefenseInterfaceOpen ||
             _waitingPanel?.Visible == true) return;
         if (input is InputEventKey { Pressed: true, Echo: false } press)
         {

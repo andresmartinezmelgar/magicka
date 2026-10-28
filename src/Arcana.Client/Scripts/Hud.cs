@@ -52,6 +52,7 @@ public partial class Hud : Control
     internal string RoundAnnouncementForSmoke => _banner.Text;
     internal bool RoundAnnouncementVisibleForSmoke => _banner.IsVisibleInTree() && _bannerBackdrop.IsVisibleInTree();
     public event Action? EquipmentRequested;
+    public event Action? PersonalDamageRequested;
     public bool PointerOverPanel => _scorePanel.Visible && _scorePanel.GetGlobalRect().HasPoint(GetGlobalMousePosition());
     public void RewardNotice(string message) { _reward.Text = message; _rewardSeconds = 12; _reward.Visible = true; _rewardBackdrop.Visible = true; }
 
@@ -204,8 +205,10 @@ public partial class Hud : Control
         _scoreRows = Ui.Table(5, "ScoreTable"); _scoreScroll.AddChild(_scoreRows);
         foreach (string text in new[] { "MAGO", "EQUIPO", "BAJAS", "MUERTES", "VIDA" }) Ui.TableCell(_scoreRows, text, header: true, size: 14);
         var equipmentButton = Ui.Button("Ver bonos de los magos", () => EquipmentRequested?.Invoke());
-        equipmentButton.Name = "InspectEquipmentButton"; scoreBox.AddChild(equipmentButton);
-        scoreBox.MoveChild(equipmentButton, 0);
+        var scoreActions = new HBoxContainer(); scoreBox.AddChild(scoreActions); scoreBox.MoveChild(scoreActions, 0);
+        equipmentButton.Name = "InspectEquipmentButton"; equipmentButton.SizeFlagsHorizontal = SizeFlags.ExpandFill; scoreActions.AddChild(equipmentButton);
+        var damageButton = Ui.Button("Ver mi daño de esta partida", () => PersonalDamageRequested?.Invoke());
+        damageButton.Name = "PersonalDamageButton"; damageButton.SizeFlagsHorizontal = SizeFlags.ExpandFill; scoreActions.AddChild(damageButton);
         if (MobileLayout)
         {
             _server.Visible = _status.Visible = _affinity.Visible = false;
@@ -440,6 +443,7 @@ public partial class Hud : Control
         {
             if (e.Id <= _lastEvent) continue;
             _lastEvent = Math.Max(_lastEvent, e.Id);
+            if (e.Kind == "defense_oracle") ActionNotice(e.Text);
             if (e.Text.Length == 0) continue;
             var lines = (_feedText + "\n" + e.Text).Split('\n').Where(t => t.Length > 0).TakeLast(4);
             _feedText = string.Join("\n", lines); _feedTime = 7;

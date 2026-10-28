@@ -7,7 +7,7 @@ internal static partial class VisualFixture
     internal static readonly V2[] AreaPositions = [new(-6,-3), new(0,-3), new(6,-3), new(-6,4), new(0,4), new(6,4)];
     internal static readonly V2[] AuraPositions = [new(-5,-3), new(5,-3), new(-5,5), new(5,5)];
     internal static readonly string[] AreaNames = ["Suelo ardiente", "Agua", "Hielo", "Mina", "Mina curativa", "Mina · 3 cargas"];
-    internal static readonly string[] AuraNames = ["Aura de fuego", "Aura eléctrica", "Regeneración", "Auras + Berserker"];
+    internal static readonly string[] AuraNames = ["Fuego + Agua", "Rayo + Arcano", "Regeneración", "Todas + Berserker"];
     internal static readonly string[] PassiveNames = ["Meteorito", "Berserker", "Pulso glacial", "Relámpagos"];
     private static WorldSnapshot? _areaDefenseBase;
 
@@ -37,7 +37,8 @@ internal static partial class VisualFixture
             InvulnerableSeconds = 0, Selected = [], Facing = new(0,1) }).ToArray();
         var defenders = basis.Defense!.Defenders.Select((d, i) => d with
         {
-            Auras = view != "auras" ? [0,0,0] : i == 3 ? [2,2,2] : Enumerable.Range(0,3).Select(a => a == i ? 2 : 0).ToArray(),
+            Auras = view != "auras" ? new int[DefenseRules.AuraCount] : i == 3 ? Enumerable.Repeat(2, DefenseRules.AuraCount).ToArray()
+                : Enumerable.Range(0, DefenseRules.AuraCount).Select(a => a == i || i == 0 && a == (int)DefenseAura.Water || i == 1 && a == (int)DefenseAura.Arcane ? 2 : 0).ToArray(),
             BerserkerRemaining = view == "auras" ? i == 3 ? 4 : 0 : i == 1 ? 4 : 0,
             Passives = [1,1,1,1]
         }).ToArray();

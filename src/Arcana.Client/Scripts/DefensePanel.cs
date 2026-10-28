@@ -110,7 +110,7 @@ public partial class DefensePanel : Control
         _passiveSection = new VBoxContainer(); _passiveSection.AddThemeConstantOverride("separation", 10); powers.AddChild(_passiveSection);
         _auraSection = new VBoxContainer(); _auraSection.AddThemeConstantOverride("separation", 10); powers.AddChild(_auraSection);
         Wrapped(_auraSection, "AURAS · siempre activas a tu alrededor", 18, Ui.Gold);
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < DefenseRules.AuraCount; i++)
         {
             int aura = i; var card = Card(_auraSection);
             _auraHints.Add(Wrapped(card, "", 16));
@@ -244,13 +244,15 @@ public partial class DefensePanel : Control
             : "El menú, la clasificación y el inventario pausan la partida cuando eres el único humano.";
         _equipmentSummary.Text = $"{p.Items.Count(i => i.Equipped)}/{Enum.GetValues<EquipmentSlot>().Length} ranuras equipadas · {p.Items.Length}/{DefenseRules.InventoryLimit} piezas temporales";
         bool buying = _wizard.Alive && !snapshot.MatchEnded;
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < DefenseRules.AuraCount; i++)
         {
-            int level = p.Auras[i];
-            string effect = i < 2 ? $"{24 * Math.Max(1, level)} daño/s base" : $"{10 * Math.Max(1, level)} vida/s para ti y aliados";
-            _auraHints[i].Text = DefenseRules.AuraName((DefenseAura)i) + $" · nivel {level}/{DefenseRules.MaxAuraLevel}\n" + effect +
-                (level > 0 ? $" · radio {DefenseRules.AuraRadius(level):0.#} m" : " al comprar") +
-                (level < DefenseRules.MaxAuraLevel ? $"\nSiguiente nivel: {(i < 2 ? 24 : 10) * (level + 1)}/s · radio {DefenseRules.AuraRadius(level + 1):0.#} m" : "");
+            int level = p.Auras[i]; var aura = (DefenseAura)i;
+            string next = aura == DefenseAura.Regeneration ? $"{10 * (level + 1)} vida/s para ti y aliados"
+                : $"{DefenseRules.AuraDamage(aura, level + 1):0} daño/s base";
+            _auraHints[i].Text = DefenseRules.AuraName(aura) + $" · nivel {level}/{DefenseRules.MaxAuraLevel}\n" +
+                DefenseRules.AuraDescription(aura, Math.Max(1, level)) +
+                $" Radio {DefenseRules.AuraRadius(Math.Max(1, level)):0.#} m" + (level == 0 ? " al comprar." : ".") +
+                (level is > 0 and < DefenseRules.MaxAuraLevel ? $"\nSiguiente nivel: {next} · radio {DefenseRules.AuraRadius(level + 1):0.#} m." : "");
             _auras[i].Text = PriceLabel(DefenseRules.AuraCost(level), level >= DefenseRules.MaxAuraLevel);
             _auras[i].Disabled = !buying || level >= DefenseRules.MaxAuraLevel || p.Gold < DefenseRules.AuraCost(level);
         }
@@ -326,7 +328,7 @@ public partial class DefensePanel : Control
         if (p.Regeneration > 0) rows.Add(("Regeneración propia", $"{p.Regeneration:0.#} vida/s"));
         int energyStacks = (_wizard.Buffs ?? []).Where(b => b.Kind == BuffKind.Energy).Sum(b => b.Stacks);
         if (energyStacks > 0) rows.Add(("Energía por reliquias", $"+{energyStacks * p.Modifiers.EnergyRegeneration:0.#} energía/s"));
-        for (int i = 0; i < 3; i++) if (p.Auras[i] > 0)
+        for (int i = 0; i < DefenseRules.AuraCount; i++) if (p.Auras[i] > 0)
             rows.Add((DefenseRules.AuraName((DefenseAura)i), $"Nivel {p.Auras[i]} · {DefenseRules.AuraRadius(p.Auras[i]):0.#} m"));
         for (int i = 0; i < 4; i++) if (p.Passives[i] > 0)
             rows.Add((DefenseRules.PassiveName((DefensePassive)i), $"Nivel {p.Passives[i]}"));

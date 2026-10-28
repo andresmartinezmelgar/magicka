@@ -89,7 +89,7 @@ public sealed partial class GameWorld
         switch (command.Type)
         {
             case "defense_aura":
-                if (command.Slot is < 0 or > 2) return false;
+                if (command.Slot < 0 || command.Slot >= DefenseRules.AuraCount) return false;
                 int level = progress.Auras[command.Slot], cost = DefenseRules.AuraCost(level);
                 if (level >= DefenseRules.MaxAuraLevel || progress.Gold < cost) return false;
                 StatisticsEconomy(player.Id, StatisticMeasure.GoldSpent, cost);
@@ -227,19 +227,31 @@ public sealed partial class GameWorld
 
     private void TickDefenseAuras(float dt)
     {
+        if (!IsDefense) return;
         foreach (var player in _players.Values)
         {
             if (!player.Alive) continue;
             var progress = _defenders[player.Id];
-            for (int i = 0; i < 2; i++)
+            for (int i = 0; i < DefenseRules.AuraCount; i++)
             {
+                var aura = (DefenseAura)i;
+                if (aura == DefenseAura.Regeneration) continue;
                 int level = progress.Auras[i];
                 if (level <= 0) continue;
+                var element = DefenseRules.AuraElement(aura);
+                var attack = aura switch { DefenseAura.Fire => StatisticAttack.FireAura, DefenseAura.Lightning => StatisticAttack.LightningAura,
+                    DefenseAura.Arcane => StatisticAttack.ArcaneAura, _ => StatisticAttack.WaterAura };
                 foreach (var minion in _minions.Values)
                     if (minion.Body.Alive && V2.Distance(minion.Body.Position, player.Position) < DefenseRules.AuraRadius(level) &&
                         Visible(player.Position, minion.Body.Position, player.Id))
-                        DamageAs(i == 0 ? StatisticAttack.FireAura : StatisticAttack.LightningAura, minion.Body, 24 * level * dt * player.Equipment.ElementPower(i == 0 ? Element.Fire : Element.Lightning),
-                            player.Id, [i == 0 ? Element.Fire : Element.Lightning]);
+                    {
+                        if (aura == DefenseAura.Water && AcceptsDefenseElement(minion.Body, Element.Water) && Resistance(minion.Body, Element.Water) > 0.5f)
+                        {
+                            minion.Body.Wet = Math.Max(minion.Body.Wet, DefenseRules.WaterAuraWetSeconds * player.Equipment.WetDuration);
+                            minion.Body.Burning = 0;
+                        }
+                        DamageAs(attack, minion.Body, DefenseRules.AuraDamage(aura, level) * dt * player.Equipment.ElementPower(element), player.Id, [element]);
+                    }
             }
             int regeneration = progress.Auras[2];
             if (regeneration > 0)

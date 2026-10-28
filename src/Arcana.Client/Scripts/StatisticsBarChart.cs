@@ -9,7 +9,7 @@ public partial class StatisticsBarChart : Control
 {
     public readonly record struct Part(string Label, double Value, Color Color);
     public readonly record struct Category(string Label, double Value, Color Color, Part[]? Parts = null);
-    public Category[] Categories { get; init; } = [];
+    public Category[] Categories { get; set; } = [];
     public float CategoryWidth { get; init; } = 80;
     public string HorizontalTitle { get; init; } = "Elemento";
     public string ValueTitle { get; init; } = "Total";
@@ -35,6 +35,12 @@ public partial class StatisticsBarChart : Control
         MouseFilter = MouseFilterEnum.Pass; Resized += QueueRedraw;
     }
     public override void _Ready() => CustomMinimumSize = new(Left + Right + Categories.Length * CategoryWidth, CustomMinimumSize.Y);
+    internal void ReplaceCategories(Category[] categories)
+    {
+        Categories = categories;
+        CustomMinimumSize = new(Left + Right + Categories.Length * CategoryWidth, CustomMinimumSize.Y);
+        QueueRedraw();
+    }
     internal MatchStatisticsScale DataScale => new(Categories.SelectMany(c => c.Parts is { Length: > 0 } parts ? parts.Select(p => p.Value) : new[] { c.Value }), Logarithmic);
     internal double ScaleMaximum => DataScale.Maximum;
     private static string Short(double n) => n >= 1_000_000 ? (n / 1_000_000).ToString("0.#", Spanish) + " M"

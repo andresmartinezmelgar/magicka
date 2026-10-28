@@ -7,7 +7,9 @@ public static partial class DefenseRules
     public const int CaptainReinforcements = 84;
     public const float OracleAttackRange = 24, OracleRetreatRange = 16, OracleAuraRadius = 14;
     public const float OracleShield = 220, OracleShieldRepair = 110, OracleShieldInterval = 4, OracleShieldDuration = 6;
-    public const float OracleStrikeRadius = 3, OracleStrikeDelay = 1.4f, OracleStrikeDamage = 160;
+    public const float OracleStrikeRadius = 3, OracleStrikeDelay = 1.4f, OracleStrikeDamage = 200;
+    public const int OracleSpawnChance = 1, OracleNaturalLimit = 1;
+    public const float OracleMinimumSpawnGap = 90, OracleSpawnGapVariation = 60;
     public const float PrismWaterDamage = 55, PrismFocusSeconds = 10;
     public static ReadOnlySpan<Element> PrismElements => [Element.Fire, Element.Arcane, Element.Cold, Element.Water, Element.Lightning, Element.Earth];
     public static bool ValidPrismElement(Element element) => element is Element.Water or Element.Cold or Element.Lightning or Element.Arcane or Element.Earth or Element.Fire;

@@ -195,7 +195,7 @@ public sealed partial class GameWorld
                 if (pressure > 0 && actual > 0) foreach (var part in parts)
                 {
                     double contribution = WallDamage(wall, part.Recipe, part.Owner, 110 * part.Recipe.Power * part.Scale * part.DamageMultiplier);
-                    _statistics.BarrierDamage(part.Owner, wall.Owner, actual * contribution / pressure, part.Recipe.Elements, StatisticAttack.Beam);
+                    RecordBarrierDamage(part.Owner, wall, actual * contribution / pressure, part.Recipe, StatisticAttack.Beam);
                 }
                 if (wall.Health <= 0) return;
                 normal = (wall.B - wall.A).Perpendicular.Normalized;
