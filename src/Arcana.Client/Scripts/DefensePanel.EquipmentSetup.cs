@@ -8,6 +8,7 @@ public partial class DefensePanel
     private const int NoAffixPriority = 1000;
     private OptionButton _setupElement = null!;
     private readonly List<OptionButton> _setupPriorities = [];
+    private readonly List<ElementTextLabel> _setupPriorityDescriptions = [];
     private Button _setupApply = null!, _setupDisable = null!;
     private ElementTextLabel _setupStatus = null!, _setupAffixHint = null!;
     private SurvivalEquipmentSetup? _setupDisplayed, _setupSubmitted;
@@ -43,6 +44,9 @@ public partial class DefensePanel
                 choice.SetItemTooltip(choice.ItemCount - 1, SetupAffixDescription(kind));
             }
             choice.ItemSelected += _ => EditEquipmentSetup(); section.AddChild(choice); _setupPriorities.Add(choice);
+            var description = Wrapped(section, "", 15, Ui.Muted);
+            description.Name = "SurvivalSetupPriorityDescription" + i;
+            description.Visible = false; _setupPriorityDescriptions.Add(description);
         }
         _setupStatus = Wrapped(section, "", 16, Ui.Gold); _setupStatus.Name = "SurvivalSetupStatus";
         _setupApply = Ui.Button("Aplicar y activar · vende las piezas descartadas", () => SubmitEquipmentSetup(true));
@@ -82,8 +86,9 @@ public partial class DefensePanel
         var icon = ArcanaSpriteAtlas.Icon(element);
         _setupElement.AddThemeColorOverride("font_color", color);
         _setupAffixHint.Text = $"El icono de {Ui.ElementName(element)} resalta los afijos que lo potencian. Su descripción indica si necesitan una mezcla.";
-        foreach (var choice in _setupPriorities)
+        for (int priority = 0; priority < _setupPriorities.Count; priority++)
         {
+            var choice = _setupPriorities[priority];
             for (int index = 1; index < choice.ItemCount; index++)
             {
                 var kind = (ItemAffixKind)choice.GetItemId(index);
@@ -92,7 +97,13 @@ public partial class DefensePanel
                 choice.GetPopup().SetItemIconMaxWidth(index, 24);
                 choice.SetItemTooltip(index, (reason.Length > 0 ? reason + "\n\n" : "") + SetupAffixDescription(kind));
             }
-            var tint = choice.GetSelectedId() != NoAffixPriority && SetupAffixRelevance((ItemAffixKind)choice.GetSelectedId(), element).Length > 0 ? color : Ui.Text;
+            int selected = choice.GetSelectedId();
+            var description = _setupPriorityDescriptions[priority];
+            description.Visible = selected != NoAffixPriority;
+            description.Text = selected == NoAffixPriority ? "" : SetupAffixDescription((ItemAffixKind)selected);
+            if ((ItemAffixKind)selected is ItemAffixKind.BeamPierce or ItemAffixKind.LightningChain)
+                description.Text = "Valor máximo en Mítico · " + description.Text;
+            var tint = selected != NoAffixPriority && SetupAffixRelevance((ItemAffixKind)selected, element).Length > 0 ? color : Ui.Text;
             foreach (string state in new[] { "font_color", "font_hover_color", "font_pressed_color", "font_focus_color" })
                 choice.AddThemeColorOverride(state, tint);
         }

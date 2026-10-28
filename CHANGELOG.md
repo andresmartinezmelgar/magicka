@@ -1,5 +1,9 @@
 # Cambios
 
+## Sin publicar
+
+- Configuración predeterminada muestra la descripción completa de cada afijo elegido debajo de su selector, con cifras, condiciones y colores de los elementos. Se actualiza al cambiar la selección y al recuperar la configuración guardada.
+
 ## 0.29.33
 
 - La venta automática nunca vende objetos Míticos, aunque no correspondan al elemento o a los afijos elegidos. Con inventario lleno, el botín Mítico permanece en el suelo hasta poder recogerlo; su venta manual sigue disponible.
