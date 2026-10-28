@@ -121,12 +121,28 @@ public partial class Main
             if (_bestiaryCaptures != null)
                 GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(_bestiaryCaptures, "relics-modal.png"));
             CloseRelics(); ReturnToLauncher();
-            GD.Print("BESTIARY_RELICS_SMOKE_OK: quince enemigos, retratos, estadísticas escalables, contadores, texto adaptable y reliquias fuera del lateral.");
-            GetTree().Quit(0); _bestiarySmoke = false;
+            _bestiarySmoke = false;
+            var tree = GetTree(); var errors = _engineLog;
+            QueueFree(); _ = FinishBestiarySmokeAfterCleanup(tree, errors);
         }
         catch (Exception error)
         { GD.PushError("BESTIARY_RELICS_SMOKE_FAILED: " + error.Message); GetTree().Quit(1); _bestiarySmoke = false; }
         return false;
+    }
+
+    private static async Task FinishBestiarySmokeAfterCleanup(SceneTree tree, EngineLogBridge errors)
+    {
+        try
+        {
+            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            GC.Collect(); GC.WaitForPendingFinalizers();
+            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            if (errors.ErrorCount > 0) throw new InvalidOperationException("Godot registró errores al liberar la prueba del bestiario.");
+            GD.Print("BESTIARY_RELICS_SMOKE_OK: quince enemigos, retratos, estadísticas escalables, contadores, texto adaptable y reliquias fuera del lateral; limpieza final verificada.");
+            tree.Quit();
+        }
+        catch (Exception error) { GD.PushError("BESTIARY_RELICS_SMOKE_FAILED: limpieza: " + error); tree.Quit(1); }
     }
 
     private void RenderEliteSmoke()

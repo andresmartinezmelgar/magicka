@@ -2,6 +2,7 @@ name: Publicacion de Supervivencia expresamente solicitada
 
 # Activador limitado a la rama y a la petición de tag/APK del usuario.
 # Petición de 0.29.33: tag y versión de pruebas, solicitados expresamente por el usuario.
+# Revisión 1: liberar la escena y sus recursos antes de cerrar la prueba nativa del bestiario.
 on:
   push:
     branches: [pruebas/supervivencia-procedural-autoguardado]
