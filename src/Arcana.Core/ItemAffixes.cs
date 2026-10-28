@@ -3,7 +3,8 @@ namespace Arcana.Core;
 // Optional and separate from percentage bonuses: older items keep their original roll.
 // Añadir al final: los identificadores guardados nunca cambian.
 public enum ItemAffixKind { BeamPierce, LightningChain, DoubleBurn, WaterShieldPool, CoinDividend, GoldBonus,
-    Icebreaker, SteamImpact, ArcaneExecution, ShieldBattery, MendingWard, ShieldReprisal, ShieldLeech, ShieldReflection }
+    Icebreaker, SteamImpact, ArcaneExecution, ShieldBattery, MendingWard, ShieldReprisal, ShieldLeech, ShieldReflection,
+    RockFragmentation }
 public sealed record ItemAffix(ItemAffixKind Kind, int Value = 1);
 public static class ItemAffixes
 {
@@ -11,12 +12,14 @@ public static class ItemAffixes
         [ItemAffixKind.BeamPierce, ItemAffixKind.LightningChain, ItemAffixKind.DoubleBurn, ItemAffixKind.WaterShieldPool,
             ItemAffixKind.Icebreaker, ItemAffixKind.SteamImpact, ItemAffixKind.ArcaneExecution,
             ItemAffixKind.ShieldBattery, ItemAffixKind.MendingWard, ItemAffixKind.ShieldReprisal,
-            ItemAffixKind.ShieldLeech, ItemAffixKind.ShieldReflection];
+            ItemAffixKind.ShieldLeech, ItemAffixKind.ShieldReflection, ItemAffixKind.RockFragmentation];
     private static readonly ItemAffixKind[] GoldRingKinds = [ItemAffixKind.CoinDividend, ItemAffixKind.GoldBonus];
+    public static int CombatEffectCount => CombatKinds.Length;
     public static bool IsExtended(ItemAffixKind kind) => kind is ItemAffixKind.Icebreaker or ItemAffixKind.SteamImpact or
         ItemAffixKind.ArcaneExecution or ItemAffixKind.ShieldBattery or ItemAffixKind.MendingWard or ItemAffixKind.ShieldReprisal or
-        ItemAffixKind.ShieldLeech or ItemAffixKind.ShieldReflection;
-    public static int MinimumGeneration(ItemAffixKind kind) => kind is ItemAffixKind.ShieldLeech or ItemAffixKind.ShieldReflection
+        ItemAffixKind.ShieldLeech or ItemAffixKind.ShieldReflection or ItemAffixKind.RockFragmentation;
+    public static int MinimumGeneration(ItemAffixKind kind) => kind == ItemAffixKind.RockFragmentation ? 10
+        : kind is ItemAffixKind.ShieldLeech or ItemAffixKind.ShieldReflection
         ? 9 : IsExtended(kind) ? 8 : 1;
     public static bool IsGold(ItemAffixKind kind) => kind is ItemAffixKind.CoinDividend or ItemAffixKind.GoldBonus;
     public static bool Allowed(ItemAffixKind kind, EquipmentSlot slot) =>
@@ -74,6 +77,8 @@ public static class ItemAffixes
         ItemAffixKind.ShieldReprisal => $"Última barrera: si un enemigo rompe tu escudo y sobrevives, empujas a los enemigos visibles en un radio de {CombatAffixes.ReprisalRadius} m. Fuerza {CombatAffixes.ReprisalForce(affix.Value)} · recarga {CombatAffixes.ReprisalSeconds} s. Sin daño ni interrupción de hechizos.",
         ItemAffixKind.ShieldLeech => $"Escudo vital: si sobrevives, recuperas el {CombatAffixes.ShieldLeechPercent(affix.Value)} % del daño enemigo absorbido por tu escudo personal. Excluye barreras, daño propio y fuego amigo; no repara ni prolonga el escudo.",
         ItemAffixKind.ShieldReflection => $"Espejo protector: si sobrevives, devuelve al atacante el {CombatAffixes.ShieldReflectionPercent(affix.Value)} % del daño absorbido por tu escudo personal. Conserva elementos y respeta defensas e inmunidades, sin bonos de ataque. No activa afijos de absorción ni otros reflejos.",
+        ItemAffixKind.RockFragmentation => $"Fragmentación de roca: al impactar, la roca lanza {CombatAffixes.RockFragmentCount(affix.Value)} fragmentos en todas las direcciones, hasta {CombatAffixes.RockFragmentRange:0.#} m. Cada uno conserva la mezcla y sus estados, con el {CombatAffixes.RockFragmentImpactScale * 100:0} % del daño base de impacto de la roca lanzada. " +
+            $"Con Fuego, Frío o Agua dejan un área de {CombatAffixes.RockFragmentGroundRadius:0.#} m durante {CombatAffixes.RockFragmentGroundSeconds:0.#} s al chocar o caer, con el {CombatAffixes.RockFragmentGroundScale * 100:0} % del daño directo habitual del suelo. Los fragmentos no vuelven a dividirse.",
         ItemAffixKind.CoinDividend => $"1 oro extra cada {GoldBonuses.EveryForLevel(level)} moneda{(GoldBonuses.EveryForLevel(level) == 1 ? "" : "s")} base · nivel {level}/10. " +
             (level < 10 ? "Cada mejora reduce el intervalo en 1, hasta una por moneda. " : "") +
             "Supervivencia: recogidas. PvP: premio final. No afecta a ventas.",
@@ -94,6 +99,7 @@ public static class ItemAffixes
         modifiers.ShieldReprisal > 0 ? Describe(new(ItemAffixKind.ShieldReprisal, modifiers.ShieldReprisal)) : "",
         modifiers.ShieldLeech > 0 ? Describe(new(ItemAffixKind.ShieldLeech, modifiers.ShieldLeech)) : "",
         modifiers.ShieldReflection > 0 ? Describe(new(ItemAffixKind.ShieldReflection, modifiers.ShieldReflection)) : "",
+        modifiers.RockFragmentation > 0 ? Describe(new(ItemAffixKind.RockFragmentation, modifiers.RockFragmentation)) : "",
         modifiers.MagicRingFamily is { } family ? RingEffects.Describe(EquipmentSlot.MagicRing, family, modifiers.MagicRingLevel, modifiers) : "",
         modifiers.ExtraGoldEvery > 0 ? Describe(new(ItemAffixKind.CoinDividend), 11 - modifiers.ExtraGoldEvery) : "",
         modifiers.GoldBonusPercent > 0 ? Describe(new(ItemAffixKind.GoldBonus, modifiers.GoldBonusPercent)) : ""

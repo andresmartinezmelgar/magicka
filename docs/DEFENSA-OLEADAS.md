@@ -2,6 +2,8 @@
 
 Versión de pruebas **0.29.31**, con generador libre v2, venta por ranura y diez biomas visuales. Utiliza protocolo **41**; cliente y servidor deben actualizarse juntos. La versión estable **0.29.28** permanece separada en main.
 
+La rama incorpora, pendiente de otra compilación solicitada, el afijo **Fragmentación de roca** del catálogo 10 y protocolo 42. Genera cuatro fragmentos en Diamante o seis en Mítico, con la mezcla original y áreas elementales pequeñas al chocar o caer. El guardado conserva las rocas, fragmentos y áreas en curso; los puntos anteriores siguen siendo legibles.
+
 ## Partida y vidas
 
 El modo Defensa ahora es **Supervivencia**, con enemigos continuos. Se han retirado las oleadas, el castillo y sus reparaciones.

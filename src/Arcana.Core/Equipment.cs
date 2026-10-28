@@ -87,6 +87,7 @@ public sealed record EquipmentModifiers
     public int ShieldReprisal { get; init; }
     public int ShieldLeech { get; init; }
     public int ShieldReflection { get; init; }
+    public int RockFragmentation { get; init; }
     public int ExtraGoldEvery { get; init; }
     public int GoldBonusPercent { get; init; }
     public EquipmentFamily? MagicRingFamily { get; init; }
@@ -133,7 +134,7 @@ public sealed record EquipmentModifiers
         int beamPierce = 0, lightningChains = 0, extraGoldEvery = 0, goldBonusPercent = 0;
         bool doubleBurn = false, waterPool = false;
         int icebreaker = 0, steamImpact = 0, arcaneExecution = 0, shieldBattery = 0, mendingWard = 0, shieldReprisal = 0;
-        int shieldLeech = 0, shieldReflection = 0;
+        int shieldLeech = 0, shieldReflection = 0, rockFragmentation = 0;
         EquipmentFamily? ringFamily = null; int ringLevel = 0;
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
@@ -172,6 +173,7 @@ public sealed record EquipmentModifiers
                     case ItemAffixKind.ShieldReprisal: shieldReprisal = Math.Max(shieldReprisal, affix.Value); break;
                     case ItemAffixKind.ShieldLeech: shieldLeech = Math.Max(shieldLeech, affix.Value); break;
                     case ItemAffixKind.ShieldReflection: shieldReflection = Math.Max(shieldReflection, affix.Value); break;
+                    case ItemAffixKind.RockFragmentation: rockFragmentation = Math.Max(rockFragmentation, affix.Value); break;
                 }
             foreach (var b in item.Bonuses.Where(b => EquipmentCatalogue.BonusActive(slot, b.Stat))) stats[(int)b.Stat] += b.Current;
             if (!RingEffects.IsRing(slot) && item.Tier == ItemTier.Mythic) sets[(int)item.Family]++;
@@ -190,7 +192,7 @@ public sealed record EquipmentModifiers
             BurnPotency = doubleBurn ? 2 : 1, WaterShieldPool = waterPool,
             Icebreaker = icebreaker, SteamImpact = steamImpact, ArcaneExecution = arcaneExecution,
             ShieldBattery = shieldBattery, MendingWard = mendingWard, ShieldReprisal = shieldReprisal,
-            ShieldLeech = shieldLeech, ShieldReflection = shieldReflection,
+            ShieldLeech = shieldLeech, ShieldReflection = shieldReflection, RockFragmentation = rockFragmentation,
             Speed = 1 + Bonus(EquipmentStat.MovementSpeed), Range = 1 + Bonus(EquipmentStat.SpellRange),
             Incoming = 1 - Bonus(EquipmentStat.Defense), Power = 1 + Bonus(EquipmentStat.Power),
             Healing = 1 + Bonus(EquipmentStat.HealingPower), Fire = 1 + Bonus(EquipmentStat.FirePower),
@@ -212,7 +214,7 @@ public sealed record EquipmentModifiers
 
 public static partial class EquipmentCatalogue
 {
-    public const int GenerationVersion = 9, InventoryLimit = 500;
+    public const int GenerationVersion = 10, InventoryLimit = 500;
     public static bool BonusActive(EquipmentSlot slot, EquipmentStat stat) =>
         slot != EquipmentSlot.MagicRing || stat == EquipmentStat.ShieldCapacity;
     public static string BonusDescription(EquipmentSlot slot, ItemBonus bonus) =>

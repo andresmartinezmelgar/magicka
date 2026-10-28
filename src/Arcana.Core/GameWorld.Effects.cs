@@ -24,6 +24,7 @@ public sealed partial class GameWorld
         var recipe = projectile.Recipe;
         float radius = recipe.SplashRadius;
         if (radius <= 0) return;
+        if (projectile.IsRockFragment) radius = CombatAffixes.RockFragmentSplashRadius;
         foreach (var target in _combatants.Values)
         {
             if (!target.Alive || target.Id == directTarget) continue;
@@ -37,6 +38,8 @@ public sealed partial class GameWorld
         // La roca ya aplicó su golpe: el suelo conserva solo los elementos secundarios.
         var ground = new SpellRecipe(recipe.Elements.Where(e => e != Element.Earth));
         _fields.Add(new Field { Id = _nextEntity++, Owner = projectile.Owner, Position = projectile.Position,
-            Radius = radius * 0.85f, Lifetime = 4, Recipe = ground, Kind = kind });
+            Radius = projectile.IsRockFragment ? CombatAffixes.RockFragmentGroundRadius : radius * 0.85f,
+            Lifetime = projectile.IsRockFragment ? CombatAffixes.RockFragmentGroundSeconds : 4,
+            IsRockFragmentArea = projectile.IsRockFragment, Recipe = ground, Kind = kind });
     }
 }

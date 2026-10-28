@@ -75,6 +75,8 @@ internal sealed class Projectile
     public float Radius;
     public float Power;
     public float Lifetime = 2.5f;
+    public int RockFragmentation;
+    public bool IsRockFragment;
 }
 internal sealed class Wall
 {
@@ -96,6 +98,7 @@ internal sealed class Field
     public float Delay;
     public float TriggerRadius = 0.85f;
     public float Power = 1;
+    public bool IsRockFragmentArea;
     public required SpellRecipe Recipe;
     public string Kind = "area";
 }

@@ -404,7 +404,8 @@ public sealed partial class GameWorld
         _projectiles.Add(new Projectile
         {
             Id = _nextEntity++, Owner = p.Id, Position = SpellOrigin(p, direction, 0.85f, radius),
-            Velocity = direction * speed, Recipe = spell, Power = power, Radius = radius, Lifetime = 2.5f * p.Equipment.Range
+            Velocity = direction * speed, Recipe = spell, Power = power, Radius = radius, Lifetime = 2.5f * p.Equipment.Range,
+            RockFragmentation = spell.Shape == SpellShape.Rock ? p.Equipment.RockFragmentation : 0
         });
         return true;
     }
@@ -761,10 +762,12 @@ public sealed partial class GameWorld
 
     private void TickProjectiles(float dt)
     {
+        _pendingRockFragments.Clear();
         foreach (var projectile in _projectiles)
         {
+            float travel = projectile.IsRockFragment ? Math.Min(dt, Math.Max(0, projectile.Lifetime)) : dt;
             projectile.Lifetime -= dt;
-            var from = projectile.Position; var to = from + projectile.Velocity * dt;
+            var from = projectile.Position; var to = from + projectile.Velocity * travel;
             var boundary = Map.BoundaryHit(from, to, projectile.Radius);
             float nearest = boundary ?? 1; Wizard? target = null; Wall? wallHit = null; bool obstacleHit = boundary != null;
             foreach (var o in Map.Obstacles)
@@ -798,11 +801,18 @@ public sealed partial class GameWorld
             }
             if (obstacleHit || !Map.Inside(projectile.Position)) projectile.Lifetime = 0;
             if ((target != null || obstacleHit || wallHit != null && projectile.Lifetime <= 0) && Map.Inside(projectile.Position))
+            {
                 ProjectileSplash(projectile, target?.Id ?? -1);
+                if (wallHit == null || wallHit.Recipe.Elements.Length != 1) FragmentRock(projectile);
+            }
+            else if (projectile.IsRockFragment && projectile.Lifetime <= 0 && Map.Inside(projectile.Position))
+                ProjectileSplash(projectile, -1);
             if (projectile.Lifetime <= 0)
                 Emit("impact", projectile.Position, projectile.Recipe.Elements, "");
         }
         _projectiles.RemoveAll(p => p.Lifetime <= 0);
+        _projectiles.AddRange(_pendingRockFragments);
+        _pendingRockFragments.Clear();
     }
 
     private void TickWallsAndFields(float dt)
@@ -833,7 +843,8 @@ public sealed partial class GameWorld
             {
                 foreach (var p in _combatants.Values)
                     if (p.Alive && V2.Distance(p.Position, f.Position) < f.Radius && Visible(f.Position, p.Position, f.Owner))
-                        Hit(p, f.Recipe, dt * SpellBalance.GroundPower, f.Owner, (p.Position - f.Position).Normalized);
+                        Hit(p, f.Recipe, dt * SpellBalance.GroundPower * (f.IsRockFragmentArea ? CombatAffixes.RockFragmentGroundScale : 1),
+                            f.Owner, (p.Position - f.Position).Normalized);
                 continue;
             }
             if (f.Kind == "defense_meteor")

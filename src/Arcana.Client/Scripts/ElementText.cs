@@ -21,7 +21,8 @@ public static class ElementText
         (Term(@"batería\s+protectora|descarga\s+selectiva|(?:daño\s+de\s+)?rayos?\s+(?:a|contra)\s+(?:(?:enemigos?|objetivos?)\s+)?mojados?"), Element.Lightning),
         (Term(@"remate\s+arcano"), Element.Arcane),
         (Term(@"choque\s+térmico"), Element.Fire),
-        (Term(@"quebrantahielo|pulso\s+glacial"), Element.Cold)
+        (Term(@"quebrantahielo|pulso\s+glacial"), Element.Cold),
+        (Term(@"fragmentación\s+de\s+rocas?"), Element.Earth)
     ];
     private static readonly Regex Neutral = Term(@"fuego\s+amigo");
     private static Regex Term(string pattern) => new(@"(?<![\p{L}\p{N}_])(?:" + pattern + @")(?![\p{L}\p{N}_])", Options);

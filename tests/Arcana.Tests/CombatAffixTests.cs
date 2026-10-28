@@ -33,7 +33,8 @@ internal static class CombatAffixTests
     internal static void Run(Action<string, Action> test)
     {
         ShieldAbsorptionAffixTests.Run(test);
-        test("Afijos nuevos: identificadores antiguos, doce efectos, calidades, anillos y catálogo compatibles", () =>
+        RockFragmentationTests.Run(test);
+        test("Afijos nuevos: identificadores antiguos, trece efectos, calidades, anillos y catálogo compatibles", () =>
         {
             Check((int)ItemAffixKind.BeamPierce == 0 && (int)ItemAffixKind.GoldBonus == 5, "Se renumeraron los afijos guardados.");
             var seen = new HashSet<ItemAffixKind>();
@@ -53,6 +54,8 @@ internal static class CombatAffixTests
                         "Un afijo nuevo tiene un rango incorrecto o se atribuye al catálogo antiguo.");
                     if (affix.Kind is ItemAffixKind.ShieldLeech or ItemAffixKind.ShieldReflection)
                         Check(!EquipmentCatalogue.Valid(item with { GenerationVersion = 8 }), "Un afijo de absorción se atribuye al catálogo anterior.");
+                    if (affix.Kind == ItemAffixKind.RockFragmentation)
+                        Check(!EquipmentCatalogue.Valid(item with { GenerationVersion = 9 }), "La fragmentación se atribuye al catálogo anterior.");
                     Check(!ItemAffixes.Valid(affix with { Value = 3 }, tier) && !ItemAffixes.Valid(affix with { Value = 2 }, ItemTier.Diamond),
                         "Se admite un afijo superior al máximo de su calidad.");
                 }

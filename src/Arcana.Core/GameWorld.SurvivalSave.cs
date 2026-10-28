@@ -54,11 +54,18 @@ public sealed partial class GameWorld
         public float FocusTime { get; init; }
         public float AuraRepairCooldown { get; init; }
     }
-    private sealed record SavedProjectile(int Id, int Owner, V2 Position, V2 Velocity, Element[] Elements, float Radius, float Power, float Lifetime);
+    private sealed record SavedProjectile(int Id, int Owner, V2 Position, V2 Velocity, Element[] Elements, float Radius, float Power, float Lifetime)
+    {
+        public int RockFragmentation { get; init; }
+        public bool IsRockFragment { get; init; }
+    }
     private sealed record SavedEffectSource(int Id, MinionKind Kind, float Power);
     private sealed record SavedWall(int Id, int Owner, V2 A, V2 B, float Health, float Lifetime, Element[] Elements);
     private sealed record SavedField(int Id, int Owner, V2 Position, float Radius, float Lifetime, float Delay,
-        float TriggerRadius, float Power, Element[] Elements, string Kind);
+        float TriggerRadius, float Power, Element[] Elements, string Kind)
+    {
+        public bool IsRockFragmentArea { get; init; }
+    }
     private sealed record SavedDrop(int Id, int OwnerId, int Gold, V2 Position, DefenseDropKind Kind,
         EquipmentItem? Item, BuffKind Buff, float Remaining);
     private sealed record SavedBotPlan(int Id, int TargetId, int HealTargetId, V2 Goal, float SpellTime, int SpellTurn);
@@ -98,10 +105,11 @@ public sealed partial class GameWorld
                     FocusTime = m.FocusTime, AuraRepairCooldown = m.AuraRepairCooldown }).ToArray(),
             EffectSources = _lingeringSources.Select(s => new SavedEffectSource(s.Key, s.Value.Kind, s.Value.Body.Equipment.Power)).ToArray(),
             Projectiles = _projectiles.Select(p => new SavedProjectile(p.Id, p.Owner, p.Position, p.Velocity,
-                p.Recipe.Elements, p.Radius, p.Power, p.Lifetime)).ToArray(),
+                p.Recipe.Elements, p.Radius, p.Power, p.Lifetime)
+                { RockFragmentation = p.RockFragmentation, IsRockFragment = p.IsRockFragment }).ToArray(),
             Walls = _walls.Select(w => new SavedWall(w.Id, w.Owner, w.A, w.B, w.Health, w.Lifetime, w.Recipe.Elements)).ToArray(),
             Fields = _fields.Select(f => new SavedField(f.Id, f.Owner, f.Position, f.Radius, f.Lifetime, f.Delay,
-                f.TriggerRadius, f.Power, f.Recipe.Elements, f.Kind)).ToArray(),
+                f.TriggerRadius, f.Power, f.Recipe.Elements, f.Kind) { IsRockFragmentArea = f.IsRockFragmentArea }).ToArray(),
             Drops = _defenseDrops.Select(d => new SavedDrop(d.Id, d.OwnerId, d.Gold, d.Position, d.Kind, d.Item, d.Buff, d.Remaining)).ToArray(),
             Bestiary = _defenseBestiary.Values.ToArray(),
             BotPlans = _defenseBotPlans.Select(p => new SavedBotPlan(p.Key, p.Value.TargetId, p.Value.HealTargetId,
@@ -172,12 +180,13 @@ public sealed partial class GameWorld
         }
         foreach (var source in s.EffectSources) world.RememberEffectSource(source.Id, source.Kind, source.Power);
         foreach (var p in s.Projectiles) world._projectiles.Add(new() { Id = p.Id, Owner = p.Owner, Position = p.Position,
-            Velocity = p.Velocity, Recipe = new(p.Elements), Radius = p.Radius, Power = p.Power, Lifetime = p.Lifetime });
+            Velocity = p.Velocity, Recipe = new(p.Elements), Radius = p.Radius, Power = p.Power, Lifetime = p.Lifetime,
+            RockFragmentation = p.RockFragmentation, IsRockFragment = p.IsRockFragment });
         foreach (var w in s.Walls) world._walls.Add(new() { Id = w.Id, Owner = w.Owner, A = w.A, B = w.B,
             Health = w.Health, Lifetime = w.Lifetime, Recipe = new(w.Elements) });
         foreach (var f in s.Fields) world._fields.Add(new() { Id = f.Id, Owner = f.Owner, Position = f.Position,
             Radius = f.Radius, Lifetime = f.Lifetime, Delay = f.Delay, TriggerRadius = f.TriggerRadius,
-            Power = f.Power, Recipe = new(f.Elements), Kind = f.Kind });
+            Power = f.Power, Recipe = new(f.Elements), Kind = f.Kind, IsRockFragmentArea = f.IsRockFragmentArea });
         foreach (var d in s.Drops) world._defenseDrops.Add(new() { Id = d.Id, OwnerId = d.OwnerId, Gold = d.Gold,
             Position = d.Position, Kind = d.Kind, Item = d.Item, Buff = d.Buff, Remaining = d.Remaining });
         foreach (var b in s.Bestiary) world._defenseBestiary.Add(b.Kind, b);
@@ -263,11 +272,19 @@ public sealed partial class GameWorld
         bool Entity(int id) => id > 0 && entities.Add(id);
         bool Elements(Element[] e) => SurvivalWizard.ValidElements(e);
         foreach (var p in s.Projectiles) Require(p != null && Entity(p.Id) && p.Position.IsFinite && p.Velocity.IsFinite &&
-            Elements(p.Elements) && float.IsFinite(p.Radius) && p.Radius > 0 && float.IsFinite(p.Power) && float.IsFinite(p.Lifetime));
+            Elements(p.Elements) && float.IsFinite(p.Radius) && p.Radius > 0 && float.IsFinite(p.Power) && float.IsFinite(p.Lifetime) &&
+            p.RockFragmentation is >= 0 and <= 2 &&
+            (p.RockFragmentation == 0 || !p.IsRockFragment && new SpellRecipe(p.Elements).Shape == SpellShape.Rock) &&
+            (!p.IsRockFragment || new SpellRecipe(p.Elements).Shape == SpellShape.Rock && p.RockFragmentation == 0 &&
+                p.Radius == CombatAffixes.RockFragmentRadius && p.Lifetime is > 0 and <= CombatAffixes.RockFragmentLifetime &&
+                p.Velocity.Length <= CombatAffixes.RockFragmentSpeed + .001f));
         foreach (var w in s.Walls) Require(w != null && Entity(w.Id) && w.A.IsFinite && w.B.IsFinite && Elements(w.Elements) &&
             float.IsFinite(w.Health) && float.IsFinite(w.Lifetime));
         foreach (var f in s.Fields) Require(f != null && Entity(f.Id) && f.Position.IsFinite && Elements(f.Elements) && f.Kind is { Length: > 0 and < 48 } &&
-            new[] { f.Radius, f.Lifetime, f.Delay, f.TriggerRadius, f.Power }.All(float.IsFinite));
+            new[] { f.Radius, f.Lifetime, f.Delay, f.TriggerRadius, f.Power }.All(float.IsFinite) &&
+            (!f.IsRockFragmentArea || (f.Kind is "burning_ground" or "frost_ground" or "water_pool") &&
+                f.Radius == CombatAffixes.RockFragmentGroundRadius && f.Lifetime is > 0 and <= CombatAffixes.RockFragmentGroundSeconds &&
+                !f.Elements.Contains(Element.Earth)));
         foreach (var d in s.Drops) Require(d != null && Entity(d.Id) && d.Position.IsFinite && Enum.IsDefined(d.Kind) && Enum.IsDefined(d.Buff) &&
             d.Gold is >= 0 and <= 208 && float.IsFinite(d.Remaining) &&
             (d.Kind != DefenseDropKind.Equipment || d.Item != null && EquipmentCatalogue.Valid(d.Item)));
