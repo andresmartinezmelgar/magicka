@@ -45,6 +45,8 @@ public sealed partial class GameWorld
         public EquipmentStyle[] AutoSellStyles = [];
         public int AutoSellRuleVersion;
         public int AutoSold;
+        public SurvivalEquipmentSetup EquipmentSetup = new();
+        public bool EquipmentSetupInitialized;
         public EquipmentLoadout Loadout = new();
         public Dictionary<string, int> Upgrades = [];
     }
@@ -99,6 +101,7 @@ public sealed partial class GameWorld
                     Passives = s.Passives.ToArray(), PassiveCooldowns = s.PassiveCooldowns.ToArray(), LastActivity = s.LastActivity,
                     Items = s.Items.ToArray(), Loadout = s.Loadout, Upgrades = new(s.Upgrades), Auras = s.Auras.ToArray(),
                     Favorites = s.Favorites.ToArray(), AutoSellStyles = s.AutoSellStyles.ToArray(), AutoSold = s.AutoSold,
+                    EquipmentSetup = s.EquipmentSetup.Copy(), EquipmentSetupInitialized = s.EquipmentSetupInitialized,
                     AutoSellRuleVersion = InventoryPreferences.CurrentAutoSellRuleVersion
                 });
             }).ToArray(),
@@ -154,7 +157,8 @@ public sealed partial class GameWorld
                     ? d.GoldCoinRemainder * (GoldBonuses.CoinFractionScale / 2) : d.GoldCoinRemainder,
                 GoldPercentRemainder = d.GoldPercentRemainder,
                 Kills = p.Kills, Deaths = p.Deaths, BerserkerRemaining = d.BerserkerRemaining,
-                LastActivity = d.LastActivity, Loadout = d.Loadout, CombatState = p
+                LastActivity = d.LastActivity, Loadout = d.Loadout, CombatState = p,
+                EquipmentSetup = d.EquipmentSetup.Copy(), EquipmentSetupInitialized = d.EquipmentSetupInitialized
             };
             d.Passives.CopyTo(progress.Passives, 0); d.PassiveCooldowns.CopyTo(progress.PassiveCooldowns, 0);
             d.Auras.CopyTo(progress.Auras, 0); p.BuffStacks.CopyTo(progress.Buffs, 0);
@@ -239,6 +243,7 @@ public sealed partial class GameWorld
             Require(entry?.Body != null && entry.Body.Valid() && entry.Body.VulnerableElement == null && ids.Add(entry.Body.Id) && entry.Progress != null);
             var d = entry!.Progress;
             Require(d.Level is >= 1 and <= 100 && d.Experience >= 0 && d.Gold is >= 0 and <= 100000000 &&
+                d.EquipmentSetup is { Valid: true } && (!d.EquipmentSetup.Enabled || d.EquipmentSetupInitialized) &&
                 (d.GoldCoinRemainderScale == 0 ? d.GoldCoinRemainder is >= 0 and <= 1 :
                     d.GoldCoinRemainderScale == GoldBonuses.CoinFractionScale && d.GoldCoinRemainder is >= 0 and < GoldBonuses.CoinFractionScale) &&
                 d.GoldPercentRemainder is >= 0 and <= 99 &&

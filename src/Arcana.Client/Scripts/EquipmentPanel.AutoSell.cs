@@ -23,7 +23,7 @@ public partial class EquipmentPanel
         var button = Ui.Button(active ? "Mantener ítems de menor calidad" : "Vender ítems de menor calidad",
             () => SetAutoSell(style, !AutoSells(style), item.Id));
         button.Name = "EquipmentAutoSell_" + item.Id; button.CustomMinimumSize = new(0, 44);
-        button.Disabled = style.Tier == ItemTier.Silver && !active;
+        button.Disabled = AutomaticSurvivalEquipment || style.Tier == ItemTier.Silver && !active;
         button.MouseFilter = MouseFilterEnum.Pass;
         button.AutowrapMode = TextServer.AutowrapMode.WordSmart; button.AddThemeFontSizeOverride("font_size", 14);
         var displayedLimit = active ? AutoSellLimit(style) ?? style : style;
@@ -34,8 +34,9 @@ public partial class EquipmentPanel
             "También en Opciones → Venta automática.";
         if (TemporaryInventory) button.TooltipText += "\n" + DefenseRules.InventoryFullNotice;
         if (style.Tier == ItemTier.Silver && !active) button.TooltipText += "\nPlata es la calidad mínima; este ajuste no se puede activar.";
+        if (AutomaticSurvivalEquipment) button.TooltipText = "La configuración predeterminada vende las piezas descartadas. Desactívala en la tienda para usar límites por calidad.";
         box.AddChild(button); if (style.Tier > ItemTier.Silver || active) _preferenceActions.Add(button);
-        if (AutoSellLimit(style) is { } limit)
+        if (AutoSellLimit(style) is { } limit && !AutomaticSurvivalEquipment)
         {
             var status = Ui.Label("Venta automática activa · " + limit.DescribeAutoSell() + ". Solo botín nuevo.", 14, Ui.Muted);
             status.Name = "EquipmentAutoSellStatus_" + item.Id;
@@ -45,7 +46,7 @@ public partial class EquipmentPanel
 
     private void SetAutoSell(EquipmentStyle style, bool enabled, string itemId = "")
     {
-        if (InventoryLocked || _draft == null || enabled && style.Tier == ItemTier.Silver) return;
+        if (InventoryLocked || AutomaticSurvivalEquipment || _draft == null || enabled && style.Tier == ItemTier.Silver) return;
         ResetQuickActions();
         string message = enabled ? "Venta automática · " + style.DescribeAutoSell() + ". Solo botín nuevo; conserva los objetos actuales."
             : "Venta automática desactivada para " + EquipmentCatalogue.SlotName(style.Slot) +
@@ -96,8 +97,8 @@ public partial class EquipmentPanel
             var label = Ui.Label(style.DescribeAutoSell(), 15, TierColor(style.Tier));
             label.SizeFlagsHorizontal = SizeFlags.ExpandFill; label.AutowrapMode = TextServer.AutowrapMode.WordSmart; row.AddChild(label);
             var keep = Ui.Button("Conservar", () => SetAutoSell(style, false)); keep.CustomMinimumSize = new(100, 44);
-            keep.MouseFilter = MouseFilterEnum.Pass;
-            keep.Disabled = InventoryLocked; row.AddChild(keep); _preferenceActions.Add(keep);
+            keep.MouseFilter = MouseFilterEnum.Pass; keep.Name = "EquipmentAutoSellKeep_" + style.Slot;
+            keep.Disabled = InventoryLocked || AutomaticSurvivalEquipment; row.AddChild(keep); _preferenceActions.Add(keep);
         }
         if (styles.Length == 0) _autoSellList.AddChild(Ui.Label("No hay reglas de venta automática.", 15, Ui.Muted));
     }

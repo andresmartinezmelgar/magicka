@@ -36,6 +36,7 @@ public partial class EquipmentPanel
     private string _defensePendingMessage = "";
     internal bool TemporaryInventory => _defensePlayer != null;
     private bool CanChangeDefenseItems => _defenseWizard?.Alive == true && !_defenseMatchEnded;
+    private bool AutomaticSurvivalEquipment => _defensePlayer?.EquipmentSetup.Enabled == true;
     private bool CanSellInventory => _defensePlayer != null ? CanChangeDefenseItems :
         !_main.InventoryAutoSelling && !_main.Accounts.InventoryNeedsRefresh && _main.Accounts.SignedIn &&
         (!_main.Accounts.IsDirectFirebaseSession || _main.Accounts.ServerAddress.Length > 0);
@@ -69,10 +70,12 @@ public partial class EquipmentPanel
         UpdateProgressStats();
         SyncDefensePreferences();
         string stamp = player.Gold + ":" + wizard.Alive + ":" + ended + ":" + _defensePreferenceRevision + ":" +
+            player.EquipmentSetup.Enabled + ":" +
             string.Join('|', player.Items.Select(i => $"{i.Item.Id}:{i.Upgrades}:{i.Equipped}"));
         if (stamp != _defenseInventoryStamp)
         {
             _defenseInventoryStamp = stamp;
+            if (AutomaticSurvivalEquipment) { _draft = DefenseProfile(player); _savedLoadout = _draft.Loadout; }
             RebaseDraft(); Render();
             RefreshPickerItems();
         }

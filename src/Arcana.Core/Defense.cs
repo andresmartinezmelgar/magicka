@@ -134,6 +134,8 @@ internal sealed class DefenseProgress
     public readonly HashSet<string> Favorites = new(StringComparer.Ordinal);
     public readonly HashSet<EquipmentStyle> AutoSellStyles = [];
     public int AutoSold;
+    public SurvivalEquipmentSetup EquipmentSetup = new();
+    public bool EquipmentSetupInitialized;
     public EquipmentLoadout Loadout = new();
     public readonly Dictionary<string, int> Upgrades = [];
     public readonly int[] Auras = new int[DefenseRules.AuraCount];
@@ -188,6 +190,8 @@ public sealed record DefensePlayerSnapshot(int PlayerId, int Level, int Experien
     public string[] Favorites { get; init; } = [];
     public EquipmentStyle[] AutoSellStyles { get; init; } = [];
     public int AutoSold { get; init; }
+    public SurvivalEquipmentSetup EquipmentSetup { get; init; } = new();
+    public bool EquipmentSetupInitialized { get; init; }
     public int LivesRemaining => Math.Max(0, DefenseRules.PlayerLives - Deaths);
 }
 public sealed record DefenseSnapshot(double Elapsed, int Difficulty,
@@ -206,7 +210,8 @@ public static class DefenseVisibility
     public static WorldSnapshot ForPlayer(WorldSnapshot state, int playerId) => state.Defense is not { } d ? state
         : state with { Defense = d with
         {
-            Defenders = d.Defenders.Select(p => p.PlayerId == playerId ? p : p with { Items = [], Favorites = [], AutoSellStyles = [] }).ToArray(),
+            Defenders = d.Defenders.Select(p => p.PlayerId == playerId ? p : p with
+                { Items = [], Favorites = [], AutoSellStyles = [], EquipmentSetup = new(), EquipmentSetupInitialized = false }).ToArray(),
             Drops = d.Drops.Where(p => p.OwnerId == 0 || p.OwnerId == playerId).ToArray()
         } };
 }

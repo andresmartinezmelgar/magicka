@@ -45,6 +45,7 @@ public static partial class SnapshotValidation
                 p.Auras.Any(a => a is < 0 or > DefenseRules.MaxAuraLevel) || p.Items is not { Length: <= DefenseRules.InventoryLimit } ||
                 p.Favorites is not { Length: <= DefenseRules.InventoryLimit } || p.Favorites.Distinct().Count() != p.Favorites.Length ||
                 p.Favorites.Any(id => !p.Items.Any(i => i?.Item?.Id == id)) || p.AutoSold < 0 ||
+                p.EquipmentSetup is not { Valid: true } || p.EquipmentSetup.Enabled && !p.EquipmentSetupInitialized ||
                 p.AutoSellStyles == null || p.AutoSellStyles.Length > EquipmentStyle.Limit || p.AutoSellStyles.Any(s => !s.Valid) ||
                 p.AutoSellStyles.Distinct().Count() != p.AutoSellStyles.Length ||
                 p.AutoSellStyles.Any(s => s.Tier == ItemTier.Silver) ||

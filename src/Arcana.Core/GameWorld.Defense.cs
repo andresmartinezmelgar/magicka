@@ -498,6 +498,11 @@ public sealed partial class GameWorld
         _commanderReinforcements = 0;
         _simulationBudget = new(DefenseRules.MaxMinions); _simulationCost = 0; _simulationSamples = 0;
         _bossClock = DefenseRules.BossInterval(_random, true); _survivalFlows.Clear();
-        foreach (var player in _players.Values) { _defenders[player.Id] = new(); RecalculateDefender(player); }
+        foreach (var player in _players.Values)
+        {
+            var previousProgress = _defenders[player.Id];
+            _defenders[player.Id] = new() { EquipmentSetup = previousProgress.EquipmentSetup.Copy(), EquipmentSetupInitialized = previousProgress.EquipmentSetupInitialized };
+            RecalculateDefender(player);
+        }
     }
 }

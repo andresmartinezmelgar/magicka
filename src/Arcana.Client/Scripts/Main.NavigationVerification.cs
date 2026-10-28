@@ -110,7 +110,7 @@ public partial class Main
                 var otherBoots = EquipmentCatalogue.Generate(new(962), tier: ItemTier.Gold, slot: EquipmentSlot.Boots);
                 grant.Invoke(_practice, [player, boots]); grant.Invoke(_practice, [player, otherBoots]);
                 await Frames(); var shop = _defensePanel!;
-                foreach (int section in new[] { 0, 2, 3, 4, 5 })
+                foreach (int section in new[] { 0, 2, 3, 4, 5, 6 })
                 {
                     shop.OpenShop(); shop.ShowSection(section); await Frames();
                     ((ScrollContainer)shop.FindChild("DefenseShopScroll", true, false)).ScrollVertical = int.MaxValue;
@@ -141,6 +141,43 @@ public partial class Main
                 Check(shop.EquipmentInventory == null && _practice.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId)
                     .Items.Single(i => i.Item.Id == otherBoots.Id).Equipped, "Descartar modifica la configuración confirmada."); shop.CloseShop();
 
+                var markBoots = EquipmentCatalogue.Generate(new(963), tier: ItemTier.Mythic, slot: EquipmentSlot.Boots)
+                    with { Affix = new(ItemAffixKind.ArcaneMark, 2) };
+                var echoHat = EquipmentCatalogue.Generate(new(964), tier: ItemTier.Mythic, slot: EquipmentSlot.Hat)
+                    with { Affix = new(ItemAffixKind.ArcaneEcho, 2) };
+                grant.Invoke(_practice, [player, markBoots]); grant.Invoke(_practice, [player, echoHat]); await Frames();
+                shop.OpenShop(); shop.ShowSection(6); await Frames();
+                var setupScroll = (ScrollContainer)shop.FindChild("DefenseShopScroll", true, false);
+                Check(setupScroll.Size.Y > 70, "Las pestañas dejan sin espacio la configuración predeterminada.");
+                void SelectSetup(string name, int id)
+                {
+                    var option = (OptionButton)shop.FindChild(name, true, false);
+                    int index = option.GetItemIndex(id); option.Select(index); option.EmitSignal(OptionButton.SignalName.ItemSelected, (long)index);
+                }
+                SelectSetup("SurvivalSetupElement", (int)Element.Arcane);
+                SelectSetup("SurvivalSetupPriority0", (int)ItemAffixKind.ArcaneMark);
+                SelectSetup("SurvivalSetupPriority1", (int)ItemAffixKind.ArcaneMark);
+                setupScroll.ScrollVertical = int.MaxValue; await Frames();
+                var setupApply = (Button)shop.FindChild("SurvivalSetupApply", true, false);
+                await Click(setupApply);
+                Check(((ElementTextLabel)shop.FindChild("SurvivalSetupStatus", true, false)).Text.Contains("una sola vez") &&
+                    !_practice.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId).EquipmentSetup.Enabled,
+                    "La configuración admite prioridades duplicadas o borra el error antes de poder leerlo.");
+                SelectSetup("SurvivalSetupPriority1", (int)ItemAffixKind.ArcaneEcho);
+                setupScroll.ScrollVertical = int.MaxValue; await Frames(); await Click(setupApply);
+                var selectedSetup = _practice.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId);
+                Check(selectedSetup.EquipmentSetup.Enabled && selectedSetup.Modifiers.ArcaneMark == 2 && selectedSetup.Modifiers.ArcaneEcho == 2 &&
+                    selectedSetup.Items.Length == 2 && selectedSetup.AutoSold == 2, "La nueva pestaña no equipa Marca y Eco o no vende los descartes.");
+                shop.ShowSection(1); await Frames(); inventory = shop.EquipmentInventory!; inventory.PressInspect(EquipmentSlot.Boots); await Frames();
+                Check(((Button)inventory.FindChild("EquipmentAutoSell_" + markBoots.Id, true, false)).Disabled,
+                    "El filtro por calidad compite con la configuración automática.");
+                await Click(Exit(inventory, "EquipmentBackToShop")); shop.ShowSection(6); await Frames();
+                setupScroll.ScrollVertical = int.MaxValue; await Frames();
+                await Click((Button)shop.FindChild("SurvivalSetupDisable", true, false));
+                Check(!_practice.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId).EquipmentSetup.Enabled &&
+                    !SurvivalPreferences.SurvivalEquipment.Enabled, "Desactivar no se aplica o no se recuerda.");
+                shop.CloseShop();
+
                 ToggleHelp(); await Frames(); _responsiveHelpScroll!.ScrollVertical = int.MaxValue; await Frames();
                 Capture(size.X + "-ayuda"); await Click(Exit(_help, "InGameHelpClose")); Check(!_help.Visible, "La ayuda no cierra tras desplazarla.");
                 TogglePause(); await Frames(); _responsivePauseScroll!.ScrollVertical = int.MaxValue; await Frames();
@@ -161,7 +198,7 @@ public partial class Main
                 StartPractice("Navegación", 0, GameMode.Duel, 1); await Ready(); OpenPlayerEquipment(); await Frames();
                 await Click(Exit(_playerEquipmentPanel!, "PlayerEquipmentBack")); Check(!InspectingEquipment, "La ficha del jugador no cierra.");
                 ReturnToLauncher(); await Frames();
-                GD.Print("NAVIGATION_VIEWPORT_OK: " + size + " · menús, estadísticas, daño personal al morir/finalizar, controles, salas, carga, seis pestañas de Supervivencia, inventario, descarte, ayuda, pausa, reliquias y fichas.");
+                GD.Print("NAVIGATION_VIEWPORT_OK: " + size + " · menús, estadísticas, daño personal al morir/finalizar, controles, salas, carga, siete pestañas de Supervivencia, equipo predeterminado con Marca/Eco y venta, inventario, descarte, ayuda, pausa, reliquias y fichas.");
             }
             Check(_engineLog.ErrorCount == 0, "Godot registró errores durante la navegación.");
             GD.Print("NAVIGATION_SMOKE_OK: salidas visibles fuera del scroll, clic real, Escape/Atrás y guardado autoritativo antes de continuar.");

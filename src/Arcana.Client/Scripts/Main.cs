@@ -435,6 +435,7 @@ public partial class Main : Node
             _renderer.Render(latest, _localId, _verification?.FixedRenderStep == true ? 1 / 60.0 : delta, true);
             _hud?.Update(latest, _localId, _serverName, delta);
             UpdatePersonalDamageSummary(latest, delta);
+            InitializeSurvivalEquipmentSetup(latest, delta);
             if (_defensePanel != null)
             {
                 _defensePanel.Visible = !_paused && !_help.Visible;

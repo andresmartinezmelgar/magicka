@@ -1,8 +1,10 @@
 # Cambios
 
-## Sin publicar
+## 0.29.32
 
-- Nuevos afijos Marca arcana y Eco arcano. Marca repite al morir el daño real recibido en los últimos 3/5 segundos, sobre enemigos cercanos; Eco canaliza desde el mago un segundo haz al enemigo cercano distinto del apuntado, al 25/40 % de daño. Catálogo 11, protocolo 44 y continuidad de marcas, historial y explosiones pendientes en el guardado.
+- Configuración predeterminada de Supervivencia: elige entre ocho elementos y ordena hasta cinco afijos Míticos. Compara las seis ranuras y conjuntos, equipa la mejor combinación disponible y vende los descartes por oro temporal, protegiendo los favoritos. Se aplica al botín nuevo y se recuerda al reiniciar, continuar y abrir otra partida.
+- Mientras la selección automática está activa, la interfaz evita cambios manuales de equipo y filtros de calidad contradictorios. Desactivarla restaura esas acciones. Validación autoritativa, transporte y guardados compatibles; protocolo 45.
+- Nuevos afijos Marca arcana y Eco arcano. Marca repite al morir el daño real recibido en los últimos 3/5 segundos, sobre enemigos cercanos; Eco canaliza desde el mago un segundo haz al enemigo cercano distinto del apuntado, al 25/40 % de daño. Catálogo 11 y continuidad de marcas, historial y explosiones pendientes en el guardado.
 - Supervivencia oculta los nombres y clases de los enemigos durante el combate. Las estadísticas, gráficas y fichas conservan nombres y añaden el retrato del sprite o modelo real de cada especie.
 - Oráculo de asedio ocasional: 1 % por intento, un máximo natural de uno y un intervalo de 90–150 s entre apariciones. Más vida y daño de cristales, conservando la fuerza de sus escudos.
 - Nuevas auras de Arcano y Agua exclusivas de Supervivencia. Agua daña y moja únicamente a enemigos visibles; no afecta al lanzador ni a sus aliados. Se conservan las compras de los guardados anteriores.

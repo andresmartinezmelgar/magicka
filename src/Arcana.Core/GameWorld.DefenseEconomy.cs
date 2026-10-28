@@ -29,15 +29,23 @@ public sealed partial class GameWorld
     private bool DefenseCommand(Wizard player, ClientMessage command)
     {
         if (!IsDefense || !_defenders.TryGetValue(player.Id, out var progress)) return false;
+        if (command.Type == "defense_equipment_setup")
+        {
+            if (player.Bot || MatchEnded || command.SurvivalEquipmentSetup is not { Valid: true } setup) return false;
+            progress.EquipmentSetup = setup.Copy(); progress.EquipmentSetupInitialized = true;
+            if (setup.Enabled) ApplySurvivalEquipmentSetup(player);
+            return true;
+        }
         if (command.Type == "defense_favorite")
         {
             if (command.Slot is < 0 or > 1 || !progress.Items.Any(i => i.Id == command.ItemId)) return false;
             if (command.Slot == 1) progress.Favorites.Add(command.ItemId); else progress.Favorites.Remove(command.ItemId);
+            if (progress.EquipmentSetup.Enabled) ApplySurvivalEquipmentSetup(player);
             return true;
         }
         if (command.Type == "defense_auto_sell")
         {
-            if (command.Slot is < 0 or > 1 || command.AutoSellStyle is not { Valid: true } style) return false;
+            if (progress.EquipmentSetup.Enabled || command.Slot is < 0 or > 1 || command.AutoSellStyle is not { Valid: true } style) return false;
             if (command.Slot == 1)
             {
                 if (style.Tier == ItemTier.Silver || !progress.Items.Any(i => i.Id == command.ItemId && EquipmentStyle.Of(i) == style)) return false;
@@ -60,6 +68,7 @@ public sealed partial class GameWorld
         if (command.Type == "defense_loadout")
         {
             if (command.Loadout == null) return false;
+            if (progress.EquipmentSetup.Enabled) return command.Loadout == progress.Loadout;
             var inventory = new AccountProfile("", player.Name, progress.Gold, 0, 0, progress.Loadout, progress.Items.ToArray());
             try
             {
@@ -117,7 +126,11 @@ public sealed partial class GameWorld
                 if (command.ItemId == null || command.ItemId.Length != 32) return false;
                 var item = progress.Items.FirstOrDefault(i => i.Id == command.ItemId);
                 if (item == null) return false;
-                if (command.Type == "defense_equip") progress.Loadout = progress.Loadout.With(item.Slot, item.Id);
+                if (command.Type == "defense_equip")
+                {
+                    if (progress.EquipmentSetup.Enabled) return false;
+                    progress.Loadout = progress.Loadout.With(item.Slot, item.Id);
+                }
                 else if (command.Type == "defense_sell")
                 {
                     if (progress.Loadout.Get(item.Slot) == item.Id || progress.Favorites.Contains(item.Id)) return false;
@@ -136,7 +149,7 @@ public sealed partial class GameWorld
                 progress.Gold -= price; progress.Upgrades[item.Id] = upgrades + 1;
                     progress.Items[progress.Items.IndexOf(item)] = improved;
                 }
-                RecalculateDefender(player);
+                if (progress.EquipmentSetup.Enabled) ApplySurvivalEquipmentSetup(player); else RecalculateDefender(player);
                 return true;
         }
         return false;
@@ -158,6 +171,13 @@ public sealed partial class GameWorld
         _statistics.Add(StatisticGroup.Equipment, (int)item.Tier, StatisticMeasure.Collected, 1);
         StatisticsEconomy(player.Id, StatisticMeasure.Collected, 1);
         var progress = _defenders[player.Id];
+        if (progress.EquipmentSetup.Enabled)
+        {
+            var candidate = item with { Bonuses = item.Bonuses.Select(b => EquipmentCatalogue.BonusActive(item.Slot, b.Stat)
+                ? b with { Maximum = MathF.Round(b.Current + DefenseRules.ItemUpgradeLimit * DefenseRules.ItemUpgradeStep, 4) } : b).ToArray() };
+            ApplySurvivalEquipmentSetup(player, candidate);
+            return;
+        }
         if (!progress.Favorites.Contains(item.Id) && progress.Loadout.Get(item.Slot) != item.Id &&
             progress.AutoSellStyles.Any(s => s.MatchesLowerQuality(item)))
         {
@@ -290,7 +310,8 @@ public sealed partial class GameWorld
                     DamagePower(p.Id), RelicBuffs.Incoming(p) * p.Equipment.Incoming,
                     ActiveShieldRegeneration(p) + RelicBuffs.Regeneration(p) + s.Auras[2] * 10 * HealingPower(p.Id),
                     RelicBuffs.Speed(p) * p.Equipment.Speed * DefenseSpeed(p), Copy(s.Passives), Copy(s.PassiveCooldowns), s.BerserkerRemaining)
-                    { Favorites = s.Favorites.ToArray(), AutoSellStyles = s.AutoSellStyles.ToArray(), AutoSold = s.AutoSold };
+                    { Favorites = s.Favorites.ToArray(), AutoSellStyles = s.AutoSellStyles.ToArray(), AutoSold = s.AutoSold,
+                        EquipmentSetup = s.EquipmentSetup.Copy(), EquipmentSetupInitialized = s.EquipmentSetupInitialized };
             }).ToArray(), DefensePaused, _players.Values.Count(p => !p.Bot))
             { Bestiary = _defenseBestiary.Values.OrderBy(e => e.Kind).ToArray(), NextBossIn = _bossClock, BossesKilled = _bossesKilled,
                 MinionLimit = DefenseMinionLimit, PerformanceLimit = DefensePerformanceLimit };

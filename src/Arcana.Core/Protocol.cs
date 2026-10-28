@@ -6,7 +6,7 @@ namespace Arcana.Core;
 
 public static class Protocol
 {
-    public const int Version = 44;
+    public const int Version = 45;
     public const int GamePort = 27015;
     public const int DiscoveryPort = 27016;
     public const string DiscoveryMagic = "ARCANA_DISCOVER_V30";
@@ -186,6 +186,7 @@ public sealed class ClientMessage
     public string ItemId { get; set; } = "";
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public EquipmentLoadout? Loadout { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public EquipmentStyle? AutoSellStyle { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public SurvivalEquipmentSetup? SurvivalEquipmentSetup { get; set; }
     public float MoveX { get; set; }
     public float MoveY { get; set; }
     public bool MoveTo { get; set; }

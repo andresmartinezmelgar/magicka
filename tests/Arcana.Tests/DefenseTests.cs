@@ -37,6 +37,7 @@ internal static class DefenseTests
 
     public static void Run(Action<string, Action> test)
     {
+        SurvivalEquipmentSetupTests.Run(test);
         test("Defensa: recalcular equipo o nivel no cura sin un efecto curativo", () =>
         {
             var world = World(); var player = world.AddPlayer("Mago", 0)!;

@@ -141,7 +141,11 @@ public partial class EquipmentPanel
 
     private void UpdatePickerActions()
     {
-        foreach (var button in _itemButtons.Values) button.Disabled = InventoryLocked || (_defensePlayer != null && !CanChangeDefenseItems);
+        foreach (var button in _itemButtons.Values)
+        {
+            button.Disabled = InventoryLocked || AutomaticSurvivalEquipment || (_defensePlayer != null && !CanChangeDefenseItems);
+            if (AutomaticSurvivalEquipment) button.TooltipText = "La configuración predeterminada elige el equipo. Desactívala en la tienda para equipar manualmente.";
+        }
         foreach (var (id, button) in _trashButtons) button.Disabled = InventoryLocked || !CanSellInventory || SaleProtected(id);
         foreach (var (id, button) in _upgradeButtons) button.Disabled = !CanUpgradeItem(id);
         UpdatePreferenceActions();

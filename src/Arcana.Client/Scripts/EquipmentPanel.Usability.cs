@@ -97,7 +97,8 @@ public partial class EquipmentPanel
     {
         _preferenceActions.RemoveAll(b => !GodotObject.IsInstanceValid(b) || !b.IsInsideTree());
         foreach (var button in _preferenceActions)
-            button.Disabled = InventoryLocked || button is CheckBox && SaleProtected(button.Name.ToString()["EquipmentSelect_".Length..]);
+            button.Disabled = InventoryLocked || AutomaticSurvivalEquipment && button.Name.ToString().StartsWith("EquipmentAutoSell", StringComparison.Ordinal) ||
+                button is CheckBox && SaleProtected(button.Name.ToString()["EquipmentSelect_".Length..]);
         UpdateBulkActions();
     }
     private void UpdateBulkActions()

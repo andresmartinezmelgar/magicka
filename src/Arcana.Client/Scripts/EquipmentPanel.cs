@@ -316,7 +316,7 @@ public partial class EquipmentPanel : Control
     }
     private void ChooseItem(string id)
     {
-        if (InventoryLocked || _draft == null) return;
+        if (InventoryLocked || _draft == null || AutomaticSurvivalEquipment) return;
         ResetQuickActions();
         try
         {

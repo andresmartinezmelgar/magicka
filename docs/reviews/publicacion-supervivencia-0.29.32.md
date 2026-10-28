@@ -1,0 +1,28 @@
+# Supervivencia 0.29.32: configuración predeterminada y mejoras de combate
+
+Rama `pruebas/supervivencia-procedural-autoguardado`, código Android 29032, catálogo 11 y protocolo 45. La petición expresa de tag y APK autoriza la compilación y publicación de pruebas; no se mezcla con main.
+
+## Configuración predeterminada
+
+La séptima pestaña de la tienda permite activar o desactivar la selección, elegir uno de los ocho elementos y ordenar hasta cinco afijos Míticos distintos. Primero compara los rangos máximos de los afijos elegidos, en orden; después el potencial del elemento, el anillo mágico correspondiente, atributos complementarios y calidad. Los empates conservan las piezas equipadas y usan el identificador del objeto para ser reproducibles.
+
+La búsqueda evalúa combinaciones completas de seis ranuras, incluyendo bonos de conjunto y límites reales. No cuenta atributos inactivos del anillo mágico. Vida prioriza potencia de curación; Escudo, capacidad; el resto, el producto de potencia general y elemental. Repetir un mismo afijo no aumenta su puntuación. Marca y Eco pueden equiparse juntos en piezas diferentes.
+
+Activar equipa la combinación elegida y vende los descartes, incluidas piezas antes equipadas. Cada recogida vuelve a comparar el nuevo objeto con el equipo y los favoritos disponibles. Los favoritos no seleccionados se conservan; si impiden guardar una mejora sin exceder las 24 piezas, se vende el objeto nuevo. El oro temporal, las mejoras y el recuento de ventas se actualizan una sola vez. Mientras esté activa, sustituye los filtros de venta por calidad y bloquea cambios manuales contradictorios. El control manual vuelve al desactivarla.
+
+La preferencia se recuerda por cuenta o invitado en el dispositivo; el servidor conserva y valida la configuración durante la partida, reconexión, guardado y reinicio. Un guardado anterior comienza con la función desactivada. Los snapshots privados ocultan las prioridades de otros jugadores. Los selectores rechazan duplicados con un mensaje persistente y las operaciones tienen plazo de confirmación.
+
+## Cambios pendientes incluidos
+
+- Marca arcana y Eco arcano, con sus ventanas de daño, objetivos, retratos y continuidad de guardado.
+- Fragmentación de roca: cuatro fragmentos en Diamante y seis en Mítico, conservando la mezcla y áreas elementales.
+- Oráculo de asedio ocasional y reforzado; nuevas auras de Arcano y Agua para Supervivencia.
+- Resumen personal de daño por elemento al morir y al terminar en todos los modos.
+- Nombres enemigos ocultos en combate y retratos reales conservados en estadísticas y guía.
+- Descripciones completas del estado Mojado y de atributos, sin las abreviaturas que ocultaban su significado.
+
+## Validación de la publicación
+
+Siete nuevas regresiones del equipo predeterminado cubren ocho elementos, conjuntos completos, anillos, prioridad y coexistencia de afijos, ventas, favoritos, inventario lleno, desactivación, protocolo, visibilidad privada, guardados actuales y anteriores y datos inválidos. La navegación Godot comprueba las siete pestañas, duplicados, activación, venta y desactivación en 640×450, 960×450 y 1440×900.
+
+El publicador exige compilación y pruebas del motor y red, cuentas con emulador, Docker amd64/arm64, verificación Godot y paquetes Windows/Android antes de crear el tag. Se genera APK con firma permanente y manifiestos SHA-256, además de los paquetes de escritorio y parches del mismo canal. Los resultados y enlaces concretos se comprueban una vez terminada la ejecución.

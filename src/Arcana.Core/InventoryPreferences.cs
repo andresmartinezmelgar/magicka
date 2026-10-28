@@ -10,10 +10,12 @@ public sealed class InventoryPreferences
     public List<AutoSellRule> AutoSellRules { get; set; } = [];
     public int AutoSellRuleVersion { get; set; }
     public const int CurrentAutoSellRuleVersion = 2;
+    public SurvivalEquipmentSetup SurvivalEquipment { get; set; } = new();
 
     public void Normalize(AccountProfile? profile = null)
     {
         Favorites ??= new(StringComparer.Ordinal); Loadouts ??= []; AutoSellRules ??= [];
+        if (SurvivalEquipment?.Valid != true) SurvivalEquipment = new();
         // Las reglas v0 vendían la calidad exacta; no ampliar esas reglas al migrar.
         if (AutoSellRuleVersion is not (1 or CurrentAutoSellRuleVersion))
         { AutoSellRules.Clear(); AutoSellRuleVersion = CurrentAutoSellRuleVersion; }

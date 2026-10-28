@@ -16,6 +16,16 @@ public static class ItemAffixes
             ItemAffixKind.ArcaneMark, ItemAffixKind.ArcaneEcho];
     private static readonly ItemAffixKind[] GoldRingKinds = [ItemAffixKind.CoinDividend, ItemAffixKind.GoldBonus];
     public static int CombatEffectCount => CombatKinds.Length;
+    public static string Name(ItemAffixKind kind) => kind switch
+    {
+        ItemAffixKind.BeamPierce => "Penetración de haces", ItemAffixKind.LightningChain => "Saltos de relámpago",
+        ItemAffixKind.DoubleBurn => "Doble quemadura", ItemAffixKind.WaterShieldPool => "Charco de escudo de agua",
+        ItemAffixKind.Icebreaker => "Quebrantahielo", ItemAffixKind.SteamImpact => "Choque térmico", ItemAffixKind.ArcaneExecution => "Remate arcano",
+        ItemAffixKind.ShieldBattery => "Batería protectora", ItemAffixKind.MendingWard => "Remiendo protector",
+        ItemAffixKind.ShieldReprisal => "Última barrera", ItemAffixKind.ShieldLeech => "Escudo vital", ItemAffixKind.ShieldReflection => "Espejo protector",
+        ItemAffixKind.RockFragmentation => "Fragmentación de roca", ItemAffixKind.ArcaneMark => "Marca arcana", ItemAffixKind.ArcaneEcho => "Eco arcano",
+        ItemAffixKind.CoinDividend => "Monedas extra", ItemAffixKind.GoldBonus => "Bonificación de oro", _ => throw new ArgumentException("Afijo desconocido.")
+    };
     public static bool IsExtended(ItemAffixKind kind) => kind is ItemAffixKind.Icebreaker or ItemAffixKind.SteamImpact or
         ItemAffixKind.ArcaneExecution or ItemAffixKind.ShieldBattery or ItemAffixKind.MendingWard or ItemAffixKind.ShieldReprisal or
         ItemAffixKind.ShieldLeech or ItemAffixKind.ShieldReflection or ItemAffixKind.RockFragmentation or ItemAffixKind.ArcaneMark or ItemAffixKind.ArcaneEcho;

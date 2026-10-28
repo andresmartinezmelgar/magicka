@@ -71,11 +71,14 @@ public partial class DefensePanel : Control
         _shopStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart; body.AddChild(_shopStatus);
         _navigation = new HFlowContainer(); _navigation.AddThemeConstantOverride("h_separation", 4);
         _navigation.AddThemeConstantOverride("v_separation", 4); body.AddChild(_navigation);
-        string[] names = ["Partida", "Equipo", "Poderes", "Estadísticas", "Guía", "Reliquias"];
+        string[] names = ["Partida", "Equipo", "Poderes", "Estadísticas", "Guía", "Reliquias", "Configuración predeterminada"];
         for (int i = 0; i < names.Length; i++)
         {
             int section = i;
             var tab = Ui.ExitButton(names[i], () => ShowSection(section), "DefenseTab" + i);
+            tab.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            tab.CustomMinimumSize = new(0, Ui.IsMobile ? 54 : 44);
+            tab.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 16 : 15);
             tab.SizeFlagsHorizontal = SizeFlags.ExpandFill; _navigation.AddChild(tab); _tabs.Add(tab);
         }
         _scroll = new ContentScrollContainer { Name = "DefenseShopScroll", SizeFlagsVertical = SizeFlags.ExpandFill,
@@ -135,6 +138,7 @@ public partial class DefensePanel : Control
         _totals = Ui.Table(2, "DefenseTotals"); statistics.AddChild(_totals);
         _rules = Wrapped(statistics, "", 15, Ui.Muted);
         BuildGuide(_sections[4]);
+        BuildEquipmentSetup(_sections[6]);
         ShowSection(0); ShowPowers(true);
         var footer = new HBoxContainer(); footer.AddThemeConstantOverride("separation", 8); body.AddChild(footer);
         _restart = Ui.Button("Otra partida", () => { Send("defense_restart"); CloseShop(); }); footer.AddChild(_restart);
@@ -225,6 +229,7 @@ public partial class DefensePanel : Control
         _state = defense; _ended = snapshot.MatchEnded; _player = defense.Defenders.FirstOrDefault(p => p.PlayerId == id);
         _wizard = snapshot.Players.FirstOrDefault(p => p.Id == id);
         if (_player == null || _wizard == null) return;
+        UpdateEquipmentSetup();
         _canRestart = !online || snapshot.LobbyHostId == id;
         var p = _player;
         var summary = (p.Level, p.Experience, p.NextLevelExperience, p.Gold, p.Kills, p.LivesRemaining);
