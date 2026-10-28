@@ -36,3 +36,7 @@ C# compila; las regresiones de Marca, Eco, fragmentación, auras y daño persona
 ### Segunda ejecución (r618)
 
 Motor y red, cuentas, Docker y ambos paquetes pasan. La navegación verifica la configuración predeterminada en las tres resoluciones, tanto con interfaz de escritorio como móvil. La revisión de capturas detecta ejes comprimidos y solapamiento de leyendas con retratos en las gráficas móviles: se amplía la altura en los 82 píxeles que ocupan los nuevos retratos y se separan del texto de las barras. Se añade una comprobación de espacio mínimo para los ejes. La prueba de guardado termina correctamente pero Godot falla al cerrar con referencias C# aún pendientes; se libera la escena y se espera la recolección con el motor activo, igual que en la prueba de botín existente, antes de declarar éxito y cerrar. Se requiere otra ejecución completa para publicar.
+
+### Comprobaciones posteriores
+
+La limpieza del guardado y las capturas pasan después del ajuste. La comprobación del desglose aún buscaba la etiqueta antigua «Ataque», aunque la interfaz ya muestra «Potencia de ataque». Se utiliza el nombre completo del catálogo para localizar el atributo; se mantienen las mismas exigencias sobre las cuatro aportaciones, el signo negativo, la suma y la exclusión de piezas sin equipar. La comprobación de atributos cancelados también utiliza los nombres actuales completos.

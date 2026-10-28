@@ -188,7 +188,7 @@ public partial class Main
             Check(cells[totals.Columns - 1].Text.StartsWith("Atributo") &&
                 ((ElementTextLabel)panel.FindChild("EquipmentDetailsTable", true, false).GetChild(1)).Text == "Atributo",
                 "Los nombres de atributos no ocupan la última columna.");
-            int attack = Array.FindIndex(cells, l => l.Text.Split('\n')[0] == "Ataque");
+            int attack = Array.FindIndex(cells, l => l.Text.Split('\n')[0] == EquipmentCatalogue.StatName(EquipmentStat.Power));
             Check(attack >= 0 && (totals.Columns == 2
                 ? cells[attack - 1].Text == "+13%" && new[] { "Botas · Plata: +2%", "Gorro · Plata: -1%", "Pecho · Plata: +5%", "Arma · Plata: +7%" }
                     .All(source => cells.Any(l => l.Name.ToString().StartsWith("EquipmentTotalSource_Power_") && l.Text.EndsWith(". " + source, StringComparison.Ordinal)))
@@ -205,7 +205,8 @@ public partial class Main
                 new(EquipmentStat.Defense, -0.5f, 0.5f, -0.031f), new(EquipmentStat.SpellRange, -0.5f, 0.5f, -0.07f),
                 new(EquipmentStat.HealingPower, 0, 0.5f, 0.5f));
             Show(original with { Items = [boots, chest], Loadout = new(Boots: boots.Id, Chest: chest.Id) });
-            Check(!panel.Totals.Contains("Defensa") && !panel.Totals.Contains("Velocidad") && !panel.Totals.Contains("Ataque") &&
+            Check(!new[] { EquipmentStat.Defense, EquipmentStat.MovementSpeed, EquipmentStat.Power }
+                    .Any(stat => panel.Totals.Contains(EquipmentCatalogue.StatName(stat))) &&
                 panel.Totals.Contains("-7%") && panel.Totals.Contains("+60%") && panel.Sets == "Sin conjuntos activos.",
                 "El resumen no filtra ceros y cancelaciones, pierde penalizaciones o muestra conjuntos de una sola pieza.");
             Check(panel.Totals.Contains("Suma: +100%") && panel.Totals.Contains("Botas · Mítico: +50%") &&
