@@ -30,6 +30,7 @@ public partial class Main
         _loadingIndex = 0; _loadingReadySent = _loadingFinalFrame = false;
         _loadingStartedAt = System.Environment.TickCount64; _loadingCreatedFrame = _renderFrames;
         _loadingDrawMarker = Volatile.Read(ref _drawnFrames); _loadingAwaitDraw = true;
+        SynchronizeAndroidSession();
         Diagnostics.Info("game.loading", "Preparando la partida antes de habilitarla.", new Dictionary<string, object?>
             { ["map"] = snapshot.Map, ["steps"] = _loadingSteps.Count, ["online"] = _connection != null });
     }

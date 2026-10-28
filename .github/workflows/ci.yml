@@ -569,6 +569,7 @@ jobs:
       - name: Compilar plugin nativo Firebase para Android
         run: |
           bash scripts/test-android-update-policy.sh
+          bash scripts/test-android-session-policy.sh
           gradle -p android/firebase-plugin :plugin:assembleRelease --no-daemon
           mkdir -p src/Arcana.Client/addons/arcana_firebase
           cp android/firebase-plugin/plugin/build/outputs/aar/plugin-release.aar src/Arcana.Client/addons/arcana_firebase/ArcanaFirebase.aar

@@ -34,7 +34,7 @@ public partial class Main
         HandleApplicationLifecycle(NotificationApplicationResumed);
         if (!_applicationSuspended) throw new InvalidOperationException("Reanudó antes de recuperar el foco.");
         HandleApplicationLifecycle(NotificationApplicationFocusIn);
-        if (!Loading || !ReferenceEquals(world, _practice) || _applicationSuspended || _loadingStartedAt < loadingStart + 130_000)
+        if (!Loading || !RetainAndroidSession || !ReferenceEquals(world, _practice) || _applicationSuspended || _loadingStartedAt < loadingStart + 130_000)
             throw new InvalidOperationException("Android canceló la carga o contó el tiempo en segundo plano.");
     }
     private bool CheckSurvivalSaveSmoke()
@@ -67,7 +67,8 @@ public partial class Main
                 }
                 _survivalSaveSmokeRun = _localBestiaryRun; _survivalSaveSmokeTick = _practice!.Tick;
                 Check(SaveLocalSurvival(false) && HasSurvivalSave && _survivalSaveStatus!.Text.Contains("Partida guardada"), "No se confirmó el guardado.");
-                Check(SaveLocalSurvival(true) && !_playing && _launcher.Visible, "Guardar y salir no volvió al menú.");
+                Check(SaveLocalSurvival(true) && !_playing && _launcher.Visible && !RetainAndroidSession,
+                    "Guardar y salir no volvió al menú o dejó retenida una partida cerrada.");
                 _launcher.NavigateOptionA(2);
                 Check(_launcher.FindChild("ContinueSurvival", true, false) is Button { Visible: true, Disabled: false },
                     "El menú no ofrece continuar la partida guardada.");
@@ -92,14 +93,16 @@ public partial class Main
                 HandleApplicationLifecycle(NotificationApplicationFocusOut);
                 HandleApplicationLifecycle(NotificationApplicationPaused);
                 _PhysicsProcess(1 / 60.0);
-                Check(ReferenceEquals(running, _practice) && running.Tick == tick && HasSurvivalSave &&
+                Check(RetainAndroidSession && ReferenceEquals(running, _practice) && running.Tick == tick && HasSurvivalSave &&
                     SurvivalSaves.Load().World.Players[_localId].Health == 611,
                     "Cambiar de aplicación pierde la partida, simula el fondo o no guarda el último estado.");
                 HandleApplicationLifecycle(NotificationApplicationFocusIn);
                 Check(_applicationSuspended, "Recuperar el foco ignoró que Android seguía en pausa.");
                 HandleApplicationLifecycle(NotificationApplicationResumed);
-                Check(_playing && _paused && !_applicationSuspended && ReferenceEquals(running, _practice),
+                Check(_playing && _paused && RetainAndroidSession && !_applicationSuspended && ReferenceEquals(running, _practice),
                     "Volver de otra app empezó una partida nueva o perdió la pausa.");
+                _PhysicsProcess(1 / 60.0);
+                Check(running.Tick == tick, "Volver de otra aplicación reanudó el combate sin pulsar Continuar.");
                 _survivalSaveSmokeTick = _practice.Tick;
                 Check(SaveLocalSurvival(true) && HasSurvivalSave, "Guardar otra vez no habilita el punto nuevo.");
                 ContinueSurvival(); Check(Loading && _practice!.Tick == _survivalSaveSmokeTick, "No preparó el nuevo punto guardado.");

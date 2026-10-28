@@ -66,6 +66,7 @@ public partial class Main : Node
         PrepareDesktopHeaderSmokeWindow();
         RenderingServer.FramePostDraw += FrameDrawn;
         _log = new DiagnosticLog(ProjectSettings.GlobalizePath("user://logs"), "client"); Diagnostics.Log = _log;
+        _androidSession = new AndroidSessionBridge();
         _processDiagnostics = new ProcessDiagnostics(_log);
         _engineLog = new EngineLogBridge(); OS.AddLogger(_engineLog);
         Diagnostics.Info("client.start", "Cliente iniciado.", new Dictionary<string, object?>
@@ -304,6 +305,7 @@ public partial class Main : Node
     private void ActivateGame(WorldSnapshot snapshot, bool prepared = false)
     {
         _playing = true; _paused = false; _moveTo = false; _snapshotAge = 0; _lastTick = -1;
+        SynchronizeAndroidSession();
         ClosePlayerEquipment();
         BeginLocalBestiary();
         _inputTime = 0;
@@ -349,6 +351,7 @@ public partial class Main : Node
         _practicePanel?.QueueFree(); _practicePanel = null;
         var old = _connection; _connection = null;
         if (old != null) _ = CloseStatisticsConnection(old);
+        SynchronizeAndroidSession();
         _hud?.QueueFree(); _hud = null;
         _waitingPanel?.QueueFree(); _waitingPanel = null;
         _pause.Visible = false; _help.Visible = false;
@@ -849,6 +852,7 @@ public partial class Main : Node
     }
     public override void _ExitTree()
     {
+        _androidSession?.Dispose();
         AutosaveSurvival("shutdown");
         CaptureStatistics(MatchRecordStatus.Interrupted);
         CaptureLocalBestiary();

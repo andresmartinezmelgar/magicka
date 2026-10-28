@@ -6,8 +6,11 @@ namespace Arcana.Client;
 public partial class Main
 {
     private MobileControls? _touch;
+    private AndroidSessionBridge? _androidSession;
     private bool _applicationSuspended, _applicationPaused, _applicationFocused = true;
     private long _applicationSuspendedAt;
+    private bool RetainAndroidSession => Loading || _playing || _reconnecting;
+    private void SynchronizeAndroidSession() => _androidSession?.Synchronize(RetainAndroidSession, _connection != null);
 
     private void SetApplicationSuspended(bool suspended)
     {
