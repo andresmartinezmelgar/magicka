@@ -89,10 +89,24 @@ public partial class Main
             var firstSectors = _renderer.SurvivalSectorKeys.ToHashSet();
             int sectorBuilds = _renderer.SurvivalSectorBuilds, minionBuilds = _renderer.DefenseMinionBuilds;
             _renderer.Render(At(portals.B), _localId, 1 / 60.0, true);
-            if (firstSectors.Overlaps(_renderer.SurvivalSectorKeys) || _renderer.VisibleSurvivalSectors >= _renderer.TotalSurvivalSectors ||
-                _renderer.Camera.Position.X < portals.B.X - 6 || _renderer.DefenseMinionVisualCount != 1 ||
-                _renderer.DefenseLootVisuals.Count != 1 || !_renderer.DefenseLootVisuals.ContainsKey(85002))
-                throw new InvalidOperationException("Los sectores o la cámara no siguieron el salto de un portal.");
+            var destinationSectors = _renderer.SurvivalSectorKeys.ToHashSet();
+            int unloadedSectors = firstSectors.Except(destinationSectors).Count();
+            int loadedSectors = destinationSectors.Except(firstSectors).Count();
+            // Los portales procedurales pueden compartir sectores en el borde de sus
+            // ventanas visibles. Deben cargar el destino y retirar la zona lejana,
+            // sin exigir que ambas ventanas sean completamente disjuntas.
+            if (unloadedSectors == 0 || loadedSectors == 0 ||
+                _renderer.VisibleSurvivalSectors >= _renderer.TotalSurvivalSectors ||
+                Math.Abs(_renderer.Camera.Position.X - portals.B.X) > 8.01f ||
+                Math.Abs(_renderer.Camera.Position.Z - 21 - portals.B.Y) > 7.01f ||
+                _renderer.DefenseMinionVisualCount != 1 || _renderer.DefenseLootVisuals.Count != 1 ||
+                !_renderer.DefenseLootVisuals.ContainsKey(85002))
+                throw new InvalidOperationException(
+                    $"Los sectores o la cámara no siguieron el salto de un portal: origen={portals.A}, destino={portals.B}, " +
+                    $"descargados={unloadedSectors}, cargados={loadedSectors}, " +
+                    $"visibles={_renderer.VisibleSurvivalSectors}/{_renderer.TotalSurvivalSectors}, " +
+                    $"cámara={_renderer.Camera.Position}, minions={_renderer.DefenseMinionVisualCount}, " +
+                    $"botín={string.Join(",", _renderer.DefenseLootVisuals.Keys)}.");
             if (_renderer.SurvivalSectorBuilds != sectorBuilds || _renderer.DefenseMinionBuilds != minionBuilds)
                 throw new InvalidOperationException("El portal reconstruyó sectores o minions en lugar de reutilizar la precarga.");
             GD.Print("SURVIVAL_PRELOAD_REUSE_OK: portal sin construir sectores ni enemigos nuevos.");

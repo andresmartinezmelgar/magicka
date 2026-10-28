@@ -3,7 +3,7 @@ name: Publicacion estable 0.29.34 y limpieza solicitadas
 # Petición expresa del usuario: integrar todas las ramas en main, crear tag y APK,
 # y borrar las otras ramas tras verificar su incorporación y la publicación.
 # Solo este mensaje, versión y rama activan la operación concreta.
-# Revisión 2: botones de configuración visibles antes del clic y errores accesibles.
+# Revisión 3: comprobar carga y descarga de sectores con portales procedurales.
 on:
   push:
     branches: [main]
@@ -33,7 +33,7 @@ jobs:
           test "$(tr -d '\r\n' < VERSION)" = '0.29.34'
           python3 scripts/version-support.py check .
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" = "$GITHUB_SHA"
-          for stale_run in 40781551969 40781537564; do
+          for stale_run in 40781551969 40781537564 40782569868 40782546883; do
             gh run cancel "$stale_run" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || true
           done
           gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref main -f publish_preview=false -f publish_stable=true
