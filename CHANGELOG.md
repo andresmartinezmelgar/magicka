@@ -2,6 +2,7 @@
 
 ## 0.29.31
 
+- La salida voluntaria espera el cierre confirmado del servidor para evitar dejar al personaje reservado como si hubiera perdido la conexión.
 - Textos más breves en inventario, anillos, afijos, ayudas y estadísticas, conservando cifras y condiciones de combate.
 - La venta automática por calidad se aplica a toda la ranura y a cualquier elemento; las reglas anteriores se migran conservando los objetos actuales, favoritos y equipados.
 - Las fichas de objetos omiten efectos a cero, atributos inactivos y afijos retirados; los anillos muestran solo las capacidades que aportan.

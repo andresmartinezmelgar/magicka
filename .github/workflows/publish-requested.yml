@@ -1,6 +1,7 @@
 name: Publicacion de Supervivencia expresamente solicitada
 
 # Activador limitado a la rama y a la petición de tag/APK del usuario.
+# Revisión 2: cierre de conexión confirmado antes de abortar.
 # Petición de 0.29.31: textos simplificados, venta por ranura, diez biomas y APK firmado de pruebas.
 on:
   push:

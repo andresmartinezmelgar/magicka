@@ -68,61 +68,106 @@ internal static class PerformanceRegressionTests
         });
     }
 
-    internal static Task RunTransport(Func<string, Func<Task>, Task> test) => test(
-        "La recepción reutiliza buffers entre mensajes grandes, pequeños y fragmentados", async () =>
+    internal static async Task RunTransport(Func<string, Func<Task>, Task> test)
     {
-        var world = new GameWorld(new() { Mode = GameMode.Arena, MaxPlayers = 16 });
-        for (int i = 0; i < 16; i++) world.AddPlayer("Mago ñ " + i);
-        var state = world.Snapshot();
-        var welcome = new ServerMessage { Type = "welcome", PlayerId = 1, Snapshot = state,
-            Server = new("Prueba", 27015, 27016, GameMode.Arena, 16, 16, Protocol.Version, false, GameVersion: BuildInfo.Version),
-            Room = new("default", "Prueba", GameMode.Arena, 16, 16, 0, true, 15, 75, false) };
-        var picker = new TcpListener(IPAddress.Loopback, 0);
-        picker.Start(); int port = ((IPEndPoint)picker.LocalEndpoint).Port; picker.Stop();
-        using var listener = new HttpListener(); listener.Prefixes.Add($"http://127.0.0.1:{port}/"); listener.Start();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var smallReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        async Task Serve()
+        await test(
+            "La recepción reutiliza buffers entre mensajes grandes, pequeños y fragmentados", async () =>
         {
-            var context = await listener.GetContextAsync().WaitAsync(timeout.Token);
-            using var socket = (await context.AcceptWebSocketAsync(null)).WebSocket;
-            var hello = new byte[4097];
-            await socket.ReceiveAsync(hello.AsMemory(), timeout.Token);
-            async Task Send(ServerMessage message, int chunk)
+            var world = new GameWorld(new() { Mode = GameMode.Arena, MaxPlayers = 16 });
+            for (int i = 0; i < 16; i++) world.AddPlayer("Mago ñ " + i);
+            var state = world.Snapshot();
+            var welcome = new ServerMessage { Type = "welcome", PlayerId = 1, Snapshot = state,
+                Server = new("Prueba", 27015, 27016, GameMode.Arena, 16, 16, Protocol.Version, false, GameVersion: BuildInfo.Version),
+                Room = new("default", "Prueba", GameMode.Arena, 16, 16, 0, true, 15, 75, false) };
+            var picker = new TcpListener(IPAddress.Loopback, 0);
+            picker.Start(); int port = ((IPEndPoint)picker.LocalEndpoint).Port; picker.Stop();
+            using var listener = new HttpListener(); listener.Prefixes.Add($"http://127.0.0.1:{port}/"); listener.Start();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            var smallReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            async Task Serve()
             {
-                // Incluye UTF-8 literal, con caracteres cortados entre fragmentos.
-                var bytes = Encoding.UTF8.GetBytes(Protocol.Serialize(message).Replace("\\u00F1", "ñ", StringComparison.Ordinal));
-                for (int at = 0; at < bytes.Length; at += chunk)
-                    await socket.SendAsync(bytes.AsMemory(at, Math.Min(chunk, bytes.Length - at)),
-                        WebSocketMessageType.Text, at + chunk >= bytes.Length, timeout.Token);
+                var context = await listener.GetContextAsync().WaitAsync(timeout.Token);
+                using var socket = (await context.AcceptWebSocketAsync(null)).WebSocket;
+                var hello = new byte[4097];
+                await socket.ReceiveAsync(hello.AsMemory(), timeout.Token);
+                async Task Send(ServerMessage message, int chunk)
+                {
+                    // Incluye UTF-8 literal, con caracteres cortados entre fragmentos.
+                    var bytes = Encoding.UTF8.GetBytes(Protocol.Serialize(message).Replace("\\u00F1", "ñ", StringComparison.Ordinal));
+                    for (int at = 0; at < bytes.Length; at += chunk)
+                        await socket.SendAsync(bytes.AsMemory(at, Math.Min(chunk, bytes.Length - at)),
+                            WebSocketMessageType.Text, at + chunk >= bytes.Length, timeout.Token);
+                }
+                await Send(welcome, 83);
+                var large = state with { Tick = 1, Time = 1 / 60.0, Events = Enumerable.Range(1, 160)
+                    .Select(i => new GameEvent(i, "test", V2.Zero, [Element.Fire], new string('x', 128))).ToArray() };
+                Check(Protocol.SerializeUtf8(large).Length > 8192, "El mensaje no obliga a ampliar el buffer.");
+                await Send(new() { Type = "snapshot", Snapshot = large }, 67);
+                await smallReady.Task.WaitAsync(timeout.Token);
+                await Send(new() { Type = "snapshot", Snapshot = state with { Tick = 2, Time = 2 / 60.0,
+                    Players = [state.Players[0]], Events = [] } }, 17);
+                var closed = await socket.ReceiveAsync(hello.AsMemory(), timeout.Token);
+                if (closed.MessageType == WebSocketMessageType.Close)
+                    await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Salir", timeout.Token);
             }
-            await Send(welcome, 83);
-            var large = state with { Tick = 1, Time = 1 / 60.0, Events = Enumerable.Range(1, 160)
-                .Select(i => new GameEvent(i, "test", V2.Zero, [Element.Fire], new string('x', 128))).ToArray() };
-            Check(Protocol.SerializeUtf8(large).Length > 8192, "El mensaje no obliga a ampliar el buffer.");
-            await Send(new() { Type = "snapshot", Snapshot = large }, 67);
-            await smallReady.Task.WaitAsync(timeout.Token);
-            await Send(new() { Type = "snapshot", Snapshot = state with { Tick = 2, Time = 2 / 60.0,
-                Players = [state.Players[0]], Events = [] } }, 17);
-            var closed = await socket.ReceiveAsync(hello.AsMemory(), timeout.Token);
-            if (closed.MessageType == WebSocketMessageType.Close)
-                await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Salir", timeout.Token);
-        }
-        var serving = Serve();
-        await using var client = new ArenaConnection();
-        try
+            var serving = Serve();
+            await using var client = new ArenaConnection();
+            try
+            {
+                await client.ConnectAsync($"127.0.0.1:{port}", "Prueba", 0, "", timeout.Token);
+                while (client.Latest?.Tick != 1) await Task.Delay(5, timeout.Token);
+                Check(client.Latest.Events.Length == 160, "El mensaje grande llegó incompleto.");
+                smallReady.TrySetResult();
+                while (client.Latest?.Tick != 2) await Task.Delay(5, timeout.Token);
+                Check(client.Connected && client.Latest.Players.Length == 1 && client.Latest.Events.Length == 0,
+                    "El mensaje pequeño conservó bytes del anterior.");
+                await client.DisposeAsync(); await serving;
+            }
+            finally { timeout.Cancel(); listener.Stop(); }
+        });
+        await test("La salida voluntaria espera el cierre confirmado y admite cierres concurrentes", async () =>
         {
-            await client.ConnectAsync($"127.0.0.1:{port}", "Prueba", 0, "", timeout.Token);
-            while (client.Latest?.Tick != 1) await Task.Delay(5, timeout.Token);
-            Check(client.Latest.Events.Length == 160, "El mensaje grande llegó incompleto.");
-            smallReady.TrySetResult();
-            while (client.Latest?.Tick != 2) await Task.Delay(5, timeout.Token);
-            Check(client.Connected && client.Latest.Players.Length == 1 && client.Latest.Events.Length == 0,
-                "El mensaje pequeño conservó bytes del anterior.");
-            await client.DisposeAsync(); await serving;
-        }
-        finally { timeout.Cancel(); listener.Stop(); }
-    });
+            var world = new GameWorld(new() { Mode = GameMode.Arena, MaxPlayers = 2 });
+            world.AddPlayer("Salida");
+            var welcome = new ServerMessage { Type = "welcome", PlayerId = 1, Snapshot = world.Snapshot(),
+                Server = new("Prueba", 27015, 27016, GameMode.Arena, 1, 2, Protocol.Version, false, GameVersion: BuildInfo.Version),
+                Room = new("default", "Prueba", GameMode.Arena, 1, 2, 0, true, 15, 75, false) };
+            var picker = new TcpListener(IPAddress.Loopback, 0);
+            picker.Start(); int port = ((IPEndPoint)picker.LocalEndpoint).Port; picker.Stop();
+            using var listener = new HttpListener(); listener.Prefixes.Add($"http://127.0.0.1:{port}/"); listener.Start();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            var closeReceived = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var confirmClose = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            async Task Serve()
+            {
+                var context = await listener.GetContextAsync().WaitAsync(timeout.Token);
+                using var socket = (await context.AcceptWebSocketAsync(null)).WebSocket;
+                var buffer = new byte[8192];
+                await socket.ReceiveAsync(buffer.AsMemory(), timeout.Token);
+                await socket.SendAsync(Protocol.SerializeUtf8(welcome).AsMemory(), WebSocketMessageType.Text, true, timeout.Token);
+                var result = await socket.ReceiveAsync(buffer.AsMemory(), timeout.Token);
+                Check(result.MessageType == WebSocketMessageType.Close && socket.CloseStatus == WebSocketCloseStatus.NormalClosure,
+                    "La salida no llegó como cierre normal.");
+                closeReceived.SetResult();
+                await confirmClose.Task.WaitAsync(timeout.Token);
+                await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Salida confirmada", timeout.Token);
+            }
+            var serving = Serve();
+            await using var client = new ArenaConnection(); int notifications = 0;
+            client.Disconnected += _ => Interlocked.Increment(ref notifications);
+            try
+            {
+                await client.ConnectAsync($"127.0.0.1:{port}", "Salida", 0, "", timeout.Token);
+                var first = client.DisposeAsync().AsTask(); var second = client.DisposeAsync().AsTask();
+                await closeReceived.Task.WaitAsync(timeout.Token);
+                Check(!first.IsCompleted && !second.IsCompleted, "Se abortó el transporte antes de confirmar el cierre.");
+                confirmClose.SetResult();
+                await Task.WhenAll(first, second, serving).WaitAsync(timeout.Token);
+                Check(notifications == 0 && !client.Connected, "La salida voluntaria notificó una pérdida de conexión.");
+            }
+            finally { confirmClose.TrySetResult(); timeout.Cancel(); listener.Stop(); }
+        });
+    }
 
     // Fórmulas de referencia anteriores al filtro de cajas: valida que este solo descarta candidatos lejanos.
     private static float? Circle(V2 from, V2 to, V2 center, float radius)

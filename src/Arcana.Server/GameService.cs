@@ -469,7 +469,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                 }
                 Diagnostics.Info("connection.closed", "Jugador desconectado.", Context());
             }
-            if (socket?.State == WebSocketState.Open)
+            if (socket?.State is WebSocketState.Open or WebSocketState.CloseReceived)
             {
                 using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(1));
                 try { await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Fin de sesión", timeout.Token); }

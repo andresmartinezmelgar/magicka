@@ -208,7 +208,12 @@ public sealed class ArenaConnection : IAsyncDisposable
             while (!_lifetime.IsCancellationRequested)
             {
                 var message = await Read(_lifetime.Token).ConfigureAwait(false);
-                if (message == null) { Fail("El servidor ha cerrado la conexión.", null, "network.server_closed"); break; }
+                if (message == null)
+                {
+                    if (Volatile.Read(ref _disposing) == 0)
+                        Fail("El servidor ha cerrado la conexión.", null, "network.server_closed");
+                    break;
+                }
                 if (message.Type == "keyframe")
                 { _snapshotReceiver!.Accept(message); Send(new() { Type = "baseline_ack", BaselineId = message.BaselineId }); }
                 else if (message.Type == "snapshot" && message.Snapshot != null)
@@ -314,8 +319,15 @@ public sealed class ArenaConnection : IAsyncDisposable
         try
         {
             await _socketSend.WaitAsync(timeout.Token).ConfigureAwait(false);
-            try { if (_socket.State == WebSocketState.Open) await _socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Salir", timeout.Token).ConfigureAwait(false); }
+            try
+            {
+                if (_socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
+                    await _socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Salir", timeout.Token).ConfigureAwait(false);
+            }
             finally { _socketSend.Release(); }
+            // Deja que el servidor reciba la salida normal y confirme el cierre.
+            // Abortar inmediatamente puede convertirla en una reserva por pérdida de red.
+            if (_reader != null) await _reader.WaitAsync(timeout.Token).ConfigureAwait(false);
         }
         catch (Exception e) when (e is WebSocketException or OperationCanceledException or ObjectDisposedException) { }
         _lifetime.Cancel(); _socket.Abort();
