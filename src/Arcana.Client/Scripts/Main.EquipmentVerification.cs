@@ -55,7 +55,9 @@ public partial class Main
             if (_equipmentPublicStage == 0)
             {
                 _hud!.ScoreOpen = true;
-                _hud.GetNode<Button>("ScoreCenter/ScorePanel/ScoreContent/InspectEquipmentButton").EmitSignal(Button.SignalName.Pressed);
+                var inspect = _hud.FindChild("InspectEquipmentButton", true, false) as Button;
+                Check(inspect is { Disabled: false } && inspect.IsVisibleInTree(), "La clasificación no ofrece consultar el equipo.");
+                inspect!.EmitSignal(Button.SignalName.Pressed);
                 Check(InspectingEquipment && (!Ui.IsMobile || !_touch!.Visible), "La clasificación no abre la ficha o mantiene los controles táctiles.");
                 _equipmentPublicStage = 1; return false;
             }

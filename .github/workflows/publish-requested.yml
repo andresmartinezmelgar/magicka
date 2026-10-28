@@ -1,7 +1,7 @@
 name: Publicacion de Supervivencia expresamente solicitada
 
 # Activador limitado a la rama y a la petición de tag/APK del usuario.
-# Revisión 6: tamaño real de retratos y comprobación del cuerpo del sprite con la marca arcana.
+# Revisión 7: ficha pública con acciones de daño personal y comprobaciones de inventario antes de las capturas.
 # Petición de 0.29.32: tag y APK firmado de pruebas, solicitados expresamente por el usuario.
 on:
   push:

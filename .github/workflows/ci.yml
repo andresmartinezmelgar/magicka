@@ -126,6 +126,14 @@ jobs:
           dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
           dotnet build src/Arcana.Server/Arcana.Server.csproj -c Debug --nologo
           "$GODOT" --headless --editor --path src/Arcana.Client --import
+      - name: Comprobar bonificaciones activas, persistencia y consulta de otros magos
+        run: |
+          set -euo pipefail
+          bash scripts/test-client-smoke.sh equipment-smoke "$ARCANA_GODOT"
+          bash scripts/test-client-smoke.sh shop-smoke "$ARCANA_GODOT"
+          bash scripts/test-client-smoke.sh sale-smoke "$ARCANA_GODOT"
+          bash scripts/test-client-smoke.sh equipment-elements-smoke "$ARCANA_GODOT"
+          bash scripts/test-client-smoke.sh equipment-public-smoke "$ARCANA_GODOT"
       - name: Verificar lotes gráficos con viewport real en escritorio y móvil
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
@@ -254,14 +262,6 @@ jobs:
           if unique < 38: raise SystemExit(f'Escenas indistinguibles: {unique}/{len(files)}')
           print(f'VISUAL_QA_OK: {len(files)} PNG válidos, {unique} fotogramas distintos, diez biomas, escenarios de tamaño, auras de piedra y seis vistas estadísticas en móvil/escritorio.')
           PY
-      - name: Comprobar bonificaciones activas, persistencia y consulta de otros magos
-        run: |
-          set -euo pipefail
-          bash scripts/test-client-smoke.sh equipment-smoke "$ARCANA_GODOT"
-          bash scripts/test-client-smoke.sh shop-smoke "$ARCANA_GODOT"
-          bash scripts/test-client-smoke.sh sale-smoke "$ARCANA_GODOT"
-          bash scripts/test-client-smoke.sh equipment-elements-smoke "$ARCANA_GODOT"
-          bash scripts/test-client-smoke.sh equipment-public-smoke "$ARCANA_GODOT"
       - name: Verificar y capturar tienda permanente en escritorio y móvil
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
