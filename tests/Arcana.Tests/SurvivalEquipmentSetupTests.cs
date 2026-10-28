@@ -68,6 +68,13 @@ internal static class SurvivalEquipmentSetupTests
                 Affix = new(ItemAffixKind.ArcaneEcho, 1), Bonuses = [new(EquipmentStat.ArcanePower, 0, .5f, .4f)] };
             Check(SurvivalEquipmentSelection.Select([markBoots, diamond], Enabled(Element.Arcane, ItemAffixKind.ArcaneEcho), new()).Boots == diamond.Id,
                 "Prioriza afijos que no son Míticos.");
+            foreach (var kind in Enum.GetValues<ItemAffixKind>()) Check(Enabled(Element.Life, kind).Valid, "Falta una prioridad Mítica: " + kind);
+            var gold20 = Piece(EquipmentSlot.GoldRing, EquipmentStat.ArcanePower, .01f, affix: new(ItemAffixKind.GoldBonus, 20));
+            var gold10 = Piece(EquipmentSlot.GoldRing, EquipmentStat.ArcanePower, .3f, affix: new(ItemAffixKind.GoldBonus, 10));
+            var dividend = Piece(EquipmentSlot.GoldRing, EquipmentStat.ArcanePower, .1f, affix: new(ItemAffixKind.CoinDividend));
+            Check(SurvivalEquipmentSelection.Select([gold20, gold10, dividend], Enabled(Element.Arcane, ItemAffixKind.GoldBonus), new()).GoldRing == gold20.Id &&
+                SurvivalEquipmentSelection.Select([gold20, gold10, dividend], Enabled(Element.Arcane, ItemAffixKind.CoinDividend), new()).GoldRing == dividend.Id,
+                "Ignora los afijos económicos o confunde el 10 % y el 20 % de oro.");
         });
         test("Equipo predeterminado: activar vende descartes, protege favoritos y mejora el equipo incluso bajo un filtro de calidad", () =>
         {
@@ -136,7 +143,7 @@ internal static class SurvivalEquipmentSetupTests
         {
             var world = World(); var player = world.AddPlayer("Mago")!;
             Give(world, player, Piece(EquipmentSlot.Hat, EquipmentStat.Power, .1f));
-            foreach (var setup in new[] { Enabled((Element)99), Enabled(Element.Fire, ItemAffixKind.GoldBonus),
+            foreach (var setup in new[] { Enabled((Element)99), Enabled(Element.Fire, (ItemAffixKind)99),
                 Enabled(Element.Fire, ItemAffixKind.DoubleBurn, ItemAffixKind.DoubleBurn), Enabled(Element.Fire) with { Priorities = null! },
                 Enabled(Element.Fire, ItemAffixKind.ArcaneMark, ItemAffixKind.ArcaneEcho, ItemAffixKind.DoubleBurn,
                     ItemAffixKind.WaterShieldPool, ItemAffixKind.Icebreaker, ItemAffixKind.SteamImpact) })

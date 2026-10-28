@@ -34,10 +34,12 @@ public partial class DefensePanel
             Wrapped(section, $"Prioridad {i + 1}", 15);
             var choice = new OptionButton { Name = "SurvivalSetupPriority" + i, CustomMinimumSize = new(0, 48), SizeFlagsHorizontal = SizeFlags.ExpandFill };
             choice.AddItem("Sin prioridad", NoAffixPriority);
-            foreach (var kind in Enum.GetValues<ItemAffixKind>().Where(k => !ItemAffixes.IsGold(k)))
+            foreach (var kind in Enum.GetValues<ItemAffixKind>())
             {
                 choice.AddItem(ItemAffixes.Name(kind), (int)kind);
-                choice.SetItemTooltip(choice.ItemCount - 1, ItemAffixes.Describe(new(kind, kind == ItemAffixKind.BeamPierce ? 3 : kind is ItemAffixKind.DoubleBurn or ItemAffixKind.WaterShieldPool ? 1 : 2)));
+                int value = kind switch { ItemAffixKind.GoldBonus => 20, ItemAffixKind.BeamPierce => 3,
+                    ItemAffixKind.DoubleBurn or ItemAffixKind.WaterShieldPool or ItemAffixKind.CoinDividend => 1, _ => 2 };
+                choice.SetItemTooltip(choice.ItemCount - 1, ItemAffixes.Describe(new(kind, value)));
             }
             choice.ItemSelected += _ => EditEquipmentSetup(); section.AddChild(choice); _setupPriorities.Add(choice);
         }

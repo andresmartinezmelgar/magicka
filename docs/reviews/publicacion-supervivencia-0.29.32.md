@@ -8,6 +8,8 @@ La séptima pestaña de la tienda permite activar o desactivar la selección, el
 
 La búsqueda evalúa combinaciones completas de seis ranuras, incluyendo bonos de conjunto y límites reales. No cuenta atributos inactivos del anillo mágico. Vida prioriza potencia de curación; Escudo, capacidad; el resto, el producto de potencia general y elemental. Repetir un mismo afijo no aumenta su puntuación. Marca y Eco pueden equiparse juntos en piezas diferentes.
 
+Están disponibles los diecisiete afijos, incluidos los económicos del anillo de oro. La prioridad distingue el 10 % del 20 % de oro sin confundir el porcentaje con un rango de combate. Si dos prioridades requieren la misma ranura, prevalece la indicada primero.
+
 Activar equipa la combinación elegida y vende los descartes, incluidas piezas antes equipadas. Cada recogida vuelve a comparar el nuevo objeto con el equipo y los favoritos disponibles. Los favoritos no seleccionados se conservan; si impiden guardar una mejora sin exceder las 24 piezas, se vende el objeto nuevo. El oro temporal, las mejoras y el recuento de ventas se actualizan una sola vez. Mientras esté activa, sustituye los filtros de venta por calidad y bloquea cambios manuales contradictorios. El control manual vuelve al desactivarla.
 
 La preferencia se recuerda por cuenta o invitado en el dispositivo; el servidor conserva y valida la configuración durante la partida, reconexión, guardado y reinicio. Un guardado anterior comienza con la función desactivada. Los snapshots privados ocultan las prioridades de otros jugadores. Los selectores rechazan duplicados con un mensaje persistente y las operaciones tienen plazo de confirmación.

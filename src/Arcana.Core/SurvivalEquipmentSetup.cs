@@ -7,7 +7,7 @@ public sealed record SurvivalEquipmentSetup
     public Element Element { get; init; } = Element.Life;
     public ItemAffixKind[] Priorities { get; init; } = [];
     public bool Valid => Enum.IsDefined(Element) && Priorities is { Length: <= MaximumPriorities } &&
-        Priorities.All(k => Enum.IsDefined(k) && !ItemAffixes.IsGold(k)) && Priorities.Distinct().Count() == Priorities.Length;
+        Priorities.All(k => Enum.IsDefined(k)) && Priorities.Distinct().Count() == Priorities.Length;
     public SurvivalEquipmentSetup Copy() => this with { Priorities = Priorities.ToArray() };
     public bool SameAs(SurvivalEquipmentSetup? other) => other != null && Enabled == other.Enabled && Element == other.Element &&
         Priorities.AsSpan().SequenceEqual(other.Priorities);
@@ -49,7 +49,8 @@ public static class SurvivalEquipmentSelection
                             if (affix.Kind == setup.Priorities[p])
                             {
                                 int shift = (SurvivalEquipmentSetup.MaximumPriorities - p - 1) * 2;
-                                int value = Math.Max((nextMask >> shift) & 3, Math.Min(3, affix.Value));
+                                int rank = affix.Kind == ItemAffixKind.GoldBonus ? affix.Value / 10 : affix.Value;
+                                int value = Math.Max((nextMask >> shift) & 3, Math.Min(3, rank));
                                 nextMask = (nextMask & ~(3 << shift)) | (value << shift);
                             }
                     Search(index + 1, nextMask, quality + (int)item.Tier, retained + (current.Get(item.Slot) == item.Id ? 1 : 0));
