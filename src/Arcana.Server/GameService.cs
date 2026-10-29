@@ -56,6 +56,7 @@ internal sealed class PlayerSession(int id, GameRoom room, WebSocket socket)
     public PreparedEquipment Equipment { get; set; } = new(EquipmentModifiers.None, PublicEquipment.Empty);
     public SemaphoreSlim SendGate { get; } = new(1, 1);
     public long LastStatisticsAt { get; set; }
+    public long LastPingAt { get; set; }
     public long LastInspectionAt { get; set; }
     public int InspectionsInWindow { get; set; }
     public long LastActivityTick { get; set; }
@@ -405,6 +406,14 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                     if (++count > 180)
                     { Diagnostics.Warn("connection.rate_limit", "Límite de mensajes o cola de comandos alcanzado.", context: Context()); socket.Abort(); break; }
                     if (message.Type == "baseline_ack") { session.Network.Acknowledge(message.BaselineId); }
+                    else if (message.Type == "ping")
+                    {
+                        if (message.PingId > 0 && now - session.LastPingAt >= 500)
+                        {
+                            session.LastPingAt = now;
+                            await SendSession(session, Protocol.SerializeUtf8(new ServerMessage { Type = "pong", PingId = message.PingId }), connection.Token);
+                        }
+                    }
                     else if (message.Type == "statistics")
                     {
                         MatchStatisticsReport? report = null;

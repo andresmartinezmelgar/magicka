@@ -1809,6 +1809,7 @@ if (server != null && args.Contains("--series-lobby-only"))
 if (server != null)
 {
     string password = Environment.GetEnvironmentVariable("TEST_PASSWORD") ?? "";
+    await NetworkEndpointTests.RunNetwork(server, password, AsyncTest);
     await FrontlineTests.RunNetwork(server, password, AsyncTest);
     await DefenseTests.RunNetwork(server, password, AsyncTest);
     await UpgradeTests.RunNetwork(server, password, AsyncTest);

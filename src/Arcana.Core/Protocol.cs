@@ -75,6 +75,7 @@ public static class Protocol
     }
     public static byte[] SerializeAction(ClientMessage message) => message.Type switch
     {
+        "ping" => JsonSerializer.SerializeToUtf8Bytes(new { type = message.Type, sequence = message.Sequence, pingId = message.PingId }, Json),
         "baseline_ack" => JsonSerializer.SerializeToUtf8Bytes(new { type = message.Type, sequence = message.Sequence, baselineId = message.BaselineId }, Json),
         "defense_performance" or "match_performance" => JsonSerializer.SerializeToUtf8Bytes(new { type = message.Type, sequence = message.Sequence,
             framesPerSecond = message.FramesPerSecond, frameTime95 = message.FrameTime95 }, Json),
@@ -166,6 +167,7 @@ public sealed class ClientMessage
 {
     public string Type { get; set; } = "";
     public long Sequence { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public long PingId { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public long InspectionRequestId { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public int InspectPlayerId { get; set; }
     public int Protocol { get; set; } = Core.Protocol.Version;
@@ -203,6 +205,7 @@ public sealed class ServerMessage
 {
     public string Type { get; set; } = "";
     public int PlayerId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public long PingId { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public long BaselineId { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public string ResumeToken { get; set; } = "";
     public string Error { get; set; } = "";

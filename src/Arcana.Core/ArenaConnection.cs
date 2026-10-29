@@ -8,7 +8,7 @@ using System.Threading.Channels;
 namespace Arcana.Core;
 
 /// <summary>Red independiente del motor. Todos los envíos, incluido el cierre, se serializan.</summary>
-public sealed class ArenaConnection : IAsyncDisposable
+public sealed partial class ArenaConnection : IAsyncDisposable
 {
     private readonly ClientWebSocket _socket = new();
     private readonly CancellationTokenSource _lifetime = new();
@@ -154,6 +154,7 @@ public sealed class ArenaConnection : IAsyncDisposable
         {
             if (!Connected) return false;
             var queued = new ClientMessage { Type = message.Type, Sequence = ++_sequence,
+                PingId = message.PingId,
                 InspectionRequestId = message.InspectionRequestId, InspectPlayerId = message.InspectPlayerId,
                 Element = message.Element, Slot = message.Slot, Team = message.Team, ItemId = message.ItemId,
                 FramesPerSecond = message.FramesPerSecond, FrameTime95 = message.FrameTime95, BaselineId = message.BaselineId, Loadout = message.Loadout,
@@ -190,6 +191,7 @@ public sealed class ArenaConnection : IAsyncDisposable
         {
             if (Volatile.Read(ref _disposing) != 0) return;
             var data = message.Type == "hello" ? Protocol.SerializeAction(message) : Protocol.SerializeBinaryAction(message);
+            if (message.Type == "ping") MarkPingSent(message.PingId);
             await _socket.SendAsync(data, data.Length > 0 && data[0] == 0xB1 ? WebSocketMessageType.Binary : WebSocketMessageType.Text, true, token).ConfigureAwait(false);
             Interlocked.Add(ref _bytesSent, data.Length);
         }
@@ -214,7 +216,8 @@ public sealed class ArenaConnection : IAsyncDisposable
                         Fail("El servidor ha cerrado la conexión.", null, "network.server_closed");
                     break;
                 }
-                if (message.Type == "keyframe")
+                if (message.Type == "pong") AcceptPong(message.PingId);
+                else if (message.Type == "keyframe")
                 { _snapshotReceiver!.Accept(message); Send(new() { Type = "baseline_ack", BaselineId = message.BaselineId }); }
                 else if (message.Type == "snapshot" && message.Snapshot != null)
                 { ApplyReadiness(message); Volatile.Write(ref _latest, message.Snapshot); }

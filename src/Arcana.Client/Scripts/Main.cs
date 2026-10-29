@@ -18,6 +18,7 @@ public partial class Main : Node
     private int _exiting;
     private bool _exporting;
     private double _metricsTime;
+    private const float NetworkMetricsHeight = 82;
     private ElementTextLabel _networkStats = null!;
     private PanelContainer _networkPanel = null!;
     private double _networkStatsTime;
@@ -85,7 +86,7 @@ public partial class Main : Node
         networkPanel.OffsetLeft = 22;
         networkPanel.OffsetTop = Ui.IsMobile ? 218 : 78;
         networkPanel.OffsetRight = 310;
-        networkPanel.OffsetBottom = networkPanel.OffsetTop + 70;
+        networkPanel.OffsetBottom = networkPanel.OffsetTop + NetworkMetricsHeight;
         var networkBackground = new StyleBoxFlat { BgColor = new Color(0.05f, 0.08f, 0.12f, 0.82f) };
         networkBackground.SetCornerRadiusAll(5);
         networkBackground.ContentMarginLeft = 9;
@@ -94,6 +95,7 @@ public partial class Main : Node
         networkBackground.ContentMarginBottom = 5;
         networkPanel.AddThemeStyleboxOverride("panel", networkBackground);
         _networkStats = Ui.Label("", 13, Ui.Muted);
+        _networkStats.Name = "NetworkMetricsText";
         _networkStats.MouseFilter = Control.MouseFilterEnum.Ignore;
         _networkStats.HorizontalAlignment = HorizontalAlignment.Right;
         networkPanel.AddChild(_networkStats);
@@ -469,7 +471,7 @@ public partial class Main : Node
         double fps = Engine.GetFramesPerSecond();
         if (_connection is not { Connected: true } connection)
         {
-            _networkStats.Text = $"FPS: {fps:F0}  |  Red: sin conexión";
+            _networkStats.Text = $"FPS: {fps:F0}  |  Ping: —\nRed: {(_practice != null ? "local" : "sin conexión")}";
             _networkPanel.Visible = _snapshot?.Defense == null;
             _defensePanel?.SetNetworkStats(_networkStats.Text);
             _statsConnection = null;
@@ -486,7 +488,9 @@ public partial class Main : Node
         double receivedRate = Math.Max(0, received - _previousReceived) / elapsed / 1024.0;
         _previousSent = sent;
         _previousReceived = received;
-        _networkStats.Text = $"FPS: {fps:F0}  |  ↑ {sentRate:F1} KB/s  ↓ {receivedRate:F1} KB/s\nTotal: ↑ {sent / 1024.0:F1} KB  ↓ {received / 1024.0:F1} KB";
+        connection.RequestPing();
+        string ping = connection.PingMilliseconds is { } milliseconds ? $"{milliseconds:F0} ms" : "—";
+        _networkStats.Text = $"FPS: {fps:F0}  |  Ping: {ping}\n↑ {sentRate:F1} KB/s  ↓ {receivedRate:F1} KB/s\nTotal: ↑ {sent / 1024.0:F1} KB  ↓ {received / 1024.0:F1} KB";
         _networkPanel.Visible = _snapshot?.Defense == null;
         _defensePanel?.SetNetworkStats(_networkStats.Text);
     }
