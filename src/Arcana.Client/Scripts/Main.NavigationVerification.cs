@@ -89,7 +89,9 @@ public partial class Main
                 await Click(Exit(lobby, "RoomLobbyBack")); Check(!GodotObject.IsInstanceValid(lobby) || lobby.IsQueuedForDeletion(), "No se sale de las salas.");
                 bool left = false; var waiting = new RoomWaitingPanel(); _ui.AddChild(waiting); waiting.Build(_ => { }, () => left = true);
                 var room = new GameWorld(new() { Mode = GameMode.Duel }); var host = room.AddPlayer("Anfitrión", 0)!;
-                room.AddPlayer("Rival", 1); waiting.Update(room.Snapshot() with { WaitingForPlayers = true, BestOf = 3, LobbyHostId = host.Id }, host.Id, true);
+                room.AddPlayer("Rival", 1);
+                await VerifyWaitingRoomPortraits(waiting, room.Snapshot() with
+                    { WaitingForPlayers = true, BestOf = 3, LobbyHostId = host.Id }, host.Id);
                 await Frames(); await Click(Exit(waiting, "WaitingRoomExit")); Check(left, "Salir de la sala de espera no responde."); waiting.QueueFree();
 
                 StartPractice("Navegación", 0, GameMode.Defense, 0, map: ArenaMapId.Bastion); await Ready();

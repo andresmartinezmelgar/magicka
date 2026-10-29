@@ -62,6 +62,12 @@ public partial class EquipmentAvatar : Control
 
     private void Arrange()
     {
+        if (_portrait)
+        {
+            ArrangeAura();
+            QueueRedraw();
+            return;
+        }
         float width = Size.X, height = Size.Y;
         float bw = Math.Max(65, Math.Min(132, width * .35f));
         float bh = height < 260 ? 44 : 54;
@@ -78,7 +84,9 @@ public partial class EquipmentAvatar : Control
 
     private Rect2 SpriteBounds()
     {
-        float height = Math.Min(Size.Y * .88f, Size.X * 1.28f);
+        float height = _portrait
+            ? Math.Min(Size.Y * .78f, Size.X * .78f * _atlas.Spec.Height / _atlas.Spec.Width)
+            : Math.Min(Size.Y * .88f, Size.X * 1.28f);
         float width = height * _atlas.Spec.Width / _atlas.Spec.Height;
         return new((Size.X - width) / 2, (Size.Y - height) / 2, width, height);
     }
@@ -101,6 +109,7 @@ public partial class EquipmentAvatar : Control
         DrawAuraParticles();
         var source = new Rect2(0, 0, _atlas.Spec.Width / 4f, _atlas.Spec.Height / 4f);
         DrawTextureRectRegion(_atlas.Texture, SpriteBounds(), source);
+        if (_portrait) return;
         foreach (var slot in Order)
         {
             var target = Target(slot); var rect = _buttons[slot].GetRect();
@@ -115,6 +124,7 @@ public partial class EquipmentAvatar : Control
 
     public override void _GuiInput(InputEvent input)
     {
+        if (_portrait) return;
         Vector2? point = input switch { InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } m => m.Position,
             InputEventScreenTouch { Pressed: true } t => t.Position, _ => null };
         if (!point.HasValue) return;

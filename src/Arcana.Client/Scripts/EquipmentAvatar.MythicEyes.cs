@@ -23,8 +23,9 @@ public partial class EquipmentAvatar
                 AddChild(eye); _mythicEyes.Add(eye);
             }
         }
-        ulong mix = 0;
-        foreach (var item in _halos.Values) mix += 1UL << ((int)item.Family * 4);
+        ulong mix = _portraitAppearance?.MythicFamilies ?? 0;
+        if (mix == 0)
+            foreach (var item in _halos.Values) mix += 1UL << ((int)item.Family * 4);
         if (_mythicMix != mix) { _mythicMix = mix; MythicEyeVisuals.SetMix(_mythicEyeMaterial, mix); }
         foreach (var eye in _mythicEyes) eye.Visible = true;
         ArrangeMythicEyes();
