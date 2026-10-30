@@ -6,8 +6,9 @@ namespace Arcana.Client;
 public partial class Launcher : Control
 {
     private Main _main = null!;
-    private LineEdit _name = null!, _address = null!, _password = null!, _hostName = null!;
-    private OptionButton _team = null!, _practiceMode = null!, _practiceMap = null!, _wizardType = null!;
+    private LineEdit _address = null!, _password = null!, _hostName = null!;
+    private OptionButton _team = null!, _practiceMode = null!, _practiceMap = null!;
+    internal string PlayerName { get; private set; } = "Mago";
     private SpinBox _bots = null!, _discoveryPort = null!, _hostPort = null!, _hostDiscovery = null!;
     private ElementTextLabel _status = null!;
     private Button? _continueSurvival;
@@ -16,7 +17,7 @@ public partial class Launcher : Control
     private ElementTextLabel _hostInfo = null!;
     private RoomLobby? _lobby;
     private readonly LocalServerHost _host = new();
-    internal WizardType SelectedWizardType => (WizardType)_wizardType.GetSelectedId();
+    internal WizardType SelectedWizardType { get; private set; }
     internal bool Hosting => _host.Running || _busy;
     private TabContainer _tabs = null!;
     private LanServer[] _lan = [];
@@ -29,14 +30,15 @@ public partial class Launcher : Control
     private VBoxContainer _playBody = null!;
     private Button _menuBack = null!;
     private int _page;
-    private ElementTextLabel _wizardDescription = null!;
-    private Button _accountButton = null!;
     private ScrollContainer? _mobileScroll;
 
     public void Build(Main main)
     {
         _main = main; Theme = Ui.Theme(); Ui.Full(this);
         _config.Load("user://launcher.cfg");
+        PlayerName = _config.GetValue("player", "name", "Mago").AsString();
+        int savedType = _config.GetValue("player", "wizard_type", 0).AsInt32();
+        SelectedWizardType = Enum.IsDefined((WizardType)savedType) ? (WizardType)savedType : default;
         var shade = new ColorRect { Color = new Color(0.025f, 0.045f, 0.075f, 0.64f), MouseFilter = MouseFilterEnum.Ignore }; AddChild(shade); Ui.Full(shade);
         var margin = new MarginContainer(); AddChild(margin); Ui.Full(margin);
         foreach (string side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, Ui.IsMobile ? 8 : 32);
@@ -62,32 +64,16 @@ public partial class Launcher : Control
         form.AddChild(_homeMenu);
         _homeMenu.AddChild(Ui.Button("PvP", () => OpenPage(1), true));
         _homeMenu.AddChild(Ui.Button("Versus IA", () => OpenPage(2), true));
-        _homeMenu.AddChild(Ui.Button("Perfil", () => OpenPage(3)));
+        var profile = Ui.Button("Mi perfil", _main.OpenAccountProfile); profile.Name = "HomeProfile";
+        _homeMenu.AddChild(profile);
          _playBody = new VBoxContainer(); _playBody.AddThemeConstantOverride("separation", 6); form.AddChild(_playBody);
-        _menuBack = Ui.Button("Volver", () => { if (_page == 3) Remember(); OpenPage(0); }); form.AddChild(_menuBack);
+        _menuBack = Ui.Button("Volver", () => OpenPage(0)); form.AddChild(_menuBack);
         var identity = new HBoxContainer(); identity.AddThemeConstantOverride("separation", 12); _playBody.AddChild(identity);
-        var nameColumn = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; identity.AddChild(nameColumn);
-        nameColumn.AddChild(Ui.Label("Nombre del mago", 14, Ui.Muted));
-        _name = new LineEdit { Text = _config.GetValue("player", "name", "Mago").AsString(), MaxLength = 24, CustomMinimumSize = new(0, 45) }; nameColumn.AddChild(_name);
-        var accountButtons = new VBoxContainer(); accountButtons.AddThemeConstantOverride("separation", 8); nameColumn.AddChild(accountButtons);
-        accountButtons.AddChild(Ui.Button("Inventario", () => _main.OpenEquipment("automatic")));
-        _accountButton = Ui.Button("Mi cuenta de Google", () => _main.OpenAccountProfile());
-        accountButtons.AddChild(_accountButton);
         var teamColumn = new VBoxContainer { CustomMinimumSize = new(172, 0) }; identity.AddChild(teamColumn);
         teamColumn.AddChild(Ui.Label("Equipo", 14, Ui.Muted));
         _team = Ui.TeamChoice(_config.GetValue("player", "team", -1).AsInt32());
         _team.Name = "LauncherTeamChoice";
         teamColumn.AddChild(_team);
-        var typeRow = new HBoxContainer(); typeRow.AddThemeConstantOverride("separation", 12); _playBody.AddChild(typeRow);
-        typeRow.AddChild(Ui.Label("Tipo de mago", 14, Ui.Muted));
-        _wizardType = new OptionButton { Name = "WizardTypeChoice", CustomMinimumSize = new(0, 40), SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        foreach (var type in Enum.GetValues<WizardType>()) _wizardType.AddItem(WizardTypes.Name(type), (int)type);
-        int savedType = _config.GetValue("player", "wizard_type", 0).AsInt32();
-        _wizardType.Select(Enum.IsDefined((WizardType)savedType) ? savedType : 0); typeRow.AddChild(_wizardType);
-        var typeInfo = Ui.Label(WizardTypes.Description((WizardType)_wizardType.GetSelectedId()), 14, Ui.Gold);
-        typeInfo.AutowrapMode = TextServer.AutowrapMode.WordSmart; _playBody.AddChild(typeInfo);
-        _wizardDescription = typeInfo;
-        _wizardType.ItemSelected += _ => typeInfo.Text = WizardTypes.Description((WizardType)_wizardType.GetSelectedId());
         _tabs = new TabContainer(); _playBody.AddChild(_tabs);
         var ip = TabBox("Por IP");
         // La pestaña IP no debe ensanchar el formulario cuando cambia la selección.
@@ -217,7 +203,7 @@ public partial class Launcher : Control
         });
         if (Ui.IsMobile)
         {
-            foreach (var control in new Control[] { _name, _address, _team, _wizardType,
+            foreach (var control in new Control[] { _address, _team,
                 _practiceMode, _practiceMap, _discoveryPort, _password, _hostName })
                 Ui.TouchTarget(control);
             _tabs.SetTabHidden(3, true);
@@ -226,15 +212,17 @@ public partial class Launcher : Control
             UpdateConnectLabel();
         }
         ApplyOptionALayout(margin, columns, rightColumn, rightScroll, panel, form,
-            identity, typeRow, typeInfo);
+            identity);
         OpenPage(0);
     }
 
-    public void UpdateAccountStatus()
+    public void UpdateAccountStatus() => _optionAChrome?.RefreshAccount();
+
+    internal void SetWizardProfile(string name, WizardType type)
     {
-        _accountButton.Text = _main.Accounts.IsDirectFirebaseSession
-            ? "Mi cuenta de Google · Conectado" : "Entrar o registrarse con Google";
-        _optionAChrome?.RefreshAccount();
+        PlayerName = name;
+        SelectedWizardType = type;
+        Remember();
     }
 
     private void OpenPage(int page)
@@ -243,15 +231,11 @@ public partial class Launcher : Control
         _homeMenu.Visible = page == 0;
         if (page == 0) UpdateAccountStatus();
         _playBody.Visible = page != 0;
-        ((Control)_name.GetParent()).Visible = page == 3;
-        ((Control)_name.GetParent().GetParent()).Visible = page is 1 or 3;
+        ((Control)_team.GetParent().GetParent()).Visible = page == 1;
         ((Control)_team.GetParent()).Visible = page == 1;
-        ((Control)_wizardType.GetParent()).Visible = page == 3;
-        _wizardDescription.Visible = page == 3;
         _status.Visible = page == 1;
 
         _menuBack.Visible = page != 0;
-        _menuBack.Text = page == 3 ? "Guardar y volver" : "Volver";
         _tabs.Visible = page is 1 or 2;
         _connect.Visible = page is 1 or 2;
         _password.Visible = page == 1;
@@ -271,7 +255,6 @@ public partial class Launcher : Control
         if (page == 1 && (_tabs.CurrentTab == 2 ||
             (Ui.IsMobile && _tabs.CurrentTab is not (0 or 1))))
             _tabs.CurrentTab = 1;
-        if (page == 3) Remember();
         if (_mobileScroll != null) _mobileScroll.ScrollVertical = 0;
         UpdateOptionAPage(page);
         UpdateConnectLabel();
@@ -303,7 +286,7 @@ public partial class Launcher : Control
         _busy = busy; _connect.Disabled = busy; _officialOnline.Disabled = busy;
         UpdateSurvivalSave();
         for (int i = 0; i < 4; i++) _tabs.SetTabDisabled(i, busy || Ui.IsMobile && i == 3);
-        _name.Editable = _address.Editable = !busy; _team.Disabled = _wizardType.Disabled = busy;
+        _address.Editable = !busy; _team.Disabled = busy;
         _hostName.Editable = _hostPort.Editable = _hostDiscovery.Editable = !busy && !_host.Running;
         _password.Editable = !busy && _tabs.CurrentTab != 2 && !(_tabs.CurrentTab == 3 && _host.Running);
         _stopHost.Disabled = busy || !_host.Running; _firewall.Disabled = busy || !OperatingSystem.IsWindows();
@@ -325,8 +308,8 @@ public partial class Launcher : Control
     { _status.Text = message; _status.AddThemeColorOverride("font_color", Ui.Gold); }
     private void Remember()
     {
-        _config.SetValue("player", "name", _name.Text); _config.SetValue("network", "address", _address.Text);
-        _config.SetValue("player", "wizard_type", _wizardType.GetSelectedId());
+        _config.SetValue("player", "name", PlayerName); _config.SetValue("network", "address", _address.Text);
+        _config.SetValue("player", "wizard_type", (int)SelectedWizardType);
         _config.SetValue("player", "team", Ui.SelectedTeam(_team));
         _config.SetValue("practice", "map", _practiceMap.GetSelectedId());
         _config.SetValue("host", "name", _hostName.Text); _config.SetValue("host", "port", (int)_hostPort.Value);
@@ -342,8 +325,8 @@ public partial class Launcher : Control
         int team = Ui.SelectedTeam(_team);
         if (_tabs.CurrentTab == 2)
         {
-            _main.StartPractice(_name.Text, team, (GameMode)_practiceMode.GetSelectedId(), (int)_bots.Value,
-                (WizardType)_wizardType.GetSelectedId(), (ArenaMapId)_practiceMap.GetSelectedId(), DefenseFlow.Continuous); return;
+            _main.StartPractice(PlayerName, team, (GameMode)_practiceMode.GetSelectedId(), (int)_bots.Value,
+                SelectedWizardType, (ArenaMapId)_practiceMap.GetSelectedId(), DefenseFlow.Continuous); return;
         }
         if (_tabs.CurrentTab == 3) { _ = Host(); return; }
         string address = _address.Text;
@@ -366,7 +349,7 @@ public partial class Launcher : Control
         if (_busy || _page != 1) return;
         if (!_main.Accounts.IsDirectFirebaseSession)
         {
-            ShowError("Inicia sesión con Google en Perfil antes de entrar al servidor online con recompensas.");
+            ShowError("Inicia sesión con Google en Inicio → Mi perfil antes de entrar al servidor online con recompensas.");
             return;
         }
         CancelOnlineSearch();
@@ -418,7 +401,7 @@ public partial class Launcher : Control
     private void OpenRooms(string address, string password)
     {
         CancelOnlineSearch(); CancelSearch(); _main.CancelPendingConnection(); CloseRooms();
-        _lobby = new RoomLobby(); AddChild(_lobby); _lobby.Build(_main, address, password, _name.Text, Ui.SelectedTeam(_team), (WizardType)_wizardType.GetSelectedId());
+        _lobby = new RoomLobby(); AddChild(_lobby); _lobby.Build(_main, address, password, PlayerName, Ui.SelectedTeam(_team), SelectedWizardType);
     }
     public void CloseRooms()
     { if (GodotObject.IsInstanceValid(_lobby)) _lobby!.QueueFree(); _lobby = null; }

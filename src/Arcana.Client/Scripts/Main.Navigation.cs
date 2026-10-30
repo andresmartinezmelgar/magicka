@@ -5,7 +5,7 @@ namespace Arcana.Client;
 public partial class Main
 {
     // Ratón, Escape y Atrás de Android cierran la misma pantalla, de dentro hacia fuera.
-    private bool NavigateBack()
+    internal bool NavigateBack()
     {
         if (_updateNotice?.HandleBack() == true) return true;
         var dialog = _ui.FindChildren("*", "AcceptDialog", true, false).OfType<AcceptDialog>()

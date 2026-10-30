@@ -24,6 +24,7 @@ public partial class BestiaryPanel : Control
         var heading = new HBoxContainer(); heading.AddThemeConstantOverride("separation", 12); layout.AddChild(heading);
         var title = Ui.Label("MI PERFIL · BESTIARIO", Ui.IsMobile ? 22 : 28, Ui.Gold);
         title.AutowrapMode = TextServer.AutowrapMode.WordSmart; title.SizeFlagsHorizontal = SizeFlags.ExpandFill; heading.AddChild(title);
+        heading.AddChild(Ui.ExitButton("Volver", () => main.NavigateBack(), "BestiaryBack"));
         _status = Ui.Label("", 16, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; layout.AddChild(_status);
         _refresh = Ui.Button("Actualizar bajas", () => _ = Refresh()); _refresh.Name = "BestiaryRefresh"; heading.AddChild(_refresh);
         var scroll = new ContentScrollContainer { Name = "BestiaryScroll", SizeFlagsHorizontal = SizeFlags.ExpandFill,

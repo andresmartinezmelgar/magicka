@@ -11,7 +11,6 @@ public partial class Launcher
 {
     private ArcanaMenuChrome? _optionAChrome;
     private Container? _optionAPrimaryActions;
-    private VBoxContainer? _optionAPreview;
     private VBoxContainer? _optionAMagic;
     private ElementTextLabel? _optionAHeading;
     private ElementTextLabel? _optionAPasswordLabel;
@@ -19,8 +18,7 @@ public partial class Launcher
 
     private void ApplyOptionALayout(MarginContainer margin, HBoxContainer columns,
         VBoxContainer rightColumn, ScrollContainer scroll,
-        PanelContainer panel, VBoxContainer form, HBoxContainer identity, HBoxContainer typeRow,
-        ElementTextLabel typeInfo)
+        PanelContainer panel, VBoxContainer form, HBoxContainer identity)
     {
         columns.AddThemeConstantOverride("separation", 0);
         columns.SizeFlagsVertical = SizeFlags.ExpandFill;
@@ -68,7 +66,7 @@ public partial class Launcher
         [
             "⚔\nPvP\nLucha con otros magos",
             "✧\nIA / DEFENSA\nCombate y supervivencia",
-            "♙\nMI PERFIL\nCuenta y estadísticas"
+            "♙\nMI PERFIL\nPersonaje, cuenta y estadísticas"
         ];
         for (int i = 0; i < existing.Length && i < 3; i++)
         {
@@ -102,11 +100,9 @@ public partial class Launcher
         var settings = new VBoxContainer();
         settings.AddThemeConstantOverride("separation", Ui.IsMobile ? 7 : 9);
         settingsCard.AddChild(settings);
-        var settingLabel = Ui.Label("TU MAGO Y CONEXIÓN", Ui.IsMobile ? 18 : 20, Ui.Gold);
+        var settingLabel = Ui.Label("EQUIPO Y CONEXIÓN", Ui.IsMobile ? 18 : 20, Ui.Gold);
         settings.AddChild(settingLabel);
         identity.Reparent(settings);
-        typeRow.Reparent(settings);
-        typeInfo.Reparent(settings);
         _optionAPasswordLabel = form.GetChildren().OfType<ElementTextLabel>()
             .FirstOrDefault(label => label.Text == "Contraseña del servidor (si tiene)");
         _optionAPasswordLabel?.Reparent(settings);
@@ -131,16 +127,6 @@ public partial class Launcher
         _tabs.AddThemeStyleboxOverride("tab_unselected", Ui.Panel(new Color("122943"), 7, new Color("244968")));
         CompactPracticeTab();
 
-
-        _optionAPreview = new VBoxContainer { Visible = false, SizeFlagsVertical = SizeFlags.ExpandFill };
-        _optionAPreview.AddThemeConstantOverride("separation", 16);
-        tabBody.AddChild(_optionAPreview);
-        _optionAPreview.AddChild(Ui.Label("PERFIL Y EQUIPACIÓN", 21, Ui.Gold));
-        var profileHelp = Ui.Label("Consulta tu personaje, inventario y bonificaciones desde el perfil.\n\nTu cuenta de Google y tus datos están disponibles independientemente del servidor de partidas.", 17, Ui.Muted);
-        profileHelp.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _optionAPreview.AddChild(profileHelp);
-        _optionAPreview.AddChild(Ui.Button("Abrir perfil de Google", _main.OpenAccountProfile, true));
-        _optionAPreview.AddChild(Ui.Button("Ver inventario y equipamiento", () => _main.OpenEquipment("automatic")));
 
         _optionAMagic = new VBoxContainer { Visible = false };
         _optionAMagic.AddThemeConstantOverride("separation", 12);
@@ -286,13 +272,11 @@ public partial class Launcher
         {
             1 => "PARTIDAS MULTIJUGADOR",
             2 => "ENTRENAMIENTO CONTRA IA",
-            3 => "TU PERFIL Y PERSONAJE",
             _ => "ELIGE TU AVENTURA"
         };
-        if (_optionAPreview != null) _optionAPreview.Visible = page == 3;
         if (_optionAMagic != null) _optionAMagic.Visible = page == 2;
         if (_optionAPasswordLabel != null) _optionAPasswordLabel.Visible = page == 1;
-        _optionAChrome?.Select(page switch { 1 => 1, 2 => 2, 3 => 3, _ => 0 });
+        _optionAChrome?.Select(page switch { 1 => 1, 2 => 2, _ => 0 });
     }
 
     public void NavigateOptionA(int target)

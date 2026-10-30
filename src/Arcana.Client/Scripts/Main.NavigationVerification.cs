@@ -58,7 +58,9 @@ public partial class Main
                 Accounts.RestoreOfflineProfile(new("hg7F74kCNVQU3tU2itdjWu9SkyS2", "Navegación local", 0, 0, 0, new(), []));
                 foreach (int page in new[] { 0, 1, 2, 3, 4, 5, 7 })
                 {
-                    NavigateOptionAMenu(page); await Frames();
+                    if (page == 3) await Click((Button)_launcher.FindChild("HomeProfile", true, false));
+                    else NavigateOptionAMenu(page);
+                    await Frames();
                     Control screen = page switch { 3 => _accountProfilePanel!, 4 => _equipmentPanel!,
                         5 => _optionAHelp!, 7 => _itemShopPanel!, _ => _launcher };
                     foreach (var scroll in screen.FindChildren("*", "ScrollContainer", true, false).OfType<ScrollContainer>())
@@ -71,14 +73,17 @@ public partial class Main
                 Check(_launcher.PageForVerification == 0, "Atrás no sale de la selección de modo.");
                 OpenAccountProfile(); OpenMatchStatistics(); await Frames();
                 Check(_statisticsPanel != null, "No se abrió la pantalla de estadísticas de prueba.");
-                Back(); await Frames(); Check(_statisticsPanel == null && _accountProfilePanel != null,
+                await Click(Exit(_statisticsPanel!, "StatisticsBack")); Check(_statisticsPanel == null && _accountProfilePanel != null,
                     "Atrás cierra Perfil por debajo de las estadísticas y deja la pantalla bloqueada.");
                 OpenTouchSettings(); await Frames();
                 ((ScrollContainer)_controlsSettings!.FindChild("TouchSettingsScroll", true, false)).ScrollVertical = int.MaxValue;
                 await Frames(); await Click(Exit(_controlsSettings, "TouchSettingsCancel"));
                 Check(!ControlsOpen && _accountProfilePanel != null, "Cancelar controles no vuelve a Perfil.");
-                CloseAccountProfile(); OpenBestiary(); await Frames();
-                await Click(Exit(_bestiaryPanel!, "OptionANav0")); Check(_bestiaryPanel == null, "No se puede salir del bestiario.");
+                OpenBestiary(); await Frames();
+                await Click(Exit(_bestiaryPanel!, "BestiaryBack"));
+                Check(_bestiaryPanel == null && _accountProfilePanel != null, "Volver del bestiario pierde Mi perfil.");
+                await Click(Exit(_accountProfilePanel!, "ProfileBack"));
+                Check(_accountProfilePanel == null && _launcher.PageForVerification == 0, "Volver de Mi perfil no recupera Inicio.");
                 var loading = new LoadingScreen(); _ui.AddChild(loading); bool canceled = false;
                 loading.Build("Mapa con un nombre largo para comprobar que no desplaza la cancelación", () => canceled = true);
                 loading.UpdateProgress(75, new string('X', 300)); await Frames();

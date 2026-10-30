@@ -33,10 +33,15 @@ public partial class MatchStatisticsPanel : Control
         var shade = new ColorRect { Color = ArcanaMenuChrome.Backdrop }; AddChild(shade); Ui.Full(shade);
         var margin = new MarginContainer(); AddChild(margin); Ui.Full(margin);
         foreach (string side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, 18);
+        var layout = new VBoxContainer(); layout.AddThemeConstantOverride("separation", 10); margin.AddChild(layout);
+        var header = new HBoxContainer(); layout.AddChild(header);
+        var title = Ui.Label("ESTADÍSTICAS DE PARTIDAS", 24, Ui.Gold);
+        title.AutowrapMode = TextServer.AutowrapMode.WordSmart; title.SizeFlagsHorizontal = SizeFlags.ExpandFill; header.AddChild(title);
+        header.AddChild(Ui.ExitButton("Volver", () => main.NavigateBack(), "StatisticsBack"));
         var scroll = new ContentScrollContainer { Name = "StatisticsScroll", SizeFlagsHorizontal = SizeFlags.ExpandFill,
-            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; margin.AddChild(scroll); Ui.VisibleVerticalScroll(scroll);
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; layout.AddChild(scroll); Ui.VisibleVerticalScroll(scroll);
         var content = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; content.AddThemeConstantOverride("separation", 12); scroll.AddChild(content);
-        content.AddChild(Ui.Label("ESTADÍSTICAS DE PARTIDAS", 24, Ui.Gold));
         var explanation = Ui.Label(verification ? "Datos de prueba de QA · consulta paginada simulada" : "Estadísticas globales de Firebase · informes anónimos de todos los dispositivos", 16, Ui.Muted); explanation.AutowrapMode = TextServer.AutowrapMode.WordSmart; content.AddChild(explanation);
         _filters = new GridContainer { Columns = 3, SizeFlagsHorizontal = SizeFlags.ExpandFill }; content.AddChild(_filters);
         _filters.AddThemeConstantOverride("h_separation", 10); _filters.AddThemeConstantOverride("v_separation", 8);

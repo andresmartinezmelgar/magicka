@@ -3,14 +3,14 @@ using Arcana.Core;
 
 namespace Arcana.Client;
 
-/// <summary>Pantalla de cuenta: una acción Google contextual y estado mínimo.</summary>
+/// <summary>Perfil único: personaje local, cuenta Google y sus funciones.</summary>
 public partial class AccountProfilePanel : Control
 {
     private Main _main = null!;
     private ElementTextLabel _heading = null!, _status = null!;
-    private Button _login = null!, _logout = null!, _checkUpdate = null!, _touchControls = null!, _bestiary = null!, _statistics = null!;
+    private Button _login = null!, _logout = null!, _checkUpdate = null!, _touchControls = null!, _bestiary = null!, _statistics = null!, _equipment = null!;
     private ElementTextLabel _updateStatus = null!;
-    private GridContainer _profileActions = null!;
+    private GridContainer _profileActions = null!, _wizardFields = null!;
     private bool _checkingUpdate;
     private string _updateIdentity = "";
     private bool _busy;
@@ -20,7 +20,7 @@ public partial class AccountProfilePanel : Control
     private PanelContainer? _responsiveCard;
     private int _responsivePadding;
 
-    internal Button[] VisibleFooterButtons => new[] { _login, _logout, _statistics, _checkUpdate, _touchControls, _bestiary }
+    internal Button[] VisibleFooterButtons => new[] { _login, _logout, _equipment, _statistics, _checkUpdate, _touchControls, _bestiary }
         .Where(b => GodotObject.IsInstanceValid(b) && b.IsVisibleInTree()).ToArray();
 
     public void Build(Main main)
@@ -41,9 +41,14 @@ public partial class AccountProfilePanel : Control
         foreach (string side in new[] { "left", "right", "top", "bottom" })
             margin.AddThemeConstantOverride("margin_" + side, padding);
 
+        var layout = new VBoxContainer(); layout.AddThemeConstantOverride("separation", 10); margin.AddChild(layout);
+        var header = new HBoxContainer(); layout.AddChild(header);
+        var title = Ui.Label("MI PERFIL", Ui.IsMobile ? 22 : 28, Ui.Gold);
+        title.SizeFlagsHorizontal = SizeFlags.ExpandFill; header.AddChild(title);
+        header.AddChild(Ui.ExitButton("Volver", () => main.NavigateBack(), "ProfileBack"));
         var scroll = new ContentScrollContainer { Name = "ProfileContentScroll", SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-        margin.AddChild(scroll); Ui.VisibleVerticalScroll(scroll);
+        layout.AddChild(scroll); Ui.VisibleVerticalScroll(scroll);
         var center = new CenterContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill };
         scroll.AddChild(center);
@@ -59,7 +64,8 @@ public partial class AccountProfilePanel : Control
         var content = new VBoxContainer();
         content.AddThemeConstantOverride("separation", Ui.IsMobile ? 14 : 20);
         card.AddChild(content);
-        content.AddChild(Ui.Label("MI PERFIL  /  GOOGLE", Ui.IsMobile ? 20 : 19, Ui.Gold));
+        BuildWizardSettings(content);
+        content.AddChild(Ui.Label("CUENTA DE GOOGLE", Ui.IsMobile ? 20 : 19, Ui.Gold));
         _heading = Ui.Label("", Ui.IsMobile ? 27 : 25, Ui.Text);
         _heading.HorizontalAlignment = HorizontalAlignment.Center;
         _heading.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -73,18 +79,20 @@ public partial class AccountProfilePanel : Control
         _logout = Ui.Button("Cerrar sesión", () => _ = Logout(), true);
         _checkUpdate = Ui.Button("Buscar actualización", () => _ = CheckUpdate());
         _checkUpdate.Name = "ProfileCheckUpdates";
+        _equipment = Ui.Button("Inventario y equipamiento", () => main.OpenEquipment("automatic"));
+        _equipment.Name = "ProfileEquipment";
         _bestiary = Ui.Button("Bestiario y bajas", main.OpenBestiary);
         _bestiary.Name = "ProfileBestiary";
         _statistics = Ui.Button("Estadísticas de partidas", main.OpenMatchStatistics);
         _statistics.Name = "ProfileMatchStatistics";
-        _statistics.TooltipText = "Gráficas de las partidas guardadas en este dispositivo.";
+        _statistics.TooltipText = "Gráficas de las partidas guardadas en Firebase.";
         _touchControls = Ui.Button("Configurar joystick y botones", main.OpenTouchSettings);
         _touchControls.Name = "ProfileTouchControls";
         _touchControls.TooltipText = "Tamaño, posiciones, zona muerta, sensibilidad y modo zurdo. Se guardan en este dispositivo.";
         _profileActions = new GridContainer { Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _profileActions.AddThemeConstantOverride("h_separation", 10); _profileActions.AddThemeConstantOverride("v_separation", 8);
         content.AddChild(_profileActions);
-        foreach (var button in new[] { _login, _logout, _statistics, _checkUpdate, _touchControls, _bestiary })
+        foreach (var button in new[] { _login, _logout, _equipment, _statistics, _checkUpdate, _touchControls, _bestiary })
         {
             button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             button.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -103,6 +111,36 @@ public partial class AccountProfilePanel : Control
         Render();
     }
 
+    private void BuildWizardSettings(VBoxContainer content)
+    {
+        content.AddChild(Ui.Label("TU PERSONAJE", Ui.IsMobile ? 20 : 19, Ui.Gold));
+        _wizardFields = new GridContainer { Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _wizardFields.AddThemeConstantOverride("h_separation", 12); content.AddChild(_wizardFields);
+        var nameColumn = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        var typeColumn = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _wizardFields.AddChild(nameColumn); _wizardFields.AddChild(typeColumn);
+        nameColumn.AddChild(Ui.Label("Nombre del mago", 16, Ui.Muted));
+        var name = new LineEdit { Name = "ProfileWizardName", MaxLength = 24, Text = _main.LocalWizardName,
+            SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        Ui.TouchTarget(name); nameColumn.AddChild(name);
+        typeColumn.AddChild(Ui.Label("Tipo de mago", 16, Ui.Muted));
+        var wizardType = new OptionButton { Name = "WizardTypeChoice", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        foreach (var type in Enum.GetValues<WizardType>()) wizardType.AddItem(WizardTypes.Name(type), (int)type);
+        wizardType.Select(wizardType.GetItemIndex((int)_main.InventoryWizardType));
+        Ui.TouchTarget(wizardType); typeColumn.AddChild(wizardType);
+        var description = Ui.Label(WizardTypes.Description(_main.InventoryWizardType), 15, Ui.Muted);
+        description.AutowrapMode = TextServer.AutowrapMode.WordSmart; content.AddChild(description);
+        var savedHint = Ui.Label("Los cambios del personaje se guardan automáticamente.", 14, Ui.Muted);
+        savedHint.AutowrapMode = TextServer.AutowrapMode.WordSmart; content.AddChild(savedHint);
+        void Save() => _main.SetWizardProfile(name.Text, (WizardType)wizardType.GetSelectedId());
+        name.TextChanged += _ => Save();
+        wizardType.ItemSelected += _ =>
+        {
+            description.Text = WizardTypes.Description((WizardType)wizardType.GetSelectedId());
+            Save();
+        };
+    }
+
     private void ResizeProfileCard()
     {
         if (_responsiveCard == null) return;
@@ -110,8 +148,9 @@ public partial class AccountProfilePanel : Control
         _responsiveCard.CustomMinimumSize = new Vector2(
             Math.Max(220, Math.Min(Ui.IsMobile ? 1050 : 860, width - 2 * _responsivePadding - 36)), 0);
         _profileActions.Columns = width < 560 ? 1 : 2;
+        _wizardFields.Columns = width < 560 ? 1 : 2;
         float height = GetViewport().GetVisibleRect().Size.Y < 640 ? 60 : 76;
-        foreach (var button in new[] { _login, _logout, _statistics, _checkUpdate, _touchControls, _bestiary }) button.CustomMinimumSize = new(0, height);
+        foreach (var button in new[] { _login, _logout, _equipment, _statistics, _checkUpdate, _touchControls, _bestiary }) button.CustomMinimumSize = new(0, height);
     }
 
     /// <summary>Selecciona el JSON OAuth sin copiarlo ni renombrarlo manualmente.</summary>

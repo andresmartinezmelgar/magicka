@@ -6,6 +6,8 @@ namespace Arcana.Client;
 public partial class Main
 {
     internal WizardType InventoryWizardType => _launcher.SelectedWizardType;
+    internal string LocalWizardName => _launcher.PlayerName;
+    internal void SetWizardProfile(string name, WizardType type) => _launcher.SetWizardProfile(name, type);
     public AccountClient Accounts { get; private set; } = new();
     private EquipmentPanel? _equipmentPanel;
     private AccountProfilePanel? _accountProfilePanel;

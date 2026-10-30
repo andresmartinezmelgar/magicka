@@ -216,7 +216,9 @@ public partial class Main
         if (!screen.Grow(1).Encloses(header) || !screen.Grow(1).Encloses(footer) ||
             content.Position.Y < header.End.Y - 1 || content.End.Y > footer.Position.Y + 1)
             throw new InvalidOperationException($"{stage}: las barras comunes tapan el contenido o salen de pantalla.");
-        for (int page = 0; page < 8; page++)
+        if (root.FindChild("OptionANav3", true, false) != null)
+            throw new InvalidOperationException($"{stage}: Perfil sigue duplicado en la barra inferior.");
+        foreach (int page in new[] { 0, 1, 2, 4, 7, 5, 6 })
         {
             var navigation = (Button)root.FindChild("OptionANav" + page, true, false);
             if (!navigation.IsVisibleInTree() || !footer.Grow(1).Encloses(navigation.GetGlobalRect()))
@@ -474,7 +476,8 @@ public partial class Main
                 _smokeLobby!.QueueFree();
                 _googleIdentityKnown = true; // Simula Google autenticado sin tocar cuentas reales.
                 _googleIdentityName = "Mago de pruebas";
-                OpenAccountProfile();
+                NavigateOptionAMenu(0);
+                ((Button)_launcher.FindChild("HomeProfile", true, false)).EmitSignal(Button.SignalName.Pressed);
                 _accountProfilePanel!.UpdateGoogleStatus(
                     "Error al leer Firestore: Firestore (403 PERMISSION_DENIED) ha denegado la lectura de users/{tu cuenta}.");
             }
@@ -513,7 +516,7 @@ public partial class Main
                 AssertOptionAScreen("AJUSTES_DESDE_PERFIL", _controlsSettings!);
                 float originalSize = _touchSettings!.Size;
                 ((HSlider)_controlsSettings!.FindChild("TouchSize", true, false)).Value = originalSize > 1 ? .8 : 1.2;
-                ((Button)_controlsSettings.FindChild("OptionANav3", true, false)).EmitSignal(Button.SignalName.Pressed);
+                ((Button)_controlsSettings.FindChild("TouchSettingsCancel", true, false)).EmitSignal(Button.SignalName.Pressed);
                 if (ControlsOpen || _accountProfilePanel?.IsVisibleInTree() != true || _touchSettings.Size != originalSize)
                     throw new InvalidOperationException("Volver a Mi perfil guarda cambios sin confirmar o pierde el perfil.");
                 GD.Print("PROFILE_TOUCH_SETTINGS_OK: acceso local, navegación común y cancelación sin guardar.");

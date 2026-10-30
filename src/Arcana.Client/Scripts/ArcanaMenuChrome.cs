@@ -10,7 +10,13 @@ namespace Arcana.Client;
 /// </summary>
 public partial class ArcanaMenuChrome : Control
 {
-    private readonly List<Button> _navigation = [];
+    // Los identificadores son rutas, no posiciones: retirar Perfil no desplaza las demás acciones.
+    private static readonly (int Id, string FullName, string CompactName)[] NavigationPages =
+    [
+        (0, "⌂  Inicio", "Inicio"), (1, "⚔  PvP", "PvP"), (2, "✧  Versus IA", "IA"),
+        (4, "◇  Inventario", "Equipo"), (7, "Tienda", "Tienda"), (5, "?  Ayuda", "Ayuda"), (6, "Salir", "Salir")
+    ];
+    private readonly Dictionary<int, Button> _navigation = [];
     private Main _main = null!;
     private ElementTextLabel _player = null!;
     private double _refreshTimer;
@@ -105,25 +111,23 @@ public partial class ArcanaMenuChrome : Control
         footer.SizeFlagsVertical = SizeFlags.ShrinkEnd;
         footer.AddThemeStyleboxOverride("panel", BarStyle());
         _shell.AddChild(footer);
-        var nav = new GridContainer { Columns = 8, SizeFlagsHorizontal = SizeFlags.ExpandFill,
+        var nav = new GridContainer { Columns = NavigationPages.Length, SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill };
         _navigationGrid = nav;
         nav.AddThemeConstantOverride("h_separation", Ui.IsMobile ? 7 : 12);
         nav.AddThemeConstantOverride("v_separation", 7);
         footer.AddChild(nav);
-        string[] pages = ["⌂  Inicio", "⚔  PvP", "✧  Versus IA", "♙  Perfil", "◇  Inventario", "?  Ayuda", "Salir", "Tienda"];
-        for (int i = 0; i < pages.Length; i++)
+        foreach (var page in NavigationPages)
         {
-            int id = i;
-            var action = Ui.Button(pages[i], () => navigate(id), false);
+            int id = page.Id;
+            var action = Ui.Button(page.FullName, () => navigate(id), false);
             action.Name = "OptionANav" + id;
             action.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             action.CustomMinimumSize = new(0, Ui.IsMobile ? 58 : 48);
             action.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 17 : 16);
             nav.AddChild(action);
-            _navigation.Add(action);
+            _navigation.Add(id, action);
         }
-        nav.MoveChild(_navigation[7], 5);
         Select(selected);
         RefreshAccount();
     }
@@ -135,12 +139,10 @@ public partial class ArcanaMenuChrome : Control
         // La navegación no tiene scrollbar: descontar solo los márgenes reales
         // permite cuatro columnas en 640 px sin añadir una tercera fila que quite espacio al contenido.
         bool compactNav = Ui.IsMobile && viewportWidth <= 820;
-        string[] fullNames = ["⌂  Inicio", "⚔  PvP", "✧  Versus IA", "♙  Perfil", "◇  Inventario", "?  Ayuda", "Salir", "Tienda"];
-        string[] compactNames = ["Inicio", "PvP", "IA", "Perfil", "Equipo", "Ayuda", "Salir", "Tienda"];
-        for (int i = 0; i < _navigation.Count; i++)
+        foreach (var page in NavigationPages)
         {
-            _navigation[i].Text = compactNav ? compactNames[i] : fullNames[i];
-            _navigation[i].AddThemeFontSizeOverride("font_size", compactNav ? 16 : Ui.IsMobile ? 17 : 16);
+            _navigation[page.Id].Text = compactNav ? page.CompactName : page.FullName;
+            _navigation[page.Id].AddThemeFontSizeOverride("font_size", compactNav ? 16 : Ui.IsMobile ? 17 : 16);
         }
         int columns = ResponsiveLayout.Columns(Math.Max(1, viewportWidth - (Ui.IsMobile ? 20 : 36)),
             compactNav ? 148 : Ui.IsMobile ? 165 : 140, _navigation.Count, Ui.IsMobile ? 7 : 12);
@@ -179,15 +181,14 @@ public partial class ArcanaMenuChrome : Control
     {
         if (_dynamicSection && _sectionLabel != null)
             _sectionLabel.Text = page switch { 0 => "INICIO", 1 => "PVP", 2 => "VERSUS IA", 3 => "PERFIL", 4 => "INVENTARIO", 5 => "AYUDA", 7 => "TIENDA", _ => "MENÚ" };
-        for (int i = 0; i < _navigation.Count; i++)
+        foreach (var (id, btn) in _navigation)
         {
-            var btn = _navigation[i];
-            var style = Ui.Panel(i == page ? new Color("19446b") : new Color("12263c"),
-                7, i == page ? Ui.Blue : new Color("274667"));
+            var style = Ui.Panel(id == page ? new Color("19446b") : new Color("12263c"),
+                7, id == page ? Ui.Blue : new Color("274667"));
             style.ContentMarginLeft = style.ContentMarginRight = 7;
             style.ContentMarginTop = style.ContentMarginBottom = 3;
             btn.AddThemeStyleboxOverride("normal", style);
-            btn.AddThemeColorOverride("font_color", i == page ? Ui.Gold : Ui.Text);
+            btn.AddThemeColorOverride("font_color", id == page ? Ui.Gold : Ui.Text);
         }
     }
 
@@ -207,7 +208,7 @@ public partial class ArcanaMenuChrome : Control
         // Las victorias, derrotas y el oro se muestran solo en Perfil/Inventario;
         // evitar el mismo bloque de estadísticas en todas las pantallas.
         _player.Text = name + " · " + state;
-        _player.TooltipText = google ? "Estado de la cuenta Google. Consulta los detalles en Perfil." : "Sesión de invitado";
+        _player.TooltipText = google ? "Estado de la cuenta Google. Consulta los detalles en Inicio → Mi perfil." : "Sesión de invitado";
     }
 
     public override void _Process(double delta)
