@@ -73,7 +73,7 @@ static class NetworkEndpointTests
         await test("Red: ping real antes de cargar, límite de frecuencia y descarte al desconectar", async () =>
         {
             var room = await RoomBrowser.CreateAsync(server, new() { Name = "Medición de ping", ServerPassword = password,
-                Mode = GameMode.Duel, MaxPlayers = 2, Bots = 0, BestOf = 3 });
+                Mode = GameMode.Duel, MaxPlayers = 2, Bots = 0, BestOf = 5 });
             await using var client = new ArenaConnection();
             if (client.PingMilliseconds != null || client.RequestPing())
                 throw new Exception("Se inventó latencia sin conexión.");

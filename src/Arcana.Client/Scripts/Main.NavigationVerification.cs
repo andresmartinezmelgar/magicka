@@ -58,7 +58,14 @@ public partial class Main
                 Accounts.RestoreOfflineProfile(new("hg7F74kCNVQU3tU2itdjWu9SkyS2", "Navegación local", 0, 0, 0, new(), []));
                 foreach (int page in new[] { 0, 1, 2, 3, 4, 5, 7 })
                 {
-                    if (page == 3) await Click((Button)_launcher.FindChild("HomeProfile", true, false));
+                    if (page == 3)
+                    {
+                        var profile = (Button)_launcher.FindChild("HomeProfile", true, false);
+                        var scroll = (ScrollContainer)_launcher.FindChild("LauncherSettingsScroll", true, false);
+                        scroll.EnsureControlVisible(profile); await Frames();
+                        await Click(profile);
+                        Check(_accountProfilePanel != null, "La tarjeta Mi perfil no abrió el perfil tras desplazarla a la vista.");
+                    }
                     else NavigateOptionAMenu(page);
                     await Frames();
                     Control screen = page switch { 3 => _accountProfilePanel!, 4 => _equipmentPanel!,
@@ -96,7 +103,7 @@ public partial class Main
                 var room = new GameWorld(new() { Mode = GameMode.Duel }); var host = room.AddPlayer("Anfitrión", 0)!;
                 room.AddPlayer("Rival", 1);
                 await VerifyWaitingRoomPortraits(waiting, room.Snapshot() with
-                    { WaitingForPlayers = true, BestOf = 3, LobbyHostId = host.Id }, host.Id);
+                    { WaitingForPlayers = true, BestOf = 5, LobbyHostId = host.Id }, host.Id);
                 await Frames(); await Click(Exit(waiting, "WaitingRoomExit")); Check(left, "Salir de la sala de espera no responde."); waiting.QueueFree();
 
                 StartPractice("Navegación", 0, GameMode.Defense, 0, map: ArenaMapId.Bastion); await Ready();
