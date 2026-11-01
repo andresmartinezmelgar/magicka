@@ -91,6 +91,7 @@ Test("Public account server: reject unsafe URLs, stale leases and protocols", ()
 });
 
 AdaptiveSpellQualityTests.Run(Test);
+AdaptiveAudioTests.Run(Test);
 ElementTextTests.Run(Test);
 
 (GameWorld World, Wizard A, Wizard B) Setup(GameMode mode = GameMode.Arena, bool friendly = true)

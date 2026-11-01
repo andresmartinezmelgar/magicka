@@ -16,6 +16,8 @@ public partial class Main
     {
         if (_applicationSuspended == suspended) return;
         _applicationSuspended = suspended;
+        _music?.SetSuspended(suspended);
+        _renderer?.SetAudioSuspended(suspended);
         if (suspended)
         {
             _applicationSuspendedAt = System.Environment.TickCount64;

@@ -13,9 +13,8 @@ public partial class ArenaRenderer
         foreach (var type in Enum.GetValues<WizardType>())
             yield return ("Cargando los magos…", () => WizardSprites.Load(type));
         yield return ("Preparando los iconos del inventario…", EquipmentPanel.PrepareIcons);
-        foreach (var element in Enum.GetValues<Element>())
-            yield return ("Preparando los sonidos…", () => _audio.Prepare(element.ToString()));
-        yield return ("Preparando los sonidos…", () => _audio.Prepare("boom"));
+        foreach (string key in AdaptiveAudioMix.PreparationKeys())
+            yield return ("Preparando los sonidos…", () => _audio.Prepare(key));
         for (int i = 0; i < CombatEffects.ParticleLimit / 32; i++)
             yield return ("Preparando los efectos…", _effects.PreparePoolBatch);
         yield return ("Preparando el lanzallamas…", _effects.PrepareFlamethrower);

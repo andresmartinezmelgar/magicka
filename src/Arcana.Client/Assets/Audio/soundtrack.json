@@ -1,0 +1,27 @@
+{
+  "title": "Resonancia del santuario",
+  "license": "CC0-1.0",
+  "bpm": 96,
+  "bars": 16,
+  "beats_per_bar": 4,
+  "key": "D minor",
+  "sample_rate": 24000,
+  "channels": 2,
+  "tracks": [
+    {
+      "file": "arcane_atmosphere.ogg",
+      "frames": 960000,
+      "sha256": "92cbbacd109f8f4327d70b9957ea66f8d529a095ea8f6e185530448c942c5116"
+    },
+    {
+      "file": "arcane_battle.ogg",
+      "frames": 960000,
+      "sha256": "b91344968bd38a33777111399206aa1ad7266e546a45d30b0584c68c459c3fec"
+    },
+    {
+      "file": "arcane_danger.ogg",
+      "frames": 960000,
+      "sha256": "3981360ab89ff54ec0c4a33988514a99476a444aae1397e7ee9215aa84137659"
+    }
+  ]
+}
