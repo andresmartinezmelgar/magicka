@@ -57,8 +57,8 @@ No se inicializa audio en modo headless ni en los subescenarios del libro de hec
   duración exacta común, estéreo, niveles y continuidad del bucle.
 - `AdaptiveAudioTests`: aliados/rivales, distancia, jefes, vida, pausas,
   portales sin elementos, mezclas, precarga y ganador por equipo/jugador.
-- Compilación, ejecución de las regresiones C# y escucha en Android/Windows:
-  pendientes de petición expresa, conforme a `AGENTS.md`.
+- El flujo de publicación solicitado compila el cliente y ejecuta las regresiones C#.
+  La escucha manual en Android/Windows se verifica por separado.
 
 Referencia de sincronización de Godot 4.5:
 https://docs.godotengine.org/en/4.5/classes/class_audiostreamsynchronized.html

@@ -1,10 +1,12 @@
 # Cambios
 
-## Pendiente de versión
+## 0.29.35
 
 - Música original de fantasía arcana con tres capas sincronizadas: ambiente, combate y peligro. Reacciona a hechizos, enemigos cercanos, vida baja, colosos y oráculos; el teletransporte baja brevemente el fondo musical.
 - Efectos distintos para los ocho elementos y mezclas de hasta tres, salida/llegada de portales, barreras, minas, escudos y final de partida. Precarga de sonidos y voces reservadas para avisos.
 - Volumen independiente de música y efectos en Mi perfil y Pausa, guardado por dispositivo. Android pausa la música y detiene los efectos al pasar a segundo plano.
+
+- Mi perfil reúne personaje, cuenta, inventario, estadísticas, bestiario y ajustes. Se retira su acceso duplicado de la barra inferior.
 
 ## 0.29.34
 
