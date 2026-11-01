@@ -75,6 +75,7 @@ public partial class Main : Node
             ["runtime"] = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
             ["display"] = DisplayServer.GetName(), ["editor"] = OS.HasFeature("editor") });
         _renderer = new ArenaRenderer(); AddChild(_renderer);
+        InitializeAudio();
         RestoreAccountCache();
         var layer = new CanvasLayer(); AddChild(layer);
         _ui = new Control { MouseFilter = Control.MouseFilterEnum.Ignore }; layer.AddChild(_ui); Ui.Full(_ui);
@@ -391,6 +392,7 @@ public partial class Main : Node
         TickInventoryAutoSell(delta);
         TickMatchStatistics(delta);
         TickSurvivalAutosave(delta);
+        TickAudio(delta);
         _renderFrames++;
         if (_survivalBiomeSmoke) return;
         if (CheckDesktopHeaderSmoke()) return;
@@ -803,6 +805,7 @@ public partial class Main : Node
         _defenseInterfaceHint = Ui.Label("En red, la partida continúa mientras estás en este menú.", 17, Ui.Muted);
         _defenseInterfaceHint.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_defenseInterfaceHint);
         AddSurvivalSaveActions(box);
+        BuildAudioControls(box);
         _relicMenuButton = Ui.Button("Reliquias recogidas", OpenRelics);
         _relicMenuButton.Name = "PauseRelics"; _relicMenuButton.Visible = false; box.AddChild(_relicMenuButton);
         box.AddChild(Ui.Button("Volver al launcher", () => ReturnToLauncher()));

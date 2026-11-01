@@ -65,6 +65,7 @@ public partial class AccountProfilePanel : Control
         content.AddThemeConstantOverride("separation", Ui.IsMobile ? 14 : 20);
         card.AddChild(content);
         BuildWizardSettings(content);
+        main.BuildAudioControls(content);
         content.AddChild(Ui.Label("CUENTA DE GOOGLE", Ui.IsMobile ? 20 : 19, Ui.Gold));
         _heading = Ui.Label("", Ui.IsMobile ? 27 : 25, Ui.Text);
         _heading.HorizontalAlignment = HorizontalAlignment.Center;

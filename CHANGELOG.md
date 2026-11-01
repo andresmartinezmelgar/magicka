@@ -1,5 +1,11 @@
 # Cambios
 
+## Pendiente de versión
+
+- Música original de fantasía arcana con tres capas sincronizadas: ambiente, combate y peligro. Reacciona a hechizos, enemigos cercanos, vida baja, colosos y oráculos; el teletransporte baja brevemente el fondo musical.
+- Efectos distintos para los ocho elementos y mezclas de hasta tres, salida/llegada de portales, barreras, minas, escudos y final de partida. Precarga de sonidos y voces reservadas para avisos.
+- Volumen independiente de música y efectos en Mi perfil y Pausa, guardado por dispositivo. Android pausa la música y detiene los efectos al pasar a segundo plano.
+
 ## 0.29.34
 
 - Se integran en main todas las mejoras de Supervivencia publicadas en pruebas: mapas procedurales y biomas, autoguardado, configuración automática, nuevos afijos y estadísticas.

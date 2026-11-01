@@ -43,6 +43,15 @@ public partial class ArenaRenderer : Node3D
     internal ArenaMapId CurrentMap => _map.Id;
     private bool _fresh;
     private readonly SpellAudio _audio = new();
+    internal event Action<GameEvent>? AudioEvent;
+    private bool _quietAudio;
+    internal void SetEffectsVolume(float volume) => _audio.SetVolume(volume);
+    internal void SetAudioSuspended(bool suspended) => _audio.SetSuspended(suspended);
+    internal void SetAudioQuiet(bool quiet)
+    {
+        if (quiet && !_quietAudio) _audio.StopAll();
+        _quietAudio = quiet;
+    }
     private long _lastEvent;
     private double _time;
     private float _zoom = 27;
@@ -61,6 +70,7 @@ public partial class ArenaRenderer : Node3D
         _effects.EnhancedSpells = SpellEffectQuality.Policy.Enhanced;
         if (SpellEffectQuality.Policy.LegacyOnly) _effects.DetailScale = Math.Min(_effects.DetailScale, .6f);
         _effects.FlameOrigin = FlameOrigin;
+        _audio.Enabled = AudioEnabled;
         AddChild(_audio);
         var env = new WorldEnvironment
         {
@@ -271,13 +281,22 @@ public partial class ArenaRenderer : Node3D
                     foreach (var p in snapshot.Players)
                         if (p.Alive && V2.Distance(p.Position, e.Position) < 0.15f && _wizards.TryGetValue(p.Id, out var caster)) caster.PlayCastPose(e.Elements);
                 }
-                if (e.Kind is "cast" or "self" or "nova" or "impact" or "explosion" or "death" or "blink" &&
-                    AudioEnabled && local != null && V2.Distance(e.Position, local.Position) < 15) _audio.PlayEvent(e);
+                if (AudioEnabled && !_quietAudio && local != null)
+                {
+                    float distance = V2.Distance(e.Position, local.Position);
+                    if (distance < 18)
+                    {
+                        _audio.PlayEvent(e, distance);
+                        AudioEvent?.Invoke(e);
+                    }
+                }
             }
             _lastEvent = Math.Max(_lastEvent, e.Id);
         }
         _effects.Billboard = Camera.GlobalBasis;
         _effects.Advance(visibleState, dt, playing);
+        if (playing && AudioEnabled && !_quietAudio && local != null && snapshot.MatchEnded && previous is { MatchEnded: false })
+            _audio.PlayResult(AdaptiveAudioMix.Won(snapshot, local));
     }
 
     private void RemoveMissing<T, TState>(Dictionary<int, T> nodes, TState[] present, Func<TState, int> id) where T : Node
