@@ -115,6 +115,7 @@ public sealed partial class GameWorld
     public void RemovePlayer(int id)
     {
         if (!_players.Remove(id, out var wizard)) return;
+        _unavailableDefenders.Remove(id);
         ClearArcaneTarget(wizard); RemoveArcaneOwner(id);
         _orderedPlayers.Remove(wizard); _combatants.Remove(id); _defenders.Remove(id);
         _statistics.Retire(id); _statisticsPerformanceTime.Remove(id);

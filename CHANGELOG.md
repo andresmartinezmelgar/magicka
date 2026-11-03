@@ -1,5 +1,11 @@
 # Cambios
 
+## Pendiente de versión
+
+- Supervivencia ajusta la vida y el daño de los enemigos al número de defensores vivos que participan, incluidos aliados IA. No cuentan eliminados, desconectados ni jugadores que siguen cargando. Los enemigos presentes se reajustan conservando su porcentaje de vida y escudo; el bestiario actualiza las cifras sin contar nuevas apariciones.
+- Los prismas elementales aparecen con una probabilidad del 2 %, de uno en uno y separados al menos 45–75 segundos. Máximo dos con uno o dos defensores activos y tres con tres o cuatro; tras morir dejan al menos 30 segundos antes de un reemplazo. El excedente se retira sin premios si baja el grupo y los prismas no se recolocan cerca del jugador al cambiar de zona.
+- Guardar y continuar conserva el escalado y la espera de prismas. Los puntos antiguos se migran manteniendo el porcentaje de vida perdido y reciben una espera inicial para nuevas apariciones.
+
 ## 0.29.35
 
 - Música original de fantasía arcana con tres capas sincronizadas: ambiente, combate y peligro. Reacciona a hechizos, enemigos cercanos, vida baja, colosos y oráculos; el teletransporte baja brevemente el fondo musical.

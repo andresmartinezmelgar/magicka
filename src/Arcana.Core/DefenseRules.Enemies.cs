@@ -11,6 +11,9 @@ public static partial class DefenseRules
     public const int OracleSpawnChance = 1, OracleNaturalLimit = 1;
     public const float OracleMinimumSpawnGap = 90, OracleSpawnGapVariation = 60;
     public const float PrismWaterDamage = 55, PrismFocusSeconds = 10;
+    public const int PrismSpawnChance = 2;
+    public const float PrismMinimumSpawnGap = 45, PrismSpawnGapVariation = 30, PrismRespawnDelay = 30;
+    public static int PrismLimit(int activeDefenders) => Math.Clamp(activeDefenders, 1, MaxDefenders) <= 2 ? 2 : 3;
     public static ReadOnlySpan<Element> PrismElements => [Element.Fire, Element.Arcane, Element.Cold, Element.Water, Element.Lightning, Element.Earth];
     public static bool ValidPrismElement(Element element) => element is Element.Water or Element.Cold or Element.Lightning or Element.Arcane or Element.Earth or Element.Fire;
     public static bool SpellcastingEnemy(MinionKind kind) => kind is MinionKind.Mage or MinionKind.Warlock or MinionKind.Cryomancer;

@@ -11,6 +11,7 @@ public sealed partial class GameWorld
     private int _nextMinion = 1000, _defenseKills, _bossesKilled, _defenseDifficulty = 1;
     private double _defenseElapsed;
     private float _spawnClock, _auraClock, _bossClock, _oracleSpawnCooldown;
+    private float _prismSpawnCooldown = DefenseRules.PrismMinimumSpawnGap;
     private int _defensePartySize = 1;
 
     public bool DefensePaused => IsDefense && !MatchEnded && _players.Values.Count(p => !p.Bot) == 1 &&
@@ -108,14 +109,7 @@ public sealed partial class GameWorld
         var distant = _minions.Values.Where(m => m.Kind != MinionKind.Boss && m.Body.Alive &&
             _players.Values.All(p => p.Deaths >= DefenseRules.PlayerLives || V2.Distance(p.Position, m.Body.Position) > 60))
             .OrderByDescending(m => _players.Values.Min(p => V2.Distance(p.Position, m.Body.Position))).Take(excess).ToArray();
-        foreach (var m in distant)
-        {
-            CancelCast(m.Body);
-            RememberEffectSource(m.Body.Id, m.Kind, m.Body.Equipment.Power);
-            _statistics.Retire(m.Body.Id);
-            _minions.Remove(m.Body.Id); _combatants.Remove(m.Body.Id); _orderedPlayers.Remove(m.Body); _routes.Remove(m.Body.Id);
-            _projectiles.RemoveAll(p => p.Owner == m.Body.Id); _fields.RemoveAll(f => f.Owner == m.Body.Id);
-        }
+        foreach (var m in distant) RetireDefenseMinion(m);
     }
 
     private void TickDefense(float dt)
@@ -123,7 +117,8 @@ public sealed partial class GameWorld
         if (!IsDefense || !_players.Values.Any(p => !p.Bot)) return;
         _defenseElapsed += dt;
         _oracleSpawnCooldown = Math.Max(0, _oracleSpawnCooldown - dt);
-        _defensePartySize = Math.Clamp(_players.Count, 1, DefenseRules.MaxDefenders);
+        _prismSpawnCooldown = Math.Max(0, _prismSpawnCooldown - dt);
+        UpdateDefensePartyScaling();
         foreach (var player in _players.Values)
         {
             var progress = _defenders[player.Id];
@@ -163,7 +158,7 @@ public sealed partial class GameWorld
         if (Pick(5, 4)) kind = MinionKind.Captain;
         else if (Pick(6, 5)) kind = MinionKind.Sentinel;
         else if (Pick(6, DefenseRules.OracleSpawnChance)) kind = MinionKind.Oracle;
-        else if (Pick(3, 8)) kind = MinionKind.Prism;
+        else if (Pick(3, DefenseRules.PrismSpawnChance)) kind = MinionKind.Prism;
         else if (Pick(5, 6)) kind = MinionKind.Warlock;
         else if (Pick(4, 6)) kind = MinionKind.Cryomancer;
         else if (Pick(3, 5)) kind = MinionKind.Shaman;
@@ -175,28 +170,34 @@ public sealed partial class GameWorld
         else if (Pick(2, 12)) kind = MinionKind.Runner;
         if (kind == MinionKind.Oracle && (_oracleSpawnCooldown > 0 ||
             _minions.Values.Count(m => m.Kind == kind && m.Body.Alive) >= DefenseRules.OracleNaturalLimit)) kind = MinionKind.Archer;
-        if (kind == MinionKind.Prism && _minions.Values.Count(m => m.Kind == kind && m.Body.Alive) >= 8) kind = MinionKind.Runner;
+        if (kind == MinionKind.Prism && (ActiveDefensePartySize == 0 || _prismSpawnCooldown > 0 ||
+            _minions.Values.Count(m => m.Kind == kind && m.Body.Alive) >= DefenseRules.PrismLimit(ActiveDefensePartySize)))
+            kind = MinionKind.Runner;
         TrySpawnMinion(kind);
     }
 
     private bool TrySpawnMinion(MinionKind kind)
     {
         if (_minions.Count >= DefenseRules.MaxMinions || !TryDefenseSpawn(out var at)) return false;
-        float strength = DefenseRules.EnemyStrength(_defenseDifficulty);
-        float health = DefenseRules.MinionHealth(kind, _defenseDifficulty, _defensePartySize);
+        int party = Math.Clamp(ActiveDefensePartySize, 1, DefenseRules.MaxDefenders);
+        float strength = DefenseRules.EnemyStrength(_defenseDifficulty) * DefenseRules.PartyDamageMultiplier(party);
+        float health = DefenseRules.MinionHealth(kind, _defenseDifficulty, party);
         var body = new Wizard { Id = _nextMinion++, Name = DefenseRules.MinionName(kind), Team = 1, Bot = true,
             Role = CombatantRole.Minion, WizardType = DefenseRules.EnemyWizardType(kind),
             Position = at, Health = health, MaxHealth = health, Invulnerable = 0,
             VulnerableElement = kind == MinionKind.Prism ? DefenseRules.PrismElements[_random.Next(DefenseRules.PrismElements.Length)] : null,
             Equipment = EquipmentModifiers.None with { Speed = DefenseRules.MinionSpeed(kind, _defenseDifficulty),
                 Power = strength * DefenseRules.EnemySpellPower(kind) } };
-        var minion = new DefenseMinion(body, kind, strength) { SpeedClock = 7 + (float)_random.NextDouble() * 12, SupportCooldown = kind == MinionKind.Oracle ? 0.1f : 3 };
+        var minion = new DefenseMinion(body, kind, strength) { PartySize = party,
+            SpeedClock = 7 + (float)_random.NextDouble() * 12, SupportCooldown = kind == MinionKind.Oracle ? 0.1f : 3 };
         _statistics.Bind(body, kind);
         _statistics.Add(StatisticGroup.Difficulty, _defenseDifficulty, StatisticMeasure.Spawns, 1);
         _statistics.Add(StatisticGroup.Difficulty, _defenseDifficulty, StatisticMeasure.SpawnHealth, health);
         _minions.Add(body.Id, minion);
         if (kind == MinionKind.Oracle)
             _oracleSpawnCooldown = DefenseRules.OracleMinimumSpawnGap + (float)_random.NextDouble() * DefenseRules.OracleSpawnGapVariation;
+        if (kind == MinionKind.Prism)
+            _prismSpawnCooldown = DefenseRules.PrismMinimumSpawnGap + (float)_random.NextDouble() * DefenseRules.PrismSpawnGapVariation;
         _combatants.Add(body.Id, body); _orderedPlayers.Add(body);
         DiscoverDefenseEnemy(minion);
         if (kind is MinionKind.Boss or MinionKind.Captain) StartCommanderSurge(kind == MinionKind.Boss);
@@ -233,7 +234,7 @@ public sealed partial class GameWorld
         // Solo regresa un enemigo fuera de vista, conservando salud y estados.
         var defenders = _players.Values.Where(p => p.Deaths < DefenseRules.PlayerLives).ToArray();
         if (defenders.Length == 0) return;
-        var distant = _minions.Values.Where(m => m.Kind != MinionKind.Boss && m.Body.Alive &&
+        var distant = _minions.Values.Where(m => m.Kind is not (MinionKind.Boss or MinionKind.Prism) && m.Body.Alive &&
             defenders.All(p => V2.Distance(p.Position, m.Body.Position) > 60))
             .OrderByDescending(m => defenders.Min(p => V2.Distance(p.Position, m.Body.Position))).FirstOrDefault();
         if (distant == null || !TryDefenseSpawn(out var at, nearbyOnly: true)) return;
@@ -416,6 +417,8 @@ public sealed partial class GameWorld
             return true;
         }
         if (target.Role != CombatantRole.Minion) return false;
+        if (_minions[target.Id].Kind == MinionKind.Prism)
+            _prismSpawnCooldown = Math.Max(_prismSpawnCooldown, DefenseRules.PrismRespawnDelay);
         CancelCast(target); _defenseKills++;
         if (_minions[target.Id].Kind == MinionKind.Oracle)
             foreach (var field in _fields)
@@ -455,6 +458,8 @@ public sealed partial class GameWorld
         if (!IsDefense) return;
         foreach (int id in _minions.Where(m => !m.Value.Body.Alive).Select(m => m.Key).ToArray())
         {
+            if (_minions[id].Kind == MinionKind.Prism)
+                _prismSpawnCooldown = Math.Max(_prismSpawnCooldown, DefenseRules.PrismRespawnDelay);
             var body = _minions[id].Body;
             RememberEffectSource(id, _minions[id].Kind, body.Equipment.Power);
             _statistics.Retire(id);
@@ -494,6 +499,7 @@ public sealed partial class GameWorld
         _defenseBotPlans.Clear(); _defenseBotPlanClock = 0;
         _defenseKills = _bossesKilled = 0; _defenseDifficulty = _defensePartySize = 1;
         _defenseElapsed = _spawnClock = _auraClock = _oracleSpawnCooldown = 0;
+        _prismSpawnCooldown = DefenseRules.PrismMinimumSpawnGap;
         _commanderSurgeTime = _commanderSurgeCooldown = _commanderSpawnClock = 0;
         _commanderReinforcements = 0;
         _simulationBudget = new(DefenseRules.MaxMinions); _simulationCost = 0; _simulationSamples = 0;

@@ -16,6 +16,7 @@ public sealed partial class GameWorld
         public double Elapsed;
         public float SpawnClock, AuraClock, BossClock, SurgeTime, SurgeCooldown, SurgeClock, BotClock;
         public float OracleSpawnCooldown;
+        public float PrismSpawnCooldown = DefenseRules.PrismMinimumSpawnGap;
         public int Reinforcements;
         public SavedDefender[] Defenders = [];
         public SavedMinion[] Minions = [];
@@ -55,6 +56,7 @@ public sealed partial class GameWorld
         float ChannelTime, float SpeedBoost, float SpeedClock, float NavigationClock, V2 Navigation,
         float Windup, float SupportCooldown, float ShieldCooldown, int SpellTurn)
     {
+        public int PartySize { get; init; }
         public int FocusTargetId { get; init; }
         public float FocusTime { get; init; }
         public float AuraRepairCooldown { get; init; }
@@ -87,7 +89,7 @@ public sealed partial class GameWorld
             ArcaneBursts = _arcaneBursts.ToArray(),
             RandomState = ((SurvivalRandom)_random).State, Kills = _defenseKills, Bosses = _bossesKilled,
             Elapsed = _defenseElapsed, PartySize = _defensePartySize, SpawnClock = _spawnClock, AuraClock = _auraClock,
-            OracleSpawnCooldown = _oracleSpawnCooldown,
+            OracleSpawnCooldown = _oracleSpawnCooldown, PrismSpawnCooldown = _prismSpawnCooldown,
             BossClock = _bossClock, SurgeTime = _commanderSurgeTime, SurgeCooldown = _commanderSurgeCooldown,
             SurgeClock = _commanderSpawnClock, Reinforcements = _commanderReinforcements, BotClock = _defenseBotPlanClock,
             Defenders = _players.Values.Select(p =>
@@ -110,7 +112,7 @@ public sealed partial class GameWorld
             Minions = _minions.Values.Where(m => m.Body.Alive).Select(m => new SavedMinion(SurvivalWizard.Capture(m.Body),
                 m.Kind, m.Strength, m.Attack, m.ChannelTime, m.SpeedBoost, m.SpeedClock, m.NavigationClock, m.Navigation,
                 m.Windup, m.SupportCooldown, m.ShieldCooldown, m.SpellTurn)
-                { FocusTargetId = _players.ContainsKey(m.FocusTargetId) ? m.FocusTargetId : 0,
+                { PartySize = m.PartySize, FocusTargetId = _players.ContainsKey(m.FocusTargetId) ? m.FocusTargetId : 0,
                     FocusTime = m.FocusTime, AuraRepairCooldown = m.AuraRepairCooldown }).ToArray(),
             EffectSources = _lingeringSources.Select(s => new SavedEffectSource(s.Key, s.Value.Kind, s.Value.Body.Equipment.Power)).ToArray(),
             Projectiles = _projectiles.Select(p => new SavedProjectile(p.Id, p.Owner, p.Position, p.Velocity,
@@ -147,6 +149,7 @@ public sealed partial class GameWorld
         world._defensePartySize = s.PartySize; world._defenseKills = s.Kills; world._bossesKilled = s.Bosses;
         world._spawnClock = s.SpawnClock; world._auraClock = s.AuraClock; world._bossClock = s.BossClock;
         world._oracleSpawnCooldown = s.OracleSpawnCooldown;
+        world._prismSpawnCooldown = s.PrismSpawnCooldown;
         world._commanderSurgeTime = s.SurgeTime; world._commanderSurgeCooldown = s.SurgeCooldown;
         world._commanderSpawnClock = s.SurgeClock; world._commanderReinforcements = s.Reinforcements;
         foreach (var entry in s.Defenders)
@@ -181,13 +184,23 @@ public sealed partial class GameWorld
         foreach (var m in s.Minions)
         {
             var p = m.Body.Restore(true, world.Time);
-            world._minions.Add(p.Id, new(p, m.Kind, m.Strength)
+            var minion = new DefenseMinion(p, m.Kind, m.Strength)
             {
+                PartySize = m.PartySize == 0 ? s.PartySize : m.PartySize,
                 Attack = m.Attack, ChannelTime = m.ChannelTime, SpeedBoost = m.SpeedBoost, SpeedClock = m.SpeedClock,
                 NavigationClock = m.NavigationClock, Navigation = m.Navigation, Windup = m.Windup,
                 SupportCooldown = m.SupportCooldown, ShieldCooldown = m.ShieldCooldown, SpellTurn = m.SpellTurn,
                 FocusTargetId = m.FocusTargetId, FocusTime = m.FocusTime, AuraRepairCooldown = m.AuraRepairCooldown
-            });
+            };
+            if (m.PartySize == 0)
+            {
+                // Guardados anteriores: su daño solo incluía la dificultad temporal
+                // y la vida ordinaria crecía un 10 % por plaza. Migrar conservando el porcentaje herido.
+                float oldHealthMultiplier = 1 + (s.PartySize - 1) * (m.Kind == MinionKind.Boss ? .4f : .1f);
+                ScaleDefenseEnemy(minion, DefenseRules.PartyHealthMultiplier(m.Kind, s.PartySize) / oldHealthMultiplier,
+                    DefenseRules.PartyDamageMultiplier(s.PartySize));
+            }
+            world._minions.Add(p.Id, minion);
             world._combatants.Add(p.Id, p); world._orderedPlayers.Add(p);
         }
         foreach (var source in s.EffectSources) world.RememberEffectSource(source.Id, source.Kind, source.Power);
@@ -208,6 +221,9 @@ public sealed partial class GameWorld
         foreach (var burst in s.ArcaneBursts) world._arcaneBursts.Enqueue(burst);
         ((SurvivalRandom)world._random).State = s.RandomState;
         world.RestoreStatistics(null);
+        world.UpdateDefensePartyScaling();
+        foreach (var legacy in s.Minions.Where(m => m.PartySize == 0))
+            if (world._minions.TryGetValue(legacy.Body.Id, out var enemy)) world.UpdateDefenseEnemyDetails(enemy, spawned: false);
         foreach (var source in world._lingeringSources.Values)
         { world._statistics.Bind(source.Body, source.Kind, spawn: false); world._statistics.Retire(source.Body.Id); }
         world.BuildDefenseCells();
@@ -238,6 +254,8 @@ public sealed partial class GameWorld
             new[] { s.SpawnClock, s.AuraClock, s.BossClock, s.SurgeTime, s.SurgeCooldown, s.SurgeClock, s.BotClock }.All(float.IsFinite));
         Require(float.IsFinite(s.OracleSpawnCooldown) && s.OracleSpawnCooldown >= 0 &&
             s.OracleSpawnCooldown <= DefenseRules.OracleMinimumSpawnGap + DefenseRules.OracleSpawnGapVariation);
+        Require(float.IsFinite(s.PrismSpawnCooldown) && s.PrismSpawnCooldown >= 0 &&
+            s.PrismSpawnCooldown <= DefenseRules.PrismMinimumSpawnGap + DefenseRules.PrismSpawnGapVariation);
         s.Statistics?.Validate();
         Require(s.Statistics == null || s.Statistics.Mode == GameMode.Defense && s.Statistics.Map == s.Options.Map && !s.Statistics.Complete);
         var ids = new HashSet<int>();
@@ -277,7 +295,7 @@ public sealed partial class GameWorld
             d.Body.Id == save.LocalPlayerId && !d.Body.Bot && d.Body.Deaths < DefenseRules.PlayerLives));
         foreach (var m in s.Minions)
             Require(m?.Body != null && m.Body.Valid() && m.Body.Bot && ids.Add(m.Body.Id) && Enum.IsDefined(m.Kind) &&
-                m.Navigation.IsFinite && m.Strength > 0 &&
+                m.Navigation.IsFinite && m.Strength > 0 && m.PartySize is >= 0 and <= DefenseRules.MaxDefenders &&
                 (m.Kind == MinionKind.Prism ? m.Body.VulnerableElement.HasValue : !m.Body.VulnerableElement.HasValue) &&
                 (m.FocusTargetId == 0 || s.Defenders.Any(d => d.Body.Id == m.FocusTargetId)) &&
                 float.IsFinite(m.FocusTime) && m.FocusTime is >= 0 and <= DefenseRules.PrismFocusSeconds &&

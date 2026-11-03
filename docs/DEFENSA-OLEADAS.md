@@ -1,8 +1,35 @@
 # Supervivencia
 
-Versión de pruebas **0.29.31**, con generador libre v2, venta por ranura y diez biomas visuales. Utiliza protocolo **41**; cliente y servidor deben actualizarse juntos. La versión estable **0.29.28** permanece separada en main.
+La base publicada es **0.29.35**, protocolo **45**. Esta rama añade escalado por defensores activos y aparición espaciada de prismas; la compilación se realiza únicamente por petición expresa.
 
-La rama incorpora, pendiente de otra compilación solicitada, **Fragmentación de roca**, **Marca arcana** y **Eco arcano** del catálogo 11, auras de Arcano y Agua, el oráculo ocasional y el resumen personal de daño, con protocolo 44. La fragmentación genera cuatro fragmentos en Diamante o seis en Mítico, con la mezcla original y áreas elementales pequeñas al chocar o caer. Marca repite el daño de los últimos segundos al morir el objetivo; Eco añade un segundo haz independiente desde el mago hacia otro enemigo. El guardado conserva los efectos en curso, marcas, historial reciente, cinco auras, daño personal e intervalo del oráculo; los puntos anteriores siguen siendo legibles.
+El modo incorpora **Fragmentación de roca**, **Marca arcana** y **Eco arcano** del catálogo 11, auras de Arcano y Agua, el oráculo ocasional y el resumen personal de daño, con protocolo 45. La fragmentación genera cuatro fragmentos en Diamante o seis en Mítico, con la mezcla original y áreas elementales pequeñas al chocar o caer. Marca repite el daño de los últimos segundos al morir el objetivo; Eco añade un segundo haz independiente desde el mago hacia otro enemigo. El guardado conserva los efectos en curso, marcas, historial reciente, cinco auras, daño personal e intervalo del oráculo; los puntos anteriores siguen siendo legibles.
+
+## Escalado por defensores activos
+
+Cuentan los defensores vivos que participan, incluidos los aliados IA. Los humanos
+que siguen cargando, los desconectados, los que esperan reaparecer y los eliminados
+no aumentan la dificultad. En cooperativo, consultar el inventario mantiene al
+personaje activo porque continúa bajo asistencia defensiva.
+
+| Defensores activos | Vida de enemigos normales | Vida del coloso | Daño enemigo | Prismas simultáneos |
+| --- | --- | --- | --- | --- |
+| 1 | 100 % | 100 % | 100 % | 2 |
+| 2 | 120 % | 140 % | 110 % | 2 |
+| 3 | 140 % | 180 % | 120 % | 3 |
+| 4 | 160 % | 220 % | 130 % | 3 |
+
+Los porcentajes se aplican sobre la dificultad por tiempo. El cambio alcanza a
+los enemigos que ya existen y conserva su porcentaje de vida y escudo; no los
+restaura al máximo. El bestiario actualiza sus cifras sin sumar apariciones.
+
+El prisma tiene un 2 % de probabilidad por intento ordinario desde dificultad 3.
+Cada aparición inicia una espera aleatoria de 45–75 s antes de poder aparecer otro;
+al morir se exige además un mínimo de 30 s para su reemplazo. No aparece ningún
+prisma nuevo mientras todos los defensores están caídos. Los que sobran al reducir
+el grupo se retiran, empezando por los más alejados, sin conceder oro, botín ni bajas.
+Los prismas no se recolocan junto al jugador al cambiar de zona. Guardar y continuar
+conserva el intervalo y el escalado; los puntos antiguos reciben una espera inicial
+y se ajustan al nuevo límite.
 
 ## Partida y vidas
 
@@ -106,7 +133,7 @@ El tope real también depende de los FPS de cada dispositivo. Se empieza con un 
 | Tejedor glacial | Dificultad 4 | 760 | Conos de frío, cinco esquirlas y rocas heladas |
 | Conjurador ígneo | Dificultad 5 | 920 | Rocas arcanas o de fuego, con explosión y suelo ardiente |
 | Guardián rúnico | Dificultad 6 | 1900 | 160 en 3,8 m, avisa 1,2 s; escudo de tierra de 280 × fuerza |
-| Prisma elemental | Dificultad 3 | 640 | 48; solo recibe el elemento de su color y fija una víctima hasta 10 s |
+| Prisma elemental | Dificultad 3 | 640 | 48; solo recibe el elemento de su color y fija una víctima hasta 10 s. Máximo 2 con 1–2 defensores activos y 3 con 3–4; 45–75 s entre apariciones y al menos 30 s tras morir |
 | Oráculo de asedio | Dificultad 6, ocasional | 1400 | Tres cristales de 200, radio 3 m, alcance 24 m; aura de escudos de 14 m |
 
 Las cifras de la tabla son las bases a dificultad 1 antes de multiplicarlas por la fuerza de aparición. El bestiario del perfil permite consultar cualquier dificultad y grupo. Los magos usan una potencia de 0,42 (el conjurador ígneo añade un 20 %), canalizan haces y relámpagos durante **1,2 s**, y conos durante **0,9 s**. La velocidad básica empieza en 3,67 m/s y aumenta hasta 5,27 m/s; cada tipo aplica su propio multiplicador.
