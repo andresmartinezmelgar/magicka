@@ -48,14 +48,15 @@ internal static class PersonalDamageTests
         {
             var world = World(GameMode.Defense); var a = world.AddPlayer("A")!; var b = world.AddPlayer("B")!;
             var enemy = Enemy(world); a.Invulnerable = b.Invulnerable = enemy.Invulnerable = 0;
+            float power = DefenseRules.PartyDamageMultiplier(2);
             foreach (var p in new[] { a, b }) { p.Shield = p.ShieldMax = 100; p.ShieldTime = 5; }
             Hit(world, a, enemy, 31, Element.Fire); Hit(world, b, enemy, 7, Element.Fire);
-            Near(DamageOf(world, a)!.PersonalShieldAbsorbed, 31, "Mezcla jugadores de la misma clase.");
-            Near(DamageOf(world, b)!.PersonalShieldAbsorbed, 7, "Comparte el contador personal.");
+            Near(DamageOf(world, a)!.PersonalShieldAbsorbed, 31 * power, "Mezcla jugadores de la misma clase.");
+            Near(DamageOf(world, b)!.PersonalShieldAbsorbed, 7 * power, "Comparte el contador personal.");
             world.RemovePlayer(b.Id);
             var save = world.SaveSurvival(a.Id, Guid.NewGuid().ToString("N"));
             var restored = GameWorld.RestoreSurvival(save); var human = restored.Players[a.Id];
-            Near(DamageOf(restored, human)!.PersonalShieldAbsorbed, 31, "Continuar pierde la absorción acumulada.");
+            Near(DamageOf(restored, human)!.PersonalShieldAbsorbed, 31 * power, "Continuar pierde la absorción acumulada.");
             var legacy = JsonSerializer.Deserialize<MatchDamageSnapshot>("{\"Health\":[0,0,0,0,0,0,0,0,0],\"Shield\":[0,0,0,0,0,0,0,0,0]}")!;
             Check(legacy.Valid() && legacy.PersonalShieldAbsorbed == 0 && legacy.BarrierAbsorbed == 0, "Rompe los resúmenes anteriores.");
         });

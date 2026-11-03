@@ -2,7 +2,7 @@ name: Publicacion estable 0.29.36 solicitada
 
 # Petición expresa: integrar los cambios en main y publicar tag e instaladores.
 # Solo este mensaje exacto y esta versión activan la publicación solicitada.
-# Validación previa de Supervivencia antes de integrar la versión solicitada.
+# Revisión 2: adaptar la regresión de absorción a la potencia cooperativa.
 on:
   push:
     branches: [main, pruebas/supervivencia-escalado-prismas]
@@ -51,6 +51,9 @@ jobs:
           test "$(tr -d '\r\n' < VERSION)" = '0.29.36'
           python3 scripts/version-support.py check .
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" = "$GITHUB_SHA"
+          for previous_run in 41709419352 41709359333; do
+            gh run cancel "$previous_run" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || true
+          done
           gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref main -f publish_preview=false -f publish_stable=true
           run_id=''
           for attempt in $(seq 1 60); do
