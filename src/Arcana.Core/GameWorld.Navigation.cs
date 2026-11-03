@@ -8,17 +8,21 @@ public sealed partial class GameWorld
         public V2[] Path = [];
         public int Next;
         public float Refresh;
+        public bool UsesTeleports;
     }
     private readonly Dictionary<int, Route> _routes = [];
 
-    private V2 NavigationDirection(Wizard wizard, V2 goal, float dt)
+    private V2 NavigationDirection(Wizard wizard, V2 goal, float dt, bool useTeleports = false)
     {
-        if (ClearMovement(wizard.Position, goal)) return (goal - wizard.Position).Normalized;
+        useTeleports &= Map.Teleports.Count > 0 && wizard.TeleportCooldown <= 0 && !wizard.TeleportNeedsExit;
+        if (!useTeleports && ClearMovement(wizard.Position, goal)) return (goal - wizard.Position).Normalized;
         if (!_routes.TryGetValue(wizard.Id, out var route)) _routes[wizard.Id] = route = new();
         route.Refresh -= dt;
-        if (route.Refresh <= 0 || V2.Distance(route.Goal, goal) > 3)
+        if (route.Refresh <= 0 || V2.Distance(route.Goal, goal) > 3 || route.UsesTeleports != useTeleports)
         {
-            route.Goal = goal; route.Path = Map.FindPath(wizard.Position, goal, ClearWalls, allowPartial: true);
+            route.Goal = goal; route.UsesTeleports = useTeleports;
+            route.Path = useTeleports ? FindTeleportPath(wizard.Position, goal)
+                : Map.FindPath(wizard.Position, goal, ClearWalls, allowPartial: true);
             route.Next = 0; route.Refresh = 0.8f;
         }
         while (route.Next < route.Path.Length && V2.Distance(wizard.Position, route.Path[route.Next]) < 0.6f) route.Next++;

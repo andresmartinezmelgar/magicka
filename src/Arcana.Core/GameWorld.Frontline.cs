@@ -52,6 +52,7 @@ public sealed partial class GameWorld
                 player.Knockback = V2.Zero; player.Input.MoveTo = false;
                 ResetSlide(player);
                 _routes.Remove(player.Id);
+                if (IsDefense && !player.Bot && player.Role == CombatantRole.Player) _defenseBotPlanClock = 0;
                 Emit("blink_arrive", destination, [], "");
                 break;
             }
