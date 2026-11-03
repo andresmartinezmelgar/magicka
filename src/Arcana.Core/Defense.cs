@@ -50,6 +50,9 @@ public static partial class DefenseRules
             MinionKind.Oracle => 1.15f, MinionKind.Prism => 1.12f,
             MinionKind.Brute => 0.6f, MinionKind.Bomber => 1.15f, MinionKind.Shaman => 0.85f, MinionKind.Sentinel => 0.72f, MinionKind.Warlock => 0.85f, MinionKind.Cryomancer => 0.95f, _ => 1 });
     public static float PartyPressure(int defenders) => 1 + (Math.Clamp(defenders, 1, MaxDefenders) - 1) * 0.3f;
+    public static float PartyHealthMultiplier(MinionKind kind, int defenders) =>
+        1 + (Math.Clamp(defenders, 1, MaxDefenders) - 1) * (kind == MinionKind.Boss ? .4f : .2f);
+    public static float PartyDamageMultiplier(int defenders) => 1 + (Math.Clamp(defenders, 1, MaxDefenders) - 1) * .1f;
     public static float SpawnInterval(int stage, int defenders, double variation) =>
         (0.32f + (float)Math.Clamp(variation, 0, 1) * 0.16f) /
         ((1 + Math.Max(0, stage - 1) * 0.07f) * PartyPressure(defenders));
@@ -67,7 +70,7 @@ public static partial class DefenseRules
     public static float MinionHealth(MinionKind kind, int stage, int party) => (kind switch
     { MinionKind.Boss => 4200, MinionKind.Tank => 1200, MinionKind.Captain => 700, MinionKind.Mage => 380, MinionKind.Archer => 260,
         MinionKind.Runner => 200, MinionKind.Brute => 1500, MinionKind.Bomber => 240, MinionKind.Shaman => 540, MinionKind.Sentinel => 1900, MinionKind.Warlock => 920, MinionKind.Cryomancer => 760, MinionKind.Prism => 640, MinionKind.Oracle => 1400, _ => 340 })
-        * EnemyStrength(stage) * (1 + (Math.Clamp(party, 1, MaxDefenders) - 1) * (kind == MinionKind.Boss ? 0.4f : 0.1f));
+        * EnemyStrength(stage) * PartyHealthMultiplier(kind, party);
     public static int PassiveCost(int level) => 140 * (level + 1) * (level + 1);
     public static float BerserkerDuration(int level) => 4 + level * 0.5f;
     public static float BerserkerPower(int level) => 1.4f + level * 0.1f;
@@ -147,7 +150,8 @@ internal sealed class DefenseMinion(Wizard body, MinionKind kind, float strength
 {
     public readonly Wizard Body = body;
     public readonly MinionKind Kind = kind;
-    public readonly float Strength = strength;
+    public float Strength = strength;
+    public int PartySize = 1;
     public float Attack = 1, ChannelTime, SpeedBoost, SpeedClock, NavigationClock, Windup, SupportCooldown = 3, ShieldCooldown;
     public float FocusTime, AuraRepairCooldown;
     public int FocusTargetId;

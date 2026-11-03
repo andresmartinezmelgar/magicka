@@ -196,7 +196,7 @@ internal static class DefenseEliteTests
             Step(w, 3000);
             var d = w.Snapshot().Defense!;
             Check(d.PerformanceLimit == 24 && d.Minions.Length <= 24 && d.Minions.Count(m => m.Kind == MinionKind.Oracle) <= 2 &&
-                d.Minions.Count(m => m.Kind == MinionKind.Prism) <= 8, "La generación ignoró la carga o los límites de élites.");
+                d.Minions.Count(m => m.Kind == MinionKind.Prism) <= DefenseRules.PrismLimit(1), "La generación ignoró la carga o los límites de élites.");
             p.Invulnerable = 0; SnapshotValidation.Check(w.Snapshot());
         });
         test("Reliquias: el uno por ciento incluye la tirada 99 y excluye la 100", () =>

@@ -48,7 +48,13 @@ public sealed partial class GameWorld
         }
         var kinds = Enum.GetValues<MinionKind>().Where(k => k != MinionKind.Boss).ToArray();
         w.TrySpawnMinion(MinionKind.Boss);
-        for (int i = 1; i < DefenseRules.MaxMinions; i++) w.TrySpawnMinion(kinds[i % kinds.Length]);
+        for (int i = 1; i < DefenseRules.MaxMinions; i++)
+        {
+            var kind = kinds[i % kinds.Length];
+            if (kind == MinionKind.Prism && w._minions.Values.Count(m => m.Kind == MinionKind.Prism) >= DefenseRules.PrismLimit(4))
+                kind = MinionKind.Runner;
+            w.TrySpawnMinion(kind);
+        }
         foreach (var kind in Enum.GetValues<BuffKind>())
             w._defenseDrops.Add(new() { Id = w._nextEntity++, Kind = DefenseDropKind.Relic, Buff = kind,
                 Position = w.Map.Teleports[0].A + new V2(3, 0) });

@@ -95,12 +95,13 @@ internal static class DefenseBalanceTests
                 var world = World(); var humans = Enumerable.Range(0, count).Select(n => world.AddPlayer("Humano " + n)!).ToArray();
                 world.Step(); float health = Enemy(world, new(0, 0)).MaxHealth;
                 if (count == 1) solo = health;
-                Check(health is >= 300 and <= 450 && health <= solo * 1.31f, "La vida inicial vuelve a dispararse con aliados.");
+                Check(health is >= 300 and <= 550 && health <= solo * 1.61f, "La vida inicial supera el escalado del grupo activo.");
                 var bots = World(count - 1); bots.AddPlayer("Humano"); bots.Step();
                 Check(Enemy(bots, new(0, 0)).MaxHealth == health, "El número de bots altera la escala de vida respecto a humanos.");
                 if (count == 4)
                 {
-                    Check(health / solo * DefenseRules.PartyPressure(count) < 2.6f, "Multiplicó en exceso vida y cantidad.");
+                    Check(health / solo * DefenseRules.PartyPressure(count) * DefenseRules.PartyDamageMultiplier(count) < 4,
+                        "Multiplicó en exceso vida, daño y cantidad para cuatro defensores.");
                     foreach (var human in humans.Skip(1)) world.RemovePlayer(human.Id);
                     world.Step(); Check(Enemy(world, new(1, 0)).MaxHealth == solo, "Se quedó la dificultad del grupo que abandonó.");
                 }

@@ -45,6 +45,8 @@ if (args.Contains("--defense-benchmark"))
 if (args.Contains("--defense-only"))
 {
     DefenseTests.Run(Test);
+    DefenseScalingTests.Run(Test);
+    DefenseBotPortalTests.Run(Test);
     SurvivalAuraAndOracleTests.Run(Test);
     Console.WriteLine($"RESULTADO DEFENSA: {passed} correctas, {failed} fallidas.");
     return failed == 0 ? 0 : 1;
@@ -176,6 +178,8 @@ BestiaryAndAffixTests.Run(Test);
 BestiaryStatsTests.Run(Test);
 DefenseThreatTests.Run(Test);
 DefenseEliteTests.Run(Test);
+DefenseScalingTests.Run(Test);
+DefenseBotPortalTests.Run(Test);
 SurvivalAuraAndOracleTests.Run(Test);
 MatchStatisticsTests.Run(Test);
 PersonalDamageTests.Run(Test);

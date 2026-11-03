@@ -183,7 +183,8 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                                     session.Socket.Abort();
                                 for (int n = 0; n < 32 && session.Commands.Reader.TryRead(out var message); n++)
                                 {
-                                    if (message.Type == "ready" && message.Sequence > 0) { session.Ready = true; continue; }
+                                    if (message.Type == "ready" && message.Sequence > 0)
+                                    { session.Ready = true; room.World.SetDefensePlayerActive(session.Id, true); continue; }
                                     if (room.BestOf > 1 && !room.Started && session.Ready)
                                     {
                                         if (message.Type == "lobby-team" && message.Team is 0 or 1)
@@ -363,6 +364,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                         if (player == null) error = "La sala está llena o el personaje ya no está disponible.";
                         else
                         {
+                            room.World.SetDefensePlayerActive(player.Id, false);
                             bool restoredDefense = false;
                             if (resume) room.Reservations.Remove(hello.ResumeToken);
                             else

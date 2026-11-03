@@ -1,11 +1,11 @@
-name: Publicacion estable 0.29.35 solicitada
+name: Publicacion estable 0.29.36 solicitada
 
 # Petición expresa: integrar los cambios en main y publicar tag e instaladores.
 # Solo este mensaje exacto y esta versión activan la publicación solicitada.
-# Revisión 2: corregir fixtures de ping y navegación antes de publicar.
+# Validación previa de Supervivencia antes de integrar la versión solicitada.
 on:
   push:
-    branches: [main]
+    branches: [main, pruebas/supervivencia-escalado-prismas]
     paths: [.github/workflows/publish-requested.yml]
 
 permissions:
@@ -13,8 +13,27 @@ permissions:
   actions: write
 
 jobs:
+  validate-survival:
+    name: Compilar y comprobar Supervivencia antes de integrar
+    if: github.ref == 'refs/heads/pruebas/supervivencia-escalado-prismas' && github.event.head_commit.message == 'Preparar Arcana Arena 0.29.36'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DOTNET_ROLL_FORWARD: LatestPatch
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Validar versión y compilar cliente, servidor y pruebas
+        run: |
+          python3 scripts/version-support.py check .
+          dotnet build ArcanaArena.sln -c Release --nologo
+      - name: Ejecutar regresiones de Supervivencia, escalado y portales
+        run: dotnet run --project tests/Arcana.Tests/Arcana.Tests.csproj -c Release --no-build -- --defense-only
+
   publish-requested-version:
-    if: github.event.head_commit.message == 'Publicar Arcana Arena 0.29.35'
+    if: github.ref == 'refs/heads/main' && github.event.head_commit.message == 'Publicar Arcana Arena 0.29.36'
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
@@ -29,12 +48,9 @@ jobs:
         run: |
           set -euo pipefail
           test "$GITHUB_REF_NAME" = main
-          test "$(tr -d '\r\n' < VERSION)" = '0.29.35'
+          test "$(tr -d '\r\n' < VERSION)" = '0.29.36'
           python3 scripts/version-support.py check .
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" = "$GITHUB_SHA"
-          for previous_run in 41354811444 41354802233; do
-            gh run cancel "$previous_run" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || true
-          done
           gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref main -f publish_preview=false -f publish_stable=true
           run_id=''
           for attempt in $(seq 1 60); do
@@ -53,7 +69,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          version=0.29.35
+          version=0.29.36
           tag="v$version"
           release="repos/$GITHUB_REPOSITORY/releases/tags/$tag"
           test "$(gh api "$release" --jq '.target_commitish')" = "$GITHUB_SHA"

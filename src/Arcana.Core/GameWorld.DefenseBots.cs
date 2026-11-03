@@ -156,7 +156,8 @@ public sealed partial class GameWorld
     private void ThinkDefenseBot(Wizard bot, float dt)
     {
         if (!_defenseBotPlans.TryGetValue(bot.Id, out var plan)) return;
-        var direction = V2.Distance(bot.Position, plan.Goal) > 0.9f ? NavigationDirection(bot, plan.Goal, dt) : V2.Zero;
+        var direction = V2.Distance(bot.Position, plan.Goal) > 0.9f
+            ? NavigationDirection(bot, plan.Goal, dt, useTeleports: true) : V2.Zero;
         var separation = V2.Zero;
         foreach (var ally in _players.Values)
         {

@@ -119,7 +119,7 @@ public partial class DefensePanel
                 MinionKind.Runner => "Corre un 45 % más que un minion básico, pero tiene menos vida y daño. Aparece desde dificultad 2.",
                 MinionKind.Brute => "Mucha vida. Se detiene y avisa 0,9 s antes de golpear en un radio de 2,8 m. Puedes esquivarlo o interrumpirlo con congelación. Desde dificultad 4.",
                 MinionKind.Bomber => "Se detiene y avisa 1,1 s antes de explotar en 3,2 m. Muere al explotar; matarlo o congelarlo interrumpe el aviso. Desde dificultad 4.",
-                MinionKind.Shaman => $"Cada {DefenseRules.ShamanHealInterval:0} s cura a otro enemigo herido a {DefenseRules.ShamanHealRadius:0} m, sin atravesar muros. Curación base: {DefenseRules.ShamanHealAmount * DefenseRules.EnemyStrength(enemy.Difficulty):0.#}. Desde dificultad 3.",
+                MinionKind.Shaman => $"Cada {DefenseRules.ShamanHealInterval:0} s cura a otro enemigo herido a {DefenseRules.ShamanHealRadius:0} m, sin atravesar muros. Curación base: {DefenseRules.ShamanHealAmount * enemy.Attack / DefenseRules.MinionMeleeAttack(MinionKind.Shaman):0.#}. Desde dificultad 3.",
                 MinionKind.Cryomancer => BestiaryCatalogue.Description(enemy.Kind),
                 MinionKind.Warlock => BestiaryCatalogue.Description(enemy.Kind),
                 MinionKind.Sentinel => BestiaryCatalogue.Description(enemy.Kind),
