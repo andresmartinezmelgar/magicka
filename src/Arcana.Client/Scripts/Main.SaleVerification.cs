@@ -196,12 +196,27 @@ public partial class Main
                 if (Accounts.Profile != null) return false;
                 Check(!dialog.Visible && !panel.PickerVisible && fixture.Sales == (_saleLogoutProbe ? 0 : 2), "Cerrar sesión deja visible una venta de la cuenta anterior.");
                 Check(_engineLog.ErrorCount == 0, "Godot registró errores durante la venta.");
-                GD.Print("SALE_SMOKE_OK: equipada primero y protegida, conexión tardía, saldo, cancelar, venta única y cierre de sesión.");
-                _saleSmoke = false; GetTree().Quit(); return true;
+                _saleSmoke = false;
+                var tree = GetTree(); var errors = _engineLog;
+                QueueFree(); _ = FinishSaleSmokeAfterCleanup(tree, errors); return true;
             }
         }
         catch (Exception error) { CaptureSale("00-error"); GD.PrintErr("SALE_SMOKE_FAILED: " + error); GetTree().Quit(1); return true; }
         return false;
+    }
+    private static async Task FinishSaleSmokeAfterCleanup(SceneTree tree, EngineLogBridge errors)
+    {
+        try
+        {
+            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            GC.Collect(); GC.WaitForPendingFinalizers();
+            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            if (errors.ErrorCount > 0) throw new InvalidOperationException("Godot registró errores al liberar la prueba de ventas.");
+            GD.Print("SALE_SMOKE_OK: equipada primero y protegida, conexión tardía, saldo, cancelar, venta única, cierre de sesión y limpieza final verificada.");
+            tree.Quit();
+        }
+        catch (Exception error) { GD.PushError("SALE_SMOKE_FAILED: limpieza: " + error); tree.Quit(1); }
     }
     private void CaptureSale(string name)
     {
