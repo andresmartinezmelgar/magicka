@@ -1,6 +1,6 @@
 # Cambios
 
-## Pendiente de versión
+## 0.29.36
 
 - Los bots aliados comparan rutas a pie con atajos por portales para seguir al jugador tras teletransportarse. Buscan entradas accesibles, pueden encadenar portales y respetan salidas bloqueadas, enfriamiento y salida del círculo antes de reutilizarlo.
 - Supervivencia ajusta la vida y el daño de los enemigos al número de defensores vivos que participan, incluidos aliados IA. No cuentan eliminados, desconectados ni jugadores que siguen cargando. Los enemigos presentes se reajustan conservando su porcentaje de vida y escudo; el bestiario actualiza las cifras sin contar nuevas apariciones.

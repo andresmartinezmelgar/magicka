@@ -1,6 +1,6 @@
 # Supervivencia
 
-La base publicada es **0.29.35**, protocolo **45**. Esta rama añade escalado por defensores activos y aparición espaciada de prismas; la compilación se realiza únicamente por petición expresa.
+La versión **0.29.36**, protocolo **45**, incorpora escalado por defensores activos, aparición espaciada de prismas y seguimiento de aliados IA mediante portales.
 
 El modo incorpora **Fragmentación de roca**, **Marca arcana** y **Eco arcano** del catálogo 11, auras de Arcano y Agua, el oráculo ocasional y el resumen personal de daño, con protocolo 45. La fragmentación genera cuatro fragmentos en Diamante o seis en Mítico, con la mezcla original y áreas elementales pequeñas al chocar o caer. Marca repite el daño de los últimos segundos al morir el objetivo; Eco añade un segundo haz independiente desde el mago hacia otro enemigo. El guardado conserva los efectos en curso, marcas, historial reciente, cinco auras, daño personal e intervalo del oráculo; los puntos anteriores siguen siendo legibles.
 
