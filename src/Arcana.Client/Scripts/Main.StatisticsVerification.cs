@@ -185,7 +185,7 @@ public partial class Main
             }
             int view = (_statisticsSmokePhase - 2) / 2;
             if (view >= 6)
-            { CleanupStatisticsSmoke(); GD.Print("MATCH_STATISTICS_SMOKE_OK: dos UID, consulta Firebase paginada sin red de producción, seis vistas, daño directo/áreas/auras/quemaduras por elemento, compatibilidad sin desglose, escalas automática/lineal/logarítmica, valores y porcentajes, enemigos separados, soporte efectivo y humanos+bots."); GetTree().Quit(0); _statisticsSmoke = false; return true; }
+            { CleanupStatisticsSmoke(); GD.Print("MATCH_STATISTICS_SMOKE_OK: dos UID, consulta Firebase paginada sin red de producción, seis vistas, daño directo/áreas/auras/quemaduras por elemento, compatibilidad sin desglose, escalas automática/lineal/logarítmica, valores y porcentajes, enemigos separados, soporte efectivo y humanos+bots."); QuitVerification(); _statisticsSmoke = false; return true; }
             var scroll = (ScrollContainer)_statisticsPanel!.FindChild("StatisticsScroll", true, false);
             if (_statisticsSmokePhase % 2 == 0)
             {

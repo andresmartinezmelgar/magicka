@@ -121,7 +121,7 @@ public partial class Main
             await StopGoogleSession(); OnGoogleSession(old); await Frames(20);
             Check(!Accounts.SignedIn && Accounts.Profile == null && !GoogleIdentityKnown, "Una sesión tardía vuelve a conectar tras salir.");
             GD.Print("SESSION_LOGOUT_REGRESSION_OK");
-            GD.Print("REGRESSION_SMOKE_OK: sesiones, OAuth, Perfil, PvP flexible y navegación del selector."); GetTree().Quit();
+            GD.Print("REGRESSION_SMOKE_OK: sesiones, OAuth, Perfil, PvP flexible y navegación del selector."); QuitVerification();
         }
         catch (Exception error) { GD.PrintErr("REGRESSION_SMOKE_FAILED: " + error); GetTree().Quit(1); }
     }

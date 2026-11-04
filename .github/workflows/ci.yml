@@ -141,6 +141,22 @@ jobs:
           bash scripts/test-client-smoke.sh sale-smoke "$ARCANA_GODOT"
           bash scripts/test-client-smoke.sh equipment-elements-smoke "$ARCANA_GODOT"
           bash scripts/test-client-smoke.sh equipment-public-smoke "$ARCANA_GODOT"
+      - name: Verificar y capturar tienda permanente en escritorio y móvil
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          for surface in desktop mobile; do
+            args=(--visual-desktop --smoke-viewport=1440x900)
+            if [ "$surface" = mobile ]; then args=(--mobile --smoke-viewport=720x540); fi
+            target="$PWD/artifacts/visual-review/shop-$surface"
+            mkdir -p "$target"
+            xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --shop-smoke "${args[@]}" "--shop-captures=$target" 2>&1 | tee "$RUNNER_TEMP/shop-$surface.log"
+            grep -q 'SHOP_SMOKE_OK' "$RUNNER_TEMP/shop-$surface.log"
+            test "$(find "$target" -name '*.png' | wc -l)" -eq 7
+            test -s "$target/03-comparacion.png"
+            ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/shop-$surface.log"
+          done
       - name: Comprobar laboratorio de equipo con viewport real en escritorio y móvil
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
@@ -287,22 +303,6 @@ jobs:
           if unique < 38: raise SystemExit(f'Escenas indistinguibles: {unique}/{len(files)}')
           print(f'VISUAL_QA_OK: {len(files)} PNG válidos, {unique} fotogramas distintos, diez biomas, escenarios de tamaño, auras de piedra y seis vistas estadísticas en móvil/escritorio.')
           PY
-      - name: Verificar y capturar tienda permanente en escritorio y móvil
-        env:
-          LIBGL_ALWAYS_SOFTWARE: '1'
-        run: |
-          set -euo pipefail
-          for surface in desktop mobile; do
-            args=(--visual-desktop --smoke-viewport=1440x900)
-            if [ "$surface" = mobile ]; then args=(--mobile --smoke-viewport=720x540); fi
-            target="$PWD/artifacts/visual-review/shop-$surface"
-            mkdir -p "$target"
-            xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --shop-smoke "${args[@]}" "--shop-captures=$target" 2>&1 | tee "$RUNNER_TEMP/shop-$surface.log"
-            grep -q 'SHOP_SMOKE_OK' "$RUNNER_TEMP/shop-$surface.log"
-            test "$(find "$target" -name '*.png' | wc -l)" -eq 7
-            test -s "$target/03-comparacion.png"
-            ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/shop-$surface.log"
-          done
       - name: Verificar y capturar la venta en escritorio y pantallas móviles pequeñas
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'

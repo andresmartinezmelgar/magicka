@@ -55,7 +55,6 @@ public partial class ClientVerification : Node
     private void CompleteSmoke(string message)
     {
         if (CheckSmokeErrors()) return;
-        if (!_combinationsSmoke) { GD.Print(message); GetTree().Quit(); return; }
         _smokeCompleting = true;
         var tree = GetTree();
         var errors = _runtime.EngineLog;
@@ -65,20 +64,8 @@ public partial class ClientVerification : Node
         _runtime = null!;
         _ = FinishSmokeAfterCleanup(tree, errors, message);
     }
-    private static async Task FinishSmokeAfterCleanup(SceneTree tree, EngineLogBridge errors, string message, int exitCode = 0)
-    {
-        try
-        {
-            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
-            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
-            GC.Collect(); GC.WaitForPendingFinalizers();
-            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
-            if (errors.ErrorCount > 0)
-            { GD.PushError($"SMOKE_FAILED: {errors.ErrorCount} errores durante la limpieza."); tree.Quit(1); return; }
-            GD.Print(message); tree.Quit(exitCode);
-        }
-        catch (Exception error) { GD.PushError("SMOKE_FAILED: limpieza: " + error); tree.Quit(1); }
-    }
+    private static Task FinishSmokeAfterCleanup(SceneTree tree, EngineLogBridge errors, string message, int exitCode = 0) =>
+        Main.FinishVisualVerificationAfterCleanup(tree, errors, message, "SMOKE_FAILED", exitCode);
 
     private Main.VerificationAccess _runtime = null!;
     internal bool HoldPosted => _holdPostedForVerification;
@@ -371,7 +358,7 @@ public partial class ClientVerification : Node
     }
     private async Task Capture(string path)
     {
-        if (DisplayServer.GetName() == "headless") { GD.Print("CAPTURE_SKIPPED: headless"); GetTree().Quit(); return; }
+        if (DisplayServer.GetName() == "headless") { CompleteSmoke("CAPTURE_SKIPPED: headless"); return; }
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
         if (_smokeCompleting) return;
         using var captured = GetViewport().GetTexture().GetImage(); var error = captured.SavePng(path);

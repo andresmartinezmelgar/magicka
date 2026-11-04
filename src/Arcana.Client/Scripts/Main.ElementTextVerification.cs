@@ -49,7 +49,7 @@ public partial class Main
             VerifyRelicStatisticsSmoke();
             VerifyDefenseInterfaceSmoke();
             GD.Print("ELEMENT_TEXT_SMOKE_OK: colores, recetas mixtas, cambios dinámicos, texto externo, medidas y botones verificados.");
-            GetTree().Quit();
+            QuitVerification();
         }
         catch (Exception error) { GD.PushError("ELEMENT_TEXT_SMOKE_FAILED: " + error); GetTree().Quit(1); }
     }

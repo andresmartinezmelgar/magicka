@@ -79,7 +79,7 @@ public partial class Main
             if (_equipmentPublicPreview) { GD.Print("PUBLIC_EQUIPMENT_PREVIEW_READY"); return false; }
             ClosePlayerEquipment(); Check(!InspectingEquipment && (!Ui.IsMobile || _touch!.Visible), "Cerrar la ficha no restaura los controles.");
             GD.Print("EQUIPMENT_PUBLIC_SMOKE_OK: clasificación, selección de mago, piezas, conjuntos, bonos reales, lectura sin cambios y bloqueo de controles.");
-            GetTree().Quit(); return true;
+            QuitVerification(); return true;
         }
         catch (Exception error) { _equipmentPublicMode = false; GD.PushError("EQUIPMENT_PUBLIC_SMOKE_FAILED: " + error.Message); GetTree().Quit(1); return true; }
     }
@@ -140,7 +140,7 @@ public partial class Main
                 }
                 Check(_engineLog.ErrorCount == 0, "Godot registró errores con las familias nuevas.");
                 GD.Print("EQUIPMENT_ELEMENTS_SMOKE_OK: ocho familias, selección por calidad, atributos y conjuntos, guardado al salir y equipo aplicado contra IA.");
-                GetTree().Quit(); return true;
+                QuitVerification(); return true;
             }
             if (_equipmentRestoreSmoke)
             {
@@ -156,7 +156,7 @@ public partial class Main
                     "La nueva partida no utiliza el equipo recuperado tras reabrir el juego.");
                 ReturnToLauncher();
                 GD.Print("EQUIPMENT_RESTORE_SMOKE_OK: nuevo proceso, caché recuperada al arrancar y equipo aplicado contra IA.");
-                GetTree().Quit(); return true;
+                QuitVerification(); return true;
             }
             var panel = _equipmentPanel!;
             AssertInventorySplit(panel);
@@ -304,7 +304,7 @@ public partial class Main
             }
             Check(_engineLog.ErrorCount == 0, "Godot registró errores durante la comprobación.");
             GD.Print("EQUIPMENT_SMOKE_OK: selector en seis posiciones, cinco calidades, sin escrituras durante la selección, guardado al salir por Atrás/Escape/menú, reapertura y dos partidas IA.");
-            GetTree().Quit();
+            QuitVerification();
         }
         catch (Exception error) { GD.PushError("EQUIPMENT_SMOKE_FAILED: " + error.Message); GetTree().Quit(1); }
         return true;

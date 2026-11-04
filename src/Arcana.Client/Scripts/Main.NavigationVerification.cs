@@ -270,7 +270,7 @@ public partial class Main
             }
             Check(_engineLog.ErrorCount == 0, "Godot registró errores durante la navegación.");
             GD.Print("NAVIGATION_SMOKE_OK: salidas visibles fuera del scroll, clic real, Escape/Atrás y guardado autoritativo antes de continuar.");
-            GetTree().Quit();
+            QuitVerification();
         }
         catch (Exception error) { GD.PushError("NAVIGATION_SMOKE_FAILED: " + error); GetTree().Quit(1); }
     }

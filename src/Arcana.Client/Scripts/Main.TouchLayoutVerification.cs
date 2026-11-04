@@ -66,7 +66,7 @@ public partial class Main
             }
             if (_engineLog.ErrorCount != 0) throw new InvalidOperationException("El motor registró errores en la revisión del HUD.");
             GD.Print("TOUCH_LAYOUT_SMOKE_OK: siete mapas, HUD y minimapa, 168 configuraciones, arrastres sobre controles, paneles y fuera de pantalla.");
-            GetTree().Quit();
+            QuitVerification();
         }
         catch (Exception error) { GD.PrintErr("TOUCH_LAYOUT_SMOKE_FAILED: " + error); GetTree().Quit(1); }
     }

@@ -134,10 +134,7 @@ public partial class Main
     {
         try
         {
-            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
-            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
-            GC.Collect(); GC.WaitForPendingFinalizers();
-            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            await DrainVisualVerificationResources(tree);
             if (errors.ErrorCount > 0) throw new InvalidOperationException("Godot registró errores al liberar la prueba del bestiario.");
             GD.Print("BESTIARY_RELICS_SMOKE_OK: quince enemigos, retratos, estadísticas escalables, contadores, texto adaptable y reliquias fuera del lateral; limpieza final verificada.");
             tree.Quit();

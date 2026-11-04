@@ -172,7 +172,7 @@ public partial class Main
                 AssertHeaderAndHome(_launcher, GetViewport().GetVisibleRect(), "DESKTOP");
                 GD.Print("DESKTOP_HEADER_LAYOUT_OK");
                 _desktopHeaderSmoke = false;
-                GetTree().Quit(0);
+                QuitVerification();
             }
             return true;
         }
@@ -630,7 +630,7 @@ public partial class Main
             _googleIdentityKnown = false;
             GD.Print("MOBILE_MENU_LAYOUT_OK: PvP, IA, salas, perfil, ajustes, ayuda y equipación; navegación común y contenido accesible.");
             _mobileMenuSmoke = false;
-            GetTree().Quit(0);
+            QuitVerification();
             return true;
         }
         catch (Exception error)

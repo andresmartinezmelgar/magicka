@@ -149,12 +149,12 @@ public partial class RenderProfiler : Node
         Diagnostics.Info("render.profile", "Medición de la escena gráfica.", new Dictionary<string, object?> { ["profile"] = element });
         GD.Print($"PROFILE_OK: {_samples.Count} muestras, {measured:0.00}s, {path}");
         _finished?.Invoke(canceled ? "Medición cancelada; informe parcial guardado." : $"Medición guardada: {_samples.Count / measured:0.0} FPS medios en la escena de carga máxima.", element);
-        if (_quit) GetTree().Quit(canceled || _samples.Count < 3 ? 1 : 0);
+        if (_quit) GetParent<Main>().QuitVerification(canceled || _samples.Count < 3 ? 1 : 0);
     }
     private void Fail(Exception error)
     {
         _stopped = true; GD.PushError("PROFILE_FAILED: " + error.Message);
-        if (_quit) GetTree().Quit(1); else _finished?.Invoke("No se pudo completar la medición.", default);
+        if (_quit) GetParent<Main>().QuitVerification(1); else _finished?.Invoke("No se pudo completar la medición.", default);
     }
     internal void Cancel()
     {
