@@ -93,8 +93,11 @@ public partial class Main
             Check(_equipmentLaboratory == null && _launcher.Visible && ReferenceEquals(profile, Accounts.Profile),
                 "Escape/Atrás no cierra el laboratorio o altera el perfil.");
             Check(_engineLog.ErrorCount == 0, "Godot registró errores durante el ensayo.");
-            GD.Print("EQUIPMENT_LAB_SMOKE_OK: acceso desde menú, cinco magos, seis ranuras, cinco calidades, cuatro direcciones, animaciones, muerte, reaparición, inventario y Atrás sin alterar la cuenta.");
-            GetTree().Quit();
+            var tree = GetTree(); var errors = _engineLog;
+            QueueFree();
+            _ = FinishVisualVerificationAfterCleanup(tree, errors,
+                "EQUIPMENT_LAB_SMOKE_OK: acceso desde menú, cinco magos, seis ranuras, cinco calidades, cuatro direcciones, animaciones, muerte, reaparición, inventario y Atrás sin alterar la cuenta; limpieza final verificada.",
+                "EQUIPMENT_LAB_SMOKE_FAILED");
         }
         catch (Exception error) { GD.PushError("EQUIPMENT_LAB_SMOKE_FAILED: " + error); GetTree().Quit(1); }
     }

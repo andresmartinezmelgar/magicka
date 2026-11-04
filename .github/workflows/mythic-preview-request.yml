@@ -3,6 +3,7 @@ name: Publicar prueba de equipo mítico solicitada
 # Petición expresa del usuario: tag de prueba para probar sprites y laboratorio.
 # Un push normal no activa compilaciones. Se exige este archivo, rama y mensaje.
 # Cada revisión cancela las compilaciones anteriores de esta misma rama.
+# La validación incluye liberar los recursos al cerrar las simulaciones.
 on:
   push:
     branches: [pruebas/equipo-mitico-articulado]
