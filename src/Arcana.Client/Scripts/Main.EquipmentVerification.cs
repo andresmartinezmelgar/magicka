@@ -292,9 +292,14 @@ public partial class Main
                 var baseVisual = new WizardVisual(); var equippedVisual = new WizardVisual();
                 AddChild(baseVisual); AddChild(equippedVisual);
                 baseVisual.Build(player with { Equipment = null }, true); equippedVisual.Build(player, true);
+                baseVisual.Update(player with { Equipment = null }, 1 / 60f, 0, _renderer.Camera, 0, 0);
+                equippedVisual.Update(player, 1 / 60f, 0, _renderer.Camera, 0, 0);
+                int appearanceMask = MythicEquipmentVisuals.Mask(player.Equipment);
                 Check(baseVisual.Sprite.Texture == equippedVisual.Sprite.Texture && baseVisual.Sprite.MaterialOverride is ShaderMaterial &&
-                    equippedVisual.Sprite.GetParent().GetChildren().Count == 1,
-                    "El equipo añadió adornos o cambió el sprite del mago.");
+                    equippedVisual.Sprite.GetParent().GetChildren().OfType<Sprite3D>().Count() == 1 &&
+                    baseVisual.MythicEquipmentMask == 0 && equippedVisual.MythicEquipmentMask == appearanceMask &&
+                    equippedVisual.MythicEquipmentVisible == (appearanceMask != 0),
+                    "El equipo cambió el atlas base, duplicó el mago o perdió la indumentaria mítica.");
                 baseVisual.QueueFree(); equippedVisual.QueueFree(); ReturnToLauncher();
             }
             Check(_engineLog.ErrorCount == 0, "Godot registró errores durante la comprobación.");

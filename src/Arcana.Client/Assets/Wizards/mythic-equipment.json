@@ -1,0 +1,273 @@
+{
+  "Texture": "res://Assets/Wizards/mythic-equipment.png",
+  "Width": 1024,
+  "Height": 1536,
+  "Sprites": [
+    {
+      "Slot": 1,
+      "Views": [
+        {
+          "X": 40,
+          "Y": 57,
+          "Width": 179,
+          "Height": 137
+        },
+        {
+          "X": 295,
+          "Y": 58,
+          "Width": 178,
+          "Height": 138
+        },
+        {
+          "X": 551,
+          "Y": 57,
+          "Width": 178,
+          "Height": 137
+        },
+        {
+          "X": 808,
+          "Y": 58,
+          "Width": 177,
+          "Height": 138
+        }
+      ]
+    },
+    {
+      "Slot": 2,
+      "Views": [
+        {
+          "X": 15,
+          "Y": 294,
+          "Width": 228,
+          "Height": 184
+        },
+        {
+          "X": 306,
+          "Y": 285,
+          "Width": 168,
+          "Height": 190
+        },
+        {
+          "X": 526,
+          "Y": 293,
+          "Width": 228,
+          "Height": 183
+        },
+        {
+          "X": 807,
+          "Y": 285,
+          "Width": 167,
+          "Height": 190
+        }
+      ]
+    },
+    {
+      "Slot": 0,
+      "Views": [
+        {
+          "X": 61,
+          "Y": 539,
+          "Width": 138,
+          "Height": 203
+        },
+        {
+          "X": 284,
+          "Y": 539,
+          "Width": 182,
+          "Height": 202
+        },
+        {
+          "X": 571,
+          "Y": 539,
+          "Width": 138,
+          "Height": 202
+        },
+        {
+          "X": 813,
+          "Y": 539,
+          "Width": 182,
+          "Height": 202
+        }
+      ]
+    },
+    {
+      "Slot": 3,
+      "Views": [
+        {
+          "X": 39,
+          "Y": 791,
+          "Width": 179,
+          "Height": 216
+        },
+        {
+          "X": 314,
+          "Y": 791,
+          "Width": 140,
+          "Height": 215
+        },
+        {
+          "X": 551,
+          "Y": 791,
+          "Width": 179,
+          "Height": 215
+        },
+        {
+          "X": 826,
+          "Y": 791,
+          "Width": 140,
+          "Height": 215
+        }
+      ]
+    },
+    {
+      "Slot": 4,
+      "Views": [
+        {
+          "X": 39,
+          "Y": 1072,
+          "Width": 180,
+          "Height": 163
+        },
+        {
+          "X": 295,
+          "Y": 1073,
+          "Width": 174,
+          "Height": 160
+        },
+        {
+          "X": 552,
+          "Y": 1072,
+          "Width": 176,
+          "Height": 165
+        },
+        {
+          "X": 811,
+          "Y": 1074,
+          "Width": 173,
+          "Height": 158
+        }
+      ]
+    },
+    {
+      "Slot": 5,
+      "Views": [
+        {
+          "X": 37,
+          "Y": 1319,
+          "Width": 182,
+          "Height": 171
+        },
+        {
+          "X": 295,
+          "Y": 1322,
+          "Width": 178,
+          "Height": 166
+        },
+        {
+          "X": 552,
+          "Y": 1323,
+          "Width": 177,
+          "Height": 168
+        },
+        {
+          "X": 807,
+          "Y": 1322,
+          "Width": 177,
+          "Height": 166
+        }
+      ]
+    }
+  ],
+  "Rigs": [
+    {"Type": 0, "Frames": [
+      {"Hat":{"X":165.0,"Y":89.0,"Width":118,"Height":58},"Chest":{"X":164.0,"Y":202.0,"Width":116,"Height":79},"LeftBoot":{"X":132.5,"Y":268.5,"Width":31,"Height":32},"RightBoot":{"X":195.5,"Y":269.0,"Width":31,"Height":32},"Weapon":{"X":89,"Y":101,"Width":67,"Height":87},"GoldRing":{"X":98.0,"Y":193.0,"Width":13,"Height":14},"MagicRing":{"X":218.0,"Y":213.0,"Width":13,"Height":14},"Beard":[161.95,154.25,29,32]},
+      {"Hat":{"X":163.0,"Y":88.0,"Width":118,"Height":58},"Chest":{"X":165.0,"Y":199.0,"Width":116,"Height":78},"LeftBoot":{"X":160.5,"Y":267.5,"Width":51,"Height":53},"RightBoot":{"X":197.0,"Y":250.0,"Width":30,"Height":32},"Weapon":{"X":87,"Y":79,"Width":62,"Height":82},"GoldRing":{"X":97.0,"Y":179.0,"Width":13,"Height":14},"MagicRing":{"X":217.0,"Y":196.0,"Width":14,"Height":14},"Beard":[163.75,153.8,29,32]},
+      {"Hat":{"X":145.0,"Y":89.0,"Width":118,"Height":58},"Chest":{"X":146.0,"Y":205.0,"Width":116,"Height":78},"LeftBoot":{"X":131.0,"Y":267.5,"Width":40,"Height":53},"RightBoot":{"X":161.0,"Y":255.5,"Width":30,"Height":32},"Weapon":null,"GoldRing":{"X":97.0,"Y":198.0,"Width":13,"Height":14},"MagicRing":{"X":194.0,"Y":213.0,"Width":13,"Height":14},"Beard":[145.25,155.0,29,32]},
+      {"Hat":{"X":160.0,"Y":93.0,"Width":118,"Height":58},"Chest":{"X":163.0,"Y":204.0,"Width":116,"Height":79},"LeftBoot":{"X":126.0,"Y":267.5,"Width":48,"Height":57},"RightBoot":{"X":194.0,"Y":268.0,"Width":34,"Height":32},"Weapon":{"X":90,"Y":101,"Width":67,"Height":87},"GoldRing":{"X":91.0,"Y":173.0,"Width":13,"Height":14},"MagicRing":{"X":249.0,"Y":163.0,"Width":13,"Height":14},"Beard":[160.0,157.75,29,32]},
+      {"Hat":{"X":142.0,"Y":85.0,"Width":112,"Height":53,"Angle":12},"Chest":{"X":144.0,"Y":204.0,"Width":73,"Height":77},"LeftBoot":{"X":173.0,"Y":269.0,"Width":42,"Height":32},"RightBoot":{"X":126.0,"Y":255.5,"Width":44,"Height":32},"Weapon":{"X":85,"Y":72,"Width":60,"Height":85},"GoldRing":{"X":90.0,"Y":167.0,"Width":13,"Height":14},"MagicRing":{"X":175.0,"Y":224.0,"Width":13,"Height":14},"Beard":[131.6,146.4,20,32]},
+      {"Hat":{"X":143.0,"Y":84.0,"Width":112,"Height":53,"Angle":12},"Chest":{"X":143.0,"Y":207.0,"Width":73,"Height":77},"LeftBoot":{"X":136.0,"Y":259.5,"Width":50,"Height":49},"RightBoot":{"X":206.5,"Y":251.0,"Width":30,"Height":32},"Weapon":{"X":87,"Y":76,"Width":60,"Height":85},"GoldRing":{"X":94.0,"Y":171.0,"Width":13,"Height":14},"MagicRing":{"X":170.0,"Y":224.0,"Width":13,"Height":14},"Beard":[131.4,144.4,20,32]},
+      {"Hat":{"X":133.0,"Y":85.0,"Width":112,"Height":53,"Angle":12},"Chest":{"X":145.0,"Y":205.0,"Width":73,"Height":77},"LeftBoot":{"X":104.5,"Y":259.0,"Width":57,"Height":48},"RightBoot":{"X":191.0,"Y":259.5,"Width":38,"Height":37},"Weapon":null,"GoldRing":{"X":186.0,"Y":210.0,"Width":12,"Height":13},"MagicRing":{"X":113.0,"Y":208.0,"Width":13,"Height":14},"Beard":[117.3,147.6,20,32]},
+      {"Hat":{"X":157.0,"Y":91.0,"Width":112,"Height":53,"Angle":12},"Chest":{"X":157.0,"Y":209.0,"Width":73,"Height":77},"LeftBoot":{"X":133.0,"Y":259.5,"Width":42,"Height":51},"RightBoot":{"X":211.0,"Y":254.0,"Width":38,"Height":32},"Weapon":{"X":83,"Y":73,"Width":60,"Height":85},"GoldRing":{"X":90.0,"Y":137.0,"Width":13,"Height":14},"MagicRing":{"X":258.0,"Y":165.0,"Width":13,"Height":14},"Beard":[150.9,151.5,20,32]},
+      {"Hat":{"X":143,"Y":98,"Width":110,"Height":55},"Chest":{"X":154,"Y":203.0,"Width":109,"Height":64},"LeftBoot":{"X":126.5,"Y":260.0,"Width":31,"Height":32},"RightBoot":{"X":190.0,"Y":262.0,"Width":34,"Height":32},"Weapon":{"X":234,"Y":75,"Width":62,"Height":84},"GoldRing":{"X":227,"Y":206.0,"Width":13,"Height":14},"MagicRing":{"X":103,"Y":209.0,"Width":13,"Height":14},"Beard":[0,0,0,0]},
+      {"Hat":{"X":147,"Y":96,"Width":110,"Height":55},"Chest":{"X":158,"Y":203.0,"Width":109,"Height":64},"LeftBoot":{"X":156.0,"Y":264.0,"Width":40,"Height":50},"RightBoot":{"X":123.0,"Y":260.0,"Width":32,"Height":31},"Weapon":{"X":242,"Y":79,"Width":62,"Height":84},"GoldRing":{"X":235,"Y":197.0,"Width":13,"Height":14},"MagicRing":{"X":103,"Y":201.0,"Width":13,"Height":14},"Beard":[0,0,0,0]},
+      {"Hat":{"X":151,"Y":99,"Width":110,"Height":55},"Chest":{"X":161,"Y":204.0,"Width":109,"Height":64},"LeftBoot":{"X":155.0,"Y":261.5,"Width":52,"Height":55},"RightBoot":{"X":134.0,"Y":254.0,"Width":31,"Height":30},"Weapon":null,"GoldRing":{"X":230,"Y":195.0,"Width":13,"Height":14},"MagicRing":{"X":110,"Y":204.0,"Width":13,"Height":14},"Beard":[0,0,0,0]},
+      {"Hat":{"X":167,"Y":99,"Width":110,"Height":55},"Chest":{"X":170,"Y":205.0,"Width":109,"Height":64},"LeftBoot":{"X":99.5,"Y":256.5,"Width":37,"Height":45},"RightBoot":{"X":186.0,"Y":261.0,"Width":36,"Height":34},"Weapon":{"X":244,"Y":69,"Width":62,"Height":84},"GoldRing":{"X":240,"Y":140.0,"Width":13,"Height":14},"MagicRing":{"X":52,"Y":110.0,"Width":13,"Height":14},"Beard":[0,0,0,0]},
+      {"Hat":{"X":163.0,"Y":86.0,"Width":112,"Height":53,"Angle":-12},"Chest":{"X":149.0,"Y":204.0,"Width":74,"Height":77},"LeftBoot":{"X":142.0,"Y":269.0,"Width":44,"Height":32},"RightBoot":{"X":196.0,"Y":247.5,"Width":30,"Height":32},"Weapon":{"X":230,"Y":62,"Width":60,"Height":83},"GoldRing":{"X":227.0,"Y":151.0,"Width":13,"Height":14},"MagicRing":{"X":127.0,"Y":214.0,"Width":13,"Height":14},"Beard":[182.1,142.9,20,32]},
+      {"Hat":{"X":165.0,"Y":85.0,"Width":112,"Height":53,"Angle":-12},"Chest":{"X":159.0,"Y":205.0,"Width":74,"Height":77},"LeftBoot":{"X":182.0,"Y":262.5,"Width":54,"Height":45},"RightBoot":{"X":109.5,"Y":250.0,"Width":30,"Height":32},"Weapon":{"X":242,"Y":75,"Width":60,"Height":83},"GoldRing":{"X":238.0,"Y":162.0,"Width":13,"Height":14},"MagicRing":{"X":229.0,"Y":171.0,"Width":13,"Height":14},"Beard":[186.9,142.3,20,32]},
+      {"Hat":{"X":162.0,"Y":85.0,"Width":112,"Height":53,"Angle":-12},"Chest":{"X":155.0,"Y":208.0,"Width":74,"Height":77},"LeftBoot":{"X":198.5,"Y":258.5,"Width":61,"Height":49},"RightBoot":{"X":111.5,"Y":257.5,"Width":47,"Height":47},"Weapon":null,"GoldRing":{"X":199.0,"Y":209.0,"Width":12,"Height":13},"MagicRing":{"X":211.0,"Y":218.0,"Width":13,"Height":14},"Beard":[179.0,143.5,20,32]},
+      {"Hat":{"X":161.0,"Y":78.0,"Width":112,"Height":53,"Angle":-12},"Chest":{"X":153.0,"Y":204.0,"Width":74,"Height":77},"LeftBoot":{"X":191.0,"Y":258.5,"Width":54,"Height":49},"RightBoot":{"X":107.0,"Y":257.5,"Width":46,"Height":32},"Weapon":{"X":242,"Y":64,"Width":60,"Height":83},"GoldRing":{"X":234.0,"Y":117.0,"Width":13,"Height":14},"MagicRing":{"X":92.0,"Y":171.0,"Width":13,"Height":14},"Beard":[174.4,137.1,20,32]}
+    ]},
+    {"Type": 1, "Frames": [
+      {"Hat":{"X":166.75,"Y":97.4,"Width":118,"Height":58},"Chest":{"X":165.75,"Y":204.94,"Width":116,"Height":79},"LeftBoot":{"X":133.0,"Y":273.5,"Width":36,"Height":32},"RightBoot":{"X":196.5,"Y":274.5,"Width":35,"Height":32},"Weapon":{"X":89,"Y":101,"Width":67,"Height":87},"GoldRing":{"X":99.75,"Y":195.94,"Width":13,"Height":14},"MagicRing":{"X":219.75,"Y":215.94,"Width":13,"Height":14},"Beard":[163.7,162.65,29,32]},
+      {"Hat":{"X":164.85,"Y":95.25,"Width":118,"Height":58},"Chest":{"X":166.85,"Y":201.54,"Width":116,"Height":78},"LeftBoot":{"X":151.5,"Y":269.5,"Width":49,"Height":53},"RightBoot":{"X":184.0,"Y":257.0,"Width":30,"Height":32},"Weapon":{"X":87,"Y":79,"Width":62,"Height":82},"GoldRing":{"X":98.85,"Y":181.54,"Width":13,"Height":14},"MagicRing":{"X":218.85,"Y":198.54,"Width":14,"Height":14},"Beard":[165.6,161.05,29,32]},
+      {"Hat":{"X":148.75,"Y":96.15,"Width":118,"Height":58},"Chest":{"X":149.75,"Y":207.5,"Width":116,"Height":78},"LeftBoot":{"X":136.88,"Y":282.0,"Width":38,"Height":42},"RightBoot":{"X":166.5,"Y":258.5,"Width":30,"Height":32},"Weapon":null,"GoldRing":{"X":100.75,"Y":200.5,"Width":13,"Height":14},"MagicRing":{"X":197.75,"Y":215.5,"Width":13,"Height":14},"Beard":[149.0,162.15,29,32]},
+      {"Hat":{"X":162.1,"Y":99.35,"Width":118,"Height":58},"Chest":{"X":165.1,"Y":206.22,"Width":116,"Height":79},"LeftBoot":{"X":125.0,"Y":275.0,"Width":46,"Height":50},"RightBoot":{"X":195.5,"Y":271.0,"Width":39,"Height":36},"Weapon":{"X":87,"Y":109,"Width":67,"Height":87},"GoldRing":{"X":93.1,"Y":175.22,"Width":13,"Height":14},"MagicRing":{"X":251.1,"Y":165.22,"Width":13,"Height":14},"Beard":[162.1,164.1,29,32]},
+      {"Hat":{"X":140.0,"Y":90.0,"Width":112,"Height":53,"Angle":12},"Chest":{"X":142.0,"Y":205.75,"Width":73,"Height":77},"LeftBoot":{"X":177.5,"Y":273.0,"Width":45,"Height":32},"RightBoot":{"X":125.5,"Y":254.0,"Width":43,"Height":32},"Weapon":{"X":85,"Y":72,"Width":60,"Height":85},"GoldRing":{"X":88.0,"Y":168.75,"Width":13,"Height":14},"MagicRing":{"X":173.0,"Y":225.75,"Width":13,"Height":14},"Beard":[129.6,151.4,20,32]},
+      {"Hat":{"X":145.8,"Y":89.1,"Width":112,"Height":53,"Angle":12},"Chest":{"X":145.8,"Y":208.78,"Width":73,"Height":77},"LeftBoot":{"X":136.5,"Y":261.5,"Width":55,"Height":49},"RightBoot":{"X":211.5,"Y":255.5,"Width":45,"Height":33},"Weapon":{"X":87,"Y":76,"Width":60,"Height":85},"GoldRing":{"X":96.8,"Y":172.78,"Width":13,"Height":14},"MagicRing":{"X":172.8,"Y":225.78,"Width":13,"Height":14},"Beard":[134.2,149.5,20,32]},
+      {"Hat":{"X":130.7,"Y":88.7,"Width":112,"Height":53,"Angle":12},"Chest":{"X":142.7,"Y":206.29,"Width":73,"Height":77},"LeftBoot":{"X":106.0,"Y":262.5,"Width":58,"Height":49},"RightBoot":{"X":191.0,"Y":266.0,"Width":42,"Height":34},"Weapon":null,"GoldRing":{"X":183.7,"Y":211.29,"Width":12,"Height":13},"MagicRing":{"X":110.7,"Y":209.29,"Width":13,"Height":14},"Beard":[115.0,151.3,20,32]},
+      {"Hat":{"X":158.3,"Y":93.7,"Width":112,"Height":53,"Angle":12},"Chest":{"X":158.3,"Y":209.94,"Width":73,"Height":77},"LeftBoot":{"X":135.0,"Y":264.0,"Width":46,"Height":52},"RightBoot":{"X":213.5,"Y":257.5,"Width":39,"Height":32},"Weapon":{"X":85,"Y":70,"Width":60,"Height":85},"GoldRing":{"X":91.3,"Y":137.94,"Width":13,"Height":14},"MagicRing":{"X":259.3,"Y":165.94,"Width":13,"Height":14},"Beard":[152.2,154.2,20,32]},
+      {"Hat":{"X":143,"Y":100,"Width":110,"Height":55},"Chest":{"X":154,"Y":203.7,"Width":109,"Height":64},"LeftBoot":{"X":126.0,"Y":260.5,"Width":34,"Height":32},"RightBoot":{"X":193.5,"Y":262.5,"Width":37,"Height":32},"Weapon":{"X":234,"Y":75,"Width":62,"Height":84},"GoldRing":{"X":227,"Y":206.7,"Width":13,"Height":14},"MagicRing":{"X":103,"Y":209.7,"Width":13,"Height":14},"Beard":[0,0,0,0]},
+      {"Hat":{"X":146,"Y":102,"Width":110,"Height":55},"Chest":{"X":157,"Y":205.1,"Width":109,"Height":64},"LeftBoot":{"X":157.5,"Y":270.0,"Width":47,"Height":48},"RightBoot":{"X":122.5,"Y":266.0,"Width":32,"Height":31},"Weapon":{"X":242,"Y":79,"Width":62,"Height":84},"GoldRing":{"X":234,"Y":199.1,"Width":13,"Height":14},"MagicRing":{"X":102,"Y":203.1,"Width":13,"Height":14},"Beard":[0,0,0,0]},
+      {"Hat":{"X":153,"Y":103,"Width":110,"Height":55},"Chest":{"X":163,"Y":205.4,"Width":109,"Height":64},"LeftBoot":{"X":158.0,"Y":262.0,"Width":50,"Height":56},"RightBoot":{"X":135.0,"Y":257.0,"Width":31,"Height":30},"Weapon":null,"GoldRing":{"X":232,"Y":196.4,"Width":13,"Height":14},"MagicRing":{"X":112,"Y":205.4,"Width":13,"Height":14},"Beard":[0,0,0,0]},
+      {"Hat":{"X":160,"Y":100,"Width":110,"Height":55},"Chest":{"X":163,"Y":205.35,"Width":109,"Height":64},"LeftBoot":{"X":96.5,"Y":260.0,"Width":37,"Height":45},"RightBoot":{"X":187.5,"Y":263.0,"Width":43,"Height":36},"Weapon":{"X":248,"Y":67,"Width":62,"Height":84},"GoldRing":{"X":233,"Y":140.35,"Width":13,"Height":14},"MagicRing":{"X":45,"Y":110.35,"Width":13,"Height":14},"Beard":[0,0,0,0]},
+      {"Hat":{"X":166.8,"Y":87.9,"Width":112,"Height":53,"Angle":-12},"Chest":{"X":152.8,"Y":204.66,"Width":74,"Height":77},"LeftBoot":{"X":138.0,"Y":272.0,"Width":46,"Height":32},"RightBoot":{"X":188.0,"Y":252.0,"Width":44,"Height":32},"Weapon":{"X":230,"Y":62,"Width":60,"Height":83},"GoldRing":{"X":230.8,"Y":151.66,"Width":13,"Height":14},"MagicRing":{"X":130.8,"Y":214.66,"Width":13,"Height":14},"Beard":[185.9,144.8,20,32]},
+      {"Hat":{"X":172.2,"Y":88.0,"Width":112,"Height":53,"Angle":-12},"Chest":{"X":166.2,"Y":206.05,"Width":74,"Height":77},"LeftBoot":{"X":183.0,"Y":263.5,"Width":56,"Height":43},"RightBoot":{"X":103.5,"Y":251.0,"Width":30,"Height":34},"Weapon":{"X":242,"Y":75,"Width":60,"Height":83},"GoldRing":{"X":245.2,"Y":163.05,"Width":13,"Height":14},"MagicRing":{"X":236.2,"Y":172.05,"Width":13,"Height":14},"Beard":[194.1,145.3,20,32]},
+      {"Hat":{"X":163.0,"Y":88.1,"Width":112,"Height":53,"Angle":-12},"Chest":{"X":156.0,"Y":209.09,"Width":74,"Height":77},"LeftBoot":{"X":200.5,"Y":257.0,"Width":61,"Height":46},"RightBoot":{"X":111.5,"Y":257.5,"Width":47,"Height":45},"Weapon":null,"GoldRing":{"X":200.0,"Y":210.09,"Width":12,"Height":13},"MagicRing":{"X":212.0,"Y":219.09,"Width":13,"Height":14},"Beard":[180.0,146.6,20,32]},
+      {"Hat":{"X":160.5,"Y":79.8,"Width":112,"Height":53,"Angle":-12},"Chest":{"X":152.5,"Y":204.63,"Width":74,"Height":77},"LeftBoot":{"X":193.0,"Y":261.0,"Width":56,"Height":46},"RightBoot":{"X":105.0,"Y":257.0,"Width":44,"Height":32},"Weapon":{"X":237,"Y":60,"Width":60,"Height":83},"GoldRing":{"X":233.5,"Y":117.63,"Width":13,"Height":14},"MagicRing":{"X":91.5,"Y":171.63,"Width":13,"Height":14},"Beard":[173.9,138.9,20,32]}
+    ]},
+    {"Type": 2, "Frames": [
+      {"Hat":{"X":167.3,"Y":90.8,"Width":118,"Height":58},"Chest":{"X":166.3,"Y":202.63,"Width":116,"Height":79},"LeftBoot":{"X":134.0,"Y":274.5,"Width":38,"Height":32},"RightBoot":{"X":198.0,"Y":275.0,"Width":34,"Height":32},"Weapon":{"X":89,"Y":94,"Width":67,"Height":87},"GoldRing":{"X":100.3,"Y":193.63,"Width":13,"Height":14},"MagicRing":{"X":220.3,"Y":213.63,"Width":13,"Height":14},"Beard":[164.25,156.05,29,32]},
+      {"Hat":{"X":166.75,"Y":90.0,"Width":118,"Height":58},"Chest":{"X":168.75,"Y":199.7,"Width":116,"Height":78},"LeftBoot":{"X":163.5,"Y":272.0,"Width":55,"Height":54},"RightBoot":{"X":198.88,"Y":253.0,"Width":30,"Height":32},"Weapon":{"X":87,"Y":72,"Width":62,"Height":82},"GoldRing":{"X":100.75,"Y":179.7,"Width":13,"Height":14},"MagicRing":{"X":220.75,"Y":196.7,"Width":14,"Height":14},"Beard":[167.5,155.8,29,32]},
+      {"Hat":{"X":151.65,"Y":90.2,"Width":118,"Height":58},"Chest":{"X":152.65,"Y":205.42,"Width":116,"Height":78},"LeftBoot":{"X":146.0,"Y":271.0,"Width":56,"Height":54},"RightBoot":{"X":173.32,"Y":258.0,"Width":30,"Height":32},"Weapon":null,"GoldRing":{"X":103.65,"Y":198.42,"Width":13,"Height":14},"MagicRing":{"X":200.65,"Y":213.42,"Width":13,"Height":14},"Beard":[151.9,156.2,29,32]},
+      {"Hat":{"X":174.05,"Y":91.45,"Width":118,"Height":58},"Chest":{"X":177.05,"Y":203.46,"Width":116,"Height":79},"LeftBoot":{"X":134.5,"Y":266.5,"Width":45,"Height":65},"RightBoot":{"X":210.5,"Y":272.0,"Width":41,"Height":32},"Weapon":{"X":102,"Y":107,"Width":67,"Height":87},"GoldRing":{"X":105.05,"Y":172.46,"Width":13,"Height":14},"MagicRing":{"X":263.05,"Y":162.46,"Width":13,"Height":14},"Beard":[174.05,156.2,29,32]},
+      {"Hat":{"X":150.0,"Y":84.2,"Width":112,"Height":53,"Angle":12},"Chest":{"X":152.0,"Y":203.72,"Width":73,"Height":77},"LeftBoot":{"X":179.0,"Y":277.5,"Width":44,"Height":32},"RightBoot":{"X":120.0,"Y":252.0,"Width":42,"Height":36},"Weapon":{"X":91,"Y":65,"Width":60,"Height":85},"GoldRing":{"X":98.0,"Y":166.72,"Width":13,"Height":14},"MagicRing":{"X":183.0,"Y":223.72,"Width":13,"Height":14},"Beard":[139.6,145.6,20,32]},
+      {"Hat":{"X":150.9,"Y":86.3,"Width":112,"Height":53,"Angle":12},"Chest":{"X":150.9,"Y":207.81,"Width":73,"Height":77},"LeftBoot":{"X":140.5,"Y":260.5,"Width":53,"Height":51},"RightBoot":{"X":214.5,"Y":261.5,"Width":31,"Height":32},"Weapon":{"X":93,"Y":69,"Width":60,"Height":85},"GoldRing":{"X":101.9,"Y":171.81,"Width":13,"Height":14},"MagicRing":{"X":177.9,"Y":224.81,"Width":13,"Height":14},"Beard":[139.3,146.7,20,32]},
+      {"Hat":{"X":132.1,"Y":83.8,"Width":112,"Height":53,"Angle":12},"Chest":{"X":144.1,"Y":204.58,"Width":73,"Height":77},"LeftBoot":{"X":109.5,"Y":264.5,"Width":59,"Height":51},"RightBoot":{"X":197.0,"Y":266.5,"Width":38,"Height":35},"Weapon":null,"GoldRing":{"X":185.1,"Y":209.58,"Width":12,"Height":13},"MagicRing":{"X":112.1,"Y":207.58,"Width":13,"Height":14},"Beard":[116.4,146.4,20,32]},
+      {"Hat":{"X":177.4,"Y":92.3,"Width":112,"Height":53,"Angle":12},"Chest":{"X":177.4,"Y":209.46,"Width":73,"Height":77},"LeftBoot":{"X":148.0,"Y":266.5,"Width":46,"Height":51},"RightBoot":{"X":200.2,"Y":265.0,"Width":30,"Height":32},"Weapon":{"X":105,"Y":69,"Width":60,"Height":85},"GoldRing":{"X":110.4,"Y":137.46,"Width":13,"Height":14},"MagicRing":{"X":278.4,"Y":165.46,"Width":13,"Height":14},"Beard":[171.3,152.8,20,32]},
+      {"Hat":{"X":138,"Y":96,"Width":110,"Height":55},"Chest":{"X":149,"Y":202.3,"Width":109,"Height":64},"LeftBoot":{"X":127.0,"Y":265.5,"Width":32,"Height":32},"RightBoot":{"X":191.5,"Y":266.5,"Width":33,"Height":32},"Weapon":{"X":231,"Y":68,"Width":62,"Height":84},"GoldRing":{"X":222,"Y":205.3,"Width":13,"Height":14},"MagicRing":{"X":98,"Y":208.3,"Width":13,"Height":14},"Beard":[0,0,0,0]},
+      {"Hat":{"X":153,"Y":98,"Width":110,"Height":55},"Chest":{"X":164,"Y":203.7,"Width":109,"Height":64},"LeftBoot":{"X":157.5,"Y":264.5,"Width":45,"Height":57},"RightBoot":{"X":126.0,"Y":264.0,"Width":32,"Height":31},"Weapon":{"X":239,"Y":72,"Width":62,"Height":84},"GoldRing":{"X":241,"Y":197.7,"Width":13,"Height":14},"MagicRing":{"X":109,"Y":201.7,"Width":13,"Height":14},"Beard":[0,0,0,0]},
+      {"Hat":{"X":157,"Y":100,"Width":110,"Height":55},"Chest":{"X":167,"Y":204.35,"Width":109,"Height":64},"LeftBoot":{"X":159.0,"Y":263.0,"Width":50,"Height":58},"RightBoot":{"X":137.0,"Y":257.0,"Width":31,"Height":30},"Weapon":null,"GoldRing":{"X":236,"Y":195.35,"Width":13,"Height":14},"MagicRing":{"X":116,"Y":204.35,"Width":13,"Height":14},"Beard":[0,0,0,0]},
+      {"Hat":{"X":170,"Y":100,"Width":110,"Height":55},"Chest":{"X":173,"Y":205.35,"Width":109,"Height":64},"LeftBoot":{"X":115.0,"Y":266.0,"Width":30,"Height":32},"RightBoot":{"X":198.5,"Y":266.5,"Width":35,"Height":32},"Weapon":{"X":252,"Y":63,"Width":62,"Height":84},"GoldRing":{"X":243,"Y":140.35,"Width":13,"Height":14},"MagicRing":{"X":55,"Y":110.35,"Width":13,"Height":14},"Beard":[0,0,0,0]},
+      {"Hat":{"X":163.1,"Y":83.2,"Width":112,"Height":53,"Angle":-12},"Chest":{"X":149.1,"Y":203.02,"Width":74,"Height":77},"LeftBoot":{"X":140.5,"Y":275.5,"Width":43,"Height":32},"RightBoot":{"X":196.5,"Y":249.5,"Width":35,"Height":32},"Weapon":{"X":231,"Y":55,"Width":60,"Height":83},"GoldRing":{"X":227.1,"Y":150.02,"Width":13,"Height":14},"MagicRing":{"X":127.1,"Y":213.02,"Width":13,"Height":14},"Beard":[182.2,140.1,20,32]},
+      {"Hat":{"X":167.0,"Y":86.2,"Width":112,"Height":53,"Angle":-12},"Chest":{"X":161.0,"Y":205.42,"Width":74,"Height":77},"LeftBoot":{"X":188.0,"Y":265.0,"Width":58,"Height":46},"RightBoot":{"X":106.0,"Y":251.5,"Width":30,"Height":35},"Weapon":{"X":243,"Y":68,"Width":60,"Height":83},"GoldRing":{"X":240.0,"Y":162.42,"Width":13,"Height":14},"MagicRing":{"X":231.0,"Y":171.42,"Width":13,"Height":14},"Beard":[188.9,143.5,20,32]},
+      {"Hat":{"X":166.0,"Y":85.1,"Width":112,"Height":53,"Angle":-12},"Chest":{"X":159.0,"Y":208.03,"Width":74,"Height":77},"LeftBoot":{"X":197.5,"Y":260.0,"Width":63,"Height":52},"RightBoot":{"X":114.5,"Y":259.5,"Width":45,"Height":37},"Weapon":null,"GoldRing":{"X":203.0,"Y":209.03,"Width":12,"Height":13},"MagicRing":{"X":215.0,"Y":218.03,"Width":13,"Height":14},"Beard":[183.0,143.6,20,32]},
+      {"Hat":{"X":168.4,"Y":82.4,"Width":112,"Height":53,"Angle":-12},"Chest":{"X":160.4,"Y":205.54,"Width":74,"Height":77},"LeftBoot":{"X":197.0,"Y":263.0,"Width":54,"Height":48},"RightBoot":{"X":115.0,"Y":263.0,"Width":42,"Height":32},"Weapon":{"X":242,"Y":65,"Width":60,"Height":83},"GoldRing":{"X":241.4,"Y":118.54,"Width":13,"Height":14},"MagicRing":{"X":99.4,"Y":172.54,"Width":13,"Height":14},"Beard":[181.8,141.5,20,32]}
+    ]},
+    {"Type": 3, "Frames": [
+      {"Hat":{"X":166.8,"Y":88.8,"Width":118,"Height":58},"Chest":{"X":165.8,"Y":201.93,"Width":116,"Height":79},"LeftBoot":{"X":131.0,"Y":271.0,"Width":36,"Height":32},"RightBoot":{"X":196.5,"Y":270.5,"Width":33,"Height":32},"Weapon":{"X":89,"Y":101,"Width":67,"Height":87},"GoldRing":{"X":99.8,"Y":192.93,"Width":13,"Height":14},"MagicRing":{"X":219.8,"Y":212.93,"Width":13,"Height":14},"Beard":[163.75,154.05,29,32]},
+      {"Hat":{"X":164.45,"Y":88.2,"Width":118,"Height":58},"Chest":{"X":166.45,"Y":199.07,"Width":116,"Height":78},"LeftBoot":{"X":161.5,"Y":271.5,"Width":57,"Height":53},"RightBoot":{"X":197.72,"Y":255.0,"Width":30,"Height":32},"Weapon":{"X":87,"Y":79,"Width":62,"Height":82},"GoldRing":{"X":98.45,"Y":179.07,"Width":13,"Height":14},"MagicRing":{"X":218.45,"Y":196.07,"Width":14,"Height":14},"Beard":[165.2,154.0,29,32]},
+      {"Hat":{"X":148.6,"Y":89.1,"Width":118,"Height":58},"Chest":{"X":149.6,"Y":205.03,"Width":116,"Height":78},"LeftBoot":{"X":147.5,"Y":270.5,"Width":65,"Height":57},"RightBoot":{"X":171.8,"Y":260.0,"Width":30,"Height":32},"Weapon":null,"GoldRing":{"X":100.6,"Y":198.03,"Width":13,"Height":14},"MagicRing":{"X":197.6,"Y":213.03,"Width":13,"Height":14},"Beard":[148.85,155.1,29,32]},
+      {"Hat":{"X":163.55,"Y":94.3,"Width":118,"Height":58},"Chest":{"X":166.55,"Y":204.46,"Width":116,"Height":79},"LeftBoot":{"X":124.0,"Y":276.0,"Width":44,"Height":46},"RightBoot":{"X":201.5,"Y":273.5,"Width":39,"Height":33},"Weapon":{"X":88,"Y":106,"Width":67,"Height":87},"GoldRing":{"X":94.55,"Y":173.46,"Width":13,"Height":14},"MagicRing":{"X":252.55,"Y":163.46,"Width":13,"Height":14},"Beard":[163.55,159.05,29,32]},
+      {"Hat":{"X":143.6,"Y":87.3,"Width":112,"Height":53,"Angle":12},"Chest":{"X":145.6,"Y":204.81,"Width":73,"Height":77},"LeftBoot":{"X":177.0,"Y":274.5,"Width":40,"Height":32},"RightBoot":{"X":123.0,"Y":260.5,"Width":40,"Height":32},"Weapon":{"X":85,"Y":72,"Width":60,"Height":85},"GoldRing":{"X":91.6,"Y":167.81,"Width":13,"Height":14},"MagicRing":{"X":176.6,"Y":224.81,"Width":13,"Height":14},"Beard":[133.2,148.7,20,32]},
+      {"Hat":{"X":146.5,"Y":85.9,"Width":112,"Height":53,"Angle":12},"Chest":{"X":146.5,"Y":207.66,"Width":73,"Height":77},"LeftBoot":{"X":134.5,"Y":260.5,"Width":59,"Height":51},"RightBoot":{"X":212.0,"Y":255.5,"Width":32,"Height":35},"Weapon":{"X":87,"Y":76,"Width":60,"Height":85},"GoldRing":{"X":97.5,"Y":171.66,"Width":13,"Height":14},"MagicRing":{"X":173.5,"Y":224.66,"Width":13,"Height":14},"Beard":[134.9,146.3,20,32]},
+      {"Hat":{"X":136.9,"Y":85.1,"Width":112,"Height":53,"Angle":12},"Chest":{"X":148.9,"Y":205.03,"Width":73,"Height":77},"LeftBoot":{"X":104.0,"Y":259.5,"Width":66,"Height":51},"RightBoot":{"X":191.0,"Y":264.5,"Width":36,"Height":32},"Weapon":null,"GoldRing":{"X":189.9,"Y":210.03,"Width":12,"Height":13},"MagicRing":{"X":116.9,"Y":208.03,"Width":13,"Height":14},"Beard":[121.2,147.7,20,32]},
+      {"Hat":{"X":154.6,"Y":93.0,"Width":112,"Height":53,"Angle":12},"Chest":{"X":154.6,"Y":209.7,"Width":73,"Height":77},"LeftBoot":{"X":135.0,"Y":263.5,"Width":48,"Height":47},"RightBoot":{"X":214.5,"Y":255.0,"Width":39,"Height":32},"Weapon":{"X":86,"Y":72,"Width":60,"Height":85},"GoldRing":{"X":87.6,"Y":137.7,"Width":13,"Height":14},"MagicRing":{"X":255.6,"Y":165.7,"Width":13,"Height":14},"Beard":[148.5,153.5,20,32]},
+      {"Hat":{"X":143,"Y":103,"Width":110,"Height":55},"Chest":{"X":154,"Y":204.75,"Width":109,"Height":64},"LeftBoot":{"X":127.5,"Y":262.5,"Width":33,"Height":32},"RightBoot":{"X":192.0,"Y":265.0,"Width":36,"Height":32},"Weapon":{"X":234,"Y":75,"Width":62,"Height":84},"GoldRing":{"X":227,"Y":207.75,"Width":13,"Height":14},"MagicRing":{"X":103,"Y":210.75,"Width":13,"Height":14},"Beard":[0,0,0,0]},
+      {"Hat":{"X":148,"Y":100,"Width":110,"Height":55},"Chest":{"X":159,"Y":204.4,"Width":109,"Height":64},"LeftBoot":{"X":160.5,"Y":263.5,"Width":47,"Height":51},"RightBoot":{"X":123.5,"Y":260.0,"Width":32,"Height":31},"Weapon":{"X":242,"Y":79,"Width":62,"Height":84},"GoldRing":{"X":236,"Y":198.4,"Width":13,"Height":14},"MagicRing":{"X":104,"Y":202.4,"Width":13,"Height":14},"Beard":[0,0,0,0]},
+      {"Hat":{"X":151,"Y":102,"Width":110,"Height":55},"Chest":{"X":161,"Y":205.05,"Width":109,"Height":64},"LeftBoot":{"X":160.5,"Y":261.5,"Width":51,"Height":55},"RightBoot":{"X":134.0,"Y":254.0,"Width":31,"Height":30},"Weapon":null,"GoldRing":{"X":230,"Y":196.05,"Width":13,"Height":14},"MagicRing":{"X":110,"Y":205.05,"Width":13,"Height":14},"Beard":[0,0,0,0]},
+      {"Hat":{"X":165,"Y":100,"Width":110,"Height":55},"Chest":{"X":168,"Y":205.35,"Width":109,"Height":64},"LeftBoot":{"X":101.5,"Y":265.0,"Width":37,"Height":32},"RightBoot":{"X":191.0,"Y":262.0,"Width":36,"Height":32},"Weapon":{"X":253,"Y":66,"Width":62,"Height":84},"GoldRing":{"X":238,"Y":140.35,"Width":13,"Height":14},"MagicRing":{"X":50,"Y":110.35,"Width":13,"Height":14},"Beard":[0,0,0,0]},
+      {"Hat":{"X":171.2,"Y":82.0,"Width":112,"Height":53,"Angle":-12},"Chest":{"X":157.2,"Y":202.6,"Width":74,"Height":77},"LeftBoot":{"X":138.0,"Y":271.5,"Width":46,"Height":35},"RightBoot":{"X":193.5,"Y":253.0,"Width":30,"Height":32},"Weapon":{"X":230,"Y":62,"Width":60,"Height":83},"GoldRing":{"X":235.2,"Y":149.6,"Width":13,"Height":14},"MagicRing":{"X":135.2,"Y":212.6,"Width":13,"Height":14},"Beard":[190.3,138.9,20,32]},
+      {"Hat":{"X":179.2,"Y":85.0,"Width":112,"Height":53,"Angle":-12},"Chest":{"X":173.2,"Y":205.0,"Width":74,"Height":77},"LeftBoot":{"X":188.5,"Y":263.5,"Width":57,"Height":47},"RightBoot":{"X":113.5,"Y":251.0,"Width":33,"Height":34},"Weapon":{"X":242,"Y":75,"Width":60,"Height":83},"GoldRing":{"X":252.2,"Y":162.0,"Width":13,"Height":14},"MagicRing":{"X":243.2,"Y":171.0,"Width":13,"Height":14},"Beard":[201.1,142.3,20,32]},
+      {"Hat":{"X":177.5,"Y":81.4,"Width":112,"Height":53,"Angle":-12},"Chest":{"X":170.5,"Y":206.74,"Width":74,"Height":77},"LeftBoot":{"X":205.5,"Y":258.5,"Width":67,"Height":49},"RightBoot":{"X":112.5,"Y":257.5,"Width":43,"Height":47},"Weapon":null,"GoldRing":{"X":214.5,"Y":207.74,"Width":12,"Height":13},"MagicRing":{"X":226.5,"Y":216.74,"Width":13,"Height":14},"Beard":[194.5,139.9,20,32]},
+      {"Hat":{"X":173.9,"Y":81.4,"Width":112,"Height":53,"Angle":-12},"Chest":{"X":165.9,"Y":205.19,"Width":74,"Height":77},"LeftBoot":{"X":199.5,"Y":259.5,"Width":55,"Height":51},"RightBoot":{"X":106.5,"Y":258.0,"Width":43,"Height":32},"Weapon":{"X":245,"Y":62,"Width":60,"Height":83},"GoldRing":{"X":246.9,"Y":118.19,"Width":13,"Height":14},"MagicRing":{"X":104.9,"Y":172.19,"Width":13,"Height":14},"Beard":[187.3,140.5,20,32]}
+    ]},
+    {"Type": 4, "Frames": [
+      {"Hat":{"X":176.15,"Y":83.7,"Width":118,"Height":58},"Chest":{"X":175.15,"Y":200.15,"Width":116,"Height":79},"LeftBoot":{"X":136.0,"Y":278.0,"Width":44,"Height":32},"RightBoot":{"X":210.0,"Y":275.0,"Width":36,"Height":32},"Weapon":{"X":79,"Y":88,"Width":67,"Height":87},"GoldRing":{"X":109.15,"Y":191.15,"Width":13,"Height":14},"MagicRing":{"X":229.15,"Y":211.15,"Width":13,"Height":14},"Beard":[173.1,148.95,29,32]},
+      {"Hat":{"X":161.1,"Y":87.0,"Width":118,"Height":58},"Chest":{"X":163.1,"Y":198.65,"Width":116,"Height":78},"LeftBoot":{"X":162.5,"Y":271.0,"Width":59,"Height":66},"RightBoot":{"X":196.05,"Y":258,"Width":30,"Height":32},"Weapon":{"X":77,"Y":66,"Width":62,"Height":82},"GoldRing":{"X":95.1,"Y":178.65,"Width":13,"Height":14},"MagicRing":{"X":215.1,"Y":195.65,"Width":14,"Height":14},"Beard":[161.85,152.8,29,32]},
+      {"Hat":{"X":157.95,"Y":86.5,"Width":118,"Height":58},"Chest":{"X":158.95,"Y":204.12,"Width":116,"Height":78},"LeftBoot":{"X":141.47,"Y":286,"Width":38,"Height":42},"RightBoot":{"X":176.47,"Y":263,"Width":30,"Height":32},"Weapon":null,"GoldRing":{"X":109.95,"Y":197.12,"Width":13,"Height":14},"MagicRing":{"X":206.95,"Y":212.12,"Width":13,"Height":14},"Beard":[158.2,152.5,29,32]},
+      {"Hat":{"X":184.45,"Y":89.95,"Width":118,"Height":58},"Chest":{"X":187.45,"Y":202.93,"Width":116,"Height":79},"LeftBoot":{"X":151.5,"Y":280.5,"Width":45,"Height":43},"RightBoot":{"X":225.0,"Y":276.5,"Width":44,"Height":35},"Weapon":{"X":106,"Y":87,"Width":67,"Height":87},"GoldRing":{"X":115.45,"Y":171.93,"Width":13,"Height":14},"MagicRing":{"X":273.45,"Y":161.93,"Width":13,"Height":14},"Beard":[184.45,154.7,29,32]},
+      {"Hat":{"X":151.3,"Y":86.2,"Width":112,"Height":53,"Angle":12},"Chest":{"X":153.3,"Y":204.42,"Width":73,"Height":77},"LeftBoot":{"X":190.0,"Y":276.0,"Width":50,"Height":34},"RightBoot":{"X":135.0,"Y":252.5,"Width":58,"Height":37},"Weapon":{"X":83,"Y":72,"Width":60,"Height":85},"GoldRing":{"X":99.3,"Y":167.42,"Width":13,"Height":14},"MagicRing":{"X":184.3,"Y":224.42,"Width":13,"Height":14},"Beard":[140.9,147.6,20,32]},
+      {"Hat":{"X":151.2,"Y":86.8,"Width":112,"Height":53,"Angle":12},"Chest":{"X":151.2,"Y":207.98,"Width":73,"Height":77},"LeftBoot":{"X":138.5,"Y":263.5,"Width":61,"Height":51},"RightBoot":{"X":220.5,"Y":253.5,"Width":43,"Height":32},"Weapon":{"X":85,"Y":76,"Width":60,"Height":85},"GoldRing":{"X":102.2,"Y":171.98,"Width":13,"Height":14},"MagicRing":{"X":178.2,"Y":224.98,"Width":13,"Height":14},"Beard":[139.6,147.2,20,32]},
+      {"Hat":{"X":149.7,"Y":83.9,"Width":112,"Height":53,"Angle":12},"Chest":{"X":161.7,"Y":204.62,"Width":73,"Height":77},"LeftBoot":{"X":120.0,"Y":262.5,"Width":62,"Height":51},"RightBoot":{"X":214.0,"Y":262.0,"Width":56,"Height":42},"Weapon":null,"GoldRing":{"X":202.7,"Y":209.62,"Width":12,"Height":13},"MagicRing":{"X":129.7,"Y":207.62,"Width":13,"Height":14},"Beard":[134.0,146.5,20,32]},
+      {"Hat":{"X":182.1,"Y":85.9,"Width":112,"Height":53,"Angle":12},"Chest":{"X":182.1,"Y":207.22,"Width":73,"Height":77},"LeftBoot":{"X":162.0,"Y":266.5,"Width":50,"Height":43},"RightBoot":{"X":249.5,"Y":256.5,"Width":35,"Height":32},"Weapon":{"X":113,"Y":62,"Width":60,"Height":85},"GoldRing":{"X":115.1,"Y":135.22,"Width":13,"Height":14},"MagicRing":{"X":283.1,"Y":163.22,"Width":13,"Height":14},"Beard":[176.0,146.4,20,32]},
+      {"Hat":{"X":139,"Y":102,"Width":110,"Height":55},"Chest":{"X":150,"Y":204.4,"Width":109,"Height":64},"LeftBoot":{"X":115.0,"Y":265.5,"Width":40,"Height":32},"RightBoot":{"X":197.0,"Y":264.5,"Width":36,"Height":32},"Weapon":{"X":239,"Y":75,"Width":62,"Height":84},"GoldRing":{"X":223,"Y":207.4,"Width":13,"Height":14},"MagicRing":{"X":99,"Y":210.4,"Width":13,"Height":14},"Beard":[0,0,0,0]},
+      {"Hat":{"X":152,"Y":99,"Width":110,"Height":55},"Chest":{"X":163,"Y":204.05,"Width":109,"Height":64},"LeftBoot":{"X":159.0,"Y":263.5,"Width":62,"Height":59},"RightBoot":{"X":125.5,"Y":264.0,"Width":32,"Height":31},"Weapon":{"X":247,"Y":79,"Width":62,"Height":84},"GoldRing":{"X":240,"Y":198.05,"Width":13,"Height":14},"MagicRing":{"X":108,"Y":202.05,"Width":13,"Height":14},"Beard":[0,0,0,0]},
+      {"Hat":{"X":156,"Y":99,"Width":110,"Height":55},"Chest":{"X":166,"Y":204.0,"Width":109,"Height":64},"LeftBoot":{"X":165.0,"Y":264.5,"Width":46,"Height":59},"RightBoot":{"X":136.5,"Y":260.0,"Width":31,"Height":30},"Weapon":null,"GoldRing":{"X":235,"Y":195.0,"Width":13,"Height":14},"MagicRing":{"X":115,"Y":204.0,"Width":13,"Height":14},"Beard":[0,0,0,0]},
+      {"Hat":{"X":170,"Y":102,"Width":110,"Height":55},"Chest":{"X":173,"Y":206.05,"Width":109,"Height":64},"LeftBoot":{"X":113.0,"Y":269.0,"Width":46,"Height":38},"RightBoot":{"X":197.5,"Y":262.0,"Width":43,"Height":32},"Weapon":{"X":259,"Y":64,"Width":62,"Height":84},"GoldRing":{"X":243,"Y":141.05,"Width":13,"Height":14},"MagicRing":{"X":55,"Y":111.05,"Width":13,"Height":14},"Beard":[0,0,0,0]},
+      {"Hat":{"X":161.3,"Y":75.9,"Width":112,"Height":53,"Angle":-12},"Chest":{"X":147.3,"Y":200.47,"Width":74,"Height":77},"LeftBoot":{"X":128.0,"Y":267.0,"Width":54,"Height":32},"RightBoot":{"X":187.5,"Y":251.0,"Width":41,"Height":34},"Weapon":{"X":231,"Y":62,"Width":60,"Height":83},"GoldRing":{"X":225.3,"Y":147.47,"Width":13,"Height":14},"MagicRing":{"X":125.3,"Y":210.47,"Width":13,"Height":14},"Beard":[180.4,132.8,20,32]},
+      {"Hat":{"X":160.8,"Y":76.3,"Width":112,"Height":53,"Angle":-12},"Chest":{"X":154.8,"Y":201.96,"Width":74,"Height":77},"LeftBoot":{"X":179.5,"Y":259.5,"Width":59,"Height":47},"RightBoot":{"X":93.5,"Y":250.0,"Width":33,"Height":32},"Weapon":{"X":243,"Y":75,"Width":60,"Height":83},"GoldRing":{"X":233.8,"Y":158.96,"Width":13,"Height":14},"MagicRing":{"X":224.8,"Y":167.96,"Width":13,"Height":14},"Beard":[182.7,133.6,20,32]},
+      {"Hat":{"X":176.9,"Y":75.9,"Width":112,"Height":53,"Angle":-12},"Chest":{"X":169.9,"Y":204.81,"Width":74,"Height":77},"LeftBoot":{"X":201.5,"Y":257.5,"Width":65,"Height":47},"RightBoot":{"X":111.5,"Y":255.5,"Width":51,"Height":43},"Weapon":null,"GoldRing":{"X":213.9,"Y":205.81,"Width":12,"Height":13},"MagicRing":{"X":225.9,"Y":214.81,"Width":13,"Height":14},"Beard":[193.9,134.4,20,32]},
+      {"Hat":{"X":168.8,"Y":76.5,"Width":112,"Height":53,"Angle":-12},"Chest":{"X":160.8,"Y":203.47,"Width":74,"Height":77},"LeftBoot":{"X":193.0,"Y":260.0,"Width":66,"Height":46},"RightBoot":{"X":108.5,"Y":257.5,"Width":41,"Height":32},"Weapon":{"X":246,"Y":57,"Width":60,"Height":83},"GoldRing":{"X":241.8,"Y":116.47,"Width":13,"Height":14},"MagicRing":{"X":99.8,"Y":170.47,"Width":13,"Height":14},"Beard":[182.2,135.6,20,32]}
+    ]}
+  ]
+}

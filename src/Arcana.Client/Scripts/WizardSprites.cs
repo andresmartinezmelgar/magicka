@@ -41,6 +41,7 @@ internal static class WizardSprites
             throw new InvalidDataException($"Anclajes de ojos inválidos: {type}.");
         cached = new(texture, spec); Cache.Add(type, cached);
         MythicEyeVisuals.Prepare(cached);
+        MythicEquipmentVisuals.Prepare(cached);
         Diagnostics.Info("sprites.loaded", "Atlas de mago cargado.", new Dictionary<string, object?>
             { ["wizardType"] = type, ["width"] = spec.Width, ["height"] = spec.Height, ["frames"] = spec.Frames.Length });
         return cached;

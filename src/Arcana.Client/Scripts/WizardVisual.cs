@@ -69,6 +69,7 @@ public partial class WizardVisual : Node3D
         _spriteMaterial?.Dispose();
         _equipmentAuraMaterial?.Dispose(); _equipmentAuraMaterial = null;
         _mythicEyeMaterial?.Dispose(); _mythicEyeMaterial = null;
+        DisposeMythicEquipment();
     }
 
     public void Build(WizardSnapshot p, bool local, bool compactEnemy = false)
@@ -201,6 +202,7 @@ public partial class WizardVisual : Node3D
         float flash = _hitFlash / 0.12f * 0.5f;
         if (Math.Abs(flash - _renderedFlash) > 0.001f)
         { _spriteMaterial.SetShaderParameter("hit_flash", flash); _renderedFlash = flash; }
+        UpdateMythicEquipment(p, frame, flash);
         _elementsRoot.Visible = p.Alive;
         var elements = p.DisplayElements.Length > 0 ? p.DisplayElements : _castPose > 0 ? _lastCastElements : [];
         DisplayedElements = p.Alive ? elements : [];

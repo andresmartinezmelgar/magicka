@@ -252,6 +252,7 @@ public partial class ClientVerification
             valid &= CheckWizardFacing();
             valid &= CheckTranslationInput();
             valid &= CheckRespawnInput();
+            valid &= CheckMythicEquipmentVisuals();
             _runtime.Renderer.Clear(); valid &= _runtime.Renderer.Wizards.Count == 0;
             if (valid) CompleteSmoke("SPRITES_SMOKE_OK: 5 atlas, 120 combinaciones, equipos, anclajes, congelación, muerte, reaparición y limpieza");
         }
