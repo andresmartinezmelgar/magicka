@@ -10,6 +10,7 @@ public partial class EquipmentLaboratory : Control
     private OptionButton _type = null!, _facing = null!, _pose = null!, _team = null!;
     private GridContainer _choices = null!;
     private TabContainer _views = null!;
+    private ContentScrollContainer _settings = null!;
     private SubViewport _viewport = null!;
     private Camera3D _camera = null!;
     private WizardVisual _base = null!, _equipped = null!;
@@ -33,7 +34,8 @@ public partial class EquipmentLaboratory : Control
             margin.AddThemeConstantOverride("margin_" + side, Ui.IsMobile ? 10 : 22);
         var stack = new VBoxContainer(); stack.AddThemeConstantOverride("separation", 6); margin.AddChild(stack);
         stack.AddChild(Ui.Label("LABORATORIO DE EQUIPO", Ui.IsMobile ? 20 : 25, Ui.Gold));
-        var note = Ui.Label("Compara el aspecto base y el equipo elegido. Los cambios son solo para esta prueba.", 14, Ui.Muted);
+        var note = Ui.Label(Ui.IsMobile ? "Prueba visual; no modifica tu cuenta." :
+            "Compara el aspecto base y el equipo elegido. Los cambios son solo para esta prueba.", 14, Ui.Muted);
         note.AutowrapMode = TextServer.AutowrapMode.WordSmart; stack.AddChild(note);
         _views = new TabContainer { Name = "EquipmentLabViews", CustomMinimumSize = new(0, 160), SizeFlagsVertical = SizeFlags.ExpandFill };
         stack.AddChild(_views);
@@ -43,22 +45,22 @@ public partial class EquipmentLaboratory : Control
             RenderTargetUpdateMode = SubViewport.UpdateMode.WhenParentVisible };
         arena.AddChild(_viewport);
         var scene = new Node3D(); _viewport.AddChild(scene);
-        _camera = new Camera3D { Projection = Camera3D.ProjectionType.Orthogonal, Size = 5.3f, Position = new(0, 10, 10), Current = true };
-        scene.AddChild(_camera); _camera.LookAt(new(0, 1.1f, 0));
+        _camera = new Camera3D { Projection = Camera3D.ProjectionType.Orthogonal, Size = 4.8f, Position = new(0, 10, 10), Current = true };
+        scene.AddChild(_camera); _camera.LookAt(new(0, 1.55f, 0));
         var world = new GameWorld(new() { Mode = GameMode.Arena, MaxPlayers = 2 });
         world.AddPlayer("Base", 0);
         _template = world.Snapshot().Players.Single() with { Health = 1000, MaxHealth = 1000, Shield = 0, InvulnerableSeconds = 0,
             Alive = true, Position = V2.Zero, Facing = new(0, 1), Selected = [], Equipment = null };
         _base = new WizardVisual(); scene.AddChild(_base); _base.Build(_template, false);
         _equipped = new WizardVisual(); scene.AddChild(_equipped); _equipped.Build(_template with { Id = 2, Name = "Equipo elegido" }, false);
-        var inventory = new Control { Name = "Inventario" }; _views.AddChild(inventory);
+        var inventory = new Control { Name = "Inventario", ClipContents = true }; _views.AddChild(inventory);
         _avatar = new EquipmentAvatar(); inventory.AddChild(_avatar); Ui.Full(_avatar);
         _avatar.Build(WizardType.Balanced, slot => _pieces[slot].GrabFocus());
-        var scroll = new ContentScrollContainer { Name = "EquipmentLabSettings", CustomMinimumSize = new(0, Ui.IsMobile ? 110 : 170),
-            SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-        Ui.VisibleVerticalScroll(scroll); stack.AddChild(scroll);
+        _settings = new ContentScrollContainer { Name = "EquipmentLabSettings", FollowFocus = true,
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        Ui.VisibleVerticalScroll(_settings); stack.AddChild(_settings);
         _choices = new GridContainer { Columns = 3, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        _choices.AddThemeConstantOverride("h_separation", 10); _choices.AddThemeConstantOverride("v_separation", 6); scroll.AddChild(_choices);
+        _choices.AddThemeConstantOverride("h_separation", 10); _choices.AddThemeConstantOverride("v_separation", 6); _settings.AddChild(_choices);
         _type = Choice("Mago", "EquipmentLabWizard");
         foreach (var type in Enum.GetValues<WizardType>()) _type.AddItem(WizardTypes.Name(type), (int)type);
         _type.ItemSelected += _ => RefreshAvatar();
@@ -101,7 +103,9 @@ public partial class EquipmentLaboratory : Control
     {
         if (!_built) return;
         _choices.Columns = Size.X < 800 ? 2 : 3;
-        _views.CustomMinimumSize = new(0, Math.Clamp(Size.Y * .38f, 150, 330));
+        // Las seis zonas del avatar necesitan 164 px, además de la barra de pestañas.
+        _views.CustomMinimumSize = new(0, 202);
+        _settings.CustomMinimumSize = new(0, Size.Y < 520 ? 82 : 160);
     }
     internal void SelectPiece(EquipmentSlot slot, ItemTier? tier)
     { _pieces[slot].Select(_pieces[slot].GetItemIndex(tier.HasValue ? (int)tier.Value : -1)); RefreshAvatar(); }

@@ -76,6 +76,13 @@ public partial class Main
             lab.SelectPose(2, 1); await Frames(); Capture("02-lanzamiento");
             var tabs = (TabContainer)lab.FindChild("EquipmentLabViews", true, false);
             tabs.CurrentTab = 1; await Frames(); Capture("03-inventario");
+            var settings = (Control)lab.FindChild("EquipmentLabSettings", true, false);
+            Check(tabs.GetGlobalRect().Grow(1).Encloses(lab.Avatar.GetGlobalRect()),
+                "El avatar desborda la vista del inventario.");
+            foreach (var button in lab.Avatar.Buttons.Values)
+                Check(tabs.GetGlobalRect().Grow(1).Encloses(button.GetGlobalRect()) &&
+                    !settings.GetGlobalRect().Intersects(button.GetGlobalRect()),
+                    "Una zona del inventario se solapa con los ajustes: " + button.Name);
             var back = (Button)lab.FindChild("EquipmentLabBack", true, false);
             Check(back.IsVisibleInTree() && GetViewport().GetVisibleRect().Grow(1).Encloses(back.GetGlobalRect()),
                 "Atrás queda fuera de la pantalla.");

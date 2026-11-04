@@ -971,6 +971,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          current=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$GITHUB_REF_NAME" --jq '.object.sha')
+          test "$current" = "$GITHUB_SHA" || { echo '::error::La rama tiene una revisión posterior; se omite esta publicación.'; exit 1; }
           tag=$(cat "$RUNNER_TEMP/preview-tag.txt")
           shopt -s nullglob
           assets=(dist/*-Windows-x64*.zip dist/*-Windows-x64.rar dist/*-Android-arm64.apk dist/*-Android-arm64-from-v*.delta dist/DELTAS-*.json dist/SHA256SUMS.txt dist/SHA256SUMS-Windows.txt dist/SHA256SUMS-Android.txt dist/SHA256SUMS-RAR.txt dist/PREVIEW.json)
