@@ -4,6 +4,7 @@ name: Publicar prueba de equipo mítico solicitada
 # Solo este archivo, rama y mensaje solicitan la compilación y publicación.
 # Se cancelan las revisiones anteriores de esta misma rama.
 # Todas las simulaciones liberan sus escenas antes de cerrar Godot.
+# La revisión visual incluye las catorce capturas de la tienda ya comprobadas.
 on:
   push:
     branches: [pruebas/equipo-mitico-articulado]

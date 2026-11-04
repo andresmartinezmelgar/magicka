@@ -276,7 +276,8 @@ jobs:
           files = sorted(glob.glob('artifacts/visual-review/*/*.png'))
           statistics = [f'statistics-{view}.png' for view in range(6)] + ['statistics-2-received.png']
           biomes = ['Forest', 'City', 'Ruins', 'Sanctuary', 'Desert', 'Frozen', 'Volcanic', 'Crystal', 'Marsh', 'Fungal']
-          expected = 47 + 2 * (len(statistics) + len(biomes))
+          shop = ['01-inicio.png', '02-sin-conexion.png', '03-comparacion.png', '03-ofertas.png', '04-compra.png', '05-desconexion.png', '06-sin-oro.png']
+          expected = 47 + 2 * (len(statistics) + len(biomes) + len(shop))
           if len(files) != expected:
               raise SystemExit(f'Faltan capturas: {len(files)}/{expected}')
           for surface in ('desktop', 'mobile'):
@@ -288,10 +289,11 @@ jobs:
                   biome_hashes.add(hashlib.sha256(path.read_bytes()).digest())
               if len(biome_hashes) != len(biomes):
                   raise SystemExit(f'Biomas indistinguibles en {surface}: {len(biome_hashes)}/{len(biomes)}')
-              for name in statistics:
-                  path = pathlib.Path('artifacts/visual-review') / f'statistics-{surface}' / name
-                  if not path.is_file() or path.stat().st_size == 0:
-                      raise SystemExit(f'Falta captura de estadísticas: {path}')
+              for category, names in (('statistics', statistics), ('shop', shop)):
+                  for name in names:
+                      path = pathlib.Path('artifacts/visual-review') / f'{category}-{surface}' / name
+                      if not path.is_file() or path.stat().st_size == 0:
+                          raise SystemExit(f'Falta captura de {category}: {path}')
           for name in files:
               raw = pathlib.Path(name).read_bytes()
               if len(raw) < 12000 or raw[:8] != b'\x89PNG\r\n\x1a\n':
