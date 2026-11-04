@@ -135,6 +135,8 @@ internal sealed class DefenseProgress
     public double LastActivity = -100;
     public readonly List<EquipmentItem> Items = [];
     public readonly HashSet<string> Favorites = new(StringComparer.Ordinal);
+    // Haber equipado una pieza la protege de la autoventa durante esta partida, aunque se sustituya.
+    public readonly HashSet<string> EquippedItemHistory = new(StringComparer.Ordinal);
     public readonly HashSet<EquipmentStyle> AutoSellStyles = [];
     public int AutoSold;
     public SurvivalEquipmentSetup EquipmentSetup = new();
