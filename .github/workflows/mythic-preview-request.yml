@@ -4,6 +4,7 @@ name: Publicar prueba de equipo mítico solicitada
 # Un push normal no activa compilaciones. Se exige este archivo, rama y mensaje.
 # Cada revisión cancela las compilaciones anteriores de esta misma rama.
 # La validación incluye liberar los recursos al cerrar las simulaciones.
+# El encuadre del laboratorio conserva completos los indicadores del mago.
 on:
   push:
     branches: [pruebas/equipo-mitico-articulado]

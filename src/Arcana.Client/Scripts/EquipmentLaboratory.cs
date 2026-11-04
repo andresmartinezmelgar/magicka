@@ -46,7 +46,7 @@ public partial class EquipmentLaboratory : Control
         arena.AddChild(_viewport);
         var scene = new Node3D(); _viewport.AddChild(scene);
         _camera = new Camera3D { Projection = Camera3D.ProjectionType.Orthogonal, Size = 4.8f, Position = new(0, 10, 10), Current = true };
-        scene.AddChild(_camera); _camera.LookAt(new(0, 1.55f, 0));
+        scene.AddChild(_camera); _camera.LookAt(new(0, 2.1f, 0));
         var world = new GameWorld(new() { Mode = GameMode.Arena, MaxPlayers = 2 });
         world.AddPlayer("Base", 0);
         _template = world.Snapshot().Players.Single() with { Health = 1000, MaxHealth = 1000, Shield = 0, InvulnerableSeconds = 0,
