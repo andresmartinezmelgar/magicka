@@ -11,8 +11,13 @@ public partial class Main
         {
             await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
             await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
-            GC.Collect(); GC.WaitForPendingFinalizers();
-            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            // Finalizar un nodo puede soltar recursos que se recogen en la pasada siguiente.
+            for (int pass = 0; pass < 3; pass++)
+            {
+                GC.Collect(); GC.WaitForPendingFinalizers();
+                await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+                await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            }
             if (errors.ErrorCount > 0) throw new InvalidOperationException("Godot registró errores al liberar los recursos de la simulación.");
             GD.Print(success);
             tree.Quit();

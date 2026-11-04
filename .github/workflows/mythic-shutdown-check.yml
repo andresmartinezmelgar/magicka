@@ -31,10 +31,21 @@ jobs:
           echo "ARCANA_GODOT=$GODOT" >> "$GITHUB_ENV"
           dotnet build src/Arcana.Client/Arcana.Client.csproj -c Debug --nologo
           "$GODOT" --headless --editor --path src/Arcana.Client --import
-      - name: Examinar el cierre con recursos e instancias detallados
+      - name: Repetir el cierre normal en escritorio y móvil
         run: |
           set -euo pipefail
-          export XDG_DATA_HOME="$RUNNER_TEMP/shutdown-cache"
-          xvfb-run -a -s '-screen 0 1440x1024x24' timeout --kill-after=10s 180s "$ARCANA_GODOT" --verbose --audio-driver Dummy --path src/Arcana.Client -- --survival-biomes-smoke --mobile --smoke-viewport=720x540 2>&1 | tee "$RUNNER_TEMP/shutdown.log"
-          grep -q 'SURVIVAL_BIOMES_SMOKE_OK: 10' "$RUNNER_TEMP/shutdown.log"
-          ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED|ObjectDB instances leaked' "$RUNNER_TEMP/shutdown.log"
+          for pass in 1 2 3; do
+            for surface in desktop mobile; do
+              args=(); viewport=1280x720
+              if [ "$surface" = mobile ]; then args+=(--mobile); viewport=720x540; fi
+              export XDG_DATA_HOME="$RUNNER_TEMP/shutdown-$surface-$pass"
+              log="$RUNNER_TEMP/shutdown-$surface-$pass.log"
+              xvfb-run -a -s '-screen 0 1440x1024x24' timeout --kill-after=10s 180s "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --survival-biomes-smoke "${args[@]}" "--smoke-viewport=$viewport" 2>&1 | tee "$log"
+              grep -q 'SURVIVAL_BIOMES_SMOKE_OK: 10' "$log"
+              if grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED|ObjectDB instances leaked' "$log"; then
+                xvfb-run -a -s '-screen 0 1440x1024x24' timeout --kill-after=10s 180s "$ARCANA_GODOT" --verbose --audio-driver Dummy --path src/Arcana.Client -- --survival-biomes-smoke "${args[@]}" "--smoke-viewport=$viewport"
+                exit 1
+              fi
+              echo "SHUTDOWN_CHECK_OK: $surface $pass"
+            done
+          done
