@@ -43,6 +43,7 @@ public sealed partial class GameWorld
         public double LastActivity;
         public EquipmentItem[] Items = [];
         public string[] Favorites = [];
+        public string[] EquippedItemHistory = [];
         public EquipmentStyle[] AutoSellStyles = [];
         public int AutoSellRuleVersion;
         public int AutoSold;
@@ -104,6 +105,7 @@ public sealed partial class GameWorld
                     Passives = s.Passives.ToArray(), PassiveCooldowns = s.PassiveCooldowns.ToArray(), LastActivity = s.LastActivity,
                     Items = s.Items.ToArray(), Loadout = s.Loadout, Upgrades = new(s.Upgrades), Auras = s.Auras.ToArray(),
                     Favorites = s.Favorites.ToArray(), AutoSellStyles = s.AutoSellStyles.ToArray(), AutoSold = s.AutoSold,
+                    EquippedItemHistory = s.EquippedItemHistory.Order(StringComparer.Ordinal).ToArray(),
                     EquipmentSetup = s.EquipmentSetup.Copy(), EquipmentSetupInitialized = s.EquipmentSetupInitialized,
                     ManualEquipmentSlots = s.ManualEquipmentSlots.Order().ToArray(),
                     AutoSellRuleVersion = InventoryPreferences.CurrentAutoSellRuleVersion
@@ -169,6 +171,7 @@ public sealed partial class GameWorld
             d.Auras.CopyTo(progress.Auras, 0); p.BuffStacks.CopyTo(progress.Buffs, 0);
             progress.Items.AddRange(d.Items);
             progress.Favorites.UnionWith(d.Favorites);
+            progress.EquippedItemHistory.UnionWith(d.EquippedItemHistory);
             progress.ManualEquipmentSlots.UnionWith(d.ManualEquipmentSlots);
             if (d.AutoSellRuleVersion is 1 or InventoryPreferences.CurrentAutoSellRuleVersion)
                 progress.AutoSellStyles.UnionWith(EquipmentStyle.SlotLimits(d.AutoSellStyles));
@@ -279,6 +282,9 @@ public sealed partial class GameWorld
                 d.Items is { Length: <= DefenseRules.InventoryLimit } && d.Items.All(EquipmentCatalogue.Valid) &&
                 d.Favorites is { Length: <= DefenseRules.InventoryLimit } && d.Favorites.Distinct().Count() == d.Favorites.Length &&
                 d.Favorites.All(id => d.Items.Any(i => i.Id == id)) && d.AutoSold >= 0 &&
+                d.EquippedItemHistory is { Length: <= DefenseRules.InventoryLimit } &&
+                d.EquippedItemHistory.Distinct().Count() == d.EquippedItemHistory.Length &&
+                d.EquippedItemHistory.All(id => d.Items.Any(i => i.Id == id)) &&
                 d.AutoSellStyles != null && d.AutoSellStyles.Length <= EquipmentStyle.Limit && d.AutoSellStyles.All(s => s.Valid) &&
                 d.AutoSellStyles.Distinct().Count() == d.AutoSellStyles.Length &&
                 d.AutoSellRuleVersion is >= 0 and <= InventoryPreferences.CurrentAutoSellRuleVersion &&

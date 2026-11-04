@@ -5,6 +5,8 @@ public sealed partial class GameWorld
     private void RecalculateDefender(Wizard player)
     {
         var progress = _defenders[player.Id];
+        foreach (var item in progress.Items)
+            if (progress.Loadout.Get(item.Slot) == item.Id) progress.EquippedItemHistory.Add(item.Id);
         var profile = new AccountProfile("", player.Name, 0, 0, 0, progress.Loadout, progress.Items.ToArray());
         var prepared = PublicEquipment.Prepare(profile, progress.Upgrades);
         float previousCapacity = player.Equipment.ShieldCapacity;
@@ -144,6 +146,7 @@ public sealed partial class GameWorld
                 {
                     if (progress.Loadout.Get(item.Slot) == item.Id || progress.Favorites.Contains(item.Id)) return false;
                     progress.Items.Remove(item); progress.Upgrades.Remove(item.Id);
+                    progress.EquippedItemHistory.Remove(item.Id);
                     { int earned = Math.Min(100000000 - progress.Gold, item.SaleGold); StatisticsEconomy(player.Id, StatisticMeasure.GoldEarned, earned); progress.Gold += earned; }
                 }
                 else
@@ -180,7 +183,8 @@ public sealed partial class GameWorld
         var progress = _defenders[player.Id];
         // Evita repetir la búsqueda de equipo cada tick si las 24 piezas son intocables.
         if (item.Tier == ItemTier.Mythic && progress.Items.Count >= DefenseRules.InventoryLimit &&
-            (!progress.EquipmentSetup.Enabled || progress.Items.All(i => i.Tier == ItemTier.Mythic || progress.Favorites.Contains(i.Id))))
+            (!progress.EquipmentSetup.Enabled || progress.Items.All(i => i.Tier == ItemTier.Mythic ||
+                progress.Favorites.Contains(i.Id) || progress.EquippedItemHistory.Contains(i.Id))))
             return false;
         if (progress.EquipmentSetup.Enabled)
         {

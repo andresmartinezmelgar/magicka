@@ -25,7 +25,7 @@ public partial class DefensePanel
         Wrapped(section, "Elige el elemento que quieres potenciar. Se comparan las seis ranuras y los bonos de conjunto: Vida prioriza curación; Escudo, absorción; los demás, potencia y daño del elemento.", 16);
         Wrapped(section, "Primero intenta reunir los afijos Míticos indicados, por orden de prioridad y sin valorar dos veces el mismo efecto. Después maximiza el elemento. Si aún no tienes esos afijos, equipa la mejor combinación disponible.", 16);
         Wrapped(section, "Puedes cambiar piezas manualmente en el inventario: esas ranuras conservan tu elección y el resto sigue en automático. Aplicar y activar vuelve a elegir todas las ranuras.", 16);
-        Wrapped(section, "AL ACTIVAR: equipa la combinación elegida y vende los descartes por oro temporal. Nunca vende Míticos ni favoritos, aunque no coincidan con tu selección. Mientras esté activa, sustituye los límites de venta por calidad y controla el equipo. Se recuerda para futuras partidas y guardados.", 16, Ui.Gold);
+        Wrapped(section, "AL ACTIVAR: equipa la combinación elegida y vende los descartes por oro temporal. Nunca vende Míticos, favoritos ni piezas que hayas equipado en esta partida, aunque las sustituyas. Puedes vender manualmente una pieza anterior si no está equipada ni es favorita. Mientras esté activa, sustituye los límites de venta por calidad y controla el equipo. Se recuerda para futuras partidas y guardados.", 16, Ui.Gold);
         Wrapped(section, "Elemento principal", 17);
         _setupElement = new OptionButton { Name = "SurvivalSetupElement", CustomMinimumSize = new(0, 48), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         foreach (var element in Enum.GetValues<Element>()) _setupElement.AddItem(Ui.ElementName(element), (int)element);
@@ -128,7 +128,7 @@ public partial class DefensePanel
         _setupDisplayed = setup.Copy();
         if (confirmed) { _setupSubmitted = null; _setupError = ""; }
         if (_setupSubmitted == null)
-            _setupStatus.Text = _setupError.Length > 0 ? _setupError : setup.Enabled ? "ACTIVA · " + Ui.ElementName(setup.Element) + $" · {_player.AutoSold} ventas automáticas. Míticos y favoritos protegidos."
+            _setupStatus.Text = _setupError.Length > 0 ? _setupError : setup.Enabled ? "ACTIVA · " + Ui.ElementName(setup.Element) + $" · {_player.AutoSold} ventas automáticas. Míticos, favoritos y piezas usadas protegidos."
                 : "DESACTIVADA · Puedes elegir y conservar equipo manualmente.";
         if (_setupSubmitted == null && _setupSaveFailed) _setupStatus.Text += "\nNo se pudo guardar la preferencia en el dispositivo; se conserva en esta partida.";
         if (_setupSubmitted == null && setup.Enabled && _player.ManualEquipmentSlots.Length > 0)

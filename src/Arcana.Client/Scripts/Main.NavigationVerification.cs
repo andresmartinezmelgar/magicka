@@ -213,7 +213,9 @@ public partial class Main
                 await ClickSetup(setupApply);
                 var selectedSetup = _practice.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId);
                 Check(selectedSetup.EquipmentSetup.Enabled && selectedSetup.Modifiers.ArcaneMark == 2 && selectedSetup.Modifiers.ArcaneEcho == 2 &&
-                    selectedSetup.Items.Length == 2 && selectedSetup.AutoSold == 2, "La nueva pestaña no equipa Marca y Eco o no vende los descartes.");
+                    selectedSetup.Items.Length == 4 && selectedSetup.AutoSold == 0 &&
+                    selectedSetup.Items.Any(i => i.Item.Id == boots.Id) && selectedSetup.Items.Any(i => i.Item.Id == otherBoots.Id),
+                    "La nueva pestaña no equipa Marca y Eco o vende las botas que ya se habían equipado.");
                 shop.ShowSection(1); await Frames(); inventory = shop.EquipmentInventory!; inventory.PressInspect(EquipmentSlot.Boots); await Frames();
                 Check(((Button)inventory.FindChild("EquipmentAutoSell_" + markBoots.Id, true, false)).Disabled,
                     "El filtro por calidad compite con la configuración automática.");

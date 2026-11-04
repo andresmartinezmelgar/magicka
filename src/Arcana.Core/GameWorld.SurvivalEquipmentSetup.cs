@@ -8,14 +8,15 @@ public sealed partial class GameWorld
         EquipmentItem[] candidates = incoming == null ? progress.Items.ToArray() : [.. progress.Items, incoming];
         var chosen = SurvivalEquipmentSelection.Select(candidates, progress.EquipmentSetup, progress.Loadout, progress.Upgrades, progress.ManualEquipmentSlots);
         var equipped = Enum.GetValues<EquipmentSlot>().Select(chosen.Get).Where(id => id.Length > 0).ToHashSet(StringComparer.Ordinal);
-        bool Retain(EquipmentItem item) => item.Tier == ItemTier.Mythic || equipped.Contains(item.Id) || progress.Favorites.Contains(item.Id);
+        bool Retain(EquipmentItem item) => item.Tier == ItemTier.Mythic || equipped.Contains(item.Id) ||
+            progress.Favorites.Contains(item.Id) || progress.EquippedItemHistory.Contains(item.Id);
         var retained = candidates.Where(Retain).ToArray();
         if (retained.Length > DefenseRules.InventoryLimit && incoming != null)
         {
             // El botín Mítico permanece en el suelo hasta que haya espacio; no modifica el equipo ni el oro.
             if (incoming.Tier == ItemTier.Mythic) return false;
             SellSetupDiscard(progress, player.Id, incoming);
-            Emit("defense_item", player.Position, [], "Selección automática: pieza vendida; el inventario está ocupado por Míticos, favoritos y equipo.");
+            Emit("defense_item", player.Position, [], "Selección automática: pieza vendida; el inventario está ocupado por Míticos, favoritos y piezas que has equipado.");
             return true;
         }
         int before = progress.Gold, sold = 0;
@@ -40,6 +41,9 @@ public sealed partial class GameWorld
             foreach (var slot in Enum.GetValues<EquipmentSlot>())
                 if (slot == chosenSlot || loadout.Get(slot) != progress.Loadout.Get(slot)) progress.ManualEquipmentSlots.Add(slot);
         progress.Loadout = loadout;
+        // Registrar la elección manual antes de que la selección automática descarte otras piezas.
+        foreach (var item in progress.Items)
+            if (loadout.Get(item.Slot) == item.Id) progress.EquippedItemHistory.Add(item.Id);
         if (progress.EquipmentSetup.Enabled) ApplySurvivalEquipmentSetup(player);
         else RecalculateDefender(player);
     }
