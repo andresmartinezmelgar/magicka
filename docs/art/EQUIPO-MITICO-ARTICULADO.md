@@ -4,7 +4,7 @@ Rama: `pruebas/equipo-mitico-articulado`. Un diseño mítico por posición de eq
 
 ![Composición de los cinco magos con el equipo mítico](../images/preview-equipo-mitico.png)
 
-La lámina compone los atlas con sus anclajes y la exclusión de la barba. **No es una captura de Godot**: sirve para revisar el diseño y la colocación antes de compilar. La prueba en movimiento dentro del motor sigue pendiente.
+La lámina inicial compone los atlas con sus primeros anclajes y la exclusión de la barba. **No es una captura de Godot** y no refleja la recalibración posterior. La versión publicada `preview-v0.29.37-r641` completó las pruebas del motor; los cambios siguientes están pendientes de una nueva compilación solicitada expresamente.
 
 ## Integración
 
@@ -16,7 +16,15 @@ La lámina compone los atlas con sus anclajes y la exclusión de la barba. **No 
 - El inventario y los retratos usan la misma geometría en 2D, ajustada al tamaño disponible. Los botones de las seis posiciones conservan su interacción.
 - El atlas usa importación sin pérdida, alfa y mipmaps. El índice se incluye explícitamente en Windows y Android. La preparación de magos genera las mallas; la etapa existente de poder mítico durante la carga dibuja el material de combate.
 
-El aspecto depende de la **calidad**, no de estadísticas, afijos o niveles de mejora. Este prototipo utiliza un solo diseño mítico compartido entre familias. Las calidades inferiores mantienen el sprite base. No modifica objetos guardados, ventas, bonificaciones, Firebase ni el protocolo de red. Los halos y ojos míticos existentes conservan sus condiciones de activación.
+El aspecto especial depende de la **calidad Mítica**. Un mismo diseño conserva su oro y relieve y cambia el cuero y las gemas según Vida, Fuego, Agua, Frío, Rayo, Arcano, Tierra o Escudo. Las calidades inferiores mantienen el sprite base. No modifica objetos guardados, ventas, bonificaciones ni Firebase. Los halos y ojos míticos conservan sus condiciones de activación.
+
+La apariencia incorpora `PieceFamilies`, un campo opcional de 24 bits: cuatro por ranura, con familia + 1. Cero usa la familia global de las apariencias antiguas. Combate, inventario y retratos muestran la familia de cada pieza, también en equipos mezclados. El validador rechaza familias y bits sobrantes inválidos; se conserva la versión del protocolo JSON y la compatibilidad con campos ausentes.
+
+## Recalibración de las piezas
+
+Cada rectángulo conserva la proporción de su recorte. `PivotX` y `PivotY` expresan su apoyo normalizado: banda inferior de la corona, suela de la bota y collar inferior del remate del báculo. La rotación se aplica alrededor de ese apoyo, compartido por 2D y 3D. El peto se ajusta a los hombros de cada mago y queda detrás de la barba y las manos; las botas quedan detrás de la túnica.
+
+Los puntos de los anillos se recalibran sobre el cuero de las manos de las poses originales. Ocho poses con un pie oculto llevan `Visible: false` en esa bota para no dibujar una pieza en el aire. Los indicadores del inventario usan estos mismos puntos en lugar de posiciones porcentuales fijas.
 
 ## Laboratorio desde el menú
 
@@ -24,9 +32,11 @@ Acceso: **Inicio → IA / Defensa → Laboratorio de equipo**. Disponible para r
 
 - Comparación simultánea de un mago base y otro con las piezas elegidas, usando `WizardVisual`, el mismo renderizador de las partidas.
 - Selección de los cinco magos, cuatro orientaciones y color azul/rojo de equipo.
+- Selector visible de los ocho conjuntos elementales y de la calidad del conjunto. Cambiar una pieza deja la calidad global en Personalizado; Vacío utiliza un identificador propio y no comparte el de Plata.
+- Detalle amplía la figura equipada y Pausa detiene su animación para inspeccionarla. Cambiar elemento, orientación, equipo o mago actualiza la vista también durante la pausa.
 - Calidad independiente de las seis posiciones, incluida la opción Vacío. Acciones Todo mítico y Vaciar equipo.
 - Reposo, caminar en el sitio, lanzar, congelación, daño, muerte y reaparición. El modo Automático recorre los estados y las direcciones.
-- Pestaña Inventario con el mismo `EquipmentAvatar` y las mismas piezas de la comparación de combate.
+- Pestaña Inventario con el mismo `EquipmentAvatar`, las mismas piezas y el mismo fotograma y orientación que la comparación de combate. Los ojos respetan la vista frontal, de perfil o de espalda.
 - Atrás, Escape y Atrás de Android vuelven al menú. La prueba no escribe el perfil, el equipamiento ni los objetos de la cuenta.
 
 El argumento `--preview-equipment-lab` abre directamente esta pantalla. La galería anterior de diez magos se conserva para capturas y regresiones.
@@ -53,7 +63,7 @@ python3 scripts/check-mythic-equipment.py
 MYTHIC_ASSETS_OK: 24 vistas, 80 poses, 540 anclajes, alfa, recortes, importación y Windows/Android.
 ```
 
-El comprobador requiere Pillow y revisa decodificación, transparencia, arte dentro de sus regiones, coordenadas finitas, límites de cada pose, exclusión de barba, coherencia del báculo, importación y filtros de exportación. Se revisó visualmente la composición en reposo y lanzamiento. Las compilaciones normales siguen siendo manuales; la publicación solicitada expresamente usa el disparador limitado descrito abajo.
+El comprobador requiere Pillow y revisa decodificación, transparencia, arte dentro de sus regiones, coordenadas finitas, proporciones, pivotes, las cuatro esquinas giradas, apoyo sobre píxeles visibles del cuerpo, exclusión de barba, coherencia del báculo, importación y filtros de exportación. La revisión geométrica estática no sustituye la comprobación del nuevo shader y los controles dentro de Godot. Las compilaciones normales siguen siendo manuales; la publicación solicitada expresamente usa el disparador limitado descrito abajo.
 
 La publicación exige compilar C#, cargar y validar los shaders en Godot, ejecutar las comprobaciones del motor y exportar Android/Windows. Los resultados de cada ejecución y sus capturas quedan registrados en GitHub Actions.
 

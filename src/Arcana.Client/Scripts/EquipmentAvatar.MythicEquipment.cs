@@ -25,8 +25,9 @@ public partial class EquipmentAvatar
             // Encima del dibujo del mago, debajo de botones, indicadores y ojos.
             MoveChild(_mythicEquipment, 0);
         }
-        _mythicEquipment.Mesh = MythicEquipmentVisuals.Mesh(_atlas.Spec.Type, 0);
-        MythicEquipmentVisuals.Configure(_mythicEquipmentMaterial!, _atlas.Spec.Type, 0, mask);
+        _mythicEquipment.Mesh = MythicEquipmentVisuals.Mesh(_atlas.Spec.Type, _previewFrame);
+        MythicEquipmentVisuals.Configure(_mythicEquipmentMaterial!, _atlas.Spec.Type, _previewFrame, mask);
+        foreach (var (slot, item) in _halos) MythicEquipmentVisuals.SetFamily(_mythicEquipmentMaterial!, slot, item.Family);
         _mythicEquipment.Visible = true;
         ArrangeMythicEquipment();
     }

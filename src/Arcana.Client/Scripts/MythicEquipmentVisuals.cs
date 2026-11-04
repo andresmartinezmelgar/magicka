@@ -12,10 +12,12 @@ internal static class MythicEquipmentVisuals
     private static AssetSpec? _spec;
     private static Texture2D? _texture;
     private static Shader? _canvas, _spatial;
+    private static readonly string[] FamilyUniforms = Enumerable.Range(0, 6).Select(i => "piece_color_" + i).ToArray();
 
     internal sealed record Region(int X, int Y, int Width, int Height);
     internal sealed record SpriteSpec(EquipmentSlot Slot, Region[] Views);
-    internal sealed record Bone(float X, float Y, float Width, float Height, float Angle = 0);
+    internal sealed record Bone(float X, float Y, float Width, float Height, float Angle = 0,
+        float PivotX = .5f, float PivotY = .5f, bool Visible = true);
     internal sealed record Pose(Bone Hat, Bone Chest, Bone LeftBoot, Bone RightBoot,
         Bone? Weapon, Bone GoldRing, Bone MagicRing, float[] Beard);
     internal sealed record Rig(WizardType Type, Pose[] Frames);
@@ -43,13 +45,26 @@ internal static class MythicEquipmentVisuals
         RenderPriority = 1
     };
 
+    internal static Color FamilyColor(EquipmentFamily family) => RingEffects.ElementFor(family) is { } element
+        ? Ui.ElementColor(element) : new Color("d9c4ff");
+
+    internal static void SetFamily(ShaderMaterial material, EquipmentSlot slot, EquipmentFamily family) =>
+        material.SetShaderParameter(FamilyUniforms[(int)slot], new Color(FamilyColor(family), family == EquipmentFamily.Mixed ? 0 : 1));
+
     internal static void Configure(ShaderMaterial material, WizardType type, int frame, int mask)
     {
         using var texture = Variant.From(Texture);
         material.SetShaderParameter("equipment_atlas", texture);
         material.SetShaderParameter("equipped_mask", mask);
-        var beard = Frame(type, frame).Beard;
+        var pose = Frame(type, frame); var beard = pose.Beard;
         material.SetShaderParameter("beard", new Vector4(beard[0], beard[1], beard[2], beard[3]));
+        material.SetShaderParameter("left_hand", new Vector4(pose.GoldRing.X, pose.GoldRing.Y, 13, 15));
+        material.SetShaderParameter("right_hand", new Vector4(pose.MagicRing.X, pose.MagicRing.Y, 13, 15));
+        var atlas = WizardSprites.Load(type);
+        using var body = Variant.From(atlas.Texture);
+        material.SetShaderParameter("body_atlas", body);
+        material.SetShaderParameter("body_frame", new Vector4(frame % 4 / 4f, frame / 4 / 4f, .25f, .25f));
+        material.SetShaderParameter("frame_pixels", new Vector2(atlas.Spec.Width / 4f, atlas.Spec.Height / 4f));
     }
 
     internal static void Prepare(WizardSprites.Atlas atlas)
@@ -71,11 +86,27 @@ internal static class MythicEquipmentVisuals
             if (pose.Beard.Length != 4 || pose.Beard.Any(v => !float.IsFinite(v)) || pose.Beard[2] < 0 || pose.Beard[3] < 0 ||
                 Parts(pose).Any(p => !float.IsFinite(p.Bone.X) || !float.IsFinite(p.Bone.Y) ||
                     !float.IsFinite(p.Bone.Width) || !float.IsFinite(p.Bone.Height) || !float.IsFinite(p.Bone.Angle) ||
+                    !float.IsFinite(p.Bone.PivotX) || !float.IsFinite(p.Bone.PivotY) ||
+                    p.Bone.PivotX is < 0 or > 1 || p.Bone.PivotY is < 0 or > 1 ||
                     p.Bone.Width <= 0 || p.Bone.Height <= 0 || p.Bone.X < 0 || p.Bone.Y < 0 ||
                     p.Bone.X >= atlas.Spec.Width / 4f || p.Bone.Y >= atlas.Spec.Height / 4f))
                 throw new InvalidDataException("Anclajes del equipo mítico inválidos.");
         }
         for (int frame = 0; frame < rig.Frames.Length; frame++) Mesh(atlas.Spec.Type, frame);
+    }
+
+    internal static Vector2 Center(Bone bone) => new Vector2((.5f - bone.PivotX) * bone.Width,
+        (.5f - bone.PivotY) * bone.Height).Rotated(Mathf.DegToRad(bone.Angle)) + new Vector2(bone.X, bone.Y);
+
+    internal static Vector2 Socket(WizardType type, int frame, EquipmentSlot slot)
+    {
+        var pose = Frame(type, frame);
+        return slot switch {
+            EquipmentSlot.Hat => Center(pose.Hat), EquipmentSlot.Chest => Center(pose.Chest),
+            EquipmentSlot.Boots => !pose.LeftBoot.Visible ? Center(pose.RightBoot) : !pose.RightBoot.Visible ? Center(pose.LeftBoot)
+                : (Center(pose.LeftBoot) + Center(pose.RightBoot)) / 2,
+            EquipmentSlot.Weapon => pose.Weapon != null ? Center(pose.Weapon) : Center(pose.GoldRing),
+            EquipmentSlot.GoldRing => Center(pose.GoldRing), _ => Center(pose.MagicRing) };
     }
 
     private static IEnumerable<(EquipmentSlot Slot, Bone Bone)> Parts(Pose pose)
@@ -97,6 +128,7 @@ internal static class MythicEquipmentVisuals
         int layer = 0;
         foreach (var (slot, bone) in Parts(Frame(type, frame)))
         {
+            if (!bone.Visible) continue;
             var region = Spec.Sprites.Single(s => s.Slot == slot).Views[frame / WizardSprites.Columns];
             var uvMin = new Vector2(region.X / (float)Spec.Width, region.Y / (float)Spec.Height);
             var uvSize = new Vector2(region.Width / (float)Spec.Width, region.Height / (float)Spec.Height);
@@ -108,8 +140,8 @@ internal static class MythicEquipmentVisuals
                 surface.SetNormal(Vector3.Back); surface.SetUV(uvMin + uv * uvSize);
                 surface.AddVertex(new(point.X, point.Y, z));
             }
-            Vertex(-.5f, -.5f, new(0, 0)); Vertex(-.5f, .5f, new(0, 1)); Vertex(.5f, .5f, new(1, 1));
-            Vertex(-.5f, -.5f, new(0, 0)); Vertex(.5f, .5f, new(1, 1)); Vertex(.5f, -.5f, new(1, 0));
+            Vertex(-bone.PivotX, -bone.PivotY, new(0, 0)); Vertex(-bone.PivotX, 1 - bone.PivotY, new(0, 1)); Vertex(1 - bone.PivotX, 1 - bone.PivotY, new(1, 1));
+            Vertex(-bone.PivotX, -bone.PivotY, new(0, 0)); Vertex(1 - bone.PivotX, 1 - bone.PivotY, new(1, 1)); Vertex(1 - bone.PivotX, -bone.PivotY, new(1, 0));
         }
         cached = surface.Commit(); Meshes.Add(key, cached); return cached;
     }

@@ -36,6 +36,25 @@ public partial class Main
             var lab = _equipmentLaboratory!;
             Check(GodotObject.IsInstanceValid(lab) && !_launcher.Visible && !_playing,
                 "Abrir el laboratorio inicia una partida o no oculta el menú.");
+            var familyChoice = (OptionButton)lab.FindChild("EquipmentLabFamily", true, false);
+            Check(familyChoice.ItemCount == 8 && GetViewport().GetVisibleRect().Grow(1).Encloses(familyChoice.GetGlobalRect()),
+                "Los ocho conjuntos elementales no son accesibles en pantalla.");
+            lab.SetAll(ItemTier.Silver);
+            Check(EquipmentAuraVisuals.Slots.All(s => EquipmentAuraVisuals.Tier(lab.Appearance, s) == ItemTier.Silver),
+                "Elegir Plata selecciona una ranura vacía.");
+            lab.SetAll(null);
+            Check(!EquipmentAuraVisuals.HasPieces(lab.Appearance), "Vaciar el conjunto deja piezas equipadas.");
+            foreach (var family in EquipmentCatalogue.FocusedFamilies)
+            {
+                lab.SetAll(ItemTier.Mythic); lab.SelectFamily(family); await Frames();
+                foreach (var slot in Enum.GetValues<EquipmentSlot>())
+                    Check(lab.Appearance.FamilyFor(slot) == family, "Cambiar de elemento no se aplica a todas las piezas.");
+                var material = (ShaderMaterial)((MeshInstance3D)lab.Equipped.FindChild("MythicEquipment", true, false)).MaterialOverride;
+                var color = material.GetShaderParameter("piece_color_1").AsColor();
+                Check(color.IsEqualApprox(new Color(MythicEquipmentVisuals.FamilyColor(family), 1)), "El shader conserva el elemento anterior.");
+                Capture("elemento-" + family);
+            }
+            lab.SelectFamily(EquipmentFamily.Arcane);
             foreach (var type in Enum.GetValues<WizardType>())
             {
                 lab.SelectWizard(type); lab.SetAll(ItemTier.Mythic); lab.SelectPose(0, 0); await Frames();
@@ -61,6 +80,7 @@ public partial class Main
                 {
                     lab.SelectPose(pose, facing); lab.Advance(1 / 60f); lab.Advance(1 / 60f); await Frames(1);
                     int frame = lab.Equipped.Sprite.Frame;
+                    Check(lab.Avatar.PreviewFrame == frame, "Inventario y combate usan poses distintas.");
                     Check(frame / 4 == facing && lab.Equipped.MythicEquipmentMask == 63,
                         "La orientación del equipo no sigue al mago.");
                     if (pose == 2) Check(frame % 4 == 3, "Lanzar no selecciona la pose de lanzamiento.");
@@ -76,6 +96,15 @@ public partial class Main
             lab.SelectPose(2, 1); await Frames(); Capture("02-lanzamiento");
             var tabs = (TabContainer)lab.FindChild("EquipmentLabViews", true, false);
             tabs.CurrentTab = 1; await Frames(); Capture("03-inventario");
+            var detail = (Button)lab.FindChild("EquipmentLabDetail", true, false);
+            detail.ButtonPressed = true; await Frames();
+            Check(lab.PreviewViewport.GetCamera3D().Size < 4, "Detalle no amplía el personaje.");
+            detail.ButtonPressed = false;
+            var pause = (Button)lab.FindChild("EquipmentLabPause", true, false);
+            pause.ButtonPressed = true; int pausedFrame = lab.Equipped.Sprite.Frame;
+            await Frames(6);
+            Check(lab.Equipped.Sprite.Frame == pausedFrame, "Pausa no detiene la animación.");
+            pause.ButtonPressed = false;
             var settings = (Control)lab.FindChild("EquipmentLabSettings", true, false);
             Check(tabs.GetGlobalRect().Grow(1).Encloses(lab.Avatar.GetGlobalRect()),
                 "El avatar desborda la vista del inventario.");

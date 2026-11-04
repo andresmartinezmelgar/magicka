@@ -55,7 +55,7 @@ public static partial class SnapshotValidation
                 p.Energy > 100 || !float.IsFinite(p.ReanimationCost) || p.ReanimationCost is < 38.99f or > 75.01f || p.Kills < 0 || p.Deaths < 0 || p.SelectionSequence < 0) Invalid();
             if (p!.Damage != null && !p.Damage.Valid() || p.CastingElements != null && !Elements(p.CastingElements) ||
                 p.Buffs is { Length: > RelicBuffs.Count } || hasPickups && p.Buffs == null) Invalid();
-            if (p.Equipment is { } gear && (!Enum.IsDefined(gear.Family) ||
+            if (p.Equipment is { } gear && (!Enum.IsDefined(gear.Family) || !gear.ValidPieceFamilies() ||
                 !Tier(gear.Boots) || !Tier(gear.Hat) || !Tier(gear.Chest) || !Tier(gear.Weapon) || !Tier(gear.GoldRing) || !Tier(gear.MagicRing) ||
                 (MythicEyes.AllMythic(gear) ? !MythicEyes.ValidMix(gear.MythicFamilies) : gear.MythicFamilies != 0))) Invalid();
             int kinds = 0;

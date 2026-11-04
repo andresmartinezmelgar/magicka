@@ -9,6 +9,14 @@ public partial class EquipmentAvatar : Control
     private WizardSprites.Atlas _atlas = null!;
     private EquipmentSlot _selected;
     private EquipmentSlot? _hovered;
+    private int _previewFrame;
+    internal int PreviewFrame => _previewFrame;
+    internal void SetPreviewFrame(int frame)
+    {
+        frame = Math.Clamp(frame, 0, WizardSprites.Columns * WizardSprites.Rows - 1);
+        if (_previewFrame == frame) return;
+        _previewFrame = frame; RefreshMythicEquipment(); ArrangeMythicEyes(); QueueRedraw();
+    }
     private readonly Dictionary<EquipmentSlot, Button> _buttons = [];
     private readonly Dictionary<EquipmentSlot, Color> _colors = [];
     private static readonly EquipmentSlot[] Order = [EquipmentSlot.Hat, EquipmentSlot.Weapon,
@@ -93,13 +101,8 @@ public partial class EquipmentAvatar : Control
     private Vector2 Target(EquipmentSlot slot)
     {
         var bounds = SpriteBounds();
-        var point = slot switch
-        {
-            EquipmentSlot.Hat => new Vector2(.52f, .24f), EquipmentSlot.Chest => new Vector2(.52f, .65f),
-            EquipmentSlot.Boots => new Vector2(.52f, .86f), EquipmentSlot.Weapon => new Vector2(.28f, .42f),
-            EquipmentSlot.GoldRing => new Vector2(.32f, .62f), _ => new Vector2(.68f, .65f)
-        };
-        return bounds.Position + point * bounds.Size;
+        var point = MythicEquipmentVisuals.Socket(_atlas.Spec.Type, _previewFrame, slot);
+        return bounds.Position + point * bounds.Size / new Vector2(_atlas.Spec.Width / 4f, _atlas.Spec.Height / 4f);
     }
 
     public override void _Draw()
@@ -107,7 +110,8 @@ public partial class EquipmentAvatar : Control
         if (_atlas == null || Size.X < 1 || Size.Y < 1) return;
         DrawCircle(Size * new Vector2(.5f, .88f), Size.X * .24f, new Color(.12f, .30f, .44f, .16f));
         DrawAuraParticles();
-        var source = new Rect2(0, 0, _atlas.Spec.Width / 4f, _atlas.Spec.Height / 4f);
+        var cell = new Vector2(_atlas.Spec.Width / 4f, _atlas.Spec.Height / 4f);
+        var source = new Rect2(new Vector2(_previewFrame % 4, _previewFrame / 4) * cell, cell);
         DrawTextureRectRegion(_atlas.Texture, SpriteBounds(), source);
         if (_portrait) return;
         foreach (var slot in Order)

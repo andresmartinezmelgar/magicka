@@ -1,5 +1,11 @@
 # Cambios
 
+## Próxima revisión — Laboratorio y ajuste del equipo
+
+- Selector de los ocho conjuntos elementales y de calidad completa, vista ampliada y pausa de animación en el laboratorio. Inventario y combate comparten orientación y fotograma.
+- Colores propios de cada pieza en combate, inventario y retratos, conservando el oro del arte y la compatibilidad con apariencias antiguas.
+- Piezas con proporciones originales y apoyos en banda, suela y collar del báculo; petos ajustados a los hombros, manos y barba por delante, botas bajo la túnica y retirada de ocho botas que quedaban flotando en poses con el pie oculto.
+
 ## 0.29.37 — Prueba de equipo mítico
 
 - Seis piezas míticas independientes con arte propio: corona, peto, botas, remate del báculo y dos anillos. Comparten un atlas de 24 vistas y anclajes para las 80 poses de los cinco magos.

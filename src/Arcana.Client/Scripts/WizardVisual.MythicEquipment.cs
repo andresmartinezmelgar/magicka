@@ -9,8 +9,11 @@ public partial class WizardVisual
     private ShaderMaterial? _mythicEquipmentMaterial;
     private WizardType? _mythicEquipmentType;
     private int _mythicEquipmentFrame = -1, _mythicEquipmentMask = -1;
+    private EquipmentAppearance? _mythicEquipmentAppearance;
     internal int MythicEquipmentMask { get; private set; }
     internal bool MythicEquipmentVisible => _body.Visible && _mythicEquipment?.Visible == true;
+    private bool _equipmentLaboratoryView;
+    internal void UseEquipmentLaboratoryView() => _equipmentLaboratoryView = true;
 
     private void UpdateMythicEquipment(WizardSnapshot player, int frame, float flash)
     {
@@ -32,6 +35,12 @@ public partial class WizardVisual
             var feet = _atlas.Spec.Frames[frame]; float pixels = _atlas.Spec.PixelSize;
             _mythicEquipment.Position = new(-feet.AnchorX * pixels, feet.AnchorY * pixels, 0);
             _mythicEquipment.Scale = new(pixels, -pixels, 1);
+        }
+        if (_mythicEquipmentAppearance != player.Equipment)
+        {
+            _mythicEquipmentAppearance = player.Equipment;
+            foreach (var slot in EquipmentAuraVisuals.Slots)
+                MythicEquipmentVisuals.SetFamily(_mythicEquipmentMaterial!, slot, player.Equipment!.FamilyFor(slot));
         }
         _mythicEquipmentMaterial!.SetShaderParameter("hit_flash", flash);
         _mythicEquipment.Visible = true;

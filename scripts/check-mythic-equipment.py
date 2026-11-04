@@ -41,6 +41,8 @@ def check(root):
     keys = ('Hat', 'Chest', 'LeftBoot', 'RightBoot', 'Weapon', 'GoldRing', 'MagicRing')
     for rig in spec['Rigs']:
         atlas = next(a for a in original if a['Type'] == rig['Type'])
+        with Image.open(client / atlas['Texture'].removeprefix('res://')) as body:
+            body_alpha = body.getchannel('A')
         assert len(rig['Frames']) == len(atlas['Frames']) == 16
         for index, pose in enumerate(rig['Frames']):
             poses += 1
@@ -61,11 +63,23 @@ def check(root):
                 assert 0 <= x < atlas['Width']/4 and 0 <= y < atlas['Height']/4
                 assert w > 0 and h > 0
                 angle = math.radians(bone.get('Angle', 0))
-                # Ninguna pieza debe invadir la celda de otra pose.
-                half_x = (abs(math.cos(angle))*w + abs(math.sin(angle))*h)/2
-                half_y = (abs(math.sin(angle))*w + abs(math.cos(angle))*h)/2
-                assert 0 <= x-half_x <= x+half_x <= atlas['Width']/4
-                assert 0 <= y-half_y <= y+half_y <= atlas['Height']/4
+                px, py = bone.get('PivotX', .5), bone.get('PivotY', .5)
+                assert 0 <= px <= 1 and 0 <= py <= 1
+                slot = {'Hat': 1, 'Chest': 2, 'LeftBoot': 0, 'RightBoot': 0, 'Weapon': 3, 'GoldRing': 4, 'MagicRing': 5}[key]
+                region = next(s for s in spec['Sprites'] if s['Slot'] == slot)['Views'][index//4]
+                assert math.isclose(w/h, region['Width']/region['Height'], rel_tol=1e-5), f'Arte deformado: {rig["Type"]}/{index}/{key}'
+                # Comprueba las cuatro esquinas alrededor del apoyo real, también al girar.
+                for u, v in ((0, 0), (0, 1), (1, 0), (1, 1)):
+                    dx, dy = (u-px)*w, (v-py)*h
+                    vx, vy = x+dx*math.cos(angle)-dy*math.sin(angle), y+dx*math.sin(angle)+dy*math.cos(angle)
+                    assert 0 <= vx <= atlas['Width']/4 and 0 <= vy <= atlas['Height']/4, f'Pieza fuera de pose: {rig["Type"]}/{index}/{key}'
+                if slot == 0: assert py >= .9, 'La bota debe sujetarse por la suela.'
+                if slot == 1: assert py >= .9, 'La corona debe sujetarse por la banda.'
+                if slot == 3: assert py >= .9, 'El remate debe sujetarse por el collar de la vara.'
+                if bone.get('Visible', True):
+                    ax, ay = int(index%4*atlas['Width']/4+x), int(index//4*atlas['Height']/4+y)
+                    contact = body_alpha.crop((ax-8, ay-8, ax+9, ay+9))
+                    assert contact.getextrema()[1] >= 160, f'Pieza sin apoyo sobre el cuerpo: {rig["Type"]}/{index}/{key}'
     presets = (client / 'export_presets.cfg').read_text()
     filters = [line for line in presets.splitlines() if line.startswith('include_filter=')]
     assert len(filters) == 2 and all('Assets/Wizards/mythic-equipment.json' in f for f in filters), 'Falta el índice en una exportación.'
