@@ -43,8 +43,13 @@ jobs:
           }
           run_id=$(find_run)
           if [ -z "$run_id" ]; then
-            gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" \
-              -f publish_preview=true -f publish_stable=false
+            for attempt in 1 2 3; do
+              if gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" \
+                -f publish_preview=true -f publish_stable=false; then break; fi
+              sleep $((attempt * 5))
+              run_id=$(find_run)
+              if [ -n "$run_id" ]; then break; fi
+            done
             for attempt in $(seq 1 60); do
               run_id=$(find_run)
               if [ -n "$run_id" ]; then break; fi

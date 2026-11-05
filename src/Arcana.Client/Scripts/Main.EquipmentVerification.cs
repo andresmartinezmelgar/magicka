@@ -292,9 +292,12 @@ public partial class Main
                 var baseVisual = new WizardVisual(); var equippedVisual = new WizardVisual();
                 AddChild(baseVisual); AddChild(equippedVisual);
                 baseVisual.Build(player with { Equipment = null }, true); equippedVisual.Build(player, true);
-                Check(baseVisual.Sprite.Texture == equippedVisual.Sprite.Texture && baseVisual.Sprite.MaterialOverride is ShaderMaterial &&
-                    equippedVisual.Sprite.GetParent().GetChildren().Count == 1,
-                    "El equipo añadió adornos o cambió el sprite del mago.");
+                var originalSprite = baseVisual.Sprite;
+                var equippedSprite = equippedVisual.Sprite;
+                Check(equippedSprite.Texture is ImageTexture && equippedSprite.Texture != originalSprite.Texture &&
+                    equippedSprite.Texture.GetSize() == originalSprite.Texture!.GetSize() &&
+                    equippedSprite.MaterialOverride is ShaderMaterial && equippedSprite.GetParent().GetChildren().Count == 1,
+                    "El equipo mítico debe sustituir la textura del mago en un único sprite.");
                 baseVisual.QueueFree(); equippedVisual.QueueFree(); ReturnToLauncher();
             }
             Check(_engineLog.ErrorCount == 0, "Godot registró errores durante la comprobación.");
