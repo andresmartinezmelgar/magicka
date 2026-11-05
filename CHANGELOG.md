@@ -2,6 +2,7 @@
 
 ## 0.29.37 — Prueba de equipo mítico
 
+- Supervivencia vuelve a vender descartes de cambios automáticos. Los Míticos, los favoritos, las piezas de cambios manuales y las protecciones ya guardadas se conservan.
 - Selector de los ocho conjuntos elementales y de calidad completa, vista ampliada y pausa de animación en el laboratorio. Inventario y combate comparten orientación y fotograma.
 - Colores propios de cada pieza en combate, inventario y retratos, conservando el oro del arte y la compatibilidad con apariencias antiguas.
 - Piezas recalibradas en 80 poses. Coronas, petos, báculos y anillos ajustados al cuerpo. Las botas quedan bajo la túnica y se ocultan cuando el pie no es visible.
@@ -9,7 +10,6 @@
 - Seis piezas míticas independientes con arte propio: corona, peto, botas, remate del báculo y dos anillos. Comparten un atlas de 24 vistas y anclajes para las 80 poses de los cinco magos.
 - Laboratorio de equipo accesible desde IA/Defensa en escritorio y Android. Compara aspecto base y equipo elegido, permite cambiar cada calidad y probar orientación, marcha, lanzamiento, congelación, daño, muerte y reaparición. Incluye la vista del inventario y salida con Atrás/Escape.
 - Los cambios del laboratorio son locales y no alteran la cuenta ni los objetos guardados. Las calidades inferiores conservan el sprite base. Se mantienen las auras y los ojos míticos existentes.
-- En Supervivencia, las piezas que se hayan equipado quedan protegidas de la venta automática aunque se sustituyan. El historial se conserva al guardar y reconectar; la venta manual sigue disponible y reiniciar limpia el historial.
 - Comprobaciones de recursos y regresiones de sprites y laboratorio antes de publicar una versión preliminar con APK firmada y paquete Windows.
 
 ## 0.29.36
