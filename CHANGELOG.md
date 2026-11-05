@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.29.38
+
+- El mago Equilibrado ensambla arma, gorro, pecho y botas en un solo sprite. Cada ranura se puede combinar por separado con piezas de las ocho familias míticas.
+- Laboratorio → Probar piezas míticas permite comparar las apariencias normal y mítica de cada ranura mientras el mago se mueve y lanza hechizos.
+- Supervivencia vuelve a vender los descartes automáticos y conserva los objetos cambiados manualmente, los favoritos y los míticos.
+
 ## 0.29.36
 
 - Los bots aliados comparan rutas a pie con atajos por portales para seguir al jugador tras teletransportarse. Buscan entradas accesibles, pueden encadenar portales y respetan salidas bloqueadas, enfriamiento y salida del círculo antes de reutilizarlo.

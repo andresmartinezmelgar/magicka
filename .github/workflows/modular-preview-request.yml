@@ -1,0 +1,71 @@
+name: Publicar prueba de equipamiento modular solicitada
+
+on:
+  push:
+    branches: [pruebas/armas-sprite-completo]
+    paths: [.github/workflows/modular-preview-request.yml]
+
+permissions:
+  actions: write
+  contents: read
+  statuses: write
+
+jobs:
+  requested-preview:
+    if: github.event.head_commit.message == 'Publicar prueba de equipamiento 0.29.38'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar, compilar y comprobar la preliminar
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          api="repos/$GITHUB_REPOSITORY"
+          url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          status() {
+            gh api --method POST "$api/statuses/$GITHUB_SHA" -f state="$1" \
+              -f context=publicacion/equipamiento-modular -f description="$2" -f target_url="$url" >/dev/null
+          }
+          trap 'status failure "La compilación o publicación requiere revisión" || true' ERR
+          status pending "Validando la revisión solicitada"
+          test "$GITHUB_REF_NAME" = 'pruebas/armas-sprite-completo'
+          version=$(tr -d '\r\n' < VERSION)
+          test "$version" = '0.29.38'
+          python3 scripts/version-support.py check .
+          test "$(gh api "$api/git/ref/heads/$GITHUB_REF_NAME" --jq '.object.sha')" = "$GITHUB_SHA"
+          find_run() {
+            gh api --method GET "$api/actions/workflows/ci.yml/runs" \
+              -f head_sha="$GITHUB_SHA" -f branch="$GITHUB_REF_NAME" -f event=workflow_dispatch \
+              -F per_page=5 --jq '.workflow_runs[0].id // empty'
+          }
+          run_id=$(find_run)
+          if [ -z "$run_id" ]; then
+            gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" \
+              -f publish_preview=true -f publish_stable=false
+            for attempt in $(seq 1 60); do
+              run_id=$(find_run)
+              if [ -n "$run_id" ]; then break; fi
+              sleep 3
+            done
+          fi
+          test -n "$run_id"
+          url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$run_id"
+          status pending "Ejecutando pruebas y empaquetados"
+          printf 'Compilación solicitada: %s\n' "$url" >> "$GITHUB_STEP_SUMMARY"
+          gh run watch "$run_id" --repo "$GITHUB_REPOSITORY" --exit-status --interval 20
+          build=$(gh api "$api/actions/runs/$run_id" --jq '.run_number')
+          tag="preview-v$version-r$build"
+          test "$(gh api "$api/commits/$tag" --jq '.sha')" = "$GITHUB_SHA"
+          release="$api/releases/tags/$tag"
+          test "$(gh api "$release" --jq '.prerelease and (.draft | not)')" = true
+          assets=$(gh api "$release" --jq '.assets[] | select(.state == "uploaded" and .size > 0) | .name')
+          grep -Fx "ArcanaArena-v$version-Android-arm64.apk" <<< "$assets"
+          grep -Fx "ArcanaArena-v$version-Windows-x64.zip" <<< "$assets"
+          grep -Fx "ArcanaArena-v$version-Windows-x64.rar" <<< "$assets"
+          grep -Fx 'PREVIEW.json' <<< "$assets"
+          url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$tag"
+          status success "Paquetes verificados en $tag"
+          printf 'Prueba publicada: %s\n' "$url" >> "$GITHUB_STEP_SUMMARY"
