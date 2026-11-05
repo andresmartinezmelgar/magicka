@@ -1,5 +1,6 @@
 name: Publicar prueba de equipamiento modular solicitada
 
+# La revisión incluye la prueba de márgenes con el selector de piezas abierto.
 on:
   push:
     branches: [pruebas/armas-sprite-completo]

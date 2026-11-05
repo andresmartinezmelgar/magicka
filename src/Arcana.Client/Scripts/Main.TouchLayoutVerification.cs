@@ -34,6 +34,14 @@ public partial class Main
                 await Frames(); UpdateTouchLayout();
                 VerifyTouchClearance(_touch!); VerifyTouchLayoutVariants(_touch!);
                 Capture(map + "-combate");
+                if (_practicePanel?.FindChild("PracticeOutfitPreview", true, false) is CheckButton outfit)
+                {
+                    outfit.ButtonPressed = true;
+                    await Frames(); UpdateTouchLayout();
+                    VerifyTouchClearance(_touch!);
+                    outfit.ButtonPressed = false;
+                    await Frames();
+                }
                 OpenTouchSettings();
                 ((Button)_controlsSettings!.FindChild("TouchEditPositions", true, false)).EmitSignal(BaseButton.SignalName.Pressed);
                 await Frames();

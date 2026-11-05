@@ -58,15 +58,20 @@ public partial class PracticePanel : PanelContainer
     }
     private void AddOutfitPreview(VBoxContainer stack)
     {
-        var toggle = new CheckButton { Name = "PracticeOutfitPreview", Text = "Probar piezas míticas" };
-        var grid = new GridContainer { Columns = 2, Visible = false };
+        var toggle = new CheckButton { Name = "PracticeOutfitPreview", Text = "Probar piezas míticas", ClipText = Ui.IsMobile,
+            TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
+        Ui.TouchTarget(toggle, 44);
+        if (Ui.IsMobile) toggle.AddThemeFontSizeOverride("font_size", 16);
+        var grid = new GridContainer { Columns = Ui.IsMobile ? 1 : 2, Visible = false };
         var parts = WizardOutfitParts.Load();
         EquipmentOutfit outfit = default;
         foreach (var slot in new[] { EquipmentSlot.Weapon, EquipmentSlot.Hat, EquipmentSlot.Chest, EquipmentSlot.Boots })
         {
             string name = EquipmentCatalogue.SlotName(slot);
             var choice = new OptionButton { Name = "PracticePiece" + slot, CustomMinimumSize = new(0, 44),
-                SizeFlagsHorizontal = SizeFlags.ExpandFill, FitToLongestItem = !Ui.IsMobile, ClipText = Ui.IsMobile };
+                SizeFlagsHorizontal = SizeFlags.ExpandFill, FitToLongestItem = !Ui.IsMobile, ClipText = Ui.IsMobile,
+                TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
+            if (Ui.IsMobile) choice.AddThemeFontSizeOverride("font_size", 16);
             choice.AddItem(name + " normal");
             foreach (var family in parts.Families(slot))
                 choice.AddItem(name + " · " + EquipmentCatalogue.FamilyName(family), (int)family);
