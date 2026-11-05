@@ -8,21 +8,24 @@ namespace Arcana.Client;
 internal sealed class WizardOutfitParts
 {
     private const string Index = "res://Assets/Wizards/balanced-parts.json";
+    // El cuerpo necesita el atlas base. Cada una de las cuatro ranuras puede usar otro atlas.
+    private const int FamilyCacheLimit = 4;
     private static WizardOutfitParts? _loaded;
     private static readonly EquipmentSlot[] Slots = [EquipmentSlot.Boots, EquipmentSlot.Chest, EquipmentSlot.Hat, EquipmentSlot.Weapon];
-    private readonly Image _pixels;
+    private readonly Dictionary<string, (Image Pixels, long LastUse)> _pixels = new(StringComparer.Ordinal);
+    private long _lastUse;
     private readonly Specification _spec;
     private readonly Dictionary<(EquipmentSlot, EquipmentFamily?), Piece> _pieces;
 
     private sealed record Region(int X, int Y, int Width, int Height, int AtX, int AtY);
     private sealed record GripOffset(int X, int Y);
     private sealed record Piece(EquipmentSlot Slot, EquipmentFamily? Family, Region?[] Frames,
-        WizardSprites.FrameSpec[]? CastOrigins = null, GripOffset[]? GripOffsets = null);
+        WizardSprites.FrameSpec[]? CastOrigins = null, GripOffset[]? GripOffsets = null, string? Texture = null);
     private sealed record Specification(string Texture, int Width, int Height, Region?[] Body, Piece[] Pieces);
 
-    private WizardOutfitParts(Specification spec, Image pixels)
+    private WizardOutfitParts(Specification spec)
     {
-        _spec = spec; _pixels = pixels;
+        _spec = spec;
         _pieces = spec.Pieces.ToDictionary(p => (p.Slot, p.Family));
         if (Slots.Any(slot => !_pieces.ContainsKey((slot, null))))
             throw new InvalidDataException("Faltan piezas base del mago Equilibrado.");
@@ -42,14 +45,34 @@ internal sealed class WizardOutfitParts
         if (_loaded != null) return _loaded;
         var spec = JsonSerializer.Deserialize<Specification>(Godot.FileAccess.GetFileAsString(Index))
             ?? throw new InvalidDataException("Falta el índice de piezas del mago Equilibrado.");
+        return _loaded = new(spec);
+    }
+
+    private Image Pixels(string path)
+    {
+        if (_pixels.TryGetValue(path, out var cached))
+        {
+            _pixels[path] = (cached.Pixels, ++_lastUse);
+            return cached.Pixels;
+        }
         var pixels = new Image();
         try
         {
-            if (pixels.LoadWebpFromBuffer(Godot.FileAccess.GetFileAsBytes(spec.Texture)) != Error.Ok)
-                throw new InvalidDataException($"No se pudo cargar {spec.Texture}.");
+            if (pixels.LoadWebpFromBuffer(Godot.FileAccess.GetFileAsBytes(path)) != Error.Ok)
+                throw new InvalidDataException($"No se pudo cargar {path}.");
             pixels.Convert(Image.Format.Rgba8);
-            _loaded = new(spec, pixels);
-            return _loaded;
+            int width = pixels.GetWidth(), height = pixels.GetHeight();
+            if (path == _spec.Texture) ValidateSource(_spec.Body, width, height);
+            foreach (var piece in _spec.Pieces)
+                if ((piece.Texture ?? _spec.Texture) == path) ValidateSource(piece.Frames, width, height);
+            if (path != _spec.Texture && _pixels.Count(p => p.Key != _spec.Texture) >= FamilyCacheLimit)
+            {
+                var oldest = _pixels.Where(p => p.Key != _spec.Texture).MinBy(p => p.Value.LastUse);
+                _pixels.Remove(oldest.Key);
+                oldest.Value.Pixels.Dispose();
+            }
+            _pixels.Add(path, (pixels, ++_lastUse));
+            return pixels;
         }
         catch { pixels.Dispose(); throw; }
     }
@@ -60,10 +83,20 @@ internal sealed class WizardOutfitParts
             throw new InvalidDataException("Número incorrecto de poses para una pieza del mago.");
         foreach (var region in frames)
             if (region != null && (region.Width <= 0 || region.Height <= 0 ||
-                region.X < 0 || region.Y < 0 || region.X + region.Width > _pixels.GetWidth() || region.Y + region.Height > _pixels.GetHeight() ||
+                region.X < 0 || region.Y < 0 ||
                 region.AtX < 0 || region.AtY < 0 || region.AtX + region.Width > _spec.Width || region.AtY + region.Height > _spec.Height))
                 throw new InvalidDataException("Recorte de pieza fuera del atlas del mago.");
     }
+
+    private static void ValidateSource(Region?[] frames, int width, int height)
+    {
+        foreach (var r in frames)
+            if (r != null && (r.X > width - r.Width || r.Y > height - r.Height))
+                throw new InvalidDataException("Recorte de pieza fuera de la textura de origen.");
+    }
+
+    internal IEnumerable<EquipmentFamily> Families(EquipmentSlot slot) =>
+        EquipmentCatalogue.FocusedFamilies.Where(family => _pieces.ContainsKey((slot, family)));
 
     private EquipmentFamily? Supported(EquipmentSlot slot, EquipmentFamily? family) =>
         _pieces.ContainsKey((slot, family)) ? family : null;
@@ -89,32 +122,41 @@ internal sealed class WizardOutfitParts
         if (atlas.Width != _spec.Width || atlas.Height != _spec.Height)
             throw new InvalidDataException("El tamaño de las piezas no coincide con el atlas del mago.");
         var image = Image.CreateEmpty(atlas.Width, atlas.Height, false, Image.Format.Rgba8);
-        image.Fill(Colors.Transparent);
-        var chest = _pieces[(EquipmentSlot.Chest, outfit.Chest)];
-        // El arma se dibuja detrás de la mano. Cada ranura aporta una única pieza.
-        Paint(image, _pieces[(EquipmentSlot.Weapon, outfit.Weapon)].Frames, chest.GripOffsets);
-        Paint(image, _pieces[(EquipmentSlot.Boots, outfit.Boots)].Frames);
-        Paint(image, chest.Frames);
-        Paint(image, _spec.Body);
-        Paint(image, _pieces[(EquipmentSlot.Hat, outfit.Hat)].Frames);
-        image.GenerateMipmaps();
-        return image;
+        try
+        {
+            image.Fill(Colors.Transparent);
+            var chest = _pieces[(EquipmentSlot.Chest, outfit.Chest)];
+            // El arma se dibuja detrás de la mano. Cada ranura aporta una única pieza.
+            Paint(image, _pieces[(EquipmentSlot.Weapon, outfit.Weapon)], chest.GripOffsets);
+            Paint(image, _pieces[(EquipmentSlot.Boots, outfit.Boots)]);
+            Paint(image, chest);
+            Paint(image, _spec.Body, _spec.Texture);
+            Paint(image, _pieces[(EquipmentSlot.Hat, outfit.Hat)]);
+            image.GenerateMipmaps();
+            return image;
+        }
+        catch { image.Dispose(); throw; }
     }
 
-    private void Paint(Image image, Region?[] frames, GripOffset[]? grips = null)
+    private void Paint(Image image, Piece piece, GripOffset[]? grips = null) =>
+        Paint(image, piece.Frames, piece.Texture ?? _spec.Texture, grips);
+
+    private void Paint(Image image, Region?[] frames, string texture, GripOffset[]? grips = null)
     {
+        var pixels = Pixels(texture);
         for (int i = 0; i < frames.Length; i++)
             if (frames[i] is { } r)
             {
                 var grip = grips?[i];
-                image.BlendRect(_pixels, new Rect2I(r.X, r.Y, r.Width, r.Height),
+                image.BlendRect(pixels, new Rect2I(r.X, r.Y, r.Width, r.Height),
                     new Vector2I(r.AtX + (grip?.X ?? 0), r.AtY + (grip?.Y ?? 0)));
             }
     }
 
     internal static void ClearCache()
     {
-        _loaded?._pixels.Dispose();
+        if (_loaded != null)
+            foreach (var entry in _loaded._pixels.Values) entry.Pixels.Dispose();
         _loaded = null;
     }
 }

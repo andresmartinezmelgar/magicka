@@ -60,6 +60,7 @@ public partial class PracticePanel : PanelContainer
     {
         var toggle = new CheckButton { Name = "PracticeOutfitPreview", Text = "Probar piezas míticas" };
         var grid = new GridContainer { Columns = 2, Visible = false };
+        var parts = WizardOutfitParts.Load();
         EquipmentOutfit outfit = default;
         foreach (var slot in new[] { EquipmentSlot.Weapon, EquipmentSlot.Hat, EquipmentSlot.Chest, EquipmentSlot.Boots })
         {
@@ -67,8 +68,8 @@ public partial class PracticePanel : PanelContainer
             var choice = new OptionButton { Name = "PracticePiece" + slot, CustomMinimumSize = new(0, 44),
                 SizeFlagsHorizontal = SizeFlags.ExpandFill, FitToLongestItem = !Ui.IsMobile, ClipText = Ui.IsMobile };
             choice.AddItem(name + " normal");
-            choice.AddItem(name + " · Vida", (int)EquipmentFamily.Life);
-            choice.AddItem(name + " · Fuego", (int)EquipmentFamily.Fire);
+            foreach (var family in parts.Families(slot))
+                choice.AddItem(name + " · " + EquipmentCatalogue.FamilyName(family), (int)family);
             choice.ItemSelected += index =>
             {
                 outfit = outfit.With(slot, index == 0 ? null : (EquipmentFamily)choice.GetItemId((int)index));

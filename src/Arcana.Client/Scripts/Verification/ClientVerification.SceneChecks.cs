@@ -268,14 +268,14 @@ public partial class ClientVerification
         {
             var sprite = visual.Sprite;
             var original = sprite.Texture;
-            var gear = new EquipmentAppearance(Chest: ItemTier.Mythic, Weapon: ItemTier.Mythic)
-                { MythicOutfit = new(Chest: EquipmentFamily.Life, Weapon: EquipmentFamily.Fire) };
+            var gear = new EquipmentAppearance(ItemTier.Mythic, ItemTier.Mythic, ItemTier.Mythic, ItemTier.Mythic)
+                { MythicOutfit = new(EquipmentFamily.Cold, EquipmentFamily.Shield, EquipmentFamily.Earth, EquipmentFamily.Fire) };
             void Draw(EquipmentAppearance? equipment) => visual.Update(player with { Equipment = equipment },
                 1 / 60f, 0, _runtime.Renderer.Camera, 0, 0);
             Draw(gear);
             var painted = sprite.Texture;
             var fireOrigin = visual.CastingOrigin;
-            Draw(gear with { MythicOutfit = gear.MythicOutfit.With(EquipmentSlot.Weapon, EquipmentFamily.Life) });
+            Draw(gear with { MythicOutfit = gear.MythicOutfit.With(EquipmentSlot.Weapon, EquipmentFamily.Water) });
             bool valid = !ReferenceEquals(painted, original) && ReferenceEquals(painted, sprite.Texture) &&
                 fireOrigin.HasValue && visual.CastingOrigin.HasValue && fireOrigin != visual.CastingOrigin;
             Draw(null);
