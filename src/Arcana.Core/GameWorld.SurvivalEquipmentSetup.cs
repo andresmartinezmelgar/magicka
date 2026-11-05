@@ -16,7 +16,7 @@ public sealed partial class GameWorld
             // El botín Mítico permanece en el suelo hasta que haya espacio; no modifica el equipo ni el oro.
             if (incoming.Tier == ItemTier.Mythic) return false;
             SellSetupDiscard(progress, player.Id, incoming);
-            Emit("defense_item", player.Position, [], "Selección automática: pieza vendida; el inventario está ocupado por Míticos, favoritos y piezas que has equipado.");
+            Emit("defense_item", player.Position, [], "Selección automática: pieza vendida. El inventario está ocupado por Míticos, favoritos y equipo protegido.");
             return true;
         }
         int before = progress.Gold, sold = 0;
@@ -37,13 +37,18 @@ public sealed partial class GameWorld
 
     private void SetManualDefenseLoadout(Wizard player, DefenseProgress progress, EquipmentLoadout loadout, EquipmentSlot? chosenSlot = null)
     {
-        if (progress.EquipmentSetup.Enabled)
-            foreach (var slot in Enum.GetValues<EquipmentSlot>())
-                if (slot == chosenSlot || loadout.Get(slot) != progress.Loadout.Get(slot)) progress.ManualEquipmentSlots.Add(slot);
+        foreach (var slot in Enum.GetValues<EquipmentSlot>())
+        {
+            string previous = progress.Loadout.Get(slot);
+            string selected = loadout.Get(slot);
+            if (slot != chosenSlot && previous == selected) continue;
+
+            if (progress.EquipmentSetup.Enabled) progress.ManualEquipmentSlots.Add(slot);
+            // Protege las dos piezas implicadas en la elección, aunque la anterior se equipara sola.
+            if (previous.Length > 0) progress.EquippedItemHistory.Add(previous);
+            if (selected.Length > 0) progress.EquippedItemHistory.Add(selected);
+        }
         progress.Loadout = loadout;
-        // Registrar la elección manual antes de que la selección automática descarte otras piezas.
-        foreach (var item in progress.Items)
-            if (loadout.Get(item.Slot) == item.Id) progress.EquippedItemHistory.Add(item.Id);
         if (progress.EquipmentSetup.Enabled) ApplySurvivalEquipmentSetup(player);
         else RecalculateDefender(player);
     }

@@ -91,13 +91,14 @@ internal static class SurvivalEquipmentSetupTests
             int gold = State(world, player).Gold;
             Check(Setup(world, player, Enabled(Element.Life)), "No aplica configuración.");
             var state = State(world, player);
-            Check(state.Items.Length == 4 && state.Items.Any(i => i.Item.Id == offElement.Id) && state.Items.Any(i => i.Item.Id == weak.Id) &&
+            Check(state.Items.Length == 3 && state.Items.Any(i => i.Item.Id == offElement.Id) && state.Items.All(i => i.Item.Id != weak.Id) &&
                 state.Items.Single(i => i.Equipped).Item.Id == strong.Id && state.Favorites.Contains(favorite.Id) &&
-                state.Gold == gold + discard.SaleGold && state.AutoSold == 1, "Vende el equipo anterior o no vende exactamente el descarte sin usar.");
+                state.Gold == gold + weak.SaleGold + discard.SaleGold && state.AutoSold == 2,
+                "La selección no vende exactamente los dos descartes sin protección.");
             var next = Piece(EquipmentSlot.Hat, EquipmentStat.HealingPower, .3f, tier: ItemTier.Silver);
             Give(world, player, next); state = State(world, player);
-            Check(state.Items.Single(i => i.Equipped).Item.Id == next.Id && state.Items.Length == 5 && state.AutoSold == 1 &&
-                state.Gold == gold + discard.SaleGold && state.Items.Any(i => i.Item.Id == strong.Id) && state.Items.Any(i => i.Item.Id == offElement.Id),
+            Check(state.Items.Single(i => i.Equipped).Item.Id == next.Id && state.Items.Length == 4 && state.AutoSold == 2 &&
+                state.Gold == gold + weak.SaleGold + discard.SaleGold && state.Items.Any(i => i.Item.Id == strong.Id) && state.Items.Any(i => i.Item.Id == offElement.Id),
                 "El filtro vende la mejora, un Mítico sustituido o un Mítico de otro elemento.");
             Check(Send(world, player, new() { Type = "defense_equip", ItemId = favorite.Id }) &&
                 State(world, player).Items.Single(i => i.Equipped).Item.Id == favorite.Id &&
@@ -153,24 +154,32 @@ internal static class SurvivalEquipmentSetupTests
             Check(Setup(world, player, Enabled(Element.Fire)) && State(world, player).Items.Length == 2 &&
                 Setup(world, player, Enabled(Element.Life)) && State(world, player).Items.Single(i => i.Equipped).Item.Id == previous.Id,
                 "Cambiar el elemento o volver a aplicar vende una pieza usada.");
+            Check(Send(world, player, new() { Type = "defense_sell", ItemId = next.Id }), "La protección impide vender a mano una pieza desequipada.");
+            state = State(world, player);
+            Check(state.Items.Length == 1 && state.Gold == discard.SaleGold + next.SaleGold && state.AutoSold == 1,
+                "La venta manual pierde otra pieza o cuenta como automática.");
+            var restored = GameWorld.RestoreSurvival(world.SaveSurvival(player.Id, Guid.NewGuid().ToString("N")));
+            Check(State(restored, restored.Players[player.Id]).Items.Length == 1, "La venta manual deja un historial inválido en el guardado.");
         });
-        test("Supervivencia: las sustituciones automáticas conservan el historial y permiten venta manual posterior", () =>
+        test("Supervivencia: la selección vende sus propias sustituciones, también después de continuar", () =>
         {
             var world = World(); var player = world.AddPlayer("Mago")!;
             Check(Setup(world, player, Enabled(Element.Life)), "No activa la selección automática.");
             var previous = Piece(EquipmentSlot.Hat, EquipmentStat.HealingPower, .01f, tier: ItemTier.Gold);
             var next = Piece(EquipmentSlot.Hat, EquipmentStat.HealingPower, .2f, tier: ItemTier.Silver);
             var last = Piece(EquipmentSlot.Hat, EquipmentStat.HealingPower, .3f, tier: ItemTier.Diamond);
-            foreach (var item in new[] { previous, next, last }) Give(world, player, item);
+            Give(world, player, previous);
+            Give(world, player, next);
             var state = State(world, player);
-            Check(state.Items.Length == 3 && state.Items.Single(i => i.Equipped).Item.Id == last.Id && state.Gold == 0 && state.AutoSold == 0,
-                "La siguiente mejora vende una pieza equipada automáticamente.");
-            Check(Send(world, player, new() { Type = "defense_sell", ItemId = previous.Id }), "El historial bloquea la venta manual.");
-            state = State(world, player);
-            Check(state.Items.Length == 2 && state.Gold == previous.SaleGold && state.AutoSold == 0,
-                "La venta manual pierde otra pieza o se cuenta como automática.");
+            Check(state.Items.Length == 1 && state.Items.Single(i => i.Equipped).Item.Id == next.Id &&
+                state.Gold == previous.SaleGold && state.AutoSold == 1, "La mejora automática acumula su descarte o no concede el oro.");
             var restored = GameWorld.RestoreSurvival(world.SaveSurvival(player.Id, Guid.NewGuid().ToString("N")));
-            Check(State(restored, restored.Players[player.Id]).Items.Length == 2, "Vender manualmente deja un historial inválido en el guardado.");
+            var human = restored.Players[player.Id];
+            Give(restored, human, last);
+            state = State(restored, human);
+            Check(state.Items.Length == 1 && state.Items.Single(i => i.Equipped).Item.Id == last.Id &&
+                state.Gold == previous.SaleGold + next.SaleGold && state.AutoSold == 2,
+                "Continuar protege una pieza automática o duplica la venta.");
         });
         test("Supervivencia: el historial de equipo persiste al guardar y reconectar y se limpia al reiniciar", () =>
         {
@@ -246,7 +255,7 @@ internal static class SurvivalEquipmentSetupTests
             var world = World(); var player = world.AddPlayer("Mago")!;
             var manual = Piece(EquipmentSlot.Hat, EquipmentStat.HealingPower, .01f);
             var better = Piece(EquipmentSlot.Hat, EquipmentStat.HealingPower, .2f);
-            var weapon = Piece(EquipmentSlot.Weapon, EquipmentStat.HealingPower, .01f);
+            var weapon = Piece(EquipmentSlot.Weapon, EquipmentStat.HealingPower, .01f, tier: ItemTier.Gold);
             foreach (var item in new[] { manual, better, weapon }) Give(world, player, item);
             Check(Setup(world, player, Enabled(Element.Life)), "No activa el equipo automático.");
             Check(Send(world, player, new() { Type = "defense_equip", ItemId = manual.Id }), "No permite equipar manualmente.");
@@ -257,7 +266,8 @@ internal static class SurvivalEquipmentSetupTests
             Check(state.EquipmentSetup.Enabled && state.ManualEquipmentSlots.SequenceEqual(new[] { EquipmentSlot.Hat }) &&
                 state.Items.Single(i => i.Item.Slot == EquipmentSlot.Hat && i.Equipped).Item.Id == manual.Id &&
                 state.Items.Single(i => i.Item.Slot == EquipmentSlot.Weapon && i.Equipped).Item.Id == weaponDrop.Id &&
-                state.Items.All(i => i.Item.Id != hatDrop.Id), "El botín sustituye la elección manual o deja de optimizar otras ranuras.");
+                state.Items.All(i => i.Item.Id != hatDrop.Id && i.Item.Id != weapon.Id) && state.AutoSold == 2,
+                "El botín sustituye la elección manual o deja de vender los descartes de otras ranuras.");
             Check(Send(world, player, new() { Type = "defense_favorite", ItemId = better.Id, Slot = 1 }) &&
                 State(world, player).Items.Single(i => i.Item.Slot == EquipmentSlot.Hat && i.Equipped).Item.Id == manual.Id,
                 "Recalcular favoritos sustituye la elección manual.");
