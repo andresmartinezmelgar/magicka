@@ -5,8 +5,6 @@ public sealed partial class GameWorld
     private void RecalculateDefender(Wizard player)
     {
         var progress = _defenders[player.Id];
-        foreach (var item in progress.Items)
-            if (progress.Loadout.Get(item.Slot) == item.Id) progress.EquippedItemHistory.Add(item.Id);
         var profile = new AccountProfile("", player.Name, 0, 0, 0, progress.Loadout, progress.Items.ToArray());
         var prepared = PublicEquipment.Prepare(profile, progress.Upgrades);
         float previousCapacity = player.Equipment.ShieldCapacity;

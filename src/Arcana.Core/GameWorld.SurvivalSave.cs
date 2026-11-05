@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Arcana.Core;
 
@@ -43,7 +44,17 @@ public sealed partial class GameWorld
         public double LastActivity;
         public EquipmentItem[] Items = [];
         public string[] Favorites = [];
-        public string[] EquippedItemHistory = [];
+        private string[] _equippedItemHistory = [];
+        [JsonIgnore] public bool HasEquippedItemHistory { get; private set; }
+        public string[] EquippedItemHistory
+        {
+            get => _equippedItemHistory;
+            set
+            {
+                _equippedItemHistory = value;
+                HasEquippedItemHistory = true;
+            }
+        }
         public EquipmentStyle[] AutoSellStyles = [];
         public int AutoSellRuleVersion;
         public int AutoSold;
@@ -172,6 +183,12 @@ public sealed partial class GameWorld
             progress.Items.AddRange(d.Items);
             progress.Favorites.UnionWith(d.Favorites);
             progress.EquippedItemHistory.UnionWith(d.EquippedItemHistory);
+            // Los guardados sin historial conservan el equipo cargado. Un historial vacío ya es válido.
+            if (!d.HasEquippedItemHistory)
+            {
+                foreach (var item in progress.Items)
+                    if (progress.Loadout.Get(item.Slot) == item.Id) progress.EquippedItemHistory.Add(item.Id);
+            }
             progress.ManualEquipmentSlots.UnionWith(d.ManualEquipmentSlots);
             if (d.AutoSellRuleVersion is 1 or InventoryPreferences.CurrentAutoSellRuleVersion)
                 progress.AutoSellStyles.UnionWith(EquipmentStyle.SlotLimits(d.AutoSellStyles));

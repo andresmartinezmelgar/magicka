@@ -16,7 +16,7 @@ En el inventario permanente, los favoritos y filtros se guardan por cuenta en es
 
 En Supervivencia, el servidor protege los favoritos y vende el botín nuevo filtrado antes de guardarlo o equiparlo. Estas preferencias pertenecen a la partida y se conservan al guardar o reconectar. Los guardados sin reglas reconocibles empiezan sin filtros de venta.
 
-La configuración predeterminada también conserva cualquier pieza que se haya equipado durante la partida, tanto manualmente como de forma automática. Sustituirla, desequiparla o cambiar el elemento y las prioridades no permite su autoventa. La protección se conserva al guardar, continuar y reconectar, y termina al reiniciar la partida. La venta manual sigue disponible si la pieza no está equipada ni es favorita. Los guardados anteriores empiezan a registrar el historial desde el equipo que tienen puesto al cargarlos.
+Al cambiar equipo a mano, la configuración predeterminada protege tanto la pieza que eliges como la que sustituyes o quitas. Las sustituciones automáticas venden sus descartes salvo que sean Míticos, favoritos o estén protegidos. El historial guardado se conserva al continuar y reconectar y se limpia al reiniciar. La venta manual sigue disponible para piezas desequipadas que no sean favoritas. Si un guardado antiguo carece de historial, se protege el equipo que tenía puesto al cargarlo.
 
 Con 24/24 objetos, el botín nuevo se convierte en su valor de oro aunque la venta automática esté desactivada. Desactivar una regla no amplía la capacidad. La ayuda, la confirmación del ajuste y el aviso de recogida distinguen esta conversión de una venta por regla y muestran el oro recibido.
 
