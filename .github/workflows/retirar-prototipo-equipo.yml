@@ -1,0 +1,25 @@
+name: Retirar prototipo de equipo articulado
+on:
+  push:
+    branches: [pruebas/equipo-mitico-articulado]
+    paths: [.github/workflows/retirar-prototipo-equipo.yml]
+permissions:
+  contents: write
+jobs:
+  retirar:
+    if: github.event.head_commit.message == 'Retirar prototipo de equipo articulado'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retirar la rama solicitada
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = 'andresmartinezmelgar/magicka'
+          test "$GITHUB_REF" = 'refs/heads/pruebas/equipo-mitico-articulado'
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" = 'ea261e301dea0ae14baac93562cbff5bda503617'
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/preview-v0.29.37-r644" --jq '.object.sha')" = '466d591c1e4310646440b1f766c54e97877bb4dd'
+          git push --force-with-lease="$GITHUB_REF:$GITHUB_SHA" origin ":$GITHUB_REF"
+          printf 'Rama retirada: %s\n' "$GITHUB_REF_NAME" >> "$GITHUB_STEP_SUMMARY"
