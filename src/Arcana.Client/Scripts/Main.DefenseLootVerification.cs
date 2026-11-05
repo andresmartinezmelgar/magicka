@@ -134,10 +134,7 @@ public partial class Main
     {
         try
         {
-            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
-            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
-            GC.Collect(); GC.WaitForPendingFinalizers();
-            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            await DrainVisualVerificationResources(tree);
             if (errors.ErrorCount > 0) throw new InvalidOperationException("Godot registró errores al liberar la prueba de defensa.");
             GD.Print("DEFENSE_LOOT_SMOKE_OK: moneda vertical animada, seis piezas, siete mejoras, privacidad y retirada de recogidas.");
             GD.Print("DEFENSE_SMOKE_OK: mapa, tanques, pausa con bots, inventario compartido, selección al salir, compra/mejora/venta, aislamiento de cuenta, controles y botín; limpieza final verificada.");

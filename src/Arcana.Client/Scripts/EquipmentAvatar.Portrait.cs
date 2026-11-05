@@ -31,7 +31,7 @@ public partial class EquipmentAvatar
         _halos.Clear();
         foreach (var slot in EquipmentAuraVisuals.Slots)
             if (appearance != null && EquipmentAuraVisuals.Tier(appearance, slot) is { } tier)
-                _halos[slot] = (tier, 0, appearance.Family);
+                _halos[slot] = (tier, 0, appearance.FamilyFor(slot));
         RefreshHaloAnimation();
         Arrange();
     }

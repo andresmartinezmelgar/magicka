@@ -208,10 +208,7 @@ public partial class Main
     {
         try
         {
-            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
-            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
-            GC.Collect(); GC.WaitForPendingFinalizers();
-            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            await DrainVisualVerificationResources(tree);
             if (errors.ErrorCount > 0) throw new InvalidOperationException("Godot registró errores al liberar la prueba de ventas.");
             GD.Print("SALE_SMOKE_OK: equipada primero y protegida, conexión tardía, saldo, cancelar, venta única, cierre de sesión y limpieza final verificada.");
             tree.Quit();

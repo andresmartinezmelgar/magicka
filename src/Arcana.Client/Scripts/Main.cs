@@ -110,6 +110,8 @@ public partial class Main : Node
         _pause = BuildPause(); _ui.AddChild(_pause); _pause.Visible = false;
         var arguments = OS.GetCmdlineUserArgs();
         InitializeMatchStatistics(arguments);
+        if (arguments.Contains("--equipment-lab-smoke")) _ = RunEquipmentLaboratorySmoke(arguments);
+        else if (arguments.Contains("--preview-equipment-lab")) OpenEquipmentLaboratory();
         if (arguments.Contains("--element-text-smoke")) _ = RunElementTextSmoke();
         _accountEntrySmoke = arguments.Contains("--account-entry-smoke");
         _mobileMenuSmoke = arguments.Contains("--mobile-menu-smoke");
@@ -590,6 +592,7 @@ public partial class Main : Node
         {
             GetViewport().SetInputAsHandled(); return;
         }
+        if (GodotObject.IsInstanceValid(_equipmentLaboratory)) { GetViewport().SetInputAsHandled(); return; }
         if (_profiler?.Running == true)
         {
             return;
@@ -868,6 +871,7 @@ public partial class Main : Node
         CancelGameLoading();
         WizardSprites.ClearCache();
         MythicEyeVisuals.ClearCache();
+        MythicEquipmentVisuals.ClearCache();
         EquipmentAuraVisuals.ClearCache();
         ElementChannelVisuals.ClearCache();
         Interlocked.Exchange(ref _exiting, 1); _lifetime.Cancel();

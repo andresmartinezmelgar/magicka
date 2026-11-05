@@ -49,7 +49,7 @@ public partial class Main
             await Until(() => !_reconnecting && _launcher.Visible && _connection == null, 5, "Agotar el plazo no volvió al menú.");
             if (_engineLog.ErrorCount != 0) throw new InvalidOperationException("Godot registró errores durante la recuperación.");
             GD.Print("RECONNECT_SMOKE_OK: recuperación real, cancelación y plazo agotado sin errores.");
-            GetTree().Quit();
+            QuitVerification();
         }
         catch (Exception exception)
         { GD.PrintErr("RECONNECT_SMOKE_FAILED: " + exception); GetTree().Quit(1); }

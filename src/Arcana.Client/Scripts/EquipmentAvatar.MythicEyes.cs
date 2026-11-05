@@ -34,9 +34,11 @@ public partial class EquipmentAvatar
     {
         if (_mythicEyes.Count == 0 || _atlas == null) return;
         var bounds = SpriteBounds(); var size = bounds.Size / new Vector2(_atlas.Spec.Width / 4f, _atlas.Spec.Height / 4f);
-        var anchors = _atlas.Spec.EyeAnchors![0];
+        var anchors = _atlas.Spec.EyeAnchors![_previewFrame];
         for (int i = 0; i < _mythicEyes.Count; i++)
         {
+            _mythicEyes[i].Visible = MythicAuraPieces == MythicEyes.SlotCount && i < anchors.Length;
+            if (i >= anchors.Length) continue;
             _mythicEyes[i].Size = MythicEyeVisuals.Size * size;
             _mythicEyes[i].Position = bounds.Position + new Vector2(anchors[i].AnchorX, anchors[i].AnchorY) * size - _mythicEyes[i].Size * new Vector2(.5f, .82f);
         }

@@ -191,7 +191,7 @@ public partial class Main
                     if (Time.GetTicksMsec() < _usabilityWait) return false;
                     Check(_engineLog.ErrorCount == 0, "Godot registró errores durante los flujos de usabilidad.");
                     GD.Print("USABILITY_SMOKE_OK: comparación con conjuntos, ordenación, favoritos, persistencia, equipos, venta múltiple con fallo y reintento, editor táctil y cancelación.");
-                    _usabilitySmoke = false; GetTree().Quit(); return true;
+                    _usabilitySmoke = false; QuitVerification(); return true;
             }
         }
         catch (Exception error) { CaptureUsability("00-error"); GD.PrintErr("USABILITY_SMOKE_FAILED: " + error); _usabilitySmoke = false; GetTree().Quit(1); return true; }

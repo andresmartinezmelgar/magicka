@@ -41,6 +41,20 @@ public sealed record EquipmentAppearance(ItemTier? Boots = null, ItemTier? Hat =
     public ItemTier? MagicRing { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public ulong MythicFamilies { get; init; }
+    // Cuatro bits por ranura: cero conserva la familia global de snapshots antiguos.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public uint PieceFamilies { get; init; }
+    public EquipmentFamily FamilyFor(EquipmentSlot slot)
+    {
+        int value = (int)((PieceFamilies >> ((int)slot * 4)) & 15);
+        return value is >= 1 and <= 9 ? (EquipmentFamily)(value - 1) : Family;
+    }
+    public bool ValidPieceFamilies()
+    {
+        if ((PieceFamilies >> 24) != 0) return false;
+        for (int shift = 0; shift < 24; shift += 4) if (((PieceFamilies >> shift) & 15) > 9) return false;
+        return true;
+    }
 }
 public sealed record EquipmentStatTotal(EquipmentStat Stat, float Items, float Set, float Effective)
 {
@@ -131,7 +145,7 @@ public sealed record EquipmentModifiers
         var setStats = new float[stats.Length];
         var sets = new int[Enum.GetValues<EquipmentFamily>().Length];
         var tiers = new ItemTier?[6];
-        ulong mythicFamilies = 0;
+        ulong mythicFamilies = 0; uint pieceFamilies = 0;
         var families = new int[sets.Length];
         int beamPierce = 0, lightningChains = 0, extraGoldEvery = 0, goldBonusPercent = 0;
         bool doubleBurn = false, waterPool = false;
@@ -148,6 +162,7 @@ public sealed record EquipmentModifiers
             int level = itemLevels?.GetValueOrDefault(item.Id, item.UpgradeLevel) ?? item.UpgradeLevel;
             if (level is < 0 or > 10) throw new InvalidDataException("Nivel de pieza inválido.");
             tiers[(int)slot] = item.Tier;
+            pieceFamilies |= (uint)((int)item.Family + 1) << ((int)slot * 4);
             if (item.Tier == ItemTier.Mythic) mythicFamilies += 1UL << ((int)item.Family * 4);
             if (!RingEffects.IsRing(slot)) families[(int)item.Family]++;
             if (slot == EquipmentSlot.GoldRing)
@@ -212,7 +227,8 @@ public sealed record EquipmentModifiers
             RockChargeSpeed = 1 + Bonus(EquipmentStat.RockChargeSpeed), WaterPieces = sets[4], ColdPieces = sets[5],
             LightningPieces = sets[6], ArcanePieces = sets[7], EarthPieces = sets[8],
             Appearance = new(tiers[0], tiers[1], tiers[2], tiers[3], families[dominant] > 0 ? (EquipmentFamily)dominant : EquipmentFamily.Mixed)
-                { GoldRing = tiers[4], MagicRing = tiers[5], MythicFamilies = tiers.All(t => t == ItemTier.Mythic) ? mythicFamilies : 0 }
+                { GoldRing = tiers[4], MagicRing = tiers[5], PieceFamilies = pieceFamilies,
+                    MythicFamilies = tiers.All(t => t == ItemTier.Mythic) ? mythicFamilies : 0 }
         };
         return new(modifiers, Enum.GetValues<EquipmentStat>().Select(s => new EquipmentStatTotal(s, stats[(int)s], setStats[(int)s], modifiers.Bonus(s))).ToArray());
     }

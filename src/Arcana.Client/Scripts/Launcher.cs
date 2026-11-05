@@ -160,6 +160,9 @@ public partial class Launcher : Control
         _bots.Editable = (ArenaMapId)_practiceMap.GetSelectedId() != ArenaMapId.Practice; Objective();
         practice.AddChild(Ui.Label("El duelo usa un bot. Defensa permite jugar solo o con hasta tres aliados IA.", 13, Ui.Muted));
         practice.AddChild(measureSurvival);
+        var equipmentLab = Ui.Button("Laboratorio de equipo", _main.OpenEquipmentLaboratory);
+        equipmentLab.Name = "EquipmentLaboratoryButton"; equipmentLab.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        practice.AddChild(equipmentLab);
         _continueSurvival = Ui.Button("Continuar supervivencia guardada", _main.ContinueSurvival, true);
         _continueSurvival.Name = "ContinueSurvival";
         _continueSurvival.AutowrapMode = TextServer.AutowrapMode.WordSmart;

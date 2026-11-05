@@ -34,6 +34,8 @@ internal static class MythicEyeTests
             profile = profile with { Items = profile.Items.Select((i, n) => i with { Family = families[n] }).ToArray() };
             var summary = EquipmentModifiers.Summarize(profile); var gear = summary.Modifiers.Appearance;
             Check(MythicEyes.Active(gear) && gear.MythicFamilies == MythicEyes.Encode(families), "Se pierde la mezcla del equipo.");
+            foreach (var slot in Enum.GetValues<EquipmentSlot>())
+                Check(gear.FamilyFor(slot) == families[(int)slot], "Una pieza adopta el elemento dominante de otra ranura.");
             Check(MythicEyes.Weight(gear.MythicFamilies, EquipmentFamily.Life) == .5f &&
                 MythicEyes.Pieces(gear.MythicFamilies, EquipmentFamily.Lightning) == 2 &&
                 MythicEyes.Pieces(gear.MythicFamilies, EquipmentFamily.Fire) == 1, "La mezcla ignora el peso de cada familia.");
@@ -53,7 +55,9 @@ internal static class MythicEyeTests
             Check(!MythicEyes.ValidMix(0) && !MythicEyes.ValidMix(7) && !MythicEyes.ValidMix(6UL << 40), "Se aceptan mezclas imposibles.");
             var legacy = new EquipmentAppearance(ItemTier.Mythic, ItemTier.Mythic, ItemTier.Mythic, ItemTier.Mythic, EquipmentFamily.Life);
             Check(!MythicEyes.Active(legacy), "La apariencia antigua sin anillos activa el efecto.");
-            foreach (var bad in new[] { gear with { GoldRing = ItemTier.Diamond }, gear with { MythicFamilies = 5 }, gear with { MagicRing = (ItemTier)99 } })
+            Check(legacy.FamilyFor(EquipmentSlot.Hat) == EquipmentFamily.Life && legacy.ValidPieceFamilies(), "Se pierde la familia de un snapshot antiguo.");
+            foreach (var bad in new[] { gear with { GoldRing = ItemTier.Diamond }, gear with { MythicFamilies = 5 }, gear with { MagicRing = (ItemTier)99 },
+                gear with { PieceFamilies = 15 }, gear with { PieceFamilies = 1U << 24 } })
             {
                 var broken = decoded with { Players = [decoded.Players.Single() with { Equipment = bad }] };
                 try { SnapshotValidation.Check(broken); throw new Exception("Se admite una apariencia incoherente."); } catch (System.IO.InvalidDataException) { }

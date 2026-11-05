@@ -134,27 +134,38 @@ internal static partial class VisualFixture
 
     public static WorldSnapshot Wizards(int frame, string? view = null)
     {
+        bool mythic = view?.StartsWith("mythic-", StringComparison.Ordinal) == true;
+        string? orientation = mythic ? view![7..] : view;
+        if (orientation == "motion") orientation = null;
+        var mythicGear = new EquipmentAppearance(ItemTier.Mythic, ItemTier.Mythic, ItemTier.Mythic, ItemTier.Mythic)
+        {
+            GoldRing = ItemTier.Mythic, MagicRing = ItemTier.Mythic,
+            MythicFamilies = MythicEyes.Encode(EquipmentFamily.Mixed, EquipmentFamily.Mixed, EquipmentFamily.Mixed,
+                EquipmentFamily.Mixed, EquipmentFamily.Mixed, EquipmentFamily.Mixed)
+        };
         var world = new GameWorld(new() { Mode = GameMode.Warfare, MaxPlayers = 16 });
         for (int team = 0; team < 2; team++)
             foreach (WizardType type in Enum.GetValues<WizardType>()) world.AddPlayer(team == 0 ? "Azul" : "Rojo", team, wizardType: type);
         var state = world.Snapshot();
         state = state with { Players = state.Players.Select(p => p with { InvulnerableSeconds = 0 }).ToArray() };
-        int row = view switch { "front" => 0, "west" => 1, "back" => 2, "east" => 3, _ => frame / 60 % 4 };
+        int row = orientation switch { "front" => 0, "west" => 1, "back" => 2, "east" => 3, _ => frame / 60 % 4 };
         V2 facing = row switch { 1 => new(-1, 0), 2 => new(0, -1), 3 => new(1, 0), _ => new(0, 1) };
         int phase = frame % 60;
-        var movement = facing * (view == null && phase is >= 20 and < 45 ? (phase - 20) * 0.05f : 0);
+        var movement = facing * (orientation == null && phase is >= 20 and < 45 ? (phase - 20) * 0.05f : 0);
         var players = state.Players.Select((p, index) => p with
         {
             Team = index < 5 ? 0 : 1,
+            Name = mythic ? (index < 5 ? "Base" : "Mítico") : p.Name,
+            Equipment = mythic && index >= 5 ? mythicGear : p.Equipment,
             Position = new V2(-9 + (index % 5) * 4.5f, index < 5 ? -2.5f : 4.5f) + movement,
             Facing = facing, Health = 830, Shield = index is 2 or 8 ? 210 : 0, ShieldMax = 420, ShieldSeconds = 6.4f,
-            Casting = view == null ? phase >= 45 : index is 1 or 8,
-            Frozen = view == null && frame is >= 242 and <= 250 ? 1 : 0,
-            Alive = !(view == null && frame is >= 252 and <= 260), Respawn = 2,
+            Casting = orientation == null ? phase >= 45 : !mythic && (index is 1 or 8),
+            Frozen = orientation == null && frame is >= 242 and <= 250 ? 1 : 0,
+            Alive = !(orientation == null && frame is >= 252 and <= 260), Respawn = 2,
             Selected = [Element.Shield, Element.Arcane, Element.Fire]
         }).ToArray();
         return state with { Tick = frame, Time = frame / 60.0, Players = players,
-            Events = view == null && frame % 60 == 6 ? players.Select(p => new GameEvent(frame * 100 + p.Id, "self", p.Position, [Element.Shield], "")).ToArray() : [], Beams = [] };
+            Events = orientation == null && frame % 60 == 6 ? players.Select(p => new GameEvent(frame * 100 + p.Id, "self", p.Position, [Element.Shield], "")).ToArray() : [], Beams = [] };
     }
     private static readonly string[] EffectKinds = ["cast", "self", "nova", "impact", "explosion", "shield_hit", "shield_break", "hurt", "blink", "blink_arrive", "barrier", "death"];
     public static WorldSnapshot Effects(int frame)

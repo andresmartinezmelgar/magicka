@@ -135,10 +135,7 @@ public partial class Main
     {
         try
         {
-            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
-            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
-            GC.Collect(); GC.WaitForPendingFinalizers();
-            await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            await DrainVisualVerificationResources(tree);
             if (errors.ErrorCount > 0) throw new InvalidOperationException("Godot registró errores al liberar la prueba de guardado.");
             GD.Print("SURVIVAL_SAVE_SMOKE_OK: autoguardado, estado, aliados, identidad y mapa; Android conserva carga y partida al perder foco; finalizar invalida el punto y su respaldo; limpieza final verificada.");
             tree.Quit();

@@ -32,6 +32,10 @@ Vida, escudo, capacidad restante y nombre se colocan sobre el sombrero y paralel
 
 Las texturas se importan sin pérdida, con alfa y mipmaps. El exportador incluye explícitamente `atlases.json`. No hace falta instalar herramientas de imágenes para compilar o jugar.
 
+## Prototipo de indumentaria mítica
+
+En `pruebas/equipo-mitico-articulado`, cada pieza mítica añade su arte articulado al sprite del mago. Un atlas de seis piezas con cuatro vistas y anclajes para las 80 poses permite combinar gorro, peto, botas, báculo y anillos sin generar un atlas por equipamiento. Combate, inventario y retratos comparten la geometría. [Diseño, vista previa, recursos y estado de validación](art/EQUIPO-MITICO-ARTICULADO.md).
+
 ## Origen y validación
 
 Arte original generado para este proyecto con la herramienta integrada **`image_gen.imagegen`**, sin utilizar recursos de Magicka. El diseño y los cinco prompts completos están en [wizard-prompts.json](art/wizard-prompts.json). Se conservan las hojas completas; el juego selecciona sus regiones sin modificar los PNG.

@@ -34,6 +34,13 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Comprobar atlas y anclajes del equipo mítico
+        run: |
+          python -m pip install --disable-pip-version-check Pillow==13.0.0
+          python scripts/check-mythic-equipment.py
       - name: Validar metadatos de version
         run: python3 scripts/version-support.py check .
       - name: Verificar aislamiento e integridad de publicaciones de prueba
@@ -134,6 +141,40 @@ jobs:
           bash scripts/test-client-smoke.sh sale-smoke "$ARCANA_GODOT"
           bash scripts/test-client-smoke.sh equipment-elements-smoke "$ARCANA_GODOT"
           bash scripts/test-client-smoke.sh equipment-public-smoke "$ARCANA_GODOT"
+      - name: Verificar y capturar tienda permanente en escritorio y móvil
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          for surface in desktop mobile; do
+            args=(--visual-desktop --smoke-viewport=1440x900)
+            if [ "$surface" = mobile ]; then args=(--mobile --smoke-viewport=720x540); fi
+            target="$PWD/artifacts/visual-review/shop-$surface"
+            mkdir -p "$target"
+            xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --shop-smoke "${args[@]}" "--shop-captures=$target" 2>&1 | tee "$RUNNER_TEMP/shop-$surface.log"
+            grep -q 'SHOP_SMOKE_OK' "$RUNNER_TEMP/shop-$surface.log"
+            test "$(find "$target" -name '*.png' | wc -l)" -eq 7
+            test -s "$target/03-comparacion.png"
+            ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/shop-$surface.log"
+          done
+      - name: Comprobar laboratorio de equipo con viewport real en escritorio y móvil
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          for surface in desktop mobile; do
+            args=(); viewport=1280x720
+            if [ "$surface" = mobile ]; then args+=(--mobile); viewport=640x450; fi
+            timeout 90s xvfb-run -a -s "-screen 0 1440x900x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --equipment-lab-smoke "${args[@]}" --smoke-viewport="$viewport" --equipment-lab-captures="$GITHUB_WORKSPACE/artifacts/equipment-lab/$surface" 2>&1 | tee "$RUNNER_TEMP/equipment-lab-$surface.log"
+            grep -q '^EQUIPMENT_LAB_SMOKE_OK:' "$RUNNER_TEMP/equipment-lab-$surface.log"
+            ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/equipment-lab-$surface.log"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Laboratorio-equipo-mitico
+          path: artifacts/equipment-lab
+          if-no-files-found: ignore
       - name: Verificar lotes gráficos con viewport real en escritorio y móvil
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
@@ -235,7 +276,8 @@ jobs:
           files = sorted(glob.glob('artifacts/visual-review/*/*.png'))
           statistics = [f'statistics-{view}.png' for view in range(6)] + ['statistics-2-received.png']
           biomes = ['Forest', 'City', 'Ruins', 'Sanctuary', 'Desert', 'Frozen', 'Volcanic', 'Crystal', 'Marsh', 'Fungal']
-          expected = 47 + 2 * (len(statistics) + len(biomes))
+          shop = ['01-inicio.png', '02-sin-conexion.png', '03-comparacion.png', '03-ofertas.png', '04-compra.png', '05-desconexion.png', '06-sin-oro.png']
+          expected = 47 + 2 * (len(statistics) + len(biomes) + len(shop))
           if len(files) != expected:
               raise SystemExit(f'Faltan capturas: {len(files)}/{expected}')
           for surface in ('desktop', 'mobile'):
@@ -247,10 +289,11 @@ jobs:
                   biome_hashes.add(hashlib.sha256(path.read_bytes()).digest())
               if len(biome_hashes) != len(biomes):
                   raise SystemExit(f'Biomas indistinguibles en {surface}: {len(biome_hashes)}/{len(biomes)}')
-              for name in statistics:
-                  path = pathlib.Path('artifacts/visual-review') / f'statistics-{surface}' / name
-                  if not path.is_file() or path.stat().st_size == 0:
-                      raise SystemExit(f'Falta captura de estadísticas: {path}')
+              for category, names in (('statistics', statistics), ('shop', shop)):
+                  for name in names:
+                      path = pathlib.Path('artifacts/visual-review') / f'{category}-{surface}' / name
+                      if not path.is_file() or path.stat().st_size == 0:
+                          raise SystemExit(f'Falta captura de {category}: {path}')
           for name in files:
               raw = pathlib.Path(name).read_bytes()
               if len(raw) < 12000 or raw[:8] != b'\x89PNG\r\n\x1a\n':
@@ -262,22 +305,6 @@ jobs:
           if unique < 38: raise SystemExit(f'Escenas indistinguibles: {unique}/{len(files)}')
           print(f'VISUAL_QA_OK: {len(files)} PNG válidos, {unique} fotogramas distintos, diez biomas, escenarios de tamaño, auras de piedra y seis vistas estadísticas en móvil/escritorio.')
           PY
-      - name: Verificar y capturar tienda permanente en escritorio y móvil
-        env:
-          LIBGL_ALWAYS_SOFTWARE: '1'
-        run: |
-          set -euo pipefail
-          for surface in desktop mobile; do
-            args=(--visual-desktop --smoke-viewport=1440x900)
-            if [ "$surface" = mobile ]; then args=(--mobile --smoke-viewport=720x540); fi
-            target="$PWD/artifacts/visual-review/shop-$surface"
-            mkdir -p "$target"
-            xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --shop-smoke "${args[@]}" "--shop-captures=$target" 2>&1 | tee "$RUNNER_TEMP/shop-$surface.log"
-            grep -q 'SHOP_SMOKE_OK' "$RUNNER_TEMP/shop-$surface.log"
-            test "$(find "$target" -name '*.png' | wc -l)" -eq 7
-            test -s "$target/03-comparacion.png"
-            ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/shop-$surface.log"
-          done
       - name: Verificar y capturar la venta en escritorio y pantallas móviles pequeñas
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
@@ -946,6 +973,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          current=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$GITHUB_REF_NAME" --jq '.object.sha')
+          test "$current" = "$GITHUB_SHA" || { echo '::error::La rama tiene una revisión posterior; se omite esta publicación.'; exit 1; }
           tag=$(cat "$RUNNER_TEMP/preview-tag.txt")
           shopt -s nullglob
           assets=(dist/*-Windows-x64*.zip dist/*-Windows-x64.rar dist/*-Android-arm64.apk dist/*-Android-arm64-from-v*.delta dist/DELTAS-*.json dist/SHA256SUMS.txt dist/SHA256SUMS-Windows.txt dist/SHA256SUMS-Android.txt dist/SHA256SUMS-RAR.txt dist/PREVIEW.json)

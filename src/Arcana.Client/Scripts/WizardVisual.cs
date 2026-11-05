@@ -69,6 +69,7 @@ public partial class WizardVisual : Node3D
         _spriteMaterial?.Dispose();
         _equipmentAuraMaterial?.Dispose(); _equipmentAuraMaterial = null;
         _mythicEyeMaterial?.Dispose(); _mythicEyeMaterial = null;
+        DisposeMythicEquipment();
     }
 
     public void Build(WizardSnapshot p, bool local, bool compactEnemy = false)
@@ -201,7 +202,8 @@ public partial class WizardVisual : Node3D
         float flash = _hitFlash / 0.12f * 0.5f;
         if (Math.Abs(flash - _renderedFlash) > 0.001f)
         { _spriteMaterial.SetShaderParameter("hit_flash", flash); _renderedFlash = flash; }
-        _elementsRoot.Visible = p.Alive;
+        UpdateMythicEquipment(p, frame, flash);
+        _elementsRoot.Visible = p.Alive && !_equipmentLaboratoryView;
         var elements = p.DisplayElements.Length > 0 ? p.DisplayElements : _castPose > 0 ? _lastCastElements : [];
         DisplayedElements = p.Alive ? elements : [];
         for (int i = 0; i < 3; i++)
@@ -239,7 +241,7 @@ public partial class WizardVisual : Node3D
             _name.Text = p.Name + (!p.Alive ? $"  {nameState.Item4}s" : spawnProtected ? "  INMUNE" : p.Frozen > 0 ? "  CONGELADO" : p.Burning > 0 ? "  FUEGO" : p.Wet > 0 ? "  MOJADO" : "")
                 + (p.WizardType != WizardType.Balanced ? "\n" + WizardTypes.Name(p.WizardType) : "");
         }
-        _healthRoot.Visible = p.Alive;
+        _healthRoot.Visible = p.Alive && !_equipmentLaboratoryView;
         float hp = Math.Clamp(p.Health / p.MaxHealth, 0, 1);
         _healthFill.Visible = p.Health > 0;
         if (_healthFraction != hp)

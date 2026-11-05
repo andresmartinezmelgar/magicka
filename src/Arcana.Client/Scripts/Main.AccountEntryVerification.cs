@@ -27,6 +27,6 @@ public partial class Main
         bool opened = GodotObject.IsInstanceValid(_accountProfilePanel) && _accountProfilePanel!.IsVisibleInTree();
         if (opened) GD.Print("ACCOUNT_ENTRY_SMOKE_OK: toque Google abre el perfil independiente del inventario.");
         else GD.PushError("ACCOUNT_ENTRY_SMOKE_FAILED: Google no abre la pantalla; control bajo el cursor=" + GetViewport().GuiGetHoveredControl()?.GetPath());
-        _accountEntrySmoke = false; GetTree().Quit(opened ? 0 : 1); return true;
+        _accountEntrySmoke = false; QuitVerification(opened ? 0 : 1); return true;
     }
 }

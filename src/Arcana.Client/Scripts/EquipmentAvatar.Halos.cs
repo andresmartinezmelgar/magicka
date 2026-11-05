@@ -31,6 +31,7 @@ public partial class EquipmentAvatar
         EquipmentAuraVisuals.SetMythicCount(_auraMaterial!, MythicAuraPieces);
         _aura.Visible = _halos.Count > 0;
         RefreshMythicEyes();
+        RefreshMythicEquipment();
         RefreshAuraParticles();
         ArrangeAura();
     }
@@ -43,6 +44,7 @@ public partial class EquipmentAvatar
         _aura.Position = bounds.Position - bounds.Size * .14f;
         _aura.Size = bounds.Size * 1.28f;
         ArrangeMythicEyes();
+        ArrangeMythicEquipment();
     }
 
     public override void _ExitTree()
@@ -50,5 +52,6 @@ public partial class EquipmentAvatar
         DisposeAuraParticles();
         _auraMaterial?.Dispose(); _auraMaterial = null;
         _mythicEyeMaterial?.Dispose(); _mythicEyeMaterial = null;
+        DisposeMythicEquipment();
     }
 }
