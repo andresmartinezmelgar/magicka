@@ -439,7 +439,8 @@ public partial class Main : Node
             }
             _renderer.InterpolationDelay = _connection != null ? 0.075 : 1 / 60.0;
             if (_practiceSession != null) _renderer.PracticeCasterDescription = _practiceSession.CasterDescription;
-            _renderer.Render(latest, _localId, _verification?.FixedRenderStep == true ? 1 / 60.0 : delta, true);
+            _renderer.Render(latest, _localId, _verification?.FixedRenderStep == true ? 1 / 60.0 : delta, true,
+                _practicePanel?.OutfitPreview);
             _hud?.Update(latest, _localId, _serverName, delta);
             UpdatePersonalDamageSummary(latest, delta);
             InitializeSurvivalEquipmentSetup(latest, delta);

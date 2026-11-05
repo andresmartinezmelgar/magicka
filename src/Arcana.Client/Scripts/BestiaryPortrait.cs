@@ -47,7 +47,7 @@ public partial class BestiaryPortrait : SubViewportContainer
         root.AddChild(camera); camera.LookAt(new(0, height, 0));
         if (MinionArt.CasterType(kind) is { } type)
         {
-            var atlas = WizardSprites.Load(type); _cloth = WizardSprites.Material(atlas, 1);
+            var atlas = WizardSprites.Load(type); _cloth = WizardSprites.Material(atlas.Texture, 1);
             root.AddChild(new Sprite3D { Name = "PortraitModel", Texture = atlas.Texture,
                 Hframes = WizardSprites.Columns, Vframes = WizardSprites.Rows, Frame = 0,
                 PixelSize = atlas.Spec.PixelSize, Offset = atlas.Offset(0), Basis = camera.Basis,

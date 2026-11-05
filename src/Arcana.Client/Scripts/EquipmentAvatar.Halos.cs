@@ -48,6 +48,7 @@ public partial class EquipmentAvatar
     public override void _ExitTree()
     {
         DisposeAuraParticles();
+        _outfitTexture.Dispose();
         _auraMaterial?.Dispose(); _auraMaterial = null;
         _mythicEyeMaterial?.Dispose(); _mythicEyeMaterial = null;
     }

@@ -8,6 +8,8 @@ public partial class WizardVisual : Node3D
     private Node3D _body = null!;
     private Sprite3D _sprite = null!;
     private WizardSprites.Atlas _atlas = null!;
+    private readonly WizardOutfitTexture _outfitTexture = new();
+    private Texture2D _spriteTexture = null!;
     private ShaderMaterial _spriteMaterial = null!;
     private MeshInstance3D _shadow = null!;
     private WizardType _wizardType;
@@ -23,7 +25,7 @@ public partial class WizardVisual : Node3D
         get
         {
             if (_renderedFrame < 0 || _renderedFrame % WizardSprites.Columns != 3 || !_body.Visible ||
-                _atlas.Spec.CastOrigins is not { Length: WizardSprites.Rows } origins) return null;
+                (_outfitTexture.CastOrigins ?? _atlas.Spec.CastOrigins) is not { Length: WizardSprites.Rows } origins) return null;
             var point = origins[_renderedFrame / WizardSprites.Columns];
             var feet = _atlas.Spec.Frames[_renderedFrame];
             float pixels = _atlas.Spec.PixelSize;
@@ -67,6 +69,7 @@ public partial class WizardVisual : Node3D
             _sprite.MaterialOverride = null;
         }
         _spriteMaterial?.Dispose();
+        _outfitTexture.Dispose();
         _equipmentAuraMaterial?.Dispose(); _equipmentAuraMaterial = null;
         _mythicEyeMaterial?.Dispose(); _mythicEyeMaterial = null;
     }
@@ -83,8 +86,9 @@ public partial class WizardVisual : Node3D
         Position = ArenaRenderer.World(p.Position);
         _body = new Node3D(); AddChild(_body);
         _atlas = WizardSprites.Load(p.WizardType);
-        _spriteMaterial = WizardSprites.Material(_atlas, p.Team);
-        _sprite = new Sprite3D { Name = "WizardSprite", Texture = _atlas.Texture, Hframes = WizardSprites.Columns,
+        _spriteTexture = _outfitTexture.Get(_atlas, p.Equipment?.MythicOutfit ?? default);
+        _spriteMaterial = WizardSprites.Material(_spriteTexture, p.Team);
+        _sprite = new Sprite3D { Name = "WizardSprite", Texture = _spriteTexture, Hframes = WizardSprites.Columns,
             Vframes = WizardSprites.Rows, PixelSize = _atlas.Spec.PixelSize, Offset = _atlas.Offset(0),
             MaterialOverride = _spriteMaterial, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
         _body.AddChild(_sprite);
@@ -150,7 +154,8 @@ public partial class WizardVisual : Node3D
         _hitFlash = _castPose = 0; _lastCastElements = [];
     }
 
-    public void Update(WizardSnapshot p, float dt, float time, Camera3D camera, double sampleTime, double interpolationDelay)
+    public void Update(WizardSnapshot p, float dt, float time, Camera3D camera, double sampleTime, double interpolationDelay,
+        EquipmentOutfit? outfitPreview = null)
     {
         _motion.Advance(p.Position, sampleTime, dt, interpolationDelay,
             p.Alive != _wasAlive || p.Deaths != _deaths || p.Frozen > 0);
@@ -160,8 +165,8 @@ public partial class WizardVisual : Node3D
         if (appearanceChanged)
         {
             _wizardType = p.WizardType; _team = p.Team;
-            _atlas = WizardSprites.Load(_wizardType); _sprite.Texture = _atlas.Texture; _sprite.PixelSize = _atlas.Spec.PixelSize;
-            WizardSprites.SetAtlas(_spriteMaterial, _atlas);
+            _atlas = WizardSprites.Load(_wizardType);
+            _sprite.PixelSize = _atlas.Spec.PixelSize;
             _spriteMaterial.SetShaderParameter("team_color", _team == 0 ? Ui.Blue : Ui.Red);
             _color = _team == 0 ? Ui.Blue : Ui.Red;
             var halo = (StandardMaterial3D)_halo.MaterialOverride; halo.AlbedoColor = halo.Emission = _color;
@@ -169,6 +174,13 @@ public partial class WizardVisual : Node3D
             ((StandardMaterial3D)_healthFill.MaterialOverride).AlbedoColor = _local ? Ui.Health : _color;
             ((StandardMaterial3D)_ghost.MaterialOverride).AlbedoColor = new(_color.R, _color.G, _color.B, 0.14f);
             _name.Modulate = _local ? Ui.Text : _color;
+        }
+        var texture = _outfitTexture.Get(_atlas, outfitPreview ?? p.Equipment?.MythicOutfit ?? default);
+        if (!ReferenceEquals(_spriteTexture, texture))
+        {
+            _sprite.Texture = _spriteTexture = texture;
+            WizardSprites.SetTexture(_spriteMaterial, texture);
+            _renderedFrame = -1;
         }
         bool moving = p.Alive && p.Frozen <= 0 && _motion.Moving;
         _castPose = Math.Max(0, _castPose - dt);

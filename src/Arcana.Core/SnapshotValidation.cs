@@ -11,6 +11,8 @@ public static partial class SnapshotValidation
     }
     private static bool NonNegative(float value) => float.IsFinite(value) && value >= 0;
     private static bool Tier(ItemTier? value) => !value.HasValue || Enum.IsDefined(value.Value);
+    private static bool OutfitPiece(EquipmentFamily? family, ItemTier? tier) =>
+        family == null || tier == ItemTier.Mythic && Enum.IsDefined(family.Value);
     private static bool NonNegative(ReadOnlySpan<float> values)
     {
         foreach (float value in values) if (!NonNegative(value)) return false;
@@ -57,6 +59,8 @@ public static partial class SnapshotValidation
                 p.Buffs is { Length: > RelicBuffs.Count } || hasPickups && p.Buffs == null) Invalid();
             if (p.Equipment is { } gear && (!Enum.IsDefined(gear.Family) ||
                 !Tier(gear.Boots) || !Tier(gear.Hat) || !Tier(gear.Chest) || !Tier(gear.Weapon) || !Tier(gear.GoldRing) || !Tier(gear.MagicRing) ||
+                !OutfitPiece(gear.MythicOutfit.Boots, gear.Boots) || !OutfitPiece(gear.MythicOutfit.Hat, gear.Hat) ||
+                !OutfitPiece(gear.MythicOutfit.Chest, gear.Chest) || !OutfitPiece(gear.MythicOutfit.Weapon, gear.Weapon) ||
                 (MythicEyes.AllMythic(gear) ? !MythicEyes.ValidMix(gear.MythicFamilies) : gear.MythicFamilies != 0))) Invalid();
             int kinds = 0;
             foreach (var buff in p.Buffs ?? [])

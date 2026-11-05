@@ -7,6 +7,8 @@ namespace Arcana.Client;
 public partial class EquipmentAvatar : Control
 {
     private WizardSprites.Atlas _atlas = null!;
+    private readonly WizardOutfitTexture _outfitTexture = new();
+    private EquipmentOutfit _outfit;
     private EquipmentSlot _selected;
     private EquipmentSlot? _hovered;
     private readonly Dictionary<EquipmentSlot, Button> _buttons = [];
@@ -41,6 +43,7 @@ public partial class EquipmentAvatar : Control
     internal void UpdateSlot(EquipmentSlot slot, EquipmentItem? item, bool selected, int? upgradeLevel = null)
     {
         if (selected) _selected = slot;
+        _outfit = _outfit.With(slot, item is { Tier: ItemTier.Mythic } ? item.Family : null);
         var color = item == null ? Ui.Muted : EquipmentPanel.TierColor(item.Tier);
         _colors[slot] = color;
         if (item == null) _halos.Remove(slot);
@@ -108,7 +111,7 @@ public partial class EquipmentAvatar : Control
         DrawCircle(Size * new Vector2(.5f, .88f), Size.X * .24f, new Color(.12f, .30f, .44f, .16f));
         DrawAuraParticles();
         var source = new Rect2(0, 0, _atlas.Spec.Width / 4f, _atlas.Spec.Height / 4f);
-        DrawTextureRectRegion(_atlas.Texture, SpriteBounds(), source);
+        DrawTextureRectRegion(_outfitTexture.Get(_atlas, _outfit), SpriteBounds(), source);
         if (_portrait) return;
         foreach (var slot in Order)
         {

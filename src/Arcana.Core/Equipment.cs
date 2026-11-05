@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Security.Cryptography;
+using System.Text.Json.Serialization;
 
 namespace Arcana.Core;
 
@@ -32,6 +33,21 @@ public sealed record AccountProfile(string Uid, string Name, long Gold, int Wins
 }
 public sealed record InventoryRequest(string ItemId, EquipmentSlot Slot = EquipmentSlot.Boots);
 public sealed record InventoryResult(AccountProfile Profile, string Message);
+public readonly record struct EquipmentOutfit(
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EquipmentFamily? Boots = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EquipmentFamily? Hat = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EquipmentFamily? Chest = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EquipmentFamily? Weapon = null)
+{
+    public EquipmentOutfit With(EquipmentSlot slot, EquipmentFamily? family) => slot switch
+    {
+        EquipmentSlot.Boots => this with { Boots = family },
+        EquipmentSlot.Hat => this with { Hat = family },
+        EquipmentSlot.Chest => this with { Chest = family },
+        EquipmentSlot.Weapon => this with { Weapon = family },
+        _ => this
+    };
+}
 public sealed record EquipmentAppearance(ItemTier? Boots = null, ItemTier? Hat = null, ItemTier? Chest = null, ItemTier? Weapon = null,
     EquipmentFamily Family = EquipmentFamily.Mixed)
 {
@@ -39,6 +55,8 @@ public sealed record EquipmentAppearance(ItemTier? Boots = null, ItemTier? Hat =
     public ItemTier? GoldRing { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public ItemTier? MagicRing { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public EquipmentOutfit MythicOutfit { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public ulong MythicFamilies { get; init; }
 }
@@ -132,6 +150,7 @@ public sealed record EquipmentModifiers
         var sets = new int[Enum.GetValues<EquipmentFamily>().Length];
         var tiers = new ItemTier?[6];
         ulong mythicFamilies = 0;
+        EquipmentOutfit outfit = default;
         var families = new int[sets.Length];
         int beamPierce = 0, lightningChains = 0, extraGoldEvery = 0, goldBonusPercent = 0;
         bool doubleBurn = false, waterPool = false;
@@ -148,7 +167,11 @@ public sealed record EquipmentModifiers
             int level = itemLevels?.GetValueOrDefault(item.Id, item.UpgradeLevel) ?? item.UpgradeLevel;
             if (level is < 0 or > 10) throw new InvalidDataException("Nivel de pieza inválido.");
             tiers[(int)slot] = item.Tier;
-            if (item.Tier == ItemTier.Mythic) mythicFamilies += 1UL << ((int)item.Family * 4);
+            if (item.Tier == ItemTier.Mythic)
+            {
+                mythicFamilies += 1UL << ((int)item.Family * 4);
+                outfit = outfit.With(slot, item.Family);
+            }
             if (!RingEffects.IsRing(slot)) families[(int)item.Family]++;
             if (slot == EquipmentSlot.GoldRing)
             {
@@ -212,7 +235,10 @@ public sealed record EquipmentModifiers
             RockChargeSpeed = 1 + Bonus(EquipmentStat.RockChargeSpeed), WaterPieces = sets[4], ColdPieces = sets[5],
             LightningPieces = sets[6], ArcanePieces = sets[7], EarthPieces = sets[8],
             Appearance = new(tiers[0], tiers[1], tiers[2], tiers[3], families[dominant] > 0 ? (EquipmentFamily)dominant : EquipmentFamily.Mixed)
-                { GoldRing = tiers[4], MagicRing = tiers[5], MythicFamilies = tiers.All(t => t == ItemTier.Mythic) ? mythicFamilies : 0 }
+            {
+                GoldRing = tiers[4], MagicRing = tiers[5], MythicOutfit = outfit,
+                MythicFamilies = tiers.All(t => t == ItemTier.Mythic) ? mythicFamilies : 0
+            }
         };
         return new(modifiers, Enum.GetValues<EquipmentStat>().Select(s => new EquipmentStatTotal(s, stats[(int)s], setStats[(int)s], modifiers.Bonus(s))).ToArray());
     }

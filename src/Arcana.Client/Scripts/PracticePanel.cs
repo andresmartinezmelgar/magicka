@@ -11,6 +11,7 @@ public partial class PracticePanel : PanelContainer
     private ContentScrollContainer? _touchScroll;
     private SpellCombination? _lastSpell;
     private bool? _lastEnabled;
+    internal EquipmentOutfit? OutfitPreview { get; private set; }
     public bool PointerOverPanel
     {
         get
@@ -37,6 +38,7 @@ public partial class PracticePanel : PanelContainer
         BoxContainer row = Ui.IsMobile ? new VBoxContainer() : new HBoxContainer(); stack.AddChild(row);
         row.AddChild(Ui.Button("Restablecer objetivo", () => session.ResetTarget(_target)));
         row.AddChild(Ui.Button("Vida al 40 %", session.PrepareHealing));
+        if (session.Player.WizardType == WizardType.Balanced) AddOutfitPreview(stack);
         stack.AddChild(Ui.Label("Mago lanzador · dirección fija →", 14, Ui.Gold));
         var choice = new OptionButton { Name = "PracticeCasterChoice", CustomMinimumSize = new(Ui.IsMobile ? 250 : 310, 34),
             FitToLongestItem = !Ui.IsMobile, ClipText = Ui.IsMobile, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
@@ -53,6 +55,30 @@ public partial class PracticePanel : PanelContainer
             foreach (var button in row.GetChildren().OfType<Button>())
             { button.AddThemeFontSizeOverride("font_size", 16); button.CustomMinimumSize = new(0, 44); }
         }
+    }
+    private void AddOutfitPreview(VBoxContainer stack)
+    {
+        var toggle = new CheckButton { Name = "PracticeOutfitPreview", Text = "Probar piezas míticas" };
+        var grid = new GridContainer { Columns = 2, Visible = false };
+        EquipmentOutfit outfit = default;
+        foreach (var slot in new[] { EquipmentSlot.Weapon, EquipmentSlot.Hat, EquipmentSlot.Chest, EquipmentSlot.Boots })
+        {
+            string name = EquipmentCatalogue.SlotName(slot);
+            var choice = new OptionButton { Name = "PracticePiece" + slot, CustomMinimumSize = new(0, 44),
+                SizeFlagsHorizontal = SizeFlags.ExpandFill, FitToLongestItem = !Ui.IsMobile, ClipText = Ui.IsMobile };
+            choice.AddItem(name + " normal");
+            choice.AddItem(name + " · Vida", (int)EquipmentFamily.Life);
+            choice.AddItem(name + " · Fuego", (int)EquipmentFamily.Fire);
+            choice.ItemSelected += index =>
+            {
+                outfit = outfit.With(slot, index == 0 ? null : (EquipmentFamily)choice.GetItemId((int)index));
+                if (toggle.ButtonPressed) OutfitPreview = outfit;
+            };
+            grid.AddChild(choice);
+        }
+        toggle.Toggled += enabled => { grid.Visible = enabled; OutfitPreview = enabled ? outfit : null; };
+        stack.AddChild(toggle);
+        stack.AddChild(grid);
     }
     internal void FitTouchLayout(float top)
     {

@@ -196,7 +196,7 @@ public partial class ArenaRenderer : Node3D
         BuildFrontline(rootMap);
     }
 
-    public void Render(WorldSnapshot snapshot, int localId, double delta, bool playing)
+    public void Render(WorldSnapshot snapshot, int localId, double delta, bool playing, EquipmentOutfit? outfitPreview = null)
     {
         var definition = ArenaMap.Get(snapshot);
         if (_map.Id != definition.Id || _map.SurvivalMap != definition.SurvivalMap || !_mapPrepared)
@@ -216,7 +216,8 @@ public partial class ArenaRenderer : Node3D
                 visual = new WizardVisual(); AddChild(visual); visual.Build(p, p.Id == localId); _wizards[p.Id] = visual;
             }
             visual.Visible = NearSurvival(p.Position);
-            if (visual.Visible) visual.Update(p, dt, (float)_time, Camera, snapshot.Time, InterpolationDelay);
+            if (visual.Visible) visual.Update(p, dt, (float)_time, Camera, snapshot.Time, InterpolationDelay,
+                p.Id == localId ? outfitPreview : null);
         }
         if (_fresh) RemoveMissing(_wizards, snapshot.Players, static p => p.Id);
         RenderDefense(snapshot, localId, dt);

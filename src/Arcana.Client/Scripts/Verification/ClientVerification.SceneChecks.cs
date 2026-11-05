@@ -250,11 +250,38 @@ public partial class ClientVerification
             valid &= _spriteCoverage.Count == 120;
             valid &= CheckWizardMotion();
             valid &= CheckWizardFacing();
+            valid &= CheckOutfitSwap(snapshot.Players[0]);
             valid &= CheckTranslationInput();
             valid &= CheckRespawnInput();
             _runtime.Renderer.Clear(); valid &= _runtime.Renderer.Wizards.Count == 0;
             if (valid) CompleteSmoke("SPRITES_SMOKE_OK: 5 atlas, 120 combinaciones, equipos, anclajes, congelación, muerte, reaparición y limpieza");
         }
         if (!valid) { GD.PushError($"SPRITES_SMOKE_FAILED: frame {_renderFrames}, cobertura {_spriteCoverage.Count}"); GetTree().Quit(1); }
+    }
+
+    private bool CheckOutfitSwap(WizardSnapshot source)
+    {
+        var player = source with { WizardType = WizardType.Balanced, Position = V2.Zero, Alive = true,
+            Health = source.MaxHealth, Frozen = 0, Casting = true, Facing = new(0, 1), Equipment = null };
+        var visual = new WizardVisual(); AddChild(visual); visual.Build(player, true);
+        try
+        {
+            var sprite = visual.Sprite;
+            var original = sprite.Texture;
+            var gear = new EquipmentAppearance(Chest: ItemTier.Mythic, Weapon: ItemTier.Mythic)
+                { MythicOutfit = new(Chest: EquipmentFamily.Life, Weapon: EquipmentFamily.Fire) };
+            void Draw(EquipmentAppearance? equipment) => visual.Update(player with { Equipment = equipment },
+                1 / 60f, 0, _runtime.Renderer.Camera, 0, 0);
+            Draw(gear);
+            var painted = sprite.Texture;
+            var fireOrigin = visual.CastingOrigin;
+            Draw(gear with { MythicOutfit = gear.MythicOutfit.With(EquipmentSlot.Weapon, EquipmentFamily.Life) });
+            bool valid = !ReferenceEquals(painted, original) && ReferenceEquals(painted, sprite.Texture) &&
+                fireOrigin.HasValue && visual.CastingOrigin.HasValue && fireOrigin != visual.CastingOrigin;
+            Draw(null);
+            return valid && ReferenceEquals(original, sprite.Texture) &&
+                sprite.GetParent().GetChildren().OfType<Sprite3D>().Count() == 1;
+        }
+        finally { visual.QueueFree(); }
     }
 }

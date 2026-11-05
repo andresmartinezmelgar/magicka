@@ -27,6 +27,7 @@ public partial class EquipmentAvatar
     {
         if (_atlas != null && _atlas.Spec.Type == type && _portraitAppearance == appearance) return;
         _atlas = WizardSprites.Load(type);
+        _outfit = appearance?.MythicOutfit ?? default;
         _portraitAppearance = appearance;
         _halos.Clear();
         foreach (var slot in EquipmentAuraVisuals.Slots)

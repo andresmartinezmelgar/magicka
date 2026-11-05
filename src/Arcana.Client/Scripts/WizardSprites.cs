@@ -27,7 +27,15 @@ internal static class WizardSprites
         _specs ??= JsonSerializer.Deserialize<AtlasSpec[]>(Godot.FileAccess.GetFileAsString("res://Assets/Wizards/atlases.json"))
             ?? throw new InvalidDataException("Falta el índice de sprites de magos.");
         var spec = _specs.Single(s => s.Type == type);
-        var texture = ResourceLoader.Load<Texture2D>(spec.Texture)
+        Texture2D texture;
+        if (type == WizardType.Balanced)
+        {
+            var parts = WizardOutfitParts.Load();
+            spec = spec with { CastOrigins = parts.CastOrigins(default) };
+            using var art = parts.Assemble(spec, default);
+            texture = ImageTexture.CreateFromImage(art);
+        }
+        else texture = ResourceLoader.Load<Texture2D>(spec.Texture)
             ?? throw new InvalidDataException($"No se pudo cargar {spec.Texture}.");
         if (texture.GetWidth() != spec.Width || texture.GetHeight() != spec.Height || spec.Frames.Length != Columns * Rows || spec.PixelSize <= 0 ||
             spec.CastOrigins is { } origins && (origins.Length != Rows || origins.Any(p =>
@@ -46,19 +54,19 @@ internal static class WizardSprites
         return cached;
     }
 
-    public static ShaderMaterial Material(Atlas atlas, int team)
+    public static ShaderMaterial Material(Texture2D texture, int team)
     {
         _shader ??= ResourceLoader.Load<Shader>("res://Assets/Wizards/team-cloth.gdshader")
             ?? throw new InvalidDataException("Falta el shader de colores de equipo.");
         var material = new ShaderMaterial { Shader = _shader };
-        SetAtlas(material, atlas);
+        SetTexture(material, texture);
         material.SetShaderParameter("team_color", team == 0 ? Ui.Blue : Ui.Red);
         return material;
     }
 
-    public static void SetAtlas(ShaderMaterial material, Atlas atlas)
+    public static void SetTexture(ShaderMaterial material, Texture2D texture)
     {
-        using var value = Variant.From(atlas.Texture);
+        using var value = Variant.From(texture);
         material.SetShaderParameter("atlas", value);
     }
 
@@ -66,6 +74,7 @@ internal static class WizardSprites
     {
         foreach (var atlas in Cache.Values) atlas.Texture.Dispose();
         Cache.Clear();
+        WizardOutfitParts.ClearCache();
         _shader?.Dispose(); _shader = null;
     }
 
