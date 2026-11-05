@@ -1,6 +1,7 @@
 name: Publicar prueba de equipo mítico solicitada
 
 # Petición expresa del usuario: tag de prueba para los conjuntos elementales y los anclajes revisados.
+# Revisión de la etiqueta de texto del laboratorio.
 # Solo este archivo, rama y mensaje solicitan la compilación y publicación.
 # Se cancelan las revisiones anteriores de esta misma rama.
 # Todas las simulaciones liberan sus escenas antes de cerrar Godot.

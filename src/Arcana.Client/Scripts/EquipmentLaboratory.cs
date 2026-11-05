@@ -11,7 +11,7 @@ public partial class EquipmentLaboratory : Control
     private OptionButton _type = null!, _facing = null!, _pose = null!, _team = null!;
     private OptionButton _family = null!, _quality = null!;
     private Button _detail = null!, _paused = null!;
-    private Label _note = null!;
+    private ElementTextLabel _note = null!;
     private HBoxContainer _presets = null!;
     private GridContainer _choices = null!;
     private TabContainer _views = null!;
