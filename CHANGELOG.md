@@ -1,12 +1,10 @@
 # Cambios
 
-## Próxima revisión — Laboratorio y ajuste del equipo
+## 0.29.37 — Prueba de equipo mítico
 
 - Selector de los ocho conjuntos elementales y de calidad completa, vista ampliada y pausa de animación en el laboratorio. Inventario y combate comparten orientación y fotograma.
 - Colores propios de cada pieza en combate, inventario y retratos, conservando el oro del arte y la compatibilidad con apariencias antiguas.
-- Piezas con proporciones originales y apoyos en banda, suela y collar del báculo; petos ajustados a los hombros, manos y barba por delante, botas bajo la túnica y retirada de ocho botas que quedaban flotando en poses con el pie oculto.
-
-## 0.29.37 — Prueba de equipo mítico
+- Piezas recalibradas en 80 poses. Coronas, petos, báculos y anillos ajustados al cuerpo. Las botas quedan bajo la túnica y se ocultan cuando el pie no es visible.
 
 - Seis piezas míticas independientes con arte propio: corona, peto, botas, remate del báculo y dos anillos. Comparten un atlas de 24 vistas y anclajes para las 80 poses de los cinco magos.
 - Laboratorio de equipo accesible desde IA/Defensa en escritorio y Android. Compara aspecto base y equipo elegido, permite cambiar cada calidad y probar orientación, marcha, lanzamiento, congelación, daño, muerte y reaparición. Incluye la vista del inventario y salida con Atrás/Escape.
