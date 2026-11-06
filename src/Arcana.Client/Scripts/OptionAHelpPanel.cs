@@ -80,7 +80,9 @@ public partial class OptionAHelpPanel : Control
         }
         var card = new PanelContainer { Name = "HelpContentCard",
             SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
-        card.AddThemeStyleboxOverride("panel", Ui.Panel(new Color("10233c"), 8, new Color("285b80")));
+        var cardStyle = Ui.Panel(new Color("10233c"), 8, new Color("285b80"));
+        if (Ui.IsMobile) cardStyle.ContentMarginLeft = cardStyle.ContentMarginRight = 12;
+        card.AddThemeStyleboxOverride("panel", cardStyle);
         outer.AddChild(card);
         var contents = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill };
