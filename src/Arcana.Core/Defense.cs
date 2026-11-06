@@ -106,8 +106,8 @@ public static partial class DefenseRules
         (aura == DefenseAura.Water ? 12 : aura == DefenseAura.Regeneration ? 0 : 24);
     public static string AuraDescription(DefenseAura aura, int level) => aura switch
     {
-        DefenseAura.Regeneration => $"Recupera {10 * level} vida/s para ti y tus aliados.",
-        DefenseAura.Water => $"Inflige {AuraDamage(aura, level):0} daño de agua/s base y mantiene Mojado a los enemigos hasta {WaterAuraWetSeconds:0} s después de salir (modificable por equipo). Mojado aumenta el daño de rayo y facilita la congelación. No afecta a ti ni a tus aliados.",
+        DefenseAura.Regeneration => $"Recupera {10 * level} vida/s al portador y a sus aliados.",
+        DefenseAura.Water => $"Inflige {AuraDamage(aura, level):0} daño de agua/s base y mantiene Mojado a los enemigos hasta {WaterAuraWetSeconds:0} s después de salir (modificable por equipo). Mojado aumenta el daño de rayo y facilita la congelación. Solo afecta a enemigos.",
         _ => $"Inflige {AuraDamage(aura, level):0} daño de {SpellCatalogue.Name([AuraElement(aura)]).ToLowerInvariant()}/s base a los enemigos."
     };
     public static string MinionName(MinionKind kind) => kind switch

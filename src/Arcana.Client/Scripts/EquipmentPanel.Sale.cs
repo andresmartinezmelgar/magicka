@@ -39,7 +39,8 @@ public partial class EquipmentPanel
         rewardStyle.ContentMarginLeft = rewardStyle.ContentMarginRight = 12;
         reward.AddThemeStyleboxOverride("panel", rewardStyle); body.AddChild(reward);
         var goldRow = new HBoxContainer(); reward.AddChild(goldRow);
-        var caption = Ui.Label(_defensePlayer == null ? "RECIBES · ORO DE CUENTA" : "RECIBES · ORO DE PARTIDA", 14, Ui.Muted);
+        var caption = Ui.Label(BotInventory ? "RECIBE EL BOT · ORO DE PARTIDA" :
+            TemporaryInventory ? "RECIBES · ORO DE PARTIDA" : "RECIBES · ORO DE CUENTA", 14, Ui.Muted);
         caption.SizeFlagsHorizontal = SizeFlags.ExpandFill; caption.VerticalAlignment = VerticalAlignment.Center; goldRow.AddChild(caption);
         _saleGold = Ui.Label("", 20, Ui.Gold); _saleGold.Name = "SaleGold"; goldRow.AddChild(_saleGold);
         _saleWarning = Ui.Label("", 15, Ui.Muted); _saleWarning.Name = "SaleWarning";
@@ -64,7 +65,7 @@ public partial class EquipmentPanel
         if (!CanSellInventory || SaleProtected(id) || _draft == null) return;
         var item = _draft.Items.SingleOrDefault(i => i.Id == id);
         if (item == null) return;
-        if (_savedLoadout.Get(item.Slot) == id)
+        if (!BotInventory && _savedLoadout.Get(item.Slot) == id)
         {
             var desired = _draft.Loadout;
             DefenseOperation(new() { Type = "defense_loadout", Loadout = desired },

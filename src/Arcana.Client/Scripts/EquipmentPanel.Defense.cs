@@ -12,7 +12,7 @@ public partial class EquipmentPanel
     private int _defensePreferenceRevision;
     private void SyncDefensePreferences()
     {
-        if (_defensePlayer == null || _draft == null || BotInventory) return;
+        if (_defensePlayer == null || _draft == null) return;
         if (_defenseFavorites != null && _defenseFavorites.SequenceEqual(_defensePlayer.Favorites) &&
             _defenseAutoSellStyles!.SequenceEqual(_defensePlayer.AutoSellStyles)) return;
         _defenseFavorites = _defensePlayer.Favorites; _defenseAutoSellStyles = _defensePlayer.AutoSellStyles;
@@ -40,7 +40,7 @@ public partial class EquipmentPanel
     private bool CanChangeDefenseItems => !_defenseMatchEnded &&
         (BotInventory ? _defenseRequesterAlive && _defensePlayer!.LivesRemaining > 0 : _defenseWizard?.Alive == true);
     private bool AutomaticSurvivalEquipment => _defensePlayer?.EquipmentSetup.Enabled == true;
-    private bool CanSellInventory => _defensePlayer != null ? !BotInventory && CanChangeDefenseItems :
+    private bool CanSellInventory => _defensePlayer != null ? CanChangeDefenseItems :
         !_main.InventoryAutoSelling && !_main.Accounts.InventoryNeedsRefresh && _main.Accounts.SignedIn &&
         (!_main.Accounts.IsDirectFirebaseSession || _main.Accounts.ServerAddress.Length > 0);
 
@@ -109,6 +109,11 @@ public partial class EquipmentPanel
     private void DefenseOperation(ClientMessage command, Func<DefensePlayerSnapshot, bool> confirmed, Action? after = null,
         string message = "Equipo de partida actualizado.")
     {
+        if (BotInventory)
+        {
+            command.Type = "defense_bot_" + command.Type["defense_".Length..];
+            command.DefenseBotId = DefenseInventoryPlayerId;
+        }
         _defensePending = confirmed; _defenseConfirmed = after; _defensePendingAt = Time.GetTicksMsec();
         _defensePendingMessage = message;
         Busy(true, "Actualizando equipo de partida…"); _defenseSubmit!(command);
@@ -126,14 +131,15 @@ public partial class EquipmentPanel
     private bool CanUpgradeDefenseItem(string id)
     {
         var entry = _defensePlayer?.Items.FirstOrDefault(i => i.Item.Id == id);
-        return !_busy && !BotInventory && CanChangeDefenseItems && entry != null && ItemAffixes.CanUpgrade(entry.Item, entry.Upgrades) && _defensePlayer!.Gold >= DefenseRules.UpgradeCost(entry.Item.Tier, entry.Upgrades);
+        return !_busy && CanChangeDefenseItems && entry != null && ItemAffixes.CanUpgrade(entry.Item, entry.Upgrades) &&
+            _defensePlayer!.Gold >= DefenseRules.UpgradeCost(entry.Item.Tier, entry.Upgrades);
     }
 
     private void UpgradeDefenseItem(string id)
     {
         if (!CanUpgradeDefenseItem(id)) return;
         int before = _defensePlayer!.Items.Single(i => i.Item.Id == id).Upgrades;
-        DefenseOperation(new() { Type = "defense_upgrade", ItemId = id },
+        DefenseOperation(new() { Type = "defense_upgrade", ItemId = id, DefenseUpgradeFromLevel = BotInventory ? before : null },
             p => p.Items.Any(i => i.Item.Id == id && i.Upgrades > before),
             message: "Mejora confirmada. Las estadísticas y el oro están actualizados.");
     }
@@ -142,7 +148,8 @@ public partial class EquipmentPanel
     {
         if (_busy || !CanSellInventory || _selling.Length == 0 || SaleProtected(_selling)) return;
         string id = _selling; _selling = "";
-        SellDefenseId(id, message: "Venta confirmada. El oro y las piezas están actualizados.");
+        SellDefenseId(id, message: BotInventory ? "Venta confirmada. El oro se ha abonado al bot."
+            : "Venta confirmada. El oro y las piezas están actualizados.");
     }
 
     private void SaveDefenseAndClose()

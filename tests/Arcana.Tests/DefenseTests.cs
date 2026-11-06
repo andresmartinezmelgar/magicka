@@ -371,6 +371,65 @@ internal static class DefenseTests
                 "El guardado perdió la selección del bot.");
             SnapshotValidation.Check(restored.Snapshot());
         });
+        test("Supervivencia: ventas y compras del bot usan su oro y se conservan al guardar", () =>
+        {
+            var w = World(bots: 1);
+            var human = w.AddPlayer("A")!; var ally = w.AddPlayer("B")!;
+            var bot = w.Players.Values.Single(p => p.Bot);
+            Gold(w, human, 777); Gold(w, ally, 333);
+            var random = new Random(619);
+            EquipmentItem Piece() => EquipmentCatalogue.Generate(random, tier: ItemTier.Silver, slot: EquipmentSlot.Weapon);
+            var equipped = Piece(); var spare = Piece() with { SaleGold = 1000 }; var favorite = Piece();
+            foreach (var item in new[] { equipped, spare, favorite }) Invoke(w, "GrantDefenseItem", bot, item);
+            Check(Command(w, bot, "defense_favorite", 1, favorite.Id), "No se pudo proteger la pieza del bot.");
+
+            bool Order(Wizard requester, int target, string action, int slot = 0, string itemId = "", int? level = null)
+            {
+                var message = new ClientMessage { Type = "defense_bot_" + action, DefenseBotId = target, Slot = slot,
+                    ItemId = itemId, DefenseUpgradeFromLevel = level, Sequence = requester.LastSequence + 1 };
+                return w.ApplyMessage(requester.Id, Protocol.Deserialize<ClientMessage>(Protocol.SerializeBinaryAction(message))!);
+            }
+
+            Check(Order(human, bot.Id, "equip", (int)EquipmentSlot.Weapon, equipped.Id), "No se equipó la pieza del bot.");
+            Check(!Order(human, bot.Id, "sell", itemId: equipped.Id) && !Order(human, bot.Id, "sell", itemId: favorite.Id) &&
+                !Order(human, bot.Id, "aura", level: 0) && Player(w, bot).Gold == 0,
+                "Se vendió una pieza protegida o se financió una compra con oro ajeno.");
+            Check(Command(w, human, "defense_shop", 1) && !w.DefensePaused, "La tienda cooperativa pausó el combate.");
+            Check(Order(human, bot.Id, "sell", itemId: spare.Id) && !Order(ally, bot.Id, "sell", itemId: spare.Id),
+                "La venta no se confirmó o se pagó dos veces.");
+            Invoke(w, "AutoShopDefenseBot", bot);
+            Check(Player(w, bot).Gold == spare.SaleGold && Player(w, bot).Auras[0] == 0,
+                "El bot gastó automáticamente el oro reservado para la gestión.");
+
+            Check(!Order(bot, bot.Id, "aura", level: 0) && !Order(human, ally.Id, "aura", level: 0),
+                "Se aceptó gestionar a otro humano o una orden emitida por un bot.");
+            var team = typeof(Wizard).GetProperty(nameof(Wizard.Team))!;
+            team.SetValue(bot, 1 - human.Team);
+            Check(!Order(human, bot.Id, "passive", level: 0), "Se compró una mejora a un bot rival.");
+            team.SetValue(bot, human.Team);
+            Check(Order(human, bot.Id, "aura", level: 0) && Order(human, bot.Id, "passive", level: 0) &&
+                Order(human, bot.Id, "upgrade", itemId: equipped.Id, level: 0), "No se compraron los poderes o la mejora del bot.");
+            Check(!Order(ally, bot.Id, "aura", level: 0) && !Order(ally, bot.Id, "passive", level: 0) &&
+                !Order(ally, bot.Id, "upgrade", itemId: equipped.Id, level: 0),
+                "Una orden con nivel desactualizado compró otro nivel.");
+            int gold = spare.SaleGold - DefenseRules.AuraCost(0) - DefenseRules.PassiveCost(0) - DefenseRules.UpgradeCost(equipped.Tier, 0);
+            var result = Player(w, bot);
+            Check(result.Gold == gold && result.Auras[0] == 1 && result.Passives[0] == 1 &&
+                result.Items.Single(i => i.Equipped).Upgrades == 1 && result.Items.All(i => i.Item.Id != spare.Id) &&
+                Player(w, human).Gold == 777 && Player(w, ally).Gold == 333,
+                "Se aplicaron precios, niveles o inventarios al participante equivocado.");
+
+            Check(Command(w, human, "defense_shop", 0), "No se cerró la tienda.");
+            Invoke(w, "AutoShopDefenseBot", bot);
+            Check(Player(w, bot).Auras[2] == 1, "El bot no reanudó las compras automáticas.");
+            w.RemovePlayer(ally.Id);
+            var restored = GameWorld.RestoreSurvival(w.SaveSurvival(human.Id, Guid.NewGuid().ToString("N")));
+            var savedBot = Player(restored, restored.Players[bot.Id]);
+            Check(savedBot.Gold == gold - DefenseRules.AuraCost(0) && savedBot.Auras[0] == 1 && savedBot.Passives[0] == 1 &&
+                savedBot.Items.Single(i => i.Equipped).Upgrades == 1 && savedBot.Items.All(i => i.Item.Id != spare.Id),
+                "Al cargar se perdieron las ventas o mejoras del bot.");
+            SnapshotValidation.Check(restored.Snapshot());
+        });
         test("Defensa: copia de inventario aislada y tiempo activo de canalización", () =>
         {
             var w = World(); var p = w.AddPlayer("Mago")!;

@@ -42,6 +42,8 @@ public partial class DefensePanel : Control
     private Button _sectionBack = null!;
     private ElementTextLabel _shopTitle = null!;
     private int _sectionIndex = -1;
+    private int _powerBotId;
+    private const int PowersSection = 2;
     private const int BotEquipmentSection = 7;
     private static readonly string[] SectionNames = ["Partida", "Equipo", "Poderes", "Estadísticas", "Guía", "Reliquias", "Configuración predeterminada", "Bots aliados"];
     private WorldSnapshot? _lastSnapshot;
@@ -115,7 +117,7 @@ public partial class DefensePanel : Control
         Wrapped(equipment, "Elige botas, gorro, pechera, arma y los dos anillos. Compara las piezas por calidad y consulta sus atributos y bonificaciones. La selección se aplica al volver a la tienda.", 16);
         _botInventories = _sections[BotEquipmentSection];
         _noBotInventories = Wrapped(_botInventories, "No hay bots aliados con inventario disponible.", 16, Ui.Muted);
-        var powers = _sections[2];
+        var powers = _sections[PowersSection];
         var powerNavigation = new HBoxContainer(); powers.AddChild(powerNavigation);
         _passiveTab = Ui.Button("Habilidades automáticas", () => ShowPowers(true));
         _auraTab = Ui.Button("Auras", () => ShowPowers(false));
@@ -123,12 +125,12 @@ public partial class DefensePanel : Control
         { tab.SizeFlagsHorizontal = SizeFlags.ExpandFill; tab.CustomMinimumSize = new(0, 48); tab.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 17 : 16); powerNavigation.AddChild(tab); }
         _passiveSection = new VBoxContainer(); _passiveSection.AddThemeConstantOverride("separation", 10); powers.AddChild(_passiveSection);
         _auraSection = new VBoxContainer(); _auraSection.AddThemeConstantOverride("separation", 10); powers.AddChild(_auraSection);
-        Wrapped(_auraSection, "AURAS · siempre activas a tu alrededor", 18, Ui.Gold);
+        Wrapped(_auraSection, "AURAS · siempre activas alrededor del mago", 18, Ui.Gold);
         for (int i = 0; i < DefenseRules.AuraCount; i++)
         {
             int aura = i; var card = Card(_auraSection);
             _auraHints.Add(Wrapped(card, "", 16));
-            var button = Ui.Button("", () => _submit(new() { Type = "defense_aura", Slot = aura }));
+            var button = Ui.Button("", () => BuyPower(automatic: false, slot: aura));
             button.Name = "DefenseAura" + i; card.AddChild(button); _auras.Add(button);
         }
         Wrapped(_passiveSection, "HABILIDADES · se activan solas en combate", 18, Ui.Gold);
@@ -136,7 +138,7 @@ public partial class DefensePanel : Control
         {
             int passive = i; var card = Card(_passiveSection);
             _passiveHints.Add(Wrapped(card, "", 16));
-            var button = Ui.Button("", () => _submit(new() { Type = "defense_passive", Slot = passive }));
+            var button = Ui.Button("", () => BuyPower(automatic: true, slot: passive));
             button.Name = "DefensePassive" + i; card.AddChild(button); _passives.Add(button);
         }
         var statistics = _sections[3];
@@ -171,24 +173,32 @@ public partial class DefensePanel : Control
         var panel = new PanelContainer(); panel.AddThemeStyleboxOverride("panel", Ui.Panel(new("0c192c"), 6, new("385571"))); parent.AddChild(panel);
         var box = new VBoxContainer(); box.AddThemeConstantOverride("separation", 7); panel.AddChild(box); return box;
     }
-    internal void ShowSection(int index)
+    internal void ShowSection(int index, int botId = 0)
     {
         if (index < 0 || index >= _sections.Count) return;
+        var bot = botId == 0 ? null : FindBotInventory(botId);
+        if (botId != 0 && (index != PowersSection || bot == null)) return;
+        _powerBotId = botId;
         _sectionIndex = index; _navigation.Visible = false; _sectionBack.Visible = true;
-        _shopTitle.Text = "SUPERVIVENCIA · " + SectionNames[index].ToUpperInvariant();
+        _shopTitle.Text = bot is { } target ? $"PODERES · {target.Wizard.Name}" :
+            "SUPERVIVENCIA · " + SectionNames[index].ToUpperInvariant();
         for (int i = 0; i < _sections.Count; i++) _sections[i].Visible = i == index;
         _scroll.ScrollVertical = 0;
         if (index == 1) OpenEquipmentInventory();
         if (index == 3 && ShopOpen) UpdateTotals();
         if (index == 4) UpdateGuide();
         if (index == BotEquipmentSection) UpdateBotInventories();
+        if (botId != 0) ShowPowers(false);
+        UpdateShopWalletAndPowers();
     }
     private void ShowMenu()
     {
+        _powerBotId = 0;
         _sectionIndex = -1; _navigation.Visible = true;
         _shopTitle.Text = "SUPERVIVENCIA · MENÚ";
         foreach (var section in _sections) section.Visible = false;
         _scroll.ScrollVertical = 0;
+        UpdateShopWalletAndPowers();
     }
     internal void ShowPowers(bool automatic)
     {
@@ -197,8 +207,24 @@ public partial class DefensePanel : Control
         _auraTab.AddThemeColorOverride("font_color", automatic ? Ui.Text : Ui.Gold);
         _scroll.ScrollVertical = 0;
     }
-    private string PriceLabel(int cost, bool max = false) => max ? "Nivel máximo" :
-        _player != null && _player.Gold < cost ? $"Faltan {cost - _player.Gold} oro · coste {cost}" : $"Comprar / mejorar · {cost} oro";
+    private static string PriceLabel(int cost, int gold, bool max) => max ? "Nivel máximo" :
+        gold < cost ? $"Faltan {cost - gold} oro · coste {cost}" : $"Comprar / mejorar · {cost} oro";
+
+    private void BuyPower(bool automatic, int slot)
+    {
+        var command = new ClientMessage { Type = automatic ? "defense_passive" : "defense_aura", Slot = slot };
+        if (_powerBotId != 0)
+        {
+            if (!ShopOpen || FindBotInventory(_powerBotId) is not { } bot || !CanManageBotPowers(bot.Player) ||
+                (automatic ? _passives : _auras)[slot].Disabled) return;
+            command.Type = automatic ? "defense_bot_passive" : "defense_bot_aura";
+            command.DefenseBotId = _powerBotId;
+            command.DefenseUpgradeFromLevel = (automatic ? bot.Player.Passives : bot.Player.Auras)[slot];
+        }
+        _submit(command);
+    }
+
+    private bool CanManageBotPowers(DefensePlayerSnapshot bot) => !_ended && _wizard?.Alive == true && bot.LivesRemaining > 0;
 
     public void SetNetworkStats(string text) => _metrics.Text = text;
     internal Rect2 SummaryRectForVerification => _summary.GetGlobalRect();
@@ -214,6 +240,7 @@ public partial class DefensePanel : Control
     internal void HandleBack()
     {
         if (_equipmentInventory != null) _equipmentInventory.HandleBack();
+        else if (_powerBotId != 0) ShowSection(BotEquipmentSection);
         else if (_sectionIndex >= 0) ShowMenu();
         else CloseShop();
     }
@@ -258,13 +285,21 @@ public partial class DefensePanel : Control
         _noBotInventories.Visible = bots.Length == 0;
         foreach (var bot in bots)
         {
-            var button = Ui.ExitButton(bot.Name, () =>
+            var card = Card(_botInventories);
+            Wrapped(card, bot.Name, 18, Ui.Gold);
+            var actions = new HBoxContainer(); card.AddChild(actions);
+            var inventory = Ui.ExitButton("Inventario", () =>
             {
                 if (FindBotInventory(bot.Id) is { } entry) OpenEquipmentInventory(entry.Player, entry.Wizard);
             }, "DefenseBotInventory" + bot.Id);
-            button.CustomMinimumSize = new(0, 54);
-            button.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-            _botInventories.AddChild(button);
+            var powers = Ui.ExitButton("Auras y habilidades", () => ShowSection(PowersSection, bot.Id), "DefenseBotPowers" + bot.Id);
+            foreach (var button in new[] { inventory, powers })
+            {
+                button.CustomMinimumSize = new(0, 54);
+                button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+                button.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+                actions.AddChild(button);
+            }
         }
     }
     private void Send(string type) => _submit(new() { Type = type });
@@ -305,35 +340,12 @@ public partial class DefensePanel : Control
         _summary.Size = new(_summary.Size.X, 0);
         if (!shopOpen) return; // Las tarjetas ocultas se preparan al abrir su vista.
         int earned = Math.Min(4, (int)(p.ActiveSeconds / DefenseRules.RewardInterval));
-        _wallet.Text = $"Oro: {p.Gold} · Nivel {p.Level} · Bajas {p.Kills} · Vidas {p.LivesRemaining}/2";
+        UpdateShopWalletAndPowers();
         _shopStatus.Text = snapshot.MatchEnded ? "PARTIDA TERMINADA" : defense.Paused
             ? "PARTIDA EN PAUSA · el combate y el tiempo se reanudan al cerrar la tienda."
             : defense.HumanCount > 1 ? "SUPERVIVENCIA MÁXIMA · Tu mago mantiene el escudo y se aleja de los enemigos. Atacar es secundario; puede recibir daño."
             : "El menú, la clasificación y el inventario pausan la partida cuando eres el único humano.";
         _equipmentSummary.Text = $"{p.Items.Count(i => i.Equipped)}/{Enum.GetValues<EquipmentSlot>().Length} ranuras equipadas · {p.Items.Length}/{DefenseRules.InventoryLimit} piezas temporales";
-        bool buying = _wizard.Alive && !snapshot.MatchEnded;
-        for (int i = 0; i < DefenseRules.AuraCount; i++)
-        {
-            int level = p.Auras[i]; var aura = (DefenseAura)i;
-            string next = aura == DefenseAura.Regeneration ? $"{10 * (level + 1)} vida/s para ti y aliados"
-                : $"{DefenseRules.AuraDamage(aura, level + 1):0} daño/s base";
-            _auraHints[i].Text = DefenseRules.AuraName(aura) + $" · nivel {level}/{DefenseRules.MaxAuraLevel}\n" +
-                DefenseRules.AuraDescription(aura, Math.Max(1, level)) +
-                $" Radio {DefenseRules.AuraRadius(Math.Max(1, level)):0.#} m" + (level == 0 ? " al comprar." : ".") +
-                (level is > 0 and < DefenseRules.MaxAuraLevel ? $"\nSiguiente nivel: {next} · radio {DefenseRules.AuraRadius(level + 1):0.#} m." : "");
-            _auras[i].Text = PriceLabel(DefenseRules.AuraCost(level), level >= DefenseRules.MaxAuraLevel);
-            _auras[i].Disabled = !buying || level >= DefenseRules.MaxAuraLevel || p.Gold < DefenseRules.AuraCost(level);
-        }
-        for (int i = 0; i < 4; i++)
-        {
-            int level = p.Passives[i]; var passive = (DefensePassive)i;
-            string status = level == 0 ? "Sin comprar" : i == 1 && p.BerserkerRemaining > 0 ? $"ACTIVO: {p.BerserkerRemaining:0.#} s" :
-                p.PassiveCooldowns[i] > 0 ? $"Recarga: {p.PassiveCooldowns[i]:0.#} s" : "Listo para el combate";
-            _passiveHints[i].Text = DefenseRules.PassiveName(passive) + $" · nivel {level}/{DefenseRules.MaxPassiveLevel} · {status}\n" +
-                DefenseRules.PassiveDescription(passive, Math.Min(DefenseRules.MaxPassiveLevel, level + 1)) + (level > 0 && level < DefenseRules.MaxPassiveLevel ? " (siguiente nivel)" : "");
-            _passives[i].Text = PriceLabel(DefenseRules.PassiveCost(level), level >= DefenseRules.MaxPassiveLevel);
-            _passives[i].Disabled = !buying || level >= DefenseRules.MaxPassiveLevel || p.Gold < DefenseRules.PassiveCost(level);
-        }
         bool bossAlive = defense.Minions.Any(m => m.Kind == MinionKind.Boss);
         _result.Text = (snapshot.MatchEnded ? "Partida terminada" : $"Vidas {p.LivesRemaining}/2") +
             $" · {DefenseRules.Clock(defense.Elapsed)} · Dificultad {defense.Difficulty}\nColosos derrotados: {defense.BossesKilled} · " +
@@ -356,6 +368,51 @@ public partial class DefensePanel : Control
         }
         if (_sections[3].Visible) UpdateTotals();
         if (_sections[4].Visible) UpdateGuide();
+    }
+
+    private void UpdateShopWalletAndPowers()
+    {
+        if (_player == null || _wizard == null) return;
+        var p = _player;
+        string wallet = "Oro";
+        bool buying = _wizard.Alive && !_ended;
+        if (_powerBotId != 0)
+        {
+            if (FindBotInventory(_powerBotId) is not { } bot)
+            {
+                ShowSection(BotEquipmentSection);
+                return;
+            }
+            p = bot.Player;
+            wallet = "Oro de " + bot.Wizard.Name;
+            buying = CanManageBotPowers(p);
+        }
+        _wallet.Text = $"{wallet}: {p.Gold} · Nivel {p.Level} · Bajas {p.Kills} · Vidas {p.LivesRemaining}/2";
+        if (_sectionIndex != PowersSection) return;
+        for (int i = 0; i < DefenseRules.AuraCount; i++)
+        {
+            int level = p.Auras[i]; var aura = (DefenseAura)i;
+            string next = aura == DefenseAura.Regeneration ? $"{10 * (level + 1)} vida/s"
+                : $"{DefenseRules.AuraDamage(aura, level + 1):0} daño/s base";
+            _auraHints[i].Text = DefenseRules.AuraName(aura) + $" · nivel {level}/{DefenseRules.MaxAuraLevel}\n" +
+                DefenseRules.AuraDescription(aura, Math.Max(1, level)) +
+                $" Radio {DefenseRules.AuraRadius(Math.Max(1, level)):0.#} m" + (level == 0 ? " al comprar." : ".") +
+                (level is > 0 and < DefenseRules.MaxAuraLevel ? $"\nSiguiente nivel: {next} · radio {DefenseRules.AuraRadius(level + 1):0.#} m." : "");
+            int cost = DefenseRules.AuraCost(level);
+            _auras[i].Text = PriceLabel(cost, p.Gold, level >= DefenseRules.MaxAuraLevel);
+            _auras[i].Disabled = !buying || level >= DefenseRules.MaxAuraLevel || p.Gold < cost;
+        }
+        for (int i = 0; i < _passives.Count; i++)
+        {
+            int level = p.Passives[i]; var passive = (DefensePassive)i;
+            string status = level == 0 ? "Sin comprar" : i == 1 && p.BerserkerRemaining > 0 ? $"ACTIVO: {p.BerserkerRemaining:0.#} s" :
+                p.PassiveCooldowns[i] > 0 ? $"Recarga: {p.PassiveCooldowns[i]:0.#} s" : "Listo para el combate";
+            _passiveHints[i].Text = DefenseRules.PassiveName(passive) + $" · nivel {level}/{DefenseRules.MaxPassiveLevel} · {status}\n" +
+                DefenseRules.PassiveDescription(passive, Math.Min(DefenseRules.MaxPassiveLevel, level + 1)) + (level > 0 && level < DefenseRules.MaxPassiveLevel ? " (siguiente nivel)" : "");
+            int cost = DefenseRules.PassiveCost(level);
+            _passives[i].Text = PriceLabel(cost, p.Gold, level >= DefenseRules.MaxPassiveLevel);
+            _passives[i].Disabled = !buying || level >= DefenseRules.MaxPassiveLevel || p.Gold < cost;
+        }
     }
 
     private void UpdateCollectedBonuses()

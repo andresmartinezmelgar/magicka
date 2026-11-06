@@ -77,8 +77,8 @@ public partial class EquipmentPanel : Control
         {
             menu.AddItem(_defensePlayer == null ? "Actualizar inventario" : "Comprar pieza · 100 oro", 0);
             menu.AddItem(_defensePlayer == null ? "Equipos guardados" : "Atrás · menú de supervivencia", 1);
-            menu.AddItem("Venta múltiple", 2);
         }
+        menu.AddItem("Venta múltiple", 2);
         menu.AddItem("Bonificaciones de conjuntos", 3);
         if (!BotInventory)
         {
@@ -87,7 +87,7 @@ public partial class EquipmentPanel : Control
         }
         menu.IdPressed += id =>
         {
-            if (BotInventory && id != 3) return;
+            if (BotInventory && id is not (2 or 3)) return;
             if (_defensePlayer != null && id == 1) { Close(); return; }
             if (InventoryLocked) return;
             if (id == 5) { OpenAutoSellRules(); return; }
@@ -164,7 +164,7 @@ public partial class EquipmentPanel : Control
         float width = GetViewport().GetVisibleRect().Size.X;
         _avatarPane.CustomMinimumSize = new(Math.Clamp(width * .32f, 178, 430), 0);
         bool shortView = GetViewport().GetVisibleRect().Size.Y <= 500;
-        _salesHelp.Visible = !shortView && !BotInventory;
+        _salesHelp.Visible = !shortView;
         _totalsTitle.Visible = !shortView;
         _sets.Visible = !shortView || _sets.Text != "Sin conjuntos activos.";
         _totalsSummary.AddThemeConstantOverride("separation", shortView ? 4 : 8);
@@ -251,7 +251,8 @@ public partial class EquipmentPanel : Control
         _sets.Visible = activeSets.Length > 0 || GetViewport().GetVisibleRect().Size.Y > 500;
         _sets.TooltipText = "Solo cuentan las piezas Míticas de la misma familia. Con 3 piezas sigue activo el bonus de 2. El bonus de 4 sustituye al de 2.\n"
             + string.Join("\n", activeSets.Select(f => Set(EquipmentCatalogue.FamilyName(f), m.Pieces(f), SetDescription(f, false), SetDescription(f, true))));
-        _salesHelp.Text = _main.InventoryAutoSelling && !TemporaryInventory ? "Terminando la venta automática. Puedes salir de esta pantalla." :
+        _salesHelp.Text = BotInventory ? "El oro de las ventas se abona al bot. Favoritos y piezas equipadas protegidos." :
+            _main.InventoryAutoSelling && !TemporaryInventory ? "Terminando la venta automática. Puedes salir de esta pantalla." :
             "Favoritos y equipados protegidos. Los Míticos solo se venden manualmente.";
         if (!_busy && _status.Text.Length == 0) SetStatus(account == null ? "Inicia sesión con Google para recuperar tu inventario y conseguir objetos en PvP." :
             BotInventory ? "Elige una pieza para actualizar el equipo del bot." :
@@ -335,7 +336,7 @@ public partial class EquipmentPanel : Control
             {
                 var slot = _selectedSlot;
                 _ = AccountInventory.Equip(_draft, new InventoryRequest(id, slot));
-                DefenseOperation(new() { Type = "defense_bot_equip", DefenseBotId = DefenseInventoryPlayerId, ItemId = id, Slot = (int)slot },
+                DefenseOperation(new() { Type = "defense_equip", ItemId = id, Slot = (int)slot },
                     p => DefenseProfile(p).Loadout.Get(slot) == id,
                     message: "Equipo del bot actualizado.");
                 return;

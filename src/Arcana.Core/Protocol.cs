@@ -187,6 +187,7 @@ public sealed class ClientMessage
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public float FramesPerSecond { get; set; }
     public string ItemId { get; set; } = "";
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public int DefenseBotId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public int? DefenseUpgradeFromLevel { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public EquipmentLoadout? Loadout { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public EquipmentStyle? AutoSellStyle { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public SurvivalEquipmentSetup? SurvivalEquipmentSetup { get; set; }

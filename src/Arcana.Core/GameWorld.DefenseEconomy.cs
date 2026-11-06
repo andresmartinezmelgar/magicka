@@ -95,12 +95,32 @@ public sealed partial class GameWorld
             return true;
         }
         if (!player.Alive || MatchEnded) return false;
-        switch (command.Type)
+        // Las acciones dirigidas a bots tienen sus propios mensajes para que
+        // un servidor anterior no pueda aplicarlas a la cartera del solicitante.
+        string action = command.Type switch
+        {
+            "defense_bot_aura" => "defense_aura",
+            "defense_bot_passive" => "defense_passive",
+            "defense_bot_sell" => "defense_sell",
+            "defense_bot_upgrade" => "defense_upgrade",
+            _ => command.Type
+        };
+        bool botAction = action != command.Type || action == "defense_bot_equip";
+        if (botAction)
+        {
+            if (player.Bot || !_players.TryGetValue(command.DefenseBotId, out var bot) || !bot.Bot || !Allied(player, bot) ||
+                bot.Deaths >= DefenseRules.PlayerLives || !_defenders.TryGetValue(bot.Id, out var botProgress)) return false;
+            player = bot;
+            progress = botProgress;
+        }
+
+        switch (action)
         {
             case "defense_aura":
                 if (command.Slot < 0 || command.Slot >= DefenseRules.AuraCount) return false;
                 int level = progress.Auras[command.Slot], cost = DefenseRules.AuraCost(level);
-                if (level >= DefenseRules.MaxAuraLevel || progress.Gold < cost) return false;
+                if (level >= DefenseRules.MaxAuraLevel || progress.Gold < cost ||
+                    botAction && command.DefenseUpgradeFromLevel != level) return false;
                 StatisticsEconomy(player.Id, StatisticMeasure.GoldSpent, cost);
                 progress.Gold -= cost; progress.Auras[command.Slot]++;
                 Emit("defense_shop", player.Position, [], DefenseRules.AuraName((DefenseAura)command.Slot) + $" · nivel {level + 1}");
@@ -108,7 +128,8 @@ public sealed partial class GameWorld
             case "defense_passive":
                 if (command.Slot is < 0 or > 3) return false;
                 int passiveLevel = progress.Passives[command.Slot], passiveCost = DefenseRules.PassiveCost(passiveLevel);
-                if (passiveLevel >= DefenseRules.MaxPassiveLevel || progress.Gold < passiveCost) return false;
+                if (passiveLevel >= DefenseRules.MaxPassiveLevel || progress.Gold < passiveCost ||
+                    botAction && command.DefenseUpgradeFromLevel != passiveLevel) return false;
                 StatisticsEconomy(player.Id, StatisticMeasure.GoldSpent, passiveCost);
                 progress.Gold -= passiveCost; progress.Passives[command.Slot]++;
                 if (passiveLevel == 0) progress.PassiveCooldowns[command.Slot] = command.Slot switch { 0 => 3, 1 => 16, 2 => 5, _ => 4 };
@@ -136,20 +157,18 @@ public sealed partial class GameWorld
                 SetManualDefenseLoadout(player, progress, progress.Loadout.With(selectedSlot, command.ItemId), selectedSlot);
                 return true;
             case "defense_bot_equip":
-                if (player.Bot || !_players.TryGetValue(command.DefenseBotId, out var bot) || !bot.Bot || !Allied(player, bot) ||
-                    bot.Deaths >= DefenseRules.PlayerLives || !_defenders.TryGetValue(bot.Id, out var botProgress) ||
-                    command.ItemId == null) return false;
+                if (command.ItemId == null) return false;
                 var botSlot = (EquipmentSlot)command.Slot;
                 if (!Enum.IsDefined(botSlot) || command.ItemId.Length > 0 &&
-                    !botProgress.Items.Any(i => i.Id == command.ItemId && i.Slot == botSlot)) return false;
-                SetManualDefenseLoadout(bot, botProgress, botProgress.Loadout.With(botSlot, command.ItemId), botSlot);
+                    !progress.Items.Any(i => i.Id == command.ItemId && i.Slot == botSlot)) return false;
+                SetManualDefenseLoadout(player, progress, progress.Loadout.With(botSlot, command.ItemId), botSlot);
                 return true;
             case "defense_upgrade":
             case "defense_sell":
                 if (command.ItemId == null || command.ItemId.Length != 32) return false;
                 var item = progress.Items.FirstOrDefault(i => i.Id == command.ItemId);
                 if (item == null) return false;
-                if (command.Type == "defense_sell")
+                if (action == "defense_sell")
                 {
                     if (progress.Loadout.Get(item.Slot) == item.Id || progress.Favorites.Contains(item.Id)) return false;
                     progress.Items.Remove(item); progress.Upgrades.Remove(item.Id);
@@ -159,13 +178,13 @@ public sealed partial class GameWorld
                 else
                 {
                     int upgrades = progress.Upgrades.GetValueOrDefault(item.Id);
-                    if (!ItemAffixes.CanUpgrade(item, upgrades)) return false;
+                    if (!ItemAffixes.CanUpgrade(item, upgrades) || botAction && command.DefenseUpgradeFromLevel != upgrades) return false;
                     int price = DefenseRules.UpgradeCost(item.Tier, upgrades);
                     if (progress.Gold < price) return false;
                     var improved = item with { Bonuses = item.Bonuses.Select(b => EquipmentCatalogue.BonusActive(item.Slot, b.Stat)
                         ? b with { Current = MathF.Round(Math.Min(b.Maximum, b.Current + DefenseRules.ItemUpgradeStep), 4) } : b).ToArray() };
                     StatisticsEconomy(player.Id, StatisticMeasure.GoldSpent, price);
-                progress.Gold -= price; progress.Upgrades[item.Id] = upgrades + 1;
+                    progress.Gold -= price; progress.Upgrades[item.Id] = upgrades + 1;
                     progress.Items[progress.Items.IndexOf(item)] = improved;
                 }
                 if (progress.EquipmentSetup.Enabled) ApplySurvivalEquipmentSetup(player); else RecalculateDefender(player);
@@ -317,6 +336,10 @@ public sealed partial class GameWorld
 
     private void AutoShopDefenseBot(Wizard player)
     {
+        // En cooperativo el combate continúa durante la gestión. Reserva el oro
+        // para las compras manuales mientras un aliado usa la tienda.
+        if (_players.Values.Any(ally => !ally.Bot && ally.Alive && Allied(ally, player) && _defenders[ally.Id].ShopOpen))
+            return;
         var progress = _defenders[player.Id];
         int aura = progress.Auras[0] <= progress.Auras[2] ? 0 : 2;
         DefenseCommand(player, new() { Type = "defense_aura", Slot = aura });

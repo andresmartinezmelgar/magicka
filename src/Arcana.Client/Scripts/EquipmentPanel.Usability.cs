@@ -77,6 +77,10 @@ public partial class EquipmentPanel
         favorite.AddThemeFontSizeOverride("font_size", 14); favorite.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         box.AddChild(favorite); _preferenceActions.Add(favorite);
         BuildAutoSellButton(box, item);
+    }
+
+    private void BuildSaleSelection(VBoxContainer box, EquipmentItem item)
+    {
         if (!_bulkMode) return;
         var check = new CheckBox { Name = "EquipmentSelect_" + item.Id, Text = "Seleccionar venta",
             ButtonPressed = _saleSelection.Contains(item.Id), Disabled = InventoryLocked || SaleProtected(item.Id), CustomMinimumSize = new(0, 44) };
@@ -104,8 +108,10 @@ public partial class EquipmentPanel
     private void UpdateBulkActions()
     {
         if (_bulkAll == null) return;
-        _inventoryMenu.GetPopup().SetItemDisabled(2, InventoryLocked);
-        _inventoryMenu.GetPopup().SetItemText(2, _bulkMode ? "Cancelar selección" : "Venta múltiple");
+        var menu = _inventoryMenu.GetPopup();
+        int bulkIndex = menu.GetItemIndex(2);
+        menu.SetItemDisabled(bulkIndex, InventoryLocked || BotInventory && !CanSellInventory);
+        menu.SetItemText(bulkIndex, _bulkMode ? "Cancelar selección" : "Venta múltiple");
         _bulkAll!.Visible = _bulkSell!.Visible = _bulkMode;
         _bulkRow!.Visible = _bulkMode;
         var items = _draft == null ? [] : Preferences.Sellable(_draft, _saleSelection);

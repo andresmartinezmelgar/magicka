@@ -28,7 +28,7 @@ public partial class EquipmentPanel
     {
         var box = new VBoxContainer { Name = "EquipmentItemPicker" }; _itemPicker = box;
         box.AddThemeConstantOverride("separation", 6); _rightHost.AddChild(box); Ui.Full(box);
-        if (!BotInventory) BuildBulkActions(box);
+        BuildBulkActions(box);
         _pickerHelp = Ui.Label("", 13, Ui.Muted); _pickerHelp.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _pickerStatus = Ui.Label("", 14, Ui.Gold); _pickerStatus.Name = "EquipmentPickerStatus"; _pickerStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart; _pickerStatus.Visible = false;
         _pickerScroll = new ContentScrollContainer { Name = "EquipmentPickerScroll", SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
@@ -51,7 +51,7 @@ public partial class EquipmentPanel
         string equipped = _draft?.Loadout.Get(slot) ?? "";
         var choices = EquipmentQuery.Sort(allChoices, equippedId: equipped);
         _optionAItemsTab!.Text = EquipmentCatalogue.SlotName(slot) + $" · {choices.Length}";
-        _pickerHelp.Text = BotInventory ? "Equipa o quita una pieza para cambiar esta ranura del bot." :
+        _pickerHelp.Text = BotInventory ? "Equipa, vende o mejora piezas de este bot con su oro de partida." :
             "Equipada primero · Favoritos y piezas equipadas protegidos de la venta.";
         if (AutomaticSurvivalEquipment)
             _pickerHelp.Text += _defensePlayer!.ManualEquipmentSlots.Contains(slot)
@@ -78,6 +78,7 @@ public partial class EquipmentPanel
             label.AutowrapMode = TextServer.AutowrapMode.WordSmart; label.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             label.MouseFilter = MouseFilterEnum.Ignore; description.AddChild(label);
             if (!BotInventory) BuildItemPreferences(description, item);
+            BuildSaleSelection(description, item);
             var equippedLabel = Ui.Label(selected ? "EQUIPADA" : "Sin equipar", 15, selected ? Ui.Gold : Ui.Muted);
             equippedLabel.MouseFilter = MouseFilterEnum.Ignore; description.AddChild(equippedLabel);
             var ringPreview = item.Slot == EquipmentSlot.MagicRing && _draft != null
@@ -90,28 +91,26 @@ public partial class EquipmentPanel
             if (entry != null) description.AddChild(Ui.Label($"Mejoras: {entry.Upgrades} / 10", 15, Ui.Muted));
             var actions = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ShrinkEnd };
             actions.AddThemeConstantOverride("separation", 8); content.AddChild(actions);
-            if (!BotInventory)
-            {
-                var trash = PickerAction(actions, "EquipmentTrash_", item.Id, _trashIcon, Ui.Red, $"+{item.SaleGold} oro",
-                    $"Vender esta pieza por {item.SaleGold} oro" + (_defensePlayer != null ? " de esta partida." : ".") +
-                    (!CanSellInventory ? " La venta requiere iniciar sesión y disponer del servicio de ventas." : "") +
-                    (Ui.IsMobile ? " Doble toque para vender sin confirmar." : " Doble clic para vender sin confirmar."), () => ClickSell(item.Id));
-                trash.SetMeta("sale_item_id", item.Id);
-                _trashButtons.Add(item.Id, trash);
-                if (SaleEquipped(item.Id)) trash.TooltipText = "Pieza equipada: venta bloqueada. Elige otra pieza para poder vender esta.";
-                else if (Preferences.Protected(item.Id)) trash.TooltipText = "Favorito: venta bloqueada. Desmarca el favorito para poder vender esta pieza.";
-            }
+            string proceeds = BotInventory ? " para el bot." : TemporaryInventory ? " de esta partida." : ".";
+            var trash = PickerAction(actions, "EquipmentTrash_", item.Id, _trashIcon, Ui.Red, $"+{item.SaleGold} oro",
+                $"Vender esta pieza por {item.SaleGold} oro" + proceeds +
+                (!CanSellInventory ? " " + SaleBlockedReason : "") +
+                (Ui.IsMobile ? " Doble toque para vender sin confirmar." : " Doble clic para vender sin confirmar."), () => ClickSell(item.Id));
+            trash.SetMeta("sale_item_id", item.Id);
+            _trashButtons.Add(item.Id, trash);
+            if (SaleEquipped(item.Id)) trash.TooltipText = "Pieza equipada: venta bloqueada. Elige otra pieza para poder vender esta.";
+            else if (Preferences.Protected(item.Id)) trash.TooltipText = BotInventory ? "Favorito del bot: venta bloqueada." :
+                "Favorito: venta bloqueada. Desmarca el favorito para poder vender esta pieza.";
             var equip = PickerAction(actions, "EquipmentEquip_", item.Id, _equipIcon, Ui.Blue,
                 selected ? "Desequipar" : "Equipar", selected ? "Quitar esta pieza equipada." :
                 BotInventory ? "Equipar esta pieza en el bot." : "Equipar esta pieza. Se guardará al salir del inventario.",
                 () => ChooseItem(selected ? "" : item.Id));
             _itemButtons.Add(item.Id, equip);
-            if (BotInventory) continue;
             int itemLevel = entry?.Upgrades ?? item.UpgradeLevel;
             bool supportsUpgrade = entry != null || RingEffects.IsRing(item.Slot);
             bool maximum = supportsUpgrade && !ItemAffixes.CanUpgrade(item, itemLevel);
             int cost = maximum ? 0 : DefenseRules.UpgradeCost(item.Tier, itemLevel);
-            string currency = entry == null ? "de cuenta" : "de partida";
+            string currency = BotInventory ? "del bot" : entry == null ? "de cuenta" : "de partida";
             long availableGold = _defensePlayer?.Gold ?? _draft?.Gold ?? 0;
             var upgrade = PickerAction(actions, "EquipmentUpgrade_", item.Id, _upgradeIcon, Ui.Health,
                 !supportsUpgrade ? "Defensa" : maximum ? "Máximo" : $"{cost} oro",
