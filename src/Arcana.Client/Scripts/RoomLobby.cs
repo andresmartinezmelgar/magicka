@@ -18,7 +18,7 @@ public partial class RoomLobby : Control
     private const int VisibleRoomsPerPage = 3;
     private ElementTextLabel? _roomPageLabel;
     private Button? _roomPagePrevious, _roomPageNext;
-    private ItemList _list = null!;
+    private ScrollChoiceList _list = null!;
     private ElementTextLabel _status = null!, _heading = null!, _emptyRooms = null!;
     private ElementTextLabel? _serverAddressLabel;
     private LineEdit _joinPassword = null!, _serverPasswordEntry = null!, _roomName = null!, _roomPassword = null!;
@@ -96,7 +96,7 @@ public partial class RoomLobby : Control
         teamRow.AddChild(Ui.Label("Tu equipo", 16, Ui.Muted));
         _teamChoice = Ui.TeamChoice(team); _teamChoice.Name = "RoomTeamChoice"; teamRow.AddChild(_teamChoice);
         _listPane = new VBoxContainer(); _listPane.AddThemeConstantOverride("separation", Ui.IsMobile ? 4 : 8); box.AddChild(_listPane);
-        _list = new ItemList { CustomMinimumSize = new(0, Ui.IsMobile ? 100 : 160), SelectMode = ItemList.SelectModeEnum.Single };
+        _list = new ScrollChoiceList { Name = "RoomListScroll", CustomMinimumSize = new(0, Ui.IsMobile ? 116 : 160) };
         _listPane.AddChild(_list); _list.ItemActivated += _ => Join();
         _emptyRooms = Ui.Label("No hay salas disponibles. Pulsa «Crear sala» para abrir una partida.", 15, Ui.Muted);
         _emptyRooms.HorizontalAlignment = HorizontalAlignment.Center;
@@ -147,15 +147,15 @@ public partial class RoomLobby : Control
         grid.AddThemeConstantOverride("v_separation", Ui.IsMobile ? 5 : 7); _createPane.AddChild(grid);
         _roomName = new LineEdit { Text = "Sala de " + (name.Length > 24 ? name[..24] : name), MaxLength = 32, CustomMinimumSize = new(0, 42) };
         Row(grid, "Nombre", _roomName);
-        _mode = new OptionButton { CustomMinimumSize = new(0, 42) };
+        _mode = new ScrollOptionButton { CustomMinimumSize = new(0, 42) };
         _mode.AddItem("Guerra de puntos", (int)GameMode.Warfare); _mode.AddItem("Todos contra todos", (int)GameMode.Arena);
         _mode.AddItem("Duelo", (int)GameMode.Duel); _mode.AddItem("Supervivencia", (int)GameMode.Defense); Row(grid, "Modo", _mode);
-        _map = new OptionButton { Name = "RoomMapChoice", CustomMinimumSize = new(0, 42) };
+        _map = new ScrollOptionButton { Name = "RoomMapChoice", CustomMinimumSize = new(0, 42) };
         foreach (var map in Enum.GetValues<ArenaMapId>().Where(m => !ArenaMap.Get(m).IsPractice)) _map.AddItem(ArenaMap.Get(map).Name + (map == ArenaMapId.Citadel ? " · 4×" : ""), (int)map);
         Row(grid, "Mapa", _map);
         _capacity = Number(2, 16, 8); Row(grid, "Plazas (incluidos los bots)", _capacity);
         _bots = Number(0, 7, 0); Row(grid, "IA (aliados en Defensa)", _bots);
-        _bestOf = new OptionButton { CustomMinimumSize = new(0, 42), FitToLongestItem = false,
+        _bestOf = new ScrollOptionButton { CustomMinimumSize = new(0, 42), FitToLongestItem = false,
             ClipText = true, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
         _bestOf.AddItem("Partida única (sin sala de espera)", 1);
         _bestOf.AddItem("Mejor de 5 · gana 3", 5);
@@ -213,7 +213,7 @@ public partial class RoomLobby : Control
         foreach (var control in new Control[] { _teamChoice, _serverPasswordEntry, _joinPassword, _roomName, _roomPassword,
             _mode, _map, _bestOf, _capacity, _bots, _score, _tickets, _friendly })
             Ui.TouchTarget(control, Ui.IsMobile ? 48 : 46);
-        _list.CustomMinimumSize = new Vector2(0, Ui.IsMobile ? 100 : 160);
+        _list.CustomMinimumSize = new Vector2(0, Ui.IsMobile ? 116 : 160);
         ArcanaMenuChrome.Attach(this, safeMargin, _main, "Salas PvP", 1, _main.NavigateOptionAMenu);
         GetViewport().SizeChanged += UpdateRoomResponsive;
         UpdateRoomResponsive();
@@ -286,7 +286,7 @@ public partial class RoomLobby : Control
     public void SetBusy(bool busy)
     {
         _busy = busy; foreach (var b in _buttons) b.Disabled = busy;
-        _list.MouseFilter = busy ? MouseFilterEnum.Ignore : MouseFilterEnum.Stop;
+        _list.Disabled = busy;
         _roomName.Editable = _roomPassword.Editable = _joinPassword.Editable =
             _serverPasswordEntry.Editable = !busy;
         _mode.Disabled = _map.Disabled = _friendly.Disabled = _teamChoice.Disabled = busy;
@@ -346,7 +346,11 @@ public partial class RoomLobby : Control
                 if (at >= 0) _roomPageStart = at / VisibleRoomsPerPage * VisibleRoomsPerPage;
                 else _roomPageStart = 0;
                 ShowRoomPage(_roomPageStart);
-                if (at >= 0) _list.Select(at - _roomPageStart);
+                if (at >= 0)
+                {
+                    _list.Select(at - _roomPageStart);
+                    Callable.From(_list.RevealSelection).CallDeferred();
+                }
                 ShowObjective();
                 SetBusy(false); _status.Text = $"{_rooms.Length} sala(s). Selecciona una o crea tu propia partida." +
                     (secureTarget.StartsWith("wss://", StringComparison.OrdinalIgnoreCase) ? " · Conexión segura" : "");
@@ -373,8 +377,7 @@ public partial class RoomLobby : Control
     }
     private RoomInfo? Selected()
     {
-        var selected = _list.GetSelectedItems();
-        int index = selected.Length > 0 ? _roomPageStart + selected[0] : -1;
+        int index = _list.SelectedIndex >= 0 ? _roomPageStart + _list.SelectedIndex : -1;
         return index >= 0 && index < _rooms.Length ? _rooms[index] : null;
     }
     private void ShowObjective()

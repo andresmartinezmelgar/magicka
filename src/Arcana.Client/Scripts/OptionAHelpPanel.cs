@@ -41,7 +41,7 @@ public partial class OptionAHelpPanel : Control
         panel.AddChild(outer);
         var header = _heading = Ui.Label("GUÍA DEL MAGO", 24, Ui.Gold);
         outer.AddChild(header);
-        _topicChoice = new OptionButton { Name = "HelpTopicChoice", CustomMinimumSize = new(0, 44), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _topicChoice = new ScrollOptionButton { Name = "HelpTopicChoice", CustomMinimumSize = new(0, 44), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _topicChoice.AddThemeFontSizeOverride("font_size", 18);
         foreach (var state in new[] { "normal", "hover", "pressed", "disabled" })
             if (_topicChoice.GetThemeStylebox(state) is StyleBoxFlat current)
@@ -162,7 +162,7 @@ public partial class OptionAHelpPanel : Control
         _heading.Visible = _topic.Visible = !shortScreen;
         foreach (var (grid, maximumColumns, minimumWidth) in _adaptiveGrids)
             if (GodotObject.IsInstanceValid(grid) && !grid.IsQueuedForDeletion())
-                grid.Columns = ResponsiveLayout.Columns(width, minimumWidth, maximumColumns, 12);
+                grid.Columns = ResponsiveLayout.Columns(width - Ui.ScrollBarThickness, minimumWidth, maximumColumns, 12);
     }
 
     private void ControlsPage()

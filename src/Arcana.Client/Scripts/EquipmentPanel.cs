@@ -72,6 +72,7 @@ public partial class EquipmentPanel : Control
         _inventoryMenu = new MenuButton { Name = "EquipmentActions", Text = "Opciones", CustomMinimumSize = new(72, 44) };
         _inventoryMenu.AddThemeFontSizeOverride("font_size", 13); _equipmentToolbar.AddChild(_inventoryMenu);
         var menu = _inventoryMenu.GetPopup();
+        Ui.EnableTouchScrollPopup(_inventoryMenu, menu);
         if (!BotInventory)
         {
             menu.AddItem(_defensePlayer == null ? "Actualizar inventario" : "Comprar pieza · 100 oro", 0);

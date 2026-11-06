@@ -125,7 +125,7 @@ public partial class AccountProfilePanel : Control
             SizeFlagsHorizontal = SizeFlags.ExpandFill };
         Ui.TouchTarget(name); nameColumn.AddChild(name);
         typeColumn.AddChild(Ui.Label("Tipo de mago", 16, Ui.Muted));
-        var wizardType = new OptionButton { Name = "WizardTypeChoice", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        var wizardType = new ScrollOptionButton { Name = "WizardTypeChoice", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         foreach (var type in Enum.GetValues<WizardType>()) wizardType.AddItem(WizardTypes.Name(type), (int)type);
         wizardType.Select(wizardType.GetItemIndex((int)_main.InventoryWizardType));
         Ui.TouchTarget(wizardType); typeColumn.AddChild(wizardType);

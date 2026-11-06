@@ -65,7 +65,7 @@ public partial class MatchStatisticsPanel : Control
     private OptionButton Select(string title, string[] choices)
     {
         var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; box.AddChild(Ui.Label(title, 14, Ui.Muted));
-        var select = new OptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new(0, 44), FitToLongestItem = false };
+        var select = new ScrollOptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new(0, 44), FitToLongestItem = false };
         foreach (string text in choices) select.AddItem(text);
         select.ItemSelected += _ => { if (_body != null) Render(); }; box.AddChild(select); _filters.AddChild(box); return select;
     }

@@ -27,7 +27,7 @@ public partial class DefensePanel
         Wrapped(section, "Puedes cambiar piezas manualmente en el inventario: esas ranuras conservan tu elección y el resto sigue en automático. Aplicar y activar vuelve a elegir todas las ranuras.", 16);
         Wrapped(section, "Al activar, equipa la mejor combinación y vende los descartes por oro temporal, también al mejorar una pieza automáticamente. Conserva Míticos, favoritos y las piezas que elijas, sustituyas o quites a mano. Puedes vender a mano las piezas protegidas cuando estén desequipadas y no sean favoritas. Esta configuración sustituye los límites por calidad mientras está activa y se recuerda entre partidas y guardados.", 16, Ui.Gold);
         Wrapped(section, "Elemento principal", 17);
-        _setupElement = new OptionButton { Name = "SurvivalSetupElement", CustomMinimumSize = new(0, 48), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _setupElement = new ScrollOptionButton { Name = "SurvivalSetupElement", CustomMinimumSize = new(0, 48), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         foreach (var element in Enum.GetValues<Element>()) _setupElement.AddItem(Ui.ElementName(element), (int)element);
         section.AddChild(_setupElement); _setupElement.ItemSelected += _ => EditEquipmentSetup();
         Wrapped(section, "Afijos Míticos prioritarios · 1 es la prioridad más alta", 17);
@@ -36,7 +36,7 @@ public partial class DefensePanel
         for (int i = 0; i < SurvivalEquipmentSetup.MaximumPriorities; i++)
         {
             Wrapped(section, $"Prioridad {i + 1}", 15);
-            var choice = new OptionButton { Name = "SurvivalSetupPriority" + i, CustomMinimumSize = new(0, 48), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            var choice = new ScrollOptionButton { Name = "SurvivalSetupPriority" + i, CustomMinimumSize = new(0, 48), SizeFlagsHorizontal = SizeFlags.ExpandFill };
             choice.AddThemeConstantOverride("icon_max_width", 24);
             choice.AddItem("Sin prioridad", NoAffixPriority);
             foreach (var kind in Enum.GetValues<ItemAffixKind>())

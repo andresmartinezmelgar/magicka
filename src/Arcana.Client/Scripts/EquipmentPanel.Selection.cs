@@ -175,7 +175,7 @@ public partial class EquipmentPanel
     {
         if (_pickerGrid == null) return;
         float width = _pickerScroll.Size.X > 0 ? _pickerScroll.Size.X : GetViewport().GetVisibleRect().Size.X - 100;
-        _pickerGrid.Columns = ResponsiveLayout.Columns(Math.Max(0, width), 290, 3, 10);
+        _pickerGrid.Columns = ResponsiveLayout.Columns(Math.Max(0, width - Ui.ScrollBarThickness), 290, 3, 10);
     }
 
     private void CloseItemPicker()

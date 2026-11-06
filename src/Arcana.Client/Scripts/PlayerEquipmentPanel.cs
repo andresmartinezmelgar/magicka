@@ -38,7 +38,7 @@ public partial class PlayerEquipmentPanel : Control
         heading.AddChild(Ui.ExitButton("Volver", Close, "PlayerEquipmentBack"));
         var header = new GridContainer { Columns = 2 }; _headerGrid = header;
         header.AddThemeConstantOverride("h_separation", 12); box.AddChild(header);
-        _choice = new OptionButton { Name = "InspectedPlayerChoice", CustomMinimumSize = new(240, Ui.IsMobile ? 66 : 48), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _choice = new ScrollOptionButton { Name = "InspectedPlayerChoice", CustomMinimumSize = new(240, Ui.IsMobile ? 66 : 48), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _choice.AddThemeFontSizeOverride("font_size", 20); header.AddChild(_choice);
         _choice.ItemSelected += index => { _selected = _choice.GetItemId((int)index); _ = Load(); };
         header.AddChild(Ui.Button("Actualizar", Refresh));

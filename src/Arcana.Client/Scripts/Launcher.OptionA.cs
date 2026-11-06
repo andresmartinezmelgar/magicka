@@ -187,19 +187,20 @@ public partial class Launcher
             foreach (Button card in _optionAHomeCards.GetChildren().OfType<Button>())
                 card.CustomMinimumSize = new Vector2(0, tileHeight);
         }
+        float scrollWidth = available - Ui.ScrollBarThickness;
         if (_optionASettingsGrid != null)
         {
-            int columns = ResponsiveLayout.Columns(available, 415, 2, Ui.IsMobile ? 10 : 18);
+            int columns = ResponsiveLayout.Columns(scrollWidth, 415, 2, Ui.IsMobile ? 10 : 18);
             _optionASettingsGrid.Columns = columns;
             if (_optionAPracticeGrid != null)
             {
-                float practiceWidth = columns == 2 ? (available - 24) / 2 : available;
+                float practiceWidth = columns == 2 ? (scrollWidth - 24) / 2 : scrollWidth;
                 _optionAPracticeGrid.Columns = ResponsiveLayout.Columns(practiceWidth, 385, 2, 14);
             }
         }
         if (_optionAElements != null)
             _optionAElements.Columns = ResponsiveLayout.Columns(
-                _optionASettingsGrid?.Columns == 2 ? (available - 24) / 2 : available, 85, 4, 5);
+                _optionASettingsGrid?.Columns == 2 ? (scrollWidth - 24) / 2 : scrollWidth, 85, 4, 5);
     }
 
     /// <summary>La modalidad IA se reordena según el espacio; no pierde controles.</summary>

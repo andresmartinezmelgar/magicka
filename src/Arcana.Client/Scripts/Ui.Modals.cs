@@ -18,6 +18,7 @@ public static partial class Ui
         theme.SetConstant("buttons_separation", "AcceptDialog", 12);
         theme.SetConstant("buttons_min_height", "AcceptDialog", 46);
         theme.SetStylebox("panel", "PopupMenu", ModalPanel());
+        theme.SetStylebox("panel", "PopupPanel", ModalPanel());
         theme.SetStylebox("hover", "PopupMenu", Panel(ArcanaMenuChrome.SurfaceRaised, 6, Blue));
         theme.SetColor("font_color", "PopupMenu", Text);
         theme.SetColor("font_hover_color", "PopupMenu", Gold);

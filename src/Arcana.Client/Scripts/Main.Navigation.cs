@@ -8,6 +8,9 @@ public partial class Main
     internal bool NavigateBack()
     {
         if (_updateNotice?.HandleBack() == true) return true;
+        var choices = _ui.FindChildren(Ui.TouchScrollPopupName, "PopupPanel", true, false)
+            .OfType<PopupPanel>().LastOrDefault(popup => popup.Visible);
+        if (choices != null) { choices.Hide(); return true; }
         var dialog = _ui.FindChildren("*", "AcceptDialog", true, false).OfType<AcceptDialog>()
             .LastOrDefault(d => d.Visible && !d.IsQueuedForDeletion());
         if (dialog != null) { dialog.EmitSignal(AcceptDialog.SignalName.Canceled); dialog.Hide(); return true; }

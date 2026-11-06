@@ -11,7 +11,9 @@ public partial class Main
         if (!scroll.IsVisibleInTree()) throw new InvalidOperationException(stage + ": scroll oculto.");
         var bar = scroll.GetVScrollBar();
         if (bar.MaxValue - bar.Page < 12) return; // El contenido completo ya cabe.
-        var area = scroll.GetGlobalRect().Intersection(GetViewport().GetVisibleRect()).Grow(-12);
+        var content = scroll.GetGlobalRect();
+        content.Size -= new Vector2(bar.Visible ? bar.Size.X : 0, 0);
+        var area = content.Intersection(GetViewport().GetVisibleRect()).Grow(-12);
         if (overCard || overButton)
         {
             area = scroll.FindChildren("*", overButton ? "Button" : "PanelContainer", true, false).OfType<Control>()
@@ -45,30 +47,14 @@ public partial class Main
                     }
                 throw new InvalidOperationException(stage + ": no hay una zona pasiva visible para el gesto.");
             }
-            void Swipe(Vector2 start, float delta)
-            {
-                GetViewport().PushInput(new InputEventMouseMotion { Position = start, GlobalPosition = start });
-                Input.ParseInputEvent(new InputEventScreenTouch { Index = 0, Pressed = true, Position = start });
-                Input.FlushBufferedEvents();
-                var previous = start;
-                for (int step = 1; step <= 3; step++)
-                {
-                    var point = start + new Vector2(0, delta * step / 3);
-                    Input.ParseInputEvent(new InputEventScreenDrag { Index = 0, Position = point, Relative = point - previous });
-                    Input.FlushBufferedEvents();
-                    previous = point;
-                }
-                Input.ParseInputEvent(new InputEventScreenTouch { Index = 0, Pressed = false, Position = previous });
-                Input.FlushBufferedEvents();
-            }
             var start = ContentPoint(upwards: true);
             float distance = Math.Min(90, start.Y - area.Position.Y - 4);
-            Swipe(start, -distance);
+            DragTouch(start, new(0, -distance));
             int afterUp = scroll.ScrollVertical;
             if (afterUp <= original + 5)
                 throw new InvalidOperationException(stage + ": arrastrar el contenido hacia arriba no desplaza la pantalla.");
             var reverseStart = ContentPoint(upwards: false);
-            Swipe(reverseStart, Math.Min(distance / 2, area.End.Y - reverseStart.Y - 4));
+            DragTouch(reverseStart, new(0, Math.Min(distance / 2, area.End.Y - reverseStart.Y - 4)));
             if (scroll.ScrollVertical >= afterUp - 5)
                 throw new InvalidOperationException(stage + ": arrastrar el contenido hacia abajo no devuelve el scroll.");
             GD.Print($"TOUCH_SCROLL_OK:{stage}: {original} -> {afterUp} -> {scroll.ScrollVertical}");
@@ -78,6 +64,90 @@ public partial class Main
             Input.EmulateTouchFromMouse = emulateTouch;
             Input.EmulateMouseFromTouch = emulateMouse;
             scroll.ScrollVertical = original;
+        }
+    }
+
+    private void DragTouch(Vector2 start, Vector2 delta)
+    {
+        var viewport = GetViewport();
+        viewport.PushInput(new InputEventMouseMotion { Position = start, GlobalPosition = start }, true);
+        var transform = viewport.GetFinalTransform();
+        var from = transform * start;
+        Input.ParseInputEvent(new InputEventScreenTouch { Index = 0, Pressed = true, Position = from });
+        Input.FlushBufferedEvents();
+        if (delta != Vector2.Zero)
+        {
+            for (int step = 1; step <= 3; step++)
+            {
+                var point = transform * (start + delta * step / 3);
+                Input.ParseInputEvent(new InputEventScreenDrag { Index = 0, Position = point, Relative = point - from });
+                Input.FlushBufferedEvents();
+                from = point;
+            }
+        }
+        Input.ParseInputEvent(new InputEventScreenTouch { Index = 0, Pressed = false, Position = from });
+        Input.FlushBufferedEvents();
+    }
+
+    private void AssertScrollBarDrag(ScrollBar bar, bool vertical)
+    {
+        var grabber = bar.GetThemeStylebox("grabber").GetMinimumSize();
+        if (!bar.IsVisibleInTree() || (vertical ? bar.Size.X : bar.Size.Y) < 44 ||
+            (vertical ? grabber.Y : grabber.X) < 44)
+            throw new InvalidOperationException("La barra y el indicador deben tener una zona táctil de 44 px.");
+
+        var position = bar.GetGlobalRect().Position;
+        var grip = vertical ? new Vector2(bar.Size.X / 2, 20) : new Vector2(20, bar.Size.Y / 2);
+        bar.Value = bar.MinValue;
+        DragTouch(position + grip, vertical ? new(0, 32) : new(32, 0));
+        if (bar.Value <= bar.MinValue)
+            throw new InvalidOperationException("La barra no se mueve al arrastrar su indicador.");
+    }
+
+    private ScrollChoiceList? _scrollSmokeList;
+    private ContentScrollContainer? _scrollSmokeChart;
+    private int _scrollSmokeActivations;
+
+    private void BuildScrollFixture()
+    {
+        _scrollSmokeList = new ScrollChoiceList { Position = new(40, 40), Size = new(380, 140),
+            Theme = Ui.Theme(), ActivateOnTap = true };
+        for (int i = 0; i < 12; i++) _scrollSmokeList.AddItem("Opción " + i);
+        _scrollSmokeList.ItemActivated += _ => _scrollSmokeActivations++;
+        _ui.AddChild(_scrollSmokeList);
+        _scrollSmokeChart = new ContentScrollContainer { Position = new(40, 210), Size = new(380, 140),
+            Theme = Ui.Theme(), VerticalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        _scrollSmokeChart.AddChild(new Panel { CustomMinimumSize = new(900, 90) });
+        _ui.AddChild(_scrollSmokeChart);
+    }
+
+    private void AssertScrollFixture()
+    {
+        var list = _scrollSmokeList!;
+        var chart = _scrollSmokeChart!;
+        bool emulateTouch = Input.EmulateTouchFromMouse, emulateMouse = Input.EmulateMouseFromTouch;
+        try
+        {
+            Input.EmulateTouchFromMouse = Input.EmulateMouseFromTouch = true;
+            DragTouch(list.Position + new Vector2(80, 32), Vector2.Zero);
+            if (list.SelectedIndex != 0 || _scrollSmokeActivations != 1)
+                throw new InvalidOperationException("El toque no selecciona y activa la opción.");
+            DragTouch(list.Position + new Vector2(80, 105), new(0, -70));
+            if (list.ScrollVertical <= 0 || list.SelectedIndex != 0 || _scrollSmokeActivations != 1)
+                throw new InvalidOperationException("Arrastrar una fila debe mover la lista sin activar una opción.");
+            DragTouch(chart.Position + new Vector2(160, 42), new(-90, 0));
+            if (chart.ScrollHorizontal <= 0)
+                throw new InvalidOperationException("No se puede arrastrar el contenido horizontal.");
+            AssertScrollBarDrag(list.GetVScrollBar(), vertical: true);
+            AssertScrollBarDrag(chart.GetHScrollBar(), vertical: false);
+            GD.Print("TOUCH_SCROLL_CONTROLS_OK");
+        }
+        finally
+        {
+            Input.EmulateTouchFromMouse = emulateTouch;
+            Input.EmulateMouseFromTouch = emulateMouse;
+            list.QueueFree();
+            chart.QueueFree();
         }
     }
 }

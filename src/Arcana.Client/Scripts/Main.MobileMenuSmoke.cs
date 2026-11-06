@@ -230,7 +230,7 @@ public partial class Main
             if (control is ScrollContainer sc && sc.HorizontalScrollMode != ScrollContainer.ScrollMode.Disabled)
                 throw new InvalidOperationException($"{stage}: el panel {sc.Name} permite desbordamiento horizontal.");
             if (control is not BaseButton && control is not LineEdit &&
-                control is not SpinBox && control is not ItemList) continue;
+                control is not SpinBox && control is not ScrollChoiceList) continue;
             var rect = control.GetGlobalRect();
             if (!screen.Encloses(rect))
             {
@@ -626,7 +626,9 @@ public partial class Main
                 AssertVisibleTableData(_equipmentPanel!, "EquipmentTotalsTable", includeHeader: GetViewport().GetVisibleRect().Size.Y > 480);
                 AssertTouchScroll(_equipmentPanel!, "EquipmentTotalsScroll", "SUMA_BONIFICACIONES");
             }
-            if (frame < 165) return false;
+            if (frame == 163) BuildScrollFixture();
+            if (frame < 166) return false;
+            AssertScrollFixture();
             _googleIdentityKnown = false;
             GD.Print("MOBILE_MENU_LAYOUT_OK: PvP, IA, salas, perfil, ajustes, ayuda y equipación; navegación común y contenido accesible.");
             _mobileMenuSmoke = false;

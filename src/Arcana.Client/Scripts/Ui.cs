@@ -12,7 +12,7 @@ public static partial class Ui
     public static OptionButton TeamChoice(int team = -1)
     {
         // -1 es el ID automático del propio OptionButton, no un ID de equipo.
-        var choice = new OptionButton { CustomMinimumSize = new(0, IsMobile ? 66 : 45), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        var choice = new ScrollOptionButton { CustomMinimumSize = new(0, IsMobile ? 66 : 45), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         choice.AddItem("Automático", 2); choice.AddItem("Azul", 0); choice.AddItem("Rojo", 1);
         choice.Select(choice.GetItemIndex(team is 0 or 1 ? team : 2));
         return choice;
@@ -101,6 +101,7 @@ public static partial class Ui
         theme.SetStylebox("background", "ProgressBar", Panel(new("1d2b41"), 4));
         theme.SetStylebox("fill", "ProgressBar", Panel(Blue, 4, Blue));
         ApplyModalTheme(theme);
+        ApplyScrollTheme(theme);
         return theme;
     }
     public static ElementTextLabel Label(string text, int size = 17, Color? color = null)
@@ -154,24 +155,11 @@ public static partial class Ui
         button.Pressed += pressed;
         return button;
     }
-    /// <summary>Barra vertical distinguible, ancha para ratón y tacto, sin desplazar el contenido.</summary>
+    /// <summary>Limita el desplazamiento al eje vertical.</summary>
     public static void VisibleVerticalScroll(ScrollContainer scroll)
     {
         scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
         scroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
-        var bar = scroll.GetVScrollBar();
-        bar.CustomMinimumSize = new Vector2(IsMobile ? 20 : 16, 0);
-        static StyleBoxFlat Track(Color color)
-        {
-            var box = Panel(color, 7, new Color("345572"));
-            box.ContentMarginLeft = box.ContentMarginRight = 6;
-            box.ContentMarginTop = box.ContentMarginBottom = 6;
-            return box;
-        }
-        bar.AddThemeStyleboxOverride("scroll", Track(new Color("0a1728")));
-        bar.AddThemeStyleboxOverride("grabber", Track(new Color("548fb7")));
-        bar.AddThemeStyleboxOverride("grabber_highlight", Track(new Color("75bee8")));
-        bar.AddThemeStyleboxOverride("grabber_pressed", Track(new Color("c0e7ff")));
     }
 
     /// <summary>Tamaño táctil coherente para inputs, selectores y botones en Android.</summary>

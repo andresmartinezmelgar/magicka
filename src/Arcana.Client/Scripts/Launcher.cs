@@ -12,7 +12,7 @@ public partial class Launcher : Control
     private SpinBox _bots = null!, _discoveryPort = null!, _hostPort = null!, _hostDiscovery = null!;
     private ElementTextLabel _status = null!;
     private Button? _continueSurvival;
-    private ItemList _servers = null!;
+    private ScrollChoiceList _servers = null!;
     private Button _connect = null!, _refresh = null!, _stopHost = null!, _firewall = null!, _officialOnline = null!;
     private ElementTextLabel _hostInfo = null!;
     private RoomLobby? _lobby;
@@ -96,18 +96,18 @@ public partial class Launcher : Control
         _officialOnline.CustomMinimumSize = new(0, Ui.IsMobile ? 60 : 46);
         lan.AddChild(_officialOnline);
         _discoveryPort = new SpinBox { MinValue = 1024, MaxValue = 65535, Value = Protocol.DiscoveryPort, CustomMinimumSize = new(120, 45) }; lanActions.AddChild(_discoveryPort);
-        _servers = new ItemList { CustomMinimumSize = new(0, 126), SelectMode = ItemList.SelectModeEnum.Single }; lan.AddChild(_servers);
+        _servers = new ScrollChoiceList { Name = "LanServersScroll", CustomMinimumSize = new(0, 126) }; lan.AddChild(_servers);
         _servers.ItemActivated += _ => Connect();
         lan.AddChild(Ui.Label("Misma red local · Puerto de búsqueda UDP a la derecha", 13, Ui.Muted));
         var practice = TabBox("Práctica");
         practice.AddChild(Ui.Label("Simulación local: las mismas reglas del servidor.", 15, Ui.Muted));
-        _practiceMode = new OptionButton { CustomMinimumSize = new(0, 45) };
+        _practiceMode = new ScrollOptionButton { CustomMinimumSize = new(0, 45) };
         _practiceMode.AddItem("Guerra de puntos", (int)GameMode.Warfare);
         _practiceMode.AddItem("Todos contra todos", (int)GameMode.Arena);
         _practiceMode.AddItem("Duelo", (int)GameMode.Duel);
         _practiceMode.AddItem("Supervivencia", (int)GameMode.Defense); practice.AddChild(_practiceMode);
         practice.AddChild(Ui.Label("Mapa", 14, Ui.Muted));
-        _practiceMap = new OptionButton { Name = "PracticeMapChoice", CustomMinimumSize = new(0, 42) };
+        _practiceMap = new ScrollOptionButton { Name = "PracticeMapChoice", CustomMinimumSize = new(0, 42) };
         foreach (var map in Enum.GetValues<ArenaMapId>()) _practiceMap.AddItem(ArenaMap.Get(map).Name + (map == ArenaMapId.Citadel ? " · 4×" : ""), (int)map);
         int savedMap = _config.GetValue("practice", "map", 0).AsInt32();
         _practiceMap.Select(Enum.IsDefined((ArenaMapId)savedMap) ? savedMap : 0); practice.AddChild(_practiceMap);
@@ -287,6 +287,7 @@ public partial class Launcher : Control
         UpdateSurvivalSave();
         for (int i = 0; i < 4; i++) _tabs.SetTabDisabled(i, busy || Ui.IsMobile && i == 3);
         _address.Editable = !busy; _team.Disabled = busy;
+        _servers.Disabled = busy;
         _hostName.Editable = _hostPort.Editable = _hostDiscovery.Editable = !busy && !_host.Running;
         _password.Editable = !busy && _tabs.CurrentTab != 2 && !(_tabs.CurrentTab == 3 && _host.Running);
         _stopHost.Disabled = busy || !_host.Running; _firewall.Disabled = busy || !OperatingSystem.IsWindows();
@@ -332,9 +333,9 @@ public partial class Launcher : Control
         string address = _address.Text;
         if (_tabs.CurrentTab == 1)
         {
-            var selected = _servers.GetSelectedItems();
-            if (selected.Length == 0 || selected[0] >= _lan.Length) { ShowError("Selecciona un servidor de la lista LAN."); return; }
-            address = _lan[selected[0]].Address;
+            int selected = _servers.SelectedIndex;
+            if (selected < 0 || selected >= _lan.Length) { ShowError("Selecciona un servidor de la lista LAN."); return; }
+            address = _lan[selected].Address;
         }
         OpenRooms(address, _password.Text);
     }

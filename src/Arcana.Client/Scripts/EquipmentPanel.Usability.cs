@@ -139,7 +139,7 @@ public partial class EquipmentPanel
         var panel = new VBoxContainer { Name = "EquipmentSavedTeams" }; panel.AddThemeConstantOverride("separation", 4); box.AddChild(panel);
         var label = Ui.Label("EQUIPOS GUARDADOS · en este dispositivo", 15, Ui.Gold); panel.AddChild(label);
         var row = new HBoxContainer(); panel.AddChild(row);
-        _savedTeams = new OptionButton { Name = "EquipmentSavedTeam", SizeFlagsHorizontal = SizeFlags.ExpandFill, ClipText = true, CustomMinimumSize = new(100, 44) };
+        _savedTeams = new ScrollOptionButton { Name = "EquipmentSavedTeam", SizeFlagsHorizontal = SizeFlags.ExpandFill, ClipText = true, CustomMinimumSize = new(100, 44) };
         row.AddChild(_savedTeams); _savedTeams.ItemSelected += _ => RenderSavedEquipment();
         _applyTeam = Ui.Button("Aplicar", ApplySavedTeam); _applyTeam.Name = "EquipmentApplyTeam"; row.AddChild(_applyTeam); _actions.Add(_applyTeam);
         var remove = Ui.Button("Borrar equipo", () =>

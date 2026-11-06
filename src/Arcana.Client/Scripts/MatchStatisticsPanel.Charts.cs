@@ -79,15 +79,12 @@ public partial class MatchStatisticsPanel
         float chartHeight = BarChartHeight + (enemies ? 82 : 0);
         var scroll = new ContentScrollContainer { Name = name + "Scroll",
             HorizontalScrollMode = ScrollContainer.ScrollMode.Auto, VerticalScrollMode = ScrollContainer.ScrollMode.Disabled,
-            SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new(0, chartHeight + 22) };
+            SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new(0, chartHeight + Ui.ScrollBarThickness) };
         box.AddChild(scroll);
         var chart = new StatisticsBarChart { Name = name, Categories = categories,
             CustomMinimumSize = new(0, chartHeight), CategoryWidth = categories.Any(c => c.Parts != null) ? 190 : enemies ? 116 : 80,
             HorizontalTitle = enemies ? "Tipo de enemigo" : "Elemento", ValueTitle = valueTitle, Logarithmic = Logarithmic };
         scroll.AddChild(chart);
-        var bar = scroll.GetHScrollBar(); bar.CustomMinimumSize = new(0, Ui.IsMobile ? 20 : 16);
-        bar.AddThemeStyleboxOverride("scroll", Ui.Panel(ArcanaMenuChrome.Backdrop, 6, ArcanaMenuChrome.Border));
-        bar.AddThemeStyleboxOverride("grabber", Ui.Panel(Ui.Blue.Darkened(0.35f), 6, Ui.Blue));
         foreach (var category in categories) _chartValues[title + "/" + category.Label] = (category.Value, 0);
         if (categories.All(c => c.Value == 0)) box.AddChild(Ui.Label("Sin actividad registrada para esta selección.", 15, Ui.Muted));
         var legend = Ui.Label(StatisticsPresentation.ScaleNote(chart.DataScale) + " Porcentajes sobre la suma de los valores de esta gráfica. " +
@@ -118,7 +115,7 @@ public partial class MatchStatisticsPanel
             Element.Life => SupportSum(StatisticMeasure.Healing), Element.Shield => SupportSum(StatisticMeasure.ShieldAbsorbed),
             _ => ElementSum(StatisticMeasure.Damage, e) + ElementSum(StatisticMeasure.ShieldDamage, e)
         }, ElementTint(e), e == (int)Element.Life ? HealingParts() : e == (int)Element.Shield ? AbsorptionParts() : ElementDamageParts(e))).ToArray());
-        var selector = new OptionButton { Name = "DamageBreakdownElement", CustomMinimumSize = new(0, 44), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        var selector = new ScrollOptionButton { Name = "DamageBreakdownElement", CustomMinimumSize = new(0, 44), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         foreach (int e in new[] { 0, 3, 4, 5, 6, 7, 8 }) selector.AddItem("Desglose de daño: " + Elements[e], e);
         selector.Select(selector.GetItemIndex(_damageElement));
         selector.ItemSelected += index => { _damageElement = selector.GetItemId((int)index); Render(); }; _body.AddChild(selector);

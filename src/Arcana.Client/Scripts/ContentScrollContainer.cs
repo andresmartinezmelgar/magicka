@@ -2,10 +2,15 @@ using Godot;
 
 namespace Arcana.Client;
 
-/// <summary>Deja que los gestos sobre tarjetas y fondos lleguen al scroll nativo.</summary>
+/// <summary>Comparte el gesto de arrastre entre el contenido y sus controles.</summary>
 public partial class ContentScrollContainer : ScrollContainer
 {
     private SceneTree? _tree;
+
+    public ContentScrollContainer()
+    {
+        ScrollDeadzone = 10;
+    }
 
     public override void _EnterTree()
     {
@@ -31,11 +36,15 @@ public partial class ContentScrollContainer : ScrollContainer
 
     private void PrepareControl(Node node)
     {
-        // Solo presentación: botones, listas, campos y otros scrolls conservan su entrada.
-        // NodeAdded también cubre las tarjetas que se regeneran al cambiar de sección.
-        if (IsAncestorOf(node) && node is Control control &&
-            control.MouseFilter == MouseFilterEnum.Stop &&
-            (control is PanelContainer or Panel or ColorRect or TextureRect || control.GetType() == typeof(Control)))
+        if (node is not Control control || !IsAncestorOf(control)) return;
+
+        // El scroll nativo cancela el toque pendiente al empezar a arrastrar.
+        // Los campos de edición y deslizadores conservan sus propios gestos.
+        if (control is BaseButton button && button.MouseFilter != MouseFilterEnum.Ignore && Ui.UsesTouchScroll)
+            button.ActionMode = BaseButton.ActionModeEnum.Release;
+
+        if (control.MouseFilter == MouseFilterEnum.Stop &&
+            (control is BaseButton or PanelContainer or Panel or ColorRect or TextureRect || control.GetType() == typeof(Control)))
             control.MouseFilter = MouseFilterEnum.Pass;
     }
 }

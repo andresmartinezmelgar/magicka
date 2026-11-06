@@ -78,7 +78,7 @@ public partial class BestiaryPanel : Control
         stageBox.AddChild(stage); Ui.TouchTarget(stage);
         stage.ValueChanged += value => { _difficulty = (int)value; UpdateStats(); };
         var partyBox = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; _statsControls.AddChild(partyBox);
-        var party = new OptionButton { Name = "BestiaryDefenders", CustomMinimumSize = new(0, 42), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        var party = new ScrollOptionButton { Name = "BestiaryDefenders", CustomMinimumSize = new(0, 42), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         for (int i = 1; i <= DefenseRules.MaxDefenders; i++) party.AddItem(i == 1 ? "1 defensor" : i + " defensores", i);
         party.TooltipText = "Humanos y bots aliados. El número de defensores aumenta la vida de los monstruos.";
         party.Select(_defenders - 1); partyBox.AddChild(party); Ui.TouchTarget(party);

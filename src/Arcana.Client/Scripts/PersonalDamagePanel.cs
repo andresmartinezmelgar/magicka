@@ -50,7 +50,8 @@ public partial class PersonalDamagePanel : Control
         }
         var chartTitle = Ui.Label("DAÑO POR ELEMENTO", 18, Ui.Gold); _body.AddChild(chartTitle);
         _chartScroll = new ContentScrollContainer { Name = "PersonalDamageChartScroll", HorizontalScrollMode = ScrollContainer.ScrollMode.Auto,
-            VerticalScrollMode = ScrollContainer.ScrollMode.Disabled, CustomMinimumSize = new(0, 360), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            VerticalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            CustomMinimumSize = new(0, 340 + Ui.ScrollBarThickness), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _body.AddChild(_chartScroll);
         _scaleNote = Ui.Label("", 14, Ui.Muted); _scaleNote.AutowrapMode = TextServer.AutowrapMode.WordSmart; _body.AddChild(_scaleNote);
         var hint = Ui.Label("Puedes volver a abrir este resumen desde Tabla / Clasificación → Ver mi daño de esta partida.", 15, Ui.Muted);

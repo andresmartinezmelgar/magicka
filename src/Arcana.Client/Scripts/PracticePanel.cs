@@ -40,7 +40,7 @@ public partial class PracticePanel : PanelContainer
         row.AddChild(Ui.Button("Vida al 40 %", session.PrepareHealing));
         if (session.Player.WizardType == WizardType.Balanced) AddOutfitPreview(stack);
         stack.AddChild(Ui.Label("Mago lanzador · dirección fija →", 14, Ui.Gold));
-        var choice = new OptionButton { Name = "PracticeCasterChoice", CustomMinimumSize = new(Ui.IsMobile ? 250 : 310, 34),
+        var choice = new ScrollOptionButton { Name = "PracticeCasterChoice", CustomMinimumSize = new(Ui.IsMobile ? 250 : 310, 34),
             FitToLongestItem = !Ui.IsMobile, ClipText = Ui.IsMobile, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
         foreach (var c in PracticeLayout.CasterSpells)
             choice.AddItem(c.Keys.Length == 0 ? "Empuje" : c.Keys + " · " + SpellCatalogue.Name(c.Elements));
@@ -68,7 +68,7 @@ public partial class PracticePanel : PanelContainer
         foreach (var slot in new[] { EquipmentSlot.Weapon, EquipmentSlot.Hat, EquipmentSlot.Chest, EquipmentSlot.Boots })
         {
             string name = EquipmentCatalogue.SlotName(slot);
-            var choice = new OptionButton { Name = "PracticePiece" + slot, CustomMinimumSize = new(0, 44),
+            var choice = new ScrollOptionButton { Name = "PracticePiece" + slot, CustomMinimumSize = new(0, 44),
                 SizeFlagsHorizontal = SizeFlags.ExpandFill, FitToLongestItem = !Ui.IsMobile, ClipText = Ui.IsMobile,
                 TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
             if (Ui.IsMobile) choice.AddThemeFontSizeOverride("font_size", 16);
