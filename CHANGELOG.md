@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.29.41
+
+- En Supervivencia puedes vender piezas de los bots aliados, mejorar su equipo y comprar o subir de nivel sus auras y habilidades con el oro de cada bot.
+- Las piezas equipadas y favoritas están protegidas. En cooperativo, los bots reservan su oro mientras un aliado tiene abierta la tienda.
+
+## 0.29.40
+
+- Inventario, menús, listas, desplegables y gráficas comparten el desplazamiento táctil. Puedes arrastrar directamente el contenido o las barras de 44 píxeles lógicos.
+
 ## 0.29.39
 
 - El menú de Supervivencia permite consultar el inventario de los bots aliados y equipar o quitar sus piezas por ranura. La selección se conserva al continuar un guardado local.
