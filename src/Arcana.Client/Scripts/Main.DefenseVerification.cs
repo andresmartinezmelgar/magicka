@@ -167,7 +167,7 @@ public partial class Main
                 panel.ShowPowers(true); passive.EmitSignal(Button.SignalName.Pressed);
                 var after = _practice.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId);
                 Check(after.Auras[0] == 1 && after.Passives[0] == 1 && after.Gold == 1280, "Los botones no compraron en la simulación pausada.");
-                VerifyBotEconomyControls(panel);
+                VerifyBotEconomyControls(panel, Check);
                 panel.ShowSection(2);
                 panel.ShowPowers(true);
                 _defenseSmokePhase++; return false;
@@ -442,7 +442,7 @@ public partial class Main
         return false;
     }
 
-    private void VerifyBotEconomyControls(DefensePanel panel)
+    private void VerifyBotEconomyControls(DefensePanel panel, Action<bool, string> check)
     {
         var world = _practice!;
         var bot = world.Players.Values.Single(p => p.Bot);
@@ -464,23 +464,23 @@ public partial class Main
         Press("DefenseTab7"); Press("DefenseBotInventory" + bot.Id);
         var inventory = panel.EquipmentInventory!;
         inventory.PressInspect(EquipmentSlot.Weapon);
-        Check(((Button)inventory.FindChild("EquipmentTrash_" + worn.Id, true, false)).Disabled, "La tienda deja vender una pieza equipada del bot.");
+        check(((Button)inventory.FindChild("EquipmentTrash_" + worn.Id, true, false)).Disabled, "La tienda deja vender una pieza equipada del bot.");
         inventory.PressTrash(spare.Id);
         var confirmation = inventory.GetChildren().OfType<ConfirmationDialog>().Single();
-        Check(confirmation.Visible, "La venta del bot no muestra confirmación.");
+        check(confirmation.Visible, "La venta del bot no muestra confirmación.");
         confirmation.EmitSignal(ConfirmationDialog.SignalName.Confirmed); Sync();
-        Check(inventory.PreviewProfile?.Gold == botGold + spare.SaleGold && Player(bot.Id).Items.Length == 1, "El oro de venta no aparece en el bot.");
+        check(inventory.PreviewProfile?.Gold == botGold + spare.SaleGold && Player(bot.Id).Items.Length == 1, "El oro de venta no aparece en el bot.");
         inventory.PressUpgrade(worn.Id); Sync();
-        Check(Player(bot.Id).Items.Single().Upgrades == 1, "El botón no mejoró la pieza del bot.");
+        check(Player(bot.Id).Items.Single().Upgrades == 1, "El botón no mejoró la pieza del bot.");
         inventory.Close();
         Press("DefenseBotPowers" + bot.Id); Press("DefenseAura0");
         Sync(); panel.ShowPowers(true); Press("DefensePassive0");
         var updated = Player(bot.Id);
         int spent = DefenseRules.UpgradeCost(worn.Tier, 0) + DefenseRules.AuraCost(0) + DefenseRules.PassiveCost(0);
-        Check(updated.Auras[0] == 1 && updated.Passives[0] == 1 && updated.Gold == botGold + spare.SaleGold - spent &&
+        check(updated.Auras[0] == 1 && updated.Passives[0] == 1 && updated.Gold == botGold + spare.SaleGold - spent &&
             Player(_localId).Gold == humanGold, "Los poderes no se aplicaron al bot con su oro.");
         panel.HandleBack();
-        Check(((Button)panel.FindChild("DefenseBotInventory" + bot.Id, true, false)).IsVisibleInTree(), "Atrás no vuelve a los bots aliados.");
+        check(((Button)panel.FindChild("DefenseBotInventory" + bot.Id, true, false)).IsVisibleInTree(), "Atrás no vuelve a los bots aliados.");
         GD.Print("DEFENSE_BOT_ECONOMY_OK");
     }
 

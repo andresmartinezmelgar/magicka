@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.29.43
+
+- Tutorial interactivo de controles, hechizos, modos de juego e inventario. Guarda el progreso por capítulos.
+- Desplazamiento táctil unificado en menús, inventarios, listas, desplegables y gráficas.
+- Venta y mejora de objetos, auras y habilidades de los bots aliados de Supervivencia con su propio oro.
+
 ## 0.29.42
 
 - Tutorial interactivo para practicar los controles, los hechizos, los cuatro modos de juego y el inventario.
