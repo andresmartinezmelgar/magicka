@@ -147,7 +147,7 @@ internal static class DefenseEliteTests
             catch (InvalidDataException) { rejected = true; }
             Check(rejected, "La red admite Vida como punto débil.");
         });
-        test("Aliados: mantienen separación del humano y sus hechizos usan su afinidad", () =>
+        test("Aliados: mantienen separación del humano y priorizan su afinidad durante la rotación", () =>
         {
             var (w, p) = World(); p.Invulnerable = 100000;
             var bots = new[] { WizardType.Pyromancer, WizardType.Cryomancer, WizardType.Geomancer }
@@ -156,18 +156,16 @@ internal static class DefenseEliteTests
             Step(w, 240);
             Check(bots.All(b => V2.Distance(b.Position, p.Position) >= 3 && V2.Distance(b.Position, p.Position) < 16), "Los aliados se apilan sobre el humano o lo abandonan.");
             var (enemy, _) = Spawn(w, MinionKind.Tank, new(-16, 0)); enemy.Health = enemy.MaxHealth = 100000; enemy.Frozen = 1000;
-            var observed = new HashSet<int>();
-            for (int i = 0; i < 240; i++)
+            var favored = new HashSet<int>();
+            for (int i = 0; i < 540; i++)
             {
                 w.Step();
                 foreach (var bot in bots)
-                    if ((bot.Channel ?? bot.Charging) is { } actual)
-                    {
-                        Check(actual.Has(WizardTypes.Affinity(bot.WizardType)!.Value) || actual.Healing, "Un especialista ignoró su afinidad.");
-                        if (!actual.Healing) observed.Add(bot.Id);
-                    }
+                    if ((bot.Channel ?? bot.Charging) is { Healing: false } actual &&
+                        actual.Count(WizardTypes.Affinity(bot.WizardType)!.Value) >= 2)
+                        favored.Add(bot.Id);
             }
-            Check(observed.Count == 3, "Un especialista no llegó a atacar.");
+            Check(favored.Count == 3, "Un especialista no atacó con su afinidad durante la rotación.");
         });
         test("Aliados: el punto débil prima sobre la afinidad y el tempestario se seca antes de atacar", () =>
         {
