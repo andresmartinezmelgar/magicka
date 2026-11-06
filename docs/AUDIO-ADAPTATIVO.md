@@ -1,14 +1,14 @@
 # Audio adaptativo
 
-La composición original **Resonancia del santuario** acompaña los menús y la
-partida. Tres capas Ogg sincronizadas de 40 segundos mantienen el mismo tempo
-y armonía. Las transiciones cambian el volumen gradualmente y conservan el
-compás. Los recursos funcionan sin conexión.
+La composición original **Pulso de batalla** acompaña los menús y la partida.
+Tres capas Ogg sincronizadas de 40 segundos comparten el tempo de 144 BPM y
+la armonía en re menor. Las transiciones cambian el volumen gradualmente
+y conservan el compás. Los recursos funcionan sin conexión.
 
 | Situación | Respuesta |
 | --- | --- |
-| Menú y carga | Cuerdas, arpa y campanas suaves. |
-| Rivales cercanos y lanzamiento de hechizos | Entra la percusión y el ostinato. Las ráfagas mantienen la intensidad brevemente. |
+| Menú y carga | Cuerdas rítmicas, bajo y percusión ligera. |
+| Rivales cercanos y lanzamiento de hechizos | Entran el bombo, la caja, el bajo sincopado y los metales. Las ráfagas mantienen la intensidad brevemente. |
 | Vida inferior al 42 % | Aumenta gradualmente la capa de peligro; alcanza el máximo al 10 %. |
 | Coloso u oráculo a menos de 22 m | Capa de peligro elevada. No se activa por jefes lejanos. |
 | Teletransporte | Efectos diferentes para salida y llegada, aunque el desplazamiento aleje el punto de salida. La música baja brevemente para destacar el efecto. |

@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.29.46
+
+- Nueva banda sonora «Pulso de batalla» a 144 BPM, con cuerdas rítmicas y percusión desde el menú.
+- En combate entran el bombo, la caja y los metales. La música gana intensidad con poca vida o al acercarse a un jefe.
+
 ## 0.29.45
 
 - Al completar el tutorial, la burbuja desaparece de Inicio y el acceso «Repetir tutorial» pasa a Mi perfil.
