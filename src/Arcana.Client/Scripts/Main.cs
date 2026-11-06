@@ -78,7 +78,7 @@ public partial class Main : Node
         InitializeAudio();
         RestoreAccountCache();
         var arguments = OS.GetCmdlineUserArgs();
-        InitializeTutorial(arguments);
+        InitializeTutorial();
         var layer = new CanvasLayer(); AddChild(layer);
         _ui = new Control { MouseFilter = Control.MouseFilterEnum.Ignore }; layer.AddChild(_ui); Ui.Full(_ui);
         _aimMarker = new AimMarker(); _ui.AddChild(_aimMarker);

@@ -17,32 +17,19 @@ public partial class Main
     private EquipmentPanel? _tutorialInventory;
     private TutorialStep[] _tutorialSteps = [];
     private int _tutorialStepIndex;
-    private bool _tutorialStepReady, _tutorialRetry, _tutorialSaveFailed, _tutorialFixture;
+    private bool _tutorialStepReady, _tutorialRetry, _tutorialSaveFailed;
     internal bool TutorialCompleted => _tutorialProgress == TutorialChapter.Completed;
     private bool TutorialActive => _tutorial != null;
     private bool TutorialHoldsCombat => TutorialActive &&
         (_tutorialStepReady || _tutorialRetry || _tutorial!.Chapter == TutorialChapter.Inventory);
 
-    private void InitializeTutorial(string[] arguments)
+    private void InitializeTutorial()
     {
         int stored = DevicePreferences.Read<int>(TutorialProgressFile);
         _tutorialProgress = Enum.IsDefined((TutorialChapter)stored) ? (TutorialChapter)stored : TutorialChapter.Basics;
-        _tutorialFixture = OS.IsDebugBuild() && (ClientVerification.Requested(arguments) || RenderProfiler.Requested(arguments) ||
-            arguments.Any(a => a.EndsWith("-smoke", StringComparison.Ordinal) || a is "--visual-review" or "--visual-desktop"));
     }
 
-    internal bool CanStartRegularMatch()
-    {
-        if (TutorialActive) return false;
-        if (TutorialCompleted || _tutorialFixture) return true;
-        OpenTutorial();
-        return false;
-    }
-
-    private void StartTutorialAfterRegistration()
-    {
-        if (!TutorialCompleted && !_tutorialFixture && _launcher.Visible) OpenTutorial();
-    }
+    internal bool CanStartRegularMatch() => !TutorialActive;
 
     internal void OpenTutorial()
     {

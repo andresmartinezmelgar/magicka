@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.29.44
+
+- Tutorial opcional desde Inicio. Una burbuja «Recomendado» y un guante señalan el acceso para iniciar o continuar el entrenamiento.
+- El instalador de Android espera a que el juego recupere el foco y reintenta una vez los fallos genéricos con la APK ya descargada.
+
 ## 0.29.43
 
 - Tutorial interactivo de controles, hechizos, modos de juego e inventario. Guarda el progreso por capítulos.

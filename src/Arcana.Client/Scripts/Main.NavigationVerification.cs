@@ -52,10 +52,31 @@ public partial class Main
         }
         try
         {
+            _tutorialProgress = TutorialChapter.Basics;
+            _launcher.UpdateTutorialLink();
             foreach (var size in new[] { new Vector2I(640, 450), new(960, 450), new(1440, 900) })
             {
                 GetWindow().ContentScaleSize = size; GetWindow().Size = size; await Frames();
                 Accounts.RestoreOfflineProfile(new("hg7F74kCNVQU3tU2itdjWu9SkyS2", "Navegación local", 0, 0, 0, new(), []));
+                NavigateOptionAMenu(0); await Frames();
+                var tutorial = (Button)_launcher.FindChild("TutorialMode", true, false);
+                var recommendation = (ElementTextLabel)_launcher.FindChild("TutorialRecommendation", true, false);
+                var glove = (TextureRect)_launcher.FindChild("TutorialPointer", true, false);
+                var launcherScroll = (ScrollContainer)_launcher.FindChild("LauncherSettingsScroll", true, false);
+                var visibleMenu = launcherScroll.GetGlobalRect().Grow(1);
+                Check(!TutorialActive && tutorial.IsVisibleInTree() && !tutorial.Disabled &&
+                    tutorial.Size.X >= 48 && tutorial.Size.Y >= 48 && visibleMenu.Encloses(tutorial.GetGlobalRect()) &&
+                    recommendation.Text == "Recomendado" && visibleMenu.Encloses(recommendation.GetGlobalRect()) &&
+                    glove.IsVisibleInTree() && glove.Texture != null && visibleMenu.Encloses(glove.GetGlobalRect()) &&
+                    glove.GetGlobalRect().GetCenter().Y < tutorial.GetGlobalRect().GetCenter().Y,
+                    "El tutorial recomendado queda oculto, se abre solo o no tiene su indicador encima.");
+                Capture(size.X + "-inicio-tutorial");
+                if (size.X == 640)
+                {
+                    await Click(tutorial); await Ready();
+                    Check(_tutorial?.Chapter == TutorialChapter.Basics, "Tocar la burbuja no inicia el tutorial.");
+                    ReturnToLauncher(); await Frames();
+                }
                 foreach (int page in new[] { 0, 1, 2, 3, 4, 5, 7 })
                 {
                     if (page == 3)
@@ -68,6 +89,8 @@ public partial class Main
                     }
                     else NavigateOptionAMenu(page);
                     await Frames();
+                    if (page is 1 or 2)
+                        Check(!tutorial.IsVisibleInTree(), "La burbuja de Inicio tapa el selector de partida.");
                     Control screen = page switch { 3 => _accountProfilePanel!, 4 => _equipmentPanel!,
                         5 => _optionAHelp!, 7 => _itemShopPanel!, _ => _launcher };
                     foreach (var scroll in screen.FindChildren("*", "ScrollContainer", true, false).OfType<ScrollContainer>())
@@ -107,6 +130,7 @@ public partial class Main
                 await Frames(); await Click(Exit(waiting, "WaitingRoomExit")); Check(left, "Salir de la sala de espera no responde."); waiting.QueueFree();
 
                 StartPractice("Navegación", 0, GameMode.Defense, 0, map: ArenaMapId.Bastion); await Ready();
+                Check(!TutorialActive && _practice?.IsDefense == true, "El tutorial se interpone al empezar Supervivencia.");
                 OpenPersonalDamageSummary(); await Frames();
                 var damageCard = (Control)_personalDamagePanel!.FindChild("PersonalDamageCard", true, false);
                 Check(ViewingDamageSummary && _practice!.DefensePaused && GetViewport().GetVisibleRect().Encloses(damageCard.GetGlobalRect()),

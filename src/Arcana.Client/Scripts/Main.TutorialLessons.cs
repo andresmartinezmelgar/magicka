@@ -45,8 +45,7 @@ public partial class Main
         {
             TutorialChapter.Basics =>
             [
-                new("Tu primer entrenamiento", (TutorialCompleted ? "" : "Completa el tutorial para desbloquear las partidas. ") +
-                    "Practicarás los controles, los cuatro modos y el inventario. El avance se guarda por capítulos."),
+                new("Tu primer entrenamiento", "Practicarás los controles, los cuatro modos y el inventario. El avance se guarda por capítulos."),
                 new("Moverte", $"{move} Lleva a tu mago hasta la marca «Objetivo».",
                     _ => V2.Distance(player.Position, GameWorld.TutorialScenario.MovementGoal) < 1.1f,
                     () => GameWorld.TutorialScenario.MovementGoal, PrepareMovement),

@@ -126,7 +126,6 @@ public partial class Main
     private async Task AcceptGoogleSession(FirebaseAndroidBridge.Session session)
     {
         long generation = Interlocked.Read(ref _sessionGeneration);
-        bool startingSession = !Accounts.HasDirectFirebaseSession || Accounts.Profile?.Uid != session.Uid;
         Post(() =>
         {
             if (generation != Interlocked.Read(ref _sessionGeneration)) return;
@@ -144,7 +143,6 @@ public partial class Main
                 if (generation != Interlocked.Read(ref _sessionGeneration)) return;
                 SaveAccountCache();
                 GoogleStatus("Google conectado. Perfil e inventario cargados desde Firebase.");
-                if (startingSession) StartTutorialAfterRegistration();
             });
         }
         catch (OperationCanceledException) { /* Cierre de sesión o intento de inicio sustituido. */ }

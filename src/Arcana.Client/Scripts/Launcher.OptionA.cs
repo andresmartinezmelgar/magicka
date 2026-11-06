@@ -14,7 +14,10 @@ public partial class Launcher
     private VBoxContainer? _optionAMagic;
     private ElementTextLabel? _optionAHeading;
     private ElementTextLabel? _optionAPasswordLabel;
+    private HBoxContainer? _tutorialPrompt;
     private Button? _tutorialLink;
+    private ElementTextLabel? _tutorialRecommendation;
+    private TextureRect? _tutorialPointer;
     private GridContainer? _optionAHomeCards, _optionASettingsGrid, _optionAPracticeGrid, _optionAElements;
 
     private void ApplyOptionALayout(MarginContainer margin, HBoxContainer columns,
@@ -42,18 +45,23 @@ public partial class Launcher
         form.AddThemeConstantOverride("separation", Ui.IsMobile ? 6 : 10);
 
         var hero = new PanelContainer { Name = "OptionAHero" };
-        hero.AddThemeStyleboxOverride("panel", Ui.Panel(new Color("0b2541"), 9, new Color("2c719a")));
+        var heroStyle = Ui.Panel(new Color("0b2541"), 9, new Color("2c719a"));
+        heroStyle.ContentMarginTop = heroStyle.ContentMarginBottom = 10;
+        hero.AddThemeStyleboxOverride("panel", heroStyle);
         form.AddChild(hero);
         form.MoveChild(hero, 0);
         var heroRow = new HBoxContainer();
         heroRow.AddThemeConstantOverride("separation", 16);
         hero.AddChild(heroRow);
-        var titles = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        var titles = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ShrinkCenter };
         titles.AddThemeConstantOverride("separation", 0);
         heroRow.AddChild(titles);
         _optionAHeading = Ui.Label("ELIGE TU AVENTURA", Ui.IsMobile ? 21 : 26, Ui.Gold);
         titles.AddChild(_optionAHeading);
-        titles.AddChild(Ui.Label("Hechizos, estrategia y duelos elementales", Ui.IsMobile ? 14 : 16, Ui.Muted));
+        var subtitle = Ui.Label("Hechizos, estrategia y duelos elementales", Ui.IsMobile ? 14 : 16, Ui.Muted);
+        subtitle.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        titles.AddChild(subtitle);
+        BuildTutorialPrompt(heroRow);
 
         // Cuatro accesos principales organizados siempre en 2 filas por 2 columnas.
         _homeMenu.AddThemeConstantOverride("separation", 12);
@@ -79,11 +87,7 @@ public partial class Launcher
         var helpTile = Ui.Button("▤\nCÓMO JUGAR\nControles y objetivos", () => _main.ToggleHelp());
         choices.AddChild(helpTile);
         CardStyle(helpTile, 3);
-        _tutorialLink = Ui.Button("", _main.OpenTutorial);
-        _tutorialLink.Name = "TutorialMode";
-        _homeMenu.AddChild(_tutorialLink);
-        UpdateTutorialLink();
- 
+
         // Los paneles se apilan cuando no cabe una segunda columna legible.
         _playBody.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _playBody.SizeFlagsVertical = SizeFlags.ExpandFill;
@@ -186,7 +190,7 @@ public partial class Launcher
             _optionAHomeCards.Columns = 2;
             float height = GetViewport().GetVisibleRect().Size.Y;
             float free = height - ArcanaMenuChrome.HeaderHeight - ArcanaMenuChrome.FooterHeight -
-                (Ui.IsMobile ? 135 : 175);
+                (Ui.IsMobile ? 145 : 185);
             float tileHeight = Math.Clamp((free - (Ui.IsMobile ? 10 : 18)) / 2f,
                 Ui.IsMobile ? 125 : 150, Ui.IsMobile ? 210 : 245);
             foreach (Button card in _optionAHomeCards.GetChildren().OfType<Button>())
@@ -272,9 +276,73 @@ public partial class Launcher
         button.CustomMinimumSize = new(0, Ui.IsMobile ? 165 : 195);
     }
 
+    private void BuildTutorialPrompt(HBoxContainer heroRow)
+    {
+        const int diameter = 64;
+        _tutorialPrompt = new HBoxContainer { Name = "TutorialPrompt", MouseFilter = MouseFilterEnum.Ignore,
+            SizeFlagsVertical = SizeFlags.ShrinkCenter };
+        _tutorialPrompt.AddThemeConstantOverride("separation", 8);
+        heroRow.AddChild(_tutorialPrompt);
+        var badge = new PanelContainer { SizeFlagsVertical = SizeFlags.ShrinkCenter, MouseFilter = MouseFilterEnum.Ignore };
+        var badgeStyle = Ui.Panel(new Color("38293f"), 10, new Color("9f7645"));
+        badgeStyle.ContentMarginLeft = badgeStyle.ContentMarginRight = 8;
+        badgeStyle.ContentMarginTop = badgeStyle.ContentMarginBottom = 5;
+        badge.AddThemeStyleboxOverride("panel", badgeStyle);
+        _tutorialPrompt.AddChild(badge);
+        _tutorialRecommendation = Ui.Label("Recomendado", 15, Ui.Gold);
+        _tutorialRecommendation.Name = "TutorialRecommendation";
+        _tutorialRecommendation.MouseFilter = MouseFilterEnum.Ignore;
+        badge.AddChild(_tutorialRecommendation);
+
+        var bubble = new Control { CustomMinimumSize = new(diameter + 4, diameter + 9), MouseFilter = MouseFilterEnum.Ignore };
+        _tutorialPrompt.AddChild(bubble);
+        _tutorialLink = Ui.Button("Tutorial", _main.OpenTutorial);
+        _tutorialLink.Name = "TutorialMode";
+        _tutorialLink.CustomMinimumSize = new(diameter, diameter);
+        _tutorialLink.AddThemeFontSizeOverride("font_size", 14);
+        var ink = new Color("1c2033");
+        foreach (string state in new[] { "font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color" })
+            _tutorialLink.AddThemeColorOverride(state, ink);
+
+        StyleBoxFlat Sphere(Color fill)
+        {
+            var style = Ui.Panel(fill, diameter / 2, new Color("ffedac"));
+            style.ContentMarginLeft = style.ContentMarginRight = 4;
+            style.ShadowColor = new Color("0a1324cc");
+            style.ShadowSize = 4;
+            style.ShadowOffset = new(0, 3);
+            return style;
+        }
+        _tutorialLink.AddThemeStyleboxOverride("normal", Sphere(new Color("eab75c")));
+        _tutorialLink.AddThemeStyleboxOverride("hover", Sphere(new Color("ffda87")));
+        _tutorialLink.AddThemeStyleboxOverride("pressed", Sphere(new Color("d89d48")));
+        var focus = Ui.Panel(Colors.Transparent, diameter / 2, Ui.Text);
+        focus.DrawCenter = false;
+        focus.BorderWidthTop = focus.BorderWidthBottom = focus.BorderWidthLeft = focus.BorderWidthRight = 2;
+        _tutorialLink.AddThemeStyleboxOverride("focus", focus);
+        bubble.AddChild(_tutorialLink);
+        _tutorialLink.Position = new(2, 9);
+        _tutorialLink.Size = new(diameter, diameter);
+
+        _tutorialPointer = new TextureRect
+        {
+            Name = "TutorialPointer", MouseFilter = MouseFilterEnum.Ignore,
+            Texture = GD.Load<Texture2D>("res://Assets/UI/tutorial-glove.svg"),
+            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+            StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+            Position = new((diameter + 4 - 30) / 2f, 0), Size = new(30, 33)
+        };
+        bubble.AddChild(_tutorialPointer);
+        UpdateTutorialLink();
+    }
+
     internal void UpdateTutorialLink()
     {
-        if (_tutorialLink != null) _tutorialLink.Text = _main.TutorialCompleted ? "Repetir tutorial" : "Tutorial interactivo";
+        if (_tutorialLink == null) return;
+        bool completed = _main.TutorialCompleted;
+        _tutorialRecommendation!.Text = completed ? "Repetir" : "Recomendado";
+        _tutorialPointer!.Visible = !completed;
+        _tutorialLink.TooltipText = completed ? "Repetir tutorial interactivo" : "Iniciar o continuar el tutorial interactivo";
     }
 
     private void UpdateOptionAPage(int page)
@@ -285,6 +353,7 @@ public partial class Launcher
             2 => "ENTRENAMIENTO CONTRA IA",
             _ => "ELIGE TU AVENTURA"
         };
+        if (_tutorialPrompt != null) _tutorialPrompt.Visible = page == 0;
         if (_optionAMagic != null) _optionAMagic.Visible = page == 2;
         if (_optionAPasswordLabel != null) _optionAPasswordLabel.Visible = page == 1;
         _optionAChrome?.Select(page switch { 1 => 1, 2 => 2, _ => 0 });
