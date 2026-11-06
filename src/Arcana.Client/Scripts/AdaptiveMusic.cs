@@ -21,9 +21,11 @@ public partial class AdaptiveMusic : Node
         string[] names = ["arcane_atmosphere", "arcane_battle", "arcane_danger"];
         for (int i = 0; i < names.Length; i++)
         {
-            var stream = ResourceLoader.Load<AudioStreamOggVorbis>("res://Assets/Audio/" + names[i] + ".ogg");
+            using var stream = ResourceLoader.Load<AudioStreamOggVorbis>(
+                "res://Assets/Audio/" + names[i] + ".ogg", "", ResourceLoader.CacheMode.Ignore);
             if (stream == null) { _score.Dispose(); _score = null; return; }
             stream.Loop = true;
+            // The synchronized stream retains the native resource after the C# reference is disposed.
             _score.SetSyncStream(i, stream);
             _score.SetSyncStreamVolume(i, -80);
         }
@@ -85,8 +87,24 @@ public partial class AdaptiveMusic : Node
 
     public override void _ExitTree()
     {
-        _player?.Stop();
-        if (_player != null) _player.Stream = null;
-        _score?.Dispose(); _score = null;
+        if (_player == null || _score == null) return;
+        bool hadPlayback = _player.HasStreamPlayback();
+        _player.Stop();
+        ulong stoppedAt = Time.GetTicksUsec();
+        _player.Stream = null;
+        for (int i = 0; i < _score.StreamCount; i++)
+            _score.SetSyncStream(i, null);
+        _score.Dispose();
+        _score = null;
+
+        // The audio driver removes stopped playbacks during mixing. Give it time
+        // to process the stop before engine shutdown, even with the Dummy driver.
+        if (!hadPlayback) return;
+        double elapsed = (Time.GetTicksUsec() - stoppedAt) / 1_000_000.0;
+        while (elapsed < .1 && AudioServer.GetTimeSinceLastMix() >= elapsed)
+        {
+            OS.DelayMsec(1);
+            elapsed = (Time.GetTicksUsec() - stoppedAt) / 1_000_000.0;
+        }
     }
 }
