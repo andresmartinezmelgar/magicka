@@ -370,10 +370,13 @@ public partial class ReleaseUpdateNotice : Node
             var main = GetParent<Main>(); main.StartPractice("Prueba de salida", 0, GameMode.Duel, 0);
             _downloadPath = System.IO.Path.Combine(_updatesFolder, "qa-never-install.zip");
             _completed = true;
+            ShowFailure(_progressGeneration, "INSTALL_FAILED_ABORTED: Permission denied");
             var pending = InstallDownloaded();
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (!_waitingToInstall || _installing || _secondary!.Disabled)
                 throw new InvalidOperationException("La espera de instalación bloquea la salida del aviso.");
+            if (_headline!.Text != "Actualización verificada" || _speedLabel!.Text != "Descarga completada")
+                throw new InvalidOperationException("El reintento conserva el mensaje de fallo anterior.");
             if (Ui.IsMobile) main._Notification((int)NotificationWMGoBackRequest);
             else main._UnhandledInput(new InputEventKey { Pressed = true, PhysicalKeycode = Key.Escape });
             await pending;
@@ -545,10 +548,6 @@ public partial class ReleaseUpdateNotice : Node
         _progress!.Indeterminate = false;
         _progress.Value = 100;
         _percentLabel!.Text = "100 %";
-        _headline!.Text = "Actualización verificada";
-        _subtitle!.Text = "Preparando la instalación automática.";
-        _speedLabel!.Text = "Descarga completada";
-        _secondary!.Text = "Volver al juego";
         _primary!.Disabled = false;
         _primary.Text = "Instalar actualización";
         _ = InstallDownloaded();
@@ -602,6 +601,10 @@ public partial class ReleaseUpdateNotice : Node
         if (_downloadPath.Length == 0 || _installing || _waitingToInstall || _stop.IsCancellationRequested || !CurrentIdentity) return;
         int generation = _progressGeneration;
         _waitingToInstall = true;
+        _headline!.Text = "Actualización verificada";
+        _subtitle!.Text = "Preparando la instalación.";
+        _speedLabel!.Text = "Descarga completada";
+        _secondary!.Text = "Volver al juego";
         _primary!.Disabled = true; _secondary!.Disabled = false;
         _primary.Text = "Esperando para instalar…";
         try
@@ -646,6 +649,16 @@ public partial class ReleaseUpdateNotice : Node
             { ["status"] = status, ["version"] = _version, ["asset"] = _assetName });
         if (status == "diagnostic" || !GodotObject.IsInstanceValid(_overlay)) return;
         if (status == "failed") { ShowFailure(_progressGeneration, message); return; }
+        if (status == "confirmation")
+        {
+            _headline!.Text = "Confirma la actualización";
+            _primary!.Text = "Confirmación pendiente";
+        }
+        else if (status == "installing")
+        {
+            _headline!.Text = "Actualización verificada";
+            _primary!.Text = "Instalando…";
+        }
         _subtitle!.Text = message;
     }
 

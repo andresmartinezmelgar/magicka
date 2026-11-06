@@ -130,10 +130,12 @@ public final class ArcanaUpdatesPlugin extends GodotPlugin {
                 return;
             }
             permissionChecksRemaining = 0;
-            notifyStatus("installing", "Android esta preparando la actualizacion.");
+            boolean requireConfirmation = retried;
+            notifyStatus("installing", requireConfirmation ? "Preparando la confirmación de Android."
+                : "Android está preparando la actualización.");
             var executor = Executors.newSingleThreadExecutor();
             executor.execute(() -> {
-                try { createSession(activity); }
+                try { createSession(activity, requireConfirmation); }
                 catch (Exception error) { notifyStatus("failed", error.getMessage()); }
                 finally { executor.shutdown(); }
             });
@@ -185,10 +187,11 @@ public final class ArcanaUpdatesPlugin extends GodotPlugin {
         Activity host = plugin == null ? null : plugin.getActivity();
         if (host == null || host.isFinishing() || !plugin.busy || sessionId < 0) return false;
         if (plugin.confirmationSession == sessionId) return true;
-        plugin.confirmationSession = sessionId;
         var preferences = host.getSharedPreferences(PREFS, 0);
         plugin.foreground.runWhenReady(() -> {
-            if (!plugin.busy || preferences.getInt("session", -1) != sessionId) return;
+            if (!plugin.busy || preferences.getInt("session", -1) != sessionId ||
+                plugin.confirmationSession == sessionId) return;
+            plugin.confirmationSession = sessionId;
             try { host.startActivity(confirmation); }
             catch (Exception error) {
                 preferences.edit().remove("session").putBoolean("pending", false).apply();
@@ -199,22 +202,25 @@ public final class ArcanaUpdatesPlugin extends GodotPlugin {
         return true;
     }
 
-    // Solo se llama para el fallo genérico de Android, nunca para una cancelación o rechazo explícito.
-    static boolean retrySession(int sessionId) {
+    static boolean retrySession(int sessionId, int status, String message) {
         ArcanaUpdatesPlugin plugin = current.get();
         Activity host = plugin == null ? null : plugin.getActivity();
-        if (host == null || !plugin.busy || plugin.retried || sessionId < 0) return false;
+        if (host == null || host.isFinishing() || !plugin.busy || sessionId < 0) return false;
         var preferences = host.getSharedPreferences(PREFS, 0);
         if (preferences.getInt("session", -1) != sessionId) return false;
+        boolean genericFailure = status == PackageInstaller.STATUS_FAILURE;
+        String abortMessage = status == PackageInstaller.STATUS_FAILURE_ABORTED ? message : null;
+        if (!UpdateRetryPolicy.shouldRetry(plugin.retried, plugin.confirmationSession == sessionId,
+            genericFailure, abortMessage)) return false;
         plugin.retried = true;
         preferences.edit().remove("session").apply();
         abandonSession(host.getPackageManager().getPackageInstaller(), sessionId);
-        notifyStatus("installing", "Android está reintentando la instalación con la APK verificada.");
+        notifyStatus("diagnostic", "Se repetirá la sesión Android con confirmación y la misma APK verificada.");
         plugin.foreground.runWhenReady(() -> plugin.continueUpdate(false));
         return true;
     }
 
-    private void createSession(Activity activity) throws Exception {
+    private void createSession(Activity activity, boolean requireConfirmation) throws Exception {
         var preferences = activity.getSharedPreferences(PREFS, 0);
         File apk = new File(preferences.getString("path", "")).getCanonicalFile();
         if (!apk.toPath().startsWith(activity.getFilesDir().getCanonicalFile().toPath()))
@@ -243,7 +249,8 @@ public final class ArcanaUpdatesPlugin extends GodotPlugin {
         params.setAppPackageName(activity.getPackageName());
         params.setSize(apk.length());
         if (Build.VERSION.SDK_INT >= 31)
-            params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED);
+            params.setRequireUserAction(requireConfirmation ? PackageInstaller.SessionParams.USER_ACTION_REQUIRED
+                : PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED);
         int sessionId = installer.createSession(params);
         try {
             if (!preferences.edit().putInt("session", sessionId).commit())

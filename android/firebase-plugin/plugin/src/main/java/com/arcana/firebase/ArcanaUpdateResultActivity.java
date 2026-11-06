@@ -46,8 +46,9 @@ public final class ArcanaUpdateResultActivity extends Activity {
             finish(); return;
         }
         int status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE);
+        String message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE);
         ArcanaUpdatesPlugin.notifyStatus("diagnostic", "Resultado de sesion Android " + sessionId + ": estado " + status +
-            "; " + intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE));
+            "; " + message);
         if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
             Intent confirmation = intent.getParcelableExtra(Intent.EXTRA_INTENT);
             if (confirmation == null) { fail(sessionId, "Android no ha proporcionado su confirmacion de instalacion."); return; }
@@ -59,11 +60,11 @@ public final class ArcanaUpdateResultActivity extends Activity {
             return;
         }
         if (status != PackageInstaller.STATUS_SUCCESS) {
-            if (status == PackageInstaller.STATUS_FAILURE && ArcanaUpdatesPlugin.retrySession(sessionId)) {
+            if (ArcanaUpdatesPlugin.retrySession(sessionId, status, message)) {
                 finish();
                 return;
             }
-            fail(sessionId, intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE));
+            fail(sessionId, message);
             return;
         }
         // Solo se retira la descarga después de que Android confirme la instalación.

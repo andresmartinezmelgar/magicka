@@ -40,6 +40,8 @@ El plugin ArcanaUpdates entrega el APK directamente a PackageInstaller desde el 
 
 Android puede exigir una autorización inicial para permitir actualizaciones de Arcana Arena. Se abre su pantalla de permisos y el proceso continúa al volver. En Android 12 o posterior se solicita USER_ACTION_NOT_REQUIRED para actualizar la propia aplicación y se declara UPDATE_PACKAGES_WITHOUT_USER_ACTION. Android sigue siendo quien decide: si devuelve STATUS_PENDING_USER_ACTION, se abre automáticamente su confirmación. En versiones anteriores o en dispositivos que la exijan habrá que aceptar esa ventana del sistema.
 
+Si el primer intento falla de forma genérica o Android lo aborta con `Permission denied` antes de abrir su confirmación, Arcana Arena crea una segunda sesión con confirmación explícita. La segunda sesión vuelve a verificar la APK descargada y la reutiliza. Una cancelación del usuario termina el intento.
+
 El resultado se entrega a una actividad explícita que permanece disponible en la versión nueva. Solo después de que Android confirme una instalación correcta elimina la APK descargada y vuelve a abrir el juego; el arranque limpia también los parches, parciales y metadatos anteriores. Si Android cancela o rechaza la instalación, el paquete se conserva para reintentar. No se cambia la firma, no se desinstala la aplicación y no se borra su almacenamiento. Una APK con otra firma se rechaza y conserva la instalación existente.
 
 Referencia del API: https://developer.android.com/reference/android/content/pm/PackageInstaller.SessionParams#setRequireUserAction(int)
