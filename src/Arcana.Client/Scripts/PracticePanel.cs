@@ -40,7 +40,7 @@ public partial class PracticePanel : PanelContainer
         row.AddChild(Ui.Button("Vida al 40 %", session.PrepareHealing));
         if (session.Player.WizardType == WizardType.Balanced) AddOutfitPreview(stack);
         stack.AddChild(Ui.Label("Mago lanzador · dirección fija →", 14, Ui.Gold));
-        var choice = new ScrollOptionButton { Name = "PracticeCasterChoice", CustomMinimumSize = new(Ui.IsMobile ? 250 : 310, 34),
+        var choice = new ScrollOptionButton { Name = "PracticeCasterChoice", CustomMinimumSize = new(Ui.IsMobile ? 0 : 310, 34),
             FitToLongestItem = !Ui.IsMobile, ClipText = Ui.IsMobile, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
         foreach (var c in PracticeLayout.CasterSpells)
             choice.AddItem(c.Keys.Length == 0 ? "Empuje" : c.Keys + " · " + SpellCatalogue.Name(c.Elements));
