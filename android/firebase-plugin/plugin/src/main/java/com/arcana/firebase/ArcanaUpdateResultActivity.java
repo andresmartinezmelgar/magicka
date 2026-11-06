@@ -8,17 +8,34 @@ import java.io.File;
 
 /** Callback explícito del instalador; sigue existiendo después de actualizar nuestra APK. */
 public final class ArcanaUpdateResultActivity extends Activity {
-    private Intent pendingResult;
-    @Override public void onCreate(Bundle state) { super.onCreate(state); pendingResult = getIntent(); }
-    @Override public void onNewIntent(Intent intent) { super.onNewIntent(intent); setIntent(intent); pendingResult = intent; }
+    private final UpdateForegroundGate foreground = new UpdateForegroundGate();
+
+    @Override public void onCreate(Bundle state) {
+        super.onCreate(state);
+        Intent intent = getIntent();
+        foreground.runWhenReady(() -> handle(intent));
+    }
+    @Override public void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        foreground.runWhenReady(() -> handle(intent));
+    }
     @Override public void onPostResume() {
         super.onPostResume();
-        Intent result = pendingResult;
-        pendingResult = null;
-        if (result != null) handle(result);
+        foreground.setWindowFocused(hasWindowFocus());
+        foreground.resume();
+    }
+    @Override public void onPause() {
+        foreground.pause();
+        super.onPause();
+    }
+    @Override public void onWindowFocusChanged(boolean focused) {
+        super.onWindowFocusChanged(focused);
+        foreground.setWindowFocused(focused);
     }
 
     private void handle(Intent intent) {
+        if (intent == null || !intent.hasExtra(PackageInstaller.EXTRA_STATUS)) { finish(); return; }
         var preferences = getSharedPreferences(ArcanaUpdatesPlugin.PREFS, 0);
         // Un resultado tardío de un intento anterior no puede cancelar el actual
         // ni borrar su APK. Los callbacks de versiones antiguas usan el extra del sistema.
@@ -33,15 +50,20 @@ public final class ArcanaUpdateResultActivity extends Activity {
             "; " + intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE));
         if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
             Intent confirmation = intent.getParcelableExtra(Intent.EXTRA_INTENT);
-            if (confirmation == null) { fail("Android no ha proporcionado su confirmacion de instalacion."); return; }
+            if (confirmation == null) { fail(sessionId, "Android no ha proporcionado su confirmacion de instalacion."); return; }
             ArcanaUpdatesPlugin.notifyStatus("confirmation", "Confirma la actualizacion en la ventana de Android.");
+            if (ArcanaUpdatesPlugin.confirmInGame(sessionId, confirmation)) { finish(); return; }
             try { startActivity(confirmation); }
-            catch (Exception error) { fail(error.getMessage()); }
+            catch (Exception error) { fail(sessionId, error.getMessage()); return; }
             finish();
             return;
         }
         if (status != PackageInstaller.STATUS_SUCCESS) {
-            fail(intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE));
+            if (status == PackageInstaller.STATUS_FAILURE && ArcanaUpdatesPlugin.retrySession(sessionId)) {
+                finish();
+                return;
+            }
+            fail(sessionId, intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE));
             return;
         }
         // Solo se retira la descarga después de que Android confirme la instalación.
@@ -59,8 +81,10 @@ public final class ArcanaUpdateResultActivity extends Activity {
         finish();
     }
 
-    private void fail(String message) {
-        getSharedPreferences(ArcanaUpdatesPlugin.PREFS, 0).edit().putBoolean("pending", false).apply();
+    private void fail(int sessionId, String message) {
+        getSharedPreferences(ArcanaUpdatesPlugin.PREFS, 0).edit().remove("session").putBoolean("pending", false).apply();
+        if (sessionId >= 0)
+            ArcanaUpdatesPlugin.abandonSession(getPackageManager().getPackageInstaller(), sessionId);
         ArcanaUpdatesPlugin.notifyStatus("failed", message == null ? "Android no ha instalado la actualizacion." : message);
         finish();
     }
