@@ -45,6 +45,7 @@ public partial class MobileControls : Control
     internal Element[]? ProjectileAimElements => _aimFinger >= 0 && _pendingMagick < 0 ? _aimedProjectile : null;
     public Vector2 Movement => _move;
     public Vector2 AimDirection => _aim;
+    internal bool Aiming => _aimFinger >= 0 && !_aimKnob.IsZeroApprox();
     public event Action<ClientMessage>? ActionRequested;
     public event Action? AimChanged;
     public event Action? MenuRequested, HelpRequested, ScoreRequested;

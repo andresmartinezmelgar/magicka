@@ -18,7 +18,7 @@ public partial class Main
     private string _autosavedSurvivalRun = "";
     private long _autosavedSurvivalTick = -1;
     internal bool HasSurvivalSave => SurvivalSaves.Exists;
-    private bool CanSaveSurvival => _playing && _connection == null && _practice is { IsDefense: true, MatchEnded: false } &&
+    private bool CanSaveSurvival => !TutorialActive && _playing && _connection == null && _practice is { IsDefense: true, MatchEnded: false } &&
         _practice.Players.TryGetValue(_localId, out var player) && !player.Bot && player.Deaths < DefenseRules.PlayerLives;
 
     private void AddSurvivalSaveActions(VBoxContainer box)
@@ -89,6 +89,7 @@ public partial class Main
 
     private void AutosaveSurvival(string reason)
     {
+        if (TutorialActive) return;
         try
         {
             if (_connection == null && _practice is { IsDefense: true, MatchEnded: true } &&
@@ -114,7 +115,7 @@ public partial class Main
 
     private void TickSurvivalAutosave(double delta)
     {
-        if (_connection != null || !_playing || _practice?.IsDefense != true) return;
+        if (TutorialActive || _connection != null || !_playing || _practice?.IsDefense != true) return;
         _survivalAutosaveClock += Math.Clamp(delta, 0, 1);
         if (_practice.MatchEnded)
         {
@@ -133,7 +134,7 @@ public partial class Main
 
     public void ContinueSurvival()
     {
-        if (_playing || Loading || !HasSurvivalSave) return;
+        if (_playing || Loading || !HasSurvivalSave || !CanStartRegularMatch()) return;
         try
         {
             // Leer y validar todo antes de sustituir la vista del launcher.

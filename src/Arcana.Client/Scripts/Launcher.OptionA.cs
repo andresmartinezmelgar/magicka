@@ -14,6 +14,7 @@ public partial class Launcher
     private VBoxContainer? _optionAMagic;
     private ElementTextLabel? _optionAHeading;
     private ElementTextLabel? _optionAPasswordLabel;
+    private Button? _tutorialLink;
     private GridContainer? _optionAHomeCards, _optionASettingsGrid, _optionAPracticeGrid, _optionAElements;
 
     private void ApplyOptionALayout(MarginContainer margin, HBoxContainer columns,
@@ -78,6 +79,10 @@ public partial class Launcher
         var helpTile = Ui.Button("▤\nCÓMO JUGAR\nControles y objetivos", () => _main.ToggleHelp());
         choices.AddChild(helpTile);
         CardStyle(helpTile, 3);
+        _tutorialLink = Ui.Button("", _main.OpenTutorial);
+        _tutorialLink.Name = "TutorialMode";
+        _homeMenu.AddChild(_tutorialLink);
+        UpdateTutorialLink();
  
         // Los paneles se apilan cuando no cabe una segunda columna legible.
         _playBody.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -264,6 +269,11 @@ public partial class Launcher
         button.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         button.CustomMinimumSize = new(0, Ui.IsMobile ? 165 : 195);
+    }
+
+    internal void UpdateTutorialLink()
+    {
+        if (_tutorialLink != null) _tutorialLink.Text = _main.TutorialCompleted ? "Repetir tutorial" : "Tutorial interactivo";
     }
 
     private void UpdateOptionAPage(int page)

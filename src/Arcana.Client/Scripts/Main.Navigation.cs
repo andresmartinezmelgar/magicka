@@ -19,6 +19,7 @@ public partial class Main
         else if (GodotObject.IsInstanceValid(_statisticsPanel)) CloseMatchStatistics();
         else if (GodotObject.IsInstanceValid(_itemShopPanel)) _itemShopPanel!.HandleBack();
         else if (_defensePanel?.ShopOpen == true) _defensePanel.HandleBack();
+        else if (_tutorialInventory != null) _tutorialInventory.HandleBack();
         else if (InspectingEquipment) ClosePlayerEquipment();
         else if (GodotObject.IsInstanceValid(_equipmentPanel)) _equipmentPanel!.HandleBack();
         else if (GodotObject.IsInstanceValid(_bestiaryPanel)) CloseBestiary();

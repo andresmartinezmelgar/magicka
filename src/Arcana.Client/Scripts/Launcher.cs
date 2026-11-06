@@ -320,7 +320,7 @@ public partial class Launcher : Control
     }
     private void Connect()
     {
-        if (_busy) return;
+        if (_busy || !_main.CanStartRegularMatch()) return;
         Remember();
         int team = Ui.SelectedTeam(_team);
         if (_tabs.CurrentTab == 2)
@@ -346,7 +346,7 @@ public partial class Launcher : Control
     /// </summary>
     private async void ConnectOfficialOnline()
     {
-        if (_busy || _page != 1) return;
+        if (_busy || _page != 1 || !_main.CanStartRegularMatch()) return;
         if (!_main.Accounts.IsDirectFirebaseSession)
         {
             ShowError("Inicia sesión con Google en Inicio → Mi perfil antes de entrar al servidor online con recompensas.");

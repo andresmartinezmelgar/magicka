@@ -7,6 +7,14 @@ public partial class EquipmentPanel
     private ArcanaMenuChrome? _optionAChrome;
     private Button? _optionAItemsTab, _optionAStatsTab;
     private Control? _optionAStats;
+    internal bool TutorialTotalsVisible => _showingTotals;
+
+    internal void MountTutorialGuide(TutorialGuide guide)
+    {
+        var body = _equipmentToolbar.GetParent();
+        guide.Reparent(body, false);
+        body.MoveChild(guide, 1);
+    }
 
     private void SwitchOptionAEquipment(bool stats)
     {

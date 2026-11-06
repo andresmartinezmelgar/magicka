@@ -45,7 +45,7 @@ public partial class Main
         _equipmentSetupRetry = 0;
         _defensePanel?.QueueFree(); _defensePanel = null; _defenseEnded = false;
         ResetDefenseSample(); _defenseSampleElapsed = 0; _defenseSlowWindows = 0; _renderer.Effects.DetailScale = 1;
-        if (snapshot.Defense == null) return;
+        if (snapshot.Defense == null || _tutorial?.Chapter == TutorialChapter.Inventory) return;
         _defensePanel = new DefensePanel(); _ui.AddChild(_defensePanel);
         _defensePanel.Build(this, Submit);
         _defensePanel.OpenChanged += () =>
@@ -55,7 +55,6 @@ public partial class Main
             _ignoreLeftUntilRelease = true; UpdateTouchVisibility();
             if (_defensePanel != null) _ui.MoveChild(_defensePanel, -1);
         };
-        if (_touch != null) _touch.PointerBlocked = point => _defensePanel?.BlocksTouch(point) == true;
         _defensePanel.Update(snapshot, _localId, _connection != null, _connection?.Server?.RewardsAvailable == true);
     }
 }
