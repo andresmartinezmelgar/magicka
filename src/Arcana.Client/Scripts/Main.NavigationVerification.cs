@@ -76,6 +76,28 @@ public partial class Main
                     await Click(tutorial); await Ready();
                     Check(_tutorial?.Chapter == TutorialChapter.Basics, "Tocar la burbuja no inicia el tutorial.");
                     ReturnToLauncher(); await Frames();
+
+                    OpenAccountProfile(); await Frames();
+                    Check(_accountProfilePanel!.FindChild("ProfileReplayTutorial", true, false) == null,
+                        "Mi perfil ofrece repetir un tutorial que aún no está terminado.");
+                    CloseAccountProfile(); await Frames();
+                    _tutorialProgress = TutorialChapter.Completed;
+                    _launcher.UpdateTutorialLink();
+                    NavigateOptionAMenu(2); NavigateOptionAMenu(0); await Frames();
+                    Check(!tutorial.IsVisibleInTree(), "Inicio vuelve a mostrar el tutorial ya completado.");
+                    OpenAccountProfile(); await Frames();
+                    var replay = (Button)_accountProfilePanel!.FindChild("ProfileReplayTutorial", true, false);
+                    var profileScroll = (ScrollContainer)_accountProfilePanel.FindChild("ProfileContentScroll", true, false);
+                    Check(replay.IsVisibleInTree() && !replay.Disabled &&
+                        profileScroll.GetGlobalRect().Grow(1).Encloses(replay.GetGlobalRect()),
+                        "Repetir tutorial no queda a la vista en Mi perfil.");
+                    await Click(replay); await Ready();
+                    Check(_tutorial?.Chapter == TutorialChapter.Basics && _accountProfilePanel == null,
+                        "Repetir tutorial desde Mi perfil no abre el primer capítulo.");
+                    ReturnToLauncher();
+                    _tutorialProgress = TutorialChapter.Basics;
+                    _launcher.UpdateTutorialLink();
+                    await Frames();
                 }
                 foreach (int page in new[] { 0, 1, 2, 3, 4, 5, 7 })
                 {

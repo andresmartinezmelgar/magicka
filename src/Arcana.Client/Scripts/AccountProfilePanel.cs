@@ -64,6 +64,13 @@ public partial class AccountProfilePanel : Control
         var content = new VBoxContainer();
         content.AddThemeConstantOverride("separation", Ui.IsMobile ? 14 : 20);
         card.AddChild(content);
+        if (main.TutorialCompleted)
+        {
+            var replayTutorial = Ui.Button("Repetir tutorial", main.OpenTutorial);
+            replayTutorial.Name = "ProfileReplayTutorial";
+            Ui.TouchTarget(replayTutorial, 60);
+            content.AddChild(replayTutorial);
+        }
         BuildWizardSettings(content);
         main.BuildAudioControls(content);
         content.AddChild(Ui.Label("CUENTA DE GOOGLE", Ui.IsMobile ? 20 : 19, Ui.Gold));

@@ -15,9 +15,6 @@ public partial class Launcher
     private ElementTextLabel? _optionAHeading;
     private ElementTextLabel? _optionAPasswordLabel;
     private HBoxContainer? _tutorialPrompt;
-    private Button? _tutorialLink;
-    private ElementTextLabel? _tutorialRecommendation;
-    private TextureRect? _tutorialPointer;
     private GridContainer? _optionAHomeCards, _optionASettingsGrid, _optionAPracticeGrid, _optionAElements;
 
     private void ApplyOptionALayout(MarginContainer margin, HBoxContainer columns,
@@ -289,20 +286,21 @@ public partial class Launcher
         badgeStyle.ContentMarginTop = badgeStyle.ContentMarginBottom = 5;
         badge.AddThemeStyleboxOverride("panel", badgeStyle);
         _tutorialPrompt.AddChild(badge);
-        _tutorialRecommendation = Ui.Label("Recomendado", 15, Ui.Gold);
-        _tutorialRecommendation.Name = "TutorialRecommendation";
-        _tutorialRecommendation.MouseFilter = MouseFilterEnum.Ignore;
-        badge.AddChild(_tutorialRecommendation);
+        var recommendation = Ui.Label("Recomendado", 15, Ui.Gold);
+        recommendation.Name = "TutorialRecommendation";
+        recommendation.MouseFilter = MouseFilterEnum.Ignore;
+        badge.AddChild(recommendation);
 
         var bubble = new Control { CustomMinimumSize = new(diameter + 4, diameter + 9), MouseFilter = MouseFilterEnum.Ignore };
         _tutorialPrompt.AddChild(bubble);
-        _tutorialLink = Ui.Button("Tutorial", _main.OpenTutorial);
-        _tutorialLink.Name = "TutorialMode";
-        _tutorialLink.CustomMinimumSize = new(diameter, diameter);
-        _tutorialLink.AddThemeFontSizeOverride("font_size", 14);
+        var tutorial = Ui.Button("Tutorial", _main.OpenTutorial);
+        tutorial.Name = "TutorialMode";
+        tutorial.TooltipText = "Iniciar o continuar el tutorial interactivo";
+        tutorial.CustomMinimumSize = new(diameter, diameter);
+        tutorial.AddThemeFontSizeOverride("font_size", 14);
         var ink = new Color("1c2033");
         foreach (string state in new[] { "font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color" })
-            _tutorialLink.AddThemeColorOverride(state, ink);
+            tutorial.AddThemeColorOverride(state, ink);
 
         StyleBoxFlat Sphere(Color fill)
         {
@@ -313,36 +311,31 @@ public partial class Launcher
             style.ShadowOffset = new(0, 3);
             return style;
         }
-        _tutorialLink.AddThemeStyleboxOverride("normal", Sphere(new Color("eab75c")));
-        _tutorialLink.AddThemeStyleboxOverride("hover", Sphere(new Color("ffda87")));
-        _tutorialLink.AddThemeStyleboxOverride("pressed", Sphere(new Color("d89d48")));
+        tutorial.AddThemeStyleboxOverride("normal", Sphere(new Color("eab75c")));
+        tutorial.AddThemeStyleboxOverride("hover", Sphere(new Color("ffda87")));
+        tutorial.AddThemeStyleboxOverride("pressed", Sphere(new Color("d89d48")));
         var focus = Ui.Panel(Colors.Transparent, diameter / 2, Ui.Text);
         focus.DrawCenter = false;
         focus.BorderWidthTop = focus.BorderWidthBottom = focus.BorderWidthLeft = focus.BorderWidthRight = 2;
-        _tutorialLink.AddThemeStyleboxOverride("focus", focus);
-        bubble.AddChild(_tutorialLink);
-        _tutorialLink.Position = new(2, 9);
-        _tutorialLink.Size = new(diameter, diameter);
+        tutorial.AddThemeStyleboxOverride("focus", focus);
+        bubble.AddChild(tutorial);
+        tutorial.Position = new(2, 9);
+        tutorial.Size = new(diameter, diameter);
 
-        _tutorialPointer = new TextureRect
+        bubble.AddChild(new TextureRect
         {
             Name = "TutorialPointer", MouseFilter = MouseFilterEnum.Ignore,
             Texture = GD.Load<Texture2D>("res://Assets/UI/tutorial-glove.svg"),
             ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
             StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
             Position = new((diameter + 4 - 30) / 2f, 0), Size = new(30, 33)
-        };
-        bubble.AddChild(_tutorialPointer);
+        });
         UpdateTutorialLink();
     }
 
     internal void UpdateTutorialLink()
     {
-        if (_tutorialLink == null) return;
-        bool completed = _main.TutorialCompleted;
-        _tutorialRecommendation!.Text = completed ? "Repetir" : "Recomendado";
-        _tutorialPointer!.Visible = !completed;
-        _tutorialLink.TooltipText = completed ? "Repetir tutorial interactivo" : "Iniciar o continuar el tutorial interactivo";
+        if (_tutorialPrompt != null) _tutorialPrompt.Visible = _page == 0 && !_main.TutorialCompleted;
     }
 
     private void UpdateOptionAPage(int page)
@@ -353,7 +346,7 @@ public partial class Launcher
             2 => "ENTRENAMIENTO CONTRA IA",
             _ => "ELIGE TU AVENTURA"
         };
-        if (_tutorialPrompt != null) _tutorialPrompt.Visible = page == 0;
+        UpdateTutorialLink();
         if (_optionAMagic != null) _optionAMagic.Visible = page == 2;
         if (_optionAPasswordLabel != null) _optionAPasswordLabel.Visible = page == 1;
         _optionAChrome?.Select(page switch { 1 => 1, 2 => 2, _ => 0 });
