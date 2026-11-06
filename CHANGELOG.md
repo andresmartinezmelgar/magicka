@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.29.42
+
+- Tutorial interactivo para practicar los controles, los hechizos, los cuatro modos de juego y el inventario.
+- El tutorial se requiere antes de la primera partida, guarda el progreso por capítulos y puede repetirse desde Inicio.
+
 ## 0.29.41
 
 - En Supervivencia puedes vender piezas de los bots aliados, mejorar su equipo y comprar o subir de nivel sus auras y habilidades con el oro de cada bot.
