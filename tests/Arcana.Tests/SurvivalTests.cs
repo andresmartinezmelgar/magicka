@@ -47,7 +47,7 @@ internal static class SurvivalTests
                         "La IA mojada conserva una descarga eléctrica peligrosa o receta incompleta.");
                 }
         });
-        test("Supervivencia: la IA elige hechizos que infligen daño con su elemento más potenciado", () =>
+        test("Supervivencia: la IA prioriza su elemento más potente y lo alterna con otros ataques", () =>
         {
             var w = World();
             var human = w.AddPlayer("Humano")!;
@@ -59,7 +59,7 @@ internal static class SurvivalTests
             {
                 (Element.Fire, EquipmentStat.FirePower), (Element.Water, EquipmentStat.WaterPower),
                 (Element.Cold, EquipmentStat.ColdPower), (Element.Lightning, EquipmentStat.LightningPower),
-                (Element.Arcane, EquipmentStat.ArcanePower), (Element.Earth, EquipmentStat.EarthPower)
+                (Element.Earth, EquipmentStat.EarthPower), (Element.Arcane, EquipmentStat.ArcanePower)
             })
             {
                 var item = EquipmentCatalogue.Generate(random, tier: ItemTier.Silver, slot: EquipmentSlot.Weapon)
@@ -81,8 +81,18 @@ internal static class SurvivalTests
             human.Position = new(-15, 0); bot.Position = new(-24, 0);
             var enemy = Spawn(w); enemy.Position = new(-28.7f, 0);
             Call(w, "PlanDefenseBots", GameWorld.StepSeconds);
-            Call(w, "ThinkDefenseBot", bot, GameWorld.StepSeconds);
-            Check(bot.Charging?.Count(Element.Earth) >= 2, "La IA de combate no usó el arma de tierra que acababa de equipar.");
+            int arcaneTurns = 0;
+            for (int turn = 0; turn < 3; turn++)
+            {
+                bot.BotDecision = bot.ActionCooldown = 0;
+                bot.Channel = bot.Charging = null;
+                int eventsBefore = w.Snapshot().Events.Length;
+                Call(w, "ThinkDefenseBot", bot, 3f); // Avanza el turno de ataque sin mover a los combatientes.
+                var elements = (bot.Channel ?? bot.Charging)?.Elements ??
+                    w.Snapshot().Events.Skip(eventsBefore).Single(e => e.Kind == "cast").Elements;
+                if (elements.Count(e => e == Element.Arcane) >= 2) arcaneTurns++;
+            }
+            Check(arcaneTurns == 2, "La IA debe favorecer el arma arcana en dos turnos y lanzar otro ataque en el tercero.");
         });
         test("Supervivencia: IA alterna conos, descargas, rocas, hielo y rayos a distancias válidas", () =>
         {

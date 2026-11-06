@@ -151,6 +151,24 @@ public sealed partial class GameWorld
         return highest > lowest ? strongest : affinity;
     }
 
+    private const int DefenseBotPriorityCycle = 3;
+
+    private static Element? RotateDefenseBotElement(Element? preferred, int turn, bool wet)
+    {
+        // Dos turnos del elemento potenciado y uno que recorre el resto del repertorio.
+        int phase = (turn % DefenseBotPriorityCycle + DefenseBotPriorityCycle) % DefenseBotPriorityCycle;
+        if (preferred is not { } favored || phase != DefenseBotPriorityCycle - 1) return preferred;
+
+        var elements = SpellBalance.Offensive;
+        int start = Math.Abs((turn / DefenseBotPriorityCycle) % elements.Length);
+        for (int offset = 0; offset < elements.Length; offset++)
+        {
+            var alternate = elements[(start + offset) % elements.Length];
+            if (alternate != favored && (!wet || alternate != Element.Lightning)) return alternate;
+        }
+        return preferred;
+    }
+
     private static Element[] AttunedDefenseBotAttack(Element element, float distance, int turn, bool exploitingWeakness)
     {
         int phase = Math.Abs(turn % 3);
@@ -237,15 +255,20 @@ public sealed partial class GameWorld
         // Do not abort rocks mid-charge: the normal simulation releases them when
         // charged, and targeting remains updated while aiming at moving enemies.
         if (!healing && bot.Charging != null) return;
-        Element? preferred = healing ? null : target.VulnerableElement ?? PreferredDefenseBotElement(bot);
-        if (!healing && preferred == Element.Lightning && bot.Wet > 0)
+        int turn = plan.SpellTurn + bot.Id;
+        bool wet = bot.Wet > 0;
+        Element? weakness = target.VulnerableElement;
+        Element? attack = healing ? null : weakness ?? RotateDefenseBotElement(PreferredDefenseBotElement(bot), turn, wet);
+        if (attack == Element.Lightning && wet)
         {
             CancelCast(bot); bot.Selection.Clear(); bot.Selection.Add(Element.Fire);
             SelfCast(bot); bot.BotDecision = 0.4f; return;
         }
+        // Conserva las tres variantes del hechizo preferido al intercalar otros elementos.
+        int recipeTurn = weakness.HasValue ? turn : turn - turn / DefenseBotPriorityCycle;
         Element[] recipe = healing ? [Element.Life, Element.Life, Element.Life]
-            : preferred == null ? SafeDefenseBotAttack(distance, plan.SpellTurn + bot.Id, bot.Wet > 0)
-            : AttunedDefenseBotAttack(preferred.Value, distance / bot.Equipment.Range, plan.SpellTurn + bot.Id, target.VulnerableElement.HasValue);
+            : attack == null ? SafeDefenseBotAttack(distance, turn, wet)
+            : AttunedDefenseBotAttack(attack.Value, distance / bot.Equipment.Range, recipeTurn, weakness.HasValue);
         var spell = new SpellRecipe(recipe);
         bot.BotDecision = (spell.Shape is SpellShape.Rock or SpellShape.Shards ? 0.8f : 0.45f)
             + bot.Id % 3 * 0.07f;
