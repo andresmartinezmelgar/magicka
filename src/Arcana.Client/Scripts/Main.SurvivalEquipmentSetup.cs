@@ -12,11 +12,13 @@ public partial class Main
     internal bool RememberSurvivalEquipmentSetup(SurvivalEquipmentSetup setup)
     {
         if (!setup.Valid) return false;
+        if (TutorialActive) return true;
         SurvivalPreferences.SurvivalEquipment = setup.Copy();
         return TemporarySurvivalSettings || DevicePreferences.SaveInventory();
     }
     private void InitializeSurvivalEquipmentSetup(WorldSnapshot snapshot, double delta)
     {
+        if (TutorialActive) return;
         _equipmentSetupRetry = Math.Max(0, _equipmentSetupRetry - delta);
         var player = snapshot.Defense?.Defenders.FirstOrDefault(p => p.PlayerId == _localId);
         if (player == null || player.EquipmentSetupInitialized || snapshot.MatchEnded || _equipmentSetupRetry > 0) return;

@@ -32,7 +32,7 @@ public partial class Main
     }
     private void CaptureStatistics(MatchRecordStatus status)
     {
-        if (!_playing || _statisticsOutbox == null) return;
+        if (TutorialActive || !_playing || _statisticsOutbox == null) return;
         var report = _practice?.MatchStatistics(status) ?? _connection?.LatestStatistics;
         // En red se espera el informe final del servidor, no se marca como final una captura antigua.
         if (_practice == null && status == MatchRecordStatus.Completed && report?.Complete != true) return;

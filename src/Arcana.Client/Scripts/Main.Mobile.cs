@@ -76,10 +76,11 @@ public partial class Main
         _touch = new MobileControls(); _ui.AddChild(_touch);
         _touchSettings ??= (DevicePreferences.Read<TouchSettings>("touch-controls") ?? new()).Normalize();
         _touch.Configure(_touchSettings);
+        _touch.PointerBlocked = point => _defensePanel?.BlocksTouch(point) == true || TutorialBlocksPointer(point);
         _touch.MagickAvailable = slot => CheckMagickAvailable(slot, checkTarget: false);
         _touch.ActionRequested += message =>
         {
-            if (!_playing || _paused || _help.Visible || InspectingEquipment || ControlsOpen || ViewingDamageSummary || DefenseInterfaceOpen || _waitingPanel?.Visible == true) return;
+            if (!_playing || TutorialHoldsCombat || _paused || _help.Visible || InspectingEquipment || ControlsOpen || ViewingDamageSummary || DefenseInterfaceOpen || _waitingPanel?.Visible == true) return;
             UpdateTouchAim();
             if (message.Type == "magick") UseMagick(message.Slot);
             else { Submit(InputMessage()); Submit(message); }
@@ -101,7 +102,7 @@ public partial class Main
     private void UpdateTouchVisibility()
     {
         if (_touch == null) return;
-        bool visible = _playing && !_paused && !_help.Visible && !InspectingEquipment && !ControlsOpen && !ViewingDamageSummary && _waitingPanel?.Visible != true;
+        bool visible = _playing && _tutorialInventory == null && !_paused && !_help.Visible && !InspectingEquipment && !ControlsOpen && !ViewingDamageSummary && _waitingPanel?.Visible != true;
         if (_touch.Visible && !visible) _touch.Reset();
         _touch.Visible = visible;
     }

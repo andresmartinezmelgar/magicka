@@ -35,6 +35,52 @@ internal static class SurvivalTests
     }
     public static void Run(Action<string, Action> test)
     {
+        test("Tutorial: los ejercicios de combate usan entrada, impactos, barreras y autocast reales", () =>
+        {
+            var lesson = new GameWorld.TutorialScenario(TutorialChapter.Basics, "Aprendiz");
+            var w = lesson.World; var p = lesson.Player; var target = lesson.Target!;
+            void Send(string type, Element element = default, float move = 0) =>
+                Check(w.ApplyMessage(p.Id, new() { Type = type, Sequence = p.LastSequence + 1, Element = element,
+                    AimX = target.Position.X, AimY = target.Position.Y, MoveX = move }), "No se aceptó " + type);
+            for (int i = 0; i < 48; i++) { Send("input", move: 1); w.Step(); }
+            Check(V2.Distance(p.Position, GameWorld.TutorialScenario.MovementGoal) < 1.1f, "No se alcanza la marca de movimiento.");
+
+            lesson.ResetExercise();
+            Send("input"); Send("element", Element.Fire); Send("element", Element.Arcane); Send("cast");
+            Advance(w, 8);
+            Check(target.Health < target.MaxHealth, "La mezcla inicial no alcanzó al objetivo.");
+            lesson.ResetExercise();
+            Send("input"); Send("element", Element.Shield); Send("cast");
+            Check(w.Snapshot().Walls.Any(wall => wall.Owner == p.Id), "El terreno impide crear la barrera del tutorial.");
+            lesson.ResetExercise();
+            Send("element", Element.Shield); Send("element", Element.Water); Send("self");
+            Check(p.Shield > 0 && p.Ward.Contains(Element.Water), "El autocast no aplicó la protección de Agua.");
+            lesson.ResetExercise(injured: true);
+            Send("element", Element.Life); Send("self");
+            Check(p.Health > p.MaxHealth / 2, "El autocast de Vida no recuperó salud.");
+
+            lesson.ResetExercise();
+            Send("input"); Send("element", Element.Water); Send("cast");
+            Advance(w, 6);
+            Check(target.Wet > 0, "El objetivo de Agua queda fuera de alcance.");
+            Send("release"); Send("element", Element.Lightning); Send("cast");
+            Advance(w, 6);
+            Check(target.Wet > 0 && target.Health < target.MaxHealth, "El ejercicio de Rayo no pudo dañar al objetivo mojado.");
+        });
+        test("Tutorial: el mapa de puntos permite capturar y el equipo de ejemplo aplica sus atributos", () =>
+        {
+            var war = new GameWorld.TutorialScenario(TutorialChapter.Warfare, "Aprendiz");
+            war.Player.Position = war.World.Map.ControlPoints[1];
+            Advance(war.World, 270);
+            Check(war.World.Snapshot().Points.Any(p => p.Id == 1 && p.Owner == war.Player.Team), "No se capturó el punto de práctica.");
+
+            var inventory = new GameWorld.TutorialScenario(TutorialChapter.Inventory, "Aprendiz");
+            var player = inventory.Player;
+            float fire = player.Equipment.Fire;
+            Check(inventory.World.ApplyMessage(player.Id, new() { Type = "defense_equip", Sequence = 1,
+                ItemId = inventory.TrainingWeaponId, Slot = (int)EquipmentSlot.Weapon }) &&
+                player.Equipment.Fire > fire, "El arma del tutorial no mejoró el atributo de fuego.");
+        });
         test("Supervivencia: IA mojada no descarga rayos sobre sí misma", () =>
         {
             var choose = typeof(GameWorld).GetMethod("SafeDefenseBotAttack",

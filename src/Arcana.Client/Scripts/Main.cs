@@ -77,6 +77,8 @@ public partial class Main : Node
         _renderer = new ArenaRenderer(); AddChild(_renderer);
         InitializeAudio();
         RestoreAccountCache();
+        var arguments = OS.GetCmdlineUserArgs();
+        InitializeTutorial(arguments);
         var layer = new CanvasLayer(); AddChild(layer);
         _ui = new Control { MouseFilter = Control.MouseFilterEnum.Ignore }; layer.AddChild(_ui); Ui.Full(_ui);
         _aimMarker = new AimMarker(); _ui.AddChild(_aimMarker);
@@ -108,7 +110,6 @@ public partial class Main : Node
         _updateNotice = new ReleaseUpdateNotice(); AddChild(_updateNotice);
         _help = BuildHelp(); _ui.AddChild(_help); _help.Visible = false;
         _pause = BuildPause(); _ui.AddChild(_pause); _pause.Visible = false;
-        var arguments = OS.GetCmdlineUserArgs();
         InitializeMatchStatistics(arguments);
         if (arguments.Contains("--element-text-smoke")) _ = RunElementTextSmoke();
         _accountEntrySmoke = arguments.Contains("--account-entry-smoke");
@@ -186,7 +187,7 @@ public partial class Main : Node
         string roomId = "default", string roomPassword = "", WizardType wizardType = WizardType.Balanced,
         Action<string>? onError = null, string resumeToken = "", Action? onConnected = null)
     {
-        if (Volatile.Read(ref _exiting) != 0) return;
+        if (Volatile.Read(ref _exiting) != 0 || !CanStartRegularMatch()) return;
         var connection = new ArenaConnection();
         connection.AccountChanged += message => _ = RefreshRewardAccount(message);
         connection.Disconnected += reason => Post(() => { if (_connection == connection) _ = RecoverConnection(connection, address, name, team, password, roomId, roomPassword, wizardType, reason); });
@@ -284,6 +285,7 @@ public partial class Main : Node
     public void StartPractice(string name, int team, GameMode mode, int bots, WizardType wizardType = WizardType.Balanced,
         ArenaMapId map = ArenaMapId.Classic, DefenseFlow defenseFlow = DefenseFlow.Continuous)
     {
+        if (!CanStartRegularMatch()) return;
         _resumingSurvival = null;
         CancelPendingConnection();
         var old = _connection; _connection = null;
@@ -349,6 +351,7 @@ public partial class Main : Node
         if (_playing) Diagnostics.Info("game.leave", "Vuelta al launcher.", Context());
         ClosePlayerEquipment();
         _defensePanel?.QueueFree(); _defensePanel = null;
+        EndTutorial();
         _playing = false; _paused = false; _practice = null; _practiceSession = null; _snapshot = null;
         _aimMarker.Hide();
         _practicePanel?.QueueFree(); _practicePanel = null;
@@ -421,13 +424,14 @@ public partial class Main : Node
             var latest = _connection?.Latest ?? _snapshot;
             if (latest == null) return;
             _snapshot = latest;
-            ReportDefensePerformance(latest, delta);
+            if (!TutorialActive) ReportDefensePerformance(latest, delta);
             SynchronizeLocalLife();
             if (Ui.IsMobile) UpdateTouchAim();
             else
             {
                 _aim = _renderer.Cursor(GetViewport().GetMousePosition());
-                bool practiceUi = ViewingDamageSummary || InspectingEquipment || _practicePanel?.PointerOverPanel == true || _defensePanel?.PointerOverPanel == true || _hud?.PointerOverPanel == true;
+                bool practiceUi = ViewingDamageSummary || InspectingEquipment || _practicePanel?.PointerOverPanel == true ||
+                    _defensePanel?.PointerOverPanel == true || _hud?.PointerOverPanel == true || TutorialBlocksPointer(GetViewport().GetMousePosition());
                 if (practiceUi && Input.IsMouseButtonPressed(MouseButton.Left)) _moveTo = false;
                 UpdateMouseMovement(!practiceUi && Input.IsMouseButtonPressed(MouseButton.Left), Input.IsPhysicalKeyPressed(Key.Shift));
             }
@@ -442,7 +446,7 @@ public partial class Main : Node
             _renderer.Render(latest, _localId, _verification?.FixedRenderStep == true ? 1 / 60.0 : delta, true,
                 _practicePanel?.OutfitPreview);
             _hud?.Update(latest, _localId, _serverName, delta);
-            UpdatePersonalDamageSummary(latest, delta);
+            if (!TutorialActive) UpdatePersonalDamageSummary(latest, delta);
             InitializeSurvivalEquipmentSetup(latest, delta);
             if (_defensePanel != null)
             {
@@ -458,6 +462,7 @@ public partial class Main : Node
             UpdateTouchLayout();
             _touch?.Update(latest.Players.FirstOrDefault(p => p.Id == _localId), latest);
             UpdateAimMarker(latest);
+            UpdateTutorial(latest);
             _verification?.AfterRender(latest);
         }
         else _renderer.Render(_backdropSnapshot ??= _backdrop.Snapshot(), 0, delta, false);
@@ -520,7 +525,7 @@ public partial class Main : Node
         _inputTime += delta;
         if (_practice != null)
         {
-            if (_practice.IsDefense || !_paused && !_help.Visible)
+            if (!TutorialHoldsCombat && (_practice.IsDefense || !_paused && !_help.Visible))
             {
                 Submit(InputMessage());
                 if (_practiceSession != null) _practiceSession.Step(); else _practice.Step();
@@ -534,7 +539,7 @@ public partial class Main : Node
     {
         bool alive = SynchronizeLocalLife();
         if (!leftPressed) _ignoreLeftUntilRelease = false;
-        if (alive && !_paused && !_help.Visible && !_ignoreLeftUntilRelease && !shiftPressed && leftPressed)
+        if (alive && !TutorialHoldsCombat && !_paused && !_help.Visible && !_ignoreLeftUntilRelease && !shiftPressed && leftPressed)
         { _target = _aim; _moveTo = true; }
     }
     private bool SynchronizeLocalLife()
@@ -562,7 +567,7 @@ public partial class Main : Node
     }
     private ClientMessage InputMessage()
     {
-        bool alive = SynchronizeLocalLife();
+        bool alive = SynchronizeLocalLife() && !TutorialHoldsCombat;
         float x = 0, y = 0;
         if (alive && !_paused && !_help.Visible && !InspectingEquipment && !ControlsOpen && !ViewingDamageSummary && !DefenseInterfaceOpen)
         {
@@ -579,8 +584,19 @@ public partial class Main : Node
     }
     private void Submit(ClientMessage message)
     {
-        if (Loading) return;
-        if (_practice != null) { message.Sequence = ++_localSequence; if (message.Type == "defense_restart") { CaptureStatistics(MatchRecordStatus.Left); CaptureLocalBestiary(); if (_practice.RestartDefense()) { BeginLocalBestiary(); AutosaveSurvival("restart"); } } else _practice.ApplyMessage(_localId, message); }
+        if (Loading || TutorialActive && message.Type == "defense_restart" ||
+            TutorialHoldsCombat && !message.Type.StartsWith("defense_", StringComparison.Ordinal)) return;
+        if (_practice != null)
+        {
+            message.Sequence = ++_localSequence;
+            if (message.Type == "defense_restart")
+            {
+                CaptureStatistics(MatchRecordStatus.Left); CaptureLocalBestiary();
+                if (_practice.RestartDefense()) { BeginLocalBestiary(); AutosaveSurvival("restart"); }
+            }
+            else if (_practice.ApplyMessage(_localId, message) && TutorialHoldsCombat)
+                _snapshot = _practice.Snapshot();
+        }
         else _connection?.Send(message);
     }
     public override void _UnhandledInput(InputEvent input)
@@ -600,7 +616,7 @@ public partial class Main : Node
             if ((ControlsOpen || ViewingDamageSummary) && key.PhysicalKeycode != Key.Escape) { GetViewport().SetInputAsHandled(); return; }
             if (key.PhysicalKeycode == Key.F1) { if (!InspectingEquipment) ToggleHelp(); GetViewport().SetInputAsHandled(); return; }
         }
-        if (!_playing || _paused || _help.Visible || InspectingEquipment || ControlsOpen || ViewingDamageSummary || DefenseInterfaceOpen ||
+        if (!_playing || TutorialHoldsCombat || _paused || _help.Visible || InspectingEquipment || ControlsOpen || ViewingDamageSummary || DefenseInterfaceOpen ||
             _waitingPanel?.Visible == true) return;
         if (input is InputEventKey { Pressed: true, Echo: false } press)
         {

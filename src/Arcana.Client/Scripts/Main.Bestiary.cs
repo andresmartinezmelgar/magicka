@@ -32,6 +32,7 @@ public partial class Main
     }
     private void BeginLocalBestiary()
     {
+        if (TutorialActive) { _localBestiaryRun = _localBestiaryUid = ""; return; }
         if (_resumingSurvival is { } save && _practice?.IsDefense == true)
         {
             _localBestiaryRun = save.RunId; _localBestiaryUid = save.BestiaryUid;
@@ -44,7 +45,7 @@ public partial class Main
     }
     private void CaptureLocalBestiary()
     {
-        if (_localBestiaryRun.Length == 0 || _localBestiaryUid.Length == 0 || _practice == null) return;
+        if (TutorialActive || _localBestiaryRun.Length == 0 || _localBestiaryUid.Length == 0 || _practice == null) return;
         var progress = _practice.BestiaryProgress(_localId, _localBestiaryRun, _localBestiaryUid);
         if (progress == null || progress.Kills.Values.Sum() <= _localBestiarySaved) return;
         try { BestiaryQueue.Enqueue(progress); _localBestiarySaved = progress.Kills.Values.Sum(); }
