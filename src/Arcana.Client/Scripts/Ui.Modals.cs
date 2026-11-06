@@ -17,8 +17,12 @@ public static partial class Ui
         theme.SetStylebox("panel", "AcceptDialog", ModalPanel());
         theme.SetConstant("buttons_separation", "AcceptDialog", 12);
         theme.SetConstant("buttons_min_height", "AcceptDialog", 46);
-        theme.SetStylebox("panel", "PopupMenu", ModalPanel());
-        theme.SetStylebox("panel", "PopupPanel", ModalPanel());
+        var dropdown = ModalPanel();
+        dropdown.BgColor = new Color("202a46");
+        dropdown.BorderColor = Gold;
+        dropdown.BorderWidthTop = dropdown.BorderWidthBottom = dropdown.BorderWidthLeft = dropdown.BorderWidthRight = 3;
+        theme.SetStylebox("panel", "PopupMenu", dropdown);
+        theme.SetStylebox("panel", "PopupPanel", dropdown);
         theme.SetStylebox("hover", "PopupMenu", Panel(ArcanaMenuChrome.SurfaceRaised, 6, Blue));
         theme.SetColor("font_color", "PopupMenu", Text);
         theme.SetColor("font_hover_color", "PopupMenu", Gold);
