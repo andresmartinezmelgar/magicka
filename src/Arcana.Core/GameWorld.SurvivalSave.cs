@@ -287,7 +287,7 @@ public sealed partial class GameWorld
                 d.EquipmentSetup is { Valid: true } && (!d.EquipmentSetup.Enabled || d.EquipmentSetupInitialized) &&
                 d.ManualEquipmentSlots is { Length: <= 6 } && d.ManualEquipmentSlots.All(s => Enum.IsDefined(s)) &&
                 d.ManualEquipmentSlots.Distinct().Count() == d.ManualEquipmentSlots.Length &&
-                (d.EquipmentSetup.Enabled || d.ManualEquipmentSlots.Length == 0) &&
+                (entry.Body.Bot || d.EquipmentSetup.Enabled || d.ManualEquipmentSlots.Length == 0) &&
                 (d.GoldCoinRemainderScale == 0 ? d.GoldCoinRemainder is >= 0 and <= 1 :
                     d.GoldCoinRemainderScale == GoldBonuses.CoinFractionScale && d.GoldCoinRemainder is >= 0 and < GoldBonuses.CoinFractionScale) &&
                 d.GoldPercentRemainder is >= 0 and <= 99 &&

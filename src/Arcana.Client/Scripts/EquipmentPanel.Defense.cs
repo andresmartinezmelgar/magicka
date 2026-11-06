@@ -12,7 +12,7 @@ public partial class EquipmentPanel
     private int _defensePreferenceRevision;
     private void SyncDefensePreferences()
     {
-        if (_defensePlayer == null || _draft == null) return;
+        if (_defensePlayer == null || _draft == null || BotInventory) return;
         if (_defenseFavorites != null && _defenseFavorites.SequenceEqual(_defensePlayer.Favorites) &&
             _defenseAutoSellStyles!.SequenceEqual(_defensePlayer.AutoSellStyles)) return;
         _defenseFavorites = _defensePlayer.Favorites; _defenseAutoSellStyles = _defensePlayer.AutoSellStyles;
@@ -26,7 +26,7 @@ public partial class EquipmentPanel
         foreach (var item in player.Items) _itemLevels[item.Item.Id] = item.Upgrades;
     }
     private WizardSnapshot? _defenseWizard;
-    private bool _defenseMatchEnded;
+    private bool _defenseMatchEnded, _defenseRequesterAlive;
     private Action? _resumeDefense;
     private Action<ClientMessage>? _defenseSubmit;
     private string _defenseInventoryStamp = "";
@@ -35,16 +35,20 @@ public partial class EquipmentPanel
     private ulong _defensePendingAt;
     private string _defensePendingMessage = "";
     internal bool TemporaryInventory => _defensePlayer != null;
-    private bool CanChangeDefenseItems => _defenseWizard?.Alive == true && !_defenseMatchEnded;
+    internal int DefenseInventoryPlayerId => _defensePlayer?.PlayerId ?? 0;
+    private bool BotInventory => _defenseWizard?.Bot == true;
+    private bool CanChangeDefenseItems => !_defenseMatchEnded &&
+        (BotInventory ? _defenseRequesterAlive && _defensePlayer!.LivesRemaining > 0 : _defenseWizard?.Alive == true);
     private bool AutomaticSurvivalEquipment => _defensePlayer?.EquipmentSetup.Enabled == true;
-    private bool CanSellInventory => _defensePlayer != null ? CanChangeDefenseItems :
+    private bool CanSellInventory => _defensePlayer != null ? !BotInventory && CanChangeDefenseItems :
         !_main.InventoryAutoSelling && !_main.Accounts.InventoryNeedsRefresh && _main.Accounts.SignedIn &&
         (!_main.Accounts.IsDirectFirebaseSession || _main.Accounts.ServerAddress.Length > 0);
 
     internal void BuildDefense(Main main, DefensePlayerSnapshot player, WizardSnapshot wizard, bool ended, Action<ClientMessage> submit,
-        Action? resume = null)
+        Action? resume = null, bool requesterAlive = true)
     {
-        _defensePlayer = player; UpdateItemLevels(player); _defenseWizard = wizard; _defenseMatchEnded = ended; _defenseSubmit = submit;
+        _defensePlayer = player; UpdateItemLevels(player); _defenseWizard = wizard;
+        _defenseMatchEnded = ended; _defenseRequesterAlive = requesterAlive; _defenseSubmit = submit;
         _resumeDefense = resume;
         Build(main, "");
     }
@@ -59,24 +63,26 @@ public partial class EquipmentPanel
 
     private void RenderDefenseActions()
     {
-        if (_defensePlayer == null) return;
+        if (_defensePlayer == null || BotInventory) return;
         _inventoryMenu.GetPopup().SetItemDisabled(0, _busy || !CanChangeDefenseItems || _defensePlayer.Gold < 100 ||
             _defensePlayer.Items.Length >= DefenseRules.InventoryLimit);
     }
 
-    internal void UpdateDefenseInventory(DefensePlayerSnapshot player, WizardSnapshot wizard, bool ended)
+    internal void UpdateDefenseInventory(DefensePlayerSnapshot player, WizardSnapshot wizard, bool ended, bool requesterAlive = true)
     {
-        _defensePlayer = player; UpdateItemLevels(player); _defenseWizard = wizard; _defenseMatchEnded = ended;
+        _defensePlayer = player; UpdateItemLevels(player); _defenseWizard = wizard;
+        _defenseMatchEnded = ended; _defenseRequesterAlive = requesterAlive;
         UpdateProgressStats();
         SyncDefensePreferences();
-        string stamp = player.Gold + ":" + wizard.Alive + ":" + ended + ":" + _defensePreferenceRevision + ":" +
+        string stamp = player.Gold + ":" + CanChangeDefenseItems + ":" + _defensePreferenceRevision + ":" +
             player.EquipmentSetup.Enabled + ":" + string.Join(",", player.ManualEquipmentSlots) + ":" +
             string.Join('|', player.Items.Select(i => $"{i.Item.Id}:{i.Upgrades}:{i.Equipped}"));
         if (stamp != _defenseInventoryStamp)
         {
             _defenseInventoryStamp = stamp;
-            if (AutomaticSurvivalEquipment) { _draft = DefenseProfile(player); _savedLoadout = _draft.Loadout; }
-            RebaseDraft(); Render();
+            if (BotInventory || AutomaticSurvivalEquipment) { _draft = DefenseProfile(player); _savedLoadout = _draft.Loadout; }
+            else RebaseDraft();
+            Render();
             RefreshPickerItems();
         }
         if (_defensePending == null) return;
@@ -110,7 +116,7 @@ public partial class EquipmentPanel
 
     private void BuyDefenseItem()
     {
-        if (_busy || !CanChangeDefenseItems || _defensePlayer == null || _inventoryMenu.GetPopup().IsItemDisabled(0)) return;
+        if (_busy || BotInventory || !CanChangeDefenseItems || _defensePlayer == null || _inventoryMenu.GetPopup().IsItemDisabled(0)) return;
         var ids = _defensePlayer.Items.Select(i => i.Item.Id).ToHashSet(StringComparer.Ordinal);
         int sold = _defensePlayer.AutoSold;
         DefenseOperation(new() { Type = "defense_supply" }, p => p.Items.Any(i => !ids.Contains(i.Item.Id)) || p.AutoSold > sold,
@@ -120,7 +126,7 @@ public partial class EquipmentPanel
     private bool CanUpgradeDefenseItem(string id)
     {
         var entry = _defensePlayer?.Items.FirstOrDefault(i => i.Item.Id == id);
-        return !_busy && CanChangeDefenseItems && entry != null && ItemAffixes.CanUpgrade(entry.Item, entry.Upgrades) && _defensePlayer!.Gold >= DefenseRules.UpgradeCost(entry.Item.Tier, entry.Upgrades);
+        return !_busy && !BotInventory && CanChangeDefenseItems && entry != null && ItemAffixes.CanUpgrade(entry.Item, entry.Upgrades) && _defensePlayer!.Gold >= DefenseRules.UpgradeCost(entry.Item.Tier, entry.Upgrades);
     }
 
     private void UpgradeDefenseItem(string id)
@@ -141,13 +147,13 @@ public partial class EquipmentPanel
 
     private void SaveDefenseAndClose()
     {
-        if (!HasChanges) { FinishDefenseClose(); return; }
+        if (BotInventory || !HasChanges) { FinishDefenseClose(); return; }
         var desired = _draft!.Loadout;
         DefenseOperation(new() { Type = "defense_loadout", Loadout = desired },
             p => DefenseProfile(p).Loadout == desired, FinishDefenseClose);
     }
 
-    private void FinishDefenseClose()
+    internal void FinishDefenseClose()
     {
         _lifetime.Cancel(); QueueFree(); Closed?.Invoke(); _afterClose?.Invoke();
     }

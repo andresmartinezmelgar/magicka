@@ -112,7 +112,8 @@ public partial class EquipmentPanel
     {
         _closing = false;
         string reason = error is OperationCanceledException ? "No se pudo confirmar el guardado a tiempo." : error.Message;
-        Render(); Busy(false, reason + " Reintenta salir para guardar, o elige «Descartar cambios y salir» en Opciones.");
+        Render();
+        Busy(false, BotInventory ? reason : reason + " Reintenta salir para guardar, o elige «Descartar cambios y salir» en Opciones.");
     }
 
     private void ContinueRequestedClose()

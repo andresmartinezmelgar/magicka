@@ -43,7 +43,7 @@ public sealed partial class GameWorld
             string selected = loadout.Get(slot);
             if (slot != chosenSlot && previous == selected) continue;
 
-            if (progress.EquipmentSetup.Enabled) progress.ManualEquipmentSlots.Add(slot);
+            if (player.Bot || progress.EquipmentSetup.Enabled) progress.ManualEquipmentSlots.Add(slot);
             // Protege las dos piezas implicadas en la elección, aunque la anterior se equipara sola.
             if (previous.Length > 0) progress.EquippedItemHistory.Add(previous);
             if (selected.Length > 0) progress.EquippedItemHistory.Add(selected);

@@ -47,6 +47,43 @@ internal static class SurvivalTests
                         "La IA mojada conserva una descarga eléctrica peligrosa o receta incompleta.");
                 }
         });
+        test("Supervivencia: la IA elige hechizos que infligen daño con su elemento más potenciado", () =>
+        {
+            var w = World();
+            var human = w.AddPlayer("Humano")!;
+            var bot = w.AddPlayer("Bot", bot: true, wizardType: WizardType.Pyromancer)!;
+            var choose = typeof(GameWorld).GetMethod("AttunedDefenseBotAttack", BindingFlags.NonPublic | BindingFlags.Static)!;
+            Check((Element?)Call(w, "PreferredDefenseBotElement", bot) == Element.Fire, "Se perdió la afinidad del mago.");
+            var random = new Random(21);
+            foreach (var (element, stat) in new[]
+            {
+                (Element.Fire, EquipmentStat.FirePower), (Element.Water, EquipmentStat.WaterPower),
+                (Element.Cold, EquipmentStat.ColdPower), (Element.Lightning, EquipmentStat.LightningPower),
+                (Element.Arcane, EquipmentStat.ArcanePower), (Element.Earth, EquipmentStat.EarthPower)
+            })
+            {
+                var item = EquipmentCatalogue.Generate(random, tier: ItemTier.Silver, slot: EquipmentSlot.Weapon)
+                    with { Bonuses = [new(stat, 0.30f, 0.50f, 0.30f)] };
+                Call(w, "GrantDefenseItem", bot, item);
+                Check(w.ApplyMessage(human.Id, new() { Type = "defense_bot_equip", DefenseBotId = bot.Id, ItemId = item.Id,
+                    Slot = (int)item.Slot, Sequence = human.LastSequence + 1 }), "No se pudo equipar el arma elemental.");
+                var preferred = (Element?)Call(w, "PreferredDefenseBotElement", bot);
+                Check(preferred == element, $"El equipo no cambió el elemento preferido a {element}.");
+                foreach (float distance in new[] { 4f, 8.8f, 13f })
+                    for (int turn = 0; turn < 3; turn++)
+                    {
+                        var spell = new SpellRecipe((Element[])choose.Invoke(null, [element, distance, turn, false])!);
+                        Check(spell.Count(element) >= 2 && SpellBalance.Component(spell, element) > 0 && distance <= spell.Range,
+                            $"El bot eligió un ataque de {element} sin daño elemental o fuera de alcance.");
+                    }
+            }
+
+            human.Position = new(-15, 0); bot.Position = new(-24, 0);
+            var enemy = Spawn(w); enemy.Position = new(-28.7f, 0);
+            Call(w, "PlanDefenseBots", GameWorld.StepSeconds);
+            Call(w, "ThinkDefenseBot", bot, GameWorld.StepSeconds);
+            Check(bot.Charging?.Count(Element.Earth) >= 2, "La IA de combate no usó el arma de tierra que acababa de equipar.");
+        });
         test("Supervivencia: IA alterna conos, descargas, rocas, hielo y rayos a distancias válidas", () =>
         {
             var choose = typeof(GameWorld).GetMethod("DefenseBotAttack",

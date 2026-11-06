@@ -72,14 +72,21 @@ public partial class EquipmentPanel : Control
         _inventoryMenu = new MenuButton { Name = "EquipmentActions", Text = "Opciones", CustomMinimumSize = new(72, 44) };
         _inventoryMenu.AddThemeFontSizeOverride("font_size", 13); _equipmentToolbar.AddChild(_inventoryMenu);
         var menu = _inventoryMenu.GetPopup();
-        menu.AddItem(_defensePlayer == null ? "Actualizar inventario" : "Comprar pieza · 100 oro", 0);
-        menu.AddItem(_defensePlayer == null ? "Equipos guardados" : "Atrás · menú de supervivencia", 1);
-        menu.AddItem("Venta múltiple", 2);
+        if (!BotInventory)
+        {
+            menu.AddItem(_defensePlayer == null ? "Actualizar inventario" : "Comprar pieza · 100 oro", 0);
+            menu.AddItem(_defensePlayer == null ? "Equipos guardados" : "Atrás · menú de supervivencia", 1);
+            menu.AddItem("Venta múltiple", 2);
+        }
         menu.AddItem("Bonificaciones de conjuntos", 3);
-        menu.AddItem("Descartar cambios y salir", 4);
-        menu.AddItem("Venta automática", 5);
+        if (!BotInventory)
+        {
+            menu.AddItem("Descartar cambios y salir", 4);
+            menu.AddItem("Venta automática", 5);
+        }
         menu.IdPressed += id =>
         {
+            if (BotInventory && id != 3) return;
             if (_defensePlayer != null && id == 1) { Close(); return; }
             if (InventoryLocked) return;
             if (id == 5) { OpenAutoSellRules(); return; }
@@ -156,7 +163,7 @@ public partial class EquipmentPanel : Control
         float width = GetViewport().GetVisibleRect().Size.X;
         _avatarPane.CustomMinimumSize = new(Math.Clamp(width * .32f, 178, 430), 0);
         bool shortView = GetViewport().GetVisibleRect().Size.Y <= 500;
-        _salesHelp.Visible = !shortView;
+        _salesHelp.Visible = !shortView && !BotInventory;
         _totalsTitle.Visible = !shortView;
         _sets.Visible = !shortView || _sets.Text != "Sin conjuntos activos.";
         _totalsSummary.AddThemeConstantOverride("separation", shortView ? 4 : 8);
@@ -212,6 +219,7 @@ public partial class EquipmentPanel : Control
     {
         var account = _draft;
         _profile.Text = account == null ? "Sin cuenta" : $"{account.Gold} oro{(_defensePlayer == null ? "" : " temporal")} · {account.Items.Length}/{(_defensePlayer == null ? EquipmentCatalogue.InventoryLimit : DefenseRules.InventoryLimit)} objetos";
+        if (BotInventory) _profile.Text = _defenseWizard!.Name + "\n" + _profile.Text;
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
             var view = _slots[(int)slot]; var choices = Choices(slot);
@@ -231,7 +239,7 @@ public partial class EquipmentPanel : Control
             examples.Add("Daño recibido: 100 → " + (100 * m.Incoming).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
         if (account != null && m.ShieldCapacity != 1)
             examples.Add("Escudo básico: 420 → " + (420 * m.ShieldCapacity).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + " HP");
-        _combatPreview.Text = examples.Count > 0 ? "Con tu equipo · " + string.Join(" · ", examples) : "";
+        _combatPreview.Text = examples.Count > 0 ? (BotInventory ? "Con el equipo del bot · " : "Con tu equipo · ") + string.Join(" · ", examples) : "";
         string specialEffects = ItemAffixes.Summary(m);
         if (specialEffects.Length > 0) _combatPreview.Text += (_combatPreview.Text.Length > 0 ? "\n\n" : "") + "EFECTOS ESPECIALES ACTIVOS\n" + NumberedImprovements(specialEffects) +
             "\nLos efectos iguales usan el valor más alto; no se suman entre piezas.";
@@ -245,6 +253,7 @@ public partial class EquipmentPanel : Control
         _salesHelp.Text = _main.InventoryAutoSelling && !TemporaryInventory ? "Terminando la venta automática. Puedes salir de esta pantalla." :
             "Favoritos y equipados protegidos. Los Míticos solo se venden manualmente.";
         if (!_busy && _status.Text.Length == 0) SetStatus(account == null ? "Inicia sesión con Google para recuperar tu inventario y conseguir objetos en PvP." :
+            BotInventory ? "Elige una pieza para actualizar el equipo del bot." :
             "Pulsa una posición para elegir una pieza. La configuración se guarda al salir del inventario.", routine: true);
         if (_defensePlayer != null) RenderDefenseActions();
     }
@@ -271,6 +280,7 @@ public partial class EquipmentPanel : Control
             if (effects.Length > 0) AddItemEffects(_detailEffects, $"Nivel {ItemLevel(item)}/10\n" + effects);
         }
         _empty.Text = item == null ? "Sin pieza equipada. Pulsa una posición para abrir sus objetos ordenados por calidad." :
+            BotInventory ? "Pulsa una posición para comparar sus objetos." :
             "Pulsa una posición para comparar sus objetos. Los cambios se guardan al salir del inventario.";
     }
     public static Color TierColor(ItemTier tier) => tier switch
@@ -320,6 +330,15 @@ public partial class EquipmentPanel : Control
         ResetQuickActions();
         try
         {
+            if (BotInventory)
+            {
+                var slot = _selectedSlot;
+                _ = AccountInventory.Equip(_draft, new InventoryRequest(id, slot));
+                DefenseOperation(new() { Type = "defense_bot_equip", DefenseBotId = DefenseInventoryPlayerId, ItemId = id, Slot = (int)slot },
+                    p => DefenseProfile(p).Loadout.Get(slot) == id,
+                    message: "Equipo del bot actualizado.");
+                return;
+            }
             if (AutomaticSurvivalEquipment)
             {
                 // Confirmar solo la ranura elegida evita sobrescribir botín recibido mientras el menú está abierto.

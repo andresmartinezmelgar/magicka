@@ -21,7 +21,9 @@ public partial class DefensePanel : Control
     private readonly List<Button> _auras = [], _passives = [];
     private readonly List<ElementTextLabel> _auraHints = [], _passiveHints = [];
     private readonly List<VBoxContainer> _sections = [];
-    private ElementTextLabel _shopStatus = null!, _equipmentSummary = null!;
+    private ElementTextLabel _shopStatus = null!, _equipmentSummary = null!, _noBotInventories = null!;
+    private VBoxContainer _botInventories = null!;
+    private string _botInventoryRoster = "";
     private ContentScrollContainer _scroll = null!;
     private VBoxContainer _auraSection = null!, _passiveSection = null!;
     private Button _auraTab = null!, _passiveTab = null!;
@@ -40,7 +42,8 @@ public partial class DefensePanel : Control
     private Button _sectionBack = null!;
     private ElementTextLabel _shopTitle = null!;
     private int _sectionIndex = -1;
-    private static readonly string[] SectionNames = ["Partida", "Equipo", "Poderes", "Estadísticas", "Guía", "Reliquias", "Configuración predeterminada"];
+    private const int BotEquipmentSection = 7;
+    private static readonly string[] SectionNames = ["Partida", "Equipo", "Poderes", "Estadísticas", "Guía", "Reliquias", "Configuración predeterminada", "Bots aliados"];
     private WorldSnapshot? _lastSnapshot;
     private int _lastPlayerId;
     private bool _lastOnline, _lastRewardsAvailable, _lastShopOpen;
@@ -110,6 +113,8 @@ public partial class DefensePanel : Control
         _equipmentSummary.Name = "DefenseEquipmentSummary";
         equipment.AddChild(Ui.Button("Abrir inventario de partida", OpenEquipmentInventory));
         Wrapped(equipment, "Elige botas, gorro, pechera, arma y los dos anillos. Compara las piezas por calidad y consulta sus atributos y bonificaciones. La selección se aplica al volver a la tienda.", 16);
+        _botInventories = _sections[BotEquipmentSection];
+        _noBotInventories = Wrapped(_botInventories, "No hay bots aliados con inventario disponible.", 16, Ui.Muted);
         var powers = _sections[2];
         var powerNavigation = new HBoxContainer(); powers.AddChild(powerNavigation);
         _passiveTab = Ui.Button("Habilidades automáticas", () => ShowPowers(true));
@@ -176,6 +181,7 @@ public partial class DefensePanel : Control
         if (index == 1) OpenEquipmentInventory();
         if (index == 3 && ShopOpen) UpdateTotals();
         if (index == 4) UpdateGuide();
+        if (index == BotEquipmentSection) UpdateBotInventories();
     }
     private void ShowMenu()
     {
@@ -213,10 +219,53 @@ public partial class DefensePanel : Control
     }
     private void OpenEquipmentInventory()
     {
-        if (!ShopOpen || _equipmentInventory != null || _player == null || _wizard == null) return;
+        if (_player != null && _wizard != null) OpenEquipmentInventory(_player, _wizard);
+    }
+
+    private void OpenEquipmentInventory(DefensePlayerSnapshot player, WizardSnapshot wizard)
+    {
+        if (!ShopOpen || _equipmentInventory != null || _wizard == null) return;
         var inventory = new EquipmentPanel(); _equipmentInventory = inventory; _shop.AddChild(inventory);
-        inventory.BuildDefense(_main, _player, _wizard, _ended, _submit, FinishClosingShop);
-        inventory.Closed += () => { if (_equipmentInventory == inventory) { _equipmentInventory = null; ShowMenu(); } };
+        inventory.BuildDefense(_main, player, wizard, _ended, _submit, FinishClosingShop, _wizard.Alive);
+        inventory.Closed += () =>
+        {
+            if (_equipmentInventory != inventory) return;
+            _equipmentInventory = null;
+            if (!wizard.Bot) ShowMenu();
+        };
+    }
+
+    private (DefensePlayerSnapshot Player, WizardSnapshot Wizard)? FindBotInventory(int id)
+    {
+        if (_wizard is not { Bot: false } human ||
+            _lastSnapshot?.Players.FirstOrDefault(w => w.Id == id && w.Bot && w.Team == human.Team) is not { } bot ||
+            _state?.Defenders.FirstOrDefault(p => p.PlayerId == id && p.BotInventoryAvailable) is not { } player) return null;
+        return (player, bot);
+    }
+
+    private void UpdateBotInventories()
+    {
+        var bots = _lastSnapshot?.Players.Where(w => w.Bot && FindBotInventory(w.Id).HasValue).ToArray() ?? [];
+        string roster = string.Join('|', bots.Select(w => $"{w.Id}:{w.Name}"));
+        if (_botInventoryRoster == roster) return;
+        _botInventoryRoster = roster;
+        foreach (var child in _botInventories.GetChildren())
+        {
+            if (child == _noBotInventories) continue;
+            _botInventories.RemoveChild(child);
+            child.QueueFree();
+        }
+        _noBotInventories.Visible = bots.Length == 0;
+        foreach (var bot in bots)
+        {
+            var button = Ui.ExitButton(bot.Name, () =>
+            {
+                if (FindBotInventory(bot.Id) is { } entry) OpenEquipmentInventory(entry.Player, entry.Wizard);
+            }, "DefenseBotInventory" + bot.Id);
+            button.CustomMinimumSize = new(0, 54);
+            button.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            _botInventories.AddChild(button);
+        }
     }
     private void Send(string type) => _submit(new() { Type = type });
 
@@ -297,7 +346,14 @@ public partial class DefensePanel : Control
             (snapshot.RewardStatus.Length > 0 ? "\n" + snapshot.RewardStatus : "");
         _restart.Visible = snapshot.MatchEnded; _restart.Disabled = !_canRestart;
         _restart.TooltipText = _canRestart ? "Reinicia toda la progresión temporal." : "Solo el anfitrión puede iniciar otra partida.";
-        _equipmentInventory?.UpdateDefenseInventory(p, _wizard, snapshot.MatchEnded);
+        if (_sectionIndex == BotEquipmentSection) UpdateBotInventories();
+        if (_equipmentInventory is { } inventory)
+        {
+            if (inventory.DefenseInventoryPlayerId == id) inventory.UpdateDefenseInventory(p, _wizard, snapshot.MatchEnded);
+            else if (FindBotInventory(inventory.DefenseInventoryPlayerId) is { } entry)
+                inventory.UpdateDefenseInventory(entry.Player, entry.Wizard, snapshot.MatchEnded, _wizard.Alive);
+            else inventory.FinishDefenseClose();
+        }
         if (_sections[3].Visible) UpdateTotals();
         if (_sections[4].Visible) UpdateGuide();
     }

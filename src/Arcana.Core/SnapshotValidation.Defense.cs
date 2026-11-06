@@ -38,7 +38,8 @@ public static partial class SnapshotValidation
         ids.Clear();
         foreach (var p in d.Defenders!)
         {
-            if (p == null || !ids.Add(p.PlayerId) || !state.Players.Any(w => w.Id == p.PlayerId) || p.Level is < 1 or > 100 ||
+            if (p == null || !ids.Add(p.PlayerId) ||
+                !state.Players.Any(w => w.Id == p.PlayerId && (!p.BotInventoryAvailable || w.Bot)) || p.Level is < 1 or > 100 ||
                 p.Experience < 0 || p.Experience >= DefenseRules.ExperienceForLevel(p.Level) || p.NextLevelExperience != DefenseRules.ExperienceForLevel(p.Level) ||
                 p.Gold is < 0 or > 100000000 || p.Kills < 0 || p.Deaths is < 0 or > DefenseRules.PlayerLives || !double.IsFinite(p.ActiveSeconds) ||
                 p.ActiveSeconds < 0 || p.ActiveSeconds > state.Time + 0.1 || p.Auras == null || p.Auras.Length != DefenseRules.AuraCount ||

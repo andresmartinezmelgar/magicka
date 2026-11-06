@@ -135,6 +135,15 @@ public sealed partial class GameWorld
                 }
                 SetManualDefenseLoadout(player, progress, progress.Loadout.With(selectedSlot, command.ItemId), selectedSlot);
                 return true;
+            case "defense_bot_equip":
+                if (player.Bot || !_players.TryGetValue(command.DefenseBotId, out var bot) || !bot.Bot || !Allied(player, bot) ||
+                    bot.Deaths >= DefenseRules.PlayerLives || !_defenders.TryGetValue(bot.Id, out var botProgress) ||
+                    command.ItemId == null) return false;
+                var botSlot = (EquipmentSlot)command.Slot;
+                if (!Enum.IsDefined(botSlot) || command.ItemId.Length > 0 &&
+                    !botProgress.Items.Any(i => i.Id == command.ItemId && i.Slot == botSlot)) return false;
+                SetManualDefenseLoadout(bot, botProgress, botProgress.Loadout.With(botSlot, command.ItemId), botSlot);
+                return true;
             case "defense_upgrade":
             case "defense_sell":
                 if (command.ItemId == null || command.ItemId.Length != 32) return false;
@@ -217,7 +226,8 @@ public sealed partial class GameWorld
             item = item with { Bonuses = item.Bonuses.Select(b => EquipmentCatalogue.BonusActive(item.Slot, b.Stat)
                 ? b with { Maximum = MathF.Round(b.Current + DefenseRules.ItemUpgradeLimit * DefenseRules.ItemUpgradeStep, 4) } : b).ToArray() };
             progress.Items.Add(item);
-            if (progress.Loadout.Get(item.Slot).Length == 0) progress.Loadout = progress.Loadout.With(item.Slot, item.Id);
+            if (progress.Loadout.Get(item.Slot).Length == 0 && !progress.ManualEquipmentSlots.Contains(item.Slot))
+                progress.Loadout = progress.Loadout.With(item.Slot, item.Id);
             RecalculateDefender(player);
         }
         Emit("defense_item", player.Position, [], player.Name + ": objeto temporal " + EquipmentCatalogue.TierName(item.Tier));
@@ -335,7 +345,7 @@ public sealed partial class GameWorld
                     RelicBuffs.Speed(p) * p.Equipment.Speed * DefenseSpeed(p), Copy(s.Passives), Copy(s.PassiveCooldowns), s.BerserkerRemaining)
                     { Favorites = s.Favorites.ToArray(), AutoSellStyles = s.AutoSellStyles.ToArray(), AutoSold = s.AutoSold,
                         EquipmentSetup = s.EquipmentSetup.Copy(), EquipmentSetupInitialized = s.EquipmentSetupInitialized,
-                        ManualEquipmentSlots = s.ManualEquipmentSlots.Order().ToArray() };
+                        ManualEquipmentSlots = p.Bot ? [] : s.ManualEquipmentSlots.Order().ToArray(), BotInventoryAvailable = p.Bot };
             }).ToArray(), DefensePaused, _players.Values.Count(p => !p.Bot))
             { Bestiary = _defenseBestiary.Values.OrderBy(e => e.Kind).ToArray(), NextBossIn = _bossClock, BossesKilled = _bossesKilled,
                 MinionLimit = DefenseMinionLimit, PerformanceLimit = DefensePerformanceLimit };

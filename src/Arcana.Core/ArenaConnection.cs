@@ -158,7 +158,7 @@ public sealed partial class ArenaConnection : IAsyncDisposable
                 InspectionRequestId = message.InspectionRequestId, InspectPlayerId = message.InspectPlayerId,
                 Element = message.Element, Slot = message.Slot, Team = message.Team, ItemId = message.ItemId,
                 FramesPerSecond = message.FramesPerSecond, FrameTime95 = message.FrameTime95, BaselineId = message.BaselineId, Loadout = message.Loadout,
-                AutoSellStyle = message.AutoSellStyle,
+                AutoSellStyle = message.AutoSellStyle, DefenseBotId = message.DefenseBotId,
                 MoveX = message.MoveX, MoveY = message.MoveY,
                 MoveTo = message.MoveTo, TargetX = message.TargetX, TargetY = message.TargetY,
                 AimX = message.AimX, AimY = message.AimY };

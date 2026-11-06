@@ -321,6 +321,56 @@ internal static class DefenseTests
             Check(first.Defense.Defenders.Single(p => p.PlayerId == b.Id).Modifiers == full.Defense!.Defenders.Single(p => p.PlayerId == b.Id).Modifiers, "Se ocultaron bonos públicos.");
             SnapshotValidation.Check(first); SnapshotValidation.Check(second);
         });
+        test("Supervivencia: inventario del bot compartido, equipo por ranura y selección persistente", () =>
+        {
+            var w = World(bots: 1);
+            var a = w.AddPlayer("A")!; var b = w.AddPlayer("B")!;
+            var bot = w.Players.Values.Single(p => p.Bot);
+            var random = new Random(118);
+            EquipmentItem Piece(EquipmentSlot slot) => EquipmentCatalogue.Generate(random, tier: ItemTier.Silver, slot: slot);
+            var own = Piece(EquipmentSlot.Weapon); var ally = Piece(EquipmentSlot.Weapon);
+            var first = Piece(EquipmentSlot.Weapon); var second = Piece(EquipmentSlot.Weapon); var chest = Piece(EquipmentSlot.Chest);
+            Invoke(w, "GrantDefenseItem", a, own); Invoke(w, "GrantDefenseItem", b, ally);
+            foreach (var item in new[] { first, second, chest }) Invoke(w, "GrantDefenseItem", bot, item);
+
+            bool Equip(Wizard actor, int target, EquipmentSlot slot, string id = "")
+            {
+                var action = new ClientMessage { Type = "defense_bot_equip", DefenseBotId = target, Slot = (int)slot,
+                    ItemId = id, Sequence = actor.LastSequence + 1 };
+                return w.ApplyMessage(actor.Id, Protocol.Deserialize<ClientMessage>(Protocol.SerializeBinaryAction(action))!);
+            }
+
+            var snapshot = w.Snapshot();
+            foreach (var (viewer, other) in new[] { (a, b), (b, a) })
+            {
+                var visible = DefenseVisibility.ForPlayer(snapshot, viewer.Id);
+                var inventory = visible.Defense!.Defenders.Single(p => p.PlayerId == bot.Id);
+                Check(inventory.BotInventoryAvailable && inventory.Items.Length == 3 &&
+                    visible.Defense.Defenders.Single(p => p.PlayerId == other.Id).Items.Length == 0,
+                    "El humano no recibió el inventario del bot o recibió el de otro humano.");
+                SnapshotValidation.Check(visible);
+            }
+            Check(!Equip(a, b.Id, EquipmentSlot.Weapon, ally.Id) && !Equip(a, bot.Id, EquipmentSlot.Weapon, own.Id) &&
+                !Equip(a, bot.Id, EquipmentSlot.Chest, second.Id) && !Equip(bot, bot.Id, EquipmentSlot.Weapon, second.Id),
+                "La partida aceptó una selección de equipo sin permiso o en una ranura incorrecta.");
+            Check(Equip(b, bot.Id, EquipmentSlot.Weapon, second.Id) &&
+                Player(w, bot).Items.Where(i => i.Equipped).Select(i => i.Item.Id).ToHashSet().SetEquals([second.Id, chest.Id]) &&
+                Player(w, a).Items.Single().Equipped && Player(w, b).Items.Single().Equipped,
+                "El cambio no se aplicó al bot o afectó otra ranura o inventario.");
+
+            w.RemovePlayer(b.Id);
+            Check(Command(w, a, "defense_shop", 1) && w.DefensePaused &&
+                Equip(a, bot.Id, EquipmentSlot.Weapon), "No se pudo quitar el arma del bot con la partida pausada.");
+            Invoke(w, "GrantDefenseItem", bot, Piece(EquipmentSlot.Weapon));
+            Check(Player(w, bot).Items.Single(i => i.Equipped).Item.Id == chest.Id,
+                "El bot volvió a llenar la ranura despejada manualmente.");
+            var restored = GameWorld.RestoreSurvival(w.SaveSurvival(a.Id, Guid.NewGuid().ToString("N")));
+            var restoredBot = restored.Players[bot.Id];
+            Invoke(restored, "GrantDefenseItem", restoredBot, Piece(EquipmentSlot.Weapon));
+            Check(Player(restored, restoredBot).Items.Single(i => i.Equipped).Item.Id == chest.Id,
+                "El guardado perdió la selección del bot.");
+            SnapshotValidation.Check(restored.Snapshot());
+        });
         test("Defensa: copia de inventario aislada y tiempo activo de canalización", () =>
         {
             var w = World(); var p = w.AddPlayer("Mago")!;

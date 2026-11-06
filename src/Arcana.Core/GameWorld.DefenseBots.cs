@@ -135,9 +135,24 @@ public sealed partial class GameWorld
             ? [Element.Fire, Element.Fire, Element.Fire]
             : [Element.Water, Element.Cold, Element.Cold];
     }
-    private static Element[] AttunedDefenseBotAttack(WizardType type, float distance, int turn, Element? weakness)
+    private Element? PreferredDefenseBotElement(Wizard bot)
     {
-        Element? element = weakness ?? WizardTypes.Affinity(type);
+        var affinity = WizardTypes.Affinity(bot.WizardType);
+        Element strongest = affinity ?? SpellBalance.Offensive[0];
+        float highest = Outgoing(bot.Id, strongest), lowest = highest;
+        foreach (var element in SpellBalance.Offensive)
+        {
+            float power = Outgoing(bot.Id, element);
+            lowest = Math.Min(lowest, power);
+            if (power <= highest) continue;
+            strongest = element;
+            highest = power;
+        }
+        return highest > lowest ? strongest : affinity;
+    }
+
+    private static Element[] AttunedDefenseBotAttack(Element element, float distance, int turn, bool exploitingWeakness)
+    {
         int phase = Math.Abs(turn % 3);
         return element switch
         {
@@ -145,10 +160,12 @@ public sealed partial class GameWorld
                 : phase == 1 ? [Element.Earth, Element.Fire, Element.Fire] : [Element.Arcane, Element.Fire, Element.Fire],
             Element.Cold => distance <= 6 && phase == 0 ? [Element.Cold, Element.Cold, Element.Cold]
                 : phase == 1 ? [Element.Water, Element.Cold, Element.Cold] : [Element.Earth, Element.Cold, Element.Cold],
-            Element.Lightning => distance <= 9 && phase == 0 ? [Element.Lightning, Element.Lightning, Element.Lightning]
+            Element.Lightning => distance <= 8.5f && phase == 0 ? [Element.Lightning, Element.Lightning, Element.Lightning]
                 : [Element.Arcane, Element.Lightning, Element.Lightning],
-            Element.Earth => phase == 1 && weakness == null ? [Element.Earth, Element.Earth, Element.Fire] : [Element.Earth, Element.Earth, Element.Earth],
-            Element.Water => distance <= 6 ? [Element.Water, Element.Water, Element.Water] : [Element.Earth, Element.Water, Element.Water],
+            Element.Earth => phase == 1 && !exploitingWeakness ? [Element.Earth, Element.Earth, Element.Fire] : [Element.Earth, Element.Earth, Element.Earth],
+            Element.Water when exploitingWeakness => distance <= 6 ? [Element.Water, Element.Water, Element.Water]
+                : [Element.Earth, Element.Water, Element.Water],
+            Element.Water => distance <= 6.5f ? [Element.Water, Element.Water, Element.Fire] : [Element.Water, Element.Water, Element.Cold],
             Element.Arcane => [Element.Arcane, Element.Arcane, Element.Arcane],
             _ => DefenseBotAttack(distance, turn)
         };
@@ -220,7 +237,7 @@ public sealed partial class GameWorld
         // Do not abort rocks mid-charge: the normal simulation releases them when
         // charged, and targeting remains updated while aiming at moving enemies.
         if (!healing && bot.Charging != null) return;
-        Element? preferred = target.VulnerableElement ?? WizardTypes.Affinity(bot.WizardType);
+        Element? preferred = healing ? null : target.VulnerableElement ?? PreferredDefenseBotElement(bot);
         if (!healing && preferred == Element.Lightning && bot.Wet > 0)
         {
             CancelCast(bot); bot.Selection.Clear(); bot.Selection.Add(Element.Fire);
@@ -228,7 +245,7 @@ public sealed partial class GameWorld
         }
         Element[] recipe = healing ? [Element.Life, Element.Life, Element.Life]
             : preferred == null ? SafeDefenseBotAttack(distance, plan.SpellTurn + bot.Id, bot.Wet > 0)
-            : AttunedDefenseBotAttack(bot.WizardType, distance, plan.SpellTurn + bot.Id, target.VulnerableElement);
+            : AttunedDefenseBotAttack(preferred.Value, distance / bot.Equipment.Range, plan.SpellTurn + bot.Id, target.VulnerableElement.HasValue);
         var spell = new SpellRecipe(recipe);
         bot.BotDecision = (spell.Shape is SpellShape.Rock or SpellShape.Shards ? 0.8f : 0.45f)
             + bot.Id % 3 * 0.07f;

@@ -200,6 +200,8 @@ public sealed record DefensePlayerSnapshot(int PlayerId, int Level, int Experien
     public SurvivalEquipmentSetup EquipmentSetup { get; init; } = new();
     public bool EquipmentSetupInitialized { get; init; }
     public EquipmentSlot[] ManualEquipmentSlots { get; init; } = [];
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool BotInventoryAvailable { get; init; }
     public int LivesRemaining => Math.Max(0, DefenseRules.PlayerLives - Deaths);
 }
 public sealed record DefenseSnapshot(double Elapsed, int Difficulty,
@@ -214,12 +216,25 @@ public sealed record DefenseSnapshot(double Elapsed, int Difficulty,
 
 public static class DefenseVisibility
 {
-    /// <summary>En red solo se replica el inventario y el botín asignado al destinatario. Los bonos públicos y auras siguen visibles.</summary>
-    public static WorldSnapshot ForPlayer(WorldSnapshot state, int playerId) => state.Defense is not { } d ? state
-        : state with { Defense = d with
+    /// <summary>Replica el inventario propio y el de los bots aliados. El botín asignado solo se envía a su destinatario.</summary>
+    public static WorldSnapshot ForPlayer(WorldSnapshot state, int playerId)
+    {
+        if (state.Defense is not { } defense) return state;
+        var recipient = state.Players.FirstOrDefault(p => p.Id == playerId);
+        return state with
         {
-            Defenders = d.Defenders.Select(p => p.PlayerId == playerId ? p : p with
-                { Items = [], Favorites = [], AutoSellStyles = [], EquipmentSetup = new(), EquipmentSetupInitialized = false, ManualEquipmentSlots = [] }).ToArray(),
-            Drops = d.Drops.Where(p => p.OwnerId == 0 || p.OwnerId == playerId).ToArray()
-        } };
+            Defense = defense with
+            {
+                Defenders = defense.Defenders.Select(p => p.PlayerId == playerId ||
+                    recipient is { Bot: false } && p.BotInventoryAvailable &&
+                    state.Players.Any(bot => bot.Id == p.PlayerId && bot.Bot && bot.Team == recipient.Team)
+                    ? p : p with
+                    {
+                        Items = [], Favorites = [], AutoSellStyles = [], EquipmentSetup = new(),
+                        EquipmentSetupInitialized = false, ManualEquipmentSlots = [], BotInventoryAvailable = false
+                    }).ToArray(),
+                Drops = defense.Drops.Where(p => p.OwnerId == 0 || p.OwnerId == playerId).ToArray()
+            }
+        };
+    }
 }
