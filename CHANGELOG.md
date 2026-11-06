@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.29.45
+
+- Al completar el tutorial, la burbuja desaparece de Inicio y el acceso «Repetir tutorial» pasa a Mi perfil.
+- Los desplegables de móvil y escritorio tienen un marco dorado y un fondo azul violáceo para destacar sobre el menú.
+
 ## 0.29.44
 
 - Tutorial opcional desde Inicio. Una burbuja «Recomendado» y un guante señalan el acceso para iniciar o continuar el entrenamiento.
