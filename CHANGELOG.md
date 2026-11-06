@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.29.39
+
+- El menú de Supervivencia permite consultar el inventario de los bots aliados y equipar o quitar sus piezas por ranura. La selección se conserva al continuar un guardado local.
+- Los bots favorecen el elemento que más potencia su equipo y su afinidad. Alternan con otros hechizos y aprovechan la debilidad elemental de los prismas.
+
 ## 0.29.38
 
 - El mago Equilibrado ensambla arma, gorro, pecho y botas en un solo sprite. Cada ranura se puede combinar por separado con piezas de las ocho familias míticas.
