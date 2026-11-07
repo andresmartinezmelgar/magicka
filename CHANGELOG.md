@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.29.47
+
+- Supervivencia muestra el inventario y los poderes de los bots aliados vivos. Los bots vuelven a la lista al revivir.
+- La regeneración de energía sale con menos frecuencia como atributo secundario de las piezas nuevas.
+- Si Android aborta la instalación antes de mostrar la confirmación, el juego puede abrirla en una segunda sesión con la APK descargada.
+
 ## 0.29.46
 
 - Nueva banda sonora «Pulso de batalla» a 144 BPM, con cuerdas rítmicas y percusión desde el menú.

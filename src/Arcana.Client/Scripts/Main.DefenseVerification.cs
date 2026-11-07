@@ -43,7 +43,11 @@ public partial class Main
         void Call(string name, params object[] values) => typeof(GameWorld).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(world, values);
         // La escena comprueba compras sobre ocho piezas conocidas. La velocidad de render
         // del runner no debe permitir que el bot genere botín adicional antes de abrir la tienda.
-        foreach (var bot in world.Players.Values.Where(p => p.Bot)) bot.BotDecision = 10000;
+        foreach (var bot in world.Players.Values.Where(p => p.Bot))
+        {
+            bot.BotDecision = 10000;
+            bot.Invulnerable = 1.2f;
+        }
         typeof(GameWorld).GetField("_spawnClock", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(world, 10000f);
         var p = world.Players[_localId];
         var progress = ((IDictionary)Field("_defenders"))[p.Id]!;
@@ -65,7 +69,12 @@ public partial class Main
         var combatants = (Dictionary<int, Wizard>)Field("_combatants");
         int index = 0;
         foreach (var m in world.Snapshot().Defense!.Minions)
-        { combatants[m.Id].Position = new(-12 + index % 7 * 3f, (index / 7 - 1) * 3); index++; }
+        {
+            var position = new V2(-12 + index % 7 * 3f, (index / 7 - 1) * 3);
+            // La sala inicial cambia de forma con la semilla.
+            if (world.Map.Walkable(position)) combatants[m.Id].Position = position;
+            index++;
+        }
         foreach (var minion in ((IDictionary)Field("_minions")).Values) minion!.GetType().GetField("Attack")!.SetValue(minion, 600f);
 
         _snapshot = world.Snapshot();
@@ -480,7 +489,19 @@ public partial class Main
         check(updated.Auras[0] == 1 && updated.Passives[0] == 1 && updated.Gold == botGold + spare.SaleGold - spent &&
             Player(_localId).Gold == humanGold, "Los poderes no se aplicaron al bot con su oro.");
         panel.HandleBack();
-        check(((Button)panel.FindChild("DefenseBotInventory" + bot.Id, true, false)).IsVisibleInTree(), "Atrás no vuelve a los bots aliados.");
+        string inventoryButton = "DefenseBotInventory" + bot.Id;
+        check(((Button)panel.FindChild(inventoryButton, true, false)).IsVisibleInTree(), "Atrás no vuelve a los bots aliados.");
+        Press(inventoryButton);
+        check(panel.EquipmentInventory?.DefenseInventoryPlayerId == bot.Id, "No se abrió el inventario del bot vivo.");
+        float health = bot.Health;
+        bot.Health = 0;
+        Sync();
+        check(panel.EquipmentInventory == null && panel.FindChild(inventoryButton, true, false) == null,
+            "El bot caído sigue en la lista o conserva el inventario abierto.");
+        bot.Health = health;
+        Sync();
+        check(panel.FindChild(inventoryButton, true, false) is Button revived && revived.IsVisibleInTree(),
+            "El bot no volvió a la lista al revivir.");
         GD.Print("DEFENSE_BOT_ECONOMY_OK");
     }
 

@@ -246,7 +246,8 @@ public sealed record EquipmentModifiers
 
 public static partial class EquipmentCatalogue
 {
-    public const int GenerationVersion = 11, InventoryLimit = 500;
+    public const int GenerationVersion = 12, InventoryLimit = 500;
+    private const int StandardSecondaryWeight = 8;
     public static bool BonusActive(EquipmentSlot slot, EquipmentStat stat) =>
         slot != EquipmentSlot.MagicRing || stat == EquipmentStat.ShieldCapacity;
     public static string BonusDescription(EquipmentSlot slot, ItemBonus bonus) =>
@@ -289,13 +290,13 @@ public static partial class EquipmentCatalogue
     };
     public static EquipmentStat[] Pool(EquipmentFamily family) => family switch
     {
-        EquipmentFamily.Life => [EquipmentStat.HealingPower, EquipmentStat.EnergyRegeneration, EquipmentStat.LifeEfficiency, EquipmentStat.ShieldDuration],
-        EquipmentFamily.Shield => [EquipmentStat.ShieldCapacity, EquipmentStat.ShieldDuration, EquipmentStat.Defense, EquipmentStat.EnergyRegeneration],
-        EquipmentFamily.Fire => [EquipmentStat.FirePower, EquipmentStat.BurnDuration, EquipmentStat.Power, EquipmentStat.EnergyRegeneration],
-        EquipmentFamily.Water => [EquipmentStat.WaterPower, EquipmentStat.WetDuration, EquipmentStat.SpellRange, EquipmentStat.EnergyRegeneration],
-        EquipmentFamily.Cold => [EquipmentStat.ColdPower, EquipmentStat.ChillPower, EquipmentStat.FreezeDuration, EquipmentStat.EnergyRegeneration],
-        EquipmentFamily.Lightning => [EquipmentStat.LightningPower, EquipmentStat.WetLightningPower, EquipmentStat.SpellRange, EquipmentStat.EnergyRegeneration],
-        EquipmentFamily.Arcane => [EquipmentStat.ArcanePower, EquipmentStat.BeamChargeSpeed, EquipmentStat.SpellRange, EquipmentStat.EnergyRegeneration],
+        EquipmentFamily.Life => [EquipmentStat.HealingPower, EquipmentStat.EnergyRegeneration, EquipmentStat.LifeEfficiency, EquipmentStat.ShieldDuration, EquipmentStat.Defense],
+        EquipmentFamily.Shield => [EquipmentStat.ShieldCapacity, EquipmentStat.ShieldDuration, EquipmentStat.Defense, EquipmentStat.EnergyRegeneration, EquipmentStat.Power],
+        EquipmentFamily.Fire => [EquipmentStat.FirePower, EquipmentStat.BurnDuration, EquipmentStat.Power, EquipmentStat.EnergyRegeneration, EquipmentStat.SpellRange],
+        EquipmentFamily.Water => [EquipmentStat.WaterPower, EquipmentStat.WetDuration, EquipmentStat.SpellRange, EquipmentStat.EnergyRegeneration, EquipmentStat.Power],
+        EquipmentFamily.Cold => [EquipmentStat.ColdPower, EquipmentStat.ChillPower, EquipmentStat.FreezeDuration, EquipmentStat.EnergyRegeneration, EquipmentStat.SpellRange],
+        EquipmentFamily.Lightning => [EquipmentStat.LightningPower, EquipmentStat.WetLightningPower, EquipmentStat.SpellRange, EquipmentStat.EnergyRegeneration, EquipmentStat.Power],
+        EquipmentFamily.Arcane => [EquipmentStat.ArcanePower, EquipmentStat.BeamChargeSpeed, EquipmentStat.SpellRange, EquipmentStat.EnergyRegeneration, EquipmentStat.Power],
         EquipmentFamily.Earth => [EquipmentStat.EarthPower, EquipmentStat.RockChargeSpeed, EquipmentStat.Defense, EquipmentStat.ShieldCapacity],
         _ => Enum.GetValues<EquipmentStat>()
     };
@@ -304,7 +305,7 @@ public static partial class EquipmentCatalogue
         foreach (var stat in Enum.GetValues<EquipmentStat>())
             yield return (Protocol.Json.PropertyNamingPolicy!.ConvertName(stat.ToString()), new
             {
-                stat, generationVersion = GenerationVersion, weight = 1,
+                stat, generationVersion = GenerationVersion, weight = stat == EquipmentStat.EnergyRegeneration ? 1 : StandardSecondaryWeight,
                 primarySlots = Enum.GetValues<EquipmentSlot>().Where(slot => Enum.GetValues<EquipmentFamily>().Any(family => MainStat(slot, family) == stat)).ToArray(),
                 families = Enum.GetValues<EquipmentFamily>().Where(family => Pool(family).Contains(stat)).ToArray(),
                 tiers = Enum.GetValues<ItemTier>().Select(tier => new { tier, primaryMinimum = MainMin[(int)tier], primaryMaximum = MainMax[(int)tier],
@@ -330,7 +331,7 @@ public static partial class EquipmentCatalogue
         int extra = position == EquipmentSlot.MagicRing ? 0 : quality == ItemTier.Silver ? 1 : quality == ItemTier.Mythic ? 3 : 2;
         for (int n = 0; n < extra && choices.Count > 0; n++)
         {
-            int pick = random.Next(choices.Count); var stat = choices[pick]; choices.RemoveAt(pick);
+            int pick = RollSecondary(random, choices); var stat = choices[pick]; choices.RemoveAt(pick);
             bonuses.Add(new(stat, ExtraMin[t], ExtraMax[t], Value(ExtraMin[t], ExtraMax[t])));
         }
         float excess = bonuses.Sum(b => Math.Max(0, b.Current)) - RollBudget[t];
@@ -343,6 +344,16 @@ public static partial class EquipmentCatalogue
             bonuses = bonuses.Select(b => b with { Maximum = MathF.Round(b.Current + 0.10f, 4) }).ToList();
         return new(id ?? Guid.NewGuid().ToString("N"), position, quality, identity, bonuses.ToArray(), Sales[t], GenerationVersion, sourceMatchId, DateTimeOffset.UtcNow)
         { Affix = ItemAffixes.Roll(random, quality, position) };
+    }
+    private static int RollSecondary(Random random, List<EquipmentStat> choices)
+    {
+        int energyIndex = choices.IndexOf(EquipmentStat.EnergyRegeneration);
+        if (energyIndex < 0) return random.Next(choices.Count);
+        // Una papeleta para energía y ocho para cada otro atributo disponible.
+        int roll = random.Next(1 + (choices.Count - 1) * StandardSecondaryWeight);
+        if (roll == 0) return energyIndex;
+        int otherIndex = (roll - 1) / StandardSecondaryWeight;
+        return otherIndex < energyIndex ? otherIndex : otherIndex + 1;
     }
     public static int TierChance(ItemTier tier) => tier switch
     { ItemTier.Silver => 48, ItemTier.Gold => 27, ItemTier.Platinum => 15, ItemTier.Diamond => 8, ItemTier.Mythic => 2, _ => 0 };

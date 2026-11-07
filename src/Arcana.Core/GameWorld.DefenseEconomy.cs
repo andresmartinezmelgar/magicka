@@ -108,7 +108,7 @@ public sealed partial class GameWorld
         bool botAction = action != command.Type || action == "defense_bot_equip";
         if (botAction)
         {
-            if (player.Bot || !_players.TryGetValue(command.DefenseBotId, out var bot) || !bot.Bot || !Allied(player, bot) ||
+            if (player.Bot || !_players.TryGetValue(command.DefenseBotId, out var bot) || !bot.Bot || !bot.Alive || !Allied(player, bot) ||
                 bot.Deaths >= DefenseRules.PlayerLives || !_defenders.TryGetValue(bot.Id, out var botProgress)) return false;
             player = bot;
             progress = botProgress;

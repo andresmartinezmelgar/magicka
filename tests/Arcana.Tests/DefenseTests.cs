@@ -353,6 +353,11 @@ internal static class DefenseTests
             Check(!Equip(a, b.Id, EquipmentSlot.Weapon, ally.Id) && !Equip(a, bot.Id, EquipmentSlot.Weapon, own.Id) &&
                 !Equip(a, bot.Id, EquipmentSlot.Chest, second.Id) && !Equip(bot, bot.Id, EquipmentSlot.Weapon, second.Id),
                 "La partida aceptó una selección de equipo sin permiso o en una ranura incorrecta.");
+            float health = bot.Health;
+            bot.Health = 0;
+            Check(Player(w, bot).LivesRemaining > 0 && !Equip(a, bot.Id, EquipmentSlot.Weapon, second.Id),
+                "La partida aceptó cambiar el equipo de un bot pendiente de revivir.");
+            bot.Health = health;
             Check(Equip(b, bot.Id, EquipmentSlot.Weapon, second.Id) &&
                 Player(w, bot).Items.Where(i => i.Equipped).Select(i => i.Item.Id).ToHashSet().SetEquals([second.Id, chest.Id]) &&
                 Player(w, a).Items.Single().Equipped && Player(w, b).Items.Single().Equipped,

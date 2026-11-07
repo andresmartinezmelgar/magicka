@@ -44,6 +44,21 @@ internal static class EquipmentElementTests
             Check(found.SetEquals(EquipmentCatalogue.FocusedFamilies), "El sorteo aleatorio omite un elemento.");
             Check(EquipmentCatalogue.Definitions().Count() == 22, "No se publican todos los atributos.");
         });
+        test("Equipo elemental: regeneración de energía secundaria ocasional en armas míticas", () =>
+        {
+            var random = new Random(2947);
+            foreach (var family in EquipmentCatalogue.FocusedFamilies.Where(f => EquipmentCatalogue.Pool(f).Contains(EquipmentStat.EnergyRegeneration)))
+            {
+                int energy = 0;
+                const int samples = 400;
+                for (int i = 0; i < samples; i++)
+                {
+                    var item = EquipmentCatalogue.Generate(random, tier: ItemTier.Mythic, slot: EquipmentSlot.Weapon, family: family);
+                    if (item.Bonuses.Skip(1).Any(b => b.Stat == EquipmentStat.EnergyRegeneration)) energy++;
+                }
+                Check(energy > 0 && energy < samples / 3, $"La frecuencia de energía en {family} fue {energy}/{samples}.");
+            }
+        });
         test("Equipo elemental: los ocho conjuntos activan dos, tres y cuatro piezas y el bonus mayor reemplaza al anterior", () =>
         {
             var expected = new[]

@@ -116,7 +116,7 @@ public partial class DefensePanel : Control
         equipment.AddChild(Ui.Button("Abrir inventario de partida", OpenEquipmentInventory));
         Wrapped(equipment, "Elige botas, gorro, pechera, arma y los dos anillos. Compara las piezas por calidad y consulta sus atributos y bonificaciones. La selección se aplica al volver a la tienda.", 16);
         _botInventories = _sections[BotEquipmentSection];
-        _noBotInventories = Wrapped(_botInventories, "No hay bots aliados con inventario disponible.", 16, Ui.Muted);
+        _noBotInventories = Wrapped(_botInventories, "No hay bots aliados vivos con inventario disponible.", 16, Ui.Muted);
         var powers = _sections[PowersSection];
         var powerNavigation = new HBoxContainer(); powers.AddChild(powerNavigation);
         _passiveTab = Ui.Button("Habilidades automáticas", () => ShowPowers(true));
@@ -265,7 +265,7 @@ public partial class DefensePanel : Control
     private (DefensePlayerSnapshot Player, WizardSnapshot Wizard)? FindBotInventory(int id)
     {
         if (_wizard is not { Bot: false } human ||
-            _lastSnapshot?.Players.FirstOrDefault(w => w.Id == id && w.Bot && w.Team == human.Team) is not { } bot ||
+            _lastSnapshot?.Players.FirstOrDefault(w => w.Id == id && w.Bot && w.Alive && w.Team == human.Team) is not { } bot ||
             _state?.Defenders.FirstOrDefault(p => p.PlayerId == id && p.BotInventoryAvailable) is not { } player) return null;
         return (player, bot);
     }
