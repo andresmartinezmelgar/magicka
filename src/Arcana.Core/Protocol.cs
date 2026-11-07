@@ -256,4 +256,8 @@ public sealed record WorldSnapshot(long Tick, double Time, GameMode Mode, bool M
     int HoldingTeam = -1, float HoldSeconds = 0, PickupSnapshot[]? Pickups = null,
     bool WaitingForPlayers = false, int LobbyHostId = 0, int[]? LobbyReadyPlayerIds = null,
     int BestOf = 1, int[]? SeriesWins = null, string RewardStatus = "", bool AwaitingRematch = false, DefenseSnapshot? Defense = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SurvivalMapSpec? SurvivalMap = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SurvivalMapSpec? SurvivalMap = null)
+{
+    // Metadato opcional: evita unir el informe de una ronda con jugadores de la siguiente.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? StatisticsRunId { get; init; }
+}
