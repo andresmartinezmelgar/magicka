@@ -1,0 +1,17 @@
+name: Comprobar dashboard Windows para 0.29.51
+on:
+  push:
+    branches: [publicacion/dashboard-windows-051]
+permissions:
+  contents: read
+jobs:
+  dashboard-windows:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probar servidor HTTP y mostrar diagnóstico en caso de fallo
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/test-dashboard-windows.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Fallo la comprobacion del dashboard Windows.' }
