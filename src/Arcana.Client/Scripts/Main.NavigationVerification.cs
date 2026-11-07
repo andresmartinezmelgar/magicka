@@ -238,7 +238,18 @@ public partial class Main
                     !_practice.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId).EquipmentSetup.Enabled,
                     "Cambiar el elemento no actualiza el resaltado, pierde la prioridad o activa ventas sin aplicar.");
                 SelectSetup("SurvivalSetupElement", (int)Element.Arcane);
-                SelectSetup("SurvivalSetupPriority1", (int)ItemAffixKind.ArcaneMark);
+                var priorities = Enumerable.Range(0, SurvivalEquipmentSetup.MaximumPriorities)
+                    .Select(i => (OptionButton)shop.FindChild("SurvivalSetupPriority" + i, true, false)).ToArray();
+                Check(priorities.All(choice => choice.IsItemDisabled(choice.GetItemIndex((int)ItemAffixKind.ArcaneMark)) ==
+                    (choice != priority) && !choice.IsItemDisabled(0)),
+                    "Un afijo elegido sigue disponible en otra prioridad o bloquea Sin prioridad.");
+                SelectSetup("SurvivalSetupPriority0", priority.GetItemId(0));
+                Check(priorities.All(choice => !choice.IsItemDisabled(choice.GetItemIndex((int)ItemAffixKind.ArcaneMark))),
+                    "Quitar una prioridad no vuelve a habilitar su afijo.");
+                SelectSetup("SurvivalSetupPriority0", (int)ItemAffixKind.ArcaneMark);
+                SelectSetup("SurvivalSetupPriority1", (int)ItemAffixKind.ArcaneEcho);
+                Check(priorities.All(choice => choice.IsItemDisabled(choice.GetItemIndex((int)ItemAffixKind.ArcaneEcho)) ==
+                    (choice != priorities[1])), "Una selección posterior solo bloquea duplicados en prioridades inferiores.");
                 async Task ClickSetup(Button button)
                 {
                     await Frames();
@@ -251,11 +262,6 @@ public partial class Main
                     await Click(button);
                 }
                 var setupApply = (Button)shop.FindChild("SurvivalSetupApply", true, false);
-                await ClickSetup(setupApply);
-                Check(((ElementTextLabel)shop.FindChild("SurvivalSetupStatus", true, false)).Text.Contains("una sola vez") &&
-                    !_practice.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId).EquipmentSetup.Enabled,
-                    "La configuración admite prioridades duplicadas o borra el error antes de poder leerlo.");
-                SelectSetup("SurvivalSetupPriority1", (int)ItemAffixKind.ArcaneEcho);
                 await ClickSetup(setupApply);
                 var selectedSetup = _practice.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId);
                 Check(selectedSetup.EquipmentSetup.Enabled && selectedSetup.Modifiers.ArcaneMark == 2 && selectedSetup.Modifiers.ArcaneEcho == 2 &&

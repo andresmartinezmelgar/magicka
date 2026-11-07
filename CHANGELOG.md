@@ -1,5 +1,9 @@
 # Cambios
 
+## Próxima versión
+
+- Las mejoras elegidas en la configuración predeterminada se deshabilitan en las otras prioridades para impedir duplicados. Se habilitan de nuevo al cambiar o quitar la selección original; Sin prioridad sigue disponible en todas.
+
 ## 0.29.50
 
 - Fragmentación de roca y Roca automática son afijos independientes que se pueden combinar. El primero divide los impactos; el segundo dispara una roca a máxima carga cada cuatro bajas en Diamante o cada dos en Mítico, con cualquier ataque.
