@@ -19,8 +19,9 @@ public partial class Main
                     await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
                 }
             }
-            var room = await RoomBrowser.CreateAsync(server, new() { Name = "Interfaz de recuperación", Mode = GameMode.Defense,
+            Task<RoomInfo> CreateRoom(string name) => RoomBrowser.CreateAsync(server, new() { Name = name, Mode = GameMode.Defense,
                 Map = ArenaMapId.Bastion, MaxPlayers = 1 });
+            var room = await CreateRoom("Interfaz de recuperación");
             string? error = null;
             async Task Enter()
             {
@@ -42,6 +43,8 @@ public partial class Main
             if (_reconnecting || _connection != null || !_launcher.Visible) throw new InvalidOperationException("Cancelar no volvió al menú.");
             GD.Print("RECONNECT_CANCEL_OK: cancelación sin recuperar una conexión abandonada.");
 
+            // La conexión cancelada todavía puede tener reservada la plaza de la primera sala.
+            room = await CreateRoom("Interfaz de plazo");
             await Enter();
             // El puerto local cerrado reproduce un servidor inaccesible sin utilizar servicios externos.
             var timeout = RecoverConnection(_connection!, "127.0.0.1:1", "Cliente", 0, "", room.Id, "", WizardType.Balanced, "Prueba de plazo");
