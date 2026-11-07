@@ -1,6 +1,6 @@
 # Cambios
 
-## Próxima versión
+## 0.29.50
 
 - Fragmentación de roca y Roca automática son afijos independientes que se pueden combinar. El primero divide los impactos; el segundo dispara una roca a máxima carga cada cuatro bajas en Diamante o cada dos en Mítico, con cualquier ataque.
 - Nuevo Aturdimiento eléctrico: un segundo de impactos continuos de Rayo aturde al enemigo 0,1 s en Diamante o 0,2 s en Mítico, sin añadir daño. Se comunica en el HUD y con un indicador eléctrico sobre el objetivo.

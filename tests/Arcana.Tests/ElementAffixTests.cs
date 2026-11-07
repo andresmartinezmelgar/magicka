@@ -99,7 +99,7 @@ internal static class ElementAffixTests
         {
             var (world, source, target) = Duel(new() { WaterSlow = 2 });
             Hit(world, source, target, Element.Water); Call(world, "TickStatus", target, .5f);
-            world.EquipPlayer(source.Id, new() { WaterSlow = 1 }); Hit(world, source, target, Element.Water);
+            world.EquipPlayer(source.Id, new EquipmentModifiers { WaterSlow = 1 }); Hit(world, source, target, Element.Water);
             Near(Status<float>(target, "WaterSlowTime"), 1.5f, "El rango débil prolonga el fuerte");
             Check(Status<int>(target, "WaterSlowRank") == 2, "El rango débil sustituye al fuerte.");
             Call(world, "TickStatus", target, 1.5f);
@@ -118,7 +118,7 @@ internal static class ElementAffixTests
         });
         test("Estados elementales: guardados antiguos, validación y reconexión conservan los tiempos activos", () =>
         {
-            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, Seed = 47 });
+            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 4, Seed = 47 });
             var player = world.AddPlayer("Defensor", 0)!; player.Wet = 6;
             Status(player, "StunTime", .1f); Status(player, "WaterSlowTime", 1.5f); Status(player, "WaterSlowRank", 2);
             var save = world.SaveSurvival(player.Id, Guid.NewGuid().ToString("N"));
@@ -142,9 +142,21 @@ internal static class ElementAffixTests
         });
         test("Estados elementales: el aura de Agua y el canal de Rayo actúan sobre la horda real", () =>
         {
-            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, Seed = 47 });
+            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 4, Seed = 47 });
             var source = world.AddPlayer("Mago", 0)!; source.Position = new(-25, 0); source.Invulnerable = 0; source.LastInput = 1000;
-            world.EquipPlayer(source.Id, new() { WaterSlow = 2, LightningStun = 2 });
+            var pieces = new[]
+            {
+                EquipmentCatalogue.Generate(new(471), tier: ItemTier.Mythic, slot: EquipmentSlot.Boots, family: EquipmentFamily.Lightning)
+                    with { Affix = new(ItemAffixKind.LightningStun, 2) },
+                EquipmentCatalogue.Generate(new(472), tier: ItemTier.Mythic, slot: EquipmentSlot.Weapon, family: EquipmentFamily.Water)
+                    with { Affix = new(ItemAffixKind.WaterSlow, 2) }
+            };
+            foreach (var item in pieces)
+            {
+                Call(world, "GrantDefenseItem", source, item);
+                Check(world.ApplyMessage(source.Id, new() { Type = "defense_equip", Sequence = source.LastSequence + 1, ItemId = item.Id }),
+                    "No equipa el afijo en Supervivencia.");
+            }
             Check((bool)Call(world, "TrySpawnMinion", MinionKind.Melee)!, "No se crea el enemigo.");
             var minions = (IDictionary)typeof(GameWorld).GetField("_minions", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(world)!;
             var minion = minions.Values.Cast<object>().Last();
