@@ -15,10 +15,18 @@ public partial class Main
     private long _lastVisualDraw = -1;
     private string? _visualReviewDirectory;
 
+    private void CompleteMenuSmoke(string message)
+    {
+        var tree = GetTree(); var errors = _engineLog;
+        // Mantener los servidores nativos vivos hasta finalizar escenas, estilos y mallas.
+        QueueFree();
+        _ = ClientVerification.FinishSmokeAfterCleanup(tree, errors, message);
+    }
+
     private void CaptureVisualReview(string stage)
     {
         if (!_visualReview || DisplayServer.GetName() == "headless") return;
-        var screenshot = GetViewport().GetTexture().GetImage();
+        using var screenshot = GetViewport().GetTexture().GetImage();
         if (screenshot.IsEmpty()) throw new InvalidOperationException("Captura gráfica vacía: " + stage);
         if (screenshot.GetWidth() < 640 || screenshot.GetHeight() < 450)
             throw new InvalidOperationException("Captura gráfica incompleta: " + stage);
@@ -170,9 +178,8 @@ public partial class Main
             if (frame == 20)
             {
                 AssertHeaderAndHome(_launcher, GetViewport().GetVisibleRect(), "DESKTOP");
-                GD.Print("DESKTOP_HEADER_LAYOUT_OK");
                 _desktopHeaderSmoke = false;
-                GetTree().Quit(0);
+                CompleteMenuSmoke("DESKTOP_HEADER_LAYOUT_OK");
             }
             return true;
         }
@@ -665,9 +672,8 @@ public partial class Main
             if (frame < 166) return false;
             AssertScrollFixture();
             _googleIdentityKnown = false;
-            GD.Print("MOBILE_MENU_LAYOUT_OK: PvP, IA, salas, perfil, ajustes, ayuda y equipación; navegación común y contenido accesible.");
             _mobileMenuSmoke = false;
-            GetTree().Quit(0);
+            CompleteMenuSmoke("MOBILE_MENU_LAYOUT_OK: PvP, IA, salas, perfil, ajustes, ayuda y equipación; navegación común y contenido accesible; limpieza final verificada.");
             return true;
         }
         catch (Exception error)

@@ -55,17 +55,16 @@ public partial class ClientVerification : Node
     private void CompleteSmoke(string message)
     {
         if (CheckSmokeErrors()) return;
-        if (!_combinationsSmoke && !_mapsSmoke) { GD.Print(message); GetTree().Quit(); return; }
         _smokeCompleting = true;
         var tree = GetTree();
         var errors = _runtime.EngineLog;
         // Libera escenas y envoltorios C# mientras los servidores de Godot siguen activos.
-        // Las pruebas que reconstruyen escenarios necesitan completar la limpieza antes de cerrar Godot.
+        // Todas las verificaciones deben terminar la limpieza antes de cerrar Godot.
         GetParent().QueueFree();
         _runtime = null!;
         _ = FinishSmokeAfterCleanup(tree, errors, message);
     }
-    private static async Task FinishSmokeAfterCleanup(SceneTree tree, EngineLogBridge errors, string message, int exitCode = 0)
+    internal static async Task FinishSmokeAfterCleanup(SceneTree tree, EngineLogBridge errors, string message, int exitCode = 0)
     {
         try
         {
