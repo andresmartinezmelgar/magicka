@@ -17,6 +17,7 @@ try {
     while ($true) {
         $client = $listener.AcceptTcpClient()
         try {
+            Write-Verbose 'Conexion HTTP local recibida.'
             $client.ReceiveTimeout = 2500; $client.SendTimeout = 5000
             $stream = $client.GetStream()
             # Strict byte limit before parsing; do not let a local request allocate an unbounded line.
