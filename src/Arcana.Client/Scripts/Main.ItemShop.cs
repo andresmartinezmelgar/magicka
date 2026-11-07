@@ -15,7 +15,7 @@ public partial class Main
         if (GodotObject.IsInstanceValid(_itemShopPanel) && !_itemShopPanel!.IsQueuedForDeletion()) return;
         if (GodotObject.IsInstanceValid(_accountProfilePanel))
         { _accountProfilePanel!.QueueFree(); _accountProfilePanel = null; }
-        CloseOptionAHelp(); _launcher.CloseRooms();
+        CloseMenuHelp(); _launcher.CloseRooms();
         _itemShopPanel = new ItemShopPanel(); _ui.AddChild(_itemShopPanel); _itemShopPanel.Build(this);
     }
     internal async Task EnsureShopServer(CancellationToken token)

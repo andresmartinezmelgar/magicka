@@ -527,33 +527,61 @@ public partial class Main
                 _accountProfilePanel = null;
                 ToggleHelp();
             }
+            if (frame == 130)
+            {
+                _menuHelp!.SearchForVerification("regeneracion energia");
+                if (_menuHelp.SearchResultCount == 0) throw new InvalidOperationException("La búsqueda no ignora las tildes.");
+                var result = (PanelContainer)_menuHelp.FindChild("HelpResult_stat-EnergyRegeneration", true, false);
+                result.GetChild<Button>(0).EmitSignal(Button.SignalName.Pressed);
+            }
+            if (frame == 133)
+            {
+                var article = (Control)_menuHelp!.FindChild("HelpExpand_stat-EnergyRegeneration", true, false);
+                var scroll = (ScrollContainer)_menuHelp.FindChild("HelpContentScroll", true, false);
+                if (!scroll.GetGlobalRect().Grow(1).Encloses(article.GetGlobalRect()))
+                    throw new InvalidOperationException("Abrir un resultado deja la explicación fuera de pantalla.");
+                CaptureVisualReview("06-ayuda-resultado");
+                NavigateBack();
+                if (_menuHelp == null || _menuHelp.SearchResultCount == 0)
+                    throw new InvalidOperationException("Atrás no recupera los resultados de búsqueda.");
+                NavigateBack();
+                _menuHelp.SearchForVerification("zzzz-no-existe");
+                if (_menuHelp.SearchResultCount != 0) throw new InvalidOperationException("La búsqueda vacía conserva resultados.");
+                ((Button)_menuHelp.FindChild("HelpClearSearch", true, false)).EmitSignal(Button.SignalName.Pressed);
+            }
             if (frame == 135)
             {
-                AssertOptionAScreen("AYUDA", _optionAHelp!);
-                AssertVisibleTableData(_optionAHelp!, "MenuHelpControlsTable");
-                AssertTouchScroll(_optionAHelp!, "HelpContentScroll", "AYUDA_CONTROLES");
+                AssertOptionAScreen("AYUDA", _menuHelp!);
+                CaptureVisualReview("06-ayuda-indice");
+                if (_menuHelp!.FindChild("HelpTopicCards", true, false).GetChildCount() != 8)
+                    throw new InvalidOperationException("El índice de ayuda no muestra los ocho temas.");
+                _menuHelp.SelectLegacyPage(0);
+                AssertTouchScroll(_menuHelp!, "HelpContentScroll", "AYUDA_CONTROLES");
             }
-            if (frame == 135 && _optionAHelp!.ContentWidthFraction < 0.78f)
+            if (frame == 135 && _menuHelp!.ContentWidthFraction < 0.78f)
                 throw new InvalidOperationException("AYUDA: las tarjetas no ocupan el ancho disponible.");
-            if (frame == 136) _optionAHelp!.SelectForSmoke(2);
+            if (frame == 136) _menuHelp!.SelectLegacyPage(2);
             if (frame == 138)
             {
-                AssertOptionAScreen("AYUDA_MAGOS", _optionAHelp!);
-                AssertTouchScroll(_optionAHelp!, "HelpContentScroll", "AYUDA_MAGOS", overCard: true);
+                AssertOptionAScreen("AYUDA_MAGOS", _menuHelp!);
+                CaptureVisualReview("06-ayuda-magos");
+                AssertTouchScroll(_menuHelp!, "HelpContentScroll", "AYUDA_MAGOS", overCard: true);
             }
-            if (frame == 139) _optionAHelp!.SelectForSmoke(3);
+            if (frame == 139) _menuHelp!.SelectLegacyPage(3);
             if (frame == 141)
             {
-                AssertOptionAScreen("AYUDA_ELEMENTOS", _optionAHelp!);
-                AssertTouchScroll(_optionAHelp!, "HelpContentScroll", "AYUDA_ELEMENTOS", overCard: true);
+                AssertOptionAScreen("AYUDA_ELEMENTOS", _menuHelp!);
+                CaptureVisualReview("06-ayuda-elementos");
+                AssertTouchScroll(_menuHelp!, "HelpContentScroll", "AYUDA_ELEMENTOS", overCard: true);
             }
-            if (frame == 142) _optionAHelp!.SelectForSmoke(4);
-            if (frame == 144) AssertOptionAScreen("AYUDA_RELIQUIAS", _optionAHelp!);
-            if (frame == 144) _optionAHelp!.SelectForSmoke(5);
+            if (frame == 142) _menuHelp!.SelectLegacyPage(4);
+            if (frame == 144) AssertOptionAScreen("AYUDA_RELIQUIAS", _menuHelp!);
+            if (frame == 144) _menuHelp!.SelectLegacyPage(5);
             if (frame == 145)
             {
-                AssertOptionAScreen("AYUDA_COMBINACIONES", _optionAHelp!);
-                var book = (SpellBook)_optionAHelp!.FindChild("MenuSpellCombinations", true, false);
+                AssertOptionAScreen("AYUDA_COMBINACIONES", _menuHelp!);
+                CaptureVisualReview("06-ayuda-hechizos");
+                var book = (SpellBook)_menuHelp!.FindChild("HelpSpellCombinations", true, false);
                 void Press(string name) => ((Button)book.FindChild(name, true, false)).EmitSignal(Button.SignalName.Pressed);
                 Press("SpellElementWater"); Press("SpellElementCold");
                 var damage = (ElementTextLabel)book.FindChild("SpellDamageValues", true, false);
@@ -563,29 +591,36 @@ public partial class Main
             }
             if (frame == 147)
             {
-                var book = (SpellBook)_optionAHelp!.FindChild("MenuSpellCombinations", true, false);
+                var book = (SpellBook)_menuHelp!.FindChild("HelpSpellCombinations", true, false);
                 void Press(string name) => ((Button)book.FindChild(name, true, false)).EmitSignal(Button.SignalName.Pressed);
                 var damage = (ElementTextLabel)book.FindChild("SpellDamageValues", true, false);
                 Press("SpellElementCold");
                 Press("SpellCastMode1");
                 if (damage.Text != SpellBalance.Format(new SpellRecipe([Element.Water, Element.Cold, Element.Cold]), CastMode.Self))
                     throw new InvalidOperationException("La ayuda no cambia la forma de lanzamiento.");
+                CaptureVisualReview("06-ayuda-hechizo-ejemplo");
                 Press("SpellClear");
                 if (damage.Visible) throw new InvalidOperationException("Limpiar conserva los datos del hechizo anterior.");
                 GD.Print("SIMPLE_COMBINATIONS_OK: selección directa, repetición de elementos, tres modos y limpieza.");
-                _optionAHelp!.SelectForSmoke(6);
+                _menuHelp!.SelectLegacyPage(6);
             }
             if (frame == 149)
             {
-                AssertOptionAScreen("AYUDA_BONIFICACIONES", _optionAHelp!);
-                AssertTouchScroll(_optionAHelp!, "HelpContentScroll", "AYUDA_BONIFICACIONES");
-                var bonusLabels = _optionAHelp!.FindChildren("*", "Control", true, false).OfType<ElementTextLabel>()
+                AssertOptionAScreen("AYUDA_BONIFICACIONES", _menuHelp!);
+                AssertTouchScroll(_menuHelp!, "HelpContentScroll", "AYUDA_BONIFICACIONES");
+                var bonusLabels = _menuHelp!.FindChildren("*", "Control", true, false).OfType<ElementTextLabel>()
                     .Select(l => l.Text).ToArray();
-                if (!bonusLabels.Any(t => t.Contains("DEFENSA NO ES CAPACIDAD")) ||
+                if (!bonusLabels.Any(t => t.Contains("Defensa y capacidad")) ||
                     !bonusLabels.Any(t => t.Contains("100 de daño")) ||
                     !bonusLabels.Any(t => t.Contains("Absorción del escudo")))
                     throw new InvalidOperationException("Ayuda no documenta defensa y capacidad del escudo.");
-                CloseOptionAHelp();
+                CaptureVisualReview("06-ayuda-equipo");
+                var fold = (Button)_menuHelp.FindChild("HelpExpand_defense-shield", true, false);
+                fold.EmitSignal(Button.SignalName.Pressed);
+                if (!_menuHelp.FindChild("HelpArticle_defense-shield", true, false).GetChild<VBoxContainer>(0).GetChild<Control>(1).Visible)
+                    throw new InvalidOperationException("El artículo de defensa no se despliega.");
+                GD.Print("HELP_GUIDE_OK: ocho temas, búsqueda sin tildes, resultados, Atrás, artículos desplegables y laboratorio compartido.");
+                CloseMenuHelp();
                 EquipmentFixture(false, copies: 12);
             }
             if (frame == 155)

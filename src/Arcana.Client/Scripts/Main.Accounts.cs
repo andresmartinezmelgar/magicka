@@ -78,7 +78,7 @@ public partial class Main
         CloseMatchStatistics();
         CloseBestiary();
         CloseAccountProfile();
-        CloseOptionAHelp();
+        CloseMenuHelp();
         _launcher.CloseRooms();
         if (page == 7) { OpenItemShop(); return; }
         _launcher.NavigateOptionA(page);

@@ -9,7 +9,7 @@ public partial class SpellBook : VBoxContainer
     private readonly ElementBuffer _selection = new();
     private readonly ElementIcon[] _slots = new ElementIcon[3];
     private readonly Button[] _modes = new Button[3];
-    private ElementTextLabel _title = null!, _description = null!, _damage = null!;
+    private ElementTextLabel _title = null!, _description = null!, _damage = null!, _count = null!;
     private GridContainer _elements = null!;
     private GridContainer _columns = null!;
     private SubViewportContainer _preview = null!;
@@ -28,8 +28,8 @@ public partial class SpellBook : VBoxContainer
     {
         AddThemeConstantOverride("separation", 9);
         SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        var hint = Ui.Label("Pulsa hasta tres elementos. Puedes repetirlos; los opuestos se anulan.", 16, Ui.Muted);
-        hint.AutowrapMode = TextServer.AutowrapMode.WordSmart; hint.Visible = ShowPreview; AddChild(hint);
+        var hint = Ui.Label("1. Elige hasta tres elementos  ·  2. Elige cómo lanzar  ·  3. Mira el resultado", 16, Ui.Muted);
+        hint.AutowrapMode = TextServer.AutowrapMode.WordSmart; AddChild(hint);
         _columns = new GridContainer { Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _columns.AddThemeConstantOverride("h_separation", 14); _columns.AddThemeConstantOverride("v_separation", 9); AddChild(_columns);
         var choices = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
@@ -57,6 +57,7 @@ public partial class SpellBook : VBoxContainer
         }
         var clear = Ui.Button("Limpiar", () => { _selection.Clear(); _kind = DemonstrationKind.Combination; Restart(); });
         clear.Name = "SpellClear"; CompactButton(clear); selection.AddChild(clear);
+        _count = Ui.Label("", 14, Ui.Muted); choices.AddChild(_count);
         var modes = new HBoxContainer(); modes.AddThemeConstantOverride("separation", 8); choices.AddChild(modes);
         string[] names = ["Frontal", "Sobre mí", "En área"];
         for (int i = 0; i < _modes.Length; i++)
@@ -72,6 +73,16 @@ public partial class SpellBook : VBoxContainer
         _description = Ui.Label("", 15); _description.AutowrapMode = TextServer.AutowrapMode.WordSmart; result.AddChild(_description);
         _damage = Ui.Label("", 14, Ui.Gold); _damage.Name = "SpellDamageValues";
         _damage.AutowrapMode = TextServer.AutowrapMode.WordSmart; result.AddChild(_damage);
+        var examples = new GridContainer { Columns = 3, Name = "SpellExamples", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        examples.AddThemeConstantOverride("h_separation", 6); examples.AddThemeConstantOverride("v_separation", 6); AddChild(examples);
+        foreach (var (label, keys, mode) in new[] { ("Fuego", "FFF", CastMode.Forward), ("Curación", "WW", CastMode.Self),
+            ("Escudo", "E", CastMode.Self), ("Hielo", "QR", CastMode.Forward), ("Vapor", "QF", CastMode.Forward),
+            ("Roca de fuego", "DDF", CastMode.Forward) })
+        {
+            var preset = Ui.Button(label, () => SelectCombination(keys, mode));
+            preset.Name = "SpellExample" + keys; preset.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            preset.AutowrapMode = TextServer.AutowrapMode.WordSmart; CompactButton(preset); examples.AddChild(preset);
+        }
         _preview = new SubViewportContainer { Stretch = true, SizeFlagsHorizontal = SizeFlags.ExpandFill,
             MouseFilter = MouseFilterEnum.Ignore, CustomMinimumSize = new(0, Ui.IsMobile ? 170 : 210) };
         AddChild(_preview);
@@ -117,9 +128,17 @@ public partial class SpellBook : VBoxContainer
     {
         _accumulator = 0;
         var elements = _selection.Elements.ToArray(); var recipe = new SpellRecipe(elements);
+        _count.Text = $"{elements.Length}/3 elementos · puedes repetirlos; los opuestos se anulan";
         for (int i = 0; i < _slots.Length; i++) _slots[i].Value = i < elements.Length ? elements[i] : null;
         for (int i = 0; i < _modes.Length; i++)
-            _modes[i].AddThemeColorOverride("font_color", i == (int)_mode ? Ui.Gold : Ui.Text);
+        {
+            bool selected = i == (int)_mode;
+            _modes[i].AddThemeColorOverride("font_color", selected ? Ui.Gold : Ui.Text);
+            var style = Ui.Panel(new(selected ? "244b6b" : "19283d"), 7, selected ? Ui.Gold : Ui.TableBorder);
+            style.ContentMarginLeft = style.ContentMarginRight = 6;
+            style.ContentMarginTop = style.ContentMarginBottom = 4;
+            _modes[i].AddThemeStyleboxOverride("normal", style);
+        }
         _demo = new(elements, _mode, _kind); _snapshot = _demo.World.Snapshot();
         if (_arena != null) { _arena.Clear(); _arena.ShowControlPoints = _kind == DemonstrationKind.Capture; }
         bool chosen = elements.Length > 0 || _kind != DemonstrationKind.Combination;

@@ -18,7 +18,7 @@ public partial class Main
         if (_profiler?.Running == true) { _profiler.Cancel(); return true; }
         if (ViewingDamageSummary) ClosePersonalDamageSummary();
         else if (ControlsOpen) _controlsSettings!.HandleBack();
-        else if (_help.Visible) CloseInGameHelp();
+        else if (_help.Visible) { if (!_help.HandleBack()) CloseInGameHelp(); }
         else if (GodotObject.IsInstanceValid(_statisticsPanel)) CloseMatchStatistics();
         else if (GodotObject.IsInstanceValid(_itemShopPanel)) _itemShopPanel!.HandleBack();
         else if (_defensePanel?.ShopOpen == true) _defensePanel.HandleBack();
@@ -27,7 +27,7 @@ public partial class Main
         else if (GodotObject.IsInstanceValid(_equipmentPanel)) _equipmentPanel!.HandleBack();
         else if (GodotObject.IsInstanceValid(_bestiaryPanel)) CloseBestiary();
         else if (GodotObject.IsInstanceValid(_accountProfilePanel)) CloseAccountProfile();
-        else if (GodotObject.IsInstanceValid(_optionAHelp)) CloseOptionAHelp();
+        else if (GodotObject.IsInstanceValid(_menuHelp)) { if (!_menuHelp!.HandleBack()) CloseMenuHelp(); }
         else if (_playing && _hud?.ScoreOpen == true) { _hud.ScoreOpen = false; SynchronizeDefenseInterface(); }
         else if (_playing) TogglePause();
         else return _launcher.HandleBack();

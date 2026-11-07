@@ -114,11 +114,11 @@ public partial class Main
                     if (page is 1 or 2)
                         Check(!tutorial.IsVisibleInTree(), "La burbuja de Inicio tapa el selector de partida.");
                     Control screen = page switch { 3 => _accountProfilePanel!, 4 => _equipmentPanel!,
-                        5 => _optionAHelp!, 7 => _itemShopPanel!, _ => _launcher };
+                        5 => _menuHelp!, 7 => _itemShopPanel!, _ => _launcher };
                     foreach (var scroll in screen.FindChildren("*", "ScrollContainer", true, false).OfType<ScrollContainer>())
                         scroll.ScrollVertical = int.MaxValue;
                     await Frames(); await Click(Exit(screen, "OptionANav0"));
-                    Check(_equipmentPanel == null && _accountProfilePanel == null && _optionAHelp == null &&
+                    Check(_equipmentPanel == null && _accountProfilePanel == null && _menuHelp == null &&
                         _itemShopPanel == null && _launcher.PageForVerification == 0, "La navegación Inicio queda bloqueada en " + page);
                 }
                 _launcher.OpenMobileSmokePage(2); Back(); await Frames();
@@ -285,7 +285,13 @@ public partial class Main
                     !SurvivalPreferences.SurvivalEquipment.Enabled, "Desactivar no se aplica o no se recuerda.");
                 shop.CloseShop();
 
-                ToggleHelp(); await Frames(); _responsiveHelpScroll!.ScrollVertical = int.MaxValue; await Frames();
+                ToggleHelp(); await Frames();
+                _help.OpenTopic(HelpTopic.Modes); await Frames();
+                Check(_help.FindChildren("*", "Control", true, false).OfType<ElementTextLabel>()
+                    .Any(label => label.IsVisibleInTree() && label.Text == MatchRules.Objective(_snapshot!.Mode, _snapshot.ScoreLimit, _snapshot.StartingTickets, _snapshot.Map)),
+                    "La ayuda no muestra el objetivo de la partida actual.");
+                Back(); await Frames(); Check(_help.Visible, "Atrás desde un tema cierra la guía completa.");
+                _help.ScrollToEnd(); await Frames();
                 Capture(size.X + "-ayuda"); await Click(Exit(_help, "InGameHelpClose")); Check(!_help.Visible, "La ayuda no cierra tras desplazarla.");
                 TogglePause(); await Frames(); _responsivePauseScroll!.ScrollVertical = int.MaxValue; await Frames();
                 Capture(size.X + "-pausa"); await Click(Exit(_pause, "PauseResume")); Check(!_paused && !_pause.Visible, "Continuar queda fuera del menú de pausa.");

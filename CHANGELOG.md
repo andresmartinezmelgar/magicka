@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.29.48
+
+- Ayuda renovada con ocho temas, buscador, explicaciones desplegables y navegación con Índice y Atrás. La misma guía está disponible en el menú y durante la partida.
+- Laboratorio de hechizos con mezclas de ejemplo, selección de lanzamiento y demostración visual. Nuevas referencias de Supervivencia, equipo, atributos y afijos.
+- Retiradas las dos interfaces anteriores de ayuda y sus controles duplicados.
+
 ## 0.29.47
 
 - Supervivencia muestra el inventario y los poderes de los bots aliados vivos. Los bots vuelven a la lista al revivir.

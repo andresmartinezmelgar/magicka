@@ -26,12 +26,10 @@ public partial class Main : Node
     private ArenaConnection? _statsConnection;
     private WorldSnapshot? _backdropSnapshot;
     private ArenaRenderer _renderer = null!;
-    private Control _ui = null!, _help = null!, _pause = null!;
+    private Control _ui = null!, _pause = null!;
+    private HelpPanel _help = null!;
     private ElementTextLabel _diagnosticStatus = null!;
     private Launcher _launcher = null!;
-    private TabContainer _helpPages = null!;
-    private ElementTextLabel _currentObjective = null!;
-    private SpellBook _spellBook = null!;
     private Hud? _hud;
     private RoomWaitingPanel? _waitingPanel;
     private ArenaConnection? _connection;
@@ -40,7 +38,6 @@ public partial class Main : Node
     private PracticePanel? _practicePanel;
     private readonly GameWorld _backdrop = new(new WorldOptions { Mode = GameMode.Arena, Bots = 4 });
     private int _backdropSnapshotFrames;
-    private GridContainer? _inGameHelpControls;
     private WorldSnapshot? _snapshot;
     private int _localId;
     private long _localSequence;
@@ -108,7 +105,7 @@ public partial class Main : Node
         _launcher = new Launcher(); _ui.AddChild(_launcher); _launcher.Build(this);
         InitializeGoogleAuthentication();
         _updateNotice = new ReleaseUpdateNotice(); AddChild(_updateNotice);
-        _help = BuildHelp(); _ui.AddChild(_help); _help.Visible = false;
+        _help = BuildHelp(); _help.Visible = false;
         _pause = BuildPause(); _ui.AddChild(_pause); _pause.Visible = false;
         InitializeMatchStatistics(arguments);
         if (arguments.Contains("--element-text-smoke")) _ = RunElementTextSmoke();
@@ -650,13 +647,10 @@ public partial class Main : Node
 
     public void ToggleHelp()
     {
-        // Solo rediseño de menú. En combate se conserva el libro y los controles originales.
-        if (!_playing && !_help.Visible) { ToggleOptionAHelp(); return; }
+        if (!_playing && !_help.Visible) { ToggleMenuHelp(); return; }
         _help.Visible = !_help.Visible;
         if (_help.Visible) _ui.MoveChild(_help, -1);
-        _currentObjective.Text = _playing && _snapshot != null
-            ? "ESTA PARTIDA: " + MatchRules.Objective(_snapshot.Mode, _snapshot.ScoreLimit, _snapshot.StartingTickets, _snapshot.Map)
-            : "Los límites se eligen al crear la sala. Su objetivo aparece antes de entrar.";
+        if (_help.Visible) _help.SetMatch(_snapshot);
         if (_playing && _help.Visible) StopInput();
         SynchronizeDefenseInterface();
         UpdateTouchVisibility();
@@ -673,152 +667,27 @@ public partial class Main : Node
     }
     private void StopInput() { _moveTo = false; _aimMarker.Hide(); _touch?.Reset(); Submit(new() { Type = "release" }); Submit(InputMessage()); }
 
-    private PanelContainer? _responsiveHelpModal;
-    private ScrollContainer? _responsiveHelpScroll;
-    private Control Modal(out VBoxContainer content, bool trackHelp = true)
+    private Control BuildPauseModal(out VBoxContainer content)
     {
-        var root = new Control { Name = trackHelp ? "InGameHelp" : "PauseMenu", Theme = Ui.Theme() }; Ui.Full(root);
+        var root = new Control { Name = "PauseMenu", Theme = Ui.Theme() }; Ui.Full(root);
         var shade = new ColorRect { Color = Ui.ModalDim }; root.AddChild(shade); Ui.Full(shade);
         var center = new CenterContainer(); root.AddChild(center); Ui.Full(center);
-        float available = GetViewport().GetVisibleRect().Size.X;
-        var panel = new PanelContainer { CustomMinimumSize = new(Math.Max(280, Math.Min(750, available - 50)), 0) };
-        panel.AddThemeStyleboxOverride("panel", Ui.ModalPanel());
-        center.AddChild(panel);
-        // La cabecera queda fija; el contenido puede crecer sin desplazar la salida.
-        if (trackHelp) { _responsiveHelpModal = panel; _responsiveHelpScroll = null; }
-        else _responsivePauseModal = panel;
+        var panel = new PanelContainer(); _responsivePauseModal = panel;
+        panel.AddThemeStyleboxOverride("panel", Ui.ModalPanel()); center.AddChild(panel);
         var frame = new VBoxContainer(); frame.AddThemeConstantOverride("separation", 8); panel.AddChild(frame);
         var header = new HBoxContainer(); frame.AddChild(header);
-        var title = Ui.Label(trackHelp ? "CÓMO JUGAR" : "PARTIDA", 22, Ui.Gold);
-        title.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill; title.ClipText = true; header.AddChild(title);
-        header.AddChild(Ui.ExitButton(trackHelp ? "Cerrar" : "Continuar", trackHelp ? CloseInGameHelp : TogglePause,
-            trackHelp ? "InGameHelpClose" : "PauseResume"));
-        content = new VBoxContainer(); content.AddThemeConstantOverride("separation", 16);
-        var scroll = new ContentScrollContainer {
-            CustomMinimumSize = new(Math.Max(220, Math.Min(718, available - 82)),
-                Math.Max(100, GetViewport().GetVisibleRect().Size.Y - 152)),
-            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
-            VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
-        if (trackHelp) _responsiveHelpScroll = scroll;
-        else _responsivePauseScroll = scroll;
-        frame.AddChild(scroll); content.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill; scroll.AddChild(content);
-        return root;
-    }
-    private Control BuildHelp()
-    {
-        var root = Modal(out var outer);
-        _helpPages = new TabContainer { CustomMinimumSize = new(0, 400),
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-            SizeFlagsVertical = Control.SizeFlags.ExpandFill };
-        outer.AddChild(_helpPages);
-        var box = new VBoxContainer { Name = "Controles" }; box.AddThemeConstantOverride("separation", 16); _helpPages.AddChild(box);
-        var table = Ui.Table(2, "InGameHelpControlsTable"); _inGameHelpControls = table; box.AddChild(table);
-        string[,] rows =
-        {
-            { "Q W E R / A S D F", "Agua, vida, escudo, frío / rayo, arcano, tierra, fuego" },
-            { "Clic izquierdo / flechas", "Caminar hacia el cursor / movimiento directo" },
-            { "Mantener clic derecho", "Lanzar. Los rayos y chorros se mantienen; tierra se carga." },
-            { "Soltar clic derecho", "Soltar la roca cargada o interrumpir el hechizo" },
-            { "Botón central", "Lanzar sobre ti: curación, escudo, guarda o secado" },
-            { "Mayús + derecho", "Lanzar en área alrededor del mago" },
-            { "Mayús + izquierdo", "Golpe de bastón" },
-            { "1 / 2 / 3 / 4", "Celeridad / traslación / meteoro / reanimación" },
-            { "Retroceso / rueda", "Vaciar elementos / ajustar distancia de cámara" },
-            { "TAB / F1 / ESC", "Clasificación / controles / menú" }
-        };
-        if (Ui.IsMobile) rows = new string[,]
-        {
-            { "Zona izquierda", "Tocar y arrastrar para mover; soltar detiene al mago" },
-            { "Ocho botones de elementos", "Seleccionar hasta tres cargas; se admiten repetidos" },
-            { "Joystick derecho", "Apuntar y lanzar mientras mantienes el dedo" },
-            { "Soltar joystick derecho", "Lanzar la roca cargada o interrumpir el rayo" },
-            { "Sobre mí / En área", "Curación y escudo / pulso alrededor" },
-            { "Cuatro magias especiales", "Celeridad / traslación / meteoro / reanimación" },
-            { "Ayuda / Tabla / Menú", "Combinaciones y daño / clasificación / pausa" }
-        };
-        for (int i = 0; i < rows.GetLength(0); i++)
-        { Ui.TableCell(table, rows[i, 0], header: true, size: 15); Ui.TableCell(table, rows[i, 1], size: 15); }
-        box.AddChild(Ui.Label("FFF: fuego · SSS: rayo arcano · WW + central: curación\nE + central: escudo · EF + central: guarda de fuego · DDF: roca incendiaria\nQF: vapor · QR: hielo · agua seguida de frío congela al objetivo", 16, Ui.Muted));
-        box.AddChild(Ui.Label("Fuego/frío, vida/arcano, agua/rayo, tierra/rayo y escudo/escudo se anulan.\nLas magias también pueden afectar a aliados. Tres elementos por hechizo.", 15, Ui.Muted));
-        var winsScroll = new ContentScrollContainer { Name = "Cómo ganar", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; _helpPages.AddChild(winsScroll);
-        var wins = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; wins.AddThemeConstantOverride("separation", 13); winsScroll.AddChild(wins);
-        _currentObjective = HelpText(wins, "Los límites se eligen al crear la sala. Su objetivo aparece antes de entrar.", Ui.Gold);
-        foreach (var mode in new[] { GameMode.Warfare, GameMode.Duel, GameMode.Arena })
-        {
-            wins.AddChild(Ui.Label(Ui.ModeName(mode).ToUpperInvariant(), 19, Ui.Gold));
-            HelpText(wins, MatchRules.Objective(mode, 15, 75));
-            HelpText(wins, MatchRules.Details(mode), Ui.Muted);
-        }
-        wins.AddChild(Ui.Label("CIUDADELA DE LOS PASILLOS · 4×", 19, Ui.Gold));
-        HelpText(wins, MatchRules.Objective(GameMode.Warfare, 15, 75, ArenaMapId.Citadel));
-        HelpText(wins, MatchRules.Details(GameMode.Warfare, ArenaMapId.Citadel), Ui.Muted);
-        wins.AddChild(Ui.Label("SANTUARIO DE LAS RELIQUIAS", 19, Ui.Gold));
-        HelpText(wins, MatchRules.Details(GameMode.Warfare, ArenaMapId.Relics), Ui.Muted);
-        wins.AddChild(Ui.Label("COLISEO DE LA ASCENSIÓN", 19, Ui.Gold));
-        HelpText(wins, MatchRules.Details(GameMode.Warfare, ArenaMapId.Ascension), Ui.Muted);
-        HelpText(wins, "En duelo, la primera muerte tarda 3 segundos; las siguientes añaden 0,5 segundos hasta 10. En todos contra todos y guerra, la primera tarda 4,5 segundos.", Ui.Muted);
-        HelpText(wins, "Al terminar, se muestra el ganador y empieza otra partida a los 9 segundos. Puedes consultar el marcador con TAB. En práctica, el duelo se juega a 5 bajas.", Ui.Muted);
-        var relicsScroll = new ContentScrollContainer { Name = "Objetos", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; _helpPages.AddChild(relicsScroll);
-        var relics = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; relics.AddThemeConstantOverride("separation", 14); relicsScroll.AddChild(relics);
-        HelpText(relics, "En el Santuario y el Coliseo. Camina sobre un objeto para recogerlo; reaparece a los 12 s. En el Coliseo cada aparición elige una posición nueva al azar. Puedes acumular objetos iguales o distintos. Sus mejoras se pierden al morir; la vida permanente por bajas del Coliseo se conserva.", Ui.Gold);
-        foreach (var kind in Enum.GetValues<BuffKind>())
-        { relics.AddChild(Ui.Label(RelicBuffs.Name(kind).ToUpperInvariant(), 18, RelicVisual.ColorFor(kind))); HelpText(relics, RelicBuffs.Description(kind), Ui.Muted); }
-        var types = new VBoxContainer { Name = "Tipos de mago" }; types.AddThemeConstantOverride("separation", 12); _helpPages.AddChild(types);
-        HelpText(types, "Elige tu tipo en el launcher antes de entrar. Todos pueden combinar los ocho elementos.", Ui.Muted);
-        foreach (var type in Enum.GetValues<WizardType>())
-        {
-            types.AddChild(Ui.Label(WizardTypes.Name(type).ToUpperInvariant(), 19, Ui.WizardColor(type)));
-            HelpText(types, WizardTypes.Description(type));
-        }
-        HelpText(types, "El bonus solo aumenta su componente elemental, incluida la quemadura. La debilidad también consume más escudo. Si atacante y defensor combinan bonus y debilidad, ese daño se multiplica por 1,5625. La clase se conserva al reaparecer.", Ui.Muted);
-        _spellBook = new SpellBook { Name = "Combinaciones" }; _helpPages.AddChild(_spellBook);
-        var elementsScroll = new ContentScrollContainer { Name = "Elementos", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-        _helpPages.AddChild(elementsScroll);
-        var elementsBox = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        elementsBox.AddThemeConstantOverride("separation", 14); elementsScroll.AddChild(elementsBox);
-        HelpText(elementsBox, "VENTAJAS Y DEBILIDADES", Ui.Gold);
-        HelpText(elementsBox, "Contra una protección elemental: +50 % al superar su elemento, −50 % si te contrarresta y −82 % contra el mismo elemento. En una mezcla, cada componente conserva su aporte de daño y se compara con los elementos de la defensa.", Ui.Muted);
-        var elementalTable = Ui.Table(3, "ElementRelationsTable");
-        elementsBox.AddChild(elementalTable);
-        foreach (var title in new[] { "Elemento", "Supera a", "Vulnerable a" }) Ui.TableCell(elementalTable, title, header: true);
-        foreach (var element in Enum.GetValues<Element>())
-        {
-            Ui.TableCell(elementalTable, SpellCatalogue.Name([element]));
-            Ui.TableCell(elementalTable, SpellCatalogue.Name([ElementInteractions.StrongAgainst(element)]));
-            Ui.TableCell(elementalTable, SpellCatalogue.Name([ElementInteractions.Weakness(element)]));
-        }
-        HelpText(elementsBox, "Agua moja y Vida cura. También desgastan protecciones enemigas con sus ventajas elementales; su presión no daña la salud al romper el escudo. Curar a un aliado conserva su escudo. Los bonus y debilidades propios del tipo de mago se aplican además de estas relaciones.", Ui.Muted);
-        HelpText(elementsBox, "El escudo básico deja pasar los hechizos de su propietario. Las barreras imbuidas bloquean también los propios. Todas las barreras siguen bloqueando el movimiento.", Ui.Muted);
-        GetViewport().SizeChanged += UpdateInGameHelpResponsive;
-        UpdateInGameHelpResponsive();
+        var title = Ui.Label("PARTIDA", 22, Ui.Gold); title.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        header.AddChild(title); header.AddChild(Ui.ExitButton("Continuar", TogglePause, "PauseResume"));
+        var scroll = new ContentScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        _responsivePauseScroll = scroll; frame.AddChild(scroll);
+        content = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        content.AddThemeConstantOverride("separation", 16); scroll.AddChild(content);
         return root;
     }
 
-    private void UpdateInGameHelpResponsive()
-    {
-        UpdatePauseResponsive();
-        float width = GetViewport().GetVisibleRect().Size.X;
-        float height = GetViewport().GetVisibleRect().Size.Y;
-        if (_responsiveHelpModal != null)
-            _responsiveHelpModal.CustomMinimumSize = new Vector2(Math.Max(230, Math.Min(750, width - 32)), 0);
-        if (_responsiveHelpScroll != null)
-            _responsiveHelpScroll.CustomMinimumSize = new Vector2(
-                Math.Max(220, Math.Min(718, width - 64)), Math.Max(100, height - 152));
-        _helpPages.CustomMinimumSize = new Vector2(
-            Math.Max(220, Math.Min(Ui.IsMobile ? 680 : 690, width - (Ui.IsMobile ? 84 : 100))),
-            Math.Max(190, Math.Min(510, height - 180)));
-        if (_inGameHelpControls != null)
-            _inGameHelpControls.Columns = ResponsiveLayout.Columns(
-                Math.Max(250, width - (Ui.IsMobile ? 105 : 140)), 325, 2, 20);
-    }
-    private static ElementTextLabel HelpText(Node parent, string text, Color? color = null)
-    {
-        var label = Ui.Label(text, 15, color); label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        parent.AddChild(label); return label;
-    }
     private Control BuildPause()
     {
-        var root = Modal(out var box, trackHelp: false);
+        var root = BuildPauseModal(out var box);
         _defenseInterfaceHint = Ui.Label("En red, la partida continúa mientras estás en este menú.", 17, Ui.Muted);
         _defenseInterfaceHint.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_defenseInterfaceHint);
         AddSurvivalSaveActions(box);
@@ -830,6 +699,7 @@ public partial class Main : Node
         _diagnosticStatus = Ui.Label("", 15, Ui.Muted); _diagnosticStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         box.AddChild(_diagnosticStatus);
         box.AddChild(Ui.Button("Salir del juego", () => GetTree().Quit()));
+        GetViewport().SizeChanged += UpdatePauseResponsive;
         UpdatePauseResponsive();
         return root;
     }
@@ -881,7 +751,7 @@ public partial class Main : Node
         CaptureStatistics(MatchRecordStatus.Interrupted);
         CaptureLocalBestiary();
         RenderingServer.FramePostDraw -= FrameDrawn;
-        GetViewport().SizeChanged -= UpdateInGameHelpResponsive;
+        GetViewport().SizeChanged -= UpdatePauseResponsive;
         CancelGameLoading();
         WizardSprites.ClearCache();
         MythicEyeVisuals.ClearCache();

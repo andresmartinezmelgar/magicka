@@ -9,11 +9,10 @@ public partial class Main
     {
         internal ArenaRenderer Renderer { get => owner._renderer; }
         internal Control UiRoot { get => owner._ui; }
-        internal Control Help { get => owner._help; }
+        internal HelpPanel Help { get => owner._help; }
         internal Control Pause { get => owner._pause; }
         internal Launcher Launcher { get => owner._launcher; }
-        internal TabContainer HelpPages { get => owner._helpPages; }
-        internal SpellBook SpellBook { get => owner._spellBook; }
+        internal SpellBook SpellBook { get => owner._help.SpellBook; }
         internal Hud? Hud { get => owner._hud; }
         internal ArenaConnection? Connection { get => owner._connection; }
         internal ArenaConnection? PendingConnection { get => owner._pendingConnection; }

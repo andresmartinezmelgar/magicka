@@ -127,7 +127,7 @@ public partial class ClientVerification : Node
             if (arg.StartsWith("--preview-interaction=") && Enum.TryParse<DemonstrationKind>(arg[22..], true, out var interaction)) _previewInteraction = interaction;
             if (arg == "--preview-wizards") _previewWizards = "front";
             if (arg.StartsWith("--preview-wizards=")) _previewWizards = arg[18..];
-            if (arg.StartsWith("--preview-help=") && int.TryParse(arg[15..], out int page)) _previewHelp = Math.Clamp(page, 0, _runtime.HelpPages.GetTabCount() - 1);
+            if (arg.StartsWith("--preview-help=") && int.TryParse(arg[15..], out int page)) _previewHelp = Math.Clamp(page, 0, 6);
             if (arg.StartsWith("--preview-shield=")) _previewShield = arg[17..];
             if (arg.StartsWith("--capture=")) _capturePath = arg[10..];
             if (arg == "--capture-review") _captureReview = true;
@@ -203,10 +203,10 @@ public partial class ClientVerification : Node
             }
             GD.Print($"SPELL_PREVIEW_READY: {_previewSpells}");
         }
-        if (_previewHelp >= 0) { _runtime.ToggleHelp(); _runtime.HelpPages.CurrentTab = _previewHelp; }
+        if (_previewHelp >= 0) { _runtime.Help.Visible = true; _runtime.Help.SelectLegacyPage(_previewHelp); }
         if (_combinationsSmoke || _previewCombination != null || _previewInteraction != DemonstrationKind.Combination)
         {
-            _runtime.Help.Visible = true; _runtime.HelpPages.CurrentTab = _runtime.HelpPages.GetTabIdxFromControl(_runtime.SpellBook);
+            _runtime.Help.Visible = true; _runtime.Help.OpenTopic(HelpTopic.Spells);
             _runtime.SpellBook.FixedStepForVerification = _combinationsSmoke || _capturePath != null;
             _runtime.SpellBook.SelectCombination(_previewCombination ?? "SS", _previewCastMode, _previewInteraction);
         }

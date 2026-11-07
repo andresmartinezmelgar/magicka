@@ -37,7 +37,7 @@ public partial class Main
         if (GodotObject.IsInstanceValid(_equipmentPanel) && !_equipmentPanel!.IsQueuedForDeletion())
         { _equipmentPanel.Close(OpenTutorial); return; }
         CloseAccountProfile();
-        CloseOptionAHelp();
+        CloseMenuHelp();
         CloseBestiary();
         CloseMatchStatistics();
         CloseItemShop();
