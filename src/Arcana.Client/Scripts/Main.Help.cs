@@ -27,7 +27,7 @@ public partial class Main
 
     private HelpPanel BuildHelp()
     {
-        var help = new HelpPanel { Name = "InGameHelp" };
+        var help = new HelpPanel { Name = "InGameHelp", Visible = false };
         _ui.AddChild(help);
         help.Build(this, inGame: true, CloseInGameHelp);
         return help;

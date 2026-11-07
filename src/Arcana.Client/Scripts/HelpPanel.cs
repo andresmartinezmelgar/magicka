@@ -17,7 +17,8 @@ public partial class HelpPanel : Control
     private HelpTopic? _topic;
     private SpellBook? _spellBook;
     private Main _main = null!;
-    private bool _inGame;
+    private Action _close = null!;
+    private bool _inGame, _built;
     private string _match = "";
 
     internal SpellBook SpellBook => _spellBook ?? throw new InvalidOperationException("Abre Crear hechizos antes de usar el laboratorio.");
@@ -26,7 +27,22 @@ public partial class HelpPanel : Control
 
     internal void Build(Main main, bool inGame, Action close)
     {
-        _main = main; _inGame = inGame; _articles = HelpCatalogue.Build(Ui.IsMobile);
+        _main = main; _inGame = inGame; _close = close;
+        Ui.Full(this);
+        VisibilityChanged += EnsureBuilt;
+        EnsureBuilt();
+    }
+
+    private void EnsureBuilt()
+    {
+        if (_built || !IsVisibleInTree()) return;
+        _built = true;
+        BuildContents();
+    }
+
+    private void BuildContents()
+    {
+        _articles = HelpCatalogue.Build(Ui.IsMobile);
         Theme = Ui.Theme(); Ui.Full(this);
         var shade = new ColorRect { Color = ArcanaMenuChrome.Backdrop }; AddChild(shade); Ui.Full(shade);
         var margin = new MarginContainer(); AddChild(margin); Ui.Full(margin);
@@ -43,8 +59,8 @@ public partial class HelpPanel : Control
         _back = Ui.ExitButton("Índice", () => HandleBack(), "HelpBack"); header.AddChild(_back);
         _title = Ui.Label("Ayuda", 23, Ui.Gold); _title.ClipText = true;
         _title.SizeFlagsHorizontal = SizeFlags.ExpandFill; _title.VerticalAlignment = VerticalAlignment.Center; header.AddChild(_title);
-        header.AddChild(Ui.ExitButton(inGame ? "Volver al juego" : "Cerrar", close,
-            inGame ? "InGameHelpClose" : "HelpClose"));
+        header.AddChild(Ui.ExitButton(_inGame ? "Volver al juego" : "Cerrar", _close,
+            _inGame ? "InGameHelpClose" : "HelpClose"));
         var searchRow = _searchRow = new HBoxContainer(); outer.AddChild(searchRow);
         _search = new LineEdit { Name = "HelpSearch", PlaceholderText = "Buscar: curación, escudo, oro…",
             SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new(0, 44) };
@@ -62,7 +78,7 @@ public partial class HelpPanel : Control
         outer.AddChild(_scroll);
         _body = new VBoxContainer { Name = "HelpBody", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _body.AddThemeConstantOverride("separation", 12); _scroll.AddChild(_body);
-        if (!inGame) ArcanaMenuChrome.Attach(this, margin, main, "Ayuda", 5, main.NavigateOptionAMenu);
+        if (!_inGame) ArcanaMenuChrome.Attach(this, margin, _main, "Ayuda", 5, _main.NavigateOptionAMenu);
         Resized += UpdateLayout;
         Render();
     }
@@ -70,7 +86,7 @@ public partial class HelpPanel : Control
     internal void SetMatch(WorldSnapshot? snapshot)
     {
         _match = snapshot == null ? "" : MatchRules.Objective(snapshot.Mode, snapshot.ScoreLimit, snapshot.StartingTickets, snapshot.Map);
-        if (_topic == null || _topic == HelpTopic.Modes) Render();
+        if (_built && (_topic == null || _topic == HelpTopic.Modes)) Render();
     }
 
     internal void OpenTopic(HelpTopic topic, string? articleId = null)
