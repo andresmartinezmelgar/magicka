@@ -25,6 +25,7 @@ public partial class Main
     private void QueueStatistics(MatchStatisticsReport report)
     {
         if (_statisticsOutbox == null || report.Status == MatchRecordStatus.Playing || report.Revision == 0 || _statisticsSavedRun == report.RunId && _statisticsSavedRevision == report.Revision && _statisticsSavedStatus == report.Status) return;
+        CaptureDashboard(report);
         if (!_statisticsOutbox.Enqueue(report)) return;
         _statisticsSavedRun = report.RunId; _statisticsSavedRevision = report.Revision; _statisticsSavedStatus = report.Status;
         // El primer intento comienza al cerrar la partida; el reloj solo controla reintentos.
@@ -52,6 +53,7 @@ public partial class Main
     {
         if (_statisticsProfileUid != (Accounts.Profile?.Uid ?? "")) RefreshStatisticsAccess();
         if (_statisticsOutbox == null) return;
+        TickDashboard(delta);
         _statisticsClock += delta; _statisticsSendClock += delta;
         if (_connection != _statisticsConnection) { _statisticsConnection = _connection; _statisticsClock = 15; _statisticsEnded = false; }
         bool ended = _practice?.MatchEnded == true || _connection?.Latest?.MatchEnded == true;

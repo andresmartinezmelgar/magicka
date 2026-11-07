@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.29.51
+
+- Cada mejora solo se puede elegir una vez en las prioridades de equipo. Al quitarla o cambiarla vuelve a estar disponible en las otras prioridades; Sin prioridad se puede repetir.
+- Nuevo envío privado de nombres de juego, daño individual y ping al dashboard web. Mantiene el histórico anónimo y requiere activar las reglas de Firebase.
+- Dashboard táctil por pestañas, filtros semanales y mensuales, daño elemental y CSV. Instalador Windows con actualización del repositorio cada 30 minutos.
+
 ## 0.29.50
 
 - Fragmentación de roca y Roca automática son afijos independientes que se pueden combinar. El primero divide los impactos; el segundo dispara una roca a máxima carga cada cuatro bajas en Diamante o cada dos en Mítico, con cualquier ataque.

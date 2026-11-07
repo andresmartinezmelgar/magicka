@@ -27,6 +27,7 @@ public static partial class SnapshotValidation
     private static bool Size(float value, float maximum) => float.IsFinite(value) && value >= 0 && value <= maximum;
     public static void Check(WorldSnapshot state)
     {
+        if (state.StatisticsRunId is {} run && (run.Length != 32 || run.Any(c => !char.IsAsciiHexDigit(c)))) Invalid();
         if (!Enum.IsDefined(state.Mode) || !Enum.IsDefined(state.Map) || state.Tick < 0 || !double.IsFinite(state.Time) || state.Time < 0 || !NonNegative(state.RestartIn) ||
             state.HoldingTeam is < -1 or > 1 || !NonNegative(state.HoldSeconds) || state.HoldSeconds > 15 ||
             state.HoldingTeam == -1 && state.HoldSeconds != 0 ||

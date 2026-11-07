@@ -8,6 +8,24 @@ public sealed partial class ArenaConnection
     private readonly object _pingGate = new();
     private long _pingSequence, _pendingPingId, _pingRequestedAt, _pingSentAt, _pingSampleAt;
     private double? _pingMilliseconds;
+    private long _dashboardPingSamples;
+    private double _dashboardPingSum, _dashboardPingMin = double.PositiveInfinity, _dashboardPingMax;
+    public DashboardPing? DashboardPing
+    {
+        get
+        {
+            lock (_pingGate) return _dashboardPingSamples > 0
+                ? new(_dashboardPingSamples, _dashboardPingSum, _dashboardPingMin, _dashboardPingMax) : null;
+        }
+    }
+    public void ResetDashboardPing()
+    {
+        lock (_pingGate)
+        {
+            _dashboardPingSamples = 0; _dashboardPingSum = _dashboardPingMax = 0;
+            _dashboardPingMin = double.PositiveInfinity;
+        }
+    }
 
     /// <summary>Ida y vuelta por el mismo WebSocket del juego; null sin una respuesta reciente.</summary>
     public double? PingMilliseconds
@@ -57,6 +75,10 @@ public sealed partial class ArenaConnection
             _pendingPingId = 0;
             if (milliseconds >= PingTimeoutSeconds * 1000) return;
             _pingMilliseconds = milliseconds;
+            ++_dashboardPingSamples;
+            _dashboardPingSum += milliseconds;
+            _dashboardPingMin = Math.Min(_dashboardPingMin, milliseconds);
+            _dashboardPingMax = Math.Max(_dashboardPingMax, milliseconds);
             _pingSampleAt = now;
         }
     }
