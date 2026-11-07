@@ -41,6 +41,7 @@ internal sealed class SurvivalWizard
     public int Deaths = 0;
     public MatchDamageSnapshot? Damage = null;
     public int ArcaneMarkOwner = 0, ArcaneMarkRank = 0;
+    public int AutomaticRockKillCredits = 0, AutomaticRockElementIndex = 0;
     public RecentDamageSample[] RecentDamage = [];
     public int BeamTicks = 0;
     public int BotWallTarget = 0;
@@ -97,6 +98,7 @@ internal sealed class SurvivalWizard
         Deaths = p.Deaths,
         Damage = p.MatchDamage.Snapshot(),
         ArcaneMarkOwner = p.ArcaneMarkOwner, ArcaneMarkRank = p.ArcaneMarkRank, RecentDamage = p.RecentDamage.Capture(),
+        AutomaticRockKillCredits = p.AutomaticRockKillCredits, AutomaticRockElementIndex = p.AutomaticRockElementIndex,
         BeamTicks = p.BeamTicks,
         BotWallTarget = p.BotWallTarget,
         SlideSurface = p.SlideSurface,
@@ -170,6 +172,7 @@ internal sealed class SurvivalWizard
         BuffStacks.CopyTo(p.BuffStacks, 0); MagickCooldowns.CopyTo(p.MagickCooldowns, 0);
         p.MatchDamage.Restore(Damage);
         p.ArcaneMarkOwner = ArcaneMarkOwner; p.ArcaneMarkRank = ArcaneMarkRank; p.RecentDamage.Restore(RecentDamage);
+        p.AutomaticRockKillCredits = AutomaticRockKillCredits; p.AutomaticRockElementIndex = AutomaticRockElementIndex;
         foreach (var element in Selection) p.Selection.Add(element);
         p.Input = new() { Type = "input", AimX = Position.X + Facing.X, AimY = Position.Y + Facing.Y };
         return p;
@@ -178,6 +181,8 @@ internal sealed class SurvivalWizard
     public bool Valid() => Id > 0 && Id < int.MaxValue - 1 && Name is { Length: > 0 and <= 24 } &&
         RingCooldown is >= 0 and <= 16 && (Damage == null || Damage.Valid()) && RecentDamageWindow.Valid(RecentDamage) &&
         ArcaneMarkRank is >= 0 and <= 2 && (ArcaneMarkRank == 0 ? ArcaneMarkOwner == 0 : ArcaneMarkOwner > 0 && Health > 0) &&
+        AutomaticRockKillCredits is >= 0 and <= CombatAffixes.AutomaticRockMaximumCredits &&
+        AutomaticRockElementIndex >= 0 && AutomaticRockElementIndex < CombatAffixes.AutomaticRockElements.Length &&
         Enum.IsDefined(WizardType) && Equipment != null && Position.IsFinite && Facing.IsFinite &&
         float.IsFinite(ReprisalCooldown) && ReprisalCooldown is >= 0 and <= CombatAffixes.ReprisalSeconds &&
         Knockback.IsFinite && SlideIntent.IsFinite && SlideTangent.IsFinite &&

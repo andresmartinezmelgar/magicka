@@ -11,6 +11,7 @@ public sealed partial class GameWorld
         player.Equipment = prepared.Modifiers with { Power = prepared.Modifiers.Power * (1 + (progress.Level - 1) * 0.08f),
             Healing = prepared.Modifiers.Healing * (1 + (progress.Level - 1) * 0.04f),
             ShieldCapacity = prepared.Modifiers.ShieldCapacity * DefenseRules.ShieldLevelMultiplier(progress.Level) };
+        CheckAutomaticRockEquipment(player);
         // Preserve damage already taken while increasing the capacity of an active ward.
         // Recalculating equipment multiple times must never stack the level bonus.
         if (player.ShieldMax > 0 && previousCapacity > 0)

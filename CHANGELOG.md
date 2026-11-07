@@ -1,5 +1,10 @@
 # Cambios
 
+## Próxima versión
+
+- Fragmentación de roca de rango mítico prepara una roca automática a máxima carga por cada dos bajas con cualquier ataque. La mezcla lleva dos de Tierra y alterna Fuego, Frío, Agua y Arcano; busca un enemigo cercano y visible sin interrumpir el lanzamiento manual.
+- El progreso del disparo automático se conserva al guardar o reconectar y se reinicia al morir o perder el afijo. La fragmentación existente se mantiene.
+
 ## 0.29.48
 
 - Ayuda renovada con ocho temas, buscador, explicaciones desplegables y navegación con Índice y Atrás. La misma guía está disponible en el menú y durante la partida.

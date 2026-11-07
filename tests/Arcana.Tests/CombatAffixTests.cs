@@ -34,6 +34,7 @@ internal static class CombatAffixTests
     {
         ShieldAbsorptionAffixTests.Run(test);
         RockFragmentationTests.Run(test);
+        AutomaticRockTests.Run(test);
         ArcaneAffixTests.Run(test);
         test("Afijos nuevos: identificadores antiguos, quince efectos, calidades, anillos y catálogo compatibles", () =>
         {

@@ -46,6 +46,8 @@ public sealed class Wizard
     internal int ArcaneMarkOwner { get; set; }
     internal int ArcaneMarkRank { get; set; }
     internal bool ArcaneEchoActive { get; set; }
+    internal int AutomaticRockKillCredits { get; set; }
+    internal int AutomaticRockElementIndex { get; set; }
     internal RecentDamageWindow RecentDamage { get; } = new();
     public float[] MagickCooldowns { get; } = new float[4];
     public int Kills { get; set; }

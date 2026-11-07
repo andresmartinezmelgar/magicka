@@ -78,6 +78,9 @@ public sealed partial class GameWorld
         player.Invulnerable = previous.Invulnerable; player.ActionCooldown = previous.ActionCooldown;
         player.RingCooldown = previous.RingCooldown;
         player.ReprisalCooldown = previous.ReprisalCooldown;
+        player.AutomaticRockKillCredits = previous.AutomaticRockKillCredits;
+        player.AutomaticRockElementIndex = previous.AutomaticRockElementIndex;
+        CheckAutomaticRockEquipment(player);
         player.TeleportCooldown = previous.TeleportCooldown; player.TeleportNeedsExit = previous.TeleportNeedsExit;
         player.Knockback = previous.Knockback;
         // Los efectos del identificador anterior (p. ej. una quemadura) siguen

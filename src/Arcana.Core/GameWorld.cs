@@ -135,6 +135,7 @@ public sealed partial class GameWorld
         if (!_players.TryGetValue(id, out var player)) throw new ArgumentException("Mago desconocido.");
         if (IsDefense) return;
         player.Equipment = equipment;
+        CheckAutomaticRockEquipment(player);
         player.PublicEquipment = PublicEquipment.Empty;
     }
 
@@ -264,6 +265,7 @@ public sealed partial class GameWorld
         TickProjectiles(dt);
         TickWallsAndFields(dt);
         ResolveArcaneBursts();
+        TickAutomaticRocks();
         if (Options.Mode == GameMode.Warfare && !Map.IsPractice) TickCapture(dt);
         CleanupDefense();
         CheckVictory();
@@ -728,7 +730,12 @@ public sealed partial class GameWorld
         _statistics.Damage(owner, target, healthBefore - target.Health, shieldBefore - target.Shield, Math.Max(0, amount - healthBefore), elements, attack,
             TryCombatSource(owner, out var statisticsSource) && Allied(statisticsSource, target), weights);
         RecordArcaneDamage(target, owner, (double)(healthBefore - target.Health) + shieldBefore - target.Shield, elements, weights, attack);
-        if (healthBefore > 0 && target.Health <= 0) { _statistics.Death(target, owner, attack); QueueArcaneMarkDeath(target); }
+        if (healthBefore > 0 && target.Health <= 0)
+        {
+            ClearAutomaticRockProgress(target);
+            _statistics.Death(target, owner, attack); QueueArcaneMarkDeath(target);
+            CountAutomaticRockKill(target, owner);
+        }
         // Un rayo golpea a 60 Hz; limita sus impactos, pero nunca omite la rotura del escudo.
         bool broken = absorbed > 0 && target.Shield <= 0;
         if (broken) { target.RegenerationRate = 0; Emit("shield_break", target.Position, [Element.Shield], ""); }
@@ -994,6 +1001,7 @@ public sealed partial class GameWorld
     private void Respawn(Wizard p)
     {
         if (IsDefense && p.Deaths >= DefenseRules.PlayerLives) return;
+        ClearAutomaticRockProgress(p);
         ClearArcaneTarget(p);
         _routes.Remove(p.Id);
         ResetSlide(p);

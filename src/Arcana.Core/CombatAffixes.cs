@@ -9,6 +9,9 @@ public static class CombatAffixes
     public const float RockFragmentLifetime = RockFragmentRange / RockFragmentSpeed;
     public const float RockFragmentSplashRadius = 1, RockFragmentGroundRadius = 1, RockFragmentGroundSeconds = 2;
     public const int RockFragmentProjectileLimit = 160;
+    public const int AutomaticRockKillThreshold = 2, AutomaticRockMaximumCredits = 256;
+    public const float AutomaticRockRange = 16;
+    public static ReadOnlySpan<Element> AutomaticRockElements => [Element.Fire, Element.Cold, Element.Water, Element.Arcane];
     public const int ArcaneHistoryTicks = 5 * 60, ArcaneBurstLimit = DefenseRules.MaxMinions + 16;
     public static int ArcaneMarkSeconds(int rank) => RankValue(rank, 3, 5);
     public static float ArcaneMarkRadius(int rank) => RankValue(rank, 3, 4);
