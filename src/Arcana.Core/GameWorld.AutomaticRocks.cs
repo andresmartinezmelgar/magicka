@@ -7,14 +7,14 @@ public sealed partial class GameWorld
 
     private static void CheckAutomaticRockEquipment(Wizard player)
     {
-        if (player.Equipment.RockFragmentation < 2) ClearAutomaticRockProgress(player);
+        if (player.Equipment.AutomaticRock <= 0) ClearAutomaticRockProgress(player);
     }
 
     private void CountAutomaticRockKill(Wizard victim, int owner)
     {
         if (!_players.TryGetValue(owner, out var caster)) return;
         CheckAutomaticRockEquipment(caster);
-        if (caster.Equipment.RockFragmentation < 2 || !caster.Alive || !Hostile(caster, victim)) return;
+        if (caster.Equipment.AutomaticRock <= 0 || !caster.Alive || !Hostile(caster, victim)) return;
         caster.AutomaticRockKillCredits = Math.Min(CombatAffixes.AutomaticRockMaximumCredits, caster.AutomaticRockKillCredits + 1);
     }
 
@@ -27,7 +27,8 @@ public sealed partial class GameWorld
         {
             CheckAutomaticRockEquipment(caster);
             if (!caster.Alive) { ClearAutomaticRockProgress(caster); continue; }
-            if (caster.AutomaticRockKillCredits < CombatAffixes.AutomaticRockKillThreshold || caster.Frozen > 0 || _projectiles.Count >= 128) continue;
+            int threshold = CombatAffixes.AutomaticRockKillThreshold(caster.Equipment.AutomaticRock);
+            if (threshold <= 0 || caster.AutomaticRockKillCredits < threshold || caster.Frozen > 0 || caster.StunTime > 0 || _projectiles.Count >= 128) continue;
             Wizard? nearest = null;
             float range = CombatAffixes.AutomaticRockRange * caster.Equipment.Range;
             foreach (var enemy in _combatants.Values)
@@ -48,7 +49,7 @@ public sealed partial class GameWorld
             float charge = SpellBalance.ChargeSeconds;
             if (!SpawnProjectile(caster, spell, direction, SpellBalance.RockMinimum + charge,
                 13 + charge * 9, .24f + 2 * .13f)) continue;
-            caster.AutomaticRockKillCredits -= CombatAffixes.AutomaticRockKillThreshold;
+            caster.AutomaticRockKillCredits -= threshold;
             caster.AutomaticRockElementIndex = (caster.AutomaticRockElementIndex + 1) % CombatAffixes.AutomaticRockElements.Length;
             _statistics.Cast(caster.Id, StatisticAttack.Rock, spell.Elements);
             Emit("cast", caster.Position, spell.Elements, "Roca automática");

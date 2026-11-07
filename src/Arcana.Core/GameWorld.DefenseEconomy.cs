@@ -322,6 +322,7 @@ public sealed partial class GameWorld
                         {
                             minion.Body.Wet = Math.Max(minion.Body.Wet, DefenseRules.WaterAuraWetSeconds * player.Equipment.WetDuration);
                             minion.Body.Burning = 0;
+                            ApplyWaterSlow(minion.Body, player.Id);
                         }
                         DamageAs(attack, minion.Body, DefenseRules.AuraDamage(aura, level) * dt * player.Equipment.ElementPower(element), player.Id, [element]);
                     }
@@ -356,6 +357,7 @@ public sealed partial class GameWorld
                 { SpeedBoostSeconds = m.SpeedBoost, AttackWarningSeconds = m.Windup,
                     Shield = m.Body.Shield, ShieldMax = m.Body.ShieldMax, VulnerableElement = m.Body.VulnerableElement,
                     ArcaneMarked = m.Body.ArcaneMarkRank > 0,
+                    Stunned = m.Body.StunTime > 0, WaterSlowed = WaterSlowMultiplier(m.Body) < 1,
                     FocusTargetId = _players.TryGetValue(m.FocusTargetId, out var focused) && focused.Alive ? focused.Id : 0 }).ToArray(),
             _defenseDrops.Select(d => new DefenseDropSnapshot(d.Id, d.OwnerId, d.Position, d.Kind, d.Gold, d.Buff, d.Item?.Slot, d.Item?.Tier)).ToArray(),
             _players.Values.Select(p =>

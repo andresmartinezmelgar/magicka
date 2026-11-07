@@ -9,7 +9,7 @@ public partial class ArenaRenderer
     {
         public required Node3D Root;
         public MinionKind Kind;
-        public MeshInstance3D? Body, Health, Aura, Warning, Shield, ShieldTrack, SupportArea, ArcaneMark;
+        public MeshInstance3D? Body, Health, Aura, Warning, Shield, ShieldTrack, SupportArea, ArcaneMark, LightningStun;
         public Node3D? Details, Vitals;
         public MeshInstance3D[] Tinted = [];
         public Label3D? ElementLabel;
@@ -69,7 +69,7 @@ public partial class ArenaRenderer
         100, MinionCooldowns, 0, 0, 0, m.Casting,
         ShieldMax: m.ShieldMax, ShieldSeconds: m.Shield > 0 ? 1 : 0,
         WizardType: MinionArt.CasterType(m.Kind) ?? WizardType.Pyromancer,
-            CastingElements: m.Elements) { ArcaneMarked = m.ArcaneMarked };
+            CastingElements: m.Elements) { ArcaneMarked = m.ArcaneMarked, Stunned = m.Stunned, WaterSlowed = m.WaterSlowed };
 
     private void RenderDefense(WorldSnapshot snapshot, int localId, float dt)
     {
@@ -96,8 +96,13 @@ public partial class ArenaRenderer
                 // Un único interpolador mueve también sus auras y avisos de ataque.
                 v.Root.Position = v.Mage.Position; v.Mage.Position = Vector3.Zero;
             }
-            else { v.Root.Position = v.Root.Position.Lerp(World(m.Position), Math.Min(1, dt * 18)); v.Sample = m; }
+            else { v.Root.Position = m.Stunned ? World(m.Position) : v.Root.Position.Lerp(World(m.Position), Math.Min(1, dt * 18)); v.Sample = m; }
             if (v.ArcaneMark != null) v.ArcaneMark.Visible = m.ArcaneMarked;
+            if (v.LightningStun != null)
+            {
+                v.LightningStun.Visible = m.Stunned;
+                if (m.Stunned) v.LightningStun.Rotation = new(0, (float)_time * 8, 0);
+            }
             if (v.Vitals != null && v.VitalsBasis != vitalsBasis)
             { v.Vitals.Basis = vitalsBasis; v.VitalsBasis = vitalsBasis; }
             if (v.Health != null)
@@ -260,6 +265,9 @@ public partial class ArenaRenderer
             v.ArcaneMark.Name = "ArcaneMark"; v.ArcaneMark.Position = new(0, .08f, 0);
             float size = m.Kind == MinionKind.Boss ? 1.5f : .8f;
             v.ArcaneMark.Scale = new(size, 1, size); v.ArcaneMark.Visible = m.ArcaneMarked;
+            v.LightningStun = AreaVisuals.Piece(root, AreaVisuals.Pattern.LightningAura);
+            v.LightningStun.Name = "LightningStun"; v.LightningStun.Position = new(0, v.Vitals!.Position.Y + .4f, 0);
+            v.LightningStun.Scale = new(.35f * size, 1, .35f * size); v.LightningStun.Visible = m.Stunned;
         }
         v.Aura = Mesh(root, new TorusMesh { InnerRadius = 0.88f, OuterRadius = 0.97f, Rings = 20, RingSegments = 6 },
             new(0, 0.06f, 0), Ui.Gold, 0.5f);
@@ -323,6 +331,8 @@ public partial class ArenaRenderer
                 throw new InvalidOperationException("Un enemigo conserva su nombre durante Supervivencia.");
             if ((visual.Mage?.ArcaneMarkVisible ?? visual.ArcaneMark?.Visible ?? false) != sample.ArcaneMarked)
                 throw new InvalidOperationException("La marca arcana no aparece, no se oculta o se conserva al reutilizar un enemigo.");
+            if ((visual.Mage?.LightningStunVisible ?? visual.LightningStun?.Visible ?? false) != sample.Stunned)
+                throw new InvalidOperationException("El indicador de aturdimiento no se actualiza al reutilizar un enemigo.");
             if (visual.Mage == null)
             {
                 float health = Math.Clamp(sample.Health / Math.Max(1, sample.MaxHealth), 0, 1);

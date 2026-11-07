@@ -23,6 +23,8 @@ internal sealed class SurvivalWizard
     public float HitEffectCooldown = 0;
     public float Chill = 0;
     public float Frozen = 0;
+    public float StunTime = 0, WaterSlowTime = 0;
+    public int WaterSlowRank = 0;
     public float FreezeRecovery = 0;
     public Element? VulnerableElement = null;
     public float Haste = 0;
@@ -80,6 +82,7 @@ internal sealed class SurvivalWizard
         HitEffectCooldown = p.HitEffectCooldown,
         Chill = p.Chill,
         Frozen = p.Frozen,
+        StunTime = p.StunTime, WaterSlowTime = p.WaterSlowTime, WaterSlowRank = p.WaterSlowRank,
         FreezeRecovery = p.FreezeRecovery,
         VulnerableElement = p.VulnerableElement,
         Haste = p.Haste,
@@ -140,6 +143,7 @@ internal sealed class SurvivalWizard
             HitEffectCooldown = HitEffectCooldown,
             Chill = Chill,
             Frozen = Frozen,
+            StunTime = StunTime, WaterSlowTime = WaterSlowTime, WaterSlowRank = WaterSlowRank,
             FreezeRecovery = FreezeRecovery,
             VulnerableElement = VulnerableElement,
             Haste = Haste,
@@ -193,6 +197,9 @@ internal sealed class SurvivalWizard
         (Charging == null || ValidElements(Charging)) && Kills >= 0 && Deaths is >= 0 and <= DefenseRules.PlayerLives &&
         MaxHealth > 0 && Health <= MaxHealth && ShieldMax >= 0 && Shield <= ShieldMax &&
         float.IsFinite(FreezeRecovery) && FreezeRecovery is >= 0 and <= DefenseRules.FreezeRecoverySeconds &&
+        float.IsFinite(StunTime) && StunTime >= 0 && StunTime <= CombatAffixes.LightningStunSeconds(2) &&
+        float.IsFinite(WaterSlowTime) && WaterSlowTime is >= 0 and <= CombatAffixes.WaterSlowSeconds &&
+        WaterSlowRank is >= 0 and <= 2 && (WaterSlowRank == 0) == (WaterSlowTime == 0) &&
         (!VulnerableElement.HasValue || DefenseRules.ValidPrismElement(VulnerableElement.Value)) &&
         new float[] { Health, MaxHealth, Shield, ShieldMax, ShieldTime, RegenerationRate, WardTime, Wet, Burning, BurnMultiplier, HitEffectCooldown, Chill, Frozen, Haste, Energy, Respawn, Invulnerable, TeleportCooldown, ActionCooldown, ChargeTime, BotDecision, RingCooldown }.All(f => float.IsFinite(f) && Math.Abs(f) <= 1e12f);
 

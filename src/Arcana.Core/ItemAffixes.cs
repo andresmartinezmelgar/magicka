@@ -4,7 +4,7 @@ namespace Arcana.Core;
 // Añadir al final: los identificadores guardados nunca cambian.
 public enum ItemAffixKind { BeamPierce, LightningChain, DoubleBurn, WaterShieldPool, CoinDividend, GoldBonus,
     Icebreaker, SteamImpact, ArcaneExecution, ShieldBattery, MendingWard, ShieldReprisal, ShieldLeech, ShieldReflection,
-    RockFragmentation, ArcaneMark, ArcaneEcho }
+    RockFragmentation, ArcaneMark, ArcaneEcho, AutomaticRock, LightningStun, WaterSlow }
 public sealed record ItemAffix(ItemAffixKind Kind, int Value = 1);
 public static class ItemAffixes
 {
@@ -13,7 +13,8 @@ public static class ItemAffixes
             ItemAffixKind.Icebreaker, ItemAffixKind.SteamImpact, ItemAffixKind.ArcaneExecution,
             ItemAffixKind.ShieldBattery, ItemAffixKind.MendingWard, ItemAffixKind.ShieldReprisal,
             ItemAffixKind.ShieldLeech, ItemAffixKind.ShieldReflection, ItemAffixKind.RockFragmentation,
-            ItemAffixKind.ArcaneMark, ItemAffixKind.ArcaneEcho];
+            ItemAffixKind.ArcaneMark, ItemAffixKind.ArcaneEcho, ItemAffixKind.AutomaticRock,
+            ItemAffixKind.LightningStun, ItemAffixKind.WaterSlow];
     private static readonly ItemAffixKind[] GoldRingKinds = [ItemAffixKind.CoinDividend, ItemAffixKind.GoldBonus];
     public static int CombatEffectCount => CombatKinds.Length;
     public static string Name(ItemAffixKind kind) => kind switch
@@ -24,12 +25,15 @@ public static class ItemAffixes
         ItemAffixKind.ShieldBattery => "Batería protectora", ItemAffixKind.MendingWard => "Remiendo protector",
         ItemAffixKind.ShieldReprisal => "Última barrera", ItemAffixKind.ShieldLeech => "Escudo vital", ItemAffixKind.ShieldReflection => "Espejo protector",
         ItemAffixKind.RockFragmentation => "Fragmentación de roca", ItemAffixKind.ArcaneMark => "Marca arcana", ItemAffixKind.ArcaneEcho => "Eco arcano",
+        ItemAffixKind.AutomaticRock => "Roca automática", ItemAffixKind.LightningStun => "Aturdimiento eléctrico", ItemAffixKind.WaterSlow => "Agua ralentizante",
         ItemAffixKind.CoinDividend => "Monedas extra", ItemAffixKind.GoldBonus => "Bonificación de oro", _ => throw new ArgumentException("Afijo desconocido.")
     };
     public static bool IsExtended(ItemAffixKind kind) => kind is ItemAffixKind.Icebreaker or ItemAffixKind.SteamImpact or
         ItemAffixKind.ArcaneExecution or ItemAffixKind.ShieldBattery or ItemAffixKind.MendingWard or ItemAffixKind.ShieldReprisal or
-        ItemAffixKind.ShieldLeech or ItemAffixKind.ShieldReflection or ItemAffixKind.RockFragmentation or ItemAffixKind.ArcaneMark or ItemAffixKind.ArcaneEcho;
-    public static int MinimumGeneration(ItemAffixKind kind) => kind is ItemAffixKind.ArcaneMark or ItemAffixKind.ArcaneEcho ? 11
+        ItemAffixKind.ShieldLeech or ItemAffixKind.ShieldReflection or ItemAffixKind.RockFragmentation or ItemAffixKind.ArcaneMark or ItemAffixKind.ArcaneEcho or
+        ItemAffixKind.AutomaticRock or ItemAffixKind.LightningStun or ItemAffixKind.WaterSlow;
+    public static int MinimumGeneration(ItemAffixKind kind) => kind is ItemAffixKind.AutomaticRock or ItemAffixKind.LightningStun or ItemAffixKind.WaterSlow ? 13
+        : kind is ItemAffixKind.ArcaneMark or ItemAffixKind.ArcaneEcho ? 11
         : kind == ItemAffixKind.RockFragmentation ? 10
         : kind is ItemAffixKind.ShieldLeech or ItemAffixKind.ShieldReflection
         ? 9 : IsExtended(kind) ? 8 : 1;
@@ -90,9 +94,11 @@ public static class ItemAffixes
         ItemAffixKind.ShieldLeech => $"Escudo vital: si sobrevives, recuperas el {CombatAffixes.ShieldLeechPercent(affix.Value)} % del daño enemigo absorbido por tu escudo personal. Excluye barreras, daño propio y fuego amigo; no repara ni prolonga el escudo.",
         ItemAffixKind.ShieldReflection => $"Espejo protector: si sobrevives, devuelve al atacante el {CombatAffixes.ShieldReflectionPercent(affix.Value)} % del daño absorbido por tu escudo personal. Conserva elementos y respeta defensas e inmunidades, sin bonos de ataque. No activa afijos de absorción ni otros reflejos.",
         ItemAffixKind.RockFragmentation => $"Fragmentación de roca: al impactar, la roca lanza {CombatAffixes.RockFragmentCount(affix.Value)} fragmentos en todas las direcciones, hasta {CombatAffixes.RockFragmentRange:0.#} m. Cada uno conserva la mezcla y sus estados, con el {CombatAffixes.RockFragmentImpactScale * 100:0} % del daño base de impacto de la roca lanzada. " +
-            $"Con Fuego, Frío o Agua dejan un área de {CombatAffixes.RockFragmentGroundRadius:0.#} m durante {CombatAffixes.RockFragmentGroundSeconds:0.#} s al chocar o caer, con el {CombatAffixes.RockFragmentGroundScale * 100:0} % del daño directo habitual del suelo. Los fragmentos no vuelven a dividirse." +
-            (affix.Value >= 2 ? $" En Mítico, cada {CombatAffixes.AutomaticRockKillThreshold} enemigos que mates con cualquier ataque preparan una roca automática a máxima carga, con dos de Tierra y un elemento que alterna entre Fuego, Frío, Agua y Arcano. " +
-                $"Busca al enemigo visible más cercano en {CombatAffixes.AutomaticRockRange:0.#} m, ampliables con alcance. Si no hay objetivo, conserva el disparo. No interrumpe tus hechizos. Las copias no se acumulan y perder el afijo o morir reinicia el contador." : ""),
+            $"Con Fuego, Frío o Agua dejan un área de {CombatAffixes.RockFragmentGroundRadius:0.#} m durante {CombatAffixes.RockFragmentGroundSeconds:0.#} s al chocar o caer, con el {CombatAffixes.RockFragmentGroundScale * 100:0} % del daño directo habitual del suelo. Los fragmentos no vuelven a dividirse. No concede disparos automáticos.",
+        ItemAffixKind.AutomaticRock => $"Roca automática: cada {CombatAffixes.AutomaticRockKillThreshold(affix.Value)} enemigos que mates con cualquier ataque preparan una roca a máxima carga, con dos de Tierra y un elemento que alterna entre Fuego, Frío, Agua y Arcano. " +
+            $"Busca al enemigo visible más cercano en {CombatAffixes.AutomaticRockRange:0.#} m, ampliables con alcance. Si no hay objetivo, conserva el disparo. No interrumpe tus hechizos. Solo se divide si también equipas Fragmentación de roca. Las copias no se acumulan y perder el afijo o morir reinicia el contador.",
+        ItemAffixKind.LightningStun => $"Aturdimiento eléctrico: cada segundo de impactos continuos de tus hechizos con Rayo sobre un enemigo lo aturde durante {CombatAffixes.LightningStunSeconds(affix.Value):0.0} s. Detiene su movimiento e interrumpe sus hechizos. Dejar de impactarlo reinicia el segundo; los saltos cuentan por separado. No aumenta el daño ni afecta a aliados, invulnerables o inmunes a Rayo.",
+        ItemAffixKind.WaterSlow => $"Agua ralentizante: al mojar a un enemigo con tus hechizos, charcos o aura de Agua reduces su velocidad un {CombatAffixes.WaterSlowPercent(affix.Value)} % durante {CombatAffixes.WaterSlowSeconds:0.#} s. Se renueva sin acumularse y termina antes si deja de estar mojado. No añade frío ni congela; no afecta a aliados ni a ti.",
         ItemAffixKind.ArcaneMark => $"Marca arcana: causar daño arcano marca al enemigo hasta que muera. Al morir, repite sobre cada enemigo visible a {CombatAffixes.ArcaneMarkRadius(affix.Value):0.#} m el daño real que recibió en los últimos {CombatAffixes.ArcaneMarkSeconds(affix.Value)} s, incluido el golpe mortal y el daño a escudos, sin exceso. Cuenta los ataques de cualquier origen. " +
             "La explosión es arcana y respeta las defensas del nuevo objetivo, sin volver a multiplicar los bonos del lanzador. No crea marcas nuevas. Solo una marca por objetivo; prevalece el rango mayor y, a igual rango, el último autor.",
         ItemAffixKind.ArcaneEcho => $"Eco arcano: mientras canalizas un haz con Arcano contra un enemigo, lanzas desde tu mago otro haz automático al enemigo más cercano distinto del que apuntas, con trayectoria libre y dentro del alcance original. Conserva mezcla y carga, con el {CombatAffixes.ArcaneEchoPercent(affix.Value)} % del daño. No atraviesa enemigos ni genera más ecos; puede reflejarse en escudos.",
@@ -117,6 +123,9 @@ public static class ItemAffixes
         modifiers.ShieldLeech > 0 ? Describe(new(ItemAffixKind.ShieldLeech, modifiers.ShieldLeech)) : "",
         modifiers.ShieldReflection > 0 ? Describe(new(ItemAffixKind.ShieldReflection, modifiers.ShieldReflection)) : "",
         modifiers.RockFragmentation > 0 ? Describe(new(ItemAffixKind.RockFragmentation, modifiers.RockFragmentation)) : "",
+        modifiers.AutomaticRock > 0 ? Describe(new(ItemAffixKind.AutomaticRock, modifiers.AutomaticRock)) : "",
+        modifiers.LightningStun > 0 ? Describe(new(ItemAffixKind.LightningStun, modifiers.LightningStun)) : "",
+        modifiers.WaterSlow > 0 ? Describe(new(ItemAffixKind.WaterSlow, modifiers.WaterSlow)) : "",
         modifiers.ArcaneMark > 0 ? Describe(new(ItemAffixKind.ArcaneMark, modifiers.ArcaneMark)) : "",
         modifiers.ArcaneEcho > 0 ? Describe(new(ItemAffixKind.ArcaneEcho, modifiers.ArcaneEcho)) : "",
         modifiers.MagicRingFamily is { } family ? RingEffects.Describe(EquipmentSlot.MagicRing, family, modifiers.MagicRingLevel, modifiers) : "",

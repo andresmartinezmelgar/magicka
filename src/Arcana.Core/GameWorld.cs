@@ -117,6 +117,7 @@ public sealed partial class GameWorld
         if (!_players.Remove(id, out var wizard)) return;
         _unavailableDefenders.Remove(id);
         ClearArcaneTarget(wizard); RemoveArcaneOwner(id);
+        PruneLightningContacts(id);
         _orderedPlayers.Remove(wizard); _combatants.Remove(id); _defenders.Remove(id);
         _statistics.Retire(id); _statisticsPerformanceTime.Remove(id);
         _defenseDrops.RemoveAll(d => d.OwnerId == id);
@@ -186,7 +187,7 @@ public sealed partial class GameWorld
         if (message.Type is not ("element" or "clear" or "cast" or "release" or "self" or "nova" or "melee" or "magick") ||
             message.Type == "element" && !Enum.IsDefined(message.Element) || message.Type == "magick" && message.Slot is < 0 or > 3) return false;
         p.LastSequence = message.Sequence;
-        if (!p.Alive || MatchEnded || p.Frozen > 0) return false;
+        if (!p.Alive || MatchEnded || p.Frozen > 0 || p.StunTime > 0) return false;
         if (IsDefense && message.Type is "cast" or "melee" or "self" or "nova" or "magick") _defenders[p.Id].LastActivity = Time;
         UpdateFacing(p);
         switch (message.Type)
@@ -251,7 +252,7 @@ public sealed partial class GameWorld
             TickRing(p);
             UpdateFacing(p);
             Move(p, dt);
-            if (p.Charging != null && p.Frozen <= 0)
+            if (p.Charging != null && p.Frozen <= 0 && p.StunTime <= 0)
             {
                 p.ChargeTime = Math.Min(SpellBalance.ChargeSeconds, p.ChargeTime + dt * p.Equipment.RockChargeSpeed);
                 if (p.ChargeTime >= SpellBalance.ChargeSeconds) Release(p);
@@ -266,6 +267,7 @@ public sealed partial class GameWorld
         TickWallsAndFields(dt);
         ResolveArcaneBursts();
         TickAutomaticRocks();
+        PruneLightningContacts();
         if (Options.Mode == GameMode.Warfare && !Map.IsPractice) TickCapture(dt);
         CleanupDefense();
         CheckVictory();
@@ -275,6 +277,9 @@ public sealed partial class GameWorld
     {
         _statistics.Status(p, dt);
         p.Wet = Math.Max(0, p.Wet - dt);
+        p.StunTime = Math.Max(0, p.StunTime - dt);
+        p.WaterSlowTime = Math.Max(0, p.WaterSlowTime - dt);
+        if (p.WaterSlowTime <= 0 || p.Wet <= 0) { p.WaterSlowTime = 0; p.WaterSlowRank = 0; }
         if (IsDefense && p.Role == CombatantRole.Player)
             p.FreezeRecovery = p.Frozen > 0 ? DefenseRules.FreezeRecoverySeconds : Math.Max(0, p.FreezeRecovery - dt);
         p.Frozen = Math.Max(0, p.Frozen - dt);
@@ -325,11 +330,11 @@ public sealed partial class GameWorld
             move = move.Normalized;
         }
         else if (p.Bot || move.LengthSquared > 1) move = move.Normalized;
-        float speed = Wizard.BaseMovementSpeed * RelicBuffs.Speed(p) * p.Equipment.Speed * DefenseSpeed(p) * (p.Haste > 0 ? 1.65f : 1) * (1 - p.Chill * 0.005f);
+        float speed = Wizard.BaseMovementSpeed * RelicBuffs.Speed(p) * p.Equipment.Speed * DefenseSpeed(p) * (p.Haste > 0 ? 1.65f : 1) * (1 - p.Chill * 0.005f) * WaterSlowMultiplier(p);
         if (p.Channel != null) speed *= 0.48f;
         if (p.Charging != null) speed *= 0.35f;
         if (p.Ward.Contains(Element.Earth)) speed *= 0.78f;
-        if (p.Frozen > 0) { speed = 0; CancelCast(p); }
+        if (p.Frozen > 0 || p.StunTime > 0) { speed = 0; CancelCast(p); }
         // El joystick conserva su intensidad; flechas diagonales y rutas no superan la velocidad máxima.
         var walking = move * (speed * dt);
         var delta = walking + p.Knockback * dt;
@@ -355,7 +360,7 @@ public sealed partial class GameWorld
         return true;
     }
 
-    private bool Ready(Wizard p) => p.Alive && p.Frozen <= 0 && p.ActionCooldown <= 0 && !MatchEnded;
+    private bool Ready(Wizard p) => p.Alive && p.Frozen <= 0 && p.StunTime <= 0 && p.ActionCooldown <= 0 && !MatchEnded;
     private static void UpdateFacing(Wizard p)
     {
         var aim = new V2(p.Input.AimX, p.Input.AimY) - p.Position;
@@ -608,7 +613,7 @@ public sealed partial class GameWorld
     {
         // Las magias tienen energía y recarga propias: un ataque recién soltado
         // no debe perder el lanzamiento especial al finalizar el gesto móvil.
-        if (!p.Alive || p.Frozen > 0 || MatchEnded || slot is < 0 or > 3 || p.MagickCooldowns[slot] > 0) return;
+        if (!p.Alive || p.Frozen > 0 || p.StunTime > 0 || MatchEnded || slot is < 0 or > 3 || p.MagickCooldowns[slot] > 0) return;
         var magick = SpellBalance.Magicks[slot];
         float cost = magick.Cost * (slot == 3 ? p.Equipment.LifeCost : 1);
         if (p.Energy < cost) return;
@@ -670,6 +675,7 @@ public sealed partial class GameWorld
         if (spell.Has(Element.Water) && !spell.Steam && !spell.Ice && Resistance(target, Element.Water) > 0.5f)
         {
             target.Wet = 6 * equipment.WetDuration; target.Burning = 0;
+            ApplyWaterSlow(target, owner);
             target.Knockback += force * (18 * scale * equipment.Water);
         }
         if (spell.Shape == SpellShape.Force && target.VulnerableElement == null) target.Knockback += force * (45 * scale);
@@ -700,6 +706,7 @@ public sealed partial class GameWorld
         if (spell.Has(Element.Earth) && AcceptsDefenseElement(target, Element.Earth)) target.Knockback += force * (10 * scale);
         damage *= damageMultiplier;
         ApplyDamage(target, damage * scale, owner, spell.Elements, false, true, weights, _statisticsAttack ?? MatchStatisticsCollector.Shape(spell.Shape));
+        if (weights[(int)Element.Lightning] > 0) RecordLightningContact(target, owner);
         if (target.Shield > 0) DamageProtection(target, UtilityPressure(target, spell, owner) * scale, owner, spell.Elements);
         if (TryCombatSource(owner, out var caster) && caster.Id != target.Id)
             caster.Energy = Math.Min(100, caster.Energy + damage * scale * 0.015f);
@@ -732,6 +739,8 @@ public sealed partial class GameWorld
         RecordArcaneDamage(target, owner, (double)(healthBefore - target.Health) + shieldBefore - target.Shield, elements, weights, attack);
         if (healthBefore > 0 && target.Health <= 0)
         {
+            target.StunTime = target.WaterSlowTime = 0; target.WaterSlowRank = 0;
+            PruneLightningContacts(target.Id);
             ClearAutomaticRockProgress(target);
             _statistics.Death(target, owner, attack); QueueArcaneMarkDeath(target);
             CountAutomaticRockKill(target, owner);
@@ -848,7 +857,7 @@ public sealed partial class GameWorld
                 foreach (var target in _combatants.Values)
                     if (target.Alive && target.Invulnerable <= 0 && AcceptsDefenseElement(target, Element.Water) && V2.Distance(target.Position, f.Position) < f.Radius &&
                         Visible(f.Position, target.Position, f.Owner))
-                    { target.Wet = Math.Max(target.Wet, 1); target.Burning = 0; }
+                    { target.Wet = Math.Max(target.Wet, 1); target.Burning = 0; ApplyWaterSlow(target, f.Owner); }
                 continue;
             }
             if (f.Kind is "burning_ground" or "frost_ground" or "water_pool")
@@ -989,6 +998,7 @@ public sealed partial class GameWorld
     {
         MatchEnded = false; Winner = -1; RestartIn = 0;
         _arcaneBursts.Clear();
+        _lightningContacts.Clear();
         ResetStatistics();
         ResetScores(); _projectiles.Clear(); _walls.Clear(); _fields.Clear();
         ResetFrontline();
@@ -1002,6 +1012,7 @@ public sealed partial class GameWorld
     {
         if (IsDefense && p.Deaths >= DefenseRules.PlayerLives) return;
         ClearAutomaticRockProgress(p);
+        PruneLightningContacts(p.Id);
         ClearArcaneTarget(p);
         _routes.Remove(p.Id);
         ResetSlide(p);
@@ -1010,6 +1021,7 @@ public sealed partial class GameWorld
         if (Map.IsPractice)
             _walls.RemoveAll(w => Geometry.DistanceToSegment(p.Position, w.A, w.B) < ArenaMap.WizardRadius + 0.18f);
         p.Wet = p.Burning = p.Chill = p.Frozen = p.Haste = p.Shield = p.ShieldMax = p.ShieldTime = 0;
+        p.StunTime = p.WaterSlowTime = 0; p.WaterSlowRank = 0;
         p.FreezeRecovery = 0;
         p.RegenerationRate = 0;
         p.Ward = []; p.Knockback = V2.Zero; p.Selection.Clear(); CancelCast(p);

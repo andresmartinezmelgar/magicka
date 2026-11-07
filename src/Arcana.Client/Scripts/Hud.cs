@@ -355,6 +355,7 @@ public partial class Hud : Control
         _energy.Value = player.Energy; _charge.Value = player.Casting ? player.Charge : 0; _energyText.Text = $"ENERGÍA  {Math.Floor(player.Energy):0} / 100";
         _statuses.Clear(); var statuses = _statuses;
         if (player.Wet > 0) statuses.Add("Mojado"); if (player.Burning > 0) statuses.Add("Quemándose");
+        if (player.Stunned) statuses.Add("Aturdido"); if (player.WaterSlowed) statuses.Add("Ralentizado por agua");
         if (player.ArcaneMarked) statuses.Add("Marca arcana");
         if (player.Chill > 20) statuses.Add("Frío"); if (player.Frozen > 0) statuses.Add("Congelado"); if (player.Haste > 0) statuses.Add("Celeridad");
         if (player.Ward.Length > 0) statuses.Add("Guarda: " + string.Join(", ", player.Ward.Select(Ui.ElementName)));

@@ -15,7 +15,7 @@ public partial class Main
         var player = world.Players.FirstOrDefault(p => p.Id == _localId);
         if (!_playing || _paused || _help.Visible || InspectingEquipment || _waitingPanel?.Visible == true ||
             _defensePanel?.ShopOpen == true || world.WaitingForPlayers || world.MatchEnded || world.Defense?.Paused == true ||
-            player is not { Alive: true, Frozen: <= 0 }) return;
+            player is not { Alive: true, Frozen: <= 0, Stunned: false }) return;
 
         if (_touch is { PendingMagick: 1 or 2 } touch)
         {

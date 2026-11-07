@@ -67,12 +67,12 @@ public partial class DefensePanel
     }
     private static Element? SetupAffixElement(ItemAffixKind kind) => kind switch
     {
-        ItemAffixKind.WaterShieldPool => Element.Water,
+        ItemAffixKind.WaterShieldPool or ItemAffixKind.WaterSlow => Element.Water,
         ItemAffixKind.MendingWard => Element.Life,
         ItemAffixKind.ShieldBattery or ItemAffixKind.ShieldReprisal or ItemAffixKind.ShieldLeech or ItemAffixKind.ShieldReflection => Element.Shield,
-        ItemAffixKind.LightningChain => Element.Lightning,
+        ItemAffixKind.LightningChain or ItemAffixKind.LightningStun => Element.Lightning,
         ItemAffixKind.BeamPierce or ItemAffixKind.ArcaneExecution or ItemAffixKind.ArcaneMark or ItemAffixKind.ArcaneEcho => Element.Arcane,
-        ItemAffixKind.Icebreaker or ItemAffixKind.RockFragmentation => Element.Earth,
+        ItemAffixKind.Icebreaker or ItemAffixKind.RockFragmentation or ItemAffixKind.AutomaticRock => Element.Earth,
         ItemAffixKind.DoubleBurn or ItemAffixKind.SteamImpact => Element.Fire,
         ItemAffixKind.CoinDividend or ItemAffixKind.GoldBonus => null,
         _ => throw new ArgumentException("Afijo desconocido.")
@@ -88,6 +88,8 @@ public partial class DefensePanel
         (ItemAffixKind.BeamPierce or ItemAffixKind.ArcaneExecution or ItemAffixKind.ArcaneMark or ItemAffixKind.ArcaneEcho, Element.Arcane)
             => "Potencia tus hechizos de Arcano.",
         (ItemAffixKind.LightningChain, Element.Lightning) => "Añade saltos a los relámpagos de Rayo.",
+        (ItemAffixKind.LightningStun, Element.Lightning) => "Aturde brevemente tras un segundo de impactos continuos de Rayo.",
+        (ItemAffixKind.WaterSlow, Element.Water) => "Mojar al enemigo reduce temporalmente su velocidad sin congelarlo.",
         (ItemAffixKind.DoubleBurn or ItemAffixKind.SteamImpact, Element.Fire) => "Potencia el daño de Fuego; consulta sus condiciones.",
         (ItemAffixKind.WaterShieldPool, Element.Water or Element.Shield) => "Mejora la combinación de Agua y Escudo.",
         (ItemAffixKind.MendingWard, Element.Life or Element.Shield) => "Tus curaciones directas reparan un escudo ya activo.",
@@ -95,6 +97,7 @@ public partial class DefensePanel
             => "Añade un efecto al escudo personal.",
         (ItemAffixKind.Icebreaker, Element.Earth) => "Potencia el impacto de Tierra contra enemigos congelados.",
         (ItemAffixKind.RockFragmentation, Element.Earth) => "Añade fragmentos a tus rocas.",
+        (ItemAffixKind.AutomaticRock, Element.Earth) => "Lanza una roca cargada por cada dos bajas en Mítico, sin requerir Fragmentación de roca.",
         (ItemAffixKind.RockFragmentation, Element.Water or Element.Cold or Element.Fire)
             => "Requiere una mezcla con Tierra: los fragmentos conservan este elemento y dejan su área al impactar.",
         (ItemAffixKind.RockFragmentation, Element.Arcane or Element.Life)

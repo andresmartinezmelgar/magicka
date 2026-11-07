@@ -41,8 +41,10 @@ public partial class WizardVisual : Node3D
     private Label3D _shieldAmount = null!;
     private MeshInstance3D _affinityRing = null!;
     private MeshInstance3D _arcaneMark = null!;
+    private MeshInstance3D _lightningStun = null!;
     internal bool NameVisible => _name.Visible;
     internal bool ArcaneMarkVisible => _arcaneMark.Visible;
+    internal bool LightningStunVisible => _lightningStun.Visible;
     private Color _color;
     private Node3D _elementsRoot = null!;
     private readonly List<MeshInstance3D> _elementFills = [];
@@ -79,6 +81,9 @@ public partial class WizardVisual : Node3D
         _compactEnemy = compactEnemy;
         _arcaneMark = AreaVisuals.Piece(this, AreaVisuals.Pattern.ArcaneAura);
         _arcaneMark.Name = "ArcaneMark"; _arcaneMark.Position = new(0, .08f, 0); _arcaneMark.Scale = new(.8f, 1, .8f); _arcaneMark.Visible = p.ArcaneMarked;
+        _lightningStun = AreaVisuals.Piece(this, AreaVisuals.Pattern.LightningAura);
+        _lightningStun.Name = "LightningStun"; _lightningStun.Position = new(0, 2.7f, 0);
+        _lightningStun.Scale = new(.35f, 1, .35f); _lightningStun.Visible = p.Stunned;
         _color = p.Team == 0 ? Ui.Blue : Ui.Red;
         _team = p.Team; _wizardType = p.WizardType; _local = local;
         _previousHealth = p.Health;
@@ -158,7 +163,9 @@ public partial class WizardVisual : Node3D
         EquipmentOutfit? outfitPreview = null)
     {
         _motion.Advance(p.Position, sampleTime, dt, interpolationDelay,
-            p.Alive != _wasAlive || p.Deaths != _deaths || p.Frozen > 0);
+            p.Alive != _wasAlive || p.Deaths != _deaths || p.Frozen > 0 || p.Stunned);
+        _lightningStun.Visible = p.Alive && p.Stunned;
+        if (_lightningStun.Visible) _lightningStun.Rotation = new(0, time * 8, 0);
         _wasAlive = p.Alive; _deaths = p.Deaths;
         Position = ArenaRenderer.World(_motion.Position);
         bool appearanceChanged = _wizardType != p.WizardType || _team != p.Team;
@@ -182,13 +189,13 @@ public partial class WizardVisual : Node3D
             WizardSprites.SetTexture(_spriteMaterial, texture);
             _renderedFrame = -1;
         }
-        bool moving = p.Alive && p.Frozen <= 0 && _motion.Moving;
+        bool moving = p.Alive && p.Frozen <= 0 && !p.Stunned && _motion.Moving;
         _castPose = Math.Max(0, _castPose - dt);
-        bool casting = p.Casting || _castPose > 0;
+        bool casting = !p.Stunned && (p.Casting || _castPose > 0);
         // El apuntado de combate no determina hacia dónde camina el sprite.
         var facing = moving && !casting ? _motion.Direction : p.Facing;
         _facingRow = WizardSprites.FacingRow(facing, _facingRow);
-        int pose = !p.Alive || p.Frozen > 0 ? 0 : casting ? 3 : moving ? (int)(_motion.WalkCycle * 2) : 0;
+        int pose = !p.Alive || p.Frozen > 0 || p.Stunned ? 0 : casting ? 3 : moving ? (int)(_motion.WalkCycle * 2) : 0;
         int frame = _facingRow * WizardSprites.Columns + pose;
         if (_renderedFrame != frame) { _sprite.Frame = frame; _renderedFrame = frame; }
         Vector2 offset = _atlas.Offset(frame);
@@ -242,13 +249,13 @@ public partial class WizardVisual : Node3D
             _shield.Scale = Vector3.One * (1 + Mathf.Sin(time * 3) * 0.03f);
         }
         UpdateProtectionBands(p, time);
-        int status = !p.Alive ? 5 : spawnProtected ? 4 : p.Frozen > 0 ? 3 : p.Burning > 0 ? 2 : p.Wet > 0 ? 1 : 0;
+        int status = !p.Alive ? 5 : spawnProtected ? 4 : p.Stunned ? 6 : p.Frozen > 0 ? 3 : p.Burning > 0 ? 2 : p.WaterSlowed ? 7 : p.Wet > 0 ? 1 : 0;
         var nameState = (p.Name, p.WizardType, status, !p.Alive ? Mathf.CeilToInt(p.Respawn) : 0);
         _name.Visible = !_compactEnemy;
         if (!_compactEnemy && _nameState != nameState)
         {
             _nameState = nameState;
-            _name.Text = p.Name + (!p.Alive ? $"  {nameState.Item4}s" : spawnProtected ? "  INMUNE" : p.Frozen > 0 ? "  CONGELADO" : p.Burning > 0 ? "  FUEGO" : p.Wet > 0 ? "  MOJADO" : "")
+            _name.Text = p.Name + (!p.Alive ? $"  {nameState.Item4}s" : spawnProtected ? "  INMUNE" : p.Stunned ? "  ATURDIDO" : p.Frozen > 0 ? "  CONGELADO" : p.Burning > 0 ? "  FUEGO" : p.WaterSlowed ? "  RALENTIZADO" : p.Wet > 0 ? "  MOJADO" : "")
                 + (p.WizardType != WizardType.Balanced ? "\n" + WizardTypes.Name(p.WizardType) : "");
         }
         _healthRoot.Visible = p.Alive;

@@ -28,6 +28,7 @@ public partial class Main
             world!.MatchEnded ? "La partida ha terminado." :
             (world.Defense?.Paused == true || DefenseInterfaceOpen) ? "Cierra esta pantalla para volver al combate." :
             player.Frozen > 0 ? "No puedes lanzar hechizos mientras estás congelado." :
+            player.Stunned ? "No puedes lanzar hechizos mientras estás aturdido." :
             player.Cooldowns[slot] > 0 ? $"{SpellBalance.Magicks[slot].Name}: quedan {Math.Ceiling(player.Cooldowns[slot])} s de recarga." :
             player.Energy < cost ? $"Necesitas {cost:0} de energía para {SpellBalance.Magicks[slot].Name}." :
             slot == 3 && MagickRules.ReanimationTarget(world, player) == null

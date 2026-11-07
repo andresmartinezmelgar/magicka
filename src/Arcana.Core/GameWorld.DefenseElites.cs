@@ -64,7 +64,7 @@ public sealed partial class GameWorld
     private void TickOracleShield(DefenseMinion oracle, float dt)
     {
         oracle.SupportCooldown -= dt;
-        if (oracle.SupportCooldown > 0 || oracle.Body.Frozen > 0) return;
+        if (oracle.SupportCooldown > 0 || oracle.Body.Frozen > 0 || oracle.Body.StunTime > 0) return;
         oracle.SupportCooldown = DefenseRules.OracleShieldInterval;
         foreach (var ally in _minions.Values)
         {

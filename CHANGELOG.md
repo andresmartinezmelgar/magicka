@@ -2,6 +2,9 @@
 
 ## Próxima versión
 
+- Fragmentación de roca y Roca automática son afijos independientes que se pueden combinar. El primero divide los impactos; el segundo dispara una roca a máxima carga cada cuatro bajas en Diamante o cada dos en Mítico, con cualquier ataque.
+- Nuevo Aturdimiento eléctrico: un segundo de impactos continuos de Rayo aturde al enemigo 0,1 s en Diamante o 0,2 s en Mítico, sin añadir daño. Se comunica en el HUD y con un indicador eléctrico sobre el objetivo.
+- Nueva Agua ralentizante: mojar enemigos con hechizos, charcos o aura reduce su velocidad un 10 % en Diamante o un 20 % en Mítico durante un máximo de dos segundos, sin añadir frío ni congelación.
 - Las prioridades de mejoras míticas de Supervivencia se agrupan por elemento, con las mejoras de oro al final. Los encabezados se distinguen de las opciones y no se pueden seleccionar en móvil ni escritorio.
 
 ## 0.29.49

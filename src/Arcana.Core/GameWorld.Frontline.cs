@@ -36,7 +36,7 @@ public sealed partial class GameWorld
                 if (Map.Teleports.Any(pair => V2.Distance(player.Position, pair.A) < 1.5f || V2.Distance(player.Position, pair.B) < 1.5f)) continue;
                 player.TeleportNeedsExit = false;
             }
-            if (!player.Alive || player.Frozen > 0 || player.TeleportCooldown > 0) continue;
+            if (!player.Alive || player.Frozen > 0 || player.StunTime > 0 || player.TeleportCooldown > 0) continue;
             foreach (var pair in Map.Teleports)
             {
                 V2 destination;

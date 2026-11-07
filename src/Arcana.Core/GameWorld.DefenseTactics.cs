@@ -80,7 +80,7 @@ public sealed partial class GameWorld
         if (minion.Kind != MinionKind.Sentinel) return;
         minion.ShieldCooldown = Math.Max(0, minion.ShieldCooldown - dt);
         var body = minion.Body;
-        if (body.Shield > 0 || minion.ShieldCooldown > 0 || body.Frozen > 0) return;
+        if (body.Shield > 0 || minion.ShieldCooldown > 0 || body.Frozen > 0 || body.StunTime > 0) return;
         body.Ward = [Element.Earth];
         body.WardTime = DefenseRules.SentinelShieldDuration;
         body.ShieldTime = DefenseRules.SentinelShieldDuration;

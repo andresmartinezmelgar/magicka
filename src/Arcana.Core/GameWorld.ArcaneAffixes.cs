@@ -61,7 +61,7 @@ public sealed partial class GameWorld
     private void TickArcaneEcho(CastRay ray, float dt)
     {
         var caster = ray.Caster;
-        if (_beams.Count >= 64 || !caster.Alive || caster.Frozen > 0 || caster.Channel == null || caster.Equipment.ArcaneEcho <= 0 ||
+        if (_beams.Count >= 64 || !caster.Alive || caster.Frozen > 0 || caster.StunTime > 0 || caster.Channel == null || caster.Equipment.ArcaneEcho <= 0 ||
             !ray.Part.Recipe.Has(Element.Arcane) || !_combatants.TryGetValue(ray.TargetId, out var aimed) || !Hostile(caster, aimed))
         { caster.ArcaneEchoActive = false; return; }
         Wizard? nearest = null; V2 origin = default, direction = default;

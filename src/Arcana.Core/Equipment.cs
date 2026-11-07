@@ -108,6 +108,9 @@ public sealed record EquipmentModifiers
     public int RockFragmentation { get; init; }
     public int ArcaneMark { get; init; }
     public int ArcaneEcho { get; init; }
+    public int AutomaticRock { get; init; }
+    public int LightningStun { get; init; }
+    public int WaterSlow { get; init; }
     public int ExtraGoldEvery { get; init; }
     public int GoldBonusPercent { get; init; }
     public EquipmentFamily? MagicRingFamily { get; init; }
@@ -157,6 +160,7 @@ public sealed record EquipmentModifiers
         int icebreaker = 0, steamImpact = 0, arcaneExecution = 0, shieldBattery = 0, mendingWard = 0, shieldReprisal = 0;
         int shieldLeech = 0, shieldReflection = 0, rockFragmentation = 0;
         int arcaneMark = 0, arcaneEcho = 0;
+        int automaticRock = 0, lightningStun = 0, waterSlow = 0;
         EquipmentFamily? ringFamily = null; int ringLevel = 0;
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
@@ -202,6 +206,9 @@ public sealed record EquipmentModifiers
                     case ItemAffixKind.RockFragmentation: rockFragmentation = Math.Max(rockFragmentation, affix.Value); break;
                     case ItemAffixKind.ArcaneMark: arcaneMark = Math.Max(arcaneMark, affix.Value); break;
                     case ItemAffixKind.ArcaneEcho: arcaneEcho = Math.Max(arcaneEcho, affix.Value); break;
+                    case ItemAffixKind.AutomaticRock: automaticRock = Math.Max(automaticRock, affix.Value); break;
+                    case ItemAffixKind.LightningStun: lightningStun = Math.Max(lightningStun, affix.Value); break;
+                    case ItemAffixKind.WaterSlow: waterSlow = Math.Max(waterSlow, affix.Value); break;
                 }
             foreach (var b in item.Bonuses.Where(b => EquipmentCatalogue.BonusActive(slot, b.Stat))) stats[(int)b.Stat] += b.Current;
             if (!RingEffects.IsRing(slot) && item.Tier == ItemTier.Mythic) sets[(int)item.Family]++;
@@ -222,6 +229,7 @@ public sealed record EquipmentModifiers
             ShieldBattery = shieldBattery, MendingWard = mendingWard, ShieldReprisal = shieldReprisal,
             ShieldLeech = shieldLeech, ShieldReflection = shieldReflection, RockFragmentation = rockFragmentation,
             ArcaneMark = arcaneMark, ArcaneEcho = arcaneEcho,
+            AutomaticRock = automaticRock, LightningStun = lightningStun, WaterSlow = waterSlow,
             Speed = 1 + Bonus(EquipmentStat.MovementSpeed), Range = 1 + Bonus(EquipmentStat.SpellRange),
             Incoming = 1 - Bonus(EquipmentStat.Defense), Power = 1 + Bonus(EquipmentStat.Power),
             Healing = 1 + Bonus(EquipmentStat.HealingPower), Fire = 1 + Bonus(EquipmentStat.FirePower),
@@ -246,7 +254,7 @@ public sealed record EquipmentModifiers
 
 public static partial class EquipmentCatalogue
 {
-    public const int GenerationVersion = 12, InventoryLimit = 500;
+    public const int GenerationVersion = 13, InventoryLimit = 500;
     private const int StandardSecondaryWeight = 8;
     public static bool BonusActive(EquipmentSlot slot, EquipmentStat stat) =>
         slot != EquipmentSlot.MagicRing || stat == EquipmentStat.ShieldCapacity;

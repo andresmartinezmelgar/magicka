@@ -14,7 +14,7 @@ public sealed partial class GameWorld
         rays.Clear();
         foreach (var player in _orderedPlayers)
         {
-            if (!player.Alive || player.Frozen > 0 || player.Channel == null) { player.ArcaneEchoActive = false; continue; }
+            if (!player.Alive || player.Frozen > 0 || player.StunTime > 0 || player.Channel == null) { player.ArcaneEchoActive = false; continue; }
             if (player.Channel.Shape != SpellShape.Beam) { player.ArcaneEchoActive = false; Channel(player, dt); continue; }
             float multiplier = 1;
             if (SpellBalance.Damage(player.Channel) > 0)
@@ -27,7 +27,7 @@ public sealed partial class GameWorld
             var end = BeamEnd(from, player.Facing, player.Channel.Range * player.Equipment.Range, player.Id, out _, out var target, player.Id);
             rays.Add(new(player, from, player.Facing, end, new(player.Id, player.Channel, DamageMultiplier: multiplier), target?.Id ?? 0));
         }
-        rays.RemoveAll(ray => !ray.Caster.Alive || ray.Caster.Frozen > 0 || ray.Caster.Channel == null);
+        rays.RemoveAll(ray => !ray.Caster.Alive || ray.Caster.Frozen > 0 || ray.Caster.StunTime > 0 || ray.Caster.Channel == null);
 
         if (rays.Count == 0) return;
         var meetings = _beamMeetings;

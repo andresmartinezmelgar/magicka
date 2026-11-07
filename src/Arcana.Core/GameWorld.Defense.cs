@@ -74,6 +74,7 @@ public sealed partial class GameWorld
         player.BurnOwner = previous.BurnOwner == previous.Id ? player.Id : previous.BurnOwner;
         player.BurnMultiplier = previous.BurnMultiplier; player.HitEffectCooldown = previous.HitEffectCooldown;
         player.Chill = previous.Chill; player.Frozen = previous.Frozen; player.Haste = previous.Haste;
+        player.StunTime = previous.StunTime; player.WaterSlowTime = previous.WaterSlowTime; player.WaterSlowRank = previous.WaterSlowRank;
         player.FreezeRecovery = previous.FreezeRecovery;
         player.Invulnerable = previous.Invulnerable; player.ActionCooldown = previous.ActionCooldown;
         player.RingCooldown = previous.RingCooldown;
@@ -282,7 +283,7 @@ public sealed partial class GameWorld
         if (minion.Windup > 0)
         {
             p.Input.MoveX = p.Input.MoveY = 0;
-            if (p.Frozen > 0) { minion.Windup = 0; minion.Attack = DefenseRules.AttackPause(minion.Kind, _defenseDifficulty); return; }
+            if (p.Frozen > 0 || p.StunTime > 0) { minion.Windup = 0; minion.Attack = DefenseRules.AttackPause(minion.Kind, _defenseDifficulty); return; }
             minion.Windup = Math.Max(0, minion.Windup - dt);
             if (minion.Windup <= 0) ResolveDefenseAreaAttack(minion);
             return;
@@ -325,10 +326,10 @@ public sealed partial class GameWorld
         if (p.Channel != null)
         {
             minion.ChannelTime -= dt;
-            if (minion.ChannelTime <= 0 || p.Frozen > 0) { CancelCast(p); minion.Attack = DefenseRules.AttackPause(minion.Kind, _defenseDifficulty); }
+            if (minion.ChannelTime <= 0 || p.Frozen > 0 || p.StunTime > 0) { CancelCast(p); minion.Attack = DefenseRules.AttackPause(minion.Kind, _defenseDifficulty); }
             return;
         }
-        if (minion.Attack > 0 || p.Frozen > 0) return;
+        if (minion.Attack > 0 || p.Frozen > 0 || p.StunTime > 0) return;
         // Los muros de los defensores se pueden romper: nunca bloquean una ruta indefinidamente.
         var blockingWall = _walls.FirstOrDefault(w => w.Health > 0 && Geometry.DistanceToSegment(p.Position, w.A, w.B) < 2.2f);
         if (!canAttack && blockingWall != null)
@@ -365,7 +366,7 @@ public sealed partial class GameWorld
     private void TickDefenseShaman(DefenseMinion minion, float dt)
     {
         minion.SupportCooldown -= dt;
-        if (minion.SupportCooldown > 0 || minion.Body.Frozen > 0) return;
+        if (minion.SupportCooldown > 0 || minion.Body.Frozen > 0 || minion.Body.StunTime > 0) return;
         minion.SupportCooldown = DefenseRules.ShamanHealInterval;
         Wizard? wounded = null;
         float mostMissing = 0;

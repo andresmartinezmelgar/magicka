@@ -1,4 +1,4 @@
-# Bonus por objeto · catálogo 11
+# Bonus por objeto · catálogo 13
 
 | Objeto | Atributo principal | Otros bonus posibles |
 |---|---|---|
@@ -25,7 +25,7 @@ En todas las piezas salvo el anillo mágico, Plata tiene 2 atributos, Oro/Platin
 
 Plata/Oro/Platino son de familia Mixta salvo el anillo mágico, que puede ser de cualquier familia en todas las calidades. Diamante/Mítico eligen una familia elemental. Los objetos antiguos conservan su tirada y sus intervalos; se indican como inactivos los atributos adicionales del anillo mágico y los afijos de oro situados fuera del anillo de oro.
 
-Los cuatro afijos anteriores se conservan: penetración de haces, saltos de relámpago, doble quemadura y charco al crear escudo de agua. El catálogo 8 incorpora los seis primeros de la tabla; el catálogo 9 añade Escudo vital y Espejo protector; el 10, Fragmentación de roca. El catálogo 11 añade Marca arcana y Eco arcano, hasta quince efectos de combate:
+Los cuatro afijos anteriores se conservan: penetración de haces, saltos de relámpago, doble quemadura y charco al crear escudo de agua. El catálogo 8 incorpora los seis primeros de la tabla; el catálogo 9 añade Escudo vital y Espejo protector; el 10, Fragmentación de roca; el 11, Marca arcana y Eco arcano. El catálogo 12 reduce la frecuencia del secundario de regeneración de energía. El catálogo 13 añade Roca automática, Aturdimiento eléctrico y Agua ralentizante, hasta dieciocho efectos de combate y dos económicos:
 
 | Afijo | Diamante | Mítico | Condición |
 |---|---|---|---|
@@ -38,12 +38,21 @@ Los cuatro afijos anteriores se conservan: penetración de haces, saltos de rel�
 | Escudo vital | Cura el 10 % de lo absorbido | 15 % | Daño enemigo absorbido por el escudo personal, si sobrevives; no cuenta daño a barreras colocadas |
 | Espejo protector | Refleja el 15 % de lo absorbido | 25 % | Mismo origen; respeta defensas del atacante y conserva los elementos y el daño exclusivo a escudos |
 | Fragmentación de roca | 4 fragmentos | 6 fragmentos | Al impactar una roca; conservan sus elementos y estados, con un 20 % del daño de impacto y hasta 6 m de dispersión |
+| Roca automática | Cada 4 bajas | Cada 2 bajas | Bajas propias contra enemigos con cualquier ataque; roca a máxima carga con dos de Tierra y un elemento que alterna Fuego, Frío, Agua y Arcano. Apunta al enemigo visible más cercano en 16 m, ampliables con alcance; conserva la carga sin objetivo |
+| Aturdimiento eléctrico | Aturde 0,1 s | Aturde 0,2 s | Cada segundo de impactos continuos con Rayo sobre el mismo enemigo; detiene movimiento y cancela el canal, sin congelar ni añadir daño. Una interrupción reinicia el contador de ese objetivo |
+| Agua ralentizante | −10 % de velocidad | −20 % | Al mojar enemigos con hechizos, charcos o aura de Agua; dura hasta 2 s y termina al secarse. Se renueva sin acumularse; no añade frío ni afecta a aliados |
 | Marca arcana | Últimos 3 s · radio 3 m | Últimos 5 s · radio 4 m | Al morir un enemigo marcado, repite en área el daño efectivo que recibió de todos los orígenes, incluidos escudos y golpe mortal, sin exceso ni una segunda multiplicación de bonos del lanzador |
 | Eco arcano | Segundo haz al 25 % | Segundo haz al 40 % | Mientras canalizas Arcano contra un enemigo, sale desde tu mago hacia otro enemigo cercano, con trayectoria libre y dentro del alcance original; conserva mezcla y carga |
 
 El daño condicional se aplica al componente correspondiente de cada hechizo y conserva defensas e inmunidades. No amplifica fuego amigo. Remiendo protector nunca reconstruye un escudo roto o caducado ni aumenta su máximo o duración. Última barrera no causa daño, no empuja aliados ni enemigos invulnerables y no cancela canales. Cambiar equipo, guardar o reconectar no reinicia su recarga.
 
 Varias copias del mismo afijo aplican el rango mayor; no se suman. Los efectos distintos pueden convivir en piezas diferentes. La mejora de estadísticas no vuelve a sortear el afijo ni aumenta su rango. Se mantienen los identificadores y tiradas de todos los objetos anteriores. Los seis primeros requieren catálogo 8 como mínimo; el anillo mágico sigue sin afijos.
+
+Fragmentación de roca conserva su identificador y sus fragmentos en los objetos antiguos, pero deja de conceder disparos automáticos. Roca automática es un afijo distinto del catálogo 13: no fragmenta por sí mismo; al equipar ambos, sus disparos también se dividen. Su contador se guarda y se conserva al reconectar; se reinicia al morir o quitar el afijo automático. Un mago dispara como máximo una roca por tick sin consumir energía ni modificar su lanzamiento manual.
+
+Aturdimiento eléctrico acredita como máximo un tick de exposición por pareja de atacante y enemigo, aunque varios haces, ecos o saltos coincidan. Un tick completo sin impactos rompe la continuidad. Los contactos interrumpidos se retiran y el tiempo de aturdimiento activo se conserva al guardar o reconectar; la exposición parcial comienza de nuevo al reanudar una partida guardada. Respeta invulnerabilidad e inmunidad a Rayo. Agua ralentizante usa un estado separado del frío y conserva su duración y rango al guardar o reconectar; un rango menor no prolonga un rango mayor.
+
+Los tres afijos nuevos requieren catálogo 13. El protocolo 46 transmite los nuevos efectos e indicadores y evita conectar clientes anteriores que desconocen estos afijos.
 
 Marca se aplica solo cuando el componente arcano causa daño efectivo a un enemigo, incluidos sus escudos. Permanece hasta su muerte, aunque cambies equipo. En cada objetivo prevalece el rango mayor y, en empate, el último autor; no se duplican explosiones entre magos. La explosión es de Arcano, sin caída de daño por distancia dentro del radio, y respeta defensas, invulnerabilidad, inmunidad de prismas y línea de visión del nuevo objetivo. No daña aliados ni crea marcas nuevas. Puede hacer explotar a otros enemigos que ya estaban marcados; cada muerte se consume una sola vez y se resuelve sin recursión. Se limpia al reaparecer o salir el autor.
 

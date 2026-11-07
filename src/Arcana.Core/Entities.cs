@@ -32,6 +32,9 @@ public sealed class Wizard
     public float HitEffectCooldown { get; set; }
     public float Chill { get; set; }
     public float Frozen { get; set; }
+    internal float StunTime { get; set; }
+    internal float WaterSlowTime { get; set; }
+    internal int WaterSlowRank { get; set; }
     internal float FreezeRecovery { get; set; }
     internal Element? VulnerableElement { get; set; }
     public float Haste { get; set; }

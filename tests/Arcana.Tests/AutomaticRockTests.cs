@@ -23,7 +23,7 @@ internal static class AutomaticRockTests
         var caster = world.AddPlayer("Lanzador", 0)!; var victim = world.AddPlayer("Rival", 1)!;
         caster.Position = new(-3, 0); victim.Position = new(-1, 0);
         caster.Invulnerable = victim.Invulnerable = 0;
-        world.EquipPlayer(caster.Id, EquipmentModifiers.None with { RockFragmentation = rank });
+        world.EquipPlayer(caster.Id, EquipmentModifiers.None with { AutomaticRock = rank });
         return (world, caster, victim);
     }
     private static void Kill(GameWorld world, Wizard owner, Wizard victim, Element element = Element.Fire)
@@ -36,6 +36,28 @@ internal static class AutomaticRockTests
 
     internal static void Run(Action<string, Action> test)
     {
+        test("Roca automática: Diamante requiere cuatro bajas y no hereda fragmentación", () =>
+        {
+            var (world, caster, victim) = Arena(1);
+            for (int i = 0; i < 3; i++) { Kill(world, caster, victim); victim.Health = 1000; Fire(world); }
+            Check(Projectiles(world).Count == 0 && Progress(caster, "AutomaticRockKillCredits") == 3, "Diamante se dispara antes de cuatro bajas.");
+            Kill(world, caster, victim); victim.Health = 1000; Fire(world);
+            Check(Projectiles(world).Count == 1 && Field<int>(Projectiles(world)[0]!, "RockFragmentation") == 0 &&
+                Progress(caster, "AutomaticRockKillCredits") == 0, "Diamante no consume cuatro bajas o recibe fragmentación gratis.");
+        });
+        test("Roca automática: fragmentación y disparo son independientes y pueden combinarse", () =>
+        {
+            var (world, caster, victim) = Arena(0);
+            world.EquipPlayer(caster.Id, EquipmentModifiers.None with { RockFragmentation = 2 });
+            for (int i = 0; i < 4; i++) Kill(world, caster, victim);
+            victim.Health = 1000; Fire(world);
+            Check(Projectiles(world).Count == 0 && Progress(caster, "AutomaticRockKillCredits") == 0,
+                "Fragmentación sigue concediendo rocas automáticas.");
+            world.EquipPlayer(caster.Id, EquipmentModifiers.None with { AutomaticRock = 2, RockFragmentation = 1 });
+            Kill(world, caster, victim); Kill(world, caster, victim); victim.Health = 1000; Fire(world);
+            Check(Projectiles(world).Count == 1 && Field<int>(Projectiles(world)[0]!, "RockFragmentation") == 1,
+                "La roca automática no usa la fragmentación equipada por separado.");
+        });
         test("Roca automática: dos bajas de cualquier elemento, carga máxima y mezcla compatible", () =>
         {
             var (world, caster, victim) = Arena();
@@ -48,19 +70,17 @@ internal static class AutomaticRockTests
             Near(Field<float>(shot, "Power"), SpellBalance.RockMinimum + SpellBalance.ChargeSeconds, "No sale a máxima carga.");
             Near(Field<V2>(shot, "Velocity").Length, 13 + SpellBalance.ChargeSeconds * 9, "Velocidad distinta a la roca cargada.");
             Near(Field<float>(shot, "Radius"), .5f, "Radio distinto al de dos cargas de Tierra.");
-            Check(Field<int>(shot, "RockFragmentation") == 2 && Field<int>(shot, "Owner") == caster.Id, "Pierde afijo o propietario.");
+            Check(Field<int>(shot, "RockFragmentation") == 0 && Field<int>(shot, "Owner") == caster.Id, "Añade fragmentación sin equiparla o pierde al propietario.");
             Check(Progress(caster, "AutomaticRockKillCredits") == 0, "No consume exactamente dos bajas.");
-            Check(ItemAffixes.Describe(new(ItemAffixKind.RockFragmentation, 2)).Contains("roca automática") &&
-                !ItemAffixes.Describe(new(ItemAffixKind.RockFragmentation, 1)).Contains("roca automática"), "La descripción confunde los rangos.");
+            Check(ItemAffixes.Describe(new(ItemAffixKind.AutomaticRock, 2)).Contains("cada 2") &&
+                ItemAffixes.Describe(new(ItemAffixKind.AutomaticRock, 1)).Contains("cada 4") &&
+                !ItemAffixes.Describe(new(ItemAffixKind.RockFragmentation, 2)).Contains("roca automática"), "La descripción mezcla los afijos o sus rangos.");
         });
-        test("Roca automática: Diamante, bajas ajenas, aliados y suicidio no activan el afijo", () =>
+        test("Roca automática: sin afijo, bajas ajenas, aliados y suicidio no activan el disparo", () =>
         {
-            foreach (int rank in new[] { 0, 1 })
-            {
-                var (world, caster, victim) = Arena(rank);
-                Kill(world, caster, victim); Kill(world, caster, victim); victim.Health = 1000; Fire(world);
-                Check(Projectiles(world).Count == 0 && Progress(caster, "AutomaticRockKillCredits") == 0, "Se activa sin afijo mítico.");
-            }
+            var (world, caster, victim) = Arena(0);
+            Kill(world, caster, victim); Kill(world, caster, victim); victim.Health = 1000; Fire(world);
+            Check(Projectiles(world).Count == 0 && Progress(caster, "AutomaticRockKillCredits") == 0, "Se activa sin el afijo de roca automática.");
             var (w, p, enemy) = Arena();
             var ally = w.AddPlayer("Aliado", 0)!; ally.Position = new(-5, 3);
             Kill(w, ally, enemy); Kill(w, p, ally); Kill(w, p, p);
@@ -123,7 +143,7 @@ internal static class AutomaticRockTests
         {
             var (world, caster, victim) = Arena();
             var items = new[] { EquipmentSlot.Boots, EquipmentSlot.Hat }.Select(slot =>
-                EquipmentCatalogue.Generate(new((int)slot + 7), tier: ItemTier.Mythic, slot: slot) with { Affix = new(ItemAffixKind.RockFragmentation, 2) }).ToArray();
+                EquipmentCatalogue.Generate(new((int)slot + 7), tier: ItemTier.Mythic, slot: slot) with { Affix = new(ItemAffixKind.AutomaticRock, 2) }).ToArray();
             var gear = EquipmentModifiers.Calculate(new("rock", "Roca", 0, 0, 0, new(items[0].Id, items[1].Id), items));
             world.EquipPlayer(caster.Id, gear);
             Kill(world, caster, victim); Kill(world, caster, victim); victim.Health = 1000; Fire(world);
@@ -153,7 +173,7 @@ internal static class AutomaticRockTests
             var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 4, Seed = 47 });
             var player = world.AddPlayer("Defensor", 0)!;
             var item = EquipmentCatalogue.Generate(new(47), tier: ItemTier.Mythic, slot: EquipmentSlot.Weapon, family: EquipmentFamily.Earth)
-                with { Affix = new(ItemAffixKind.RockFragmentation, 2) };
+                with { Affix = new(ItemAffixKind.AutomaticRock, 2) };
             Call(world, "GrantDefenseItem", player, item);
             Check(world.ApplyMessage(player.Id, new() { Type = "defense_equip", Sequence = player.LastSequence + 1, ItemId = item.Id }), "No equipa el afijo de prueba.");
             Progress(player, "AutomaticRockKillCredits", 1); Progress(player, "AutomaticRockElementIndex", 2);
