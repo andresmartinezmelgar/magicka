@@ -28,7 +28,10 @@ public static partial class Ui
         owner.AddChild(popup);
 
         for (int index = 0; index < menu.ItemCount; index++)
-            list.AddItem(menu.GetItemText(index), menu.GetItemIcon(index), menu.IsItemDisabled(index) || menu.IsItemSeparator(index));
+        {
+            if (menu.IsItemSeparator(index)) list.AddSeparator(menu.GetItemText(index));
+            else list.AddItem(menu.GetItemText(index), menu.GetItemIcon(index), menu.IsItemDisabled(index));
+        }
         if (owner is OptionButton option) list.Select(option.Selected);
         list.ItemActivated += index =>
         {

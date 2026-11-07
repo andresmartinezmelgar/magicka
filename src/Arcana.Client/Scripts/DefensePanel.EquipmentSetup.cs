@@ -33,16 +33,25 @@ public partial class DefensePanel
         Wrapped(section, "Afijos Míticos prioritarios · 1 es la prioridad más alta", 17);
         _setupAffixHint = Wrapped(section, "", 15, Ui.Muted);
         _setupAffixHint.Name = "SurvivalSetupAffixHint";
+        var affixGroups = Enum.GetValues<ItemAffixKind>().GroupBy(SetupAffixElement)
+            .OrderBy(group => group.Key.HasValue ? (int)group.Key.Value : int.MaxValue).ToArray();
         for (int i = 0; i < SurvivalEquipmentSetup.MaximumPriorities; i++)
         {
             Wrapped(section, $"Prioridad {i + 1}", 15);
             var choice = new ScrollOptionButton { Name = "SurvivalSetupPriority" + i, CustomMinimumSize = new(0, 48), SizeFlagsHorizontal = SizeFlags.ExpandFill };
             choice.AddThemeConstantOverride("icon_max_width", 24);
             choice.AddItem("Sin prioridad", NoAffixPriority);
-            foreach (var kind in Enum.GetValues<ItemAffixKind>())
+            choice.GetPopup().AddThemeColorOverride("font_separator_color", Ui.Gold);
+            foreach (var group in affixGroups)
             {
-                choice.AddItem(ItemAffixes.Name(kind), (int)kind);
-                choice.SetItemTooltip(choice.ItemCount - 1, SetupAffixDescription(kind));
+                choice.AddSeparator(group.Key is { } element ? Ui.ElementName(element) : "Oro");
+                // Los IDs de encabezado no pueden coincidir con afijos guardados.
+                choice.SetItemId(choice.ItemCount - 1, NoAffixPriority + choice.ItemCount);
+                foreach (var kind in group.OrderBy(ItemAffixes.Name, StringComparer.CurrentCultureIgnoreCase))
+                {
+                    choice.AddItem(ItemAffixes.Name(kind), (int)kind);
+                    choice.SetItemTooltip(choice.ItemCount - 1, SetupAffixDescription(kind));
+                }
             }
             choice.ItemSelected += _ => EditEquipmentSetup(); section.AddChild(choice); _setupPriorities.Add(choice);
             var description = Wrapped(section, "", 15, Ui.Muted);
@@ -56,6 +65,18 @@ public partial class DefensePanel
         _setupDisable.Name = "SurvivalSetupDisable"; _setupDisable.AutowrapMode = TextServer.AutowrapMode.WordSmart; section.AddChild(_setupDisable);
         RefreshSetupAffixHighlights();
     }
+    private static Element? SetupAffixElement(ItemAffixKind kind) => kind switch
+    {
+        ItemAffixKind.WaterShieldPool => Element.Water,
+        ItemAffixKind.MendingWard => Element.Life,
+        ItemAffixKind.ShieldBattery or ItemAffixKind.ShieldReprisal or ItemAffixKind.ShieldLeech or ItemAffixKind.ShieldReflection => Element.Shield,
+        ItemAffixKind.LightningChain => Element.Lightning,
+        ItemAffixKind.BeamPierce or ItemAffixKind.ArcaneExecution or ItemAffixKind.ArcaneMark or ItemAffixKind.ArcaneEcho => Element.Arcane,
+        ItemAffixKind.Icebreaker or ItemAffixKind.RockFragmentation => Element.Earth,
+        ItemAffixKind.DoubleBurn or ItemAffixKind.SteamImpact => Element.Fire,
+        ItemAffixKind.CoinDividend or ItemAffixKind.GoldBonus => null,
+        _ => throw new ArgumentException("Afijo desconocido.")
+    };
     private static string SetupAffixDescription(ItemAffixKind kind)
     {
         int value = kind switch { ItemAffixKind.GoldBonus => 20, ItemAffixKind.BeamPierce => 3,
@@ -86,12 +107,13 @@ public partial class DefensePanel
         var color = Ui.ElementColor(element);
         var icon = ArcanaSpriteAtlas.Icon(element);
         _setupElement.AddThemeColorOverride("font_color", color);
-        _setupAffixHint.Text = $"El icono de {Ui.ElementName(element)} resalta los afijos que lo potencian. Su descripción indica si necesitan una mezcla.";
+        _setupAffixHint.Text = $"Mejoras agrupadas por su elemento principal; Oro al final. El icono de {Ui.ElementName(element)} resalta los afijos que lo potencian. Su descripción indica si necesitan una mezcla.";
         for (int priority = 0; priority < _setupPriorities.Count; priority++)
         {
             var choice = _setupPriorities[priority];
             for (int index = 1; index < choice.ItemCount; index++)
             {
+                if (choice.IsItemSeparator(index)) continue;
                 var kind = (ItemAffixKind)choice.GetItemId(index);
                 string reason = SetupAffixRelevance(kind, element);
                 choice.SetItemIcon(index, reason.Length > 0 ? icon : null);

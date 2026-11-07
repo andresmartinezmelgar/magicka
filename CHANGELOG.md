@@ -1,5 +1,9 @@
 # Cambios
 
+## Próxima versión
+
+- Las prioridades de mejoras míticas de Supervivencia se agrupan por elemento, con las mejoras de oro al final. Los encabezados se distinguen de las opciones y no se pueden seleccionar en móvil ni escritorio.
+
 ## 0.29.49
 
 - Fragmentación de roca de rango mítico prepara una roca automática a máxima carga por cada dos bajas con cualquier ataque. La mezcla lleva dos de Tierra y alterna Fuego, Frío, Agua y Arcano; busca un enemigo cercano y visible sin interrumpir el lanzamiento manual.

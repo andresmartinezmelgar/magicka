@@ -5,6 +5,7 @@ namespace Arcana.Client;
 internal partial class ScrollChoiceList : ContentScrollContainer
 {
     private readonly VBoxContainer _rows = new() { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+    private readonly HashSet<Button> _unavailable = [];
     private int _lastTapped = -1;
     private bool _disabled;
 
@@ -29,7 +30,7 @@ internal partial class ScrollChoiceList : ContentScrollContainer
         set
         {
             _disabled = value;
-            foreach (Button row in _rows.GetChildren()) row.Disabled = value;
+            foreach (Button row in _rows.GetChildren()) row.Disabled = value || _unavailable.Contains(row);
         }
     }
 
@@ -43,6 +44,7 @@ internal partial class ScrollChoiceList : ContentScrollContainer
             ToggleMode = true, Disabled = disabled || Disabled,
             CustomMinimumSize = new(0, Ui.UsesTouchScroll ? 48 : 30)
         };
+        if (disabled) _unavailable.Add(row);
         row.AddThemeConstantOverride("icon_max_width", 24);
         bool doubleClick = false;
         row.GuiInput += input =>
@@ -60,6 +62,24 @@ internal partial class ScrollChoiceList : ContentScrollContainer
         _rows.AddChild(row);
     }
 
+    public void AddSeparator(string text)
+    {
+        AddItem(text, disabled: true);
+        var row = _rows.GetChild<Button>(ItemCount - 1);
+        row.ToggleMode = false;
+        row.FocusMode = FocusModeEnum.None;
+        row.MouseFilter = MouseFilterEnum.Ignore;
+        row.TooltipText = "";
+        row.CustomMinimumSize = new(0, 32);
+        var style = Ui.Panel(new Color("202a46"), 0, Ui.Gold);
+        style.BorderWidthTop = style.BorderWidthLeft = style.BorderWidthRight = 0;
+        style.ContentMarginTop = 8; style.ContentMarginBottom = 4;
+        style.ContentMarginLeft = style.ContentMarginRight = 12;
+        row.AddThemeStyleboxOverride("disabled", style);
+        row.AddThemeColorOverride("font_disabled_color", Ui.Gold);
+        row.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 18 : 16);
+    }
+
     public void Clear()
     {
         foreach (Node row in _rows.GetChildren())
@@ -67,6 +87,7 @@ internal partial class ScrollChoiceList : ContentScrollContainer
             _rows.RemoveChild(row);
             row.QueueFree();
         }
+        _unavailable.Clear();
         SelectedIndex = _lastTapped = -1;
         ScrollVertical = 0;
     }
