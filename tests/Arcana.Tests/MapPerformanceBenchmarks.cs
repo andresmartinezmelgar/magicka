@@ -36,7 +36,7 @@ internal static class MapPerformanceBenchmarks
                 loadingMs, warmupTicks = 120, coldMaximumMs = samples.Take(120).Max(), meanMs = sorted.Average(),
                 p95Ms = sorted[(int)Math.Ceiling((sorted.Length - 1) * 0.95)], maximumMs = sorted[^1],
                 overBudgetTicks = sorted.Count(t => t > 1000.0 / 60), allocatedBytes,
-                finalStateSha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(world.Snapshot())))) };
+                finalStateSha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(world.Snapshot() with { StatisticsRunId = null })))) };
             reports.Add(result); Console.WriteLine(JsonSerializer.Serialize(result));
         }
         string path = Path.GetFullPath(output); Directory.CreateDirectory(Path.GetDirectoryName(path)!);

@@ -190,13 +190,19 @@ internal static class FrontlineTests
         test("Frente: eventos aleatorios reproducibles, acotados y exclusivos del mapa", () =>
         {
             var a = World(121); var b = World(121); a.AddPlayer("A"); b.AddPlayer("A");
+            Check(a.MatchStatisticsRunId != b.MatchStatisticsRunId, "Dos partidas distintas comparten el identificador de registro.");
             bool meteor = false, wall = false;
             for (int i = 0; i < 7200; i++)
             {
                 a.Step(); b.Step();
                 var state = a.Snapshot();
                 meteor |= state.Fields.Length > 0; wall |= state.Walls.Length > 0;
-                Check(Protocol.Serialize(state) == Protocol.Serialize(b.Snapshot()), "La semilla no reproduce los eventos.");
+                var other = b.Snapshot();
+                Check(state.StatisticsRunId == a.MatchStatisticsRunId && other.StatisticsRunId == b.MatchStatisticsRunId,
+                    "El snapshot pierde la correlación con su registro.");
+                // La identidad aleatoria del registro no forma parte de la simulación sembrada.
+                Check(Protocol.Serialize(state with { StatisticsRunId = null }) ==
+                    Protocol.Serialize(other with { StatisticsRunId = null }), "La semilla no reproduce los eventos.");
                 if (i % 60 == 0) SnapshotValidation.Check(state);
             }
             Check(meteor && wall, "No se producen ambos eventos durante la partida.");
