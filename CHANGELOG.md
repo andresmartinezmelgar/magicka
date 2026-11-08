@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.29.52
+
+- PvP abre directamente las salas del servidor configurado. Se elimina la entrada de IP y se oculta la dirección en listados, cabeceras y errores de conexión.
+- Raspberry: actualizador por tags estables cada 30 minutos, con conservación de datos, espera si hay jugadores y recuperación tras fallos de arranque. Requiere instalación inicial.
+- Navegación PvP adaptada para móvil y escritorio. La búsqueda LAN y el alojamiento local siguen disponibles desde el selector.
+
 ## 0.29.51
 
 - Cada mejora solo se puede elegir una vez en las prioridades de equipo. Al quitarla o cambiarla vuelve a estar disponible en las otras prioridades; Sin prioridad se puede repetir.

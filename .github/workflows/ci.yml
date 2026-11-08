@@ -36,6 +36,8 @@ jobs:
           dotnet-version: 8.0.x
       - name: Validar metadatos de version
         run: python3 scripts/version-support.py check .
+      - name: Comprobar actualizaciones por tags del servidor Raspberry
+        run: python3 scripts/test-raspberry-auto-update.py
       - name: Verificar aislamiento e integridad de publicaciones de prueba
         run: |
           python3 scripts/test-preview-release.py
