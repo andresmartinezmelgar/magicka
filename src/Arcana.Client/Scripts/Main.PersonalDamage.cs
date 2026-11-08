@@ -43,10 +43,13 @@ public partial class Main
         var player = snapshot.Players.FirstOrDefault(p => p.Id == _localId);
         if (player == null || snapshot.WaitingForPlayers) return;
         bool newDeath = player.Deaths > _damageSummaryDeaths, newEnd = snapshot.MatchEnded && !_damageSummaryEnded;
+        bool eliminated = snapshot.Defense != null && !player.Alive && player.Deaths >= DefenseRules.PlayerLives;
         bool newRound = player.Deaths < _damageSummaryDeaths || !snapshot.MatchEnded && _damageSummaryEnded;
         _damageSummaryDeaths = player.Deaths; _damageSummaryEnded = snapshot.MatchEnded;
         if (newRound || _damageSummaryAuto && player.Alive && !snapshot.MatchEnded) ClosePersonalDamageSummary();
-        if (newDeath || newEnd) OpenPersonalDamageSummary(automatic: true);
+        // Las caídas con reaparición no interrumpen la partida. En Supervivencia
+        // el resumen puede abrirse al agotar las vidas aunque continúen los aliados.
+        if (newDeath && eliminated || newEnd) OpenPersonalDamageSummary(automatic: true);
         _damageSummaryClock += delta;
         if (ViewingDamageSummary && (_damageSummaryClock >= 0.25 || newDeath || newEnd))
         { _damageSummaryClock = 0; _personalDamagePanel!.Update(player, snapshot.MatchEnded); }

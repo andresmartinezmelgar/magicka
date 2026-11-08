@@ -31,7 +31,8 @@ public partial class Hud : Control
     private ScrollContainer _scoreScroll = null!;
     private MiniMap _map = null!;
     private PanelContainer _playerPanel = null!, _spellsPanel = null!;
-    private PanelContainer _bannerBackdrop = null!, _rewardBackdrop = null!;
+    private PanelContainer _bannerBackdrop = null!;
+    private Button _rewardBackdrop = null!;
     private CenterContainer _noticeCenter = null!;
     private VBoxContainer _noticeStack = null!, _topScore = null!;
     private PanelContainer _mapPanel = null!;
@@ -53,13 +54,20 @@ public partial class Hud : Control
     internal bool RoundAnnouncementVisibleForSmoke => _banner.IsVisibleInTree() && _bannerBackdrop.IsVisibleInTree();
     public event Action? EquipmentRequested;
     public event Action? PersonalDamageRequested;
-    public bool PointerOverPanel => _scorePanel.Visible && _scorePanel.GetGlobalRect().HasPoint(GetGlobalMousePosition());
+    internal bool RewardNoticeContains(Vector2 point) => _rewardBackdrop.IsVisibleInTree() && _rewardBackdrop.GetGlobalRect().HasPoint(point);
+    public bool PointerOverPanel => _scorePanel.Visible && _scorePanel.GetGlobalRect().HasPoint(GetGlobalMousePosition()) ||
+        RewardNoticeContains(GetGlobalMousePosition());
     public void RewardNotice(string message)
     {
         _reward.Text = message; _reward.TooltipText = message; _rewardSeconds = 2.2f;
         _reward.Visible = _rewardBackdrop.Visible = true;
         _rewardBackdrop.Modulate = Colors.White;
         PlaceRewardNotice();
+    }
+    private void DismissRewardNotice()
+    {
+        _rewardSeconds = 0;
+        _reward.Visible = _rewardBackdrop.Visible = false;
     }
 
     public void Build()
@@ -172,9 +180,15 @@ public partial class Hud : Control
             MouseFilter = MouseFilterEnum.Ignore };
         _bannerBackdrop.AddThemeStyleboxOverride("panel", Ui.Panel(new Color(0.025f, 0.045f, 0.075f, 0.90f), 14, Ui.Gold.Darkened(0.45f)));
         _noticeStack.AddChild(_bannerBackdrop);
-        _rewardBackdrop = new PanelContainer { Name = "MatchRewardBackground", Visible = false,
-            MouseFilter = MouseFilterEnum.Ignore };
-        _rewardBackdrop.AddThemeStyleboxOverride("panel", Ui.Panel(new Color(0.025f, 0.05f, 0.09f, 0.94f), 10));
+        // Toda la tarjeta responde al clic/toque. El botón consume el gesto al soltarlo,
+        // mientras la etiqueta deja pasar el evento y el mundo no recibe el contacto.
+        _rewardBackdrop = new Button { Name = "MatchRewardBackground", Visible = false,
+            FocusMode = FocusModeEnum.None, MouseFilter = MouseFilterEnum.Stop,
+            MouseDefaultCursorShape = CursorShape.PointingHand, TooltipText = "Cerrar aviso" };
+        var rewardStyle = Ui.Panel(new Color(0.025f, 0.05f, 0.09f, 0.94f), 10);
+        foreach (string state in new[] { "normal", "hover", "pressed" })
+            _rewardBackdrop.AddThemeStyleboxOverride(state, rewardStyle);
+        _rewardBackdrop.Pressed += DismissRewardNotice;
         AddChild(_rewardBackdrop);
         _banner = Ui.Label("", 34, Ui.Gold); _banner.Name = "MatchBanner";
         _banner.HorizontalAlignment = HorizontalAlignment.Center;
@@ -189,6 +203,9 @@ public partial class Hud : Control
         _reward.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
         _reward.Visible = false;
         _rewardBackdrop.AddChild(_reward);
+        Ui.Full(_reward);
+        _reward.OffsetLeft = 12; _reward.OffsetRight = -12;
+        _reward.OffsetTop = 8; _reward.OffsetBottom = -8;
         // El CenterContainer ocupa el viewport escalado completo y centra la
         // tabla por su tamaño real; los anclajes anteriores podían dejarla
         // desplazada a la esquina superior izquierda al redimensionar.

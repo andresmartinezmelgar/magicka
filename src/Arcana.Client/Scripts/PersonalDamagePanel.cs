@@ -62,7 +62,7 @@ public partial class PersonalDamagePanel : Control
     public void Update(WizardSnapshot player, bool ended)
     {
         _context.Text = ended ? "RESULTADO FINAL · daño acumulado de esta partida"
-            : !player.Alive ? "HAS CAÍDO · daño acumulado hasta ahora; se conserva al reaparecer"
+            : !player.Alive ? "HAS CAÍDO · daño acumulado hasta ahora"
             : "DAÑO ACUMULADO · la partida continúa";
         var damage = player.Damage;
         if (_rendered && Equal(_lastDamage, damage)) return;

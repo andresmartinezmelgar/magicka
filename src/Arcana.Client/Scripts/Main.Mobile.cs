@@ -76,7 +76,8 @@ public partial class Main
         _touch = new MobileControls(); _ui.AddChild(_touch);
         _touchSettings ??= (DevicePreferences.Read<TouchSettings>("touch-controls") ?? new()).Normalize();
         _touch.Configure(_touchSettings);
-        _touch.PointerBlocked = point => _defensePanel?.BlocksTouch(point) == true || TutorialBlocksPointer(point);
+        _touch.PointerBlocked = point => _hud?.RewardNoticeContains(point) == true ||
+            _defensePanel?.BlocksTouch(point) == true || TutorialBlocksPointer(point);
         _touch.MagickAvailable = slot => CheckMagickAvailable(slot, checkTarget: false);
         _touch.ActionRequested += message =>
         {

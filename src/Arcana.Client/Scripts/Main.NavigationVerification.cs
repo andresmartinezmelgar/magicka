@@ -172,6 +172,35 @@ public partial class Main
                 await Frames(); Capture(size.X + "-dano-personal");
                 await Click(Exit(_personalDamagePanel, "PersonalDamageClose"));
                 Check(!ViewingDamageSummary && !_practice.DefensePaused, "Cerrar el resumen dejó pausada la partida.");
+                _hud!.RewardNotice("Objeto temporal de prueba"); await Frames();
+                var rewardCard = (Control)_hud.FindChild("MatchRewardBackground", true, false);
+                var dismissReward = (Button)rewardCard;
+                _moveTo = false;
+                await Click(dismissReward);
+                Check(!rewardCard.Visible && !_moveTo, "Cerrar el aviso de botín con el ratón mueve al jugador o mantiene el aviso.");
+                _hud.RewardNotice("Otro objeto temporal"); await Frames();
+                Check(rewardCard.Visible, "Un aviso cerrado no permite mostrar el siguiente objeto.");
+                if (_touch != null)
+                {
+                    bool emulateMouse = Input.EmulateMouseFromTouch;
+                    var noticeActions = new List<ClientMessage>();
+                    void TrackNoticeAction(ClientMessage message) => noticeActions.Add(message);
+                    _touch.ActionRequested += TrackNoticeAction;
+                    try
+                    {
+                        Input.EmulateMouseFromTouch = true;
+                        Vector2 point = dismissReward.GetGlobalRect().GetCenter();
+                        Input.ParseInputEvent(new InputEventScreenTouch { Index = 0, Position = point, Pressed = true });
+                        Input.FlushBufferedEvents(); await Frames(1);
+                        Check(_touch.Movement == Vector2.Zero && noticeActions.Count == 0,
+                            "Tocar el aviso de botín activa movimiento o un hechizo.");
+                        Input.ParseInputEvent(new InputEventScreenTouch { Index = 0, Position = point, Pressed = false });
+                        Input.FlushBufferedEvents(); await Frames();
+                        Check(!rewardCard.Visible && _touch.Movement == Vector2.Zero && noticeActions.Count == 0,
+                            "El aviso no cierra al tocarlo o el gesto llega a los controles del juego.");
+                    }
+                    finally { _touch.ActionRequested -= TrackNoticeAction; Input.EmulateMouseFromTouch = emulateMouse; }
+                }
                 var player = _practice!.Players[_localId];
                 var grant = typeof(GameWorld).GetMethod("GrantDefenseItem", BindingFlags.NonPublic | BindingFlags.Instance)!;
                 var boots = EquipmentCatalogue.Generate(new(961), tier: ItemTier.Silver, slot: EquipmentSlot.Boots);
@@ -309,11 +338,18 @@ public partial class Main
                 Back(); await Frames(); Check(_relicWindow?.Visible != true && _paused, "Atrás de Reliquias no vuelve al menú de pausa.");
                 Back(); await Frames(); Check(!_paused, "Atrás de la pausa no restaura el juego.");
                 player.Health = 0; player.Deaths = 1; player.Respawn = 4.5f; player.Invulnerable = 0; await Frames();
-                Check(ViewingDamageSummary && !_practice!.DefensePaused && player.Respawn < 4.5f,
-                    "El resumen de muerte no se abre o impide avanzar la reaparición.");
+                Check(!ViewingDamageSummary && !_practice!.DefensePaused && player.Respawn < 4.5f,
+                    "Una caída con vidas restantes abre estadísticas o impide avanzar la reaparición.");
                 typeof(GameWorld).GetMethod("Respawn", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(_practice, [player]); await Frames();
-                Check(!ViewingDamageSummary, "El resumen automático no se cierra al reaparecer.");
+                Check(!ViewingDamageSummary, "La reaparición abre el resumen de estadísticas.");
+                var survivingAlly = _practice.AddPlayer("Aliado de prueba", 0)!;
+                survivingAlly.Invulnerable = 100000;
                 player.Health = 0; player.Deaths = DefenseRules.PlayerLives; player.Invulnerable = 0;
+                typeof(GameWorld).GetMethod("CheckSurvivalEnd", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(_practice, []); await Frames();
+                Check(ViewingDamageSummary && !_practice.MatchEnded && !_defensePanel!.ShopOpen,
+                    "Agotar las vidas no abre el resumen mientras un aliado continúa.");
+                Back(); await Frames(); Check(!ViewingDamageSummary, "El resumen de eliminación vuelve a abrirse tras cerrarlo.");
+                survivingAlly.Health = 0; survivingAlly.Deaths = DefenseRules.PlayerLives; survivingAlly.Respawn = 0;
                 typeof(GameWorld).GetMethod("CheckSurvivalEnd", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(_practice, []); await Frames();
                 Check(ViewingDamageSummary && !_defensePanel!.ShopOpen, "La tienda tapa el resumen final de Supervivencia.");
                 Back(); await Frames(); Check(!ViewingDamageSummary, "Atrás no cierra el resumen final.");
