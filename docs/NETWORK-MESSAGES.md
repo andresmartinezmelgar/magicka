@@ -1,6 +1,6 @@
 # Mensajes enviados por Arcana Arena
 
-Revisión del código de la rama `pruebas/dashboard-publico-red-avisos`. Todavía sin una nueva APK ni despliegue de estos cambios. Los ejemplos son extractos JSON válidos y abreviados del contrato, no una captura de la sesión del usuario. Se omiten campos no relevantes y credenciales.
+Contrato incluido a partir de la versión 0.29.53. El despliegue del servidor depende de la actualización de cada instalación. Los ejemplos son extractos JSON válidos y abreviados del contrato, no una captura de la sesión del usuario. Se omiten campos no relevantes y credenciales.
 
 El tráfico mostrado por el HUD es el contenido WebSocket del juego. No incluye Firebase, la web, cabeceras TCP/TLS ni actualizaciones del APK. Las acciones habituales se codifican en binario (`0xB1`); los estados grandes se comprimen con Brotli (`0xA1`). Los JSON siguientes representan su contenido lógico legible.
 
@@ -8,7 +8,7 @@ El tráfico mostrado por el HUD es el contenido WebSocket del juego. No incluye 
 
 | Mensaje | Sentido | Datos | Ejemplo JSON abreviado |
 |---|---|---|---|
-| `hello` | Cliente → servidor | Versión de protocolo y juego, alias, equipo, clase, sala; tokens opcionales de cuenta/reanudación y claves si proceden | `{"type":"hello","protocol":46,"gameVersion":"0.29.52","name":"Mago","team":0,"wizardType":"balanced","roomId":"sala-1"}` |
+| `hello` | Cliente → servidor | Versión de protocolo y juego, alias, equipo, clase, sala; tokens opcionales de cuenta/reanudación y claves si proceden | `{"type":"hello","protocol":46,"gameVersion":"0.29.53","name":"Mago","team":0,"wizardType":"balanced","roomId":"sala-1"}` |
 | `welcome` | Servidor → cliente | Identidad del jugador, servidor y sala, estado completo inicial, preparación y token de reconexión | `{"type":"welcome","playerId":1000,"requiresReady":true,"readyPlayerIds":[],"snapshot":{"tick":0,"map":"bastion","survivalMap":{"seed":271,"version":2}}}` |
 | `ready` | Cliente → servidor | Confirmación de que han terminado la carga de recursos y la preparación local | `{"type":"ready","sequence":1}` |
 

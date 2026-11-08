@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.29.53
+
+- Dashboard sin inicio de sesión: lectura pública de estadísticas mediante el servidor, con cuentas e inventarios protegidos, caché y actualización de la web cada 15 segundos.
+- Menos tráfico: informes de estadísticas comprimidos, eliminación de solicitudes periódicas duplicadas y compresión Brotli ajustada sin reducir la frecuencia de combate.
+- Los objetos y recompensas aparecen en un aviso lateral de 2,2 segundos. Tocar o pulsar la tarjeta lo cierra sin activar movimiento ni ataques.
+- Las estadísticas personales se abren automáticamente al agotar las vidas o terminar la partida; la primera caída no interrumpe la reaparición.
+- Doble toque o doble clic en Meteoro para apuntar al grupo más numeroso de enemigos al alcance. El primer toque conserva el apuntado manual; respeta energía, recarga y suelo.
+
 ## 0.29.52
 
 - PvP abre las salas del servidor WSS fijo sin pedir ni mostrar su dirección. Google y la tienda utilizan el mismo dominio seguro.
