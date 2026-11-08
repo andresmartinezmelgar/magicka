@@ -7,6 +7,8 @@
     <Compile Include="../Arcana.Server/AccountRepository.Shop.cs" Link="AccountRepository.Shop.cs" />
     <Compile Include="../Arcana.Server/ShopEndpoints.cs" Link="ShopEndpoints.cs" />
     <Compile Include="../Arcana.Server/AccountService.cs" Link="AccountService.cs" />
+    <Compile Include="../Arcana.Server/PublicDashboardService.cs" Link="PublicDashboardService.cs" />
+    <Compile Include="../Arcana.Server/PublicDashboardEndpoints.cs" Link="PublicDashboardEndpoints.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FirebaseAdmin" Version="3.7.0" />

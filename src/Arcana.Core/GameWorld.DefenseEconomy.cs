@@ -228,7 +228,7 @@ public sealed partial class GameWorld
             int earned = Math.Min(100000000 - progress.Gold, item.SaleGold);
             StatisticsEconomy(player.Id, StatisticMeasure.GoldEarned, earned); progress.Gold += earned;
             if (progress.AutoSold < int.MaxValue) progress.AutoSold++;
-            Emit("defense_item", player.Position, [], player.Name + $": venta automática · +{earned} oro");
+            Emit("defense_item", player.Position, [], player.Name + $": venta automática · +{earned} oro", actorId: player.Id);
             return true;
         }
         if (progress.Items.Count >= DefenseRules.InventoryLimit)
@@ -236,7 +236,7 @@ public sealed partial class GameWorld
             int earned = Math.Min(100000000 - progress.Gold, item.SaleGold);
             StatisticsEconomy(player.Id, StatisticMeasure.GoldEarned, earned); progress.Gold += earned;
             Emit("defense_item", player.Position, [], player.Name + ": inventario lleno · objeto " +
-                EquipmentCatalogue.TierName(item.Tier) + $" convertido en +{earned} oro");
+                EquipmentCatalogue.TierName(item.Tier) + $" convertido en +{earned} oro", actorId: player.Id);
             return true;
         }
         else
@@ -250,7 +250,7 @@ public sealed partial class GameWorld
                 progress.Loadout = progress.Loadout.With(item.Slot, item.Id);
             RecalculateDefender(player);
         }
-        Emit("defense_item", player.Position, [], player.Name + ": objeto temporal " + EquipmentCatalogue.TierName(item.Tier));
+        Emit("defense_item", player.Position, [], player.Name + ": objeto temporal " + EquipmentCatalogue.TierName(item.Tier), actorId: player.Id);
         return true;
     }
 

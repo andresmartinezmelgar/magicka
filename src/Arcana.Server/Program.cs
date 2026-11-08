@@ -20,7 +20,9 @@ try
     Diagnostics.Info("firebase.hosting", activeAccounts.Enabled
         ? publicHost != null ? "Firebase y túnel público preparados." : "Firebase activo sin túnel público automático."
         : "Firebase desactivado; partidas LAN sin recompensas.");
-    var builder = WebApplication.CreateBuilder(args);
+    string dashboardRoot = Path.Combine(AppContext.BaseDirectory, "wwwroot");
+    var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = args,
+        WebRootPath = Directory.Exists(dashboardRoot) ? dashboardRoot : null });
     builder.WebHost.UseUrls($"http://0.0.0.0:{settings.Port}");
     builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = Protocol.MaxMessageBytes);
     builder.Services.AddSingleton(settings);
@@ -32,6 +34,7 @@ try
     });
     // Firebase Admin valida tokens Google y escribe resultados en Firestore.
     builder.Services.AddSingleton(new AccountService(activeAccounts));
+    builder.Services.AddPublicDashboard();
     if (publicHost != null)
         builder.Services.AddHostedService(service => new PublicAccountServerPublisher(activeAccounts,
             settings.Port, service.GetRequiredService<ILogger<PublicAccountServerPublisher>>()));
@@ -63,6 +66,12 @@ try
         }
     });
     app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(15) });
+    app.UseDefaultFiles();
+    var webTypes = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+    webTypes.Mappings[".mjs"] = "text/javascript";
+    app.UseStaticFiles(new StaticFileOptions { ContentTypeProvider = webTypes,
+        OnPrepareResponse = context => context.Context.Response.Headers.CacheControl = "no-cache" });
+    app.MapPublicDashboard();
     app.MapGet("/health", (GameService game) => Results.Ok(new { status = "ok", version = BuildInfo.Version, tick = game.CurrentTick }));
     app.MapGet("/info", (GameService game) => Results.Json(game.Info(), Protocol.Json));
     app.MapGet("/rooms", (GameService game) => Results.Json(game.ListRooms(), Protocol.Json));
@@ -130,7 +139,7 @@ try
     app.MapItemShop();
     app.MapMatchStatistics();
     app.Map("/play", async (HttpContext context, GameService game) => await game.HandleConnection(context));
-    app.MapGet("/", () => $"Arcana Arena v{BuildInfo.Version}. Cliente: /play. Salas: /rooms. Estado: /health.");
+    app.MapGet("/server-info", () => $"Arcana Arena v{BuildInfo.Version}. Cliente: /play. Salas: /rooms. Estado: /health.");
     Diagnostics.Info("server.start", "Iniciando servidor.", new Dictionary<string, object?>
         { ["instance"] = settings.InstanceId, ["port"] = settings.Port, ["discoveryPort"] = settings.DiscoveryPort, ["logDirectory"] = log.DirectoryPath });
     await app.RunAsync();

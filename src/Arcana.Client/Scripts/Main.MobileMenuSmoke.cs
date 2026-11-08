@@ -7,6 +7,7 @@ namespace Arcana.Client;
 public partial class Main
 {
     private bool _mobileMenuSmoke;
+    private WorldSnapshot? _smokeRewardSnapshot;
     private bool _desktopHeaderSmoke;
     private int _desktopHeaderSmokeFrame;
     private int _mobileMenuSmokeFrame;
@@ -321,6 +322,7 @@ public partial class Main
                     RestartIn = 8, RewardStatus = "Recompensa pendiente de confirmar en Firebase."
                 };
                 _smokeScoreHud.Update(won, player.Id, "Servidor LAN", 0.016);
+                _smokeRewardSnapshot = won;
                 Rect2 screen = GetViewport().GetVisibleRect();
                 var banner = (ElementTextLabel)_smokeScoreHud.FindChild("MatchBanner", true, false);
                 var reward = (ElementTextLabel)_smokeScoreHud.FindChild("MatchRewardNotice", true, false);
@@ -351,6 +353,11 @@ public partial class Main
                 Rect2 screen = GetViewport().GetVisibleRect();
                 if (!screen.Encloses(banner.GetGlobalRect()) || !screen.Encloses(reward.GetGlobalRect()))
                     throw new InvalidOperationException($"Resultado/recompensa fuera de pantalla: banner={banner.GetGlobalRect()}, recompensa={reward.GetGlobalRect()}, pantalla={screen}");
+                var toast = (Control)_smokeScoreHud.FindChild("MatchRewardBackground", true, false);
+                if (toast.GetGlobalRect().HasPoint(screen.GetCenter()) || toast.GetGlobalRect().Size.X > screen.Size.X * .48f)
+                    throw new InvalidOperationException("El aviso de botín ocupa el centro del combate.");
+                _smokeScoreHud.Update(_smokeRewardSnapshot!, _smokeRewardSnapshot!.Players[0].Id, "Servidor LAN", 2.3);
+                if (toast.Visible) throw new InvalidOperationException("El aviso de botín no desaparece tras dos segundos.");
                 GD.Print("MOBILE_SERIES_REWARD_LAYOUT_OK");
                 AssertHudBounds(_smokeScoreHud, "victoria");
                 // Se representa la perspectiva del rival con un HUD distinto,

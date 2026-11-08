@@ -102,7 +102,7 @@ jobs:
       - name: Instalar Firebase CLI y bibliotecas de pruebas
         run: npm install --prefix tests/firebase-rules --no-audit --no-fund
       - name: Comprobar filtros, estadísticas y medias del dashboard
-        run: node --test dashboard/tests/model.test.mjs
+        run: node --test dashboard/tests/*.test.mjs
       - name: Compilar pruebas de cuentas y transacciones contra emulador
         run: dotnet build tests/Arcana.Account.Tests/Arcana.Account.Tests.csproj -c Release --nologo
       - name: Probar reglas de Firestore sin credenciales reales

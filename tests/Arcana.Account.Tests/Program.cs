@@ -24,6 +24,7 @@ var database = new FirestoreDbBuilder { ProjectId = "demo-arcana-accounts", Emul
 var repository = new FirestoreAccountRepository(database);
 await BestiaryEmulatorTests.Run(database);
 await MatchStatisticsEmulatorTests.Run(database);
+await PublicDashboardEmulatorTests.Run(database);
 string suffix = Guid.NewGuid().ToString("N");
 string alice = "alice_" + suffix, bob = "bob_" + suffix;
 var options = new AccountOptions("demo-arcana-accounts", "test-only-key", "demo-arcana-accounts.firebaseapp.com", "http://127.0.0.1:28339");

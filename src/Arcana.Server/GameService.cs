@@ -424,7 +424,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                             if (session.Ready && now - session.LastStatisticsAt >= 250)
                             { session.LastStatisticsAt = now; report = session.Room.World.MatchStatistics(); statistics.Record(report); }
                         }
-                        if (report != null) await SendSession(session, Protocol.SerializeUtf8(new ServerMessage { Type = "statistics", Statistics = report }), connection.Token);
+                        if (report != null) await SendSession(session, Protocol.SerializeSnapshot(new ServerMessage { Type = "statistics", Statistics = report }), connection.Token);
                     }
                     else if (message.Type == "inspect")
                     {

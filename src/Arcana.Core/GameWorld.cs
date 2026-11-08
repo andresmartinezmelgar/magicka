@@ -1142,9 +1142,9 @@ public sealed partial class GameWorld
         BeginCast(p);
     }
 
-    private void Emit(string kind, V2 position, Element[] elements, string text, float radius = 0)
+    private void Emit(string kind, V2 position, Element[] elements, string text, float radius = 0, int actorId = 0)
     {
-        _events.Add((Tick, new(_nextEvent++, kind, position, elements, text, radius)));
+        _events.Add((Tick, new(_nextEvent++, kind, position, elements, text, radius) { ActorId = actorId }));
         if (_events.Count > 160) _events.RemoveRange(0, _events.Count - 160);
     }
 

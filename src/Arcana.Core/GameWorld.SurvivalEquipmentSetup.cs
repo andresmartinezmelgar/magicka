@@ -16,7 +16,7 @@ public sealed partial class GameWorld
             // El botín Mítico permanece en el suelo hasta que haya espacio; no modifica el equipo ni el oro.
             if (incoming.Tier == ItemTier.Mythic) return false;
             SellSetupDiscard(progress, player.Id, incoming);
-            Emit("defense_item", player.Position, [], "Selección automática: pieza vendida. El inventario está ocupado por Míticos, favoritos y equipo protegido.");
+            Emit("defense_item", player.Position, [], "Selección automática: pieza vendida. El inventario está ocupado por Míticos, favoritos y equipo protegido.", actorId: player.Id);
             return true;
         }
         int before = progress.Gold, sold = 0;
@@ -25,7 +25,9 @@ public sealed partial class GameWorld
             { SellSetupDiscard(progress, player.Id, item); progress.Upgrades.Remove(item.Id); sold++; }
         progress.Items.Clear(); progress.Items.AddRange(retained); progress.Loadout = chosen;
         RecalculateDefender(player);
-        if (sold > 0) Emit("defense_item", player.Position, [], $"Selección automática: {sold} pieza(s) vendidas · +{progress.Gold - before} oro temporal.");
+        if (sold > 0) Emit("defense_item", player.Position, [], $"Selección automática: {sold} pieza(s) vendidas · +{progress.Gold - before} oro temporal.", actorId: player.Id);
+        if (incoming != null && retained.Any(item => item.Id == incoming.Id))
+            Emit("defense_item", player.Position, [], player.Name + ": objeto temporal " + EquipmentCatalogue.TierName(incoming.Tier), actorId: player.Id);
         return true;
     }
     private void SellSetupDiscard(DefenseProgress progress, int playerId, EquipmentItem item)

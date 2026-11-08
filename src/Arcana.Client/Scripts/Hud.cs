@@ -54,7 +54,13 @@ public partial class Hud : Control
     public event Action? EquipmentRequested;
     public event Action? PersonalDamageRequested;
     public bool PointerOverPanel => _scorePanel.Visible && _scorePanel.GetGlobalRect().HasPoint(GetGlobalMousePosition());
-    public void RewardNotice(string message) { _reward.Text = message; _rewardSeconds = 12; _reward.Visible = true; _rewardBackdrop.Visible = true; }
+    public void RewardNotice(string message)
+    {
+        _reward.Text = message; _reward.TooltipText = message; _rewardSeconds = 2.2f;
+        _reward.Visible = _rewardBackdrop.Visible = true;
+        _rewardBackdrop.Modulate = Colors.White;
+        PlaceRewardNotice();
+    }
 
     public void Build()
     {
@@ -152,8 +158,7 @@ public partial class Hud : Control
         _mapPanel = mapPanel;
         mapPanel.AddThemeStyleboxOverride("panel", Ui.Panel(new Color(0.025f, 0.05f, 0.08f, 0.90f), 10));
         _map = new MiniMap { CustomMinimumSize = new(165, 119), MouseFilter = MouseFilterEnum.Ignore }; mapPanel.AddChild(_map);
-        // Los avisos comparten una columna centrada por CenterContainer.
-        // El espacio se redistribuye al cambiar el tamaño del viewport.
+        // Solo el resultado de la partida ocupa el centro. El botín usa un aviso lateral.
         _noticeCenter = new CenterContainer { Name = "HudCenteredNotices",
             MouseFilter = MouseFilterEnum.Ignore };
         AddChild(_noticeCenter);
@@ -170,16 +175,18 @@ public partial class Hud : Control
         _rewardBackdrop = new PanelContainer { Name = "MatchRewardBackground", Visible = false,
             MouseFilter = MouseFilterEnum.Ignore };
         _rewardBackdrop.AddThemeStyleboxOverride("panel", Ui.Panel(new Color(0.025f, 0.05f, 0.09f, 0.94f), 10));
-        _noticeStack.AddChild(_rewardBackdrop);
+        AddChild(_rewardBackdrop);
         _banner = Ui.Label("", 34, Ui.Gold); _banner.Name = "MatchBanner";
         _banner.HorizontalAlignment = HorizontalAlignment.Center;
         _banner.VerticalAlignment = VerticalAlignment.Center;
         _banner.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _bannerBackdrop.AddChild(_banner);
-        _reward = Ui.Label("", 24, Ui.Gold); _reward.Name = "MatchRewardNotice";
-        _reward.HorizontalAlignment = HorizontalAlignment.Center;
+        _reward = Ui.Label("", 18, Ui.Gold); _reward.Name = "MatchRewardNotice";
+        _reward.HorizontalAlignment = HorizontalAlignment.Left;
         _reward.VerticalAlignment = VerticalAlignment.Center;
         _reward.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _reward.MaxLinesVisible = 2;
+        _reward.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
         _reward.Visible = false;
         _rewardBackdrop.AddChild(_reward);
         // El CenterContainer ocupa el viewport escalado completo y centra la
@@ -227,7 +234,7 @@ public partial class Hud : Control
     private void ResizeLayout()
     {
         Size = GetViewportRect().Size / GameplayScale;
-        // Los avisos y la clasificación deben seguir centrados al cambiar la ventana.
+        // El resultado y la clasificación siguen centrados al cambiar la ventana.
         if (_scorePanel == null) return; // Build invoca ResizeLayout antes de crear los hijos.
         float available = Math.Max(240, Size.X - 36);
         float tableWidth = Math.Min(760, available);
@@ -238,8 +245,6 @@ public partial class Hud : Control
         float messageWidth = Math.Min(800, available);
         float bannerHeight = Math.Min(180, Math.Max(90, Size.Y * 0.42f));
         _bannerBackdrop.CustomMinimumSize = new Vector2(messageWidth, bannerHeight);
-        _rewardBackdrop.CustomMinimumSize = new Vector2(messageWidth,
-            Math.Min(80, Math.Max(40, Size.Y / 5)));
         _topScore.CustomMinimumSize = new Vector2(Math.Min(690, available), 0);
         _objective.CustomMinimumSize = new Vector2(0, Size.X < 800 ? 76 : 46);
         _server.Size = new(Math.Max(70, Math.Min(300, (Size.X - 60) / 3)), 58);
@@ -270,6 +275,21 @@ public partial class Hud : Control
                 ? new Vector2(24, 145) / GameplayScale
                 : new Vector2(24, Size.Y * GameplayScale - 282) / GameplayScale;
         else ResizeTouchHud();
+        PlaceRewardNotice();
+    }
+    private void PlaceRewardNotice()
+    {
+        // Mismo lateral que el estado del jugador, junto a su borde inferior.
+        // La altura acotada deja libres los joysticks y el combate central.
+        float s = MobileLayout || _lastSnapshot?.Defense != null ? Math.Min(1, GetViewportRect().Size.Y / 720f) / GameplayScale : 1;
+        _rewardBackdrop.Scale = Vector2.One * s;
+        _rewardBackdrop.CustomMinimumSize = _rewardBackdrop.Size = new(310, 62);
+        var edge = _playerPanel.Position + new Vector2(0, _playerPanel.Size.Y * _playerPanel.Scale.Y + 8);
+        if (GetParent()?.FindChild("DefenseSummary", true, false) is Control summary && summary.IsVisibleInTree())
+            edge.Y = (summary.GetGlobalRect().End.Y - GlobalPosition.Y) / GameplayScale + 8;
+        // En escritorio el panel puede estar abajo: el aviso se coloca encima.
+        if (edge.Y + 62 * s > Size.Y - 80) edge.Y = _playerPanel.Position.Y - 70 * s;
+        _rewardBackdrop.Position = new(Math.Clamp(edge.X, 8, Math.Max(8, Size.X - 310 * s - 8)), Math.Max(8, edge.Y));
     }
     public override void _ExitTree() => GetViewport().SizeChanged -= ResizeLayout;
     private static ProgressBar Bar(Color color, float max, int height)
@@ -294,6 +314,7 @@ public partial class Hud : Control
     {
         _rewardSeconds = Math.Max(0, _rewardSeconds - (float)delta); _reward.Visible = _rewardSeconds > 0;
         _rewardBackdrop.Visible = _reward.Visible;
+        _rewardBackdrop.Modulate = new Color(1, 1, 1, Math.Clamp(_rewardSeconds / .25f, 0, 1));
         _actionNoticeSeconds = Math.Max(0, _actionNoticeSeconds - (float)delta);
         _actionNotice.Visible = _actionNoticeSeconds > 0;
         _feedTime -= (float)delta; _feed.Text = _feedTime > 0 ? _feedText : "";
@@ -446,6 +467,8 @@ public partial class Hud : Control
             if (e.Id <= _lastEvent) continue;
             _lastEvent = Math.Max(_lastEvent, e.Id);
             if (e.Kind == "defense_oracle") ActionNotice(e.Text);
+            if (e.Kind == "defense_item" && e.ActorId == id)
+                RewardNotice(e.Text.StartsWith(player.Name + ": ", StringComparison.Ordinal) ? e.Text[(player.Name.Length + 2)..] : e.Text);
             if (e.Text.Length == 0) continue;
             var lines = (_feedText + "\n" + e.Text).Split('\n').Where(t => t.Length > 0).TakeLast(4);
             _feedText = string.Join("\n", lines); _feedTime = 7;

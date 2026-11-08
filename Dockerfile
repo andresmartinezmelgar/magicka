@@ -6,6 +6,7 @@ COPY src/Arcana.Server/Arcana.Server.csproj src/Arcana.Server/
 RUN dotnet restore src/Arcana.Server/Arcana.Server.csproj
 COPY src/Arcana.Core/ src/Arcana.Core/
 COPY src/Arcana.Server/ src/Arcana.Server/
+COPY dashboard/web/ dashboard/web/
 COPY scripts/Apply-WindowsUpdate.ps1 scripts/Apply-WindowsUpdate.ps1
 RUN dotnet publish src/Arcana.Server/Arcana.Server.csproj -c Release --no-restore -o /app/publish /p:UseAppHost=false
 

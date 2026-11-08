@@ -72,5 +72,22 @@ internal static class NetworkDeltaTests
             if (Protocol.Serialize(decoded?.Snapshot) != Protocol.Serialize(message.Snapshot))
                 throw new Exception("La compresión altera el snapshot.");
         });
+        test("Compresión conserva estadísticas y evita expandir datos", () =>
+        {
+            var world = new GameWorld(new WorldOptions()); world.AddPlayer("Prueba", 0);
+            for (int i = 0; i < 60; i++) world.Step();
+            var message = new ServerMessage { Type = "statistics", Statistics = world.MatchStatistics() };
+            var bytes = Protocol.SerializeSnapshot(message);
+            var decoded = Protocol.DeserializeFrame(bytes, bytes[0] == 0xA1);
+            if (decoded?.Type != "statistics" || decoded.Statistics?.ToJson() != message.Statistics.ToJson())
+                throw new Exception("El informe comprimido cambia o pierde métricas.");
+            var noise = new byte[8192]; new Random(271).NextBytes(noise);
+            if (!ReferenceEquals(noise, Protocol.CompressSnapshotPayload(noise)))
+                throw new Exception("Se comprime una trama aunque aumente su tamaño.");
+            var repeated = Enumerable.Repeat((byte)42, 65536).ToArray();
+            var compressed = Protocol.CompressSnapshotPayload(repeated);
+            if (compressed[0] != 0xA1 || !Protocol.DecompressSnapshotPayload(compressed).SequenceEqual(repeated))
+                throw new Exception("La nueva compresión no es compatible o pierde datos.");
+        });
     }
 }

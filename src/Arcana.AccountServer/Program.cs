@@ -17,6 +17,7 @@ builder.Services.ConfigureHttpJsonOptions(json =>
     foreach (var converter in Protocol.Json.Converters) json.SerializerOptions.Converters.Add(converter);
 });
 builder.Services.AddSingleton(new AccountService(options));
+builder.Services.AddPublicDashboard();
 var app = builder.Build();
 app.Use(async (context, next) =>
 {
@@ -26,6 +27,7 @@ app.Use(async (context, next) =>
 });
 app.MapAccounts();
 app.MapItemShop();
+app.MapPublicDashboard();
 
 // Solo el servidor de juego, mediante una clave compartida, puede consultar sesiones,
 // perfiles de jugadores o entregar recompensas. No exponer esta clave al cliente.

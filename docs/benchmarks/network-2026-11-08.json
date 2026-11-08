@@ -1,0 +1,52 @@
+{
+  "roundTripVerifiedPackets": 1081,
+  "kind": "synthetic-compression-only",
+  "seed": 271,
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.39",
+  "method": "Native Brotli, window 22; median of 3 passes; JSON delta with binary minions in base64. No real game trace, Godot, .NET or Raspberry measurement.",
+  "delta": [
+    {
+      "minions": 56,
+      "frames": 120,
+      "uncompressedBytes": 341035,
+      "q1Bytes": 169522,
+      "q1MsPerFrame": 0.0233,
+      "q3Bytes": 160896,
+      "q3MsPerFrame": 0.035,
+      "q4Bytes": 160928,
+      "q4MsPerFrame": 0.0576,
+      "q3SavingPercent": 5.09,
+      "q4SavingPercent": 5.07
+    },
+    {
+      "minions": 89,
+      "frames": 120,
+      "uncompressedBytes": 520555,
+      "q1Bytes": 247932,
+      "q1MsPerFrame": 0.0228,
+      "q3Bytes": 235110,
+      "q3MsPerFrame": 0.0462,
+      "q4Bytes": 235597,
+      "q4MsPerFrame": 0.0802,
+      "q3SavingPercent": 5.17,
+      "q4SavingPercent": 4.98
+    },
+    {
+      "minions": 192,
+      "frames": 120,
+      "uncompressedBytes": 1080715,
+      "q1Bytes": 493141,
+      "q1MsPerFrame": 0.0468,
+      "q3Bytes": 467296,
+      "q3MsPerFrame": 0.0815,
+      "q4Bytes": 468025,
+      "q4MsPerFrame": 0.1383,
+      "q3SavingPercent": 5.24,
+      "q4SavingPercent": 5.09
+    }
+  ],
+  "statistics": {
+    "rawBytes": 65174,
+    "q3Bytes": 8232
+  }
+}

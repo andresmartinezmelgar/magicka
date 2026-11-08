@@ -1,5 +1,7 @@
 # Comunicaciones — protocolo 27
 
+Revisión actual: [dashboard público y estudio de tráfico del 08/11/2026](reviews/network-dashboard-2026-11-08.md). Los resultados inferiores corresponden a una medición histórica anterior.
+
 Las acciones de combate conservan su formato binario y el servidor envía 20 estados por segundo. Cada delta es independiente respecto a una base identificada; nunca depende del mensaje anterior.
 
 Cada 40 estados se ofrece una nueva base. El cliente la valida, conserva la anterior y confirma su identificador. El servidor solo cambia de base tras esa confirmación. La base se reintenta cada 20 estados si se descartó o no llegó la confirmación. Los controles de base se añaden al estado del mismo ciclo, sin reemplazarlo.

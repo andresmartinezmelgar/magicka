@@ -11,9 +11,9 @@ Dashboard web independiente y táctil para Surface con Windows 10/11 y Edge o Ch
 - **Elementos y ataques:** daño de vida y escudo, curación, absorción, ataques y origen del daño.
 - **Conexión:** ping medio ponderado, mínimo, máximo, muestras, FPS y tiempo de simulación.
 
-Filtros de últimos 7 o 30 días UTC inclusivos, fechas personalizadas de hasta 367 días, modo, estado y bots. Exportación CSV de todos los resultados filtrados, aunque la tabla se muestre por bloques. Los nombres se escapan en HTML y las celdas CSV se protegen frente a fórmulas.
+Filtros de últimos 7 o 30 días UTC inclusivos, fechas personalizadas dentro de la cobertura disponible (30 días en el servicio público; hasta 367 días en archivos importados), modo, estado y bots. Exportación CSV de todos los resultados filtrados, aunque la tabla se muestre por bloques. Los nombres se escapan en HTML y las celdas CSV se protegen frente a fórmulas.
 
-La página arranca sin datos. La demostración solo se abre al pulsarla y está identificada en todas las vistas y archivos exportados. También se pueden importar informes JSON: una lista de informes, un informe, sobres con `payload`, o `{ "reports": [...], "telemetry": [...] }`. La importación permanece en memoria y no sube archivos a Firebase.
+La página conecta automáticamente con el servidor, sin iniciar sesión. La demostración solo se abre al pulsarla y está identificada en todas las vistas y archivos exportados. También se pueden importar informes JSON: una lista de informes, un informe, sobres con `payload`, o `{ "reports": [...], "telemetry": [...] }`. La importación permanece en memoria y no sube archivos a Firebase.
 
 ## Instalar en la Surface
 
@@ -35,7 +35,7 @@ El instalador valida el remoto y la rama antes de crear las tareas del usuario a
 
 Dirección: **http://localhost:8787/**. F11 o el botón de pantalla completa. Puedes fijar esta página como aplicación en Edge.
 
-Las estadísticas se actualizan con los eventos de Firestore. Los 30 minutos corresponden al **código del dashboard**. La página comprueba el commit cada minuto y se recarga cuando cambia, conservando pestaña y filtros básicos. La pestaña debe seguir abierta. El equipo debe estar encendido y con sesión iniciada; al recuperar una ejecución perdida, la tarea usa `StartWhenAvailable`.
+Las estadísticas públicas se comprueban cada 15 segundos mientras la pestaña está visible. Los 30 minutos corresponden al **código del dashboard**. La página comprueba el commit cada minuto y se recarga cuando cambia, conservando pestaña y filtros básicos. La pestaña debe seguir abierta. El equipo debe estar encendido y con sesión iniciada; al recuperar una ejecución perdida, la tarea usa `StartWhenAvailable`.
 
 Se rechazan cambios locales, otra rama, otro remoto y divergencias. No se usa reset, limpieza, rebase ni push forzado. Un mutex evita actualizaciones simultáneas. Registro: `%LOCALAPPDATA%\ArcanaArenaDashboard\updates.log`, con rotación de 1 MiB.
 
@@ -53,52 +53,59 @@ Retirar tareas y detener el servidor, conservando repositorio y logs:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$repo\dashboard\windows\Uninstall-Dashboard.ps1"
 ```
 
-## Conectar datos reales
+## Datos reales sin iniciar sesión
 
-La configuración pública del proyecto `arcana-arena-f2997` ya está en `web/firebase.mjs`. La API key identifica el proyecto; no concede lectura. No hay contraseñas, tokens de sesión, claves privadas o cuentas de servicio en el dashboard.
+La página consulta `GET /api/dashboard/history` y `GET /api/dashboard/live` en su propio dominio. Si se abre con el servidor local de Windows, consulta `https://familiamelgar.duckdns.org/api/dashboard`. No usa Firebase Authentication, SDK de Firebase, API keys ni cuentas del navegador.
 
-1. En Firebase Authentication → Configuración → Dominios autorizados, autoriza `localhost` y, para la página alojada, `arcana-arena-observatorio.andresmartinezmelgar.chatgpt.site`.
-2. Abre el dashboard → **Configurar conexión → Conectar con Google** usando una cuenta ya habilitada en `statisticsReaders`. Se mantienen los permisos existentes; el sitio no permite concederse roles.
-3. El historial funciona con la colección existente `matchStatistics`. Se consulta todo el intervalo con un listener, sin truncarlo a una primera página. No hay límite silencioso de documentos; intervalos extensos implican más lecturas y memoria.
-4. Para nombres, partidas activas y ping, despliega las reglas/índices nuevos y utiliza una versión del cliente **y del servidor** que incluya `Main.Dashboard.cs` y el metadato `StatisticsRunId`. Windows y Android anteriores siguen enviando solo informes anónimos al cerrar.
+El backend conserva dos listeners compartidos de Firebase Admin. Entrega exclusivamente informes validados, alias del juego, actuaciones y ping. Las cuentas, inventarios, UID e identificadores privados de documentos permanecen fuera de la respuesta. Las reglas de Firestore no se abren al público.
 
-Desde un equipo autenticado con permisos administrativos en el proyecto:
+Ventana de 30 días UTC; límite de 500 documentos históricos y 250 señales de telemetría. La interfaz indica cobertura parcial si se alcanzan los límites o se omiten registros inválidos. Las respuestas tienen ETag y gzip; la ausencia de cambios devuelve 304 sin cuerpo. El histórico y las sesiones activas se consultan por separado.
 
-```powershell
-firebase deploy --project arcana-arena-f2997 --only firestore:rules,firestore:indexes
+La captura de ping y actuaciones sigue dependiendo de las versiones del cliente que publican telemetría y de los permisos existentes de escritura. Una web pública no habilita escrituras. Sin esas señales, aparecen los históricos disponibles y las vistas de telemetría quedan vacías.
+
+## Raspberry y Nginx
+
+La imagen Docker del servidor incluye `dashboard/web` y sirve la página en `/`. Los endpoints públicos están en el mismo proceso que Firebase Admin. Necesita las credenciales de servidor que ya se utilizan para tienda y recompensas, sin exponerlas al navegador.
+
+Cuando se publique una versión que contenga estos cambios, el actualizador por tags reconstruirá la imagen con la web incluida. Esta modificación de código por sí sola no crea ni despliega una versión.
+
+En el bloque HTTPS existente de Nginx, conserva certificados y la ruta WebSocket `/play`. Para que la web y su API procedan de la misma imagen:
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:27015;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
 ```
 
-No se han desplegado esas reglas en producción: este entorno no dispone de sesión administrativa de Firebase. Las reglas nuevas son un prototipo de acceso restringido, validado en emulador; conviene revisarlas antes de ampliar los lectores. No se han cambiado las cuentas lectoras autorizadas.
+No dupliques una directiva `location /` que ya exista: sustituye su contenido. Si Nginx sirve una carpeta estática antigua, esa carpeta seguirá mostrando la web anterior hasta cambiar el proxy o actualizar sus archivos.
 
-## Contratos y alcance
+Si se mantiene una carpeta estática en Nginx, añade solo este proxy para los datos:
 
-Se conserva sin cambios `matchStatistics`: contrato anónimo y cerrado, sin nombres, UID ni ping. Se agrupan revisiones por `runId` siguiendo `MatchStatisticsReport.IsNewer`; un informe finalizado no se sustituye por uno no finalizado, y una revisión inferior no sustituye una superior. Cabeceras incompatibles se omiten y se informa del número. No se suman proyecciones alternativas del mismo daño ni exceso de daño.
-
-Los históricos solo tienen día UTC. No se inventa una hora de inicio ni un orden exacto dentro del día. `humans`/`bots` son máximos simultáneos por partida: la suma se llama participaciones, nunca jugadores únicos. Los actores históricos agrupan clase/equipo, no personas. La clasificación con nombres muestra actuaciones por partida; nombres iguales no garantizan identidad entre partidas.
-
-Nuevo canal `dashboardTelemetry/{runId}-{ownerUid}`:
-
-- Solo escribe el cliente de una cuenta Google con permiso de lector; cada cliente escribe su documento. Solo leen las cuentas lectoras habilitadas.
-- Cabecera validada: `schemaVersion=1`, `runId`, `ownerUid`, `day`, `revision`, `status`, `updatedAt` de servidor y `payload` JSON ≤64 KiB.
-- Payload: modo, mapa, versión, estado, duración, ID local de remitente y hasta 32 jugadores con nombre de juego, clase, equipo, bot, vida, bajas/muertes y matrices de daño de nueve elementos. Sin correos, tokens, IP ni perfiles privados.
-- Ping: suma, número, mínimo y máximo de respuestas WebSocket desde que se identifica la ronda. No se mide desde la Surface ni se cuenta una ausencia como 0 ms. Una partida local aparece sin ping.
-- El cliente envía aproximadamente cada 15 s; el listener actualiza la web al recibir el documento. Pausas del SO, desconexión o fallos de red pueden impedir el heartbeat. Tras 90 s se marca sin señal.
-- Varios clientes de la misma partida no duplican jugadores/partidas. Cada ping pertenece a su remitente; se combina por muestras. Un reinicio del cliente o reconexión inicia un nuevo tramo de muestras y puede sustituir las muestras anteriores de ese remitente. No se promete una media de conexión de toda la vida.
-- La correlación `StatisticsRunId` evita asignar a una ronda el snapshot de la siguiente. Con un servidor antiguo sin ese metadato no se publica el canal nuevo.
-- Cola en memoria de hasta ocho rondas pendientes. Reintentos mientras el juego siga abierto. Cerrar el proceso puede perder telemetría aún sin enviar; las cifras son observacionales, no premios autoritativos.
-
-Vida y escudo se muestran como apoyo: curación y absorción. El daño elemental histórico de jugadores incluye sus eventos de daño propio y fuego amigo; el daño individual de `MatchDamageSnapshot` los excluye. Son alcances diferentes y no se mezclan para hacer rankings.
-
-## Verificación
-
-```sh
-node --test dashboard/tests/model.test.mjs
-npm install --prefix tests/firebase-rules
-node tests/firebase-rules/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore --project demo-arcana-arena 'node tests/firebase-rules/verify.cjs && node tests/firebase-rules/verify-dashboard.cjs'
+```nginx
+location /api/dashboard/ {
+    proxy_pass http://127.0.0.1:27015/api/dashboard/;
+    proxy_set_header Host $host;
+}
 ```
 
-El emulador verifica también los permisos anteriores: no se conceden lecturas públicas, escritura de roles, acceso cruzado a perfiles, cambios de dueño, revisiones regresivas, timestamps inventados ni reapertura de una finalización. El JSON interno se valida en los lectores; las reglas solo admiten su envoltura acotada de remitentes autorizados.
+Si se usa un servidor de cuentas separado con `ARCANA_ACCOUNT_SERVICE_URL`, los endpoints públicos deben apuntar a ese proceso, que dispone de Firebase Admin. El proceso de juego remoto sin repositorio administrativo devuelve 503; nunca se resuelve poniendo una clave privada en JavaScript.
 
-Las comprobaciones de publicación incluyen compilación C#, regresiones del juego, reglas del canal privado y arranque HTTP del dashboard con Windows PowerShell 5.1. La ejecución del Programador de tareas en la Surface se verifica en ese equipo. Activar los datos nuevos sigue requiriendo desplegar las reglas en Firebase.
+Comprobaciones después del despliegue:
 
-Referencias de implementación: [listeners Firestore](https://firebase.google.com/docs/firestore/query-data/listen), [Google Auth web](https://firebase.google.com/docs/auth/web/google-signin), [tareas programadas Windows](https://learn.microsoft.com/en-us/powershell/module/scheduledtasks/new-scheduledtasktrigger).
+```bash
+curl -i https://familiamelgar.duckdns.org/api/dashboard/history
+curl -i https://familiamelgar.duckdns.org/api/dashboard/live
+```
+
+Un 200 devuelve estadísticas, incluso si todavía no hay partidas. Un 503 indica que el lector está arrancando o no dispone de Firebase Admin; la página reintenta sin pedir una cuenta de Google.
+
+## Verificación sin compilar
+
+```bash
+node --check dashboard/web/app.mjs
+node --test dashboard/tests/*.test.mjs
+```
+
+El análisis de tráfico y sus limitaciones están en [network-dashboard-2026-11-08.md](../docs/reviews/network-dashboard-2026-11-08.md).

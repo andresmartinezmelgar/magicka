@@ -9,7 +9,7 @@ public sealed partial class GameService
         if (!room.Started) return;
         var report = room.World.MatchStatistics(status);
         statistics.Record(report);
-        var message = Protocol.SerializeUtf8(new ServerMessage { Type = "statistics", Statistics = report });
+        var message = Protocol.SerializeSnapshot(new ServerMessage { Type = "statistics", Statistics = report });
         foreach (var session in room.Sessions.Values) session.Outbox.Writer.TryWrite(message);
     }
     private void TrackStatistics(GameRoom room)

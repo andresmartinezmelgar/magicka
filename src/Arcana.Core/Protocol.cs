@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.IO.Compression;
 using System.Text.Json.Serialization;
+using System.Buffers;
 
 namespace Arcana.Core;
 
@@ -133,24 +134,19 @@ public static class Protocol
     public static byte[] CompressSnapshotPayload(byte[] raw)
     {
         if (raw.Length < 1024) return raw;
-        using var output = new MemoryStream();
-        output.WriteByte(0xA1);
-        using (var compressor = new BrotliStream(output, CompressionLevel.Fastest, true))
-            compressor.Write(raw);
-        var compressed = output.ToArray();
-        return compressed.Length + 16 < raw.Length ? compressed : raw;
+        // Wire-compatible Brotli. Quality 3 reduces bytes without lowering snapshot frequency.
+        int length = BrotliEncoder.GetMaxCompressedLength(raw.Length);
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(length + 1);
+        try
+        {
+            buffer[0] = 0xA1;
+            if (BrotliEncoder.TryCompress(raw, buffer.AsSpan(1, length), out int written, quality: 3, window: 22) && written + 17 < raw.Length)
+                return buffer.AsSpan(0, written + 1).ToArray();
+            return raw;
+        }
+        finally { ArrayPool<byte>.Shared.Return(buffer); }
     }
-    public static byte[] SerializeSnapshot(ServerMessage message)
-    {
-        byte[] raw = SerializeUtf8(message);
-        if (raw.Length < 1024) return raw;
-        using var output = new MemoryStream();
-        output.WriteByte(0xA1);
-        using (var compressor = new BrotliStream(output, CompressionLevel.Fastest, true))
-            compressor.Write(raw);
-        byte[] compressed = output.ToArray();
-        return compressed.Length + 16 < raw.Length ? compressed : raw;
-    }
+    public static byte[] SerializeSnapshot(ServerMessage message) => CompressSnapshotPayload(SerializeUtf8(message));
     public static ServerMessage? DeserializeFrame(ReadOnlySpan<byte> bytes, bool binary)
     {
         if (!binary) return Deserialize<ServerMessage>(bytes);
@@ -248,7 +244,10 @@ public sealed record FieldSnapshot(int Id, int Owner, V2 Position, float Radius,
 public sealed record BeamSnapshot(int Owner, V2 From, V2 To, Element[] Elements, SpellShape Shape,
     float Power = 1, string Interaction = "direct");
 public sealed record PointSnapshot(int Id, V2 Position, int Owner, float Progress, bool Contested = false);
-public sealed record GameEvent(long Id, string Kind, V2 Position, Element[] Elements, string Text, float Radius = 0);
+public sealed record GameEvent(long Id, string Kind, V2 Position, Element[] Elements, string Text, float Radius = 0)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public int ActorId { get; init; }
+}
 public sealed record WorldSnapshot(long Tick, double Time, GameMode Mode, bool MatchEnded,
     int Winner, float RestartIn, int[] Scores, WizardSnapshot[] Players, ProjectileSnapshot[] Projectiles,
     WallSnapshot[] Walls, FieldSnapshot[] Fields, BeamSnapshot[] Beams, PointSnapshot[] Points, GameEvent[] Events,

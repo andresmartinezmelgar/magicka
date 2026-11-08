@@ -12,6 +12,8 @@ public partial class Main
     private long _statisticsSavedRevision = -1;
     private MatchRecordStatus _statisticsSavedStatus;
     private double _statisticsClock = 15, _statisticsSendClock = 30;
+    private double _statisticsSilence = 30;
+    private MatchStatisticsReport? _statisticsLastReceived;
     private bool _statisticsSending, _statisticsEnded;
     private ArenaConnection? _statisticsConnection;
     public bool CanViewMatchStatistics => Accounts.Profile?.Uid is
@@ -55,14 +57,21 @@ public partial class Main
         if (_statisticsOutbox == null) return;
         TickDashboard(delta);
         _statisticsClock += delta; _statisticsSendClock += delta;
-        if (_connection != _statisticsConnection) { _statisticsConnection = _connection; _statisticsClock = 15; _statisticsEnded = false; }
+        if (_connection != _statisticsConnection)
+        { _statisticsConnection = _connection; _statisticsClock = 15; _statisticsEnded = false; _statisticsSilence = 30; _statisticsLastReceived = null; }
+        _statisticsSilence += delta;
+        if (_connection?.LatestStatistics is {} received && !ReferenceEquals(received, _statisticsLastReceived))
+        { _statisticsLastReceived = received; _statisticsSilence = 0; }
         bool ended = _practice?.MatchEnded == true || _connection?.Latest?.MatchEnded == true;
         bool final = ended && !_statisticsEnded; _statisticsEnded = ended;
         if (_playing && _connection?.LatestStatistics is {} incoming) QueueStatistics(incoming);
         if (_playing && (_statisticsClock >= 15 || final))
         {
             _statisticsClock = 0;
-            _connection?.RequestMatchStatistics();
+            // El servidor ya publica cada 15 s. Pedirlo también duplicaba el informe.
+            // Conservar recuperación si se pierde el envío y solicitud final al cerrar.
+            if (_statisticsSilence >= 30 || final && _connection?.LatestStatistics?.Complete != true)
+                _connection?.RequestMatchStatistics();
             if (final) CaptureStatistics(MatchRecordStatus.Completed);
         }
         if (_statisticsSendClock >= 30 && !_statisticsSending) { _statisticsSendClock = 0; _ = SendMatchStatistics(); }
