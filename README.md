@@ -78,7 +78,7 @@ Las contraseñas del **servidor** y de la **sala** son independientes. Crear la 
 
 ### Entrar desde otro PC o desde Android
 
-- **PvP:** abre directamente las salas del servidor configurado. No pide introducir una dirección ni la muestra en el listado, la cabecera o los errores de conexión.
+- **PvP:** abre directamente las salas del servidor seguro configurado mediante WSS. No pide introducir una dirección ni la muestra en el listado, la cabecera o los errores de conexión.
 - **LAN:** desde las salas, pulsa **Volver**, elige **LAN** y busca el servidor en la misma red Wi-Fi/LAN.
 - **Servidor online con Google · conexión automática:** acceso alternativo en LAN; el móvil consulta Firestore para localizar la dirección WSS vigente del servidor público anunciado. No requiere copiar manualmente una URL temporal.
 

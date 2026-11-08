@@ -218,13 +218,17 @@ public partial class Main : Node
             }
 
             string accountToken = Accounts.TokenFor(destination);
-            // Las sesiones directas de Firebase solo se entregan a la dirección
-            // WSS anunciada actualmente por Firestore; nunca a otros destinos.
+            // La WSS fija de PvP es un destino de confianza de la aplicación.
+            // Otros destinos deben coincidir con el anuncio actual de Firestore.
             if (accountToken.Length == 0 && Accounts.IsDirectFirebaseSession &&
                 ArenaConnection.Address(destination).Scheme == "wss")
             {
-                string verified = await PublicAccountServer.Resolve(FirebaseProjectId, _lifetime.Token).ConfigureAwait(false);
-                accountToken = Accounts.TokenForVerifiedServer(destination, verified);
+                accountToken = Accounts.TokenForVerifiedServer(destination, PvpServer.Address);
+                if (accountToken.Length == 0)
+                {
+                    string verified = await PublicAccountServer.Resolve(FirebaseProjectId, _lifetime.Token).ConfigureAwait(false);
+                    accountToken = Accounts.TokenForVerifiedServer(destination, verified);
+                }
                 if (accountToken.Length == 0)
                     throw new InvalidOperationException("Este servidor no coincide con el servidor oficial anunciado en Firebase.");
             }

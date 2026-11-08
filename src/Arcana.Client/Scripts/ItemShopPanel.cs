@@ -159,7 +159,7 @@ public partial class ItemShopPanel : Control
             ? "Inicia sesión con Google desde Perfil para consultar las ofertas y comprar objetos."
             : error is System.IO.IOException or System.Net.Http.HttpRequestException or OperationCanceledException
             ? "Sin conexión con la tienda. No hay objetos disponibles para comprar. Pulsa «Consultar» para reintentar."
-            : error.Message + " Pulsa «Consultar» para actualizar las ofertas.");
+            : PvpServer.DisplayText(error.Message) + " Pulsa «Consultar» para actualizar las ofertas.");
     }
     private async Task Load()
     {

@@ -6,7 +6,7 @@ namespace Arcana.Client;
 public partial class Main
 {
     private ItemShopPanel? _itemShopPanel;
-    private Func<CancellationToken, Task<string>> _accountServerResolver = token => PublicAccountServer.Resolve(FirebaseProjectId, token);
+    private Func<CancellationToken, Task<string>> _accountServerResolver = _ => Task.FromResult(PvpServer.Address);
     public void OpenItemShop()
     {
         if (_playing) return;

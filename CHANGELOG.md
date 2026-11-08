@@ -2,7 +2,7 @@
 
 ## 0.29.52
 
-- PvP abre directamente las salas del servidor configurado. Se elimina la entrada de IP y se oculta la dirección en listados, cabeceras y errores de conexión.
+- PvP abre las salas del servidor WSS fijo sin pedir ni mostrar su dirección. Google y la tienda utilizan el mismo dominio seguro.
 - Raspberry: actualizador por tags estables cada 30 minutos, con conservación de datos, espera si hay jugadores y recuperación tras fallos de arranque. Requiere instalación inicial.
 - Navegación PvP adaptada para móvil y escritorio. La búsqueda LAN y el alojamiento local siguen disponibles desde el selector.
 

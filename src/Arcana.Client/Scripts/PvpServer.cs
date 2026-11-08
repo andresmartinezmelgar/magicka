@@ -6,7 +6,7 @@ namespace Arcana.Client;
 internal static class PvpServer
 {
     internal const string Host = "familiamelgar.duckdns.org";
-    internal const string Address = Host + ":27015";
+    internal const string Address = "wss://" + Host + "/play";
     internal const string Name = "Servidor PvP";
 
     private static readonly Regex Endpoint = new(

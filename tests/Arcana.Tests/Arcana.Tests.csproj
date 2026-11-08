@@ -5,4 +5,5 @@
   <ItemGroup><Compile Include="../../src/Arcana.Client/Scripts/AdaptiveSpellQuality.cs" Link="AdaptiveSpellQuality.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../../src/Arcana.Client/Scripts/AdaptiveAudioMix.cs" Link="AdaptiveAudioMix.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../../src/Arcana.Client/Scripts/ElementText.cs" Link="ElementText.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../../src/Arcana.Client/Scripts/PvpServer.cs" Link="PvpServer.cs" /></ItemGroup>
 </Project>

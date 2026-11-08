@@ -53,8 +53,8 @@ public sealed partial class AccountClient : IDisposable
         catch (ArgumentException) { return ""; }
     }
 
-    // Para servidores públicos directos, la URL debe haberse verificado contra
-    // el anuncio firmado por reglas de Firestore antes de entregar el ID token.
+    // La URL de confianza procede de la configuración fija de la aplicación
+    // o de un anuncio verificado por reglas de Firestore, nunca de la interfaz.
     public string TokenForVerifiedServer(string address, string verifiedAddress)
     {
         if (!IsDirectFirebaseSession) return TokenFor(address);
