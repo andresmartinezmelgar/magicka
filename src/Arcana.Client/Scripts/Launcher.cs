@@ -6,7 +6,7 @@ namespace Arcana.Client;
 public partial class Launcher : Control
 {
     private Main _main = null!;
-    private LineEdit _address = null!, _password = null!, _hostName = null!;
+    private LineEdit _password = null!, _hostName = null!;
     private OptionButton _team = null!, _practiceMode = null!, _practiceMap = null!;
     internal string PlayerName { get; private set; } = "Mago";
     private SpinBox _bots = null!, _discoveryPort = null!, _hostPort = null!, _hostDiscovery = null!;
@@ -31,6 +31,8 @@ public partial class Launcher : Control
     private Button _menuBack = null!;
     private int _page;
     private ScrollContainer? _mobileScroll;
+    internal bool RefreshRoomsOnBuild { private get; set; } = true;
+    internal RoomLobby? RoomsForVerification => GodotObject.IsInstanceValid(_lobby) ? _lobby : null;
 
     public void Build(Main main)
     {
@@ -62,7 +64,7 @@ public partial class Launcher : Control
         _homeMenu = new VBoxContainer();
         _homeMenu.AddThemeConstantOverride("separation", Ui.IsMobile ? 5 : 10);
         form.AddChild(_homeMenu);
-        _homeMenu.AddChild(Ui.Button("PvP", () => OpenPage(1), true));
+        _homeMenu.AddChild(Ui.Button("PvP", OpenPvp, true));
         _homeMenu.AddChild(Ui.Button("Versus IA", () => OpenPage(2), true));
         var profile = Ui.Button("Mi perfil", _main.OpenAccountProfile); profile.Name = "HomeProfile";
         _homeMenu.AddChild(profile);
@@ -75,15 +77,12 @@ public partial class Launcher : Control
         _team.Name = "LauncherTeamChoice";
         teamColumn.AddChild(_team);
         _tabs = new TabContainer(); _playBody.AddChild(_tabs);
-        var ip = TabBox("Por IP");
-        // La pestaña IP no debe ensanchar el formulario cuando cambia la selección.
-        ip.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        ip.AddChild(Ui.Label("IP o nombre del servidor", 14, Ui.Muted));
-        _address = new LineEdit { Text = DefaultServerAddress(),
-            PlaceholderText = "192.168.1.20:27015", CustomMinimumSize = new(0, 45) }; ip.AddChild(_address);
-        var ipHelp = Ui.Label("IP local del ordenador anfitrión (ej.: 192.168.1.20:27015). También admite wss://.", 14, Ui.Muted);
-        ipHelp.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        ip.AddChild(ipHelp);
+        var online = TabBox("Online");
+        online.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        online.AddChild(Ui.Label(PvpServer.Name, 20, Ui.Gold));
+        var onlineHelp = Ui.Label("Consulta las salas disponibles para entrar o crear una partida.", 15, Ui.Muted);
+        onlineHelp.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        online.AddChild(onlineHelp);
         var lan = TabBox("LAN");
         var lanActions = new HBoxContainer(); lanActions.AddThemeConstantOverride("separation", 10); lan.AddChild(lanActions);
         _refresh = Ui.Button("Buscar servidores", StartSearch); _refresh.SizeFlagsHorizontal = SizeFlags.ExpandFill; lanActions.AddChild(_refresh);
@@ -185,8 +184,8 @@ public partial class Launcher : Control
         _firewall.TooltipText = "Windows pedirá permiso de administrador para permitir estos dos puertos al servidor en redes privadas.";
         form.AddChild(Ui.Label("Contraseña del servidor (si tiene)", 14, Ui.Muted));
         _password = new LineEdit { Secret = true, MaxLength = 128, PlaceholderText = "Opcional", CustomMinimumSize = new(0, 42) }; _playBody.AddChild(_password);
-        _connect = Ui.Button("Ver salas por IP", Connect, true); _playBody.AddChild(_connect);
-        _status = Ui.Label("El servidor usa TCP 27015. LAN usa UDP 27016.", 14, Ui.Muted);
+        _connect = Ui.Button("Ver salas", Connect, true); _playBody.AddChild(_connect);
+        _status = Ui.Label("El servidor de PvP se selecciona automáticamente.", 14, Ui.Muted);
         _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; _status.CustomMinimumSize = new(0, 45); _playBody.AddChild(_status);
         _tabs.TabChanged += tab =>
         {
@@ -203,7 +202,7 @@ public partial class Launcher : Control
         });
         if (Ui.IsMobile)
         {
-            foreach (var control in new Control[] { _address, _team,
+            foreach (var control in new Control[] { _team,
                 _practiceMode, _practiceMap, _discoveryPort, _password, _hostName })
                 Ui.TouchTarget(control);
             _tabs.SetTabHidden(3, true);
@@ -223,6 +222,13 @@ public partial class Launcher : Control
         PlayerName = name;
         SelectedWizardType = type;
         Remember();
+    }
+
+    private void OpenPvp()
+    {
+        if (_busy || !_main.CanStartRegularMatch()) return;
+        CloseRooms(); OpenPage(1); _password.Text = ""; Remember();
+        OpenRooms(PvpServer.Address, "");
     }
 
     private void OpenPage(int page)
@@ -250,11 +256,9 @@ public partial class Launcher : Control
         }
         if (page == 0) _menuBack.Visible = false;
         if (page == 2) _tabs.CurrentTab = 2;
-        // Godot puede conservar una pestaña oculta al volver de práctica. En Android,
-        // nunca se debe ejecutar la acción Alojar desde la pantalla PvP.
-        if (page == 1 && (_tabs.CurrentTab == 2 ||
-            (Ui.IsMobile && _tabs.CurrentTab is not (0 or 1))))
-            _tabs.CurrentTab = 1;
+        // PvP siempre comienza en el servidor configurado, aunque se hubiera
+        // seleccionado LAN o Alojar en una visita anterior.
+        if (page == 1) _tabs.CurrentTab = 0;
         if (_mobileScroll != null) _mobileScroll.ScrollVertical = 0;
         UpdateOptionAPage(page);
         UpdateConnectLabel();
@@ -264,16 +268,6 @@ public partial class Launcher : Control
     internal void OpenMobileSmokePage(int page) => OpenPage(page);
     internal Button[] MobilePrimaryButtons => _optionAPrimaryActions?
         .GetChildren().OfType<Button>().Where(button => button.Visible).ToArray() ?? [];
-
-    private string DefaultServerAddress()
-    {
-        string saved = _config.GetValue("network", "address", "127.0.0.1:27015").AsString();
-        // Los subdominios trycloudflare.com son temporales; no reutilizarlos
-        // automáticamente en una nueva sesión como si fueran el servidor local.
-        return saved.Contains(".trycloudflare.com", StringComparison.OrdinalIgnoreCase) ||
-            saved.Contains(".traycloudfire.com", StringComparison.OrdinalIgnoreCase)
-            ? "127.0.0.1:27015" : saved;
-    }
 
     private VBoxContainer TabBox(string name)
     {
@@ -286,16 +280,17 @@ public partial class Launcher : Control
         _busy = busy; _connect.Disabled = busy; _officialOnline.Disabled = busy;
         UpdateSurvivalSave();
         for (int i = 0; i < 4; i++) _tabs.SetTabDisabled(i, busy || Ui.IsMobile && i == 3);
-        _address.Editable = !busy; _team.Disabled = busy;
+        _team.Disabled = busy;
         _servers.Disabled = busy;
         _hostName.Editable = _hostPort.Editable = _hostDiscovery.Editable = !busy && !_host.Running;
         _password.Editable = !busy && _tabs.CurrentTab != 2 && !(_tabs.CurrentTab == 3 && _host.Running);
         _stopHost.Disabled = busy || !_host.Running; _firewall.Disabled = busy || !OperatingSystem.IsWindows();
         if (GodotObject.IsInstanceValid(_lobby)) _lobby!.SetBusy(busy);
-        if (message.Length > 0) { _status.Text = message; _status.AddThemeColorOverride("font_color", Ui.Muted); }
+        if (message.Length > 0) { _status.Text = PvpServer.DisplayText(message); _status.AddThemeColorOverride("font_color", Ui.Muted); }
     }
     public void ShowError(string message)
     {
+        message = PvpServer.DisplayText(message);
         SetBusy(false);
         if (GodotObject.IsInstanceValid(_lobby)) { _lobby!.ShowError(message); return; }
         _status.Text = message; _status.AddThemeColorOverride("font_color", Ui.Red);
@@ -306,10 +301,10 @@ public partial class Launcher : Control
         _continueSurvival.Visible = _main.HasSurvivalSave; _continueSurvival.Disabled = _busy;
     }
     public void ShowStatus(string message)
-    { _status.Text = message; _status.AddThemeColorOverride("font_color", Ui.Gold); }
+    { _status.Text = PvpServer.DisplayText(message); _status.AddThemeColorOverride("font_color", Ui.Gold); }
     private void Remember()
     {
-        _config.SetValue("player", "name", PlayerName); _config.SetValue("network", "address", _address.Text);
+        _config.SetValue("player", "name", PlayerName);
         _config.SetValue("player", "wizard_type", (int)SelectedWizardType);
         _config.SetValue("player", "team", Ui.SelectedTeam(_team));
         _config.SetValue("practice", "map", _practiceMap.GetSelectedId());
@@ -330,7 +325,7 @@ public partial class Launcher : Control
                 SelectedWizardType, (ArenaMapId)_practiceMap.GetSelectedId(), DefenseFlow.Continuous); return;
         }
         if (_tabs.CurrentTab == 3) { _ = Host(); return; }
-        string address = _address.Text;
+        string address = PvpServer.Address;
         if (_tabs.CurrentTab == 1)
         {
             int selected = _servers.SelectedIndex;
@@ -368,7 +363,6 @@ public partial class Launcher : Control
                 if (_onlineSearch != pending || pending.IsCancellationRequested || _page != 1) return;
                 _onlineSearch = null;
                 SetBusy(false);
-                _address.Text = address;
                 Remember();
                 OpenRooms(address, "");
             });
@@ -402,7 +396,9 @@ public partial class Launcher : Control
     private void OpenRooms(string address, string password)
     {
         CancelOnlineSearch(); CancelSearch(); _main.CancelPendingConnection(); CloseRooms();
-        _lobby = new RoomLobby(); AddChild(_lobby); _lobby.Build(_main, address, password, PlayerName, Ui.SelectedTeam(_team), SelectedWizardType);
+        _lobby = new RoomLobby(); AddChild(_lobby);
+        _lobby.Build(_main, address, password, PlayerName, Ui.SelectedTeam(_team), SelectedWizardType,
+            refreshRooms: RefreshRoomsOnBuild);
     }
     public void CloseRooms()
     { if (GodotObject.IsInstanceValid(_lobby)) _lobby!.QueueFree(); _lobby = null; }
@@ -443,14 +439,13 @@ public partial class Launcher : Control
                 string firebaseStatus = !firebasePresent
                     ? "\nFirebase: desactivado; las partidas LAN siguen disponibles."
                     : publicGame?.StartsWith("wss://", StringComparison.OrdinalIgnoreCase) == true
-                        ? "\nFirebase configurado. Para jugar con recompensas desde el móvil, usa Por IP con:\n" + publicGame
+                        ? "\nFirebase configurado. Para jugar con recompensas desde el móvil, usa «Servidor online con Google»."
                         : "\nFirebase local configurado, pero falta la dirección WSS pública para el móvil.";
-                _hostInfo.Text = $"Servidor activo · Juego TCP {options.Port} · LAN UDP {options.DiscoveryPort}\n{addresses}" + firebaseStatus;
+                _hostInfo.Text = PvpServer.DisplayText($"Servidor activo · Juego TCP {options.Port} · LAN UDP {options.DiscoveryPort}\n{addresses}" + firebaseStatus);
                 // El anfitrión siempre gestiona sus propias salas por loopback.
                 // Un túnel trycloudflare es temporal y su publicUrl puede quedar caducado.
                 // La dirección pública se comparte por separado con jugadores externos.
                 string roomAddress = _host.Address;
-                _address.Text = roomAddress;
                 UpdateConnectLabel(); OpenRooms(roomAddress, _hostPassword);
             });
         }
@@ -503,7 +498,7 @@ public partial class Launcher : Control
         _status.Text = "El servidor y sus salas se han cerrado."; UpdateConnectLabel();
     }
     private void UpdateConnectLabel() => _connect.Text = _tabs.CurrentTab switch
-    { 0 => "Ver salas por IP", 1 => "Ver salas del servidor LAN", 2 => "Entrenar con bots", _ => _host.Running ? "Ver mis salas" : "Iniciar servidor y ver salas" };
+    { 0 => "Ver salas", 1 => "Ver salas del servidor LAN", 2 => "Entrenar con bots", _ => _host.Running ? "Ver mis salas" : "Iniciar servidor y ver salas" };
     private async void StartSearch()
     {
         if (_busy || _refresh.Disabled) return;
@@ -520,7 +515,7 @@ public partial class Launcher : Control
                 foreach (var s in servers)
                     _servers.AddItem($"{s.Info.Name}  ·  {s.Address}  ·  {s.Info.Players}/{s.Info.MaxPlayers} plazas");
                 if (servers.Length > 0) _servers.Select(0);
-                _status.Text = servers.Length > 0 ? $"{servers.Length} servidor(es) encontrado(s)." : "No se encontraron servidores. También puedes usar su IP local en la pestaña Por IP.";
+                _status.Text = servers.Length > 0 ? $"{servers.Length} servidor(es) encontrado(s)." : "No se encontraron servidores locales. Puedes volver a Online para consultar las salas de PvP.";
                 _refresh.Disabled = false;
             });
         }

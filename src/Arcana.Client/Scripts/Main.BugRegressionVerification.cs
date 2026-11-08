@@ -38,6 +38,8 @@ public partial class Main
         }
         try
         {
+            // La navegación se comprueba sin consultar el servidor de producción.
+            _launcher.RefreshRoomsOnBuild = false;
             await Frames();
             foreach (int page in new[] { 0, 2 })
             {
@@ -57,6 +59,14 @@ public partial class Main
             {
                 GetWindow().ContentScaleSize = size; GetWindow().Size = size; await Frames();
                 NavigateOptionAMenu(1); await Frames(); CheckText(_launcher);
+                var onlineLobby = _launcher.RoomsForVerification;
+                Check(onlineLobby?.AddressForVerification == PvpServer.Address,
+                    "PvP no abre directamente el servidor configurado.");
+                onlineLobby!.ShowError("No responde https://" + PvpServer.Address + "/rooms");
+                Check(!onlineLobby.FindChildren("*", "Control", true, false).OfType<ElementTextLabel>()
+                    .Any(label => label.Text.Contains(PvpServer.Host, StringComparison.OrdinalIgnoreCase)),
+                    "La dirección del servidor aparece en la pantalla o sus errores.");
+                _launcher.CloseRooms(); await Frames();
                 var lobby = new RoomLobby(); _ui.AddChild(lobby);
                 lobby.Build(this, "127.0.0.1:1", "", "Nombre de mago para probar", 0, WizardType.Balanced);
                 lobby.FindChildren("*", "Button", true, false).OfType<Button>().Single(b => b.Text == "Crear sala").EmitSignal(BaseButton.SignalName.Pressed);
@@ -124,6 +134,7 @@ public partial class Main
             GD.Print("REGRESSION_SMOKE_OK: sesiones, OAuth, Perfil, PvP flexible y navegación del selector."); GetTree().Quit();
         }
         catch (Exception error) { GD.PrintErr("REGRESSION_SMOKE_FAILED: " + error); GetTree().Quit(1); }
+        finally { _launcher.RefreshRoomsOnBuild = true; }
     }
     private sealed class RegressionProfileHandler : HttpMessageHandler
     {

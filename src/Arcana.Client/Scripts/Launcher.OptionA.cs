@@ -5,7 +5,7 @@ namespace Arcana.Client;
 
 /// <summary>
 /// Opción A: composición panorámica del launcher sobre sus controles originales.
-/// La lógica de botones, búsqueda LAN, servidor, bots y preferencias no cambia.
+/// Navegación común, acceso directo a PvP y selección de modos locales.
 /// </summary>
 public partial class Launcher
 {
@@ -358,7 +358,7 @@ public partial class Launcher
         switch (target)
         {
             case 0: CloseRooms(); OpenPage(0); break;
-            case 1: CloseRooms(); OpenPage(1); break;
+            case 1: OpenPvp(); break;
             case 2: CloseRooms(); OpenPage(2); break;
             case 3: _main.OpenAccountProfile(); break;
             case 4: _main.OpenEquipment("automatic"); break;

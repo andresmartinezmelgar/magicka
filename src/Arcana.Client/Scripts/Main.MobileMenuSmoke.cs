@@ -435,10 +435,13 @@ public partial class Main
                 AssertOptionAScreen("PVP", _launcher);
                 AssertTouchScroll(_launcher, "LauncherSettingsScroll", "PVP");
                 if (_launcher.FindChild("OnlineFirebaseButton", true, false) is not Button online ||
-                    !online.IsVisibleInTree() || online.Disabled)
-                    throw new InvalidOperationException("PVP: falta el acceso al servidor online por Firebase.");
-                if (!buttons.Any(button => button.Text == "Ver salas del servidor LAN" || button.Text == "Ver salas por IP"))
+                    online.Disabled)
+                    throw new InvalidOperationException("PVP: falta el acceso alternativo al servidor online por Firebase.");
+                if (!buttons.Any(button => button.Text == "Ver salas"))
                     throw new InvalidOperationException("PVP: la acción principal apunta a una pestaña oculta o a Alojar.");
+                if (_launcher.FindChildren("*", "LineEdit", true, false).OfType<LineEdit>()
+                    .Any(field => field.IsVisibleInTree() && !field.Secret))
+                    throw new InvalidOperationException("PVP: todavía se pide introducir la dirección del servidor.");
             }
             if (frame == 45) _launcher.OpenMobileSmokePage(2);
             if (frame == 55)

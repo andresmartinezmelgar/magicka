@@ -68,7 +68,7 @@ Abre **Versus IA**, selecciona mapa, modo y número de bots y comienza. No neces
 
 ### Alojar una sala PvP desde Windows
 
-1. Abre **PvP → Alojar** y pulsa **Iniciar servidor y ver salas**. El servidor incluido se ejecuta en el propio ordenador.
+1. Abre **PvP**, pulsa **Volver** para acceder al selector y elige **Alojar → Iniciar servidor y ver salas**. El servidor incluido se ejecuta en el propio ordenador.
 2. Pulsa **Crear sala**. Elige **Duelo, Guerra o Todos contra todos**, mapa, plazas, bots, opciones y contraseñas opcionales.
 3. En Duelo o Guerra puedes escoger **partida única** o serie **al mejor de 5, 7 o 9**.
 4. En las series se abre una **sala de espera** con equipos azul y rojo: cada jugador elige equipo y pulsa **Estoy preparado**. El anfitrión pulsa **Comenzar partida** cuando corresponde. Hay botón **Salir de la sala**.
@@ -78,9 +78,9 @@ Las contraseñas del **servidor** y de la **sala** son independientes. Crear la 
 
 ### Entrar desde otro PC o desde Android
 
-- **LAN:** busca el servidor en la misma red Wi-Fi/LAN, abre su lista de salas y selecciona una.
-- **Por IP:** escribe la IP y puerto del servidor, o una dirección segura `wss://dominio/play`.
-- **Servidor online con Google · conexión automática:** el móvil consulta Firestore para localizar la dirección WSS vigente del servidor público anunciado. No requiere copiar manualmente una URL temporal.
+- **PvP:** abre directamente las salas del servidor configurado. No pide introducir una dirección ni la muestra en el listado, la cabecera o los errores de conexión.
+- **LAN:** desde las salas, pulsa **Volver**, elige **LAN** y busca el servidor en la misma red Wi-Fi/LAN.
+- **Servidor online con Google · conexión automática:** acceso alternativo en LAN; el móvil consulta Firestore para localizar la dirección WSS vigente del servidor público anunciado. No requiere copiar manualmente una URL temporal.
 
 **Importante:** si una sala LAN tiene Firebase y exige Google, el cliente intenta utilizar su **misma instancia** mediante WSS verificado antes de enviar credenciales. No transmite el token de Google mediante una conexión LAN `ws://` sin cifrar. En servidores sin Firebase puede haber juego como invitado, pero sin premios persistentes.
 

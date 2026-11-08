@@ -20,7 +20,6 @@ public partial class RoomLobby : Control
     private Button? _roomPagePrevious, _roomPageNext;
     private ScrollChoiceList _list = null!;
     private ElementTextLabel _status = null!, _heading = null!, _emptyRooms = null!;
-    private ElementTextLabel? _serverAddressLabel;
     private LineEdit _joinPassword = null!, _serverPasswordEntry = null!, _roomName = null!, _roomPassword = null!;
     private OptionButton _mode = null!, _map = null!, _bestOf = null!;
     private ElementTextLabel _rewardHint = null!;
@@ -34,8 +33,10 @@ public partial class RoomLobby : Control
     private readonly List<Button> _buttons = [];
     private bool _busy;
     private readonly CancellationTokenSource _lifetime = new();
+    internal string AddressForVerification => _address;
 
-    public void Build(Main main, string address, string password, string name, int team, WizardType wizardType)
+    public void Build(Main main, string address, string password, string name, int team, WizardType wizardType,
+        bool refreshRooms = true)
     {
         _main = main; _address = address; _serverPassword = password; _playerName = name; _wizardType = wizardType;
         Theme = Ui.Theme(); Ui.Full(this);
@@ -66,10 +67,6 @@ public partial class RoomLobby : Control
         _mobileScroll = scroll;
         var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; box.AddThemeConstantOverride("separation", Ui.IsMobile ? 6 : 9); scroll.AddChild(box);
         _heading = Ui.Label("SALAS", 28, Ui.Gold); _heading.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_heading);
-        var addressInfo = Ui.Label(address, 15, Ui.Muted);
-        addressInfo.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
-        box.AddChild(addressInfo);
-        _serverAddressLabel = addressInfo;
         // Al alojar en PC, se muestra el enlace WSS renovado que los móviles
         // deben usar para enviar la sesión Google y cobrar recompensas.
         if (!Ui.IsMobile && address.StartsWith("127.0.0.1:", StringComparison.Ordinal))
@@ -77,7 +74,7 @@ public partial class RoomLobby : Control
             string? publicAddress = LocalFirebaseHosting.PublicGameAddress(ProjectSettings.GlobalizePath("user://"));
             if (publicAddress?.StartsWith("wss://", StringComparison.OrdinalIgnoreCase) == true)
             {
-                var publicLabel = Ui.Label("ENLACE SEGURO PARA MÓVIL Y RECOMPENSAS:\n" + publicAddress, 13, Ui.Gold);
+                var publicLabel = Ui.Label(PvpServer.DisplayText("ENLACE SEGURO PARA MÓVIL Y RECOMPENSAS:\n" + publicAddress), 13, Ui.Gold);
                 publicLabel.AutowrapMode = TextServer.AutowrapMode.Arbitrary;
                 box.AddChild(publicLabel);
                 var copyPublic = Ui.Button("Copiar enlace WSS para el móvil",
@@ -217,7 +214,7 @@ public partial class RoomLobby : Control
         ArcanaMenuChrome.Attach(this, safeMargin, _main, "Salas PvP", 1, _main.NavigateOptionAMenu);
         GetViewport().SizeChanged += UpdateRoomResponsive;
         UpdateRoomResponsive();
-        Refresh();
+        if (refreshRooms) Refresh();
     }
     private void UpdateRoomResponsive()
     {
@@ -277,7 +274,6 @@ public partial class RoomLobby : Control
     {
         _listPane.Visible = !create;
         _createPane.Visible = create;
-        if (_serverAddressLabel != null) _serverAddressLabel.Visible = !create;
         if (_mobileListActions != null) _mobileListActions.Visible = !create;
         if (_mobileCreateActions != null) _mobileCreateActions.Visible = create;
         if (_mobileScroll != null) _mobileScroll.ScrollVertical = 0;
@@ -298,6 +294,7 @@ public partial class RoomLobby : Control
     private bool Active => GodotObject.IsInstanceValid(this) && IsInsideTree() && !IsQueuedForDeletion();
     public void ShowError(string error)
     {
+        error = PvpServer.DisplayText(error);
         SetBusy(false);
         _status.Text = error;
         _status.AddThemeColorOverride("font_color", Ui.Red);
@@ -336,8 +333,7 @@ public partial class RoomLobby : Control
             {
                 if (!Active) return;
                 _address = secureTarget;
-                if (_serverAddressLabel != null) _serverAddressLabel.Text = secureTarget;
-                _heading.Text = "SALAS  /  " + result.Server.Name;
+                _heading.Text = "SALAS  /  " + PvpServer.DisplayText(result.Server.Name);
                 string? previous = Selected()?.Id; _rooms = result.Rooms;
                 _serverPasswordRequired = result.Server.PasswordRequired;
                 _rewardsConfigured = result.Server.RewardsAvailable;
@@ -485,7 +481,7 @@ public partial class RoomLobby : Control
         if (_lifetime.IsCancellationRequested) return;
         Diagnostics.Warn("lobby.operation_failed", "Fallo en la gestión de salas.", e);
         string message = e is InvalidOperationException or ArgumentException ? e.Message
-            : "No se pudo consultar el servidor. Comprueba la IP, los puertos y que esté iniciado.";
+            : "No se pudo consultar el servidor. Comprueba la conexión a Internet y reintenta.";
         _main.Post(() => { if (Active) ShowError(message); });
     }
     private void Close() { _lifetime.Cancel(); _main.CancelPendingConnection(); QueueFree(); }

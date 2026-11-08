@@ -248,7 +248,7 @@ public partial class Main : Node
                 if (!connection.Connected) { _ = connection.DisposeAsync(); _launcher.ShowError("La conexión se cerró antes de entrar en la partida."); return; }
                 if (_connection != null) _ = _connection.DisposeAsync();
                 _connection = connection; _practice = null; _practiceSession = null; _localId = connection.PlayerId;
-                _serverName = (connection.Server?.Name ?? address) + " / " + (connection.Room?.Name ?? "Sala principal");
+                _serverName = PvpServer.DisplayText((connection.Server?.Name ?? PvpServer.Name) + " / " + (connection.Room?.Name ?? "Sala principal"));
                 CancelReconnect(); StartGame(connection.Latest!, resumeToken.Length > 0); onConnected?.Invoke();
             })) await connection.DisposeAsync().ConfigureAwait(false);
         }
@@ -258,9 +258,9 @@ public partial class Main : Node
             lock (_connectionGate) if (_pendingConnection != connection || _lifetime.IsCancellationRequested) return;
             Diagnostics.Warn("client.connect_failed", "No se pudo entrar en la partida.", e,
                 new Dictionary<string, object?> { ["room"] = roomId });
-            string message = e is OperationCanceledException ? "El servidor no responde. Comprueba la IP, el puerto TCP y el cortafuegos."
+            string message = e is OperationCanceledException ? "El servidor no responde. Comprueba la conexión a Internet y reintenta."
                 : e is ArgumentException or InvalidOperationException ? e.Message
-                : "No se pudo conectar. Comprueba que el servidor está iniciado y que la dirección es correcta.";
+                : "No se pudo conectar con el servidor. Comprueba la conexión a Internet y reintenta.";
             Post(() =>
             {
                 lock (_connectionGate)
