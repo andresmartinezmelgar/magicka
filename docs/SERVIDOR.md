@@ -92,6 +92,10 @@ El mapa se elige en **Crear sala → Mapa**. Para la sala principal del servidor
 
 ## Docker desde 0.21.0
 
+[Instalación del actualizador por tags estables para Raspberry Pi](RASPBERRY-ACTUALIZACION.md).
+Comprueba nuevas Releases cada 30 minutos, aplaza la sustitución si detecta
+jugadores y comprueba la versión arrancada con recuperación de la imagen anterior.
+
 La compilación incorpora `scripts/Apply-WindowsUpdate.ps1`, requerido por Arcana.Core. Las variantes Compose guardan logs en `server-logs` y el diario de premios en `server-data`, montado en `/app/data`; el proceso usa `/app/data/rewards` con un usuario sin privilegios. Recrear el contenedor conserva ese volumen. `docker compose down -v` elimina los datos persistentes.
 
 La CI compila y arranca imágenes Linux x64 y ARM64, comprueba HTTP y verifica que el usuario puede conservar datos al recrear el contenedor. ARM64 se comprueba con emulación; el rendimiento de una Raspberry Pi requiere medirlo en la placa. Las credenciales y HTTPS/WSS siguen configurándose para el alojamiento elegido. No se despliega automáticamente ningún servidor.
