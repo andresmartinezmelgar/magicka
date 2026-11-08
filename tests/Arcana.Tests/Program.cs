@@ -163,6 +163,7 @@ ResponsiveLayoutTests.Run(Test);
 NetworkEndpointTests.Run(Test);
 UpgradeTests.Run(Test);
 NetworkDeltaTests.Run(Test);
+MeteorTargetingTests.Run(Test);
 FrontlineTests.Run(Test);
 DefenseTests.Run(Test);
 GameplayRegressionTests.Run(Test);

@@ -4,6 +4,18 @@ namespace Arcana.Client;
 
 public partial class Main
 {
+    private void CastMeteorOnLargestGroup()
+    {
+        if (!_playing || TutorialHoldsCombat || _paused || _help.Visible || InspectingEquipment || ControlsOpen ||
+            ViewingDamageSummary || DefenseInterfaceOpen || _waitingPanel?.Visible == true || !CheckMagickAvailable(2, checkTarget: false)) return;
+        var world = _connection?.Latest ?? _snapshot;
+        if (world?.Players.FirstOrDefault(p => p.Id == _localId) is not { } player) return;
+        if (MeteorTargeting.Find(world, player) is not { } target)
+        { _hud?.ActionNotice("Meteoro: no hay un grupo de enemigos al alcance."); return; }
+        _aim = target;
+        UseMagick(2); // Intención normal: el servidor valida suelo, alcance, energía y recarga.
+    }
+
     private (V2 Target, bool Valid) MagickPreview(WorldSnapshot world, WizardSnapshot player, int slot)
     {
         var map = ArenaMap.Get(world);

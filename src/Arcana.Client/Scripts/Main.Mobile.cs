@@ -79,6 +79,7 @@ public partial class Main
         _touch.PointerBlocked = point => _hud?.RewardNoticeContains(point) == true ||
             _defensePanel?.BlocksTouch(point) == true || TutorialBlocksPointer(point);
         _touch.MagickAvailable = slot => CheckMagickAvailable(slot, checkTarget: false);
+        _touch.AutoMeteorRequested += CastMeteorOnLargestGroup;
         _touch.ActionRequested += message =>
         {
             if (!_playing || TutorialHoldsCombat || _paused || _help.Visible || InspectingEquipment || ControlsOpen || ViewingDamageSummary || DefenseInterfaceOpen || _waitingPanel?.Visible == true) return;

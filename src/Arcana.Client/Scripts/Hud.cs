@@ -54,9 +54,11 @@ public partial class Hud : Control
     internal bool RoundAnnouncementVisibleForSmoke => _banner.IsVisibleInTree() && _bannerBackdrop.IsVisibleInTree();
     public event Action? EquipmentRequested;
     public event Action? PersonalDamageRequested;
+    public event Action? AutoMeteorRequested;
     internal bool RewardNoticeContains(Vector2 point) => _rewardBackdrop.IsVisibleInTree() && _rewardBackdrop.GetGlobalRect().HasPoint(point);
     public bool PointerOverPanel => _scorePanel.Visible && _scorePanel.GetGlobalRect().HasPoint(GetGlobalMousePosition()) ||
-        RewardNoticeContains(GetGlobalMousePosition());
+        RewardNoticeContains(GetGlobalMousePosition()) ||
+        _magicks.Count > 2 && _magicks[2].IsVisibleInTree() && _magicks[2].GetGlobalRect().HasPoint(GetGlobalMousePosition());
     public void RewardNotice(string message)
     {
         _reward.Text = message; _reward.TooltipText = message; _rewardSeconds = 2.2f;
@@ -157,6 +159,17 @@ public partial class Hud : Control
         foreach (string text in SpellBalance.Magicks.Select((m, i) => $"{i + 1} {m.Name}"))
         {
             var label = Ui.Label(text, 13, Ui.Gold); label.SizeFlagsHorizontal = SizeFlags.ExpandFill; magicks.AddChild(label); _magicks.Add(label);
+            if (_magicks.Count == 3)
+            {
+                label.Name = "DesktopMeteorAction";
+                label.TooltipText = "Doble clic: Meteoro sobre el grupo más grande de enemigos al alcance.";
+                label.GuiInput += input =>
+                {
+                    if (input is not InputEventMouseButton { ButtonIndex: MouseButton.Left } mouse) return;
+                    label.AcceptEvent();
+                    if (mouse.Pressed && mouse.DoubleClick) AutoMeteorRequested?.Invoke();
+                };
+            }
         }
         magicks.Visible = !MobileLayout;
         _feed = Ui.Label("", 15); _feed.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft);
@@ -241,6 +254,7 @@ public partial class Hud : Control
             _feed.Visible = false;
         }
         IgnoreChildren(this);
+        _magicks[2].MouseFilter = MouseFilterEnum.Stop;
         ResizeLayout();
     }
     private static void IgnoreChildren(Node root)

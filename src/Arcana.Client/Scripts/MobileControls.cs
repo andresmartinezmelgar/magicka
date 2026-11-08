@@ -22,6 +22,7 @@ public partial class MobileControls : Control
     private bool _rockChargeObserved;
     private const float Radius = 82;
     private int _pendingMagick = -1;
+    private ulong? _meteorTapAt;
     private float _magickAimAmount = 1;
     public TouchSettings Settings { get; private set; } = new();
     public bool EditorMode { get; set; }
@@ -49,6 +50,7 @@ public partial class MobileControls : Control
     public event Action<ClientMessage>? ActionRequested;
     public event Action? AimChanged;
     public event Action? MenuRequested, HelpRequested, ScoreRequested;
+    public event Action? AutoMeteorRequested;
 
     public override void _Ready()
     {
@@ -258,12 +260,19 @@ public partial class MobileControls : Control
     {
         if (message.Type == "magick")
         {
-            if (_pendingMagick == message.Slot) { CancelMagickAim(); return; }
+            if (_pendingMagick == message.Slot)
+            {
+                bool automaticMeteor = message.Slot == 2 && _meteorTapAt is { } previous && Time.GetTicksMsec() - previous <= 350;
+                CancelMagickAim();
+                if (automaticMeteor) AutoMeteorRequested?.Invoke();
+                return;
+            }
             if (MagickAvailable?.Invoke(message.Slot) == false) return;
             if (message.Slot is 1 or 2)
             {
                 ActionRequested?.Invoke(new() { Type = "release" });
                 _directionalAimPending = false; _pendingMagick = message.Slot; _magickAimAmount = 1;
+                _meteorTapAt = message.Slot == 2 ? Time.GetTicksMsec() : null;
                 _aimedProjectile = null;
                 if (_aimFinger >= 0) _magickAimAmount = Math.Min(1, _aimKnob.Length() * Settings.Sensitivity);
                 AimChanged?.Invoke(); QueueRedraw(); return;
@@ -290,7 +299,7 @@ public partial class MobileControls : Control
         QueueRedraw();
     }
     private void CancelMagickAim()
-    { _pendingMagick = -1; _magickAimAmount = 1; QueueRedraw(); }
+    { _pendingMagick = -1; _meteorTapAt = null; _magickAimAmount = 1; QueueRedraw(); }
     private bool EditControl(int finger, Vector2 point, bool down)
     {
         if (!down)
