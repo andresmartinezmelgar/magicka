@@ -3,7 +3,7 @@ name: Publicacion estable 0.29.53 solicitada
 # Petición expresa: integrar los cambios en main y publicar tag e instaladores.
 # Solo este mensaje exacto y esta versión activan la publicación solicitada.
 # Petición actual: publicar dashboard, tráfico, avisos y Meteoro.
-# Segundo intento con el mapa y el reloj de las pruebas de Meteoro corregidos.
+# Pruebas de Meteoro corregidas y descarga de Godot comprobada por SHA-256.
 on:
   push:
     branches: [main]
