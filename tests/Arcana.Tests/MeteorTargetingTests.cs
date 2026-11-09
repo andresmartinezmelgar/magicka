@@ -33,7 +33,11 @@ internal static class MeteorTargetingTests
         });
         test("Meteoro automático: excluye aliados y enemigos muertos", () =>
         {
-            var world = new GameWorld(new() { Mode = GameMode.Defense, Bots = 0 });
+            var world = new GameWorld(new()
+            {
+                Mode = GameMode.Defense, Map = ArenaMapId.Bastion, MaxPlayers = 4,
+                Bots = 0, SurvivalMap = new(271)
+            });
             world.AddPlayer("Mago", 0); var snapshot = world.Snapshot(); var source = snapshot.Players.Single();
             var ally = source with { Id = source.Id + 1, Position = source.Position + new V2(10, 0) };
             var dead = new MinionSnapshot(5000, MinionKind.Runner, ally.Position, new(1, 0), 0, 100, 0, 0, 0, 0, false, [], false);

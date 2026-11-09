@@ -127,7 +127,10 @@ public partial class Main
             Tap("TouchMagick2", 7);
             Check(controls.PendingMagick == -1 && automaticMeteors == 1, "El doble toque no solicita exactamente un Meteoro automático.");
             Tap("TouchMagick2", 8);
-            await ToSignal(GetTree().CreateTimer(.4), SceneTreeTimer.SignalName.Timeout);
+            Check(controls.PendingMagick == 2, "El siguiente toque no vuelve a activar el apuntado manual.");
+            // Medir la pausa con el mismo reloj monotónico que usa el control táctil.
+            ulong firstTapAt = Time.GetTicksMsec();
+            while (Time.GetTicksMsec() - firstTapAt <= 400) await Frames(1);
             Tap("TouchMagick2", 9);
             Check(controls.PendingMagick == -1 && automaticMeteors == 1, "Dos toques separados se confunden con un doble toque.");
             Tap("TouchMagick1", 10); Tap("TouchMagick1", 11);

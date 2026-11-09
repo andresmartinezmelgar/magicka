@@ -171,7 +171,7 @@ public partial class Main
                 ((ScrollContainer)_personalDamagePanel.FindChild("PersonalDamageScroll", true, false)).ScrollVertical = int.MaxValue;
                 await Frames(); Capture(size.X + "-dano-personal");
                 await Click(Exit(_personalDamagePanel, "PersonalDamageClose"));
-                Check(!ViewingDamageSummary && !_practice.DefensePaused, "Cerrar el resumen dejó pausada la partida.");
+                Check(!ViewingDamageSummary && !_practice!.DefensePaused, "Cerrar el resumen dejó pausada la partida.");
                 _hud!.RewardNotice("Objeto temporal de prueba"); await Frames();
                 var rewardCard = (Control)_hud.FindChild("MatchRewardBackground", true, false);
                 var dismissReward = (Button)rewardCard;
