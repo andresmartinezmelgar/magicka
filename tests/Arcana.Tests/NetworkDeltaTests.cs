@@ -89,5 +89,68 @@ internal static class NetworkDeltaTests
             if (compressed[0] != 0xA1 || !Protocol.DecompressSnapshotPayload(compressed).SequenceEqual(repeated))
                 throw new Exception("La nueva compresión no es compatible o pierde datos.");
         });
+        test("Deltas PvP menores de 1 KiB se comprimen sin perder precisión", () =>
+        {
+            var world = new GameWorld(new WorldOptions());
+            var a = world.AddPlayer("Azul", 0)!;
+            var b = world.AddPlayer("Rojo", 1)!;
+            var baseline = new ServerMessage { Type = "snapshot", Snapshot = world.Snapshot() };
+            a.Position = new V2(1.234567f, -2.345678f); b.Position = new V2(-3.456789f, 4.567891f);
+            a.Health -= 1.25f; b.Health -= 2.5f;
+            world.Step();
+            var current = new ServerMessage { Type = "snapshot", Snapshot = world.Snapshot() };
+            var raw = SnapshotDelta.Encode(current, baseline);
+            if (raw.Length < 256 || raw.Length >= 1024)
+                throw new Exception($"El escenario ya no representa un delta pequeño: {raw.Length} bytes.");
+            var encoded = Protocol.CompressSnapshotPayload(raw);
+            if (encoded[0] != 0xA1 || encoded.Length >= raw.Length - 16)
+                throw new Exception("El delta pequeño sigue enviándose sin comprimir.");
+            var restored = SnapshotDelta.Decode(Protocol.DecompressSnapshotPayload(encoded), baseline);
+            if (Protocol.Serialize(restored.Snapshot) != Protocol.Serialize(current.Snapshot))
+                throw new Exception("Cambió el estado de combate al comprimir el delta pequeño.");
+        });
+        test("Umbral de compresión conserva mensajes mínimos y ruido", () =>
+        {
+            foreach (int size in new[] { 255, 256, 1023, 1024 })
+            {
+                var raw = Enumerable.Repeat((byte)'x', size).ToArray();
+                var encoded = Protocol.CompressSnapshotPayload(raw);
+                if (size < Protocol.MinSnapshotCompressionBytes)
+                {
+                    if (!ReferenceEquals(raw, encoded)) throw new Exception("Se comprime por debajo del umbral.");
+                }
+                else if (encoded[0] != 0xA1 || !Protocol.DecompressSnapshotPayload(encoded).SequenceEqual(raw))
+                    throw new Exception("El límite de compresión pierde datos.");
+            }
+            var noise = new byte[512]; new Random(985).NextBytes(noise);
+            if (!ReferenceEquals(noise, Protocol.CompressSnapshotPayload(noise)))
+                throw new Exception("La compresión expande un mensaje pequeño incomprimible.");
+        });
+        test("Controles de sala y estadísticas omiten los campos del saludo", () =>
+        {
+            foreach (string type in new[] { "statistics", "lobby-ready", "lobby-start", "lobby-team", "defense_restart" })
+            {
+                var action = new ClientMessage { Type = type, Sequence = 123, Team = 1, AccountToken = "private-token",
+                    Password = "private-password", RoomPassword = "private-room-password" };
+                var bytes = Protocol.SerializeBinaryAction(action);
+                var decoded = Protocol.Deserialize<ClientMessage>(bytes)!;
+                if (decoded.Type != type || decoded.Sequence != 123 || type == "lobby-team" && decoded.Team != 1)
+                    throw new Exception("El control compacto pierde su intención o secuencia.");
+                if (decoded.AccountToken.Length != 0 || decoded.Password.Length != 0 || decoded.RoomPassword.Length != 0 || bytes.Length >= 100)
+                    throw new Exception("Un control conserva campos ajenos al mensaje.");
+            }
+            var hello = Protocol.Deserialize<ClientMessage>(Protocol.SerializeAction(new ClientMessage
+                { Type = "hello", AccountToken = "identity", RoomPassword = "room", Name = "Mago" }))!;
+            if (hello.AccountToken != "identity" || hello.RoomPassword != "room" || hello.Name != "Mago")
+                throw new Exception("La compactación altera el saludo.");
+        });
+        test("Pong compacto conserva el identificador de latencia", () =>
+        {
+            const long id = 9007199254740993;
+            var raw = Protocol.SerializePong(id);
+            var message = Protocol.DeserializeFrame(raw, false);
+            if (message?.Type != "pong" || message.PingId != id || raw.Length >= 64)
+                throw new Exception("La respuesta de ping no es compacta o pierde precisión.");
+        });
     }
 }

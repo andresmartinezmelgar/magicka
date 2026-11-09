@@ -163,6 +163,8 @@ ResponsiveLayoutTests.Run(Test);
 NetworkEndpointTests.Run(Test);
 UpgradeTests.Run(Test);
 NetworkDeltaTests.Run(Test);
+PacketDecodingTests.Run(Test);
+NetworkTrafficTests.Run(Test);
 MeteorTargetingTests.Run(Test);
 FrontlineTests.Run(Test);
 DefenseTests.Run(Test);

@@ -80,6 +80,7 @@ public static class Protocol
         "baseline_ack" => JsonSerializer.SerializeToUtf8Bytes(new { type = message.Type, sequence = message.Sequence, baselineId = message.BaselineId }, Json),
         "defense_performance" or "match_performance" => JsonSerializer.SerializeToUtf8Bytes(new { type = message.Type, sequence = message.Sequence,
             framesPerSecond = message.FramesPerSecond, frameTime95 = message.FrameTime95 }, Json),
+        "lobby-team" => JsonSerializer.SerializeToUtf8Bytes(new { type = message.Type, sequence = message.Sequence, team = message.Team }, Json),
         "input" => SerializeInput(message),
         "element" => JsonSerializer.SerializeToUtf8Bytes(new
         {
@@ -94,10 +95,13 @@ public static class Protocol
             type = message.Type, sequence = message.Sequence,
             inspectionRequestId = message.InspectionRequestId, inspectPlayerId = message.InspectPlayerId
         }, Json),
-        "cast" or "release" or "clear" or "melee" or "self" or "nova" or "ready" =>
+        "cast" or "release" or "clear" or "melee" or "self" or "nova" or "ready" or
+        "statistics" or "lobby-ready" or "lobby-start" or "defense_restart" =>
             JsonSerializer.SerializeToUtf8Bytes(new { type = message.Type, sequence = message.Sequence }, Json),
         _ => SerializeUtf8(message) // Saludo y extensiones futuras conservan el formato completo.
     };
+    public static byte[] SerializePong(long pingId) =>
+        JsonSerializer.SerializeToUtf8Bytes(new { type = "pong", pingId }, Json);
     private static byte[] SerializeInput(ClientMessage message)
     {
         // Los ejes del joystick ya están normalizados; los objetivos se transmiten solo si están activos.
@@ -114,6 +118,7 @@ public static class Protocol
     // Fotogramas comprimidos: prefijo 0xA1 + Brotli. El saludo permanece en JSON.
     // Límite descomprimido para impedir cargas excesivas de memoria.
     public const int MaxSnapshotBytes = 256 * 1024;
+    public const int MinSnapshotCompressionBytes = 256;
     public static byte[] DecompressSnapshotPayload(ReadOnlySpan<byte> data)
     {
         if (data.Length < 2 || data[0] != 0xA1)
@@ -133,7 +138,9 @@ public static class Protocol
     }
     public static byte[] CompressSnapshotPayload(byte[] raw)
     {
-        if (raw.Length < 1024) return raw;
+        // Los deltas pequeños de PvP también contienen nombres/campos repetidos.
+        // Mantener el filtro de ahorro: nunca enviar Brotli si no ahorra al menos 17 bytes.
+        if (raw.Length < MinSnapshotCompressionBytes) return raw;
         // Wire-compatible Brotli. Quality 3 reduces bytes without lowering snapshot frequency.
         int length = BrotliEncoder.GetMaxCompressedLength(raw.Length);
         byte[] buffer = ArrayPool<byte>.Shared.Rent(length + 1);

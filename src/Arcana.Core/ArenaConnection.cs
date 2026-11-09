@@ -194,6 +194,7 @@ public sealed partial class ArenaConnection : IAsyncDisposable
             if (message.Type == "ping") MarkPingSent(message.PingId);
             await _socket.SendAsync(data, data.Length > 0 && data[0] == 0xB1 ? WebSocketMessageType.Binary : WebSocketMessageType.Text, true, token).ConfigureAwait(false);
             Interlocked.Add(ref _bytesSent, data.Length);
+            RecordSentTraffic(message.Type, data.Length);
         }
         finally { _socketSend.Release(); }
     }
@@ -273,16 +274,19 @@ public sealed partial class ArenaConnection : IAsyncDisposable
             // El buffer de MemoryStream ya contiene la trama completa: evitar ToArray()
             // por snapshot. El objeto deserializado no retiene referencias al buffer.
             ReadOnlyMemory<byte> payload = stream.GetBuffer().AsMemory(0, (int)stream.Length);
-            var message = Protocol.DeserializeFrame(payload.Span, frameType == WebSocketMessageType.Binary);
-            if (message?.Type == "delta")
+            ReadOnlyMemory<byte> raw = frameType == WebSocketMessageType.Binary
+                ? Protocol.DecompressSnapshotPayload(payload.Span) : payload;
+            string? type = SnapshotReceiver.ReadMessageType(raw.Span);
+            RecordReceivedTraffic(type, (int)stream.Length);
+            ServerMessage? message;
+            if (type == "delta")
             {
                 if (_snapshotReceiver == null) { stream.SetLength(0); frameType = null; continue; }
-                // La carga binaria puede estar comprimida; reconstruimos a partir del JSON ya validado.
-                byte[] raw = frameType == WebSocketMessageType.Binary
-                    ? Protocol.DecompressSnapshotPayload(payload.Span) : payload.ToArray();
-                try { message = _snapshotReceiver.Decode(raw); if (message == null) { stream.SetLength(0); frameType = null; continue; } }
+                // El delta se descomprime una sola vez y comparte el árbol con su reconstructor.
+                try { message = _snapshotReceiver.Decode(raw.Span); if (message == null) { stream.SetLength(0); frameType = null; continue; } }
                 catch (InvalidDataException) { stream.SetLength(0); frameType = null; continue; }
             }
+            else message = Protocol.Deserialize<ServerMessage>(raw.Span);
             // Las bases se renuevan mediante keyframes confirmados y conservan la referencia anterior.
             if (message?.Snapshot != null) SnapshotValidation.Check(message.Snapshot);
             if (message?.Snapshot != null) CheckReadiness(message);
