@@ -52,7 +52,7 @@ public partial class ClientVerification
                     foreach (var (name, top) in new[] { ("TouchSelf", 452f), ("TouchNova", 382f) })
                     {
                         var rect = ((Control)touch.FindChild(name, true, false)).GetRect();
-                        Require(rect.Position.DistanceTo(new(width - 382 * controlScale, height - top * controlScale)) < 0.01f,
+                        Require(touch.AutomaticSpells || rect.Position.DistanceTo(new(width - 382 * controlScale, height - top * controlScale)) < 0.01f,
                             "Los botones personales no comparten la posición de Supervivencia.");
                     }
                     var buttons = touch.ButtonRectanglesForVerification;
@@ -66,7 +66,8 @@ public partial class ClientVerification
                     {
                         var button = (PanelContainer)touch.FindChild("TouchElement" + element, true, false);
                         var rect = button.GetRect();
-                        Require(new Rect2(Vector2.Zero, touch.Size).Encloses(rect), "Un elemento queda fuera de pantalla.");
+                        Require(button.Visible != touch.AutomaticSpells, "La visibilidad de un elemento no coincide con el modo elegido.");
+                        Require(!button.Visible || new Rect2(Vector2.Zero, touch.Size).Encloses(rect), "Un elemento queda fuera de pantalla.");
                         Require(button.GetChildren().OfType<VBoxContainer>().Single().GetChildren().OfType<ElementIcon>().Single().Value == element,
                             "Un control móvil no muestra su símbolo elemental.");
                     }

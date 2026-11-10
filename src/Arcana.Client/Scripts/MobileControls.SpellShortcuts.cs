@@ -10,12 +10,13 @@ public partial class MobileControls
         public TouchAction Action { get; } = action;
         public ElementIcon[] Icons { get; } = icons;
         public ElementTextLabel Mode { get; } = mode;
-        public SpellSuggestion? Preset, Shown;
+        public SpellSuggestion? Shown;
     }
 
     private TouchShortcut _defenseShortcut = null!, _attackShortcut = null!;
     private long _lastShortcutTick = -1;
     private TouchShortcut? _preparedShortcut;
+    internal bool AutomaticSpells { get; private set; }
     internal Func<WizardSnapshot, EquipmentModifiers?>? ShortcutEquipment { get; set; }
     internal bool AttackShortcutPrepared => _preparedShortcut != null && _preparedShortcut == _attackShortcut;
 
@@ -53,15 +54,19 @@ public partial class MobileControls
 
     internal void ConfigureSpellShortcuts(SpellShortcutSettings settings)
     {
-        static SpellSuggestion? Preset(SpellShortcutPreset choice) => choice.Automatic ? null : new(new SpellRecipe(choice.Elements), choice.Mode);
-        _defenseShortcut.Preset = Preset(settings.Defense);
-        _attackShortcut.Preset = Preset(settings.Attack);
-        ResetSpellShortcuts();
+        AutomaticSpells = settings.Enabled;
+        Reset();
+        if (_defenseShortcut == null) return;
+        foreach (var action in _actions.Take(8)) action.Panel.Visible = !AutomaticSpells;
+        _defenseShortcut.Action.Panel.Visible = AutomaticSpells;
+        _attackShortcut.Action.Panel.Visible = AutomaticSpells;
+        Layout();
     }
 
     private void ResetSpellShortcuts()
     {
         _lastShortcutTick = -1;
+        _preparedShortcut = null;
         if (_defenseShortcut == null) return;
         ShowShortcut(_defenseShortcut, null);
         ShowShortcut(_attackShortcut, null);
@@ -69,7 +74,7 @@ public partial class MobileControls
 
     private void UpdateSpellShortcuts(WizardSnapshot? player, WorldSnapshot? world)
     {
-        if (EditorMode || _defenseShortcut == null) return;
+        if (EditorMode || !AutomaticSpells || _defenseShortcut == null) return;
         if (world == null || player == null || !SpellRecommendations.Available(world, player))
         {
             _lastShortcutTick = -1;
@@ -78,10 +83,10 @@ public partial class MobileControls
             return;
         }
         // Defensa responde en cuanto cambia el escudo. Ataque examina el mapa cinco veces por segundo.
-        ShowShortcut(_defenseShortcut, _defenseShortcut.Preset ?? SpellRecommendations.ChooseDefense(player));
+        ShowShortcut(_defenseShortcut, SpellRecommendations.ChooseDefense(player));
         if (_lastShortcutTick >= 0 && world.Tick >= _lastShortcutTick && world.Tick - _lastShortcutTick < 12) return;
         _lastShortcutTick = world.Tick;
-        ShowShortcut(_attackShortcut, _attackShortcut.Preset ?? SpellRecommendations.ChooseAttack(world, player,
+        ShowShortcut(_attackShortcut, SpellRecommendations.ChooseAttack(world, player,
             world.Defense == null ? ShortcutEquipment?.Invoke(player) : null));
     }
 
@@ -95,12 +100,12 @@ public partial class MobileControls
             shortcut.Icons[i].Visible = i < elements.Length;
             shortcut.Icons[i].Value = i < elements.Length ? elements[i] : null;
         }
-        shortcut.Mode.Text = choice is { } spell ? (shortcut.Preset.HasValue ? "Fijo · " : "") + Ui.CastName(spell.Mode) : "—";
+        shortcut.Mode.Text = choice is { } spell ? Ui.CastName(spell.Mode) : "—";
     }
 
     private void PrepareShortcut(TouchShortcut shortcut)
     {
-        if (_directionalAimPending || (_aimFinger >= 0 && _pendingMagick >= 0) || shortcut.Shown is not { } choice) return;
+        if (!AutomaticSpells || _directionalAimPending || (_aimFinger >= 0 && _pendingMagick >= 0) || shortcut.Shown is not { } choice) return;
         CancelMagickAim();
         if (!_selected.Elements.SequenceEqual(choice.Spell.Elements))
         {

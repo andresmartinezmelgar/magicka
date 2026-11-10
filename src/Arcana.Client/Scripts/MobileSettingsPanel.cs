@@ -20,7 +20,8 @@ public partial class MobileSettingsPanel : Control
     public event Action? Canceled;
     internal TouchSettings Configuration => _preview.Visible ? _preview.Settings : _settings;
 
-    internal void Build(TouchSettings settings, WorldSnapshot? state = null, int playerId = 0, Action<List<TouchHudArea>>? modeAreas = null, Main? menuOwner = null)
+    internal void Build(TouchSettings settings, WorldSnapshot? state = null, int playerId = 0, Action<List<TouchHudArea>>? modeAreas = null,
+        Main? menuOwner = null, bool automaticSpells = false)
     {
         Name = "MobileSettings"; Theme = Ui.Theme(); Ui.Full(this); MouseFilter = MouseFilterEnum.Stop;
         _settings = settings.Normalize();
@@ -34,6 +35,7 @@ public partial class MobileSettingsPanel : Control
         }
         _editorHud.Update(state, playerId, "Vista de controles", 0); _editorHud.HideEditorPlayer();
         _preview = new MobileControls { EditorMode = true, Visible = false }; AddChild(_preview); _preview.Configure(_settings);
+        _preview.ConfigureSpellShortcuts(new() { Enabled = automaticSpells });
         _form = new Control(); AddChild(_form); Ui.Full(_form);
         var margin = new MarginContainer(); _form.AddChild(margin); Ui.Full(margin);
         foreach (string side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, 16);

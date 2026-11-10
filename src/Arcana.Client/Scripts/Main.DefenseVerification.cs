@@ -104,10 +104,11 @@ public partial class Main
                     var magicks = ((Control)_touch.FindChild("TouchMagick0", true, false)).GetGlobalRect();
                     Check(magicks.Position.Y - selected.End.Y is >= 0 and <= 20,
                         "Los elementos seleccionados no están pegados a los hechizos especiales.");
-                    Check(rectangles.Length == 19 && _touch.FindChild("TouchSpellDefense", true, false) is Control &&
-                        _touch.FindChild("TouchSpellAttack", true, false) is Control &&
+                    Check(rectangles.Length == (_touch.AutomaticSpells ? 11 : 17) &&
+                        ((Control)_touch.FindChild("TouchSpellDefense", true, false)).Visible == _touch.AutomaticSpells &&
+                        ((Control)_touch.FindChild("TouchElementFire", true, false)).Visible != _touch.AutomaticSpells &&
                         !_touch.FindChildren("*", "Control", true, false).OfType<ElementTextLabel>().Any(l => l.Text is "Bastón" or "Vaciar"),
-                        "Faltan los accesos de Defensa y Ataque o siguen presentes controles retirados.");
+                        "Los controles visibles no corresponden al modo de hechizos elegido.");
                     foreach (string name in new[] { "TouchSelf", "TouchNova" })
                     {
                         var action = ((Control)_touch.FindChild(name, true, false)).GetGlobalRect();

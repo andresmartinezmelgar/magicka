@@ -55,11 +55,18 @@ public partial class Main
         }
         TutorialStep[] shortcutLessons = Ui.IsMobile ?
         [
+            new("Activa hechizos automáticos", "Abre «Menú», activa «Hechizos automáticos» y vuelve al combate. Los ocho elementos se sustituyen por Defensa y Ataque.",
+                _ => _tutorialSpellShortcuts.Enabled && !_paused, Prepare: PrepareDefenseLesson),
+            new("Defensa automática", "Tienes poca vida. Pulsa «Defensa» y después «Sobre mí» para crear un escudo que también te regenera.",
+                _ => player.Shield > 0, FirstWaveMarker),
             new("Cúrate con escudo", "Ya tienes escudo y te falta vida. Pulsa «Defensa» para preparar Vida y luego «Sobre mí» para curarte.",
                 _ => player.Health > player.MaxHealth * .65f, Prepare: PrepareShieldedHealing),
-            new("Guarda una mezcla", "Abre «Menú» y entra en «Hechizos predefinidos». En «Ataque», desactiva «Automático», elige hasta tres elementos y guarda. Vuelve al combate y pulsa «Ataque».",
-                _ => _tutorialSpellShortcuts.Attack is { Automatic: false } preset && _touch?.AttackShortcutPrepared == true &&
-                    player.Selection.Elements.SequenceEqual(preset.Elements), FirstWaveMarker, scenario.PrepareFirstWave)
+            new("Ataque automático", "Pulsa «Ataque» y lanza con el joystick derecho. La mezcla aprovecha tu equipo y el estado del objetivo. Una carga de Fuego basta para aplicar quemadura; las otras pueden aportar daño de otro elemento.",
+                _ => _tutorialSpellShortcuts.Enabled && scenario.Target is { } enemy && enemy.Health < enemy.MaxHealth,
+                FirstWaveMarker, scenario.PrepareFirstWave),
+            new("Vuelve a elegir", $"Abre «Menú» y desactiva «Hechizos automáticos». Vuelve al combate y combina {fireArcane} con los botones de elementos.",
+                _ => !_tutorialSpellShortcuts.Enabled && player.Selection.Elements.Contains(Element.Fire) &&
+                    player.Selection.Elements.Contains(Element.Arcane), FirstWaveMarker, scenario.PrepareFirstWave)
         ] : [];
 
         return scenario.Chapter switch
@@ -113,13 +120,11 @@ public partial class Main
             TutorialChapter.Survival =>
             [
                 new("Primer encuentro", "Practica tres acciones con un enemigo de Supervivencia. La horda completa llega al iniciar una partida normal."),
-                new("Ataca", (Ui.IsMobile ? "Pulsa «Ataque» para cargar la mezcla que sugiere el juego." : $"Selecciona {ElementControl(Element.Fire)}.") +
-                    $" {cast} Alcanza al enemigo marcado.",
+                new("Ataca", $"Selecciona {ElementControl(Element.Fire)}. {cast} Alcanza al enemigo marcado.",
                     _ => scenario.Target is { } enemy && enemy.Health < enemy.MaxHealth, FirstWaveMarker),
                 new("Frena al enemigo", $"Selecciona {ElementControl(Element.Cold)}. {cast} Frío ralentiza al enemigo y puede congelarlo si mantienes el chorro.",
                     _ => scenario.Target is { } enemy && (enemy.Chill > 0 || enemy.Frozen > 0), FirstWaveMarker, scenario.PrepareFirstWave),
-                new("Protégete", (Ui.IsMobile ? "Tienes poca vida. Pulsa «Defensa» para preparar un escudo que también te regenera." : $"Selecciona {shield}.") +
-                    $" {self} Deja que el enemigo se acerque y golpee tu escudo.",
+                new("Protégete", $"Selecciona {shield}. {self} Deja que el enemigo se acerque y golpee tu escudo.",
                     _ => player.Shield > 0 && player.Shield < player.ShieldMax, FirstWaveMarker, PrepareDefenseLesson),
                 .. shortcutLessons,
                 new("Derrota al enemigo", $"Combina lo aprendido para terminar la primera oleada. {cast}",

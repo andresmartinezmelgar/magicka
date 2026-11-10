@@ -17,7 +17,6 @@ public partial class Main
         if (_reconnecting || Loading) { ReturnToLauncher(); return true; }
         if (_profiler?.Running == true) { _profiler.Cancel(); return true; }
         if (ViewingDamageSummary) ClosePersonalDamageSummary();
-        else if (_spellShortcutsPanel != null) CloseSpellShortcuts();
         else if (ControlsOpen) _controlsSettings!.HandleBack();
         else if (_help.Visible) { if (!_help.HandleBack()) CloseInGameHelp(); }
         else if (GodotObject.IsInstanceValid(_statisticsPanel)) CloseMatchStatistics();

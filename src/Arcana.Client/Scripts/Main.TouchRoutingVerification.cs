@@ -32,11 +32,20 @@ public partial class Main
             Check(controls.Movement == Vector2.Zero && !messages.Contains("release"), "Soltar movimiento interrumpe el lanzamiento.");
             controls.Touch(8, centers[1], false);
             Check(messages.Count(m => m == "release") == 1, "Soltar apuntado no libera exactamente una vez.");
+            Check(controls.ButtonRectanglesForVerification.Length == 17 && !controls.LayoutRectangles.ContainsKey("TouchSpellAttack") &&
+                ((Control)controls.FindChild("TouchElementFire", true, false)).Visible,
+                "La selección manual muestra también los accesos automáticos.");
 
             var world = new GameWorld(new() { Mode = GameMode.Arena });
             var player = world.AddPlayer("Mago de prueba")!;
             player.Health = 300;
             player.Selection.Add(Element.Fire);
+            controls.ConfigureSpellShortcuts(new() { Enabled = true });
+            Check(controls.ButtonRectanglesForVerification.Length == 11 && !controls.LayoutRectangles.ContainsKey("TouchElementFire") &&
+                !((Control)controls.FindChild("TouchElementFire", true, false)).Visible &&
+                ((Control)controls.FindChild("TouchSpellAttack", true, false)).Visible,
+                "El modo automático conserva elementos manuales visibles o zonas táctiles ocultas.");
+            VerifyTouchClearance(controls);
             var snapshot = world.Snapshot();
             controls.Update(snapshot.Players.Single(), snapshot);
             long sequence = 0;
@@ -56,32 +65,32 @@ public partial class Main
             Tap("TouchSpellDefense");
             Check(player.Selection.Elements.SequenceEqual(new[] { Element.Life, Element.Life, Element.Life }), "Defensa no cambia a Vida con escudo activo.");
 
-            Element[] favorite = [Element.Fire, Element.Fire, Element.Lightning];
-            controls.ConfigureSpellShortcuts(new() { Attack = new() { Automatic = false, Elements = favorite } });
             snapshot = world.Snapshot(); controls.Update(snapshot.Players.Single(), snapshot);
             Tap("TouchSpellAttack");
-            Check(controls.AttackShortcutPrepared && player.Selection.Elements.SequenceEqual(favorite), "Ataque no cargó la mezcla guardada.");
+            Check(controls.AttackShortcutPrepared && player.Selection.Elements.Count > 0, "Ataque no cargó la mezcla recomendada.");
+            controls.ConfigureSpellShortcuts(new() { Enabled = false });
+            player.Selection.Clear();
+            snapshot = world.Snapshot(); controls.Update(snapshot.Players.Single(), snapshot);
+            Check(controls.ButtonRectanglesForVerification.Length == 17 && !controls.AttackShortcutPrepared &&
+                !controls.LayoutRectangles.ContainsKey("TouchSpellDefense") && controls.LayoutRectangles.ContainsKey("TouchElementFire"),
+                "Volver a manual conserva un acceso automático o pierde los botones de elementos.");
             Tap("TouchElementFire");
-            Check(player.Selection.Elements.SequenceEqual(new[] { Element.Fire }), "El acceso bloquea la selección manual.");
+            Check(player.Selection.Elements.SequenceEqual(new[] { Element.Fire }), "Desactivar los hechizos automáticos bloquea la selección manual.");
             controls.Reset(); _ui.RemoveChild(controls); controls.QueueFree();
         }
-        var editor = new SpellShortcutSettingsPanel(); _ui.AddChild(editor);
-        SpellShortcutSettings? saved = null;
-        editor.Build(new(), tutorial: true, settings => { saved = settings; return true; }, () => { });
-        var tabs = (TabContainer)editor.FindChild("SpellShortcutTabs", true, false);
-        var save = (Button)editor.FindChild("SpellShortcutsSave", true, false);
-        void Press(string name) => ((Button)editor.FindChild(name, true, false)).EmitSignal(BaseButton.SignalName.Pressed);
-        ((CheckButton)editor.FindChild("SpellShortcutAutomaticDefense", true, false)).ButtonPressed = false;
-        Check(save.Disabled, "El editor acepta un acceso personalizado vacío.");
-        Press("SpellShortcutDefenseShield"); Press("SpellShortcutDefenseLife");
-        tabs.CurrentTab = 1;
-        ((CheckButton)editor.FindChild("SpellShortcutAutomaticAttack", true, false)).ButtonPressed = false;
-        Press("SpellShortcutAttackFire"); Press("SpellShortcutAttackFire"); Press("SpellShortcutAttackLightning");
-        Check(saved == null && !save.Disabled, "El editor aplica cambios antes de guardarlos.");
-        Press("SpellShortcutsSave");
-        Check(saved != null && saved.Defense.Elements.SequenceEqual(new[] { Element.Shield, Element.Life }) &&
-            saved.Attack.Elements.SequenceEqual(new[] { Element.Fire, Element.Fire, Element.Lightning }), "El editor mezcla las dos configuraciones.");
-        _ui.RemoveChild(editor); editor.QueueFree();
+        if (Ui.IsMobile)
+        {
+            UpdateSpellShortcutMenu();
+            bool previous = CurrentSpellShortcuts.Enabled;
+            try
+            {
+                _automaticSpellsToggle!.ButtonPressed = !previous;
+                Check(CurrentSpellShortcuts.Enabled == !previous &&
+                    DevicePreferences.Read<SpellShortcutSettings>(SpellShortcutsFile)?.Enabled == !previous,
+                    "El interruptor del menú no aplica y guarda el modo elegido.");
+            }
+            finally { _automaticSpellsToggle!.ButtonPressed = previous; }
+        }
         GD.Print("CUSTOM_TOUCH_ROUTING_OK: joysticks en cualquier mitad, modo zurdo, dedos simultáneos y liberación independiente.");
     }
 }

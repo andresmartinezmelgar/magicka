@@ -40,6 +40,7 @@ public partial class MobileControls
         Add("Aim", new(width - 142 * s, height - 125 * s), Vector2.One * StickRadius * 2);
         void Button(TouchAction action, Vector2 position, Vector2 size)
         {
+            if (!action.Panel.Visible) return;
             var pivot = _utilities.Contains(action) ? new Vector2(width - 8 * s, 8 * s) :
                 _magicks.Contains(action) ? new Vector2(width / 2, height - 8 * s) : new Vector2(width - 8 * s, height - 238 * s);
             float spacing = Settings.Spacing < 1 ? 1 + (Settings.Spacing - 1) * .1f : Settings.Spacing;
@@ -51,11 +52,11 @@ public partial class MobileControls
             Add(action.Panel.Name, center, action.Panel.Size * ControlScale);
         }
         for (int i = 0; i < _utilities.Count; i++) Button(_utilities[i], new(width - (382 - i * 124) * s, 22 * s), new(118, 62));
-        for (int i = 0; i < 8; i++) Button(_actions[i], new(width - (246 - i % 2 * 116) * s, height - (614 - i / 2 * 80) * s), new(108, 72));
-        Button(_defenseShortcut.Action, new(width - 246 * s, height - 286 * s), new(108, 64));
-        Button(_attackShortcut.Action, new(width - 130 * s, height - 286 * s), new(108, 64));
-        Button(_self, new(width - 382 * s, height - 452 * s), new(120, 62));
-        Button(_nova, new(width - 382 * s, height - 382 * s), new(120, 62));
+        for (int i = 0; i < 8; i++) Button(_actions[i], new(width - (246 - i % 2 * 116) * s, height - (572 - i / 2 * 80) * s), new(108, 72));
+        Button(_defenseShortcut.Action, new(width - 246 * s, height - 366 * s), new(108, 64));
+        Button(_attackShortcut.Action, new(width - 130 * s, height - 366 * s), new(108, 64));
+        Button(_self, AutomaticSpells ? new(width - 246 * s, height - 286 * s) : new(width - 382 * s, height - 452 * s), new(120, 62));
+        Button(_nova, AutomaticSpells ? new(width - 122 * s, height - 286 * s) : new(width - 382 * s, height - 382 * s), new(120, 62));
         for (int i = 0; i < _magicks.Count; i++) Button(_magicks[i], new(width / 2 - (244 - i * 124) * s, height - 90 * s), new(120, 72));
         return result;
     }
@@ -102,7 +103,7 @@ public partial class MobileControls
 
     private void ApplyRectangles()
     {
-        foreach (var action in _actions) action.Panel.Position = _rectangles[action.Panel.Name].Position;
+        foreach (var action in _actions.Where(a => a.Panel.Visible)) action.Panel.Position = _rectangles[action.Panel.Name].Position;
         _moveHome = _rectangles["Move"].GetCenter(); _aimCenter = _rectangles["Aim"].GetCenter();
         if (_moveFinger < 0) _moveCenter = _moveHome;
         else _moveCenter = FreeMoveCenter(_moveOrigin);

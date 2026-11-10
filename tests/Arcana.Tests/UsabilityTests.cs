@@ -106,20 +106,33 @@ internal static class UsabilityTests
                 SpellRecommendations.ChooseAttack(WithGear(WithEnemies(enemy), EquipmentModifiers.None with { Lightning = 1.5f }), mage).Spell.Shape == SpellShape.Lightning,
                 "Ataque no aprovecha las mejoras elementales equipadas.");
             Check(!SpellRecommendations.Available(state, mage with { Frozen = 1 }), "Se ofrece un lanzamiento estando congelado.");
+            var burnGear = EquipmentModifiers.None with { Fire = 1.2f, Lightning = 1.5f, BurnDuration = 2, BurnPotency = 2 };
+            var durable = enemy with { Health = 3000, MaxHealth = 3000 };
+            var first = SpellRecommendations.ChooseAttack(WithGear(WithEnemies(durable), burnGear), mage).Spell;
+            var burning = SpellRecommendations.ChooseAttack(WithGear(WithEnemies(durable with { Burning = 6 }), burnGear), mage).Spell;
+            Check(first.Count(Element.Fire) == 1 && first.Has(Element.Lightning) && burning.Count(Element.Lightning) == 3,
+                "No aplica una quemadura con una carga de Fuego y aprovecha Rayo mientras el efecto sigue activo.");
+            var renewing = SpellRecommendations.ChooseAttack(WithGear(WithEnemies(durable with { Burning = .2f }), burnGear), mage).Spell;
+            Check(renewing.Count(Element.Fire) == 1, "El selector deja caducar una quemadura útil.");
+            var finishing = SpellRecommendations.ChooseAttack(WithGear(WithEnemies(durable with { Health = 1 }), burnGear), mage).Spell;
+            Check(finishing.Count(Element.Lightning) == 3, "Se prioriza una quemadura larga sobre rematar a un enemigo de poca vida.");
+            var immune = durable with { Kind = MinionKind.Prism, VulnerableElement = Element.Lightning };
+            Check(!SpellRecommendations.ChooseAttack(WithGear(WithEnemies(immune), burnGear), mage).Spell.Has(Element.Fire),
+                "La quemadura aporta valor contra un enemigo inmune a Fuego.");
+            var noTarget = SpellRecommendations.ChooseAttack(WithGear(WithEnemies(), EquipmentModifiers.None with { Lightning = 2 }), mage).Spell;
+            Check(noTarget.Shape == SpellShape.Lightning, "Sin enemigo visible se ignora la mejora de Rayo del equipo.");
         });
-        test("Hechizos predefinidos: guarda cada mezcla y rechaza datos incompatibles", () =>
+        test("Hechizos automáticos: guarda un interruptor y admite la configuración anterior", () =>
         {
-            var saved = new SpellShortcutSettings
+            foreach (bool enabled in new[] { false, true })
             {
-                Defense = new() { Automatic = false, Elements = [Element.Shield, Element.Life], Mode = CastMode.Self },
-                Attack = new() { Elements = [Element.Fire, Element.Fire, Element.Lightning], Mode = CastMode.Nova }
-            };
-            var restored = JsonSerializer.Deserialize<SpellShortcutSettings>(JsonSerializer.Serialize(saved))!.Normalize();
-            Check(!restored.Defense.Automatic && restored.Defense.Elements.SequenceEqual(saved.Defense.Elements) &&
-                restored.Attack.Automatic && restored.Attack.Mode == CastMode.Nova && restored.Attack.Elements.SequenceEqual(saved.Attack.Elements),
-                "Cambiar de modo borra la mezcla guardada o la asigna al botón equivocado.");
-            var invalid = saved with { Attack = new() { Automatic = false, Elements = [Element.Cold, Element.Fire] } };
-            Check(invalid.Normalize().Attack is { Automatic: true, Elements.Length: 0 }, "Una mezcla incompatible puede dejar inservible el botón.");
+                var saved = new SpellShortcutSettings { Enabled = enabled };
+                var restored = JsonSerializer.Deserialize<SpellShortcutSettings>(JsonSerializer.Serialize(saved))!;
+                Check(restored.Enabled == enabled, "El modo elegido cambia al guardar y volver a cargar.");
+            }
+            var legacy = JsonSerializer.Deserialize<SpellShortcutSettings>(
+                """{"Defense":{"Automatic":false,"Elements":[2,1]},"Attack":{"Automatic":true}}""")!;
+            Check(!legacy.Enabled && !new SpellShortcutSettings().Enabled, "Los ajustes anteriores impiden recuperar la selección manual.");
         });
     }
 }

@@ -13,8 +13,11 @@ public static class SpellRecommendations
     private static readonly SpellRecipe[] Attacks = SpellCatalogue.All.Select(entry => entry.Recipe)
         .Where(spell => !spell.Healing && spell.Shape != SpellShape.Barrier).ToArray();
 
-    private readonly record struct Target(int Id, V2 Position, bool Wet, bool Frozen, float HealthFraction,
-        float Shield, Element[] Ward, WizardType WizardType, Element? Vulnerable);
+    private readonly record struct Target(int Id, V2 Position, bool Wet, bool Frozen, float Burning, float Health,
+        float MaxHealth, float Shield, Element[] Ward, WizardType WizardType, Element? Vulnerable)
+    {
+        public float HealthFraction => Health / MaxHealth;
+    }
 
     public static bool Available(WorldSnapshot world, WizardSnapshot caster) => caster.Alive && caster.Frozen <= 0 && !caster.Stunned &&
         !world.MatchEnded && !world.WaitingForPlayers && world.Defense?.Paused != true;
@@ -37,9 +40,10 @@ public static class SpellRecommendations
 
         var enemies = world.Players.Where(p => p.Alive && p.Id != caster.Id && p.InvulnerableSeconds <= 0 &&
                 (world.Mode == GameMode.Arena || p.Team != caster.Team))
-            .Select(p => new Target(p.Id, p.Position, p.Wet > 0, p.Frozen > 0, p.Health / p.MaxHealth, p.Shield, p.Ward, p.WizardType, null))
+            .Select(p => new Target(p.Id, p.Position, p.Wet > 0, p.Frozen > 0, p.Burning, p.Health,
+                p.MaxHealth, p.Shield, p.Ward, p.WizardType, null))
             .Concat(defense?.Minions.Where(m => m.Health > 0).Select(m => new Target(m.Id, m.Position, m.Wet > 0, m.Frozen > 0,
-                m.Health / m.MaxHealth, m.Shield, [], DefenseRules.EnemyWizardType(m.Kind), m.VulnerableElement)) ?? []).ToArray();
+                m.Burning, m.Health, m.MaxHealth, m.Shield, [], DefenseRules.EnemyWizardType(m.Kind), m.VulnerableElement)) ?? []).ToArray();
 
         Target? target = null;
         float bestTarget = float.PositiveInfinity;
@@ -55,7 +59,9 @@ public static class SpellRecommendations
             target = enemy;
             bestTarget = priority;
         }
-        if (target is not { } aimed) return DefaultAttack;
+        // Sin un enemigo visible, prepara una mezcla acorde al equipo para un objetivo neutro a corto alcance.
+        var aimed = target ?? new Target(-1, caster.Position + caster.Facing * (6 * gear.Range), false, false, 0,
+            caster.MaxHealth, caster.MaxHealth, 0, [], WizardType.Balanced, null);
 
         float range = V2.Distance(caster.Position, aimed.Position);
         var neighbors = enemies.Where(e => e.Id != aimed.Id &&
@@ -108,6 +114,20 @@ public static class SpellRecommendations
                 (1 + .24f * Math.Min(gear.LightningChains, neighbors.Count(distance => distance <= 5))),
             _ => 1
         };
-        return damage * effectiveness;
+        float directDamage = damage * effectiveness;
+        float fireProtection = ElementInteractions.ProtectionMultiplier(Element.Fire, ward);
+        if (fireProtection <= .5f || target.Vulnerable is { } vulnerable && vulnerable != Element.Fire) return directDamage;
+
+        float burnPerSecond = SpellBalance.BurnPerSecond * WizardTypes.Outgoing(caster.WizardType, Element.Fire) *
+            gear.Fire * gear.BurnPotency * WizardTypes.Incoming(target.WizardType, Element.Fire) * fireProtection;
+        // La quemadura no se acumula por repetir Fuego. Cuenta una aplicación y acota su valor por la vida restante.
+        float horizon = Math.Min(SpellBalance.BurnDuration * gear.BurnDuration,
+            (target.Health + target.Shield) / Math.Max(1, directDamage * gear.Power));
+        float activeBurn = Math.Min(target.Burning, horizon);
+        if (spell.Has(Element.Fire) && !spell.Steam && !target.Wet && target.Burning <= .75f)
+            return directDamage + burnPerSecond * Math.Max(0, horizon - activeBurn);
+
+        bool extinguishes = spell.Has(Element.Cold) || spell.Has(Element.Water) && !spell.Steam && !spell.Ice;
+        return Math.Max(0, directDamage - (extinguishes ? burnPerSecond * activeBurn : 0));
     }
 }

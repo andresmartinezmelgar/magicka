@@ -349,7 +349,6 @@ public partial class Main : Node
         CaptureLocalBestiary(); _localBestiaryRun = ""; _localBestiaryUid = ""; _bestiaryClock = 10; _resumingSurvival = null;
         CloseRelics();
         ClosePersonalDamageSummary();
-        CloseSpellShortcuts();
         if (_playing) Diagnostics.Info("game.leave", "Vuelta al launcher.", Context());
         ClosePlayerEquipment();
         _defensePanel?.QueueFree(); _defensePanel = null;
@@ -664,7 +663,7 @@ public partial class Main : Node
     {
         _paused = !_paused; _pause.Visible = _paused;
         if (_paused) _ui.MoveChild(_pause, -1);
-        else CloseSpellShortcuts();
+        if (_paused) UpdateSpellShortcutMenu();
         if (_relicMenuButton != null) _relicMenuButton.Visible = HasRelics;
         UpdateSurvivalSaveActions();
         if (_paused) StopInput();

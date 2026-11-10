@@ -50,7 +50,8 @@ public partial class Main
                 var targets = preview.HudAreas.Select(a => a.Bounds.GetCenter()).ToList();
                 if (preview.MapRectangle is { } minimap) targets.Add(minimap.GetCenter());
                 targets.Add(preview.StickCentersForVerification[1]);
-                targets.Add(((Control)preview.FindChild("TouchElementWater", true, false)).GetGlobalRect().GetCenter());
+                string activeButton = preview.AutomaticSpells ? "TouchSpellAttack" : "TouchElementWater";
+                targets.Add(((Control)preview.FindChild(activeButton, true, false)).GetGlobalRect().GetCenter());
                 targets.Add(new(-500, -500)); targets.Add(preview.Size + new Vector2(500, 500));
                 foreach (var target in targets)
                 {
@@ -73,7 +74,7 @@ public partial class Main
                 ReturnToLauncher(); await Frames();
             }
             if (_engineLog.ErrorCount != 0) throw new InvalidOperationException("El motor registró errores en la revisión del HUD.");
-            GD.Print("TOUCH_LAYOUT_SMOKE_OK: siete mapas, HUD y minimapa, 168 configuraciones, arrastres sobre controles, paneles y fuera de pantalla.");
+            GD.Print("TOUCH_LAYOUT_SMOKE_OK: siete mapas, HUD y minimapa, 336 configuraciones manuales y automáticas, arrastres sobre controles, paneles y fuera de pantalla.");
             GetTree().Quit();
         }
         catch (Exception error) { GD.PrintErr("TOUCH_LAYOUT_SMOKE_FAILED: " + error); GetTree().Quit(1); }
@@ -85,7 +86,7 @@ public partial class Main
         var screen = new Rect2(controls.GlobalPosition, controls.Size);
         var rectangles = controls.LayoutRectangles.Select(p => new TouchHudArea(p.Key,
             new Rect2(p.Value.Position + controls.GlobalPosition, p.Value.Size))).ToList();
-        foreach (var action in controls.GetChildren().OfType<PanelContainer>())
+        foreach (var action in controls.GetChildren().OfType<PanelContainer>().Where(a => a.Visible))
         {
             var expected = rectangles.Single(r => r.Name == action.Name).Bounds;
             Check(expected.Position.DistanceTo(action.GetGlobalRect().Position) < .1f && expected.Size.DistanceTo(action.GetGlobalRect().Size) < .1f,
@@ -114,17 +115,23 @@ public partial class Main
     private static void VerifyTouchLayoutVariants(MobileControls controls)
     {
         var original = controls.Settings.Normalize();
+        bool originalAutomatic = controls.AutomaticSpells;
         int cases = 0;
-        foreach (float size in new[] { .75f, 1f, 1.3f })
-        foreach (float spacing in new[] { .8f, 1.25f })
-        foreach (bool left in new[] { false, true })
-        foreach (bool stacked in new[] { false, true })
+        foreach (bool automatic in new[] { false, true })
         {
-            var positions = new Dictionary<string, TouchPosition>();
-            if (stacked) foreach (string name in controls.LayoutRectangles.Keys) positions[name] = new(.99f, .01f);
-            controls.Configure(new() { Size = size, Spacing = spacing, LeftHanded = left, Positions = positions });
-            VerifyTouchClearance(controls); cases++;
+            controls.ConfigureSpellShortcuts(new() { Enabled = automatic });
+            foreach (float size in new[] { .75f, 1f, 1.3f })
+            foreach (float spacing in new[] { .8f, 1.25f })
+            foreach (bool left in new[] { false, true })
+            foreach (bool stacked in new[] { false, true })
+            {
+                var positions = new Dictionary<string, TouchPosition>();
+                if (stacked) foreach (string name in controls.LayoutRectangles.Keys) positions[name] = new(.99f, .01f);
+                controls.Configure(new() { Size = size, Spacing = spacing, LeftHanded = left, Positions = positions });
+                VerifyTouchClearance(controls); cases++;
+            }
         }
+        controls.ConfigureSpellShortcuts(new() { Enabled = originalAutomatic });
         controls.Configure(original);
         GD.Print($"TOUCH_CLEARANCE_OK: {cases} configuraciones, tamaños extremos, modo zurdo, posiciones apiladas y minimapa con margen de 8 px.");
     }

@@ -39,7 +39,7 @@ public partial class MobileControls : Control
     private float BaseScale => Math.Min(1, Size.Y / 720f);
     private float ControlScale => BaseScale * Settings.Size * _fitScale;
     private float StickRadius => Radius * ControlScale;
-    internal Rect2[] ButtonRectanglesForVerification => _actions.Select(a => a.Panel.GetGlobalRect()).ToArray();
+    internal Rect2[] ButtonRectanglesForVerification => _actions.Where(a => a.Panel.Visible).Select(a => a.Panel.GetGlobalRect()).ToArray();
     internal Vector2[] StickCentersForVerification => [_moveHome + GlobalPosition, _aimCenter + GlobalPosition];
     internal bool BarrierAimPending => _directionalAimPending && _aimedSpellShape == SpellShape.Barrier;
     internal bool IceAimPending => _directionalAimPending && _aimedSpellShape == SpellShape.Shards;
@@ -75,7 +75,8 @@ public partial class MobileControls : Control
         _utilities.Add(AddButton("Tabla", run: () => ScoreRequested?.Invoke()));
         _utilities.Add(AddButton("Menú", run: () => MenuRequested?.Invoke()));
         for (int i = 0; i < _utilities.Count; i++) _utilities[i].Panel.Name = "TouchUtility" + i;
-        Resized += Layout; Layout();
+        Resized += Layout;
+        ConfigureSpellShortcuts(new() { Enabled = AutomaticSpells });
     }
     private TouchAction AddButton(string title, ClientMessage? message = null, Action? run = null, Color? color = null, Element? element = null)
     {
@@ -215,7 +216,7 @@ public partial class MobileControls : Control
         }
         if (finger == _moveFinger || finger == _aimFinger || _pressed.ContainsKey(finger)) return true;
         if (PointerBlocked?.Invoke(point + GlobalPosition) == true) return false;
-        var action = _actions.FirstOrDefault(a => ButtonRect(a).HasPoint(point));
+        var action = _actions.FirstOrDefault(a => a.Panel.Visible && ButtonRect(a).HasPoint(point));
         if (action != null)
         {
             _pressed[finger] = action; action.Panel.Modulate = new Color(1.2f, 1.2f, 1.2f);
@@ -318,7 +319,7 @@ public partial class MobileControls : Control
         }
         if (_editFinger != -1 || PointerBlocked?.Invoke(point) == true) return false;
         point -= GlobalPosition;
-        var action = _actions.FirstOrDefault(a => ButtonRect(a).HasPoint(point));
+        var action = _actions.FirstOrDefault(a => a.Panel.Visible && ButtonRect(a).HasPoint(point));
         var center = action != null ? ButtonRect(action).GetCenter() :
             point.DistanceTo(_moveHome) <= StickRadius ? _moveHome : point.DistanceTo(_aimCenter) <= StickRadius ? _aimCenter : new Vector2(-9999, -9999);
         if (center.X < -1000) return false;
