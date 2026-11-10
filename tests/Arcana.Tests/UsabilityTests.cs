@@ -71,7 +71,8 @@ internal static class UsabilityTests
         });
         test("Atajos táctiles: defensa según escudo y ataque según objetivo y equipo", () =>
         {
-            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy });
+            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion,
+                SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 1 });
             var body = world.AddPlayer("Mago de prueba")!;
             body.Position = V2.Zero;
             var state = world.Snapshot();
