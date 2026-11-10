@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.29.56
+
+- Los controles táctiles incorporan dos accesos de carga, Defensa y Ataque. Defensa prioriza escudo y curación según el estado del jugador. Ataque tiene en cuenta el objetivo y las mejoras del equipo.
+- El menú de partida permite elegir entre hechizos recomendados y combinaciones predefinidas por el jugador. El tutorial explica ambos modos y los dos accesos.
+- Mejoras en los avisos, la primera oleada y la selección de equipo de Supervivencia.
+
 ## 0.29.55
 
 - El contenedor de la Raspberry puede leer el HTML, JavaScript y CSS del observatorio tras una actualización automática. La web carga las estadísticas públicas sin iniciar sesión.
