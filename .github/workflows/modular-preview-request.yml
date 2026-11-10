@@ -1,6 +1,6 @@
-name: Publicar prueba de controles solicitada
+name: Publicar prueba de hechizos automáticos solicitada
 
-# Petición expresa de versión para los nuevos controles de Defensa y Ataque.
+# Petición expresa de APK para el interruptor de hechizos y las mezclas automáticas.
 on:
   push:
     branches: [pruebas/mejoras-supervivencia]
@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   requested-preview:
-    if: github.event.head_commit.message == 'Publicar prueba de controles 0.29.56 revisada'
+    if: github.event.head_commit.message == 'Publicar prueba de hechizos automáticos 0.29.57'
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
@@ -34,7 +34,7 @@ jobs:
           status pending "Validando la revisión solicitada"
           test "$GITHUB_REF_NAME" = 'pruebas/mejoras-supervivencia'
           version=$(tr -d '\r\n' < VERSION)
-          test "$version" = '0.29.56'
+          test "$version" = '0.29.57'
           python3 scripts/version-support.py check .
           test "$(gh api "$api/git/ref/heads/$GITHUB_REF_NAME" --jq '.object.sha')" = "$GITHUB_SHA"
           find_run() {

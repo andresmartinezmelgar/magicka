@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.29.57
+
+- Un interruptor de hechizos automáticos alterna entre Defensa y Ataque y los ocho elementos de selección manual. Guarda la elección en el dispositivo y el tutorial practica ambos modos.
+- Ataque valora las mejoras del equipo, la distancia y las quemaduras activas. Una carga de Fuego aplica el efecto y las otras pueden aportar daño de otro elemento. La duración y la intensidad de la quemadura cuentan al elegir la mezcla.
+
 ## 0.29.56
 
 - Los controles táctiles incorporan dos accesos de carga, Defensa y Ataque. Defensa prioriza escudo y curación según el estado del jugador. Ataque tiene en cuenta el objetivo y las mejoras del equipo.
