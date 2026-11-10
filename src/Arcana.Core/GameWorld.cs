@@ -571,7 +571,7 @@ public sealed partial class GameWorld
             foreach (var target in _combatants.Values.Where(q => q.Id != p.Id && q.Alive && V2.Distance(q.Position, p.Position) < 4 * p.Equipment.Range))
                 if (Visible(p.Position, target.Position, p.Id)) HitAs(StatisticAttack.Nova, target, spell, 1.0f, p.Id, (target.Position - p.Position).Normalized);
         }
-        Emit("nova", p.Position, spell.Elements, "", 4 * p.Equipment.Range);
+        Emit("nova", p.Position, spell.Elements, "", 4 * p.Equipment.Range, IsDefense ? p.Id : 0);
     }
 
     private void CreateBarrier(Wizard p, SpellRecipe spell)
@@ -852,6 +852,11 @@ public sealed partial class GameWorld
         {
             f.Lifetime -= dt; f.Delay -= dt;
             if (f.Lifetime <= 0 || f.Delay > 0) continue;
+            if (f.Kind == DefenseRules.ColossusFissureKind)
+            {
+                ResolveColossusFissures(f);
+                continue;
+            }
             if (f.Kind == "equipment_water_pool")
             {
                 foreach (var target in _combatants.Values)
@@ -873,7 +878,7 @@ public sealed partial class GameWorld
                 foreach (var minion in _minions.Values)
                     if (minion.Body.Alive && V2.Distance(minion.Body.Position, f.Position) < f.Radius && Visible(f.Position, minion.Body.Position, f.Owner))
                         DamageAs(StatisticAttack.AutoMeteor, minion.Body, f.Power, f.Owner, [Element.Earth, Element.Fire]);
-                Emit("explosion", f.Position, [Element.Earth, Element.Fire], "Meteorito", f.Radius);
+                Emit("explosion", f.Position, [Element.Earth, Element.Fire], "Meteorito", f.Radius, f.Owner);
                 f.Lifetime = 0; continue;
             }
             if (f.Kind == "oracle_bombardment")
@@ -897,7 +902,7 @@ public sealed partial class GameWorld
                 }
                 else HitAs(f.Kind == "meteor" ? StatisticAttack.Meteor : StatisticAttack.Mine, p, f.Recipe, f.Kind == "meteor" ? SpellBalance.MeteorPower : SpellBalance.MinePower, f.Owner, (p.Position - f.Position).Normalized);
             }
-            Emit(f.Kind == "healing_mine" ? "mine_heal" : "explosion", f.Position, f.Recipe.Elements, f.Kind == "meteor" ? "Meteoro" : "", f.Radius);
+            Emit(f.Kind == "healing_mine" ? "mine_heal" : "explosion", f.Position, f.Recipe.Elements, f.Kind == "meteor" ? "Meteoro" : "", f.Radius, IsDefense ? f.Owner : 0);
             f.Lifetime = 0;
         }
         _fields.RemoveAll(f => f.Lifetime <= 0);

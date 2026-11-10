@@ -6,7 +6,7 @@ namespace Arcana.Client;
 public partial class CombatEffects
 {
     private readonly record struct FlameEmitter(Vector3 Origin, Vector3 Center,
-        Vector3 Forward, Vector3 Side, float Range, int Charges, int Shape, bool Cone);
+        Vector3 Forward, Vector3 Side, float Range, int Charges, int Shape, bool Cone, float Density);
     private readonly List<FlameEmitter> _flameEmitters = [];
     private readonly Dictionary<int, InstanceDrawBatch> _channelBatches = [];
     private InstanceDrawBatch? _flameBatch;
@@ -56,6 +56,18 @@ public partial class CombatEffects
     private bool UsesChannelParticles(BeamSnapshot beam) => FlameVisuals.Matches(beam) ||
         EnhancedSpells && ElementChannelVisuals.ParticleShape(beam) >= FlameVisuals.Shape;
 
+    internal static float FriendlyParticleDensity(WorldSnapshot snapshot, int owner, V2 from, V2 to, float radius = 0)
+    {
+        if (owner <= 0 || snapshot.Defense is not { } defense || !snapshot.Players.Any(p => p.Id == owner)) return 1;
+        // Se conservan las áreas efectivas. Se reduce el detalle aliado que cruza un aviso de peligro.
+        float margin = radius + 0.8f;
+        bool crossesWarning = defense.Minions.Any(m => m.AttackWarningSeconds > 0 &&
+            Geometry.DistanceToSegment(m.Position, from, to) < DefenseRules.AreaAttackRadius(m.Kind) + margin) ||
+            snapshot.Fields.Any(f => f.Lifetime > 0 && (f.Kind is "oracle_bombardment" or DefenseRules.ColossusFissureKind) &&
+                Geometry.DistanceToSegment(f.Position, from, to) < f.Radius + margin);
+        return crossesWarning ? 0.35f : 1;
+    }
+
     private void EmitElementChannels(WorldSnapshot snapshot, float dt)
     {
         _flameEmitters.Clear();
@@ -70,7 +82,8 @@ public partial class CombatEffects
             int charges = SpellVisualStrength.For(beam.Elements).Charges;
             SeenCharges.Add(charges);
             _flameEmitters.Add(new(origin, ArenaRenderer.World(beam.From, origin.Y), forward, side,
-                V2.Distance(beam.From, beam.To), charges, ElementChannelVisuals.ParticleShape(beam), beam.Shape == SpellShape.Spray));
+                V2.Distance(beam.From, beam.To), charges, ElementChannelVisuals.ParticleShape(beam), beam.Shape == SpellShape.Spray,
+                FriendlyParticleDensity(snapshot, beam.Owner, beam.From, beam.To)));
         }
         float rate = EnhancedSpells ? 45 : 30;
         if (_flameEmitters.Count == 0) { _flameClock = 1 / rate; return; }
@@ -88,7 +101,7 @@ public partial class CombatEffects
         {
             var emitter = _flameEmitters[(start + i) % _flameEmitters.Count];
             int samples = emitter.Shape == ElementChannelVisuals.Steam ? Math.Min(2, emitter.Charges) : emitter.Charges * 3;
-            int count = Math.Max(1, (int)MathF.Ceiling(samples * ticks * DetailScale));
+            int count = Math.Max(1, (int)MathF.Ceiling(samples * ticks * DetailScale * emitter.Density));
             if (pass >= count || emitter.Shape == ElementChannelVisuals.Steam && _activeSteam >= steamLimit) continue;
             float seed = (float)_random.NextDouble();
             float life = emitter.Shape switch { ElementChannelVisuals.Ice => .56f,

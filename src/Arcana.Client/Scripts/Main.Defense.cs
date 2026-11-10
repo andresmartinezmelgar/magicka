@@ -45,7 +45,7 @@ public partial class Main
         _equipmentSetupRetry = 0;
         _defensePanel?.QueueFree(); _defensePanel = null; _defenseEnded = false;
         ResetDefenseSample(); _defenseSampleElapsed = 0; _defenseSlowWindows = 0; _renderer.Effects.DetailScale = 1;
-        if (snapshot.Defense == null || _tutorial?.Chapter == TutorialChapter.Inventory) return;
+        if (snapshot.Defense == null || _tutorial?.Chapter is TutorialChapter.Survival or TutorialChapter.Inventory) return;
         _defensePanel = new DefensePanel(); _ui.AddChild(_defensePanel);
         _defensePanel.Build(this, Submit);
         _defensePanel.OpenChanged += () =>

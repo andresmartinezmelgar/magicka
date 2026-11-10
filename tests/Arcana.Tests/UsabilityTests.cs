@@ -31,6 +31,18 @@ internal static class UsabilityTests
             var c = a with { Id = Guid.NewGuid().ToString("N"), Bonuses = [new(EquipmentStat.Defense, 0, .2f, .1f)] };
             Check(EquipmentQuery.Sort([a, c, b], EquipmentStat.FirePower).Select(i => i.Id).SequenceEqual(new[] { b.Id, a.Id, c.Id }), "El orden depende de la calidad o mezcla ausencias y penalizaciones.");
         });
+        test("Comparación de inventario: cambios efectivos y afijos arcanos al principio", () =>
+        {
+            var before = new EquipmentSummary(EquipmentModifiers.None with { ArcaneMark = 1, Icebreaker = 1 },
+                [new(EquipmentStat.Power, .2f, 0, .2f), new(EquipmentStat.ArcanePower, .1f, 0, .1f)]);
+            var after = new EquipmentSummary(EquipmentModifiers.None with { ArcaneEcho = 2, Icebreaker = 1 },
+                [new(EquipmentStat.Power, .1f, 0, .1f), new(EquipmentStat.ArcanePower, .25f, 0, .25f)]);
+            string comparison = new EquipmentPreview(before, after).Describe(inventoryComparison: true, prioritizeArcane: true);
+            Check(comparison.StartsWith("Ganas efecto · Eco arcano", StringComparison.Ordinal) &&
+                comparison.Contains("Pierdes efecto · Marca arcana", StringComparison.Ordinal) &&
+                comparison.Contains("+15 pp", StringComparison.Ordinal) && comparison.Contains("-10 pp", StringComparison.Ordinal) &&
+                !comparison.Contains("Quebrantahielo", StringComparison.Ordinal), "La comparación no separa ganancias, pérdidas y efectos conservados.");
+        });
         test("Favoritos y equipos: se persisten, excluyen ventas duplicadas y validan todas las posiciones", () =>
         {
             var a = Item(EquipmentSlot.Boots, EquipmentFamily.Fire, .1f); var b = Item(EquipmentSlot.Hat, EquipmentFamily.Fire, .1f);

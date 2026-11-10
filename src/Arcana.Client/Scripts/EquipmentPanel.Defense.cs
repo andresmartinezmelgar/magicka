@@ -75,7 +75,7 @@ public partial class EquipmentPanel
         UpdateProgressStats();
         SyncDefensePreferences();
         string stamp = player.Gold + ":" + CanChangeDefenseItems + ":" + _defensePreferenceRevision + ":" +
-            player.EquipmentSetup.Enabled + ":" + string.Join(",", player.ManualEquipmentSlots) + ":" +
+            player.EquipmentSetup.Enabled + ":" + player.EquipmentSetup.Element + ":" + string.Join(",", player.ManualEquipmentSlots) + ":" +
             string.Join('|', player.Items.Select(i => $"{i.Item.Id}:{i.Upgrades}:{i.Equipped}"));
         if (stamp != _defenseInventoryStamp)
         {

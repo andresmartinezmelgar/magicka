@@ -17,6 +17,8 @@ public sealed partial class GameWorld
         public double Elapsed;
         public float SpawnClock, AuraClock, BossClock, SurgeTime, SurgeCooldown, SurgeClock, BotClock;
         public float OracleSpawnCooldown;
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public float ColossusMomentumRemaining;
         public float PrismSpawnCooldown = DefenseRules.PrismMinimumSpawnGap;
         public int Reinforcements;
         public SavedDefender[] Defenders = [];
@@ -102,6 +104,7 @@ public sealed partial class GameWorld
             RandomState = ((SurvivalRandom)_random).State, Kills = _defenseKills, Bosses = _bossesKilled,
             Elapsed = _defenseElapsed, PartySize = _defensePartySize, SpawnClock = _spawnClock, AuraClock = _auraClock,
             OracleSpawnCooldown = _oracleSpawnCooldown, PrismSpawnCooldown = _prismSpawnCooldown,
+            ColossusMomentumRemaining = _colossusMomentumRemaining,
             BossClock = _bossClock, SurgeTime = _commanderSurgeTime, SurgeCooldown = _commanderSurgeCooldown,
             SurgeClock = _commanderSpawnClock, Reinforcements = _commanderReinforcements, BotClock = _defenseBotPlanClock,
             Defenders = _players.Values.Select(p =>
@@ -162,6 +165,7 @@ public sealed partial class GameWorld
         world._defensePartySize = s.PartySize; world._defenseKills = s.Kills; world._bossesKilled = s.Bosses;
         world._spawnClock = s.SpawnClock; world._auraClock = s.AuraClock; world._bossClock = s.BossClock;
         world._oracleSpawnCooldown = s.OracleSpawnCooldown;
+        world._colossusMomentumRemaining = s.ColossusMomentumRemaining;
         world._prismSpawnCooldown = s.PrismSpawnCooldown;
         world._commanderSurgeTime = s.SurgeTime; world._commanderSurgeCooldown = s.SurgeCooldown;
         world._commanderSpawnClock = s.SurgeClock; world._commanderReinforcements = s.Reinforcements;
@@ -274,6 +278,7 @@ public sealed partial class GameWorld
             new[] { s.SpawnClock, s.AuraClock, s.BossClock, s.SurgeTime, s.SurgeCooldown, s.SurgeClock, s.BotClock }.All(float.IsFinite));
         Require(float.IsFinite(s.OracleSpawnCooldown) && s.OracleSpawnCooldown >= 0 &&
             s.OracleSpawnCooldown <= DefenseRules.OracleMinimumSpawnGap + DefenseRules.OracleSpawnGapVariation);
+        Require(float.IsFinite(s.ColossusMomentumRemaining) && s.ColossusMomentumRemaining is >= 0 and <= DefenseRules.ColossusMomentumDuration);
         Require(float.IsFinite(s.PrismSpawnCooldown) && s.PrismSpawnCooldown >= 0 &&
             s.PrismSpawnCooldown <= DefenseRules.PrismMinimumSpawnGap + DefenseRules.PrismSpawnGapVariation);
         s.Statistics?.Validate();

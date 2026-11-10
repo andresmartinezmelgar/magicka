@@ -20,6 +20,7 @@ public partial class Main
         string water = ElementControl(Element.Water), lightning = ElementControl(Element.Lightning);
         string wetBonus = SpellBalance.WetLightning.ToString("0.##", CultureInfo.GetCultureInfo("es-ES"));
         V2? TargetMarker() => target is { Alive: true } ? target.Position : null;
+        V2? FirstWaveMarker() => scenario.Target is { Alive: true } enemy ? enemy.Position : null;
         bool AimedAtTarget()
         {
             if (Ui.IsMobile && _touch?.Aiming != true) return false;
@@ -91,10 +92,16 @@ public partial class Main
             ],
             TutorialChapter.Survival =>
             [
-                new("Supervivencia", "Coopera con aliados o juega solo. Los enemigos llegan continuamente y aparecen colosos. Tienes dos vidas. El oro, el equipo temporal y las mejoras se conservan al perder la primera."),
-                new("Resiste el primer encuentro", $"Busca al enemigo y derrótalo. {cast} En una partida normal, camina sobre el botín para recogerlo.",
-                    s => s.Defense?.TotalKills > 0, TargetMarker),
-                new("Mejoras de la partida", "En «Equipo / tienda» puedes ver el equipo temporal y comprar auras y habilidades. En solitario se pausa el combate mientras consultas la tienda. Las piezas temporales pertenecen a esa partida. En el siguiente capítulo las probarás.")
+                new("Primer encuentro", "Practica tres acciones con un enemigo de Supervivencia. La horda completa llega al iniciar una partida normal."),
+                new("Ataca", $"Selecciona {ElementControl(Element.Fire)}. {cast} Alcanza al enemigo marcado.",
+                    _ => scenario.Target is { } enemy && enemy.Health < enemy.MaxHealth, FirstWaveMarker),
+                new("Frena al enemigo", $"Selecciona {ElementControl(Element.Cold)}. {cast} Frío ralentiza al enemigo y puede congelarlo si mantienes el chorro.",
+                    _ => scenario.Target is { } enemy && (enemy.Chill > 0 || enemy.Frozen > 0), FirstWaveMarker, scenario.PrepareFirstWave),
+                new("Protégete", $"Selecciona {shield}. {self} Deja que el enemigo se acerque y golpee tu escudo.",
+                    _ => player.Shield > 0 && player.Shield < player.ShieldMax, FirstWaveMarker, scenario.PrepareFirstWave),
+                new("Derrota al enemigo", $"Combina lo aprendido para terminar la primera oleada. {cast}",
+                    _ => scenario.Target is { Alive: false }, FirstWaveMarker),
+                new("Oleada superada", "En Supervivencia tienes dos vidas. Pasa por encima del botín para recogerlo y abre «Equipo / tienda» para mejorar. En Ayuda tienes la guía de elementos y el Laboratorio para probar mezclas.")
             ],
             TutorialChapter.Inventory =>
             [

@@ -139,7 +139,7 @@ public partial class CombatEffects : Node3D
     private Vector3 Direction() => new Vector3((float)_random.NextDouble() * 2 - 1,
         0.3f + (float)_random.NextDouble(), (float)_random.NextDouble() * 2 - 1).Normalized();
 
-    public void Play(GameEvent e)
+    public void Play(GameEvent e, float density = 1)
     {
         if (e.Kind == "passive_chain") { _chainFrom = e.Position; _chainLinks = 0; return; }
         if (e.Kind is not ("cast" or "self" or "nova" or "impact" or "explosion" or "death" or "blink" or
@@ -147,7 +147,7 @@ public partial class CombatEffects : Node3D
         SeenKinds.Add(e.Kind);
         if (e.Kind == "explosion" && e.Text is "Meteoro" or "Meteorito")
         {
-            SeenCharges.Add(e.Text == "Meteoro" ? 3 : 2); MeteorImpact(e); return;
+            SeenCharges.Add(e.Text == "Meteoro" ? 3 : 2); MeteorImpact(e, density); return;
         }
         if (e.Kind == "hurt" && e.Text == "Relámpago") { SeenCharges.Add(1); ChainHit(e.Position); return; }
         // Golpes continuos y efectos de estado conservan una respuesta breve, sin multiplicar destellos.
@@ -158,7 +158,7 @@ public partial class CombatEffects : Node3D
         bool fire = e.Elements.Contains(Element.Fire), ice = e.Elements.Contains(Element.Cold);
         Color color = e.Kind == "mine_heal" ? Ui.Health : shield ? Ui.Shield : e.Kind is "blink" or "blink_arrive" ? Ui.Energy : Ui.SpellColor(e.Elements);
         int basis = e.Kind switch { "explosion" => 12, "nova" => 10, "shield_break" => 14, "death" => 14, "impact" => 6, "hurt" => 3, _ => 4 };
-        int count = (int)MathF.Round(basis * strength.BurstDensity);
+        int count = Math.Max(1, (int)MathF.Round(basis * strength.BurstDensity * density));
         float speed = e.Kind is "explosion" or "nova" or "shield_break" ? 3.6f : 2.1f;
         bool stone = !shield && e.Elements.Contains(Element.Earth);
         var imbuements = stone ? StoneVisuals.Imbuements(e.Elements) : [];
@@ -190,16 +190,16 @@ public partial class CombatEffects : Node3D
             Ring(e.Position, color, 0.4f, shield ? 1.6f : 0.7f + strength.Charges * 0.15f, 0.32f);
     }
 
-    private void MeteorImpact(GameEvent e)
+    private void MeteorImpact(GameEvent e, float density)
     {
         bool passive = e.Text == "Meteorito";
         var origin = ArenaRenderer.World(e.Position, 0.25f);
-        for (int i = 0; i < (passive ? 8 : 10); i++)
+        for (int i = 0; i < (passive ? 8 : 10) * density; i++)
             Emit(origin, StoneVisuals.ChipColor(i), Direction() * 4.3f, 0.65f, 3, 0.19f, 7);
-        for (int i = 0; i < (passive ? 10 : 14); i++)
+        for (int i = 0; i < (passive ? 10 : 14) * density; i++)
             Emit(origin, i % 3 == 0 ? new("ffe1a3") : Ui.ElementColor(Element.Fire),
                 Direction() * 4.8f, 0.48f, 2, 0.14f, 3);
-        for (int i = 0; i < (passive ? 4 : 6); i++)
+        for (int i = 0; i < (passive ? 4 : 6) * density; i++)
             Emit(origin + Direction() * 0.5f, new Color(0.22f, 0.18f, 0.15f, 0.3f),
                 Vector3.Up * 1.2f + Direction() * 0.5f, 0.85f, 0, 0.48f, -0.2f);
         float radius = e.Radius > 0 ? e.Radius : 4;

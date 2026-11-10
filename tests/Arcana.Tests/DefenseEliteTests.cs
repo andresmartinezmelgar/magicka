@@ -109,6 +109,44 @@ internal static class DefenseEliteTests
             Call(w, "UpdateDefenseEnemyDefense", sentinelState, 0f); Call(w, "TickOracleShield", oracle, 4f);
             Check(sentinel.Shield == 280 && sentinel.Ward.SequenceEqual(new[] { Element.Earth }), "El apoyo sustituyó la protección propia del guardián.");
         });
+        test("Coloso: las fisuras se anuncian, se interrumpen y no duplican el daño", () =>
+        {
+            var (w, p) = World(); p.Position = new(-1.6f, 0);
+            var ally = w.AddPlayer("Aliado IA", bot: true)!;
+            ally.Position = new(1.6f, 0); ally.Invulnerable = 0;
+            var (boss, runtime) = Spawn(w, MinionKind.Boss, new(0, 4));
+            Set(w, "_bossClock", 150f);
+            bool BeginFissures() => (bool)Call(w, "TryBeginColossusFissures", runtime, p)!;
+            FieldSnapshot[] Fissures(GameWorld world) => world.Snapshot().Fields.Where(f => f.Kind == DefenseRules.ColossusFissureKind).ToArray();
+
+            Check(!BeginFissures(), "El Coloso abrió fisuras en la primera fase.");
+            boss.Health = boss.MaxHealth * .5f;
+            Check(BeginFissures() && Fissures(w).Length == 2, "Faltan los avisos bajo los dos defensores.");
+            SnapshotValidation.Check(w.Snapshot());
+            var resumed = GameWorld.RestoreSurvival(w.SaveSurvival(p.Id, Guid.NewGuid().ToString("N")));
+            Check(Fissures(resumed).Select(f => f.Position).SequenceEqual(Fissures(w).Select(f => f.Position)), "Se perdieron los avisos al cargar.");
+
+            p.Position = V2.Zero; ally.Position = new(8, 0);
+            float before = p.Health, allyBefore = ally.Health;
+            float hit = 210 * (float)Call(w, "DamagePower", boss.Id)!;
+            Call(w, "TickWallsAndFields", DefenseRules.ColossusFissureWindup - .02f);
+            Check(p.Health == before, "Las fisuras golpearon antes del aviso.");
+            Call(w, "TickWallsAndFields", .04f);
+            Check(Math.Abs(p.Health - (before - hit)) < .01f && ally.Health == allyBefore,
+                "Un solape duplicó el daño o se golpeó a un defensor fuera de las fisuras.");
+
+            Check(!BeginFissures() && BeginFissures(), "Las fisuras no alternan con el pisotón.");
+            boss.Frozen = 1; before = p.Health;
+            Call(w, "HoldColossusFissures", runtime);
+            Call(w, "TickWallsAndFields", .04f);
+            Check(p.Health == before && Fissures(w).Length == 0, "La congelación dejó un impacto pendiente.");
+            Call(w, "Damage", boss, 100000f, p.Id, new[] { Element.Fire });
+            var defense = w.Snapshot().Defense!;
+            Check(defense.ColossusMomentumSeconds == DefenseRules.ColossusMomentumDuration &&
+                defense.Defenders.All(d => d.DamageMultiplier == DefenseRules.ColossusMomentumPower), "El premio no llegó a todo el equipo.");
+            resumed = GameWorld.RestoreSurvival(w.SaveSurvival(p.Id, Guid.NewGuid().ToString("N")));
+            Check(resumed.Snapshot().Defense!.ColossusMomentumSeconds == defense.ColossusMomentumSeconds, "El premio se perdió al cargar.");
+        });
         test("Fijación: el prisma mantiene un defensor, rota entre humanos y bots y abandona víctimas caídas", () =>
         {
             var (w, p) = World(); p.Position = new(-25, 0);

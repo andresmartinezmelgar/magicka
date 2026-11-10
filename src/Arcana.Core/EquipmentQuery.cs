@@ -40,17 +40,27 @@ public static class EquipmentQuery
 
 public sealed record EquipmentPreview(EquipmentSummary Before, EquipmentSummary After)
 {
-    public string Describe()
+    public string Describe(bool inventoryComparison = false, bool prioritizeArcane = false)
     {
         var lines = new List<string>();
-        foreach (var next in After.Stats)
+        var oldEffects = ItemAffixes.Effects(Before.Modifiers);
+        var newEffects = ItemAffixes.Effects(After.Modifiers);
+        if (inventoryComparison && prioritizeArcane) AddEffectChanges(arcane: true);
+        var stats = prioritizeArcane ? After.Stats.OrderByDescending(s => s.Stat is EquipmentStat.ArcanePower or EquipmentStat.BeamChargeSpeed)
+            : After.Stats.AsEnumerable();
+        foreach (var next in stats)
         {
             var old = Before.Stats.Single(s => s.Stat == next.Stat);
             float delta = MathF.Round(next.Effective - old.Effective, 4);
             if (MathF.Abs(next.Sum - old.Sum) < .00001f && delta == 0) continue;
-            lines.Add(EquipmentCatalogue.Percent(old.Effective) + " → " + EquipmentCatalogue.Percent(next.Effective) + " · " +
-                EquipmentCatalogue.StatName(next.Stat) + " (" + EquipmentCatalogue.Percent(delta) + ")" +
-                (next.Limited ? " · límite aplicado" : ""));
+            string values = EquipmentCatalogue.Percent(old.Effective) + " → " + EquipmentCatalogue.Percent(next.Effective);
+            string name = EquipmentCatalogue.StatName(next.Stat);
+            string limit = next.Limited ? " · límite aplicado" : "";
+            string change = delta > 0 ? "Ganas " : delta < 0 ? "Pierdes " : "Sin cambio efectivo en ";
+            string points = delta == 0 ? "" : EquipmentCatalogue.Percent(delta).TrimEnd('%') + " pp · ";
+            lines.Add(inventoryComparison
+                ? change + name + " · " + points + values + limit
+                : values + " · " + name + " (" + EquipmentCatalogue.Percent(delta) + ")" + limit);
         }
         foreach (var family in EquipmentCatalogue.FocusedFamilies)
         {
@@ -59,9 +69,24 @@ public sealed record EquipmentPreview(EquipmentSummary Before, EquipmentSummary 
             lines.Add("Conjunto " + EquipmentCatalogue.FamilyName(family) + $": {old}/4 → {next}/4 · " +
                 (next >= 4 ? "bono de 4" : next >= 2 ? "bono de 2" : "bono perdido"));
         }
-        string beforeEffects = ItemAffixes.Summary(Before.Modifiers), afterEffects = ItemAffixes.Summary(After.Modifiers);
-        if (beforeEffects != afterEffects)
-            lines.Add("Efectos especiales al equipar:\n" + (afterEffects.Length == 0 ? "Ninguno." : afterEffects));
+        if (inventoryComparison) AddEffectChanges(arcane: prioritizeArcane ? false : null);
+        else
+        {
+            string beforeEffects = string.Join('\n', oldEffects.Select(effect => effect.Description));
+            string afterEffects = string.Join('\n', newEffects.Select(effect => effect.Description));
+            if (beforeEffects != afterEffects)
+                lines.Add("Efectos especiales al equipar:\n" + (afterEffects.Length == 0 ? "Ninguno." : afterEffects));
+        }
         return lines.Count == 0 ? "Sin cambios en los atributos efectivos del equipo." : string.Join('\n', lines);
+
+        void AddEffectChanges(bool? arcane)
+        {
+            foreach (var next in newEffects.Except(oldEffects))
+                if (arcane == null || next.Arcane == arcane)
+                    lines.Add("Ganas efecto · " + next.Name + " · " + next.Description);
+            foreach (var old in oldEffects.Except(newEffects))
+                if (arcane == null || old.Arcane == arcane)
+                    lines.Add("Pierdes efecto · " + old.Name + " · " + old.Description);
+        }
     }
 }

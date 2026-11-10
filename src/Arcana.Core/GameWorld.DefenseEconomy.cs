@@ -374,6 +374,7 @@ public sealed partial class GameWorld
                         ManualEquipmentSlots = p.Bot ? [] : s.ManualEquipmentSlots.Order().ToArray(), BotInventoryAvailable = p.Bot };
             }).ToArray(), DefensePaused, _players.Values.Count(p => !p.Bot))
             { Bestiary = _defenseBestiary.Values.OrderBy(e => e.Kind).ToArray(), NextBossIn = _bossClock, BossesKilled = _bossesKilled,
+                ColossusMomentumSeconds = (int)Math.Ceiling(_colossusMomentumRemaining),
                 MinionLimit = DefenseMinionLimit, PerformanceLimit = DefensePerformanceLimit };
     }
 }

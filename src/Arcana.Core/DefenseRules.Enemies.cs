@@ -2,6 +2,9 @@ namespace Arcana.Core;
 
 public static partial class DefenseRules
 {
+    public const string ColossusFissureKind = "colossus_fissure";
+    public const float ColossusFissureHealth = 0.55f, ColossusFissureRadius = 2.7f, ColossusFissureWindup = 1.65f;
+    public const float ColossusMomentumDuration = 75, ColossusMomentumPower = 1.2f;
     public const float EnemyRockPower = 0.7f, EnemySprayDuration = 0.9f, EnemyChannelDuration = 1.2f;
     public const float SentinelShield = 280, SentinelShieldDuration = 7, SentinelShieldCooldown = 16;
     public const int CaptainReinforcements = 84;

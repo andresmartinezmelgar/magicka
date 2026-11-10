@@ -105,6 +105,9 @@ public partial class Launcher : Control
         _practiceMode.AddItem("Todos contra todos", (int)GameMode.Arena);
         _practiceMode.AddItem("Duelo", (int)GameMode.Duel);
         _practiceMode.AddItem("Supervivencia", (int)GameMode.Defense); practice.AddChild(_practiceMode);
+        var firstWave = Ui.Button("Primera oleada guiada", _main.OpenFirstWaveTutorial);
+        firstWave.Name = "PracticeFirstWaveTutorial";
+        practice.AddChild(firstWave);
         practice.AddChild(Ui.Label("Mapa", 14, Ui.Muted));
         _practiceMap = new ScrollOptionButton { Name = "PracticeMapChoice", CustomMinimumSize = new(0, 42) };
         foreach (var map in Enum.GetValues<ArenaMapId>()) _practiceMap.AddItem(ArenaMap.Get(map).Name + (map == ArenaMapId.Citadel ? " · 4×" : ""), (int)map);
@@ -127,6 +130,7 @@ public partial class Launcher : Control
                 _practiceMode.SetItemDisabled(i, map.Id != ArenaMapId.Bastion && choice != GameMode.Defense && !map.SupportsMode(choice));
             }
             if (!map.SupportsMode((GameMode)_practiceMode.GetSelectedId())) _practiceMode.Select(_practiceMode.GetItemIndex((int)GameMode.Warfare));
+            firstWave.Visible = (GameMode)_practiceMode.GetSelectedId() == GameMode.Defense;
             practiceObjective.Text = MatchRules.Objective((GameMode)_practiceMode.GetSelectedId(),
                 (GameMode)_practiceMode.GetSelectedId() == GameMode.Duel ? 5 : 15, 75, map.Id);
         }
