@@ -104,8 +104,9 @@ public partial class Main
                     var magicks = ((Control)_touch.FindChild("TouchMagick0", true, false)).GetGlobalRect();
                     Check(magicks.Position.Y - selected.End.Y is >= 0 and <= 20,
                         "Los elementos seleccionados no están pegados a los hechizos especiales.");
-                    Check(rectangles.Length == 17 && !_touch.FindChildren("*", "Control", true, false).OfType<ElementTextLabel>().Any(l => l.Text is "Bastón" or "Vaciar"),
-                        "Siguen presentes los botones retirados.");
+                    Check(rectangles.Length == 18 && _touch.FindChild("TouchSpellRecommendation", true, false) is Control &&
+                        !_touch.FindChildren("*", "Control", true, false).OfType<ElementTextLabel>().Any(l => l.Text is "Bastón" or "Vaciar"),
+                        "Falta el botón de hechizo sugerido o siguen presentes controles retirados.");
                     foreach (string name in new[] { "TouchSelf", "TouchNova" })
                     {
                         var action = ((Control)_touch.FindChild(name, true, false)).GetGlobalRect();

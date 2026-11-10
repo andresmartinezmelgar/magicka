@@ -47,11 +47,14 @@ public partial class MobileControls
             // Escalar el panel entero conserva su mínimo real, iconos, texto y área pulsable.
             action.Panel.Scale = Vector2.One * ControlScale;
             action.Panel.Size = size;
-            if (_magicks.Contains(action)) FitMagickCaption(action);
+            if (_magicks.Contains(action) || action == _recommendationButton) FitActionCaption(action);
             Add(action.Panel.Name, center, action.Panel.Size * ControlScale);
         }
         for (int i = 0; i < _utilities.Count; i++) Button(_utilities[i], new(width - (382 - i * 124) * s, 22 * s), new(118, 62));
-        for (int i = 0; i < 8; i++) Button(_actions[i], new(width - (246 - i % 2 * 116) * s, height - (572 - i / 2 * 80) * s), new(108, 72));
+        float lift = _recommendationButton == null ? 0 : 26;
+        for (int i = 0; i < 8; i++) Button(_actions[i], new(width - (246 - i % 2 * 116) * s, height - (572 + lift - i / 2 * 80) * s), new(108, 72));
+        if (_recommendationButton is { } recommendation)
+            Button(recommendation, new(width - 246 * s, height - 273 * s), new(224, 52));
         Button(_self, new(width - 382 * s, height - 452 * s), new(120, 62));
         Button(_nova, new(width - 382 * s, height - 382 * s), new(120, 62));
         for (int i = 0; i < _magicks.Count; i++) Button(_magicks[i], new(width / 2 - (244 - i * 124) * s, height - 90 * s), new(120, 72));

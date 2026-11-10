@@ -12,6 +12,10 @@ public partial class MobileControls : Control
     private readonly List<TouchAction> _magicks = [];
     private readonly List<TouchAction> _utilities = [];
     private TouchAction _self = null!, _nova = null!;
+    private TouchAction? _recommendationButton;
+    private SpellSuggestion? _recommendation;
+    private long _lastRecommendationTick = -1;
+    private bool _recommendationPrepared;
     private int _moveFinger = -1, _aimFinger = -1;
     private Vector2 _move, _aim = Vector2.Right, _aimKnob;
     private Vector2 _moveCenter, _moveHome, _moveOrigin, _aimCenter;
@@ -26,6 +30,7 @@ public partial class MobileControls : Control
     private float _magickAimAmount = 1;
     public TouchSettings Settings { get; private set; } = new();
     public bool EditorMode { get; set; }
+    internal bool ShowSpellRecommendation { get; init; } = true;
     private string _editingControl = "";
     private int _editFinger = -1;
     private Vector2 _editOffset;
@@ -60,6 +65,12 @@ public partial class MobileControls : Control
             var action = AddButton(Ui.ElementName(element), new() { Type = "element", Element = element }, color: Ui.ElementColor(element), element: element);
             action.Panel.Name = "TouchElement" + element;
             action.Text.AddThemeFontSizeOverride("font_size", 22);
+        }
+        if (ShowSpellRecommendation)
+        {
+            _recommendationButton = AddButton("Sugerido", run: PrepareRecommendedSpell, color: Ui.Gold);
+            _recommendationButton.Panel.Name = "TouchSpellRecommendation";
+            _recommendationButton.Text.ClipText = true;
         }
         _self = AddButton("Sobre mí", new() { Type = "self" }, color: Ui.Health); _self.Panel.Name = "TouchSelf";
         _nova = AddButton("En área", new() { Type = "nova" }, color: Ui.Gold); _nova.Panel.Name = "TouchNova";
@@ -105,13 +116,18 @@ public partial class MobileControls : Control
         _aimedProjectile = null; _rockChargeObserved = false;
         CancelMagickAim();
         _selected.Reset();
+        _lastRecommendationTick = -1;
+        _recommendationPrepared = false;
+        ShowRecommendation(null);
         foreach (var action in _pressed.Values) action.Panel.Modulate = Colors.White;
         _pressed.Clear(); QueueRedraw();
     }
     public void Update(WizardSnapshot? player, WorldSnapshot? world = null)
     {
+        UpdateRecommendation(player, world);
         if (player == null) return;
         _selected.Confirm(player.Selected, player.SelectionSequence);
+        if (!_selected.Pending && _selected.Elements.Count == 0) _recommendationPrepared = false;
         if (_aimedProjectile != null && _aimedSpellShape == SpellShape.Rock)
         {
             bool charging = player.Casting && player.CastingElements?.Contains(Element.Earth) == true;
@@ -132,13 +148,57 @@ public partial class MobileControls : Control
             if (_magicks[i].Text.Text != caption)
             {
                 _magicks[i].Text.Text = caption;
-                FitMagickCaption(_magicks[i]);
+                FitActionCaption(_magicks[i]);
             }
             _magicks[i].Text.AddThemeColorOverride("font_color", available ? Ui.Gold : Ui.Muted);
         }
     }
 
-    private static void FitMagickCaption(TouchAction action)
+    private void UpdateRecommendation(WizardSnapshot? player, WorldSnapshot? world)
+    {
+        if (_recommendationButton == null || EditorMode) return;
+        if (world == null || player == null || !SpellRecommendations.Available(world, player))
+        {
+            _lastRecommendationTick = -1;
+            if (_recommendation != null) ShowRecommendation(null);
+            return;
+        }
+        if (_lastRecommendationTick >= 0 && world.Tick >= _lastRecommendationTick && world.Tick - _lastRecommendationTick < 12) return;
+        _lastRecommendationTick = world.Tick;
+        var recommendation = SpellRecommendations.Choose(world, player);
+        if (recommendation != _recommendation) ShowRecommendation(recommendation);
+    }
+
+    private void ShowRecommendation(SpellSuggestion? recommendation)
+    {
+        _recommendation = recommendation;
+        if (_recommendationButton is not { } button || EditorMode) return;
+        string caption = "Sugerido";
+        if (recommendation is { } choice)
+        {
+            string mode = choice.Mode == CastMode.Self ? "Sobre mí" : "Frontal";
+            string elements = string.Join(" + ", choice.Spell.Elements.GroupBy(e => e).Select(group =>
+                Ui.ElementName(group.Key) + (group.Count() > 1 ? $" ×{group.Count()}" : "")));
+            caption += " · " + mode + "\n" + elements;
+        }
+        button.Text.Text = caption;
+        button.Text.AddThemeColorOverride("font_color", recommendation.HasValue ? Ui.Gold : Ui.Muted);
+        FitActionCaption(button);
+    }
+
+    private void PrepareRecommendedSpell()
+    {
+        if (_directionalAimPending || (_aimFinger >= 0 && _pendingMagick >= 0) || _recommendation is not { } choice) return;
+        CancelMagickAim();
+        if (!_selected.Elements.SequenceEqual(choice.Spell.Elements))
+        {
+            Request(new() { Type = "clear" });
+            foreach (var element in choice.Spell.Elements) Request(new() { Type = "element", Element = element });
+        }
+        _recommendationPrepared = true;
+    }
+
+    private static void FitActionCaption(TouchAction action)
     {
         var available = action.Panel.Size - action.Panel.GetThemeStylebox("panel").GetMinimumSize();
         if (available.X <= 0 || available.Y <= 0) return;
@@ -216,7 +276,11 @@ public partial class MobileControls : Control
         {
             _pressed[finger] = action; action.Panel.Modulate = new Color(1.2f, 1.2f, 1.2f);
             if (action.Message != null)
+            {
+                // El primer elemento manual vuelve a empezar aunque la sugerencia ocupe las tres cargas.
+                if (action.Message.Type == "element" && _recommendationPrepared) Request(new() { Type = "clear" });
                 Request(new() { Type = action.Message.Type, Element = action.Message.Element, Slot = action.Message.Slot });
+            }
             action.Run?.Invoke(); return true;
         }
         if (_hudAreas.Any(area => area.Bounds.HasPoint(point + GlobalPosition)) ||
@@ -280,6 +344,7 @@ public partial class MobileControls : Control
             CancelMagickAim();
         }
         bool selectionAction = message.Type is "element" or "clear" or "cast" or "self" or "nova";
+        if (message.Type is "element" or "clear") _recommendationPrepared = false;
         if (selectionAction) _selected.Predict(message);
         ActionRequested?.Invoke(message);
         // Submit asigna la secuencia de la conexión o de la partida local.

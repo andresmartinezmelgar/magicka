@@ -73,7 +73,7 @@ public partial class Main
     {
         _touch?.Reset(); _touch?.QueueFree(); _touch = null;
         if (!Ui.IsMobile) return;
-        _touch = new MobileControls(); _ui.AddChild(_touch);
+        _touch = new MobileControls { ShowSpellRecommendation = !TutorialActive }; _ui.AddChild(_touch);
         _touchSettings ??= (DevicePreferences.Read<TouchSettings>("touch-controls") ?? new()).Normalize();
         _touch.Configure(_touchSettings);
         _touch.PointerBlocked = point => _hud?.RewardNoticeContains(point) == true ||
@@ -83,6 +83,7 @@ public partial class Main
         _touch.ActionRequested += message =>
         {
             if (!_playing || TutorialHoldsCombat || _paused || _help.Visible || InspectingEquipment || ControlsOpen || ViewingDamageSummary || DefenseInterfaceOpen || _waitingPanel?.Visible == true) return;
+            if (message.Type is "element" or "clear") { Submit(message); return; }
             UpdateTouchAim();
             if (message.Type == "magick") UseMagick(message.Slot);
             else { Submit(InputMessage()); Submit(message); }

@@ -69,5 +69,32 @@ internal static class UsabilityTests
             var copy = settings.Normalize(); copy.Positions["TouchSelf"] = new(.5f, .5f);
             Check(settings.Positions["TouchSelf"] == new TouchPosition(0, 1), "Cancelar la edición altera las posiciones anteriores.");
         });
+        test("Hechizo sugerido: curación, avisos, grupos, Mojado y vulnerabilidad", () =>
+        {
+            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy });
+            var body = world.AddPlayer("Mago de prueba")!;
+            body.Position = V2.Zero;
+            var state = world.Snapshot();
+            var mage = state.Players.Single();
+            var enemy = new MinionSnapshot(1000, MinionKind.Melee, new(8, 0), new(-1, 0), 300, 300,
+                0, 0, 0, 0, false, [], false);
+            WorldSnapshot WithEnemies(params MinionSnapshot[] minions) => state with { Defense = state.Defense! with { Minions = minions } };
+            SpellSuggestion Choose(WorldSnapshot snapshot, WizardSnapshot player) => SpellRecommendations.Choose(snapshot, player)!.Value;
+
+            var heal = Choose(state, mage with { Health = 300 });
+            Check(heal.Mode == CastMode.Self && heal.Spell.Count(Element.Life) == 3, "Falta la curación al caer la vida.");
+            var danger = state with { Fields = [new(1, 1001, mage.Position, 3, 1, [Element.Arcane], "oracle_bombardment")] };
+            var guard = Choose(danger, mage with { Health = 300 });
+            Check(guard.Mode == CastMode.Self && guard.Spell.Has(Element.Shield) && guard.Spell.Has(Element.Earth),
+                "Se ignora el área de un ataque inminente.");
+            var wet = WithEnemies(enemy with { Wet = 2 });
+            Check(Choose(wet, mage).Spell.Has(Element.Lightning) && !Choose(wet, mage with { Wet = 2 }).Spell.Has(Element.Lightning),
+                "Se ignora Mojado en el objetivo o se recomienda Rayo al lanzador mojado.");
+            var prism = enemy with { Kind = MinionKind.Prism, VulnerableElement = Element.Cold };
+            Check(SpellBalance.Component(Choose(WithEnemies(prism), mage).Spell, Element.Cold) > 0, "La mezcla no daña a un Prisma de Frío.");
+            var group = WithEnemies(enemy, enemy with { Id = 1001, Position = new(8, -1) }, enemy with { Id = 1002, Position = new(8, 1) });
+            Check(Choose(group, mage).Spell is { Shape: SpellShape.Rock, SplashRadius: > 0 }, "Falta el daño de área para un grupo.");
+            Check(SpellRecommendations.Choose(state, mage with { Frozen = 1 }) == null, "Se ofrece un lanzamiento estando congelado.");
+        });
     }
 }
