@@ -42,18 +42,46 @@ public partial class Main
             long sequence = 0;
             controls.ActionRequested += message => { message.Sequence = ++sequence; world.ApplyMessage(player.Id, message); };
             messages.Clear();
-            var suggested = ((Control)controls.FindChild("TouchSpellRecommendation", true, false)).GetGlobalRect();
-            controls.Touch(11, suggested.GetCenter(), true);
-            controls.Touch(11, suggested.GetCenter(), false);
+            void Tap(string name)
+            {
+                var center = ((Control)controls.FindChild(name, true, false)).GetGlobalRect().GetCenter();
+                controls.Touch(11, center, true); controls.Touch(11, center, false);
+            }
+            Tap("TouchSpellDefense");
             Check(messages.SequenceEqual(new[] { "clear", "element", "element", "element" }) && player.Health == 300 &&
-                player.Selection.Elements.SequenceEqual(new[] { Element.Life, Element.Life, Element.Life }),
-                "El botón sugerido no reemplaza la mezcla, o la lanza automáticamente.");
-            var manual = ((Control)controls.FindChild("TouchElementFire", true, false)).GetGlobalRect();
-            controls.Touch(12, manual.GetCenter(), true);
-            controls.Touch(12, manual.GetCenter(), false);
-            Check(player.Selection.Elements.SequenceEqual(new[] { Element.Fire }), "La sugerencia bloquea la selección manual.");
+                player.Shield == 0 && player.Selection.Elements.SequenceEqual(new[] { Element.Shield, Element.Earth, Element.Life }),
+                "Defensa no prepara un escudo regenerativo, o lo lanza automáticamente.");
+            player.Shield = player.ShieldMax = 420; player.ShieldTime = 12;
+            snapshot = world.Snapshot(); controls.Update(snapshot.Players.Single(), snapshot);
+            Tap("TouchSpellDefense");
+            Check(player.Selection.Elements.SequenceEqual(new[] { Element.Life, Element.Life, Element.Life }), "Defensa no cambia a Vida con escudo activo.");
+
+            Element[] favorite = [Element.Fire, Element.Fire, Element.Lightning];
+            controls.ConfigureSpellShortcuts(new() { Attack = new() { Automatic = false, Elements = favorite } });
+            snapshot = world.Snapshot(); controls.Update(snapshot.Players.Single(), snapshot);
+            Tap("TouchSpellAttack");
+            Check(controls.AttackShortcutPrepared && player.Selection.Elements.SequenceEqual(favorite), "Ataque no cargó la mezcla guardada.");
+            Tap("TouchElementFire");
+            Check(player.Selection.Elements.SequenceEqual(new[] { Element.Fire }), "El acceso bloquea la selección manual.");
             controls.Reset(); _ui.RemoveChild(controls); controls.QueueFree();
         }
+        var editor = new SpellShortcutSettingsPanel(); _ui.AddChild(editor);
+        SpellShortcutSettings? saved = null;
+        editor.Build(new(), tutorial: true, settings => { saved = settings; return true; }, () => { });
+        var tabs = (TabContainer)editor.FindChild("SpellShortcutTabs", true, false);
+        var save = (Button)editor.FindChild("SpellShortcutsSave", true, false);
+        void Press(string name) => ((Button)editor.FindChild(name, true, false)).EmitSignal(BaseButton.SignalName.Pressed);
+        ((CheckButton)editor.FindChild("SpellShortcutAutomaticDefense", true, false)).ButtonPressed = false;
+        Check(save.Disabled, "El editor acepta un acceso personalizado vacío.");
+        Press("SpellShortcutDefenseShield"); Press("SpellShortcutDefenseLife");
+        tabs.CurrentTab = 1;
+        ((CheckButton)editor.FindChild("SpellShortcutAutomaticAttack", true, false)).ButtonPressed = false;
+        Press("SpellShortcutAttackFire"); Press("SpellShortcutAttackFire"); Press("SpellShortcutAttackLightning");
+        Check(saved == null && !save.Disabled, "El editor aplica cambios antes de guardarlos.");
+        Press("SpellShortcutsSave");
+        Check(saved != null && saved.Defense.Elements.SequenceEqual(new[] { Element.Shield, Element.Life }) &&
+            saved.Attack.Elements.SequenceEqual(new[] { Element.Fire, Element.Fire, Element.Lightning }), "El editor mezcla las dos configuraciones.");
+        _ui.RemoveChild(editor); editor.QueueFree();
         GD.Print("CUSTOM_TOUCH_ROUTING_OK: joysticks en cualquier mitad, modo zurdo, dedos simultáneos y liberación independiente.");
     }
 }

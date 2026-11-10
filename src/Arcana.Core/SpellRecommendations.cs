@@ -6,51 +6,40 @@ public readonly record struct SpellSuggestion(SpellRecipe Spell, CastMode Mode);
 public static class SpellRecommendations
 {
     private static readonly SpellSuggestion Guard = new(new([Element.Shield, Element.Earth]), CastMode.Self);
+    private static readonly SpellSuggestion RegeneratingGuard = new(new([Element.Shield, Element.Earth, Element.Life]), CastMode.Self);
     private static readonly SpellSuggestion HealSelf = new(new([Element.Life, Element.Life, Element.Life]), CastMode.Self);
-    private static readonly SpellSuggestion HealAlly = new(HealSelf.Spell, CastMode.Forward);
-    private static readonly SpellSuggestion DryOff = new(new([Element.Fire]), CastMode.Self);
-    private static readonly SpellSuggestion Slow = new(new([Element.Cold, Element.Cold, Element.Cold]), CastMode.Forward);
     private static readonly SpellSuggestion LongLightning = new(new([Element.Arcane, Element.Lightning, Element.Lightning]), CastMode.Forward);
     private static readonly SpellSuggestion DefaultAttack = new(new([Element.Arcane, Element.Arcane, Element.Arcane]), CastMode.Forward);
     private static readonly SpellRecipe[] Attacks = SpellCatalogue.All.Select(entry => entry.Recipe)
         .Where(spell => !spell.Healing && spell.Shape != SpellShape.Barrier).ToArray();
 
-    private readonly record struct Target(V2 Position, float Wet, float Shield, Element[] Ward,
-        WizardType WizardType, Element? Vulnerable, float AttackWarning);
+    private readonly record struct Target(int Id, V2 Position, bool Wet, bool Frozen, float HealthFraction,
+        float Shield, Element[] Ward, WizardType WizardType, Element? Vulnerable);
 
     public static bool Available(WorldSnapshot world, WizardSnapshot caster) => caster.Alive && caster.Frozen <= 0 && !caster.Stunned &&
         !world.MatchEnded && !world.WaitingForPlayers && world.Defense?.Paused != true;
 
-    public static SpellSuggestion? Choose(WorldSnapshot world, WizardSnapshot caster)
+    public static SpellSuggestion ChooseDefense(WizardSnapshot caster)
     {
-        if (!Available(world, caster)) return null;
+        if (caster.Shield > 0 && caster.ShieldSeconds > 0) return HealSelf;
+        return caster.Health < caster.MaxHealth * .65f ? RegeneratingGuard : Guard;
+    }
 
+    public static SpellSuggestion ChooseAttack(WorldSnapshot world, WizardSnapshot caster, EquipmentModifiers? equipped = null)
+    {
         var defense = world.Defense;
-        var gear = defense?.Defenders.FirstOrDefault(p => p.PlayerId == caster.Id)?.Modifiers ?? EquipmentModifiers.None;
+        var gear = defense?.Defenders.FirstOrDefault(p => p.PlayerId == caster.Id)?.Modifiers ?? equipped ?? EquipmentModifiers.None;
         var map = ArenaMap.Get(world);
-        bool ClearShot(V2 at) => map.BoundaryHit(caster.Position, at) == null &&
-            !map.Obstacles.Any(o => Geometry.SegmentCircle(caster.Position, at, o.Position, o.Radius) != null) &&
+        bool ClearShot(V2 from, V2 at) => map.BoundaryHit(from, at) == null &&
+            !map.Obstacles.Any(o => Geometry.SegmentCircle(from, at, o.Position, o.Radius) != null) &&
             !world.Walls.Any(w => w.Health > 0 && !(w.Owner == caster.Id && w.Elements is [Element.Shield]) &&
-                Geometry.SegmentCapsule(caster.Position, at, w.A, w.B, .1f) != null);
-
-        bool threatened = defense?.Minions.Any(m => m.Health > 0 && m.AttackWarningSeconds > 0 &&
-            V2.Distance(caster.Position, m.Position) <= DefenseRules.AreaAttackRadius(m.Kind) && ClearShot(m.Position)) == true ||
-            world.Fields.Any(f => f.Lifetime > 0 && (f.Kind is "oracle_bombardment" or DefenseRules.ColossusFissureKind) &&
-                V2.Distance(caster.Position, f.Position) <= f.Radius);
-        if (threatened && caster.Shield < 180) return Guard;
-        if (caster.Health < caster.MaxHealth * .48f) return HealSelf;
+                Geometry.SegmentCapsule(from, at, w.A, w.B, .1f) != null);
 
         var enemies = world.Players.Where(p => p.Alive && p.Id != caster.Id && p.InvulnerableSeconds <= 0 &&
                 (world.Mode == GameMode.Arena || p.Team != caster.Team))
-            .Select(p => new Target(p.Position, p.Wet, p.Shield, p.Ward, p.WizardType, null, 0))
-            .Concat(defense?.Minions.Where(m => m.Health > 0).Select(m => new Target(m.Position, m.Wet,
-                m.Shield, [], DefenseRules.EnemyWizardType(m.Kind), m.VulnerableElement, m.AttackWarningSeconds)) ?? []).ToArray();
-        if (caster.Shield < 100 && enemies.Count(e => V2.Distance(caster.Position, e.Position) <= 3 && ClearShot(e.Position)) >= 3)
-            return Guard;
-
-        if (world.Mode != GameMode.Arena && world.Players.Any(p => p.Id != caster.Id && p.Team == caster.Team && p.Alive &&
-            p.Health < p.MaxHealth * .35f && V2.Distance(caster.Position, p.Position) <= HealAlly.Spell.Range * gear.Range &&
-            V2.Dot(caster.Facing, (p.Position - caster.Position).Normalized) > .65f && ClearShot(p.Position))) return HealAlly;
+            .Select(p => new Target(p.Id, p.Position, p.Wet > 0, p.Frozen > 0, p.Health / p.MaxHealth, p.Shield, p.Ward, p.WizardType, null))
+            .Concat(defense?.Minions.Where(m => m.Health > 0).Select(m => new Target(m.Id, m.Position, m.Wet > 0, m.Frozen > 0,
+                m.Health / m.MaxHealth, m.Shield, [], DefenseRules.EnemyWizardType(m.Kind), m.VulnerableElement)) ?? []).ToArray();
 
         Target? target = null;
         float bestTarget = float.PositiveInfinity;
@@ -58,26 +47,29 @@ public static class SpellRecommendations
         {
             var offset = enemy.Position - caster.Position;
             float distance = offset.Length;
-            // La dirección actual favorece al enemigo apuntado sin ignorar amenazas mucho más próximas.
-            float priority = distance - 5 * Math.Max(0, V2.Dot(caster.Facing, offset.Normalized));
-            if (distance > 20 * gear.Range + .7f || priority >= bestTarget || !ClearShot(enemy.Position)) continue;
+            float alignment = V2.Dot(caster.Facing, offset.Normalized);
+            bool inCrosshair = alignment > 0 && Math.Abs(V2.Dot(caster.Facing.Perpendicular, offset)) <= ArenaMap.WizardRadius + .2f;
+            // Una línea de tiro directa tiene prioridad sobre el resto del cono.
+            float priority = distance + (inCrosshair ? 0 : alignment >= .8f ? 32 : 64);
+            if (distance > 20 * gear.Range + .7f || priority >= bestTarget || !ClearShot(caster.Position, enemy.Position)) continue;
             target = enemy;
             bestTarget = priority;
         }
-        if (target is not { } aimed) return caster.Health < caster.MaxHealth * .8f ? HealSelf : DefaultAttack;
-        if (caster.Wet > 0 && aimed.Vulnerable == Element.Lightning) return DryOff;
+        if (target is not { } aimed) return DefaultAttack;
 
         float range = V2.Distance(caster.Position, aimed.Position);
-        if (aimed.AttackWarning >= .8f && (aimed.Vulnerable is null or Element.Cold) && range <= Slow.Spell.Range * gear.Range)
-            return Slow;
-
-        int nearby = Math.Min(3, enemies.Count(e => V2.Distance(e.Position, aimed.Position) <= 2.5f) - 1);
+        var neighbors = enemies.Where(e => e.Id != aimed.Id &&
+                V2.Distance(e.Position, aimed.Position) <= CombatAffixes.RockFragmentRange && ClearShot(aimed.Position, e.Position))
+            .Select(e => V2.Distance(e.Position, aimed.Position)).ToArray();
+        bool echoTarget = gear.ArcaneEcho > 0 && enemies.Any(e => e.Id != aimed.Id &&
+            V2.Distance(e.Position, caster.Position) <= LongLightning.Spell.Range * gear.Range && ClearShot(caster.Position, e.Position));
         SpellRecipe? bestSpell = null;
         float bestDamage = 0;
         foreach (var spell in Attacks)
         {
-            if (range > spell.Range * gear.Range + .7f || caster.Wet > 0 && spell.Has(Element.Lightning)) continue;
-            float damage = DamageValue(spell, caster, aimed, gear, range, nearby);
+            // La descarga directa puede dañar al mago mojado. Un haz arcano con Rayo usa otro lanzamiento.
+            if (range > spell.Range * gear.Range + .7f || caster.Wet > 0 && spell.Shape == SpellShape.Lightning) continue;
+            float damage = DamageValue(spell, caster, aimed, gear, range, neighbors, echoTarget);
             if (damage <= bestDamage) continue;
             bestSpell = spell;
             bestDamage = damage;
@@ -86,27 +78,34 @@ public static class SpellRecommendations
         return aimed.Vulnerable == Element.Lightning ? LongLightning : DefaultAttack;
     }
 
-    private static float DamageValue(SpellRecipe spell, WizardSnapshot caster, Target target, EquipmentModifiers gear, float range, int nearby)
+    private static float DamageValue(SpellRecipe spell, WizardSnapshot caster, Target target, EquipmentModifiers gear,
+        float range, float[] neighbors, bool echoTarget)
     {
         ReadOnlySpan<Element> ward = target.Ward.Length > 0 ? target.Ward : target.Shield > 0 ? ElementInteractions.ShieldProtection : [];
         float damage = 0;
         foreach (var element in SpellBalance.Offensive)
         {
             if (target.Vulnerable is { } weakness && weakness != element) continue;
-            float component = SpellBalance.Component(spell, element, target.Wet > 0);
+            float component = SpellBalance.Component(spell, element, target.Wet);
             if (element == Element.Water && target.Vulnerable == Element.Water && component == 0)
                 component = DefenseRules.PrismWaterDamage * spell.Count(Element.Water);
-            float wetBonus = element == Element.Lightning && target.Wet > 0 ? gear.WetLightningPower : 1;
+            float wetBonus = element == Element.Lightning && target.Wet ? gear.WetLightningPower : 1;
             damage += component * WizardTypes.Outgoing(caster.WizardType, element) * gear.ElementPower(element) *
-                WizardTypes.Incoming(target.WizardType, element) * ElementInteractions.ProtectionMultiplier(element, ward) * wetBonus;
+                WizardTypes.Incoming(target.WizardType, element) * ElementInteractions.ProtectionMultiplier(element, ward) * wetBonus *
+                CombatAffixes.DamageMultiplier(gear, element, target.Wet, target.Frozen, target.HealthFraction);
         }
-        // Compara un golpe probable: carga de roca, tiempo de canal y cobertura de varios enemigos.
+        if (damage <= 0) return 0;
+        // El valor extra de fragmentar rocas depende de que haya otros enemigos donde impacta la roca.
         float effectiveness = spell.Shape switch
         {
-            SpellShape.Beam => SpellBalance.BeamDamageMultiplier(.65f) * (target.Shield > 50 ? .3f : 1),
-            SpellShape.Rock => SpellBalance.RockMinimum * (.67f + (spell.SplashRadius > 0 ? .22f * nearby : 0)),
+            SpellShape.Beam => SpellBalance.BeamDamageMultiplier(.65f * gear.BeamChargeSpeed) * (target.Shield > 50 ? .3f : 1) *
+                (echoTarget && spell.Has(Element.Arcane) ? 1 + CombatAffixes.ArcaneEchoPercent(gear.ArcaneEcho) / 100f : 1),
+            SpellShape.Rock => (SpellBalance.RockMinimum + .3f * (gear.RockChargeSpeed - 1)) *
+                (.59f + .22f * Math.Min(3, neighbors.Count(distance => distance < spell.SplashRadius)) +
+                 .12f * Math.Min(3, neighbors.Length) * CombatAffixes.RockFragmentCount(gear.RockFragmentation) * CombatAffixes.RockFragmentImpactScale),
             SpellShape.Shards => SpellBalance.ShardPower * (range <= 3.5f ? 2 : 1),
-            SpellShape.Lightning => target.Wet > 0 ? 1 : .72f,
+            SpellShape.Lightning => (target.Wet ? 1 : .72f) *
+                (1 + .24f * Math.Min(gear.LightningChains, neighbors.Count(distance => distance <= 5))),
             _ => 1
         };
         return damage * effectiveness;

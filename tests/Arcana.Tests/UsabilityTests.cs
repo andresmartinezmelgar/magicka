@@ -69,32 +69,56 @@ internal static class UsabilityTests
             var copy = settings.Normalize(); copy.Positions["TouchSelf"] = new(.5f, .5f);
             Check(settings.Positions["TouchSelf"] == new TouchPosition(0, 1), "Cancelar la edición altera las posiciones anteriores.");
         });
-        test("Hechizo sugerido: curación, avisos, grupos, Mojado y vulnerabilidad", () =>
+        test("Atajos táctiles: defensa según escudo y ataque según objetivo y equipo", () =>
         {
             var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion, SurvivalMap = SurvivalMapSpec.Legacy });
             var body = world.AddPlayer("Mago de prueba")!;
             body.Position = V2.Zero;
             var state = world.Snapshot();
-            var mage = state.Players.Single();
+            var mage = state.Players.Single() with { Facing = new(1, 0) };
             var enemy = new MinionSnapshot(1000, MinionKind.Melee, new(8, 0), new(-1, 0), 300, 300,
                 0, 0, 0, 0, false, [], false);
             WorldSnapshot WithEnemies(params MinionSnapshot[] minions) => state with { Defense = state.Defense! with { Minions = minions } };
-            SpellSuggestion Choose(WorldSnapshot snapshot, WizardSnapshot player) => SpellRecommendations.Choose(snapshot, player)!.Value;
+            WorldSnapshot WithGear(WorldSnapshot snapshot, EquipmentModifiers mods) => snapshot with
+            { Defense = snapshot.Defense! with { Defenders = snapshot.Defense.Defenders.Select(p => p with { Modifiers = mods }).ToArray() } };
 
-            var heal = Choose(state, mage with { Health = 300 });
-            Check(heal.Mode == CastMode.Self && heal.Spell.Count(Element.Life) == 3, "Falta la curación al caer la vida.");
-            var danger = state with { Fields = [new(1, 1001, mage.Position, 3, 1, [Element.Arcane], "oracle_bombardment")] };
-            var guard = Choose(danger, mage with { Health = 300 });
-            Check(guard.Mode == CastMode.Self && guard.Spell.Has(Element.Shield) && guard.Spell.Has(Element.Earth),
-                "Se ignora el área de un ataque inminente.");
+            var guard = SpellRecommendations.ChooseDefense(mage);
+            var regen = SpellRecommendations.ChooseDefense(mage with { Health = 300 });
+            var heal = SpellRecommendations.ChooseDefense(mage with { Health = 300, Shield = 320, ShieldSeconds = 10 });
+            Check(guard.Mode == CastMode.Self && guard.Spell.Has(Element.Shield) && !guard.Spell.Has(Element.Life), "Falta un escudo sin protección activa.");
+            Check(regen.Spell.Has(Element.Shield) && regen.Spell.Has(Element.Life), "Falta regeneración al preparar escudo con poca vida.");
+            Check(heal.Mode == CastMode.Self && heal.Spell.Count(Element.Life) == 3, "No cambia a curación con escudo activo.");
             var wet = WithEnemies(enemy with { Wet = 2 });
-            Check(Choose(wet, mage).Spell.Has(Element.Lightning) && !Choose(wet, mage with { Wet = 2 }).Spell.Has(Element.Lightning),
-                "Se ignora Mojado en el objetivo o se recomienda Rayo al lanzador mojado.");
+            Check(SpellRecommendations.ChooseAttack(wet, mage).Spell.Has(Element.Lightning) &&
+                SpellRecommendations.ChooseAttack(wet, mage with { Wet = 2 }).Spell.Shape != SpellShape.Lightning,
+                "Se ignora Mojado en el objetivo o se recomienda una descarga directa al lanzador mojado.");
             var prism = enemy with { Kind = MinionKind.Prism, VulnerableElement = Element.Cold };
-            Check(SpellBalance.Component(Choose(WithEnemies(prism), mage).Spell, Element.Cold) > 0, "La mezcla no daña a un Prisma de Frío.");
+            var other = enemy with { Id = 1003, Kind = MinionKind.Prism, Position = new(3, 2), VulnerableElement = Element.Fire };
+            Check(SpellBalance.Component(SpellRecommendations.ChooseAttack(WithEnemies(prism, other), mage).Spell, Element.Cold) > 0,
+                "No da prioridad al Prisma que está en la mira.");
             var group = WithEnemies(enemy, enemy with { Id = 1001, Position = new(8, -1) }, enemy with { Id = 1002, Position = new(8, 1) });
-            Check(Choose(group, mage).Spell is { Shape: SpellShape.Rock, SplashRadius: > 0 }, "Falta el daño de área para un grupo.");
-            Check(SpellRecommendations.Choose(state, mage with { Frozen = 1 }) == null, "Se ofrece un lanzamiento estando congelado.");
+            var fragmentation = EquipmentModifiers.None with { RockFragmentation = 2 };
+            Check(SpellRecommendations.ChooseAttack(WithGear(group, fragmentation), mage).Spell.Shape == SpellShape.Rock &&
+                SpellRecommendations.ChooseAttack(WithGear(WithEnemies(enemy), fragmentation), mage).Spell.Shape == SpellShape.Beam,
+                "Fragmentación fuerza una roca en un enemigo aislado o se ignora ante el grupo.");
+            Check(SpellRecommendations.ChooseAttack(WithGear(WithEnemies(enemy), EquipmentModifiers.None with { Earth = 1.5f }), mage).Spell.Shape == SpellShape.Rock &&
+                SpellRecommendations.ChooseAttack(WithGear(WithEnemies(enemy), EquipmentModifiers.None with { Lightning = 1.5f }), mage).Spell.Shape == SpellShape.Lightning,
+                "Ataque no aprovecha las mejoras elementales equipadas.");
+            Check(!SpellRecommendations.Available(state, mage with { Frozen = 1 }), "Se ofrece un lanzamiento estando congelado.");
+        });
+        test("Hechizos predefinidos: guarda cada mezcla y rechaza datos incompatibles", () =>
+        {
+            var saved = new SpellShortcutSettings
+            {
+                Defense = new() { Automatic = false, Elements = [Element.Shield, Element.Life], Mode = CastMode.Self },
+                Attack = new() { Elements = [Element.Fire, Element.Fire, Element.Lightning], Mode = CastMode.Nova }
+            };
+            var restored = JsonSerializer.Deserialize<SpellShortcutSettings>(JsonSerializer.Serialize(saved))!.Normalize();
+            Check(!restored.Defense.Automatic && restored.Defense.Elements.SequenceEqual(saved.Defense.Elements) &&
+                restored.Attack.Automatic && restored.Attack.Mode == CastMode.Nova && restored.Attack.Elements.SequenceEqual(saved.Attack.Elements),
+                "Cambiar de modo borra la mezcla guardada o la asigna al botón equivocado.");
+            var invalid = saved with { Attack = new() { Automatic = false, Elements = [Element.Cold, Element.Fire] } };
+            Check(invalid.Normalize().Attack is { Automatic: true, Elements.Length: 0 }, "Una mezcla incompatible puede dejar inservible el botón.");
         });
     }
 }

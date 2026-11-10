@@ -57,6 +57,7 @@ public partial class Main
         _practiceSession = null; _resumingSurvival = null;
         var scenario = new GameWorld.TutorialScenario(chapter, _launcher.PlayerName);
         _tutorial = scenario; _practice = scenario.World;
+        _tutorialSpellShortcuts = new();
         _localId = scenario.Player.Id; _localSequence = 0; _serverName = "Tutorial";
         _tutorialSteps = BuildTutorialSteps(scenario);
 
@@ -104,6 +105,7 @@ public partial class Main
         ClearTutorialControls();
         _tutorial = null;
         _tutorialSteps = [];
+        _tutorialSpellShortcuts = new();
         _firstWaveTutorial = false;
     }
 
