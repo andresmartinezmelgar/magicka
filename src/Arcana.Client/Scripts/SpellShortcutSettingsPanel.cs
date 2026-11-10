@@ -77,7 +77,8 @@ public partial class SpellShortcutSettingsPanel : Control
         var preview = Ui.Label("", 17, Ui.Gold);
         preview.SizeFlagsHorizontal = SizeFlags.ExpandFill; preview.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         row.AddChild(preview);
-        var clear = Ui.Button("Limpiar", () => { selection.Clear(); Refresh(); });
+        var clear = Ui.Button("Limpiar", selection.Clear);
+        clear.Pressed += Refresh;
         clear.Name = "SpellShortcutClear" + id; clear.CustomMinimumSize = new(0, 44); row.AddChild(clear);
         var elements = new GridContainer { Columns = 4 }; custom.AddChild(elements);
         elements.AddThemeConstantOverride("h_separation", 6); elements.AddThemeConstantOverride("v_separation", 6);
