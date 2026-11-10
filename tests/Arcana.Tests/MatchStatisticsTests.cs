@@ -76,6 +76,33 @@ internal static class MatchStatisticsTests
             Check(r.Sum(StatisticGroup.Total, StatisticMeasure.Damage) == 100 && r.Sum(StatisticGroup.Total, StatisticMeasure.ShieldDamage) == 50 && r.Sum(StatisticGroup.Total, StatisticMeasure.Overkill) == 50, "Daño contable incorrecto.");
             Check(r.Sum(StatisticGroup.Total, StatisticMeasure.Kills) == 1 && r.Sum(StatisticGroup.Total, StatisticMeasure.Deaths) == 1, "Baja duplicada.");
         });
+        test("Estadísticas: el cierre conserva cada participante aunque haya salido de la arena", () =>
+        {
+            var (world, a, b) = Arena();
+            Check(world.MatchStatistics().Participants == null, "Se añadió el desglose al mensaje periódico.");
+            Damage(world, a, 30, b);
+            b.Health = 100; b.Shield = 20;
+            Damage(world, b, 150, a);
+            world.RemovePlayer(a.Id);
+
+            var closed = world.MatchStatistics(MatchRecordStatus.Completed);
+            string json = closed.ToJson();
+            var participants = MatchStatisticsReport.Parse(json).Participants!;
+            Check(participants.Length == 2 && a.WizardType == b.WizardType, "La clase compartida mezcló los participantes.");
+            Check(participants[0] == new MatchParticipantStatistics(1, false, (int)a.WizardType, a.Team, 100, 20, 1, 0),
+                "Se perdió el daño, el escudo o la baja del participante que salió.");
+            Check(participants[1] == new MatchParticipantStatistics(2, false, (int)b.WizardType, b.Team, 30, 0, 0, 1),
+                "El daño del rival se atribuyó a otro participante.");
+
+            var legacy = MatchStatisticsReport.Parse((closed with { Participants = null }).ToJson());
+            Check(legacy.Participants == null && MatchStatisticsReport.IsNewer(closed, legacy) &&
+                !MatchStatisticsReport.IsNewer(legacy, closed), "Una copia antigua desplazó el desglose del mismo cierre.");
+            Check(!json.Contains(a.Name) && !json.Contains(b.Name), "El cierre expone nombres.");
+            var privatePayload = System.Text.Json.Nodes.JsonNode.Parse(json)!;
+            privatePayload["participants"]![0]!["name"] = a.Name;
+            Reject(() => MatchStatisticsReport.Parse(privatePayload.ToJsonString()));
+            Reject(() => (closed with { Participants = [participants[0], participants[0]] }).Validate());
+        });
         test("Estadísticas: no atribuye daño que se perdió por precisión flotante", () =>
         {
             var (w, a, b) = Arena(); b.Health = b.MaxHealth = 100000000; Damage(w, b, 1, a);

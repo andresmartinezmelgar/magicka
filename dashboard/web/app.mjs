@@ -110,19 +110,19 @@ function connect() {
   });
 }
 function changeRange(){if(state.days!=='custom')state.range=dayRange(state.days);else{const start=$('#start-date').value,end=$('#end-date').value;if(!start||!end||start>end||(Date.parse(end)-Date.parse(start))/86400000>366){$('#notice').textContent='Selecciona un intervalo válido de hasta 367 días.';return;}state.range={start,end};}state.extraRows=0;render();}
-function playerDetails(report, streams) {
-  const players = matchPlayers(report, streams, state.bots);
+function playerDetails(report, players) {
   let content = '<p>Desglose individual no disponible para esta partida.</p>';
   if (players?.length === 0) content = '<p>Activa «Incluir bots» para ver a los participantes registrados.</p>';
   if (players?.length) content = `<div class="table-scroll"><table class="table" aria-label="Estadísticas por jugador">
     <thead><tr><th scope="col">Jugador</th><th scope="col" class="number">Daño</th><th scope="col" class="number">Bajas</th><th scope="col" class="number">Muertes</th></tr></thead>
     <tbody>${players.map(p => `<tr>
-      <td><strong>${esc(p.name || 'Participante')}</strong><small style="display:block">${p.bot ? 'Bot' : 'Humano'} · ${CLASSES[p.wizardType]}</small></td>
+      <td><strong>${esc(p.name || 'Participante')}</strong><small style="display:block">${CLASSES[p.wizardType]} · Equipo ${p.team+1}${p.bot ? ' · Bot' : ''}</small></td>
       <td class="number"><strong>${fmt(p.damage,1)}</strong><small style="display:block">Vida ${fmt(p.healthDamage,1)} · Escudo ${fmt(p.shieldDamage,1)}</small></td>
       <td class="number">${fmt(p.kills)}</td><td class="number">${fmt(p.deaths)}</td>
     </tr>`).join('')}</tbody>
   </table></div>`;
-  return `<section class="detail-players"><h3>Por jugador</h3>${content}</section>`;
+  const partial = report.participantsPartial ? '<p class="help">El desglose de participantes es parcial.</p>' : '';
+  return `<section class="detail-players"><h3>Por jugador</h3>${partial}${content}</section>`;
 }
 
 function showDetail(id) {
@@ -130,15 +130,22 @@ function showDetail(id) {
   const report = d.reports.find(r => r.runId === id);
   if (!report) return;
   const t = aggregate([report], state.bots);
+  const players = matchPlayers(report, d.streams, state.bots);
+  const totals = report.participants?.length && !report.participantsPartial
+    ? players.reduce((sum, p) => ({
+      damage:sum.damage+p.damage, kills:sum.kills+p.kills, deaths:sum.deaths+p.deaths
+    }), {damage:0, kills:0, deaths:0})
+    : null;
   $('#detail-body').innerHTML = `<p>${MODES[report.mode]} · ${MAPS[report.map]} · ${esc(report.day)} UTC ${tag(report)}</p>
     <small>#${report.runId} · v${esc(report.gameVersion)}</small>
     <div class="detail-grid">
-      <div class="detail-stat"><span>Daño total ${state.bots ? 'de jugadores' : 'de humanos'}</span><b>${fmt(t.damage,1)}</b></div>
+      <div class="detail-stat"><span>Daño total ${state.bots ? 'de jugadores' : 'de humanos'}</span><b>${fmt(totals?.damage ?? t.damage,1)}</b></div>
+      ${totals ? `<div class="detail-stat"><span>Bajas / muertes ${state.bots ? 'de jugadores' : 'de humanos'}</span><b>${fmt(totals.kills)} / ${fmt(totals.deaths)}</b></div>` : ''}
       <div class="detail-stat"><span>Duración</span><b>${duration(report.seconds)}</b></div>
       <div class="detail-stat"><span>Humanos / bots</span><b>${report.humans} / ${report.bots}</b></div>
       <div class="detail-stat"><span>Dificultad</span><b>${fmt(report.difficulty)}</b></div>
     </div>
-    ${playerDetails(report, d.streams)}
+    ${playerDetails(report, players)}
     ${elementBars(t)}
     <p class="help">${report.continuation ? 'Registro continuado tras recuperar una partida. ' : ''}${report.network ? 'Partida en red.' : 'Partida local.'} ${report.droppedBuckets ? 'Hay métricas de detalle omitidas en origen.' : ''}</p>`;
   $('#detail').showModal();

@@ -146,5 +146,29 @@ internal static class PersonalDamageTests
                 Check(rejected, "La red aceptó un desglose de daño inválido.");
             }
         });
+        test("Historial de Supervivencia: reconexión conserva una fila y continuar abre contadores nuevos", () =>
+        {
+            var world = World(GameMode.Defense);
+            var first = world.AddPlayer("Defensor")!;
+            world.AttachDefenseAccount(first.Id, "test-account");
+            var enemy = Enemy(world);
+            enemy.Health = enemy.MaxHealth = 1000; enemy.Invulnerable = 0;
+            Hit(world, enemy, first, 10, Element.Fire);
+            var disconnected = world.MatchStatistics(MatchRecordStatus.Disconnected).Participants!.Single();
+            Near(disconnected.HealthDamage, 10, "No se guardó el daño inicial.");
+            world.RemovePlayer(first.Id);
+
+            var current = world.AddPlayer("Defensor")!;
+            Check(world.AttachDefenseAccount(current.Id, "test-account"), "La reconexión perdió el estado del defensor.");
+            Hit(world, enemy, current, 20, Element.Fire);
+            var rejoined = world.MatchStatistics(MatchRecordStatus.Suspended).Participants!.Single();
+            Near(rejoined.HealthDamage, 30, "La reconexión perdió o duplicó la contribución.");
+
+            var save = world.SaveSurvival(current.Id, Guid.NewGuid().ToString("N"));
+            var restored = GameWorld.RestoreSurvival(save);
+            var continuation = restored.MatchStatistics(MatchRecordStatus.Suspended);
+            Check(continuation.Continuation && continuation.Participants!.Single().HealthDamage == 0,
+                "La continuación contó de nuevo el daño de la partida anterior.");
+        });
     }
 }
