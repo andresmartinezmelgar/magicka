@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.29.54
+
+- El observatorio consulta las estadísticas públicas sin iniciar sesión. Se retira la demostración y se indica cuándo los datos no son accesibles.
+- «Mostrar más» amplía las tablas de partidas en el resumen y el historial.
+- El detalle de partida muestra el daño total y las cifras de cada jugador cuando se registraron al cierre.
+
 ## 0.29.53
 
 - Dashboard sin inicio de sesión: lectura pública de estadísticas mediante el servidor, con cuentas e inventarios protegidos, caché y actualización de la web cada 15 segundos.
