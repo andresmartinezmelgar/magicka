@@ -18,9 +18,16 @@ for i in {1..120}; do
   sleep 0.5
 done
 if [ "$ready" != true ]; then docker logs "$name"; exit 1; fi
-curl -fsS "http://127.0.0.1:$port/" | grep -q 'Arcana Arena · Observatorio'
-curl -fsSI "http://127.0.0.1:$port/app.mjs" | grep -qi 'content-type: text/javascript'
-test "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/api/dashboard/history")" = 503
+base="http://127.0.0.1:$port"
+dashboard=$(curl -fsS "$base/")
+grep -Fq 'Arcana Arena · Observatorio' <<< "$dashboard"
+module_type=$(curl -fsS -o /dev/null -w '%{content_type}' "$base/app.mjs")
+test "$module_type" = text/javascript
+for asset in model.mjs public-data.mjs style.css mark.svg version.json; do
+  asset_status=$(curl -fsS -o /dev/null -w '%{http_code}' "$base/$asset")
+  test "$asset_status" = 200
+done
+test "$(curl -s -o /dev/null -w '%{http_code}' "$base/api/dashboard/history")" = 503
 docker exec "$name" sh -c 'test "$(id -u)" != 0 && printf durable > /app/data/rewards/probe.tmp && mv /app/data/rewards/probe.tmp /app/data/rewards/probe'
 docker rm -f "$name" >/dev/null
 docker run --rm --platform "linux/$arch" --entrypoint sh -v "$volume:/app/data" "$image" -c 'test "$(cat /app/data/rewards/probe)" = durable'

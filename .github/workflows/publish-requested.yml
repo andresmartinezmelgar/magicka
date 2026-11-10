@@ -1,8 +1,8 @@
-name: Publicacion estable 0.29.54 solicitada
+name: Publicacion estable 0.29.55 solicitada
 
 # Petición expresa: integrar los cambios en main y publicar tag e instaladores.
 # Solo este mensaje exacto y esta versión activan la publicación solicitada.
-# Publicación de los cambios del observatorio y del historial de partidas.
+# Corrige el acceso al observatorio tras la actualización de la Raspberry.
 on:
   push:
     branches: [main]
@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   publish-requested-version:
-    if: github.ref == 'refs/heads/main' && github.event.head_commit.message == 'Publicar Arcana Arena 0.29.54'
+    if: github.ref == 'refs/heads/main' && github.event.head_commit.message == 'Publicar Arcana Arena 0.29.55'
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
@@ -29,7 +29,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$GITHUB_REF_NAME" = main
-          test "$(tr -d '\r\n' < VERSION)" = '0.29.54'
+          test "$(tr -d '\r\n' < VERSION)" = '0.29.55'
           python3 scripts/version-support.py check .
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" = "$GITHUB_SHA"
           gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref main -f publish_preview=false -f publish_stable=true
@@ -50,7 +50,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          version=0.29.54
+          version=0.29.55
           tag="v$version"
           release="repos/$GITHUB_REPOSITORY/releases/tags/$tag"
           test "$(gh api "$release" --jq '.target_commitish')" = "$GITHUB_SHA"

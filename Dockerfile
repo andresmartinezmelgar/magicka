@@ -8,7 +8,9 @@ COPY src/Arcana.Core/ src/Arcana.Core/
 COPY src/Arcana.Server/ src/Arcana.Server/
 COPY dashboard/web/ dashboard/web/
 COPY scripts/Apply-WindowsUpdate.ps1 scripts/Apply-WindowsUpdate.ps1
-RUN dotnet publish src/Arcana.Server/Arcana.Server.csproj -c Release --no-restore -o /app/publish /p:UseAppHost=false
+# El actualizador usa umask 0077 y Kestrel sirve wwwroot como app.
+RUN dotnet publish src/Arcana.Server/Arcana.Server.csproj -c Release --no-restore -o /app/publish /p:UseAppHost=false \
+    && chmod -R a+rX /app/publish/wwwroot
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app

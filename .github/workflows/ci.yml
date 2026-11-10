@@ -81,7 +81,10 @@ jobs:
       - name: Compilar y comprobar servidor y volumen persistente
         env:
           ARCANA_DOCKER_ARCH: ${{ matrix.arch }}
-        run: bash scripts/test-docker-server.sh
+        run: |
+          # Reproduce el checkout privado del actualizador de la Raspberry.
+          chmod -R go-rwx dashboard/web
+          bash scripts/test-docker-server.sh
 
   firestore-rules:
     name: Validar reglas Firestore con emulador

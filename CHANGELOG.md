@@ -1,5 +1,9 @@
 # Cambios
 
+## 0.29.55
+
+- El contenedor de la Raspberry puede leer el HTML, JavaScript y CSS del observatorio tras una actualización automática. La web carga las estadísticas públicas sin iniciar sesión.
+
 ## 0.29.54
 
 - El observatorio consulta las estadísticas públicas sin iniciar sesión. Se retira la demostración y se indica cuándo los datos no son accesibles.
