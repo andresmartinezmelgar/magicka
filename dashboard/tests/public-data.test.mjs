@@ -9,9 +9,9 @@ function fixture(fetchImpl, hidden=false) {
   const documentImpl = {hidden, addEventListener:(name,fn)=>listeners.set(name,fn), removeEventListener:name=>listeners.delete(name)};
   const source = createPublicSource({fetchImpl,documentImpl,apiRoot:'https://example.test/api/dashboard',
     setTimer:(fn,ms)=>{timers.set(++serial,{fn,ms});return serial;},clearTimer:id=>timers.delete(id)});
-  const history=[], live=[], errors=[], coverage=[];
-  const callbacks={history:(...args)=>history.push(args),live:value=>live.push(value),error:(...args)=>errors.push(args),coverage:value=>coverage.push(value)};
-  return {source,history,live,errors,coverage,timers,callbacks,
+  const history=[], live=[], liveAvailable=[], errors=[], coverage=[];
+  const callbacks={history:(...args)=>history.push(args),live:(value,available)=>{live.push(value);liveAvailable.push(available);},error:(...args)=>errors.push(args),coverage:value=>coverage.push(value)};
+  return {source,history,live,liveAvailable,errors,coverage,timers,callbacks,
     visibility(value){documentImpl.hidden=value;listeners.get('visibilitychange')?.();},
     tick(){const entry=[...timers].find(([,v])=>v.ms===15000);assert.ok(entry,'Hay un refresco programado');timers.delete(entry[0]);entry[1].fn();}};
 }
@@ -26,6 +26,7 @@ test('consulta automática pública, sin sesión y con histórico separado del d
   assert.ok(requests.every(r=>r.options.credentials==='omit'&&!('Authorization' in r.options.headers)));
   assert.equal(f.history[0][0][0].runId,'historical');
   assert.deepEqual(f.live[0].map(v=>v.runId),['ended','playing']);
+  assert.deepEqual(f.liveAvailable,[true]);
   assert.equal(f.errors.length,0);f.source.stop();assert.equal(f.timers.size,0);
 });
 
@@ -57,7 +58,8 @@ test('detener o cambiar de fuente cancela respuestas antiguas',async()=>{
 test('un fallo del directo conserva participantes históricos e informa del error',async()=>{
   const f=fixture(async url=>url.endsWith('/history')?response(page([],[{report:{runId:'ended'},updatedAt:1}])):new Response(null,{status:503}));
   f.source.subscribe({},f.callbacks);await settle();
-  assert.equal(f.live[0][0].runId,'ended');assert.equal(f.errors.length,1);assert.equal(f.errors[0][1],true);f.source.stop();
+  assert.equal(f.live[0][0].runId,'ended');assert.deepEqual(f.liveAvailable,[false]);
+  assert.equal(f.errors.length,1);assert.equal(f.errors[0][1],true);f.source.stop();
 });
 
 test('rechaza respuestas incompatibles y mantiene acotado el contenido',async()=>{

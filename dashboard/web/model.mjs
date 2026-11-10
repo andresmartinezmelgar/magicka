@@ -71,4 +71,26 @@ export function liveRuns(raw,now=Date.now()){
 }
 export function pingSummary(streams){const latest=new Map();for(const r of streams){if(!r.network||!r.ping?.samples)continue;const key=r.runId+':'+r.reporterId;const p=latest.get(key);if(!p||r.ping.samples>p.ping.samples||r.ping.samples===p.ping.samples&&r.updatedAt>p.updatedAt)latest.set(key,r);}
  let samples=0,sum=0,min=Infinity,max=0;for(const r of latest.values()){samples+=r.ping.samples;sum+=r.ping.sumMs;min=Math.min(min,r.ping.minMs);max=Math.max(max,r.ping.maxMs);}return {samples,mean:samples?sum/samples:null,min:samples?min:null,max:samples?max:null,reporters:latest.size};}
-export function playersRanking(runs,includeBots=true){const rows=[];for(const r of runs)for(const p of r.players){if(p.bot&&!includeBots)continue;rows.push({...p,runId:r.runId,day:r.day,mode:r.mode,damage:p.health.reduce((a,b)=>a+b,0)+p.shield.reduce((a,b)=>a+b,0),seconds:r.seconds});}return rows.sort((a,b)=>b.damage-a.damage);}
+export function playersRanking(runs, includeBots = true) {
+  const rows = [];
+  for (const r of runs) {
+    for (const p of r.players) {
+      if (p.bot && !includeBots) continue;
+      const healthDamage = p.health.reduce((sum, value) => sum + value, 0);
+      const shieldDamage = p.shield.reduce((sum, value) => sum + value, 0);
+      rows.push({...p, runId:r.runId, day:r.day, mode:r.mode, seconds:r.seconds,
+        damage:healthDamage + shieldDamage, healthDamage, shieldDamage});
+    }
+  }
+  return rows.sort((a,b) => b.damage - a.damage);
+}
+
+export function matchPlayers(report, streams, includeBots = true) {
+  const keys = ['runId', 'day', 'mode', 'map', 'gameVersion', 'network', 'status', 'revision'];
+  let match;
+  for (const stream of streams) {
+    if (!stream.players.length || !keys.every(key => stream[key] === report[key])) continue;
+    if (!match || stream.updatedAt > match.updatedAt) match = stream;
+  }
+  return match ? playersRanking([match], includeBots) : null;
+}

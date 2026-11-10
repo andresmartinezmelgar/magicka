@@ -47,7 +47,8 @@ export function createPublicSource({fetchImpl = globalThis.fetch, documentImpl =
           const telemetry = [...(history?.telemetry || []), ...(live?.telemetry || [])]
             .filter(entry => entry?.report && Number.isFinite(entry.updatedAt))
             .map(entry => ({...entry.report, updatedAt:entry.updatedAt}));
-          if (results.some(result => result.status === 'fulfilled')) callbacks.live(telemetry);
+          if (results.some(result => result.status === 'fulfilled'))
+            callbacks.live(telemetry, results[1].status === 'fulfilled');
           callbacks.coverage?.({start:history?.start || live.start, end:history?.end || live.end,
             partial:!!(history?.partial || live?.partial), stale:!!(history?.stale || live?.stale)});
         }

@@ -6,14 +6,14 @@ Dashboard web independiente y táctil para Surface con Windows 10/11 y Edge o Ch
 
 - **Resumen:** actividad diaria, tiempo de juego, daño elemental, clases y mejores actuaciones.
 - **En directo:** partidas con señal de menos de 90 segundos, participantes, bajas y daño acumulado.
-- **Partidas:** historial, detalle por partida, modos y estados.
+- **Partidas:** historial ampliable por bloques y detalle con el total y las actuaciones individuales cuando se registraron al cierre.
 - **Jugadores:** clasificación de actuaciones individuales dentro de cada partida.
 - **Elementos y ataques:** daño de vida y escudo, curación, absorción, ataques y origen del daño.
 - **Conexión:** ping medio ponderado, mínimo, máximo, muestras, FPS y tiempo de simulación.
 
 Filtros de últimos 7 o 30 días UTC inclusivos, fechas personalizadas dentro de la cobertura disponible (30 días en el servicio público; hasta 367 días en archivos importados), modo, estado y bots. Exportación CSV de todos los resultados filtrados, aunque la tabla se muestre por bloques. Los nombres se escapan en HTML y las celdas CSV se protegen frente a fórmulas.
 
-La página conecta automáticamente con el servidor, sin iniciar sesión. La demostración solo se abre al pulsarla y está identificada en todas las vistas y archivos exportados. También se pueden importar informes JSON: una lista de informes, un informe, sobres con `payload`, o `{ "reports": [...], "telemetry": [...] }`. La importación permanece en memoria y no sube archivos a Firebase.
+La página conecta automáticamente con el servidor, sin iniciar sesión. Cuando el servidor no permite cargar una sección, aparece «Datos no accesibles» y la consulta se reintenta. También se pueden importar informes JSON como una lista de informes, un informe, sobres con `payload`, o `{ "reports": [...], "telemetry": [...] }`. La importación permanece en memoria y no sube archivos a Firebase.
 
 ## Instalar en la Surface
 
