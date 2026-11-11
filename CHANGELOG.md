@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.29.58
+
+- Áreas elementales con bordes más finos y suavizados, detalles menos recargados y avisos de enemigos y meteoros con contorno, halo y progreso de activación.
+- Los hechizos automáticos se organizan en una cuadrícula: Defensa y Ataque arriba, Sobre mí y Área abajo. El bloque se mueve completo en el editor y conserva el orden en modo zurdo. El tutorial explica la distribución y el lanzamiento con joystick.
+
 ## 0.29.57
 
 - Un interruptor de hechizos automáticos alterna entre Defensa y Ataque y los ocho elementos de selección manual. Guarda la elección en el dispositivo y el tutorial practica ambos modos.
