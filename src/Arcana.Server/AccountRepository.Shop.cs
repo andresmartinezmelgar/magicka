@@ -5,6 +5,7 @@ namespace Arcana.Server;
 
 public sealed partial class FirestoreAccountRepository
 {
+    private readonly TimeProvider _shopTime = timeProvider ?? TimeProvider.System;
     private sealed record AdState(ShopAdTicket Ticket, bool Completed = false);
     private static void ValidId(string id)
     {
@@ -23,14 +24,20 @@ public sealed partial class FirestoreAccountRepository
     {
         await EnsureUser(uid, name, token);
         var doc = ShopDocument(uid);
-        ItemShop? initial = null;
+        ItemShop? replacement = null;
         return await database.RunTransactionAsync(async tx =>
         {
             var existing = await tx.GetSnapshotAsync(doc, token);
-            if (existing.Exists) return ReadShop(existing);
-            initial ??= ShopRules.Generate(_loot);
-            tx.Create(doc, FirestoreData.Map(initial));
-            return initial;
+            var shop = existing.Exists ? ReadShop(existing) : null;
+            var now = _shopTime.GetUtcNow();
+            if (shop != null && !ShopRules.NeedsRefresh(shop, now)) return shop;
+            int revision = shop == null ? 1 : checked(shop.Revision + 1);
+            // Conserva la tirada en los reintentos, salvo que otro dispositivo haya
+            // avanzado la revisión o el reintento cruce otra medianoche.
+            if (replacement == null || replacement.Revision != revision || replacement.RefreshAt != ShopRules.NextRefreshAt(now))
+                replacement = ShopRules.Generate(_loot, revision, now);
+            tx.Set(doc, FirestoreData.Map(replacement));
+            return replacement;
         }, cancellationToken: token);
     }
 
@@ -51,7 +58,8 @@ public sealed partial class FirestoreAccountRepository
             var shop = ReadShop(await tx.GetSnapshotAsync(shopDoc, token));
             if (!account.Exists) throw new ArgumentException("Cuenta desconocida.");
             var header = Header(account);
-            if (shop.Id != request.ShopId) throw new InvalidOperationException("El catálogo ha cambiado. Vuelve a consultar la tienda.");
+            if (shop.Id != request.ShopId || ShopRules.NeedsRefresh(shop, _shopTime.GetUtcNow()))
+                throw new InvalidOperationException("Las ofertas han cambiado. Vuelve a consultar la tienda.");
             var offer = shop.Offers.SingleOrDefault(o => o.Item.Id == request.ItemId);
             if (offer == null || offer.Sold) throw new InvalidOperationException("Esta oferta ya no está disponible.");
             if (header.ItemCount >= EquipmentCatalogue.InventoryLimit) throw new InvalidOperationException("El inventario está lleno. Vende alguna pieza antes de comprar.");
@@ -73,7 +81,8 @@ public sealed partial class FirestoreAccountRepository
             var shop = ReadShop(await tx.GetSnapshotAsync(ShopDocument(uid), token));
             var existing = await tx.GetSnapshotAsync(adDoc, token);
             if (shop.Id != request.ShopId) throw new InvalidOperationException("El catálogo ha cambiado. Vuelve a consultar la tienda.");
-            var now = DateTimeOffset.UtcNow;
+            var now = _shopTime.GetUtcNow();
+            if (ShopRules.NeedsRefresh(shop, now)) throw new InvalidOperationException("Las ofertas han cambiado. Vuelve a consultar la tienda.");
             if (existing.Exists)
             {
                 var previous = FirestoreData.Read<AdState>(existing);
@@ -100,11 +109,12 @@ public sealed partial class FirestoreAccountRepository
             if (state.Ticket.Id != request.TicketId || state.Ticket.ShopId != request.ShopId)
                 throw new InvalidOperationException("El anuncio no pertenece a esta renovación.");
             if (state.Completed) return shop; // La respuesta se puede perder sin renovar dos veces.
-            var now = DateTimeOffset.UtcNow;
+            var now = _shopTime.GetUtcNow();
             if (now < state.Ticket.ReadyAt) throw new InvalidOperationException("El anuncio simulado todavía no ha terminado.");
             if (now >= state.Ticket.ExpiresAt) throw new InvalidOperationException("El anuncio simulado ha caducado. Inícialo de nuevo.");
-            if (shop.Id != request.ShopId) throw new InvalidOperationException("El catálogo ha cambiado. Vuelve a consultar la tienda.");
-            replacement ??= ShopRules.Generate(_loot, checked(shop.Revision + 1));
+            if (shop.Id != request.ShopId || ShopRules.NeedsRefresh(shop, now))
+                throw new InvalidOperationException("Las ofertas han cambiado. Vuelve a consultar la tienda.");
+            replacement ??= ShopRules.Generate(_loot, checked(shop.Revision + 1), now);
             tx.Set(shopDoc, FirestoreData.Map(replacement));
             tx.Set(adDoc, FirestoreData.Map(state with { Completed = true }));
             return replacement;

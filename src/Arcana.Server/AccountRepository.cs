@@ -42,7 +42,7 @@ internal sealed record AccountHeader(string Uid, string Name, long Gold = 0, int
 }
 
 /// <summary>Las escrituras cruzadas usan transacciones: inventario, saldo, equipamiento y recibo no divergen.</summary>
-public sealed partial class FirestoreAccountRepository(FirestoreDb database) : IAccountRepository
+public sealed partial class FirestoreAccountRepository(FirestoreDb database, TimeProvider? timeProvider = null) : IAccountRepository
 {
     private readonly LootRandom _loot = new();
     private readonly SemaphoreSlim _catalogueGate = new(1, 1);

@@ -7,6 +7,11 @@ using System.Net.Http.Json;
 
 internal static class ShopEmulatorTests
 {
+    private sealed class ShopClock(DateTimeOffset now) : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = now;
+        public override DateTimeOffset GetUtcNow() => Now;
+    }
     public static async Task Run(FirestoreDb db, FirestoreAccountRepository repository, Uri address, Func<string, Func<Task>, Task> test)
     {
         void Check(bool value, string message) { if (!value) throw new Exception(message); }
@@ -22,6 +27,59 @@ internal static class ShopEmulatorTests
             string uid = await User(); var first = await repository.Shop(uid, "Comprador");
             var reopened = await new FirestoreAccountRepository(db).Shop(uid, "Comprador");
             Check(ShopRules.Valid(first) && Protocol.Serialize(first) == Protocol.Serialize(reopened), "Reabrir o reiniciar volvió a sortear las ofertas.");
+        });
+        await test("Tienda diaria Firestore: varios dispositivos renuevan una vez y conservan compras y saldo", async () =>
+        {
+            string uid = await User();
+            var clock = new ShopClock(DateTimeOffset.Parse("2026-11-11T12:00:00Z"));
+            var firstDevice = new FirestoreAccountRepository(db, clock);
+            var secondDevice = new FirestoreAccountRepository(db, clock);
+            var initial = await firstDevice.Shop(uid, "Comprador");
+            var purchase = new ShopPurchaseRequest(initial.Id, initial.Offers[0].Item.Id);
+            await firstDevice.Buy(uid, purchase);
+            var sameDay = await secondDevice.Shop(uid, "Comprador");
+            Check(sameDay.Id == initial.Id && sameDay.Offers[0].Sold && sameDay.RefreshAt == initial.RefreshAt,
+                "Otro dispositivo renovó las ofertas antes de medianoche o borró una compra.");
+            clock.Now = initial.RefreshAt!.Value;
+            var renewed = await Task.WhenAll(firstDevice.Shop(uid, "Comprador"), secondDevice.Shop(uid, "Comprador"),
+                firstDevice.Shop(uid, "Comprador"));
+            var current = renewed[0]; var profile = await firstDevice.Profile(uid, "Comprador");
+            Check(renewed.Select(s => s.Id).Distinct().Count() == 1 && current.Id != initial.Id && current.Revision == 2 &&
+                current.RefreshAt == ShopRules.NextRefreshAt(clock.Now) && current.Offers.All(o => !o.Sold && initial.Offers.All(old => old.Item.Id != o.Item.Id)) &&
+                profile.Gold == 100000 - initial.Offers[0].Price && profile.Items.Single().Id == purchase.ItemId,
+                "La rotación se duplicó, no cambió las seis ofertas o modificó el inventario y el oro.");
+            Check(!await firstDevice.Buy(uid, purchase), "Reintentar una compra del día anterior volvió a cobrarla.");
+            clock.Now = current.RefreshAt!.Value.AddDays(3);
+            var afterAbsence = await secondDevice.Shop(uid, "Comprador");
+            Check(afterAbsence.Revision == 3 && afterAbsence.RefreshAt == ShopRules.NextRefreshAt(clock.Now) &&
+                (await new FirestoreAccountRepository(db, clock).Shop(uid, "Comprador")).Id == afterAbsence.Id,
+                "Los días sin entrar generan rondas adicionales o el reinicio vuelve a renovar la tienda.");
+        });
+        await test("Tienda diaria Firestore: una compra del día anterior se rechaza sin esperar a consultar", async () =>
+        {
+            string uid = await User();
+            var clock = new ShopClock(DateTimeOffset.Parse("2026-11-11T12:00:00Z"));
+            var daily = new FirestoreAccountRepository(db, clock);
+            var shop = await daily.Shop(uid, "Comprador"); clock.Now = shop.RefreshAt!.Value;
+            await Reject<InvalidOperationException>(() => daily.Buy(uid, new(shop.Id, shop.Offers[0].Item.Id)));
+            var profile = await daily.Profile(uid, "Comprador");
+            Check(profile.Gold == 100000 && profile.Items.Length == 0,
+                "Se cobró o entregó una oferta que ya había caducado.");
+            var renewed = await daily.Shop(uid, "Comprador");
+            await Reject<InvalidOperationException>(() => daily.Buy(uid, new(shop.Id, shop.Offers[1].Item.Id)));
+            Check(renewed.Id != shop.Id && renewed.Offers.All(o => !o.Sold), "La consulta no generó el catálogo del nuevo día.");
+        });
+        await test("Tienda diaria Firestore: un catálogo sin fecha se migra una vez y persiste", async () =>
+        {
+            string uid = await User();
+            var clock = new ShopClock(DateTimeOffset.Parse("2026-11-11T12:00:00Z"));
+            var daily = new FirestoreAccountRepository(db, clock);
+            var shop = await daily.Shop(uid, "Comprador");
+            await db.Collection("users").Document(uid).Collection("shop").Document("current").UpdateAsync("refreshAt", FieldValue.Delete);
+            var migrated = await daily.Shop(uid, "Comprador");
+            var reopened = await new FirestoreAccountRepository(db, clock).Shop(uid, "Comprador");
+            Check(migrated.Id != shop.Id && migrated.Revision == shop.Revision + 1 && migrated.RefreshAt == ShopRules.NextRefreshAt(clock.Now) &&
+                Protocol.Serialize(migrated) == Protocol.Serialize(reopened), "La migración falta o se repite al consultar de nuevo.");
         });
         await test("Tienda Firestore: tres compras simultáneas cobran y entregan exactamente una vez", async () =>
         {

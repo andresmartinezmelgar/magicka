@@ -1,5 +1,10 @@
 # Cambios
 
+## Pendiente de publicación
+
+- Las seis ofertas de la tienda permanente se renuevan gratis cada día a las 00:00, hora peninsular, respetando los cambios de horario. La renovación se guarda una sola vez por cuenta y mantiene el oro y los objetos comprados.
+- La tienda abierta consulta las nuevas ofertas al llegar la renovación usando la hora del servidor. Las compras de ofertas caducadas se rechazan; los catálogos antiguos se adaptan al primer acceso.
+
 ## 0.29.60
 
 - Navegación compacta en pantallas estrechas y móviles apaisados: más espacio para leer los formularios, acciones de partida juntas y tarjetas de Inicio ajustadas al alto disponible. Conserva colores, bordes y objetivos táctiles de al menos 44 px.
