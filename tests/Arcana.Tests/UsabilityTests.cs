@@ -8,6 +8,7 @@ internal static class UsabilityTests
     {
         SaleRecoveryTests.Run(test);
         InventoryAutoSellTests.Run(test);
+        SpellRecommendationTests.Run(test);
         EquipmentItem Item(EquipmentSlot slot, EquipmentFamily family, float value, ItemTier tier = ItemTier.Mythic) =>
             new(Guid.NewGuid().ToString("N"), slot, tier, family, [new(EquipmentStat.FirePower, -.5f, .5f, value), new(EquipmentStat.Defense, 0, .5f, .01f)], 100);
         test("Comparación: al cambiar una oferta se pierden conjuntos y se aplican límites reales", () =>
@@ -86,7 +87,8 @@ internal static class UsabilityTests
             var guard = SpellRecommendations.ChooseDefense(mage);
             var regen = SpellRecommendations.ChooseDefense(mage with { Health = 300 });
             var heal = SpellRecommendations.ChooseDefense(mage with { Health = 300, Shield = 320, ShieldSeconds = 10 });
-            Check(guard.Mode == CastMode.Self && guard.Spell.Has(Element.Shield) && !guard.Spell.Has(Element.Life), "Falta un escudo sin protección activa.");
+            Check(guard.Mode == CastMode.Self && guard.Spell.Elements.SequenceEqual(new[] { Element.Shield, Element.Earth, Element.Life }),
+                "Falta la tercera carga útil en el escudo sin protección activa.");
             Check(regen.Spell.Has(Element.Shield) && regen.Spell.Has(Element.Life), "Falta regeneración al preparar escudo con poca vida.");
             Check(heal.Mode == CastMode.Self && heal.Spell.Count(Element.Life) == 3, "No cambia a curación con escudo activo.");
             var wet = WithEnemies(enemy with { Wet = 2 });
@@ -97,7 +99,9 @@ internal static class UsabilityTests
             var other = enemy with { Id = 1003, Kind = MinionKind.Prism, Position = new(3, 2), VulnerableElement = Element.Fire };
             Check(SpellBalance.Component(SpellRecommendations.ChooseAttack(WithEnemies(prism, other), mage).Spell, Element.Cold) > 0,
                 "No da prioridad al Prisma que está en la mira.");
-            var group = WithEnemies(enemy, enemy with { Id = 1001, Position = new(8, -1) }, enemy with { Id = 1002, Position = new(8, 1) });
+            // Fuera del alcance de la descarga, la fragmentación debe aprovechar la explosión de la roca.
+            var group = WithEnemies(enemy with { Position = new(12, 0) }, enemy with { Id = 1001, Position = new(12, -1) },
+                enemy with { Id = 1002, Position = new(12, 1) });
             var fragmentation = EquipmentModifiers.None with { RockFragmentation = 2 };
             Check(SpellRecommendations.ChooseAttack(WithGear(group, fragmentation), mage).Spell.Shape == SpellShape.Rock &&
                 SpellRecommendations.ChooseAttack(WithGear(WithEnemies(enemy), fragmentation), mage).Spell.Shape == SpellShape.Beam,

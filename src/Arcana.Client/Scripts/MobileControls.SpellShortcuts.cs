@@ -45,6 +45,7 @@ public partial class MobileControls
             charges.AddChild(icons[i]);
         }
         var mode = Ui.Label("—", 12, Ui.Muted);
+        mode.Name = "SpellShortcutHint";
         mode.AddThemeFontSizeOverride("font_size", 12);
         mode.HorizontalAlignment = HorizontalAlignment.Center;
         mode.ClipText = true;
@@ -83,7 +84,8 @@ public partial class MobileControls
             return;
         }
         // Defensa responde en cuanto cambia el escudo. Ataque examina el mapa cinco veces por segundo.
-        ShowShortcut(_defenseShortcut, SpellRecommendations.ChooseDefense(player));
+        ShowShortcut(_defenseShortcut, SpellRecommendations.ChooseDefense(world, player,
+            world.Defense == null ? ShortcutEquipment?.Invoke(player) : null));
         if (_lastShortcutTick >= 0 && world.Tick >= _lastShortcutTick && world.Tick - _lastShortcutTick < 12) return;
         _lastShortcutTick = world.Tick;
         ShowShortcut(_attackShortcut, SpellRecommendations.ChooseAttack(world, player,
@@ -100,7 +102,9 @@ public partial class MobileControls
             shortcut.Icons[i].Visible = i < elements.Length;
             shortcut.Icons[i].Value = i < elements.Length ? elements[i] : null;
         }
-        shortcut.Mode.Text = choice is { } spell ? Ui.CastName(spell.Mode) : "—";
+        shortcut.Mode.Text = choice is { } spell
+            ? spell.Spell.Healing && spell.Mode == CastMode.Forward ? "Curar aliado" : Ui.CastName(spell.Mode)
+            : "—";
     }
 
     private void PrepareShortcut(TouchShortcut shortcut)

@@ -65,6 +65,17 @@ public partial class Main
             Tap("TouchSpellDefense");
             Check(player.Selection.Elements.SequenceEqual(new[] { Element.Life, Element.Life, Element.Life }), "Defensa no cambia a Vida con escudo activo.");
 
+            var stable = snapshot.Players.Single() with { Position = V2.Zero, Health = player.MaxHealth };
+            var ally = stable with { Id = 9001, Name = "Aliado herido", Position = stable.Position + new V2(3, 0), Health = stable.MaxHealth * .5f };
+            var assistance = snapshot with { Mode = GameMode.Duel, Players = [stable, ally] };
+            controls.Update(stable, assistance);
+            messages.Clear();
+            Tap("TouchSpellDefense");
+            var defenseHint = (ElementTextLabel)controls.FindChild("TouchSpellDefense", true, false).FindChild("SpellShortcutHint", true, false);
+            Check(defenseHint.Text == "Curar aliado" && player.Selection.Elements.SequenceEqual(new[] { Element.Life, Element.Life, Element.Life }) &&
+                !messages.Any(m => m is "cast" or "self" or "nova"),
+                "Defensa no indica la curación del aliado o lanza Vida sin que el jugador lo ordene.");
+
             snapshot = world.Snapshot(); controls.Update(snapshot.Players.Single(), snapshot);
             Tap("TouchSpellAttack");
             Check(controls.AttackShortcutPrepared && player.Selection.Elements.Count > 0, "Ataque no cargó la mezcla recomendada.");

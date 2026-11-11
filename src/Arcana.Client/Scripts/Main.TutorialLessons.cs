@@ -57,11 +57,11 @@ public partial class Main
         [
             new("Activa hechizos automáticos", "Abre «Menú», activa «Hechizos automáticos» y vuelve al combate. La cuadrícula muestra Defensa y Ataque arriba y Sobre mí y En área debajo. Carga una mezcla y usa el joystick de apuntado para lanzarla hacia delante.",
                 _ => _tutorialSpellShortcuts.Enabled && !_paused, Prepare: PrepareDefenseLesson),
-            new("Defensa automática", "Tienes poca vida. Pulsa «Defensa» y después «Sobre mí» para crear un escudo que también te regenera.",
+            new("Defensa automática", "Pulsa «Defensa» y después «Sobre mí». Prepara tres cargas: Escudo, Tierra y Vida, para protegerte con una armadura que también te regenera. Si estás estable y un aliado cercano baja del 60 % de vida, Defensa prepara Vida y muestra «Curar aliado»: apunta hacia él con el joystick para curarlo.",
                 _ => player.Shield > 0, FirstWaveMarker),
             new("Cúrate con escudo", "Ya tienes escudo y te falta vida. Pulsa «Defensa» para preparar Vida y luego «Sobre mí» para curarte.",
                 _ => player.Health > player.MaxHealth * .65f, Prepare: PrepareShieldedHealing),
-            new("Ataque automático", "Pulsa «Ataque» y lanza con el joystick derecho. La mezcla aprovecha tu equipo y el estado del objetivo. Una carga de Fuego basta para aplicar quemadura; las otras pueden aportar daño de otro elemento.",
+            new("Ataque automático", "Pulsa «Ataque» y lanza con el joystick derecho. La mezcla valora el daño total contra el grupo: cadenas, chorros y explosiones ganan utilidad frente a varios enemigos. Arcano conserva su valor contra objetivos aislados, vulnerables o cuando tus mejoras permiten alcanzar a varios. Una carga de Fuego basta para aplicar quemadura; las otras pueden aportar daño de otro elemento.",
                 _ => _tutorialSpellShortcuts.Enabled && scenario.Target is { } enemy && enemy.Health < enemy.MaxHealth,
                 FirstWaveMarker, scenario.PrepareFirstWave),
             new("Vuelve a elegir", $"Abre «Menú» y desactiva «Hechizos automáticos». Vuelve al combate y combina {fireArcane} con los botones de elementos.",
