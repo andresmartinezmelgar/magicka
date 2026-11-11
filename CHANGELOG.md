@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.29.59
+
+- Ataque compara el daño útil sobre el grupo: cuenta los impactos de descargas, chorros, fragmentos y explosiones y limita el daño sobrante por enemigo. Arcano conserva su utilidad frente a objetivos aislados, vulnerables y con mejoras de penetración o eco.
+- Defensa prepara Escudo + Tierra + Vida con tres cargas. Si tienes al menos el 65 % de vida y un aliado visible está a un máximo de 10 m y por debajo del 60 %, prepara tres cargas de Vida e indica «Curar aliado» para lanzarlas hacia él con el joystick. Respeta paredes y cuerpos que interceptan el haz.
+- Ayuda y tutorial actualizados para explicar la elección de ataques contra grupos y el apoyo a aliados.
+
 ## 0.29.58
 
 - Áreas elementales con bordes más finos y suavizados, detalles menos recargados y avisos de enemigos y meteoros con contorno, halo y progreso de activación.
