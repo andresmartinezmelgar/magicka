@@ -41,8 +41,8 @@ public partial class Main
                 }
                 GD.Print($"SURVIVAL_BIOME_OK: {theme} · semilla {seed} · decoración {_renderer.SurvivalDecorations}");
             }
-            GD.Print("SURVIVAL_BIOMES_SMOKE_OK: " + SurvivalBiomes.Available.Count);
-            GetTree().Quit();
+            CompleteMenuSmoke("SURVIVAL_BIOMES_SMOKE_OK: " + SurvivalBiomes.Available.Count +
+                " · limpieza final verificada.");
         }
         catch (Exception error)
         {

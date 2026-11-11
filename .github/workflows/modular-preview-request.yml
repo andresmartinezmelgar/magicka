@@ -1,6 +1,7 @@
 name: Publicar prueba visual y acceso solicitada
 
 # Petición expresa de APK y tag tras la revisión visual y el acceso de pruebas.
+# Repetir la validación con la limpieza nativa de las capturas de biomas corregida.
 on:
   push:
     branches: [pruebas/mejoras-supervivencia]
