@@ -413,7 +413,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                         if (message.PingId > 0 && now - session.LastPingAt >= 500)
                         {
                             session.LastPingAt = now;
-                            await SendSession(session, Protocol.SerializeUtf8(new ServerMessage { Type = "pong", PingId = message.PingId }), connection.Token);
+                            await SendSession(session, Protocol.SerializePong(message.PingId), connection.Token);
                         }
                     }
                     else if (message.Type == "statistics")

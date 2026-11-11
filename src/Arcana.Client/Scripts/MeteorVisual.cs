@@ -6,7 +6,7 @@ namespace Arcana.Client;
 /// <summary>Caída visual sincronizada con los 1,4 s de aviso del servidor y su radio real.</summary>
 public partial class MeteorVisual : Node3D
 {
-    private static Shader? _rockShader, _tailShader, _warningShader;
+    private static Shader? _rockShader, _tailShader;
     private readonly Node3D _flight = new();
     private readonly Node3D _plume = new();
     private MeshInstance3D _rock = null!;
@@ -71,25 +71,7 @@ public partial class MeteorVisual : Node3D
                     * mix(wisps, 0.85, core);
             }
             """ };
-        _warningShader ??= new Shader { Code = """
-            shader_type spatial;
-            render_mode unshaded, cull_disabled, blend_mix, depth_draw_never;
-            uniform float progress = 0.0;
-            uniform float clock = 0.0;
-            void fragment() {
-                vec2 p = UV * 2.0 - 1.0;
-                float radius = length(p);
-                float angle = atan(p.y, p.x);
-                float rim = (1.0 - smoothstep(0.016, 0.036, abs(radius - 0.96)));
-                float sweep = (1.0 - smoothstep(0.015, 0.035, abs(radius - (0.18 + progress * 0.68)))) * 0.5;
-                float marks = step(0.72, cos(angle * 12.0 - clock * 0.8)) * smoothstep(0.72, 0.88, radius) * (1.0 - smoothstep(0.9, 0.96, radius));
-                ALBEDO = vec3(1.0, 0.37 + progress * 0.18, 0.11);
-                EMISSION = ALBEDO * 0.2;
-                ALPHA = (rim * 0.75 + sweep * 0.36 + marks * 0.55 + (1.0 - smoothstep(0.0, 1.0, radius)) * 0.08)
-                    * (0.55 + progress * 0.45);
-            }
-            """ };
-        _warning = new ShaderMaterial { Shader = _warningShader };
+        _warning = AreaVisuals.WarningSkin();
         Piece(this, new PlaneMesh { Size = Vector2.One * field.Radius * 2 }, new(0, 0.055f, 0), _warning);
         AddChild(_flight);
         _rockSkin = new ShaderMaterial { Shader = _rockShader };
@@ -156,7 +138,6 @@ public partial class MeteorVisual : Node3D
         _rockSkin.SetShaderParameter("clock", time);
         _tail.SetShaderParameter("clock", time);
         _core.SetShaderParameter("clock", time);
-        _warning.SetShaderParameter("clock", time);
         _warning.SetShaderParameter("progress", Math.Clamp((SpellBalance.MeteorLifetime - _remaining) / SpellBalance.MeteorDelay, 0, 1));
         Visible = field.Lifetime > 0;
     }

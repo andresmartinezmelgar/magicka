@@ -18,6 +18,8 @@ public partial class ItemShopPanel : Control
     internal void ResumeAfterAutoSales() { if (_waitingForAutoSales && !_lifetime.IsCancellationRequested) _ = Load(); }
     private string? _owner;
     private int _requestVersion;
+    private DateTimeOffset _serverTime;
+    private ulong _receivedAt, _renewalRetryAt;
     private AcceptDialog _comparison = null!;
     private ElementTextLabel _comparisonText = null!;
     internal ItemShop? Catalogue => _shop;
@@ -40,13 +42,13 @@ public partial class ItemShopPanel : Control
         body.AddThemeConstantOverride("separation", 8); _scroll.AddChild(body);
         if (Ui.IsMobile) Wrapped(body, "TIENDA · OBJETOS PERMANENTES", 20, Ui.Gold);
         _wallet = Wrapped(body, "Oro de cuenta: —", 21, Ui.Gold); _wallet.Name = "ShopWallet";
-        var explanation = Wrapped(body, "Ofertas permanentes de una sola compra. Los objetos llegan al inventario sin equiparse.", 15, Ui.Muted);
+        var explanation = Wrapped(body, "Objetos permanentes, ofertas nuevas cada día. Los objetos llegan al inventario sin equiparse.", 15, Ui.Muted);
         explanation.Visible = !Ui.IsMobile;
         var toolbar = new HBoxContainer(); toolbar.AddThemeConstantOverride("separation", 8); body.AddChild(toolbar);
         _reload = Ui.Button("Consultar", () => _ = Load()); _reload.Name = "ShopConnect";
-        _refresh = Ui.Button(Ui.IsMobile ? "Sin anuncios" : "Renovar · pronto", () => { }); _refresh.Name = "ShopRefreshAd";
+        _refresh = Ui.Button("Renovación diaria · 00:00", () => { }); _refresh.Name = "ShopRefreshAd";
         _refresh.Disabled = true;
-        _refresh.TooltipText = "La renovación por anuncios todavía no está disponible.";
+        _refresh.TooltipText = "Las seis ofertas cambian automáticamente cada día a las 00:00, hora peninsular.";
         foreach (var button in new[] { _reload, _refresh })
         {
             button.SizeFlagsHorizontal = SizeFlags.ExpandFill; button.CustomMinimumSize = new(0, Ui.IsMobile ? 54 : 46);
@@ -100,11 +102,12 @@ public partial class ItemShopPanel : Control
         }
         SetBusy(false, status); ResizeOffers();
     }
-    private void Render(ShopResult result, string message = "Tienda conectada. Las ofertas se conservan al cerrar esta pantalla.")
+    private void Render(ShopResult result, string message = "Tienda conectada. Ofertas nuevas cada día a las 00:00, hora peninsular.")
     {
         if (!_main.Accounts.SignedIn || result.Profile.Uid != _main.Accounts.Profile?.Uid) return;
         ClearOffers();
         _owner = result.Profile.Uid; _shop = result.Shop; _connected = true; _buyButtons.Clear();
+        _serverTime = result.ServerTime ?? DateTimeOffset.UtcNow; _receivedAt = Time.GetTicksMsec();
         _wallet.Text = $"Oro de cuenta: {result.Profile.Gold:N0} · Inventario: {result.Profile.Items.Length}/{EquipmentCatalogue.InventoryLimit}";
         foreach (var offer in result.Shop.Offers)
         {
@@ -194,11 +197,24 @@ public partial class ItemShopPanel : Control
     }
     public override void _Process(double delta)
     {
-        if (_lifetime.IsCancellationRequested || _owner == _main.Accounts.Profile?.Uid && (!_connected || _main.Accounts.SignedIn)) return;
-        _owner = _main.Accounts.Profile?.Uid; ++_requestVersion;
-        ShowUnavailable(_main.Accounts.SignedIn
-            ? "La cuenta ha cambiado. Pulsa «Consultar» para cargar sus ofertas."
-            : "Inicia sesión con Google desde Perfil para consultar las ofertas y comprar objetos.");
+        if (_lifetime.IsCancellationRequested) return;
+        if (_owner != _main.Accounts.Profile?.Uid || _connected && !_main.Accounts.SignedIn)
+        {
+            _owner = _main.Accounts.Profile?.Uid; ++_requestVersion;
+            ShowUnavailable(_main.Accounts.SignedIn
+                ? "La cuenta ha cambiado. Pulsa «Consultar» para cargar sus ofertas."
+                : "Inicia sesión con Google desde Perfil para consultar las ofertas y comprar objetos.");
+            return;
+        }
+        if (_busy || !_connected || !_main.Accounts.SignedIn || _shop?.RefreshAt == null) return;
+        ulong now = Time.GetTicksMsec();
+        // La decisión se basa en la hora del servidor y tiempo transcurrido,
+        // sin confiar en que el reloj del teléfono esté bien ajustado.
+        if (now >= _renewalRetryAt && _serverTime.AddMilliseconds(now - _receivedAt) >= _shop.RefreshAt.Value)
+        {
+            _renewalRetryAt = now + 60000;
+            _ = Load();
+        }
     }
     public override void _ExitTree() => _lifetime.Cancel();
 }

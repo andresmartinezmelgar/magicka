@@ -214,6 +214,8 @@ public sealed record DefenseSnapshot(double Elapsed, int Difficulty,
     public DefenseEnemySnapshot[] Bestiary { get; init; } = [];
     public float NextBossIn { get; init; }
     public int BossesKilled { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public int ColossusMomentumSeconds { get; init; }
     public int MinionLimit { get; init; } = DefensePerformanceBudget.DefaultLimit;
     public int PerformanceLimit { get; init; } = DefensePerformanceBudget.DefaultLimit;
 }

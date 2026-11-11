@@ -105,6 +105,10 @@ public partial class Main
                 }
                 CaptureShop("03-comparacion"); shop.HandleBack();
                 Check(!comparison.Visible, "Atrás no cierra la comparación.");
+                _shopSmokePhase = 22; return false;
+            }
+            if (_shopSmokePhase == 22)
+            {
                 CaptureShop("03-ofertas"); Button("ShopBuy_" + _shopBoughtId).EmitSignal(Godot.Button.SignalName.Pressed);
                 Button("ShopBuy_" + _shopBoughtId).EmitSignal(Godot.Button.SignalName.Pressed); _shopSmokePhase = 3; return false;
             }
@@ -154,14 +158,30 @@ public partial class Main
                 if (shop!.Busy) return false;
                 Check(Accounts.Profile!.Gold == 0 && shop.Catalogue!.Offers.All(o => Button("ShopBuy_" + o.Item.Id).Disabled), "Se permite comprar sin oro.");
                 Check(Button("ShopRefreshAd").Disabled && _shopFixture!.AdRequests == 0, "Los anuncios están activos tras reconectar.");
-                CaptureShop("06-sin-oro"); _ = Accounts.SignOut(); _shopSmokePhase++; return false;
+                CaptureShop("06-sin-oro"); _shopFixture!.RenewalPhase = 1;
+                Button("ShopConnect").EmitSignal(Godot.Button.SignalName.Pressed); _shopSmokePhase = 80; return false;
+            }
+            if (_shopSmokePhase == 80)
+            {
+                if (shop!.Busy || _shopFixture!.DailyRenewals == 0) return false;
+                Check(shop.Catalogue != null && shop.Catalogue.Id != _shopSmokeId && shop.Catalogue.Revision == 2 &&
+                    shop.Catalogue.Offers.All(o => !o.Sold) && Accounts.Profile!.Gold == 0 && Accounts.Profile.Items.Single().Id == _shopBoughtId,
+                    "La tienda abierta no renueva sus seis ofertas con la hora del servidor o altera el oro y los objetos comprados.");
+                _shopSmokePhase = 81; return false;
+            }
+            if (_shopSmokePhase == 81)
+            {
+                Check(_shopFixture!.DailyRenewals == 1 && _shopFixture.Purchases == 1 && _shopFixture.AdRequests == 0 && !shop!.Busy,
+                    "La rotación diaria provoca consultas repetidas, compras o anuncios.");
+                GD.Print("SHOP_DAILY_RENEWAL_OK: renovación automática con hora del servidor, seis ofertas nuevas y compras conservadas.");
+                _ = Accounts.SignOut(); _shopSmokePhase = 9; return false;
             }
             if (_shopSmokePhase == 9)
             {
                 if (Accounts.SignedIn || shop!.Catalogue != null) return false;
                 CheckUnavailable(); Check(shop.Status.Contains("Inicia sesión") && shop.Wallet == "Oro de cuenta: —", "Cerrar sesión conserva datos de compra de la cuenta anterior.");
                 Check(_engineLog.ErrorCount == 0, "Godot registró errores en la tienda.");
-                GD.Print("SHOP_SMOKE_OK: acceso desde Inicio, interfaz sin conexión, compra única, saldo, inventario sin configuración, catálogo estable, desconexión, reconexión, cierre de sesión y anuncios desactivados.");
+                GD.Print("SHOP_SMOKE_OK: acceso desde Inicio, interfaz sin conexión, compra única, saldo, inventario sin configuración, catálogo estable durante el día, renovación automática, desconexión, reconexión, cierre de sesión y anuncios desactivados.");
                 _shopSmoke = false; GetTree().Quit(); return true;
             }
         }
@@ -179,9 +199,10 @@ public partial class Main
     private sealed class ShopFixtureHandler : HttpMessageHandler
     {
         public long Gold = 10000;
-        public int Purchases, AdRequests;
+        public int Purchases, AdRequests, RenewalPhase, DailyRenewals;
         public bool Connected;
         private ItemShop _shop = ShopRules.Generate(new(53));
+        private DateTimeOffset _serverNow = DateTimeOffset.UtcNow;
         private readonly List<EquipmentItem> _items = [];
         private AccountProfile Profile => new("shop-fixture", "Comprador", Gold, 0, 0, new(), _items.ToArray());
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
@@ -197,7 +218,17 @@ public partial class Main
             }
             if (path.StartsWith("/account/shop/ad/", StringComparison.Ordinal))
             { AdRequests++; throw new InvalidOperationException("Los anuncios no deben invocarse desde la tienda."); }
-            if (path.StartsWith("/account/shop", StringComparison.Ordinal)) return Json(new ShopResult(Profile, _shop, "Tienda conectada."));
+            if (path == "/account/shop" && RenewalPhase == 1)
+            {
+                _serverNow = _shop.RefreshAt!.Value.AddMilliseconds(-250); RenewalPhase = 2;
+            }
+            else if (path == "/account/shop" && RenewalPhase == 2)
+            {
+                _serverNow = _shop.RefreshAt!.Value;
+                _shop = ShopRules.Generate(new(89), checked(_shop.Revision + 1), _serverNow);
+                RenewalPhase = 3; DailyRenewals++;
+            }
+            if (path.StartsWith("/account/shop", StringComparison.Ordinal)) return Json(new ShopResult(Profile, _shop, "Tienda conectada.", _serverNow));
             if (path.EndsWith("/items", StringComparison.Ordinal)) return Json(new { documents = _items.Select(Document).ToArray() });
             if (path.EndsWith("/loadouts/active", StringComparison.Ordinal)) return Json(Document(new EquipmentLoadout()));
             return Json(Document(new { uid = Profile.Uid, name = Profile.Name, gold = Gold, wins = 0, losses = 0, itemCount = _items.Count, schemaVersion = 1 }));

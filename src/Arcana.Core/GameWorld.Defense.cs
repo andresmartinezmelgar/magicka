@@ -16,8 +16,12 @@ public sealed partial class GameWorld
 
     public bool DefensePaused => IsDefense && !MatchEnded && _players.Values.Count(p => !p.Bot) == 1 &&
         _players.Values.Any(p => !p.Bot && _defenders[p.Id].ShopOpen);
-    private float DefenseDamagePower(int id) => IsDefense && _defenders.TryGetValue(id, out var s) && s.BerserkerRemaining > 0
-        ? DefenseRules.BerserkerPower(s.Passives[(int)DefensePassive.Berserker]) : 1;
+    private float DefenseDamagePower(int id)
+    {
+        if (!IsDefense || !_defenders.TryGetValue(id, out var progress)) return 1;
+        float berserker = progress.BerserkerRemaining > 0 ? DefenseRules.BerserkerPower(progress.Passives[(int)DefensePassive.Berserker]) : 1;
+        return berserker * (_colossusMomentumRemaining > 0 ? DefenseRules.ColossusMomentumPower : 1);
+    }
     private float DefenseSpeed(Wizard player) => IsDefense && _defenders.TryGetValue(player.Id, out var s) && s.BerserkerRemaining > 0 ? 1.15f : 1;
 
     private void InitializeDefense()
@@ -87,6 +91,7 @@ public sealed partial class GameWorld
         // Los efectos del identificador anterior (p. ej. una quemadura) siguen
         // sumando al mismo contador personal tras una reconexión.
         player.MatchDamage = previous.MatchDamage;
+        _statistics.ResumeParticipant(previous.Id, player);
         Array.Copy(previous.MagickCooldowns, player.MagickCooldowns, player.MagickCooldowns.Length);
     }
 
@@ -120,6 +125,7 @@ public sealed partial class GameWorld
     {
         if (!IsDefense || !_players.Values.Any(p => !p.Bot)) return;
         _defenseElapsed += dt;
+        _colossusMomentumRemaining = Math.Max(0, _colossusMomentumRemaining - dt);
         _oracleSpawnCooldown = Math.Max(0, _oracleSpawnCooldown - dt);
         _prismSpawnCooldown = Math.Max(0, _prismSpawnCooldown - dt);
         UpdateDefensePartyScaling();
@@ -128,6 +134,17 @@ public sealed partial class GameWorld
             var progress = _defenders[player.Id];
             if (player.Deaths < DefenseRules.PlayerLives && !progress.ShopOpen && (player.Bot || Time - progress.LastActivity < 8 || player.Channel != null || player.Charging != null)) progress.ActiveTicks++;
         }
+        if (!_tutorialFirstWave) TickDefenseSpawns(dt);
+        BuildDefenseCells();
+        foreach (var minion in _minions.Values) TickMinion(minion, dt);
+        TickDefensePassives(dt);
+        TickDefenseDrops(dt);
+        _auraClock += dt;
+        if (_auraClock >= 0.25f) { TickDefenseAuras(_auraClock); _auraClock = 0; }
+    }
+
+    private void TickDefenseSpawns(float dt)
+    {
         _defenseDifficulty = DefenseRules.TimedDifficulty(_defenseElapsed);
         bool bossAlive = _minions.Values.Any(m => m.Kind == MinionKind.Boss && m.Body.Alive);
         if (!bossAlive)
@@ -145,12 +162,6 @@ public sealed partial class GameWorld
             float interval = DefenseRules.SpawnInterval(_defenseDifficulty, _defensePartySize, _random.NextDouble());
             _spawnClock = Math.Max(DefensePerformanceLimit <= 48 ? 0.4f : DefensePerformanceLimit <= 96 ? 0.25f : 0.18f, interval);
         }
-        BuildDefenseCells();
-        foreach (var minion in _minions.Values) TickMinion(minion, dt);
-        TickDefensePassives(dt);
-        TickDefenseDrops(dt);
-        _auraClock += dt;
-        if (_auraClock >= 0.25f) { TickDefenseAuras(_auraClock); _auraClock = 0; }
     }
 
     private void SpawnMinion()
@@ -183,6 +194,12 @@ public sealed partial class GameWorld
     private bool TrySpawnMinion(MinionKind kind)
     {
         if (_minions.Count >= DefenseRules.MaxMinions || !TryDefenseSpawn(out var at)) return false;
+        SpawnDefenseMinion(kind, at);
+        return true;
+    }
+
+    private DefenseMinion SpawnDefenseMinion(MinionKind kind, V2 at)
+    {
         int party = Math.Clamp(ActiveDefensePartySize, 1, DefenseRules.MaxDefenders);
         float strength = DefenseRules.EnemyStrength(_defenseDifficulty) * DefenseRules.PartyDamageMultiplier(party);
         float health = DefenseRules.MinionHealth(kind, _defenseDifficulty, party);
@@ -207,7 +224,7 @@ public sealed partial class GameWorld
         if (kind is MinionKind.Boss or MinionKind.Captain) StartCommanderSurge(kind == MinionKind.Boss);
         if (kind == MinionKind.Boss) Emit("defense_boss", at, [], "Un coloso te está buscando");
         if (kind == MinionKind.Oracle) Emit("defense_oracle", at, [Element.Arcane, Element.Shield], "¡Ha aparecido un oráculo de asedio!");
-        return true;
+        return minion;
     }
 
     private bool TryDefenseSpawn(out V2 position, bool nearbyOnly = false)
@@ -280,6 +297,7 @@ public sealed partial class GameWorld
         if (minion.Kind == MinionKind.Shaman) TickDefenseShaman(minion, dt);
         if (minion.Kind == MinionKind.Oracle) TickOracleShield(minion, dt);
         UpdateDefenseEnemyDefense(minion, dt);
+        if (minion.Kind == MinionKind.Boss && HoldColossusFissures(minion)) return;
         if (minion.Windup > 0)
         {
             p.Input.MoveX = p.Input.MoveY = 0;
@@ -344,6 +362,7 @@ public sealed partial class GameWorld
         minion.Attack = DefenseRules.AttackPause(minion.Kind, _defenseDifficulty);
         if (DefenseRules.AreaAttackRadius(minion.Kind) > 0)
         {
+            if (minion.Kind == MinionKind.Boss && TryBeginColossusFissures(minion, target)) return;
             minion.Windup = DefenseRules.AttackWindup(minion.Kind);
             if (minion.Kind is MinionKind.Captain or MinionKind.Sentinel)
                 minion.Attack = Math.Max(2.8f, DefenseRules.AttackPause(minion.Kind, _defenseDifficulty) * 2.7f);
@@ -428,7 +447,13 @@ public sealed partial class GameWorld
             foreach (var field in _fields)
                 if (field.Owner == target.Id && field.Kind == "oracle_bombardment") field.Lifetime = 0;
         bool boss = _minions[target.Id].Kind == MinionKind.Boss;
-        if (boss) _bossesKilled++; _defenseBotPlanClock = 0;
+        if (boss)
+        {
+            _bossesKilled++;
+            CancelColossusFissures(target.Id);
+            _colossusMomentumRemaining = DefenseRules.ColossusMomentumDuration;
+        }
+        _defenseBotPlanClock = 0;
         var discovery = _defenseBestiary[_minions[target.Id].Kind];
         _defenseBestiary[discovery.Kind] = discovery with { Killed = discovery.Killed + 1 };
         if (_players.TryGetValue(owner, out var killer))
@@ -503,6 +528,7 @@ public sealed partial class GameWorld
         _defenseBotPlans.Clear(); _defenseBotPlanClock = 0;
         _defenseKills = _bossesKilled = 0; _defenseDifficulty = _defensePartySize = 1;
         _defenseElapsed = _spawnClock = _auraClock = _oracleSpawnCooldown = 0;
+        _colossusMomentumRemaining = 0;
         _prismSpawnCooldown = DefenseRules.PrismMinimumSpawnGap;
         _commanderSurgeTime = _commanderSurgeCooldown = _commanderSpawnClock = 0;
         _commanderReinforcements = 0;

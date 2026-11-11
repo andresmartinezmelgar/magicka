@@ -10,6 +10,8 @@ const GROUPS=['total','actor','element','attack','recipe','enemy','enemyElement'
 const MEASURES=['damage','shieldDamage','damageReceived','shieldAbsorbed','overkill','immuneHits','hits','kills','deaths','spawns','casts','healing','healingReceived','shieldGranted','shieldRepaired','aliveSeconds','wetSeconds','burningSeconds','frozenSeconds','friendlyDamage','selfDamage','revives','revived','collected','goldEarned','goldSpent','levels','spawnHealth','samples','valueSum','distance','captures'];
 const number = v => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1e18;
 const run = v => typeof v==='string' && /^[0-9a-f]{32}$/.test(v);
+const MAX_PARTICIPANTS = 64;
+const PARTICIPANT_FIELDS = ['slot','bot','wizardType','team','healthDamage','shieldDamage','kills','deaths'];
 export const utcDay = (now=new Date()) => now.toISOString().slice(0,10);
 export function dayRange(days, now=new Date()) {const end=utcDay(now); const d=new Date(end+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-days+1);return {start:utcDay(d),end};}
 function validDay(v){return typeof v==='string' && /^(20[2-9][0-9]|2100)-\d\d-\d\d$/.test(v) && Number.isFinite(Date.parse(v)) && new Date(v+'T00:00:00Z').toISOString().slice(0,10)===v;}
@@ -29,13 +31,34 @@ export function parseReport(raw) {
   let r=typeof raw==='string'?JSON.parse(raw):raw;
   if (r?.payload !== undefined) r=typeof r.payload==='string'?JSON.parse(r.payload):r.payload;
   if (!r || r.schemaVersion!==1 || !run(r.runId) || !Number.isSafeInteger(r.revision) || r.revision<1 || r.revision>1892160000 || !validDay(r.day) || !Object.hasOwn(MODES,r.mode) || !Object.hasOwn(MAPS,r.map) || !STATUSES.includes(r.status) || r.status==='playing' || !/^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(r.gameVersion) || !number(r.seconds) || Math.abs(r.seconds-r.revision/60)>.001 || !Number.isInteger(r.humans) || r.humans<0 || r.humans>16 || !Number.isInteger(r.bots) || r.bots<0 || r.bots>16 || !Array.isArray(r.metrics) || r.metrics.length>2048) throw Error('Informe inválido');
-  const allowed=['schemaVersion','runId','revision','gameVersion','day','mode','map','network','status','seconds','humans','bots','difficulty','winnerTeam','scores','metrics','droppedBuckets','continuation'];
+  const allowed=['schemaVersion','runId','revision','gameVersion','day','mode','map','network','status','seconds','humans','bots','difficulty','winnerTeam','scores','metrics','droppedBuckets','continuation','participants','participantsPartial'];
   if(Object.keys(r).some(k=>!allowed.includes(k))||typeof r.network!=='boolean'||!Number.isInteger(r.difficulty)||r.difficulty<0||r.difficulty>1000000||!Number.isInteger(r.winnerTeam)||r.winnerTeam< -1||r.winnerTeam>1||!Array.isArray(r.scores)||r.scores.length!==2||!r.scores.every(s=>Number.isInteger(s)&&s>=0&&s<=1e9)||r.droppedBuckets!==undefined&&(!Number.isInteger(r.droppedBuckets)||r.droppedBuckets<0))throw Error('Cabecera inválida');
   const seen=new Set();
   for(const m of r.metrics){const k=m.group+':'+m.key+':'+m.measure;if(!GROUPS.includes(m.group)||!MEASURES.includes(m.measure)||!Number.isSafeInteger(m.key)||m.key<0||m.key>1e9||!validKey(m.group,m.key)||!number(m.value)||seen.has(k))throw Error('Métrica inválida');seen.add(k);}
+  if (r.participantsPartial !== undefined && typeof r.participantsPartial !== 'boolean' ||
+      r.participantsPartial && r.participants == null) throw Error('Desglose inválido');
+  if (r.participants != null) {
+    if (!Array.isArray(r.participants) || r.participants.length > MAX_PARTICIPANTS) throw Error('Desglose inválido');
+    const slots = new Set();
+    for (const p of r.participants) {
+      if (!p || !Number.isInteger(p.slot) || p.slot < 1 || p.slot > MAX_PARTICIPANTS || slots.has(p.slot) ||
+          typeof p.bot !== 'boolean' || !Number.isInteger(p.wizardType) || p.wizardType < 0 || p.wizardType >= CLASSES.length ||
+          (p.team !== 0 && p.team !== 1) || !number(p.healthDamage) || !number(p.shieldDamage) ||
+          ![p.kills,p.deaths].every(n => Number.isInteger(n) && n >= 0 && n <= 2147483647) ||
+          Object.keys(p).some(key => !PARTICIPANT_FIELDS.includes(key))) throw Error('Participante inválido');
+      slots.add(p.slot);
+    }
+  }
   return r;
 }
-export function isNewer(next,prev){const rank=s=>s==='completed'?6:STATUSES.indexOf(s);return ['runId','mode','map','gameVersion','day'].every(k=>next[k]===prev[k]) && !(prev.status==='completed' && next.status!=='completed') && (next.revision>prev.revision||next.revision===prev.revision&&rank(next.status)>rank(prev.status));}
+export function isNewer(next,prev) {
+  const rank = s => s === 'completed' ? 6 : STATUSES.indexOf(s);
+  return ['runId','mode','map','gameVersion','day'].every(k => next[k] === prev[k]) &&
+    !(prev.status === 'completed' && next.status !== 'completed') &&
+    (next.revision > prev.revision || next.revision === prev.revision &&
+      (rank(next.status) > rank(prev.status) || next.status === prev.status &&
+        next.participants?.length > 0 && !prev.participants?.length));
+}
 export function deduplicate(raw){const map=new Map();let invalid=0,duplicates=0,conflicts=0;for(const v of raw){try{const r=parseReport(v),p=map.get(r.runId);if(!p)map.set(r.runId,r);else{duplicates++;if(isNewer(r,p))map.set(r.runId,r);else if(['mode','map','day','gameVersion'].some(k=>p[k]!==r[k]))conflicts++;}}catch{invalid++;}}return {reports:[...map.values()],invalid,duplicates,conflicts};}
 const metricIndexes=new WeakMap();
 export function metric(r,group,key,measure){let index=metricIndexes.get(r);if(!index){index=new Map(r.metrics.map(m=>[m.group+':'+m.key+':'+m.measure,m.value]));metricIndexes.set(r,index);}return index.get(group+':'+key+':'+measure)??0;}
@@ -86,6 +109,11 @@ export function playersRanking(runs, includeBots = true) {
 }
 
 export function matchPlayers(report, streams, includeBots = true) {
+  if (report.participants?.length) {
+    return report.participants.filter(p => includeBots || !p.bot)
+      .map(p => ({...p, name:`${p.bot ? 'Bot' : 'Jugador'} ${p.slot}`, damage:p.healthDamage + p.shieldDamage}))
+      .sort((a,b) => b.damage - a.damage);
+  }
   const keys = ['runId', 'day', 'mode', 'map', 'gameVersion', 'network', 'status', 'revision'];
   let match;
   for (const stream of streams) {

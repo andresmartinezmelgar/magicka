@@ -102,7 +102,7 @@ public partial class Main
         if (_practiceSession != null)
         { _practicePanel = new PracticePanel(); _ui.AddChild(_practicePanel); _practicePanel.Build(_practiceSession); }
         _ui.MoveChild(_aimMarker, -1);
-        BuildTouchControls(); _touch?.Update(snapshot.Players.FirstOrDefault(p => p.Id == _localId));
+        BuildTouchControls(); _touch?.Update(snapshot.Players.FirstOrDefault(p => p.Id == _localId), snapshot);
         BuildDefenseControls(snapshot);
         UpdateTouchLayout();
         _ui.MoveChild(_help, -1); _ui.MoveChild(_pause, -1);

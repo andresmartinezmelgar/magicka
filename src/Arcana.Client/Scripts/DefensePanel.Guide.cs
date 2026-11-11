@@ -115,7 +115,7 @@ public partial class DefensePanel
                 MinionKind.Captain => "Potencia un 35 % el daño de otros enemigos a menos de 8 m. No se potencia a sí mismo. Desde dificultad 5.",
                 MinionKind.Archer => "Dispara proyectiles de tierra que pueden interceptarse con barreras.",
                 MinionKind.Mage => $"Alterna haces y relámpagos de {DefenseRules.EnemyChannelDuration:0.##} s con conos de {DefenseRules.EnemySprayDuration:0.##} s. El rayo gana potencia al cargar y puede provocar quemaduras adicionales.",
-                MinionKind.Boss => "Coloso con mucha vida y gran alcance cuerpo a cuerpo. Aparece a intervalos variables; solo puede haber uno activo.",
+                MinionKind.Boss => $"El Coloso avisa antes de pisotear. Al {DefenseRules.ColossusFissureHealth * 100:0} % de vida alterna pisotones y fisuras bajo los defensores cercanos. Sal de los círculos, interpón una barrera o congélalo para cortar el ataque. Derrotarlo da al equipo +{(DefenseRules.ColossusMomentumPower - 1) * 100:0} % de daño durante {DefenseRules.ColossusMomentumDuration:0} s.",
                 MinionKind.Runner => "Corre un 45 % más que un minion básico, pero tiene menos vida y daño. Aparece desde dificultad 2.",
                 MinionKind.Brute => "Mucha vida. Se detiene y avisa 0,9 s antes de golpear en un radio de 2,8 m. Puedes esquivarlo o interrumpirlo con congelación. Desde dificultad 4.",
                 MinionKind.Bomber => "Se detiene y avisa 1,1 s antes de explotar en 3,2 m. Muere al explotar; matarlo o congelarlo interrumpe el aviso. Desde dificultad 4.",

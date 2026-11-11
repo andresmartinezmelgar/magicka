@@ -47,7 +47,9 @@ internal static class PublicDashboardEmulatorTests
             using var ready = response!; ready.EnsureSuccessStatusCode();
             string body = await ready.Content.ReadAsStringAsync();
             using var parsed = JsonDocument.Parse(body);
-            if (!parsed.RootElement.GetProperty("reports").EnumerateArray().Any(r => r.GetProperty("runId").GetString() == report.RunId) ||
+            var historical = parsed.RootElement.GetProperty("reports").EnumerateArray()
+                .Single(r => r.GetProperty("runId").GetString() == report.RunId);
+            if (historical.GetProperty("participants").EnumerateArray().Single().GetProperty("slot").GetInt32() != 1 ||
                 !parsed.RootElement.GetProperty("telemetry").EnumerateArray().Any(t => t.GetProperty("report").GetProperty("runId").GetString() == report.RunId))
                 throw new Exception("El dashboard público no contiene el histórico validado.");
             if (body.Contains(uid) || body.Contains("ownerUid") || body.Contains("privateAccountField") || body.Contains("NEVER_EXPORT_THIS") || body.Contains("private@example.test"))

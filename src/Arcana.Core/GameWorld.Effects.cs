@@ -33,7 +33,7 @@ public sealed partial class GameWorld
             float falloff = 0.65f * (1 - distance / radius);
             Hit(target, recipe, projectile.Power * falloff, projectile.Owner, (target.Position - projectile.Position).Normalized);
         }
-        Emit("splash", projectile.Position, recipe.Elements, "", radius);
+        Emit("splash", projectile.Position, recipe.Elements, "", radius, IsDefense ? projectile.Owner : 0);
         if (recipe.GroundKind is not { } kind || _fields.Count >= 40) return;
         // La roca ya aplicó su golpe: el suelo conserva solo los elementos secundarios.
         var ground = new SpellRecipe(recipe.Elements.Where(e => e != Element.Earth));

@@ -9,6 +9,7 @@ public static partial class SnapshotValidation
         if (d == null || state.Map != ArenaMapId.Bastion || !double.IsFinite(d.Elapsed) ||
             d.Elapsed < 0 || d.Elapsed > state.Time + 0.1 || d.Difficulty < 1 ||
             !Size(d.NextBossIn, 180.01f) || d.BossesKilled < 0 || d.BossesKilled > d.TotalKills ||
+            d.ColossusMomentumSeconds < 0 || d.ColossusMomentumSeconds > DefenseRules.ColossusMomentumDuration ||
             d.HumanCount != state.Players.Count(p => !p.Bot) || d.Paused && (d.HumanCount != 1 || state.MatchEnded) || d.TotalKills < 0 ||
             d.Minions is not { Length: <= DefenseRules.MaxMinions } || d.Drops is not { Length: <= DefenseRules.MaxDrops } ||
             d.Bestiary == null || d.Bestiary.Length > DefenseRules.MinionTypeCount ||

@@ -116,9 +116,11 @@ public partial class Main
                     Check(GetViewport().GetVisibleRect().Encloses(tools.GetGlobalRect()), "Las herramientas del editor salen de la pantalla: " + tools.GetGlobalRect());
                     var control = (Control)_controlsSettings!.FindChild("TouchSelf", true, false);
                     _controlBefore = control.GetGlobalRect().GetCenter();
+                    // El destino queda libre de los accesos de hechizos en la pantalla pequeña.
+                    var controlTarget = _controlBefore + new Vector2(140, -80);
                     Input.ParseInputEvent(new InputEventScreenTouch { Index = 0, Position = _controlBefore, Pressed = true });
-                    Input.ParseInputEvent(new InputEventScreenDrag { Index = 0, Position = _controlBefore + new Vector2(140, 40), Relative = new(140, 40) });
-                    Input.ParseInputEvent(new InputEventScreenTouch { Index = 0, Position = _controlBefore + new Vector2(140, 40), Pressed = false });
+                    Input.ParseInputEvent(new InputEventScreenDrag { Index = 0, Position = controlTarget, Relative = controlTarget - _controlBefore });
+                    Input.ParseInputEvent(new InputEventScreenTouch { Index = 0, Position = controlTarget, Pressed = false });
                     var editing = (MobileControls)_controlsSettings.FindChild("MobileControls", true, false);
                     foreach (var center in editing.StickCentersForVerification)
                     {

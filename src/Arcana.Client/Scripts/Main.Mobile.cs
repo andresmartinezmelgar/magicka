@@ -76,6 +76,8 @@ public partial class Main
         _touch = new MobileControls(); _ui.AddChild(_touch);
         _touchSettings ??= (DevicePreferences.Read<TouchSettings>("touch-controls") ?? new()).Normalize();
         _touch.Configure(_touchSettings);
+        _touch.ConfigureSpellShortcuts(CurrentSpellShortcuts);
+        _touch.ShortcutEquipment = SpellShortcutEquipment;
         _touch.PointerBlocked = point => _hud?.RewardNoticeContains(point) == true ||
             _defensePanel?.BlocksTouch(point) == true || TutorialBlocksPointer(point);
         _touch.MagickAvailable = slot => CheckMagickAvailable(slot, checkTarget: false);
@@ -83,6 +85,7 @@ public partial class Main
         _touch.ActionRequested += message =>
         {
             if (!_playing || TutorialHoldsCombat || _paused || _help.Visible || InspectingEquipment || ControlsOpen || ViewingDamageSummary || DefenseInterfaceOpen || _waitingPanel?.Visible == true) return;
+            if (message.Type is "element" or "clear") { Submit(message); return; }
             UpdateTouchAim();
             if (message.Type == "magick") UseMagick(message.Slot);
             else { Submit(InputMessage()); Submit(message); }

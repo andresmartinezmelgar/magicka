@@ -15,6 +15,8 @@ Filtros de últimos 7 o 30 días UTC inclusivos, fechas personalizadas dentro de
 
 La página conecta automáticamente con el servidor, sin iniciar sesión. Cuando el servidor no permite cargar una sección, aparece «Datos no accesibles» y la consulta se reintenta. También se pueden importar informes JSON como una lista de informes, un informe, sobres con `payload`, o `{ "reports": [...], "telemetry": [...] }`. La importación permanece en memoria y no sube archivos a Firebase.
 
+El detalle de una partida muestra el total y las cifras de daño a vida y escudo, bajas y muertes de cada participante. Los informes nuevos numeran los jugadores y bots dentro de la partida. Los informes antiguos conservan sus totales y pueden mostrar un desglose si existe una captura del mismo cierre.
+
 ## Instalar en la Surface
 
 Requisito: Git para Windows instalado y accesible como `git`. Ejecuta en **Windows PowerShell**:

@@ -68,6 +68,7 @@ public static partial class Ui
         return ElementColor(Element.Water);
     }
     public static string ModeName(GameMode mode) => mode switch { GameMode.Duel => "Duelo", GameMode.Arena => "Todos contra todos", GameMode.Defense => "Supervivencia", _ => "Guerra de puntos" };
+    internal static string CastName(CastMode mode) => mode switch { CastMode.Self => "Sobre mí", CastMode.Nova => "En área", _ => "Frontal" };
     public static StyleBoxFlat Panel(Color? color = null, int radius = 12, Color? border = null)
     {
         var style = new StyleBoxFlat

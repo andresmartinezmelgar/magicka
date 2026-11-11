@@ -8,6 +8,7 @@ Duelo, Arena, Guerra y Supervivencia generan un informe acumulado por ronda, tan
 |---|---|
 | Partida | Versión del contrato y del juego, día UTC, modo, mapa, local/red, duración activa, máximos de humanos/bots, dificultad, marcador, equipo ganador y estado de cierre |
 | Combate | Daño efectivo a vida, daño absorbido por escudos, exceso de daño, impactos, lanzamientos, bajas, muertes, daño propio y fuego amigo |
+| Participantes | Número dentro de la partida, clase, equipo, tipo humano o bot, daño efectivo a vida y escudo, bajas y muertes registradas |
 | Elementos y ataques | Aportación de cada elemento, combinación y forma de ataque; humanos, bots y monstruos separados; quemadura, auras, meteoritos, minas, pasivas y bombardeos |
 | Monstruos | Apariciones, vida inicial acumulada, muertes, daño causado/recibido, escudos absorbidos y desglose del daño recibido por elemento |
 | Apoyo y estados | Curación efectiva, escudo concedido/reparado, reanimaciones y segundos vivo, mojado, ardiendo o congelado por clase y equipo |
@@ -26,6 +27,8 @@ Las clases y equipos son grupos agregados: no representan jugadores identificabl
 Desde 0.29.9 las estadísticas tienen como almacenamiento persistente exclusivamente Firestore, en la base Standard existente `(default)` de `arcana-arena-f2997` (europe-southwest1). Android y Windows envían directamente por HTTPS, sin relé ni servidor de cuentas. El contenido del envío no incluye ID token, cookies ni UID y funciona también sin iniciar sesión con Google.
 
 Durante el combate los contadores se acumulan en memoria. Al terminar, abandonar, reiniciar o desconectar una partida se captura el informe cerrado y comienza el primer envío inmediatamente. Guardar supervivencia sin salir solo crea el punto de continuación del juego; no publica estadísticas de una partida en curso. Guardar y salir cierra el tramo como abandonado. El servidor transmite sus capturas por la conexión de juego y solo encola informes cerrados para la ruta de compatibilidad.
+
+El informe cerrado puede incluir hasta 64 participantes en `participants`, dentro del mismo `payload`. Las filas conservan las contribuciones de quienes salieron durante la partida y mantienen los contadores al reconectar. `participantsPartial` indica que se alcanzó el límite. Las partidas antiguas siguen siendo legibles y los mensajes periódicos mantienen su formato.
 
 `MatchStatisticsOutbox` mantiene los pendientes exclusivamente en memoria. Un fallo de red, cuota o permisos permite reintentar cada 30 segundos mientras la aplicación permanece abierta. La confirmación borra solo la revisión enviada, nunca una revisión nueva que haya llegado durante el envío. Al cerrar o perder el proceso se pierden los pendientes sin confirmar; no hay recuperación desde disco. No se crean `match-statistics/matches` ni `match-statistics/pending`, y se elimina `ARCANA_MATCH_STATISTICS_DIR`. Los archivos históricos de versiones anteriores no se leen, modifican ni suben automáticamente.
 

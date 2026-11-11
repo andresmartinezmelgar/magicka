@@ -1,9 +1,10 @@
-name: Publicar prueba de equipamiento modular solicitada
+name: Publicar prueba visual y acceso solicitada
 
-# La revisión incluye la prueba de márgenes con el selector de piezas abierto.
+# Petición expresa de APK y tag tras la revisión visual y el acceso de pruebas.
+# Repetir la validación con la limpieza nativa de las capturas de biomas corregida.
 on:
   push:
-    branches: [pruebas/armas-sprite-completo]
+    branches: [pruebas/mejoras-supervivencia]
     paths: [.github/workflows/modular-preview-request.yml]
 
 permissions:
@@ -13,7 +14,7 @@ permissions:
 
 jobs:
   requested-preview:
-    if: github.event.head_commit.message == 'Publicar prueba de equipamiento 0.29.38'
+    if: github.event.head_commit.message == 'Publicar prueba visual y acceso 0.29.60'
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
@@ -28,13 +29,13 @@ jobs:
           url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           status() {
             gh api --method POST "$api/statuses/$GITHUB_SHA" -f state="$1" \
-              -f context=publicacion/equipamiento-modular -f description="$2" -f target_url="$url" >/dev/null
+              -f context=publicacion/controles-tactiles -f description="$2" -f target_url="$url" >/dev/null
           }
           trap 'status failure "La compilación o publicación requiere revisión" || true' ERR
           status pending "Validando la revisión solicitada"
-          test "$GITHUB_REF_NAME" = 'pruebas/armas-sprite-completo'
+          test "$GITHUB_REF_NAME" = 'pruebas/mejoras-supervivencia'
           version=$(tr -d '\r\n' < VERSION)
-          test "$version" = '0.29.38'
+          test "$version" = '0.29.60'
           python3 scripts/version-support.py check .
           test "$(gh api "$api/git/ref/heads/$GITHUB_REF_NAME" --jq '.object.sha')" = "$GITHUB_SHA"
           find_run() {

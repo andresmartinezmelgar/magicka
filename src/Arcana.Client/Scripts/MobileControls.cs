@@ -39,7 +39,7 @@ public partial class MobileControls : Control
     private float BaseScale => Math.Min(1, Size.Y / 720f);
     private float ControlScale => BaseScale * Settings.Size * _fitScale;
     private float StickRadius => Radius * ControlScale;
-    internal Rect2[] ButtonRectanglesForVerification => _actions.Select(a => a.Panel.GetGlobalRect()).ToArray();
+    internal Rect2[] ButtonRectanglesForVerification => _actions.Where(a => a.Panel.Visible).Select(a => a.Panel.GetGlobalRect()).ToArray();
     internal Vector2[] StickCentersForVerification => [_moveHome + GlobalPosition, _aimCenter + GlobalPosition];
     internal bool BarrierAimPending => _directionalAimPending && _aimedSpellShape == SpellShape.Barrier;
     internal bool IceAimPending => _directionalAimPending && _aimedSpellShape == SpellShape.Shards;
@@ -61,6 +61,7 @@ public partial class MobileControls : Control
             action.Panel.Name = "TouchElement" + element;
             action.Text.AddThemeFontSizeOverride("font_size", 22);
         }
+        BuildSpellShortcuts();
         _self = AddButton("Sobre mí", new() { Type = "self" }, color: Ui.Health); _self.Panel.Name = "TouchSelf";
         _nova = AddButton("En área", new() { Type = "nova" }, color: Ui.Gold); _nova.Panel.Name = "TouchNova";
         for (int i = 0; i < SpellBalance.Magicks.Count; i++)
@@ -74,7 +75,8 @@ public partial class MobileControls : Control
         _utilities.Add(AddButton("Tabla", run: () => ScoreRequested?.Invoke()));
         _utilities.Add(AddButton("Menú", run: () => MenuRequested?.Invoke()));
         for (int i = 0; i < _utilities.Count; i++) _utilities[i].Panel.Name = "TouchUtility" + i;
-        Resized += Layout; Layout();
+        Resized += Layout;
+        ConfigureSpellShortcuts(new() { Enabled = AutomaticSpells });
     }
     private TouchAction AddButton(string title, ClientMessage? message = null, Action? run = null, Color? color = null, Element? element = null)
     {
@@ -105,13 +107,16 @@ public partial class MobileControls : Control
         _aimedProjectile = null; _rockChargeObserved = false;
         CancelMagickAim();
         _selected.Reset();
+        ResetSpellShortcuts();
         foreach (var action in _pressed.Values) action.Panel.Modulate = Colors.White;
         _pressed.Clear(); QueueRedraw();
     }
     public void Update(WizardSnapshot? player, WorldSnapshot? world = null)
     {
+        UpdateSpellShortcuts(player, world);
         if (player == null) return;
         _selected.Confirm(player.Selected, player.SelectionSequence);
+        if (!_selected.Pending && _selected.Elements.Count == 0) _preparedShortcut = null;
         if (_aimedProjectile != null && _aimedSpellShape == SpellShape.Rock)
         {
             bool charging = player.Casting && player.CastingElements?.Contains(Element.Earth) == true;
@@ -132,13 +137,13 @@ public partial class MobileControls : Control
             if (_magicks[i].Text.Text != caption)
             {
                 _magicks[i].Text.Text = caption;
-                FitMagickCaption(_magicks[i]);
+                FitActionCaption(_magicks[i]);
             }
             _magicks[i].Text.AddThemeColorOverride("font_color", available ? Ui.Gold : Ui.Muted);
         }
     }
 
-    private static void FitMagickCaption(TouchAction action)
+    private static void FitActionCaption(TouchAction action)
     {
         var available = action.Panel.Size - action.Panel.GetThemeStylebox("panel").GetMinimumSize();
         if (available.X <= 0 || available.Y <= 0) return;
@@ -211,12 +216,16 @@ public partial class MobileControls : Control
         }
         if (finger == _moveFinger || finger == _aimFinger || _pressed.ContainsKey(finger)) return true;
         if (PointerBlocked?.Invoke(point + GlobalPosition) == true) return false;
-        var action = _actions.FirstOrDefault(a => ButtonRect(a).HasPoint(point));
+        var action = _actions.FirstOrDefault(a => a.Panel.Visible && ButtonRect(a).HasPoint(point));
         if (action != null)
         {
             _pressed[finger] = action; action.Panel.Modulate = new Color(1.2f, 1.2f, 1.2f);
             if (action.Message != null)
+            {
+                // El primer elemento manual vuelve a empezar aunque el acceso ocupe las tres cargas.
+                if (action.Message.Type == "element" && _preparedShortcut != null) Request(new() { Type = "clear" });
                 Request(new() { Type = action.Message.Type, Element = action.Message.Element, Slot = action.Message.Slot });
+            }
             action.Run?.Invoke(); return true;
         }
         if (_hudAreas.Any(area => area.Bounds.HasPoint(point + GlobalPosition)) ||
@@ -280,6 +289,7 @@ public partial class MobileControls : Control
             CancelMagickAim();
         }
         bool selectionAction = message.Type is "element" or "clear" or "cast" or "self" or "nova";
+        if (message.Type is "element" or "clear") _preparedShortcut = null;
         if (selectionAction) _selected.Predict(message);
         ActionRequested?.Invoke(message);
         // Submit asigna la secuencia de la conexión o de la partida local.
@@ -309,7 +319,7 @@ public partial class MobileControls : Control
         }
         if (_editFinger != -1 || PointerBlocked?.Invoke(point) == true) return false;
         point -= GlobalPosition;
-        var action = _actions.FirstOrDefault(a => ButtonRect(a).HasPoint(point));
+        var action = _actions.FirstOrDefault(a => a.Panel.Visible && ButtonRect(a).HasPoint(point));
         var center = action != null ? ButtonRect(action).GetCenter() :
             point.DistanceTo(_moveHome) <= StickRadius ? _moveHome : point.DistanceTo(_aimCenter) <= StickRadius ? _aimCenter : new Vector2(-9999, -9999);
         if (center.X < -1000) return false;

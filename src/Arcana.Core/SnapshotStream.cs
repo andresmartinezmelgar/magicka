@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace Arcana.Core;
@@ -47,6 +48,37 @@ public sealed class SnapshotReceiver
     private readonly Dictionary<long, ServerMessage> _baselines = [];
     private long _latestId = 1;
     public SnapshotReceiver(ServerMessage welcome) => _baselines[1] = SnapshotSender.Snapshot(welcome);
+
+    /// <summary>Lee el discriminante sin construir un ServerMessage ni un árbol del contenido.</summary>
+    public static string? ReadMessageType(ReadOnlySpan<byte> raw)
+    {
+        var reader = new Utf8JsonReader(raw, new JsonReaderOptions { MaxDepth = Protocol.Json.MaxDepth });
+        if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject)
+            throw new JsonException("Respuesta de red inválida.");
+        string? type = null;
+        while (reader.Read())
+        {
+            if (reader.TokenType == JsonTokenType.EndObject)
+            {
+                if (reader.Read()) throw new JsonException("Datos adicionales en la respuesta.");
+                return type;
+            }
+            if (reader.TokenType != JsonTokenType.PropertyName)
+                throw new JsonException("Campo de respuesta inválido.");
+            bool isType = reader.ValueTextEquals("type"u8);
+            if (!reader.Read()) throw new JsonException("Respuesta de red incompleta.");
+            if (isType)
+            {
+                if (reader.TokenType is not (JsonTokenType.String or JsonTokenType.Null))
+                    throw new JsonException("Tipo de respuesta inválido.");
+                // Igual que System.Text.Json: si un campo se repite, prevalece el último.
+                type = reader.GetString();
+            }
+            else reader.Skip();
+        }
+        throw new JsonException("Respuesta de red incompleta.");
+    }
+
     public void Accept(ServerMessage keyframe)
     {
         if (keyframe.Snapshot == null || keyframe.BaselineId < 2 || keyframe.BaselineId > _latestId + 1)
@@ -60,6 +92,6 @@ public sealed class SnapshotReceiver
     {
         var node = JsonNode.Parse(raw) as JsonObject ?? throw new InvalidDataException("Delta inválido.");
         long id = node["baseId"]?.GetValue<long>() ?? 1;
-        return _baselines.TryGetValue(id, out var baseline) ? SnapshotDelta.Decode(raw, baseline) : null;
+        return _baselines.TryGetValue(id, out var baseline) ? SnapshotDelta.Decode(node, baseline) : null;
     }
 }

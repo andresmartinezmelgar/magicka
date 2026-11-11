@@ -49,7 +49,7 @@ public partial class DefensePanel : Control
     private WorldSnapshot? _lastSnapshot;
     private int _lastPlayerId;
     private bool _lastOnline, _lastRewardsAvailable, _lastShopOpen;
-    private (int Level, int Experience, int Next, int Gold, int Kills, int Lives)? _summaryState;
+    private (int Level, int Experience, int Next, int Gold, int Kills, int Lives, int Momentum)? _summaryState;
     private BuffSnapshot[]? _lastBonuses;
     public bool PointerOverPanel => _summary.GetGlobalRect().HasPoint(GetGlobalMousePosition()) || ShopOpen;
 
@@ -330,11 +330,12 @@ public partial class DefensePanel : Control
         UpdateEquipmentSetup();
         _canRestart = !online || snapshot.LobbyHostId == id;
         var p = _player;
-        var summary = (p.Level, p.Experience, p.NextLevelExperience, p.Gold, p.Kills, p.LivesRemaining);
+        var summary = (p.Level, p.Experience, p.NextLevelExperience, p.Gold, p.Kills, p.LivesRemaining, defense.ColossusMomentumSeconds);
         if (_summaryState != summary)
         {
             _summaryState = summary;
-            _stats.Text = $"Nivel {p.Level} · {p.Experience}/{p.NextLevelExperience} EXP\nOro {p.Gold} · Bajas {p.Kills} · Vidas {p.LivesRemaining}/2";
+            _stats.Text = $"Nivel {p.Level} · {p.Experience}/{p.NextLevelExperience} EXP\nOro {p.Gold} · Bajas {p.Kills} · Vidas {p.LivesRemaining}/2" +
+                (defense.ColossusMomentumSeconds > 0 ? $"\nColoso derrotado · +{(DefenseRules.ColossusMomentumPower - 1) * 100:0} % daño · {defense.ColossusMomentumSeconds} s" : "");
         }
         UpdateCollectedBonuses();
         _summary.Size = new(_summary.Size.X, 0);

@@ -12,6 +12,8 @@ public enum StatisticMeasure { Damage, ShieldDamage, DamageReceived, ShieldAbsor
 public enum StatisticAttack { Beam, Lightning, Spray, Rock, Shards, Force, Barrier, Melee, Self, Nova, Mine, Meteor, Haste, Teleport, Revive, FireAura, LightningAura, RegenerationAura, AutoMeteor, FrostNova, ChainLightning, Burn, EnemyMelee, EnemyArea, OracleBombardment, Regeneration, RingShield, RingPulse, ShieldLeech, ShieldReflection, ArcaneAura, WaterAura, ArcaneMark, ArcaneEcho }
 public enum StatisticDamageSource { Direct, Area, Aura, Burn }
 public sealed record MatchStatistic(StatisticGroup Group, int Key, StatisticMeasure Measure, double Value);
+public sealed record MatchParticipantStatistics(int Slot, bool Bot, int WizardType, int Team,
+    double HealthDamage, double ShieldDamage, int Kills, int Deaths);
 
 /// <summary>Contrato cerrado: no acepta nombres, cuentas, direcciones ni identificadores de dispositivo.</summary>
 public sealed record MatchStatisticsReport(int SchemaVersion, string RunId, long Revision, string GameVersion,
@@ -19,8 +21,12 @@ public sealed record MatchStatisticsReport(int SchemaVersion, string RunId, long
     int Humans, int Bots, int Difficulty, int WinnerTeam, int[] Scores, MatchStatistic[] Metrics,
     int DroppedBuckets = 0, bool Continuation = false)
 {
-    public const int CurrentSchema = 1, MaxMetrics = 2048, MaxBytes = 240 * 1024;
+    public const int CurrentSchema = 1, MaxMetrics = 2048, MaxBytes = 240 * 1024, MaxParticipants = 64;
     private static readonly JsonSerializerOptions StrictJson = new(Protocol.Json) { UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow };
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public MatchParticipantStatistics[]? Participants { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool ParticipantsPartial { get; init; }
     [JsonIgnore] public bool Complete => Status == MatchRecordStatus.Completed;
     public double Sum(StatisticGroup group, StatisticMeasure measure, int? key = null) =>
         Metrics.Where(m => m.Group == group && m.Measure == measure && (key == null || m.Key == key)).Sum(m => m.Value);
@@ -53,6 +59,19 @@ public sealed record MatchStatisticsReport(int SchemaVersion, string RunId, long
             if (m == null || !Enum.IsDefined(m.Group) || !Enum.IsDefined(m.Measure) || !double.IsFinite(m.Value) ||
                 m.Value < 0 || m.Value > 1e18 || !ValidKey(m.Group, m.Key) || !seen.Add((m.Group, m.Key, m.Measure)))
                 throw new InvalidDataException("Métrica inválida o duplicada.");
+        if (Participants is { } participants)
+        {
+            if (participants.Length > MaxParticipants) throw new InvalidDataException("Demasiados participantes.");
+            var slots = new HashSet<int>();
+            foreach (var p in participants)
+                if (p == null || p.Slot is < 1 or > MaxParticipants || !slots.Add(p.Slot) ||
+                    !Enum.IsDefined((WizardType)p.WizardType) || p.Team is < 0 or > 1 ||
+                    !double.IsFinite(p.HealthDamage) || p.HealthDamage is < 0 or > 1e18 ||
+                    !double.IsFinite(p.ShieldDamage) || p.ShieldDamage is < 0 or > 1e18 ||
+                    p.Kills < 0 || p.Deaths < 0)
+                    throw new InvalidDataException("Participante inválido o duplicado.");
+        }
+        else if (ParticipantsPartial) throw new InvalidDataException("Falta el desglose de participantes.");
     }
     private static bool ValidKey(StatisticGroup group, int key) => group switch
     {
@@ -82,5 +101,7 @@ public sealed record MatchStatisticsReport(int SchemaVersion, string RunId, long
     public static bool IsNewer(MatchStatisticsReport next, MatchStatisticsReport previous) =>
         next.RunId == previous.RunId && next.Mode == previous.Mode && next.Map == previous.Map && next.GameVersion == previous.GameVersion &&
         next.Day == previous.Day && !(previous.Complete && !next.Complete) &&
-        (next.Revision > previous.Revision || next.Revision == previous.Revision && Rank(next.Status) > Rank(previous.Status));
+        (next.Revision > previous.Revision || next.Revision == previous.Revision &&
+            (Rank(next.Status) > Rank(previous.Status) || next.Status == previous.Status &&
+                next.Participants is { Length: > 0 } && previous.Participants is not { Length: > 0 }));
 }

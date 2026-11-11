@@ -9,7 +9,8 @@ public partial class ArenaRenderer
     {
         public required Node3D Root;
         public MinionKind Kind;
-        public MeshInstance3D? Body, Health, Aura, Warning, Shield, ShieldTrack, SupportArea, ArcaneMark, LightningStun;
+        public MeshInstance3D? Body, Health, Aura, Shield, ShieldTrack, SupportArea, ArcaneMark, LightningStun;
+        public EnemyAttackWarning? Warning;
         public Node3D? Details, Vitals;
         public MeshInstance3D[] Tinted = [];
         public Label3D? ElementLabel;
@@ -152,6 +153,11 @@ public partial class ArenaRenderer
             {
                 bool warning = m.AttackWarningSeconds > 0;
                 if (warning != v.WarningVisible) { v.Warning.Visible = warning; v.WarningVisible = warning; }
+                if (warning)
+                {
+                    v.Warning.Position = World(m.Position) - v.Root.Position;
+                    v.Warning.ShowRemaining(m.AttackWarningSeconds, DefenseRules.AttackWindup(m.Kind));
+                }
             }
         }
         _visibleLootIds.Clear();
@@ -272,8 +278,11 @@ public partial class ArenaRenderer
         v.Aura = Mesh(root, new TorusMesh { InnerRadius = 0.88f, OuterRadius = 0.97f, Rings = 20, RingSegments = 6 },
             new(0, 0.06f, 0), Ui.Gold, 0.5f);
         if (DefenseRules.AreaAttackRadius(m.Kind) is > 0 and var radius)
-            v.Warning = Mesh(root, new TorusMesh { InnerRadius = radius - 0.14f, OuterRadius = radius, Rings = 32, RingSegments = 5 },
-                new(0, 0.09f, 0), Ui.Red, 0.6f);
+        {
+            v.Warning = new EnemyAttackWarning();
+            root.AddChild(v.Warning);
+            v.Warning.Build(radius);
+        }
         _minionCreated[(int)m.Kind]++; DefenseMinionBuilds++;
         return v;
     }

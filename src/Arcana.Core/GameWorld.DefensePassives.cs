@@ -32,7 +32,7 @@ public sealed partial class GameWorld
                     case DefensePassive.Berserker:
                         progress.BerserkerRemaining = DefenseRules.BerserkerDuration(level);
                         progress.PassiveCooldowns[i] = 16;
-                        Emit("nova", player.Position, [Element.Fire, Element.Arcane], "Berserker", 1.8f);
+                        Emit("nova", player.Position, [Element.Fire, Element.Arcane], "Berserker", 1.8f, player.Id);
                         break;
                     case DefensePassive.FrostNova:
                         _statistics.Cast(player.Id, StatisticAttack.FrostNova, [Element.Cold]);
@@ -43,7 +43,7 @@ public sealed partial class GameWorld
                                 target.Body.Chill = Math.Min(95, target.Body.Chill + 35 + 8 * level);
                         }
                         progress.PassiveCooldowns[i] = 5;
-                        Emit("nova", player.Position, [Element.Cold], "Pulso glacial", 5);
+                        Emit("nova", player.Position, [Element.Cold], "Pulso glacial", 5, player.Id);
                         break;
                     case DefensePassive.ChainLightning:
                         _statistics.Cast(player.Id, StatisticAttack.ChainLightning, [Element.Lightning]);

@@ -17,6 +17,7 @@ public partial class MatchStatisticsPanel : Control
     private int _loadedPages;
     private readonly HashSet<string> _pageTokens = new(StringComparer.Ordinal);
     private GridContainer _filters = null!;
+    private ContentScrollContainer _scroll = null!;
     private OptionButton _mode = null!, _period = null!, _version = null!, _view = null!, _source = null!, _scale = null!;
     private int _damageElement = (int)Element.Fire;
     private bool? Logarithmic => _scale.Selected switch { 1 => false, 2 => true, _ => null };
@@ -41,6 +42,7 @@ public partial class MatchStatisticsPanel : Control
         var scroll = new ContentScrollContainer { Name = "StatisticsScroll", SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }; layout.AddChild(scroll); Ui.VisibleVerticalScroll(scroll);
+        _scroll = scroll;
         var content = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; content.AddThemeConstantOverride("separation", 12); scroll.AddChild(content);
         var explanation = Ui.Label(verification ? "Datos de prueba de QA · consulta paginada simulada" : "Estadísticas globales de Firebase · informes anónimos de todos los dispositivos", 16, Ui.Muted); explanation.AutowrapMode = TextServer.AutowrapMode.WordSmart; content.AddChild(explanation);
         _filters = new GridContainer { Columns = 3, SizeFlagsHorizontal = SizeFlags.ExpandFill }; content.AddChild(_filters);
@@ -51,7 +53,9 @@ public partial class MatchStatisticsPanel : Control
         _view = Select("Vista", ["Resumen", "Elementos", "Monstruos", "Hechizos", "Progresión", "Clases y equipos"]);
         _source = Select("Origen del ataque", ["Humanos + bots", "Humanos", "Bots", "Monstruos", "Todos los orígenes"]);
         _scale = Select("Escala de las gráficas", ["Automática", "Lineal", "Logarítmica"]);
-        _unfinished = new CheckBox { Text = "Incluir partidas interrumpidas", ButtonPressed = true }; _unfinished.Toggled += _ => Render(); _filters.AddChild(_unfinished);
+        _unfinished = new CheckBox { Text = "Incluir partidas interrumpidas", ButtonPressed = true,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new(0, 44), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _unfinished.Toggled += _ => { Render(); _scroll.SetDeferred(ScrollContainer.PropertyName.ScrollVertical, 0); }; _filters.AddChild(_unfinished);
         _status = Ui.Label("Cargando informes…", 16, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; content.AddChild(_status);
         _body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; _body.AddThemeConstantOverride("separation", 12); content.AddChild(_body);
         _refresh = Ui.Button("Actualizar desde Firebase", () => _ = Fetch(true)); content.AddChild(_refresh);
@@ -67,11 +71,15 @@ public partial class MatchStatisticsPanel : Control
         var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; box.AddChild(Ui.Label(title, 14, Ui.Muted));
         var select = new ScrollOptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new(0, 44), FitToLongestItem = false };
         foreach (string text in choices) select.AddItem(text);
-        select.ItemSelected += _ => { if (_body != null) Render(); }; box.AddChild(select); _filters.AddChild(box); return select;
+        select.ItemSelected += _ =>
+        {
+            if (_body == null) return;
+            Render(); _scroll.SetDeferred(ScrollContainer.PropertyName.ScrollVertical, 0);
+        }; box.AddChild(select); _filters.AddChild(box); return select;
     }
     private void ResizeFilters()
     {
-        _filters.Columns = GetViewport().GetVisibleRect().Size.X < 720 ? 1 : 3;
+        _filters.Columns = ResponsiveLayout.Columns(Math.Max(1, GetViewport().GetVisibleRect().Size.X - 90), 220, 3, 10);
         foreach (var chart in _body.FindChildren("*", "Control", true, false).OfType<StatisticsBarChart>())
         {
             chart.CustomMinimumSize = new(chart.CustomMinimumSize.X, BarChartHeight);

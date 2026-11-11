@@ -663,6 +663,7 @@ public partial class Main : Node
     {
         _paused = !_paused; _pause.Visible = _paused;
         if (_paused) _ui.MoveChild(_pause, -1);
+        if (_paused) UpdateSpellShortcutMenu();
         if (_relicMenuButton != null) _relicMenuButton.Visible = HasRelics;
         UpdateSurvivalSaveActions();
         if (_paused) StopInput();
@@ -695,6 +696,7 @@ public partial class Main : Node
         _defenseInterfaceHint = Ui.Label("En red, la partida continúa mientras estás en este menú.", 17, Ui.Muted);
         _defenseInterfaceHint.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_defenseInterfaceHint);
         AddSurvivalSaveActions(box);
+        AddSpellShortcutMenu(box);
         BuildAudioControls(box);
         _relicMenuButton = Ui.Button("Reliquias recogidas", OpenRelics);
         _relicMenuButton.Name = "PauseRelics"; _relicMenuButton.Visible = false; box.AddChild(_relicMenuButton);

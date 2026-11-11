@@ -34,9 +34,9 @@ internal static class ReleaseUpdateChannelTests
 
     public static void Run(Action<string, Action> test)
     {
-        test("Canal de pruebas: solo los dos UID autenticados tienen acceso al selector", () =>
+        test("Canal de pruebas: solo los UID autorizados y autenticados tienen acceso al selector", () =>
         {
-            foreach (string uid in new[] { Tester, "hg7F74kCNVQU3tU2itdjWu9SkyS2" })
+            foreach (string uid in new[] { Tester, "hg7F74kCNVQU3tU2itdjWu9SkyS2", "5IAznkpMbyaOqqvCV6D1e9DvZA93" })
             {
                 Check(ReleaseUpdateChannel.PreviewAllowed(uid, true), "UID autorizado rechazado.");
                 Check(!ReleaseUpdateChannel.PreviewAllowed(uid, false), "La caché sin sesión habilitó pruebas.");

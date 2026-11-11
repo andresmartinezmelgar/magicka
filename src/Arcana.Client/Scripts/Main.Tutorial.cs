@@ -18,6 +18,7 @@ public partial class Main
     private TutorialStep[] _tutorialSteps = [];
     private int _tutorialStepIndex;
     private bool _tutorialStepReady, _tutorialRetry, _tutorialSaveFailed;
+    private bool _firstWaveTutorial;
     internal bool TutorialCompleted => _tutorialProgress == TutorialChapter.Completed;
     private bool TutorialActive => _tutorial != null;
     private bool TutorialHoldsCombat => TutorialActive &&
@@ -31,18 +32,22 @@ public partial class Main
 
     internal bool CanStartRegularMatch() => !TutorialActive;
 
-    internal void OpenTutorial()
+    internal void OpenTutorial() => OpenTutorialAt(TutorialCompleted ? TutorialChapter.Basics : _tutorialProgress, firstWave: false);
+    internal void OpenFirstWaveTutorial() => OpenTutorialAt(TutorialChapter.Survival, firstWave: true);
+
+    private void OpenTutorialAt(TutorialChapter chapter, bool firstWave)
     {
         if (TutorialActive || _playing || Loading || _reconnecting) return;
         if (GodotObject.IsInstanceValid(_equipmentPanel) && !_equipmentPanel!.IsQueuedForDeletion())
-        { _equipmentPanel.Close(OpenTutorial); return; }
+        { _equipmentPanel.Close(() => OpenTutorialAt(chapter, firstWave)); return; }
         CloseAccountProfile();
         CloseMenuHelp();
         CloseBestiary();
         CloseMatchStatistics();
         CloseItemShop();
         CancelPendingConnection();
-        StartTutorialChapter(TutorialCompleted ? TutorialChapter.Basics : _tutorialProgress);
+        _firstWaveTutorial = firstWave;
+        StartTutorialChapter(chapter);
     }
 
     private void StartTutorialChapter(TutorialChapter chapter)
@@ -52,6 +57,7 @@ public partial class Main
         _practiceSession = null; _resumingSurvival = null;
         var scenario = new GameWorld.TutorialScenario(chapter, _launcher.PlayerName);
         _tutorial = scenario; _practice = scenario.World;
+        _tutorialSpellShortcuts = new();
         _localId = scenario.Player.Id; _localSequence = 0; _serverName = "Tutorial";
         _tutorialSteps = BuildTutorialSteps(scenario);
 
@@ -60,7 +66,9 @@ public partial class Main
         _tutorialGuideHost.AnchorLeft = _tutorialGuideHost.AnchorRight = 0.5f;
         _tutorialGuideHost.OffsetTop = Ui.IsMobile ? 6 : 12;
         _tutorialGuide = new TutorialGuide(); _tutorialGuideHost.AddChild(_tutorialGuide);
-        _tutorialGuide.Build(AdvanceTutorial, RepeatTutorialChapter);
+        _tutorialGuide.Build(AdvanceTutorial, RepeatTutorialChapter, _firstWaveTutorial ? () => ReturnToLauncher() : null);
+        if (_firstWaveTutorial)
+            _tutorialGuide.BuildPracticeLinks(() => OpenTutorialResource(HelpTopic.Elements), () => OpenTutorialResource(HelpTopic.Spells));
         ResizeTutorialGuide();
         GetViewport().SizeChanged += ResizeTutorialGuide;
 
@@ -97,6 +105,15 @@ public partial class Main
         ClearTutorialControls();
         _tutorial = null;
         _tutorialSteps = [];
+        _tutorialSpellShortcuts = new();
+        _firstWaveTutorial = false;
+    }
+
+    private void OpenTutorialResource(HelpTopic topic)
+    {
+        ReturnToLauncher();
+        ToggleMenuHelp();
+        _menuHelp?.OpenTopic(topic);
     }
 
     private void BeginTutorialStep(int index)
@@ -121,12 +138,15 @@ public partial class Main
         string next = _tutorialRetry ? "Reintentar" : reopenInventory ? "Abrir inventario" :
             _tutorialSaveFailed ? "Guardar de nuevo" :
             _tutorial.Chapter == TutorialChapter.Inventory && _tutorialStepIndex == 0 ? "Abrir inventario" :
+            lastStep && _firstWaveTutorial ? "Terminar" :
             lastStep && _tutorial.Chapter == TutorialChapter.Inventory ? "Terminar tutorial" : "Continuar";
         string body = _tutorialRetry ? "Repite la práctica para completar el objetivo del capítulo." :
             _tutorialSaveFailed ? "No se pudo guardar el tutorial en este dispositivo. Vuelve a intentar el guardado." : step.Text;
-        _tutorialGuide.ShowStep($"Tutorial {(int)_tutorial.Chapter + 1}/6 · {_tutorialStepIndex + 1}/{_tutorialSteps.Length} · {step.Title}",
+        string chapter = _firstWaveTutorial ? "Primera oleada" : $"Tutorial {(int)_tutorial.Chapter + 1}/6";
+        _tutorialGuide.ShowStep($"{chapter} · {_tutorialStepIndex + 1}/{_tutorialSteps.Length} · {step.Title}",
             body, next, _tutorialStepReady || _tutorialRetry || reopenInventory,
-            retry: !_tutorialRetry && !_tutorialStepReady && _tutorialStepIndex > 0);
+            retry: !_tutorialRetry && !_tutorialStepReady && _tutorialStepIndex > 0,
+            showResources: _firstWaveTutorial && lastStep);
     }
 
     private void RepeatTutorialChapter()
@@ -147,6 +167,7 @@ public partial class Main
             if (_tutorial.Chapter == TutorialChapter.Inventory && _tutorialStepIndex == 1) OpenTutorialInventory();
             return;
         }
+        if (_firstWaveTutorial) { ReturnToLauncher(); return; }
         var next = (TutorialChapter)((int)_tutorial.Chapter + 1);
         if (!TutorialCompleted)
         {
@@ -207,7 +228,8 @@ public partial class Main
                 _tutorialStepReady = true;
                 RefreshTutorialGuide();
             }
-            else if (snapshot.MatchEnded)
+            else if (snapshot.MatchEnded || _tutorial.Chapter == TutorialChapter.Survival &&
+                (!_tutorial.Player.Alive || _tutorial.Target?.Alive != true))
             {
                 _tutorialRetry = true;
                 RefreshTutorialGuide();

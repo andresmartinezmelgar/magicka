@@ -25,8 +25,13 @@ public static class SnapshotDelta
 
     public static ServerMessage Decode(ReadOnlySpan<byte> data, ServerMessage baseline)
     {
-        if (baseline.Snapshot == null) throw new InvalidDataException("Falta el keyframe.");
         var packet = JsonNode.Parse(data) as JsonObject ?? throw new InvalidDataException("Delta inválido.");
+        return Decode(packet, baseline);
+    }
+
+    internal static ServerMessage Decode(JsonObject packet, ServerMessage baseline)
+    {
+        if (baseline.Snapshot == null) throw new InvalidDataException("Falta el keyframe.");
         if (packet["type"]?.GetValue<string>() != "delta" ||
             packet["baseTick"]?.GetValue<long>() != baseline.Snapshot.Tick)
             throw new InvalidDataException("Keyframe incompatible.");

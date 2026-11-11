@@ -229,7 +229,8 @@ public partial class Main
         foreach (int page in new[] { 0, 1, 2, 4, 7, 5, 6 })
         {
             var navigation = (Button)root.FindChild("OptionANav" + page, true, false);
-            if (!navigation.IsVisibleInTree() || !footer.Grow(1).Encloses(navigation.GetGlobalRect()))
+            if (!navigation.IsVisibleInTree() || !footer.Grow(1).Encloses(navigation.GetGlobalRect()) ||
+                navigation.Size.X < 44 || navigation.Size.Y < 44)
                 throw new InvalidOperationException($"{stage}: la opción inferior {page} no es accesible.");
         }
         foreach (var control in root.FindChildren("*", "Control", true, false).OfType<Control>())

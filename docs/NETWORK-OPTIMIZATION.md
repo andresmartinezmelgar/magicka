@@ -1,6 +1,6 @@
-# Comunicaciones — protocolo 27
+# Comunicaciones — protocolo 46
 
-Revisión actual: [dashboard público y estudio de tráfico del 08/11/2026](reviews/network-dashboard-2026-11-08.md). Los resultados inferiores corresponden a una medición histórica anterior.
+Revisión actual: [auditoría PvP y estados pequeños del 09/11/2026](reviews/pvp-network-2026-11-09.md). Revisión anterior: [dashboard público y estudio de tráfico del 08/11/2026](reviews/network-dashboard-2026-11-08.md). Los resultados inferiores corresponden a una medición histórica anterior.
 
 Las acciones de combate conservan su formato binario y el servidor envía 20 estados por segundo. Cada delta es independiente respecto a una base identificada; nunca depende del mensaje anterior.
 

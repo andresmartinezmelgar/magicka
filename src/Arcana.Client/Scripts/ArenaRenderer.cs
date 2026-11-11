@@ -275,7 +275,7 @@ public partial class ArenaRenderer : Node3D
             if (e.Id <= _lastEvent) continue;
             if (playing && (NearSurvival(e.Position) || e.Kind == "passive_chain"))
             {
-                _effects.Play(e);
+                _effects.Play(e, CombatEffects.FriendlyParticleDensity(visibleState, e.ActorId, e.Position, e.Position, e.Radius));
                 if (e.Kind is "cast" or "self" or "nova" or "barrier")
                 {
                     // El evento no contiene ID de autor; su posición es la del lanzador.
@@ -381,6 +381,19 @@ public partial class ArenaRenderer : Node3D
     {
         foreach (var field in snapshot.Fields)
         {
+            if (field.Kind == DefenseRules.ColossusFissureKind)
+            {
+                if (!_fields.TryGetValue(field.Id, out var existingWarning))
+                {
+                    var warning = new EnemyAttackWarning { Position = World(field.Position) };
+                    AddChild(warning); warning.Build(field.Radius);
+                    _fields[field.Id] = existingWarning = warning;
+                }
+                var fissure = (EnemyAttackWarning)existingWarning;
+                fissure.Visible = field.Lifetime > 0;
+                if (fissure.Visible) fissure.ShowRemaining(field.Lifetime - 0.2f, DefenseRules.ColossusFissureWindup);
+                continue;
+            }
             if (field.Kind == "oracle_bombardment")
             {
                 if (!_fields.TryGetValue(field.Id, out var existingStrike))

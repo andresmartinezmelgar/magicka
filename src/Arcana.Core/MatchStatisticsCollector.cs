@@ -2,10 +2,33 @@ namespace Arcana.Core;
 
 internal sealed class MatchStatisticsCollector
 {
+    private sealed class Participant(Wizard body)
+    {
+        public Wizard Body = body;
+        public double HealthDamage, ShieldDamage;
+        public int Kills, Deaths;
+
+        public void Record(StatisticMeasure measure, double value)
+        {
+            switch (measure)
+            {
+                case StatisticMeasure.Damage: HealthDamage = Math.Min(1e18, HealthDamage + value); break;
+                case StatisticMeasure.ShieldDamage: ShieldDamage = Math.Min(1e18, ShieldDamage + value); break;
+                case StatisticMeasure.Kills: Kills = (int)Math.Min(int.MaxValue, Kills + value); break;
+                case StatisticMeasure.Deaths: Deaths = (int)Math.Min(int.MaxValue, Deaths + value); break;
+            }
+        }
+
+        public MatchParticipantStatistics Capture(int slot) =>
+            new(slot, Body.Bot, (int)Body.WizardType, Body.Team, HealthDamage, ShieldDamage, Kills, Deaths);
+    }
+
     private readonly Dictionary<(StatisticGroup Group, int Key, StatisticMeasure Measure), double> _values = [];
-    private readonly Dictionary<int, (int Code, MinionKind? Kind, Wizard Body)> _actors = [];
+    private readonly Dictionary<int, (int Code, MinionKind? Kind, Wizard Body, Participant? Participant)> _actors = [];
+    private readonly List<Participant> _participants = [];
     private readonly HashSet<int> _dead = [];
     private readonly Queue<int> _retired = [];
+    private bool _omittedRetiredParticipant;
     private long _ticks;
     private int _humans, _bots, _dropped;
     public string RunId { get; private set; } = Guid.NewGuid().ToString("N");
@@ -25,15 +48,48 @@ internal sealed class MatchStatisticsCollector
         if (!_actors.TryGetValue(id, out var actor)) return;
         Add(StatisticGroup.Actor, actor.Code, measure, value);
         if (actor.Kind is { } kind) Add(StatisticGroup.Enemy, (int)kind, measure, value);
+        else if (value > 0 && double.IsFinite(value)) actor.Participant?.Record(measure, value);
     }
     public void Bind(Wizard body, MinionKind? kind = null, bool spawn = true)
     {
-        _actors[body.Id] = (kind == null ? (int)body.WizardType + (body.Bot ? 16 : 0) + body.Team * 32 : 64 + (int)kind, kind, body);
+        var participant = kind == null ? BindParticipant(body) : null;
+        _actors[body.Id] = (kind == null ? (int)body.WizardType + (body.Bot ? 16 : 0) + body.Team * 32 : 64 + (int)kind,
+            kind, body, participant);
         _dead.Remove(body.Id);
         if (spawn) { Total(StatisticMeasure.Spawns); Actor(body.Id, StatisticMeasure.Spawns); Actor(body.Id, StatisticMeasure.SpawnHealth, body.MaxHealth); }
     }
+
+    private Participant? BindParticipant(Wizard body)
+    {
+        if (_actors.TryGetValue(body.Id, out var actor)) return actor.Participant;
+        if (_participants.Count >= MatchStatisticsReport.MaxParticipants) return null;
+        var participant = new Participant(body);
+        _participants.Add(participant);
+        return participant;
+    }
+
+    public void ResumeParticipant(int previousId, Wizard body)
+    {
+        var previous = _participants.Find(p => p.Body.Id == previousId);
+        if (previous == null || !_actors.TryGetValue(body.Id, out var actor)) return;
+        // Los efectos atribuidos al identificador anterior conservan el mismo contador.
+        if (actor.Participant is { } current)
+        {
+            previous.Record(StatisticMeasure.Damage, current.HealthDamage);
+            previous.Record(StatisticMeasure.ShieldDamage, current.ShieldDamage);
+            previous.Record(StatisticMeasure.Kills, current.Kills);
+            previous.Record(StatisticMeasure.Deaths, current.Deaths);
+            _participants.Remove(current);
+        }
+        previous.Body = body;
+        actor.Participant = previous;
+        _actors[body.Id] = actor;
+    }
+
     public void Retire(int id)
     {
+        if (_actors.TryGetValue(id, out var actor) && actor.Kind == null && actor.Participant == null)
+            _omittedRetiredParticipant = true;
         _retired.Enqueue(id);
         if (_retired.Count > 2048) { int old = _retired.Dequeue(); _actors.Remove(old); _dead.Remove(old); }
     }
@@ -174,11 +230,21 @@ internal sealed class MatchStatisticsCollector
     { Total(StatisticMeasure.Healing, actual); Actor(owner, StatisticMeasure.Healing, actual); Actor(target.Id, StatisticMeasure.HealingReceived, actual); Attack(owner, attack, StatisticMeasure.Healing, actual); }
     public void Shield(int owner, double actual, bool repair = false)
     { var m = repair ? StatisticMeasure.ShieldRepaired : StatisticMeasure.ShieldGranted; Total(m, actual); Actor(owner, m, actual); }
-    public MatchStatisticsReport Capture(GameWorld world, MatchRecordStatus status) => new(MatchStatisticsReport.CurrentSchema, RunId, _ticks,
-        BuildInfo.Version, _day, world.Options.Mode, world.Map.Id, Network, world.MatchEnded ? MatchRecordStatus.Completed : status,
-        _ticks / 60.0, _humans, _bots, world.StatisticsDifficulty,
-        world.MatchEnded && world.Winner >= 0 ? world.Options.Mode == GameMode.Arena ? world.Players.GetValueOrDefault(world.Winner)?.Team ?? -1 : world.Winner : -1,
-        [.. world.Scores], _values.OrderBy(p => p.Key.Group).ThenBy(p => p.Key.Key).ThenBy(p => p.Key.Measure).Select(p => new MatchStatistic(p.Key.Group, p.Key.Key, p.Key.Measure, p.Value)).ToArray(), _dropped, Continuation);
+    public MatchStatisticsReport Capture(GameWorld world, MatchRecordStatus status)
+    {
+        if (world.MatchEnded) status = MatchRecordStatus.Completed;
+        bool closed = status != MatchRecordStatus.Playing;
+        return new(MatchStatisticsReport.CurrentSchema, RunId, _ticks,
+            BuildInfo.Version, _day, world.Options.Mode, world.Map.Id, Network, status,
+            _ticks / 60.0, _humans, _bots, world.StatisticsDifficulty,
+            world.MatchEnded && world.Winner >= 0 ? world.Options.Mode == GameMode.Arena ? world.Players.GetValueOrDefault(world.Winner)?.Team ?? -1 : world.Winner : -1,
+            [.. world.Scores], _values.OrderBy(p => p.Key.Group).ThenBy(p => p.Key.Key).ThenBy(p => p.Key.Measure).Select(p => new MatchStatistic(p.Key.Group, p.Key.Key, p.Key.Measure, p.Value)).ToArray(), _dropped, Continuation)
+        {
+            Participants = closed ? _participants.Select((p, index) => p.Capture(index + 1)).ToArray() : null,
+            ParticipantsPartial = closed && (_omittedRetiredParticipant ||
+                world.Players.Keys.Any(id => !_actors.TryGetValue(id, out var actor) || actor.Participant == null))
+        };
+    }
     public static MatchStatisticsCollector Restore(MatchStatisticsReport report)
     {
         report.Validate();

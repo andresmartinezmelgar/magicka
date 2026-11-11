@@ -9,12 +9,12 @@ public static class ShopEndpoints
     {
         app.MapGet("/account/shop", (AccountService accounts, HttpContext context) => Auth(accounts, context, async user =>
             new ShopResult(await accounts.Repository!.Profile(user.Uid, user.Name, context.RequestAborted),
-                await accounts.Repository.Shop(user.Uid, user.Name, context.RequestAborted), "Ofertas cargadas.")));
+                await accounts.Repository.Shop(user.Uid, user.Name, context.RequestAborted), "Ofertas cargadas.", DateTimeOffset.UtcNow)));
         app.MapPost("/account/shop/buy", (ShopPurchaseRequest request, AccountService accounts, HttpContext context) => Auth(accounts, context, async user =>
         {
             bool bought = await accounts.Repository!.Buy(user.Uid, request, context.RequestAborted);
             return new ShopResult(await accounts.Repository.Profile(user.Uid, user.Name, context.RequestAborted),
-                await accounts.Repository.Shop(user.Uid, user.Name, context.RequestAborted), bought ? "Objeto comprado y guardado en tu inventario." : "Esta compra ya estaba registrada.");
+                await accounts.Repository.Shop(user.Uid, user.Name, context.RequestAborted), bought ? "Objeto comprado y guardado en tu inventario." : "Esta compra ya estaba registrada.", DateTimeOffset.UtcNow);
         }));
         app.MapPost("/account/shop/ad/start", AdsUnavailable);
         app.MapPost("/account/shop/ad/complete", AdsUnavailable);

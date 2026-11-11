@@ -197,6 +197,7 @@ public partial class HelpPanel : Control
         Text(row, "¿Es tu primera partida?", Ui.Gold, 20);
         Text(row, "Empieza por el tutorial: movimiento, hechizos y equipo, paso a paso.");
         row.AddChild(CompactButton("Abrir tutorial", _main.OpenTutorial, "HelpTutorial"));
+        row.AddChild(CompactButton("Primera oleada guiada", _main.OpenFirstWaveTutorial, "HelpFirstWaveTutorial"));
     }
 
     private void BuildSpellLab()

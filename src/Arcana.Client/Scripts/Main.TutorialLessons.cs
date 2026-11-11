@@ -20,6 +20,7 @@ public partial class Main
         string water = ElementControl(Element.Water), lightning = ElementControl(Element.Lightning);
         string wetBonus = SpellBalance.WetLightning.ToString("0.##", CultureInfo.GetCultureInfo("es-ES"));
         V2? TargetMarker() => target is { Alive: true } ? target.Position : null;
+        V2? FirstWaveMarker() => scenario.Target is { Alive: true } enemy ? enemy.Position : null;
         bool AimedAtTarget()
         {
             if (Ui.IsMobile && _touch?.Aiming != true) return false;
@@ -40,6 +41,33 @@ public partial class Main
         bool Hits(WorldSnapshot snapshot, params Element[] elements) => snapshot.Beams.Any(beam =>
             beam.Owner == player.Id && elements.All(e => beam.Elements.Contains(e)) &&
             Geometry.DistanceToSegment(target!.Position, beam.From, beam.To) <= 0.85f);
+        void PrepareDefenseLesson()
+        {
+            scenario.PrepareFirstWave();
+            if (Ui.IsMobile) player.Health = player.MaxHealth * .55f;
+        }
+        void PrepareShieldedHealing()
+        {
+            scenario.PrepareFirstWave();
+            player.Health = player.MaxHealth / 2;
+            player.Shield = player.ShieldMax = 420;
+            player.ShieldTime = 12;
+        }
+        TutorialStep[] shortcutLessons = Ui.IsMobile ?
+        [
+            new("Activa hechizos automáticos", "Abre «Menú», activa «Hechizos automáticos» y vuelve al combate. La cuadrícula muestra Defensa y Ataque arriba y Sobre mí y En área debajo. Carga una mezcla y usa el joystick de apuntado para lanzarla hacia delante.",
+                _ => _tutorialSpellShortcuts.Enabled && !_paused, Prepare: PrepareDefenseLesson),
+            new("Defensa automática", "Pulsa «Defensa» y después «Sobre mí». Prepara tres cargas: Escudo, Tierra y Vida, para protegerte con una armadura que también te regenera. Si estás estable y un aliado cercano baja del 60 % de vida, Defensa prepara Vida y muestra «Curar aliado»: apunta hacia él con el joystick para curarlo.",
+                _ => player.Shield > 0, FirstWaveMarker),
+            new("Cúrate con escudo", "Ya tienes escudo y te falta vida. Pulsa «Defensa» para preparar Vida y luego «Sobre mí» para curarte.",
+                _ => player.Health > player.MaxHealth * .65f, Prepare: PrepareShieldedHealing),
+            new("Ataque automático", "Pulsa «Ataque» y lanza con el joystick derecho. La mezcla valora el daño total contra el grupo: cadenas, chorros y explosiones ganan utilidad frente a varios enemigos. Arcano conserva su valor contra objetivos aislados, vulnerables o cuando tus mejoras permiten alcanzar a varios. Una carga de Fuego basta para aplicar quemadura; las otras pueden aportar daño de otro elemento.",
+                _ => _tutorialSpellShortcuts.Enabled && scenario.Target is { } enemy && enemy.Health < enemy.MaxHealth,
+                FirstWaveMarker, scenario.PrepareFirstWave),
+            new("Vuelve a elegir", $"Abre «Menú» y desactiva «Hechizos automáticos». Vuelve al combate y combina {fireArcane} con los botones de elementos.",
+                _ => !_tutorialSpellShortcuts.Enabled && player.Selection.Elements.Contains(Element.Fire) &&
+                    player.Selection.Elements.Contains(Element.Arcane), FirstWaveMarker, scenario.PrepareFirstWave)
+        ] : [];
 
         return scenario.Chapter switch
         {
@@ -91,10 +119,17 @@ public partial class Main
             ],
             TutorialChapter.Survival =>
             [
-                new("Supervivencia", "Coopera con aliados o juega solo. Los enemigos llegan continuamente y aparecen colosos. Tienes dos vidas. El oro, el equipo temporal y las mejoras se conservan al perder la primera."),
-                new("Resiste el primer encuentro", $"Busca al enemigo y derrótalo. {cast} En una partida normal, camina sobre el botín para recogerlo.",
-                    s => s.Defense?.TotalKills > 0, TargetMarker),
-                new("Mejoras de la partida", "En «Equipo / tienda» puedes ver el equipo temporal y comprar auras y habilidades. En solitario se pausa el combate mientras consultas la tienda. Las piezas temporales pertenecen a esa partida. En el siguiente capítulo las probarás.")
+                new("Primer encuentro", "Practica tres acciones con un enemigo de Supervivencia. La horda completa llega al iniciar una partida normal."),
+                new("Ataca", $"Selecciona {ElementControl(Element.Fire)}. {cast} Alcanza al enemigo marcado.",
+                    _ => scenario.Target is { } enemy && enemy.Health < enemy.MaxHealth, FirstWaveMarker),
+                new("Frena al enemigo", $"Selecciona {ElementControl(Element.Cold)}. {cast} Frío ralentiza al enemigo y puede congelarlo si mantienes el chorro.",
+                    _ => scenario.Target is { } enemy && (enemy.Chill > 0 || enemy.Frozen > 0), FirstWaveMarker, scenario.PrepareFirstWave),
+                new("Protégete", $"Selecciona {shield}. {self} Deja que el enemigo se acerque y golpee tu escudo.",
+                    _ => player.Shield > 0 && player.Shield < player.ShieldMax, FirstWaveMarker, PrepareDefenseLesson),
+                .. shortcutLessons,
+                new("Derrota al enemigo", $"Combina lo aprendido para terminar la primera oleada. {cast}",
+                    _ => scenario.Target is { Alive: false }, FirstWaveMarker),
+                new("Oleada superada", "En Supervivencia tienes dos vidas. Pasa por encima del botín para recogerlo y abre «Equipo / tienda» para mejorar. En Ayuda tienes la guía de elementos y el Laboratorio para probar mezclas.")
             ],
             TutorialChapter.Inventory =>
             [

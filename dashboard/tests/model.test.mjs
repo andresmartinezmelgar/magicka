@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {deduplicate,isNewer,dayRange,aggregate,pingSummary,liveRuns,playersRanking,filterReports,matchPlayers} from '../web/model.mjs';
+import {parseReport,deduplicate,isNewer,dayRange,aggregate,pingSummary,liveRuns,playersRanking,filterReports,matchPlayers} from '../web/model.mjs';
 const seed = {schemaVersion:1, runId:'1'.repeat(32), revision:600, gameVersion:'0.29.53',
   day:'2026-11-07', mode:'defense', map:'bastion', network:true, status:'completed',
   seconds:10, humans:1, bots:1, difficulty:3, winnerTeam:0, scores:[2,1], metrics:[]};
@@ -40,6 +40,27 @@ test('desglose de la partida usa una sola captura del cierre y respeta el filtro
   assert.equal(rows.length,1);
   assert.deepEqual([rows[0].kills,rows[0].healthDamage,rows[0].shieldDamage,rows[0].damage],[4,30,5,35]);
   assert.deepEqual(matchPlayers(seed,[{...telemetry,players:[telemetry.players[1]]}],false),[]);
+});
+
+test('el informe de cierre desglosa humanos y bots sin telemetría adicional',()=>{
+  const human = {slot:1,bot:false,wizardType:0,team:0,healthDamage:30,shieldDamage:5,kills:3,deaths:1};
+  const bot = {...human,slot:2,bot:true,team:1,healthDamage:50,shieldDamage:2,kills:2,deaths:0};
+  const archived = parseReport(JSON.stringify({...seed,participants:[human,bot]}));
+  assert.deepEqual(matchPlayers(archived,[]).map(p => [p.name,p.damage,p.kills,p.deaths]),
+    [['Bot 2',52,2,0],['Jugador 1',35,3,1]]);
+  assert.deepEqual(matchPlayers(archived,[],false).map(p => p.name),['Jugador 1']);
+  assert.equal(deduplicate([seed,archived]).reports[0].participants.length,2);
+  assert.equal(deduplicate([archived,seed]).reports[0].participants.length,2);
+  assert.equal(matchPlayers(seed,[]),null);
+});
+
+test('valida los contadores y rechaza identificadores externos en los participantes',()=>{
+  const participant = {slot:1,bot:false,wizardType:0,team:0,healthDamage:0,shieldDamage:0,kills:0,deaths:0};
+  for (const participants of [
+    [participant,participant], [{...participant,slot:65}], [{...participant,kills:-1}],
+    [{...participant,healthDamage:Infinity}], [{...participant,name:'dato privado'}]
+  ]) assert.throws(() => parseReport({...seed,participants}),/Participante inválido/);
+  assert.throws(() => parseReport({...seed,participantsPartial:true}),/Desglose inválido/);
 });
 
 test('apoyo se deriva de actores: curación y absorción no son daño elemental inventado',()=>{const r={...seed,metrics:[{group:'actor',key:0,measure:'healing',value:100},{group:'actor',key:16,measure:'healing',value:50},{group:'actor',key:0,measure:'shieldAbsorbed',value:80},{group:'total',key:0,measure:'shieldDamage',value:80}]};const t=aggregate([r]);assert.equal(t.elements[1].healing,150);assert.equal(t.elements[2].absorbed,80);assert.equal(t.absorbed,80);assert.equal(aggregate([r],false).elements[1].healing,100);assert.equal(t.damage,0);});

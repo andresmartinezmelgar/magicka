@@ -1,5 +1,42 @@
 # Cambios
 
+## 0.29.61
+
+- Las seis ofertas de la tienda se renuevan gratis a las 00:00, hora peninsular, respetando los cambios de horario. La renovación usa la hora del servidor y conserva el oro y los objetos comprados.
+- El historial conserva el total de la partida y el desglose por participante: daño, bajas y muertes de cada jugador, incluidos los aliados controlados por IA.
+- PvP comprime también estados pequeños cuando ahorra datos y procesa cada actualización diferencial una sola vez. El diagnóstico local desglosa el tráfico sin enviar mensajes adicionales.
+- Hechizos automáticos de Ataque y Defensa según equipo y enemigos, escudos con tres cargas y curación de aliados. La cuadrícula táctil cambia de recomendación como máximo cada 0,5 segundos.
+- Menús y controles ajustados al juego horizontal, estadísticas con filtros adaptados al ancho y áreas elementales con contornos más finos, halo y progreso de activación.
+
+## 0.29.60
+
+- Navegación compacta en pantallas estrechas y móviles apaisados: más espacio para leer los formularios, acciones de partida juntas y tarjetas de Inicio ajustadas al alto disponible. Conserva colores, bordes y objetivos táctiles de al menos 44 px.
+- Estadísticas con filtros repartidos según el ancho y lectura desde el inicio al cambiar de selección. La revisión gráfica muestra la tarjeta de cada gráfica y espera a que se cierre la comparación de tienda antes de capturar las ofertas.
+- Las recomendaciones de Ataque y Defensa cambian como máximo una vez cada 0,5 segundos. Los botones y el joystick mantienen respuesta inmediata.
+- Una tercera cuenta autenticada puede consultar las versiones de pruebas. Ampliada la cobertura visual de navegación, controles, bestiario, carga, sala de espera y HUD manual y automático.
+
+## 0.29.59
+
+- Ataque compara el daño útil sobre el grupo: cuenta los impactos de descargas, chorros, fragmentos y explosiones y limita el daño sobrante por enemigo. Arcano conserva su utilidad frente a objetivos aislados, vulnerables y con mejoras de penetración o eco.
+- Defensa prepara Escudo + Tierra + Vida con tres cargas. Si tienes al menos el 65 % de vida y un aliado visible está a un máximo de 10 m y por debajo del 60 %, prepara tres cargas de Vida e indica «Curar aliado» para lanzarlas hacia él con el joystick. Respeta paredes y cuerpos que interceptan el haz.
+- Ayuda y tutorial actualizados para explicar la elección de ataques contra grupos y el apoyo a aliados.
+
+## 0.29.58
+
+- Áreas elementales con bordes más finos y suavizados, detalles menos recargados y avisos de enemigos y meteoros con contorno, halo y progreso de activación.
+- Los hechizos automáticos se organizan en una cuadrícula: Defensa y Ataque arriba, Sobre mí y Área abajo. El bloque se mueve completo en el editor y conserva el orden en modo zurdo. El tutorial explica la distribución y el lanzamiento con joystick.
+
+## 0.29.57
+
+- Un interruptor de hechizos automáticos alterna entre Defensa y Ataque y los ocho elementos de selección manual. Guarda la elección en el dispositivo y el tutorial practica ambos modos.
+- Ataque valora las mejoras del equipo, la distancia y las quemaduras activas. Una carga de Fuego aplica el efecto y las otras pueden aportar daño de otro elemento. La duración y la intensidad de la quemadura cuentan al elegir la mezcla.
+
+## 0.29.56
+
+- Los controles táctiles incorporan dos accesos de carga, Defensa y Ataque. Defensa prioriza escudo y curación según el estado del jugador. Ataque tiene en cuenta el objetivo y las mejoras del equipo.
+- El menú de partida permite elegir entre hechizos recomendados y combinaciones predefinidas por el jugador. El tutorial explica ambos modos y los dos accesos.
+- Mejoras en los avisos, la primera oleada y la selección de equipo de Supervivencia.
+
 ## 0.29.55
 
 - El contenedor de la Raspberry puede leer el HTML, JavaScript y CSS del observatorio tras una actualización automática. La web carga las estadísticas públicas sin iniciar sesión.

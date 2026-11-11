@@ -108,28 +108,45 @@ public static class ItemAffixes
         ItemAffixKind.GoldBonus => $"+{affix.Value}% de oro base: recogidas en Supervivencia y premio final en PvP. No afecta a ventas.",
         _ => ""
     };
-    public static string Summary(EquipmentModifiers modifiers) => string.Join("\n", new[]
+    internal readonly record struct ActiveEffect(string Name, string Description, bool Arcane);
+
+    public static string Summary(EquipmentModifiers modifiers) => string.Join("\n", Effects(modifiers).Select(effect => effect.Description));
+
+    internal static ActiveEffect[] Effects(EquipmentModifiers modifiers)
     {
-        modifiers.BeamPierce > 0 ? Describe(new(ItemAffixKind.BeamPierce, modifiers.BeamPierce)) : "",
-        modifiers.LightningChains > 0 ? Describe(new(ItemAffixKind.LightningChain, modifiers.LightningChains)) : "",
-        modifiers.BurnPotency > 1 ? Describe(new(ItemAffixKind.DoubleBurn)) : "",
-        modifiers.WaterShieldPool ? Describe(new(ItemAffixKind.WaterShieldPool)) : "",
-        modifiers.Icebreaker > 0 ? Describe(new(ItemAffixKind.Icebreaker, modifiers.Icebreaker)) : "",
-        modifiers.SteamImpact > 0 ? Describe(new(ItemAffixKind.SteamImpact, modifiers.SteamImpact)) : "",
-        modifiers.ArcaneExecution > 0 ? Describe(new(ItemAffixKind.ArcaneExecution, modifiers.ArcaneExecution)) : "",
-        modifiers.ShieldBattery > 0 ? Describe(new(ItemAffixKind.ShieldBattery, modifiers.ShieldBattery)) : "",
-        modifiers.MendingWard > 0 ? Describe(new(ItemAffixKind.MendingWard, modifiers.MendingWard)) : "",
-        modifiers.ShieldReprisal > 0 ? Describe(new(ItemAffixKind.ShieldReprisal, modifiers.ShieldReprisal)) : "",
-        modifiers.ShieldLeech > 0 ? Describe(new(ItemAffixKind.ShieldLeech, modifiers.ShieldLeech)) : "",
-        modifiers.ShieldReflection > 0 ? Describe(new(ItemAffixKind.ShieldReflection, modifiers.ShieldReflection)) : "",
-        modifiers.RockFragmentation > 0 ? Describe(new(ItemAffixKind.RockFragmentation, modifiers.RockFragmentation)) : "",
-        modifiers.AutomaticRock > 0 ? Describe(new(ItemAffixKind.AutomaticRock, modifiers.AutomaticRock)) : "",
-        modifiers.LightningStun > 0 ? Describe(new(ItemAffixKind.LightningStun, modifiers.LightningStun)) : "",
-        modifiers.WaterSlow > 0 ? Describe(new(ItemAffixKind.WaterSlow, modifiers.WaterSlow)) : "",
-        modifiers.ArcaneMark > 0 ? Describe(new(ItemAffixKind.ArcaneMark, modifiers.ArcaneMark)) : "",
-        modifiers.ArcaneEcho > 0 ? Describe(new(ItemAffixKind.ArcaneEcho, modifiers.ArcaneEcho)) : "",
-        modifiers.MagicRingFamily is { } family ? RingEffects.Describe(EquipmentSlot.MagicRing, family, modifiers.MagicRingLevel, modifiers) : "",
-        modifiers.ExtraGoldEvery > 0 ? Describe(new(ItemAffixKind.CoinDividend), 11 - modifiers.ExtraGoldEvery) : "",
-        modifiers.GoldBonusPercent > 0 ? Describe(new(ItemAffixKind.GoldBonus, modifiers.GoldBonusPercent)) : ""
-    }.Where(s => s.Length > 0));
+        var effects = new List<ActiveEffect>();
+        void Add(ItemAffixKind kind, int value, int level = 0)
+        {
+            if (value <= 0) return;
+            effects.Add(new(Name(kind), Describe(new(kind, value), level),
+                kind is ItemAffixKind.BeamPierce or ItemAffixKind.ArcaneExecution or ItemAffixKind.ArcaneMark or ItemAffixKind.ArcaneEcho));
+        }
+        Add(ItemAffixKind.BeamPierce, modifiers.BeamPierce);
+        Add(ItemAffixKind.LightningChain, modifiers.LightningChains);
+        Add(ItemAffixKind.DoubleBurn, modifiers.BurnPotency > 1 ? 1 : 0);
+        Add(ItemAffixKind.WaterShieldPool, modifiers.WaterShieldPool ? 1 : 0);
+        Add(ItemAffixKind.Icebreaker, modifiers.Icebreaker);
+        Add(ItemAffixKind.SteamImpact, modifiers.SteamImpact);
+        Add(ItemAffixKind.ArcaneExecution, modifiers.ArcaneExecution);
+        Add(ItemAffixKind.ShieldBattery, modifiers.ShieldBattery);
+        Add(ItemAffixKind.MendingWard, modifiers.MendingWard);
+        Add(ItemAffixKind.ShieldReprisal, modifiers.ShieldReprisal);
+        Add(ItemAffixKind.ShieldLeech, modifiers.ShieldLeech);
+        Add(ItemAffixKind.ShieldReflection, modifiers.ShieldReflection);
+        Add(ItemAffixKind.RockFragmentation, modifiers.RockFragmentation);
+        Add(ItemAffixKind.AutomaticRock, modifiers.AutomaticRock);
+        Add(ItemAffixKind.LightningStun, modifiers.LightningStun);
+        Add(ItemAffixKind.WaterSlow, modifiers.WaterSlow);
+        Add(ItemAffixKind.ArcaneMark, modifiers.ArcaneMark);
+        Add(ItemAffixKind.ArcaneEcho, modifiers.ArcaneEcho);
+        if (modifiers.MagicRingFamily is { } family)
+        {
+            string description = RingEffects.Describe(EquipmentSlot.MagicRing, family, modifiers.MagicRingLevel, modifiers);
+            if (description.Length > 0)
+                effects.Add(new("Anillo mágico · " + EquipmentCatalogue.FamilyName(family), description, family == EquipmentFamily.Arcane));
+        }
+        Add(ItemAffixKind.CoinDividend, modifiers.ExtraGoldEvery > 0 ? 1 : 0, 11 - modifiers.ExtraGoldEvery);
+        Add(ItemAffixKind.GoldBonus, modifiers.GoldBonusPercent);
+        return effects.ToArray();
+    }
 }
