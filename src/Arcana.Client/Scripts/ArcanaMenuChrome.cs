@@ -135,20 +135,23 @@ public partial class ArcanaMenuChrome : Control
     private void UpdateResponsive()
     {
         if (_reservedContent == null || _footer == null || _navigationGrid == null) return;
-        float viewportWidth = GetViewport().GetVisibleRect().Size.X;
-        // La navegación no tiene scrollbar: descontar solo los márgenes reales
-        // permite cuatro columnas en 640 px sin añadir una tercera fila que quite espacio al contenido.
-        bool compactNav = Ui.IsMobile && viewportWidth <= 820;
+        var viewport = GetViewport().GetVisibleRect().Size;
+        float viewportWidth = viewport.X;
+        // Los nombres cortos caben en una fila desde 640 px, sin restar otra fila al contenido.
+        bool shortLandscape = Ui.IsMobile && viewport.X >= 640 && viewport.Y <= 640 && viewport.X > viewport.Y;
+        bool compactNav = viewportWidth < 1120 || shortLandscape;
+        int rowHeight = shortLandscape ? 48 : Ui.IsMobile ? 58 : 48;
         foreach (var page in NavigationPages)
         {
             _navigation[page.Id].Text = compactNav ? page.CompactName : page.FullName;
             _navigation[page.Id].AddThemeFontSizeOverride("font_size", compactNav ? 16 : Ui.IsMobile ? 17 : 16);
+            _navigation[page.Id].CustomMinimumSize = new Vector2(0, rowHeight);
         }
         int columns = ResponsiveLayout.Columns(Math.Max(1, viewportWidth - (Ui.IsMobile ? 20 : 36)),
-            compactNav ? 148 : Ui.IsMobile ? 165 : 140, _navigation.Count, Ui.IsMobile ? 7 : 12);
+            compactNav ? 74 : Ui.IsMobile ? 165 : 140, _navigation.Count, Ui.IsMobile ? 7 : 12);
         _navigationGrid.Columns = columns;
         int rows = ResponsiveLayout.Rows(_navigation.Count, columns);
-        int height = Math.Max(FooterHeight, rows * (Ui.IsMobile ? 58 : 48) + (rows - 1) * 7 + 14);
+        int height = Math.Max(FooterHeight, rows * rowHeight + (rows - 1) * 7 + 14);
         _footer.CustomMinimumSize = new Vector2(0, height);
         // VBoxContainer redistribuye todo el espacio vertical restante al contenido.
         _reservedContent.CustomMinimumSize = Vector2.Zero;

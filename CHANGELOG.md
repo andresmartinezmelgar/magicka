@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.29.60
+
+- Navegación compacta en pantallas estrechas y móviles apaisados: más espacio para leer los formularios, acciones de partida juntas y tarjetas de Inicio ajustadas al alto disponible. Conserva colores, bordes y objetivos táctiles de al menos 44 px.
+- Estadísticas con filtros repartidos según el ancho y lectura desde el inicio al cambiar de selección. La revisión gráfica muestra la tarjeta de cada gráfica y espera a que se cierre la comparación de tienda antes de capturar las ofertas.
+- Las recomendaciones de Ataque y Defensa cambian como máximo una vez cada 0,5 segundos. Los botones y el joystick mantienen respuesta inmediata.
+- Una tercera cuenta autenticada puede consultar las versiones de pruebas. Ampliada la cobertura visual de navegación, controles, bestiario, carga, sala de espera y HUD manual y automático.
+
 ## 0.29.59
 
 - Ataque compara el daño útil sobre el grupo: cuenta los impactos de descargas, chorros, fragmentos y explosiones y limita el daño sobrante por enemigo. Arcano conserva su utilidad frente a objetivos aislados, vulnerables y con mejoras de penetración o eco.

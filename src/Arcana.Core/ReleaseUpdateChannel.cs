@@ -11,7 +11,8 @@ public static class ReleaseUpdateChannel
     public const string PreviewMetadata = "https://api.github.com/repos/andresmartinezmelgar/magicka/releases?per_page=20";
     public const string BranchMarker = "Arcana-Preview-Branch: ";
     public static bool PreviewAllowed(string? uid, bool signedIn) => signedIn &&
-        (uid == "qRUza2DieeTypFqBIRA5KhbtXoY2" || uid == "hg7F74kCNVQU3tU2itdjWu9SkyS2");
+        (uid == "qRUza2DieeTypFqBIRA5KhbtXoY2" || uid == "hg7F74kCNVQU3tU2itdjWu9SkyS2" ||
+         uid == "5IAznkpMbyaOqqvCV6D1e9DvZA93");
 
     public static ReleaseUpdatePlan? Select(JsonElement metadata, string? uid, bool signedIn,
         string installed, long installedBuild, bool android)

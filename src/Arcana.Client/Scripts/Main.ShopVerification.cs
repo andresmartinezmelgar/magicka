@@ -105,6 +105,10 @@ public partial class Main
                 }
                 CaptureShop("03-comparacion"); shop.HandleBack();
                 Check(!comparison.Visible, "Atrás no cierra la comparación.");
+                _shopSmokePhase = 22; return false;
+            }
+            if (_shopSmokePhase == 22)
+            {
                 CaptureShop("03-ofertas"); Button("ShopBuy_" + _shopBoughtId).EmitSignal(Godot.Button.SignalName.Pressed);
                 Button("ShopBuy_" + _shopBoughtId).EmitSignal(Godot.Button.SignalName.Pressed); _shopSmokePhase = 3; return false;
             }

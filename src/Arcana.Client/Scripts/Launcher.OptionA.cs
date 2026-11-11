@@ -177,9 +177,11 @@ public partial class Launcher
     private void UpdateResponsiveMenu()
     {
         float viewportWidth = GetViewport().GetVisibleRect().Size.X;
+        float viewportHeight = GetViewport().GetVisibleRect().Size.Y;
+        bool shortMobile = Ui.IsMobile && viewportHeight <= 560;
         float available = Math.Max(280, viewportWidth - (Ui.IsMobile ? 55 : 120));
         if (_optionAPrimaryActions is GridContainer primary)
-            primary.Columns = ResponsiveLayout.Columns(available, 415, 2, 12);
+            primary.Columns = ResponsiveLayout.Columns(available, 220, 2, 12);
         if (_optionAHomeCards != null)
         {
             // Mantener estrictamente 2×2 en móvil y escritorio; altura ajustada
@@ -189,9 +191,15 @@ public partial class Launcher
             float free = height - ArcanaMenuChrome.HeaderHeight - ArcanaMenuChrome.FooterHeight -
                 (Ui.IsMobile ? 145 : 185);
             float tileHeight = Math.Clamp((free - (Ui.IsMobile ? 10 : 18)) / 2f,
-                Ui.IsMobile ? 125 : 150, Ui.IsMobile ? 210 : 245);
+                Ui.IsMobile ? shortMobile ? 96 : 125 : 150, Ui.IsMobile ? 210 : 245);
             foreach (Button card in _optionAHomeCards.GetChildren().OfType<Button>())
+            {
                 card.CustomMinimumSize = new Vector2(0, tileHeight);
+                card.AddThemeFontSizeOverride("font_size", shortMobile ? 18 : Ui.IsMobile ? 21 : 24);
+                foreach (string state in new[] { "normal", "hover", "pressed" })
+                    if (card.GetThemeStylebox(state) is StyleBoxFlat style)
+                        style.ContentMarginTop = style.ContentMarginBottom = shortMobile ? 8 : 16;
+            }
         }
         float scrollWidth = available - Ui.ScrollBarThickness;
         if (_optionASettingsGrid != null)

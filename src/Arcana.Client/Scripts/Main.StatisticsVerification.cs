@@ -214,9 +214,9 @@ public partial class Main
             {
                 if (_statisticsSmokeFrame == 12)
                 {
-                    var plot = _statisticsPanel.FindChildren("*", "Control", true, false).OfType<StatisticsBarChart>().FirstOrDefault();
-                    scroll.ScrollVertical = plot != null ? scroll.ScrollVertical + (int)(plot.GlobalPosition.Y - bounds.Position.Y)
-                        : (int)((Control)scroll.GetChild(0)).GetChild<Control>(4).Position.Y;
+                    // Todas las vistas tienen tarjeta de gráfica, incluida la curva de Progresión.
+                    // El índice fijo del contenido apuntaba al botón Actualizar en algunas capturas.
+                    scroll.ScrollVertical += (int)(charts[0].GlobalPosition.Y - bounds.Position.Y);
                     return true;
                 }
                 if (_statisticsSmokeFrame < 24) return true;

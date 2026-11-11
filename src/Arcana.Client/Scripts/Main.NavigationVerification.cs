@@ -119,6 +119,7 @@ public partial class Main
                             "La navegación PvP no abre el servidor configurado.");
                     Control screen = page switch { 1 => _launcher.RoomsForVerification!, 3 => _accountProfilePanel!, 4 => _equipmentPanel!,
                         5 => _menuHelp!, 7 => _itemShopPanel!, _ => _launcher };
+                    Capture(size.X + "-menu-" + page);
                     foreach (var scroll in screen.FindChildren("*", "ScrollContainer", true, false).OfType<ScrollContainer>())
                         scroll.ScrollVertical = int.MaxValue;
                     await Frames(); await Click(Exit(screen, "OptionANav0"));
@@ -132,10 +133,12 @@ public partial class Main
                 await Click(Exit(_statisticsPanel!, "StatisticsBack")); Check(_statisticsPanel == null && _accountProfilePanel != null,
                     "Atrás cierra Perfil por debajo de las estadísticas y deja la pantalla bloqueada.");
                 OpenTouchSettings(); await Frames();
+                Capture(size.X + "-ajustes-controles");
                 ((ScrollContainer)_controlsSettings!.FindChild("TouchSettingsScroll", true, false)).ScrollVertical = int.MaxValue;
                 await Frames(); await Click(Exit(_controlsSettings, "TouchSettingsCancel"));
                 Check(!ControlsOpen && _accountProfilePanel != null, "Cancelar controles no vuelve a Perfil.");
                 OpenBestiary(); await Frames();
+                Capture(size.X + "-bestiario");
                 await Click(Exit(_bestiaryPanel!, "BestiaryBack"));
                 Check(_bestiaryPanel == null && _accountProfilePanel != null, "Volver del bestiario pierde Mi perfil.");
                 await Click(Exit(_accountProfilePanel!, "ProfileBack"));
@@ -143,6 +146,7 @@ public partial class Main
                 var loading = new LoadingScreen(); _ui.AddChild(loading); bool canceled = false;
                 loading.Build("Mapa con un nombre largo para comprobar que no desplaza la cancelación", () => canceled = true);
                 loading.UpdateProgress(75, new string('X', 300)); await Frames();
+                Capture(size.X + "-carga");
                 await Click(Exit(loading, "LoadingCancel")); Check(canceled, "Cancelar carga no responde."); loading.QueueFree(); await Frames();
 
                 var lobby = new RoomLobby(); _ui.AddChild(lobby);
@@ -153,10 +157,18 @@ public partial class Main
                 room.AddPlayer("Rival", 1);
                 await VerifyWaitingRoomPortraits(waiting, room.Snapshot() with
                     { WaitingForPlayers = true, BestOf = 5, LobbyHostId = host.Id }, host.Id);
+                await Frames(); Capture(size.X + "-sala-espera");
                 await Frames(); await Click(Exit(waiting, "WaitingRoomExit")); Check(left, "Salir de la sala de espera no responde."); waiting.QueueFree();
 
                 StartPractice("Navegación", 0, GameMode.Defense, 0, map: ArenaMapId.Bastion); await Ready();
                 Check(!TutorialActive && _practice?.IsDefense == true, "El tutorial se interpone al empezar Supervivencia.");
+                Capture(size.X + "-hud-manual");
+                if (Ui.IsMobile && _touch != null)
+                {
+                    _touch.ConfigureSpellShortcuts(new() { Enabled = true }); await Frames();
+                    Capture(size.X + "-hud-automatico");
+                    _touch.ConfigureSpellShortcuts(CurrentSpellShortcuts); await Frames();
+                }
                 OpenPersonalDamageSummary(); await Frames();
                 var damageCard = (Control)_personalDamagePanel!.FindChild("PersonalDamageCard", true, false);
                 Check(ViewingDamageSummary && _practice!.DefensePaused && GetViewport().GetVisibleRect().Encloses(damageCard.GetGlobalRect()),
