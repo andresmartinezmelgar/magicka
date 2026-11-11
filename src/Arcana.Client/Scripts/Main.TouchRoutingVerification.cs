@@ -61,13 +61,20 @@ public partial class Main
                 player.Shield == 0 && player.Selection.Elements.SequenceEqual(new[] { Element.Shield, Element.Earth, Element.Life }),
                 "Defensa no prepara un escudo regenerativo, o lo lanza automáticamente.");
             player.Shield = player.ShieldMax = 420; player.ShieldTime = 12;
-            snapshot = world.Snapshot(); controls.Update(snapshot.Players.Single(), snapshot);
+            long initialShortcutTick = snapshot.Tick;
+            snapshot = world.Snapshot() with { Tick = initialShortcutTick + 29 };
+            controls.Update(snapshot.Players.Single(), snapshot);
+            Tap("TouchSpellDefense");
+            Check(player.Selection.Elements.SequenceEqual(new[] { Element.Shield, Element.Earth, Element.Life }),
+                "La recomendación cambia antes de medio segundo o el botón no carga la mezcla que sigue visible.");
+            snapshot = world.Snapshot() with { Tick = initialShortcutTick + 30 };
+            controls.Update(snapshot.Players.Single(), snapshot);
             Tap("TouchSpellDefense");
             Check(player.Selection.Elements.SequenceEqual(new[] { Element.Life, Element.Life, Element.Life }), "Defensa no cambia a Vida con escudo activo.");
 
             var stable = snapshot.Players.Single() with { Position = V2.Zero, Health = player.MaxHealth };
             var ally = stable with { Id = 9001, Name = "Aliado herido", Position = stable.Position + new V2(3, 0), Health = stable.MaxHealth * .5f };
-            var assistance = snapshot with { Mode = GameMode.Duel, Players = [stable, ally] };
+            var assistance = snapshot with { Tick = snapshot.Tick + 30, Mode = GameMode.Duel, Players = [stable, ally] };
             controls.Update(stable, assistance);
             messages.Clear();
             Tap("TouchSpellDefense");

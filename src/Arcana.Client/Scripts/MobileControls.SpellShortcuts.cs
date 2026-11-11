@@ -14,6 +14,7 @@ public partial class MobileControls
     }
 
     private TouchShortcut _defenseShortcut = null!, _attackShortcut = null!;
+    private const long ShortcutRefreshTicks = 30;
     private long _lastShortcutTick = -1;
     private TouchShortcut? _preparedShortcut;
     internal bool AutomaticSpells { get; private set; }
@@ -83,11 +84,11 @@ public partial class MobileControls
             ShowShortcut(_attackShortcut, null);
             return;
         }
-        // Defensa responde en cuanto cambia el escudo. Ataque examina el mapa cinco veces por segundo.
+        // Mantener ambas recomendaciones durante medio segundo evita cambios continuos al apuntar.
+        if (_lastShortcutTick >= 0 && world.Tick >= _lastShortcutTick && world.Tick - _lastShortcutTick < ShortcutRefreshTicks) return;
+        _lastShortcutTick = world.Tick;
         ShowShortcut(_defenseShortcut, SpellRecommendations.ChooseDefense(world, player,
             world.Defense == null ? ShortcutEquipment?.Invoke(player) : null));
-        if (_lastShortcutTick >= 0 && world.Tick >= _lastShortcutTick && world.Tick - _lastShortcutTick < 12) return;
-        _lastShortcutTick = world.Tick;
         ShowShortcut(_attackShortcut, SpellRecommendations.ChooseAttack(world, player,
             world.Defense == null ? ShortcutEquipment?.Invoke(player) : null));
     }
