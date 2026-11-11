@@ -55,7 +55,7 @@ public partial class Main
         }
         TutorialStep[] shortcutLessons = Ui.IsMobile ?
         [
-            new("Activa hechizos automáticos", "Abre «Menú», activa «Hechizos automáticos» y vuelve al combate. Los ocho elementos se sustituyen por Defensa y Ataque.",
+            new("Activa hechizos automáticos", "Abre «Menú», activa «Hechizos automáticos» y vuelve al combate. La cuadrícula muestra Defensa y Ataque arriba y Sobre mí y En área debajo. Carga una mezcla y usa el joystick de apuntado para lanzarla hacia delante.",
                 _ => _tutorialSpellShortcuts.Enabled && !_paused, Prepare: PrepareDefenseLesson),
             new("Defensa automática", "Tienes poca vida. Pulsa «Defensa» y después «Sobre mí» para crear un escudo que también te regenera.",
                 _ => player.Shield > 0, FirstWaveMarker),

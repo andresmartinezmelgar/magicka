@@ -92,6 +92,21 @@ public partial class Main
             Check(expected.Position.DistanceTo(action.GetGlobalRect().Position) < .1f && expected.Size.DistanceTo(action.GetGlobalRect().Size) < .1f,
                 "el área pulsable no coincide con el dibujo de " + action.Name);
         }
+        if (controls.AutomaticSpells)
+        {
+            var defense = controls.LayoutRectangles["TouchSpellDefense"];
+            var attack = controls.LayoutRectangles["TouchSpellAttack"];
+            var self = controls.LayoutRectangles["TouchSelf"];
+            var area = controls.LayoutRectangles["TouchNova"];
+            Check(defense.Size.DistanceTo(attack.Size) < .1f && defense.Size.DistanceTo(self.Size) < .1f &&
+                defense.Size.DistanceTo(area.Size) < .1f, "la cuadrícula usa botones de tamaños distintos.");
+            Check(Math.Abs(defense.Position.Y - attack.Position.Y) < .1f && Math.Abs(self.Position.Y - area.Position.Y) < .1f &&
+                Math.Abs(defense.Position.X - self.Position.X) < .1f && Math.Abs(attack.Position.X - area.Position.X) < .1f,
+                "Defensa, Ataque, Sobre mí y En área dejan de formar dos filas y dos columnas.");
+            Check(defense.End.X + ScreenPlacement.MinimumGap <= attack.Position.X + .1f &&
+                defense.End.Y + ScreenPlacement.MinimumGap <= self.Position.Y + .1f,
+                "la cuadrícula cambia el orden de los botones o pierde el margen táctil.");
+        }
         if (controls.MapRectangle is { } map) rectangles.Add(new("Minimapa", map));
         for (int i = 0; i < rectangles.Count; i++)
         {
