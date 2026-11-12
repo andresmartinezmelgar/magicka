@@ -77,6 +77,7 @@ public partial class Launcher
         for (int i = 0; i < existing.Length && i < 3; i++)
         {
             var card = existing[i];
+            if (i < 2) card.Name = i == 0 ? "HomePvp" : "HomeAi";
             card.Reparent(choices);
             card.Text = titlesText[i];
             CardStyle(card, i);

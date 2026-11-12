@@ -70,6 +70,7 @@ public sealed partial class AccountClient : IDisposable
     private FirebaseProfileReader? _firebaseReader;
     private readonly object _identityGate = new();
     private long _identityGeneration;
+    public long SessionRevision { get { lock (_identityGate) return _identityGeneration; } }
     private string _firebaseUid = "";
     private string _pendingLoginId = "";
     private sealed record Identity(long Generation, string AccessToken, DateTimeOffset Expiry, AccountProfile? Profile,

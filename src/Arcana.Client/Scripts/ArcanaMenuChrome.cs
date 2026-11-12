@@ -10,11 +10,11 @@ namespace Arcana.Client;
 /// </summary>
 public partial class ArcanaMenuChrome : Control
 {
-    // Los identificadores son rutas, no posiciones: retirar Perfil no desplaza las demás acciones.
+    // Los identificadores son rutas, no posiciones. PvP e IA se abren desde Inicio.
     private static readonly (int Id, string FullName, string CompactName)[] NavigationPages =
     [
-        (0, "⌂  Inicio", "Inicio"), (1, "⚔  PvP", "PvP"), (2, "✧  Versus IA", "IA"),
-        (4, "◇  Inventario", "Equipo"), (7, "Tienda", "Tienda"), (5, "?  Ayuda", "Ayuda"), (6, "Salir", "Salir")
+        (0, "⌂  Inicio", "Inicio"), (4, "◇  Inventario", "Equipo"),
+        (7, "Tienda", "Tienda"), (5, "?  Ayuda", "Ayuda"), (6, "Salir", "Salir")
     ];
     private readonly Dictionary<int, Button> _navigation = [];
     private Main _main = null!;
@@ -184,14 +184,15 @@ public partial class ArcanaMenuChrome : Control
     {
         if (_dynamicSection && _sectionLabel != null)
             _sectionLabel.Text = page switch { 0 => "INICIO", 1 => "PVP", 2 => "VERSUS IA", 3 => "PERFIL", 4 => "INVENTARIO", 5 => "AYUDA", 7 => "TIENDA", _ => "MENÚ" };
+        int selected = page is 1 or 2 ? 0 : page;
         foreach (var (id, btn) in _navigation)
         {
-            var style = Ui.Panel(id == page ? new Color("19446b") : new Color("12263c"),
-                7, id == page ? Ui.Blue : new Color("274667"));
+            var style = Ui.Panel(id == selected ? new Color("19446b") : new Color("12263c"),
+                7, id == selected ? Ui.Blue : new Color("274667"));
             style.ContentMarginLeft = style.ContentMarginRight = 7;
             style.ContentMarginTop = style.ContentMarginBottom = 3;
             btn.AddThemeStyleboxOverride("normal", style);
-            btn.AddThemeColorOverride("font_color", id == page ? Ui.Gold : Ui.Text);
+            btn.AddThemeColorOverride("font_color", id == selected ? Ui.Gold : Ui.Text);
         }
     }
 

@@ -13,6 +13,7 @@ public partial class Main
     private string _shopSmokeId = "", _shopBoughtId = "";
     private int _shopBoughtPrice;
     private long _shopGoldAfterPurchase;
+    private int _shopCatalogueReads;
     private string? _shopCaptureDirectory;
     private ShopFixtureHandler? _shopFixture;
 
@@ -66,7 +67,17 @@ public partial class Main
                 AssertOptionAScreen("TIENDA_SIN_CONEXION", shop);
                 CheckUnavailable(); Check(shop.Status.Contains("Sin conexión"), "Falta el aviso de tienda desconectada.");
                 CaptureShop("02-sin-conexion"); _shopFixture!.Connected = true;
-                Button("ShopConnect").EmitSignal(Godot.Button.SignalName.Pressed); _shopSmokePhase++; return false;
+                NavigateOptionAMenu(0); _ = PreloadItemShop(); _shopSmokePhase = 10; return false;
+            }
+            if (_shopSmokePhase == 10)
+            {
+                if (PreparedShop == null) return false;
+                Check(_itemShopPanel == null, "La precarga abrió la tienda por sí sola.");
+                int reads = _shopFixture!.CatalogueReads;
+                OpenItemShop();
+                Check(_itemShopPanel!.Catalogue != null && !_itemShopPanel.Busy && _shopFixture.CatalogueReads == reads,
+                    "Abrir la tienda no reutiliza inmediatamente las ofertas precargadas.");
+                _shopSmokePhase = 2; return false;
             }
             if (_shopSmokePhase == 2)
             {
@@ -118,6 +129,7 @@ public partial class Main
                 Check(_shopFixture!.Purchases == 1 && Accounts.Profile!.Items.Single().Id == _shopBoughtId && Accounts.Profile.Gold == 10000 - _shopBoughtPrice &&
                     shop.Catalogue!.Offers[0].Sold && Button("ShopBuy_" + _shopBoughtId).Disabled, "La compra no actualiza el saldo o permite un cobro duplicado.");
                 _shopGoldAfterPurchase = Accounts.Profile!.Gold;
+                _shopCatalogueReads = _shopFixture.CatalogueReads;
                 Button("ShopRefreshAd").EmitSignal(Godot.Button.SignalName.Pressed);
                 Check(_shopFixture.AdRequests == 0 && shop.Catalogue!.Id == _shopSmokeId, "El botón de anuncios contactó con el servidor o renovó el catálogo.");
                 CaptureShop("04-compra"); Button("OptionANav4").EmitSignal(Godot.Button.SignalName.Pressed); _shopSmokePhase++; return false;
@@ -140,7 +152,9 @@ public partial class Main
             if (_shopSmokePhase == 6)
             {
                 if (shop?.Catalogue == null || shop.Busy) return false;
-                Check(shop.Catalogue.Id == _shopSmokeId && shop.Catalogue.Offers[0].Sold, "Cerrar y abrir volvió a renovar el catálogo o restauró la oferta comprada.");
+                Check(shop.Catalogue.Id == _shopSmokeId && shop.Catalogue.Offers[0].Sold &&
+                    _shopFixture!.CatalogueReads == _shopCatalogueReads,
+                    "Cerrar y abrir volvió a consultar el catálogo o restauró la oferta comprada.");
                 _shopFixture!.Connected = false;
                 Button("ShopBuy_" + shop.Catalogue.Offers.First(o => !o.Sold).Item.Id).EmitSignal(Godot.Button.SignalName.Pressed);
                 _shopSmokePhase++; return false;
@@ -199,7 +213,7 @@ public partial class Main
     private sealed class ShopFixtureHandler : HttpMessageHandler
     {
         public long Gold = 10000;
-        public int Purchases, AdRequests, RenewalPhase, DailyRenewals;
+        public int Purchases, AdRequests, RenewalPhase, DailyRenewals, CatalogueReads;
         public bool Connected;
         private ItemShop _shop = ShopRules.Generate(new(53));
         private DateTimeOffset _serverNow = DateTimeOffset.UtcNow;
@@ -208,6 +222,7 @@ public partial class Main
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
         {
             string path = request.RequestUri!.AbsolutePath;
+            if (path == "/account/shop" && request.Method == HttpMethod.Get) CatalogueReads++;
             if (path.StartsWith("/account/shop", StringComparison.Ordinal) && !Connected)
                 throw new System.Net.Http.HttpRequestException("Servidor de prueba desconectado.");
             if (path == "/account/shop/buy")

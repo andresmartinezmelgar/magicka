@@ -224,9 +224,10 @@ public partial class Main
         if (!screen.Grow(1).Encloses(header) || !screen.Grow(1).Encloses(footer) ||
             content.Position.Y < header.End.Y - 1 || content.End.Y > footer.Position.Y + 1)
             throw new InvalidOperationException($"{stage}: las barras comunes tapan el contenido o salen de pantalla.");
-        if (root.FindChild("OptionANav3", true, false) != null)
-            throw new InvalidOperationException($"{stage}: Perfil sigue duplicado en la barra inferior.");
-        foreach (int page in new[] { 0, 1, 2, 4, 7, 5, 6 })
+        foreach (int page in new[] { 1, 2, 3 })
+            if (root.FindChild("OptionANav" + page, true, false) != null)
+                throw new InvalidOperationException($"{stage}: PvP, IA o Perfil siguen duplicados en la barra inferior.");
+        foreach (int page in new[] { 0, 4, 7, 5, 6 })
         {
             var navigation = (Button)root.FindChild("OptionANav" + page, true, false);
             if (!navigation.IsVisibleInTree() || !footer.Grow(1).Encloses(navigation.GetGlobalRect()) ||

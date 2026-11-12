@@ -196,6 +196,7 @@ AuditRegressionTests.Run(Test);
 ReleaseAuditFixTests.Run(Test);
 ComprehensiveAuditTests.Run(Test);
 ShopRulesTests.Run(Test);
+AccountShopPreloadTests.Run(Test);
 PublicEquipmentTests.Run(Test);
 
 Test("Límite de tres elementos y cancelación de incompatibles", () =>

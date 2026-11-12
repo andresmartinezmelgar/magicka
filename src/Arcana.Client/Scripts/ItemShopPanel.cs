@@ -17,6 +17,8 @@ public partial class ItemShopPanel : Control
     private bool _busy, _connected, _waitingForAutoSales;
     internal void ResumeAfterAutoSales() { if (_waitingForAutoSales && !_lifetime.IsCancellationRequested) _ = Load(); }
     private string? _owner;
+    private AccountClient _account = null!;
+    private long _session;
     private int _requestVersion;
     private DateTimeOffset _serverTime;
     private ulong _receivedAt, _renewalRetryAt;
@@ -31,6 +33,7 @@ public partial class ItemShopPanel : Control
     public void Build(Main main)
     {
         _main = main; _owner = main.Accounts.Profile?.Uid; Name = "ItemShopPanel"; Theme = Ui.Theme(); Ui.Full(this);
+        _account = main.Accounts; _session = _account.SessionRevision;
         var background = new ColorRect { Color = ArcanaMenuChrome.Backdrop }; AddChild(background); Ui.Full(background);
         var margin = new MarginContainer(); AddChild(margin); Ui.Full(margin);
         foreach (string side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, Ui.IsMobile ? 9 : 15);
@@ -45,7 +48,7 @@ public partial class ItemShopPanel : Control
         var explanation = Wrapped(body, "Objetos permanentes, ofertas nuevas cada día. Los objetos llegan al inventario sin equiparse.", 15, Ui.Muted);
         explanation.Visible = !Ui.IsMobile;
         var toolbar = new HBoxContainer(); toolbar.AddThemeConstantOverride("separation", 8); body.AddChild(toolbar);
-        _reload = Ui.Button("Consultar", () => _ = Load()); _reload.Name = "ShopConnect";
+        _reload = Ui.Button("Consultar", () => _ = Load(refresh: true)); _reload.Name = "ShopConnect";
         _refresh = Ui.Button("Renovación diaria · 00:00", () => { }); _refresh.Name = "ShopRefreshAd";
         _refresh.Disabled = true;
         _refresh.TooltipText = "Las seis ofertas cambian automáticamente cada día a las 00:00, hora peninsular.";
@@ -67,8 +70,12 @@ public partial class ItemShopPanel : Control
         comparisonBody.AddThemeConstantOverride("separation", 12); comparisonBody.AddChild(Ui.Label("COMPARACIÓN DEL EQUIPO", 24, Ui.Gold));
         _comparisonText = Wrapped(comparisonBody, "", 17); _comparisonText.Name = "ShopComparisonText";
         ArcanaMenuChrome.Attach(this, margin, main, "Tienda de objetos", 7, main.NavigateOptionAMenu);
-        ShowUnavailable("Conectando con la tienda…");
-        _ = Load();
+        if (!main.InventoryAutoSelling && main.PreparedShop is { } prepared) Render(prepared);
+        else
+        {
+            ShowUnavailable("Conectando con la tienda…");
+            _ = Load();
+        }
     }
     private static ElementTextLabel Wrapped(Control parent, string value, int size, Color? color = null)
     {
@@ -102,9 +109,10 @@ public partial class ItemShopPanel : Control
         }
         SetBusy(false, status); ResizeOffers();
     }
-    private void Render(ShopResult result, string message = "Tienda conectada. Ofertas nuevas cada día a las 00:00, hora peninsular.")
+    private void Render(ShopResult result, string message = "Ofertas del día. Renovación a las 00:00, hora peninsular.")
     {
         if (!_main.Accounts.SignedIn || result.Profile.Uid != _main.Accounts.Profile?.Uid) return;
+        result = result with { Profile = _main.Accounts.Profile! };
         ClearOffers();
         _owner = result.Profile.Uid; _shop = result.Shop; _connected = true; _buyButtons.Clear();
         _serverTime = result.ServerTime ?? DateTimeOffset.UtcNow; _receivedAt = Time.GetTicksMsec();
@@ -164,19 +172,19 @@ public partial class ItemShopPanel : Control
             ? "Sin conexión con la tienda. No hay objetos disponibles para comprar. Pulsa «Consultar» para reintentar."
             : PvpServer.DisplayText(error.Message) + " Pulsa «Consultar» para actualizar las ofertas.");
     }
-    private async Task Load()
+    private async Task Load(bool refresh = false)
     {
         if (_busy) return;
         if (_main.InventoryAutoSelling)
         { _waitingForAutoSales = true; SetBusy(false, "Terminando la venta automática…"); return; }
         _waitingForAutoSales = false;
         int request = ++_requestVersion;
+        if (!refresh && _main.PreparedShop is { } prepared) { Render(prepared); return; }
         ShowUnavailable("Conectando con el servidor de la tienda…");
         SetBusy(true, "Consultando ofertas…");
         try
         {
-            await _main.EnsureShopServer(_lifetime.Token).ConfigureAwait(false);
-            var result = await _main.Accounts.Shop(_lifetime.Token).ConfigureAwait(false);
+            var result = await _main.LoadPreparedShop(_lifetime.Token, refresh).ConfigureAwait(false);
             Publish(request, () => Render(result));
         }
         catch (Exception error) { Publish(request, () => Failed(error)); }
@@ -186,9 +194,23 @@ public partial class ItemShopPanel : Control
         if (_busy || !_connected || _shop == null || !_main.Accounts.SignedIn || !_buyButtons.TryGetValue(itemId, out var button) || button.Disabled) return;
         int request = ++_requestVersion;
         var purchase = new ShopPurchaseRequest(_shop.Id, itemId);
+        var account = _main.Accounts;
+        long session = account.SessionRevision;
+        _main.ForgetShop(account, session);
         SetBusy(true, "Comprando objeto…");
-        try { var result = await _main.Accounts.BuyShopItem(purchase, _lifetime.Token).ConfigureAwait(false); Publish(request, () => Render(result, "Objeto añadido al inventario.")); }
-        catch (Exception error) { Publish(request, () => Failed(error)); }
+        try
+        {
+            var result = await account.BuyShopItem(purchase, _lifetime.Token).ConfigureAwait(false);
+            // Actualizar la caché aunque la vista se haya cerrado durante la compra.
+            bool remembered = _main.RememberShop(account, session, result);
+            Publish(request, () =>
+            {
+                if (remembered && ReferenceEquals(account, _main.Accounts) && account.SessionRevision == session)
+                    Render(_main.PreparedShop ?? result, "Objeto añadido al inventario.");
+                else ShowUnavailable("La cuenta ha cambiado. Consulta las ofertas de la sesión actual.");
+            });
+        }
+        catch (Exception error) { _main.ForgetShop(account, session); Publish(request, () => Failed(error)); }
     }
     internal void HandleBack() { if (_comparison.Visible) _comparison.Hide(); else _main.NavigateOptionAMenu(0); }
     internal void Close()
@@ -198,12 +220,15 @@ public partial class ItemShopPanel : Control
     public override void _Process(double delta)
     {
         if (_lifetime.IsCancellationRequested) return;
-        if (_owner != _main.Accounts.Profile?.Uid || _connected && !_main.Accounts.SignedIn)
+        if (!ReferenceEquals(_account, _main.Accounts) || _session != _main.Accounts.SessionRevision ||
+            _owner != _main.Accounts.Profile?.Uid || _connected && !_main.Accounts.SignedIn)
         {
+            _account = _main.Accounts; _session = _account.SessionRevision;
             _owner = _main.Accounts.Profile?.Uid; ++_requestVersion;
             ShowUnavailable(_main.Accounts.SignedIn
-                ? "La cuenta ha cambiado. Pulsa «Consultar» para cargar sus ofertas."
+                ? "Cargando las ofertas de la cuenta…"
                 : "Inicia sesión con Google desde Perfil para consultar las ofertas y comprar objetos.");
+            if (_main.Accounts.SignedIn) _ = Load();
             return;
         }
         if (_busy || !_connected || !_main.Accounts.SignedIn || _shop?.RefreshAt == null) return;
@@ -213,7 +238,7 @@ public partial class ItemShopPanel : Control
         if (now >= _renewalRetryAt && _serverTime.AddMilliseconds(now - _receivedAt) >= _shop.RefreshAt.Value)
         {
             _renewalRetryAt = now + 60000;
-            _ = Load();
+            _ = Load(refresh: true);
         }
     }
     public override void _ExitTree() => _lifetime.Cancel();

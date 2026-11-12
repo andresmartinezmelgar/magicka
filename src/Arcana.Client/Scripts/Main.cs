@@ -75,6 +75,7 @@ public partial class Main : Node
         InitializeAudio();
         RestoreAccountCache();
         var arguments = OS.GetCmdlineUserArgs();
+        InitializeShopPreload(arguments);
         InitializeTutorial();
         var layer = new CanvasLayer(); AddChild(layer);
         _ui = new Control { MouseFilter = Control.MouseFilterEnum.Ignore }; layer.AddChild(_ui); Ui.Full(_ui);
@@ -394,6 +395,7 @@ public partial class Main : Node
         TickGoogleAuth(delta);
         TickBestiary(delta);
         TickInventoryAutoSell(delta);
+        TickItemShopPreload();
         TickMatchStatistics(delta);
         TickSurvivalAutosave(delta);
         TickAudio(delta);

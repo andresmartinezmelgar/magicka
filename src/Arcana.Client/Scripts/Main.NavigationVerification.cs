@@ -102,7 +102,17 @@ public partial class Main
                 }
                 foreach (int page in new[] { 0, 1, 2, 3, 4, 5, 7 })
                 {
-                    if (page == 3)
+                    if (page is 1 or 2)
+                    {
+                        NavigateOptionAMenu(0); await Frames();
+                        Check(_launcher.FindChild("OptionANav1", true, false) == null &&
+                            _launcher.FindChild("OptionANav2", true, false) == null,
+                            "PvP o IA siguen duplicados en la barra inferior.");
+                        var card = (Button)_launcher.FindChild(page == 1 ? "HomePvp" : "HomeAi", true, false);
+                        ((ScrollContainer)_launcher.FindChild("LauncherSettingsScroll", true, false)).EnsureControlVisible(card);
+                        await Frames(); await Click(card);
+                    }
+                    else if (page == 3)
                     {
                         var profile = (Button)_launcher.FindChild("HomeProfile", true, false);
                         var scroll = (ScrollContainer)_launcher.FindChild("LauncherSettingsScroll", true, false);
