@@ -92,7 +92,12 @@ internal static class HelpCatalogue
         Add(HelpTopic.Equipment, "sell", "Favoritos y venta automática",
             "Los objetos equipados y favoritos están protegidos frente a la venta. En Supervivencia, una pieza que hayas llevado equipada se conserva al sustituirla. La configuración predeterminada elige equipo según tu elemento y prioridades; puedes equipar manualmente. Los míticos nunca se venden automáticamente.");
         Add(HelpTopic.Equipment, "rings", "Los dos anillos",
-            "Anillo de oro: en nivel 0 da una moneda extra cada 11 monedas base; cada mejora reduce el intervalo y en nivel 10 da una por moneda.\nAnillo mágico: aporta capacidad de escudo y una habilidad elemental, sin afijos. Renueva el escudo cada 16–8 s; desde nivel 6 duplica el elemento.\nAmbos admiten diez mejoras y no cuentan para conjuntos. Consulta los valores exactos en la ficha.");
+            "Anillo de oro: en nivel 0 da una moneda extra cada 11 monedas base; cada mejora reduce el intervalo y en nivel 10 da una por moneda.\n\n" +
+            "Anillo mágico: funciona automáticamente mientras lo llevas equipado. Cada activación renueva tu escudo y aplica el efecto del anillo: curar, proteger aliados, dañar, mojar o empujar. No necesitas pulsar ningún botón.\n" +
+            "En nivel 0 se activa cada 16 segundos; cada mejora reduce la espera en 0,8 segundos, hasta 8 segundos en nivel 10. Si el escudo se rompe, espera a la siguiente activación para reponerse. Conserva los escudos activos con mayor capacidad máxima.\n" +
+            "Vida cura de golpe al activarse y, además, regenera tu vida mientras su escudo siga activo y tenga puntos. Son dos curaciones distintas. Los valores medios reparten lo recibido entre las activaciones; no añaden otro efecto.\n" +
+            "En nivel 6 se duplica el escudo base y mejora la habilidad. Rayo alcanza a dos enemigos distintos, con el mismo daño por enemigo; Fuego duplica el impacto, sin duplicar el daño por segundo de la quemadura. La ficha explica el cambio concreto de cada anillo.\n\n" +
+            "Ambos admiten diez mejoras y no cuentan para las bonificaciones de conjunto. Las cifras de la ficha tienen en cuenta tu equipo; las defensas del enemigo pueden reducir el daño.");
         Add(HelpTopic.Equipment, "affixes", "Cómo se activan los efectos especiales",
             "Diamante y Mítico añaden un efecto especial, excepto el anillo mágico. Si repites un efecto, solo se aplica la copia más fuerte. Marca arcana y Eco arcano son efectos distintos y pueden coexistir. Última barrera conserva su recarga al cambiar equipo o reconectar.");
         Add(HelpTopic.Equipment, "mythic-eyes", "Ojos míticos",

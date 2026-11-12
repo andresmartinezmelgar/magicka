@@ -96,13 +96,16 @@ internal static class RingNumbersTests
             {
                 string text = RingEffects.Describe(EquipmentSlot.MagicRing, family, 0);
                 var numbers = RingEffects.Numbers(family, 0);
-                Check(text.Contains("HP") && text.Contains("recarga") && text.Contains("duración"),
+                Check(text.Contains("Escudo:") && text.Contains("puntos de protección") &&
+                    text.Contains("Activación automática:") && text.Contains("duración máxima"),
                     "Una familia omite las cifras de su escudo.");
-                Check(text.Contains("HP/s") == (numbers.Regeneration > 0 || numbers.Healing > 0) &&
-                    text.Contains("DMG/s") == (numbers.Damage > 0 || numbers.BurnPerSecond > 0),
+                Check(text.Contains("Curación al activarse:") == (numbers.Healing > 0) &&
+                    text.Contains("Regeneración:") == (numbers.Regeneration > 0) &&
+                    text.Contains("Daño inmediato:") == (numbers.Damage > 0) &&
+                    text.Contains("Promedio de daño:") == (numbers.Damage > 0),
                     "La ficha anuncia curación o daño que este anillo no aporta.");
-                Check(!text.Contains("HP/s de curación: 0") && !text.Contains("DMG/s: 0") && !text.Contains("DMG/s contra vida: 0"),
-                    "La ficha contiene efectos sin aporte.");
+                Check(!text.Contains("HP") && !text.Contains("DMG") && !text.Contains("duplica el elemento"),
+                    "La ficha conserva abreviaturas o una mejora sin explicar.");
             }
         });
         test("Anillo mágico: daño, quemadura y objetivos usan las reglas reales, sin duplicar el rayo por objetivo", () =>

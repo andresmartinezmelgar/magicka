@@ -1,5 +1,9 @@
 # Cambios
 
+## Pendiente de publicación
+
+- Las fichas de los anillos mágicos explican por separado la activación automática, el escudo, el alcance y el efecto sobre cada objetivo. Vida distingue la curación instantánea de la regeneración y de sus promedios; Rayo y Fuego aclaran exactamente qué mejora en el nivel 6. Ayuda e inventarios comparten los textos y sustituyen HP y DMG por unidades en español.
+
 ## 0.29.61
 
 - Las seis ofertas de la tienda se renuevan gratis a las 00:00, hora peninsular, respetando los cambios de horario. La renovación usa la hora del servidor y conserva el oro y los objetos comprados.

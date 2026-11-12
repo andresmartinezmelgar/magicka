@@ -58,30 +58,44 @@ public static partial class RingEffects
         static string N(float value) => value.ToString("0.##", CultureInfo.InvariantCulture);
         var lines = new List<string>
         {
-            $"Escudo: {N(n.Shield)} HP · duración {N(n.ShieldDuration)} s · recarga {N(n.Cooldown)} s.",
-            $"Radio de la habilidad: {N(n.Radius)} m, con línea de visión."
+            $"Activación automática: cada {N(n.Cooldown)} s mientras lo llevas equipado. No necesitas pulsar ningún botón.",
+            $"Escudo: {N(n.Shield)} puntos de protección · duración máxima {N(n.ShieldDuration)} s, salvo que se rompa antes.",
+            $"Tipo de protección: {(family is EquipmentFamily.Mixed or EquipmentFamily.Shield ? "escudo básico" : "escudo de " + EquipmentCatalogue.FamilyName(family))}.",
+            $"Alcance del efecto: hasta {N(n.Radius)} m desde ti; no atraviesa paredes."
         };
         if (family == EquipmentFamily.Life)
         {
-            lines.Add($"Recuperas {N(n.Regeneration)} HP/s con el escudo de vida activo y con HP.");
-            lines.Add($"Curación por pulso: {N(n.Healing)} HP por aliado ({N(n.MeanPulseHealing)} HP/s de media).");
-            lines.Add($"Curación propia media máxima: {N(n.MeanSelfHealing)} HP/s si el escudo permanece activo.");
+            lines.Add($"Curación al activarse: tú y cada aliado al alcance recuperáis {N(n.Healing)} puntos de vida.");
+            lines.Add($"Regeneración: recuperas {N(n.Regeneration)} puntos de vida por segundo mientras el escudo de Vida de este anillo siga activo y tenga puntos.");
+            lines.Add($"Promedio de las activaciones: {N(n.MeanPulseHealing)} puntos de vida por segundo y persona. Promedio máximo para ti, sumando la regeneración: {N(n.MeanSelfHealing)} puntos de vida por segundo.");
         }
         else if (family == EquipmentFamily.Shield)
-            lines.Add($"Escudo por aliado: {N(n.AllyShield)} HP por activación.");
+            lines.Add($"Al activarse: cada aliado al alcance recibe un escudo de {N(n.AllyShield)} puntos, con la misma duración máxima que el tuyo.");
         else if (n.Damage > 0)
         {
-            lines.Add($"Daño por pulso: {N(n.Damage)} HP por objetivo. Daño medio entre pulsos: {N(n.MeanDamage)} DMG/s.");
-            if (n.BurnPerSecond > 0)
-                lines.Add($"Quemadura: {N(n.BurnPerSecond)} DMG/s durante {N(n.BurnDuration)} s, incluida en la media.");
             if (family == EquipmentFamily.Lightning)
-                lines.Add($"Alcanza hasta {n.Targets} objetivo{(n.Targets == 1 ? "" : "s")}, con el daño indicado por objetivo. Contra un objetivo mojado: {N(n.WetDamage)} HP de daño por descarga.");
+                lines.Add($"Al activarse: ataca hasta {n.Targets} enemigo{(n.Targets == 1 ? "" : "s distintos")}, empezando por el más cercano.");
+            else
+                lines.Add("Al activarse: " + ActionDescription(family));
+            lines.Add($"Daño inmediato: {N(n.Damage)} puntos de daño por enemigo y activación.");
+            if (n.BurnPerSecond > 0)
+                lines.Add($"Quemadura adicional: {N(n.BurnPerSecond)} puntos de daño por segundo durante {N(n.BurnDuration)} s. Ese golpe no quema a un enemigo mojado.");
+            if (family == EquipmentFamily.Lightning)
+                lines.Add($"Contra un enemigo mojado: {N(n.WetDamage)} puntos de daño por descarga.");
+            lines.Add($"Promedio de daño: {N(n.MeanDamage)} puntos de daño por segundo y enemigo, si recibe todas las activaciones" +
+                (n.BurnPerSecond > 0 ? "; incluye la quemadura." : "."));
         }
         else
         {
-            if (n.ShieldPressure > 0) lines.Add($"Presión contra escudos: {N(n.ShieldPressure)} HP por activación; moja y empuja.");
+            lines.Add("Al activarse: " + ActionDescription(family));
+            if (n.ShieldPressure > 0)
+                lines.Add($"Daño contra escudos: {N(n.ShieldPressure)} puntos por enemigo y activación; esta cifra no es daño a la vida.");
         }
-        lines.Add("Cifras con el equipo, antes de rasgos, reliquias y defensas o estados del objetivo.");
+        if (n.Healing > 0 || n.Damage > 0)
+            lines.Add("Los promedios cuentan la espera entre activaciones; no son otra curación ni otro ataque continuo.");
+        if (family == EquipmentFamily.Earth)
+            lines.Add("Mientras dure la protección de Tierra, caminas un 22 % más despacio.");
+        lines.Add("Valores con tu equipo. El tipo de mago, las reliquias y las defensas o estados del objetivo pueden cambiar el resultado.");
         return string.Join('\n', lines);
     }
 }
