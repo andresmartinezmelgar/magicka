@@ -41,7 +41,7 @@ internal static class RingTests
             PublicEquipment.Check(new(1, "Mago", WizardType.Balanced, false, view.View));
             Check(view.View.Items.Length == 3 && view.Modifiers.ExtraGoldEvery == 11 && view.Modifiers.MagicRingFamily == EquipmentFamily.Fire,
                 "Los anillos sustituyen otras piezas o sus efectos requieren un afijo raro.");
-            Check(EquipmentQuery.Preview(Profile(), profile.Items.Single(i => i.Slot == EquipmentSlot.MagicRing)).Describe().Contains("Onda de brasas"),
+            Check(EquipmentQuery.Preview(Profile(), profile.Items.Single(i => i.Slot == EquipmentSlot.MagicRing)).Describe().Contains("Onda de fuego"),
                 "La comparación omite el cambio de acción del anillo.");
             foreach (var ring in profile.Items.Where(i => RingEffects.IsRing(i.Slot)))
             {

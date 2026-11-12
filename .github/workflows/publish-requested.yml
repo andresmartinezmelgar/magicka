@@ -3,6 +3,7 @@ name: Publicacion estable 0.29.62 solicitada
 # Petición expresa: publicar la versión con menú, tienda y textos de anillos actualizados.
 # Solo este mensaje exacto y esta versión activan la publicación solicitada.
 # Publica únicamente después de completar las pruebas y verificar los paquetes firmados.
+# Comprueba la comparación de anillos con el nombre actualizado de la habilidad de fuego.
 on:
   push:
     branches: [main]
