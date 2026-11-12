@@ -1,10 +1,10 @@
 # Cambios
 
-## Pendiente de publicación
+## 0.29.62
 
 - La barra inferior conserva Inicio, Inventario, Tienda, Ayuda y Salir. PvP y contra IA se abren desde las tarjetas de Inicio.
-- Las ofertas de la tienda se precargan al recuperar la sesión, sin abrir la pestaña ni bloquear el menú. Abrir o reabrir comparte la consulta y muestra el catálogo disponible al instante; las compras, los cambios de cuenta y la renovación diaria actualizan la caché.
-- Las fichas de los anillos mágicos explican por separado la activación automática, el escudo, el alcance y el efecto sobre cada objetivo. Vida distingue la curación instantánea de la regeneración y de sus promedios; Rayo y Fuego aclaran exactamente qué mejora en el nivel 6. Ayuda e inventarios comparten los textos y sustituyen HP y DMG por unidades en español.
+- La tienda se precarga al recuperar la sesión. Abrir o reabrir reutiliza la consulta y las ofertas; las compras, el cambio de cuenta y la renovación diaria actualizan el catálogo.
+- Anillos mágicos con activación, escudo, alcance y efectos separados. Vida distingue curación y regeneración; Rayo y Fuego explican la mejora del nivel 6. Unidades en español.
 
 ## 0.29.61
 
