@@ -37,7 +37,7 @@ public sealed partial class GameWorld
             player.Shield < player.ShieldMax * .6f && player.Shield < shieldCapacity;
         bool safeToAttack = !shieldNeeded && player.ShieldTime >= 2 && !hazard && nearest >= 14 && player.Burning <= 0 && player.Health >= player.MaxHealth * .9f;
         bool targetClear = safeToAttack && closest != null && nearest <= 18 && closest.Invulnerable <= 0 && closest.VulnerableElement == null &&
-            Visible(player.Position, closest.Position, player.Id) && !AssistanceAllyInLine(player, closest);
+            Visible(player.Position, closest.Position, player.Id);
         if (player.Channel != null)
         {
             if (!targetClear || progress.AssistanceAttackSeconds <= 0) CancelCast(player);
@@ -65,7 +65,7 @@ public sealed partial class GameWorld
             CastDefenseAssistance(player, [Element.Life, Element.Life, Element.Life]);
             progress.AssistanceCooldown = .7f; return;
         }
-        // Solo canaliza brevemente desde una distancia segura y con la línea libre de aliados.
+        // Solo canaliza brevemente desde una distancia segura. El haz arcano atraviesa a los aliados.
         if (!targetClear) return;
         player.Input.AimX = closest!.Position.X; player.Input.AimY = closest.Position.Y;
         UpdateFacing(player); CastDefenseAssistance(player, [Element.Arcane, Element.Arcane], attack: true);
@@ -134,18 +134,5 @@ public sealed partial class GameWorld
                 V2.Distance(at, field.Position) < field.Radius + 1) danger++;
         }
         return danger;
-    }
-
-    private bool AssistanceAllyInLine(Wizard player, Wizard target)
-    {
-        var direction = target.Position - player.Position;
-        if (direction.LengthSquared < .01f) return true;
-        foreach (var ally in _players.Values)
-        {
-            if (ally.Id == player.Id || !ally.Alive || !Allied(player, ally)) continue;
-            float along = V2.Dot(ally.Position - player.Position, direction) / direction.LengthSquared;
-            if (along > 0 && V2.Distance(ally.Position, player.Position + direction * along) < 1.5f) return true;
-        }
-        return false;
     }
 }

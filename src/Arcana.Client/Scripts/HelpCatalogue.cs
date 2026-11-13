@@ -56,7 +56,7 @@ internal static class HelpCatalogue
         Add(HelpTopic.Spells, "recipes", "Mezclas para empezar",
             "Fuego + Fuego + Fuego: chorro de fuego.\nVida + Vida, Sobre mí: curación.\nEscudo, Sobre mí: escudo personal.\nAgua + Frío: hielo.\nAgua + Fuego: vapor.\nTierra + Tierra + Fuego: roca incendiaria.\nAgua y después Frío: moja al objetivo antes de congelarlo.");
         Add(HelpTopic.Spells, "allies", "Fuego amigo y barreras",
-            "Las magias pueden afectar también a tus aliados. El escudo básico deja pasar tus propios hechizos; las barreras imbuidas también pueden bloquearlos. Todas las barreras bloquean el movimiento. Arcano avanza recto y puede reflejarse en escudos.");
+            "Las magias pueden afectar también a tus aliados. El escudo básico deja pasar tus propios hechizos; las barreras imbuidas también pueden bloquearlos. Todas las barreras bloquean el movimiento. Arcano avanza recto y puede reflejarse en escudos. Solo en Supervivencia, los haces arcanos y sus mezclas se cruzan sin desviarse y atraviesan a tus aliados y sus escudos personales, también con Eco arcano. Los enemigos, sus escudos y las paredes siguen bloqueándolos. Vida sigue alcanzando a los aliados para curarlos.");
 
         string[] roles = ["Moja al objetivo; no quita salud al romper una protección.", "Cura; usarla sobre un aliado conserva su escudo.",
             "Crea protecciones personales, barreras o guardas según la mezcla y el lanzamiento.", "Enfría; sobre un objetivo mojado permite congelarlo.",

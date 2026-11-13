@@ -1,5 +1,9 @@
 # Cambios
 
+## Pendiente de publicación
+
+- Solo en Supervivencia, los haces arcanos y sus mezclas se cruzan sin fusionarse ni desviarse y atraviesan a los aliados y sus escudos personales. También se aplica al Eco arcano y a la asistencia del inventario. Conservan las colisiones con enemigos y paredes; los haces de Vida siguen curando a los aliados.
+
 ## 0.29.62
 
 - La barra inferior conserva Inicio, Inventario, Tienda, Ayuda y Salir. PvP y contra IA se abren desde las tarjetas de Inicio.

@@ -24,7 +24,8 @@ public sealed partial class GameWorld
                     (player.Channel.Has(Element.Arcane) ? player.Equipment.BeamChargeSpeed : 1));
             }
             var from = SpellOrigin(player, player.Facing, 0.7f);
-            var end = BeamEnd(from, player.Facing, player.Channel.Range * player.Equipment.Range, player.Id, out _, out var target, player.Id);
+            var end = BeamEnd(from, player.Facing, player.Channel.Range * player.Equipment.Range, player.Id,
+                out _, out var target, player.Id, recipe: player.Channel);
             rays.Add(new(player, from, player.Facing, end, new(player.Id, player.Channel, DamageMultiplier: multiplier), target?.Id ?? 0));
         }
         rays.RemoveAll(ray => !ray.Caster.Alive || ray.Caster.Frozen > 0 || ray.Caster.StunTime > 0 || ray.Caster.Channel == null);
@@ -34,7 +35,8 @@ public sealed partial class GameWorld
         meetings.Clear();
         for (int a = 0; a < rays.Count; a++)
         for (int b = a + 1; b < rays.Count; b++)
-            if (Geometry.SegmentMeeting(rays[a].From, rays[a].End, rays[b].From, rays[b].End, out var at) &&
+            if (!(IsDefense && (rays[a].Part.Recipe.Has(Element.Arcane) || rays[b].Part.Recipe.Has(Element.Arcane))) &&
+                Geometry.SegmentMeeting(rays[a].From, rays[a].End, rays[b].From, rays[b].End, out var at) &&
                 V2.Distance(at, rays[a].From) > 0.08f && V2.Distance(at, rays[b].From) > 0.08f)
                 meetings.Add((a, b, at, V2.Distance(at, rays[a].From) + V2.Distance(at, rays[b].From)));
 
@@ -73,13 +75,17 @@ public sealed partial class GameWorld
     }
 
     private V2 BeamEnd(V2 from, V2 direction, float range, int ignoredWizard, out Wall? wall, out Wizard? target,
-        int owner, BeamPart[]? parts = null, HashSet<int>? pierced = null)
+        int owner, BeamPart[]? parts = null, HashSet<int>? pierced = null, SpellRecipe? recipe = null)
     {
         var end = RayEnd(from, direction, range, out wall, owner, parts);
+        Wizard? alliedSource = null;
+        if (IsDefense && (recipe?.Has(Element.Arcane) == true || parts?.Any(part => part.Recipe.Has(Element.Arcane)) == true) &&
+            TryCombatSource(owner, out var source)) alliedSource = source;
         target = null; float nearest = 1;
         foreach (var player in _combatants.Values)
         {
-            if (!player.Alive || player.Id == ignoredWizard || pierced?.Contains(player.Id) == true) continue;
+            if (!player.Alive || player.Id == ignoredWizard || pierced?.Contains(player.Id) == true ||
+                alliedSource != null && Allied(alliedSource, player)) continue;
             float radius = IsDefense && _minions.TryGetValue(player.Id, out var minion) && minion.Kind == MinionKind.Boss ? 1.4f : player.Shield > 0 && player.ShieldTime > 0 ? 0.95f : 0.6f;
             if (Geometry.SegmentCircle(from, end, player.Position, radius) is not float t || t >= nearest) continue;
             nearest = t; target = player;

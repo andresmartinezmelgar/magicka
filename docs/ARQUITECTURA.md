@@ -82,6 +82,8 @@ Los compiladores Windows y Android mantienen un bloqueo del mismo byte de `.tool
 
 `GameWorld.Beams` resuelve los canales rectos después del movimiento. Recorta el alcance por obstáculos, barreras y personajes; busca encuentros entre segmentos y conserva aportaciones separadas para los tramos combinados. Cada canal se une una vez por paso, cada salida tiene hasta dos rebotes y el snapshot conserva hasta 64 tramos. El renderer utiliza hasta 512 segmentos reutilizados para franjas de color y cadenas eléctricas.
 
+Solo en Supervivencia, los haces con Arcano no se fusionan al cruzarse con otros haces y atraviesan cuerpos y escudos personales aliados, incluido el Eco arcano. El trazado inicial, la selección del objetivo secundario y los tramos reflejados usan la misma regla según su autor actual. Se conservan los impactos sobre enemigos, sus escudos, las barreras colocadas y el terreno. Vida sigue deteniéndose para curar al aliado alcanzado.
+
 `GameWorld.Effects` controla colocación y destinatarios de minas y splash de rocas. Los campos persistentes reutilizan el contenedor acotado de 40 entidades y conservan solo los elementos secundarios. `FieldSnapshot` separa radio del efecto y radio de activación; `GameEvent.Radius` permite representar el alcance real.
 
 `SpellCatalogue` enumera 120 selecciones válidas de hasta tres elementos, sin permutaciones ni pares incompatibles. `SpellDemonstration` repite intenciones sobre un `GameWorld` aislado. `SpellBook` muestra ese combate en un `SubViewport` con mundo 3D propio, y procesa pasos solo mientras su pestaña está visible. No comparte la conexión ni la simulación de la partida. Las demos se reinician limpiando nodos y eventos.

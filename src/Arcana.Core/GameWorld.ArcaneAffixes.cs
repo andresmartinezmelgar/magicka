@@ -74,8 +74,8 @@ public sealed partial class GameWorld
             var aim = (enemy.Position - caster.Position).Normalized;
             if (aim.LengthSquared < .01f) continue;
             var from = SpellOrigin(caster, aim, .7f);
-            BeamEnd(from, aim, range, caster.Id, out _, out var first, caster.Id);
-            if (first?.Id != enemy.Id) continue; // Ni aliados, ni el objetivo principal, ni muros de por medio.
+            BeamEnd(from, aim, range, caster.Id, out _, out var first, caster.Id, recipe: ray.Part.Recipe);
+            if (first?.Id != enemy.Id) continue; // Respeta cuerpos que bloquean el haz, escudos enemigos y muros.
             nearest = enemy; distance = separation; origin = from; direction = aim;
         }
         if (nearest == null) { caster.ArcaneEchoActive = false; return; }

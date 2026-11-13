@@ -42,7 +42,7 @@ internal static class ReleaseAuditFixTests
         test("Revisión: la cola de red conserva la regla de venta al activar y desactivar desde otra calidad", TransportRule);
         foreach (var element in new[] { Element.Fire, Element.Cold })
             test($"Revisión: la asistencia evita suelo de {element} que sigue dañando tras morir su autor", () => OrphanGround(element));
-        test("Revisión: el input del inventario no desvía la ráfaga y un aliado que cruza la interrumpe", AssistedAim);
+        test("Revisión: la ráfaga del inventario conserva su objetivo aunque un aliado cruce el haz", AssistedAim);
         test("Revisión: el inventario lleno anuncia la conversión y el oro sin fingir una pieza recibida", FullInventory);
         test("Revisión: el total incluye el escudo de Vida una vez y lo retira al romperse, sustituirse o expirar", Regeneration);
         test("Revisión: las reliquias muestran acumulados enumerados y la regla de muerte de cada modo", RelicDescriptions);
@@ -127,9 +127,14 @@ internal static class ReleaseAuditFixTests
             "La interfaz recupera el mando del movimiento o del apuntado asistido.");
         Check(world.Snapshot().Beams.Any(b => b.Owner == player.Id && b.To.X > 0 && Math.Abs(b.To.Y) < .1f),
             "El haz asistido no conserva su objetivo enemigo.");
-        ally.Position = player.Position + new V2(3, 0); world.Step();
-        Check(player.Channel == null && !world.Snapshot().Beams.Any(b => b.Owner == player.Id),
-            "La asistencia no revalida al aliado que entra en su trayectoria.");
+        ally.Position = player.Position + new V2(3, 0);
+        ally.Shield = ally.ShieldMax = 650; ally.ShieldTime = 10;
+        float health = ally.Health, shield = ally.Shield, enemyHealth = enemy.Health;
+        world.Step();
+        Check(player.Channel?.Has(Element.Arcane) == true && enemy.Health < enemyHealth &&
+            world.Snapshot().Beams.Any(b => b.Owner == player.Id && b.To.X > ally.Position.X + 1),
+            "Un aliado interrumpe o bloquea la ráfaga arcana de asistencia.");
+        Check(ally.Health == health && ally.Shield == shield, "La ráfaga asistida afecta al aliado que cruza.");
         Check(Send(world, player, new() { Type = "defense_shop", Slot = 0 }), "No devolvió el control manual.");
         ally.Position = new(-8, 5);
         Check(Send(world, player, new() { Type = "input", MoveX = 1, AimX = ally.Position.X, AimY = ally.Position.Y }), "No acepta input al cerrar.");
