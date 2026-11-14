@@ -100,6 +100,8 @@ internal static class HelpCatalogue
             "Ambos admiten diez mejoras y no cuentan para las bonificaciones de conjunto. Las cifras de la ficha tienen en cuenta tu equipo; las defensas del enemigo pueden reducir el daño.");
         Add(HelpTopic.Equipment, "affixes", "Cómo se activan los efectos especiales",
             "Diamante y Mítico añaden un efecto especial, excepto el anillo mágico. Si repites un efecto, solo se aplica la copia más fuerte. Marca arcana y Eco arcano son efectos distintos y pueden coexistir. Última barrera conserva su recarga al cambiar equipo o reconectar.");
+        Add(HelpTopic.Equipment, "bot-equipment", "Equipo de los bots en Supervivencia",
+            "Los bots comparan las piezas de su inventario y equipan el conjunto que más les ayuda a combatir, protegerse y curar. Valoran su tipo de mago, los atributos efectivos, los conjuntos míticos, los efectos especiales y el nivel de los anillos. Un efecto repetido no cuenta dos veces y la calidad por sí sola no decide. Si eliges o vacías una ranura manualmente, el bot respeta esa elección durante la partida y al continuar un guardado.");
         Add(HelpTopic.Equipment, "mythic-eyes", "Ojos míticos",
             "Seis piezas míticas equipadas, incluidos los anillos, encienden llamitas en los ojos. Sus colores mezclan las familias del equipo. Es un efecto visual; quitar una pieza mítica lo apaga.");
         Add(HelpTopic.Equipment, "rewards", "Oro y premios de PvP",

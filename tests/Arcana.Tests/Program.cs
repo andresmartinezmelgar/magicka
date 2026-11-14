@@ -45,6 +45,7 @@ if (args.Contains("--defense-benchmark"))
 if (args.Contains("--defense-only"))
 {
     DefenseTests.Run(Test);
+    DefenseBotEquipmentTests.Run(Test);
     SurvivalBeamTests.Run(Test);
     DefenseScalingTests.Run(Test);
     DefenseBotPortalTests.Run(Test);
@@ -175,6 +176,7 @@ PracticeTests.Run(Test);
 PerformanceRegressionTests.Run(Test);
 LoadingTests.Run(Test);
 ElementInteractionTests.Run(Test);
+DefenseBotEquipmentTests.Run(Test);
 SurvivalBeamTests.Run(Test);
 EquipmentTests.Run(Test);
 GoldEquipmentTests.Run(Test);

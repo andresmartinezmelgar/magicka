@@ -5,6 +5,10 @@ public sealed partial class GameWorld
     private void RecalculateDefender(Wizard player)
     {
         var progress = _defenders[player.Id];
+        // Solo ante cambios de inventario, equipo, nivel o carga de una partida; nunca por tick.
+        if (player.Bot)
+            progress.Loadout = DefenseBotEquipment.Select(progress.Items, player.WizardType, progress.Loadout,
+                progress.Upgrades, progress.ManualEquipmentSlots);
         var profile = new AccountProfile("", player.Name, 0, 0, 0, progress.Loadout, progress.Items.ToArray());
         var prepared = PublicEquipment.Prepare(profile, progress.Upgrades);
         float previousCapacity = player.Equipment.ShieldCapacity;
