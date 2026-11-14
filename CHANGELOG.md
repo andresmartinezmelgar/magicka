@@ -1,9 +1,9 @@
 # Cambios
 
-## Pendiente de publicación
+## 0.29.63
 
-- Los bots de Supervivencia comparan todas las combinaciones de su inventario al recibir equipo, mejorarlo o continuar una partida. Valoran su afinidad, ataque, protección, curación, conjuntos, anillos y afijos sin duplicarlos. Respetan las ranuras elegidas o vaciadas manualmente y conservan el equipo actual en empates.
-- Solo en Supervivencia, los haces arcanos y sus mezclas se cruzan sin fusionarse ni desviarse y atraviesan a los aliados y sus escudos personales. También se aplica al Eco arcano y a la asistencia del inventario. Conservan las colisiones con enemigos y paredes; los haces de Vida siguen curando a los aliados.
+- Los bots de Supervivencia equipan automáticamente el conjunto más útil de su inventario según atributos, afinidad, conjuntos, anillos y afijos. Respetan las ranuras elegidas o vaciadas manualmente.
+- En Supervivencia, Arcano y sus variantes atraviesan aliados y sus escudos personales y se cruzan sin fusionarse. Incluye Eco arcano y asistencia; Vida conserva la curación de aliados.
 
 ## 0.29.62
 
