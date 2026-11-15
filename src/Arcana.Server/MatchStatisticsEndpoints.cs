@@ -30,7 +30,7 @@ public static class MatchStatisticsEndpoints
                 { if (stream.Length + read > MatchStatisticsReport.MaxBytes) return Results.StatusCode(413); stream.Write(buffer, 0, read); }
                 var report = MatchStatisticsReport.Parse(Encoding.UTF8.GetString(stream.GetBuffer(), 0, (int)stream.Length));
                 if (report.Status == MatchRecordStatus.Playing || report.Revision == 0) return Results.BadRequest();
-                statistics.Accept(report); // Compatibilidad: cola en memoria, sin archivos.
+                statistics.Accept(report); // Cola temporal de entrega; compartida por generaciones cuando está configurada.
                 return Results.StatusCode(202);
             }
             catch (Exception e) when (e is JsonException or InvalidDataException or BadHttpRequestException) { return Results.BadRequest(); }

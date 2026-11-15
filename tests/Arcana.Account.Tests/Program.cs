@@ -12,7 +12,14 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Reflection;
 
+if (args.FirstOrDefault(a => a.StartsWith("--journal-lock-probe=")) is { } probe)
+{
+    try { using var lease = new SharedJournalLease(probe["--journal-lock-probe=".Length..]); Console.WriteLine("LOCK_FREE"); }
+    catch (IOException) { Console.WriteLine("LOCK_BUSY"); }
+    return;
+}
 if (args.Contains("--reward-outbox-only")) { await RewardOutboxTests.Run(); return; }
+if (args.Contains("--rolling-update-only")) { await RollingUpdateTests.Run(); return; }
 if (args.Contains("--defense-rewards-only")) { await DefenseRewardsEmulatorTests.Run(); return; }
 VerifiedGoogleClaimsTests.Run();
 if (args.Contains("--verified-claims-only")) return;

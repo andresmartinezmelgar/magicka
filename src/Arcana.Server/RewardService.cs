@@ -7,6 +7,7 @@ namespace Arcana.Server;
 public sealed class RewardService(AccountService accounts, ILogger<RewardService> logger) : BackgroundService
 {
     private readonly ConcurrentDictionary<string, RewardMatch> _unwritten = new(StringComparer.Ordinal);
+    public int UnwrittenCount => _unwritten.Count;
     private readonly object _journalGate = new();
     private readonly string _directory = string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ARCANA_REWARD_OUTBOX"))
         ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ArcanaArena", "rewards")
@@ -16,7 +17,7 @@ public sealed class RewardService(AccountService accounts, ILogger<RewardService
     { get { lock (_journalGate) return _bestiaryQueue ??= new(Path.Combine(_directory, "bestiary")); } }
     public bool EnqueueBestiary(BestiaryProgress progress)
     {
-        try { BestiaryQueue.Enqueue(progress); return true; }
+        try { lock (_journalGate) { using var lease = new SharedJournalLease(_directory); BestiaryQueue.Enqueue(progress); } return true; }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
         { logger.LogWarning(error, "Bestiario pendiente de guardar; se reintentará."); return false; }
     }
@@ -41,6 +42,7 @@ public sealed class RewardService(AccountService accounts, ILogger<RewardService
             try
             {
                 PrepareDirectory();
+                using var lease = new SharedJournalLease(_directory);
                 string file = Path.Combine(_directory, match.Id + ".json");
                 if (!File.Exists(file))
                 {
@@ -62,6 +64,8 @@ public sealed class RewardService(AccountService accounts, ILogger<RewardService
     private void RecoverInterruptedWrites()
     {
         lock (_journalGate)
+        {
+        using var lease = new SharedJournalLease(_directory);
         foreach (string temporary in Directory.EnumerateFiles(_directory, "*.json.tmp"))
         {
             try
@@ -79,7 +83,12 @@ public sealed class RewardService(AccountService accounts, ILogger<RewardService
                 File.Move(temporary, temporary + ".incomplete", overwrite: true);
             }
         }
+        }
     }
+    private BestiaryProgress[] PendingBestiary()
+    { lock (_journalGate) { using var lease = new SharedJournalLease(_directory); return BestiaryQueue.Pending(); } }
+    private void AcknowledgeBestiary(BestiaryProgress progress)
+    { lock (_journalGate) { using var lease = new SharedJournalLease(_directory); BestiaryQueue.Acknowledge(progress); } }
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var retry = new Dictionary<string, DateTimeOffset>();
@@ -93,14 +102,14 @@ public sealed class RewardService(AccountService accounts, ILogger<RewardService
                     RecoverInterruptedWrites();
                     foreach (var match in _unwritten.Values) Persist(match);
                     if (accounts.GameEnabled)
-                    foreach (var progress in BestiaryQueue.Pending())
+                    foreach (var progress in PendingBestiary())
                     {
                         string retryKey = "bestiary:" + progress.Uid + ":" + progress.RunId;
                         if (retry.TryGetValue(retryKey, out var nextBestiary) && nextBestiary > DateTimeOffset.UtcNow) continue;
                         try
                         {
                             await accounts.SaveBestiaryGame(progress, stoppingToken);
-                            BestiaryQueue.Acknowledge(progress); retry.Remove(retryKey);
+                            AcknowledgeBestiary(progress); retry.Remove(retryKey);
                         }
                         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { throw; }
                         catch (Exception error)
@@ -119,7 +128,7 @@ public sealed class RewardService(AccountService accounts, ILogger<RewardService
                                 throw new InvalidDataException("Recibo de recompensa inválido.");
                             await accounts.AwardGame(match, stoppingToken);
                             // Si hay una caída entre Award y Delete, Firestore reconoce el mismo recibo al reintentar.
-                            lock (_journalGate) File.Delete(path);
+                            lock (_journalGate) { using var lease = new SharedJournalLease(_directory); File.Delete(path); }
                             retry.Remove(path);
                             try { Delivered?.Invoke(match); }
                             catch (Exception error) { logger.LogWarning(error, "Premio guardado; la notificación se recuperará al actualizar el perfil."); }

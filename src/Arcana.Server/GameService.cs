@@ -73,7 +73,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
 {
     private readonly object _gate = new();
     private readonly Dictionary<string, GameRoom> _rooms = new(StringComparer.Ordinal)
-    { ["default"] = new("default", "Sala principal", "", settings.World) };
+    { ["default"] = new(RoomGeneration.Scope(settings.Generation, "default"), "Sala principal", "", settings.World) };
     private readonly ConcurrentDictionary<Guid, PlayerSession> _sessions = [];
     private readonly SemaphoreSlim _handshakes = new(32, 32);
     private const int MaxRooms = 16;
@@ -82,13 +82,14 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
 
     public ServerInfo Info()
     {
-        lock (_gate) return new(settings.Name, settings.Port, settings.DiscoveryPort,
+        lock (_gate) return new(settings.Name, settings.AdvertisedPort == 0 ? settings.Port : settings.AdvertisedPort,
+            settings.AdvertisedDiscoveryPort == 0 ? settings.DiscoveryPort : settings.AdvertisedDiscoveryPort,
             settings.World.Mode, _rooms.Values.Sum(r => r.World.Players.Count),
             _rooms.Values.Sum(r => r.Options.MaxPlayers), Protocol.Version, settings.Password.Length > 0, settings.InstanceId, BuildInfo.Version, accounts.GameEnabled);
     }
     public long CurrentTick => Interlocked.Read(ref _tick);
     public RoomDirectory ListRooms()
-    { lock (_gate) return new(Info(), _rooms.Values.Where(r => r.Id != "default").Select(r => r.Info()).ToArray()); }
+    { lock (_gate) return new(Info(), _rooms.Where(r => r.Key != "default").Select(r => r.Value.Info()).ToArray()); }
 
     public (RoomInfo? Room, string Error, int Status) CreateRoom(CreateRoomRequest? request)
     {
@@ -110,10 +111,11 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
             return (null, "El laboratorio se inicia sin conexión desde la pestaña Práctica.", 400);
         lock (_gate)
         {
+            if (!AcceptingNewGames) return (null, UpdatingMessage, 503);
             RemoveIdleRooms();
             if (_rooms.Count >= MaxRooms)
             {
-                var abandoned = _rooms.Values.Where(r => r.Id != "default" && r.Sessions.Count == 0)
+                var abandoned = _rooms.Values.Where(r => r != _rooms["default"] && r.Sessions.Count == 0 && r.Reservations.Count == 0)
                     .OrderBy(r => r.LastOccupied).FirstOrDefault();
                 if (abandoned == null) return (null, "Todas las salas están ocupadas. Espera a que se libere alguna.", 409);
                 _rooms.Remove(abandoned.Id);
@@ -121,7 +123,8 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
             }
             var options = new WorldOptions { Mode = request.Mode, Map = request.Map, MaxPlayers = request.MaxPlayers, Bots = request.Bots,
                 FriendlyFire = request.Mode != GameMode.Defense && request.FriendlyFire, ScoreLimit = request.ScoreLimit, Tickets = request.Tickets, DefenseFlow = request.DefenseFlow };
-            var room = new GameRoom(Guid.NewGuid().ToString("N"), request.Name.Trim(), request.Password, options);
+            string localId = Guid.NewGuid().ToString("N");
+            var room = new GameRoom(RoomGeneration.Scope(settings.Generation, settings.Generation.Length == 0 ? localId : localId[..24]), request.Name.Trim(), request.Password, options);
             room.BestOf = request.BestOf;
             _rooms.Add(room.Id, room);
             logger.LogInformation("Sala creada: {Name}, {Id}", room.Name, room.Id);
@@ -130,7 +133,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
     }
     private void RemoveIdleRooms()
     {
-        foreach (var room in _rooms.Values.Where(r => r.Id != "default" && r.Sessions.Count == 0 &&
+        foreach (var room in _rooms.Values.Where(r => r != _rooms["default"] && r.Sessions.Count == 0 && r.Reservations.Count == 0 &&
             Environment.TickCount64 - r.LastOccupied > 2 * 60 * 1000).ToArray())
         {
             _rooms.Remove(room.Id);
@@ -172,6 +175,13 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                         foreach (var room in _rooms.Values)
                         {
                             ExpireReservations(room);
+                            if (!AcceptingNewGames && (!room.Started || Completed(room)))
+                            {
+                                room.StartRequested = false;
+                                if (!room.Started) room.RewardStatus = UpdatingMessage;
+                                if (CurrentTick % 3 == 0 && room.Sessions.Count > 0) dirty.Add(room);
+                                continue;
+                            }
                             // Pausa los bots y el reloj de las salas sin jugadores humanos.
                             if (room.Sessions.Count == 0) continue;
                             int readyPlayers = 0;
@@ -196,7 +206,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                                         if (message.Type == "lobby-ready")
                                         { session.LobbyReady = !session.LobbyReady; room.StartRequested = false; continue; }
                                         if (message.Type == "lobby-start" && session.Id == room.HostPlayerId)
-                                        { room.StartRequested = true; continue; }
+                                        { room.StartRequested = AcceptingNewGames; continue; }
                                     }
                                     if (message.Type == "defense_restart" && room.World.IsDefense && session.Ready && session.Id == room.HostPlayerId)
                                     { RestartDefenseRoom(room); continue; }
@@ -343,7 +353,8 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
             Diagnostics.Log.ProtectSecret(hello.ResumeToken);
             lock (_gate)
             {
-                if (hello.RoomId == null || !_rooms.TryGetValue(hello.RoomId, out var room)) error = "La sala ya no existe. Actualiza la lista.";
+                string? roomKey = hello.RoomId == _rooms["default"].Id ? "default" : hello.RoomId;
+                if (roomKey == null || !_rooms.TryGetValue(roomKey, out var room)) error = "La sala ya no existe. Actualiza la lista.";
                 else if (!PasswordMatches(hello.RoomPassword, room.Password)) error = "Contraseña de la sala incorrecta.";
                 else
                 {
@@ -351,7 +362,8 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                     var active = hello.ResumeToken.Length == 64 ? room.Sessions.Values.FirstOrDefault(s =>
                         s.ResumeToken == hello.ResumeToken && s.Account?.Uid == identity?.Uid) : null;
                     bool resume = room.Reservations.TryGetValue(hello.ResumeToken, out var reservation) && reservation.Account?.Uid == identity?.Uid;
-                    if (active != null) { active.Socket.Abort(); error = "Cerrando la conexión anterior. Reintentando…"; }
+                    if (!AcceptingNewGames && !(room.Started && !Completed(room) && (resume || active != null))) error = UpdatingMessage;
+                    else if (active != null) { active.Socket.Abort(); error = "Cerrando la conexión anterior. Reintentando…"; }
                     else if (hello.ResumeToken.Length > 0 && !resume) error = "Ha terminado el plazo para recuperar esta partida.";
                     else if (identity != null && _sessions.Values.Any(s => s.Account?.Uid == identity.Uid)) error = "Tu cuenta ya está jugando en este servidor.";
                     else if (!resume && identity != null && _rooms.Values.Any(r => r.Reservations.Values.Any(v => v.Account?.Uid == identity.Uid)))
@@ -470,7 +482,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                     SaveSessionBestiary(session, force: true);
                     session.Room.Sessions.Remove(session.Id);
                     if ((session.Ready || session.Resumed) && socket?.CloseStatus != WebSocketCloseStatus.NormalClosure &&
-                        !_stopping.IsCancellationRequested && !session.Room.World.MatchEnded)
+                        !_stopping.IsCancellationRequested && !Completed(session.Room))
                     {
                         session.Room.World.SuspendPlayer(session.Id);
                         session.Room.Reservations[session.ResumeToken] = new(session.Id, session.Account, session.Equipment,
@@ -494,7 +506,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
     {
         lock (_gate)
             foreach (var room in _rooms.Values)
-                { CaptureStatistics(room, MatchRecordStatus.Interrupted);
+                { if (!room.StatisticsFinal) CaptureStatistics(room, MatchRecordStatus.Interrupted);
                 foreach (var session in room.Sessions.Values) SaveSessionBestiary(session, force: true); }
         _stopping.Cancel(); return base.StopAsync(cancellationToken);
     }
@@ -653,7 +665,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
     private static async Task Reject(WebSocket socket, string reason, CancellationToken token)
     {
         await Send(socket, new ServerMessage { Type = "error", Error = reason }, token);
-        await socket.CloseOutputAsync(WebSocketCloseStatus.PolicyViolation, reason, token);
+        await socket.CloseOutputAsync(WebSocketCloseStatus.PolicyViolation, "Solicitud rechazada", token);
     }
     private static async Task<ClientMessage?> Receive(WebSocket socket, byte[] buffer, CancellationToken token)
     {
