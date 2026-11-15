@@ -16,7 +16,16 @@ public partial class Main
         string roomId, string roomPassword, WizardType wizardType, string reason)
     {
         if (_connection != lost || _reconnecting) return;
-        if (lost.ResumeToken.Length == 0 || _snapshot?.MatchEnded != false) { ReturnToLauncher(reason); return; }
+        bool ongoingSeries = _snapshot is { BestOf: > 1, SeriesWins: { Length: 2 } } series &&
+            series.SeriesWins.All(wins => wins < MatchSeries.WinsNeeded(series.BestOf));
+        if (_snapshot?.MatchEnded == true && !ongoingSeries)
+        {
+            _touch?.Reset();
+            _hud?.ActionNotice("La partida ha terminado. Puedes consultar el resultado; vuelve al menú para empezar otra.");
+            return;
+        }
+        if (lost.ResumeToken.Length == 0 || _snapshot == null) { ReturnToLauncher(reason); return; }
+        roomId = lost.Room?.Id ?? roomId;
         var lifetime = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         lifetime.CancelAfter(TimeSpan.FromSeconds(30)); _reconnectLifetime = lifetime;
         _reconnecting = true; _playing = false; _touch?.Reset();

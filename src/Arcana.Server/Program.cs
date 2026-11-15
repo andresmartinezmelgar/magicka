@@ -8,9 +8,11 @@ Diagnostics.Log = log;
 using var processDiagnostics = new ProcessDiagnostics(log);
 try
 {
+    if (args.Contains("--gateway")) { await RollingGateway.Run(args); return; }
     if (args.FirstOrDefault() == "--statistics-readers") { await StatisticsReaderSetup.Run(args.Skip(1).ToArray()); return; }
     var settings = ServerSettings.FromEnvironment();
     log.ProtectSecret(settings.Password);
+    log.ProtectSecret(settings.ManagementToken);
     // El launcher pasa ARCANA_FIREBASE_CONFIG y GOOGLE_APPLICATION_CREDENTIALS
     // al proceso servidor. Las cuentas y recompensas estaban desconectadas
     // porque este punto de arranque solo consultaba FIREBASE_PROJECT_ID.
@@ -23,7 +25,7 @@ try
     string dashboardRoot = Path.Combine(AppContext.BaseDirectory, "wwwroot");
     var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = args,
         WebRootPath = Directory.Exists(dashboardRoot) ? dashboardRoot : null });
-    builder.WebHost.UseUrls($"http://0.0.0.0:{settings.Port}");
+    builder.WebHost.UseUrls($"http://{(settings.LoopbackOnly ? "127.0.0.1" : "0.0.0.0")}:{settings.Port}");
     builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = Protocol.MaxMessageBytes);
     builder.Services.AddSingleton(settings);
     builder.Services.ConfigureHttpJsonOptions(options =>
@@ -75,6 +77,7 @@ try
     app.MapGet("/health", (GameService game) => Results.Ok(new { status = "ok", version = BuildInfo.Version, tick = game.CurrentTick }));
     app.MapGet("/info", (GameService game) => Results.Json(game.Info(), Protocol.Json));
     app.MapGet("/rooms", (GameService game) => Results.Json(game.ListRooms(), Protocol.Json));
+    app.MapServerLifecycle();
     app.MapPost("/rooms", async (HttpContext context, GameService game) =>
     {
         if (!context.Request.HasJsonContentType())

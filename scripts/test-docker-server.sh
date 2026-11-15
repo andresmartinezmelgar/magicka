@@ -32,3 +32,4 @@ docker exec "$name" sh -c 'test "$(id -u)" != 0 && printf durable > /app/data/re
 docker rm -f "$name" >/dev/null
 docker run --rm --platform "linux/$arch" --entrypoint sh -v "$volume:/app/data" "$image" -c 'test "$(cat /app/data/rewards/probe)" = durable'
 echo "DOCKER_SERVER_OK: $arch, HTTP, usuario sin privilegios y datos conservados al recrear el contenedor."
+python3 scripts/test-docker-rolling.py --image "$image" --arch "$arch" --version "$(tr -d '\r\n' < VERSION)"

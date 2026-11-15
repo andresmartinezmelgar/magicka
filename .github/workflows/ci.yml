@@ -66,6 +66,8 @@ jobs:
         run: dotnet run --project tests/Arcana.Account.Tests/Arcana.Account.Tests.csproj -c Release --no-build -- --verified-claims-only
       - name: Verificar premios pendientes con Firebase y servidor caídos
         run: dotnet run --project tests/Arcana.Account.Tests/Arcana.Account.Tests.csproj -c Release --no-build -- --reward-outbox-only
+      - name: Verificar actualización con dos generaciones y reconexión al servidor anterior
+        run: dotnet run --project tests/Arcana.Account.Tests/Arcana.Account.Tests.csproj -c Release --no-build -- --rolling-update-only
       - name: Compilar servidor de cuentas heredado
         run: dotnet build src/Arcana.AccountServer/Arcana.AccountServer.csproj -c Release --nologo
 

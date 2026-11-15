@@ -9,6 +9,7 @@ public sealed class DiscoveryService(ServerSettings settings, GameService game, 
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (!settings.DiscoveryEnabled) return;
         using var udp = new UdpClient();
         try
         {

@@ -6,7 +6,8 @@ namespace Arcana.Core;
 public sealed record RoomInfo(string Id, string Name, GameMode Mode, int Players, int MaxPlayers,
     int Bots, bool FriendlyFire, int ScoreLimit, int Tickets, bool PasswordRequired, ArenaMapId Map = ArenaMapId.Classic, int BestOf = 1, bool InProgress = false, DefenseFlow DefenseFlow = DefenseFlow.Continuous);
 public sealed record RoomDirectory(ServerInfo Server, RoomInfo[] Rooms);
-public sealed record ApiError(string Error);
+public sealed record ApiError(string Error, string Code = "");
+public sealed class ServerStartingException(string message) : InvalidOperationException(message);
 public sealed class CreateRoomRequest
 {
     public string Name { get; set; } = "Nueva sala";
@@ -58,12 +59,16 @@ public static class RoomBrowser
             using var response = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
             string json = await ReadBoundedAsync(response.Content, 64 * 1024, timeout.Token).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
-                throw new InvalidOperationException(Protocol.Deserialize<ApiError>(json)?.Error ?? "El servidor rechazó la solicitud.");
+            {
+                var error = Protocol.Deserialize<ApiError>(json);
+                if (error?.Code == "server_starting") throw new ServerStartingException(error.Error);
+                throw new InvalidOperationException(error?.Error ?? "El servidor rechazó la solicitud.");
+            }
             return Protocol.Deserialize<T>(json) ?? throw new InvalidDataException("El servidor devolvió una respuesta inválida.");
         }
         catch (Exception e)
         {
-            if (!token.IsCancellationRequested) Diagnostics.Warn("http.request_failed", "Fallo al consultar el servidor.", e,
+            if (!token.IsCancellationRequested && e is not ServerStartingException) Diagnostics.Warn("http.request_failed", "Fallo al consultar el servidor.", e,
                 new Dictionary<string, object?> { ["endpoint"] = request.RequestUri, ["operation"] = request.Method.Method });
             throw;
         }
