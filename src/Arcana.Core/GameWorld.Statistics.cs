@@ -12,7 +12,12 @@ public sealed partial class GameWorld
     private void ResetStatistics()
     {
         _statistics = new() { Network = _statistics.Network }; _statisticsPerformanceTime.Clear();
-        foreach (var p in _players.Values) { p.MatchDamage.Clear(); _statistics.Bind(p, spawn: false); }
+        foreach (var p in _players.Values)
+        {
+            p.MatchDamage.Clear();
+            p.ManualSelectionSeconds = p.AutomaticSelectionSeconds = p.UnreportedSelectionSeconds = 0;
+            _statistics.Bind(p, spawn: false);
+        }
     }
     private void RestoreStatistics(MatchStatisticsReport? report)
     {
@@ -40,6 +45,23 @@ public sealed partial class GameWorld
     }
     private void StatisticsEconomy(int id, StatisticMeasure measure, int amount)
     { _statistics.Total(measure, amount); _statistics.Actor(id, measure, amount); }
+    private void TickElementSelectionUsage(Wizard player)
+    {
+        if (player.Bot || player.Role != CombatantRole.Player || player.ElementSelectionBlocked ||
+            IsDefense && _defenders[player.Id].ShopOpen) return;
+        const double seconds = 1d / 60;
+        var measure = player.AutomaticElementSelection switch
+        {
+            true => StatisticMeasure.AutomaticSelectionSeconds,
+            false => StatisticMeasure.ManualSelectionSeconds,
+            _ => StatisticMeasure.UnreportedSelectionSeconds
+        };
+        if (player.AutomaticElementSelection == true) player.AutomaticSelectionSeconds += seconds;
+        else if (player.AutomaticElementSelection == false) player.ManualSelectionSeconds += seconds;
+        else player.UnreportedSelectionSeconds += seconds;
+        _statistics.Total(measure, seconds);
+        _statistics.Actor(player.Id, measure, seconds);
+    }
     private void DamageWall(Wall wall, SpellRecipe attack, int owner, float amount)
     {
         float before = wall.Health;

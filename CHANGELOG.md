@@ -4,6 +4,10 @@
 
 - Supervivencia: curvas de coste crecientes para auras, habilidades y mejoras temporales, con primeros niveles accesibles y últimos niveles para especializarse. Piezas aleatorias por 50 de oro.
 - Un aura completa cuesta 3300 de oro; una habilidad, 1250; una pieza mítica, 3140. El nivel 6 de una pieza mítica suma 820. Los anillos de cuenta conservan sus tarifas permanentes.
+- Referencia de veinte minutos: 5400 de oro permiten una ruta equilibrada de 69/130 niveles (53,1 %), con cinco auras al 5, cuatro habilidades al 2 y seis piezas de Oro al 6. El resultado real depende del botín y las bajas.
+- Los bots de Supervivencia venden las piezas descartadas después de elegir equipo y suman el oro a su propia cartera. Conservan equipadas, míticas, favoritas y piezas protegidas por una elección manual.
+- Registro de segundos de selección manual y automática de elementos por humano y como total de partida. Se excluyen interfaces, pausas, segundo plano y tiempo sin vida; los clientes sin identificación quedan separados. El Dashboard muestra tiempos, porcentajes, cobertura y columnas de exportación CSV.
+- Veinte iconos distintos identifican los efectos especiales de Diamante y Mítico en inventarios propios, de bots y de otros jugadores. El panel de Supervivencia muestra las seis piezas equipadas, su efecto y nivel; «+» indica que puedes pagar la siguiente mejora. Tocar una pieza abre sus detalles.
 
 ## 0.29.63
 

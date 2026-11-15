@@ -16,6 +16,7 @@ internal static class PublicDashboardEmulatorTests
         string uid = "PRIVATE_UID_" + Guid.NewGuid().ToString("N");
         var world = new GameWorld(new WorldOptions { Bots = 0 });
         var player = world.AddPlayer("private@example.test", 0)!;
+        world.ApplyMessage(player.Id, new() { Type = "spell_selection", Slot = 1, Sequence = 1 });
         for (int i = 0; i < 60; i++) world.Step();
         var report = world.MatchStatistics(MatchRecordStatus.Completed);
         var repository = new FirestoreAccountRepository(database);
@@ -52,6 +53,13 @@ internal static class PublicDashboardEmulatorTests
             if (historical.GetProperty("participants").EnumerateArray().Single().GetProperty("slot").GetInt32() != 1 ||
                 !parsed.RootElement.GetProperty("telemetry").EnumerateArray().Any(t => t.GetProperty("report").GetProperty("runId").GetString() == report.RunId))
                 throw new Exception("El dashboard público no contiene el histórico validado.");
+            var usage = historical.GetProperty("participants").EnumerateArray().Single().GetProperty("elementSelection");
+            var liveUsage = parsed.RootElement.GetProperty("telemetry").EnumerateArray()
+                .Single(t => t.GetProperty("report").GetProperty("runId").GetString() == report.RunId)
+                .GetProperty("report").GetProperty("elementSelection");
+            if (Math.Abs(usage.GetProperty("automaticSeconds").GetDouble() - 1) > .002 ||
+                Math.Abs(liveUsage.GetProperty("automaticSeconds").GetDouble() - 1) > .002)
+                throw new Exception("La proyección pública pierde el tiempo de selección individual o agregado.");
             if (body.Contains(uid) || body.Contains("ownerUid") || body.Contains("privateAccountField") || body.Contains("NEVER_EXPORT_THIS") || body.Contains("private@example.test"))
                 throw new Exception("Se publican datos ajenos a la proyección de estadísticas.");
             string etag = ready.Headers.ETag?.ToString() ?? throw new Exception("Falta ETag.");

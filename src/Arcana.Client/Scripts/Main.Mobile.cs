@@ -16,6 +16,7 @@ public partial class Main
     {
         if (_applicationSuspended == suspended) return;
         _applicationSuspended = suspended;
+        SynchronizeElementSelectionStatistics();
         _music?.SetSuspended(suspended);
         _renderer?.SetAudioSuspended(suspended);
         if (suspended)

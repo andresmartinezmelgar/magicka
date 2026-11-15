@@ -4,6 +4,7 @@
 
 - Desbloquear auras y habilidades al principio, con 40 y 80 de oro respectivamente.
 - Permitir combinar varios poderes intermedios y alcanzar el salto de los anillos en nivel 6.
+- Alcanzar al menos la mitad de los niveles de una ruta equilibrada a los 20 minutos de referencia, sin completar toda la progresión.
 - Reservar los niveles finales para las prioridades de la partida: cada incremento de precio crece o se mantiene, y el incremento final supera al inicial.
 - Conservar el oro y los niveles de partidas guardadas y la tarifa permanente de los anillos de cuenta.
 
@@ -52,6 +53,19 @@ El escenario intermedio estima 5423 de oro a los 20 minutos. Se toma 5400 como p
 Ambas rutas caben en ese presupuesto. Tras repartir, el siguiente nivel de cualquiera de esas auras cuesta 380, por encima del saldo disponible. Tras especializar, ni siquiera cabe desbloquear otra aura de 40. Las pruebas del motor realizan esas compras y comprueban el saldo y el rechazo del siguiente gasto.
 
 El techo ideal de cinco auras, cuatro habilidades y seis piezas míticas al máximo suma 40340. Completar ese techo excede ampliamente el presupuesto de referencia. Los objetos de menor calidad ofrecen mejoras más baratas para abrir otras rutas de gasto.
+
+## Referencia de media progresión
+
+Se cuentan niveles adquiridos, no porcentaje de daño ni de oro gastado: cinco auras de diez niveles, cuatro habilidades de cinco y seis piezas de diez suman **130 niveles**. La ruta equilibrada con equipo de Oro permite:
+
+| Bloque | Nivel por mejora | Niveles adquiridos | Coste |
+| --- | ---: | ---: | ---: |
+| Cinco auras | 5/10 | 25 | 2550 |
+| Cuatro habilidades | 2/5 | 8 | 840 |
+| Seis piezas de Oro | 6/10 | 36 | 1890 |
+| Total | | **69/130 (53,1 %)** | **5280** |
+
+Quedan 120 de los 5400 de referencia; no alcanza para el siguiente escalón de ninguno de esos bloques. La calidad del equipo, el ritmo real de bajas, los bonos de oro y la recogida cambian el resultado: este objetivo no garantiza un porcentaje idéntico en cada partida. Las pruebas realizan las compras y comprueban niveles, saldo y rechazos.
 
 ## Comprobación pendiente en partidas
 

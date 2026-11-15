@@ -65,6 +65,14 @@ Ventana de 30 días UTC; límite de 500 documentos históricos y 250 señales de
 
 La captura de ping y actuaciones sigue dependiendo de las versiones del cliente que publican telemetría y de los permisos existentes de escritura. Una web pública no habilita escrituras. Sin esas señales, aparecen los históricos disponibles y las vistas de telemetría quedan vacías.
 
+## Tiempo en selección manual y automática
+
+Los informes nuevos añaden tres métricas acumuladas en segundos: `manualSelectionSeconds`, `automaticSelectionSeconds` y `unreportedSelectionSeconds`. Cuentan solo humanos vivos con control del personaje: se excluyen menús, inventario, clasificación, pausas, segundo plano y asistencia de la tienda. Un cliente que no comunica el modo queda en «sin identificar», nunca en manual por defecto.
+
+El cliente comunica únicamente cambios de modo o bloqueo mediante `spell_selection`; el servidor mide el tiempo de simulación, sin aceptar duraciones del cliente. El registro anónimo de cierre añade `participants[].elementSelection` con `manualSeconds`, `automaticSeconds` y `unreportedSeconds`. La telemetría del Dashboard añade el agregado `elementSelection`, sin aumentar los snapshots de combate ni la frecuencia de publicación. Los campos son opcionales y los informes anteriores siguen siendo válidos.
+
+El resumen, el detalle de partida y el desglose por participante muestran los tiempos. El directo muestra el total humano disponible; el CSV de partidas incluye segundos y porcentajes. Los porcentajes se calculan sobre manual + automático, y el tiempo sin identificar se muestra aparte. El periodo indica cuántas partidas tienen datos y cuántas no; no se rellenan registros históricos con ceros. En cooperativo los segundos de varios humanos se suman y pueden superar la duración de la partida. Una reconexión a la sala conserva los contadores; recuperar un guardado abre otro registro y no duplica el tramo ya cerrado.
+
 ## Raspberry y Nginx
 
 La imagen Docker del servidor incluye `dashboard/web` y sirve la página en `/`. Los endpoints públicos están en el mismo proceso que Firebase Admin. Necesita las credenciales de servidor que ya se utilizan para tienda y recompensas, sin exponerlas al navegador.

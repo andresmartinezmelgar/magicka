@@ -8,12 +8,30 @@ namespace Arcana.Core;
 
 public enum MatchRecordStatus { Playing, Completed, Left, Disconnected, Suspended, Interrupted }
 public enum StatisticGroup { Total, Actor, Element, Attack, Recipe, Enemy, EnemyElement, Difficulty, Equipment, Relic, Performance, HumanElement, BotElement, EnemyElementDealt, HumanAttack, BotAttack, EnemyAttack, EnvironmentElement, EnvironmentAttack, HumanElementSource, BotElementSource, EnemyElementSource, EnvironmentElementSource, ActorShieldSource }
-public enum StatisticMeasure { Damage, ShieldDamage, DamageReceived, ShieldAbsorbed, Overkill, ImmuneHits, Hits, Kills, Deaths, Spawns, Casts, Healing, HealingReceived, ShieldGranted, ShieldRepaired, AliveSeconds, WetSeconds, BurningSeconds, FrozenSeconds, FriendlyDamage, SelfDamage, Revives, Revived, Collected, GoldEarned, GoldSpent, Levels, SpawnHealth, Samples, ValueSum, Distance, Captures }
+public enum StatisticMeasure { Damage, ShieldDamage, DamageReceived, ShieldAbsorbed, Overkill, ImmuneHits, Hits, Kills, Deaths, Spawns, Casts, Healing, HealingReceived, ShieldGranted, ShieldRepaired, AliveSeconds, WetSeconds, BurningSeconds, FrozenSeconds, FriendlyDamage, SelfDamage, Revives, Revived, Collected, GoldEarned, GoldSpent, Levels, SpawnHealth, Samples, ValueSum, Distance, Captures, ManualSelectionSeconds, AutomaticSelectionSeconds, UnreportedSelectionSeconds }
 public enum StatisticAttack { Beam, Lightning, Spray, Rock, Shards, Force, Barrier, Melee, Self, Nova, Mine, Meteor, Haste, Teleport, Revive, FireAura, LightningAura, RegenerationAura, AutoMeteor, FrostNova, ChainLightning, Burn, EnemyMelee, EnemyArea, OracleBombardment, Regeneration, RingShield, RingPulse, ShieldLeech, ShieldReflection, ArcaneAura, WaterAura, ArcaneMark, ArcaneEcho }
 public enum StatisticDamageSource { Direct, Area, Aura, Burn }
 public sealed record MatchStatistic(StatisticGroup Group, int Key, StatisticMeasure Measure, double Value);
 public sealed record MatchParticipantStatistics(int Slot, bool Bot, int WizardType, int Team,
-    double HealthDamage, double ShieldDamage, int Kills, int Deaths);
+    double HealthDamage, double ShieldDamage, int Kills, int Deaths)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ElementSelectionUsage? ElementSelection { get; init; }
+}
+
+public sealed record ElementSelectionUsage(double ManualSeconds, double AutomaticSeconds, double UnreportedSeconds)
+{
+    public bool Valid(double maximum) => double.IsFinite(ManualSeconds) && double.IsFinite(AutomaticSeconds) &&
+        double.IsFinite(UnreportedSeconds) && ManualSeconds >= 0 && AutomaticSeconds >= 0 && UnreportedSeconds >= 0 &&
+        ManualSeconds + AutomaticSeconds + UnreportedSeconds <= maximum + .05;
+    public static ElementSelectionUsage? FromReport(MatchStatisticsReport report)
+    {
+        double manual = report.Sum(StatisticGroup.Total, StatisticMeasure.ManualSelectionSeconds);
+        double automatic = report.Sum(StatisticGroup.Total, StatisticMeasure.AutomaticSelectionSeconds);
+        double unreported = report.Sum(StatisticGroup.Total, StatisticMeasure.UnreportedSelectionSeconds);
+        return manual + automatic + unreported > 0 ? new(manual, automatic, unreported) : null;
+    }
+}
 
 /// <summary>Contrato cerrado: no acepta nombres, cuentas, direcciones ni identificadores de dispositivo.</summary>
 public sealed record MatchStatisticsReport(int SchemaVersion, string RunId, long Revision, string GameVersion,
@@ -68,7 +86,7 @@ public sealed record MatchStatisticsReport(int SchemaVersion, string RunId, long
                     !Enum.IsDefined((WizardType)p.WizardType) || p.Team is < 0 or > 1 ||
                     !double.IsFinite(p.HealthDamage) || p.HealthDamage is < 0 or > 1e18 ||
                     !double.IsFinite(p.ShieldDamage) || p.ShieldDamage is < 0 or > 1e18 ||
-                    p.Kills < 0 || p.Deaths < 0)
+                    p.Kills < 0 || p.Deaths < 0 || p.ElementSelection is { } selection && (!selection.Valid(Seconds) || p.Bot))
                     throw new InvalidDataException("Participante inválido o duplicado.");
         }
         else if (ParticipantsPartial) throw new InvalidDataException("Falta el desglose de participantes.");

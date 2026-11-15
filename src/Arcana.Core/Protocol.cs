@@ -86,7 +86,7 @@ public static class Protocol
         {
             type = message.Type, sequence = message.Sequence, element = message.Element
         }, Json),
-        "magick" => JsonSerializer.SerializeToUtf8Bytes(new
+        "magick" or "spell_selection" => JsonSerializer.SerializeToUtf8Bytes(new
         {
             type = message.Type, sequence = message.Sequence, slot = message.Slot
         }, Json),

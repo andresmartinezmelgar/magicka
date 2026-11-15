@@ -91,6 +91,9 @@ public sealed partial class GameWorld
         // Los efectos del identificador anterior (p. ej. una quemadura) siguen
         // sumando al mismo contador personal tras una reconexión.
         player.MatchDamage = previous.MatchDamage;
+        player.ManualSelectionSeconds = previous.ManualSelectionSeconds;
+        player.AutomaticSelectionSeconds = previous.AutomaticSelectionSeconds;
+        player.UnreportedSelectionSeconds = previous.UnreportedSelectionSeconds;
         _statistics.ResumeParticipant(previous.Id, player);
         Array.Copy(previous.MagickCooldowns, player.MagickCooldowns, player.MagickCooldowns.Length);
     }

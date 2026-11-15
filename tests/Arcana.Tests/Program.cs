@@ -60,7 +60,7 @@ if (args.Contains("--desktop-session-only"))
     Console.WriteLine($"RESULTADO SESION WINDOWS: {passed} correctas, {failed} fallidas.");
     return failed == 0 ? 0 : 1;
 }
-if (args.Contains("--statistics-only")) { MatchStatisticsTests.Run(Test); PersonalDamageTests.Run(Test); DashboardTelemetryTests.Run(Test); Console.WriteLine($"RESULTADO ESTADÍSTICAS: {passed} correctas, {failed} fallidas."); return failed == 0 ? 0 : 1; }
+if (args.Contains("--statistics-only")) { MatchStatisticsTests.Run(Test); PersonalDamageTests.Run(Test); DashboardTelemetryTests.Run(Test); ElementSelectionStatisticsTests.Run(Test); Console.WriteLine($"RESULTADO ESTADÍSTICAS: {passed} correctas, {failed} fallidas."); return failed == 0 ? 0 : 1; }
 if (args.Contains("--audit-only")) { ComprehensiveAuditTests.Run(Test); Console.WriteLine($"RESULTADO REVISIÓN: {passed} correctas, {failed} fallidas."); return failed == 0 ? 0 : 1; }
 if (args.Contains("--survival-continuity-only")) { SurvivalContinuityTests.Run(Test); Console.WriteLine($"RESULTADO CONTINUIDAD: {passed} correctas, {failed} fallidas."); return failed == 0 ? 0 : 1; }
 var deltaFixtures = args.FirstOrDefault(a => a.StartsWith("--delta-fixtures="));
@@ -192,6 +192,7 @@ DefenseBotPortalTests.Run(Test);
 SurvivalAuraAndOracleTests.Run(Test);
 MatchStatisticsTests.Run(Test);
 DashboardTelemetryTests.Run(Test);
+ElementSelectionStatisticsTests.Run(Test);
 PersonalDamageTests.Run(Test);
 SurvivalSaveTests.Run(Test);
 SurvivalContinuityTests.Run(Test);

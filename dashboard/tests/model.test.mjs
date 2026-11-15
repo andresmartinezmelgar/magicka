@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parseReport,deduplicate,isNewer,dayRange,aggregate,pingSummary,liveRuns,playersRanking,filterReports,matchPlayers} from '../web/model.mjs';
+import {parseReport,parseTelemetry,deduplicate,isNewer,dayRange,aggregate,pingSummary,liveRuns,playersRanking,filterReports,matchPlayers,selectionUsage} from '../web/model.mjs';
 const seed = {schemaVersion:1, runId:'1'.repeat(32), revision:600, gameVersion:'0.29.53',
   day:'2026-11-07', mode:'defense', map:'bastion', network:true, status:'completed',
   seconds:10, humans:1, bots:1, difficulty:3, winnerTeam:0, scores:[2,1], metrics:[]};
@@ -64,3 +64,44 @@ test('valida los contadores y rechaza identificadores externos en los participan
 });
 
 test('apoyo se deriva de actores: curación y absorción no son daño elemental inventado',()=>{const r={...seed,metrics:[{group:'actor',key:0,measure:'healing',value:100},{group:'actor',key:16,measure:'healing',value:50},{group:'actor',key:0,measure:'shieldAbsorbed',value:80},{group:'total',key:0,measure:'shieldDamage',value:80}]};const t=aggregate([r]);assert.equal(t.elements[1].healing,150);assert.equal(t.elements[2].absorbed,80);assert.equal(t.absorbed,80);assert.equal(aggregate([r],false).elements[1].healing,100);assert.equal(t.damage,0);});
+
+test('selección: suma segundos de humanos y pondera porcentajes por tiempo conocido',()=>{
+  const report = (manual, automatic, unknown = 0) => parseReport({...seed,metrics:[
+    {group:'total',key:0,measure:'manualSelectionSeconds',value:manual},
+    {group:'total',key:0,measure:'automaticSelectionSeconds',value:automatic},
+    {group:'total',key:0,measure:'unreportedSelectionSeconds',value:unknown}
+  ]});
+  const a=report(2,6,2), b=report(8,4);
+  const usage=aggregate([a,b,seed],false).selection;
+  assert.deepEqual([usage.manualSeconds,usage.automaticSeconds,usage.unreportedSeconds],[10,10,2]);
+  assert.equal(usage.manualPercent,50);assert.equal(usage.automaticPercent,50);
+  assert.equal(usage.recorded,2);assert.equal(usage.missing,1);
+  assert.deepEqual(aggregate([a,b],true).selection,aggregate([a,b],false).selection);
+  assert.equal(selectionUsage(seed).available,false);
+  assert.equal(selectionUsage(seed).manualPercent,null);
+  assert.equal(selectionUsage(report(0,10)).automaticPercent,100);
+  assert.equal(selectionUsage(report(0,0,10)).manualPercent,null);
+});
+
+test('selección individual: valida tiempos y conserva compatibilidad con partidas antiguas',()=>{
+  const participant={slot:1,bot:false,wizardType:0,team:0,healthDamage:0,shieldDamage:0,kills:0,deaths:0};
+  const elementSelection={manualSeconds:3,automaticSeconds:5,unreportedSeconds:2};
+  const report=parseReport({...seed,participants:[{...participant,elementSelection}]});
+  assert.equal(selectionUsage(matchPlayers(report,[])[0]).manualPercent,37.5);
+  assert.equal(selectionUsage(parseReport({...seed,participants:[participant]}).participants[0]).available,false);
+  for(const usage of [
+    {...elementSelection,manualSeconds:-1},{...elementSelection,manualSeconds:Infinity},
+    {...elementSelection,automaticSeconds:6},{manualSeconds:1,automaticSeconds:0},
+    {...elementSelection,extra:0}
+  ])assert.throws(()=>parseReport({...seed,participants:[{...participant,elementSelection:usage}]}),/Participante inválido/);
+  assert.throws(()=>parseReport({...seed,participants:[{...participant,bot:true,elementSelection}]}),/Participante inválido/);
+});
+
+test('selección en directo: agregado humano opcional y acotado por el máximo de participantes',()=>{
+  const elementSelection={manualSeconds:30,automaticSeconds:20,unreportedSeconds:10};
+  assert.equal(selectionUsage(parseTelemetry({...telemetry,elementSelection})).automaticPercent,40);
+  assert.equal(selectionUsage(parseTelemetry(telemetry)).available,false);
+  for(const usage of [{...elementSelection,manualSeconds:150},{...elementSelection,unreportedSeconds:-1}])
+    assert.throws(()=>parseTelemetry({...telemetry,elementSelection:usage}),/Tiempo de selección inválido/);
+  assert.equal(liveRuns([{...telemetry,elementSelection},{...telemetry,elementSelection}]).runs.length,1);
+});

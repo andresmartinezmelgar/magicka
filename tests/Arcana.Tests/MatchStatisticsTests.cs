@@ -89,9 +89,9 @@ internal static class MatchStatisticsTests
             string json = closed.ToJson();
             var participants = MatchStatisticsReport.Parse(json).Participants!;
             Check(participants.Length == 2 && a.WizardType == b.WizardType, "La clase compartida mezcló los participantes.");
-            Check(participants[0] == new MatchParticipantStatistics(1, false, (int)a.WizardType, a.Team, 100, 20, 1, 0),
+            Check(participants[0] with { ElementSelection = null } == new MatchParticipantStatistics(1, false, (int)a.WizardType, a.Team, 100, 20, 1, 0),
                 "Se perdió el daño, el escudo o la baja del participante que salió.");
-            Check(participants[1] == new MatchParticipantStatistics(2, false, (int)b.WizardType, b.Team, 30, 0, 0, 1),
+            Check(participants[1] with { ElementSelection = null } == new MatchParticipantStatistics(2, false, (int)b.WizardType, b.Team, 30, 0, 0, 1),
                 "El daño del rival se atribuyó a otro participante.");
 
             var legacy = MatchStatisticsReport.Parse((closed with { Participants = null }).ToJson());

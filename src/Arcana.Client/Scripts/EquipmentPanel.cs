@@ -277,6 +277,7 @@ public partial class EquipmentPanel : Control
         if (item != null)
         {
             RenderItemStats(_details, item);
+            EquipmentIcons.AddBadges(_detailEffects, item.Slot, item.Family, item.Affix, ItemLevel(item));
             _detailTitle.Visible = _details.Visible;
             string effects = ItemEffects(item, ItemLevel(item), _draft == null ? null : EquipmentModifiers.Calculate(_draft, _itemLevels));
             if (effects.Length > 0) AddItemEffects(_detailEffects, $"Nivel {ItemLevel(item)}/10\n" + effects);

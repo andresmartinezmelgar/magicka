@@ -8,6 +8,9 @@ public sealed class Wizard
     public int Team { get; internal set; }
     public bool Bot { get; init; }
     public WizardType WizardType { get; init; }
+    internal bool? AutomaticElementSelection;
+    internal bool ElementSelectionBlocked;
+    internal double ManualSelectionSeconds, AutomaticSelectionSeconds, UnreportedSelectionSeconds;
     public EquipmentModifiers Equipment { get; internal set; } = EquipmentModifiers.None;
     public PublicEquipment PublicEquipment { get; internal set; } = PublicEquipment.Empty;
     public V2 Position { get; set; }

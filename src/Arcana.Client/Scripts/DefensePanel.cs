@@ -58,10 +58,14 @@ public partial class DefensePanel : Control
         _main = main; _submit = submit;
         Name = "DefensePanel"; Theme = Ui.Theme(); Ui.Full(this); MouseFilter = MouseFilterEnum.Ignore;
         _summary = new PanelContainer { Name = "DefenseSummary" }; AddChild(_summary);
-        _summary.AddThemeStyleboxOverride("panel", Ui.Panel(new("0b192b"), 7, new("56748f")));
+        var summaryStyle = Ui.Panel(new("0b192b"), 7, new("56748f"));
+        summaryStyle.ContentMarginLeft = summaryStyle.ContentMarginRight = 10;
+        summaryStyle.ContentMarginTop = summaryStyle.ContentMarginBottom = 10;
+        _summary.AddThemeStyleboxOverride("panel", summaryStyle);
         var stack = new VBoxContainer(); stack.AddThemeConstantOverride("separation", 5); _summary.AddChild(stack);
         _stats = Ui.Label("", Ui.IsMobile ? 13 : 15); _stats.AutowrapMode = TextServer.AutowrapMode.WordSmart; _stats.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 13 : 15); stack.AddChild(_stats);
         _metrics = Ui.Label("", 12, Ui.Muted); _metrics.AutowrapMode = TextServer.AutowrapMode.WordSmart; _metrics.AddThemeFontSizeOverride("font_size", 12); stack.AddChild(_metrics);
+        BuildEquippedStrip(stack);
                 var open = Ui.Button("Equipo / tienda", OpenShop); open.Name = "DefenseShopButton";
         open.CustomMinimumSize = new(0, Ui.IsMobile ? 46 : 40); stack.AddChild(open);
         _shop = new Control { Name = "DefenseShop", Visible = false }; AddChild(_shop); Ui.Full(_shop);
@@ -330,6 +334,7 @@ public partial class DefensePanel : Control
         UpdateEquipmentSetup();
         _canRestart = !online || snapshot.LobbyHostId == id;
         var p = _player;
+        UpdateEquippedStrip(p);
         var summary = (p.Level, p.Experience, p.NextLevelExperience, p.Gold, p.Kills, p.LivesRemaining, defense.ColossusMomentumSeconds);
         if (_summaryState != summary)
         {

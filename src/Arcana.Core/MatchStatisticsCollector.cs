@@ -20,7 +20,12 @@ internal sealed class MatchStatisticsCollector
         }
 
         public MatchParticipantStatistics Capture(int slot) =>
-            new(slot, Body.Bot, (int)Body.WizardType, Body.Team, HealthDamage, ShieldDamage, Kills, Deaths);
+            new(slot, Body.Bot, (int)Body.WizardType, Body.Team, HealthDamage, ShieldDamage, Kills, Deaths)
+            {
+                ElementSelection = !Body.Bot && Body.ManualSelectionSeconds + Body.AutomaticSelectionSeconds + Body.UnreportedSelectionSeconds > 0
+                    ? new(Math.Round(Body.ManualSelectionSeconds, 3), Math.Round(Body.AutomaticSelectionSeconds, 3), Math.Round(Body.UnreportedSelectionSeconds, 3))
+                    : null
+            };
     }
 
     private readonly Dictionary<(StatisticGroup Group, int Key, StatisticMeasure Measure), double> _values = [];

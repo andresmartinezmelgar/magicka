@@ -77,6 +77,7 @@ public partial class EquipmentPanel
             var label = Ui.Label(title, Ui.IsMobile ? 18 : 17, selected ? Ui.Gold : TierColor(item.Tier));
             label.AutowrapMode = TextServer.AutowrapMode.WordSmart; label.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             label.MouseFilter = MouseFilterEnum.Ignore; description.AddChild(label);
+            EquipmentIcons.AddBadges(description, item.Slot, item.Family, item.Affix, ItemLevel(item));
             if (!BotInventory) BuildItemPreferences(description, item);
             BuildSaleSelection(description, item);
             var equippedLabel = Ui.Label(selected ? "EQUIPADA" : "Sin equipar", 15, selected ? Ui.Gold : Ui.Muted);

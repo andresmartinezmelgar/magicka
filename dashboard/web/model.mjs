@@ -7,11 +7,39 @@ export const STATUS_NAMES = {playing:'En curso',completed:'Finalizada',left:'Aba
 export const ATTACKS = ['Haz','Rayo','Chorro','Roca','Fragmentos','Fuerza','Barrera','Cuerpo a cuerpo','Sobre sí mismo','Nova','Mina','Meteorito','Prisa','Teletransporte','Reanimación','Aura de fuego','Aura de rayo','Aura regeneradora','Roca automática','Nova de frío','Cadena de rayos','Quemadura','Golpe enemigo','Área enemiga','Bombardeo del oráculo','Regeneración','Escudo de anillo','Pulso de anillo','Robo de escudo','Reflejo de escudo','Aura arcana','Aura de agua','Marca arcana','Eco arcano'];
 export const CLASSES = ['Equilibrado','Piromante','Criomante','Invocador de tormentas','Geomante'];
 const GROUPS=['total','actor','element','attack','recipe','enemy','enemyElement','difficulty','equipment','relic','performance','humanElement','botElement','enemyElementDealt','humanAttack','botAttack','enemyAttack','environmentElement','environmentAttack','humanElementSource','botElementSource','enemyElementSource','environmentElementSource','actorShieldSource'];
-const MEASURES=['damage','shieldDamage','damageReceived','shieldAbsorbed','overkill','immuneHits','hits','kills','deaths','spawns','casts','healing','healingReceived','shieldGranted','shieldRepaired','aliveSeconds','wetSeconds','burningSeconds','frozenSeconds','friendlyDamage','selfDamage','revives','revived','collected','goldEarned','goldSpent','levels','spawnHealth','samples','valueSum','distance','captures'];
+const MEASURES=['damage','shieldDamage','damageReceived','shieldAbsorbed','overkill','immuneHits','hits','kills','deaths','spawns','casts','healing','healingReceived','shieldGranted','shieldRepaired','aliveSeconds','wetSeconds','burningSeconds','frozenSeconds','friendlyDamage','selfDamage','revives','revived','collected','goldEarned','goldSpent','levels','spawnHealth','samples','valueSum','distance','captures','manualSelectionSeconds','automaticSelectionSeconds','unreportedSelectionSeconds'];
 const number = v => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1e18;
 const run = v => typeof v==='string' && /^[0-9a-f]{32}$/.test(v);
 const MAX_PARTICIPANTS = 64;
-const PARTICIPANT_FIELDS = ['slot','bot','wizardType','team','healthDamage','shieldDamage','kills','deaths'];
+const PARTICIPANT_FIELDS = ['slot','bot','wizardType','team','healthDamage','shieldDamage','kills','deaths','elementSelection'];
+const SELECTION_FIELDS = ['manualSeconds','automaticSeconds','unreportedSeconds'];
+function validSelection(usage, maximum) {
+  return usage && Object.keys(usage).every(key => SELECTION_FIELDS.includes(key)) &&
+    SELECTION_FIELDS.every(key => number(usage[key])) &&
+    SELECTION_FIELDS.reduce((sum, key) => sum + usage[key], 0) <= maximum + .05;
+}
+export function selectionUsage(record) {
+  const usage = record.elementSelection ?? (record.metrics ? {
+    manualSeconds:metric(record,'total',0,'manualSelectionSeconds'),
+    automaticSeconds:metric(record,'total',0,'automaticSelectionSeconds'),
+    unreportedSeconds:metric(record,'total',0,'unreportedSelectionSeconds')
+  } : {});
+  const manualSeconds = usage.manualSeconds || 0, automaticSeconds = usage.automaticSeconds || 0;
+  const unreportedSeconds = usage.unreportedSeconds || 0, knownSeconds = manualSeconds + automaticSeconds;
+  return {manualSeconds, automaticSeconds, unreportedSeconds, available:knownSeconds + unreportedSeconds > 0,
+    manualPercent:knownSeconds ? 100 * manualSeconds / knownSeconds : null,
+    automaticPercent:knownSeconds ? 100 * automaticSeconds / knownSeconds : null};
+}
+export function selectionSummary(reports) {
+  const usage = {manualSeconds:0, automaticSeconds:0, unreportedSeconds:0};
+  let recorded = 0;
+  for (const report of reports) {
+    const current = selectionUsage(report);
+    if (current.available) recorded++;
+    for (const key of SELECTION_FIELDS) usage[key] += current[key];
+  }
+  return {...selectionUsage({elementSelection:usage}), recorded, missing:reports.length-recorded};
+}
 export const utcDay = (now=new Date()) => now.toISOString().slice(0,10);
 export function dayRange(days, now=new Date()) {const end=utcDay(now); const d=new Date(end+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-days+1);return {start:utcDay(d),end};}
 function validDay(v){return typeof v==='string' && /^(20[2-9][0-9]|2100)-\d\d-\d\d$/.test(v) && Number.isFinite(Date.parse(v)) && new Date(v+'T00:00:00Z').toISOString().slice(0,10)===v;}
@@ -45,7 +73,8 @@ export function parseReport(raw) {
           typeof p.bot !== 'boolean' || !Number.isInteger(p.wizardType) || p.wizardType < 0 || p.wizardType >= CLASSES.length ||
           (p.team !== 0 && p.team !== 1) || !number(p.healthDamage) || !number(p.shieldDamage) ||
           ![p.kills,p.deaths].every(n => Number.isInteger(n) && n >= 0 && n <= 2147483647) ||
-          Object.keys(p).some(key => !PARTICIPANT_FIELDS.includes(key))) throw Error('Participante inválido');
+          Object.keys(p).some(key => !PARTICIPANT_FIELDS.includes(key)) ||
+          p.elementSelection != null && (p.bot || !validSelection(p.elementSelection,r.seconds))) throw Error('Participante inválido');
       slots.add(p.slot);
     }
   }
@@ -76,12 +105,13 @@ export function aggregate(reports,includeBots=true){
   fpsSum+=metric(r,'performance',2,'valueSum');fpsSamples+=metric(r,'performance',2,'samples');simSum+=metric(r,'performance',1,'valueSum');simSamples+=metric(r,'performance',1,'samples');
   for(const m of r.metrics){if(m.group!=='actor'||m.key>=64||!['damage','shieldDamage'].includes(m.measure))continue;const bot=m.key%32>=16;if(bot&&!includeBots)continue;const idx=m.key%16;const key=idx+':'+bot;const c=classes.get(key)||{name:(CLASSES[idx]||'Clase '+idx)+(bot?' · bot':''),damage:0};c.damage+=m.value;classes.set(key,c);}
  }
- return {matches:reports.length,seconds,humans,bots,kills,damage,healing,absorbed,general,elements,attacks:attacks.filter(a=>a.damage||a.casts).sort((a,b)=>b.damage-a.damage),timeline:[...timeline.values()].sort((a,b)=>a.day.localeCompare(b.day)),classes:[...classes.values()].sort((a,b)=>b.damage-a.damage),fps:fpsSamples?fpsSum/fpsSamples:null,simulation:simSamples?simSum/simSamples:null,dropped};
+ return {matches:reports.length,seconds,humans,bots,kills,damage,healing,absorbed,general,elements,selection:selectionSummary(reports),attacks:attacks.filter(a=>a.damage||a.casts).sort((a,b)=>b.damage-a.damage),timeline:[...timeline.values()].sort((a,b)=>a.day.localeCompare(b.day)),classes:[...classes.values()].sort((a,b)=>b.damage-a.damage),fps:fpsSamples?fpsSum/fpsSamples:null,simulation:simSamples?simSum/simSamples:null,dropped};
 }
 export function parseTelemetry(raw){
  const envelope=raw;let r=typeof raw.payload==='string'?JSON.parse(raw.payload):raw;
  if(r.schemaVersion!==1||!run(r.runId)||!validDay(r.day)||!STATUSES.includes(r.status)||!Object.hasOwn(MODES,r.mode)||!Object.hasOwn(MAPS,r.map)||!number(r.seconds)||!Number.isSafeInteger(r.revision)||r.revision<1||r.revision>1892160000||!Array.isArray(r.players)||r.players.length>32||!Number.isInteger(r.reporterId))throw Error('Sesión inválida');
  if(!/^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(r.gameVersion)||typeof r.network!=='boolean'||Math.abs(r.seconds-r.revision/60)>.001)throw Error('Cabecera de sesión inválida');
+ if(r.elementSelection != null && !validSelection(r.elementSelection,r.seconds*16))throw Error('Tiempo de selección inválido');
  const ids=new Set();for(const p of r.players){if(!Number.isInteger(p.id)||ids.has(p.id)||typeof p.name!=='string'||p.name.length>64||typeof p.bot!=='boolean'||typeof p.alive!=='boolean'||!Number.isInteger(p.team)||!Number.isInteger(p.wizardType)||p.wizardType<0||p.wizardType>4||p.team<0||p.team>1||!Number.isInteger(p.kills)||!number(p.kills)||!Number.isInteger(p.deaths)||!number(p.deaths)||!Array.isArray(p.health)||p.health.length!==9||!Array.isArray(p.shield)||p.shield.length!==9||!p.health.every(number)||!p.shield.every(number))throw Error('Jugador inválido');ids.add(p.id);}
  if(r.ping && (!Number.isSafeInteger(r.ping.samples)||r.ping.samples<0||!number(r.ping.sumMs)||!number(r.ping.minMs)||!number(r.ping.maxMs)||r.ping.maxMs<r.ping.minMs||r.ping.samples>0&&(r.ping.sumMs/r.ping.samples<r.ping.minMs-.001||r.ping.sumMs/r.ping.samples>r.ping.maxMs+.001)))throw Error('Ping inválido');
  const updated=envelope.updatedAt?.toMillis?.()??(typeof envelope.updatedAt==='number'?envelope.updatedAt:Date.parse(envelope.updatedAt||r.updatedAt||''));

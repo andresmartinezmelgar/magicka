@@ -33,6 +33,10 @@ y se ajustan al nuevo límite.
 
 ## Partida y vidas
 
+El lateral de la partida incluye seis casillas de equipo (botas, gorro, pecho, arma y dos anillos). La forma identifica la ranura, el color interior la familia y el marco la calidad. El distintivo pequeño identifica su efecto especial; el anillo mágico muestra su elemento. Debajo figura el nivel actual sobre diez y un «+» cuando hay oro para mejorar. Pulsar abre la ranura del inventario, sin comprar ni cambiar equipo. La ayuda de la pieza muestra atributos, efecto activo, siguiente precio y mejoras del anillo. Las ranuras vacías siguen visibles. El bloque forma parte de la zona reservada del lateral para evitar los joysticks.
+
+Los bots comparan su conjunto antes de vender descartes. El dinero de cada venta se suma al oro del bot y a las estadísticas de oro ganado, sin gastar el de los humanos. Se conservan piezas equipadas, míticas, favoritas y las protegidas por una selección manual. La elección manual de una ranura, incluso vacía, sigue teniendo prioridad. La venta libera espacio y no vuelve a pagarse al continuar una partida.
+
 El modo Defensa ahora es **Supervivencia**, con enemigos continuos. Se han retirado las oleadas, el castillo y sus reparaciones.
 
 - Local: IA / Defensa → Supervivencia, con cero a tres bots aliados.

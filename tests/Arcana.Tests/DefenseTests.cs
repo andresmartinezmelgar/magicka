@@ -328,7 +328,7 @@ internal static class DefenseTests
             var a = w.AddPlayer("A")!; var b = w.AddPlayer("B")!;
             var bot = w.Players.Values.Single(p => p.Bot);
             var random = new Random(118);
-            EquipmentItem Piece(EquipmentSlot slot) => EquipmentCatalogue.Generate(random, tier: ItemTier.Silver, slot: slot);
+            EquipmentItem Piece(EquipmentSlot slot) => EquipmentCatalogue.Generate(random, tier: ItemTier.Mythic, slot: slot);
             var own = Piece(EquipmentSlot.Weapon); var ally = Piece(EquipmentSlot.Weapon);
             var first = Piece(EquipmentSlot.Weapon); var second = Piece(EquipmentSlot.Weapon); var chest = Piece(EquipmentSlot.Chest);
             Invoke(w, "GrantDefenseItem", a, own); Invoke(w, "GrantDefenseItem", b, ally);
@@ -384,7 +384,7 @@ internal static class DefenseTests
             var bot = w.Players.Values.Single(p => p.Bot);
             Gold(w, human, 777); Gold(w, ally, 333);
             var random = new Random(619);
-            EquipmentItem Piece() => EquipmentCatalogue.Generate(random, tier: ItemTier.Silver, slot: EquipmentSlot.Weapon);
+            EquipmentItem Piece() => EquipmentCatalogue.Generate(random, tier: ItemTier.Mythic, slot: EquipmentSlot.Weapon);
             var equipped = Piece(); var spare = Piece() with { SaleGold = 1000 }; var favorite = Piece();
             foreach (var item in new[] { equipped, spare, favorite }) Invoke(w, "GrantDefenseItem", bot, item);
             Check(Command(w, bot, "defense_favorite", 1, favorite.Id), "No se pudo proteger la pieza del bot.");

@@ -126,6 +126,7 @@ public partial class PlayerEquipmentPanel : Control
             if (item == null) continue;
             var grid = Ui.Table(2, "PlayerPiece" + slot + "Table"); _pieces.AddChild(grid);
             EquipmentPanel.RenderItemStats(grid, item);
+            EquipmentIcons.AddBadges(_pieces, item.Slot, item.Family, item.Affix, item.UpgradeLevel);
             EquipmentPanel.AddItemEffects(_pieces, string.Join('\n', new[] {
                 item.Affix == null ? "" : ItemAffixes.Describe(item.Affix, item.UpgradeLevel, item.Slot),
                 RingEffects.Describe(item, ringEquipment) }.Where(s => s.Length > 0)));

@@ -7,8 +7,11 @@ public sealed partial class GameWorld
         var progress = _defenders[player.Id];
         // Solo ante cambios de inventario, equipo, nivel o carga de una partida; nunca por tick.
         if (player.Bot)
+        {
             progress.Loadout = DefenseBotEquipment.Select(progress.Items, player.WizardType, progress.Loadout,
                 progress.Upgrades, progress.ManualEquipmentSlots);
+            SellUnusedDefenseBotEquipment(player, progress);
+        }
         var profile = new AccountProfile("", player.Name, 0, 0, 0, progress.Loadout, progress.Items.ToArray());
         var prepared = PublicEquipment.Prepare(profile, progress.Upgrades);
         float previousCapacity = player.Equipment.ShieldCapacity;
@@ -31,6 +34,19 @@ public sealed partial class GameWorld
         player.MaxHealth = health;
     }
 
+    private void SellUnusedDefenseBotEquipment(Wizard player, DefenseProgress progress)
+    {
+        for (int i = progress.Items.Count - 1; i >= 0; i--)
+        {
+            var item = progress.Items[i];
+            if (progress.Loadout.Get(item.Slot) == item.Id || item.Tier == ItemTier.Mythic ||
+                progress.Favorites.Contains(item.Id) || progress.EquippedItemHistory.Contains(item.Id)) continue;
+            SellSetupDiscard(progress, player.Id, item);
+            progress.Upgrades.Remove(item.Id);
+            progress.Items.RemoveAt(i);
+        }
+    }
+
     private bool DefenseCommand(Wizard player, ClientMessage command)
     {
         if (!IsDefense || !_defenders.TryGetValue(player.Id, out var progress)) return false;
@@ -47,6 +63,7 @@ public sealed partial class GameWorld
             if (command.Slot is < 0 or > 1 || !progress.Items.Any(i => i.Id == command.ItemId)) return false;
             if (command.Slot == 1) progress.Favorites.Add(command.ItemId); else progress.Favorites.Remove(command.ItemId);
             if (progress.EquipmentSetup.Enabled) ApplySurvivalEquipmentSetup(player);
+            else if (player.Bot) RecalculateDefender(player);
             return true;
         }
         if (command.Type == "defense_auto_sell")

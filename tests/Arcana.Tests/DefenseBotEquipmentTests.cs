@@ -33,8 +33,9 @@ internal static class DefenseBotEquipmentTests
         test("Bots: valoran el conjunto completo aunque sus piezas aisladas tengan peores tiradas", CompleteSet);
         test("Bots: combinan Marca y Eco en lugar de duplicar un afijo", Affixes);
         test("Bots: comparan el nivel real de los dos anillos y la mejora del nivel seis", Rings);
-        test("Bots: recibir equipo mejora el conjunto sin cambiar inventarios humanos ni curar", Pickup);
+        test("Bots: equipan lo mejor y venden descartes sin cambiar inventarios humanos ni curar", Pickup);
         test("Bots: respetan las ranuras manuales y vacías, también después de continuar", ManualSlots);
+        test("Bots: conservan míticos y favoritos y venden al retirar la protección", ProtectedDiscards);
         test("Bots: mejorar una pieza desequipada vuelve a comparar el inventario", Upgrade);
     }
 
@@ -119,8 +120,12 @@ internal static class DefenseBotEquipmentTests
         Give(world, human, humanFirst); Give(world, human, better with { Id = Guid.NewGuid().ToString("N") });
         Check(State(world, bot).Items.Single(i => i.Equipped).Item.Id == better.Id &&
             State(world, human).Items.Single(i => i.Equipped).Item.Id == humanFirst.Id &&
-            State(world, bot).Items.Length == 2 && State(world, bot).Gold == 0 && bot.Health == 600,
-            "La mejora no se equipa o altera el inventario humano, vende piezas o cura al bot.");
+            State(world, bot).Items.Length == 1 && State(world, bot).Gold == first.SaleGold &&
+            State(world, bot).AutoSold == 1 && State(world, human).Items.Length == 2 && State(world, human).Gold == 0 && bot.Health == 600,
+            "La mejora no se equipa, el descarte no financia al bot o altera al humano o la salud.");
+        Give(world, bot, first with { Id = Guid.NewGuid().ToString("N") });
+        Check(State(world, bot).Gold == 2 * first.SaleGold && State(world, bot).AutoSold == 2 && State(world, bot).Items.Length == 1,
+            "Un descarte nuevo no se vende o la venta se paga dos veces.");
         SnapshotValidation.Check(world.Snapshot());
     }
 
@@ -139,16 +144,38 @@ internal static class DefenseBotEquipmentTests
         var restored = GameWorld.RestoreSurvival(world.SaveSurvival(human.Id, Guid.NewGuid().ToString("N")));
         var savedBot = restored.Players[bot.Id];
         Give(restored, savedBot, better with { Id = Guid.NewGuid().ToString("N") });
-        Check(State(restored, savedBot).Items.All(i => !i.Equipped) && State(restored, savedBot).Items.Length == 3,
-            "Al continuar, el bot vuelve a llenar una ranura vaciada manualmente.");
+        Check(State(restored, savedBot).Items.All(i => !i.Equipped) && State(restored, savedBot).Items.Single().Item.Id == first.Id &&
+            State(restored, savedBot).Gold == 2 * better.SaleGold && State(restored, savedBot).AutoSold == 2,
+            "Al continuar, el bot pierde la pieza manual, vuelve a llenar la ranura o no vende los descartes.");
         SnapshotValidation.Check(restored.Snapshot());
+    }
+
+    private static void ProtectedDiscards()
+    {
+        var (world, human, bot) = World();
+        var favorite = Piece(EquipmentSlot.Weapon, EquipmentStat.Power, .01f, ItemTier.Silver);
+        Give(world, bot, favorite);
+        Check(Send(world, bot, new() { Type = "defense_favorite", Slot = 1, ItemId = favorite.Id }), "No protege la pieza inicial.");
+        var better = Piece(EquipmentSlot.Weapon, EquipmentStat.Power, .2f, ItemTier.Gold);
+        var mythic = Piece(EquipmentSlot.Weapon, EquipmentStat.Power, .01f);
+        Give(world, bot, better); Give(world, bot, mythic);
+        Check(State(world, bot).Items.Length == 3 && State(world, bot).Gold == 0 && State(world, bot).AutoSold == 0,
+            "Se ha vendido un favorito, mítico o equipado.");
+        Check(Send(world, bot, new() { Type = "defense_favorite", Slot = 0, ItemId = favorite.Id }) &&
+            State(world, bot).Items.Length == 2 && State(world, bot).Items.Any(i => i.Item.Id == mythic.Id) &&
+            State(world, bot).Gold == favorite.SaleGold && State(world, bot).AutoSold == 1,
+            "La pieza sin protección no se vende o la venta afecta al mítico.");
+        var restored = GameWorld.RestoreSurvival(world.SaveSurvival(human.Id, Guid.NewGuid().ToString("N")));
+        Check(State(restored, restored.Players[bot.Id]).Gold == favorite.SaleGold &&
+            State(restored, restored.Players[bot.Id]).AutoSold == 1, "Continuar vuelve a pagar un descarte vendido.");
     }
 
     private static void Upgrade()
     {
         var (world, human, bot) = World();
-        var first = Piece(EquipmentSlot.Weapon, EquipmentStat.Power, .1f, ItemTier.Silver);
-        var second = Piece(EquipmentSlot.Weapon, EquipmentStat.Power, .105f, ItemTier.Silver);
+        // Los míticos se conservan para poder decidir manualmente qué pieza mejorar.
+        var first = Piece(EquipmentSlot.Weapon, EquipmentStat.Power, .1f);
+        var second = Piece(EquipmentSlot.Weapon, EquipmentStat.Power, .105f);
         Give(world, bot, first); Give(world, bot, second);
         Check(State(world, bot).Items.Single(i => i.Equipped).Item.Id == second.Id, "No prepara el arma más fuerte.");
         var defenders = (IDictionary)typeof(GameWorld).GetField("_defenders", Private)!.GetValue(world)!;

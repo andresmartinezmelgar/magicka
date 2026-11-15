@@ -151,6 +151,14 @@ public sealed partial class GameWorld
         if (!_players.TryGetValue(id, out var p) || message.Sequence <= p.LastSequence) return false;
         if (message.Type == "match_performance")
         { p.LastSequence = message.Sequence; return ObserveStatisticsPerformance(id, message.FramesPerSecond, message.FrameTime95); }
+        if (message.Type == "spell_selection")
+        {
+            if (p.Bot || message.Slot is < 0 or > 3) return false;
+            p.AutomaticElementSelection = (message.Slot & 1) != 0;
+            p.ElementSelectionBlocked = (message.Slot & 2) != 0;
+            p.LastSequence = message.Sequence;
+            return true;
+        }
         if (message.Type?.StartsWith("defense_", StringComparison.Ordinal) == true)
         {
             p.LastSequence = message.Sequence;
@@ -276,6 +284,7 @@ public sealed partial class GameWorld
     private void TickStatus(Wizard p, float dt)
     {
         _statistics.Status(p, dt);
+        TickElementSelectionUsage(p);
         p.Wet = Math.Max(0, p.Wet - dt);
         p.StunTime = Math.Max(0, p.StunTime - dt);
         p.WaterSlowTime = Math.Max(0, p.WaterSlowTime - dt);

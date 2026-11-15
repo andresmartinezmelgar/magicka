@@ -52,6 +52,7 @@ public partial class Main
         Submit(new() { Type = "clear" });
         _touch?.ConfigureSpellShortcuts(settings);
         UpdateTouchLayout();
+        SynchronizeElementSelectionStatistics();
         return true;
     }
 

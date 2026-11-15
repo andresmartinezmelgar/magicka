@@ -97,6 +97,12 @@ public partial class Main
             var state = _practice!.Snapshot(); SnapshotValidation.Check(state);
             if (_defenseSmokePhase == 0)
             {
+                Check(panel.EquippedStripSlotsForVerification == 6, "El resumen de equipo no muestra las seis ranuras.");
+                foreach (var kind in Enum.GetValues<ItemAffixKind>())
+                    Check(EquipmentIcons.Affix(kind) != null, "Falta un icono de mejora: " + kind);
+                var equippedStrip = (Control)panel.FindChild("SurvivalEquippedItems", true, false);
+                foreach (var cell in equippedStrip.GetChildren().OfType<Button>())
+                    Check(equippedStrip.GetGlobalRect().Encloses(cell.GetGlobalRect()), "Una pieza equipada desborda su fila.");
                 Check(state.Defense!.Minions.Length > 0 && _renderer.DefenseMinionVisualCount > 0, "No se dibujaron minions.");
                 _renderer.VerifyEnemyCasterMotion(state, _localId);
                 if (_touch != null)
@@ -468,7 +474,7 @@ public partial class Main
         var grant = typeof(GameWorld).GetMethod("GrantDefenseItem", BindingFlags.Instance | BindingFlags.NonPublic)!;
         for (int i = 0; i < 2; i++)
         {
-            var item = EquipmentCatalogue.Generate(random, tier: ItemTier.Silver, slot: EquipmentSlot.Weapon) with { SaleGold = 1000 };
+            var item = EquipmentCatalogue.Generate(random, tier: ItemTier.Mythic, slot: EquipmentSlot.Weapon) with { SaleGold = 1000 };
             grant.Invoke(world, [bot, item]);
         }
         var items = Player(bot.Id).Items;

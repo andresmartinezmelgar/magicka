@@ -311,6 +311,7 @@ public partial class Main : Node
     }
     private void ActivateGame(WorldSnapshot snapshot, bool prepared = false)
     {
+        _lastElementSelectionReport = null;
         _playing = true; _paused = false; _moveTo = false; _snapshotAge = 0; _lastTick = -1;
         SynchronizeAndroidSession();
         ClosePlayerEquipment();
@@ -339,6 +340,7 @@ public partial class Main : Node
         }
         // El punto anterior permanece disponible mientras carga; activarlo renueva el autoguardado.
         AutosaveSurvival("start");
+        SynchronizeElementSelectionStatistics();
     }
     public void ReturnToLauncher(string error = "")
     {
@@ -525,6 +527,7 @@ public partial class Main : Node
             return;
         }
         SynchronizeDefenseInterface();
+        SynchronizeElementSelectionStatistics();
         _inputTime += delta;
         if (_practice != null)
         {

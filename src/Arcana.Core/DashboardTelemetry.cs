@@ -13,6 +13,8 @@ public sealed record DashboardRunReport(int SchemaVersion, string RunId, long Re
     GameMode Mode, ArenaMapId Map, string GameVersion, MatchRecordStatus Status, double Seconds,
     bool Network, int ReporterId, DashboardPlayer[] Players, DashboardPing? Ping)
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ElementSelectionUsage? ElementSelection { get; init; }
     public static DashboardRunReport Capture(MatchStatisticsReport statistics, WorldSnapshot world, int reporterId, DashboardPing? ping)
     {
         statistics.Validate();
@@ -23,7 +25,8 @@ public sealed record DashboardRunReport(int SchemaVersion, string RunId, long Re
             world.Players.Take(32).Select(p => new DashboardPlayer(p.Id,
                 new string(p.Name.Where(c => !char.IsControl(c)).Take(64).ToArray()), p.Team, p.Bot,
                 (int)p.WizardType, p.Kills, p.Deaths, p.Alive, p.Damage?.Health.ToArray() ?? new double[9],
-                p.Damage?.Shield.ToArray() ?? new double[9])).ToArray(), ping);
+                p.Damage?.Shield.ToArray() ?? new double[9])).ToArray(), ping)
+        { ElementSelection = ElementSelectionUsage.FromReport(statistics) };
     }
 
     public string ToJson()
@@ -38,6 +41,8 @@ public sealed record DashboardRunReport(int SchemaVersion, string RunId, long Re
             Ping is {} ping && (ping.Samples < 0 || !double.IsFinite(ping.SumMs) || ping.SumMs < 0 ||
                 !double.IsFinite(ping.MinMs) || ping.MinMs < 0 || !double.IsFinite(ping.MaxMs) || ping.MaxMs < ping.MinMs))
             throw new InvalidDataException("Telemetría del dashboard inválida.");
+        if (ElementSelection is { } selection && !selection.Valid(Seconds * 16))
+            throw new InvalidDataException("Tiempo de selección de elementos inválido.");
         string payload = JsonSerializer.Serialize(this, Protocol.Json);
         if (Encoding.UTF8.GetByteCount(payload) > 65536) throw new InvalidDataException("Telemetría del dashboard demasiado grande.");
         return payload;
