@@ -65,6 +65,7 @@ public sealed class Wizard
     public long LastSequence { get; set; }
     public long SelectionSequence { get; set; }
     public SpellRecipe? Channel { get; set; }
+    internal SpellInterruption? LastCastInterruption { get; set; }
     public int BeamTicks { get; set; }
     public float BeamCharge => Math.Clamp(BeamTicks * GameWorld.StepSeconds / SpellBalance.BeamChargeSeconds, 0, 1);
     public SpellRecipe? Charging { get; set; }

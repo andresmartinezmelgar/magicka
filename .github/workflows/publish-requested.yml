@@ -1,7 +1,7 @@
-name: Publicacion estable 0.29.65 solicitada
+name: Publicacion estable 0.29.66 solicitada
 
-# Petición expresa: APK y versión con margen y contorno de joystick duplicados.
-# Equipo superior solo por iconos y editor de posición y tamaño por elemento.
+# Petición expresa: APK y versión con tres piezas a cada lado del temporizador.
+# Identificar la causa real de las interrupciones de hechizos, incluidas la autodescarga y el aturdimiento eléctrico.
 # Solo este mensaje exacto y esta versión activan la publicación solicitada.
 # Publica después de las pruebas y verifica la firma y los paquetes finales.
 on:
@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   publish-requested-version:
-    if: github.ref == 'refs/heads/main' && github.event.head_commit.message == 'Publicar Arcana Arena 0.29.65'
+    if: github.ref == 'refs/heads/main' && github.event.head_commit.message == 'Publicar Arcana Arena 0.29.66'
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
@@ -30,7 +30,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$GITHUB_REF_NAME" = main
-          test "$(tr -d '\r\n' < VERSION)" = '0.29.65'
+          test "$(tr -d '\r\n' < VERSION)" = '0.29.66'
           python3 scripts/version-support.py check .
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" = "$GITHUB_SHA"
           gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref main -f publish_preview=false -f publish_stable=true
@@ -51,7 +51,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          version=0.29.65
+          version=0.29.66
           tag="v$version"
           release="repos/$GITHUB_REPOSITORY/releases/tags/$tag"
           test "$(gh api "$release" --jq '.target_commitish')" = "$GITHUB_SHA"

@@ -37,7 +37,7 @@ public sealed partial class GameWorld
         if (++contact.Ticks < CombatAffixes.LightningStunIntervalTicks) return;
         contact.Ticks = 0;
         target.StunTime = Math.Max(target.StunTime, CombatAffixes.LightningStunSeconds(source.Equipment.LightningStun));
-        CancelCast(target);
+        InterruptCast(target, SpellInterruptionCause.ElectricStun, owner, CombatAffixes.LightningStunSeconds(source.Equipment.LightningStun));
     }
 
     private void PruneLightningContacts(int removedId = 0)

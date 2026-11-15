@@ -136,10 +136,10 @@ public partial class MobileControls : Control
             var magick = SpellBalance.Magicks[i];
             float cost = i == 3 ? player.ReanimationCost : magick.Cost;
             bool missingAlly = i == 3 && world != null && MagickRules.ReanimationTarget(world, player) == null;
-            bool available = player.Alive && player.Frozen <= 0 && player.Cooldowns[i] <= 0 && player.Energy >= cost && !missingAlly;
+            bool available = player.Alive && player.Frozen <= 0 && !player.Stunned && player.Cooldowns[i] <= 0 && player.Energy >= cost && !missingAlly;
             if (_pendingMagick == i && !available) CancelMagickAim();
             string caption = magick.Name + "\n" + (_pendingMagick == i ? "Apuntando" :
-                !player.Alive ? "Caído" : player.Frozen > 0 ? "Congelado" : player.Cooldowns[i] > 0 ? $"{Math.Ceiling(player.Cooldowns[i])}s" :
+                !player.Alive ? "Caído" : player.Frozen > 0 ? "Congelado" : player.Stunned ? "Aturdido" : player.Cooldowns[i] > 0 ? $"{Math.Ceiling(player.Cooldowns[i])}s" :
                 missingAlly ? "Sin aliado" : player.Energy < cost ? $"Faltan {Math.Ceiling(cost - player.Energy)}" : $"{cost:0}");
             if (_magicks[i].Text.Text != caption)
             {

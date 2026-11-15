@@ -27,7 +27,9 @@ public sealed partial class GameWorld
                 p.ShieldCharges, p.Alive ? Math.Max(0, p.Invulnerable) : 0, p.Equipment == EquipmentModifiers.None ? null : p.Equipment.Appearance,
                 SpellBalance.Magicks[3].Cost * p.Equipment.LifeCost, p.SelectionSequence)
                 { Damage = p.MatchDamage.Snapshot(), ArcaneMarked = p.Alive && p.ArcaneMarkRank > 0,
-                    Stunned = p.Alive && p.StunTime > 0, WaterSlowed = p.Alive && WaterSlowMultiplier(p) < 1 };
+                    Stunned = p.Alive && p.StunTime > 0, WaterSlowed = p.Alive && WaterSlowMultiplier(p) < 1,
+                    CastInterruption = p.Alive && p.LastCastInterruption is { } interruption && Tick - interruption.Tick <= SpellInterruption.RetentionTicks
+                        ? interruption : null };
         var projectiles = Allocate<ProjectileSnapshot>(_projectiles.Count);
         for (int i = 0; i < projectiles.Length; i++)
         {

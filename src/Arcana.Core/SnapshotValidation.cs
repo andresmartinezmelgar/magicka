@@ -59,6 +59,9 @@ public static partial class SnapshotValidation
                 p.Energy > 100 || !float.IsFinite(p.ReanimationCost) || p.ReanimationCost is < 38.99f or > 75.01f || p.Kills < 0 || p.Deaths < 0 || p.SelectionSequence < 0) Invalid();
             if (p!.Damage != null && !p.Damage.Valid() || p.CastingElements != null && !Elements(p.CastingElements) ||
                 p.Buffs is { Length: > RelicBuffs.Count } || hasPickups && p.Buffs == null) Invalid();
+            if (p.CastInterruption is { } interruption && (!p.Alive || interruption.Tick < 0 || interruption.Tick > state.Tick ||
+                state.Tick - interruption.Tick > SpellInterruption.RetentionTicks || !Enum.IsDefined(interruption.Cause) ||
+                interruption.SourceId < 0 || !float.IsFinite(interruption.Duration) || interruption.Duration is < 0 or > 30)) Invalid();
             if (p.Equipment is { } gear && (!Enum.IsDefined(gear.Family) ||
                 !Tier(gear.Boots) || !Tier(gear.Hat) || !Tier(gear.Chest) || !Tier(gear.Weapon) || !Tier(gear.GoldRing) || !Tier(gear.MagicRing) ||
                 !OutfitPiece(gear.MythicOutfit.Boots, gear.Boots) || !OutfitPiece(gear.MythicOutfit.Hat, gear.Hat) ||

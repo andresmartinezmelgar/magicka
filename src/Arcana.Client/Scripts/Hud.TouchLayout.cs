@@ -9,6 +9,25 @@ public partial class Hud
     internal Rect2 TouchPlayerRectangle => _playerPanel.GetGlobalRect();
     internal Rect2? CurrentMapRectangle => _mapPanel.IsVisibleInTree() ? _mapPanel.GetGlobalRect() : null;
 
+    private void LayoutSurvivalHeader(Vector2 screen)
+    {
+        var timer = SurvivalEquipmentHud.TimerRectangle(screen);
+        var row = (HBoxContainer)_topScore.GetParent();
+        row.OffsetLeft = timer.Position.X / GameplayScale; row.OffsetRight = (timer.End.X - screen.X) / GameplayScale;
+        row.OffsetTop = timer.Position.Y / GameplayScale; row.OffsetBottom = timer.End.Y / GameplayScale;
+        foreach (int i in new[] { 0, 2 })
+        {
+            var spacer = row.GetChild<Control>(i);
+            spacer.SizeFlagsHorizontal = SizeFlags.ShrinkBegin; spacer.CustomMinimumSize = Vector2.Zero;
+        }
+        _topScore.CustomMinimumSize = Vector2.Zero; _topScore.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        float s = Math.Min(1, screen.Y / 720f);
+        _match.AddThemeFontSizeOverride("font_size", Math.Max(12, (int)(20 * s)));
+        _match.CustomMinimumSize = new(0, 42 * s);
+        _objective.AddThemeFontSizeOverride("font_size", Math.Max(10, (int)(16 * s)));
+        _objective.CustomMinimumSize = new(0, 46 * s);
+    }
+
     private void ResizeTouchHud()
     {
         Vector2 screen = GetViewportRect().Size;
@@ -36,6 +55,7 @@ public partial class Hud
         _teams.CustomMinimumSize = new(0, 42 * s);
         _objective.AddThemeFontSizeOverride("font_size", Math.Max(10, (int)(16 * s)));
         _objective.CustomMinimumSize = new(0, 46 * s);
+        if (defense) LayoutSurvivalHeader(screen);
         _mapPanel.Visible = !defense;
         _mapPanel.Scale = Vector2.One * s;
         _mapPanel.Size = _mapPanel.CustomMinimumSize = new(205, 151);
@@ -53,8 +73,8 @@ public partial class Hud
         _buffs.Position = new((screen.X / GameplayScale - width) / 2, spellsPosition.Y / GameplayScale - rowHeight);
         _buffs.AddThemeFontSizeOverride("font_size", Math.Max(10, (int)(16 * s)));
         _buffs.MaxLinesVisible = 2; _buffs.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
-        _actionNotice.Size = new(width, 44 * s);
-        _actionNotice.Position = new(_buffs.Position.X, _buffs.Position.Y - rowHeight);
+        _actionNotice.Size = new(width, 60 * s);
+        _actionNotice.Position = new(_buffs.Position.X, _buffs.Position.Y - 60 * s - Arcana.Core.ScreenPlacement.MinimumGap / GameplayScale);
         _actionNotice.AddThemeFontSizeOverride("font_size", Math.Max(11, (int)(18 * s)));
         _actionNotice.MaxLinesVisible = 2; _actionNotice.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
     }

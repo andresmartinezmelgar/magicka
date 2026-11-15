@@ -15,9 +15,15 @@ public partial class Hud : Control
     private ElementTextLabel _reward = null!;
     private float _rewardSeconds;
     private ElementTextLabel _actionNotice = null!;
+    private Panel _actionNoticeBackdrop = null!;
     private float _actionNoticeSeconds;
     internal string ActionNoticeForSmoke => _actionNotice.Text;
-    public void ActionNotice(string text) { _actionNotice.Text = text; _actionNotice.TooltipText = text; _actionNoticeSeconds = 4; _actionNotice.Visible = true; }
+    public void ActionNotice(string text)
+    {
+        _actionNotice.Text = text; _actionNotice.TooltipText = text; _actionNoticeSeconds = 4; _actionNotice.Visible = true;
+        _actionNotice.AddThemeColorOverride("font_color", Ui.Gold);
+        _actionNoticeBackdrop.Visible = false;
+    }
     private HBoxContainer _teams = null!;
     private ElementTextLabel _blueScore = null!, _redScore = null!;
     private StyleBoxFlat _shieldFill = null!, _shieldTrack = null!;
@@ -133,6 +139,11 @@ public partial class Hud : Control
         _actionNotice.HorizontalAlignment = HorizontalAlignment.Center;
         _actionNotice.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _actionNotice.Visible = false; AddChild(_actionNotice);
+        _actionNoticeBackdrop = new Panel { Name = "SpellInterruptionBackdrop", Visible = false, MouseFilter = MouseFilterEnum.Ignore };
+        var interruptionStyle = Ui.Panel(new Color("101827"), 7, Ui.Gold);
+        interruptionStyle.BorderWidthLeft = interruptionStyle.BorderWidthRight = interruptionStyle.BorderWidthTop = interruptionStyle.BorderWidthBottom = 2;
+        _actionNoticeBackdrop.AddThemeStyleboxOverride("panel", interruptionStyle);
+        _actionNotice.AddChild(_actionNoticeBackdrop); Ui.Full(_actionNoticeBackdrop); _actionNotice.MoveChild(_actionNoticeBackdrop, 0);
         var stack = new VBoxContainer(); stack.AddThemeConstantOverride("separation", 9); spells.AddChild(stack);
         var first = new HBoxContainer(); first.AddThemeConstantOverride("separation", 14); stack.AddChild(first);
         var queue = new HBoxContainer(); queue.AddThemeConstantOverride("separation", 8); first.AddChild(queue);
@@ -299,8 +310,8 @@ public partial class Hud : Control
         float buffsWidth = Math.Min(690, available);
         _buffs.Position = new((Size.X - buffsWidth) / 2, Math.Max(100, spellsTop - 52));
         _buffs.Size = new(buffsWidth, 44);
-        _actionNotice.Position = new((Size.X - buffsWidth) / 2, Math.Max(100, spellsTop - (_buffs.Visible ? 96 : 48)));
-        _actionNotice.Size = new(buffsWidth, 44);
+        _actionNotice.Position = new((Size.X - buffsWidth) / 2, Math.Max(100, spellsTop - (_buffs.Visible ? 120 : 72)));
+        _actionNotice.Size = new(buffsWidth, 60);
         if (!MobileLayout)
             _playerPanel.Position = Size.X < 1250
                 ? new Vector2(24, 145) / GameplayScale
@@ -463,12 +474,7 @@ public partial class Hud : Control
                 _playerPanel.CustomMinimumSize = new(310, 176); _playerPanel.Size = new(310, 176);
                 _playerPanel.Scale = Vector2.One * mobileScale / GameplayScale;
                 _playerPanel.Position = new Vector2(22 * mobileScale, 18 * mobileScale) / GameplayScale;
-                var topRow = (HBoxContainer)_topScore.GetParent();
-                var leftSpace = topRow.GetChild<Control>(0); var rightSpace = topRow.GetChild<Control>(2);
-                leftSpace.SizeFlagsHorizontal = rightSpace.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
-                leftSpace.CustomMinimumSize = new(338 * mobileScale / GameplayScale, 0);
-                rightSpace.CustomMinimumSize = new(220 * mobileScale / GameplayScale, 0);
-                _topScore.CustomMinimumSize = Vector2.Zero; _topScore.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+                LayoutSurvivalHeader(GetViewportRect().Size);
             }
             if (GetViewportRect().Size.X < 900)
             {
@@ -503,6 +509,15 @@ public partial class Hud : Control
             if (e.Text.Length == 0) continue;
             var lines = (_feedText + "\n" + e.Text).Split('\n').Where(t => t.Length > 0).TakeLast(4);
             _feedText = string.Join("\n", lines); _feedTime = 7;
+        }
+        if (player.CastInterruption is { } interruption && (old == null || old.CastInterruption != interruption))
+        {
+            ActionNotice("HECHIZO INTERRUMPIDO\n" + interruption.Reason);
+            _actionNoticeBackdrop.Visible = true;
+            string source = interruption.SourceId == id ? "tú mismo" : snapshot.Players.FirstOrDefault(p => p.Id == interruption.SourceId)?.Name ?? "un enemigo";
+            _actionNotice.TooltipText = interruption.Reason + (interruption.SourceId > 0 ? " · Origen: " + source : "") +
+                (interruption.Cause == SpellInterruptionCause.WetLightning ? "\nEspera a secarte o usa Fuego Sobre mí para secarte antes de preparar Rayo." :
+                    "\nEl canal ha terminado. Suelta el control, prepara los elementos y vuelve a lanzar.");
         }
         _feed.Text = _feedTime > 0 ? _feedText : "";
         _map.State = snapshot; _map.LocalId = id; _map.QueueRedraw();

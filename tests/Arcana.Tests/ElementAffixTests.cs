@@ -54,6 +54,75 @@ internal static class ElementAffixTests
                 SnapshotValidation.Check(world.Snapshot());
             }
         });
+        test("Interrupción: un stun breve conserva su causa en JSON y deltas después de recuperarse", () =>
+        {
+            var (world, source, target) = Duel(new() { LightningStun = 1 });
+            var baseline = new ServerMessage { Type = "snapshot", Snapshot = world.Snapshot() };
+            source.Channel = new([Element.Lightning]); Steps(world, 59);
+            target.Channel = new([Element.Arcane]); world.Step();
+            source.Channel = null; Steps(world, 12);
+            var state = world.Snapshot(); var player = state.Players.Single(p => p.Id == target.Id);
+            Check(!player.Stunned && !player.Casting && player.Frozen == 0 && player.CastInterruption is
+                { Cause: SpellInterruptionCause.ElectricStun, Duration: .1f } interruption && interruption.SourceId == source.Id,
+                "El aviso desaparece con el bloqueo de 0,1 segundos o atribuye congelación.");
+            var message = new ServerMessage { Type = "snapshot", Snapshot = state };
+            var decoded = SnapshotDelta.Decode(SnapshotDelta.Encode(message, baseline), baseline).Snapshot!;
+            Check(decoded.Players.Single(p => p.Id == target.Id).CastInterruption == player.CastInterruption,
+                "Se pierde la causa en el protocolo comprimido.");
+            SnapshotValidation.Check(decoded);
+            var copied = JsonSerializer.Deserialize<WorldSnapshot>(JsonSerializer.Serialize(state, Protocol.Json), Protocol.Json)!;
+            Check(copied.Players.Single(p => p.Id == target.Id).CastInterruption == player.CastInterruption,
+                "Se pierde la causa en una instantánea completa.");
+            Steps(world, SpellInterruption.RetentionTicks);
+            Check(world.Snapshot().Players.Single(p => p.Id == target.Id).CastInterruption == null,
+                "El aviso se transmite indefinidamente después de caducar.");
+        });
+        test("Interrupción: daño y agua no cortan el canal; un timeout de control informa de su propia causa", () =>
+        {
+            var (world, source, target) = Duel(new() { WaterSlow = 1 });
+            target.Channel = new([Element.Arcane]);
+            Hit(world, source, target, Element.Water); Hit(world, source, target, Element.Fire);
+            Check(target.Channel != null && world.Snapshot().Players.Single(p => p.Id == target.Id).CastInterruption == null,
+                "Atribuye una interrupción al daño normal o al agua.");
+            target.LastInput = 0; Steps(world, 37);
+            var player = world.Snapshot().Players.Single(p => p.Id == target.Id);
+            Check(!player.Casting && !player.Stunned && player.CastInterruption?.Cause == SpellInterruptionCause.InputTimeout,
+                $"El corte por falta de controles se confunde con un stun: tick={world.Tick}, vivo={player.Alive}, canal={player.Casting}, causa={player.CastInterruption?.Cause}.");
+            SnapshotValidation.Check(world.Snapshot());
+        });
+        test("Interrupción: distingue congelación, sobre mí, área y habilidad; soltar no genera alerta", () =>
+        {
+            foreach (var (action, cause) in new[] { ("self", SpellInterruptionCause.SelfCast), ("nova", SpellInterruptionCause.AreaCast),
+                ("magick", SpellInterruptionCause.Magick) })
+            {
+                var (world, source, target) = Duel(EquipmentModifiers.None);
+                target.Channel = new([Element.Lightning]); target.Selection.Add(Element.Life);
+                Check(world.ApplyMessage(target.Id, new() { Type = action, Sequence = 1, Slot = 2 }), "Acción rechazada.");
+                Check(world.Snapshot().Players.Single(p => p.Id == target.Id).CastInterruption?.Cause == cause,
+                    "No identifica la acción que sustituyó el canal: " + action);
+            }
+            var (frozen, attacker, victim) = Duel(EquipmentModifiers.None);
+            victim.Channel = new([Element.Lightning]); victim.Chill = 98; Hit(frozen, attacker, victim, Element.Cold, Element.Cold);
+            Check(victim.Frozen > 0 && victim.Channel == null && frozen.Snapshot().Players.Single(p => p.Id == victim.Id)
+                .CastInterruption?.Cause == SpellInterruptionCause.Frozen, "La congelación no comunica su causa.");
+            var (released, _, caster) = Duel(EquipmentModifiers.None); caster.Channel = new([Element.Lightning]);
+            released.ApplyMessage(caster.Id, new() { Type = "release", Sequence = 1 });
+            Check(!released.Snapshot().Players.Single(p => p.Id == caster.Id).Casting &&
+                released.Snapshot().Players.Single(p => p.Id == caster.Id).CastInterruption == null,
+                "Soltar voluntariamente genera una falsa alerta.");
+        });
+        test("Interrupción: Rayo directo sobre el lanzador mojado comunica autodescarga sin inventar un stun", () =>
+        {
+            var (world, source, target) = Duel(EquipmentModifiers.None);
+            target.Wet = 2; target.Channel = new([Element.Lightning]); world.Step();
+            var player = world.Snapshot().Players.Single(p => p.Id == target.Id);
+            Check(!player.Casting && !player.Stunned && player.Frozen == 0 && player.Health < player.MaxHealth &&
+                player.CastInterruption is { Cause: SpellInterruptionCause.WetLightning } interruption && interruption.SourceId == target.Id,
+                "La autodescarga se oculta o se confunde con un aturdimiento enemigo.");
+            SnapshotValidation.Check(world.Snapshot());
+            target.Wet = 0; target.Channel = new([Element.Lightning]); world.Step();
+            Check(target.Channel != null, "El rayo sigue cancelándose después de secarse.");
+        });
         test("Aturdimiento eléctrico: las pausas reinician y varios impactos en un tick no adelantan el segundo", () =>
         {
             var (world, source, target) = Duel(new() { LightningStun = 2 });

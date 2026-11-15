@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.29.66
+
+- Supervivencia: tres piezas equipadas a la izquierda del temporizador y tres a la derecha, en una misma fila. La cabecera se adapta a pantallas estrechas y conserva la edición individual de los iconos.
+- Un aviso con marco muestra durante cuatro segundos por qué se interrumpió el hechizo: autodescarga al lanzar Rayo estando Mojado, aturdimiento eléctrico, congelación, falta de señal de control o una acción que sustituye el canal. El aturdimiento de 0,1–0,2 segundos conserva su causa en las instantáneas durante tres segundos para que no pase desapercibido entre actualizaciones.
+- Los controles identifican el estado Aturdido al bloquear habilidades. La ayuda explica qué corta el rayo, qué estados no lo cancelan y cómo volver a lanzarlo.
+
 ## 0.29.65
 
 - Joysticks: margen exterior duplicado de 24 a 48 píxeles para todo el círculo, en todos los modos. Contorno duplicado de 3 a 6 píxeles. Se conserva el origen flotante cuando hay espacio.

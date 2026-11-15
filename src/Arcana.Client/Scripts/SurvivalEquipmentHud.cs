@@ -21,6 +21,18 @@ internal partial class SurvivalEquipmentHud : Control
     internal Rect2[] ItemRectangles => _buttons.Values.Select(b => b.GetGlobalRect()).ToArray();
     internal bool Contains(Vector2 point) => IsVisibleInTree() && _buttons.Values.Any(b => b.GetGlobalRect().HasPoint(point));
 
+    // En pantallas estrechas la cabecera baja debajo de las utilidades, conservando
+    // tres piezas a cada lado. El temporizador y las piezas comparten esta geometría.
+    internal static Rect2 TimerRectangle(Vector2 screen)
+    {
+        float s = Math.Min(1, screen.Y / 720f), gap = ScreenPlacement.MinimumGap;
+        float left = 332 * s + gap, right = screen.X - 382 * s - gap, top = Math.Max(8, 12 * s);
+        if (right - left < 412 * s + 8 * gap) { right = screen.X - gap; top = 92 * s + gap; }
+        float available = Math.Max(1, right - left);
+        float width = Math.Min(240 * s, Math.Max(1, (available - 8 * gap) * .44f));
+        return new(new((left + right - width) / 2, top), new(width, 84 * s));
+    }
+
     internal void Build(Action<EquipmentSlot>? inspect = null)
     {
         Name = "SurvivalEquippedItems"; MouseFilter = MouseFilterEnum.Ignore; Ui.Full(this);
@@ -81,18 +93,19 @@ internal partial class SurvivalEquipmentHud : Control
     internal Dictionary<string, Rect2> Desired(Vector2 screen, float scale, TouchSettings settings, bool custom)
     {
         float s = Math.Min(1, screen.Y / 720f), gap = ScreenPlacement.MinimumGap;
-        var largest = CellSize * scale * _buttons.Keys.Max(settings.ControlScale);
-        float left = 342 * s, available = Math.Max(largest.X, screen.X - left - 258 * s);
-        int capacity = Math.Clamp((int)((available + gap) / (largest.X + gap)), 1, 6);
-        int columns = capacity >= 6 ? 6 : capacity >= 3 ? 3 : capacity;
-        float width = columns * largest.X + (columns - 1) * gap;
-        var origin = new Vector2(left + Math.Max(0, (available - width) / 2), 112 * s);
+        var timer = TimerRectangle(screen);
+        float left = 332 * s + gap;
+        float cellWidth = Math.Max(1, (timer.Position.X - left - 3 * gap) / 3);
+        float headerScale = Math.Min(scale, cellWidth / CellSize.X);
+        var cell = CellSize * headerScale;
         var result = new Dictionary<string, Rect2>(StringComparer.Ordinal);
         int index = 0;
         foreach (var key in _buttons.Keys)
         {
-            var size = CellSize * scale * settings.ControlScale(key);
-            var center = origin + new Vector2(index % columns * (largest.X + gap), index / columns * (largest.Y + gap)) + largest / 2;
+            var size = cell * settings.ControlScale(key);
+            float x = index < 3 ? timer.Position.X - gap - (3 - index) * cell.X - (2 - index) * gap
+                : timer.End.X + gap + (index - 3) * (cell.X + gap);
+            var center = new Vector2(x + cell.X / 2, timer.Position.Y + cell.Y / 2);
             if (custom && settings.Positions.TryGetValue(key, out var saved)) center = new(saved.X * screen.X, saved.Y * screen.Y);
             result.Add(key, new(center - size / 2, size)); index++;
         }

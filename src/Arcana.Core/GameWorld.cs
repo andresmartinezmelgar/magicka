@@ -252,7 +252,7 @@ public sealed partial class GameWorld
             else if (IsDefense && _defenders[p.Id].ShopOpen) ThinkDefenseAssistance(p, dt);
             if (Time - p.LastInput > 0.6)
             {
-                CancelCast(p);
+                InterruptCast(p, SpellInterruptionCause.InputTimeout);
                 p.Input.MoveTo = false; p.Input.MoveX = p.Input.MoveY = 0;
             }
             TickStatus(p, dt);
@@ -343,7 +343,12 @@ public sealed partial class GameWorld
         if (p.Channel != null) speed *= 0.48f;
         if (p.Charging != null) speed *= 0.35f;
         if (p.Ward.Contains(Element.Earth)) speed *= 0.78f;
-        if (p.Frozen > 0 || p.StunTime > 0) { speed = 0; CancelCast(p); }
+        if (p.Frozen > 0 || p.StunTime > 0)
+        {
+            speed = 0;
+            InterruptCast(p, p.Frozen > 0 ? SpellInterruptionCause.Frozen : SpellInterruptionCause.ElectricStun,
+                duration: p.Frozen > 0 ? p.Frozen : p.StunTime);
+        }
         // El joystick conserva su intensidad; flechas diagonales y rutas no superan la velocidad máxima.
         var walking = move * (speed * dt);
         var delta = walking + p.Knockback * dt;
@@ -492,7 +497,12 @@ public sealed partial class GameWorld
             if (spell.Shape == SpellShape.Lightning)
             {
                 // Mojado hace peligroso incluso preparar un rayo sobre uno mismo.
-                if (p.Wet > 0) { Hit(p, spell, dt, p.Id, V2.Zero); p.Channel = null; }
+                if (p.Wet > 0)
+                {
+                    RecordCastInterruption(p, SpellInterruptionCause.WetLightning, p.Id);
+                    Hit(p, spell, dt, p.Id, V2.Zero);
+                    CancelCast(p);
+                }
                 V2 last = from;
                 for (int i = 0; i < Math.Min(3, targets.Count); i++)
                 {
@@ -521,6 +531,7 @@ public sealed partial class GameWorld
     private void SelfCast(Wizard p)
     {
         if (!Ready(p)) return;
+        if (p.Channel != null) RecordCastInterruption(p, SpellInterruptionCause.SelfCast);
         Release(p);
         var spell = new SpellRecipe(p.Selection.Consume());
         p.ActionCooldown = 0.45f;
@@ -556,6 +567,7 @@ public sealed partial class GameWorld
     private void Nova(Wizard p)
     {
         if (!Ready(p)) return;
+        if (p.Channel != null) RecordCastInterruption(p, SpellInterruptionCause.AreaCast);
         Release(p);
         var spell = new SpellRecipe(p.Selection.Consume());
         p.ActionCooldown = 0.8f;
@@ -658,7 +670,7 @@ public sealed partial class GameWorld
             _statistics.Total(StatisticMeasure.Revives);
             Respawn(ally); if (Walkable(location)) ally.Position = location; ally.Health = Math.Min(600, ally.MaxHealth);
         }
-        if (slot != 0) CancelCast(p);
+        if (slot != 0) InterruptCast(p, SpellInterruptionCause.Magick);
         _statistics.Cast(p.Id, slot switch { 0 => StatisticAttack.Haste, 1 => StatisticAttack.Teleport, 2 => StatisticAttack.Meteor, _ => StatisticAttack.Revive },
             slot == 2 ? [Element.Earth, Element.Fire, Element.Fire] : slot == 3 ? [Element.Life] : null);
         p.Energy -= cost; p.MagickCooldowns[slot] = magick.Cooldown;
@@ -708,6 +720,7 @@ public sealed partial class GameWorld
                 if (target.Chill >= 99)
                 {
                     target.Frozen = 1.4f * equipment.FreezeDuration; target.Wet = 0;
+                    InterruptCast(target, SpellInterruptionCause.Frozen, owner, target.Frozen);
                     if (recovery) { target.Chill = 0; target.FreezeRecovery = DefenseRules.FreezeRecoverySeconds; }
                 }
             }
@@ -1035,6 +1048,7 @@ public sealed partial class GameWorld
         if (Map.IsPractice)
             _walls.RemoveAll(w => Geometry.DistanceToSegment(p.Position, w.A, w.B) < ArenaMap.WizardRadius + 0.18f);
         p.Wet = p.Burning = p.Chill = p.Frozen = p.Haste = p.Shield = p.ShieldMax = p.ShieldTime = 0;
+        p.LastCastInterruption = null;
         p.StunTime = p.WaterSlowTime = 0; p.WaterSlowRank = 0;
         p.FreezeRecovery = 0;
         p.RegenerationRate = 0;

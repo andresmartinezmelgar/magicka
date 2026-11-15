@@ -30,6 +30,25 @@ public partial class Main
                     await Frames(1);
                 }
                 await Frames(8); UpdateTouchLayout();
+                if (map == ArenaMapId.Bastion)
+                {
+                    var timer = _touch!.HudAreas.Single(a => a.Name == "HudTopScore").Bounds;
+                    var pieces = _touch.EquipmentHudForVerification!.Buttons.Values.Select(b => b.GetGlobalRect()).ToArray();
+                    if (pieces.Count(r => r.End.X + ScreenPlacement.MinimumGap <= timer.Position.X + .1f) != 3 ||
+                        pieces.Count(r => r.Position.X >= timer.End.X + ScreenPlacement.MinimumGap - .1f) != 3 ||
+                        pieces.Any(r => Math.Abs(r.Position.Y - pieces[0].Position.Y) > .1f))
+                        throw new InvalidOperationException("El equipo no forma dos grupos de tres junto al temporizador.");
+                    var state = _practice!.Snapshot();
+                    var interrupted = state with { Players = state.Players.Select(p => p.Id != _localId ? p : p with
+                        { Stunned = false, Casting = false, CastInterruption = new(state.Tick, SpellInterruptionCause.ElectricStun, Duration: .1f) }).ToArray() };
+                    _hud!.Update(interrupted, _localId, "Revisión", 0);
+                    _hud.Update(interrupted, _localId, "Revisión", .5);
+                    if (!_hud.ActionNoticeForSmoke.Contains("Aturdimiento eléctrico") ||
+                        !((Control)_hud.FindChild("MagickFeedback", true, false)).IsVisibleInTree())
+                        throw new InvalidOperationException("El stun breve no deja un aviso visible después de terminar.");
+                    await Frames(2); UpdateTouchLayout();
+                    Capture("Bastion-interrupcion-electrica");
+                }
                 _hud!.ActionNotice(string.Join(" ", Enumerable.Repeat("Necesitas más energía para lanzar este hechizo.", 8)));
                 await Frames(); UpdateTouchLayout();
                 VerifyTouchClearance(_touch!); VerifyTouchLayoutVariants(_touch!);

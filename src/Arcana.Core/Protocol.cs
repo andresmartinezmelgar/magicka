@@ -239,6 +239,7 @@ public sealed record WizardSnapshot(int Id, string Name, int Team, bool Bot, V2 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public MatchDamageSnapshot? Damage { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public bool ArcaneMarked { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public bool Stunned { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public SpellInterruption? CastInterruption { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public bool WaterSlowed { get; init; }
 }
 public sealed record BuffSnapshot(BuffKind Kind, int Stacks);
