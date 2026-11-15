@@ -12,6 +12,10 @@ public static partial class DefenseRules
 {
     public const int MaxDefenders = 4, MaxMinions = 192, MaxDrops = 96, InventoryLimit = 24;
     public const int SupplyCost = 50;
+    private static ReadOnlySpan<int> SurvivalAuraPrices => [40, 60, 90, 130, 190, 270, 380, 520, 700, 920];
+    private static ReadOnlySpan<int> SurvivalPassivePrices => [80, 130, 210, 330, 500];
+    // Multiplicadores en medios: abaratan el tramo inicial y reservan el coste fuerte para el final.
+    private static ReadOnlySpan<int> SurvivalUpgradeWeights => [2, 3, 5, 7, 10, 14, 19, 25, 32, 40];
     public static string InventoryFullNotice => $"Con el inventario lleno ({InventoryLimit}/{InventoryLimit}), las piezas nuevas se convierten en oro aunque desactives la venta automática.";
     public const int PlayerLives = 2;
     public static readonly int MinionTypeCount = Enum.GetValues<MinionKind>().Length;
@@ -72,7 +76,7 @@ public static partial class DefenseRules
     { MinionKind.Boss => 4200, MinionKind.Tank => 1200, MinionKind.Captain => 700, MinionKind.Mage => 380, MinionKind.Archer => 260,
         MinionKind.Runner => 200, MinionKind.Brute => 1500, MinionKind.Bomber => 240, MinionKind.Shaman => 540, MinionKind.Sentinel => 1900, MinionKind.Warlock => 920, MinionKind.Cryomancer => 760, MinionKind.Prism => 640, MinionKind.Oracle => 1400, _ => 340 })
         * EnemyStrength(stage) * PartyHealthMultiplier(kind, party);
-    public static int PassiveCost(int level) => 80 + 40 * level;
+    public static int PassiveCost(int level) => SurvivalPowerCost(level, SurvivalPassivePrices);
     public static float BerserkerDuration(int level) => 4 + level * 0.5f;
     public static float BerserkerPower(int level) => 1.4f + level * 0.1f;
     public static string PassiveName(DefensePassive passive) => passive switch
@@ -85,7 +89,13 @@ public static partial class DefenseRules
         DefensePassive.FrostNova => $"Cada 5 s: {65 * level} daño base y ralentización a enemigos en 5 m.",
         _ => $"Cada 4 s: {140 * level} daño base a un máximo de {Math.Min(6, 2 + level)} enemigos a 10 m."
     };
-    public static int AuraCost(int level) => 40 + 20 * level;
+    public static int AuraCost(int level) => SurvivalPowerCost(level, SurvivalAuraPrices);
+    private static int SurvivalPowerCost(int level, ReadOnlySpan<int> prices)
+    {
+        if (level < 0 || level > prices.Length) throw new ArgumentException("Nivel de poder inválido.");
+        // La interfaz consulta también el nivel máximo, aunque la compra ya esté bloqueada.
+        return prices[Math.Min(level, prices.Length - 1)];
+    }
     // La progresión temporal debe poder aprovecharse en partidas de unos 20 minutos.
     // Los anillos de cuenta conservan UpgradeCost y su economía permanente.
     public static int SurvivalUpgradeCost(ItemTier tier, int upgrades)
@@ -93,7 +103,8 @@ public static partial class DefenseRules
         if (upgrades is < 0 or >= ItemUpgradeLimit) throw new ArgumentException("Nivel de mejora inválido.");
         int basis = tier switch { ItemTier.Silver => 10, ItemTier.Gold => 15, ItemTier.Platinum => 20,
             ItemTier.Diamond => 30, ItemTier.Mythic => 40, _ => throw new ArgumentException("Calidad desconocida.") };
-        return basis * (upgrades + 1);
+        // Redondeo al múltiplo de cinco más cercano, con mitades hacia arriba.
+        return (basis * SurvivalUpgradeWeights[upgrades] + 5) / 10 * 5;
     }
     public static int UpgradeCost(ItemTier tier, int upgrades)
     {

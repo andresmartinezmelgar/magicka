@@ -2,8 +2,8 @@
 
 ## Pendiente de publicación
 
-- Supervivencia: piezas aleatorias por 50 de oro; auras desde 40, con incrementos de 20; habilidades desde 80, con incrementos de 40. Costes lineales pensados para partidas de hasta 20 minutos.
-- Mejoras temporales de equipo desde 10 a 40 de oro, según calidad, multiplicados por el nivel de destino. Una pieza mítica completa cuesta 2200. Los anillos de cuenta conservan sus tarifas permanentes.
+- Supervivencia: curvas de coste crecientes para auras, habilidades y mejoras temporales, con primeros niveles accesibles y últimos niveles para especializarse. Piezas aleatorias por 50 de oro.
+- Un aura completa cuesta 3300 de oro; una habilidad, 1250; una pieza mítica, 3140. El nivel 6 de una pieza mítica suma 820. Los anillos de cuenta conservan sus tarifas permanentes.
 
 ## 0.29.63
 
