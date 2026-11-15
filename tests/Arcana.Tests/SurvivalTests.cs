@@ -108,7 +108,8 @@ internal static class SurvivalTests
                 (Element.Earth, EquipmentStat.EarthPower), (Element.Arcane, EquipmentStat.ArcanePower)
             })
             {
-                var item = EquipmentCatalogue.Generate(random, tier: ItemTier.Silver, slot: EquipmentSlot.Weapon)
+                // Se conservan las alternativas para esta selección manual, pese a la venta de descartes del bot.
+                var item = EquipmentCatalogue.Generate(random, tier: ItemTier.Mythic, slot: EquipmentSlot.Weapon)
                     with { Bonuses = [new(stat, 0.30f, 0.50f, 0.30f)] };
                 Call(w, "GrantDefenseItem", bot, item);
                 Check(w.ApplyMessage(human.Id, new() { Type = "defense_bot_equip", DefenseBotId = bot.Id, ItemId = item.Id,

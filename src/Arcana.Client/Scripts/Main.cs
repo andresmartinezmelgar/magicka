@@ -768,6 +768,7 @@ public partial class Main : Node
         MythicEyeVisuals.ClearCache();
         EquipmentAuraVisuals.ClearCache();
         ElementChannelVisuals.ClearCache();
+        EquipmentIcons.ClearCache();
         Interlocked.Exchange(ref _exiting, 1); _lifetime.Cancel();
         _google?.Dispose();
         _desktopGoogle?.Dispose();

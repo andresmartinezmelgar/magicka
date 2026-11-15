@@ -389,8 +389,7 @@ public partial class Main
                 GD.Print("NAVIGATION_VIEWPORT_OK: " + size + " · menús, estadísticas, daño porcentual y absorción, controles, salas, carga, siete apartados con Atrás, afijos resaltados por elemento, equipo predeterminado con Marca/Eco y venta, inventario, descarte, ayuda, pausa, reliquias y fichas.");
             }
             Check(_engineLog.ErrorCount == 0, "Godot registró errores durante la navegación.");
-            GD.Print("NAVIGATION_SMOKE_OK: salidas visibles fuera del scroll, clic real, Escape/Atrás y guardado autoritativo antes de continuar.");
-            GetTree().Quit();
+            CompleteMenuSmoke("NAVIGATION_SMOKE_OK: salidas visibles fuera del scroll, clic real, Escape/Atrás y guardado autoritativo antes de continuar.");
         }
         catch (Exception error) { GD.PushError("NAVIGATION_SMOKE_FAILED: " + error); GetTree().Quit(1); }
         finally { _launcher.RefreshRoomsOnBuild = true; }

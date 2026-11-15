@@ -195,8 +195,9 @@ public partial class Main
                 if (Accounts.SignedIn || shop!.Catalogue != null) return false;
                 CheckUnavailable(); Check(shop.Status.Contains("Inicia sesión") && shop.Wallet == "Oro de cuenta: —", "Cerrar sesión conserva datos de compra de la cuenta anterior.");
                 Check(_engineLog.ErrorCount == 0, "Godot registró errores en la tienda.");
-                GD.Print("SHOP_SMOKE_OK: acceso desde Inicio, interfaz sin conexión, compra única, saldo, inventario sin configuración, catálogo estable durante el día, renovación automática, desconexión, reconexión, cierre de sesión y anuncios desactivados.");
-                _shopSmoke = false; GetTree().Quit(); return true;
+                _shopSmoke = false;
+                CompleteMenuSmoke("SHOP_SMOKE_OK: acceso desde Inicio, interfaz sin conexión, compra única, saldo, inventario sin configuración, catálogo estable durante el día, renovación automática, desconexión, reconexión, cierre de sesión y anuncios desactivados.");
+                return true;
             }
         }
         catch (Exception error) { CaptureShop("00-error"); GD.PrintErr("SHOP_SMOKE_FAILED: " + error); GetTree().Quit(1); return true; }

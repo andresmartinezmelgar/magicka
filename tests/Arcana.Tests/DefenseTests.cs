@@ -598,7 +598,7 @@ internal static class DefenseTests
             var enemy = Enemy(w); enemy.Position = p.Position + new V2(2, 0); enemy.Health = enemy.MaxHealth = 10000;
             Gold(w, p, 10000);
             for (int i = 0; i < 4; i++) Check(Command(w, p, "defense_passive", i), "No compró habilidad.");
-            Check(Player(w, p).Gold == 9440, "Coste de habilidades incorrecto.");
+            Check(Player(w, p).Gold == 10000 - 4 * DefenseRules.PassiveCost(0), "Coste de habilidades incorrecto.");
             Invoke(w, "TickDefensePassives", 2f);
             Check(w.Snapshot().Fields.Length == 0 && enemy.Health == 10000, "Disparó antes de tiempo.");
             Invoke(w, "TickDefensePassives", 1f);

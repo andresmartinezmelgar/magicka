@@ -7,6 +7,11 @@ namespace Arcana.Client;
 internal static class EquipmentIcons
 {
     private static readonly Dictionary<string, Texture2D> Textures = new(StringComparer.Ordinal);
+    internal static void ClearCache()
+    {
+        foreach (var texture in Textures.Values) texture.Dispose();
+        Textures.Clear();
+    }
     internal static string AffixFile(ItemAffixKind kind) => kind switch
     {
         ItemAffixKind.BeamPierce => "beam-pierce", ItemAffixKind.LightningChain => "lightning-chain",

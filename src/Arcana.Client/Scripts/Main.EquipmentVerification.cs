@@ -78,8 +78,8 @@ public partial class Main
             _equipmentPublicMode = false;
             if (_equipmentPublicPreview) { GD.Print("PUBLIC_EQUIPMENT_PREVIEW_READY"); return false; }
             ClosePlayerEquipment(); Check(!InspectingEquipment && (!Ui.IsMobile || _touch!.Visible), "Cerrar la ficha no restaura los controles.");
-            GD.Print("EQUIPMENT_PUBLIC_SMOKE_OK: clasificación, selección de mago, piezas, conjuntos, bonos reales, lectura sin cambios y bloqueo de controles.");
-            GetTree().Quit(); return true;
+            FinishEquipmentSmoke("EQUIPMENT_PUBLIC_SMOKE_OK: clasificación, selección de mago, piezas, conjuntos, bonos reales, lectura sin cambios y bloqueo de controles.");
+            return true;
         }
         catch (Exception error) { _equipmentPublicMode = false; GD.PushError("EQUIPMENT_PUBLIC_SMOKE_FAILED: " + error.Message); GetTree().Quit(1); return true; }
     }
@@ -139,8 +139,8 @@ public partial class Main
                     SnapshotValidation.Check(_practice.Snapshot()); ReturnToLauncher();
                 }
                 Check(_engineLog.ErrorCount == 0, "Godot registró errores con las familias nuevas.");
-                GD.Print("EQUIPMENT_ELEMENTS_SMOKE_OK: ocho familias, selección por calidad, atributos y conjuntos, guardado al salir y equipo aplicado contra IA.");
-                GetTree().Quit(); return true;
+                FinishEquipmentSmoke("EQUIPMENT_ELEMENTS_SMOKE_OK: ocho familias, selección por calidad, atributos y conjuntos, guardado al salir y equipo aplicado contra IA.");
+                return true;
             }
             if (_equipmentRestoreSmoke)
             {
@@ -155,8 +155,8 @@ public partial class Main
                 Check(_practice!.Players[_localId].Equipment == modifiers && _engineLog.ErrorCount == 0,
                     "La nueva partida no utiliza el equipo recuperado tras reabrir el juego.");
                 ReturnToLauncher();
-                GD.Print("EQUIPMENT_RESTORE_SMOKE_OK: nuevo proceso, caché recuperada al arrancar y equipo aplicado contra IA.");
-                GetTree().Quit(); return true;
+                FinishEquipmentSmoke("EQUIPMENT_RESTORE_SMOKE_OK: nuevo proceso, caché recuperada al arrancar y equipo aplicado contra IA.");
+                return true;
             }
             var panel = _equipmentPanel!;
             AssertInventorySplit(panel);
@@ -301,10 +301,17 @@ public partial class Main
                 baseVisual.QueueFree(); equippedVisual.QueueFree(); ReturnToLauncher();
             }
             Check(_engineLog.ErrorCount == 0, "Godot registró errores durante la comprobación.");
-            GD.Print("EQUIPMENT_SMOKE_OK: selector en seis posiciones, cinco calidades, sin escrituras durante la selección, guardado al salir por Atrás/Escape/menú, reapertura y dos partidas IA.");
-            GetTree().Quit();
+            FinishEquipmentSmoke("EQUIPMENT_SMOKE_OK: selector en seis posiciones, cinco calidades, sin escrituras durante la selección, guardado al salir por Atrás/Escape/menú, reapertura y dos partidas IA.");
         }
         catch (Exception error) { GD.PushError("EQUIPMENT_SMOKE_FAILED: " + error.Message); GetTree().Quit(1); }
         return true;
+    }
+
+    private void FinishEquipmentSmoke(string message)
+    {
+        _equipmentSmoke = _equipmentRestoreSmoke = _equipmentElementsSmoke = false;
+        var tree = GetTree(); var errors = _engineLog;
+        QueueFree();
+        _ = ClientVerification.FinishSmokeAfterCleanup(tree, errors, message);
     }
 }
