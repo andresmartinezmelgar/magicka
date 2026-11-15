@@ -10,6 +10,8 @@ public partial class Main
         void Check(bool ok, string reason) { if (!ok) throw new InvalidOperationException(reason); }
         foreach (bool leftHanded in new[] { false, true })
         {
+            VerifyFloatingStickOrigins(leftHanded, automatic: false);
+            VerifyFloatingStickOrigins(leftHanded, automatic: true);
             var controls = new MobileControls(); _ui.AddChild(controls);
             controls.Configure(new TouchSettings { LeftHanded = leftHanded, Positions = new()
             {
@@ -110,5 +112,51 @@ public partial class Main
             finally { _automaticSpellsToggle!.ButtonPressed = previous; }
         }
         GD.Print("CUSTOM_TOUCH_ROUTING_OK: joysticks en cualquier mitad, modo zurdo, dedos simultáneos y liberación independiente.");
+    }
+
+    private void VerifyFloatingStickOrigins(bool leftHanded, bool automatic)
+    {
+        void Check(bool ok, string reason) { if (!ok) throw new InvalidOperationException(reason); }
+        var controls = new MobileControls(); _ui.AddChild(controls);
+        try
+        {
+            controls.ConfigureSpellShortcuts(new() { Enabled = automatic });
+            controls.Configure(new TouchSettings { LeftHanded = leftHanded, Positions = new()
+            {
+                ["Move"] = new(leftHanded ? 1 : 0, 1), ["Aim"] = new(leftHanded ? 0 : 1, 1)
+            } });
+            float radius = controls.StickRadiusForVerification;
+            var screen = new Rect2(controls.GlobalPosition + Vector2.One * ScreenPlacement.JoystickEdgeMargin,
+                controls.Size - Vector2.One * ScreenPlacement.JoystickEdgeMargin * 2);
+            void Safe(Vector2 center) => Check(screen.Grow(.01f).Encloses(new Rect2(center - Vector2.One * radius, Vector2.One * radius * 2)),
+                "El círculo del joystick no conserva el margen de 24 píxeles.");
+            foreach (var center in controls.StickCentersForVerification) Safe(center);
+            for (int stick = 0; stick < 2; stick++)
+            {
+                var home = controls.StickCentersForVerification[stick];
+                Check(controls.Touch(51, home, true), "Un joystick no acepta un contacto libre.");
+                Check(controls.ActiveStickCentersForVerification[stick].DistanceTo(home) < .01f,
+                    "Un contacto con espacio no se usa como origen.");
+                if (stick == 0) Check(controls.Movement == Vector2.Zero, "Un contacto centrado mueve al jugador.");
+                controls.Touch(51, home, false);
+                float x = (stick == 0) != leftHanded ? 1 : controls.Size.X - 1;
+                var edge = controls.GlobalPosition + new Vector2(x, controls.Size.Y - 1);
+                Check(controls.Touch(52, edge, true), "El contacto en el borde no captura el joystick.");
+                var origin = controls.ActiveStickCentersForVerification[stick]; Safe(origin);
+                foreach (var direction in new[] { Vector2.Left, Vector2.Right, Vector2.Up, Vector2.Down })
+                {
+                    Check(controls.Drag(52, origin + direction * radius), "El dedo pierde su joystick al arrastrar.");
+                    var actual = stick == 0 ? controls.Movement : controls.AimDirection;
+                    Check(actual.Dot(direction) > .99f, "El borde impide mover o apuntar en una dirección completa.");
+                    Check(controls.ActiveStickCentersForVerification[stick] == origin, "El origen sigue al dedo durante el arrastre.");
+                }
+                controls.Touch(52, edge, false);
+                Check(controls.ActiveStickCentersForVerification[stick] == controls.StickCentersForVerification[stick],
+                    "Soltar no recupera la posición de reposo.");
+            }
+            Check(controls.Movement == Vector2.Zero, "La prueba deja movimiento activo.");
+        }
+        finally { controls.Reset(); _ui.RemoveChild(controls); controls.QueueFree(); }
+        GD.Print($"FLOATING_STICK_ORIGINS_OK: zurdo={leftHanded}, automático={automatic}, margen=24.");
     }
 }

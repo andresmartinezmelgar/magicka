@@ -114,7 +114,10 @@ public partial class MobileControls
                 occupied.Add(grid);
                 continue;
             }
-            if (!ScreenPlacement.TryPlace(TouchHudLayout.Rect(rect), Screen, occupied, out var safe)) return false;
+            bool fits = name is "Move" or "Aim"
+                ? ScreenPlacement.TryPlaceJoystick(TouchHudLayout.Rect(rect), Screen, occupied, out var safe)
+                : ScreenPlacement.TryPlace(TouchHudLayout.Rect(rect), Screen, occupied, out safe);
+            if (!fits) return false;
             placed[name] = TouchHudLayout.Rect(safe); occupied.Add(safe);
         }
         return true;
@@ -159,20 +162,24 @@ public partial class MobileControls
     private void ApplyRectangles()
     {
         foreach (var action in _actions.Where(a => a.Panel.Visible)) action.Panel.Position = _rectangles[action.Panel.Name].Position;
-        _moveHome = _rectangles["Move"].GetCenter(); _aimCenter = _rectangles["Aim"].GetCenter();
+        _moveHome = _rectangles["Move"].GetCenter(); _aimHome = _rectangles["Aim"].GetCenter();
         if (_moveFinger < 0) _moveCenter = _moveHome;
-        else _moveCenter = FreeMoveCenter(_moveOrigin);
+        else _moveCenter = FreeStickCenter(_moveCenter, "Move");
+        if (_aimFinger < 0) _aimCenter = _aimHome;
+        else _aimCenter = FreeStickCenter(_aimCenter, "Aim");
         QueueRedraw();
     }
 
-    private Vector2 FreeMoveCenter(Vector2 point)
+    private Vector2 FreeStickCenter(Vector2 point, string control)
     {
         var occupied = Reserved();
-        occupied.AddRange(_rectangles.Where(p => p.Key != "Move").Select(p => TouchHudLayout.Rect(p.Value)));
+        occupied.AddRange(_rectangles.Where(p => p.Key != "Move" && p.Key != "Aim").Select(p => TouchHudLayout.Rect(p.Value)));
+        var otherCenter = control == "Move" ? _aimCenter : _moveCenter;
+        occupied.Add(new(otherCenter.X - StickRadius, otherCenter.Y - StickRadius, StickRadius * 2, StickRadius * 2));
         if (MapRectangle is { } map) occupied.Add(TouchHudLayout.Rect(new Rect2(map.Position - GlobalPosition, map.Size)));
         var wanted = new ScreenRect(point.X - StickRadius, point.Y - StickRadius, StickRadius * 2, StickRadius * 2);
-        return ScreenPlacement.TryPlace(wanted, Screen, occupied, out var safe)
-            ? TouchHudLayout.Rect(safe).GetCenter() : _moveHome;
+        return ScreenPlacement.TryPlaceJoystick(wanted, Screen, occupied, out var safe)
+            ? TouchHudLayout.Rect(safe).GetCenter() : control == "Move" ? _moveHome : _aimHome;
     }
 
     private void MoveEditedControl(Vector2 point)
@@ -186,7 +193,10 @@ public partial class MobileControls
             .Select(p => TouchHudLayout.Rect(p.Value)));
         if (MapRectangle is { } map) occupied.Add(TouchHudLayout.Rect(new Rect2(map.Position - GlobalPosition, map.Size)));
         var wanted = new Rect2(bounds.Position + point - current.GetCenter(), bounds.Size);
-        if (!ScreenPlacement.TryPlace(TouchHudLayout.Rect(wanted), Screen, occupied, out var safe)) return;
+        bool fits = _editingControl is "Move" or "Aim"
+            ? ScreenPlacement.TryPlaceJoystick(TouchHudLayout.Rect(wanted), Screen, occupied, out var safe)
+            : ScreenPlacement.TryPlace(TouchHudLayout.Rect(wanted), Screen, occupied, out safe);
+        if (!fits) return;
         var destination = TouchHudLayout.Rect(safe);
         if (movingGrid)
         {

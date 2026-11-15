@@ -36,7 +36,7 @@ internal static class HelpCatalogue
             "El tutorial te guía con objetivos cortos. En Prácticas puedes probar daño, curación y barreras. Después, entra en Versus IA o PvP y consulta el objetivo de la partida antes de empezar.");
 
         Add(HelpTopic.Controls, "move", "Moverse y apuntar", mobile
-            ? "Joystick izquierdo: arrastra para moverte; soltar detiene al mago.\nJoystick derecho: apunta y lanza mientras mantienes el dedo."
+            ? "Joystick izquierdo: arrastra para moverte; soltar detiene al mago.\nJoystick derecho: apunta y lanza mientras mantienes el dedo.\nToca una zona libre de la mitad correspondiente para fijar el origen. Si hay espacio, será el punto que pulses. Cerca del borde se ajusta hacia dentro: todo el círculo conserva 24 píxeles de margen para permitir el recorrido completo. El origen se mantiene durante el gesto. Funciona en todos los modos y respeta la configuración para zurdos."
             : "Clic izquierdo: camina hacia el cursor.\nFlechas: movimiento directo.\nRueda: acerca o aleja la cámara.");
         Add(HelpTopic.Controls, "cast", "Seleccionar elementos y lanzar", mobile
             ? "Pulsa los ocho botones de elementos para preparar hasta tres cargas. Puedes repetir un elemento.\nMantén el joystick derecho para lanzar; al soltar, interrumpes el hechizo o disparas la roca cargada.\n«Sobre mí»: curación, escudo o secado.\n«En área»: pulso alrededor del mago."

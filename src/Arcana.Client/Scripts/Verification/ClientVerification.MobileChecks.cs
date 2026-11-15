@@ -253,9 +253,15 @@ public partial class ClientVerification
             foreach (var origin in new[] { Vector2.Zero, new Vector2(touch.Size.X * .3f, 220), new Vector2(touch.Size.X / 2 - 2, 180), new Vector2(350, touch.Size.Y - 240) })
             {
                 touch.Reset();
-                Require(touch.Touch(20, global + origin, true) && touch.Movement.IsZeroApprox(), "el contacto inicial debe fijar el centro sin mover.");
-                Require(touch.Drag(20, global + origin + new Vector2(41, 0)) && Math.Abs(touch.Movement.X - 0.5f) < 0.001f,
-                    "el arrastre no se mide desde el contacto inicial.");
+                Require(touch.Touch(20, global + origin, true), "el contacto inicial no captura el joystick.");
+                var center = touch.ActiveStickCentersForVerification[0];
+                float radius = touch.StickRadiusForVerification;
+                Require(center.X - radius >= global.X + 23.99f && center.Y - radius >= global.Y + 23.99f &&
+                    center.X + radius <= global.X + touch.Size.X - 23.99f && center.Y + radius <= global.Y + touch.Size.Y - 23.99f,
+                    "el origen no conserva el margen fijo.");
+                if (center.DistanceTo(global + origin) < .01f) Require(touch.Movement.IsZeroApprox(), "un contacto centrado mueve al mago.");
+                Require(touch.Drag(20, center + new Vector2(radius / 2, 0)) && Math.Abs(touch.Movement.X - 0.5f) < 0.001f,
+                    "el arrastre no se mide desde el círculo visible.");
                 var movement = touch.Movement;
                 touch.Touch(21, global + new Vector2(100, 300), true);
                 touch.Drag(21, global + new Vector2(500, 300));
@@ -272,7 +278,10 @@ public partial class ClientVerification
             Require(touch.Touch(22, global + self, true) && actions.SequenceEqual(["self"]) && touch.Movement.IsZeroApprox(),
                 "el gesto de apuntado roba el botón Sobre mí.");
             touch.Touch(22, Vector2.Zero, false);
-            Require(!touch.Touch(23, global + new Vector2(touch.Size.X * 0.75f, 120), true), "el lado derecho vacío activa movimiento.");
+            actions.Clear();
+            Require(touch.Touch(23, global + new Vector2(touch.Size.X * 0.75f, 120), true) && touch.Movement.IsZeroApprox() &&
+                actions.SequenceEqual(["cast"]), "el lado derecho libre no captura apuntado o activa movimiento.");
+            touch.Touch(23, Vector2.Zero, false);
             Require(touch.Touch(24, global + new Vector2(350, 250), true), "no admite un gesto nuevo después de cancelar.");
             touch.Drag(24, global + new Vector2(350, 290));
             touch.Reset();

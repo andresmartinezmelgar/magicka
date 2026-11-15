@@ -10,6 +10,17 @@ public readonly record struct ScreenRect(float X, float Y, float Width, float He
 public static class ScreenPlacement
 {
     public const float MinimumGap = 8;
+    public const float JoystickEdgeMargin = 24;
+
+    /// <summary>Margen fijo para el círculo completo; conserva la separación ordinaria con el HUD.</summary>
+    public static bool TryPlaceJoystick(ScreenRect wanted, ScreenRect screen, IReadOnlyList<ScreenRect> occupied,
+        out ScreenRect result)
+    {
+        float inset = JoystickEdgeMargin - MinimumGap;
+        var safeScreen = new ScreenRect(screen.X + inset, screen.Y + inset,
+            screen.Width - inset * 2, screen.Height - inset * 2);
+        return TryPlace(wanted, safeScreen, occupied, out result);
+    }
 
     public static bool Separated(ScreenRect a, ScreenRect b, float gap = MinimumGap) =>
         a.Right + gap <= b.X + .01f || b.Right + gap <= a.X + .01f ||

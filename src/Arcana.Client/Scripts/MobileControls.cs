@@ -14,7 +14,7 @@ public partial class MobileControls : Control
     private TouchAction _self = null!, _nova = null!;
     private int _moveFinger = -1, _aimFinger = -1;
     private Vector2 _move, _aim = Vector2.Right, _aimKnob;
-    private Vector2 _moveCenter, _moveHome, _moveOrigin, _aimCenter;
+    private Vector2 _moveCenter, _moveHome, _aimCenter, _aimHome;
     private readonly PredictedElementSelection _selected = new();
     private bool _directionalAimPending;
     private SpellShape _aimedSpellShape;
@@ -40,7 +40,9 @@ public partial class MobileControls : Control
     private float ControlScale => BaseScale * Settings.Size * _fitScale;
     private float StickRadius => Radius * ControlScale;
     internal Rect2[] ButtonRectanglesForVerification => _actions.Where(a => a.Panel.Visible).Select(a => a.Panel.GetGlobalRect()).ToArray();
-    internal Vector2[] StickCentersForVerification => [_moveHome + GlobalPosition, _aimCenter + GlobalPosition];
+    internal Vector2[] StickCentersForVerification => [_moveHome + GlobalPosition, _aimHome + GlobalPosition];
+    internal Vector2[] ActiveStickCentersForVerification => [_moveCenter + GlobalPosition, _aimCenter + GlobalPosition];
+    internal float StickRadiusForVerification => StickRadius;
     internal bool BarrierAimPending => _directionalAimPending && _aimedSpellShape == SpellShape.Barrier;
     internal bool IceAimPending => _directionalAimPending && _aimedSpellShape == SpellShape.Shards;
     internal Element[]? ProjectileAimElements => _aimFinger >= 0 && _pendingMagick < 0 ? _aimedProjectile : null;
@@ -102,7 +104,7 @@ public partial class MobileControls : Control
     }
     public void Reset()
     {
-        _moveFinger = _aimFinger = -1; _move = _aimKnob = Vector2.Zero; _moveCenter = _moveHome;
+        _moveFinger = _aimFinger = -1; _move = _aimKnob = Vector2.Zero; _moveCenter = _moveHome; _aimCenter = _aimHome;
         _directionalAimPending = false;
         _aimedProjectile = null; _rockChargeObserved = false;
         CancelMagickAim();
@@ -187,7 +189,7 @@ public partial class MobileControls : Control
             if (finger == _moveFinger) { _moveFinger = -1; _move = Vector2.Zero; _moveCenter = _moveHome; QueueRedraw(); return true; }
             if (finger == _aimFinger)
             {
-                _aimFinger = -1; _aimKnob = Vector2.Zero;
+                _aimFinger = -1; _aimKnob = Vector2.Zero; _aimCenter = _aimHome;
                 _aimedProjectile = null;
                 bool castOnRelease = _directionalAimPending && !canceled;
                 _directionalAimPending = false; QueueRedraw();
@@ -215,6 +217,7 @@ public partial class MobileControls : Control
             return false;
         }
         if (finger == _moveFinger || finger == _aimFinger || _pressed.ContainsKey(finger)) return true;
+        if (!new Rect2(Vector2.Zero, Size).HasPoint(point)) return false;
         if (PointerBlocked?.Invoke(point + GlobalPosition) == true) return false;
         var action = _actions.FirstOrDefault(a => a.Panel.Visible && ButtonRect(a).HasPoint(point));
         if (action != null)
@@ -232,11 +235,16 @@ public partial class MobileControls : Control
             MapRectangle?.HasPoint(point + GlobalPosition) == true) return false;
         // Las posiciones editadas tienen prioridad sobre la zona flotante de movimiento.
         // Un toque adicional en un joystick ocupado nunca se reasigna al otro control.
-        float aimDistance = point.DistanceTo(_aimCenter), moveDistance = point.DistanceTo(_moveHome);
+        float aimDistance = point.DistanceTo(_aimFinger >= 0 ? _aimCenter : _aimHome);
+        float moveDistance = point.DistanceTo(_moveFinger >= 0 ? _moveCenter : _moveHome);
+        if (_aimFinger >= 0) aimDistance = Math.Min(aimDistance, point.DistanceTo(_aimHome));
+        if (_moveFinger >= 0) moveDistance = Math.Min(moveDistance, point.DistanceTo(_moveHome));
         bool nearAim = aimDistance <= StickRadius + 20, nearMove = moveDistance <= StickRadius + 20;
-        if (nearAim && (!nearMove || aimDistance <= moveDistance))
+        bool movementZone = new Rect2(new(Settings.LeftHanded ? Size.X / 2 : 0, 0), new(Size.X / 2, Size.Y)).HasPoint(point);
+        if (nearAim && (!nearMove || aimDistance <= moveDistance) || !nearMove && !movementZone)
         {
             if (_aimFinger >= 0) return true;
+            _aimCenter = FreeStickCenter(point, "Aim");
             _aimFinger = finger;
             var spell = new SpellRecipe(_selected.Elements);
             _aimedSpellShape = spell.Shape;
@@ -248,12 +256,11 @@ public partial class MobileControls : Control
             QueueRedraw();
             return true;
         }
-        bool movementZone = new Rect2(new(Settings.LeftHanded ? Size.X / 2 : 0, 0), new(Size.X / 2, Size.Y)).HasPoint(point);
         if (nearMove || movementZone)
         {
             if (_moveFinger >= 0) return true;
-            _moveFinger = finger; _moveOrigin = point;
-            _moveCenter = FreeMoveCenter(point); _move = Vector2.Zero; QueueRedraw(); return true;
+            _moveCenter = FreeStickCenter(point, "Move"); _moveFinger = finger;
+            Move(point); return true;
         }
         return false;
     }
@@ -300,7 +307,7 @@ public partial class MobileControls : Control
         if (offset.Length() < Settings.DeadZone * StickRadius) return Vector2.Zero;
         return offset.LimitLength(StickRadius) / StickRadius;
     }
-    private void Move(Vector2 point) { _move = Stick(point - _moveOrigin); QueueRedraw(); }
+    private void Move(Vector2 point) { _move = Stick(point - _moveCenter); QueueRedraw(); }
     private void Aim(Vector2 point)
     {
         _aimKnob = Stick(point - _aimCenter);

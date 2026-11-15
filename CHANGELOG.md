@@ -1,13 +1,13 @@
 # Cambios
 
-## Pendiente de publicación
+## 0.29.64
 
-- Supervivencia: curvas de coste crecientes para auras, habilidades y mejoras temporales, con primeros niveles accesibles y últimos niveles para especializarse. Piezas aleatorias por 50 de oro.
+- Los dos joysticks táctiles conservan 24 píxeles de margen para todo el círculo en todos los modos. Un contacto con espacio fija su origen; cerca del borde se ajusta hacia dentro y el arrastre se mide desde ese mismo centro. Respeta zurdos, posiciones personalizadas, botones y dedos independientes.
+- Supervivencia: curvas de coste crecientes y suministros por 50 de oro. La ruta equilibrada de referencia a veinte minutos alcanza 69/130 niveles (53,1 %) por 5280 de los 5400 de oro estimados, sin completar todo. El resultado real depende del botín y las bajas.
+- Los bots venden los descartes después de elegir equipo y reciben ese oro. Conservan equipadas, míticas, favoritas y piezas protegidas por una elección manual.
+- Registro del tiempo de selección manual y automática por humano y total. El Dashboard muestra tiempos y porcentajes válidos; oculta tarjetas, columnas y métricas sin datos, incluido el tiempo de modo sin identificar. Se excluyen interfaces, pausas, segundo plano y tiempo sin vida.
+- Veinte iconos distintos identifican los efectos especiales en inventarios propios, de bots y de otros jugadores. Supervivencia muestra las seis piezas equipadas, su efecto y nivel; «+» indica que puedes pagar la siguiente mejora. Pulsar abre sus detalles.
 - Un aura completa cuesta 3300 de oro; una habilidad, 1250; una pieza mítica, 3140. El nivel 6 de una pieza mítica suma 820. Los anillos de cuenta conservan sus tarifas permanentes.
-- Referencia de veinte minutos: 5400 de oro permiten una ruta equilibrada de 69/130 niveles (53,1 %), con cinco auras al 5, cuatro habilidades al 2 y seis piezas de Oro al 6. El resultado real depende del botín y las bajas.
-- Los bots de Supervivencia venden las piezas descartadas después de elegir equipo y suman el oro a su propia cartera. Conservan equipadas, míticas, favoritas y piezas protegidas por una elección manual.
-- Registro de segundos de selección manual y automática de elementos por humano y como total de partida. Se excluyen interfaces, pausas, segundo plano y tiempo sin vida; los clientes sin identificación quedan separados. El Dashboard muestra tiempos, porcentajes, cobertura y columnas de exportación CSV.
-- Veinte iconos distintos identifican los efectos especiales de Diamante y Mítico en inventarios propios, de bots y de otros jugadores. El panel de Supervivencia muestra las seis piezas equipadas, su efecto y nivel; «+» indica que puedes pagar la siguiente mejora. Tocar una pieza abre sus detalles.
 
 ## 0.29.63
 
