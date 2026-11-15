@@ -7,6 +7,7 @@ public partial class Hud
     private Rect2 _touchMapHome;
     internal Rect2? PreferredTouchMap => _mapPanel.Visible ? _touchMapHome : null;
     internal Rect2 TouchPlayerRectangle => _playerPanel.GetGlobalRect();
+    internal Rect2? CurrentMapRectangle => _mapPanel.IsVisibleInTree() ? _mapPanel.GetGlobalRect() : null;
 
     private void ResizeTouchHud()
     {

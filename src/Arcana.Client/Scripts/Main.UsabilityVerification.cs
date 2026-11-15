@@ -137,6 +137,11 @@ public partial class Main
                     var preview = (MobileControls)_controlsSettings.FindChild("MobileControls", true, false);
                     VerifyTouchClearance(preview);
                     VerifyTouchLayoutVariants(preview);
+                    VerifyIndividualTouchEditing(preview);
+                    Check(preview.SelectEditorControl("TouchElementFire"), "No selecciona un elemento individual.");
+                    ((HSlider)_controlsSettings.FindChild("TouchSelectedSize", true, false)).Value = .85;
+                    Check(Math.Abs(preview.Settings.ControlScale("TouchElementFire") - .85f) < .01f && preview.Settings.ControlScale("TouchElementWater") == 1,
+                        "La barra de tamaño afecta a más de un elemento.");
                     Check(preview.Settings.Positions.ContainsKey("Move") && preview.Settings.Positions.ContainsKey("Aim") && preview.Movement == Vector2.Zero,
                         "El editor no mueve ambos joysticks o genera movimiento de combate: " + string.Join(",", preview.Settings.Positions.Keys) + " / " + preview.Movement + " / " + ((Control)_controlsSettings.FindChild("TouchEditorToolbar", true, false)).GetGlobalRect());
                     CaptureUsability("03-editor-tactil");
@@ -147,6 +152,8 @@ public partial class Main
                     var config = DevicePreferences.Read<TouchSettings>("touch-controls")!;
                     Check(config.LeftHanded && config.Positions.ContainsKey("TouchSelf") && Math.Abs(config.Size - 1.15f) < .01 && Math.Abs(config.DeadZone - .2f) < .01,
                         "Los ajustes táctiles no se guardan en disco.");
+                    Check(Math.Abs(config.ControlScale("TouchElementFire") - .85f) < .01f && config.ControlScale("TouchElementWater") == 1,
+                        "El tamaño individual no se guarda en disco.");
                     ((Button)_accountProfilePanel!.FindChild("ProfileTouchControls", true, false)).EmitSignal(BaseButton.SignalName.Pressed); _usabilityStage++; return false;
                 case 7:
                     AssertOptionAScreen("AJUSTES_DESDE_PERFIL", _controlsSettings!);

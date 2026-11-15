@@ -286,9 +286,15 @@ public partial class Main
                 var priority = (OptionButton)shop.FindChild("SurvivalSetupPriority0", true, false);
                 var elementChoice = (OptionButton)shop.FindChild("SurvivalSetupElement", true, false);
                 int mark = priority.GetItemIndex((int)ItemAffixKind.ArcaneMark), chain = priority.GetItemIndex((int)ItemAffixKind.LightningChain);
-                Check(priority.GetItemIcon(mark) != null && priority.GetItemIcon(chain) == null, "No resalta los afijos de Arcano.");
+                Check(Enum.GetValues<ItemAffixKind>().All(kind =>
+                    priority.GetItemIcon(priority.GetItemIndex((int)kind)) != null &&
+                    priority.GetItemText(priority.GetItemIndex((int)kind)).Contains("Mítico")),
+                    "Una elección de mejora no identifica su efecto con icono o su calidad.");
+                Check(priority.GetItemIcon(mark) != null && priority.GetItemIcon(chain) != null &&
+                    priority.GetItemText(mark).StartsWith("Afín") && !priority.GetItemText(chain).StartsWith("Afín"), "No resalta los afijos de Arcano.");
                 SelectSetup("SurvivalSetupElement", (int)Element.Lightning); await Frames();
-                Check(priority.GetItemIcon(mark) == null && priority.GetItemIcon(chain) != null &&
+                Check(priority.GetItemIcon(mark) != null && priority.GetItemIcon(chain) != null &&
+                    !priority.GetItemText(mark).StartsWith("Afín") && priority.GetItemText(chain).StartsWith("Afín") &&
                     priority.GetSelectedId() == (int)ItemAffixKind.ArcaneMark && elementChoice.GetSelectedId() == (int)Element.Lightning &&
                     !_practice.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId).EquipmentSetup.Enabled,
                     "Cambiar el elemento no actualiza el resaltado, pierde la prioridad o activa ventas sin aplicar.");

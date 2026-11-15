@@ -61,6 +61,14 @@ public partial class Main
                     Input.ParseInputEvent(new InputEventScreenTouch { Index = 71, Position = target, Pressed = false });
                     VerifyTouchClearance(preview);
                 }
+                VerifyIndividualTouchEditing(preview);
+                if (map == ArenaMapId.Classic)
+                {
+                    bool automatic = preview.AutomaticSpells;
+                    preview.ConfigureSpellShortcuts(new() { Enabled = !automatic });
+                    VerifyIndividualTouchEditing(preview);
+                    preview.ConfigureSpellShortcuts(new() { Enabled = automatic });
+                }
                 await Frames(); Capture(map + "-editor");
                 _controlsSettings.HandleBack(); _controlsSettings.HandleBack();
                 if (map == ArenaMapId.Classic)
@@ -92,7 +100,22 @@ public partial class Main
             Check(expected.Position.DistanceTo(action.GetGlobalRect().Position) < .1f && expected.Size.DistanceTo(action.GetGlobalRect().Size) < .1f,
                 "el área pulsable no coincide con el dibujo de " + action.Name);
         }
-        if (controls.AutomaticSpells)
+        foreach (string key in new[] { "Move", "Aim" })
+        {
+            var stick = controls.LayoutRectangles[key];
+            Check(stick.Position.X >= ScreenPlacement.JoystickEdgeMargin - .1f && stick.Position.Y >= ScreenPlacement.JoystickEdgeMargin - .1f &&
+                stick.End.X <= controls.Size.X - ScreenPlacement.JoystickEdgeMargin + .1f &&
+                stick.End.Y <= controls.Size.Y - ScreenPlacement.JoystickEdgeMargin + .1f, key + " pierde los 48 px de margen.");
+        }
+        if (controls.EquipmentHudForVerification is { } equipment)
+            foreach (var (key, button) in equipment.Buttons)
+            {
+                var expected = rectangles.Single(r => r.Name == key).Bounds;
+                Check(expected.Position.DistanceTo(button.GetGlobalRect().Position) < .1f && expected.Size.DistanceTo(button.GetGlobalRect().Size) < .1f,
+                    "el icono de equipo no coincide con su área pulsable: " + key);
+            }
+        if (controls.AutomaticSpells && !new[] { "TouchSpellDefense", "TouchSpellAttack", "TouchSelf", "TouchNova" }
+            .Any(key => controls.Settings.Positions.ContainsKey(key) || controls.Settings.ControlScales.ContainsKey(key)))
         {
             var defense = controls.LayoutRectangles["TouchSpellDefense"];
             var attack = controls.LayoutRectangles["TouchSpellAttack"];
@@ -125,6 +148,56 @@ public partial class Main
                 Check(ScreenPlacement.Separated(TouchHudLayout.Rect(information[i].Bounds), TouchHudLayout.Rect(other.Bounds)),
                     information[i].Name + " tapa " + other.Name + ": " + information[i].Bounds + " / " + other.Bounds);
         }
+    }
+
+    private static void VerifyIndividualTouchEditing(MobileControls controls)
+    {
+        var original = controls.Settings.Normalize();
+        void Check(bool valid, string reason) { if (!valid) throw new InvalidOperationException("Edición individual: " + reason); }
+        foreach (var key in controls.LayoutRectangles.Keys.ToArray())
+        {
+            var before = controls.LayoutRectangles.ToDictionary(p => p.Key, p => p.Value);
+            float oldScale = controls.Settings.ControlScale(key), nextScale = oldScale * .8f;
+            Check(controls.SelectEditorControl(key) && controls.ResizeSelectedControl(nextScale), "no redimensiona " + key);
+            var resized = controls.LayoutRectangles[key];
+            Check(resized.Size.DistanceTo(before[key].Size * .8f) < .1f, "tamaño incorrecto en " + key);
+            foreach (var (other, rect) in before.Where(p => p.Key != key))
+                Check(controls.LayoutRectangles[other] == rect, key + " cambia la posición o tamaño de " + other);
+            if (key is "Move" or "Aim")
+            {
+                int index = key == "Move" ? 0 : 1;
+                Check(Math.Abs(controls.StickRadiiForVerification[index] * 2 - resized.Size.X) < .1f, "el radio visual no sigue su tamaño.");
+            }
+            Check(!controls.ResizeSelectedControl(float.NaN) && controls.LayoutRectangles[key] == resized, "acepta un tamaño no válido.");
+            var grab = controls.GlobalPosition + resized.Position + Vector2.One * 2;
+            var destination = grab + Vector2.One;
+            controls._Input(new InputEventScreenTouch { Index = 91, Position = grab, Pressed = true });
+            controls._Input(new InputEventScreenDrag { Index = 91, Position = destination, Relative = Vector2.One });
+            controls._Input(new InputEventScreenTouch { Index = 91, Position = destination, Pressed = false });
+            Check(controls.LayoutRectangles[key].GetCenter().DistanceTo(resized.GetCenter() + Vector2.One) < .1f,
+                "el arrastre no mueve solo " + key);
+            foreach (var (other, rect) in before.Where(p => p.Key != key))
+                Check(controls.LayoutRectangles[other] == rect, "mover " + key + " desplaza " + other);
+            var saved = controls.Settings.Normalize();
+            var savedRectangles = controls.LayoutRectangles.ToDictionary(p => p.Key, p => p.Value);
+            controls.Configure(saved);
+            foreach (var (other, rect) in savedRectangles)
+                Check(controls.LayoutRectangles[other].Position.DistanceTo(rect.Position) < .1f && controls.LayoutRectangles[other].Size.DistanceTo(rect.Size) < .1f,
+                    "recargar " + key + " altera " + other);
+            Check(controls.SelectEditorControl(key) && controls.ResizeSelectedControl(oldScale), "no recupera el tamaño de " + key);
+        }
+        string cornerKey = controls.LayoutRectangles.ContainsKey("TouchElementFire") ? "TouchElementFire" : "TouchSpellAttack";
+        controls.SelectEditorControl(cornerKey);
+        var cornerRect = controls.LayoutRectangles[cornerKey]; float cornerScale = controls.Settings.ControlScale(cornerKey);
+        var cornerStart = controls.GlobalPosition + cornerRect.End - Vector2.One * 4;
+        var cornerEnd = cornerStart - cornerRect.Size * .1f;
+        controls._Input(new InputEventScreenTouch { Index = 92, Position = cornerStart, Pressed = true });
+        controls._Input(new InputEventScreenDrag { Index = 92, Position = cornerEnd, Relative = cornerEnd - cornerStart });
+        controls._Input(new InputEventScreenTouch { Index = 92, Position = cornerEnd, Pressed = false });
+        Check(Math.Abs(controls.Settings.ControlScale(cornerKey) - cornerScale * .9f) < .01f, "el tirador de esquina no redimensiona el elemento.");
+        controls.Configure(original);
+        VerifyTouchClearance(controls);
+        GD.Print($"TOUCH_INDIVIDUAL_EDIT_OK: {controls.LayoutRectangles.Count} elementos, tamaños independientes y recarga sin mover los demás.");
     }
 
     private static void VerifyTouchLayoutVariants(MobileControls controls)

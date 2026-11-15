@@ -129,7 +129,7 @@ public partial class Main
             var screen = new Rect2(controls.GlobalPosition + Vector2.One * ScreenPlacement.JoystickEdgeMargin,
                 controls.Size - Vector2.One * ScreenPlacement.JoystickEdgeMargin * 2);
             void Safe(Vector2 center) => Check(screen.Grow(.01f).Encloses(new Rect2(center - Vector2.One * radius, Vector2.One * radius * 2)),
-                "El círculo del joystick no conserva el margen de 24 píxeles.");
+                "El círculo del joystick no conserva el margen de 48 píxeles.");
             foreach (var center in controls.StickCentersForVerification) Safe(center);
             for (int stick = 0; stick < 2; stick++)
             {
@@ -157,6 +157,6 @@ public partial class Main
             Check(controls.Movement == Vector2.Zero, "La prueba deja movimiento activo.");
         }
         finally { controls.Reset(); _ui.RemoveChild(controls); controls.QueueFree(); }
-        GD.Print($"FLOATING_STICK_ORIGINS_OK: zurdo={leftHanded}, automático={automatic}, margen=24.");
+        GD.Print($"FLOATING_STICK_ORIGINS_OK: zurdo={leftHanded}, automático={automatic}, margen=48.");
     }
 }

@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.29.65
+
+- Joysticks: margen exterior duplicado de 24 a 48 píxeles para todo el círculo, en todos los modos. Contorno duplicado de 3 a 6 píxeles. Se conserva el origen flotante cuando hay espacio.
+- Supervivencia: las seis piezas equipadas pasan a la zona superior, solo con iconos. La silueta muestra la ranura; el marco y distintivo, la calidad; el icono pequeño, el efecto. Diez segmentos indican mejoras y una flecha señala una mejora asequible. Pulsar abre los detalles del inventario.
+- Editor: posición y tamaño independientes para los ocho elementos, los dos joysticks, cada botón automático y cada pieza equipada. Selección con marco, arrastre de esquina y barra de tamaño. Guardar y recargar conserva los demás controles y el minimapa.
+- La elección de efectos especiales muestra su icono y nombre, la calidad Mítico y la afinidad con el elemento elegido. El selector de piezas identifica ranura, calidad y familia. Ayuda actualizada.
+
 ## 0.29.64
 
 - Los dos joysticks táctiles conservan 24 píxeles de margen para todo el círculo en todos los modos. Un contacto con espacio fija su origen; cerca del borde se ajusta hacia dentro y el arrastre se mide desde ese mismo centro. Respeta zurdos, posiciones personalizadas, botones y dedos independientes.

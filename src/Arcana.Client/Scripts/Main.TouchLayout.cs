@@ -34,7 +34,19 @@ public partial class Main
 
     private void UpdateTouchLayout()
     {
-        if (_touch == null || _hud == null) return;
+        if (_hud == null) return;
+        var equipment = _defensePanel?.EquippedHud;
+        if (equipment != null) equipment.Visible = !_hud.ScoreOpen && !Input.IsPhysicalKeyPressed(Key.Tab);
+        if (_touch == null)
+        {
+            if (equipment == null) return;
+            _touchHudAreas.Clear(); AppendModeTouchAreas(_touchHudAreas); _hud.AppendTouchAreas(_touchHudAreas);
+            if (_hud.CurrentMapRectangle is { } map) _touchHudAreas.Add(new("Mapa", map));
+            equipment.LayoutStandalone(LocalTouchSettings, GetViewport().GetVisibleRect().Size,
+                _touchHudAreas.Select(area => TouchHudLayout.Rect(area.Bounds)).ToArray());
+            return;
+        }
+        _touch.SetEquipmentHud(equipment);
         float s = Math.Min(1, GetViewport().GetVisibleRect().Size.Y / 720f);
         _networkPanel.Scale = Vector2.One * s;
         _networkPanel.Position = new(22 * s, _hud.TouchPlayerRectangle.End.Y + ScreenPlacement.MinimumGap);

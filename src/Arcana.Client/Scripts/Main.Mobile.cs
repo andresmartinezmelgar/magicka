@@ -75,8 +75,7 @@ public partial class Main
         _touch?.Reset(); _touch?.QueueFree(); _touch = null;
         if (!Ui.IsMobile) return;
         _touch = new MobileControls(); _ui.AddChild(_touch);
-        _touchSettings ??= (DevicePreferences.Read<TouchSettings>("touch-controls") ?? new()).Normalize();
-        _touch.Configure(_touchSettings);
+        _touch.Configure(LocalTouchSettings);
         _touch.ConfigureSpellShortcuts(CurrentSpellShortcuts);
         _touch.ShortcutEquipment = SpellShortcutEquipment;
         _touch.PointerBlocked = point => _hud?.RewardNoticeContains(point) == true ||

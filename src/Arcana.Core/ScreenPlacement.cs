@@ -10,7 +10,7 @@ public readonly record struct ScreenRect(float X, float Y, float Width, float He
 public static class ScreenPlacement
 {
     public const float MinimumGap = 8;
-    public const float JoystickEdgeMargin = 24;
+    public const float JoystickEdgeMargin = 48;
 
     /// <summary>Margen fijo para el círculo completo; conserva la separación ordinaria con el HUD.</summary>
     public static bool TryPlaceJoystick(ScreenRect wanted, ScreenRect screen, IReadOnlyList<ScreenRect> occupied,

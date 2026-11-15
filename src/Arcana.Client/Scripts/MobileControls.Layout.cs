@@ -9,12 +9,23 @@ public partial class MobileControls
     private TouchHudArea[] _hudAreas = [];
     private Rect2? _preferredMap;
     private readonly Dictionary<string, Rect2> _rectangles = new(StringComparer.Ordinal);
+    private SurvivalEquipmentHud? _equipmentHud;
+    internal SurvivalEquipmentHud? EquipmentHudForVerification => _equipmentHud;
     private const string SpellGridPosition = "AutomaticSpellGrid";
+    private const string MapPosition = "TouchMinimap";
     private TouchAction[] SpellGridActions => [_defenseShortcut.Action, _attackShortcut.Action, _self, _nova];
     internal Rect2? MapRectangle { get; private set; }
     internal IReadOnlyDictionary<string, Rect2> LayoutRectangles => _rectangles;
     internal IReadOnlyList<TouchHudArea> HudAreas => _hudAreas;
     internal float FittedScale => _fitScale;
+    private bool LinkedSpellGrid => AutomaticSpells && !SpellGridActions.Any(a =>
+        Settings.Positions.ContainsKey(a.Panel.Name) || Settings.ControlScales.ContainsKey(a.Panel.Name));
+
+    internal void SetEquipmentHud(SurvivalEquipmentHud? hud)
+    {
+        if (_equipmentHud == hud) return;
+        _equipmentHud = hud; Layout();
+    }
 
     internal void SetHudAreas(IReadOnlyList<TouchHudArea> areas, Rect2? map)
     {
@@ -38,8 +49,10 @@ public partial class MobileControls
             if (custom && Settings.Positions.TryGetValue(name, out var saved)) center = new(saved.X * width, saved.Y * height);
             result[name] = new(center - size / 2, size);
         }
-        Add("Move", new(142 * s, height - 125 * s), Vector2.One * StickRadius * 2);
-        Add("Aim", new(width - 142 * s, height - 125 * s), Vector2.One * StickRadius * 2);
+        Add("Move", new(142 * s, height - 125 * s), Vector2.One * MoveRadius * 2);
+        Add("Aim", new(width - 142 * s, height - 125 * s), Vector2.One * AimRadius * 2);
+        if (GodotObject.IsInstanceValid(_equipmentHud))
+            foreach (var pair in _equipmentHud!.Desired(Size, ControlScale, Settings, custom)) result.Add(pair.Key, pair.Value);
         void Button(TouchAction action, Vector2 position, Vector2 size)
         {
             if (!action.Panel.Visible) return;
@@ -48,10 +61,11 @@ public partial class MobileControls
             float spacing = Settings.Spacing < 1 ? 1 + (Settings.Spacing - 1) * .1f : Settings.Spacing;
             var center = pivot + (position + size * s / 2 - pivot) * Settings.Size * spacing * _fitScale;
             // Escalar el panel entero conserva su mínimo real, iconos, texto y área pulsable.
-            action.Panel.Scale = Vector2.One * ControlScale;
+            float scale = ControlScale * Settings.ControlScale(action.Panel.Name);
+            action.Panel.Scale = Vector2.One * scale;
             action.Panel.Size = size;
             if (_magicks.Contains(action)) FitActionCaption(action);
-            Add(action.Panel.Name, center, action.Panel.Size * ControlScale);
+            Add(action.Panel.Name, center, action.Panel.Size * scale);
         }
         for (int i = 0; i < _utilities.Count; i++) Button(_utilities[i], new(width - (382 - i * 124) * s, 22 * s), new(118, 62));
         for (int i = 0; i < 8; i++) Button(_actions[i], new(width - (246 - i % 2 * 116) * s, height - (572 - i / 2 * 80) * s), new(108, 72));
@@ -73,7 +87,7 @@ public partial class MobileControls
         float gap = Math.Max(ScreenPlacement.MinimumGap, 12 * ControlScale * Settings.Spacing);
         var size = cell * 2 + Vector2.One * gap;
         var origin = new Vector2(Settings.LeftHanded ? ScreenPlacement.MinimumGap : Size.X - size.X - ScreenPlacement.MinimumGap,
-            Size.Y - 125 * BaseScale - StickRadius - ScreenPlacement.MinimumGap - size.Y);
+            Size.Y - 125 * BaseScale - AimRadius - ScreenPlacement.MinimumGap - size.Y);
         if (custom && Settings.Positions.TryGetValue(SpellGridPosition, out var saved))
             origin = new Vector2(saved.X * Size.X, saved.Y * Size.Y) - size / 2;
         else if (custom && Settings.Positions.TryGetValue(actions[0].Panel.Name, out var previous))
@@ -81,9 +95,12 @@ public partial class MobileControls
         for (int i = 0; i < actions.Length; i++)
         {
             var panel = actions[i].Panel;
-            panel.Scale = Vector2.One * ControlScale;
+            var individualCell = cellSize * ControlScale * Settings.ControlScale(panel.Name);
+            panel.Scale = Vector2.One * ControlScale * Settings.ControlScale(panel.Name);
             panel.Size = cellSize;
-            wanted[panel.Name] = new(origin + new Vector2(i % 2 * (cell.X + gap), i / 2 * (cell.Y + gap)), cell);
+            var center = origin + new Vector2(i % 2 * (cell.X + gap), i / 2 * (cell.Y + gap)) + cell / 2;
+            if (custom && Settings.Positions.TryGetValue(panel.Name, out var position)) center = new(position.X * Size.X, position.Y * Size.Y);
+            wanted[panel.Name] = new(center - individualCell / 2, individualCell);
         }
     }
 
@@ -100,7 +117,7 @@ public partial class MobileControls
         foreach (var (name, rect) in wanted)
         {
             if (placed.ContainsKey(name)) continue;
-            if (AutomaticSpells && name == _defenseShortcut.Action.Panel.Name)
+            if (LinkedSpellGrid && name == _defenseShortcut.Action.Panel.Name)
             {
                 // Reservar el bloque completo impide que el ajuste separe las dos filas.
                 var bounds = SpellGridBounds(wanted);
@@ -127,33 +144,33 @@ public partial class MobileControls
     {
         if (_actions.Count == 0 || Size.X < 1 || Size.Y < 1) return;
         // Se ejecuta al configurar, redimensionar o cambiar una zona del HUD; nunca en cada dibujo.
-        for (_fitScale = 1; _fitScale >= .45f; _fitScale -= .05f)
+        for (_fitScale = Settings.LayoutScale; _fitScale >= .45f; _fitScale = _fitScale <= .45f ? 0 : Math.Max(.45f, _fitScale - .05f))
         {
             var reserved = Reserved();
             Rect2? map = null;
             if (_preferredMap is { } desired)
             {
                 // El mapa conserva su hueco aunque se arrastre un botón: se calcula con el diseño base.
-                if (!Pack(Wanted(false), new(reserved), out var defaults)) continue;
                 var occupied = new List<ScreenRect>(reserved);
-                occupied.AddRange(defaults.Values.Select(TouchHudLayout.Rect));
                 var local = new Rect2(desired.Position - GlobalPosition, desired.Size);
+                if (Settings.Positions.TryGetValue(MapPosition, out var savedMap))
+                    local.Position = new Vector2(savedMap.X * Size.X, savedMap.Y * Size.Y) - local.Size / 2;
+                else
+                {
+                    if (!Pack(Wanted(false), new(reserved), out var defaults)) continue;
+                    occupied.AddRange(defaults.Values.Select(TouchHudLayout.Rect));
+                }
                 if (!ScreenPlacement.TryPlace(TouchHudLayout.Rect(local), Screen, occupied, out var safeMap)) continue;
                 map = TouchHudLayout.Rect(safeMap); reserved.Add(safeMap);
             }
             if (!Pack(Wanted(true), reserved, out var placed)) continue;
             _rectangles.Clear(); foreach (var item in placed) _rectangles.Add(item.Key, item.Value);
-            TouchAction[] grid = AutomaticSpells ? SpellGridActions : [];
-            // Sobre mí y En área conservan sus posiciones personalizadas del modo manual.
             foreach (string name in Settings.Positions.Keys.ToArray())
-                if (!grid.Any(a => a.Panel.Name == name) && placed.TryGetValue(name, out var adjusted))
+                if (placed.TryGetValue(name, out var adjusted))
                     Settings.Positions[name] = new(adjusted.GetCenter().X / Size.X, adjusted.GetCenter().Y / Size.Y);
-            if (AutomaticSpells && Settings.Positions.ContainsKey(SpellGridPosition))
-            {
-                var center = SpellGridBounds(placed).GetCenter();
-                Settings.Positions[SpellGridPosition] = new(center.X / Size.X, center.Y / Size.Y);
-            }
             MapRectangle = map is { } area ? new Rect2(area.Position + GlobalPosition, area.Size) : null;
+            if (map is { } currentMap && Settings.Positions.ContainsKey(MapPosition))
+                Settings.Positions[MapPosition] = new(currentMap.GetCenter().X / Size.X, currentMap.GetCenter().Y / Size.Y);
             ApplyRectangles(); return;
         }
         throw new InvalidOperationException("No hay espacio para los controles y las zonas del HUD.");
@@ -161,13 +178,18 @@ public partial class MobileControls
 
     private void ApplyRectangles()
     {
-        foreach (var action in _actions.Where(a => a.Panel.Visible)) action.Panel.Position = _rectangles[action.Panel.Name].Position;
+        foreach (var action in _actions.Where(a => a.Panel.Visible))
+        {
+            action.Panel.Scale = Vector2.One * ControlScale * Settings.ControlScale(action.Panel.Name);
+            action.Panel.Position = _rectangles[action.Panel.Name].Position;
+        }
+        if (GodotObject.IsInstanceValid(_equipmentHud)) _equipmentHud!.Apply(_rectangles, GlobalPosition);
         _moveHome = _rectangles["Move"].GetCenter(); _aimHome = _rectangles["Aim"].GetCenter();
         if (_moveFinger < 0) _moveCenter = _moveHome;
         if (_aimFinger < 0) _aimCenter = _aimHome;
         if (_moveFinger >= 0) _moveCenter = FreeStickCenter(_moveCenter, "Move");
         if (_aimFinger >= 0) _aimCenter = FreeStickCenter(_aimCenter, "Aim");
-        QueueRedraw();
+        UpdateEditorSelection(); QueueRedraw();
     }
 
     private Vector2 FreeStickCenter(Vector2 point, string control)
@@ -175,41 +197,12 @@ public partial class MobileControls
         var occupied = Reserved();
         occupied.AddRange(_rectangles.Where(p => p.Key != "Move" && p.Key != "Aim").Select(p => TouchHudLayout.Rect(p.Value)));
         var otherCenter = control == "Move" ? _aimCenter : _moveCenter;
-        occupied.Add(new(otherCenter.X - StickRadius, otherCenter.Y - StickRadius, StickRadius * 2, StickRadius * 2));
+        float radius = control == "Move" ? MoveRadius : AimRadius, otherRadius = control == "Move" ? AimRadius : MoveRadius;
+        occupied.Add(new(otherCenter.X - otherRadius, otherCenter.Y - otherRadius, otherRadius * 2, otherRadius * 2));
         if (MapRectangle is { } map) occupied.Add(TouchHudLayout.Rect(new Rect2(map.Position - GlobalPosition, map.Size)));
-        var wanted = new ScreenRect(point.X - StickRadius, point.Y - StickRadius, StickRadius * 2, StickRadius * 2);
+        var wanted = new ScreenRect(point.X - radius, point.Y - radius, radius * 2, radius * 2);
         return ScreenPlacement.TryPlaceJoystick(wanted, Screen, occupied, out var safe)
             ? TouchHudLayout.Rect(safe).GetCenter() : control == "Move" ? _moveHome : _aimHome;
     }
 
-    private void MoveEditedControl(Vector2 point)
-    {
-        var current = _rectangles[_editingControl];
-        var grid = SpellGridActions;
-        bool movingGrid = AutomaticSpells && grid.Any(a => a.Panel.Name == _editingControl);
-        var bounds = movingGrid ? SpellGridBounds(_rectangles) : current;
-        var occupied = Reserved();
-        occupied.AddRange(_rectangles.Where(p => movingGrid ? !grid.Any(a => a.Panel.Name == p.Key) : p.Key != _editingControl)
-            .Select(p => TouchHudLayout.Rect(p.Value)));
-        if (MapRectangle is { } map) occupied.Add(TouchHudLayout.Rect(new Rect2(map.Position - GlobalPosition, map.Size)));
-        var wanted = new Rect2(bounds.Position + point - current.GetCenter(), bounds.Size);
-        bool fits = _editingControl is "Move" or "Aim"
-            ? ScreenPlacement.TryPlaceJoystick(TouchHudLayout.Rect(wanted), Screen, occupied, out var safe)
-            : ScreenPlacement.TryPlace(TouchHudLayout.Rect(wanted), Screen, occupied, out safe);
-        if (!fits) return;
-        var destination = TouchHudLayout.Rect(safe);
-        if (movingGrid)
-        {
-            var offset = destination.Position - bounds.Position;
-            foreach (var action in grid)
-            {
-                var cell = _rectangles[action.Panel.Name];
-                _rectangles[action.Panel.Name] = new(cell.Position + offset, cell.Size);
-            }
-        }
-        else _rectangles[_editingControl] = destination;
-        var center = destination.GetCenter();
-        Settings.Positions[movingGrid ? SpellGridPosition : _editingControl] = new(center.X / Size.X, center.Y / Size.Y);
-        ApplyRectangles();
-    }
 }

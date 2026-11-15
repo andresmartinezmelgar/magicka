@@ -13,6 +13,9 @@ public partial class MobileSettingsPanel : Control
     private ElementTextLabel _status = null!;
     private MobileControls _preview = null!;
     private Hud _editorHud = null!;
+    private SurvivalEquipmentHud _editorEquipment = null!;
+    private ElementTextLabel _selectionName = null!;
+    private HSlider _selectionSize = null!;
     private Action<List<TouchHudArea>>? _modeAreas;
     private readonly List<TouchHudArea> _areas = [];
     private readonly List<Control> _modePreviews = [];
@@ -36,6 +39,9 @@ public partial class MobileSettingsPanel : Control
         _editorHud.Update(state, playerId, "Vista de controles", 0); _editorHud.HideEditorPlayer();
         _preview = new MobileControls { EditorMode = true, Visible = false }; AddChild(_preview); _preview.Configure(_settings);
         _preview.ConfigureSpellShortcuts(new() { Enabled = automaticSpells });
+        _editorEquipment = new SurvivalEquipmentHud { Visible = false }; AddChild(_editorEquipment);
+        _editorEquipment.Build(); _editorEquipment.Update(state.Defense?.Defenders.FirstOrDefault(p => p.PlayerId == playerId));
+        MoveChild(_editorEquipment, _preview.GetIndex()); _preview.SetEquipmentHud(_editorEquipment);
         _form = new Control(); AddChild(_form); Ui.Full(_form);
         var margin = new MarginContainer(); _form.AddChild(margin); Ui.Full(margin);
         foreach (string side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, 16);
@@ -50,11 +56,11 @@ public partial class MobileSettingsPanel : Control
         frame.AddChild(scroll); Ui.VisibleVerticalScroll(scroll);
         var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         box.AddThemeConstantOverride("separation", 8); scroll.AddChild(box);
-        var help = Ui.Label("Ajustes de este dispositivo. Puedes cambiar cada posición arrastrando los botones y los dos joysticks.", 16, Ui.Muted);
+        var help = Ui.Label("Ajustes de este dispositivo. Mueve y redimensiona por separado los elementos, botones, joysticks y las seis piezas de equipo de Supervivencia.", 16, Ui.Muted);
         help.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(help);
         _sliders = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; _sliders.AddThemeConstantOverride("separation", 8); box.AddChild(_sliders);
         BuildFields();
-        var edit = Ui.Button("Mover botones y joysticks", StartEditing); edit.Name = "TouchEditPositions"; box.AddChild(edit);
+        var edit = Ui.Button("Mover y redimensionar cada elemento", StartEditing); edit.Name = "TouchEditPositions"; box.AddChild(edit);
         _status = Ui.Label("", 15, Ui.Gold); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_status);
         var footer = new HBoxContainer(); box.AddChild(footer);
         foreach (var button in new[] { Ui.Button("Restablecer", () => { _settings = new(); BuildFields(); }),
@@ -65,11 +71,27 @@ public partial class MobileSettingsPanel : Control
         var bar = new PanelContainer { Name = "TouchEditorToolbar", Position = new(12, 12), Size = new(550, 100), Visible = false }; _editorBar = bar; AddChild(bar);
         bar.MinimumSizeChanged += () => Callable.From(FitEditorToolbar).CallDeferred();
         var tools = new VBoxContainer(); bar.AddChild(tools);
-        var instruction = Ui.Label("Arrastra los controles. Margen mínimo: 8 px. Las zonas de información están protegidas.", 16, Ui.Gold);
+        var instruction = Ui.Label("Arrastra para mover. Selecciona una pieza o botón y usa su esquina o la barra para cambiar solo su tamaño.", 14, Ui.Gold);
         instruction.AutowrapMode = TextServer.AutowrapMode.WordSmart; tools.AddChild(instruction);
+        _selectionName = Ui.Label("Selecciona un elemento", 14, Ui.Muted);
+        _selectionName.CustomMinimumSize = new(0, 36); _selectionName.AutowrapMode = TextServer.AutowrapMode.WordSmart; tools.AddChild(_selectionName);
+        _selectionSize = new HSlider { Name = "TouchSelectedSize", MinValue = TouchSettings.MinimumControlScale,
+            MaxValue = TouchSettings.MaximumControlScale, Step = .01, Value = 1, Editable = false, CustomMinimumSize = new(0, 32) };
+        tools.AddChild(_selectionSize);
+        _preview.EditorSelectionChanged += (name, scale) =>
+        {
+            _selectionName.Text = name.Length == 0 ? "Selecciona un elemento" : name + $" · {scale * 100:0} %";
+            _selectionSize.Editable = name.Length > 0; _selectionSize.SetValueNoSignal(scale);
+        };
+        _selectionSize.ValueChanged += value =>
+        {
+            if (_preview.ResizeSelectedControl((float)value)) return;
+            _selectionSize.SetValueNoSignal(_preview.SelectedEditorScale);
+            _selectionName.Text = _preview.EditorControlName(_preview.SelectedEditorControl) + " · No cabe sin solapar otros controles";
+        };
         var actions = new HBoxContainer(); tools.AddChild(actions);
         var done = Ui.Button("Listo", FinishEditing); done.Name = "TouchEditorDone"; actions.AddChild(done);
-        actions.AddChild(Ui.Button("Deshacer posiciones", () => { _settings = _beforeEdit; FinishEditing(false); }));
+        actions.AddChild(Ui.Button("Deshacer cambios", () => { _settings = _beforeEdit; FinishEditing(false); }));
         foreach (var button in actions.GetChildren().OfType<Button>())
         {
             button.CustomMinimumSize = new(0, 44); button.AddThemeFontSizeOverride("font_size", 16);
@@ -92,12 +114,12 @@ public partial class MobileSettingsPanel : Control
             var slider = new HSlider { Name = name, MinValue = min, MaxValue = max, Step = .01, Value = value, CustomMinimumSize = new(0, 40) };
             slider.ValueChanged += next => { label.Text = title + $" · {next:0.00}"; set((float)next); }; _sliders.AddChild(slider);
         }
-        Slider("TouchSize", "Tamaño de botones y joysticks", .75, 1.3, _settings.Size, v => _settings = _settings with { Size = v });
-        Slider("TouchSpacing", "Separación entre botones", .8, 1.25, _settings.Spacing, v => _settings = _settings with { Spacing = v, Positions = new() });
+        Slider("TouchSize", "Tamaño general", .75, 1.3, _settings.Size, v => _settings = _settings with { Size = v, LayoutScale = 1 });
+        Slider("TouchSpacing", "Separación entre botones", .8, 1.25, _settings.Spacing, v => _settings = _settings with { Spacing = v, Positions = new(), LayoutScale = 1 });
         Slider("TouchDeadZone", "Zona muerta del joystick", .05, .35, _settings.DeadZone, v => _settings = _settings with { DeadZone = v });
         Slider("TouchSensitivity", "Sensibilidad del alcance de traslación y meteoro", .6, 1.8, _settings.Sensitivity, v => _settings = _settings with { Sensitivity = v });
         var handed = new CheckBox { Name = "TouchLeftHanded", Text = "Modo zurdo · movimiento a la derecha", ButtonPressed = _settings.LeftHanded, CustomMinimumSize = new(0, 46) };
-        handed.Toggled += left => _settings = _settings with { LeftHanded = left, Positions = new() }; _sliders.AddChild(handed);
+        handed.Toggled += left => _settings = _settings with { LeftHanded = left, Positions = new(), LayoutScale = 1 }; _sliders.AddChild(handed);
         var note = Ui.Label("Cambiar separación o modo zurdo restablece las posiciones personalizadas. Agua, hielo y rocas mantienen su marcador a distancia fija.", 14, Ui.Muted);
         note.AutowrapMode = TextServer.AutowrapMode.WordSmart; _sliders.AddChild(note);
     }
@@ -107,7 +129,7 @@ public partial class MobileSettingsPanel : Control
         float s = Math.Min(1, GetViewport().GetVisibleRect().Size.Y / 720f);
         _editorBar.Scale = Vector2.One * s; _editorBar.Size = new(310, 100);
         _editorBar.Position = new(22 * s, 18 * s);
-        _form.Hide(); _editorHud.Show(); _preview.Show(); _editorBar.Show();
+        _form.Hide(); _editorHud.Show(); _editorEquipment.Show(); _preview.Show(); _editorBar.Show();
         UpdateEditorLayout();
     }
     private void FinishEditing() => FinishEditing(true);
@@ -119,7 +141,7 @@ public partial class MobileSettingsPanel : Control
     private void FinishEditing(bool apply)
     {
         if (apply) _settings = _preview.Settings.Normalize();
-        _preview.Hide(); _editorHud.Hide(); _editorBar.Hide(); _form.Show();
+        _preview.Hide(); _editorHud.Hide(); _editorEquipment.Hide(); _editorBar.Hide(); _form.Show();
         foreach (var preview in _modePreviews) preview.Hide();
     }
     public override void _Process(double delta) { if (_preview.Visible) UpdateEditorLayout(); }

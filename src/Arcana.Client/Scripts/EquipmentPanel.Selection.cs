@@ -64,7 +64,7 @@ public partial class EquipmentPanel
         foreach (var item in choices)
         {
             bool selected = item.Id == equipped;
-            string title = EquipmentCatalogue.TierName(item.Tier) + " · " + EquipmentCatalogue.FamilyName(item.Family);
+            string title = EquipmentCatalogue.SlotName(item.Slot) + " · " + EquipmentCatalogue.TierName(item.Tier) + " · " + EquipmentCatalogue.FamilyName(item.Family);
             var card = new PanelContainer { Name = "EquipmentCard_" + item.Id, SizeFlagsHorizontal = SizeFlags.ExpandFill };
             var style = Ui.Panel(new Color(selected ? "185184" : "122743"), 8, selected ? Ui.Gold : TierColor(item.Tier));
             style.ContentMarginLeft = style.ContentMarginRight = 10;
@@ -72,6 +72,7 @@ public partial class EquipmentPanel
             card.AddThemeStyleboxOverride("panel", style); _pickerGrid.AddChild(card);
             var body = new VBoxContainer(); body.AddThemeConstantOverride("separation", 8); card.AddChild(body);
             var content = new HBoxContainer(); content.AddThemeConstantOverride("separation", 10); body.AddChild(content);
+            content.AddChild(EquipmentIcons.View(EquipmentIcons.Slot(item.Slot), 32, TierColor(item.Tier)));
             var description = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
             description.AddThemeConstantOverride("separation", 8); content.AddChild(description);
             var label = Ui.Label(title, Ui.IsMobile ? 18 : 17, selected ? Ui.Gold : TierColor(item.Tier));

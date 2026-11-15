@@ -38,11 +38,14 @@ public partial class MobileControls : Control
     public Func<Vector2, bool>? PointerBlocked { get; set; }
     private float BaseScale => Math.Min(1, Size.Y / 720f);
     private float ControlScale => BaseScale * Settings.Size * _fitScale;
-    private float StickRadius => Radius * ControlScale;
+    private float StickRadius(string name) => Radius * ControlScale * Settings.ControlScale(name);
+    private float MoveRadius => StickRadius("Move");
+    private float AimRadius => StickRadius("Aim");
     internal Rect2[] ButtonRectanglesForVerification => _actions.Where(a => a.Panel.Visible).Select(a => a.Panel.GetGlobalRect()).ToArray();
     internal Vector2[] StickCentersForVerification => [_moveHome + GlobalPosition, _aimHome + GlobalPosition];
     internal Vector2[] ActiveStickCentersForVerification => [_moveCenter + GlobalPosition, _aimCenter + GlobalPosition];
-    internal float StickRadiusForVerification => StickRadius;
+    internal float StickRadiusForVerification => MoveRadius;
+    internal float[] StickRadiiForVerification => [MoveRadius, AimRadius];
     internal bool BarrierAimPending => _directionalAimPending && _aimedSpellShape == SpellShape.Barrier;
     internal bool IceAimPending => _directionalAimPending && _aimedSpellShape == SpellShape.Shards;
     internal Element[]? ProjectileAimElements => _aimFinger >= 0 && _pendingMagick < 0 ? _aimedProjectile : null;
@@ -77,6 +80,7 @@ public partial class MobileControls : Control
         _utilities.Add(AddButton("Tabla", run: () => ScoreRequested?.Invoke()));
         _utilities.Add(AddButton("Menú", run: () => MenuRequested?.Invoke()));
         for (int i = 0; i < _utilities.Count; i++) _utilities[i].Panel.Name = "TouchUtility" + i;
+        BuildEditorOverlay();
         Resized += Layout;
         ConfigureSpellShortcuts(new() { Enabled = AutomaticSpells });
     }
@@ -110,6 +114,7 @@ public partial class MobileControls : Control
         CancelMagickAim();
         _selected.Reset();
         ResetSpellShortcuts();
+        ClearEditorSelection();
         foreach (var action in _pressed.Values) action.Panel.Modulate = Colors.White;
         _pressed.Clear(); QueueRedraw();
     }
@@ -239,7 +244,7 @@ public partial class MobileControls : Control
         float moveDistance = point.DistanceTo(_moveFinger >= 0 ? _moveCenter : _moveHome);
         if (_aimFinger >= 0) aimDistance = Math.Min(aimDistance, point.DistanceTo(_aimHome));
         if (_moveFinger >= 0) moveDistance = Math.Min(moveDistance, point.DistanceTo(_moveHome));
-        bool nearAim = aimDistance <= StickRadius + 20, nearMove = moveDistance <= StickRadius + 20;
+        bool nearAim = aimDistance <= AimRadius + 20, nearMove = moveDistance <= MoveRadius + 20;
         bool movementZone = new Rect2(new(Settings.LeftHanded ? Size.X / 2 : 0, 0), new(Size.X / 2, Size.Y)).HasPoint(point);
         if (nearAim && (!nearMove || aimDistance <= moveDistance) || !nearMove && !movementZone)
         {
@@ -302,61 +307,40 @@ public partial class MobileControls : Control
         // Submit asigna la secuencia de la conexión o de la partida local.
         if (selectionAction) _selected.Track(message);
     }
-    private Vector2 Stick(Vector2 offset)
+    private Vector2 Stick(Vector2 offset, float radius)
     {
-        if (offset.Length() < Settings.DeadZone * StickRadius) return Vector2.Zero;
-        return offset.LimitLength(StickRadius) / StickRadius;
+        if (offset.Length() < Settings.DeadZone * radius) return Vector2.Zero;
+        return offset.LimitLength(radius) / radius;
     }
-    private void Move(Vector2 point) { _move = Stick(point - _moveCenter); QueueRedraw(); }
+    private void Move(Vector2 point) { _move = Stick(point - _moveCenter, MoveRadius); QueueRedraw(); }
     private void Aim(Vector2 point)
     {
-        _aimKnob = Stick(point - _aimCenter);
+        _aimKnob = Stick(point - _aimCenter, AimRadius);
         if (_pendingMagick >= 0) _magickAimAmount = Math.Min(1, _aimKnob.Length() * Settings.Sensitivity);
         if (!_aimKnob.IsZeroApprox()) _aim = _aimKnob.Normalized();
         QueueRedraw();
     }
     private void CancelMagickAim()
     { _pendingMagick = -1; _meteorTapAt = null; _magickAimAmount = 1; QueueRedraw(); }
-    private bool EditControl(int finger, Vector2 point, bool down)
-    {
-        if (!down)
-        {
-            if (_editFinger != finger) return false;
-            _editFinger = -1; _editingControl = ""; LayoutEdited?.Invoke(); return true;
-        }
-        if (_editFinger != -1 || PointerBlocked?.Invoke(point) == true) return false;
-        point -= GlobalPosition;
-        var action = _actions.FirstOrDefault(a => a.Panel.Visible && ButtonRect(a).HasPoint(point));
-        var center = action != null ? ButtonRect(action).GetCenter() :
-            point.DistanceTo(_moveHome) <= StickRadius ? _moveHome : point.DistanceTo(_aimCenter) <= StickRadius ? _aimCenter : new Vector2(-9999, -9999);
-        if (center.X < -1000) return false;
-        _editingControl = action?.Panel.Name.ToString() ?? (center == _moveHome ? "Move" : "Aim");
-        _editFinger = finger; _editOffset = point - center; return true;
-    }
-    private bool DragControl(int finger, Vector2 point)
-    {
-        if (_editFinger != finger || _editingControl.Length == 0) return false;
-        point -= GlobalPosition + _editOffset;
-        MoveEditedControl(point); return true;
-    }
     public override void _Draw()
     {
-        DrawStick(_moveCenter, _move, "MOVER", Ui.Blue);
+        DrawStick(_moveCenter, _move, "MOVER", Ui.Blue, MoveRadius);
         DrawStick(_aimCenter, _aimKnob, _pendingMagick >= 0 ? "SUELTA: " + SpellBalance.Magicks[_pendingMagick].Name.ToUpperInvariant() : _directionalAimPending
             ? _aimedSpellShape == SpellShape.Shards ? "SUELTA: HIELO" : "SUELTA: ESCUDO"
-            : "APUNTAR / LANZAR", Ui.Gold);
+            : "APUNTAR / LANZAR", Ui.Gold, AimRadius);
     }
-    private void DrawStick(Vector2 center, Vector2 direction, string caption, Color color)
+    private void DrawStick(Vector2 center, Vector2 direction, string caption, Color color, float radius)
     {
-        DrawCircle(center, StickRadius, new Color(0.035f, 0.055f, 0.09f, 0.86f));
-        DrawArc(center, StickRadius - 1.5f, 0, Mathf.Tau, 48, new Color(color, 0.92f), 3, true);
-        DrawCircle(center + direction * (StickRadius - 27 * ControlScale), 27 * ControlScale, new Color(color, 0.68f));
+        float scale = radius / Radius;
+        DrawCircle(center, radius, new Color(0.035f, 0.055f, 0.09f, 0.86f));
+        DrawArc(center, radius - 3, 0, Mathf.Tau, 48, new Color(color, 0.92f), 6, true);
+        DrawCircle(center + direction * (radius - 27 * scale), 27 * scale, new Color(color, 0.68f));
         var font = ThemeDB.FallbackFont;
-        int fontSize = Math.Max(8, (int)(18 * ControlScale));
-        float available = StickRadius * 2 - 12 * ControlScale;
+        int fontSize = Math.Max(8, (int)(18 * scale));
+        float available = radius * 2 - 12 * scale;
         while (fontSize > 8 && font.GetStringSize(caption, fontSize: fontSize).X > available) fontSize--;
         while (caption.Length > 1 && font.GetStringSize(caption, fontSize: fontSize).X > available) caption = caption[..^2] + "…";
         float textWidth = font.GetStringSize(caption, fontSize: fontSize).X;
-        DrawString(font, center + new Vector2(-textWidth / 2, -StickRadius + 28 * ControlScale), caption, fontSize: fontSize, modulate: color);
+        DrawString(font, center + new Vector2(-textWidth / 2, -radius + 28 * scale), caption, fontSize: fontSize, modulate: color);
     }
 }

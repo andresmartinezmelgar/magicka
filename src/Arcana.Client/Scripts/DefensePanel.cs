@@ -51,7 +51,7 @@ public partial class DefensePanel : Control
     private bool _lastOnline, _lastRewardsAvailable, _lastShopOpen;
     private (int Level, int Experience, int Next, int Gold, int Kills, int Lives, int Momentum)? _summaryState;
     private BuffSnapshot[]? _lastBonuses;
-    public bool PointerOverPanel => _summary.GetGlobalRect().HasPoint(GetGlobalMousePosition()) || ShopOpen;
+    public bool PointerOverPanel => _summary.GetGlobalRect().HasPoint(GetGlobalMousePosition()) || EquippedHud.Contains(GetGlobalMousePosition()) || ShopOpen;
 
     public void Build(Main main, Action<ClientMessage> submit)
     {
@@ -65,7 +65,7 @@ public partial class DefensePanel : Control
         var stack = new VBoxContainer(); stack.AddThemeConstantOverride("separation", 5); _summary.AddChild(stack);
         _stats = Ui.Label("", Ui.IsMobile ? 13 : 15); _stats.AutowrapMode = TextServer.AutowrapMode.WordSmart; _stats.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 13 : 15); stack.AddChild(_stats);
         _metrics = Ui.Label("", 12, Ui.Muted); _metrics.AutowrapMode = TextServer.AutowrapMode.WordSmart; _metrics.AddThemeFontSizeOverride("font_size", 12); stack.AddChild(_metrics);
-        BuildEquippedStrip(stack);
+        BuildEquippedStrip();
                 var open = Ui.Button("Equipo / tienda", OpenShop); open.Name = "DefenseShopButton";
         open.CustomMinimumSize = new(0, Ui.IsMobile ? 46 : 40); stack.AddChild(open);
         _shop = new Control { Name = "DefenseShop", Visible = false }; AddChild(_shop); Ui.Full(_shop);
@@ -232,7 +232,7 @@ public partial class DefensePanel : Control
 
     public void SetNetworkStats(string text) => _metrics.Text = text;
     internal Rect2 SummaryRectForVerification => _summary.GetGlobalRect();
-    public bool BlocksTouch(Vector2 point) => _summary.GetGlobalRect().HasPoint(point) || ShopOpen;
+    public bool BlocksTouch(Vector2 point) => _summary.GetGlobalRect().HasPoint(point) || EquippedHud.Contains(point) || ShopOpen;
 
     public void OpenShop() { if (!ShopOpen) ShowMenu(); _shop.Visible = true; OpenChanged?.Invoke(); }
     public void CloseShop()

@@ -108,9 +108,8 @@ public partial class DefensePanel
     {
         var element = (Element)_setupElement.GetSelectedId();
         var color = Ui.ElementColor(element);
-        var icon = ArcanaSpriteAtlas.Icon(element);
         _setupElement.AddThemeColorOverride("font_color", color);
-        _setupAffixHint.Text = $"Cada mejora solo puede elegirse una vez. Mejoras agrupadas por su elemento principal; Oro al final. El icono de {Ui.ElementName(element)} resalta los afijos que lo potencian. Su descripción indica si necesitan una mezcla.";
+        _setupAffixHint.Text = $"Cada mejora tiene un icono propio. «Afín» y el color de {Ui.ElementName(element)} señalan las que lo potencian. Las prioridades buscan piezas Míticas. Cada efecto solo puede elegirse una vez; su descripción indica si necesita una mezcla.";
         for (int priority = 0; priority < _setupPriorities.Count; priority++)
         {
             var choice = _setupPriorities[priority];
@@ -121,7 +120,9 @@ public partial class DefensePanel
                 int usedBy = _setupPriorities.FindIndex(other => other != choice && other.GetSelectedId() == (int)kind);
                 choice.SetItemDisabled(index, usedBy >= 0);
                 string reason = SetupAffixRelevance(kind, element);
-                choice.SetItemIcon(index, reason.Length > 0 ? icon : null);
+                choice.SetItemIcon(index, EquipmentIcons.Affix(kind));
+                choice.SetItemText(index, (reason.Length > 0 ? "Afín · " : "") + "Mítico · " + ItemAffixes.Name(kind));
+                choice.GetPopup().SetItemIconModulate(index, reason.Length > 0 ? color : Ui.Muted);
                 choice.GetPopup().SetItemIconMaxWidth(index, 24);
                 choice.SetItemTooltip(index, (usedBy >= 0 ? $"Ya elegida en la prioridad {usedBy + 1}.\n\n" : "") +
                     (reason.Length > 0 ? reason + "\n\n" : "") + SetupAffixDescription(kind));

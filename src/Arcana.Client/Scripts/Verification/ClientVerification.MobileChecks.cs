@@ -256,8 +256,8 @@ public partial class ClientVerification
                 Require(touch.Touch(20, global + origin, true), "el contacto inicial no captura el joystick.");
                 var center = touch.ActiveStickCentersForVerification[0];
                 float radius = touch.StickRadiusForVerification;
-                Require(center.X - radius >= global.X + 23.99f && center.Y - radius >= global.Y + 23.99f &&
-                    center.X + radius <= global.X + touch.Size.X - 23.99f && center.Y + radius <= global.Y + touch.Size.Y - 23.99f,
+                Require(center.X - radius >= global.X + 47.99f && center.Y - radius >= global.Y + 47.99f &&
+                    center.X + radius <= global.X + touch.Size.X - 47.99f && center.Y + radius <= global.Y + touch.Size.Y - 47.99f,
                     "el origen no conserva el margen fijo.");
                 if (center.DistanceTo(global + origin) < .01f) Require(touch.Movement.IsZeroApprox(), "un contacto centrado mueve al mago.");
                 Require(touch.Drag(20, center + new Vector2(radius / 2, 0)) && Math.Abs(touch.Movement.X - 0.5f) < 0.001f,

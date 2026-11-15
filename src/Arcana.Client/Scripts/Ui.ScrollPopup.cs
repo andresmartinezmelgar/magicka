@@ -30,7 +30,8 @@ public static partial class Ui
         for (int index = 0; index < menu.ItemCount; index++)
         {
             if (menu.IsItemSeparator(index)) list.AddSeparator(menu.GetItemText(index));
-            else list.AddItem(menu.GetItemText(index), menu.GetItemIcon(index), menu.IsItemDisabled(index));
+            else list.AddItem(menu.GetItemText(index), menu.GetItemIcon(index), menu.IsItemDisabled(index),
+                menu.GetItemIconModulate(index), menu.GetItemTooltip(index));
         }
         if (owner is OptionButton option) list.Select(option.Selected);
         list.ItemActivated += index =>

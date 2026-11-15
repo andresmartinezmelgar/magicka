@@ -64,11 +64,27 @@ internal static class UsabilityTests
         test("Controles: los ajustes corruptos se limitan y las posiciones se copian antes de editar", () =>
         {
             var settings = new TouchSettings { Size = float.NaN, Spacing = 99, DeadZone = -1, Sensitivity = float.PositiveInfinity,
+                LayoutScale = float.NaN, ControlScales = new() { ["Move"] = .1f, ["Aim"] = 3, ["TouchSelf"] = float.NaN, [""] = 1 },
                 Positions = new() { ["TouchSelf"] = new(-.1f, 2), ["TouchNova"] = new(float.NaN, 0) } }.Normalize();
             Check(settings.Size == 1 && settings.Spacing == 1.25f && settings.DeadZone == .05f && settings.Sensitivity == 1 && settings.Positions.Count == 1 &&
-                settings.Positions["TouchSelf"] == new TouchPosition(0, 1), "Un ajuste dañado genera tamaños o coordenadas inválidas.");
-            var copy = settings.Normalize(); copy.Positions["TouchSelf"] = new(.5f, .5f);
-            Check(settings.Positions["TouchSelf"] == new TouchPosition(0, 1), "Cancelar la edición altera las posiciones anteriores.");
+                settings.Positions["TouchSelf"] == new TouchPosition(0, 1) && settings.LayoutScale == 1 && settings.ControlScales.Count == 2 &&
+                settings.ControlScale("Move") == .65f && settings.ControlScale("Aim") == 1.65f && settings.ControlScale("TouchSelf") == 1,
+                "Un ajuste dañado genera tamaños o coordenadas inválidas.");
+            var copy = settings.Normalize(); copy.Positions["TouchSelf"] = new(.5f, .5f); copy.ControlScales["Move"] = 1.2f;
+            Check(settings.Positions["TouchSelf"] == new TouchPosition(0, 1) && settings.ControlScale("Move") == .65f,
+                "Cancelar la edición altera las posiciones o tamaños anteriores.");
+        });
+        test("Controles: persisten tamaños independientes y admiten preferencias anteriores", () =>
+        {
+            var settings = new TouchSettings { LayoutScale = .85f, ControlScales = new()
+                { ["Move"] = 1.2f, ["Aim"] = .8f, ["TouchElementFire"] = 1.1f, ["SurvivalEquipped_Weapon"] = 1.4f } };
+            var restored = JsonSerializer.Deserialize<TouchSettings>(JsonSerializer.Serialize(settings))!.Normalize();
+            Check(restored.LayoutScale == .85f && restored.ControlScale("Move") == 1.2f && restored.ControlScale("Aim") == .8f &&
+                restored.ControlScale("TouchElementFire") == 1.1f && restored.ControlScale("SurvivalEquipped_Weapon") == 1.4f &&
+                restored.ControlScale("TouchSelf") == 1, "Se mezclan los tamaños independientes al guardar.");
+            var legacy = JsonSerializer.Deserialize<TouchSettings>("""{"Size":1.15,"Positions":{"Move":{"X":0.2,"Y":0.7}}}""")!.Normalize();
+            Check(legacy.Size == 1.15f && legacy.LayoutScale == 1 && legacy.ControlScale("Move") == 1 &&
+                legacy.Positions["Move"] == new TouchPosition(.2f, .7f), "Las preferencias anteriores pierden su posición o cambian de tamaño.");
         });
         test("Atajos táctiles: defensa según escudo y ataque según objetivo y equipo", () =>
         {

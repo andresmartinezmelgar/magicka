@@ -101,8 +101,17 @@ public partial class Main
                 foreach (var kind in Enum.GetValues<ItemAffixKind>())
                     Check(EquipmentIcons.Affix(kind) != null, "Falta un icono de mejora: " + kind);
                 var equippedStrip = (Control)panel.FindChild("SurvivalEquippedItems", true, false);
+                Check(!equippedStrip.FindChildren("*", "Control", true, false).OfType<ElementTextLabel>().Any() &&
+                    !equippedStrip.FindChildren("*", "Label", true, false).Any(), "El equipamiento en partida contiene rótulos.");
                 foreach (var cell in equippedStrip.GetChildren().OfType<Button>())
-                    Check(equippedStrip.GetGlobalRect().Encloses(cell.GetGlobalRect()), "Una pieza equipada desborda su fila.");
+                {
+                    Check(string.IsNullOrEmpty(cell.Text) && GetViewport().GetVisibleRect().Encloses(cell.GetGlobalRect()),
+                        "Una pieza equipada muestra texto o sale de pantalla.");
+                    Check(cell.GetChildren().OfType<TextureRect>().Count() == 2 && cell.GetChildren().OfType<EquipmentItemIndicators>().Count() == 1,
+                        "Falta la silueta, efecto o indicador de calidad y mejoras.");
+                    Check(cell.GetGlobalRect().Position.Y < GetViewport().GetVisibleRect().Size.Y / 2,
+                        "El equipo predeterminado no está en la zona superior.");
+                }
                 Check(state.Defense!.Minions.Length > 0 && _renderer.DefenseMinionVisualCount > 0, "No se dibujaron minions.");
                 _renderer.VerifyEnemyCasterMotion(state, _localId);
                 if (_touch != null)

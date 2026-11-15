@@ -34,18 +34,21 @@ internal partial class ScrollChoiceList : ContentScrollContainer
         }
     }
 
-    public void AddItem(string text, Texture2D? icon = null, bool disabled = false)
+    public void AddItem(string text, Texture2D? icon = null, bool disabled = false, Color? iconColor = null, string? tooltip = null)
     {
         int index = ItemCount;
         var row = new Button
         {
-            Text = text, Icon = icon, TooltipText = text, Alignment = HorizontalAlignment.Left,
+            Text = text, Icon = icon, TooltipText = string.IsNullOrEmpty(tooltip) ? text : tooltip, Alignment = HorizontalAlignment.Left,
             ClipText = true, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
             ToggleMode = true, Disabled = disabled || Disabled,
             CustomMinimumSize = new(0, Ui.UsesTouchScroll ? 48 : 30)
         };
         if (disabled) _unavailable.Add(row);
         row.AddThemeConstantOverride("icon_max_width", 24);
+        if (iconColor is { } tint)
+            foreach (string state in new[] { "icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_focus_color" })
+                row.AddThemeColorOverride(state, tint);
         bool doubleClick = false;
         row.GuiInput += input =>
         {

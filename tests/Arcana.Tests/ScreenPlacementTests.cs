@@ -4,7 +4,7 @@ static class ScreenPlacementTests
 {
     public static void Run(Action<string, Action> test)
     {
-        test("Joysticks: margen fijo de 24 píxeles para todo el círculo en bordes y esquinas", () =>
+        test("Joysticks: margen fijo de 48 píxeles para todo el círculo en bordes y esquinas", () =>
         {
             foreach (var screen in new[] { new ScreenRect(0, 0, 640, 450), new(0, 0, 1440, 720), new(30, 20, 1024, 640) })
             foreach (float radius in new[] { 32f, 55f, 82f })
@@ -13,8 +13,8 @@ static class ScreenPlacementTests
             {
                 var wanted = new ScreenRect(x - radius, y - radius, radius * 2, radius * 2);
                 if (!ScreenPlacement.TryPlaceJoystick(wanted, screen, [], out var placed) ||
-                    placed.X < screen.X + 24 || placed.Y < screen.Y + 24 ||
-                    placed.Right > screen.Right - 24 || placed.Bottom > screen.Bottom - 24)
+                    placed.X < screen.X + 48 || placed.Y < screen.Y + 48 ||
+                    placed.Right > screen.Right - 48 || placed.Bottom > screen.Bottom - 48)
                     throw new Exception("Un joystick pierde su margen fijo o sale de pantalla.");
                 // Desde este origen se alcanza cada dirección completa sin salir del dispositivo.
                 float centerX = placed.X + radius, centerY = placed.Y + radius;
