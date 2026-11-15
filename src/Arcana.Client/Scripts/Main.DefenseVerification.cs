@@ -7,6 +7,8 @@ namespace Arcana.Client;
 
 public partial class Main
 {
+    private const int DefenseSmokeStartingGold = 1500;
+    private static int DefenseSmokeGoldAfterPowers => DefenseSmokeStartingGold - DefenseRules.AuraCost(0) - DefenseRules.PassiveCost(0);
     private bool _defenseAvatarReviewed;
     private bool _defenseSmoke;
     private int _defenseSmokeFrame, _defenseSmokePhase;
@@ -51,7 +53,7 @@ public partial class Main
         typeof(GameWorld).GetField("_spawnClock", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(world, 10000f);
         var p = world.Players[_localId];
         var progress = ((IDictionary)Field("_defenders"))[p.Id]!;
-        progress.GetType().GetField("Gold")!.SetValue(progress, 1500);
+        progress.GetType().GetField("Gold")!.SetValue(progress, DefenseSmokeStartingGold);
         progress.GetType().GetField("Level")!.SetValue(progress, 6);
         foreach (var slot in Enum.GetValues<EquipmentSlot>().Where(s => !RingEffects.IsRing(s)))
             Call("GrantDefenseItem", p, EquipmentCatalogue.Generate(new(100 + (int)slot), tier: ItemTier.Gold, slot: slot));
@@ -178,7 +180,7 @@ public partial class Main
                 panel.ShowPowers(false); aura.EmitSignal(Button.SignalName.Pressed);
                 panel.ShowPowers(true); passive.EmitSignal(Button.SignalName.Pressed);
                 var after = _practice.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId);
-                Check(after.Auras[0] == 1 && after.Passives[0] == 1 && after.Gold == 1280, "Los botones no compraron en la simulación pausada.");
+                Check(after.Auras[0] == 1 && after.Passives[0] == 1 && after.Gold == DefenseSmokeGoldAfterPowers, "Los botones no compraron en la simulación pausada.");
                 VerifyBotEconomyControls(panel, Check);
                 panel.ShowSection(2);
                 panel.ShowPowers(true);
@@ -265,9 +267,9 @@ public partial class Main
                 var wizard = state.Players.Single(p => p.Id == _localId);
                 Button Upgrade() => (Button)inventory.FindChild("EquipmentUpgrade_" + id, true, false);
                 inventory.UpdateDefenseInventory(player with { Gold = 0 }, wizard, false);
-                Check(Upgrade().Disabled && Upgrade().TooltipText.Contains($"Faltan {DefenseRules.UpgradeCost(_defenseUpgradeBefore.Tier, 0)} oro"), "No se desactiva la mejora sin oro suficiente.");
+                Check(Upgrade().Disabled && Upgrade().TooltipText.Contains($"Faltan {DefenseRules.SurvivalUpgradeCost(_defenseUpgradeBefore.Tier, 0)} oro"), "No se desactiva la mejora sin oro suficiente.");
                 inventory.PressUpgrade(id);
-                Check(_practice!.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId).Gold == 1280,
+                Check(_practice!.Snapshot().Defense!.Defenders.Single(p => p.PlayerId == _localId).Gold == DefenseSmokeGoldAfterPowers,
                     "Un icono desactivado ha gastado oro.");
                 inventory.UpdateDefenseInventory(player with { Items = player.Items.Select(i => i.Item.Id == id ? i with { Upgrades = 10 } : i).ToArray() }, wizard, false);
                 Check(Upgrade().Disabled, "Se permite superar las diez mejoras.");
@@ -285,7 +287,7 @@ public partial class Main
                 if (_quickItemActions && ItemGestureRunning()) return false;
                 var player = state.Defense!.Defenders.Single(p => p.PlayerId == _localId);
                 var improved = player.Items.Single(i => i.Item.Id == _defenseUpgradeBefore!.Id);
-                Check(improved.Upgrades == 1 && player.Gold == 1280 - DefenseRules.UpgradeCost(improved.Item.Tier, 0) &&
+                Check(improved.Upgrades == 1 && player.Gold == DefenseSmokeGoldAfterPowers - DefenseRules.SurvivalUpgradeCost(improved.Item.Tier, 0) &&
                     panel.EquipmentInventory?.Saving == false, $"La mejora no confirmó su efecto y coste: mejoras={improved.Upgrades}, oro={player.Gold}, guardando={panel.EquipmentInventory?.Saving}.");
                 Check(!improved.Equipped && player.Items.Single(i => i.Item.Id == _defenseChosenLoadout!.Boots).Upgrades == 0 &&
                     panel.EquipmentInventory!.PreviewProfile!.Loadout == _defenseChosenLoadout && panel.EquipmentInventory.PickerVisible,
@@ -295,7 +297,7 @@ public partial class Main
                     "La mejora no respeta el incremento o el límite de cada atributo.");
                 if (_quickItemActions) GD.Print("QUICK_UPGRADE_OK: doble clic/toque aplica una sola mejora y un solo cobro; límites de oro y nivel respetados.");
                 var inventory = panel.EquipmentInventory!;
-                Check(((Button)inventory.FindChild("EquipmentUpgrade_" + improved.Item.Id, true, false)).TooltipText.Contains($"{DefenseRules.UpgradeCost(improved.Item.Tier, 1)} oro") &&
+                Check(((Button)inventory.FindChild("EquipmentUpgrade_" + improved.Item.Id, true, false)).TooltipText.Contains($"{DefenseRules.SurvivalUpgradeCost(improved.Item.Tier, 1)} oro") &&
                     inventory.FindChild("EquipmentItemStats_" + improved.Item.Id, true, false).GetChildren().OfType<ElementTextLabel>()
                         .Any(label => label.Text.Contains(EquipmentCatalogue.Percent(improved.Item.Bonuses[0].Current))),
                     "El selector no actualiza el siguiente coste y las estadísticas mejoradas.");
@@ -308,7 +310,7 @@ public partial class Main
             if (_defenseSmokePhase == 8)
             {
                 var player = state.Defense!.Defenders.Single(p => p.PlayerId == _localId);
-                Check(player.Items.Length == 9 && player.Gold == 1180 - DefenseRules.UpgradeCost(_defenseUpgradeBefore!.Tier, 0) && panel.EquipmentInventory?.Saving == false,
+                Check(player.Items.Length == 9 && player.Gold == DefenseSmokeGoldAfterPowers - DefenseRules.SupplyCost - DefenseRules.SurvivalUpgradeCost(_defenseUpgradeBefore!.Tier, 0) && panel.EquipmentInventory?.Saving == false,
                     "Comprar una pieza no actualizó el inventario y el oro de partida.");
                 var inventory = panel.EquipmentInventory!;
                 var supplied = player.Items.Single(i => !_defenseItemsBeforeSupply.Contains(i.Item.Id));
@@ -488,7 +490,7 @@ public partial class Main
         Press("DefenseBotPowers" + bot.Id); Press("DefenseAura0");
         Sync(); panel.ShowPowers(true); Press("DefensePassive0");
         var updated = Player(bot.Id);
-        int spent = DefenseRules.UpgradeCost(worn.Tier, 0) + DefenseRules.AuraCost(0) + DefenseRules.PassiveCost(0);
+        int spent = DefenseRules.SurvivalUpgradeCost(worn.Tier, 0) + DefenseRules.AuraCost(0) + DefenseRules.PassiveCost(0);
         check(updated.Auras[0] == 1 && updated.Passives[0] == 1 && updated.Gold == botGold + spare.SaleGold - spent &&
             Player(_localId).Gold == humanGold, "Los poderes no se aplicaron al bot con su oro.");
         panel.HandleBack();

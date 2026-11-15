@@ -86,6 +86,11 @@ internal static class HelpCatalogue
 
         Add(HelpTopic.Equipment, "equip", "Equipar, comparar y mejorar",
             "Abre Inventario, elige una ranura y selecciona un objeto. Compara sus atributos antes de equiparlo. «Suma» reúne lo que aporta tu equipo y «Aplicado» muestra el valor final usado en la partida. Las bonificaciones requieren llevar la pieza equipada.");
+        Add(HelpTopic.Equipment, "survival-prices", "Costes en Supervivencia",
+            $"Comprar una pieza aleatoria cuesta {DefenseRules.SupplyCost} de oro de partida. La primera compra de un aura cuesta {DefenseRules.AuraCost(0)} y cada nivel siguiente añade {DefenseRules.AuraCost(1) - DefenseRules.AuraCost(0)} al precio. Las habilidades automáticas empiezan en {DefenseRules.PassiveCost(0)} y cada nivel añade {DefenseRules.PassiveCost(1) - DefenseRules.PassiveCost(0)} al precio.\n" +
+            "La primera mejora de una pieza cuesta " + string.Join(", ", Enum.GetValues<ItemTier>().Select(tier =>
+                EquipmentCatalogue.TierName(tier) + $": {DefenseRules.SurvivalUpgradeCost(tier, 0)}")) +
+            ". La segunda cuesta el doble de la primera; la tercera, el triple, hasta diez mejoras. Esta tarifa usa el oro temporal de la partida. Las mejoras de anillos con oro de cuenta mantienen su tarifa permanente.");
         Add(HelpTopic.Equipment, "defense-shield", "Defensa y capacidad de escudo",
             EquipmentCatalogue.StatExample(EquipmentStat.Defense) + "\n\n" + EquipmentCatalogue.StatExample(EquipmentStat.ShieldCapacity) +
             "\nLa defensa reduce el daño recibido; no añade puntos al escudo. Absorción del escudo es el daño que este ha detenido.");

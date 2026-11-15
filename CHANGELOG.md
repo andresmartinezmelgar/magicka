@@ -1,5 +1,10 @@
 # Cambios
 
+## Pendiente de publicación
+
+- Supervivencia: piezas aleatorias por 50 de oro; auras desde 40, con incrementos de 20; habilidades desde 80, con incrementos de 40. Costes lineales pensados para partidas de hasta 20 minutos.
+- Mejoras temporales de equipo desde 10 a 40 de oro, según calidad, multiplicados por el nivel de destino. Una pieza mítica completa cuesta 2200. Los anillos de cuenta conservan sus tarifas permanentes.
+
 ## 0.29.63
 
 - Los bots de Supervivencia equipan automáticamente el conjunto más útil de su inventario según atributos, afinidad, conjuntos, anillos y afijos. Respetan las ranuras elegidas o vaciadas manualmente.

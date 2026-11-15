@@ -264,10 +264,11 @@ internal static class DefenseTests
         {
             var w = World(); var p = w.AddPlayer("A")!; w.AttachDefenseAccount(p.Id, "uid"); Gold(w, p, 190);
             Command(w, p, "defense_aura", 2);
+            int remainingGold = Player(w, p).Gold;
             var damagedEnemy = Enemy(w); Invoke(w, "Damage", damagedEnemy, 17f, p.Id, new[] { Element.Arcane });
             Advance(w, 10); w.RemovePlayer(p.Id);
             var reconnect = w.AddPlayer("A")!; w.AttachDefenseAccount(reconnect.Id, "uid");
-            Check(Player(w, reconnect).Gold == 110 && Player(w, reconnect).Auras[2] == 1, "Reconexión perdió progreso o reinició compras.");
+            Check(Player(w, reconnect).Gold == remainingGold && Player(w, reconnect).Auras[2] == 1, "Reconexión perdió progreso o reinició compras.");
             Check(w.Snapshot().Players.Single(q => q.Id == reconnect.Id).Damage?.Health[(int)Element.Arcane] == 17,
                 "Reconectar perdió el daño personal acumulado en la misma partida.");
             Invoke(w, "Damage", damagedEnemy, 5f, p.Id, new[] { Element.Fire });
@@ -417,7 +418,7 @@ internal static class DefenseTests
             Check(!Order(ally, bot.Id, "aura", level: 0) && !Order(ally, bot.Id, "passive", level: 0) &&
                 !Order(ally, bot.Id, "upgrade", itemId: equipped.Id, level: 0),
                 "Una orden con nivel desactualizado compró otro nivel.");
-            int gold = spare.SaleGold - DefenseRules.AuraCost(0) - DefenseRules.PassiveCost(0) - DefenseRules.UpgradeCost(equipped.Tier, 0);
+            int gold = spare.SaleGold - DefenseRules.AuraCost(0) - DefenseRules.PassiveCost(0) - DefenseRules.SurvivalUpgradeCost(equipped.Tier, 0);
             var result = Player(w, bot);
             Check(result.Gold == gold && result.Auras[0] == 1 && result.Passives[0] == 1 &&
                 result.Items.Single(i => i.Equipped).Upgrades == 1 && result.Items.All(i => i.Item.Id != spare.Id) &&
@@ -573,7 +574,7 @@ internal static class DefenseTests
             }
             var final = Player(w, p); int gold = final.Gold;
             Check(final.Items[0].Item.Bonuses[0].Current == 0.04f && final.Items[0].Item.Bonuses[1].Current == 0.20f &&
-                gold == 100000 - Enumerable.Range(0, 10).Sum(n => DefenseRules.UpgradeCost(original.Tier, n)), "Resultado o coste incorrectos.");
+                gold == 100000 - Enumerable.Range(0, 10).Sum(n => DefenseRules.SurvivalUpgradeCost(original.Tier, n)), "Resultado o coste incorrectos.");
             Check(!Command(w, p, "defense_upgrade", itemId: original.Id) && Player(w, p).Gold == gold, "Se cobró una undécima mejora.");
         });
         test("Supervivencia: recuperar presión lejana conserva identidad, vida, estados y premios", () =>

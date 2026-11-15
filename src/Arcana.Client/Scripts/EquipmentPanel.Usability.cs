@@ -136,7 +136,7 @@ public partial class EquipmentPanel
         }
         if (!CanChangeDefenseItems) return  "Mejoras bloqueadas: mago caído o partida terminada.";
         if (!ItemAffixes.CanUpgrade(entry.Item, entry.Upgrades)) return  "Límite de mejora alcanzado.";
-        int cost = DefenseRules.UpgradeCost(entry.Item.Tier, entry.Upgrades);
+        int cost = DefenseRules.SurvivalUpgradeCost(entry.Item.Tier, entry.Upgrades);
         return  (_defensePlayer!.Gold < cost ? $"Para mejorar faltan {cost - _defensePlayer.Gold} oro." : "");
     }
 

@@ -75,7 +75,7 @@ public partial class EquipmentPanel : Control
         Ui.EnableTouchScrollPopup(_inventoryMenu, menu);
         if (!BotInventory)
         {
-            menu.AddItem(_defensePlayer == null ? "Actualizar inventario" : "Comprar pieza · 100 oro", 0);
+            menu.AddItem(_defensePlayer == null ? "Actualizar inventario" : $"Comprar pieza · {DefenseRules.SupplyCost} oro", 0);
             menu.AddItem(_defensePlayer == null ? "Equipos guardados" : "Atrás · menú de supervivencia", 1);
         }
         menu.AddItem("Venta múltiple", 2);

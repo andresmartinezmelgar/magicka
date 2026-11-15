@@ -141,9 +141,9 @@ public sealed partial class GameWorld
                 Emit("defense_shop", player.Position, [], DefenseRules.PassiveName((DefensePassive)command.Slot) + $" · nivel {passiveLevel + 1}");
                 return true;
             case "defense_supply":
-                if (progress.Gold < 100 || progress.Items.Count >= DefenseRules.InventoryLimit) return false;
-                StatisticsEconomy(player.Id, StatisticMeasure.GoldSpent, 100);
-                progress.Gold -= 100;
+                if (progress.Gold < DefenseRules.SupplyCost || progress.Items.Count >= DefenseRules.InventoryLimit) return false;
+                StatisticsEconomy(player.Id, StatisticMeasure.GoldSpent, DefenseRules.SupplyCost);
+                progress.Gold -= DefenseRules.SupplyCost;
                 GrantDefenseItem(player, EquipmentCatalogue.Generate(_random));
                 return true;
             case "defense_equip":
@@ -184,7 +184,7 @@ public sealed partial class GameWorld
                 {
                     int upgrades = progress.Upgrades.GetValueOrDefault(item.Id);
                     if (!ItemAffixes.CanUpgrade(item, upgrades) || botAction && command.DefenseUpgradeFromLevel != upgrades) return false;
-                    int price = DefenseRules.UpgradeCost(item.Tier, upgrades);
+                    int price = DefenseRules.SurvivalUpgradeCost(item.Tier, upgrades);
                     if (progress.Gold < price) return false;
                     var improved = item with { Bonuses = item.Bonuses.Select(b => EquipmentCatalogue.BonusActive(item.Slot, b.Stat)
                         ? b with { Current = MathF.Round(Math.Min(b.Maximum, b.Current + DefenseRules.ItemUpgradeStep), 4) } : b).ToArray() };

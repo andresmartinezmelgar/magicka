@@ -64,7 +64,7 @@ public partial class EquipmentPanel
     private void RenderDefenseActions()
     {
         if (_defensePlayer == null || BotInventory) return;
-        _inventoryMenu.GetPopup().SetItemDisabled(0, _busy || !CanChangeDefenseItems || _defensePlayer.Gold < 100 ||
+        _inventoryMenu.GetPopup().SetItemDisabled(0, _busy || !CanChangeDefenseItems || _defensePlayer.Gold < DefenseRules.SupplyCost ||
             _defensePlayer.Items.Length >= DefenseRules.InventoryLimit);
     }
 
@@ -132,7 +132,7 @@ public partial class EquipmentPanel
     {
         var entry = _defensePlayer?.Items.FirstOrDefault(i => i.Item.Id == id);
         return !_busy && CanChangeDefenseItems && entry != null && ItemAffixes.CanUpgrade(entry.Item, entry.Upgrades) &&
-            _defensePlayer!.Gold >= DefenseRules.UpgradeCost(entry.Item.Tier, entry.Upgrades);
+            _defensePlayer!.Gold >= DefenseRules.SurvivalUpgradeCost(entry.Item.Tier, entry.Upgrades);
     }
 
     private void UpgradeDefenseItem(string id)

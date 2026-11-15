@@ -109,7 +109,8 @@ public partial class EquipmentPanel
             int itemLevel = entry?.Upgrades ?? item.UpgradeLevel;
             bool supportsUpgrade = entry != null || RingEffects.IsRing(item.Slot);
             bool maximum = supportsUpgrade && !ItemAffixes.CanUpgrade(item, itemLevel);
-            int cost = maximum ? 0 : DefenseRules.UpgradeCost(item.Tier, itemLevel);
+            int cost = maximum ? 0 : entry != null ? DefenseRules.SurvivalUpgradeCost(item.Tier, itemLevel)
+                : DefenseRules.UpgradeCost(item.Tier, itemLevel);
             string currency = BotInventory ? "del bot" : entry == null ? "de cuenta" : "de partida";
             long availableGold = _defensePlayer?.Gold ?? _draft?.Gold ?? 0;
             var upgrade = PickerAction(actions, "EquipmentUpgrade_", item.Id, _upgradeIcon, Ui.Health,

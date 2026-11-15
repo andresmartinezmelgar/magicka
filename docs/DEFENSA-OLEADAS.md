@@ -157,7 +157,19 @@ Los bots escoltan a los humanos, buscan puestos a un mínimo de 3,5 m y se apart
 
 Abrir **Equipo / tienda** pausa toda la partida si solo hay un humano, también con bots y por red. Con más humanos el combate continúa. La pausa detiene el tiempo para premios. Las pestañas son Partida, Equipo, Poderes, Estadísticas y Guía.
 
-El inventario reutiliza el de `main`: cuatro ranuras, selección por calidad, comparación, conjuntos, aportaciones por pieza y suma total. Los nombres de los atributos ocupan la columna derecha. Cada pieza tiene tres iconos: vender, equipar o quitar y mejorar. La selección se aplica al volver a la tienda. Una pieza aleatoria cuesta 100 de oro; mejorar cuesta `35 × (mejoras previas + 1)`. Cada atributo tiene diez incrementos de un punto porcentual sobre su valor inicial: −6 % → +4 % y +10 % → +20 %. El máximo individual se fija al recibir la pieza temporal y no modifica el equipo permanente ni los límites totales de combate.
+El inventario tiene seis ranuras: botas, gorro, pecho, arma y dos anillos. Incluye comparación, conjuntos, aportaciones por pieza y suma total. Los nombres de los atributos ocupan la columna derecha. Cada pieza tiene tres iconos: vender, equipar o quitar y mejorar. La selección se aplica al volver a la tienda. Una pieza aleatoria cuesta 50 de oro. Las mejoras temporales usan un coste lineal: `base según calidad × nivel de destino`, con bases de 10 (Plata), 15 (Oro), 20 (Platino), 30 (Diamante) y 40 (Mítico). Cada atributo tiene diez incrementos de un punto porcentual sobre su valor inicial: −6 % → +4 % y +10 % → +20 %. El máximo individual se fija al recibir la pieza temporal y no modifica el equipo permanente ni los límites totales de combate.
+
+La economía temporal está ajustada a partidas de hasta unos 20 minutos, sin imponer un límite de duración. El oro recogido, las probabilidades de botín y los precios permanentes de la cuenta mantienen sus reglas. Las partidas guardadas conservan oro y niveles; la tarifa nueva se aplica a las siguientes compras, sin reembolsos ni reinicios.
+
+| Compra o mejora completa | Primera compra o mejora | Última | Total desde nivel 0 |
+| --- | ---: | ---: | ---: |
+| Aura, nivel 10 | 40 | 220 | 1300 |
+| Habilidad automática, nivel 5 | 80 | 240 | 800 |
+| Pieza de Plata, nivel 10 | 10 | 100 | 550 |
+| Pieza de Oro, nivel 10 | 15 | 150 | 825 |
+| Pieza de Platino, nivel 10 | 20 | 200 | 1100 |
+| Pieza de Diamante, nivel 10 | 30 | 300 | 1650 |
+| Pieza Mítica, nivel 10 | 40 | 400 | 2200 |
 
 Nivel, oro, piezas, reliquias, auras y habilidades se conservan tras la primera muerte y se borran al reiniciar. **No se escriben en Firestore ni se importa el equipo permanente.** La misma cuenta puede recuperar progreso y vidas al reconectar a la misma sala activa.
 
@@ -171,9 +183,9 @@ Las bajas normales dan 10 EXP compartida y los colosos 60 EXP a los defensores c
 
 Las recogidas duran 75 s, con un máximo de 96; el inventario temporal admite 24 piezas. Los sprites distinguen monedas giratorias, las cuatro piezas y cada mejora. Las mejoras recogidas se consultan en Reliquias del menú o de la tienda. El HUD muestra nivel, EXP, oro, bajas y vidas. Las aportaciones del equipo se consultan en el inventario y en Estadísticas.
 
-Las auras de fuego, rayo, regeneración, Arcano y Agua siguen al personaje, únicamente en Supervivencia. Admiten diez niveles y cuestan `80 × (nivel actual + 1)²`; el radio es `2,8 + 0,25 × nivel` metros. Fuego, Rayo y Arcano infligen `24 × nivel` de daño/s base. Agua inflige `12 × nivel` y mantiene Mojado a los enemigos hasta dos segundos después del último pulso, ajustados por el atributo de duración del equipo; apaga sus quemaduras y facilita el daño de rayo y la congelación. No afecta al lanzador ni a sus aliados. Todas las auras ofensivas requieren línea de visión y respetan el único elemento vulnerable de los prismas. Regeneración cura `10 × nivel` de vida/s a defensores visibles. Los índices anteriores se conservan y los guardados con tres auras se amplían con las dos nuevas sin comprar.
+Las auras de fuego, rayo, regeneración, Arcano y Agua siguen al personaje, únicamente en Supervivencia. Admiten diez niveles y cuestan `40 + 20 × nivel actual`; el radio es `2,8 + 0,25 × nivel` metros. Fuego, Rayo y Arcano infligen `24 × nivel` de daño/s base. Agua inflige `12 × nivel` y mantiene Mojado a los enemigos hasta dos segundos después del último pulso, ajustados por el atributo de duración del equipo; apaga sus quemaduras y facilita el daño de rayo y la congelación. No afecta al lanzador ni a sus aliados. Todas las auras ofensivas requieren línea de visión y respetan el único elemento vulnerable de los prismas. Regeneración cura `10 × nivel` de vida/s a defensores visibles. Los índices anteriores se conservan y los guardados con tres auras se amplían con las dos nuevas sin comprar.
 
-Las habilidades automáticas admiten cinco niveles y cuestan `140 × (nivel actual + 1)²`:
+Las habilidades automáticas admiten cinco niveles y cuestan `80 + 40 × nivel actual`:
 
 | Habilidad | Nivel 1 |
 | --- | --- |
