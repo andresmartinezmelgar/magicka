@@ -5,6 +5,7 @@ name: Publicacion estable 0.29.64 solicitada
 # Publica únicamente después de completar las pruebas y verificar los paquetes firmados.
 # Incluye los cambios pendientes de economía, venta de descartes, iconos y seguimiento de selección.
 # Revisión: fixtures de precios y descartes actualizados; liberar la UI antes del cierre nativo.
+# Marcadores: comprobar el gesto desde el nuevo origen flotante en vez de la posición de reposo.
 on:
   push:
     branches: [main]

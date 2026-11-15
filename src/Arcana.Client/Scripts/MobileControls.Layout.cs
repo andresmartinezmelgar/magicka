@@ -164,9 +164,9 @@ public partial class MobileControls
         foreach (var action in _actions.Where(a => a.Panel.Visible)) action.Panel.Position = _rectangles[action.Panel.Name].Position;
         _moveHome = _rectangles["Move"].GetCenter(); _aimHome = _rectangles["Aim"].GetCenter();
         if (_moveFinger < 0) _moveCenter = _moveHome;
-        else _moveCenter = FreeStickCenter(_moveCenter, "Move");
         if (_aimFinger < 0) _aimCenter = _aimHome;
-        else _aimCenter = FreeStickCenter(_aimCenter, "Aim");
+        if (_moveFinger >= 0) _moveCenter = FreeStickCenter(_moveCenter, "Move");
+        if (_aimFinger >= 0) _aimCenter = FreeStickCenter(_aimCenter, "Aim");
         QueueRedraw();
     }
 

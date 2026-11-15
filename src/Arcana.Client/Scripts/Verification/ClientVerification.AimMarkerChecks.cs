@@ -39,7 +39,13 @@ public partial class ClientVerification
                     }
                 }
                 Refresh();
-                if (touch != null) touch.Touch(1, stick + Vector2.Right * 60 * scale, true);
+                if (touch != null)
+                {
+                    stick = touch.StickCentersForVerification[1];
+                    touch.Touch(1, stick, true);
+                    stick = touch.ActiveStickCentersForVerification[1];
+                    touch.Drag(1, stick + Vector2.Right * 60 * scale);
+                }
                 else
                 {
                     Point(new(5, 0));
