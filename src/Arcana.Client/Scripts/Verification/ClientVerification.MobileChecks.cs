@@ -246,9 +246,11 @@ public partial class ClientVerification
         touch.ActionRequested += Observe;
         try
         {
-            foreach (var area in touch.HudAreas)
+            // Los avisos flotantes se pueden editar, pero no reservan una zona de
+            // entrada. Solo los paneles fijos y visibles bloquean los joysticks.
+            foreach (var area in touch.HudAreas.Where(a => !a.Floating && !touch.Settings.Hidden(a.Name)))
             {
-                Require(!touch.Touch(20, area.Bounds.GetCenter(), true) && touch.Movement.IsZeroApprox(), "un panel informativo activa movimiento.");
+                Require(!touch.Touch(20, area.Bounds.GetCenter(), true) && touch.Movement.IsZeroApprox(), "un panel informativo activa movimiento: " + area.Name);
             }
             foreach (var origin in new[] { Vector2.Zero, new Vector2(touch.Size.X * .3f, 220), new Vector2(touch.Size.X / 2 - 2, 180), new Vector2(350, touch.Size.Y - 240) })
             {

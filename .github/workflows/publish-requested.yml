@@ -4,6 +4,7 @@ name: Publicacion estable 0.29.66 solicitada
 # Identificar la causa real de las interrupciones de hechizos, incluidas la autodescarga y el aturdimiento eléctrico.
 # Incluye editor del HUD con visibilidad y renovación diaria de tienda mediante AdMob verificado.
 # Validar también servidor de cuentas independiente y posición dinámica de avisos.
+# Comprobar entrada móvil diferenciando paneles fijos y avisos flotantes editables.
 # Solo este mensaje exacto y esta versión activan la publicación solicitada.
 # Publica después de las pruebas y verifica la firma y los paquetes finales.
 on:
