@@ -32,6 +32,15 @@ var options = new AccountOptions("demo-arcana-accounts", "test-only-key", "demo-
 var accounts = new AccountService(options, new TestVerifier(), repository);
 int passed = 0, failed = 0;
 void Check(bool value, string message) { if (!value) throw new Exception(message); }
+async Task Ready(params ArenaConnection[] connections)
+{
+    for (int attempt = 0; attempt < 60 && connections.Any(c => !c.Ready); attempt++)
+    {
+        foreach (var connection in connections) connection.Send(new() { Type = "input", AimX = 1 });
+        await Task.Delay(50);
+    }
+    Check(connections.All(c => c.Ready), "El servidor no confirmó la preparación de los jugadores.");
+}
 async Task Test(string name, Func<Task> action)
 {
     try { await action(); passed++; Console.WriteLine("PASS " + name); }
@@ -312,9 +321,14 @@ await Test("Red: el servidor aplica el equipo guardado y rechaza sesiones duplic
     await using var a = new ArenaConnection(); await using var b = new ArenaConnection();
     await a.ConnectAsync("127.0.0.1:28339", "A", 0, "", accountToken: aliceLogin.AccessToken);
     await b.ConnectAsync("127.0.0.1:28339", "B", 1, "", accountToken: bobLogin.AccessToken);
+    await Ready(a, b);
     Check(a.Latest!.Players.Single(p => p.Id == a.PlayerId).Equipment?.Weapon == ItemTier.Mythic, "El equipo no llegó a la partida.");
     a.Send(new() { Type = "element", Element = Element.Shield }); a.Send(new() { Type = "self" });
-    await Task.Delay(250);
+    for (int attempt = 0; attempt < 60 && a.Latest!.Players.Single(p => p.Id == a.PlayerId).ShieldMax <= 420; attempt++)
+    {
+        a.Send(new() { Type = "input", AimX = 1 }); b.Send(new() { Type = "input", AimX = 1 });
+        await Task.Delay(50);
+    }
     var player = a.Latest!.Players.Single(p => p.Id == a.PlayerId);
     Check(player.ShieldMax > 420, "El arma no modificó la absorción real.");
     var visible = await b.InspectEquipmentAsync(a.PlayerId);
@@ -341,7 +355,7 @@ await Test("Bonos públicos: las fichas se limitan a la sala y llegan junto a sn
     await using var a = new ArenaConnection(); await using var b = new ArenaConnection();
     await a.ConnectAsync("127.0.0.1:28339", "Uno", 0, "", roomId: one.Room!.Id, accountToken: aliceLogin.AccessToken);
     await b.ConnectAsync("127.0.0.1:28339", "Dos", 0, "", roomId: two.Room!.Id, accountToken: bobLogin.AccessToken);
-    await Task.Delay(150);
+    await Ready(a, b);
     Check(a.PlayerId == b.PlayerId, "La prueba no tiene IDs coincidentes de salas distintas.");
     long before = a.Latest!.Tick;
     var views = await Task.WhenAll(Enumerable.Range(0, 5).Select(_ => a.InspectEquipmentAsync(b.PlayerId)));

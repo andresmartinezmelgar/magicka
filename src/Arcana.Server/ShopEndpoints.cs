@@ -34,6 +34,9 @@ public static class ShopEndpoints
             try
             {
                 var reward = await verifier.Verify(context.Request.QueryString.Value ?? "", config.UnitId, context.RequestAborted);
+                // La consola de AdMob puede comprobar la URL sin crear una recompensa real.
+                // También esta comprobación exige firma válida y la unidad configurada.
+                if (reward.IsSetupProbe) return Results.Ok();
                 await accounts.Repository!.ConfirmVerifiedShopAd(reward, context.RequestAborted);
                 return Results.Ok();
             }

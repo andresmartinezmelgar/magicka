@@ -7,6 +7,7 @@ Android integra Google Mobile Ads 25.5.0 y UMP 4.0.0. El servidor permanece con 
 - Crear la aplicación `com.arcana.arena` y una unidad **Recompensado** en AdMob.
 - Crear el mensaje de privacidad y publicar la política correspondiente. Declarar público objetivo y tratamiento aplicable.
 - Configurar y verificar SSV en la unidad: `https://familiamelgar.duckdns.org/account/shop/ad/ssv`. El proxy debe enrutar `/account/shop/ad/ssv` al servidor.
+- Activar primero la configuración del servidor. En la prueba de URL de AdMob usar `arcana_ssv_probe` tanto en User ID como en Custom data. Una comprobación firmada válida recibe HTTP 200 sin generar ofertas ni consumir la cuota.
 - En GitHub Actions, crear la variable `ARCANA_ADMOB_APP_ID` y volver a compilar la APK.
 - En el servidor configurar `ARCANA_ADMOB_ENABLED=true`, `ARCANA_ADMOB_APP_ID` y `ARCANA_ADMOB_REWARDED_UNIT_ID`. El App ID tiene que coincidir con el manifiesto de la APK.
 - Vincular la aplicación con una tienda admitida, verificar app-ads.txt cuando AdMob lo exija, completar preparación de la aplicación y pagos.

@@ -1,4 +1,5 @@
 using Arcana.Server;
+using Arcana.Core;
 using Microsoft.AspNetCore.WebUtilities;
 using System.Security.Cryptography;
 using System.Text;
@@ -18,6 +19,8 @@ internal static class AdMobRewardVerifierTests
             HashAlgorithmName.SHA256, DSASignatureFormat.Rfc3279DerSequence)) + "&key_id=7";
         var proof = await verifier.Verify(Sign(data), unit);
         if (proof.Uid != uid || proof.TicketId != ticket || proof.TransactionId != transaction) throw new Exception("La firma válida pierde la identidad o la recompensa.");
+        var probe = await verifier.Verify(Sign(data.Replace(ticket, VerifiedAdMobReward.SetupProbe).Replace(uid, VerifiedAdMobReward.SetupProbe)), unit);
+        if (!probe.IsSetupProbe || proof.IsSetupProbe) throw new Exception("La comprobación de configuración se confunde con una recompensa real.");
         async Task Reject(string query, string expected = "ca-app-pub-1111111111111111/1234567890")
         {
             try { await verifier.Verify(query, expected); }

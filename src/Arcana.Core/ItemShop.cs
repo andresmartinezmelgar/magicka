@@ -6,6 +6,11 @@ public sealed record ItemShop(string Id, int Revision, ShopOffer[] Offers, DateT
     public DateTimeOffset? RewardedRefreshAvailableAt { get; init; }
 }
 public sealed record RewardedAdsConfiguration(string AppId, string UnitId);
+public sealed record VerifiedAdMobReward(string Uid, string TicketId, string TransactionId, DateTimeOffset WatchedAt)
+{
+    public const string SetupProbe = "arcana_ssv_probe";
+    [System.Text.Json.Serialization.JsonIgnore] public bool IsSetupProbe => Uid == SetupProbe && TicketId == SetupProbe;
+}
 public sealed record ShopResult(AccountProfile Profile, ItemShop Shop, string Message, DateTimeOffset? ServerTime = null)
 {
     public RewardedAdsConfiguration? RewardedAds { get; init; }

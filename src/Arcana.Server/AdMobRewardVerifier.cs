@@ -7,8 +7,6 @@ using System.Text.RegularExpressions;
 
 namespace Arcana.Server;
 
-public sealed record VerifiedAdMobReward(string Uid, string TicketId, string TransactionId, DateTimeOffset WatchedAt);
-
 public sealed class AdMobRewardVerifier
 {
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10) };
