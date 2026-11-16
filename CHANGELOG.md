@@ -1,6 +1,6 @@
 # Cambios
 
-## Sin publicar
+## 0.29.68
 
 - Miniaturas del equipo: marco de calidad más grueso que conserva su color al tocarlo; elemento visible por separado y atributo extra únicamente cuando existe un afijo activo, también en los anillos.
 - Triplicado el coste de todas las mejoras temporales de Supervivencia: piezas, auras y habilidades. El factor se aplica después del redondeo de cada mejora de equipo.

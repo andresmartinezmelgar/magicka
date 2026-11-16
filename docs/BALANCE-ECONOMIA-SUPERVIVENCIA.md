@@ -59,6 +59,6 @@ Quedan 150. El siguiente nivel cuesta 390 para un aura, 390 para una habilidad y
 
 ## Comprobaciones
 
-Las pruebas de economía cubren los precios completos por calidad, fondos insuficientes, compras rechazadas sin cobro, límites máximos, rutas de gasto y conservación de partidas guardadas. Su ejecución queda pendiente de la próxima compilación autorizada.
+Las pruebas de economía cubren los precios completos por calidad, fondos insuficientes, compras rechazadas sin cobro, límites máximos, rutas de gasto y conservación de partidas guardadas.
 
 Queda pendiente contrastar la nueva curva con partidas reales, midiendo oro y niveles a los 5, 10, 15 y 20 minutos y separando humanos de bots. Los ingresos hipotéticos anteriores no garantizan la misma progresión con el nuevo precio.
