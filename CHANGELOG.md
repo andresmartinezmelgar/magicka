@@ -1,5 +1,9 @@
 # Cambios
 
+## Sin publicar
+
+- Aclarada la descripción de Saltos de relámpago: tres objetivos base y uno o dos saltos extra en total por descarga, con su alcance, selección de enemigos y exclusiones.
+
 ## 0.29.68
 
 - Miniaturas del equipo: marco de calidad más grueso que conserva su color al tocarlo; elemento visible por separado y atributo extra únicamente cuando existe un afijo activo, también en los anillos.

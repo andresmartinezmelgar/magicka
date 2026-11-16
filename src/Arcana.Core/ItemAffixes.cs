@@ -82,7 +82,10 @@ public static class ItemAffixes
         : affix.Kind switch
     {
         ItemAffixKind.BeamPierce => $"Los haces ofensivos atraviesan {affix.Value} enemigo{(affix.Value == 1 ? " adicional" : "s adicionales")}. Arcano sigue recto, sin perder daño ni buscar objetivos. La penetración se detiene en escudos y paredes.",
-        ItemAffixKind.LightningChain => $"Los relámpagos alcanzan {affix.Value} enemigo{(affix.Value == 1 ? " adicional" : "s adicionales")}: hasta 5 m por salto, con línea de visión.",
+        ItemAffixKind.LightningChain => $"Las descargas frontales de Rayo alcanzan hasta 3 objetivos de base. Este atributo añade hasta {affix.Value} " +
+            $"{(affix.Value == 1 ? "salto adicional" : "saltos adicionales")} en total por descarga: hasta {3 + affix.Value} objetivos. " +
+            "La cadena parte del último objetivo inicial. Cada salto busca al enemigo nuevo más cercano a un máximo de 5 m y con línea de visión, incluso fuera del cono de apuntado. " +
+            "No repite objetivos. Varias piezas con este atributo usan el valor más alto. No afecta a los haces de Arcano o Vida, áreas ni habilidades automáticas.",
         ItemAffixKind.DoubleBurn => "Duplica el daño por segundo de las quemaduras, sin cambiar su duración ni el impacto inicial.",
         ItemAffixKind.WaterShieldPool => "Al ponerte un escudo de agua creas un charco de 3 m durante 5 s. Moja a todos dentro, incluido tú.",
         ItemAffixKind.Icebreaker => $"Quebrantahielo: +{CombatAffixes.IcebreakerPercent(affix.Value)} % al daño de Tierra de tus hechizos contra enemigos congelados.",

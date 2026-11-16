@@ -87,7 +87,7 @@ public partial class DefensePanel
     {
         (ItemAffixKind.BeamPierce or ItemAffixKind.ArcaneExecution or ItemAffixKind.ArcaneMark or ItemAffixKind.ArcaneEcho, Element.Arcane)
             => "Potencia tus hechizos de Arcano.",
-        (ItemAffixKind.LightningChain, Element.Lightning) => "Añade saltos a los relámpagos de Rayo.",
+        (ItemAffixKind.LightningChain, Element.Lightning) => "Añade hasta dos saltos por descarga de Rayo: hasta cinco objetivos en total con el valor máximo.",
         (ItemAffixKind.LightningStun, Element.Lightning) => "Aturde brevemente tras un segundo de impactos continuos de Rayo.",
         (ItemAffixKind.WaterSlow, Element.Water) => "Mojar al enemigo reduce temporalmente su velocidad sin congelarlo.",
         (ItemAffixKind.DoubleBurn or ItemAffixKind.SteamImpact, Element.Fire) => "Potencia el daño de Fuego; consulta sus condiciones.",

@@ -12,7 +12,7 @@ Las reliquias desaparecen del HUD y de la columna izquierda de supervivencia. Se
 
 Los nuevos objetos Diamante y Míticos tienen un afijo fijo, separado de sus porcentajes:
 - Penetración de haces ofensivos: Diamante 1–2 enemigos adicionales; Mítico 1–3. Escudos y paredes detienen la penetración.
-- Relámpagos encadenados: Diamante 1 objetivo adicional; Mítico 1–2. Cada salto busca un enemigo nuevo a 5 m como máximo con línea de visión.
+- Relámpagos encadenados: la descarga frontal de Rayo alcanza hasta tres objetivos de base. Diamante añade un salto (hasta cuatro objetivos en total); Mítico añade uno o dos (hasta cuatro o cinco). Los saltos extra se reparten por descarga. La cadena parte del último objetivo inicial y busca al enemigo nuevo más cercano a un máximo de 5 m y con línea de visión, también fuera del cono de apuntado. No repite objetivos ni modifica los haces de Arcano o Vida, áreas o habilidades automáticas.
 - Quemadura intensa: doble daño por segundo, sin duplicar impacto ni duración.
 - Escudo de agua: crea un charco visible de 3 m durante 5 s. Moja y apaga las quemaduras de quienes entren, también del lanzador. Un solo charco por lanzador, respetando el límite global de campos.
 
