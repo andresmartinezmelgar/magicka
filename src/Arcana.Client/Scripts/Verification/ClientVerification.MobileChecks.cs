@@ -281,7 +281,17 @@ public partial class ClientVerification
                 "el gesto de apuntado roba el botón Sobre mí.");
             touch.Touch(22, Vector2.Zero, false);
             actions.Clear();
-            Require(touch.Touch(23, global + new Vector2(touch.Size.X * 0.75f, 120), true) && touch.Movement.IsZeroApprox() &&
+            // El minimapa se recoloca al compactar la cabecera. Buscar espacio
+            // libre en la mitad derecha, en lugar de tocar su antigua posición.
+            var aimCandidates = from row in Enumerable.Range(1, 5)
+                                from column in Enumerable.Range(0, 7)
+                                select global + new Vector2(touch.Size.X * (.6f + column * .05f), touch.Size.Y * row / 8);
+            var freeAim = aimCandidates.Where(point =>
+                !touch.ButtonRectanglesForVerification.Any(rect => rect.HasPoint(point)) &&
+                !touch.HudAreas.Any(area => !area.Floating && !touch.Settings.Hidden(area.Name) && area.Bounds.HasPoint(point)) &&
+                touch.MapRectangle?.HasPoint(point) != true && touch.PointerBlocked?.Invoke(point) != true).ToArray();
+            Require(freeAim.Length > 0, "la mitad derecha no deja espacio para iniciar el apuntado.");
+            Require(touch.Touch(23, freeAim[0], true) && touch.Movement.IsZeroApprox() &&
                 actions.SequenceEqual(["cast"]), "el lado derecho libre no captura apuntado o activa movimiento.");
             touch.Touch(23, Vector2.Zero, false);
             Require(touch.Touch(24, global + new Vector2(350, 250), true), "no admite un gesto nuevo después de cancelar.");

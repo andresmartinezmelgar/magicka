@@ -1,6 +1,7 @@
 name: Publicacion estable 0.29.67 solicitada
 
 # Petición expresa: reducir el ancho del bloque seleccionado de temporizador y objetivo, y entregar APK.
+# Validar el apuntado en espacio libre después de recolocar el minimapa.
 # Solo este mensaje exacto y esta versión activan la publicación solicitada.
 # Publica después de las pruebas y verifica la firma y los paquetes finales.
 on:
