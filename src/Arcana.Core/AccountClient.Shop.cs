@@ -23,8 +23,8 @@ public sealed partial class AccountClient
         var identity = CaptureIdentity();
         var ticket = await Request<ShopAdTicket>(HttpMethod.Post, "account/shop/ad/start", new ShopAdRequest(shopId), token, identity).ConfigureAwait(false);
         if (!Guid.TryParseExact(ticket.Id, "N", out _) || ticket.ShopId != shopId || ticket.ReadyAt >= ticket.ExpiresAt ||
-            ticket.ExpiresAt <= DateTimeOffset.UtcNow || ticket.ExpiresAt > DateTimeOffset.UtcNow.AddMinutes(6))
-            throw new InvalidDataException("Anuncio simulado inválido.");
+            ticket.ExpiresAt <= DateTimeOffset.UtcNow || ticket.ExpiresAt > DateTimeOffset.UtcNow.AddMinutes(31))
+            throw new InvalidDataException("Autorización de anuncio inválida.");
         return ticket;
     }
 }

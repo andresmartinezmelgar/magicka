@@ -14,6 +14,16 @@ public partial class MobileControls
     public event Action<string, float>? EditorSelectionChanged;
     internal string SelectedEditorControl => _selectedEditorControl;
     internal float SelectedEditorScale => Settings.ControlScale(_selectedEditorControl);
+    internal IEnumerable<string> EditableKeys => _rectangles.Keys.Concat(_hudAreas.Where(a => a.Widget != null).Select(a => a.Name))
+        .Concat(MapRectangle != null ? new[] { MapPosition } : []).Distinct(StringComparer.Ordinal);
+    private bool EditorRectangle(string key, out Rect2 rect)
+    {
+        if (_rectangles.TryGetValue(key, out rect)) return true;
+        if (key == MapPosition && MapRectangle is { } map) { rect = new(map.Position - GlobalPosition, map.Size); return true; }
+        foreach (var area in _hudAreas) if (area.Name == key && area.Widget != null)
+        { rect = new(area.Bounds.Position - GlobalPosition, area.Bounds.Size); return true; }
+        rect = default; return false;
+    }
 
     private void BuildEditorOverlay()
     {
@@ -30,21 +40,31 @@ public partial class MobileControls
     private void UpdateEditorSelection()
     {
         if (_editorOverlay == null) return;
-        _editorOverlay.Visible = EditorMode && _rectangles.TryGetValue(_selectedEditorControl, out _);
+        _editorOverlay.Visible = EditorMode && EditorRectangle(_selectedEditorControl, out _);
         if (!_editorOverlay.Visible) return;
-        _editorOverlay.Target = _rectangles[_selectedEditorControl]; _editorOverlay.QueueRedraw();
+        EditorRectangle(_selectedEditorControl, out var selected); _editorOverlay.Target = selected; _editorOverlay.QueueRedraw();
     }
     internal string EditorControlName(string key)
     {
         if (key == "Move") return "Joystick de movimiento";
         if (key == "Aim") return "Joystick de apuntado";
+        if (key == "HudTopScore") return "Temporizador, vidas y objetivo";
+        if (key == "PlayerStatusPanel") return "Nombre, vida, escudo y energía";
+        if (key == "SpellControlsPanel") return "Mezcla seleccionada y carga";
+        if (key == "MagickFeedback") return "Avisos de hechizos e interrupciones";
+        if (key == "ActiveBuffs") return "Información de reliquias";
+        if (key == "HudLootNotice") return "Avisos de objetos y recompensas";
+        if (key == "HudEventFeed") return "Registro de eventos";
+        if (key == "HudServerInfo") return "Nombre del servidor y modo";
+        if (key == "HudControlHints") return "Recordatorio de controles";
+        if (key == MapPosition) return "Minimapa";
         if (GodotObject.IsInstanceValid(_equipmentHud) && _equipmentHud!.Buttons.ContainsKey(key))
             return "Equipo · " + EquipmentCatalogue.SlotName(Enum.Parse<EquipmentSlot>(key["SurvivalEquipped_".Length..]));
         return _actions.FirstOrDefault(a => a.Panel.Name == key)?.Text.Text.Split('\n')[0] ?? key;
     }
     internal bool SelectEditorControl(string key)
     {
-        if (!EditorMode || !_rectangles.ContainsKey(key)) return false;
+        if (!EditorMode || !EditorRectangle(key, out _)) return false;
         _selectedEditorControl = key; UpdateEditorSelection();
         EditorSelectionChanged?.Invoke(EditorControlName(key), Settings.ControlScale(key)); return true;
     }
@@ -60,10 +80,11 @@ public partial class MobileControls
         if (_editorOverlay?.Visible == true && _editorOverlay.Grip.Grow(4).HasPoint(point))
         {
             _editingControl = _selectedEditorControl; _editFinger = finger; _resizingControl = true;
-            _resizeStart = _rectangles[_editingControl]; _resizePointerStart = point;
+            EditorRectangle(_editingControl, out _resizeStart); _resizePointerStart = point;
             _resizeStartScale = Settings.ControlScale(_editingControl); return true;
         }
-        var hit = _rectangles.FirstOrDefault(pair => pair.Value.HasPoint(point));
+        var hit = EditableKeys.Select(k => { EditorRectangle(k, out var r); return new KeyValuePair<string, Rect2>(k, r); })
+            .FirstOrDefault(pair => pair.Value.HasPoint(point));
         if (hit.Key == null || !SelectEditorControl(hit.Key)) return false;
         _editingControl = hit.Key; _editFinger = finger; _editOffset = point - hit.Value.GetCenter(); return true;
     }
@@ -82,9 +103,11 @@ public partial class MobileControls
 
     private List<ScreenRect> EditorObstacles(string key)
     {
-        var occupied = Reserved();
-        occupied.AddRange(_rectangles.Where(pair => pair.Key != key).Select(pair => TouchHudLayout.Rect(pair.Value)));
-        if (MapRectangle is { } map) occupied.Add(TouchHudLayout.Rect(new Rect2(map.Position - GlobalPosition, map.Size)));
+        var occupied = _hudAreas.Where(a => !a.Floating && a.Name != key && !Settings.Hidden(a.Name) && a.Name != "ActiveBuffs")
+            .Select(a => TouchHudLayout.Rect(new Rect2(a.Bounds.Position - GlobalPosition, a.Bounds.Size))).ToList();
+        occupied.AddRange(_rectangles.Where(pair => pair.Key != key && !Settings.Hidden(pair.Key)).Select(pair => TouchHudLayout.Rect(pair.Value)));
+        if (key != MapPosition && !Settings.Hidden(MapPosition) && MapRectangle is { } map)
+            occupied.Add(TouchHudLayout.Rect(new Rect2(map.Position - GlobalPosition, map.Size)));
         return occupied;
     }
     private bool PlaceEdited(string key, Rect2 wanted, out Rect2 destination)
@@ -102,6 +125,11 @@ public partial class MobileControls
         Settings.Positions.Remove(SpellGridPosition);
         foreach (var (key, rect) in _rectangles)
             Settings.Positions[key] = new(rect.GetCenter().X / Size.X, rect.GetCenter().Y / Size.Y);
+        foreach (var area in _hudAreas.Where(a => a.Widget != null))
+        {
+            var center = area.Bounds.GetCenter() - GlobalPosition;
+            Settings.Positions[area.Name] = new(center.X / Size.X, center.Y / Size.Y);
+        }
         if (MapRectangle is { } map)
         {
             var center = map.GetCenter() - GlobalPosition;
@@ -110,22 +138,37 @@ public partial class MobileControls
     }
     private void MoveEditedControl(Vector2 point)
     {
-        var current = _rectangles[_editingControl];
+        if (!EditorRectangle(_editingControl, out var current)) return;
         if (!PlaceEdited(_editingControl, new(point - current.Size / 2, current.Size), out var destination)) return;
-        RememberCurrentLayout(); _rectangles[_editingControl] = destination;
+        RememberCurrentLayout();
+        if (_rectangles.ContainsKey(_editingControl)) _rectangles[_editingControl] = destination;
         Settings.Positions[_editingControl] = new(destination.GetCenter().X / Size.X, destination.GetCenter().Y / Size.Y);
-        ApplyRectangles();
+        ApplyEditedHud(_editingControl, destination); ApplyRectangles();
     }
     internal bool ResizeEditorControl(string key, float nextScale, Vector2? anchor = null)
     {
-        if (!EditorMode || !_rectangles.TryGetValue(key, out var current) || !float.IsFinite(nextScale)) return false;
+        if (!EditorMode || !EditorRectangle(key, out var current) || !float.IsFinite(nextScale)) return false;
         nextScale = Math.Clamp(nextScale, TouchSettings.MinimumControlScale, TouchSettings.MaximumControlScale);
         var size = current.Size * (nextScale / Settings.ControlScale(key));
         var wanted = new Rect2(anchor ?? current.GetCenter() - size / 2, size);
         if (!PlaceEdited(key, wanted, out var destination)) return false;
-        RememberCurrentLayout(); Settings.ControlScales[key] = nextScale; _rectangles[key] = destination;
+        RememberCurrentLayout(); Settings.ControlScales[key] = nextScale;
+        if (_rectangles.ContainsKey(key)) _rectangles[key] = destination;
         Settings.Positions[key] = new(destination.GetCenter().X / Size.X, destination.GetCenter().Y / Size.Y);
-        ApplyRectangles(); EditorSelectionChanged?.Invoke(EditorControlName(key), nextScale); LayoutEdited?.Invoke(); return true;
+        ApplyEditedHud(key, destination); ApplyRectangles(); EditorSelectionChanged?.Invoke(EditorControlName(key), nextScale); LayoutEdited?.Invoke(); return true;
+    }
+    private void ApplyEditedHud(string key, Rect2 destination)
+    {
+        if (key == MapPosition && destination.Size.X > 0) MapRectangle = new(destination.Position + GlobalPosition, destination.Size);
+        var areas = _hudAreas.ToList(); _hudCustomization.Apply(areas, Settings, Size, EditorMode); _hudAreas = areas.ToArray();
+    }
+    internal bool SetSelectedHidden(bool hidden)
+    {
+        if (!EditorMode || !EditorRectangle(_selectedEditorControl, out _)) return false;
+        RememberCurrentLayout();
+        if (hidden) Settings.HiddenControls.Add(_selectedEditorControl); else Settings.HiddenControls.Remove(_selectedEditorControl);
+        ApplyEditedHud(_selectedEditorControl, default); ApplyRectangles();
+        EditorSelectionChanged?.Invoke(EditorControlName(_selectedEditorControl), SelectedEditorScale); LayoutEdited?.Invoke(); return true;
     }
     internal bool ResizeSelectedControl(float scale) => ResizeEditorControl(_selectedEditorControl, scale);
 }

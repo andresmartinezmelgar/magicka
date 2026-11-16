@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application>
+        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="${arcanaAdmobAppId}"/>
+        <meta-data android:name="org.godotengine.plugin.v2.ArcanaAds" android:value="com.arcana.firebase.ArcanaAdsPlugin"/>
         <meta-data android:name="org.godotengine.plugin.v2.ArcanaFirebase"
             android:value="com.arcana.firebase.ArcanaFirebasePlugin"/>
         <meta-data android:name="org.godotengine.plugin.v2.ArcanaUpdates"

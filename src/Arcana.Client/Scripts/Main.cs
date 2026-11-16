@@ -757,6 +757,7 @@ public partial class Main : Node
     }
     public override void _ExitTree()
     {
+        _rewardedAds?.Dispose();
         _androidSession?.Dispose();
         AutosaveSurvival("shutdown");
         CaptureStatistics(MatchRecordStatus.Interrupted);

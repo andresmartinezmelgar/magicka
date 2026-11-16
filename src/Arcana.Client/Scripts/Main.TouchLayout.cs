@@ -24,11 +24,12 @@ public partial class Main
     }
     private void AppendModeTouchAreas(List<TouchHudArea> areas)
     {
-        if (_defensePanel != null) areas.Add(new("Supervivencia", _defensePanel.SummaryRectForVerification));
+        if (_defensePanel != null) areas.Add(new("Supervivencia", _defensePanel.SummaryRectForVerification,
+            (Control)_defensePanel.FindChild("DefenseSummary", true, false)));
         else
         {
-            areas.Add(new("Conexión / FPS / ping", _networkPanel.GetGlobalRect()));
-            if (_practicePanel != null) areas.Add(new("Laboratorio", _practicePanel.GetGlobalRect()));
+            areas.Add(new("Conexión / FPS / ping", _networkPanel.GetGlobalRect(), _networkPanel));
+            if (_practicePanel != null) areas.Add(new("Laboratorio", _practicePanel.GetGlobalRect(), _practicePanel));
         }
     }
 

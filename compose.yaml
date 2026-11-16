@@ -20,6 +20,9 @@ services:
       SERVER_PASSWORD: "${SERVER_PASSWORD:-}"
       ARCANA_REWARD_OUTBOX: /app/data/rewards
       ARCANA_LOG_LEVEL: "${ARCANA_LOG_LEVEL:-Information}"
+      ARCANA_ADMOB_ENABLED: "${ARCANA_ADMOB_ENABLED:-false}"
+      ARCANA_ADMOB_APP_ID: "${ARCANA_ADMOB_APP_ID:-}"
+      ARCANA_ADMOB_REWARDED_UNIT_ID: "${ARCANA_ADMOB_REWARDED_UNIT_ID:-}"
     volumes:
       - server-logs:/app/logs
       - server-data:/app/data

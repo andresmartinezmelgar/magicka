@@ -1,11 +1,22 @@
 namespace Arcana.Core;
 
 public sealed record ShopOffer(EquipmentItem Item, int Price, bool Sold = false);
-public sealed record ItemShop(string Id, int Revision, ShopOffer[] Offers, DateTimeOffset? RefreshAt = null);
-public sealed record ShopResult(AccountProfile Profile, ItemShop Shop, string Message, DateTimeOffset? ServerTime = null);
+public sealed record ItemShop(string Id, int Revision, ShopOffer[] Offers, DateTimeOffset? RefreshAt = null)
+{
+    public DateTimeOffset? RewardedRefreshAvailableAt { get; init; }
+}
+public sealed record RewardedAdsConfiguration(string AppId, string UnitId);
+public sealed record ShopResult(AccountProfile Profile, ItemShop Shop, string Message, DateTimeOffset? ServerTime = null)
+{
+    public RewardedAdsConfiguration? RewardedAds { get; init; }
+}
 public sealed record ShopPurchaseRequest(string ShopId, string ItemId);
 public sealed record ShopAdRequest(string ShopId);
-public sealed record ShopAdTicket(string Id, string ShopId, DateTimeOffset ReadyAt, DateTimeOffset ExpiresAt);
+public sealed record ShopAdTicket(string Id, string ShopId, DateTimeOffset ReadyAt, DateTimeOffset ExpiresAt)
+{
+    public string? UserId { get; init; }
+    public string? AdUnitId { get; init; }
+}
 public sealed record ShopAdCompleteRequest(string ShopId, string TicketId);
 
 /// <summary>El catálogo se genera en el servidor. Los clientes nunca eligen precio, rareza ni atributos.</summary>

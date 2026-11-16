@@ -19,7 +19,7 @@ internal partial class SurvivalEquipmentHud : Control
     private ScreenRect[] _lastOccupied = [];
     internal static string Key(EquipmentSlot slot) => "SurvivalEquipped_" + slot;
     internal Rect2[] ItemRectangles => _buttons.Values.Select(b => b.GetGlobalRect()).ToArray();
-    internal bool Contains(Vector2 point) => IsVisibleInTree() && _buttons.Values.Any(b => b.GetGlobalRect().HasPoint(point));
+    internal bool Contains(Vector2 point) => IsVisibleInTree() && _buttons.Values.Any(b => b.IsVisibleInTree() && b.GetGlobalRect().HasPoint(point));
 
     // En pantallas estrechas la cabecera baja debajo de las utilidades, conservando
     // tres piezas a cada lado. El temporizador y las piezas comparten esta geometría.

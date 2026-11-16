@@ -129,7 +129,9 @@ public partial class Main
                     foreach (string name in new[] { "TouchSelf", "TouchNova" })
                     {
                         var action = ((Control)_touch.FindChild(name, true, false)).GetGlobalRect();
-                        Check(action.Position.X > GetViewport().GetVisibleRect().Size.X / 2, "Sobre mí o En área no están en la derecha.");
+                        Check(action.Position.X > GetViewport().GetVisibleRect().Size.X / 2,
+                            $"Sobre mí o En área no están en la derecha: {name} {action}, pantalla {GetViewport().GetVisibleRect().Size}, ajuste {_touch.FittedScale}. " +
+                            string.Join("; ", _touch.LayoutRectangles.Select(p => p.Key + "=" + p.Value)));
                         Check(!action.Intersects(((Control)_hud!.FindChild("SpellControlsPanel", true, false)).GetGlobalRect()),
                             "Sobre mí o En área tapan los elementos seleccionados.");
                     }

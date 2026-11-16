@@ -26,5 +26,7 @@ class ArcanaFirebaseExport extends EditorExportPlugin:
             "com.google.firebase:firebase-auth:23.2.1",
             "androidx.credentials:credentials:1.5.0",
             "androidx.credentials:credentials-play-services-auth:1.5.0",
-            "com.google.android.libraries.identity.googleid:googleid:1.1.1"
+            "com.google.android.libraries.identity.googleid:googleid:1.1.1",
+            "com.google.android.gms:play-services-ads:25.5.0",
+            "com.google.android.ump:user-messaging-platform:4.0.0"
         ])

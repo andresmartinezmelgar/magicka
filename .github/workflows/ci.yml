@@ -21,6 +21,7 @@ permissions:
 # Conserva los parches de seguridad de 8.0 sin cambiar de versión principal.
 env:
   DOTNET_ROLL_FORWARD: LatestPatch
+  ARCANA_ADMOB_APP_ID: ${{ vars.ARCANA_ADMOB_APP_ID }}
 
 # CI comprueba exclusivamente lo reproducible sin dispositivos, red LAN ni credenciales
 # privadas. Las pruebas manuales estan documentadas en docs/PRUEBAS-MANUALES-v0.17.md.

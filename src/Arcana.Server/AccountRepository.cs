@@ -21,6 +21,12 @@ public interface IAccountRepository
     Task<bool> Buy(string uid, ShopPurchaseRequest request, CancellationToken token = default);
     Task<ShopAdTicket> StartShopAd(string uid, ShopAdRequest request, CancellationToken token = default);
     Task<ItemShop> CompleteShopAd(string uid, ShopAdCompleteRequest request, CancellationToken token = default);
+    Task<ShopAdTicket> StartVerifiedShopAd(string uid, ShopAdRequest request, CancellationToken token = default) =>
+        Task.FromException<ShopAdTicket>(new NotSupportedException("Anuncios no disponibles."));
+    Task<ItemShop> CompleteVerifiedShopAd(string uid, ShopAdCompleteRequest request, CancellationToken token = default) =>
+        Task.FromException<ItemShop>(new NotSupportedException("Anuncios no disponibles."));
+    Task ConfirmVerifiedShopAd(VerifiedAdMobReward reward, CancellationToken token = default) =>
+        Task.FromException(new NotSupportedException("Anuncios no disponibles."));
 }
 
 internal static class FirestoreData

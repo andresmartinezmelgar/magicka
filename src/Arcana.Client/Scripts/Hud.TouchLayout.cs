@@ -82,11 +82,19 @@ public partial class Hud
     internal void AppendTouchAreas(List<TouchHudArea> areas)
     {
         // Se reserva la altura de avisos y bonos aunque estén vacíos para evitar saltos durante el combate.
-        foreach (Control control in new Control[] { _playerPanel, _topScore, _spellsPanel, _actionNotice })
-            areas.Add(new(control.Name, control.GetGlobalRect()));
-        if (_lastSnapshot?.Defense == null) areas.Add(new(_buffs.Name, _buffs.GetGlobalRect()));
+        foreach (Control control in new Control[] { _playerPanel, _topScore, _spellsPanel, _actionNotice, _buffs })
+            areas.Add(new(control.Name, control.GetGlobalRect(), control == _topScore ? (Control)_topScore.GetParent() : control));
+        areas.Add(new("HudLootNotice", _rewardBackdrop.GetGlobalRect(), _rewardBackdrop, Floating: true));
+        areas.Add(new("HudEventFeed", _feed.GetGlobalRect(), _feed, Floating: true));
+        areas.Add(new("HudServerInfo", _server.GetGlobalRect(), _server, Floating: true));
+        areas.Add(new("HudControlHints", _controls.GetGlobalRect(), _controls, Floating: true));
     }
 
-    internal void PlaceTouchMap(Rect2 rect) => _mapPanel.Position = (rect.Position - GlobalPosition) / GameplayScale;
+    internal void PlaceTouchMap(Rect2 rect)
+    {
+        _mapPanel.Scale = rect.Size / (_mapPanel.Size * GameplayScale);
+        _mapPanel.Position = (rect.Position - GlobalPosition) / GameplayScale;
+    }
     internal void HideEditorPlayer() => _playerPanel.Hide();
+    internal void SetTouchMapHidden(bool hidden) => _mapPanel.Visible = _lastSnapshot?.Defense == null && !hidden;
 }

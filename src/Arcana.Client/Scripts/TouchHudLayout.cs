@@ -3,7 +3,7 @@ using Godot;
 
 namespace Arcana.Client;
 
-internal readonly record struct TouchHudArea(string Name, Rect2 Bounds);
+internal readonly record struct TouchHudArea(string Name, Rect2 Bounds, Control? Widget = null, bool Floating = false);
 
 internal static class TouchHudLayout
 {
@@ -15,5 +15,6 @@ internal static class TouchHudLayout
         hud.AppendTouchAreas(areas);
         controls.SetHudAreas(areas, hud.PreferredTouchMap);
         if (controls.MapRectangle is { } map) hud.PlaceTouchMap(map);
+        hud.SetTouchMapHidden(!controls.EditorMode && controls.Settings.Hidden("TouchMinimap"));
     }
 }

@@ -128,6 +128,33 @@ internal static class ShopEmulatorTests
                 "Una compra rechazada cobró oro o retiró la oferta.");
             await header.Reference.UpdateAsync("itemCount", 0);
         });
+        await test("Tienda Firestore: anuncio verificado renueva una vez al día, persiste y conserva compras", async () =>
+        {
+            string uid = await User(), other = await User();
+            var clock = new ShopClock(DateTimeOffset.Parse("2026-11-16T12:00:00Z"));
+            var first = new FirestoreAccountRepository(db, clock); var second = new FirestoreAccountRepository(db, clock);
+            var shop = await first.Shop(uid, "Comprador"); var offer = shop.Offers[0];
+            await first.Buy(uid, new(shop.Id, offer.Item.Id));
+            var ticket = await first.StartVerifiedShopAd(uid, new(shop.Id));
+            var request = new ShopAdCompleteRequest(shop.Id, ticket.Id);
+            await Reject<InvalidOperationException>(() => first.CompleteVerifiedShopAd(uid, request));
+            clock.Now = clock.Now.AddSeconds(4);
+            await Reject<InvalidOperationException>(() => first.CompleteVerifiedShopAd(uid, request));
+            var proof = new VerifiedAdMobReward(uid, ticket.Id, Guid.NewGuid().ToString("N"), clock.Now);
+            await Task.WhenAll(first.ConfirmVerifiedShopAd(proof), second.ConfirmVerifiedShopAd(proof));
+            var replaced = await second.CompleteVerifiedShopAd(uid, request);
+            var profile = await first.Profile(uid, "Comprador");
+            Check(replaced.Id != shop.Id && replaced.Offers.All(o => shop.Offers.All(old => old.Item.Id != o.Item.Id)) &&
+                profile.Items.Single().Id == offer.Item.Id && profile.Gold == 100000 - offer.Price && replaced.RewardedRefreshAvailableAt == ShopRules.NextRefreshAt(clock.Now),
+                "La renovación no sustituye las seis ofertas, elimina compras o altera el saldo.");
+            await Reject<InvalidOperationException>(() => first.StartVerifiedShopAd(uid, new(replaced.Id)));
+            await Reject<InvalidOperationException>(() => first.CompleteVerifiedShopAd(other, request));
+            await second.ConfirmVerifiedShopAd(proof);
+            Check((await first.Shop(uid, "Comprador")).Id == replaced.Id, "Repetir el callback vuelve a renovar.");
+            clock.Now = ShopRules.NextRefreshAt(clock.Now);
+            var tomorrow = await second.Shop(uid, "Comprador");
+            Check((await second.StartVerifiedShopAd(uid, new(tomorrow.Id))).Id != ticket.Id, "El límite no se reinicia al cambiar el día del servidor.");
+        });
         await test("Tienda Firestore: anuncio simulado exige espera, pertenece a la cuenta y renueva una vez", async () =>
         {
             string uid = await User(), other = await User(); var shop = await repository.Shop(uid, "Comprador"); await repository.Shop(other, "Otro");

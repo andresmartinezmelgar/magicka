@@ -7,6 +7,7 @@ public partial class MobileControls
 {
     private float _fitScale = 1;
     private TouchHudArea[] _hudAreas = [];
+    private readonly GameplayHudCustomization _hudCustomization = new();
     private Rect2? _preferredMap;
     private readonly Dictionary<string, Rect2> _rectangles = new(StringComparer.Ordinal);
     private SurvivalEquipmentHud? _equipmentHud;
@@ -29,6 +30,7 @@ public partial class MobileControls
 
     internal void SetHudAreas(IReadOnlyList<TouchHudArea> areas, Rect2? map)
     {
+        var customized = areas.ToList(); _hudCustomization.Apply(customized, Settings, Size, EditorMode); areas = customized;
         bool same = _preferredMap == map && _hudAreas.Length == areas.Count;
         if (same) for (int i = 0; i < areas.Count; i++) if (areas[i] != _hudAreas[i]) { same = false; break; }
         if (same) return;
@@ -37,7 +39,8 @@ public partial class MobileControls
 
     private static Rect2 ButtonRect(TouchAction action) => new(action.Panel.Position, action.Panel.Size * action.Panel.Scale);
     private ScreenRect Screen => new(0, 0, Size.X, Size.Y);
-    private List<ScreenRect> Reserved() => _hudAreas.Select(a => TouchHudLayout.Rect(new Rect2(a.Bounds.Position - GlobalPosition, a.Bounds.Size))).ToList();
+    private List<ScreenRect> Reserved() => _hudAreas.Where(a => !a.Floating && !Settings.Hidden(a.Name) && (a.Name != "ActiveBuffs" || a.Widget?.Visible == true))
+        .Select(a => TouchHudLayout.Rect(new Rect2(a.Bounds.Position - GlobalPosition, a.Bounds.Size))).ToList();
 
     private Dictionary<string, Rect2> Wanted(bool custom)
     {
@@ -117,6 +120,7 @@ public partial class MobileControls
         foreach (var (name, rect) in wanted)
         {
             if (placed.ContainsKey(name)) continue;
+            if (Settings.Hidden(name)) { placed[name] = rect; continue; }
             if (LinkedSpellGrid && name == _defenseShortcut.Action.Panel.Name)
             {
                 // Reservar el bloque completo impide que el ajuste separe las dos filas.
@@ -131,9 +135,11 @@ public partial class MobileControls
                 occupied.Add(grid);
                 continue;
             }
+            var placementScreen = !Settings.LeftHanded && name is "TouchSelf" or "TouchNova" && !Settings.Positions.ContainsKey(name)
+                ? new ScreenRect(Size.X / 2, 0, Size.X / 2, Size.Y) : Screen;
             bool fits = name is "Move" or "Aim"
                 ? ScreenPlacement.TryPlaceJoystick(TouchHudLayout.Rect(rect), Screen, occupied, out var safe)
-                : ScreenPlacement.TryPlace(TouchHudLayout.Rect(rect), Screen, occupied, out safe);
+                : ScreenPlacement.TryPlace(TouchHudLayout.Rect(rect), placementScreen, occupied, out safe);
             if (!fits) return false;
             placed[name] = TouchHudLayout.Rect(safe); occupied.Add(safe);
         }
@@ -143,6 +149,7 @@ public partial class MobileControls
     private void Layout()
     {
         if (_actions.Count == 0 || Size.X < 1 || Size.Y < 1) return;
+        RefreshActionVisibility(false);
         // Se ejecuta al configurar, redimensionar o cambiar una zona del HUD; nunca en cada dibujo.
         for (_fitScale = Settings.LayoutScale; _fitScale >= .45f; _fitScale = _fitScale <= .45f ? 0 : Math.Max(.45f, _fitScale - .05f))
         {
@@ -152,7 +159,7 @@ public partial class MobileControls
             {
                 // El mapa conserva su hueco aunque se arrastre un botón: se calcula con el diseño base.
                 var occupied = new List<ScreenRect>(reserved);
-                var local = new Rect2(desired.Position - GlobalPosition, desired.Size);
+                var local = new Rect2(desired.Position - GlobalPosition, desired.Size * Settings.ControlScale(MapPosition));
                 if (Settings.Positions.TryGetValue(MapPosition, out var savedMap))
                     local.Position = new Vector2(savedMap.X * Size.X, savedMap.Y * Size.Y) - local.Size / 2;
                 else
@@ -161,7 +168,7 @@ public partial class MobileControls
                     occupied.AddRange(defaults.Values.Select(TouchHudLayout.Rect));
                 }
                 if (!ScreenPlacement.TryPlace(TouchHudLayout.Rect(local), Screen, occupied, out var safeMap)) continue;
-                map = TouchHudLayout.Rect(safeMap); reserved.Add(safeMap);
+                map = TouchHudLayout.Rect(safeMap); if (!Settings.Hidden(MapPosition)) reserved.Add(safeMap);
             }
             if (!Pack(Wanted(true), reserved, out var placed)) continue;
             _rectangles.Clear(); foreach (var item in placed) _rectangles.Add(item.Key, item.Value);
@@ -181,15 +188,28 @@ public partial class MobileControls
         foreach (var action in _actions.Where(a => a.Panel.Visible))
         {
             action.Panel.Scale = Vector2.One * ControlScale * Settings.ControlScale(action.Panel.Name);
-            action.Panel.Position = _rectangles[action.Panel.Name].Position;
+            if (_rectangles.TryGetValue(action.Panel.Name, out var actionRect)) action.Panel.Position = actionRect.Position;
         }
         if (GodotObject.IsInstanceValid(_equipmentHud)) _equipmentHud!.Apply(_rectangles, GlobalPosition);
+        RefreshActionVisibility(true);
+        if (_equipmentHud != null) foreach (var (key, button) in _equipmentHud.Buttons)
+        { button.Visible = EditorMode || !Settings.Hidden(key); button.Modulate = new(1, 1, 1, Settings.Hidden(key) ? .3f : 1); }
         _moveHome = _rectangles["Move"].GetCenter(); _aimHome = _rectangles["Aim"].GetCenter();
         if (_moveFinger < 0) _moveCenter = _moveHome;
         if (_aimFinger < 0) _aimCenter = _aimHome;
         if (_moveFinger >= 0) _moveCenter = FreeStickCenter(_moveCenter, "Move");
         if (_aimFinger >= 0) _aimCenter = FreeStickCenter(_aimCenter, "Aim");
         UpdateEditorSelection(); QueueRedraw();
+    }
+    private void RefreshActionVisibility(bool applyHidden)
+    {
+        foreach (var action in _actions)
+        {
+            bool allowed = _actions.IndexOf(action) < 8 ? !AutomaticSpells :
+                action == _defenseShortcut?.Action || action == _attackShortcut?.Action ? AutomaticSpells : true;
+            action.Panel.Visible = allowed && (!applyHidden || EditorMode || !Settings.Hidden(action.Panel.Name));
+            action.Panel.Modulate = new(1, 1, 1, Settings.Hidden(action.Panel.Name) ? .3f : 1);
+        }
     }
 
     private Vector2 FreeStickCenter(Vector2 point, string control)

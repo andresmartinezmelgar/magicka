@@ -81,6 +81,7 @@ public partial class Main
                     VerifyTouchClearance(preview);
                 }
                 VerifyIndividualTouchEditing(preview);
+                VerifyHudVisibilityEditing(preview);
                 if (map == ArenaMapId.Classic)
                 {
                     bool automatic = preview.AutomaticSpells;
@@ -154,15 +155,15 @@ public partial class Main
         {
             var area = rectangles[i];
             Check(screen.Grow(-ScreenPlacement.MinimumGap + .1f).Encloses(area.Bounds), area.Name + " fuera del borde: " + area.Bounds);
-            foreach (var other in rectangles.Skip(i + 1).Concat(controls.HudAreas))
+            foreach (var other in rectangles.Skip(i + 1).Concat(controls.HudAreas.Where(a => !a.Floating && a.Name != "ActiveBuffs")))
                 Check(ScreenPlacement.Separated(TouchHudLayout.Rect(area.Bounds), TouchHudLayout.Rect(other.Bounds)),
                     area.Name + " tapa " + other.Name + ": " + area.Bounds + " / " + other.Bounds);
         }
         Check(controls.FittedScale >= .7f, "el ajuste reduce demasiado el tamaño de los controles.");
-        var information = controls.HudAreas.Where(a => a.Name != "Herramientas").ToArray();
+        var information = controls.HudAreas.Where(a => !a.Floating && a.Name != "Herramientas" && a.Name != "ActiveBuffs").ToArray();
         for (int i = 0; i < information.Length; i++)
         {
-            Check(screen.Grow(.1f).Encloses(information[i].Bounds), information[i].Name + " fuera de pantalla.");
+            Check(screen.Grow(.1f).Encloses(information[i].Bounds), information[i].Name + " fuera de pantalla: " + information[i].Bounds);
             foreach (var other in information.Skip(i + 1))
                 Check(ScreenPlacement.Separated(TouchHudLayout.Rect(information[i].Bounds), TouchHudLayout.Rect(other.Bounds)),
                     information[i].Name + " tapa " + other.Name + ": " + information[i].Bounds + " / " + other.Bounds);
@@ -194,7 +195,7 @@ public partial class Main
             controls._Input(new InputEventScreenDrag { Index = 91, Position = destination, Relative = Vector2.One });
             controls._Input(new InputEventScreenTouch { Index = 91, Position = destination, Pressed = false });
             Check(controls.LayoutRectangles[key].GetCenter().DistanceTo(resized.GetCenter() + Vector2.One) < .1f,
-                "el arrastre no mueve solo " + key);
+                "el arrastre no mueve solo " + key + $"; desde {grab}, bloqueo={controls.PointerBlocked?.Invoke(grab)}, antes={resized}, después={controls.LayoutRectangles[key]}");
             foreach (var (other, rect) in before.Where(p => p.Key != key))
                 Check(controls.LayoutRectangles[other] == rect, "mover " + key + " desplaza " + other);
             var saved = controls.Settings.Normalize();
@@ -217,6 +218,22 @@ public partial class Main
         controls.Configure(original);
         VerifyTouchClearance(controls);
         GD.Print($"TOUCH_INDIVIDUAL_EDIT_OK: {controls.LayoutRectangles.Count} elementos, tamaños independientes y recarga sin mover los demás.");
+    }
+
+    private static void VerifyHudVisibilityEditing(MobileControls controls)
+    {
+        var original = controls.Settings.Normalize();
+        foreach (string key in controls.EditableKeys.ToArray())
+        {
+            if (!controls.SelectEditorControl(key) || !controls.SetSelectedHidden(true))
+                throw new InvalidOperationException("No se puede ocultar el elemento del HUD: " + key);
+            var saved = Protocol.Deserialize<TouchSettings>(Protocol.Serialize(controls.Settings))!.Normalize();
+            controls.Configure(saved);
+            if (!controls.Settings.Hidden(key) || !controls.SelectEditorControl(key) || !controls.SetSelectedHidden(false) || controls.Settings.Hidden(key))
+                throw new InvalidOperationException("No se puede guardar y recuperar el elemento oculto: " + key);
+        }
+        controls.Configure(original);
+        GD.Print("HUD_VISIBILITY_OK: todos los paneles y controles se pueden ocultar, guardar, recargar y recuperar.");
     }
 
     private static void VerifyTouchLayoutVariants(MobileControls controls)

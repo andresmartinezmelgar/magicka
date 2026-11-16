@@ -7,17 +7,39 @@ public static class ShopEndpoints
 {
     public static void MapItemShop(this WebApplication app)
     {
+        var verifier = new AdMobRewardVerifier();
+        ShopResult Result(AccountProfile profile, ItemShop shop, string message) => new(profile, shop, message, DateTimeOffset.UtcNow)
+            { RewardedAds = AdMobRewardVerifier.Configuration(app.Configuration) };
         app.MapGet("/account/shop", (AccountService accounts, HttpContext context) => Auth(accounts, context, async user =>
-            new ShopResult(await accounts.Repository!.Profile(user.Uid, user.Name, context.RequestAborted),
-                await accounts.Repository.Shop(user.Uid, user.Name, context.RequestAborted), "Ofertas cargadas.", DateTimeOffset.UtcNow)));
+            Result(await accounts.Repository!.Profile(user.Uid, user.Name, context.RequestAborted),
+                await accounts.Repository.Shop(user.Uid, user.Name, context.RequestAborted), "Ofertas cargadas.")));
         app.MapPost("/account/shop/buy", (ShopPurchaseRequest request, AccountService accounts, HttpContext context) => Auth(accounts, context, async user =>
         {
             bool bought = await accounts.Repository!.Buy(user.Uid, request, context.RequestAborted);
-            return new ShopResult(await accounts.Repository.Profile(user.Uid, user.Name, context.RequestAborted),
-                await accounts.Repository.Shop(user.Uid, user.Name, context.RequestAborted), bought ? "Objeto comprado y guardado en tu inventario." : "Esta compra ya estaba registrada.", DateTimeOffset.UtcNow);
+            return Result(await accounts.Repository.Profile(user.Uid, user.Name, context.RequestAborted),
+                await accounts.Repository.Shop(user.Uid, user.Name, context.RequestAborted), bought ? "Objeto comprado y guardado en tu inventario." : "Esta compra ya estaba registrada.");
         }));
-        app.MapPost("/account/shop/ad/start", AdsUnavailable);
-        app.MapPost("/account/shop/ad/complete", AdsUnavailable);
+        app.MapPost("/account/shop/ad/start", (ShopAdRequest request, AccountService accounts, HttpContext context) =>
+            AdMobRewardVerifier.Configuration(app.Configuration) is not { } config ? Task.FromResult(AdsUnavailable()) :
+            Auth(accounts, context, async user => (await accounts.Repository!.StartVerifiedShopAd(user.Uid, request, context.RequestAborted))
+                with { AdUnitId = config.UnitId }));
+        app.MapPost("/account/shop/ad/complete", (ShopAdCompleteRequest request, AccountService accounts, HttpContext context) =>
+            AdMobRewardVerifier.Configuration(app.Configuration) == null ? Task.FromResult(AdsUnavailable()) :
+            Auth(accounts, context, async user => Result(await accounts.Repository!.Profile(user.Uid, user.Name, context.RequestAborted),
+                await accounts.Repository.CompleteVerifiedShopAd(user.Uid, request, context.RequestAborted), "Ofertas renovadas. Disponible de nuevo mañana.")));
+        app.MapGet("/account/shop/ad/ssv", async (AccountService accounts, HttpContext context) =>
+        {
+            context.Response.Headers.CacheControl = "no-store";
+            if (!accounts.Enabled || AdMobRewardVerifier.Configuration(app.Configuration) is not { } config) return AdsUnavailable();
+            try
+            {
+                var reward = await verifier.Verify(context.Request.QueryString.Value ?? "", config.UnitId, context.RequestAborted);
+                await accounts.Repository!.ConfirmVerifiedShopAd(reward, context.RequestAborted);
+                return Results.Ok();
+            }
+            catch (Exception e) when (e is ArgumentException or InvalidOperationException or System.Security.Cryptography.CryptographicException or FormatException)
+            { return Results.BadRequest(new ApiError("Confirmación publicitaria inválida.")); }
+        });
     }
     private static IResult AdsUnavailable() => Results.Json(new ApiError("La renovación por anuncios todavía no está disponible."),
         Protocol.Json, statusCode: StatusCodes.Status503ServiceUnavailable);

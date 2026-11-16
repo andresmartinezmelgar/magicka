@@ -5,6 +5,16 @@ static class ResponsiveLayoutTests
     public static void Run(Action<string, Action> test)
     {
         ScreenPlacementTests.Run(test);
+        test("HUD: las posiciones, tamaños y elementos ocultos sobreviven a guardar y recargar", () =>
+        {
+            var original = new TouchSettings { Positions = new() { ["HudTopScore"] = new(.6f, .1f) },
+                ControlScales = new() { ["PlayerStatusPanel"] = .8f }, HiddenControls = new() { "ActiveBuffs", "HudEventFeed" } };
+            var copy = Protocol.Deserialize<TouchSettings>(Protocol.Serialize(original))!.Normalize();
+            if (!copy.Hidden("ActiveBuffs") || !copy.Hidden("HudEventFeed") || copy.Positions["HudTopScore"] != new TouchPosition(.6f, .1f) ||
+                Math.Abs(copy.ControlScale("PlayerStatusPanel") - .8f) > .001f) throw new Exception("Se pierde parte del diseño del HUD.");
+            copy.HiddenControls.Clear();
+            if (!original.Hidden("ActiveBuffs") || !original.Hidden("HudEventFeed")) throw new Exception("Editar la copia modifica los ajustes originales.");
+        });
         test("Responsive: escritorio distribuye cuatro tarjetas sin desbordar", () =>
         {
             if (ResponsiveLayout.Columns(1200, 185, 4, 16) != 4)

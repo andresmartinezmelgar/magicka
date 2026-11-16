@@ -16,6 +16,10 @@ public partial class MobileSettingsPanel : Control
     private SurvivalEquipmentHud _editorEquipment = null!;
     private ElementTextLabel _selectionName = null!;
     private HSlider _selectionSize = null!;
+    private OptionButton _elementPicker = null!;
+    private CheckBox _hideElement = null!;
+    private Button _toggleTools = null!;
+    private string[] _pickerKeys = [];
     private Action<List<TouchHudArea>>? _modeAreas;
     private readonly List<TouchHudArea> _areas = [];
     private readonly List<Control> _modePreviews = [];
@@ -36,7 +40,7 @@ public partial class MobileSettingsPanel : Control
             var sample = new GameWorld(new WorldOptions { Mode = GameMode.Arena });
             playerId = sample.AddPlayer("Vista de controles", 0)!.Id; state = sample.Snapshot();
         }
-        _editorHud.Update(state, playerId, "Vista de controles", 0); _editorHud.HideEditorPlayer();
+        _editorHud.Update(state, playerId, "Vista de controles", 0);
         _preview = new MobileControls { EditorMode = true, Visible = false }; AddChild(_preview); _preview.Configure(_settings);
         _preview.ConfigureSpellShortcuts(new() { Enabled = automaticSpells });
         _editorEquipment = new SurvivalEquipmentHud { Visible = false }; AddChild(_editorEquipment);
@@ -56,7 +60,7 @@ public partial class MobileSettingsPanel : Control
         frame.AddChild(scroll); Ui.VisibleVerticalScroll(scroll);
         var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         box.AddThemeConstantOverride("separation", 8); scroll.AddChild(box);
-        var help = Ui.Label("Ajustes de este dispositivo. Mueve y redimensiona por separado los elementos, botones, joysticks y las seis piezas de equipo de Supervivencia.", 16, Ui.Muted);
+        var help = Ui.Label("Mueve, redimensiona u oculta los botones, joysticks, equipo, temporizador, estado del jugador, mezcla, minimapa, avisos y paneles informativos. Los elementos ocultos se conservan en la lista para recuperarlos.", 16, Ui.Muted);
         help.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(help);
         _sliders = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; _sliders.AddThemeConstantOverride("separation", 8); box.AddChild(_sliders);
         BuildFields();
@@ -71,10 +75,20 @@ public partial class MobileSettingsPanel : Control
         var bar = new PanelContainer { Name = "TouchEditorToolbar", Position = new(12, 12), Size = new(550, 100), Visible = false }; _editorBar = bar; AddChild(bar);
         bar.MinimumSizeChanged += () => Callable.From(FitEditorToolbar).CallDeferred();
         var tools = new VBoxContainer(); bar.AddChild(tools);
+        _toggleTools = Ui.Button("Mostrar herramientas", () => { _editorBar.Visible = !_editorBar.Visible; });
+        _toggleTools.Name = "TouchEditorToggle"; _toggleTools.Position = new(8, 8); _toggleTools.Size = new(170, 38);
+        _toggleTools.Visible = false; AddChild(_toggleTools);
+        _elementPicker = new OptionButton { Name = "TouchElementPicker", FitToLongestItem = false,
+            SizeFlagsHorizontal = SizeFlags.ExpandFill, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
+            CustomMinimumSize = new(0, 36) }; tools.AddChild(_elementPicker);
+        _elementPicker.ItemSelected += index => { if (index >= 0 && index < _pickerKeys.Length) _preview.SelectEditorControl(_pickerKeys[index]); };
+        _hideElement = new CheckBox { Name = "TouchHideSelected", Text = "Ocultar en partida", Disabled = true }; tools.AddChild(_hideElement);
+        _hideElement.Toggled += hidden => _preview.SetSelectedHidden(hidden);
         var instruction = Ui.Label("Arrastra para mover. Selecciona una pieza o botón y usa su esquina o la barra para cambiar solo su tamaño.", 14, Ui.Gold);
         instruction.AutowrapMode = TextServer.AutowrapMode.WordSmart; tools.AddChild(instruction);
         _selectionName = Ui.Label("Selecciona un elemento", 14, Ui.Muted);
-        _selectionName.CustomMinimumSize = new(0, 36); _selectionName.AutowrapMode = TextServer.AutowrapMode.WordSmart; tools.AddChild(_selectionName);
+        _selectionName.CustomMinimumSize = new(0, 36); _selectionName.ClipText = true;
+        _selectionName.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis; tools.AddChild(_selectionName);
         _selectionSize = new HSlider { Name = "TouchSelectedSize", MinValue = TouchSettings.MinimumControlScale,
             MaxValue = TouchSettings.MaximumControlScale, Step = .01, Value = 1, Editable = false, CustomMinimumSize = new(0, 32) };
         tools.AddChild(_selectionSize);
@@ -82,6 +96,8 @@ public partial class MobileSettingsPanel : Control
         {
             _selectionName.Text = name.Length == 0 ? "Selecciona un elemento" : name + $" · {scale * 100:0} %";
             _selectionSize.Editable = name.Length > 0; _selectionSize.SetValueNoSignal(scale);
+            _hideElement.Disabled = name.Length == 0; _hideElement.SetPressedNoSignal(_preview.Settings.Hidden(_preview.SelectedEditorControl));
+            int selected = Array.IndexOf(_pickerKeys, _preview.SelectedEditorControl); if (selected >= 0) _elementPicker.Select(selected);
         };
         _selectionSize.ValueChanged += value =>
         {
@@ -92,6 +108,7 @@ public partial class MobileSettingsPanel : Control
         var actions = new HBoxContainer(); tools.AddChild(actions);
         var done = Ui.Button("Listo", FinishEditing); done.Name = "TouchEditorDone"; actions.AddChild(done);
         actions.AddChild(Ui.Button("Deshacer cambios", () => { _settings = _beforeEdit; FinishEditing(false); }));
+        var fold = Ui.Button("Plegar herramientas", () => _editorBar.Hide()); tools.AddChild(fold);
         foreach (var button in actions.GetChildren().OfType<Button>())
         {
             button.CustomMinimumSize = new(0, 44); button.AddThemeFontSizeOverride("font_size", 16);
@@ -103,7 +120,8 @@ public partial class MobileSettingsPanel : Control
                 button.AddThemeStyleboxOverride(stateName, style);
             }
         }
-        _preview.PointerBlocked = point => _editorBar.Visible && _editorBar.GetGlobalRect().HasPoint(point);
+        _preview.PointerBlocked = point => _editorBar.Visible && _editorBar.GetGlobalRect().HasPoint(point) ||
+            _toggleTools.Visible && _toggleTools.GetGlobalRect().HasPoint(point);
     }
     private void BuildFields()
     {
@@ -130,26 +148,35 @@ public partial class MobileSettingsPanel : Control
         _editorBar.Scale = Vector2.One * s; _editorBar.Size = new(310, 100);
         _editorBar.Position = new(22 * s, 18 * s);
         _form.Hide(); _editorHud.Show(); _editorEquipment.Show(); _preview.Show(); _editorBar.Show();
+        _toggleTools.Show(); _toggleTools.Scale = Vector2.One * s;
         UpdateEditorLayout();
     }
     private void FinishEditing() => FinishEditing(true);
     private void FitEditorToolbar()
     {
         if (!IsInsideTree() || !_editorBar.Visible) return;
-        _editorBar.Size = new(_editorBar.Size.X, _editorBar.GetCombinedMinimumSize().Y);
+        var minimum = _editorBar.GetCombinedMinimumSize();
+        _editorBar.Size = new(310, minimum.Y);
+        float s = Math.Min(1, Size.Y / 720f);
+        _editorBar.Scale = Vector2.One * Math.Min(s, 310 * s / Math.Max(310, minimum.X));
     }
     private void FinishEditing(bool apply)
     {
         if (apply) _settings = _preview.Settings.Normalize();
         _preview.Hide(); _editorHud.Hide(); _editorEquipment.Hide(); _editorBar.Hide(); _form.Show();
+        _toggleTools.Hide();
         foreach (var preview in _modePreviews) preview.Hide();
     }
-    public override void _Process(double delta) { if (_preview.Visible) UpdateEditorLayout(); }
+    public override void _Process(double delta)
+    {
+        _toggleTools.Visible = _preview.Visible && !_editorBar.Visible;
+        if (_preview.Visible) UpdateEditorLayout();
+    }
     private void UpdateEditorLayout()
     {
         _areas.Clear(); _modeAreas?.Invoke(_areas);
         int index = 0;
-        foreach (var area in _areas)
+        foreach (var area in _areas.ToArray())
         {
             if (index == _modePreviews.Count)
             {
@@ -161,13 +188,18 @@ public partial class MobileSettingsPanel : Control
             }
             var placeholder = _modePreviews[index++]; placeholder.Show();
             placeholder.Position = area.Bounds.Position; placeholder.Size = area.Bounds.Size;
+            _areas[index - 1] = area with { Widget = placeholder };
             var text = (ElementTextLabel)placeholder.GetChild(0);
             text.Text = area.Name;
             text.AddThemeFontSizeOverride("font_size", Math.Max(10, (int)(16 * Math.Min(1, Size.Y / 720f))));
         }
-        // Las herramientas sustituyen a la ficha de vida en esta vista y también impiden arrastres por debajo.
-        _areas.Add(new("Herramientas", _editorBar.GetGlobalRect()));
         TouchHudLayout.Apply(_preview, _editorHud, _areas);
+        var keys = _preview.EditableKeys.ToArray();
+        if (!_pickerKeys.SequenceEqual(keys))
+        {
+            _pickerKeys = keys; _elementPicker.Clear();
+            foreach (var key in keys) _elementPicker.AddItem(_preview.EditorControlName(key));
+        }
     }
     private void Save()
     {
@@ -175,5 +207,5 @@ public partial class MobileSettingsPanel : Control
         if (!DevicePreferences.Write("touch-controls", _settings)) { _status.Text = "No se pudieron guardar los controles. Vuelve a intentarlo."; return; }
         Saved?.Invoke(_settings);
     }
-    public void HandleBack() { if (_editorBar.Visible) FinishEditing(); else Canceled?.Invoke(); }
+    public void HandleBack() { if (_preview.Visible) FinishEditing(); else Canceled?.Invoke(); }
 }

@@ -24,6 +24,8 @@ public partial class ItemShopPanel : Control
     private ulong _receivedAt, _renewalRetryAt;
     private AcceptDialog _comparison = null!;
     private ElementTextLabel _comparisonText = null!;
+    private RewardedAdsConfiguration? _ads;
+    private Button _privacy = null!;
     internal ItemShop? Catalogue => _shop;
     internal bool Busy => _busy;
     internal int Columns => _offers.Columns;
@@ -49,9 +51,11 @@ public partial class ItemShopPanel : Control
         explanation.Visible = !Ui.IsMobile;
         var toolbar = new HBoxContainer(); toolbar.AddThemeConstantOverride("separation", 8); body.AddChild(toolbar);
         _reload = Ui.Button("Consultar", () => _ = Load(refresh: true)); _reload.Name = "ShopConnect";
-        _refresh = Ui.Button("Renovación diaria · 00:00", () => { }); _refresh.Name = "ShopRefreshAd";
+        _refresh = Ui.Button("Ver anuncio y renovar ofertas · 1/día", () => _ = RenewAfterAd()); _refresh.Name = "ShopRefreshAd";
         _refresh.Disabled = true;
-        _refresh.TooltipText = "Las seis ofertas cambian automáticamente cada día a las 00:00, hora peninsular.";
+        _refresh.TooltipText = "Un anuncio completado permite sustituir las seis ofertas una vez al día. Las compras anteriores se conservan. El día se reinicia a las 00:00, hora peninsular.";
+        _privacy = Ui.Button("Privacidad de anuncios", () => _main.RewardedAds.PrivacyOptions()); _privacy.Name = "ShopAdsPrivacy";
+        _privacy.Visible = false; body.AddChild(_privacy);
         foreach (var button in new[] { _reload, _refresh })
         {
             button.SizeFlagsHorizontal = SizeFlags.ExpandFill; button.CustomMinimumSize = new(0, Ui.IsMobile ? 54 : 46);
@@ -115,6 +119,7 @@ public partial class ItemShopPanel : Control
         result = result with { Profile = _main.Accounts.Profile! };
         ClearOffers();
         _owner = result.Profile.Uid; _shop = result.Shop; _connected = true; _buyButtons.Clear();
+        _ads = result.RewardedAds;
         _serverTime = result.ServerTime ?? DateTimeOffset.UtcNow; _receivedAt = Time.GetTicksMsec();
         _wallet.Text = $"Oro de cuenta: {result.Profile.Gold:N0} · Inventario: {result.Profile.Items.Length}/{EquipmentCatalogue.InventoryLimit}";
         foreach (var offer in result.Shop.Offers)
@@ -157,7 +162,11 @@ public partial class ItemShopPanel : Control
     }
     private void SetBusy(bool value, string? status = null)
     {
-        _busy = value; _reload.Disabled = value; _refresh.Disabled = true;
+        _busy = value; _reload.Disabled = value;
+        bool used = _shop?.RewardedRefreshAvailableAt > _serverTime.AddMilliseconds(Time.GetTicksMsec() - _receivedAt);
+        bool supported = _main.RewardedAds.Supports(_ads);
+        _refresh.Disabled = value || !_connected || !supported || used;
+        _refresh.Text = used ? "Renovación usada hoy" : supported ? "Ver anuncio y renovar ofertas · 1/día" : "Anuncios no disponibles";
         foreach (var button in _buyButtons.Values) button.Disabled = value || !_connected || !button.GetMeta("available").AsBool();
         if (status != null) _status.Text = status;
     }
@@ -212,6 +221,29 @@ public partial class ItemShopPanel : Control
         }
         catch (Exception error) { _main.ForgetShop(account, session); Publish(request, () => Failed(error)); }
     }
+    private async Task RenewAfterAd()
+    {
+        if (_busy || _refresh.Disabled || _shop == null || !_main.Accounts.SignedIn) return;
+        int request = ++_requestVersion; var account = _main.Accounts; long session = account.SessionRevision;
+        var shopId = _shop.Id; SetBusy(true, "Preparando anuncio recompensado…");
+        try
+        {
+            var ticket = await account.StartShopAd(shopId, _lifetime.Token);
+            if (!await _main.RewardedAds.Show(ticket, _lifetime.Token))
+            { Publish(request, () => SetBusy(false, "Anuncio cerrado. Las ofertas anteriores se conservan.")); return; }
+            Publish(request, () => SetBusy(true, "Anuncio completado. Esperando confirmación del servidor…"));
+            ShopResult? result = null;
+            for (int attempt = 0; attempt < 20; attempt++)
+            {
+                try { result = await account.CompleteShopAd(new(shopId, ticket.Id), _lifetime.Token); break; }
+                catch (InvalidOperationException) when (attempt < 19) { await Task.Delay(1500, _lifetime.Token); }
+            }
+            if (result == null) throw new InvalidOperationException("La confirmación está pendiente. Consulta la tienda en unos segundos.");
+            _main.RememberShop(account, session, result);
+            Publish(request, () => Render(result, "Las seis ofertas anteriores se han sustituido. Podrás renovar de nuevo mañana."));
+        }
+        catch (Exception error) { Publish(request, () => SetBusy(false, PvpServer.DisplayText(error.Message))); }
+    }
     internal void HandleBack() { if (_comparison.Visible) _comparison.Hide(); else _main.NavigateOptionAMenu(0); }
     internal void Close()
     {
@@ -220,6 +252,7 @@ public partial class ItemShopPanel : Control
     public override void _Process(double delta)
     {
         if (_lifetime.IsCancellationRequested) return;
+        _privacy.Visible = _main.RewardedAds.PrivacyRequired;
         if (!ReferenceEquals(_account, _main.Accounts) || _session != _main.Accounts.SessionRevision ||
             _owner != _main.Accounts.Profile?.Uid || _connected && !_main.Accounts.SignedIn)
         {

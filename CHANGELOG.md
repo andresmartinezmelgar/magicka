@@ -2,6 +2,9 @@
 
 ## 0.29.66
 
+- Editor del HUD: permite mover, redimensionar y ocultar los paneles informativos, temporizador, estado del jugador, mezcla, minimapa, avisos, registro, joysticks, botones y equipo. Una lista permite recuperar los elementos ocultos; la barra de herramientas se puede plegar.
+- Tienda: renovación extra de las seis ofertas una vez al día por cuenta mediante anuncio recompensado de AdMob y confirmación SSV firmada. El límite y el catálogo se guardan en una transacción del servidor; se conservan compras, equipamiento y oro. Android integra publicidad y consentimiento UMP. Los anuncios reales requieren los IDs, configuración y aprobación del editor en AdMob.
+- Ajuste de pantallas pequeñas: Sobre mí y En área conservan la mitad derecha cuando se utiliza el diseño predeterminado.
 - Supervivencia: tres piezas equipadas a la izquierda del temporizador y tres a la derecha, en una misma fila. La cabecera se adapta a pantallas estrechas y conserva la edición individual de los iconos.
 - Un aviso con marco muestra durante cuatro segundos por qué se interrumpió el hechizo: autodescarga al lanzar Rayo estando Mojado, aturdimiento eléctrico, congelación, falta de señal de control o una acción que sustituye el canal. El aturdimiento de 0,1–0,2 segundos conserva su causa en las instantáneas durante tres segundos para que no pase desapercibido entre actualizaciones.
 - Los controles identifican el estado Aturdido al bloquear habilidades. La ayuda explica qué corta el rayo, qué estados no lo cancelan y cómo volver a lanzarlo.

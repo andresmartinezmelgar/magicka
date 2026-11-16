@@ -10,6 +10,8 @@ public sealed record TouchSettings
     public bool LeftHanded { get; init; }
     public Dictionary<string, TouchPosition> Positions { get; init; } = new(StringComparer.Ordinal);
     public Dictionary<string, float> ControlScales { get; init; } = new(StringComparer.Ordinal);
+    public HashSet<string> HiddenControls { get; init; } = new(StringComparer.Ordinal);
+    public bool Hidden(string name) => HiddenControls?.Contains(name) == true;
     public float LayoutScale { get; init; } = 1;
     public const float MinimumControlScale = .65f, MaximumControlScale = 1.65f;
     public float ControlScale(string name) => ControlScales != null && ControlScales.TryGetValue(name, out float value)
@@ -20,6 +22,7 @@ public sealed record TouchSettings
         Size = Limit(Size, .75f, 1.3f, 1), Spacing = Limit(Spacing, .8f, 1.25f, 1),
         DeadZone = Limit(DeadZone, .05f, .35f, 12f / 82), Sensitivity = Limit(Sensitivity, .6f, 1.8f, 1),
         LayoutScale = Limit(LayoutScale, .45f, 1, 1),
+        HiddenControls = new((HiddenControls ?? []).Where(k => !string.IsNullOrWhiteSpace(k) && k.Length < 64), StringComparer.Ordinal),
         ControlScales = (ControlScales ?? []).Where(p => p.Key.Length is > 0 and < 64 && float.IsFinite(p.Value))
             .ToDictionary(p => p.Key, p => Limit(p.Value, MinimumControlScale, MaximumControlScale, 1), StringComparer.Ordinal),
         Positions = (Positions ?? []).Where(p => p.Key.Length < 64 && p.Value != null && float.IsFinite(p.Value.X) && float.IsFinite(p.Value.Y))

@@ -9,6 +9,8 @@ public partial class Main
     private Func<CancellationToken, Task<string>> _accountServerResolver = _ => Task.FromResult(PvpServer.Address);
     private readonly AccountShopPreload _preparedShop = new();
     private bool _shopPreloadEnabled;
+    private AndroidRewardedAds? _rewardedAds;
+    internal AndroidRewardedAds RewardedAds => _rewardedAds ??= new();
 
     private void InitializeShopPreload(string[] arguments) => _shopPreloadEnabled = !arguments.Any(a =>
         a.Contains("smoke", StringComparison.Ordinal) || a.Contains("preview", StringComparison.Ordinal) ||

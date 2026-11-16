@@ -2,7 +2,10 @@ plugins { id 'com.android.library' }
 android {
     namespace 'com.arcana.firebase'
     compileSdk 35
-    defaultConfig { minSdk 26 }
+    defaultConfig {
+        minSdk 26
+        manifestPlaceholders = [arcanaAdmobAppId: System.getenv('ARCANA_ADMOB_APP_ID') ?: 'ca-app-pub-3940256099942544~3347511713']
+    }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }
 dependencies {
@@ -11,4 +14,6 @@ dependencies {
     implementation 'androidx.credentials:credentials:1.5.0'
     implementation 'androidx.credentials:credentials-play-services-auth:1.5.0'
     implementation 'com.google.android.libraries.identity.googleid:googleid:1.1.1'
+    implementation 'com.google.android.gms:play-services-ads:25.5.0'
+    implementation 'com.google.android.ump:user-messaging-platform:4.0.0'
 }

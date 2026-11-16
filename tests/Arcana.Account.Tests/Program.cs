@@ -14,6 +14,7 @@ using System.Reflection;
 
 if (args.Contains("--reward-outbox-only")) { await RewardOutboxTests.Run(); return; }
 if (args.Contains("--defense-rewards-only")) { await DefenseRewardsEmulatorTests.Run(); return; }
+await AdMobRewardVerifierTests.Run();
 VerifiedGoogleClaimsTests.Run();
 if (args.Contains("--verified-claims-only")) return;
 

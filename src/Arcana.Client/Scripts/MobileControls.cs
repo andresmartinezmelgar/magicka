@@ -236,8 +236,8 @@ public partial class MobileControls : Control
             }
             action.Run?.Invoke(); return true;
         }
-        if (_hudAreas.Any(area => area.Bounds.HasPoint(point + GlobalPosition)) ||
-            MapRectangle?.HasPoint(point + GlobalPosition) == true) return false;
+        if (_hudAreas.Any(area => !area.Floating && !Settings.Hidden(area.Name) && area.Bounds.HasPoint(point + GlobalPosition)) ||
+            !Settings.Hidden(MapPosition) && MapRectangle?.HasPoint(point + GlobalPosition) == true) return false;
         // Las posiciones editadas tienen prioridad sobre la zona flotante de movimiento.
         // Un toque adicional en un joystick ocupado nunca se reasigna al otro control.
         float aimDistance = point.DistanceTo(_aimFinger >= 0 ? _aimCenter : _aimHome);
@@ -248,6 +248,7 @@ public partial class MobileControls : Control
         bool movementZone = new Rect2(new(Settings.LeftHanded ? Size.X / 2 : 0, 0), new(Size.X / 2, Size.Y)).HasPoint(point);
         if (nearAim && (!nearMove || aimDistance <= moveDistance) || !nearMove && !movementZone)
         {
+            if (Settings.Hidden("Aim")) return false;
             if (_aimFinger >= 0) return true;
             _aimCenter = FreeStickCenter(point, "Aim");
             _aimFinger = finger;
@@ -263,6 +264,7 @@ public partial class MobileControls : Control
         }
         if (nearMove || movementZone)
         {
+            if (Settings.Hidden("Move")) return false;
             if (_moveFinger >= 0) return true;
             _moveCenter = FreeStickCenter(point, "Move"); _moveFinger = finger;
             Move(point); return true;
@@ -324,8 +326,8 @@ public partial class MobileControls : Control
     { _pendingMagick = -1; _meteorTapAt = null; _magickAimAmount = 1; QueueRedraw(); }
     public override void _Draw()
     {
-        DrawStick(_moveCenter, _move, "MOVER", Ui.Blue, MoveRadius);
-        DrawStick(_aimCenter, _aimKnob, _pendingMagick >= 0 ? "SUELTA: " + SpellBalance.Magicks[_pendingMagick].Name.ToUpperInvariant() : _directionalAimPending
+        if (EditorMode || !Settings.Hidden("Move")) DrawStick(_moveCenter, _move, "MOVER", Ui.Blue, MoveRadius);
+        if (EditorMode || !Settings.Hidden("Aim")) DrawStick(_aimCenter, _aimKnob, _pendingMagick >= 0 ? "SUELTA: " + SpellBalance.Magicks[_pendingMagick].Name.ToUpperInvariant() : _directionalAimPending
             ? _aimedSpellShape == SpellShape.Shards ? "SUELTA: HIELO" : "SUELTA: ESCUDO"
             : "APUNTAR / LANZAR", Ui.Gold, AimRadius);
     }
