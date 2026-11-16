@@ -189,7 +189,13 @@ public partial class Main
                 Check(Math.Abs(controls.StickRadiiForVerification[index] * 2 - resized.Size.X) < .1f, "el radio visual no sigue su tamaño.");
             }
             Check(!controls.ResizeSelectedControl(float.NaN) && controls.LayoutRectangles[key] == resized, "acepta un tamaño no válido.");
-            var grab = controls.GlobalPosition + resized.Position + Vector2.One * 2;
+            // El pequeño acceso para volver a abrir herramientas puede tapar una
+            // esquina. Usar una zona visible del control, fuera de su tirador.
+            var candidates = new[] { resized.Position + Vector2.One * 2, resized.GetCenter(),
+                new Vector2(resized.End.X - 2, resized.Position.Y + 2), new Vector2(resized.Position.X + 2, resized.End.Y - 2) };
+            var grab = candidates.Select(p => p + controls.GlobalPosition).FirstOrDefault(p => controls.PointerBlocked?.Invoke(p) != true);
+            Check(candidates.Any(p => controls.PointerBlocked?.Invoke(p + controls.GlobalPosition) != true),
+                "las herramientas tapan por completo " + key);
             var destination = grab + Vector2.One;
             controls._Input(new InputEventScreenTouch { Index = 91, Position = grab, Pressed = true });
             controls._Input(new InputEventScreenDrag { Index = 91, Position = destination, Relative = Vector2.One });

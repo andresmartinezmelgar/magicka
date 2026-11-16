@@ -137,7 +137,15 @@ public partial class Main
                     var preview = (MobileControls)_controlsSettings.FindChild("MobileControls", true, false);
                     VerifyTouchClearance(preview);
                     VerifyTouchLayoutVariants(preview);
+                    // Plegar la barra deja accesibles los controles que, en modo
+                    // zurdo, pueden estar detrás de las herramientas del editor.
+                    ((Button)_controlsSettings.FindChild("TouchEditorFold", true, false)).EmitSignal(BaseButton.SignalName.Pressed);
+                    Check(!((Control)_controlsSettings.FindChild("TouchEditorToolbar", true, false)).Visible,
+                        "Plegar herramientas no libera la pantalla para editar.");
                     VerifyIndividualTouchEditing(preview);
+                    ((Button)_controlsSettings.FindChild("TouchEditorToggle", true, false)).EmitSignal(BaseButton.SignalName.Pressed);
+                    Check(((Control)_controlsSettings.FindChild("TouchEditorToolbar", true, false)).Visible,
+                        "Mostrar herramientas no permite recuperar los ajustes del elemento.");
                     Check(preview.SelectEditorControl("TouchElementFire"), "No selecciona un elemento individual.");
                     ((HSlider)_controlsSettings.FindChild("TouchSelectedSize", true, false)).Value = .85;
                     Check(Math.Abs(preview.Settings.ControlScale("TouchElementFire") - .85f) < .01f && preview.Settings.ControlScale("TouchElementWater") == 1,

@@ -108,7 +108,7 @@ public partial class MobileSettingsPanel : Control
         var actions = new HBoxContainer(); tools.AddChild(actions);
         var done = Ui.Button("Listo", FinishEditing); done.Name = "TouchEditorDone"; actions.AddChild(done);
         actions.AddChild(Ui.Button("Deshacer cambios", () => { _settings = _beforeEdit; FinishEditing(false); }));
-        var fold = Ui.Button("Plegar herramientas", () => _editorBar.Hide()); tools.AddChild(fold);
+        var fold = Ui.Button("Plegar herramientas", () => _editorBar.Hide()); fold.Name = "TouchEditorFold"; tools.AddChild(fold);
         foreach (var button in actions.GetChildren().OfType<Button>())
         {
             button.CustomMinimumSize = new(0, 44); button.AddThemeFontSizeOverride("font_size", 16);
