@@ -36,10 +36,15 @@ public partial class Hud
         _playerPanel.Scale = Vector2.One * s / GameplayScale;
         _playerPanel.Position = new Vector2(22 * s, 18 * s) / GameplayScale;
         _playerPanel.CustomMinimumSize = _playerPanel.Size = new(310, 176);
-        // La información central ocupa el espacio entre vida y utilidades incluso en pantallas estrechas.
+        // Acotar el bloque evita que su selección y zona reservada tapen toda la
+        // cabecera en pantallas anchas. El objetivo se ajusta dentro de este ancho.
         var topRow = (HBoxContainer)_topScore.GetParent();
-        topRow.OffsetLeft = (332 * s + Arcana.Core.ScreenPlacement.MinimumGap) / GameplayScale;
-        topRow.OffsetRight = -(382 * s + Arcana.Core.ScreenPlacement.MinimumGap) / GameplayScale;
+        float headerLeft = 332 * s + Arcana.Core.ScreenPlacement.MinimumGap;
+        float headerRight = screen.X - 382 * s - Arcana.Core.ScreenPlacement.MinimumGap;
+        float headerWidth = Math.Min(380 * s, Math.Max(1, headerRight - headerLeft));
+        float headerCenter = (headerLeft + headerRight) / 2;
+        topRow.OffsetLeft = (headerCenter - headerWidth / 2) / GameplayScale;
+        topRow.OffsetRight = (headerCenter + headerWidth / 2 - screen.X) / GameplayScale;
         topRow.OffsetTop = Math.Max(8, 12 * s) / GameplayScale;
         topRow.OffsetBottom = 120 * s / GameplayScale;
         foreach (int i in new[] { 0, 2 })
@@ -83,7 +88,10 @@ public partial class Hud
     {
         // Se reserva la altura de avisos y bonos aunque estén vacíos para evitar saltos durante el combate.
         foreach (Control control in new Control[] { _playerPanel, _topScore, _spellsPanel, _actionNotice, _buffs })
-            areas.Add(new(control.Name, control.GetGlobalRect(), control == _topScore ? (Control)_topScore.GetParent() : control));
+        {
+            var widget = control == _topScore ? (Control)_topScore.GetParent() : control;
+            areas.Add(new(control.Name, widget.GetGlobalRect(), widget));
+        }
         areas.Add(new("HudLootNotice", _rewardBackdrop.GetGlobalRect(), _rewardBackdrop, Floating: true));
         areas.Add(new("HudEventFeed", _feed.GetGlobalRect(), _feed, Floating: true));
         areas.Add(new("HudServerInfo", _server.GetGlobalRect(), _server, Floating: true));

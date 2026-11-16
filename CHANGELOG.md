@@ -1,5 +1,9 @@
 # Cambios
 
+## 0.29.67
+
+- La cabecera del temporizador, marcador y objetivo ocupa un bloque compacto en móvil y en el editor. El marco de selección y su zona de entrada se ajustan a ese ancho y dejan libre la parte superior de las pantallas anchas.
+
 ## 0.29.66
 
 - Editor del HUD: permite mover, redimensionar y ocultar los paneles informativos, temporizador, estado del jugador, mezcla, minimapa, avisos, registro, joysticks, botones y equipo. Una lista permite recuperar los elementos ocultos; la barra de herramientas se puede plegar.
