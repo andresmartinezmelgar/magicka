@@ -28,10 +28,10 @@ internal static class SurvivalEconomyTests
     public static void Run(Action<string, Action> test)
     {
         test("Economía de Supervivencia: los incrementos de coste crecen y no son lineales", Curves);
-        test("Economía de Supervivencia: un aura completa y una habilidad completa requieren 4550 de oro", Powers);
+        test("Economía de Supervivencia: un aura completa y una habilidad completa requieren 13650 de oro", Powers);
         test("Economía de Supervivencia: diez mejoras de equipo son asequibles según su calidad", Equipment);
-        test("Economía de Supervivencia: 5400 de oro permiten especializarse o repartir mejoras con prioridades distintas", BuildChoices);
-        test("Economía de Supervivencia: la ruta equilibrada supera la mitad de los niveles dentro del presupuesto de veinte minutos", HalfProgression);
+        test("Economía de Supervivencia: las rutas especializadas y repartidas requieren el triple de presupuesto", BuildChoices);
+        test("Economía de Supervivencia: 5400 de oro permiten 37 niveles equilibrados con las tarifas triplicadas", BalancedProgression);
         test("Economía de Supervivencia: suministro por 50, sin cobrar con oro insuficiente o inventario lleno", Supply);
         test("Economía de Supervivencia: continuar conserva oro y niveles y aplica el nuevo coste al siguiente nivel", SavedProgress);
         test("Economía de cuenta: los anillos permanentes conservan su tarifa y el cobro único", PermanentRing);
@@ -58,21 +58,21 @@ internal static class SurvivalEconomyTests
     private static void Powers()
     {
         var (world, player) = World();
-        Gold(world, player, 39);
-        Check(!Buy(world, player, "defense_aura") && State(world, player).Gold == 39 && State(world, player).Auras[0] == 0,
+        Gold(world, player, 119);
+        Check(!Buy(world, player, "defense_aura") && State(world, player).Gold == 119 && State(world, player).Auras[0] == 0,
             "Comprar sin oro modifica el aura o el saldo.");
-        Gold(world, player, 40);
-        Check(Buy(world, player, "defense_aura") && State(world, player).Gold == 0, "La primera aura no cuesta 40.");
+        Gold(world, player, 120);
+        Check(Buy(world, player, "defense_aura") && State(world, player).Gold == 0, "La primera aura no cuesta 120.");
 
-        (world, player) = World(); Gold(world, player, 4549);
+        (world, player) = World(); Gold(world, player, 13649);
         for (int level = 0; level < 10; level++) Check(Buy(world, player, "defense_aura"), "El aura supera su presupuesto de diez niveles.");
-        Check(State(world, player).Gold == 1249 && State(world, player).Auras[0] == 10, "El aura no suma 3300 de oro.");
+        Check(State(world, player).Gold == 3749 && State(world, player).Auras[0] == 10, "El aura no suma 9900 de oro.");
         for (int level = 0; level < 4; level++) Check(Buy(world, player, "defense_passive"), "La habilidad supera su presupuesto.");
-        Check(State(world, player).Gold == 499 && !Buy(world, player, "defense_passive") && State(world, player).Passives[0] == 4,
+        Check(State(world, player).Gold == 1499 && !Buy(world, player, "defense_passive") && State(world, player).Passives[0] == 4,
             "La última habilidad se compra sin su precio completo.");
-        Gold(world, player, 500);
+        Gold(world, player, 1500);
         Check(Buy(world, player, "defense_passive") && State(world, player).Gold == 0 && State(world, player).Passives[0] == 5,
-            "La habilidad no suma 1250 de oro o pierde el nivel.");
+            "La habilidad no suma 3750 de oro o pierde el nivel.");
         Gold(world, player, 1000);
         Check(!Buy(world, player, "defense_aura") && !Buy(world, player, "defense_passive") && State(world, player).Gold == 1000,
             "El descuento permite superar los niveles máximos o cobra un intento rechazado.");
@@ -80,7 +80,7 @@ internal static class SurvivalEconomyTests
 
     private static void Equipment()
     {
-        int[] budgets = [785, 1190, 1570, 2355, 3140];
+        int[] budgets = [2355, 3570, 4710, 7065, 9420];
         foreach (var tier in Enum.GetValues<ItemTier>())
         {
             var (world, player) = World(); var ring = Ring(tier); Give(world, player, ring);
@@ -97,14 +97,14 @@ internal static class SurvivalEconomyTests
 
     private static void BuildChoices()
     {
-        var (world, player) = World(); var ring = Ring(ItemTier.Mythic); Give(world, player, ring); Gold(world, player, 5400);
+        var (world, player) = World(); var ring = Ring(ItemTier.Mythic); Give(world, player, ring); Gold(world, player, 16200);
         for (int level = 0; level < 10; level++) Check(Buy(world, player, "defense_aura"), "No permite concentrar el oro en un aura.");
         for (int level = 0; level < 5; level++) Check(Buy(world, player, "defense_passive"), "No permite completar la habilidad prioritaria.");
         for (int level = 0; level < 6; level++) Check(Buy(world, player, "defense_upgrade", ring.Id), "El anillo no alcanza su salto del nivel seis.");
-        Check(State(world, player).Gold == 30 && !Buy(world, player, "defense_aura", slot: 1),
+        Check(State(world, player).Gold == 90 && !Buy(world, player, "defense_aura", slot: 1),
             "La ruta especializada no ajusta el presupuesto o permite añadir otro poder sin oro.");
 
-        (world, player) = World(); Gold(world, player, 5400);
+        (world, player) = World(); Gold(world, player, 16200);
         for (int slot = 0; slot < 3; slot++)
             for (int level = 0; level < 6; level++) Check(Buy(world, player, "defense_aura", slot: slot), "No permite repartir las auras.");
         foreach (int slot in new[] { 0, 2, 3 })
@@ -114,29 +114,29 @@ internal static class SurvivalEconomyTests
             ring = Ring(ItemTier.Mythic, slot); Give(world, player, ring);
             for (int level = 0; level < 6; level++) Check(Buy(world, player, "defense_upgrade", ring.Id), "La ruta repartida pierde el nivel seis de los anillos.");
         }
-        Check(State(world, player).Gold == 160 && !Buy(world, player, "defense_aura") && State(world, player).Gold == 160,
+        Check(State(world, player).Gold == 480 && !Buy(world, player, "defense_aura") && State(world, player).Gold == 480,
             "La ruta repartida no respeta el presupuesto o compra un nivel alto sin su coste.");
     }
 
-    private static void HalfProgression()
+    private static void BalancedProgression()
     {
         var (world, player) = World(); Gold(world, player, 5400);
         for (int slot = 0; slot < 5; slot++)
-            for (int level = 0; level < 5; level++) Check(Buy(world, player, "defense_aura", slot: slot), "No permite repartir las cinco auras.");
+            for (int level = 0; level < 3; level++) Check(Buy(world, player, "defense_aura", slot: slot), "No permite repartir las cinco auras.");
         for (int slot = 0; slot < 4; slot++)
-            for (int level = 0; level < 2; level++) Check(Buy(world, player, "defense_passive", slot: slot), "No permite repartir las cuatro habilidades.");
+            Check(Buy(world, player, "defense_passive", slot: slot), "No permite repartir las cuatro habilidades.");
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
             var item = Ring(ItemTier.Gold, slot); Give(world, player, item);
-            for (int level = 0; level < 6; level++) Check(Buy(world, player, "defense_upgrade", item.Id), "Una de las seis piezas no alcanza el nivel seis.");
+            for (int level = 0; level < 3; level++) Check(Buy(world, player, "defense_upgrade", item.Id), "Una de las seis piezas no alcanza el nivel tres.");
         }
         var state = State(world, player);
         int levels = state.Auras.Sum() + state.Passives.Sum() + state.Items.Sum(i => i.Upgrades);
         int maximum = 5 * DefenseRules.MaxAuraLevel + 4 * DefenseRules.MaxPassiveLevel + 6 * DefenseRules.ItemUpgradeLimit;
-        Check(levels == 69 && levels * 2 >= maximum && levels < maximum && state.Gold == 120,
-            "La ruta deja de alcanzar la mitad de los niveles o completa toda la progresión.");
+        Check(levels == 37 && levels * 2 < maximum && state.Gold == 150,
+            "La ruta no aplica los precios triplicados al presupuesto original.");
         Check(!Buy(world, player, "defense_aura") && !Buy(world, player, "defense_passive") &&
-            !Buy(world, player, "defense_upgrade", state.Items[0].Item.Id) && State(world, player).Gold == 120,
+            !Buy(world, player, "defense_upgrade", state.Items[0].Item.Id) && State(world, player).Gold == 150,
             "El siguiente escalón se compra sin oro o un rechazo cambia el saldo.");
     }
 
@@ -159,14 +159,17 @@ internal static class SurvivalEconomyTests
 
     private static void SavedProgress()
     {
-        var (world, player) = World(); var ring = Ring(ItemTier.Mythic); Give(world, player, ring); Gold(world, player, 400);
+        var (world, player) = World(); var ring = Ring(ItemTier.Mythic); Give(world, player, ring); Gold(world, player, 600);
         for (int level = 0; level < 3; level++) Check(Buy(world, player, "defense_upgrade", ring.Id), "No prepara los niveles guardados.");
         // Saldo de una partida anterior: cambiar la curva no vuelve a calcular sus compras.
         Gold(world, player, 160);
         var restored = GameWorld.RestoreSurvival(world.SaveSurvival(player.Id, Guid.NewGuid().ToString("N")));
         var defender = restored.Players[player.Id]; var state = State(restored, defender);
         Check(state.Gold == 160 && state.Items.Single().Upgrades == 3, "Continuar altera el saldo o reinicia las mejoras.");
-        Check(Buy(restored, defender, "defense_upgrade", ring.Id) && State(restored, defender).Gold == 20 &&
+        Check(!Buy(restored, defender, "defense_upgrade", ring.Id) && State(restored, defender).Gold == 160 &&
+            State(restored, defender).Items.Single().Upgrades == 3, "La siguiente mejora conserva el precio antiguo o cobra un rechazo.");
+        Gold(restored, defender, 480);
+        Check(Buy(restored, defender, "defense_upgrade", ring.Id) && State(restored, defender).Gold == 60 &&
             State(restored, defender).Items.Single().Upgrades == 4, "La mejora tras continuar no aplica la tarifa temporal.");
         SnapshotValidation.Check(restored.Snapshot());
     }

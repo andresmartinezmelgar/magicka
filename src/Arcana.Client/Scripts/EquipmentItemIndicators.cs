@@ -15,9 +15,9 @@ internal partial class EquipmentItemIndicators : Control
     {
         if (_tier is not { } tier) return;
         Color color = EquipmentPanel.TierColor(tier);
-        var center = new Vector2(12, 37);
+        var center = new Vector2(14, 40);
         Vector2 P(float x, float y) => center + new Vector2(x, y) * 8;
-        DrawCircle(center, 10, new Color("0b192b"));
+        DrawCircle(center, 9, new Color("0b192b"));
         switch (tier)
         {
             case ItemTier.Silver:
@@ -36,11 +36,11 @@ internal partial class EquipmentItemIndicators : Control
                 DrawLine(P(-.8f, .9f), P(.8f, .9f), color, 2, true); break;
         }
         for (int i = 0; i < DefenseRules.ItemUpgradeLimit; i++)
-            DrawRect(new(new Vector2(4 + i * 5.5f, 51), new Vector2(4, 3)), i < _level ? color : new Color("3a4c63"));
+            DrawRect(new(new Vector2(6 + i * 5.2f, 50), new Vector2(4, 3)), i < _level ? color : new Color("3a4c63"));
         if (_affordable)
         {
-            DrawLine(new(52, 44), new(52, 32), Ui.Gold, 2, true);
-            DrawPolyline([new(47, 37), new(52, 32), new(57, 37)], Ui.Gold, 2, true);
+            DrawLine(new(31, 44), new(31, 32), Ui.Gold, 2, true);
+            DrawPolyline([new(26, 37), new(31, 32), new(36, 37)], Ui.Gold, 2, true);
         }
     }
 }

@@ -12,6 +12,7 @@ public static partial class DefenseRules
 {
     public const int MaxDefenders = 4, MaxMinions = 192, MaxDrops = 96, InventoryLimit = 24;
     public const int SupplyCost = 50;
+    public const int SurvivalUpgradePriceMultiplier = 3;
     private static ReadOnlySpan<int> SurvivalAuraPrices => [40, 60, 90, 130, 190, 270, 380, 520, 700, 920];
     private static ReadOnlySpan<int> SurvivalPassivePrices => [80, 130, 210, 330, 500];
     // Multiplicadores en medios: abaratan el tramo inicial y reservan el coste fuerte para el final.
@@ -94,9 +95,9 @@ public static partial class DefenseRules
     {
         if (level < 0 || level > prices.Length) throw new ArgumentException("Nivel de poder inválido.");
         // La interfaz consulta también el nivel máximo, aunque la compra ya esté bloqueada.
-        return prices[Math.Min(level, prices.Length - 1)];
+        return SurvivalUpgradePriceMultiplier * prices[Math.Min(level, prices.Length - 1)];
     }
-    // La progresión temporal debe poder aprovecharse en partidas de unos 20 minutos.
+    // Triplicar después del redondeo conserva exactamente el factor en cada nivel.
     // Los anillos de cuenta conservan UpgradeCost y su economía permanente.
     public static int SurvivalUpgradeCost(ItemTier tier, int upgrades)
     {
@@ -104,7 +105,7 @@ public static partial class DefenseRules
         int basis = tier switch { ItemTier.Silver => 10, ItemTier.Gold => 15, ItemTier.Platinum => 20,
             ItemTier.Diamond => 30, ItemTier.Mythic => 40, _ => throw new ArgumentException("Calidad desconocida.") };
         // Redondeo al múltiplo de cinco más cercano, con mitades hacia arriba.
-        return (basis * SurvivalUpgradeWeights[upgrades] + 5) / 10 * 5;
+        return SurvivalUpgradePriceMultiplier * ((basis * SurvivalUpgradeWeights[upgrades] + 5) / 10 * 5);
     }
     public static int UpgradeCost(ItemTier tier, int upgrades)
     {

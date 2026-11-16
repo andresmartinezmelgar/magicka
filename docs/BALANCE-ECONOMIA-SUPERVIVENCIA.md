@@ -1,39 +1,31 @@
 # Balance de la economía de Supervivencia
 
-## Objetivos de la curva
+## Costes triplicados
 
-- Desbloquear auras y habilidades al principio, con 40 y 80 de oro respectivamente.
-- Permitir combinar varios poderes intermedios y alcanzar el salto de los anillos en nivel 6.
-- Alcanzar al menos la mitad de los niveles de una ruta equilibrada a los 20 minutos de referencia, sin completar toda la progresión.
-- Reservar los niveles finales para las prioridades de la partida: cada incremento de precio crece o se mantiene, y el incremento final supera al inicial.
-- Conservar el oro y los niveles de partidas guardadas y la tarifa permanente de los anillos de cuenta.
+Las mejoras de piezas, auras y habilidades cuestan exactamente tres veces lo que costaban en 0.29.67. El factor de equipo se aplica después de redondear cada escalón: también triplica exactamente los precios de Oro que antes acababan en cinco.
 
-Esta es una estimación teórica de gasto. Los 20 minutos son una referencia de diseño. Queda pendiente contrastarla con partidas completas, mediana de oro gastable y decisiones de compra reales.
+Los suministros siguen siendo compras de objetos, con su tarifa de 50. Las ventas, botín y oro ganado mantienen sus reglas. Los anillos permanentes de cuenta usan su economía propia. Continuar una partida conserva el saldo y los niveles guardados y aplica los nuevos precios a las compras siguientes.
 
 ## Precios por nivel de destino
 
 | Nivel que se compra | Aura | Habilidad automática | Mejora mítica |
 | --- | ---: | ---: | ---: |
-| 1 | 40 | 80 | 40 |
-| 2 | 60 | 130 | 60 |
-| 3 | 90 | 210 | 100 |
-| 4 | 130 | 330 | 140 |
-| 5 | 190 | 500 | 200 |
-| 6 | 270 | — | 280 |
-| 7 | 380 | — | 380 |
-| 8 | 520 | — | 500 |
-| 9 | 700 | — | 640 |
-| 10 | 920 | — | 800 |
+| 1 | 120 | 240 | 120 |
+| 2 | 180 | 390 | 180 |
+| 3 | 270 | 630 | 300 |
+| 4 | 390 | 990 | 420 |
+| 5 | 570 | 1500 | 600 |
+| 6 | 810 | — | 840 |
+| 7 | 1140 | — | 1140 |
+| 8 | 1560 | — | 1500 |
+| 9 | 2100 | — | 1920 |
+| 10 | 2760 | — | 2400 |
 
-Un aura completa suma 3300, una habilidad 1250 y una pieza mítica 3140. Llegar al nivel 6 suma 780 para un aura, 820 para una pieza mítica y 205 para una de Plata. Una habilidad de nivel 3 suma 420.
+Un aura completa suma 9900, una habilidad 3750 y una pieza mítica 9420. Llegar al nivel 6 suma 2340 para un aura, 2460 para una pieza mítica y 615 para una de Plata. Una habilidad de nivel 3 suma 1260.
 
-## Hipótesis de ingresos por defensor
+## Referencia de ingresos por defensor
 
-Se consideran ritmos constantes e hipotéticos de 20, 40 o 60 bajas del equipo por minuto. El oro de las monedas se comparte con cada defensor; el modelo no lo divide entre los jugadores.
-
-Las reglas actuales dan un 35 % de probabilidad de monedas por baja. Una moneda da 8 más 2 veces la dificultad, que en este modelo aumenta cada 90 segundos. Se supone que se recoge el 75 % de las monedas y del equipo y se vende el 50 % de las piezas recogidas. El equipo aparece con un 6 % por baja y defensor; su venta media ponderada por calidades es 40.55 de oro.
-
-Se excluyen los bonos del anillo de oro y afijos económicos, y solo se usa la dificultad temporal. El resultado es un valor esperado redondeado, sin simular combates, variación de bajas, rutas, riesgo de recoger botín, dificultad de sectores ni efectos de las compras sobre la supervivencia.
+El modelo anterior estimaba, con 40 bajas del equipo por minuto, 5423 de oro a los 20 minutos. La hipótesis era recoger el 75 % de las monedas y piezas, vender la mitad de las piezas recogidas y excluir los bonos económicos. Es una referencia teórica: no simula el combate ni cómo la nueva velocidad de mejora modifica las bajas, el riesgo o las decisiones de compra.
 
 | Bajas del equipo por minuto | 5 min | 10 min | 15 min | 20 min |
 | --- | ---: | ---: | ---: | ---: |
@@ -41,32 +33,32 @@ Se excluyen los bonos del anillo de oro y afijos económicos, y solo se usa la d
 | 40 | 833 | 2013 | 3540 | 5423 |
 | 60 | 1250 | 3020 | 5310 | 8135 |
 
-## Dos rutas con un presupuesto de referencia de 5400
+Estas cifras no se triplican: el cambio encarece las mejoras, no aumenta las recompensas.
 
-El escenario intermedio estima 5423 de oro a los 20 minutos. Se toma 5400 como presupuesto de contraste:
+## Rutas anteriores con el nuevo presupuesto
 
-| Ruta | Auras | Habilidades | Anillos míticos | Gasto | Saldo |
+| Ruta | Auras | Habilidades | Anillos míticos | Gasto | Saldo sobre 16200 |
 | --- | --- | --- | --- | ---: | ---: |
-| Especializar | Una al 10 | Una al 5 | Uno al 6 | 5370 | 30 |
-| Repartir | Tres al 6 | Tres al 3 | Dos al 6 | 5240 | 160 |
+| Especializar | Una al 10 | Una al 5 | Uno al 6 | 16110 | 90 |
+| Repartir | Tres al 6 | Tres al 3 | Dos al 6 | 15720 | 480 |
 
-Ambas rutas caben en ese presupuesto. Tras repartir, el siguiente nivel de cualquiera de esas auras cuesta 380, por encima del saldo disponible. Tras especializar, ni siquiera cabe desbloquear otra aura de 40. Las pruebas del motor realizan esas compras y comprueban el saldo y el rechazo del siguiente gasto.
+Esas rutas ya no caben en los 5400 de la referencia anterior. El techo ideal de cinco auras, cuatro habilidades y seis piezas míticas al máximo cuesta 121020.
 
-El techo ideal de cinco auras, cuatro habilidades y seis piezas míticas al máximo suma 40340. Completar ese techo excede ampliamente el presupuesto de referencia. Los objetos de menor calidad ofrecen mejoras más baratas para abrir otras rutas de gasto.
+## Ruta equilibrada con 5400
 
-## Referencia de media progresión
-
-Se cuentan niveles adquiridos, no porcentaje de daño ni de oro gastado: cinco auras de diez niveles, cuatro habilidades de cinco y seis piezas de diez suman **130 niveles**. La ruta equilibrada con equipo de Oro permite:
+Cinco auras de diez niveles, cuatro habilidades de cinco y seis piezas de diez suman 130 niveles posibles. Con piezas de Oro, una ruta equilibrada es:
 
 | Bloque | Nivel por mejora | Niveles adquiridos | Coste |
 | --- | ---: | ---: | ---: |
-| Cinco auras | 5/10 | 25 | 2550 |
-| Cuatro habilidades | 2/5 | 8 | 840 |
-| Seis piezas de Oro | 6/10 | 36 | 1890 |
-| Total | | **69/130 (53,1 %)** | **5280** |
+| Cinco auras | 3/10 | 15 | 2850 |
+| Cuatro habilidades | 1/5 | 4 | 960 |
+| Seis piezas de Oro | 3/10 | 18 | 1440 |
+| Total | | **37/130 (28,5 %)** | **5250** |
 
-Quedan 120 de los 5400 de referencia; no alcanza para el siguiente escalón de ninguno de esos bloques. La calidad del equipo, el ritmo real de bajas, los bonos de oro y la recogida cambian el resultado: este objetivo no garantiza un porcentaje idéntico en cada partida. Las pruebas realizan las compras y comprueban niveles, saldo y rechazos.
+Quedan 150. El siguiente nivel cuesta 390 para un aura, 390 para una habilidad y 165 para una pieza de Oro. Ninguno se puede comprar con ese saldo. La antigua ruta de 69 niveles pasa a costar 15840.
 
-## Comprobación pendiente en partidas
+## Comprobaciones
 
-Revisar el oro disponible a los 5, 10, 15 y 20 minutos, el momento del primer poder y del nivel 6 de los anillos, y cuántos niveles finales se compran. Medir por separado humanos y bots y revisar la inversión temprana en el anillo de oro, que puede elevar el presupuesto del modelo. Ajustar estas tablas con esos resultados, conservando el arranque accesible y la progresión creciente.
+Las pruebas de economía cubren los precios completos por calidad, fondos insuficientes, compras rechazadas sin cobro, límites máximos, rutas de gasto y conservación de partidas guardadas. Su ejecución queda pendiente de la próxima compilación autorizada.
+
+Queda pendiente contrastar la nueva curva con partidas reales, midiendo oro y niveles a los 5, 10, 15 y 20 minutos y separando humanos de bots. Los ingresos hipotéticos anteriores no garantizan la misma progresión con el nuevo precio.

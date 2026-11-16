@@ -7,7 +7,7 @@ namespace Arcana.Client;
 internal partial class SurvivalEquipmentHud : Control
 {
     internal static readonly Vector2 CellSize = new(64, 58);
-    private readonly record struct ItemState(string Id, int Level, bool Affordable);
+    private readonly record struct ItemState(string Id, ItemTier? Tier, EquipmentFamily? Family, ItemAffix? Affix, int Level, bool Affordable);
     private sealed record Cell(Button Button, TextureRect Piece, TextureRect Effect, ElementIcon Element,
         EquipmentItemIndicators Indicators);
     private readonly Dictionary<EquipmentSlot, Cell> _cells = [];
@@ -43,10 +43,11 @@ internal partial class SurvivalEquipmentHud : Control
             AddChild(button); _buttons.Add(Key(slot), button);
             if (inspect != null) button.Pressed += () => inspect(slot);
             var piece = EquipmentIcons.View(EquipmentIcons.Slot(slot), 0);
-            piece.Position = new(3, 3); piece.Size = new(30, 30); button.AddChild(piece);
+            piece.Position = new(6, 6); piece.Size = new(30, 24); button.AddChild(piece);
             var effect = EquipmentIcons.View(EquipmentIcons.Slot(slot), 0);
-            effect.Position = new(37, 5); effect.Size = new(23, 23); button.AddChild(effect);
-            var element = new ElementIcon { Position = new(37, 5), Size = new(23, 23), CustomMinimumSize = Vector2.Zero, Visible = false };
+            effect.Name = "EquipmentExtraAttribute"; effect.Visible = false; effect.Modulate = Ui.Text;
+            effect.Position = new(39, 27); effect.Size = new(20, 20); button.AddChild(effect);
+            var element = new ElementIcon { Name = "EquipmentElement", Position = new(40, 6), Size = new(18, 18), CustomMinimumSize = Vector2.Zero, Visible = false };
             button.AddChild(element);
             var indicators = new EquipmentItemIndicators { MouseFilter = MouseFilterEnum.Ignore }; button.AddChild(indicators); Ui.Full(indicators);
             _cells.Add(slot, new(button, piece, effect, element, indicators));
@@ -59,26 +60,29 @@ internal partial class SurvivalEquipmentHud : Control
         foreach (var (slot, cell) in _cells)
         {
             var entry = player?.Items.FirstOrDefault(i => i.Equipped && i.Item.Slot == slot);
+            var item = entry?.Item;
+            var active = item == null ? null : ItemAffixes.Active(item.Affix, slot);
             bool canImprove = entry != null && ItemAffixes.CanUpgrade(entry.Item, entry.Upgrades);
             int price = canImprove ? DefenseRules.SurvivalUpgradeCost(entry!.Item.Tier, entry.Upgrades) : 0;
-            var state = new ItemState(entry?.Item.Id ?? "", entry?.Upgrades ?? 0, canImprove && player!.Gold >= price);
+            var state = new ItemState(item?.Id ?? "", item?.Tier, item?.Family, active, entry?.Upgrades ?? 0, canImprove && player!.Gold >= price);
             if (_states.TryGetValue(slot, out var previous) && previous == state) continue;
             _states[slot] = state;
-            var item = entry?.Item;
             Color quality = item == null ? Ui.Muted : EquipmentPanel.TierColor(item.Tier);
             cell.Piece.Modulate = item == null ? new Color(Ui.Muted, .35f) : EquipmentIcons.FamilyColor(item.Family);
             cell.Indicators.Update(item?.Tier, entry?.Upgrades ?? 0, state.Affordable);
-            var active = item == null ? null : ItemAffixes.Active(item.Affix, slot);
-            cell.Element.Value = item != null && active == null && slot != EquipmentSlot.GoldRing ? RingEffects.ElementFor(item.Family) : null;
+            cell.Element.Value = item == null ? null : RingEffects.ElementFor(item.Family);
             cell.Element.Visible = cell.Element.Value != null;
-            cell.Effect.Visible = item != null && !cell.Element.Visible && (active != null || RingEffects.IsRing(slot));
-            if (cell.Effect.Visible) cell.Effect.Texture = active != null ? EquipmentIcons.Affix(active.Kind)
-                : slot == EquipmentSlot.GoldRing ? EquipmentIcons.Affix(ItemAffixKind.CoinDividend) : EquipmentIcons.Slot(slot);
+            // El elemento y el atributo extra tienen huecos distintos. Un anillo
+            // sin afijo no muestra un atributo ficticio por su habilidad básica.
+            cell.Effect.Visible = active != null;
+            if (active != null) cell.Effect.Texture = EquipmentIcons.Affix(active.Kind);
             foreach (string mode in new[] { "normal", "hover", "pressed" })
             {
-                var style = Ui.Panel(new(mode == "normal" ? "101f33" : "213853"), 5, mode == "normal" ? quality : Ui.Gold);
+                var background = new Color(mode == "normal" ? "101f33" : "213853").Lerp(quality, .10f);
+                // La calidad permanece visible también bajo el dedo o el ratón.
+                var style = Ui.Panel(background, 5, quality);
                 style.ContentMarginLeft = style.ContentMarginRight = style.ContentMarginTop = style.ContentMarginBottom = 4;
-                style.BorderWidthLeft = style.BorderWidthRight = style.BorderWidthTop = style.BorderWidthBottom = 2;
+                style.BorderWidthLeft = style.BorderWidthRight = style.BorderWidthTop = style.BorderWidthBottom = item == null ? 2 : 4;
                 cell.Button.AddThemeStyleboxOverride(mode, style);
             }
             cell.Button.TooltipText = item == null ? EquipmentCatalogue.SlotName(slot) + " · Sin equipar."

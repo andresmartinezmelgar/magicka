@@ -1,5 +1,10 @@
 # Cambios
 
+## Sin publicar
+
+- Miniaturas del equipo: marco de calidad más grueso que conserva su color al tocarlo; elemento visible por separado y atributo extra únicamente cuando existe un afijo activo, también en los anillos.
+- Triplicado el coste de todas las mejoras temporales de Supervivencia: piezas, auras y habilidades. El factor se aplica después del redondeo de cada mejora de equipo.
+
 ## 0.29.67
 
 - La cabecera del temporizador, marcador y objetivo ocupa un bloque compacto en móvil y en el editor. El marco de selección y su zona de entrada se ajustan a ese ancho y dejan libre la parte superior de las pantallas anchas.
