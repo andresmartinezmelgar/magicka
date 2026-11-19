@@ -56,4 +56,4 @@ La integración recompensada de Android ya incluye consentimiento UMP y validaci
 - `ShopEmulatorTests`: exención remota, administración sin compra, varios dispositivos, reintentos, persistencia, revocación, medianoche, saldo/inventario y ruta HTTP del cliente.
 - `--defense-smoke`: casillas cuadradas y silueta, elemento y afijo dentro del margen interior.
 
-Las pruebas C# y visuales están preparadas pero pendientes de compilación, de acuerdo con `AGENTS.md`. Esta revisión no crea una APK, un tag ni una publicación.
+La versión 0.29.69 compila el cliente, el servidor y el servicio de cuentas heredado. Se han ejecutado 717 pruebas del motor y comprobaciones de estadísticas y HUD móvil. La publicación exige además las pruebas de integración, la revisión gráfica y la verificación de los paquetes firmados en GitHub Actions. La migración de los permisos en producción se ejecuta por separado con credenciales de Firebase Admin.
