@@ -9,9 +9,7 @@ public sealed partial class FirebaseProfileReader
     public async Task<bool> CanReadMatchStatistics(string uid, string idToken, CancellationToken token = default)
     {
         if (string.IsNullOrWhiteSpace(uid) || uid.Length > 128 || uid.Any(c => c == '/' || char.IsControl(c))) throw new ArgumentException("Cuenta inválida.");
-        var doc = await Document("statisticsReaders/" + Uri.EscapeDataString(uid), idToken, token).ConfigureAwait(false);
-        return doc is {} value && value.TryGetProperty("fields", out var fields) && fields.TryGetProperty("enabled", out var enabled) &&
-            enabled.TryGetProperty("booleanValue", out var flag) && flag.ValueKind == JsonValueKind.True;
+        return (await ReadAccess(uid, idToken, token).ConfigureAwait(false)).MatchStatistics;
     }
     public async Task<MatchStatisticsPage> ReadMatchStatistics(string idToken, string pageToken = "", CancellationToken token = default)
     {

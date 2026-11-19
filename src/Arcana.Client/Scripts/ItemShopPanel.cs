@@ -14,7 +14,7 @@ public partial class ItemShopPanel : Control
     private GridContainer _offers = null!;
     private ContentScrollContainer _scroll = null!;
     private readonly Dictionary<string, Button> _buyButtons = new(StringComparer.Ordinal);
-    private bool _busy, _connected, _waitingForAutoSales;
+    private bool _busy, _connected, _waitingForAutoSales, _adsRemoved;
     internal void ResumeAfterAutoSales() { if (_waitingForAutoSales && !_lifetime.IsCancellationRequested) _ = Load(); }
     private string? _owner;
     private AccountClient _account = null!;
@@ -164,9 +164,15 @@ public partial class ItemShopPanel : Control
     {
         _busy = value; _reload.Disabled = value;
         bool used = _shop?.RewardedRefreshAvailableAt > _serverTime.AddMilliseconds(Time.GetTicksMsec() - _receivedAt);
+        bool noAds = _main.Accounts.SignedIn && _main.Accounts.Profile?.Access.AdsRemoved == true;
+        _adsRemoved = noAds;
         bool supported = _main.RewardedAds.Supports(_ads);
-        _refresh.Disabled = value || !_connected || !supported || used;
-        _refresh.Text = used ? "Renovación usada hoy" : supported ? "Ver anuncio y renovar ofertas · 1/día" : "Anuncios no disponibles";
+        _refresh.Disabled = value || !_connected || !(noAds || supported) || used;
+        _refresh.Text = used ? "Renovación usada hoy" : noAds ? "Renovar ofertas · 1/día · Sin anuncios" :
+            supported ? "Ver anuncio y renovar ofertas · 1/día" : "Anuncios no disponibles";
+        _refresh.TooltipText = noAds
+            ? "Tu cuenta tiene activada la opción sin anuncios. Puedes sustituir las seis ofertas una vez al día, también desde otro dispositivo."
+            : "Un anuncio completado permite sustituir las seis ofertas una vez al día. El día se reinicia a las 00:00, hora peninsular.";
         foreach (var button in _buyButtons.Values) button.Disabled = value || !_connected || !button.GetMeta("available").AsBool();
         if (status != null) _status.Text = status;
     }
@@ -228,6 +234,14 @@ public partial class ItemShopPanel : Control
         var shopId = _shop.Id; SetBusy(true, "Preparando anuncio recompensado…");
         try
         {
+            if (account.Profile?.Access.AdsRemoved == true)
+            {
+                SetBusy(true, "Renovando ofertas sin anuncios…");
+                var renewed = await account.RefreshShopWithoutAd(shopId, _lifetime.Token);
+                _main.RememberShop(account, session, renewed);
+                Publish(request, () => Render(renewed, "Ofertas renovadas sin anuncios. Podrás renovar de nuevo mañana."));
+                return;
+            }
             var ticket = await account.StartShopAd(shopId, _lifetime.Token);
             if (!await _main.RewardedAds.Show(ticket, _lifetime.Token))
             { Publish(request, () => SetBusy(false, "Anuncio cerrado. Las ofertas anteriores se conservan.")); return; }
@@ -252,6 +266,7 @@ public partial class ItemShopPanel : Control
     public override void _Process(double delta)
     {
         if (_lifetime.IsCancellationRequested) return;
+        if (_adsRemoved != (_main.Accounts.SignedIn && _main.Accounts.Profile?.Access.AdsRemoved == true)) SetBusy(_busy);
         _privacy.Visible = _main.RewardedAds.PrivacyRequired;
         if (!ReferenceEquals(_account, _main.Accounts) || _session != _main.Accounts.SessionRevision ||
             _owner != _main.Accounts.Profile?.Uid || _connected && !_main.Accounts.SignedIn)

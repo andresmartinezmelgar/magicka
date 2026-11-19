@@ -153,7 +153,8 @@ public sealed partial class FirebaseProfileReader : IDisposable
             pageToken = result.RootElement.TryGetProperty("nextPageToken", out var next) ? next.GetString() : null;
         } while (!string.IsNullOrEmpty(pageToken));
         var profile = new AccountProfile(uid, header.Name, header.Gold, header.Wins, header.Losses,
-            loadout.HasValue ? Parse<EquipmentLoadout>(loadout.Value) : new(), items.ToArray()) { Bestiary = header.Bestiary };
+            loadout.HasValue ? Parse<EquipmentLoadout>(loadout.Value) : new(), items.ToArray())
+            { Bestiary = header.Bestiary, Access = await ReadAccess(uid, idToken, token).ConfigureAwait(false) };
         AccountInventory.CheckProfile(profile);
         return profile;
     }

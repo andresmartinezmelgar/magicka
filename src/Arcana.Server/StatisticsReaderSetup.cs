@@ -24,10 +24,20 @@ public static class StatisticsReaderSetup
             }
             var db = new FirestoreDbBuilder { ProjectId = project, Credential = credential }.Build();
             var existing = await db.Collection("statisticsReaders").GetSnapshotAsync();
-            if (existing.Count > 450) throw new InvalidOperationException("Revisa los permisos existentes antes de continuar.");
+            if (existing.Count > 200) throw new InvalidOperationException("Revisa los permisos existentes antes de continuar.");
             var batch = db.StartBatch();
-            foreach (var doc in existing.Documents) if (!uids.Contains(doc.Id)) batch.Delete(doc.Reference);
-            foreach (string uid in uids) batch.Set(db.Collection("statisticsReaders").Document(uid), new Dictionary<string, object> { ["enabled"] = true });
+            foreach (var doc in existing.Documents) if (!uids.Contains(doc.Id))
+            {
+                batch.Delete(doc.Reference);
+                batch.Set(db.Collection("users").Document(doc.Id).Collection("configuration").Document("account"),
+                    new Dictionary<string, object> { ["matchStatistics"] = false }, SetOptions.MergeAll);
+            }
+            foreach (string uid in uids)
+            {
+                batch.Set(db.Collection("statisticsReaders").Document(uid), new Dictionary<string, object> { ["enabled"] = true });
+                batch.Set(db.Collection("users").Document(uid).Collection("configuration").Document("account"),
+                    new Dictionary<string, object> { ["matchStatistics"] = true }, SetOptions.MergeAll);
+            }
             await batch.CommitAsync();
             Console.WriteLine("Estadísticas: autorizadas exactamente dos cuentas Google.");
         }

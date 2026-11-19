@@ -228,8 +228,8 @@ internal static class MatchStatisticsTests
         test("Estadísticas: lector comprueba permiso, omite informes corruptos y conserva la paginación", () =>
         {
             var (w, _, _) = Arena(); var report = w.MatchStatistics(MatchRecordStatus.Completed);
-            using var http = new HttpClient(new Handler(request => new(HttpStatusCode.OK) { Content = new StringContent(request.RequestUri!.AbsolutePath.Contains("statisticsReaders")
-                ? "{\"fields\":{\"enabled\":{\"booleanValue\":true}}}"
+            using var http = new HttpClient(new Handler(request => new(HttpStatusCode.OK) { Content = new StringContent(request.RequestUri!.AbsolutePath.EndsWith("/configuration/account")
+                ? "{\"fields\":{\"matchStatistics\":{\"booleanValue\":true}}}"
                 : JsonSerializer.Serialize(new { documents = new object[] { new { fields = new { payload = new { stringValue = w.MatchStatistics().ToJson() } } }, new { fields = new { } }, new { fields = new { payload = new { stringValue = "{broken" } } },
                     new { fields = new { payload = new { integerValue = "1" } } }, new { fields = new { payload = new { stringValue = report.ToJson() } } } }, nextPageToken = "next-page" })) }));
             using var reader = new FirebaseProfileReader("demo-arcana", http);
@@ -242,8 +242,8 @@ internal static class MatchStatisticsTests
             using var http = new HttpClient(new Handler(request =>
             {
                 Check(request.Headers.Authorization?.Scheme == "Bearer", "Borrado sin autenticación.");
-                if (request.RequestUri!.AbsolutePath.Contains("statisticsReaders"))
-                    return new(HttpStatusCode.OK) { Content = new StringContent("{\"fields\":{\"enabled\":{\"booleanValue\":true}}}") };
+                if (request.RequestUri!.AbsolutePath.EndsWith("/configuration/account"))
+                    return new(HttpStatusCode.OK) { Content = new StringContent("{\"fields\":{\"matchStatistics\":{\"booleanValue\":true}}}") };
                 if (request.Method == HttpMethod.Delete)
                 { deletes++; Check(lists == 2 && request.RequestUri.AbsolutePath.Contains("/matchStatistics/"), "Borrado antes de paginar o fuera del historial."); return new(HttpStatusCode.NoContent); }
                 lists++;

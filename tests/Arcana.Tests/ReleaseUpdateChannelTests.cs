@@ -3,7 +3,7 @@ using System.Text.Json;
 
 internal static class ReleaseUpdateChannelTests
 {
-    private const string Tester = "qRUza2DieeTypFqBIRA5KhbtXoY2";
+    private static readonly AccountAccess Tester = new(IsAdmin: true);
     private static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
     private static object Release(int build = 12, string version = "0.18.1", string branch = "feature/defensa-oleadas",
         bool draft = false, bool preview = true, bool hashes = true, string? host = null, bool androidOnly = false)
@@ -18,11 +18,11 @@ internal static class ReleaseUpdateChannelTests
             body = ReleaseUpdateChannel.BranchMarker + branch + "\n" + ReleaseChanges.Start +
                 "\n- Novedades de la prueba " + build + ".\n" + ReleaseChanges.End, assets };
     }
-    private static ReleaseUpdatePlan? Select(object releases, string uid = Tester, bool signedIn = true,
+    private static ReleaseUpdatePlan? Select(object releases, AccountAccess? access = null, bool signedIn = true,
         string installed = "0.18.0", long installedBuild = 0, bool android = true)
     {
         using var document = JsonDocument.Parse(JsonSerializer.Serialize(releases));
-        return ReleaseUpdateChannel.Select(document.RootElement, uid, signedIn, installed, installedBuild, android);
+        return ReleaseUpdateChannel.Select(document.RootElement, access ?? Tester, signedIn, installed, installedBuild, android);
     }
     internal static object Stable(string version = "0.20.0")
     {
@@ -34,15 +34,15 @@ internal static class ReleaseUpdateChannelTests
 
     public static void Run(Action<string, Action> test)
     {
-        test("Canal de pruebas: solo los UID autorizados y autenticados tienen acceso al selector", () =>
+        test("Canal de pruebas: Firebase autoriza administradores y probadores con sesión vigente", () =>
         {
-            foreach (string uid in new[] { Tester, "hg7F74kCNVQU3tU2itdjWu9SkyS2", "5IAznkpMbyaOqqvCV6D1e9DvZA93" })
+            foreach (var access in new[] { Tester, new AccountAccess(PreviewUpdates: true) })
             {
-                Check(ReleaseUpdateChannel.PreviewAllowed(uid, true), "UID autorizado rechazado.");
-                Check(!ReleaseUpdateChannel.PreviewAllowed(uid, false), "La caché sin sesión habilitó pruebas.");
+                Check(ReleaseUpdateChannel.PreviewAllowed(access, true), "Permiso remoto autorizado rechazado.");
+                Check(!ReleaseUpdateChannel.PreviewAllowed(access, false), "La caché sin sesión habilitó pruebas.");
             }
-            foreach (string? uid in new[] { null, "", "otro", Tester.ToLowerInvariant(), Tester + " " })
-                Check(!ReleaseUpdateChannel.PreviewAllowed(uid, true), "UID ajeno aceptado.");
+            foreach (AccountAccess? access in new AccountAccess?[] { null, new(), new(MatchStatistics: true), new(AdsRemoved: true) })
+                Check(!ReleaseUpdateChannel.PreviewAllowed(access, true), "Una configuración sin permiso habilitó pruebas.");
         });
         test("Canal de pruebas: selecciona la compilación más nueva compatible de una rama", () =>
         {
@@ -79,14 +79,14 @@ internal static class ReleaseUpdateChannelTests
         });
         test("Canal estable: usuarios ajenos y sesiones cerradas rechazan preliminares", () =>
         {
-            foreach (var pair in new[] { (Tester, false), ("normal", true), ("", false) })
+            foreach (var pair in new[] { (Tester, false), (new AccountAccess(), true), (new AccountAccess(), false) })
                 Check(Select(Release(), pair.Item1, pair.Item2) == null && Select(new[] { Release() }, pair.Item1, pair.Item2) == null,
                     "Se filtró una prueba a una cuenta estable.");
             string root = "https://github.com/andresmartinezmelgar/magicka/releases/download/v0.18.1/";
             var stable = new { tag_name = "v0.18.1", draft = false, prerelease = false, assets = new[] {
                 new { name = "ArcanaArena-v0.18.1-Android-arm64.apk", browser_download_url = root + "ArcanaArena-v0.18.1-Android-arm64.apk", size = 200 },
                 new { name = "SHA256SUMS.txt", browser_download_url = root + "SHA256SUMS.txt", size = 80 } } };
-            Check(Select(stable, "normal") is { Preview: false }, "El canal estable dejó de actualizarse.");
+            Check(Select(stable, new()) is { Preview: false }, "El canal estable dejó de actualizarse.");
         });
         test("Canal de pruebas: conserva la validación de origen e integridad", () =>
         {

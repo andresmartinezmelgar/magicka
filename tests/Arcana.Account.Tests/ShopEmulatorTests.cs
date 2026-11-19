@@ -171,6 +171,43 @@ internal static class ShopEmulatorTests
             await Reject<InvalidOperationException>(() => repository.Buy(uid, new(shop.Id, shop.Offers[0].Item.Id)));
             Check((await new FirestoreAccountRepository(db).Shop(uid, "Comprador")).Id == completed[0].Id, "El catálogo renovado no persistió.");
         });
+        await test("Tienda sin anuncios: exención remota, una renovación compartida, reintentos y nuevo día", async () =>
+        {
+            string uid = await User();
+            var clock = new ShopClock(DateTimeOffset.Parse("2026-11-11T12:00:00Z"));
+            var firstDevice = new FirestoreAccountRepository(db, clock);
+            var secondDevice = new FirestoreAccountRepository(db, clock);
+            var configuration = db.Collection("users").Document(uid).Collection("configuration").Document("account");
+            var shop = await firstDevice.Shop(uid, "Comprador");
+            await Reject<InvalidOperationException>(() => firstDevice.RefreshShopWithoutAd(uid, new(shop.Id)));
+            await configuration.SetAsync(new Dictionary<string, object> { ["isAdmin"] = true, ["adsRemoved"] = false });
+            await Reject<InvalidOperationException>(() => firstDevice.RefreshShopWithoutAd(uid, new(shop.Id)));
+            await configuration.UpdateAsync("adsRemoved", true);
+            await firstDevice.Buy(uid, new(shop.Id, shop.Offers[0].Item.Id));
+            var before = await firstDevice.Profile(uid, "Comprador");
+            Check(before.Access is { IsAdmin: true, AdsRemoved: true, MatchStatistics: false }, "El perfil perdió la configuración o abrió estadísticas por ser admin.");
+            var renewed = await Task.WhenAll(firstDevice.RefreshShopWithoutAd(uid, new(shop.Id)),
+                secondDevice.RefreshShopWithoutAd(uid, new(shop.Id)), firstDevice.RefreshShopWithoutAd(uid, new(shop.Id)));
+            var current = renewed[0];
+            Check(renewed.Select(s => s.Id).Distinct().Count() == 1 && current.Id != shop.Id &&
+                current.Revision == shop.Revision + 1 && current.RewardedRefreshAvailableAt == ShopRules.NextRefreshAt(clock.Now),
+                "Dos dispositivos renovaron más de una vez o no consumieron la cuota diaria.");
+            await Reject<InvalidOperationException>(() => firstDevice.RefreshShopWithoutAd(uid, new(current.Id)));
+            var restarted = new FirestoreAccountRepository(db, clock);
+            Check((await restarted.Shop(uid, "Comprador")).Id == current.Id, "Reiniciar borró la renovación diaria.");
+            var after = await firstDevice.Profile(uid, "Comprador");
+            Check(before.Gold == after.Gold && before.Items.Select(i => i.Id).SequenceEqual(after.Items.Select(i => i.Id)),
+                "Renovar cobró oro o modificó los objetos comprados.");
+            await configuration.UpdateAsync("adsRemoved", false);
+            await Reject<InvalidOperationException>(() => secondDevice.RefreshShopWithoutAd(uid, new(shop.Id)));
+            await configuration.UpdateAsync("adsRemoved", true);
+            clock.Now = current.RefreshAt!.Value;
+            var nextDay = await restarted.Shop(uid, "Comprador");
+            Check(nextDay.RewardedRefreshAvailableAt == null, "La cuota no se reinició a medianoche.");
+            var extra = await restarted.RefreshShopWithoutAd(uid, new(nextDay.Id));
+            Check(extra.Id != nextDay.Id && extra.RewardedRefreshAvailableAt == ShopRules.NextRefreshAt(clock.Now),
+                "No se pudo renovar en el nuevo día.");
+        });
         await test("Tienda HTTP: exige sesión y el cliente compra y actualiza saldo e inventario", async () =>
         {
             string uid = await User();
@@ -199,6 +236,13 @@ internal static class ShopEmulatorTests
             var unchanged = await client.Shop();
             Check(unchanged.Shop.Id == first.Shop.Id && unchanged.Profile.Gold == purchase.Profile.Gold && unchanged.Profile.Items.Length == 1,
                 "Los anuncios desactivados renovaron el catálogo, cobraron oro o entregaron objetos.");
+            var deniedRefresh = await http.PostAsJsonAsync("account/shop/refresh", new ShopAdRequest(first.Shop.Id), Protocol.Json);
+            Check(deniedRefresh.StatusCode == HttpStatusCode.Conflict, "El endpoint sin anuncios aceptó una cuenta sin exención.");
+            await db.Collection("users").Document(uid).Collection("configuration").Document("account")
+                .SetAsync(new Dictionary<string, object> { ["adsRemoved"] = true });
+            var noAds = await client.RefreshShopWithoutAd(first.Shop.Id);
+            Check(noAds.Profile.Access.AdsRemoved && noAds.Shop.Id != first.Shop.Id && noAds.Shop.RewardedRefreshAvailableAt > noAds.ServerTime,
+                "El cliente no actualizó la exención o la cuota de renovación.");
         });
     }
 }

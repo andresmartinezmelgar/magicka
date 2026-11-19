@@ -37,7 +37,7 @@ public partial class ReleaseUpdateNotice : Node
     private int _progressGeneration;
     private string _identity = "";
     private int _channelGeneration;
-    private bool CurrentIdentity => _disabled || _identity == GetParent<Main>().UpdateIdentityUid;
+    private bool CurrentIdentity => _disabled || _identity == GetParent<Main>().UpdateChannelIdentity;
 
     public override void _Ready()
     {
@@ -54,7 +54,7 @@ public partial class ReleaseUpdateNotice : Node
             OS.GetCmdlineUserArgs().Any(a => a.Contains("smoke") || a.Contains("preview"));
         if (_disabled) return;
         ReleaseUpdateCache.CleanInstalled(_updatesFolder, BuildInfo.Version, BuildInfo.UpdateBuildNumber);
-        _identity = GetParent<Main>().UpdateIdentityUid;
+        _identity = GetParent<Main>().UpdateChannelIdentity;
         if (_android)
         {
             _androidInstaller = new AndroidUpdateBridge();
@@ -68,7 +68,7 @@ public partial class ReleaseUpdateNotice : Node
     public override void _Process(double delta)
     {
         if (_disabled) return;
-        SynchronizeIdentity(GetParent<Main>().UpdateIdentityUid);
+        SynchronizeIdentity(GetParent<Main>().UpdateChannelIdentity);
         _checkClock += delta;
         if (_pendingUpdate != null && _overlay == null && GetParent<Main>().CanApplyUpdates)
         {
@@ -112,14 +112,14 @@ public partial class ReleaseUpdateNotice : Node
     {
         if (_disabled) return "La búsqueda de actualizaciones está disponible en las versiones para Android y Windows.";
         if (_stop.IsCancellationRequested || !IsInsideTree()) return "La búsqueda se ha cancelado.";
-        SynchronizeIdentity(GetParent<Main>().UpdateIdentityUid);
+        SynchronizeIdentity(GetParent<Main>().UpdateChannelIdentity);
         if (_installing || _downloading) return "Hay una actualización en curso.";
         string identity = _identity;
         int generation = _channelGeneration;
         _dismissedVersion = ""; // Una búsqueda explícita puede volver a ofrecer una versión descartada.
         _checkClock = 0;
         var result = await Check();
-        if (_stop.IsCancellationRequested || generation != _channelGeneration || identity != GetParent<Main>().UpdateIdentityUid)
+        if (_stop.IsCancellationRequested || generation != _channelGeneration || identity != GetParent<Main>().UpdateChannelIdentity)
             return "La búsqueda se ha cancelado al cambiar de sesión.";
         return !result.Succeeded ? "No se ha podido consultar la actualización. Comprueba la conexión." :
             result.Update is { } plan ? $"Actualización {plan.Version} disponible. Puedes elegir descargarla en el aviso." :
@@ -136,7 +136,7 @@ public partial class ReleaseUpdateNotice : Node
         try
         {
             var result = await ReleaseUpdateQuery.CheckAsync(MetadataHttp, identity, BuildInfo.Version,
-                BuildInfo.UpdateBuildNumber, _android, _stop.Token);
+                BuildInfo.UpdateBuildNumber, _android, _stop.Token, GetParent<Main>().UpdateAccess);
             var plan = result.Update;
             if (plan?.Differential == true && (_android && _androidBasePath.Length == 0 ||
                 System.IO.File.Exists(System.IO.Path.Combine(_updatesFolder, "skip-delta-" + plan.Version + ".txt"))))
@@ -144,7 +144,7 @@ public partial class ReleaseUpdateNotice : Node
             if (plan != null) Callable.From(() =>
             {
                 if (!_stop.IsCancellationRequested && channelGeneration == _channelGeneration &&
-                    identity == GetParent<Main>().UpdateIdentityUid) _pendingUpdate = plan;
+                    identity == GetParent<Main>().UpdateChannelIdentity) _pendingUpdate = plan;
             }).CallDeferred();
             return result with { Update = plan };
         }
@@ -359,7 +359,7 @@ public partial class ReleaseUpdateNotice : Node
                 throw new InvalidOperationException("La preliminar no identifica su origen o descarga sin consentimiento.");
             if (_changes?.Text.Contains(_activePlan.Changes[0]) != true || !_changes.IsVisibleInTree())
                 throw new InvalidOperationException("El aviso no muestra las novedades de la versión seleccionada.");
-            _identity = "qRUza2DieeTypFqBIRA5KhbtXoY2";
+            _identity = "qa-preview-account|preview";
             _pendingUpdate = _activePlan;
             int previousGeneration = _progressGeneration;
             SynchronizeIdentity("");

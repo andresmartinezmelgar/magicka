@@ -27,6 +27,12 @@ El día termina a medianoche en Europe/Madrid. Un ticket sin confirmación SSV n
 
 Las reglas existentes impiden escrituras de clientes en los documentos de tienda y en la colección de recibos. No son necesarios índices nuevos.
 
+## Cuentas con opción sin anuncios
+
+La configuración privada `users/{uid}/configuration/account.adsRemoved` se lee en el servidor. Si está activa, la tienda utiliza `POST /account/shop/refresh` sin mostrar un anuncio, también en Windows. Comparte el mismo límite de una renovación extra al día con la vía recompensada; cambiar de dispositivo o reinstalar no restablece el límite. Ser administrador no equivale a tener esta compra.
+
+El registro del derecho está preparado; la venta real requiere todavía Google Play Billing, un producto no consumible, verificación y reconocimiento del pago en el servidor, recibos y tratamiento de reembolsos. La APK actual de GitHub no incorpora ese flujo de cobro. Ver [CONFIGURACION-CUENTAS.md](CONFIGURACION-CUENTAS.md).
+
 ## Verificación
 
 - `AdMobRewardVerifierTests`: firma válida, datos alterados, unidad incorrecta, fecha caducada y parámetros duplicados, sin consultar servicios reales.
