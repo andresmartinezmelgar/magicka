@@ -18,12 +18,20 @@ service cloud.firestore {
     // revision/status enteros acotados, day ISO, mode/map enumerados,
     // gameVersion semántica, complete booleano y payload JSON de hasta 240 KiB.
     // El cliente valida el JSON. Las cifras no son autoritativas para premios.
-    // statisticsReaders/{uid}: { enabled: bool }; solo Admin concede o revoca roles.
+    // users/{uid}/configuration/account: isAdmin/previewUpdates/matchStatistics/
+    // adsRemoved bools; updatedAt timestamp opcional. Solo Admin/IAM escribe.
+    // Una configuración nueva prevalece sobre statisticsReaders (compatibilidad
+    // con clientes antiguos); isAdmin por sí solo no abre estadísticas privadas.
+    function accountStatisticsReader(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid)/configuration/account)
+        ? get(/databases/$(database)/documents/users/$(uid)/configuration/account).data.get('matchStatistics', false) == true
+        : (exists(/databases/$(database)/documents/statisticsReaders/$(uid))
+          && get(/databases/$(database)/documents/statisticsReaders/$(uid)).data.enabled == true);
+    }
     function statisticsReader() {
       return request.auth != null
         && request.auth.token.firebase.sign_in_provider == 'google.com'
-        && exists(/databases/$(database)/documents/statisticsReaders/$(request.auth.uid))
-        && get(/databases/$(database)/documents/statisticsReaders/$(request.auth.uid)).data.enabled == true;
+        && accountStatisticsReader(request.auth.uid);
     }
     match /statisticsReaders/{uid} {
       allow get: if googleOwner(uid);
@@ -111,6 +119,13 @@ service cloud.firestore {
         && request.resource.data.itemCount is int && request.resource.data.itemCount == 0
         && request.resource.data.schemaVersion is int && request.resource.data.schemaVersion == 1;
       allow list, update, delete: if false;
+
+      match /configuration/{configurationId} {
+        // Ni el propietario ni un administrador del juego pueden cambiar roles,
+        // compras o cuotas mediante un ID token de cliente.
+        allow get: if googleOwner(uid) && configurationId == 'account';
+        allow list, create, update, delete: if false;
+      }
 
       match /items/{itemId} {
         allow get, list: if googleOwner(uid);

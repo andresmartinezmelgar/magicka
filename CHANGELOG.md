@@ -2,6 +2,12 @@
 
 ## Sin publicar
 
+## 0.29.69
+
+- Miniaturas del equipo: casillas cuadradas y márgenes interiores para que la pieza, el elemento, el atributo extra, la calidad y las mejoras quepan dentro del marco.
+- Las cuentas administradoras, versiones de pruebas, estadísticas y opción sin anuncios se gestionan desde la configuración privada de cada cuenta en Firebase, sin UID reales en el código del juego.
+- Las cuentas con la opción sin anuncios activada pueden renovar las ofertas sin reproducir publicidad, con el mismo límite de una renovación extra diaria y persistencia entre dispositivos.
+- Migrador de tres cuentas Google que conserva permisos anteriores y exenciones existentes. Reglas que impiden al cliente modificar sus roles, compras y cuotas.
 - Aclarada la descripción de Saltos de relámpago: tres objetivos base y uno o dos saltos extra en total por descarga, con su alcance, selección de enemigos y exclusiones.
 
 ## 0.29.68

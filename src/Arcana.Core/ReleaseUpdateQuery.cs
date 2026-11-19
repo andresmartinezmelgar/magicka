@@ -9,14 +9,14 @@ public sealed record ReleaseUpdateQueryResult(bool Succeeded, ReleaseUpdatePlan?
 public static class ReleaseUpdateQuery
 {
     public static async Task<ReleaseUpdateQueryResult> CheckAsync(HttpClient http, string identity, string installed,
-        long installedBuild, bool android, CancellationToken cancellationToken)
+        long installedBuild, bool android, CancellationToken cancellationToken, AccountAccess? access = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(http.Timeout == Timeout.InfiniteTimeSpan ? TimeSpan.FromSeconds(12) : http.Timeout);
-            bool preview = ReleaseUpdateChannel.PreviewAllowed(identity, identity.Length > 0);
+            bool preview = ReleaseUpdateChannel.PreviewAllowed(access, identity.Length > 0);
             using var request = new HttpRequestMessage(HttpMethod.Get,
                 preview ? ReleaseUpdateChannel.PreviewMetadata : ReleaseUpdateChannel.StableMetadata);
             request.Headers.UserAgent.ParseAdd("ArcanaArena-Updater/2.3");
@@ -30,7 +30,7 @@ public static class ReleaseUpdateQuery
             if (preview ? root.ValueKind != JsonValueKind.Array : root.ValueKind != JsonValueKind.Object ||
                 !root.TryGetProperty("tag_name", out var tag) || tag.ValueKind != JsonValueKind.String ||
                 !root.TryGetProperty("assets", out var assets) || assets.ValueKind != JsonValueKind.Array) return new(false, null);
-            return new(true, ReleaseUpdateChannel.Select(root, identity, identity.Length > 0, installed, installedBuild, android));
+            return new(true, ReleaseUpdateChannel.Select(root, access, identity.Length > 0, installed, installedBuild, android));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception error) when (error is HttpRequestException or IOException or InvalidDataException or JsonException or OperationCanceledException)

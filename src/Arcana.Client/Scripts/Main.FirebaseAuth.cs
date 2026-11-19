@@ -20,6 +20,9 @@ public partial class Main
     public bool GoogleIdentityKnown => _googleIdentityKnown;
     public string GoogleIdentityName => _googleIdentityName;
     public string UpdateIdentityUid => _googleIdentityKnown ? _googleIdentityUid : Accounts.SignedIn ? Accounts.Profile?.Uid ?? "" : "";
+    public AccountAccess? UpdateAccess => Accounts.SignedIn && Accounts.Profile?.Uid == UpdateIdentityUid ? Accounts.Profile.Access : null;
+    public string UpdateChannelIdentity => UpdateIdentityUid.Length == 0 ? "" : UpdateIdentityUid +
+        (ReleaseUpdateChannel.PreviewAllowed(UpdateAccess, Accounts.SignedIn) ? "|preview" : "|stable");
     public bool GoogleLoginAvailable => _google?.Available == true || _desktopGoogle?.Available == true;
     public bool DesktopGoogleNeedsConfiguration => _desktopGoogle is { Configured: false };
 

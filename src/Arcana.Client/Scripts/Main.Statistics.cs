@@ -16,8 +16,9 @@ public partial class Main
     private MatchStatisticsReport? _statisticsLastReceived;
     private bool _statisticsSending, _statisticsEnded;
     private ArenaConnection? _statisticsConnection;
-    public bool CanViewMatchStatistics => Accounts.Profile?.Uid is
-        "hg7F74kCNVQU3tU2itdjWu9SkyS2" or "qRUza2DieeTypFqBIRA5KhbtXoY2";
+    private bool _statisticsAccess;
+    private bool StatisticsVerification => _statisticsSmoke || _navigationSmokeActive;
+    public bool CanViewMatchStatistics => (Accounts.SignedIn || StatisticsVerification) && Accounts.Profile?.Access.MatchStatistics == true;
     private void InitializeMatchStatistics(string[] arguments)
     {
         if (ClientVerification.Requested(arguments) || RenderProfiler.Requested(arguments) || arguments.Any(a => a.Contains("smoke", StringComparison.Ordinal) || a.Contains("preview", StringComparison.Ordinal) || a.Contains("profiler", StringComparison.Ordinal) || a == "--visual-review")) return;
@@ -53,7 +54,7 @@ public partial class Main
     }
     private void TickMatchStatistics(double delta)
     {
-        if (_statisticsProfileUid != (Accounts.Profile?.Uid ?? "")) RefreshStatisticsAccess();
+        if (_statisticsProfileUid != (Accounts.Profile?.Uid ?? "") || _statisticsAccess != CanViewMatchStatistics) RefreshStatisticsAccess();
         if (_statisticsOutbox == null) return;
         TickDashboard(delta);
         _statisticsClock += delta; _statisticsSendClock += delta;
@@ -93,12 +94,13 @@ public partial class Main
         string uid = Accounts.Profile?.Uid ?? "";
         if (_statisticsProfileUid != uid || !CanViewMatchStatistics) CloseMatchStatistics();
         _statisticsProfileUid = uid;
+        _statisticsAccess = CanViewMatchStatistics;
         if (GodotObject.IsInstanceValid(_accountProfilePanel)) _accountProfilePanel!.RefreshStatisticsAccess();
     }
     internal async Task<MatchStatisticsPage> ReadCloudMatchStatistics(string pageToken, CancellationToken token)
     {
         if (!CanViewMatchStatistics) throw new UnauthorizedAccessException("Esta cuenta no tiene acceso a las estadísticas.");
-        if (_statisticsSmoke)
+        if (StatisticsVerification)
         {
             var reports = _statisticsReportsForVerification ?? [];
             return pageToken.Length == 0 ? new(reports.Take(2).ToArray(), reports.Length > 2 ? "qa-next" : "")
@@ -111,14 +113,14 @@ public partial class Main
     }
     internal Task<int> DeleteCloudMatchStatistics(CancellationToken token)
     {
-        if (!CanViewMatchStatistics || _statisticsSmoke) throw new UnauthorizedAccessException("Borrado no permitido en esta sesión.");
+        if (!CanViewMatchStatistics || StatisticsVerification) throw new UnauthorizedAccessException("Borrado no permitido en esta sesión.");
         return Accounts.DeleteMatchStatistics(token);
     }
     public void OpenMatchStatistics()
     {
         if (_playing || !CanViewMatchStatistics || GodotObject.IsInstanceValid(_statisticsPanel)) return;
         _statisticsProfileUid = Accounts.Profile!.Uid;
-        _statisticsPanel = new(); _ui.AddChild(_statisticsPanel); _statisticsPanel.Build(this, verification: _statisticsSmoke);
+        _statisticsPanel = new(); _ui.AddChild(_statisticsPanel); _statisticsPanel.Build(this, verification: StatisticsVerification);
     }
     private void CloseMatchStatistics() { _statisticsPanel?.QueueFree(); _statisticsPanel = null; }
 }

@@ -10,14 +10,12 @@ public static class ReleaseUpdateChannel
     public const string StableMetadata = "https://api.github.com/repos/andresmartinezmelgar/magicka/releases/latest";
     public const string PreviewMetadata = "https://api.github.com/repos/andresmartinezmelgar/magicka/releases?per_page=20";
     public const string BranchMarker = "Arcana-Preview-Branch: ";
-    public static bool PreviewAllowed(string? uid, bool signedIn) => signedIn &&
-        (uid == "qRUza2DieeTypFqBIRA5KhbtXoY2" || uid == "hg7F74kCNVQU3tU2itdjWu9SkyS2" ||
-         uid == "5IAznkpMbyaOqqvCV6D1e9DvZA93");
+    public static bool PreviewAllowed(AccountAccess? access, bool signedIn) => signedIn && access?.CanReceivePreview == true;
 
-    public static ReleaseUpdatePlan? Select(JsonElement metadata, string? uid, bool signedIn,
+    public static ReleaseUpdatePlan? Select(JsonElement metadata, AccountAccess? access, bool signedIn,
         string installed, long installedBuild, bool android)
     {
-        if (!PreviewAllowed(uid, signedIn)) return ReleaseUpdatePlan.Read(metadata, installed, android);
+        if (!PreviewAllowed(access, signedIn)) return ReleaseUpdatePlan.Read(metadata, installed, android);
         if (metadata.ValueKind != JsonValueKind.Array) return null;
         return metadata.EnumerateArray().Select(r => ReadPreview(r, installed, installedBuild, android) ??
                 ReleaseUpdatePlan.Read(r, installed, android))

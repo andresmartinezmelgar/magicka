@@ -9,6 +9,7 @@ using var processDiagnostics = new ProcessDiagnostics(log);
 try
 {
     if (args.FirstOrDefault() == "--statistics-readers") { await StatisticsReaderSetup.Run(args.Skip(1).ToArray()); return; }
+    if (args.FirstOrDefault() == "--account-admins") { await AccountAdminSetup.Run(args.Skip(1).ToArray()); return; }
     var settings = ServerSettings.FromEnvironment();
     log.ProtectSecret(settings.Password);
     // El launcher pasa ARCANA_FIREBASE_CONFIG y GOOGLE_APPLICATION_CREDENTIALS

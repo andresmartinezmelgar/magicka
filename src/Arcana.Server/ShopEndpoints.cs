@@ -23,6 +23,13 @@ public static class ShopEndpoints
             AdMobRewardVerifier.Configuration(app.Configuration) is not { } config ? Task.FromResult(AdsUnavailable()) :
             Auth(accounts, context, async user => (await accounts.Repository!.StartVerifiedShopAd(user.Uid, request, context.RequestAborted))
                 with { AdUnitId = config.UnitId }));
+        app.MapPost("/account/shop/refresh", (ShopAdRequest request, AccountService accounts, HttpContext context) =>
+            Auth(accounts, context, async user =>
+            {
+                var shop = await accounts.Repository!.RefreshShopWithoutAd(user.Uid, request, context.RequestAborted);
+                return Result(await accounts.Repository.Profile(user.Uid, user.Name, context.RequestAborted),
+                    shop, "Ofertas renovadas sin anuncios. Disponible de nuevo mañana.");
+            }));
         app.MapPost("/account/shop/ad/complete", (ShopAdCompleteRequest request, AccountService accounts, HttpContext context) =>
             AdMobRewardVerifier.Configuration(app.Configuration) == null ? Task.FromResult(AdsUnavailable()) :
             Auth(accounts, context, async user => Result(await accounts.Repository!.Profile(user.Uid, user.Name, context.RequestAborted),

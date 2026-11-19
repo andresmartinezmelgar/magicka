@@ -27,6 +27,8 @@ public interface IAccountRepository
         Task.FromException<ItemShop>(new NotSupportedException("Anuncios no disponibles."));
     Task ConfirmVerifiedShopAd(VerifiedAdMobReward reward, CancellationToken token = default) =>
         Task.FromException(new NotSupportedException("Anuncios no disponibles."));
+    Task<ItemShop> RefreshShopWithoutAd(string uid, ShopAdRequest request, CancellationToken token = default) =>
+        Task.FromException<ItemShop>(new NotSupportedException("Renovación sin anuncios no disponible."));
 }
 
 internal static class FirestoreData
@@ -103,10 +105,12 @@ public sealed partial class FirestoreAccountRepository(FirestoreDb database, Tim
             var h = Header(await transaction.GetSnapshotAsync(user, token));
             var inventory = await transaction.GetSnapshotAsync(user.Collection("items").Limit(EquipmentCatalogue.InventoryLimit + 1), token);
             var saved = await transaction.GetSnapshotAsync(user.Collection("loadouts").Document("active"), token);
+            var access = await transaction.GetSnapshotAsync(AccountConfigurationDocument(uid), token);
             var items = inventory.Documents.Select(FirestoreData.Read<EquipmentItem>).OrderByDescending(i => i.CreatedAt).ToArray();
             if (items.Length > EquipmentCatalogue.InventoryLimit || items.Any(i => !EquipmentCatalogue.Valid(i))) throw new InvalidDataException("Inventario inválido.");
             var profile = new AccountProfile(uid, h.Name, h.Gold, h.Wins, h.Losses,
-                saved.Exists ? FirestoreData.Read<EquipmentLoadout>(saved) : new(), items) { Bestiary = h.Bestiary };
+                saved.Exists ? FirestoreData.Read<EquipmentLoadout>(saved) : new(), items)
+                { Bestiary = h.Bestiary, Access = access.Exists ? FirestoreData.Read<AccountAccess>(access) : new() };
             _ = EquipmentModifiers.Calculate(profile); return profile;
         }, cancellationToken: token);
     }

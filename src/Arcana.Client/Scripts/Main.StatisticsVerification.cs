@@ -28,18 +28,20 @@ public partial class Main
                 var access = (Button)_accountProfilePanel!.FindChild("ProfileMatchStatistics", true, false);
                 if (_statisticsOutbox != null || _statisticsTransport != null || CanViewMatchStatistics || access.Visible)
                     throw new InvalidOperationException("La prueba envía estadísticas o expone el visor sin permiso.");
-                foreach (var (uid, allowed) in new[] { ("hg7F74kCNVQU3tU2itdjWu9SkyS2", true), ("qRUza2DieeTypFqBIRA5KhbtXoY2", true),
-                    ("hg7f74kcnvqu3tu2itdjwu9skys2", false), ("otra-cuenta", false) })
+                foreach (var (uid, allowed) in new[] { ("qa-reader-a", true), ("qa-reader-b", true),
+                    ("qa-admin-without-statistics", false), ("otra-cuenta", false) })
                 {
-                    Accounts.RestoreOfflineProfile(new(uid, "Prueba local", 0, 0, 0, new(), []));
+                    Accounts.RestoreOfflineProfile(new(uid, "Prueba local", 0, 0, 0, new(), [])
+                        { Access = new(IsAdmin: true, MatchStatistics: allowed) });
                     RefreshStatisticsAccess();
                     if (CanViewMatchStatistics != allowed || access.Visible != allowed || allowed && access.Disabled)
-                        throw new InvalidOperationException("El botón no aplica los dos UID exactos sin conexión.");
+                        throw new InvalidOperationException("El botón no aplica el permiso remoto de estadísticas.");
                     if (allowed) access.EmitSignal(Button.SignalName.Pressed); else OpenMatchStatistics();
                     if (GodotObject.IsInstanceValid(_statisticsPanel) != allowed) throw new InvalidOperationException("El botón local no abre el visor o permite otra cuenta.");
                     CloseMatchStatistics();
                 }
-                Accounts.RestoreOfflineProfile(new("hg7F74kCNVQU3tU2itdjWu9SkyS2", "Prueba local", 0, 0, 0, new(), []));
+                Accounts.RestoreOfflineProfile(new("qa-reader-a", "Prueba local", 0, 0, 0, new(), [])
+                    { Access = new(MatchStatistics: true) });
                 RefreshStatisticsAccess(); access.EmitSignal(Button.SignalName.Pressed);
                 Accounts.SignOut().GetAwaiter().GetResult(); TickMatchStatistics(0);
                 if (CanViewMatchStatistics || access.Visible || _statisticsPanel != null) throw new InvalidOperationException("El visor sigue abierto al cerrar sesión.");
@@ -92,7 +94,8 @@ public partial class Main
                         Metrics = metrics.Where(m => m.Group is not (StatisticGroup.Difficulty or StatisticGroup.Enemy or StatisticGroup.EnemyElement) && !(m.Group == StatisticGroup.Actor && m.Key >= 64)).ToArray() }];
                 // La consulta simulada cruza dos páginas e incluye una revisión antigua duplicada.
                 _statisticsReportsForVerification = [reports[0] with { Status = MatchRecordStatus.Left }, .. reports];
-                Accounts.RestoreOfflineProfile(new("qRUza2DieeTypFqBIRA5KhbtXoY2", "Prueba local", 0, 0, 0, new(), []));
+                Accounts.RestoreOfflineProfile(new("qa-reader-b", "Prueba local", 0, 0, 0, new(), [])
+                    { Access = new(MatchStatistics: true) });
                 OpenMatchStatistics();
                 _statisticsSmokePhase = 1; _statisticsSmokeFrame = 0; return true;
             }

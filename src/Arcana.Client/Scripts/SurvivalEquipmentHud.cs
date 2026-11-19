@@ -6,7 +6,7 @@ namespace Arcana.Client;
 /// <summary>Seis piezas independientes, compartidas por la partida y el editor local.</summary>
 internal partial class SurvivalEquipmentHud : Control
 {
-    internal static readonly Vector2 CellSize = new(64, 58);
+    internal static readonly Vector2 CellSize = new(64, 64);
     private readonly record struct ItemState(string Id, ItemTier? Tier, EquipmentFamily? Family, ItemAffix? Affix, int Level, bool Affordable);
     private sealed record Cell(Button Button, TextureRect Piece, TextureRect Effect, ElementIcon Element,
         EquipmentItemIndicators Indicators);
@@ -39,15 +39,19 @@ internal partial class SurvivalEquipmentHud : Control
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
             var button = new Button { Name = Key(slot), CustomMinimumSize = CellSize, Size = CellSize,
-                FocusMode = FocusModeEnum.None, MouseFilter = inspect == null ? MouseFilterEnum.Ignore : MouseFilterEnum.Stop };
+                ClipContents = true, FocusMode = FocusModeEnum.None,
+                MouseFilter = inspect == null ? MouseFilterEnum.Ignore : MouseFilterEnum.Stop };
             AddChild(button); _buttons.Add(Key(slot), button);
             if (inspect != null) button.Pressed += () => inspect(slot);
             var piece = EquipmentIcons.View(EquipmentIcons.Slot(slot), 0);
-            piece.Position = new(6, 6); piece.Size = new(30, 24); button.AddChild(piece);
+            piece.Position = new(7, 7); piece.Size = new(28, 22); button.AddChild(piece);
             var effect = EquipmentIcons.View(EquipmentIcons.Slot(slot), 0);
             effect.Name = "EquipmentExtraAttribute"; effect.Visible = false; effect.Modulate = Ui.Text;
-            effect.Position = new(39, 27); effect.Size = new(20, 20); button.AddChild(effect);
-            var element = new ElementIcon { Name = "EquipmentElement", Position = new(40, 6), Size = new(18, 18), CustomMinimumSize = Vector2.Zero, Visible = false };
+            effect.Position = new(40, 29); effect.Size = new(17, 17); button.AddChild(effect);
+            // Reducir el mínimo ANTES del tamaño: el constructor de ElementIcon
+            // fija 25 px y Godot no reduce Size al bajar el mínimo después.
+            var element = new ElementIcon { Name = "EquipmentElement", CustomMinimumSize = Vector2.Zero,
+                Position = new(40, 7), Size = new(17, 17), Visible = false };
             button.AddChild(element);
             var indicators = new EquipmentItemIndicators { MouseFilter = MouseFilterEnum.Ignore }; button.AddChild(indicators); Ui.Full(indicators);
             _cells.Add(slot, new(button, piece, effect, element, indicators));

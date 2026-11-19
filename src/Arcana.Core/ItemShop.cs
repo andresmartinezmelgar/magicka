@@ -4,6 +4,7 @@ public sealed record ShopOffer(EquipmentItem Item, int Price, bool Sold = false)
 public sealed record ItemShop(string Id, int Revision, ShopOffer[] Offers, DateTimeOffset? RefreshAt = null)
 {
     public DateTimeOffset? RewardedRefreshAvailableAt { get; init; }
+    public string? PreviousRefreshShopId { get; init; }
 }
 public sealed record RewardedAdsConfiguration(string AppId, string UnitId);
 public sealed record VerifiedAdMobReward(string Uid, string TicketId, string TransactionId, DateTimeOffset WatchedAt)

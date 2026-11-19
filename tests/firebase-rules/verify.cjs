@@ -172,6 +172,32 @@ async function main() {
     await assertFails(getDocs(collection(readerA, "matchStatistics")));
     await assertFails(deleteDoc(doc(readerA, "matchStatistics/fixture")));
     console.log("MATCH_STATISTICS_RULES_OK: private reads, anonymous immutable reports, exact retries, bounded schema, no overwrite, role escalation rejected.");
+    const configuration = "users/alice/configuration/account";
+    const accountAccess = { isAdmin: true, previewUpdates: true, matchStatistics: true, adsRemoved: true };
+    await env.withSecurityRulesDisabled(async context => {
+      await setDoc(doc(context.firestore(), configuration), accountAccess);
+      // Un rol legacy concedido no debe anular una revocación nueva explícita.
+      await setDoc(doc(context.firestore(), "statisticsReaders/alice"), { enabled: true });
+    });
+    await assertSucceeds(getDoc(doc(google, configuration)));
+    await assertSucceeds(getDocs(collection(google, "matchStatistics")));
+    for (const denied of [other, anonymous, password, readerA, readerB])
+      await assertFails(getDoc(doc(denied, configuration)));
+    for (const client of [google, other, anonymous, password, readerA, readerB]) {
+      await assertFails(setDoc(doc(client, configuration), accountAccess));
+      await assertFails(updateDoc(doc(client, configuration), { adsRemoved: false }));
+      await assertFails(deleteDoc(doc(client, configuration)));
+      await assertFails(setDoc(doc(client, "users/bob/configuration/account"), accountAccess));
+      await assertFails(getDocs(collection(client, "users/alice/configuration")));
+    }
+    await assertFails(getDoc(doc(google, "users/alice/configuration/other")));
+    await assertFails(setDoc(doc(google, "users/alice/shop/current"), { rewardedRefreshAvailableAt: null }));
+    await assertFails(setDoc(doc(google, "users/alice/shop/rewardedAd"), { completed: true }));
+    await assertFails(setDoc(doc(google, "admobTransactions/forged"), { uid: "alice" }));
+    await env.withSecurityRulesDisabled(context => updateDoc(doc(context.firestore(), configuration), { matchStatistics: false }));
+    await assertFails(getDocs(collection(google, "matchStatistics")));
+    await assertFails(deleteDoc(doc(google, "matchStatistics/fixture")));
+    console.log("ACCOUNT_CONFIGURATION_RULES_OK: private owner read; all client role/payment/quota writes rejected; explicit revocation overrides legacy and admin flags.");
     console.log("FIRESTORE_RULES_OK: Google owner reads, zero-balance registration, owned equipment; illegal writes rejected.");
   } finally { await env.cleanup(); }
 }

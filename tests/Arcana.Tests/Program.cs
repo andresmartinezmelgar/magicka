@@ -199,6 +199,7 @@ SurvivalContinuityTests.Run(Test);
 AccountLoadoutTests.Run(Test);
 UsabilityTests.Run(Test);
 AccountSessionTests.Run(Test);
+AccountAccessTests.Run(Test);
 AuditRegressionTests.Run(Test);
 ReleaseAuditFixTests.Run(Test);
 ComprehensiveAuditTests.Run(Test);

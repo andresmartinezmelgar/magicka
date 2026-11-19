@@ -7,6 +7,8 @@ public sealed partial class AccountClient
         ShopRequest(HttpMethod.Post, "account/shop/buy", request, token);
     public Task<ShopResult> CompleteShopAd(ShopAdCompleteRequest request, CancellationToken token = default) =>
         ShopRequest(HttpMethod.Post, "account/shop/ad/complete", request, token);
+    public Task<ShopResult> RefreshShopWithoutAd(string shopId, CancellationToken token = default) =>
+        ShopRequest(HttpMethod.Post, "account/shop/refresh", new ShopAdRequest(shopId), token);
 
     private async Task<ShopResult> ShopRequest(HttpMethod method, string path, object? body, CancellationToken token)
     {

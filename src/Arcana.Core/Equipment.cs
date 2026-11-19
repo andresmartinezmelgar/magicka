@@ -30,6 +30,7 @@ public sealed record AccountProfile(string Uid, string Name, long Gold, int Wins
     EquipmentItem[] Items, int SchemaVersion = 1)
 {
     public Dictionary<string, long> Bestiary { get; init; } = new(StringComparer.Ordinal);
+    public AccountAccess Access { get; init; } = new();
 }
 public sealed record InventoryRequest(string ItemId, EquipmentSlot Slot = EquipmentSlot.Boots);
 public sealed record InventoryResult(AccountProfile Profile, string Message);

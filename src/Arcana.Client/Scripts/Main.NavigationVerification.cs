@@ -6,8 +6,10 @@ namespace Arcana.Client;
 
 public partial class Main
 {
+    private bool _navigationSmokeActive;
     private async Task RunNavigationSmoke(string[] args)
     {
+        _navigationSmokeActive = true;
         async Task Frames(int count = 5)
         { for (int i = 0; i < count; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); }
         void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
@@ -58,7 +60,8 @@ public partial class Main
             foreach (var size in new[] { new Vector2I(640, 450), new(960, 450), new(1440, 900) })
             {
                 GetWindow().ContentScaleSize = size; GetWindow().Size = size; await Frames();
-                Accounts.RestoreOfflineProfile(new("hg7F74kCNVQU3tU2itdjWu9SkyS2", "Navegación local", 0, 0, 0, new(), []));
+                Accounts.RestoreOfflineProfile(new("qa-navigation-account", "Navegación local", 0, 0, 0, new(), [])
+                    { Access = new(MatchStatistics: true) });
                 NavigateOptionAMenu(0); await Frames();
                 var tutorial = (Button)_launcher.FindChild("TutorialMode", true, false);
                 var recommendation = (ElementTextLabel)_launcher.FindChild("TutorialRecommendation", true, false);
@@ -398,6 +401,6 @@ public partial class Main
             CompleteMenuSmoke("NAVIGATION_SMOKE_OK: salidas visibles fuera del scroll, clic real, Escape/Atrás y guardado autoritativo antes de continuar.");
         }
         catch (Exception error) { GD.PushError("NAVIGATION_SMOKE_FAILED: " + error); GetTree().Quit(1); }
-        finally { _launcher.RefreshRoomsOnBuild = true; }
+        finally { _navigationSmokeActive = false; _launcher.RefreshRoomsOnBuild = true; }
     }
 }

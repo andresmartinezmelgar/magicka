@@ -24,8 +24,9 @@ internal static class ReleaseUpdateQueryTests
     private static void Check(bool value, string message) { if (!value) throw new Exception(message); }
     private static HttpResponseMessage Response(object metadata) => new(HttpStatusCode.OK)
         { Content = new StringContent(JsonSerializer.Serialize(metadata)) };
-    private static ReleaseUpdateQueryResult Query(HttpClient http, string uid = "", string installed = "0.19.3", CancellationToken token = default) =>
-        ReleaseUpdateQuery.CheckAsync(http, uid, installed, 470, true, token).GetAwaiter().GetResult();
+    private static ReleaseUpdateQueryResult Query(HttpClient http, bool preview = false, string installed = "0.19.3", CancellationToken token = default) =>
+        ReleaseUpdateQuery.CheckAsync(http, preview ? "test-admin" : "", installed, 470, true, token,
+            preview ? new AccountAccess(IsAdmin: true) : null).GetAwaiter().GetResult();
 
     public static void Run(Action<string, Action> test)
     {
@@ -63,7 +64,7 @@ internal static class ReleaseUpdateQueryTests
                 Check(request.RequestUri!.AbsoluteUri == ReleaseUpdateChannel.PreviewMetadata, "Se perdió la selección de canal.");
                 return Task.FromResult(Response(new[] { ReleaseUpdateChannelTests.Stable() }));
             }));
-            Check(Query(http, "qRUza2DieeTypFqBIRA5KhbtXoY2").Update is { Preview: false, Version: "0.20.0" },
+            Check(Query(http, preview: true).Update is { Preview: false, Version: "0.20.0" },
                 "La cuenta autorizada no recibe main desde su versión experimental.");
         });
         test("Buscar actualización: acota respuestas y maneja desconexión y cancelación", () =>

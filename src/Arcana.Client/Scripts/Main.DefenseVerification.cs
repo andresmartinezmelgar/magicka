@@ -109,6 +109,10 @@ public partial class Main
                         "Una pieza equipada muestra texto o sale de pantalla.");
                     Check(cell.GetChildren().OfType<TextureRect>().Count() == 2 && cell.GetChildren().OfType<EquipmentItemIndicators>().Count() == 1,
                         "Falta la silueta, efecto o indicador de calidad y mejoras.");
+                    Check(cell.ClipContents && Mathf.IsEqualApprox(cell.Size.X, cell.Size.Y), "La casilla de equipo no es cuadrada o no contiene sus iconos.");
+                    var inner = new Rect2(Vector2.One * 5, cell.Size - Vector2.One * 10);
+                    foreach (var icon in cell.GetChildren().OfType<Control>().Where(c => c is TextureRect or ElementIcon))
+                        Check(inner.Encloses(new Rect2(icon.Position, icon.Size)), "Una silueta, elemento o atributo extra invade el borde de la casilla.");
                     Check(cell.GetGlobalRect().Position.Y < GetViewport().GetVisibleRect().Size.Y / 2,
                         "El equipo predeterminado no está en la zona superior.");
                 }
