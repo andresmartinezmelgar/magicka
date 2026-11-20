@@ -1,6 +1,6 @@
 name: Publicar APK de pruebas solicitada
 
-# Solicitud explícita de APK tras la revisión de seguridad y rendimiento.
+# Compilar la revisión que valida la capacidad LAN y conserva las reservas de reconexión.
 on:
   push:
     branches: [pruebas/seguridad-rendimiento-integral]
@@ -46,7 +46,7 @@ jobs:
           if [ -z "$run_id" ]; then
             for attempt in 1 2 3; do
               if gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" \
-                -f publish_preview=true -f publish_stable=false; then break; fi
+                -f publish_preview=true -f publish_stable=false -f build_play_bundle=true; then break; fi
               sleep $((attempt * 5))
               run_id=$(find_run)
               if [ -n "$run_id" ]; then break; fi
@@ -71,6 +71,7 @@ jobs:
           grep -Fx "ArcanaArena-v$version-Android-arm64.apk" <<< "$assets"
           grep -Fx "ArcanaArena-v$version-Windows-x64.zip" <<< "$assets"
           grep -Fx "ArcanaArena-v$version-Windows-x64.rar" <<< "$assets"
+          grep -Fx "ArcanaArena-v$version-GooglePlay-arm64.aab" <<< "$assets"
           grep -Fx 'PREVIEW.json' <<< "$assets"
           url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$tag"
           status success "Paquetes verificados en $tag"

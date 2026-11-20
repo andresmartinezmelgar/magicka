@@ -127,7 +127,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
             RemoveIdleRooms();
             if (_rooms.Count >= MaxRooms)
             {
-                var abandoned = _rooms.Values.Where(r => r.Id != "default" && r.Sessions.Count == 0)
+                var abandoned = _rooms.Values.Where(r => r.Id != "default" && r.Sessions.Count == 0 && r.Reservations.Count == 0)
                     .OrderBy(r => r.LastOccupied).FirstOrDefault();
                 if (abandoned == null) return (null, "Todas las salas están ocupadas. Espera a que se libere alguna.", 409);
                 _rooms.Remove(abandoned.Id);
@@ -141,7 +141,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
     }
     private void RemoveIdleRooms()
     {
-        foreach (var room in _rooms.Values.Where(r => r.Id != "default" && r.Sessions.Count == 0 &&
+        foreach (var room in _rooms.Values.Where(r => r.Id != "default" && r.Sessions.Count == 0 && r.Reservations.Count == 0 &&
             Environment.TickCount64 - r.LastOccupied > 2 * 60 * 1000).ToArray())
         {
             _rooms.Remove(room.Id);

@@ -7,6 +7,8 @@ export DISCOVERY_PORT=29052
 export SERVER_PASSWORD=serie-pvp-ci
 export TEST_PASSWORD="$SERVER_PASSWORD"
 export BOTS=0
+# La prueba de reciclado crea 36 salas LAN en la misma IP.
+export ARCANA_ROOM_CREATES_PER_MINUTE=120
 unset ARCANA_CI_LOOPBACK_GUESTS
 dotnet src/Arcana.Server/bin/Release/net10.0/Arcana.Server.dll > "$RUNNER_TEMP/series-server.log" 2>&1 &
 pid=$!

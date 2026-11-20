@@ -105,7 +105,7 @@ public partial class Main : Node
         networkPanel.Visible = false;
         _launcher = new Launcher(); _ui.AddChild(_launcher); _launcher.Build(this);
         InitializeGoogleAuthentication();
-        _updateNotice = new ReleaseUpdateNotice(); AddChild(_updateNotice);
+        if (!OS.HasFeature("arcana_play")) { _updateNotice = new ReleaseUpdateNotice(); AddChild(_updateNotice); }
         _help = BuildHelp(); _help.Visible = false;
         _pause = BuildPause(); _ui.AddChild(_pause); _pause.Visible = false;
         InitializeMatchStatistics(arguments);

@@ -3,6 +3,7 @@
 import concurrent.futures
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 
@@ -52,7 +53,16 @@ for number in range(24):
 
 # También simula varios jugadores creando salas casi simultáneamente.
 with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-    responses = list(pool.map(create, range(24, 36)))
+    def create_when_available(number):
+        # El servidor genera hasta dos mapas a la vez. Cada solicitud nueva
+        # conserva su comprobación de cuota aunque se esté reintentando.
+        for attempt in range(8):
+            code, room = create(number)
+            if code != 429 or "salas preparándose" not in room.get("error", ""):
+                return code, room
+            time.sleep(0.05 * (attempt + 1))
+        return code, room
+    responses = list(pool.map(create_when_available, range(24, 36)))
 assert all(code == 201 for code, _ in responses), f"Error al crear salas concurrentes: {responses}"
 
 status, directory = call()
