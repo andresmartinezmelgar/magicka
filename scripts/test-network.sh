@@ -7,6 +7,9 @@ export DISCOVERY_PORT="${DISCOVERY_PORT:-27016}"
 export SERVER_PASSWORD="${SERVER_PASSWORD:-arcana-ci-test}"
 export TEST_PASSWORD="$SERVER_PASSWORD"
 export BOTS=0
+# Esta suite multiplexa todos los escenarios LAN y más de 32 jugadores en una sola IP.
+# Las pruebas de cuotas del emulador conservan los valores de producción.
+export ARCANA_ROOM_CREATES_PER_MINUTE=120 ARCANA_CONNECTIONS_PER_MINUTE=240
 # La prueba debe ejercitar el acceso como invitado SIN el atajo especial de CI.
 # Sin Firebase configurado, el servidor local debe aceptar jugadores LAN reales.
 unset ARCANA_CI_LOOPBACK_GUESTS
@@ -19,4 +22,4 @@ for i in {1..50}; do
   sleep 0.2
 done
 if [ "$ready" != true ]; then cat server-test.log; exit 1; fi
-dotnet tests/Arcana.Tests/bin/Release/net8.0/Arcana.Tests.dll --server="127.0.0.1:$GAME_PORT" --discovery-port="$DISCOVERY_PORT"
+dotnet tests/Arcana.Tests/bin/Release/net10.0/Arcana.Tests.dll --server="127.0.0.1:$GAME_PORT" --discovery-port="$DISCOVERY_PORT"

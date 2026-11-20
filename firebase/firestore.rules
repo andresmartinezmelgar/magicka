@@ -17,7 +17,7 @@ service cloud.firestore {
     // matchStatistics/{runId}: informe anónimo canónico; solo el backend valida
     // y escribe. Los lectores autorizados conservan lectura y borrado.
     // users/{uid}/configuration/account: isAdmin/previewUpdates/matchStatistics/
-    // adsRemoved bools; updatedAt timestamp opcional. Solo Admin/IAM escribe.
+    // adsRemoved booleanos, playAdsValidUntil entero Unix y updatedAt timestamp opcional. Solo Admin/IAM escribe.
     // Una configuración nueva prevalece sobre statisticsReaders (compatibilidad
     // con clientes antiguos); isAdmin por sí solo no abre estadísticas privadas.
     function accountStatisticsReader(uid) {

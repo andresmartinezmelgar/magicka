@@ -488,9 +488,9 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
         {
             if (session != null)
             {
-                _sessions.TryRemove(session.Key, out _);
                 lock (_gate)
                 {
+                    _sessions.TryRemove(session.Key, out _);
                     CaptureStatistics(session.Room, MatchRecordStatus.Disconnected);
                     SaveSessionBestiary(session, force: true);
                     session.Room.Sessions.Remove(session.Id);

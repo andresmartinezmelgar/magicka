@@ -1,15 +1,13 @@
-# Mejoras de seguridad y rendimiento — preparación 0.29.70
+# Seguridad y rendimiento de Arcana Arena 0.29.70
 
-Estado del código a 20 de noviembre de 2026. Rama `pruebas/seguridad-rendimiento-integral`, basada en `1e009fb613f8608b43ccb87542feeb99049c5d52` (0.29.69). Esta preparación no es una versión publicada. No se ha compilado, creado APK, ejecutado CI ni modificado Firebase o la Raspberry.
+Versión de pruebas de la rama `pruebas/seguridad-rendimiento-integral`. El despliegue en Firebase y Raspberry se realiza por separado.
 
 ## Estado de las veinte mejoras
-
-«Implementado» significa incorporado al código y preparado para revisión; la validación que requiere compilar sigue pendiente. No implica despliegue ni una mejora de FPS medida.
 
 | # | Mejora | Estado y límite |
 |---|---|---|
 | 1 | Cerrar escrituras anónimas directas de estadísticas | Implementado: Firestore rechaza escrituras de todos los clientes. El invitado envía JSON validado al backend HTTPS con cuotas y diario; no recibe credenciales Admin. Activar primero el backend compatible y actualizar clientes antes de publicar estas reglas. Las cifras locales siguen siendo telemetría no fiable y nunca conceden premios. |
-| 2 | Retirar .NET 8 | Parcial: servidores, contenedores y pruebas de cuentas pasan a .NET 10; SDK fijado a 10.0.404. Cliente, núcleo y pruebas de núcleo siguen en net8.0 por la compatibilidad de Godot 4.5.2 y los fallos de cierre previamente registrados con runtime 10. Falta migrar el cliente a una combinación de motor/runtime comprobada. |
+| 2 | Retirar .NET 8 | El juego, el núcleo, ambos servidores y las pruebas se compilan con .NET 10. El SDK es 10.0.404. La verificación local incluye el runtime Android ARM64 y el cierre del proceso Godot al salir de Supervivencia. |
 | 3 | Cuotas HTTP por IP y cuenta | Implementado: máximo 64 peticiones HTTP simultáneas; cuotas por IP de transporte o proxy exacto confiable y por UID verificado. Variantes de mayúsculas y barra final comparten cuota. Las ventanas se acotan a 4096 claves hash en memoria. WebSocket mantiene sus límites específicos. |
 | 4 | Proteger la creación de salas | Implementado: Google obligatorio si el servidor tiene cuentas activas; seis creaciones/minuto/IP, dos generaciones simultáneas y generación fuera del bloqueo de simulación. LAN sin Firebase conserva invitados. |
 | 5 | Evitar que un cliente altere la dificultad con sus FPS | Implementado: el servidor usa su tiempo de simulación para limitar enemigos; los FPS remitidos solo se observan. El ajuste local se conserva en partidas locales. |
@@ -26,8 +24,8 @@ Estado del código a 20 de noviembre de 2026. Rama `pruebas/seguridad-rendimient
 | 16 | Eliminación de cuenta y datos | Implementado: botón en Perfil, confirmación explícita, Google autenticado en los últimos cinco minutos, solicitud persistente e idempotente y reintentos por cuenta. Borra perfil y subcolecciones, rol legacy y telemetría del propietario, anonimiza su UID en archivos de partidas antiguas y elimina el usuario de Auth. Requiere permisos IAM de Firebase Auth y Firestore. No se ha borrado ninguna cuenta real. |
 | 17 | Fijar acciones y verificar herramientas | Implementado: acciones existentes por SHA y Dependabot; SHA-256/SHA-512 de Godot, plantillas, Android CLI, Gradle, SDK .NET y JDK Temurin 17.0.21+9 antes de extraer nuevas descargas. Herramientas ya instaladas o proporcionadas manualmente no se vuelven a descargar. Falta ejecutar los scripts de Windows en Windows. |
 | 18 | Enfriamiento de claves AdMob | Implementado: un refresco por claves desconocidas cada cinco minutos, también tras fallos de red; claves válidas en caché doce horas. Claves temporalmente ausentes o descargas fallidas generan 503 reintentable; no conceden recompensas. |
-| 19 | Compra real de la opción sin anuncios | No implementada: faltan producto, precio y publicación de Google Play, cuenta comercial, acceso a Play Developer API y credenciales de verificación. No se ha inventado una compra ni habilitado un cobro. adsRemoved sigue siendo una configuración protegida que solo cambia Admin/backend. |
-| 20 | Guía de enemigos en 640×450 | Implementado: retrato y estadísticas en paralelo, retrato reducido en pantallas bajas y nombre con salto de línea; prueba 640×450 añadida al flujo manual. Falta ejecutarla sobre la nueva compilación y revisar capturas Android. |
+| 19 | Compra única sin anuncios | Google Play Billing en Android. El servidor comprueba el producto, el estado y la cuenta, registra el derecho y confirma la compra. Hay restauración y revalidación al consultar o renovar la tienda. La validación con una compra real y su reembolso requiere una pista de Play y permisos de la cuenta del editor. |
+| 20 | Guía de enemigos en 640×450 | Retrato y estadísticas en paralelo, altura adaptable y nombre en varias líneas. La prueba móvil del bestiario pasa a 640×450. |
 
 ## Comprobaciones realizadas
 
@@ -36,9 +34,8 @@ Estado del código a 20 de noviembre de 2026. Rama `pruebas/seguridad-rendimient
 - Actualizador existente: 19 tests Python correctos.
 - Despliegue progresivo: 10 pruebas Python correctas de transiciones, candidatos fallidos, reconexiones, recibos y recuperación; no acceden a Docker o nginx reales.
 - Verificación de hashes: 2 pruebas correctas de rechazo de archivos corruptos o desconocidos y soporte SHA-512.
-- Análisis sintáctico C# de 48 archivos mediante Roslyn, sin errores y sin generar ensamblados, comprobación de YAML/XML y diferencias de Git. El análisis sintáctico no sustituye la resolución de tipos ni la compilación.
-
-Se incorporan pruebas C# de diario, prioridad de estadísticas del servidor, deltas, coherencia de caché entre instancias, HTTP, borrado y AdMob. No se han ejecutado porque necesitan compilar y AGENTS.md reserva esa acción a una petición expresa. Tampoco se han medido FPS, batería, memoria o latencias de esta preparación.
+- .NET 10 compila los proyectos de juego y cuentas. Las 721 pruebas del núcleo pasan. Godot comprueba el bestiario a 640×450, el cierre de una partida de Defensa y la recuperación del último autoguardado móvil. Las pruebas de cuotas usan los límites predeterminados. Las pruebas de red con más de 32 jugadores en una misma IP usan el aforo de un evento LAN.
+- Firestore Emulator comprueba las ventas entre dos instancias, la actualización con el mismo saldo, el borrado recursivo, la conservación de los demás participantes y los recibos después de un borrado. Los resultados exactos del empaquetado y las comprobaciones por plataforma figuran en el flujo asociado a cada versión.
 
 ## Activación de Firebase
 
@@ -65,16 +62,20 @@ El contenedor 0.29.69 no tiene los endpoints de ciclo de vida. Hace falta una pr
 - Confiar solo en la IP exacta del proxy mediante ARCANA_TRUSTED_PROXY_IP en el primer contenedor. Las instancias nuevas detectan el gateway IPv4 de Docker y publican únicamente 127.0.0.1:28015 o 127.0.0.1:28017. No abrir esos puertos en el router.
 - El proxy sustituye X-Forwarded-For por la IP de transporte; /internal/ responde 404 desde el dominio público. El actualizador consulta /internal/lifecycle y /internal/drain únicamente por loopback con la clave.
 - Instalar el actualizador con --rolling-proxy RUTA_MAPA --deployment-key-file RUTA_CLAVE junto a su --checkout y --compose-file habituales. Los archivos deben existir antes de la instalación. Se mantiene el temporizador de 30 minutos.
-- El candidato arranca y verifica su versión antes de poner en retirada el antiguo. Las conexiones WebSocket establecidas sobreviven a la recarga de nginx; X-Arcana-Version conserva el destino de las reconexiones. Los clientes nuevos deben tener una versión distinta en VERSION.
+- El candidato arranca y verifica su versión antes de poner en retirada el antiguo. Las conexiones WebSocket establecidas sobreviven a la recarga de nginx; X-Arcana-Version conserva el destino de las reconexiones. Las peticiones de salas nuevas van al servidor activo. La cabecera solo se envía para retomar una partida con su token de reconexión.
 - Una serie PvP ya iniciada puede terminar sus rondas. La versión en retirada no reinicia Supervivencia ni otra partida tras el resultado. Las conexiones en la pantalla final cuentan hasta que sus clientes salgan; después se espera también a las reservas y recibos pendientes. Una tercera versión se aplaza mientras exista una antigua sin vaciar.
 - El estado persiste antes de cambios de ruta o retirada. Los casos ambiguos conservan contenedores para no cortar una partida. No se borran volúmenes; si falla una recuperación o no responde un contenedor, hace falta revisar ese estado antes de continuar.
 
 No hay acceso SSH autorizado/configurado a la Raspberry ni credenciales Admin del proyecto disponibles en esta sesión; no se han aplicado estos pasos.
 
-## Compra real sin anuncios
+## Activación de la compra única sin anuncios
 
-Quedan por crear el producto de compra única y su precio en Google Play, integrar Billing en Android, validar cada purchaseToken en backend mediante Play Developer API, confirmar la compra, restaurar compras y procesar revocaciones/reembolsos antes de mantener adsRemoved. Se necesita acceso al proyecto y distribución de prueba de Play para validar la compra de extremo a extremo. El interruptor administrativo actual no demuestra un pago.
+1. En Google Play Console, crear para `com.arcana.arena` un producto de compra única con opción de compra permanente, establecer su precio y activarlo para los países elegidos. El juego usa el identificador configurado por el editor. Google Play muestra el importe final antes del cobro.
+2. Habilitar Google Play Android Developer API en Google Cloud, invitar la cuenta de servicio del servidor en Play Console y concederle únicamente los permisos necesarios de compras y pedidos de esta aplicación. El servidor usa las credenciales ya montadas con `GOOGLE_APPLICATION_CREDENTIALS`. El móvil nunca contiene la clave.
+3. Configurar `ARCANA_PLAY_NO_ADS_PRODUCT_ID` con el identificador exacto en la Raspberry y recrear el servicio de cuentas. El paquete se fija en el servidor. El producto queda desactivado mientras la variable esté vacía.
+4. Publicar una compilación de distribución Play en una pista interna y añadir un probador de licencia. En ese móvil comprobar compra, cancelación, pago pendiente, restauración y reembolso. La APK de GitHub usa el actualizador propio. Para distribuir en Play se necesita la variante en AAB adaptada a la tienda, el certificado de Play App Signing registrado en Firebase y las declaraciones de la consola.
+5. La compra pertenece al UID de Firebase utilizado para pagar. En otro dispositivo se inicia sesión con la misma cuenta del juego y se consulta la tienda. «Restaurar compra» recupera una operación interrumpida. Los recibos viven en `users/{uid}/billing/noAds`, accesible solo al backend. El servidor comprueba las compras al usar la tienda si han pasado doce horas. Durante una interrupción de Google mantiene la última verificación hasta un máximo de veinticuatro horas. Un reembolso retira el derecho comprado y conserva cualquier exención administrativa independiente.
 
-## Validación antes de publicar
+## Comprobaciones que requieren el despliegue
 
-Tras autorización expresa de compilación: ejecutar las suites de núcleo y cuentas con .NET 10/8 según sus proyectos, las reglas en emulador, las pruebas de red y reconexión y los smoke tests gráficos (incluido 640×450). Comprobar servidor Linux ARM64, scripts Windows, cierre de Godot, autoguardado Android al cambiar de aplicación, estado de anuncios tras fallos de red, recuperación de diarios y prueba real de nginx con dos partidas/versiones. Solo después generar los artefactos o una release.
+Probar dos versiones en la Raspberry con una partida en curso y una reconexión. Verificar la renovación AdMob con una unidad de prueba y una cuenta de pruebas. Medir FPS, batería y memoria en un Android físico bajo carga. La retención automática y la compactación de datos históricos son optativas.

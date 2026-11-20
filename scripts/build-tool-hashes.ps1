@@ -13,7 +13,7 @@ function Assert-ArcanaBuildTool {
 function Install-ArcanaDotnetTools {
     param([Parameter(Mandatory=$true)][string]$Root, [Parameter(Mandatory=$true)][string]$Cache)
     $metadata = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'dotnet-tool-downloads.json') -Raw | ConvertFrom-Json
-    foreach ($channel in @('8.0', '10.0')) {
+    foreach ($channel in @('10.0')) {
         $sdk = $metadata.PSObject.Properties[$channel].Value
         if (Test-Path -LiteralPath (Join-Path $Root "sdk/$($sdk.version)")) { continue }
         $archive = Join-Path $Cache $sdk.name

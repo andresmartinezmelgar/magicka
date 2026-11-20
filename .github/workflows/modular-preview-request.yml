@@ -1,10 +1,9 @@
-name: Publicar prueba visual y acceso solicitada
+name: Publicar APK de pruebas solicitada
 
-# Petición expresa de APK y tag tras la revisión visual y el acceso de pruebas.
-# Repetir la validación con la limpieza nativa de las capturas de biomas corregida.
+# Solicitud explícita de APK tras la revisión de seguridad y rendimiento.
 on:
   push:
-    branches: [pruebas/mejoras-supervivencia]
+    branches: [pruebas/seguridad-rendimiento-integral]
     paths: [.github/workflows/modular-preview-request.yml]
 
 permissions:
@@ -14,7 +13,7 @@ permissions:
 
 jobs:
   requested-preview:
-    if: github.event.head_commit.message == 'Publicar prueba visual y acceso 0.29.60'
+    if: github.event.head_commit.message == 'Generar APK de pruebas 0.29.70'
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
@@ -29,13 +28,13 @@ jobs:
           url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           status() {
             gh api --method POST "$api/statuses/$GITHUB_SHA" -f state="$1" \
-              -f context=publicacion/controles-tactiles -f description="$2" -f target_url="$url" >/dev/null
+              -f context=publicacion/apk-de-pruebas -f description="$2" -f target_url="$url" >/dev/null
           }
           trap 'status failure "La compilación o publicación requiere revisión" || true' ERR
           status pending "Validando la revisión solicitada"
-          test "$GITHUB_REF_NAME" = 'pruebas/mejoras-supervivencia'
+          test "$GITHUB_REF_NAME" = 'pruebas/seguridad-rendimiento-integral'
           version=$(tr -d '\r\n' < VERSION)
-          test "$version" = '0.29.60'
+          test "$version" = '0.29.70'
           python3 scripts/version-support.py check .
           test "$(gh api "$api/git/ref/heads/$GITHUB_REF_NAME" --jq '.object.sha')" = "$GITHUB_SHA"
           find_run() {

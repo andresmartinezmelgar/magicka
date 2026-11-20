@@ -8,11 +8,24 @@ public static class ShopEndpoints
     public static void MapItemShop(this WebApplication app)
     {
         var verifier = new AdMobRewardVerifier();
+        var billing = new PlayBilling(app.Configuration);
         ShopResult Result(AccountProfile profile, ItemShop shop, string message) => new(profile, shop, message, DateTimeOffset.UtcNow)
-            { RewardedAds = AdMobRewardVerifier.Configuration(app.Configuration) };
+            { RewardedAds = AdMobRewardVerifier.Configuration(app.Configuration), NoAdsProductId = billing.Product };
         app.MapGet("/account/shop", (AccountService accounts, HttpContext context) => Auth(accounts, context, async user =>
-            Result(await accounts.Repository!.Profile(user.Uid, user.Name, context.RequestAborted),
-                await accounts.Repository.Shop(user.Uid, user.Name, context.RequestAborted), "Ofertas cargadas.")));
+        {
+            await billing.RefreshIfDue(accounts.Repository, user.Uid, context.RequestAborted);
+            return Result(await accounts.Repository!.Profile(user.Uid, user.Name, context.RequestAborted),
+                await accounts.Repository.Shop(user.Uid, user.Name, context.RequestAborted), "Ofertas cargadas.");
+        }));
+        app.MapPost("/account/shop/play/verify", (PlayNoAdsRequest request, AccountService accounts, HttpContext context) =>
+            Auth(accounts, context, async user =>
+            {
+                if (accounts.Repository is not FirestoreAccountRepository repository || billing.Product == null)
+                    throw new InvalidOperationException("Las compras de Google Play aún no están disponibles.");
+                await billing.Verify(repository, user.Uid, request.PurchaseToken, true, context.RequestAborted);
+                return Result(await repository.Profile(user.Uid, user.Name, context.RequestAborted),
+                    await repository.Shop(user.Uid, user.Name, context.RequestAborted), "Compra sin anuncios confirmada.");
+            }));
         app.MapPost("/account/shop/buy", (ShopPurchaseRequest request, AccountService accounts, HttpContext context) => Auth(accounts, context, async user =>
         {
             bool bought = await accounts.Repository!.Buy(user.Uid, request, context.RequestAborted);
@@ -26,6 +39,7 @@ public static class ShopEndpoints
         app.MapPost("/account/shop/refresh", (ShopAdRequest request, AccountService accounts, HttpContext context) =>
             Auth(accounts, context, async user =>
             {
+                await billing.RefreshIfDue(accounts.Repository, user.Uid, context.RequestAborted);
                 var shop = await accounts.Repository!.RefreshShopWithoutAd(user.Uid, request, context.RequestAborted);
                 return Result(await accounts.Repository.Profile(user.Uid, user.Name, context.RequestAborted),
                     shop, "Ofertas renovadas sin anuncios. Disponible de nuevo mañana.");
@@ -68,6 +82,7 @@ public static class ShopEndpoints
         }
         catch (Exception e) when (e is UnauthorizedAccessException or FirebaseAuthException)
         { return Results.Json(new ApiError("La sesión ha caducado. Inicia sesión con Google."), Protocol.Json, statusCode: 401); }
+        catch (PlayUnavailableException e) { return Results.Json(new ApiError(e.Message), Protocol.Json, statusCode: 503); }
         catch (ArgumentException e) { return Results.Json(new ApiError(e.Message), Protocol.Json, statusCode: 400); }
         catch (InvalidOperationException e) { return Results.Json(new ApiError(e.Message), Protocol.Json, statusCode: 409); }
     }

@@ -65,7 +65,7 @@ public sealed partial class FirestoreAccountRepository
             if (header.ItemCount >= EquipmentCatalogue.InventoryLimit) throw new InvalidOperationException("El inventario está lleno. Vende alguna pieza antes de comprar.");
             if (header.Gold < offer.Price) throw new InvalidOperationException($"Oro insuficiente. Faltan {offer.Price - header.Gold} de oro.");
             tx.Create(user.Collection("items").Document(offer.Item.Id), FirestoreData.Map(offer.Item));
-            tx.Update(user, new Dictionary<string, object> { ["gold"] = header.Gold - offer.Price, ["itemCount"] = header.ItemCount + 1 });
+            tx.Update(user, new Dictionary<string, object> { ["inventoryUpdatedAt"] = FieldValue.ServerTimestamp, ["gold"] = header.Gold - offer.Price, ["itemCount"] = header.ItemCount + 1 });
             tx.Set(shopDoc, FirestoreData.Map(shop with { Offers = shop.Offers.Select(o => o.Item.Id == offer.Item.Id ? o with { Sold = true } : o).ToArray() }));
             tx.Create(receipt, new Dictionary<string, object> { ["shopId"] = shop.Id, ["price"] = offer.Price, ["boughtAt"] = Timestamp.GetCurrentTimestamp() });
             return true;

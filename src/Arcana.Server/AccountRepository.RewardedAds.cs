@@ -51,6 +51,7 @@ public sealed partial class FirestoreAccountRepository
         ItemShop? replacement = null;
         await database.RunTransactionAsync(async tx =>
         {
+            if ((await tx.GetSnapshotAsync(Deletion(reward.Uid), token)).Exists) return;
             var previous = await tx.GetSnapshotAsync(receipt, token);
             var challenge = RewardChallenge(reward.Uid); var ad = await tx.GetSnapshotAsync(challenge, token);
             var shopDoc = ShopDocument(reward.Uid); var shop = ReadShop(await tx.GetSnapshotAsync(shopDoc, token));

@@ -189,6 +189,9 @@ async function main() {
     for (const client of [google, other, anonymous, password, readerA, readerB]) {
       await assertFails(setDoc(doc(client, configuration), accountAccess));
       await assertFails(updateDoc(doc(client, configuration), { adsRemoved: false }));
+      await assertFails(updateDoc(doc(client, configuration), { playAdsValidUntil: 9999999999 }));
+      await assertFails(getDoc(doc(client, "users/alice/billing/noAds")));
+      await assertFails(setDoc(doc(client, "users/alice/billing/noAds"), { token: "fixture" }));
       await assertFails(deleteDoc(doc(client, configuration)));
       await assertFails(setDoc(doc(client, "users/bob/configuration/account"), accountAccess));
       await assertFails(getDocs(collection(client, "users/alice/configuration")));

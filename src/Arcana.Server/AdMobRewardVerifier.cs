@@ -40,16 +40,16 @@ public sealed class AdMobRewardVerifier
         string pem; await _gate.WaitAsync(token);
         try
         {
-            var now = _time.GetUtcNow();
+            var refreshTime = _time.GetUtcNow();
             string requestedKey = Field("key_id");
             if (requestedKey.Length > 128) throw new ArgumentException("Clave inválida.");
-            bool expired = now >= _keysExpire;
-            if (expired || !_keys.ContainsKey(requestedKey) && now >= _nextUnknownKeyRefresh)
+            bool expired = refreshTime >= _keysExpire;
+            if (expired || !_keys.ContainsKey(requestedKey) && refreshTime >= _nextUnknownKeyRefresh)
             {
                 // También enfría los fallos de red y las claves inventadas; una
                 // firma falsa no puede provocar una descarga por petición.
-                _nextUnknownKeyRefresh = now.AddMinutes(5);
-                if (expired) _keysExpire = now.AddMinutes(5);
+                _nextUnknownKeyRefresh = refreshTime.AddMinutes(5);
+                if (expired) _keysExpire = refreshTime.AddMinutes(5);
                 try
                 {
                     using var doc = JsonDocument.Parse(await _downloadKeys(token));

@@ -13,7 +13,6 @@ public static class MatchStatisticsEndpoints
         object gate = new(); long window = Environment.TickCount64; int count = 0;
         app.MapPost("/analytics/matches", async (HttpContext context, MatchStatisticsService statistics, AccountService accounts) =>
         {
-            if (!accounts.GameEnabled) return Results.StatusCode(503);
             if (!context.Request.HasJsonContentType()) return Results.StatusCode(415);
             lock (gate)
             {
@@ -34,7 +33,7 @@ public static class MatchStatisticsEndpoints
                 var today = DateOnly.FromDateTime(DateTime.UtcNow);
                 if (report.Status == MatchRecordStatus.Playing || report.Revision == 0 || report.Network ||
                     day < today.AddDays(-30) || day > today) return Results.BadRequest();
-                if (!statistics.Accept(report)) return Results.StatusCode(503);
+                if (!accounts.GameEnabled || !statistics.Accept(report)) return Results.StatusCode(503);
                 await statistics.Persist(context.RequestAborted);
                 return Results.StatusCode(202);
             }

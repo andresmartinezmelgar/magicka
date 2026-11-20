@@ -190,7 +190,7 @@ public sealed partial class FirestoreAccountRepository(FirestoreDb database, Tim
             var upgraded = AccountInventory.UpgradeRing(profile, request);
             if (upgraded == profile) return;
             transaction.Set(itemRef, FirestoreData.Map(upgraded.Items.Single()));
-            transaction.Update(user, new Dictionary<string, object> { ["gold"] = upgraded.Gold });
+            transaction.Update(user, new Dictionary<string, object> { ["inventoryUpdatedAt"] = FieldValue.ServerTimestamp, ["gold"] = upgraded.Gold });
         }, cancellationToken: token);
     }
 
@@ -214,7 +214,7 @@ public sealed partial class FirestoreAccountRepository(FirestoreDb database, Tim
             var loadout = equippedDoc.Exists ? FirestoreData.Read<EquipmentLoadout>(equippedDoc) : new();
             if (loadout.Get(item.Slot) == itemId) throw new ArgumentException("Desequipa y guarda el equipo antes de vender este objeto.");
             transaction.Delete(itemRef);
-            transaction.Update(user, new Dictionary<string, object> { ["gold"] = checked(h.Gold + item.SaleGold), ["itemCount"] = Math.Max(0, h.ItemCount - 1) });
+            transaction.Update(user, new Dictionary<string, object> { ["inventoryUpdatedAt"] = FieldValue.ServerTimestamp, ["gold"] = checked(h.Gold + item.SaleGold), ["itemCount"] = Math.Max(0, h.ItemCount - 1) });
             transaction.Create(receipt, new Dictionary<string, object> { ["gold"] = item.SaleGold, ["soldAt"] = Timestamp.GetCurrentTimestamp() });
             soldFrom = accountDoc.UpdateTime; soldItem = item;
             return item.SaleGold;
@@ -262,6 +262,7 @@ public sealed partial class FirestoreAccountRepository(FirestoreDb database, Tim
                 if (item != null && !full) transaction.Create(user.Collection("items").Document(item.Id), FirestoreData.Map(item));
                 transaction.Update(user, new Dictionary<string, object>
                 {
+                    ["inventoryUpdatedAt"] = FieldValue.ServerTimestamp,
                     ["wins"] = checked(h.Wins + (match.Mode != GameMode.Defense && player.Winner ? 1 : 0)), ["losses"] = checked(h.Losses + (match.Mode != GameMode.Defense && !player.Winner ? 1 : 0)),
                     ["itemCount"] = h.ItemCount + (item != null && !full ? 1 : 0), ["gold"] = checked(h.Gold + gold)
                 });

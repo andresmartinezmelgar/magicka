@@ -9,8 +9,10 @@ internal static class AuditHardeningTests
         {
             var world = new GameWorld(); world.AddPlayer("Mago"); world.Step();
             var online = world.MatchStatistics(MatchRecordStatus.Completed) with { Network = true };
+            world.Step();
+            var local = world.MatchStatistics(MatchRecordStatus.Completed) with { Network = false };
             var queue = new MatchStatisticsOutbox();
-            if (!queue.Enqueue(online) || queue.Enqueue(online with { Network = false, Revision = online.Revision + 1 }))
+            if (!queue.Enqueue(online) || queue.Enqueue(local))
                 throw new Exception("La cola permite reemplazar estadísticas autoritativas.");
         });
         test("Estadísticas: un informe fallido no bloquea los siguientes", () =>

@@ -58,7 +58,6 @@ public static class RoomBrowser
     }
     private static async Task<T> Request<T>(HttpRequestMessage request, CancellationToken token)
     {
-        request.Headers.TryAddWithoutValidation("X-Arcana-Version", BuildInfo.Version);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token); timeout.CancelAfter(TimeSpan.FromSeconds(7));
         try
         {

@@ -52,6 +52,9 @@ public static class HttpAbuseProtection
         app.UseForwardedHeaders(forwarded);
         var budget = app.Services.GetRequiredService<RequestBudget>();
         var concurrent = new SemaphoreSlim(64, 64);
+        // Ajustes de capacidad para instalaciones LAN con varias salas desde una misma dirección.
+        int roomLimit = Math.Clamp(app.Configuration.GetValue("ARCANA_ROOM_CREATES_PER_MINUTE", 6), 1, 120);
+        int connectLimit = Math.Clamp(app.Configuration.GetValue("ARCANA_CONNECTIONS_PER_MINUTE", 30), 1, 240);
         app.Use(async (context, next) =>
         {
             // El enrutador ignora mayúsculas y la barra final. La cuota debe
@@ -61,7 +64,7 @@ public static class HttpAbuseProtection
             // RemoteIpAddress procede del transporte. No confiar en X-Forwarded-For del cliente.
             string peer = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             bool createRoom = path == "/rooms" && HttpMethods.IsPost(context.Request.Method);
-            int maximum = path == "/play" ? 30 : createRoom || path == "/account/login/start" ? 6
+            int maximum = path == "/play" ? connectLimit : createRoom ? roomLimit : path == "/account/login/start" ? 6
                 : path == "/analytics/matches" ? 12 : 600;
             if (!budget.Take("http:" + (path == "/play" ? "connect" : createRoom ? "room-create" : path == "/account/login/start" ? "login" : path == "/analytics/matches" ? "telemetry" : "api"), peer, maximum))
             { await Reject(context); return; }

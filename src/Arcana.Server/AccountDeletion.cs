@@ -42,6 +42,15 @@ public sealed partial class FirestoreAccountRepository
                 }, cancellationToken: token);
             }
         }
+        while (true)
+        {
+            var receipts = await database.Collection("admobTransactions").WhereEqualTo("uid", uid).Limit(100).GetSnapshotAsync(token);
+            if (receipts.Count == 0) break;
+            var batch = database.StartBatch();
+            foreach (var receipt in receipts.Documents)
+                batch.Update(receipt.Reference, new Dictionary<string, object> { ["uid"] = "", ["ticket"] = "" });
+            await batch.CommitAsync(token);
+        }
         await DeleteTree(User(uid), token);
         _inventoryCache.TryRemove(uid, out _);
         await database.Collection("statisticsReaders").Document(uid).DeleteAsync(cancellationToken: token);
@@ -56,12 +65,8 @@ public sealed partial class FirestoreAccountRepository
     private static async Task DeleteTree(DocumentReference document, CancellationToken token)
     {
         await foreach (var collection in document.ListCollectionsAsync().WithCancellation(token))
-            while (true)
-            {
-                var page = await collection.Limit(100).GetSnapshotAsync(token);
-                if (page.Count == 0) break;
-                foreach (var child in page.Documents) await DeleteTree(child.Reference, token);
-            }
+            await foreach (var child in collection.ListDocumentsAsync().WithCancellation(token))
+                await DeleteTree(child, token);
         await document.DeleteAsync(cancellationToken: token);
     }
     internal Task CompleteDeletion(string uid, CancellationToken token) => Deletion(uid).UpdateAsync(new Dictionary<string, object>

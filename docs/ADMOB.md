@@ -50,3 +50,5 @@ El registro del derecho está preparado; la venta real requiere todavía Google 
 - https://support.google.com/admob/answer/14538460
 - https://support.google.com/googleplay/android-developer/answer/11926878
 - https://support.google.com/googleplay/android-developer/answer/12085295
+
+La compra y restauración mediante Google Play se configuran en la [guía de la versión 0.29.70](MEJORAS-SEGURIDAD-RENDIMIENTO-v0.29.70.md#activación-de-la-compra-única-sin-anuncios).
