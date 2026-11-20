@@ -9,8 +9,8 @@ namespace Arcana.Server;
 
 public sealed partial class FirestoreAccountRepository
 {
-    internal Query PublicStatisticsQuery(string collection, string start, int limit) =>
-        database.Collection(collection).WhereGreaterThanOrEqualTo("day", start).OrderByDescending("day").Limit(limit);
+    internal Query PublicStatisticsQuery(string collection, string start, string end, int limit) =>
+        database.Collection(collection).WhereGreaterThanOrEqualTo("day", start).WhereLessThanOrEqualTo("day", end).OrderByDescending("day").Limit(limit);
 }
 
 public sealed record PublicTelemetry(DashboardRunReport Report, long UpdatedAt);
@@ -55,9 +55,9 @@ public sealed class PublicDashboardService(AccountService accounts, ILogger<Publ
                     _historySynced = _telemetrySynced = false;
                 }
                 // Select only the two statistics collections. Never accounts or inventory.
-                history = repository.PublicStatisticsQuery("matchStatistics", _start, HistoryLimit + 1)
+                history = repository.PublicStatisticsQuery("matchStatistics", _start, _end, HistoryLimit + 1)
                     .Listen(snapshot => Update(snapshot, false), stoppingToken);
-                telemetry = repository.PublicStatisticsQuery("dashboardTelemetry", _start, TelemetryLimit + 1)
+                telemetry = repository.PublicStatisticsQuery("dashboardTelemetry", _start, _end, TelemetryLimit + 1)
                     .Listen(snapshot => Update(snapshot, true), stoppingToken);
                 while (today == DateOnly.FromDateTime(DateTime.UtcNow))
                 {

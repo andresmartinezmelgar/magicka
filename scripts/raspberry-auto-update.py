@@ -160,6 +160,10 @@ class Updater:
         raise RuntimeError("El servidor no responde correctamente con la versión " + expected)
 
     def run(self):
+        if getattr(self, 'config', {}).get('rolling_proxy'):
+            from rolling_deploy import RollingDeployment
+            tag = stable_tag(get_json("https://api.github.com/repos/" + REPOSITORY + "/releases/latest"))
+            return RollingDeployment(self, command, get_json, write_json, log).run(tag)
         tag = stable_tag(get_json("https://api.github.com/repos/" + REPOSITORY + "/releases/latest"))
         container = self.container()
         if not container or not container["State"]["Running"]:
@@ -201,7 +205,10 @@ class Updater:
         log("Actualización completada y comprobada: " + tag + ".")
 
 
-def install(checkout, compose_file=None):
+def install(checkout, compose_file=None, rolling_proxy=None, deployment_key_file=None):
+    if rolling_proxy and (not deployment_key_file or not rolling_proxy.is_absolute() or not rolling_proxy.is_file() or
+                          not deployment_key_file.is_file() or deployment_key_file.stat().st_mode & 0o077):
+        raise RuntimeError("El modo progresivo necesita un mapa nginx existente y una clave privada 0600.")
     checkout = checkout.resolve(strict=True)
     compose = compose_command()
     arguments = [*compose, "--project-directory", str(checkout)]
@@ -223,8 +230,17 @@ def install(checkout, compose_file=None):
     PROGRAM.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
     if Path(__file__).resolve() != PROGRAM:
         shutil.copyfile(__file__, PROGRAM)
+    helper = Path(__file__).with_name("rolling_deploy.py")
+    if helper.exists() and helper.resolve() != (PROGRAM.parent / helper.name).resolve():
+        shutil.copyfile(helper, PROGRAM.parent / helper.name)
     PROGRAM.chmod(0o755)
     write_json(CONFIG, {"checkout": str(checkout), "project": labels["com.docker.compose.project"], "compose_files": files})
+    if rolling_proxy:
+        if not deployment_key_file or not rolling_proxy.is_absolute() or not rolling_proxy.is_file() or not deployment_key_file.is_file():
+            raise RuntimeError("El modo progresivo necesita un mapa nginx existente y un archivo privado de clave.")
+        configured = json.loads(CONFIG.read_text())
+        configured.update(rolling_proxy=str(rolling_proxy.resolve()), deployment_key_file=str(deployment_key_file.resolve()))
+        write_json(CONFIG, configured)
     CONFIG.chmod(0o600)
     (UNITS / "arcana-server-update.service").write_text("""[Unit]
 Description=Actualizar Arcana Arena desde la ultima Release estable
@@ -262,12 +278,14 @@ def main():
     setup = sub.add_parser("install", help="Instalar el servicio y temporizador systemd")
     setup.add_argument("--checkout", type=Path, default=Path.cwd())
     setup.add_argument("--compose-file", help="Ejemplo: compose.lan.yaml")
+    setup.add_argument("--rolling-proxy", type=Path, help="Mapa nginx ya instalado y probado")
+    setup.add_argument("--deployment-key-file", type=Path, help="Archivo 0600 con la misma clave del servidor")
     sub.add_parser("run", help="Comprobar e instalar una Release nueva")
     args = parser.parse_args()
     if os.geteuid() != 0:
         parser.error("Ejecuta este comando con sudo.")
     if args.action == "install":
-        install(args.checkout, args.compose_file)
+        install(args.checkout, args.compose_file, args.rolling_proxy, args.deployment_key_file)
     else:
         STATE.mkdir(mode=0o700, parents=True, exist_ok=True)
         with (STATE / "update.lock").open("w") as lock:

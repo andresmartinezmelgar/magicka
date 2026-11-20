@@ -15,6 +15,9 @@ public sealed partial class FirebaseProfileReader
             fields.ValueKind != System.Text.Json.JsonValueKind.Object) return new();
         bool Flag(string key) => fields.TryGetProperty(key, out var field) && field.ValueKind == System.Text.Json.JsonValueKind.Object &&
             field.TryGetProperty("booleanValue", out var flag) && flag.ValueKind == System.Text.Json.JsonValueKind.True;
-        return new(Flag("isAdmin"), Flag("previewUpdates"), Flag("matchStatistics"), Flag("adsRemoved"));
+        long expiry = 0;
+        if (fields.TryGetProperty("playAdsValidUntil", out var paid) && paid.TryGetProperty("integerValue", out var integer) &&
+            integer.ValueKind == System.Text.Json.JsonValueKind.String) long.TryParse(integer.GetString(), out expiry);
+        return new(Flag("isAdmin"), Flag("previewUpdates"), Flag("matchStatistics"), Flag("adsRemoved")) { PlayAdsValidUntil = expiry };
     }
 }

@@ -61,7 +61,7 @@ public static class AccountEndpoints
     private static async Task<IResult> Auth(AccountService accounts, HttpContext context, Func<AccountIdentity, Task<object>> action)
     {
         context.Response.Headers.CacheControl = "no-store";
-        var identity = await accounts.AuthenticateGame(Bearer(context), context.RequestAborted);
+        var identity = await accounts.AuthenticateHttp(context);
         return identity == null ? Results.Json(new ApiError("Inicia sesión con Google para acceder a tu cuenta."), Protocol.Json, statusCode: 401)
             : await Try(() => action(identity));
     }

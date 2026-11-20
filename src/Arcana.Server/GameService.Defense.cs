@@ -12,6 +12,7 @@ public sealed partial class GameService
 
     private void RestartDefenseRoom(GameRoom room)
     {
+        if (_draining) { room.RewardStatus = "Hay una nueva versión del servidor; vuelve al menú para empezar otra partida."; return; }
         if (room.World.MatchEnded) CaptureStatistics(room);
         foreach (var session in room.Sessions.Values) SaveSessionBestiary(session, force: true);
         if (!room.World.RestartDefense()) return;
@@ -25,12 +26,22 @@ public sealed partial class GameService
     private void SaveSessionBestiary(PlayerSession session, bool force = false)
     {
         if (session.Account == null || !session.Room.World.IsDefense) return;
+        if (!force && session.BestiaryWrite is { IsCompleted: false }) return;
+        if (session.BestiaryWriteRun == session.Room.MatchId && session.BestiaryWrite?.IsCompletedSuccessfully == true && session.BestiaryWrite.Result)
+            session.BestiaryKillsSaved = Math.Max(session.BestiaryKillsSaved, session.BestiaryWriteKills);
         double now = session.Room.World.Time;
         if (!force && !session.Room.World.MatchEnded && now < session.NextBestiaryAt) return;
         session.NextBestiaryAt = now + 10;
         var progress = session.Room.World.BestiaryProgress(session.Id, session.Room.MatchId, session.Account.Uid);
         if (progress == null || progress.Kills.Values.Sum() <= session.BestiaryKillsSaved) return;
-        if (rewards.EnqueueBestiary(progress)) session.BestiaryKillsSaved = progress.Kills.Values.Sum();
+        session.BestiaryWriteKills = progress.Kills.Values.Sum();
+        session.BestiaryWriteRun = session.Room.MatchId;
+        var previousWrite = session.BestiaryWrite;
+        session.BestiaryWrite = PersistOutsideSimulation(async () =>
+        {
+            if (previousWrite != null) try { await previousWrite; } catch (Exception) { /* Reintentar el acumulado actual tras un fallo anterior. */ }
+            return rewards.EnqueueBestiary(progress);
+        });
     }
 
     private void TrackDefenseAccounts(GameRoom room)
@@ -53,12 +64,16 @@ public sealed partial class GameService
                 var participant = new MatchParticipant(session.Account.Uid, session.Id, 0, seconds, true);
                 var reward = new RewardMatch(id, settings.InstanceId, GameMode.Defense, ArenaMapId.Bastion,
                     DateTimeOffset.UtcNow, [participant], RulesVersion: 2, DefenseRunId: room.MatchId, DefenseCheckpoint: checkpoint);
-                if (!rewards.Enqueue(reward))
+                if (!room.PendingRewardWrites.TryGetValue(id, out var write))
+                    room.PendingRewardWrites[id] = write = PersistOutsideSimulation(() => Task.FromResult(rewards.Enqueue(reward)));
+                if (!write.IsCompletedSuccessfully || !write.Result)
                 {
+                    if (write.IsCompleted) room.PendingRewardWrites.Remove(id);
                     room.RewardStatus = "Premio pendiente de guardar: se reintentará automáticamente.";
                     continue;
                 }
                 room.DefenseRewards.Add(id);
+                room.PendingRewardWrites.Remove(id);
                 room.RewardStatus = $"{room.World.Players[session.Id].Name}: hito de defensa {checkpoint}/{DefenseRules.RewardLimit} guardado como pendiente de entrega.";
             }
         }

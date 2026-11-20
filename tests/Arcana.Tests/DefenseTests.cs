@@ -735,17 +735,17 @@ internal static class DefenseTests
             Check(a.Latest!.Players.Length == 3 && a.Latest.Players.All(p => p.Team == 0), "Bots o humanos en equipo rival.");
             a.Send(new() { Type = "defense_performance", FramesPerSecond = 20 });
             b.Send(new() { Type = "defense_performance", FramesPerSecond = 60 });
-            const int slowLimit = DefensePerformanceBudget.MinimumLimit;
-            for (int i = 0; i < 50 && (a.Latest!.Defense!.PerformanceLimit != slowLimit || b.Latest!.Defense!.PerformanceLimit != slowLimit); i++) await Task.Delay(50);
-            Check(a.Latest!.Defense!.PerformanceLimit == slowLimit && b.Latest!.Defense!.PerformanceLimit == slowLimit,
-                "Los clientes no comparten el límite de rendimiento de la sala.");
+            await Task.Delay(500);
+            Check(a.Latest!.Defense!.PerformanceLimit > DefensePerformanceBudget.MinimumLimit &&
+                b.Latest!.Defense!.PerformanceLimit > DefensePerformanceBudget.MinimumLimit,
+                "Un cliente que declara pocos FPS alteró la dificultad online.");
             a.RequestMatchStatistics();
             for (int i = 0; i < 50 && a.LatestStatistics?.Humans != 2; i++) await Task.Delay(50);
             Check(a.LatestStatistics is { Network: true, Humans: 2, Bots: 1 }, "El cliente no recibió el informe cooperativo.");
             string report = (a.LatestStatistics! with { Status = MatchRecordStatus.Left }).ToJson();
             using var http = new HttpClient();
             using var accepted = await http.PostAsync(RoomBrowser.Endpoint(address, "analytics/matches"), new StringContent(report, System.Text.Encoding.UTF8, "application/json"));
-            Check(accepted.StatusCode == System.Net.HttpStatusCode.Accepted, "El relé no aceptó el informe cerrado en memoria.");
+            Check(accepted.StatusCode is System.Net.HttpStatusCode.BadRequest or System.Net.HttpStatusCode.ServiceUnavailable, "La ingesta aceptó un informe online suministrado por el cliente.");
             using var rejected = await http.PostAsync(RoomBrowser.Endpoint(address, "analytics/matches"), new StringContent(report[..^1] + ",\"email\":\"private@example.com\"}", System.Text.Encoding.UTF8, "application/json"));
             Check(rejected.StatusCode == System.Net.HttpStatusCode.BadRequest, "El relé aceptó identidad fuera del contrato.");
             SnapshotValidation.Check(a.Latest);

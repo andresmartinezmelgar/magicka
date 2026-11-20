@@ -59,7 +59,9 @@ public static class SnapshotDelta
 
     private static JsonNode? Diff(JsonNode? previous, JsonNode? current)
     {
-        if (JsonNode.DeepEquals(previous, current))
+        // Comparar un contenedor entero aquí y recorrerlo otra vez en Diff
+        // duplicaba trabajo en todos los niveles del árbol.
+        if (ReferenceEquals(previous, current) || previous is JsonValue && current is JsonValue && JsonNode.DeepEquals(previous, current))
             return null;
         if (previous is JsonObject a && current is JsonObject b)
         {
@@ -71,7 +73,7 @@ public static class SnapshotDelta
                 var changed = Diff(a[field.Key], field.Value);
                 if (changed != null) result[field.Key] = changed;
             }
-            return result;
+            return result.Count == 0 ? null : result;
         }
         if (previous is JsonArray entitiesBefore && current is JsonArray entitiesNow && entitiesBefore.Count > 0 && entitiesNow.Count > 0 &&
             EntityKeys(entitiesBefore) is { } beforeKeys && EntityKeys(entitiesNow) is { } nowKeys &&
@@ -96,7 +98,7 @@ public static class SnapshotDelta
                 var changed = Diff(oldArray[i], newArray[i]);
                 if (changed != null) changes[i.ToString(System.Globalization.CultureInfo.InvariantCulture)] = changed;
             }
-            return new JsonObject { ["$array"] = changes };
+            return changes.Count == 0 ? null : new JsonObject { ["$array"] = changes };
         }
         // Al cambiar el número de entidades, sustituir la colección completa.
 
@@ -121,6 +123,9 @@ public static class SnapshotDelta
         {
             var ids = EntityKeys(entities) ?? throw new InvalidDataException("Colección sin identificadores.");
             var lookup = ids.Select((id, index) => (id, index)).ToDictionary(p => p.id, p => entities[p.index]);
+            // root ya es una copia privada de la base. Separar sus hijos permite
+            // reutilizarlos sin clonar subárboles en cada nivel de la fusión.
+            entities.Clear();
             var order = patch["order"] as JsonArray ?? throw new InvalidDataException("Orden de entidades ausente.");
             if (order.Count > 4096) throw new InvalidDataException("Demasiadas entidades.");
             var updates = patch["updates"] as JsonObject ?? throw new InvalidDataException("Cambios de entidades ausentes.");
@@ -130,7 +135,7 @@ public static class SnapshotDelta
                 string key = entry?.GetValue<string>() ?? throw new InvalidDataException("Identificador ausente.");
                 if (!seen.Add(key)) throw new InvalidDataException("Entidad repetida.");
                 var value = lookup.GetValueOrDefault(key);
-                result.Add(updates.TryGetPropertyValue(key, out var change) ? Merge(value?.DeepClone(), change) : value?.DeepClone());
+                result.Add(updates.TryGetPropertyValue(key, out var change) ? Merge(value, change) : value);
             }
             return result;
         }
@@ -142,14 +147,18 @@ public static class SnapshotDelta
             {
                 int index = int.Parse(position.Key, System.Globalization.CultureInfo.InvariantCulture);
                 if ((uint)index >= (uint)array.Count) throw new InvalidDataException("Índice de delta inválido.");
-                array[index] = Merge(array[index]?.DeepClone(), position.Value);
+                var value = array[index]; array[index] = null;
+                array[index] = Merge(value, position.Value);
             }
             return array;
         }
         if (previous is JsonObject a && changes is JsonObject b)
         {
             foreach (var field in b)
-                a[field.Key] = Merge(a[field.Key]?.DeepClone(), field.Value);
+            {
+                a.TryGetPropertyValue(field.Key, out var value); a.Remove(field.Key);
+                a[field.Key] = Merge(value, field.Value);
+            }
             return a;
         }
         if (changes is JsonObject marker && marker.Count == 1 && marker["$null"]?.GetValue<bool>() == true) return null;

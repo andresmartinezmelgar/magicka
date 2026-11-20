@@ -22,12 +22,12 @@ public partial class Main
     private void InitializeMatchStatistics(string[] arguments)
     {
         if (ClientVerification.Requested(arguments) || RenderProfiler.Requested(arguments) || arguments.Any(a => a.Contains("smoke", StringComparison.Ordinal) || a.Contains("preview", StringComparison.Ordinal) || a.Contains("profiler", StringComparison.Ordinal) || a == "--visual-review")) return;
-        _statisticsOutbox = new();
+        _statisticsOutbox = new(ProjectSettings.GlobalizePath("user://statistics-outbox"));
         _statisticsTransport = new(FirebaseProjectId);
     }
     private void QueueStatistics(MatchStatisticsReport report)
     {
-        if (_statisticsOutbox == null || report.Status == MatchRecordStatus.Playing || report.Revision == 0 || _statisticsSavedRun == report.RunId && _statisticsSavedRevision == report.Revision && _statisticsSavedStatus == report.Status) return;
+        if (_statisticsOutbox == null || report.Network || report.Status == MatchRecordStatus.Playing || report.Revision == 0 || _statisticsSavedRun == report.RunId && _statisticsSavedRevision == report.Revision && _statisticsSavedStatus == report.Status) return;
         CaptureDashboard(report);
         if (!_statisticsOutbox.Enqueue(report)) return;
         _statisticsSavedRun = report.RunId; _statisticsSavedRevision = report.Revision; _statisticsSavedStatus = report.Status;

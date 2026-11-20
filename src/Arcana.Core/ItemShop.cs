@@ -14,7 +14,13 @@ public sealed record VerifiedAdMobReward(string Uid, string TicketId, string Tra
 }
 public sealed record ShopResult(AccountProfile Profile, ItemShop Shop, string Message, DateTimeOffset? ServerTime = null)
 {
+    public string? NoAdsProductId { get; init; }
     public RewardedAdsConfiguration? RewardedAds { get; init; }
+}
+public sealed record PlayNoAdsRequest(string PurchaseToken)
+{
+    public static string Owner(string uid) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+        System.Text.Encoding.UTF8.GetBytes("arcana/play/no-ads:" + uid))).ToLowerInvariant();
 }
 public sealed record ShopPurchaseRequest(string ShopId, string ItemId);
 public sealed record ShopAdRequest(string ShopId);

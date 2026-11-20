@@ -168,7 +168,7 @@ internal static class MatchStatisticsTests
             outbox.Flush((sent, _) => { count++; Check(sent.Complete && sent.Revision == next.Revision, "Se perdió la nueva revisión."); return Task.CompletedTask; }).GetAwaiter().GetResult();
             Check(count == 1 && outbox.PendingCount == 0, "La confirmación perdió o duplicó una revisión.");
         });
-        test("Estadísticas: la cola solo vive en memoria y aísla los contadores del mundo", () =>
+        test("Estadísticas: el modo sin diario aísla los contadores del mundo", () =>
         {
             var (w, _, _) = Arena(); var report = w.MatchStatistics(MatchRecordStatus.Completed); var outbox = new MatchStatisticsOutbox();
             Check(!outbox.Enqueue(w.MatchStatistics()), "Se encoló una partida en curso.");
@@ -186,20 +186,16 @@ internal static class MatchStatisticsTests
             Reject(() => (r with { Metrics = [new(StatisticGroup.Total, 0, StatisticMeasure.Damage, double.NaN)] }).Validate());
             Reject(() => (r with { Metrics = [r.Metrics[0], r.Metrics[0]] }).Validate());
         });
-        test("Estadísticas: envío directo a Firestore sin sesión, cookie ni relé", () =>
+        test("Estadísticas: ingesta HTTPS sin sesión ni cookies y sin escritura directa", () =>
         {
             var (w, _, _) = Arena(); var report = w.MatchStatistics(MatchRecordStatus.Completed);
             var handler = new Handler(request =>
             {
-                Check(request.Method == HttpMethod.Post && request.RequestUri!.Scheme == "https" && request.RequestUri.Host == "firestore.googleapis.com" &&
-                    request.RequestUri.AbsolutePath == "/v1/projects/demo-arcana/databases/(default)/documents/matchStatistics", "El informe pasó por un servidor intermedio.");
-                Check(request.Headers.Authorization == null && !request.Headers.Contains("Cookie"), "Se envió identidad.");
-                Check(request.RequestUri!.Query.Contains("documentId=" + report.RunId + "-" + report.Revision + "-1"), "La clave no es idempotente.");
-                using var body = JsonDocument.Parse(request.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
-                var fields = body.RootElement.GetProperty("fields");
-                Check(fields.EnumerateObject().Count() == 10 && fields.GetProperty("runId").GetProperty("stringValue").GetString() == report.RunId &&
-                    fields.GetProperty("status").GetProperty("integerValue").GetString() == "1" && fields.GetProperty("complete").GetProperty("booleanValue").GetBoolean(), "Cabecera Firestore incorrecta.");
-                Check(MatchStatisticsReport.Parse(fields.GetProperty("payload").GetProperty("stringValue").GetString()!).ToJson() == report.ToJson(), "Alteró el daño acumulado.");
+                Check(request.Method == HttpMethod.Post && request.RequestUri!.Scheme == "https" && request.RequestUri.Host == "familiamelgar.duckdns.org" &&
+                    request.RequestUri.AbsolutePath == "/analytics/matches", "La ingesta no pasó por el servidor protegido.");
+                Check(request.Headers.Authorization == null && !request.Headers.Contains("Cookie"), "Se envió identidad en telemetría local.");
+                var payload = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                Check(MatchStatisticsReport.Parse(payload).ToJson() == report.ToJson(), "Alteró el daño acumulado.");
                 return new(HttpStatusCode.OK);
             });
             using var http = new HttpClient(handler); using var transport = new MatchStatisticsTransport("demo-arcana", http);
@@ -208,7 +204,7 @@ internal static class MatchStatisticsTests
             try { transport.Upload(w.MatchStatistics()).GetAwaiter().GetResult(); } catch (InvalidOperationException) { rejected = true; }
             Check(rejected && handler.Calls == 1, "Intentó subir una partida todavía en curso.");
         });
-        test("Estadísticas: Firestore confirma duplicados y conserva la cola ante permisos, cuota y red", () =>
+        test("Estadísticas: la ingesta confirma reintentos y conserva la cola ante permisos, cuota y red", () =>
         {
             var (w, _, _) = Arena(); var report = w.MatchStatistics(MatchRecordStatus.Completed);
             foreach (var status in new[] { HttpStatusCode.Forbidden, HttpStatusCode.TooManyRequests, HttpStatusCode.ServiceUnavailable, HttpStatusCode.Conflict })
@@ -219,7 +215,7 @@ internal static class MatchStatisticsTests
                 try { outbox.Flush(transport.Upload).GetAwaiter().GetResult(); throw new Exception("Se confirmó un envío fallido."); }
                 catch (IOException) { }
                 Check(outbox.PendingCount == 1, "El fallo borró el informe pendiente.");
-                using var success = new HttpClient(new Handler(_ => new(HttpStatusCode.Conflict) { Content = new StringContent("{\"error\":{\"status\":\"ALREADY_EXISTS\"}}") }));
+                using var success = new HttpClient(new Handler(_ => new(HttpStatusCode.Accepted)));
                 using var retry = new MatchStatisticsTransport("demo-arcana", success);
                 outbox.Flush(retry.Upload).GetAwaiter().GetResult();
                 Check(outbox.PendingCount == 0, "El reintento duplicado no confirmó la cola en memoria.");

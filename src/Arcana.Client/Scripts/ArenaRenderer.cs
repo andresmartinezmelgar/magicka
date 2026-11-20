@@ -124,7 +124,7 @@ public partial class ArenaRenderer : Node3D
         foreach (var batch in _simpleBeamBatches.Values) batch.Clear();
         foreach (var batch in _beamCoreBatches.Values) batch.Clear();
         _beamUsed = _beamMeshUsed = 0; BeamGeometryUpdates = 0;
-        _lastEvent = 0; _lastSnapshot = null;
+        _lastEvent = 0; _lastSnapshot = null; _visibleSource = _visibleState = null;
     }
 
     private StandardMaterial3D Material(Color color, float glow = 0, bool unshaded = false)
@@ -243,14 +243,7 @@ public partial class ArenaRenderer : Node3D
         UpdateFrontline(snapshot, (float)_time);
         if (_practiceCasterLabel != null && _practiceCasterLabel.Text != PracticeCasterDescription)
             _practiceCasterLabel.Text = PracticeCasterDescription;
-        var visibleState = snapshot.Defense == null ? snapshot : snapshot with
-        {
-            Players = snapshot.Players.Where(p => NearSurvival(p.Position)).ToArray(),
-            Projectiles = snapshot.Projectiles.Where(p => NearSurvival(p.Position)).ToArray(),
-            Walls = snapshot.Walls.Where(p => NearSurvivalSegment(p.A, p.B)).ToArray(),
-            Fields = snapshot.Fields.Where(p => NearSurvival(p.Position, p.Radius + 4)).ToArray(),
-            Beams = snapshot.Beams.Where(p => NearSurvivalSegment(p.From, p.To)).ToArray()
-        };
+        var visibleState = VisibleState(snapshot);
         DrawProjectiles(visibleState, dt);
         DrawWalls(visibleState, dt);
         DrawFields(visibleState, dt);
@@ -298,6 +291,25 @@ public partial class ArenaRenderer : Node3D
         _effects.Advance(visibleState, dt, playing);
         if (playing && AudioEnabled && !_quietAudio && local != null && snapshot.MatchEnded && previous is { MatchEnded: false })
             _audio.PlayResult(AdaptiveAudioMix.Won(snapshot, local));
+    }
+
+    private WorldSnapshot? _visibleSource, _visibleState;
+    private (V2 Center, float HalfX, float HalfY) _visibleBounds;
+    private WorldSnapshot VisibleState(WorldSnapshot snapshot)
+    {
+        if (snapshot.Defense == null) return snapshot;
+        var bounds = (_survivalCenter, _survivalHalfX, _survivalHalfY);
+        if (ReferenceEquals(snapshot, _visibleSource) && bounds == _visibleBounds && _visibleState != null) return _visibleState;
+        _visibleSource = snapshot; _visibleBounds = bounds;
+        _visibleState = snapshot with
+        {
+            Players = snapshot.Players.Where(p => NearSurvival(p.Position)).ToArray(),
+            Projectiles = snapshot.Projectiles.Where(p => NearSurvival(p.Position)).ToArray(),
+            Walls = snapshot.Walls.Where(p => NearSurvivalSegment(p.A, p.B)).ToArray(),
+            Fields = snapshot.Fields.Where(p => NearSurvival(p.Position, p.Radius + 4)).ToArray(),
+            Beams = snapshot.Beams.Where(p => NearSurvivalSegment(p.From, p.To)).ToArray()
+        };
+        return _visibleState;
     }
 
     private void RemoveMissing<T, TState>(Dictionary<int, T> nodes, TState[] present, Func<TState, int> id) where T : Node

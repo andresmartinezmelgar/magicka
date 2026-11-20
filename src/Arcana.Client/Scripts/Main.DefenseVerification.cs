@@ -460,7 +460,7 @@ public partial class Main
                     var table = (GridContainer)panel.FindChild("DefenseEnemyStats" + enemy.Kind, true, false);
                     Check(table.GetChildren().OfType<ElementTextLabel>().Any(l => l.Text == $"{enemy.MaxHealth:0.#}"), "La ficha no muestra la última vida conocida.");
                 }
-                var firstTable = (GridContainer)cards.GetChild(0).GetChild(0).GetChild(1);
+                var firstTable = (GridContainer)panel.FindChild("DefenseEnemyStats" + state.Defense.Bestiary[0].Kind, true, false);
                 var scroll = (Control)panel.FindChild("DefenseShopScroll", true, false);
                 Check(scroll.GetGlobalRect().Encloses(((Control)firstTable.GetChild(1)).GetGlobalRect()) &&
                     scroll.GetGlobalRect().Encloses(((Control)firstTable.GetChild(3)).GetGlobalRect()),

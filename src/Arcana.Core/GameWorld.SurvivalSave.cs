@@ -92,7 +92,7 @@ public sealed partial class GameWorld
     private sealed record SavedBotPlan(int Id, int TargetId, int HealTargetId, V2 Goal, float SpellTime, int SpellTurn);
 
     /// <summary>Solo una supervivencia local, con un humano y sus aliados IA, puede continuar en otro arranque.</summary>
-    public SurvivalSave SaveSurvival(int localPlayerId, string runId, string bestiaryUid = "")
+    public SurvivalSave SaveSurvival(int localPlayerId, string runId, string bestiaryUid = "", bool validate = true)
     {
         if (!IsDefense || MatchEnded || _players.Values.Count(p => !p.Bot) != 1 ||
             !_players.TryGetValue(localPlayerId, out var local) || local.Bot || local.Deaths >= DefenseRules.PlayerLives)
@@ -145,7 +145,7 @@ public sealed partial class GameWorld
         // JsonElement realiza una copia profunda: seguir jugando no modifica el punto guardado.
         var save = new SurvivalSave(SurvivalSave.CurrentVersion, DateTimeOffset.UtcNow, runId, bestiaryUid,
             localPlayerId, JsonSerializer.SerializeToElement(state, SurvivalSave.Json));
-        ValidateSurvivalSave(save);
+        if (validate) ValidateSurvivalSave(save);
         return save;
     }
 

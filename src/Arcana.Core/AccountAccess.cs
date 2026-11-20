@@ -6,5 +6,7 @@ namespace Arcana.Core;
 public sealed record AccountAccess(bool IsAdmin = false, bool PreviewUpdates = false,
     bool MatchStatistics = false, bool AdsRemoved = false)
 {
+    public long PlayAdsValidUntil { get; init; }
+    public bool WithoutAds(DateTimeOffset now) => AdsRemoved || PlayAdsValidUntil > now.ToUnixTimeSeconds();
     [JsonIgnore] public bool CanReceivePreview => IsAdmin || PreviewUpdates;
 }

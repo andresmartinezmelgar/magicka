@@ -1,13 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Arcana.Core/Arcana.Core.csproj" />
     <Compile Include="../Arcana.Server/AccountEndpoints.cs" Link="AccountEndpoints.cs" />
     <Compile Include="../Arcana.Server/AccountLoginPage.cs" Link="AccountLoginPage.cs" />
+    <Compile Include="../Arcana.Server/AccountRepository.InventoryCache.cs" Link="AccountRepository.InventoryCache.cs" />
     <Compile Include="../Arcana.Server/AccountRepository.cs" Link="AccountRepository.cs" />
     <Compile Include="../Arcana.Server/AccountRepository.Shop.cs" Link="AccountRepository.Shop.cs" />
     <Compile Include="../Arcana.Server/AccountRepository.RewardedAds.cs" Link="AccountRepository.RewardedAds.cs" />
     <Compile Include="../Arcana.Server/AccountRepository.Access.cs" Link="AccountRepository.Access.cs" />
+    <Compile Include="../Arcana.Server/PlayBilling.cs" Link="PlayBilling.cs" />
     <Compile Include="../Arcana.Server/AdMobRewardVerifier.cs" Link="AdMobRewardVerifier.cs" />
+    <Compile Include="../Arcana.Server/StatisticsMaintenance.cs" Link="StatisticsMaintenance.cs" />
+    <Compile Include="../Arcana.Server/AccountRepository.Statistics.cs" Link="AccountRepository.Statistics.cs" />
+    <Compile Include="../Arcana.Server/AccountRepository.Bestiary.cs" Link="AccountRepository.Bestiary.cs" />
+    <Compile Include="../Arcana.Server/AccountDeletion.cs" Link="AccountDeletion.cs" />
+    <Compile Include="../Arcana.Server/HttpAbuseProtection.cs" Link="HttpAbuseProtection.cs" />
     <Compile Include="../Arcana.Server/ShopEndpoints.cs" Link="ShopEndpoints.cs" />
     <Compile Include="../Arcana.Server/AccountService.cs" Link="AccountService.cs" />
     <Compile Include="../Arcana.Server/PublicDashboardService.cs" Link="PublicDashboardService.cs" />

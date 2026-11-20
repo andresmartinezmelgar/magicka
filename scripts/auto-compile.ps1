@@ -10,12 +10,14 @@ $cache = Join-Path $repo '.tools'
 $artifactRoot = Join-Path $repo 'artifacts'
 New-Item -ItemType Directory -Path $cache, $artifactRoot -Force | Out-Null
 $log = Join-Path $artifactRoot ("compilacion-{0}-{1}.log" -f (Get-Date -Format 'yyyyMMdd-HHmmss'), [Guid]::NewGuid().ToString('N').Substring(0,8))
-$sdkVersion = '8.0.425'
+$sdkVersion = '10.0.404'
 $godotVersion = '4.5.2'
 $templateVersion = "$godotVersion.stable.mono"
 . (Join-Path $PSScriptRoot 'build-support.ps1')
 . (Join-Path $PSScriptRoot 'build-lock.ps1')
 $buildLease = $null
+
+. (Join-Path $PSScriptRoot 'build-tool-hashes.ps1')
 
 function Download-Tool {
     param([string]$Url, [string]$Target)
@@ -41,12 +43,8 @@ try {
     Write-Host 'La carpeta Juego se sustituye despues de compilar correctamente. Cierra el juego antes de compilar.'
     $sdkRoot = Join-Path $cache 'dotnet'
     $localDotnet = Join-Path $sdkRoot 'dotnet.exe'
-    if (!(Test-Path -LiteralPath (Join-Path $sdkRoot "sdk/$sdkVersion")) -or !(Test-Path -LiteralPath $localDotnet)) {
-        $installer = Join-Path $cache 'dotnet-install.ps1'
-        Download-Tool 'https://dot.net/v1/dotnet-install.ps1' $installer
-        & $installer -Version $sdkVersion -Architecture x64 -InstallDir $sdkRoot -NoPath
-    }
-    if (!(Test-Path -LiteralPath $localDotnet)) { throw 'No se pudo instalar el SDK .NET 8.' }
+    Install-ArcanaDotnetTools -Root $sdkRoot -Cache $cache
+    if (!(Test-Path -LiteralPath $localDotnet)) { throw 'No se pudo instalar el SDK .NET 10.' }
     $env:DOTNET_ROOT = $sdkRoot
     $env:DOTNET_ROOT_X64 = $sdkRoot
     $env:PATH = "$sdkRoot;$env:PATH"
@@ -57,6 +55,7 @@ try {
         if (!$editor) {
             $zip = Join-Path $cache "Godot-$godotVersion-mono-win64.zip"
             Download-Tool "$release/Godot_v$godotVersion-stable_mono_win64.zip" $zip
+            Assert-ArcanaBuildTool -Path $zip -Name "Godot_v$godotVersion-stable_mono_win64.zip"
             Expand-Archive -LiteralPath $zip -DestinationPath $editorRoot -Force
             $editor = Get-ChildItem -LiteralPath $editorRoot -Recurse -Filter '*win64_console.exe' | Select-Object -First 1
         }
@@ -71,6 +70,7 @@ try {
         Write-Host 'Descargando las plantillas de exportacion. Solo se extraen las de Windows x64.'
         Download-Tool "$release/Godot_v$godotVersion-stable_mono_export_templates.tpz" $archiveFile
         Add-Type -AssemblyName System.IO.Compression.FileSystem
+        Assert-ArcanaBuildTool -Path $archiveFile -Name "Godot_v$godotVersion-stable_mono_export_templates.tpz"
         $archive = [IO.Compression.ZipFile]::OpenRead($archiveFile)
         try {
             New-Item -ItemType Directory -Path $templates -Force | Out-Null

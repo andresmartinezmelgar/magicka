@@ -5,7 +5,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 mkdir -p artifacts/loading-review
 export GODOT_SILENCE_ROOT_WARNING=1 LIBGL_ALWAYS_SOFTWARE=1
-GAME_PORT=29035 DISCOVERY_PORT=29036 SERVER_PASSWORD='' dotnet src/Arcana.Server/bin/Release/net8.0/Arcana.Server.dll > artifacts/loading-review/server.log 2>&1 &
+GAME_PORT=29035 DISCOVERY_PORT=29036 SERVER_PASSWORD='' dotnet src/Arcana.Server/bin/Release/net10.0/Arcana.Server.dll > artifacts/loading-review/server.log 2>&1 &
 server_pid=$!
 cleanup() { kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true; }
 trap cleanup EXIT

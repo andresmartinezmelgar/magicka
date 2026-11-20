@@ -23,6 +23,7 @@ class ArcanaFirebaseExport extends EditorExportPlugin:
 
     func _get_android_dependencies(_platform: EditorExportPlatform, _debug: bool) -> PackedStringArray:
         return PackedStringArray([
+            "com.android.billingclient:billing:8.3.0",
             "com.google.firebase:firebase-auth:23.2.1",
             "androidx.credentials:credentials:1.5.0",
             "androidx.credentials:credentials-play-services-auth:1.5.0",

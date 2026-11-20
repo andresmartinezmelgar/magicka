@@ -191,6 +191,7 @@ DefenseScalingTests.Run(Test);
 DefenseBotPortalTests.Run(Test);
 SurvivalAuraAndOracleTests.Run(Test);
 MatchStatisticsTests.Run(Test);
+AuditHardeningTests.Run(Test);
 DashboardTelemetryTests.Run(Test);
 ElementSelectionStatisticsTests.Run(Test);
 PersonalDamageTests.Run(Test);
