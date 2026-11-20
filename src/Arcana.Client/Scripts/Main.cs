@@ -762,6 +762,8 @@ public partial class Main : Node
         AutosaveSurvival("shutdown");
         CaptureStatistics(MatchRecordStatus.Interrupted);
         CaptureLocalBestiary();
+        try { _survivalWrite.GetAwaiter().GetResult(); _statisticsOutbox?.DisposeAsync().AsTask().GetAwaiter().GetResult(); }
+        catch (Exception error) { Diagnostics.Warn("client.pending_save_failed", "No se pudo completar el guardado al cerrar.", error); }
         RenderingServer.FramePostDraw -= FrameDrawn;
         GetViewport().SizeChanged -= UpdatePauseResponsive;
         CancelGameLoading();

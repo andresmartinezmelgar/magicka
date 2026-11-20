@@ -47,6 +47,8 @@ public static class ShopEndpoints
                 await accounts.Repository!.ConfirmVerifiedShopAd(reward, context.RequestAborted);
                 return Results.Ok();
             }
+            catch (Exception e) when (e is HttpRequestException || e is OperationCanceledException && !context.RequestAborted.IsCancellationRequested)
+            { context.Response.Headers.RetryAfter = "300"; return Results.StatusCode(503); }
             catch (Exception e) when (e is ArgumentException or InvalidOperationException or System.Security.Cryptography.CryptographicException or FormatException)
             { return Results.BadRequest(new ApiError("Confirmación publicitaria inválida.")); }
         });
@@ -61,7 +63,7 @@ public static class ShopEndpoints
         if (!authorization.StartsWith("Bearer ", StringComparison.Ordinal)) return Results.Unauthorized();
         try
         {
-            var identity = await accounts.AuthenticateGame(authorization[7..], context.RequestAborted);
+            var identity = await accounts.AuthenticateHttp(context);
             return identity == null ? Results.Unauthorized() : Results.Json(await operation(identity), Protocol.Json);
         }
         catch (Exception e) when (e is UnauthorizedAccessException or FirebaseAuthException)

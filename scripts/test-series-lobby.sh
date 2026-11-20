@@ -8,7 +8,7 @@ export SERVER_PASSWORD=serie-pvp-ci
 export TEST_PASSWORD="$SERVER_PASSWORD"
 export BOTS=0
 unset ARCANA_CI_LOOPBACK_GUESTS
-dotnet src/Arcana.Server/bin/Release/net8.0/Arcana.Server.dll > "$RUNNER_TEMP/series-server.log" 2>&1 &
+dotnet src/Arcana.Server/bin/Release/net10.0/Arcana.Server.dll > "$RUNNER_TEMP/series-server.log" 2>&1 &
 pid=$!
 trap 'kill "$pid" 2>/dev/null || true' EXIT
 ready=false

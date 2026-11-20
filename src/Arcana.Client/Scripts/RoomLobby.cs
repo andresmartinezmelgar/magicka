@@ -465,7 +465,8 @@ public partial class RoomLobby : Control
         Loading("Creando sala…");
         try
         {
-            var room = await RoomBrowser.CreateAsync(_address, request, _lifetime.Token);
+            string accountToken = await _main.AccountTokenForRoomServer(_address, _lifetime.Token);
+            var room = await RoomBrowser.CreateAsync(_address, request, _lifetime.Token, accountToken);
             _main.Post(() =>
             {
                 if (!Active) return;

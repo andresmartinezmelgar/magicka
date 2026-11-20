@@ -33,6 +33,7 @@ internal sealed class GameRoom(string id, string name, string password, WorldOpt
     public int HostPlayerId { get; set; }
     public bool StartRequested { get; set; }
     public HashSet<string> DefenseRewards { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, Task<bool>> PendingRewardWrites { get; } = new(StringComparer.Ordinal);
     public Dictionary<string, MatchParticipant> Participants { get; } = new(StringComparer.Ordinal);
     public RoomInfo Info() => new(Id, Name, Options.Mode, World.Players.Count, Options.MaxPlayers,
         Options.Bots, Options.FriendlyFire, Options.ScoreLimit, Options.Tickets, Password.Length > 0, Options.Map, BestOf, Started, Options.DefenseFlow);
@@ -62,6 +63,9 @@ internal sealed class PlayerSession(int id, GameRoom room, WebSocket socket)
     public long LastActivityTick { get; set; }
     public long BestiaryKillsSaved { get; set; }
     public double NextBestiaryAt { get; set; }
+    public Task<bool>? BestiaryWrite { get; set; }
+    public long BestiaryWriteKills { get; set; }
+    public string BestiaryWriteRun { get; set; } = "";
     public long LoadingStartedAt { get; } = Environment.TickCount64;
     public Channel<ClientMessage> Commands { get; } = Channel.CreateBounded<ClientMessage>(new BoundedChannelOptions(64)
     { SingleReader = true, SingleWriter = true, FullMode = BoundedChannelFullMode.Wait });
@@ -76,6 +80,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
     { ["default"] = new("default", "Sala principal", "", settings.World) };
     private readonly ConcurrentDictionary<Guid, PlayerSession> _sessions = [];
     private readonly SemaphoreSlim _handshakes = new(32, 32);
+    private readonly SemaphoreSlim _roomGeneration = new(2, 2);
     private const int MaxRooms = 16;
     private readonly CancellationTokenSource _stopping = new();
     private long _tick, _ignoredCommands;
@@ -92,6 +97,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
 
     public (RoomInfo? Room, string Error, int Status) CreateRoom(CreateRoomRequest? request)
     {
+        if (Volatile.Read(ref _draining)) return (null, "Iniciando servidor con nueva versión. Actualiza la lista de salas.", 503);
         if (request == null) return (null, "Faltan los datos de la sala.", 400);
         Diagnostics.Log.ProtectSecret(request.Password);
         Diagnostics.Log.ProtectSecret(request.ServerPassword);
@@ -108,8 +114,16 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
             return (null, "Frente de conquista requiere el modo Guerra; la victoria se consigue capturando sus cinco puntos.", 400);
         if (ArenaMap.Get(request.Map).IsPractice)
             return (null, "El laboratorio se inicia sin conexión desde la pestaña Práctica.", 400);
+        var options = new WorldOptions { Mode = request.Mode, Map = request.Map, MaxPlayers = request.MaxPlayers, Bots = request.Bots,
+            FriendlyFire = request.Mode != GameMode.Defense && request.FriendlyFire, ScoreLimit = request.ScoreLimit, Tickets = request.Tickets, DefenseFlow = request.DefenseFlow };
+        // La generación de mapas no mantiene bloqueadas las partidas existentes.
+        if (!_roomGeneration.Wait(0)) return (null, "Hay otras salas preparándose. Espera unos segundos.", 429);
+        GameRoom candidate;
+        try { candidate = new GameRoom(Guid.NewGuid().ToString("N"), request.Name.Trim(), request.Password, options) { BestOf = request.BestOf }; }
+        finally { _roomGeneration.Release(); }
         lock (_gate)
         {
+            if (_draining) return (null, "Iniciando servidor con nueva versión. Actualiza la lista de salas.", 503);
             RemoveIdleRooms();
             if (_rooms.Count >= MaxRooms)
             {
@@ -119,10 +133,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                 _rooms.Remove(abandoned.Id);
                 logger.LogInformation("Sala vacía sustituida: {RoomId}", abandoned.Id);
             }
-            var options = new WorldOptions { Mode = request.Mode, Map = request.Map, MaxPlayers = request.MaxPlayers, Bots = request.Bots,
-                FriendlyFire = request.Mode != GameMode.Defense && request.FriendlyFire, ScoreLimit = request.ScoreLimit, Tickets = request.Tickets, DefenseFlow = request.DefenseFlow };
-            var room = new GameRoom(Guid.NewGuid().ToString("N"), request.Name.Trim(), request.Password, options);
-            room.BestOf = request.BestOf;
+            var room = candidate;
             _rooms.Add(room.Id, room);
             logger.LogInformation("Sala creada: {Name}, {Id}", room.Name, room.Id);
             return (room.Info(), "", 201);
@@ -172,6 +183,19 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                         foreach (var room in _rooms.Values)
                         {
                             ExpireReservations(room);
+                            if (_draining && !room.Started)
+                            {
+                                foreach (var waiting in room.Sessions.Values) waiting.Socket.Abort();
+                                continue;
+                            }
+                            if (_draining && room.World.MatchEnded && (room.World.IsDefense || room.SeriesFinished || room.BestOf == 1))
+                            {
+                                // Conservar el resultado final sin que el reloj
+                                // del mundo empiece otra partida automáticamente.
+                                room.RewardStatus = "Partida terminada. Hay una nueva versión del servidor; vuelve al menú para jugar de nuevo.";
+                                if (CurrentTick % 3 == 0) dirty.Add(room);
+                                continue;
+                            }
                             // Pausa los bots y el reloj de las salas sin jugadores humanos.
                             if (room.Sessions.Count == 0) continue;
                             int readyPlayers = 0;
@@ -343,7 +367,8 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
             Diagnostics.Log.ProtectSecret(hello.ResumeToken);
             lock (_gate)
             {
-                if (hello.RoomId == null || !_rooms.TryGetValue(hello.RoomId, out var room)) error = "La sala ya no existe. Actualiza la lista.";
+                if (_draining && hello.ResumeToken.Length == 0) error = "Iniciando servidor con nueva versión. Actualiza la lista de salas.";
+                else if (hello.RoomId == null || !_rooms.TryGetValue(hello.RoomId, out var room)) error = "La sala ya no existe. Actualiza la lista.";
                 else if (!PasswordMatches(hello.RoomPassword, room.Password)) error = "Contraseña de la sala incorrecta.";
                 else
                 {
@@ -490,13 +515,19 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
             if (handshakeSlotHeld) _handshakes.Release();
         }
     }
-    public override Task StopAsync(CancellationToken cancellationToken)
+    public override async Task StopAsync(CancellationToken cancellationToken)
     {
+        Task[] writes;
         lock (_gate)
+        {
             foreach (var room in _rooms.Values)
                 { CaptureStatistics(room, MatchRecordStatus.Interrupted);
                 foreach (var session in room.Sessions.Values) SaveSessionBestiary(session, force: true); }
-        _stopping.Cancel(); return base.StopAsync(cancellationToken);
+            writes = _rooms.Values.SelectMany(r => r.PendingRewardWrites.Values.Cast<Task>())
+                .Concat(_sessions.Values.Where(s => s.BestiaryWrite != null).Select(s => (Task)s.BestiaryWrite!)).ToArray();
+        }
+        _stopping.Cancel(); await base.StopAsync(cancellationToken);
+        await Task.WhenAll(writes.Concat(_persistenceWrites.Values)).WaitAsync(cancellationToken);
     }
     private void TrackAccounts(GameRoom room, bool endedBefore)
     {
@@ -578,7 +609,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
         else
         {
             room.RewardStatus = "Recompensa pendiente de confirmar en Firebase.";
-            rewards.Enqueue(match);
+            room.PendingRewardWrites[match.Id] = PersistOutsideSimulation(() => Task.FromResult(rewards.Enqueue(match)));
         }
         _ = RefreshEquipment(room.Sessions.Values.ToArray());
     }

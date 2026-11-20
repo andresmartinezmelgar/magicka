@@ -19,6 +19,10 @@ services:
       TICKETS: "${TICKETS:-75}"
       SERVER_PASSWORD: "${SERVER_PASSWORD:-}"
       ARCANA_REWARD_OUTBOX: /app/data/rewards
+      ARCANA_MATCH_STATISTICS_DIR: /app/data/statistics
+      ARCANA_STATISTICS_CLEANUP_ENABLED: "${ARCANA_STATISTICS_CLEANUP_ENABLED:-false}"
+      ARCANA_DEPLOYMENT_KEY: "${ARCANA_DEPLOYMENT_KEY:-}"
+      ARCANA_TRUSTED_PROXY_IP: "${ARCANA_TRUSTED_PROXY_IP:-}"
       ARCANA_LOG_LEVEL: "${ARCANA_LOG_LEVEL:-Information}"
       ARCANA_ADMOB_ENABLED: "${ARCANA_ADMOB_ENABLED:-false}"
       ARCANA_ADMOB_APP_ID: "${ARCANA_ADMOB_APP_ID:-}"
@@ -26,7 +30,15 @@ services:
     volumes:
       - server-logs:/app/logs
       - server-data:/app/data
-    stop_grace_period: 10s
+    stop_grace_period: 30s
+    mem_limit: "${ARCANA_MEMORY_LIMIT:-768m}"
+    cpus: "${ARCANA_CPU_LIMIT:-2.0}"
+    pids_limit: 256
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
 volumes:

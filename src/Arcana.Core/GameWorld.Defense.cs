@@ -105,7 +105,7 @@ public sealed partial class GameWorld
         {
             int limit = _simulationBudget.Limit; bool found = false;
             foreach (var p in _players.Values)
-                if (!p.Bot) { found = true; limit = Math.Min(limit, _defenders[p.Id].Performance.Limit); }
+                if (!p.Bot) { found = true; if (!_statistics.Network) limit = Math.Min(limit, _defenders[p.Id].Performance.Limit); }
             return found ? limit : Math.Min(limit, DefensePerformanceBudget.DefaultLimit);
         }
     }

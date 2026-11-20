@@ -101,6 +101,7 @@ public sealed partial class ArenaConnection : IAsyncDisposable
             var endpoint = Address(address);
             Diagnostics.Info("network.connect", "Iniciando conexión.", new Dictionary<string, object?> { ["endpoint"] = endpoint, ["roomId"] = roomId, ["connection"] = _connectionId });
             _socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(10);
+            _socket.Options.SetRequestHeader("X-Arcana-Version", BuildInfo.Version);
             await _socket.ConnectAsync(endpoint, timeout.Token).ConfigureAwait(false);
             var hello = new ClientMessage { Type = "hello", Name = name, Team = team, Password = password,
                 RoomId = roomId, RoomPassword = roomPassword, Protocol = Protocol.Version, GameVersion = BuildInfo.Version, WizardType = wizardType, AccountToken = accountToken, ResumeToken = resumeToken };

@@ -10,14 +10,12 @@ service cloud.firestore {
     // Item rolls and UpgradeLevel are server managed; clients cannot change items or gold.
     function googleOwner(uid) {
       return request.auth != null && request.auth.uid == uid
-        && request.auth.token.firebase.sign_in_provider == 'google.com';
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && !exists(/databases/$(database)/documents/accountDeletions/$(uid));
     }
 
-    // matchStatistics/{runId}-{revision}-{status}: informe anónimo inmutable.
-    // Campos obligatorios: schemaVersion=1, runId hexadecimal de 32 caracteres,
-    // revision/status enteros acotados, day ISO, mode/map enumerados,
-    // gameVersion semántica, complete booleano y payload JSON de hasta 240 KiB.
-    // El cliente valida el JSON. Las cifras no son autoritativas para premios.
+    // matchStatistics/{runId}: informe anónimo canónico; solo el backend valida
+    // y escribe. Los lectores autorizados conservan lectura y borrado.
     // users/{uid}/configuration/account: isAdmin/previewUpdates/matchStatistics/
     // adsRemoved bools; updatedAt timestamp opcional. Solo Admin/IAM escribe.
     // Una configuración nueva prevalece sobre statisticsReaders (compatibilidad
@@ -31,33 +29,18 @@ service cloud.firestore {
     function statisticsReader() {
       return request.auth != null
         && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && !exists(/databases/$(database)/documents/accountDeletions/$(request.auth.uid))
         && accountStatisticsReader(request.auth.uid);
     }
     match /statisticsReaders/{uid} {
       allow get: if googleOwner(uid);
       allow list, write: if false;
     }
-    function validStatistics(id, data) {
-      return data.keys().hasOnly(['schemaVersion', 'runId', 'revision', 'status', 'day', 'mode', 'map', 'gameVersion', 'complete', 'payload'])
-        && data.keys().hasAll(['schemaVersion', 'runId', 'revision', 'status', 'day', 'mode', 'map', 'gameVersion', 'complete', 'payload'])
-        && data.schemaVersion is int && data.schemaVersion == 1
-        && data.runId is string && data.runId.matches('^[0-9a-f]{32}$')
-        && data.revision is int && data.revision > 0 && data.revision <= 1892160000
-        && data.status is int && data.status >= 1 && data.status <= 5
-        && id == data.runId + '-' + string(data.revision) + '-' + string(data.status)
-        && data.day is string && data.day.matches('^(20[2-9][0-9]|2100)-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$')
-        && data.mode in ['Duel', 'Arena', 'Warfare', 'Defense']
-        && data.map in ['Classic', 'Citadel', 'Ascension', 'Relics', 'Frontline', 'Practice', 'Bastion']
-        && data.gameVersion is string && data.gameVersion.matches('^[0-9]{1,3}[.][0-9]{1,3}[.][0-9]{1,3}$')
-        && data.complete is bool && data.complete == (data.status == 1)
-        && data.payload is string && data.payload.size() > 0 && data.payload.size() <= 245760;
-    }
     match /matchStatistics/{id} {
       allow read: if statisticsReader();
-      // La telemetría admite remitentes sin sesión. No concede acceso a perfiles.
-      allow create: if validStatistics(id, request.resource.data);
-      // Solo reintentos idénticos; el borrado global requiere un lector autorizado.
-      allow update: if validStatistics(id, request.resource.data) && request.resource.data == resource.data;
+      // Solo la ingesta validada del servidor escribe informes. Los invitados
+      // conservan telemetría sin acceso directo a la base ni al saldo.
+      allow create, update: if false;
       allow delete: if statisticsReader();
     }
 

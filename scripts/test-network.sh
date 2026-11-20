@@ -10,7 +10,7 @@ export BOTS=0
 # La prueba debe ejercitar el acceso como invitado SIN el atajo especial de CI.
 # Sin Firebase configurado, el servidor local debe aceptar jugadores LAN reales.
 unset ARCANA_CI_LOOPBACK_GUESTS
-dotnet src/Arcana.Server/bin/Release/net8.0/Arcana.Server.dll > server-test.log 2>&1 &
+dotnet src/Arcana.Server/bin/Release/net10.0/Arcana.Server.dll > server-test.log 2>&1 &
 server_pid=$!
 trap 'kill "$server_pid" 2>/dev/null || true' EXIT
 ready=false

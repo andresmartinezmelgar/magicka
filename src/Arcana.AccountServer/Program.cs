@@ -18,6 +18,9 @@ builder.Services.ConfigureHttpJsonOptions(json =>
 });
 builder.Services.AddSingleton(new AccountService(options));
 builder.Services.AddPublicDashboard();
+    builder.Services.AddHostedService<AccountDeletionService>();
+    builder.Services.AddHostedService<StatisticsRetentionService>();
+builder.Services.AddArcanaProtection();
 var app = builder.Build();
 app.Use(async (context, next) =>
 {
@@ -25,8 +28,10 @@ app.Use(async (context, next) =>
         limit.MaxRequestBodySize = MatchStatisticsReport.MaxBytes;
     await next(context);
 });
+app.UseArcanaProtection();
 app.MapAccounts();
 app.MapItemShop();
+    app.MapAccountDeletion();
 app.MapPublicDashboard();
 
 // Solo el servidor de juego, mediante una clave compartida, puede consultar sesiones,

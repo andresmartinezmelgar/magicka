@@ -15,12 +15,14 @@ public partial class AccountProfilePanel : Control
     private string _updateIdentity = "";
     private bool _busy;
     private string _message = "";
+    private Button _deleteAccount = null!;
+    private string _deletionMessage = "";
     private readonly CancellationTokenSource _lifetime = new();
     private FileDialog? _googleFileDialog;
     private PanelContainer? _responsiveCard;
     private int _responsivePadding;
 
-    internal Button[] VisibleFooterButtons => new[] { _login, _logout, _equipment, _statistics, _checkUpdate, _touchControls, _bestiary }
+    internal Button[] VisibleFooterButtons => new[] { _login, _logout, _equipment, _statistics, _checkUpdate, _touchControls, _bestiary, _deleteAccount }
         .Where(b => GodotObject.IsInstanceValid(b) && b.IsVisibleInTree()).ToArray();
 
     public void Build(Main main)
@@ -85,6 +87,8 @@ public partial class AccountProfilePanel : Control
 
         _login = Ui.Button("Entrar con Google", () => { if (!_busy) _main.StartGoogleLogin(); }, true);
         _logout = Ui.Button("Cerrar sesión", () => _ = Logout(), true);
+        _deleteAccount = Ui.Button("Eliminar cuenta y datos", ConfirmAccountDeletion);
+        _deleteAccount.Name = "ProfileDeleteAccount";
         _checkUpdate = Ui.Button("Buscar actualización", () => _ = CheckUpdate());
         _checkUpdate.Name = "ProfileCheckUpdates";
         _equipment = Ui.Button("Inventario y equipamiento", () => main.OpenEquipment("automatic"));
@@ -100,7 +104,7 @@ public partial class AccountProfilePanel : Control
         _profileActions = new GridContainer { Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _profileActions.AddThemeConstantOverride("h_separation", 10); _profileActions.AddThemeConstantOverride("v_separation", 8);
         content.AddChild(_profileActions);
-        foreach (var button in new[] { _login, _logout, _equipment, _statistics, _checkUpdate, _touchControls, _bestiary })
+        foreach (var button in new[] { _login, _logout, _equipment, _statistics, _checkUpdate, _touchControls, _bestiary, _deleteAccount })
         {
             button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             button.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -158,7 +162,7 @@ public partial class AccountProfilePanel : Control
         _profileActions.Columns = width < 560 ? 1 : 2;
         _wizardFields.Columns = width < 560 ? 1 : 2;
         float height = GetViewport().GetVisibleRect().Size.Y < 640 ? 60 : 76;
-        foreach (var button in new[] { _login, _logout, _equipment, _statistics, _checkUpdate, _touchControls, _bestiary }) button.CustomMinimumSize = new(0, height);
+        foreach (var button in new[] { _login, _logout, _equipment, _statistics, _checkUpdate, _touchControls, _bestiary, _deleteAccount }) button.CustomMinimumSize = new(0, height);
     }
 
     /// <summary>Selecciona el JSON OAuth sin copiarlo ni renombrarlo manualmente.</summary>
@@ -214,6 +218,9 @@ public partial class AccountProfilePanel : Control
         _login.Visible = !google;
         _login.Text = _main.DesktopGoogleNeedsConfiguration ? "Configurar y entrar con Google" : "Entrar con Google";
         _logout.Visible = google;
+        _deleteAccount.Visible = _main.Accounts.SignedIn;
+        _deleteAccount.Disabled = _busy;
+        if (_deletionMessage.Length > 0) _status.Text = _deletionMessage;
         _login.Disabled = _busy;
         _logout.Disabled = _busy;
         _checkUpdate.Disabled = _checkingUpdate;
@@ -249,6 +256,30 @@ public partial class AccountProfilePanel : Control
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (Exception error) { UpdateGoogleStatus("No se pudo cerrar sesión: " + error.Message); }
+    }
+
+    private void ConfirmAccountDeletion()
+    {
+        if (_busy || !_main.Accounts.SignedIn) return;
+        var dialog = new ConfirmationDialog { Title = "Eliminar cuenta",
+            DialogText = "Se eliminarán tu cuenta de Arcana Arena, oro, inventario y bestiario. No elimina tu cuenta de Google. Esta acción no se puede deshacer. Debes haber iniciado sesión con Google en los últimos cinco minutos." };
+        dialog.GetOkButton().Text = "Eliminar cuenta y datos"; AddChild(dialog);
+        dialog.Confirmed += () => { dialog.QueueFree(); _ = DeleteAccount(); };
+        dialog.Canceled += dialog.QueueFree;
+        dialog.PopupCentered(new Vector2I(480, 260));
+    }
+    private async Task DeleteAccount()
+    {
+        if (_busy) return;
+        _busy = true; _deletionMessage = "Solicitando la eliminación…"; Render();
+        try
+        {
+            await _main.RequestAccountDeletion(_lifetime.Token);
+            await _main.StopGoogleSession();
+            _deletionMessage = "Eliminación solicitada. El servidor completará el borrado aunque cierres la aplicación.";
+        }
+        catch (Exception error) { _deletionMessage = error.Message; }
+        finally { if (IsInsideTree()) { _busy = false; Render(); } }
     }
 
     public override void _ExitTree()

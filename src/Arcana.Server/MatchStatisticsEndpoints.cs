@@ -11,8 +11,9 @@ public static class MatchStatisticsEndpoints
     {
         // Límite global sin conservar IP ni identidad del remitente.
         object gate = new(); long window = Environment.TickCount64; int count = 0;
-        app.MapPost("/analytics/matches", async (HttpContext context, MatchStatisticsService statistics) =>
+        app.MapPost("/analytics/matches", async (HttpContext context, MatchStatisticsService statistics, AccountService accounts) =>
         {
+            if (!accounts.GameEnabled) return Results.StatusCode(503);
             if (!context.Request.HasJsonContentType()) return Results.StatusCode(415);
             lock (gate)
             {
@@ -29,8 +30,12 @@ public static class MatchStatisticsEndpoints
                 while ((read = await context.Request.Body.ReadAsync(buffer, context.RequestAborted)) > 0)
                 { if (stream.Length + read > MatchStatisticsReport.MaxBytes) return Results.StatusCode(413); stream.Write(buffer, 0, read); }
                 var report = MatchStatisticsReport.Parse(Encoding.UTF8.GetString(stream.GetBuffer(), 0, (int)stream.Length));
-                if (report.Status == MatchRecordStatus.Playing || report.Revision == 0) return Results.BadRequest();
-                statistics.Accept(report); // Compatibilidad: cola en memoria, sin archivos.
+                var day = DateOnly.ParseExact(report.Day, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+                var today = DateOnly.FromDateTime(DateTime.UtcNow);
+                if (report.Status == MatchRecordStatus.Playing || report.Revision == 0 || report.Network ||
+                    day < today.AddDays(-30) || day > today) return Results.BadRequest();
+                if (!statistics.Accept(report)) return Results.StatusCode(503);
+                await statistics.Persist(context.RequestAborted);
                 return Results.StatusCode(202);
             }
             catch (Exception e) when (e is JsonException or InvalidDataException or BadHttpRequestException) { return Results.BadRequest(); }

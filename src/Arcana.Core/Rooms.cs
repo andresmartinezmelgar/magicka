@@ -40,11 +40,17 @@ public static class RoomBrowser
         LobbyValidation.Check(directory);
         return directory;
     }
-    public static async Task<RoomInfo> CreateAsync(string address, CreateRoomRequest room, CancellationToken token = default)
+    public static async Task<RoomInfo> CreateAsync(string address, CreateRoomRequest room, CancellationToken token = default, string accountToken = "")
     {
         Diagnostics.Log.ProtectSecret(room.Password); Diagnostics.Log.ProtectSecret(room.ServerPassword);
         using var request = new HttpRequestMessage(HttpMethod.Post, Endpoint(address, "rooms"))
         { Content = JsonContent.Create(room, options: Protocol.Json) };
+        if (accountToken.Length > 0)
+        {
+            if (request.RequestUri!.Scheme != "https" && !request.RequestUri.IsLoopback)
+                throw new InvalidOperationException("No se puede enviar la sesión sin HTTPS.");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accountToken);
+        }
         var result = await Request<RoomInfo>(request, token).ConfigureAwait(false);
         LobbyValidation.Check(result);
         Diagnostics.Info("room.created", "Sala creada desde el cliente.", new Dictionary<string, object?> { ["roomId"] = result.Id, ["mode"] = result.Mode });
@@ -52,6 +58,7 @@ public static class RoomBrowser
     }
     private static async Task<T> Request<T>(HttpRequestMessage request, CancellationToken token)
     {
+        request.Headers.TryAddWithoutValidation("X-Arcana-Version", BuildInfo.Version);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token); timeout.CancelAfter(TimeSpan.FromSeconds(7));
         try
         {

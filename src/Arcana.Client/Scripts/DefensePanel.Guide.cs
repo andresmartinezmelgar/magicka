@@ -81,7 +81,7 @@ public partial class DefensePanel
     {
         if (_state is not { } state) return;
         _guideStatus.Text = $"Dificultad {state.Difficulty} · {state.Minions.Length}/{state.MinionLimit} enemigos · {state.TotalKills} bajas · {state.Defenders.Length} defensores\n" +
-            $"Tope por rendimiento: {state.PerformanceLimit}. Se ajusta a los FPS sostenidos; online cuenta el dispositivo con menor rendimiento.";
+            $"Tope por rendimiento: {state.PerformanceLimit}. En local se ajusta a los FPS; online lo decide la simulación del servidor.";
         string stamp = string.Join('|', state.Bestiary.Select(e => e.ToString()));
         // La primera ficha vacía también se construye, sin revelar nombres aún no descubiertos.
         if (stamp == _bestiaryStamp && _enemyCards.GetChildCount() > 0) return;
@@ -92,8 +92,13 @@ public partial class DefensePanel
         foreach (var enemy in state.Bestiary)
         {
             var card = Card(_enemyCards); card.Name = "DefenseEnemyCard" + enemy.Kind;
-            BestiaryPortrait.Heading(card, enemy.Kind, DefenseRules.MinionName(enemy.Kind) + $" · última versión: dificultad {enemy.Difficulty}");
-            var table = Ui.Table(2, "DefenseEnemyStats" + enemy.Kind); card.AddChild(table);
+            Wrapped(card, DefenseRules.MinionName(enemy.Kind) + $" · dificultad {enemy.Difficulty}", 16, Ui.Gold);
+            var summary = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            summary.AddThemeConstantOverride("separation", 8); card.AddChild(summary);
+            var portrait = BestiaryPortrait.AddTo(summary, enemy.Kind, GetViewport().GetVisibleRect().Size.Y < 500 ? 44 : 64);
+            portrait.SizeFlagsVertical = SizeFlags.ShrinkBegin;
+            var table = Ui.Table(2, "DefenseEnemyStats" + enemy.Kind);
+            table.SizeFlagsHorizontal = SizeFlags.ExpandFill; summary.AddChild(table);
             Row(table, "Vida máxima", $"{enemy.MaxHealth:0.#}");
             string attackName = enemy.Kind switch
             {

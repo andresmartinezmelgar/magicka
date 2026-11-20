@@ -17,6 +17,7 @@ public partial class Main
     private bool _survivalAutosaveEnded;
     private string _autosavedSurvivalRun = "";
     private long _autosavedSurvivalTick = -1;
+    private Task _survivalWrite = Task.CompletedTask;
     internal bool HasSurvivalSave => SurvivalSaves.Exists;
     private bool CanSaveSurvival => !TutorialActive && _playing && _connection == null && _practice is { IsDefense: true, MatchEnded: false } &&
         _practice.Players.TryGetValue(_localId, out var player) && !player.Bot && player.Deaths < DefenseRules.PlayerLives;
@@ -80,6 +81,8 @@ public partial class Main
 
     private void WriteSurvivalCheckpoint()
     {
+        // Una escritura anterior nunca puede reemplazar un guardado manual posterior.
+        try { _survivalWrite.GetAwaiter().GetResult(); } catch (Exception) { /* Se vuelve a intentar con el punto actual. */ }
         var save = _practice!.SaveSurvival(_localId, _localBestiaryRun, _localBestiaryUid);
         SurvivalSaves.Write(save);
         _autosavedSurvivalRun = _localBestiaryRun; _autosavedSurvivalTick = _practice.Tick;
@@ -95,13 +98,34 @@ public partial class Main
             if (_connection == null && _practice is { IsDefense: true, MatchEnded: true } &&
                 _autosavedSurvivalRun.Length > 0 && _autosavedSurvivalRun == _localBestiaryRun)
             {
-                SurvivalSaves.Discard(); _autosavedSurvivalRun = ""; _autosavedSurvivalTick = -1;
+                var store = SurvivalSaves; var previous = _survivalWrite;
+                _survivalWrite = Task.Run(async () => { try { await previous; } catch (Exception) { } store.Discard(); });
+                _autosavedSurvivalRun = ""; _autosavedSurvivalTick = -1;
                 return;
             }
             if (!CanSaveSurvival || !Guid.TryParseExact(_localBestiaryRun, "N", out _)) return;
-            WriteSurvivalCheckpoint();
-            Diagnostics.Info("survival.autosaved", "Supervivencia autoguardada.",
-                new Dictionary<string, object?> { ["reason"] = reason, ["tick"] = _autosavedSurvivalTick });
+            if (!_survivalWrite.IsCompleted) return;
+            // Capturar el mundo en el hilo de Godot; el JsonElement ya es una
+            // copia independiente. Validación, respaldo y fsync van al escritor.
+            var checkpoint = _practice!.SaveSurvival(_localId, _localBestiaryRun, _localBestiaryUid, validate: false);
+            var target = SurvivalSaves; long tick = _practice.Tick;
+            _autosavedSurvivalRun = _localBestiaryRun; _autosavedSurvivalTick = tick;
+            _survivalAutosaveClock = 0; _survivalAutosaveEnded = false;
+            _survivalWrite = Task.Run(() =>
+            {
+                try
+                {
+                    target.Write(checkpoint);
+                    Diagnostics.Info("survival.autosaved", "Supervivencia autoguardada.",
+                        new Dictionary<string, object?> { ["reason"] = reason, ["tick"] = tick });
+                }
+                catch (Exception error) when (error is System.IO.IOException or UnauthorizedAccessException or
+                    System.Text.Json.JsonException or InvalidOperationException or ArgumentException)
+                {
+                    Diagnostics.Warn("survival.autosave_failed", "No se pudo autoguardar la supervivencia.", error);
+                    Post(() => { if (GodotObject.IsInstanceValid(_survivalSaveStatus)) _survivalSaveStatus!.Text = "No se pudo autoguardar. Comprueba el espacio libre."; });
+                }
+            });
         }
         catch (Exception error) when (error is System.IO.IOException or UnauthorizedAccessException or
             System.Text.Json.JsonException or InvalidOperationException or ArgumentException)

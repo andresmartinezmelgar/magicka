@@ -2,6 +2,18 @@
 
 ## Sin publicar
 
+## 0.29.70 — preparación, sin publicar
+
+- Ingesta de estadísticas por backend con cuotas por IP y cuenta; se cierran las escrituras directas de clientes en Firestore. Los informes locales no sustituyen estadísticas autoritativas del servidor.
+- Diarios de estadísticas recuperables y acotados. Escrituras de recompensas y autoguardados fuera de la simulación; caché del inventario con revisión de Firestore para reducir lecturas tras ventas.
+- La dificultad online depende del rendimiento medido por el servidor. Mejoras del cálculo de deltas y reutilización de la selección visible entre renders de la misma instantánea.
+- Borrado de cuenta y datos con acceso Google reciente, bloqueo inmediato mediante solicitud persistente y reintentos. Retención de telemetría optativa y compactación de revisiones antiguas mediante comando administrativo.
+- Despliegue con dos contenedores: salud antes del cambio, bloqueo de nuevas partidas, conservación de conexiones y diarios, rutas de reconexión por versión y recuperación tras fallos. Requiere configuración de nginx y de la Raspberry.
+- Servidores preparados para .NET 10; cliente Godot permanece en .NET 8 pendiente de migración compatible. Límites de memoria, CPU, procesos y rotación de logs de Docker.
+- Acciones de CI fijadas por SHA y archivos de herramientas verificados con SHA-256/SHA-512. Enfriamiento de descargas de claves AdMob y respuesta reintentable ante fallos temporales.
+- Guía de enemigos ajustada a 640×450 y nueva comprobación visual obligatoria en el flujo manual.
+- Pendiente: compilación, pruebas de C# y dispositivos, activación externa y compra real de la opción sin anuncios. Detalle y estado de las veinte mejoras en docs/MEJORAS-SEGURIDAD-RENDIMIENTO-v0.29.70.md.
+
 ## 0.29.69
 
 - Miniaturas del equipo: casillas cuadradas y márgenes interiores para que la pieza, el elemento, el atributo extra, la calidad y las mejoras quepan dentro del marco.

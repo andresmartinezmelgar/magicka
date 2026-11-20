@@ -14,6 +14,8 @@ public sealed partial class FirestoreAccountRepository
         {
             var account = await transaction.GetSnapshotAsync(user, token);
             var previous = await transaction.GetSnapshotAsync(receipt, token);
+            var deletion = await transaction.GetSnapshotAsync(Deletion(progress.Uid), token);
+            if (deletion.Exists) return new BestiaryTotals(new Dictionary<string, long>(StringComparer.Ordinal));
             if (!account.Exists) throw new ArgumentException("Cuenta desconocida.");
             var header = Header(account);
             var saved = previous.Exists ? FirestoreData.Read<BestiaryProgress>(previous) : null;
