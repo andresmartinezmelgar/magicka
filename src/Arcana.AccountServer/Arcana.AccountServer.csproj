@@ -22,7 +22,7 @@
     <Compile Include="../Arcana.Server/PublicDashboardEndpoints.cs" Link="PublicDashboardEndpoints.cs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="FirebaseAdmin" Version="3.7.0" />
-    <PackageReference Include="Google.Cloud.Firestore" Version="4.5.0" />
+    <PackageReference Include="FirebaseAdmin" Version="3.7.1" />
+    <PackageReference Include="Google.Cloud.Firestore" Version="4.7.0" />
   </ItemGroup>
 </Project>

@@ -2,13 +2,23 @@ using Arcana.Core;
 
 namespace Arcana.Server;
 
-public sealed class MatchStatisticsService(AccountService accounts, ILogger<MatchStatisticsService> logger, string? journalDirectory = null) : BackgroundService
+public sealed class MatchStatisticsService : BackgroundService
 {
-    private static string DirectoryFor(string? configured) => configured ?? Environment.GetEnvironmentVariable("ARCANA_MATCH_STATISTICS_DIR")
-        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ArcanaArena", "statistics-outbox");
-    private static bool Shared => !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ARCANA_SERVER_GENERATION"));
-    private readonly MatchStatisticsJournal? _journal = Shared ? new(DirectoryFor(journalDirectory)) : null;
-    private readonly MatchStatisticsOutbox _outbox = Shared ? new(shared: new MatchStatisticsJournal(DirectoryFor(journalDirectory))) : new(DirectoryFor(journalDirectory));
+    private readonly AccountService accounts;
+    private readonly ILogger<MatchStatisticsService> logger;
+    private readonly MatchStatisticsJournal? _journal;
+    private readonly MatchStatisticsOutbox _outbox;
+
+    public MatchStatisticsService(AccountService accounts, ILogger<MatchStatisticsService> logger, string? journalDirectory = null)
+    {
+        this.accounts = accounts;
+        this.logger = logger;
+        string directory = journalDirectory ?? Environment.GetEnvironmentVariable("ARCANA_MATCH_STATISTICS_DIR")
+            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ArcanaArena", "statistics-outbox");
+        if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ARCANA_SERVER_GENERATION"))) _journal = new(directory);
+        _outbox = _journal == null ? new(directory) : new(shared: _journal);
+    }
+
     public int UnwrittenCount => _outbox.UnwrittenCount;
     public int PendingCount => _outbox.PendingCount;
     public void Record(MatchStatisticsReport report) { if (accounts.GameEnabled) _outbox.Enqueue(report); }

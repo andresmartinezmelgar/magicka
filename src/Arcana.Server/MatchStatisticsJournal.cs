@@ -24,7 +24,8 @@ internal sealed class MatchStatisticsJournal(string directory) : ISharedMatchJou
         try
         {
             var report = Read(path);
-            if (path != FileFor(report) && path != FileFor(report) + ".tmp") throw new InvalidDataException("Nombre de informe inválido.");
+            string legacy = Path.Combine(directory, report.RunId + ".json");
+            if (path != FileFor(report) && path != FileFor(report) + ".tmp" && path != legacy && path != legacy + ".tmp") throw new InvalidDataException("Nombre de informe inválido.");
             return report;
         }
         catch (Exception error) when (error is System.Text.Json.JsonException or InvalidDataException or ArgumentException or FormatException)
@@ -34,11 +35,13 @@ internal sealed class MatchStatisticsJournal(string directory) : ISharedMatchJou
             return null;
         }
     }
+    private static bool Supersedes(MatchStatisticsReport incoming, MatchStatisticsReport saved) =>
+        incoming.Network != saved.Network ? incoming.Network : MatchStatisticsReport.IsNewer(incoming, saved);
     public void Persist(MatchStatisticsReport report)
     {
         using var lease = new SharedJournalLease(directory);
         string file = FileFor(report);
-        if (File.Exists(file) && ReadSafely(file) is { } previous && (previous.Network && !report.Network || previous.Network == report.Network && !MatchStatisticsReport.IsNewer(report, previous))) return;
+        if (File.Exists(file) && ReadSafely(file) is { } previous && !Supersedes(report, previous)) return;
         string temporary = file + ".tmp";
         using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
         { stream.Write(Encoding.UTF8.GetBytes(report.ToJson())); stream.Flush(true); }
@@ -47,12 +50,15 @@ internal sealed class MatchStatisticsJournal(string directory) : ISharedMatchJou
     public MatchStatisticsReport[] Pending()
     {
         using var lease = new SharedJournalLease(directory);
-        foreach (string temporary in Directory.EnumerateFiles(directory, "*.json.tmp").Where(Supported).Take(64))
+        // Al instalar la primera generación se heredan también los diarios de la versión anterior.
+        var incomplete = Directory.EnumerateFiles(directory, "*.json.tmp").Where(Supported);
+        var legacy = Directory.EnumerateFiles(directory, "*.json")
+            .Where(path => Guid.TryParseExact(Path.GetFileNameWithoutExtension(path), "N", out _));
+        foreach (string temporary in incomplete.Concat(legacy).Take(64).ToArray())
         {
             var report = ReadSafely(temporary); if (report == null) continue;
             string file = FileFor(report);
-            if (temporary != file + ".tmp") throw new InvalidDataException("Nombre de informe inválido.");
-            if (!File.Exists(file) || ReadSafely(file) is not { } previous || MatchStatisticsReport.IsNewer(report, previous)) File.Move(temporary, file, true);
+            if (!File.Exists(file) || ReadSafely(file) is not { } previous || Supersedes(report, previous)) File.Move(temporary, file, true);
             else File.Delete(temporary);
         }
         return Directory.EnumerateFiles(directory, "*.json").Where(Supported).Take(64).Select(ReadSafely).Where(r => r != null).Cast<MatchStatisticsReport>().ToArray();
@@ -61,6 +67,6 @@ internal sealed class MatchStatisticsJournal(string directory) : ISharedMatchJou
     {
         using var lease = new SharedJournalLease(directory);
         string file = FileFor(sent);
-        if (File.Exists(file) && ReadSafely(file) is { } current && (sent.Network && !current.Network || current.Network == sent.Network && !MatchStatisticsReport.IsNewer(current, sent))) File.Delete(file);
+        if (File.Exists(file) && ReadSafely(file) is { } current && !Supersedes(current, sent)) File.Delete(file);
     }
 }

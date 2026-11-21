@@ -62,7 +62,7 @@ public partial class Main
                 var onlineLobby = _launcher.RoomsForVerification;
                 Check(onlineLobby?.UsesPvpDirectory == true,
                     "PvP no abre directamente el servidor configurado.");
-                onlineLobby!.ShowError("No responde https://prueba.example/rooms");
+                onlineLobby!.ShowError(PvpServer.DisplayText("No responde https://prueba.example/rooms", "prueba.example"));
                 Check(!onlineLobby.FindChildren("*", "Control", true, false).OfType<ElementTextLabel>()
                     .Any(label => label.Text.Contains("prueba.example", StringComparison.OrdinalIgnoreCase)),
                     "La dirección del servidor aparece en la pantalla o sus errores.");

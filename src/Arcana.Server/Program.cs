@@ -43,6 +43,9 @@ try
     builder.Services.AddPublicDashboard();
     builder.Services.AddHostedService<AccountDeletionService>();
     builder.Services.AddHostedService<StatisticsRetentionService>();
+    if (publicHost == null && activeAccounts.Enabled)
+        builder.Services.AddHostedService(services => new PvpDirectorySetup(activeAccounts,
+            services.GetRequiredService<GameService>(), services.GetRequiredService<ILogger<PvpDirectorySetup>>()));
     if (publicHost != null)
         builder.Services.AddHostedService(service => new PublicAccountServerPublisher(activeAccounts,
             settings.Port, service.GetRequiredService<ILogger<PublicAccountServerPublisher>>()));

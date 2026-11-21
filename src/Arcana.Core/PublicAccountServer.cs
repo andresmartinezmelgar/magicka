@@ -18,6 +18,8 @@ public static class PublicAccountServer
 
     public const string Project = "arcana-arena-f2997";
     public const string DocumentPath = "publicConfig/pvpServer";
+    private static string _advertisedHost = "";
+    public static string AdvertisedHost => Volatile.Read(ref _advertisedHost);
     private static readonly HttpClient Http = new(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false })
         { Timeout = TimeSpan.FromSeconds(10) };
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, DirectoryEntry> Entries = new();
@@ -52,6 +54,7 @@ public static class PublicAccountServer
                 if (fields.EnumerateObject().Count() != 1 || !fields.TryGetProperty("url", out var value) ||
                     !value.TryGetProperty("stringValue", out var text)) throw new InvalidDataException("El directorio PvP no es válido.");
                 entry.Address = ValidateAddress(text.GetString());
+                if (projectId == Project) Volatile.Write(ref _advertisedHost, new Uri(entry.Address).IdnHost);
                 entry.Expires = Environment.TickCount64 + 60_000;
                 return entry.Address;
             }

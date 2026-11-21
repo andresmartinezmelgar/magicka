@@ -57,7 +57,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$repo\dashboard\windows
 
 ## Datos reales sin iniciar sesión
 
-La página consulta `GET /api/dashboard/history` y `GET /api/dashboard/live` en su propio dominio. Si se abre con el servidor local de Windows, consulta `https://familiamelgar.duckdns.org/api/dashboard`. No usa Firebase Authentication, SDK de Firebase, API keys ni cuentas del navegador.
+La página consulta `GET /api/dashboard/history` y `GET /api/dashboard/live` en su propio dominio. Si se abre con el servidor local de Windows, lee el documento público `publicConfig/pvpServer` de Firestore y consulta `/api/dashboard` en el dominio publicado. No usa Firebase Authentication, SDK de Firebase, API keys ni cuentas del navegador.
 
 El backend conserva dos listeners compartidos de Firebase Admin. Entrega exclusivamente informes validados, alias del juego, actuaciones y ping. Las cuentas, inventarios, UID e identificadores privados de documentos permanecen fuera de la respuesta. Las reglas de Firestore no se abren al público.
 
@@ -102,11 +102,11 @@ location /api/dashboard/ {
 
 Si se usa un servidor de cuentas separado con `ARCANA_ACCOUNT_SERVICE_URL`, los endpoints públicos deben apuntar a ese proceso, que dispone de Firebase Admin. El proceso de juego remoto sin repositorio administrativo devuelve 503; nunca se resuelve poniendo una clave privada en JavaScript.
 
-Comprobaciones después del despliegue:
+Usa el origen HTTPS del servidor publicado en la variable `ORIGEN_PVP`.
 
 ```bash
-curl -i https://familiamelgar.duckdns.org/api/dashboard/history
-curl -i https://familiamelgar.duckdns.org/api/dashboard/live
+curl -i "$ORIGEN_PVP/api/dashboard/history"
+curl -i "$ORIGEN_PVP/api/dashboard/live"
 ```
 
 Un 200 devuelve estadísticas, incluso si todavía no hay partidas. Un 503 indica que el lector está arrancando o no dispone de Firebase Admin; la página reintenta sin pedir una cuenta de Google.

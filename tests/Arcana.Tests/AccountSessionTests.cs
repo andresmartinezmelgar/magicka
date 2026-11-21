@@ -36,11 +36,11 @@ internal static class AccountSessionTests
         Check(client.TokenForVerifiedServer(address, address) == client.Token,
             "La sesión no llega al servidor WSS configurado.");
         foreach (string target in new[] { "ws://" + host + "/play", "wss://" + host + ":27015/play",
-            "wss://" + host + ".example.org/play", "wss://" + host + "/other",
+            "wss://" + host + ".example.org/play", "wss://" + host + "/other", "wss://" + host + "/PLAY",
             address + "?token=secret", "wss://user@" + host + "/play" })
             Check(client.TokenForVerifiedServer(target, address).Length == 0,
                 "Se entregó la sesión a un destino diferente del configurado.");
-        string message = PvpServer.DisplayText("No responde " + address + " ni https://" + host + "/rooms");
+        string message = PvpServer.DisplayText("No responde " + address + " ni https://" + host + "/rooms", host);
         Check(!message.Contains(host, StringComparison.OrdinalIgnoreCase) && message.StartsWith("No responde"),
             "El error expone el dominio o pierde su explicación.");
         await client.SignOut();

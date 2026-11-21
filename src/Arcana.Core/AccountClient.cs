@@ -63,7 +63,7 @@ public sealed partial class AccountClient : IDisposable
             var target = ArenaConnection.Address(address);
             var verified = ArenaConnection.Address(verifiedAddress);
             return target.Scheme == "wss" &&
-                target.AbsoluteUri.Equals(verified.AbsoluteUri, StringComparison.OrdinalIgnoreCase) ? Token : "";
+                target.AbsoluteUri.Equals(verified.AbsoluteUri, StringComparison.Ordinal) ? Token : "";
         }
         catch (ArgumentException) { return ""; }
     }

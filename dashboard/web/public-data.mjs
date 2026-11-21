@@ -50,7 +50,7 @@ export function createPublicSource({fetchImpl = globalThis.fetch, documentImpl =
       try {
         if (!cachedRoot || Date.now() >= expires) {
           const next = apiRoot ?? await defaultApiRoot(location, fetchImpl, request.signal);
-          if (cachedRoot !== next) { delete etags.live; delete etags.history; }
+          if (cachedRoot !== next) { delete etags.live; delete etags.history; delete pages.live; delete pages.history; }
           cachedRoot = next; expires = Date.now() + 60_000;
         }
         const results = await Promise.allSettled(['history','live'].map(part => read(cachedRoot, part, request.signal)));
