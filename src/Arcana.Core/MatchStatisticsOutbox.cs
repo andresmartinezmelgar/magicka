@@ -1,5 +1,12 @@
 namespace Arcana.Core;
 
+public interface ISharedMatchJournal
+{
+    void Persist(MatchStatisticsReport report);
+    void Acknowledge(MatchStatisticsReport report);
+    MatchStatisticsReport[] Pending();
+}
+
 /// <summary>Cola acotada de informes pendientes. El diario opcional se escribe fuera del hilo de juego.</summary>
 public sealed class MatchStatisticsOutbox : IAsyncDisposable
 {
@@ -9,12 +16,14 @@ public sealed class MatchStatisticsOutbox : IAsyncDisposable
     private readonly Dictionary<string, MatchStatisticsReport> _written = new(StringComparer.Ordinal);
     private readonly string? _directory;
     private readonly int _capacity;
+    private readonly ISharedMatchJournal? _shared;
     private readonly SemaphoreSlim _disk = new(1, 1);
     private readonly System.Threading.Channels.Channel<bool> _writes = System.Threading.Channels.Channel.CreateBounded<bool>(
         new System.Threading.Channels.BoundedChannelOptions(1) { SingleReader = true, FullMode = System.Threading.Channels.BoundedChannelFullMode.DropOldest });
     private readonly Task _writer;
-    public MatchStatisticsOutbox(string? directory = null, int capacity = 128)
+    public MatchStatisticsOutbox(string? directory = null, int capacity = 128, ISharedMatchJournal? shared = null)
     {
+        _shared = shared;
         _capacity = Math.Clamp(capacity, 1, 512); _directory = directory == null ? null : Path.GetFullPath(directory);
         if (_directory != null)
         {
@@ -30,9 +39,18 @@ public sealed class MatchStatisticsOutbox : IAsyncDisposable
                 catch (Exception e) when (e is IOException or System.Text.Json.JsonException or ArgumentException)
                 { Diagnostics.Warn("statistics.journal_invalid", "Informe pendiente ilegible."); }
         }
-        _writer = _directory == null ? Task.CompletedTask : Task.Run(WriteLoop);
+        _writer = _directory == null && _shared == null ? Task.CompletedTask : Task.Run(WriteLoop);
     }
     public int PendingCount { get { lock (_gate) return _pending.Count; } }
+    public int UnwrittenCount
+    {
+        get
+        {
+            if (!_disk.Wait(0)) return 1;
+            try { lock (_gate) return _pending.Values.Count(r => !_written.TryGetValue(r.RunId, out var saved) || !ReferenceEquals(r, saved)); }
+            finally { _disk.Release(); }
+        }
+    }
     public bool Contains(string runId) { lock (_gate) return _pending.ContainsKey(runId); }
 
     public bool Enqueue(MatchStatisticsReport report)
@@ -78,7 +96,7 @@ public sealed class MatchStatisticsOutbox : IAsyncDisposable
     }
     public async Task FlushPersistence(CancellationToken token = default)
     {
-        if (_directory == null) return;
+        if (_directory == null && _shared == null) return;
         await _disk.WaitAsync(token).ConfigureAwait(false);
         try
         {
@@ -93,14 +111,24 @@ public sealed class MatchStatisticsOutbox : IAsyncDisposable
                 {
                     token.ThrowIfCancellationRequested();
                     if (_written.TryGetValue(report.RunId, out var saved) && ReferenceEquals(saved, report)) continue;
-                    string file = Path.Combine(_directory, report.RunId + ".json"), temporary = file + ".tmp";
+                    if (_shared != null)
+                    {
+                        _shared.Persist(report);
+                        _written[report.RunId] = report;
+                        continue;
+                    }
+                    string file = Path.Combine(_directory!, report.RunId + ".json"), temporary = file + ".tmp";
                     byte[] bytes = System.Text.Encoding.UTF8.GetBytes(report.ToJson());
                     using (var output = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
                     { output.Write(bytes); output.Flush(true); }
                     File.Move(temporary, file, true); _written[report.RunId] = report;
                 }
                 foreach (string id in _written.Keys.Where(id => !retained.Contains(id)).ToArray())
-                { File.Delete(Path.Combine(_directory, id + ".json")); _written.Remove(id); }
+                {
+                    if (_shared != null) _shared.Acknowledge(_written[id]);
+                    else File.Delete(Path.Combine(_directory!, id + ".json"));
+                    _written.Remove(id);
+                }
             }, token).ConfigureAwait(false);
         }
         finally { _disk.Release(); }

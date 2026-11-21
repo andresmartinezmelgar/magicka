@@ -31,6 +31,9 @@ public partial class RoomLobby : Control
     private ScrollContainer? _mobileScroll;
     private GridContainer? _roomFormGrid;
     private readonly List<Button> _buttons = [];
+    private readonly List<Button> _matchButtons = [];
+    private bool _serverStarting, _startupRetry;
+    private string _startupMessage = "";
     private bool _busy;
     private readonly CancellationTokenSource _lifetime = new();
     internal string AddressForVerification => _address;
@@ -269,9 +272,11 @@ public partial class RoomLobby : Control
     {
         var button = Ui.Button(text, action, primary); button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         parent.AddChild(button); _buttons.Add(button);
+        if (text is "Entrar" or "Crear sala" or "Crear y entrar") _matchButtons.Add(button);
     }
     private void SwitchPane(bool create)
     {
+        if (create && _serverStarting) { ShowStartup(); return; }
         _listPane.Visible = !create;
         _createPane.Visible = create;
         if (_mobileListActions != null) _mobileListActions.Visible = !create;
@@ -282,6 +287,7 @@ public partial class RoomLobby : Control
     public void SetBusy(bool busy)
     {
         _busy = busy; foreach (var b in _buttons) b.Disabled = busy;
+        if (_serverStarting) foreach (var b in _matchButtons) b.Disabled = true;
         _list.Disabled = busy;
         _roomName.Editable = _roomPassword.Editable = _joinPassword.Editable =
             _serverPasswordEntry.Editable = !busy;
@@ -332,6 +338,7 @@ public partial class RoomLobby : Control
             _main.Post(() =>
             {
                 if (!Active) return;
+                _serverStarting = false;
                 _address = secureTarget;
                 _heading.Text = "SALAS  /  " + PvpServer.DisplayText(result.Server.Name);
                 string? previous = Selected()?.Id; _rooms = result.Rooms;
@@ -432,6 +439,7 @@ public partial class RoomLobby : Control
     public void OpenCreation() => SwitchPane(true);
     private void Join()
     {
+        if (_serverStarting) { ShowStartup(); return; }
         if (_busy) return;
         var room = Selected(); if (room == null) { ShowError("Selecciona una sala."); return; }
         if (room.InProgress && room.BestOf > 1) { ShowError("Esta serie está en curso. Actualiza las salas para entrar en la siguiente."); return; }
@@ -454,6 +462,7 @@ public partial class RoomLobby : Control
     }
     private async void Create()
     {
+        if (_serverStarting) { ShowStartup(); return; }
         if (_busy) return;
         int team = Ui.SelectedTeam(_teamChoice);
         var request = new CreateRoomRequest { Name = _roomName.Text, Mode = (GameMode)_mode.GetSelectedId(), Map = (ArenaMapId)_map.GetSelectedId(),
@@ -480,10 +489,33 @@ public partial class RoomLobby : Control
     private void Failure(Exception e)
     {
         if (_lifetime.IsCancellationRequested) return;
+        if (e is ServerStartingException)
+        {
+            _main.Post(() =>
+            {
+                if (!Active) return;
+                _serverStarting = true; _startupMessage = PvpServer.DisplayText(e.Message); ShowStartup();
+                if (!_startupRetry) { _startupRetry = true; _ = RetryAfterStartup(); }
+            });
+            return;
+        }
         Diagnostics.Warn("lobby.operation_failed", "Fallo en la gestión de salas.", e);
         string message = e is InvalidOperationException or ArgumentException ? e.Message
             : "No se pudo consultar el servidor. Comprueba la conexión a Internet y reintenta.";
         _main.Post(() => { if (Active) ShowError(message); });
+    }
+    private void ShowStartup()
+    {
+        SetBusy(false); _status.Text = _startupMessage; _status.AddThemeColorOverride("font_color", Ui.Gold);
+    }
+    private async Task RetryAfterStartup()
+    {
+        try
+        {
+            await Task.Delay(2000, _lifetime.Token);
+            _main.Post(() => { _startupRetry = false; if (Active && _serverStarting && !_busy) Refresh(); });
+        }
+        catch (OperationCanceledException) { }
     }
     private void Close() { _lifetime.Cancel(); _main.CancelPendingConnection(); QueueFree(); }
     public override void _ExitTree() { GetViewport().SizeChanged -= UpdateRoomResponsive; _lifetime.Cancel(); _lifetime.Dispose(); }

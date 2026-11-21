@@ -40,7 +40,10 @@ jobs:
       - name: Validar metadatos de version
         run: python3 scripts/version-support.py check .
       - name: Comprobar actualizaciones por tags del servidor Raspberry
-        run: python3 scripts/test-raspberry-auto-update.py
+        run: |
+          python3 scripts/test-raspberry-auto-update.py
+          python3 scripts/test-raspberry-generations.py
+          python3 scripts/test-rolling-deploy.py
       - name: Verificar aislamiento e integridad de publicaciones de prueba
         run: |
           python3 scripts/test-preview-release.py
@@ -69,6 +72,8 @@ jobs:
         run: dotnet run --project tests/Arcana.Account.Tests/Arcana.Account.Tests.csproj -c Release --no-build -- --verified-claims-only
       - name: Verificar premios pendientes con Firebase y servidor caídos
         run: dotnet run --project tests/Arcana.Account.Tests/Arcana.Account.Tests.csproj -c Release --no-build -- --reward-outbox-only
+      - name: Verificar actualización con dos generaciones y reconexión al servidor anterior
+        run: dotnet run --project tests/Arcana.Account.Tests/Arcana.Account.Tests.csproj -c Release --no-build -- --rolling-update-only
       - name: Compilar servidor de cuentas heredado
         run: dotnet build src/Arcana.AccountServer/Arcana.AccountServer.csproj -c Release --nologo
 

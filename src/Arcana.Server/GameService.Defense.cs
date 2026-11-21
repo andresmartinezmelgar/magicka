@@ -12,7 +12,7 @@ public sealed partial class GameService
 
     private void RestartDefenseRoom(GameRoom room)
     {
-        if (_draining) { room.RewardStatus = "Hay una nueva versión del servidor; vuelve al menú para empezar otra partida."; return; }
+        if (!AcceptingNewGames) { room.RewardStatus = UpdatingMessage; return; }
         if (room.World.MatchEnded) CaptureStatistics(room);
         foreach (var session in room.Sessions.Values) SaveSessionBestiary(session, force: true);
         if (!room.World.RestartDefense()) return;
@@ -23,17 +23,17 @@ public sealed partial class GameService
             if (session.Account != null) room.World.AttachDefenseAccount(session.Id, session.Account.Uid);
     }
 
-    private void SaveSessionBestiary(PlayerSession session, bool force = false)
+    private bool SaveSessionBestiary(PlayerSession session, bool force = false)
     {
-        if (session.Account == null || !session.Room.World.IsDefense) return;
-        if (!force && session.BestiaryWrite is { IsCompleted: false }) return;
+        if (session.Account == null || !session.Room.World.IsDefense) return true;
+        if (session.BestiaryWriteRun == session.Room.MatchId && session.BestiaryWrite is { IsCompleted: false }) return false;
         if (session.BestiaryWriteRun == session.Room.MatchId && session.BestiaryWrite?.IsCompletedSuccessfully == true && session.BestiaryWrite.Result)
             session.BestiaryKillsSaved = Math.Max(session.BestiaryKillsSaved, session.BestiaryWriteKills);
         double now = session.Room.World.Time;
-        if (!force && !session.Room.World.MatchEnded && now < session.NextBestiaryAt) return;
+        if (!force && !session.Room.World.MatchEnded && now < session.NextBestiaryAt) return true;
         session.NextBestiaryAt = now + 10;
         var progress = session.Room.World.BestiaryProgress(session.Id, session.Room.MatchId, session.Account.Uid);
-        if (progress == null || progress.Kills.Values.Sum() <= session.BestiaryKillsSaved) return;
+        if (progress == null || progress.Kills.Values.Sum() <= session.BestiaryKillsSaved) return true;
         session.BestiaryWriteKills = progress.Kills.Values.Sum();
         session.BestiaryWriteRun = session.Room.MatchId;
         var previousWrite = session.BestiaryWrite;
@@ -42,6 +42,7 @@ public sealed partial class GameService
             if (previousWrite != null) try { await previousWrite; } catch (Exception) { /* Reintentar el acumulado actual tras un fallo anterior. */ }
             return rewards.EnqueueBestiary(progress);
         });
+        return false;
     }
 
     private void TrackDefenseAccounts(GameRoom room)

@@ -187,8 +187,9 @@ public partial class Main : Node
     {
         if (Volatile.Read(ref _exiting) != 0 || !CanStartRegularMatch()) return;
         var connection = new ArenaConnection();
+        string connectionAddress = address;
         connection.AccountChanged += message => _ = RefreshRewardAccount(message);
-        connection.Disconnected += reason => Post(() => { if (_connection == connection) _ = RecoverConnection(connection, address, name, team, password, roomId, roomPassword, wizardType, reason); });
+        connection.Disconnected += reason => Post(() => { if (_connection == connection) _ = RecoverConnection(connection, connectionAddress, name, team, password, roomId, roomPassword, wizardType, reason); });
         ArenaConnection? previous;
         lock (_connectionGate) { previous = _pendingConnection; _pendingConnection = connection; }
         if (previous != null) _ = previous.DisposeAsync();
@@ -201,7 +202,7 @@ public partial class Main : Node
             // el ID token Firebase por un transporte sin cifrar. Si el servidor
             // LAN exige Google, localizar su misma instancia pública en Firestore
             // y cambiar a WSS antes de enviar cualquier credencial.
-            if (endpoint.Scheme == "ws" && !endpoint.IsLoopback)
+            if (resumeToken.Length == 0 && endpoint.Scheme == "ws" && !endpoint.IsLoopback)
             {
                 var localRooms = await RoomBrowser.ListAsync(destination, _lifetime.Token).ConfigureAwait(false);
                 if (localRooms.Server.RewardsAvailable)
@@ -235,12 +236,13 @@ public partial class Main : Node
             }
             // Las salas WSS sin Firebase continúan admitiendo invitados.
             // Solo el servidor que exige cuentas debe bloquear un token vacío.
-            if (accountToken.Length == 0 && ArenaConnection.Address(destination).Scheme == "wss")
+            if (resumeToken.Length == 0 && accountToken.Length == 0 && ArenaConnection.Address(destination).Scheme == "wss")
             {
                 var publicRooms = await RoomBrowser.ListAsync(destination, _lifetime.Token).ConfigureAwait(false);
                 if (publicRooms.Server.RewardsAvailable)
                     throw new InvalidOperationException(GoogleConnectionMessage());
             }
+            connectionAddress = destination;
             await connection.ConnectAsync(destination, name, team, password, _lifetime.Token, roomId: roomId, roomPassword: roomPassword,
                 wizardType: wizardType, deferReady: true, accountToken: accountToken, resumeToken: resumeToken).ConfigureAwait(false);
             if (!Post(() =>
@@ -441,7 +443,7 @@ public partial class Main : Node
                 UpdateMouseMovement(!practiceUi && Input.IsMouseButtonPressed(MouseButton.Left), Input.IsPhysicalKeyPressed(Key.Shift));
             }
             if (!ReferenceEquals(latest, _lastHealthSnapshot)) { _lastHealthSnapshot = latest; _lastTick = latest.Tick; _snapshotAge = 0; } else _snapshotAge += delta;
-            if (_connection != null && _snapshotAge > 8 && !latest.WaitingForPlayers)
+            if (_connection?.Connected == true && _snapshotAge > 8 && !latest.WaitingForPlayers)
             {
                 Diagnostics.Warn("client.stale_snapshot", "El servidor dejó de enviar el estado.", context: Context());
                 _connection.ReconnectAfterStall(); return;

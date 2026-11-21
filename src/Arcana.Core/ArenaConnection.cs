@@ -112,7 +112,7 @@ public sealed partial class ArenaConnection : IAsyncDisposable
                 !LobbyValidation.IsValid(welcome.Server) || !welcome.Snapshot.Players.Any(p => p.Id == welcome.PlayerId))
                 throw new InvalidDataException("El servidor no ha enviado un saludo válido.");
             LobbyValidation.Check(welcome.Room);
-            if (welcome.Room.Id != roomId || welcome.Room.Mode != welcome.Snapshot.Mode || welcome.Room.Map != welcome.Snapshot.Map ||
+            if (!RoomGeneration.Matches(roomId, welcome.Room, welcome.Server!) || welcome.Room.Mode != welcome.Snapshot.Mode || welcome.Room.Map != welcome.Snapshot.Map ||
                 welcome.Room.ScoreLimit != welcome.Snapshot.ScoreLimit || welcome.Room.Tickets != welcome.Snapshot.StartingTickets ||
                 welcome.Room.Players != welcome.Snapshot.Players.Length)
                 throw new InvalidDataException("El saludo no corresponde a la sala solicitada.");
