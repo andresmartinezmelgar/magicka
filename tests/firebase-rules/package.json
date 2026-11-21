@@ -5,7 +5,7 @@
   "scripts": { "test": "node verify.cjs" },
   "devDependencies": {
     "@firebase/rules-unit-testing": "4.0.1",
-    "firebase": "11.10.0",
+    "firebase": "13.4.0",
     "firebase-tools": "14.19.0"
   }
 }
