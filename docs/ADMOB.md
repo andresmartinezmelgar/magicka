@@ -12,7 +12,7 @@ Android integra Google Mobile Ads 25.5.0 y UMP 4.0.0. El servidor permanece con 
 - En el servidor configurar `ARCANA_ADMOB_ENABLED=true`, `ARCANA_ADMOB_APP_ID` y `ARCANA_ADMOB_REWARDED_UNIT_ID`. El App ID tiene que coincidir con el manifiesto de la APK.
 - Vincular la aplicación con una tienda admitida, verificar app-ads.txt cuando AdMob lo exija, completar preparación de la aplicación y pagos.
 
-La variante para Google Play necesita targetSdk 36 o superior a fecha de noviembre de 2026, el formato de publicación requerido por la consola y actualizaciones gestionadas por Play. La APK de GitHub usa targetSdk 35 y un instalador externo: antes de publicarla en Play hay que retirar REQUEST_INSTALL_PACKAGES y el actualizador externo de esa variante. Registrar también el certificado de Play App Signing en Firebase/Google para el login.
+El AAB de Google Play usa targetSdk 36 y envía las actualizaciones a la ficha de la tienda. El proceso de compilación excluye los permisos, la actividad y el plugin del instalador externo. La APK de GitHub conserva su propio actualizador y targetSdk 35. Registrar también el certificado de Play App Signing en Firebase/Google para el login.
 
 ## Flujo
 
@@ -31,7 +31,7 @@ Las reglas existentes impiden escrituras de clientes en los documentos de tienda
 
 La configuración privada `users/{uid}/configuration/account.adsRemoved` se lee en el servidor. Si está activa, la tienda utiliza `POST /account/shop/refresh` sin mostrar un anuncio, también en Windows. Comparte el mismo límite de una renovación extra al día con la vía recompensada; cambiar de dispositivo o reinstalar no restablece el límite. Ser administrador no equivale a tener esta compra.
 
-El registro del derecho está preparado; la venta real requiere todavía Google Play Billing, un producto no consumible, verificación y reconocimiento del pago en el servidor, recibos y tratamiento de reembolsos. La APK actual de GitHub no incorpora ese flujo de cobro. Ver [CONFIGURACION-CUENTAS.md](CONFIGURACION-CUENTAS.md).
+Android integra Google Play Billing 8.3.0. El servidor comprueba el producto y la cuenta, confirma el pago y revalida los recibos. El editor configura el producto y su precio, los permisos del servidor y los probadores en Play Console. Ver [CONFIGURACION-CUENTAS.md](CONFIGURACION-CUENTAS.md).
 
 ## Verificación
 
@@ -50,3 +50,5 @@ El registro del derecho está preparado; la venta real requiere todavía Google 
 - https://support.google.com/admob/answer/14538460
 - https://support.google.com/googleplay/android-developer/answer/11926878
 - https://support.google.com/googleplay/android-developer/answer/12085295
+
+La compra y restauración mediante Google Play se configuran en la [guía de la versión 0.29.70](MEJORAS-SEGURIDAD-RENDIMIENTO-v0.29.70.md#activación-de-la-compra-única-sin-anuncios).

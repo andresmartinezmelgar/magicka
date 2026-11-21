@@ -12,7 +12,7 @@ public sealed class AdMobRewardVerifier
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10) };
     private readonly SemaphoreSlim _gate = new(1, 1);
     private Dictionary<string, string> _keys = new(StringComparer.Ordinal);
-    private DateTimeOffset _keysExpire;
+    private DateTimeOffset _keysExpire, _nextUnknownKeyRefresh;
     private readonly Func<CancellationToken, Task<string>> _downloadKeys;
     private readonly TimeProvider _time;
     public AdMobRewardVerifier(Func<CancellationToken, Task<string>>? downloadKeys = null, TimeProvider? time = null)
@@ -40,13 +40,30 @@ public sealed class AdMobRewardVerifier
         string pem; await _gate.WaitAsync(token);
         try
         {
-            if (_time.GetUtcNow() >= _keysExpire || !_keys.ContainsKey(Field("key_id")))
+            var refreshTime = _time.GetUtcNow();
+            string requestedKey = Field("key_id");
+            if (requestedKey.Length > 128) throw new ArgumentException("Clave inválida.");
+            bool expired = refreshTime >= _keysExpire;
+            if (expired || !_keys.ContainsKey(requestedKey) && refreshTime >= _nextUnknownKeyRefresh)
             {
-                using var doc = JsonDocument.Parse(await _downloadKeys(token));
-                _keys = doc.RootElement.GetProperty("keys").EnumerateArray().ToDictionary(k => k.GetProperty("keyId").ToString(), k => k.GetProperty("pem").GetString()!);
+                // También enfría los fallos de red y las claves inventadas; una
+                // firma falsa no puede provocar una descarga por petición.
+                _nextUnknownKeyRefresh = refreshTime.AddMinutes(5);
+                if (expired) _keysExpire = refreshTime.AddMinutes(5);
+                try
+                {
+                    using var doc = JsonDocument.Parse(await _downloadKeys(token));
+                    var downloaded = doc.RootElement.GetProperty("keys").EnumerateArray().ToDictionary(k => k.GetProperty("keyId").ToString(), k => k.GetProperty("pem").GetString()!);
+                    if (downloaded.Count == 0 || downloaded.Values.Any(string.IsNullOrWhiteSpace)) throw new JsonException("Sin claves de verificación.");
+                    _keys = downloaded;
+                }
+                catch (Exception error) when (error is JsonException or InvalidOperationException or ArgumentException or KeyNotFoundException)
+                { throw new HttpRequestException("Las claves de verificación todavía no están disponibles.", error); }
                 _keysExpire = _time.GetUtcNow().AddHours(12);
             }
-            if (!_keys.TryGetValue(Field("key_id"), out pem!)) throw new ArgumentException("Clave desconocida.");
+            // Una rotación o un fallo temporal debe producir 503, para que AdMob
+            // reintente el callback en lugar de perder una recompensa legítima.
+            if (!_keys.TryGetValue(requestedKey, out pem!)) throw new HttpRequestException("Clave de verificación pendiente de actualización.");
         }
         finally { _gate.Release(); }
         try

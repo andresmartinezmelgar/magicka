@@ -21,6 +21,17 @@ public sealed class RewardService(AccountService accounts, ILogger<RewardService
         { logger.LogWarning(error, "Bestiario pendiente de guardar; se reintentará."); return false; }
     }
     public event Action<RewardMatch>? Delivered;
+    public bool HasPendingDeliveries
+    {
+        get
+        {
+            if (!_unwritten.IsEmpty) return true;
+            try { return Directory.Exists(_directory) && (Directory.EnumerateFiles(_directory, "*.json*").Any() ||
+                Directory.Exists(Path.Combine(_directory, "bestiary")) && Directory.EnumerateFiles(Path.Combine(_directory, "bestiary"), "*.json*").Any()); }
+            catch (IOException) { return true; }
+            catch (UnauthorizedAccessException) { return true; }
+        }
+    }
 
     /// <returns>True cuando el hito ya está guardado en disco, aunque el servicio de cuentas esté caído.</returns>
     public bool Enqueue(RewardMatch match)

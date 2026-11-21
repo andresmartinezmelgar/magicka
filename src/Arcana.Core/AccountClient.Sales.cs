@@ -4,6 +4,8 @@ namespace Arcana.Core;
 
 public sealed partial class AccountClient
 {
+    public async Task RequestDeletion(CancellationToken token = default) =>
+        _ = await Request<ApiError>(HttpMethod.Post, "account/delete", new AccountDeletionRequest("ELIMINAR"), token).ConfigureAwait(false);
     private bool _inventoryNeedsRefresh;
     private long _inventoryRevision;
     private sealed class AccountApiException(System.Net.HttpStatusCode status, string message) : InvalidOperationException(message)

@@ -46,7 +46,8 @@ public partial class Main
             if (Loading || !_playing) return false;
             if (_survivalSaveSmokePhase == 0)
             {
-                Check(HasSurvivalSave, "La partida nueva no crea un autoguardado.");
+                if (!_survivalWrite.IsCompleted) return false;
+                Check(SurvivalSaves.Exists && HasSurvivalSave, "La partida nueva no crea un autoguardado.");
                 _survivalSaveSmokeMap = _practice!.Map.SurvivalMap;
                 var player = _practice!.Players[_localId]; player.Health = 712; player.Deaths = 1; player.Invulnerable = 8;
                 player.BuffStacks[(int)BuffKind.Energy] = 2;
@@ -93,6 +94,7 @@ public partial class Main
                 HandleApplicationLifecycle(NotificationApplicationFocusOut);
                 HandleApplicationLifecycle(NotificationApplicationPaused);
                 _PhysicsProcess(1 / 60.0);
+                _survivalWrite.GetAwaiter().GetResult();
                 Check(RetainAndroidSession && ReferenceEquals(running, _practice) && running.Tick == tick && HasSurvivalSave &&
                     SurvivalSaves.Load().World.Players[_localId].Health == 611,
                     "Cambiar de aplicación pierde la partida, simula el fondo o no guarda el último estado.");
@@ -115,6 +117,8 @@ public partial class Main
                 .Invoke(_practice, new object?[] { human, 1000000f, human.Id, null });
             AutosaveSurvival("finished");
             Check(_practice.MatchEnded && !HasSurvivalSave, "La partida terminada conserva un autoguardado recuperable.");
+            _survivalWrite.GetAwaiter().GetResult();
+            Check(!SurvivalSaves.Exists, "El archivo terminado sigue en disco.");
             ReturnToLauncher();
             ContinueSurvival(); Check(!Loading && !_playing, "Una partida terminada reaparece desde el respaldo.");
             _survivalSaveSmoke = false;

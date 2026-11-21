@@ -1,6 +1,11 @@
 using Arcana.Core;
 using Arcana.Server;
 using Google.Cloud.Firestore;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using System.Net;
 
 internal static class MatchStatisticsEmulatorTests
 {
@@ -19,45 +24,62 @@ internal static class MatchStatisticsEmulatorTests
             throw new InvalidOperationException("Informe duplicado, degradado o con identidad.");
         Console.WriteLine("MATCH_STATISTICS_TRANSACTIONS_OK: reintentos concurrentes, final inmutable e informe sin identidad.");
 
-        // La ruta de producción se ejecuta sin tokens y con las reglas reales
-        // del proyecto de pruebas cargadas por Firebase CLI. Solo cambia el host.
-        var emulator = new Uri("http://" + Environment.GetEnvironmentVariable("FIRESTORE_EMULATOR_HOST"));
-        string testProject = Environment.GetEnvironmentVariable("GCLOUD_PROJECT") is { Length: > 0 } configured ? configured : database.ProjectId;
-        if (!testProject.StartsWith("demo-", StringComparison.Ordinal)) throw new InvalidOperationException("El envío directo se prueba solo en proyectos demo.");
-        using var handler = new DirectFirestoreHandler(emulator);
-        using var http = new HttpClient(handler);
-        using var transport = new MatchStatisticsTransport(testProject, http);
-        await Task.WhenAll(Enumerable.Range(0, 3).Select(_ => transport.Upload(final)));
-        await transport.Upload(report with { Status = MatchRecordStatus.Left });
-        var directDatabase = new FirestoreDbBuilder { ProjectId = testProject, EmulatorDetection = Google.Api.Gax.EmulatorDetection.EmulatorOnly }.Build();
-        var copies = await directDatabase.Collection("matchStatistics").WhereEqualTo("runId", final.RunId).GetSnapshotAsync();
-        if (copies.Count != 2 || handler.Requests != 4 || copies.Documents.Any(d => d.ToDictionary().Keys.Any(k => k.Contains("uid", StringComparison.OrdinalIgnoreCase))))
-            throw new InvalidOperationException("El envío directo duplica revisiones o incorpora identidad.");
-        var reports = copies.Documents.Select(d => MatchStatisticsReport.Parse(d.GetValue<string>("payload"))).ToArray();
-        if (reports.Count(r => r.Complete && r.Revision == 600) != 1 || reports.Any(r => r.ToJson().Contains("PRIVATE_NAME")))
-            throw new InvalidOperationException("El informe tardío sobrescribió el final.");
-        Console.WriteLine("MATCH_STATISTICS_DIRECT_FIRESTORE_OK: REST anónimo real, reglas, reintentos concurrentes y final conservado sin relé.");
-
-        var outbox = new MatchStatisticsOutbox();
-        if (outbox.Enqueue(report)) throw new InvalidOperationException("Se encoló una partida en curso.");
-        var queued = final with { RunId = Guid.NewGuid().ToString("N") };
-        outbox.Enqueue(queued);
-        await Task.WhenAll(Enumerable.Range(0, 3).Select(_ => outbox.Flush(transport.Upload)));
-        var uploaded = await directDatabase.Collection("matchStatistics").WhereEqualTo("runId", queued.RunId).GetSnapshotAsync();
-        if (uploaded.Count != 1 || outbox.PendingCount != 0 || !MatchStatisticsReport.Parse(uploaded.Documents.Single().GetValue<string>("payload")).Complete)
-            throw new InvalidOperationException("La cola en memoria perdió el final o duplicó el envío.");
-        Console.WriteLine("MATCH_STATISTICS_MEMORY_OUTBOX_OK: solo cierre, envío REST real, confirmación y vaciado de memoria sin historial local.");
+        // Probar la ruta real de ingesta frente al emulador; el cliente no recibe
+        // credenciales Admin ni escribe directamente en la base.
+        string folder = Path.Combine(Path.GetTempPath(), "arcana-ingest-" + Guid.NewGuid().ToString("N"));
+        var accounts = new AccountService(new(database.ProjectId, "test-only", "demo.firebaseapp.com", "http://127.0.0.1"), new NoLogin(), repository);
+        var builder = WebApplication.CreateBuilder(); builder.WebHost.UseUrls("http://127.0.0.1:0");
+        builder.Services.AddSingleton(accounts); builder.Services.AddArcanaProtection();
+        builder.Services.AddSingleton(new MatchStatisticsService(accounts, NullLogger<MatchStatisticsService>.Instance, folder));
+        builder.Services.AddHostedService(p => p.GetRequiredService<MatchStatisticsService>());
+        await using var app = builder.Build(); app.UseArcanaProtection(); app.MapMatchStatistics();
+        await app.StartAsync();
+        try
+        {
+            var address = new Uri(app.Urls.Single());
+            using var handler = new IngestionHandler(address); using var http = new HttpClient(handler);
+            using var transport = new MatchStatisticsTransport(database.ProjectId, http);
+            var incoming = final with { RunId = Guid.NewGuid().ToString("N") };
+            await Task.WhenAll(Enumerable.Range(0, 3).Select(_ => transport.Upload(incoming)));
+            await transport.Upload(report with { RunId = incoming.RunId, Status = MatchRecordStatus.Left });
+            async Task<DocumentSnapshot> WaitFor(string id)
+            {
+                for (int attempt = 0; attempt < 100; attempt++)
+                {
+                    var snapshot = await database.Collection("matchStatistics").Document(id).GetSnapshotAsync();
+                    if (snapshot.Exists && MatchStatisticsReport.Parse(snapshot.GetValue<string>("payload")).Complete) return snapshot;
+                    await Task.Delay(50);
+                }
+                throw new Exception("La ingesta no entregó el informe al emulador.");
+            }
+            var received = await WaitFor(incoming.RunId);
+            var copies = await database.Collection("matchStatistics").WhereEqualTo("runId", incoming.RunId).GetSnapshotAsync();
+            if (copies.Count != 1 || handler.Requests != 4 || received.ToDictionary().Keys.Any(k => k.Contains("uid", StringComparison.OrdinalIgnoreCase)))
+                throw new Exception("La ingesta duplica revisiones o incorpora identidad.");
+            using var raw = new HttpClient();
+            using var forged = await raw.PostAsync(new Uri(address, "analytics/matches"), new StringContent((incoming with { Network = true }).ToJson(), System.Text.Encoding.UTF8, "application/json"));
+            if (forged.StatusCode != HttpStatusCode.BadRequest) throw new Exception("Un cliente pudo declarar estadísticas autoritativas.");
+            var authoritative = incoming with { RunId = Guid.NewGuid().ToString("N"), Network = true };
+            await repository.SaveMatchStatistics(authoritative);
+            await repository.SaveMatchStatistics(authoritative with { Network = false, Revision = 1200, Seconds = 20 });
+            var protectedReport = MatchStatisticsReport.Parse((await database.Collection("matchStatistics").Document(authoritative.RunId).GetSnapshotAsync()).GetValue<string>("payload"));
+            if (!protectedReport.Network || protectedReport.Revision != 600) throw new Exception("La ingesta local sustituyó un resultado del servidor.");
+            Console.WriteLine("MATCH_STATISTICS_INGESTION_OK: HTTP real, cuotas, diario, duplicados y rechazo de informes online falsos.");
+        }
+        finally { await app.StopAsync(); if (Directory.Exists(folder)) Directory.Delete(folder, true); }
     }
-
-    private sealed class DirectFirestoreHandler(Uri emulator) : DelegatingHandler(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false })
+    private sealed class NoLogin : IAccountIdentityVerifier
+    {
+        public Task<AccountIdentity> Verify(string idToken, CancellationToken token) => Task.FromException<AccountIdentity>(new UnauthorizedAccessException());
+    }
+    private sealed class IngestionHandler(Uri target) : DelegatingHandler(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false })
     {
         public int Requests;
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
         {
-            if (request.RequestUri?.Host != "firestore.googleapis.com" || request.Headers.Authorization != null || request.Headers.Contains("Cookie") || !emulator.IsLoopback)
-                throw new InvalidOperationException("La prueba directa intenta usar identidad o una dirección no local.");
-            Interlocked.Increment(ref Requests);
-            request.RequestUri = new UriBuilder(request.RequestUri) { Scheme = "http", Host = emulator.Host, Port = emulator.Port }.Uri;
+            if (request.RequestUri?.Host != "familiamelgar.duckdns.org" || request.Headers.Authorization != null || !target.IsLoopback)
+                throw new InvalidOperationException("La prueba intenta usar identidad o una dirección no local.");
+            Interlocked.Increment(ref Requests); request.RequestUri = new Uri(target, "analytics/matches");
             return base.SendAsync(request, token);
         }
     }

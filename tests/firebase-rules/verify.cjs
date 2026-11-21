@@ -143,18 +143,21 @@ async function main() {
       mode: "Arena", map: "Classic", gameVersion: "0.29.8", complete: true, payload: "{}" };
     const statisticsId = data => `${data.runId}-${data.revision}-${data.status}`;
     const direct = doc(anonymous, "matchStatistics/" + statisticsId(statistics));
-    await assertSucceeds(setDoc(direct, statistics));
-    await assertSucceeds(setDoc(direct, statistics));
+    await assertFails(setDoc(direct, statistics));
+    await assertFails(setDoc(direct, statistics));
     await assertFails(getDoc(direct));
     await assertFails(getDocs(collection(anonymous, "matchStatistics")));
     await assertFails(updateDoc(direct, { payload: "changed" }));
     await assertFails(updateDoc(direct, { revision: 120 }));
     await assertFails(deleteDoc(direct));
     const later = { ...statistics, revision: 120 };
-    await assertSucceeds(setDoc(doc(anonymous, "matchStatistics/" + statisticsId(later)), later));
+    await assertFails(setDoc(doc(anonymous, "matchStatistics/" + statisticsId(later)), later));
     const before = { ...statistics, revision: 30, status: 2, complete: false };
-    await assertSucceeds(setDoc(doc(anonymous, "matchStatistics/" + statisticsId(before)), before));
+    await assertFails(setDoc(doc(anonymous, "matchStatistics/" + statisticsId(before)), before));
+    await env.withSecurityRulesDisabled(context => setDoc(doc(context.firestore(), "matchStatistics/" + statisticsId(statistics)), statistics));
     await assertSucceeds(getDoc(doc(readerA, "matchStatistics/" + statisticsId(statistics))));
+    for (const client of [google, other, anonymous, readerA, readerB])
+      await assertFails(setDoc(doc(client, "matchStatistics/" + statisticsId(later)), later));
     const invalid = [
       { schemaVersion: 2 }, { runId: "not-a-guid" }, { revision: 0 }, { revision: -1 }, { revision: 1892160001 },
       { revision: "60" }, { status: 0, complete: false }, { status: 6 }, { complete: false }, { day: "2026-99-99" },
@@ -171,7 +174,7 @@ async function main() {
     await env.withSecurityRulesDisabled(async context => { await updateDoc(doc(context.firestore(), "statisticsReaders/readerA"), { enabled: false }); });
     await assertFails(getDocs(collection(readerA, "matchStatistics")));
     await assertFails(deleteDoc(doc(readerA, "matchStatistics/fixture")));
-    console.log("MATCH_STATISTICS_RULES_OK: private reads, anonymous immutable reports, exact retries, bounded schema, no overwrite, role escalation rejected.");
+    console.log("MATCH_STATISTICS_RULES_OK: private reads; anonymous, owner and admin client writes denied; backend-only ingestion.");
     const configuration = "users/alice/configuration/account";
     const accountAccess = { isAdmin: true, previewUpdates: true, matchStatistics: true, adsRemoved: true };
     await env.withSecurityRulesDisabled(async context => {
@@ -186,6 +189,9 @@ async function main() {
     for (const client of [google, other, anonymous, password, readerA, readerB]) {
       await assertFails(setDoc(doc(client, configuration), accountAccess));
       await assertFails(updateDoc(doc(client, configuration), { adsRemoved: false }));
+      await assertFails(updateDoc(doc(client, configuration), { playAdsValidUntil: 9999999999 }));
+      await assertFails(getDoc(doc(client, "users/alice/billing/noAds")));
+      await assertFails(setDoc(doc(client, "users/alice/billing/noAds"), { token: "fixture" }));
       await assertFails(deleteDoc(doc(client, configuration)));
       await assertFails(setDoc(doc(client, "users/bob/configuration/account"), accountAccess));
       await assertFails(getDocs(collection(client, "users/alice/configuration")));
@@ -198,6 +204,18 @@ async function main() {
     await assertFails(getDocs(collection(google, "matchStatistics")));
     await assertFails(deleteDoc(doc(google, "matchStatistics/fixture")));
     console.log("ACCOUNT_CONFIGURATION_RULES_OK: private owner read; all client role/payment/quota writes rejected; explicit revocation overrides legacy and admin flags.");
+    await env.withSecurityRulesDisabled(async context => {
+      await updateDoc(doc(context.firestore(), configuration), { matchStatistics: true });
+      await setDoc(doc(context.firestore(), "accountDeletions/alice"), { status: "pending" });
+    });
+    await assertFails(getDoc(user));
+    await assertFails(getDocs(collection(google, "users/alice/items")));
+    await assertFails(getDocs(collection(google, "matchStatistics")));
+    await assertFails(getDoc(doc(google, configuration)));
+    await assertFails(setDoc(active, six));
+    await assertFails(deleteDoc(doc(google, "accountDeletions/alice")));
+    await assertFails(setDoc(doc(other, "accountDeletions/bob"), { status: "pending" }));
+    console.log("ACCOUNT_DELETION_RULES_OK: tombstone revokes owner reads, roles and loadout writes; clients cannot create or remove it.");
     console.log("FIRESTORE_RULES_OK: Google owner reads, zero-balance registration, owned equipment; illegal writes rejected.");
   } finally { await env.cleanup(); }
 }

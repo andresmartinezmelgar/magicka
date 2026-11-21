@@ -34,6 +34,22 @@ internal static class AdMobRewardVerifierTests
         await Reject(Sign(data).Replace("&key_id=7", "&key_id=7&user_id=another_account"));
         await Reject(Sign(data.Replace(DateTimeOffset.FromUnixTimeMilliseconds(proof.WatchedAt.ToUnixTimeMilliseconds()).ToUnixTimeMilliseconds().ToString(),
             DateTimeOffset.UtcNow.AddDays(-2).ToUnixTimeMilliseconds().ToString())));
+        int downloads = 0;
+        var throttled = new AdMobRewardVerifier(_ => { downloads++; return Task.FromResult(keys); });
+        for (int i = 0; i < 20; i++)
+        {
+            try { await throttled.Verify(Sign(data).Replace("&key_id=7", "&key_id=unknown" + i), unit); throw new Exception("Aceptó una clave inexistente."); }
+            catch (HttpRequestException) { }
+        }
+        if (downloads != 1) throw new Exception("Las claves inventadas provocan descargas repetidas.");
+        downloads = 0;
+        var unavailable = new AdMobRewardVerifier(_ => { downloads++; return Task.FromException<string>(new HttpRequestException("Sin conexión")); });
+        for (int i = 0; i < 20; i++)
+        {
+            try { await unavailable.Verify(Sign(data), unit); throw new Exception("Aceptó una firma sin claves verificadas."); }
+            catch (HttpRequestException) { }
+        }
+        if (downloads != 1) throw new Exception("Un fallo de red no respeta el enfriamiento de claves.");
         Console.WriteLine("ADMOB_SSV_OK: firma ECDSA, identidad, nonce, bloque, fecha, datos alterados y parámetros duplicados.");
     }
 }

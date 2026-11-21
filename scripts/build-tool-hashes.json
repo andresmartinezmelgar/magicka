@@ -1,0 +1,17 @@
+{
+  "Godot_v4.5.2-stable_mono_export_templates.tpz": "ed196ee69204a829176129878e48916fc30370941340558ba38db8210ff92dcb",
+  "Godot_v4.5.2-stable_mono_linux_x86_64.zip": "9197371d3c4ceebb3ce750f8f4274a1b6f3eb75f25f17eb94fea9c1746081154",
+  "Godot_v4.5.2-stable_mono_win64.zip": "1d7062418ae29cbd29f5f1ad95e6f13f8ac6cb2d6effd673d3be1b3398380887",
+  "commandlinetools-linux-13114758_latest.zip": "7ec965280a073311c339e571cd5de778b9975026cfcbe79f2b1cdcb1e15317ee",
+  "dotnet-sdk-10.0.404-win-x64.zip": {
+    "algorithm": "sha512",
+    "digest": "330ddd2665b43cd2e428216a0d8ea1ac7bb19b5434fdc530e62010dc3b52823a620bf95489d628e1ed6f5122401793ee4887cca4a019122361a1231497f632ee"
+  },
+  "dotnet-sdk-8.0.428-win-x64.zip": {
+    "algorithm": "sha512",
+    "digest": "cce1dc5cfb2c5b73ddd9d3658f6009deb85be3a58dbec44a6dfe3910bb32b044ad2fc6bb28c77aded70c73270a204d207fe790dcb82ffca6c7b42c1335b51c21"
+  },
+  "gradle-8.9-bin.zip": "d725d707bfabd4dfdc958c624003b3c80accc03f7037b5122c4b1d0ef15cecab",
+  "commandlinetools-win-13114758_latest.zip": "98b565cb657b012dae6794cefc0f66ae1efb4690c699b78a614b4a6a3505b003",
+  "OpenJDK17U-jdk_x64_windows_hotspot_17.0.21_9.zip": "98518ecf554465057ee5509462631deeee374bc368c12a411d225cd29381f84b"
+}

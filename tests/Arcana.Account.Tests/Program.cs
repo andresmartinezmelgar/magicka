@@ -15,6 +15,7 @@ using System.Reflection;
 if (args.Contains("--reward-outbox-only")) { await RewardOutboxTests.Run(); return; }
 if (args.Contains("--defense-rewards-only")) { await DefenseRewardsEmulatorTests.Run(); return; }
 await AdMobRewardVerifierTests.Run();
+PlayBillingTests.Run();
 VerifiedGoogleClaimsTests.Run();
 if (args.Contains("--verified-claims-only")) return;
 
@@ -23,6 +24,8 @@ if (!Uri.TryCreate("http://" + emulator, UriKind.Absolute, out var emulatorUri) 
     throw new InvalidOperationException("Estas pruebas requieren FIRESTORE_EMULATOR_HOST apuntando a un emulador local; nunca usan la base real.");
 var database = new FirestoreDbBuilder { ProjectId = "demo-arcana-accounts", EmulatorDetection = EmulatorDetection.EmulatorOnly }.Build();
 var repository = new FirestoreAccountRepository(database);
+await HttpAbuseProtectionTests.Run();
+await RepositoryHardeningEmulatorTests.Run(database);
 await BestiaryEmulatorTests.Run(database);
 await MatchStatisticsEmulatorTests.Run(database);
 await PublicDashboardEmulatorTests.Run(database);
@@ -222,7 +225,7 @@ var builder = WebApplication.CreateBuilder(); builder.WebHost.UseUrls(options.Pu
 Environment.SetEnvironmentVariable("ARCANA_REWARD_OUTBOX", Path.Combine(Path.GetTempPath(), "arcana-account-live-" + suffix));
 builder.Services.ConfigureHttpJsonOptions(json =>
 { foreach (var converter in Protocol.Json.Converters) json.SerializerOptions.Converters.Add(converter); });
-builder.Logging.ClearProviders(); builder.Services.AddSingleton(accounts);
+builder.Logging.ClearProviders(); builder.Services.AddSingleton(accounts); builder.Services.AddArcanaProtection();
 builder.Services.AddSingleton(new ServerSettings { Port = 28339, DiscoveryPort = 28340, World = new() { Mode = GameMode.Duel, MaxPlayers = 2, ScoreLimit = 5 } });
 builder.Services.AddSingleton<RewardService>();
 builder.Services.AddSingleton<MatchStatisticsService>();
@@ -230,7 +233,7 @@ builder.Services.AddHostedService(p => p.GetRequiredService<MatchStatisticsServi
 builder.Services.AddSingleton<GameService>();
 builder.Services.AddHostedService(p => p.GetRequiredService<GameService>());
 builder.Services.AddHostedService(p => p.GetRequiredService<RewardService>());
-var app = builder.Build(); app.UseWebSockets(); app.MapAccounts(); app.MapItemShop(); app.Map("/play", (HttpContext context, GameService game) => game.HandleConnection(context));
+var app = builder.Build(); app.UseArcanaProtection(); app.UseWebSockets(); app.MapAccounts(); app.MapItemShop(); app.Map("/play", (HttpContext context, GameService game) => game.HandleConnection(context));
 await app.StartAsync();
 using var http = new HttpClient { BaseAddress = new(options.PublicUrl) };
 var aliceLogin = await Login(alice);

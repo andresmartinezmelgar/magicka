@@ -84,8 +84,13 @@ public sealed partial class GameWorld
                 Time - progress.LastPerformanceReport < 1.5) return false;
             progress.LastPerformanceReport = Time;
             ObserveStatisticsPerformance(player.Id, command.FramesPerSecond, command.FrameTime95);
-            progress.Performance.Observe(command.FramesPerSecond, command.FrameTime95);
-            TrimDistantDefenseMinions();
+            // El cliente puede mentir sobre sus FPS. Online solo decide el coste
+            // medido por el servidor; la calidad visual sigue siendo local.
+            if (!_statistics.Network)
+            {
+                progress.Performance.Observe(command.FramesPerSecond, command.FrameTime95);
+                TrimDistantDefenseMinions();
+            }
             return true;
         }
         if (command.Type == "defense_loadout")

@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY global.json Directory.Build.props VERSION NuGet.Config ./
 COPY src/Arcana.Core/Arcana.Core.csproj src/Arcana.Core/
@@ -12,7 +12,7 @@ COPY scripts/Apply-WindowsUpdate.ps1 scripts/Apply-WindowsUpdate.ps1
 RUN dotnet publish src/Arcana.Server/Arcana.Server.csproj -c Release --no-restore -o /app/publish /p:UseAppHost=false \
     && chmod -R a+rX /app/publish/wwwroot
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/publish .
 RUN mkdir -p /app/logs /app/data/rewards && chown -R app:app /app/logs /app/data

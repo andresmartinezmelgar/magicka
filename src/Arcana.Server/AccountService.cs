@@ -11,7 +11,7 @@ using Google.Cloud.Firestore;
 
 namespace Arcana.Server;
 
-public sealed record AccountIdentity(string Uid, string Name);
+public sealed record AccountIdentity(string Uid, string Name) { public long AuthTime { get; init; } }
 public interface IAccountIdentityVerifier
 {
     Task<AccountIdentity> Verify(string idToken, CancellationToken token);
@@ -33,7 +33,8 @@ public sealed class GoogleAccountVerifier(FirebaseAuth auth) : IAccountIdentityV
             !firebase.TryGetProperty("sign_in_provider", out var provider) || provider.ValueKind != JsonValueKind.String || provider.GetString() != "google.com")
             throw new UnauthorizedAccessException("Inicia sesión con una cuenta de Google.");
         string name = claims.TryGetProperty("name", out var display) && display.ValueKind == JsonValueKind.String ? display.GetString() ?? "Mago" : "Mago";
-        return new(uid, new string(name.Where(c => !char.IsControl(c)).Take(64).ToArray()));
+        return new(uid, new string(name.Where(c => !char.IsControl(c)).Take(64).ToArray()))
+            { AuthTime = claims.TryGetProperty("auth_time", out var at) && at.ValueKind == JsonValueKind.Number && at.TryGetInt64(out long seconds) ? seconds : 0 };
     }
 }
 public sealed record AccountOptions(string ProjectId, string ApiKey, string AuthDomain, string PublicUrl)
@@ -81,6 +82,7 @@ public sealed class AccountService
     private readonly ConcurrentDictionary<string, Session> _sessions = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, Challenge> _challenges = new(StringComparer.Ordinal);
     private readonly IAccountIdentityVerifier? _verifier;
+    private readonly FirebaseAuth? _firebaseAuth;
     public AccountOptions Options { get; }
     public IAccountRepository? Repository { get; }
     public bool Enabled => Repository != null && _verifier != null;
@@ -114,8 +116,12 @@ public sealed class AccountService
         if (Enabled)
         {
             var legacySession = Authenticate(accessToken);
-            if (legacySession != null) return legacySession;
-            try { return await _verifier!.Verify(accessToken, token); }
+            if (legacySession != null) return await Repository!.IsDeletionRequested(legacySession.Uid, token) ? null : legacySession;
+            try
+            {
+                var identity = await _verifier!.Verify(accessToken, token);
+                return await Repository!.IsDeletionRequested(identity.Uid, token) ? null : identity;
+            }
             catch (FirebaseAuthException) { return null; }
             catch (UnauthorizedAccessException) { return null; }
         }
@@ -152,8 +158,32 @@ public sealed class AccountService
         if (!options.Enabled) return;
         var credential = GoogleCredential.GetApplicationDefault();
         var app = FirebaseApp.Create(new AppOptions { ProjectId = options.ProjectId, Credential = credential }, "arcana-accounts");
-        _verifier = new GoogleAccountVerifier(FirebaseAuth.GetAuth(app));
+        _firebaseAuth = FirebaseAuth.GetAuth(app);
+        _verifier = new GoogleAccountVerifier(_firebaseAuth);
         Repository = new FirestoreAccountRepository(new FirestoreDbBuilder { ProjectId = options.ProjectId, Credential = credential }.Build());
+    }
+    public async Task ProcessDeletions(CancellationToken token, Action<Exception>? failed = null)
+    {
+        if (_firebaseAuth == null || Repository is not FirestoreAccountRepository repository) return;
+        foreach (string uid in await repository.PendingDeletions(token))
+        {
+            try
+            {
+                try
+                {
+                    await _firebaseAuth.UpdateUserAsync(new UserRecordArgs { Uid = uid, Disabled = true }, token);
+                    await _firebaseAuth.RevokeRefreshTokensAsync(uid, token);
+                }
+                catch (FirebaseAuthException error) when (error.AuthErrorCode == AuthErrorCode.UserNotFound) { }
+                await repository.DeleteAccountData(uid, token);
+                try { await _firebaseAuth.DeleteUserAsync(uid, token); }
+                catch (FirebaseAuthException error) when (error.AuthErrorCode == AuthErrorCode.UserNotFound) { }
+                await repository.CompleteDeletion(uid, token);
+                foreach (var session in _sessions.Where(p => p.Value.Identity.Uid == uid)) _sessions.TryRemove(session.Key, out _);
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+            catch (Exception error) { failed?.Invoke(error); }
+        }
     }
     private static string Secret() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
     private static string Hash(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));

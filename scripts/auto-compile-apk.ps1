@@ -26,7 +26,7 @@ $environmentBackup = @{}
 foreach ($name in @('PATH', 'APPDATA', 'LOCALAPPDATA', 'JAVA_HOME', 'ANDROID_HOME', 'ANDROID_SDK_ROOT', 'DOTNET_ROOT', 'DOTNET_ROOT_X64', 'UseSharedCompilation', 'MSBUILDDISABLENODEREUSE', 'DOTNET_CLI_USE_MSBUILD_SERVER', 'GRADLE_OPTS', 'GODOT_ANDROID_KEYSTORE_DEBUG_PATH', 'GODOT_ANDROID_KEYSTORE_DEBUG_USER', 'GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD')) {
     $environmentBackup[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
 }
-$sdkVersion = '8.0.425'
+$sdkVersion = '10.0.404'
 $godotVersion = '4.5.2'
 $templateVersion = "$godotVersion.stable.mono"
 $utf8 = New-Object System.Text.UTF8Encoding($false)
@@ -35,6 +35,8 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 . (Join-Path $PSScriptRoot 'tool-support.ps1')
 . (Join-Path $PSScriptRoot 'build-lock.ps1')
 . (Join-Path $PSScriptRoot 'version-support.ps1')
+
+. (Join-Path $PSScriptRoot 'build-tool-hashes.ps1')
 
 function Download-Tool {
     param([string]$Url, [string]$Target)
@@ -73,12 +75,8 @@ try {
     New-Item -ItemType Directory -Path $temp -Force | Out-Null
     $dotnetRoot = Join-Path $cache 'dotnet'
     $dotnet = Join-Path $dotnetRoot 'dotnet.exe'
-    if (!(Test-Path -LiteralPath (Join-Path $dotnetRoot "sdk/$sdkVersion")) -or !(Test-Path -LiteralPath $dotnet)) {
-        $installer = Join-Path $cache 'dotnet-install.ps1'
-        Download-Tool 'https://dot.net/v1/dotnet-install.ps1' $installer
-        & $installer -Version $sdkVersion -Architecture x64 -InstallDir $dotnetRoot -NoPath
-    }
-    if (!(Test-Path -LiteralPath $dotnet)) { throw 'No se pudo instalar el SDK .NET 8.' }
+    Install-ArcanaDotnetTools -Root $dotnetRoot -Cache $cache
+    if (!(Test-Path -LiteralPath $dotnet)) { throw 'No se pudo instalar el SDK .NET 10.' }
     $env:DOTNET_ROOT = $dotnetRoot
     $env:DOTNET_ROOT_X64 = $dotnetRoot
     # Evita que el servidor persistente de Roslyn mantenga abierto Godot en Windows.
@@ -96,6 +94,7 @@ try {
         if (!$editor) {
             $zip = Join-Path $cache "Godot-$godotVersion-mono-win64.zip"
             Download-Tool "$release/Godot_v$godotVersion-stable_mono_win64.zip" $zip
+            Assert-ArcanaBuildTool -Path $zip -Name "Godot_v$godotVersion-stable_mono_win64.zip"
             Expand-Archive -LiteralPath $zip -DestinationPath $editorRoot -Force
             $editor = Get-ChildItem -LiteralPath $editorRoot -Recurse -Filter '*win64_console.exe' | Select-Object -First 1
         }
@@ -112,8 +111,9 @@ try {
         $jdkRoot = Join-Path $cache 'jdk-17'
         $jdk = Get-ChildItem -LiteralPath $jdkRoot -Directory -ErrorAction SilentlyContinue | Where-Object { Test-Jdk17 $_.FullName } | Select-Object -First 1
         if (!$jdk) {
-            $zip = Join-Path $cache 'temurin-17-windows-x64.zip'
-            Download-Tool 'https://api.adoptium.net/v3/binary/latest/17/ga/windows/x64/jdk/hotspot/normal/eclipse' $zip
+            $zip = Join-Path $cache 'OpenJDK17U-jdk_x64_windows_hotspot_17.0.21_9.zip'
+            Download-Tool 'https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.21%2B9/OpenJDK17U-jdk_x64_windows_hotspot_17.0.21_9.zip' $zip
+            Assert-ArcanaBuildTool -Path $zip -Name OpenJDK17U-jdk_x64_windows_hotspot_17.0.21_9.zip
             Expand-Archive -LiteralPath $zip -DestinationPath $jdkRoot -Force
             $jdk = Get-ChildItem -LiteralPath $jdkRoot -Directory | Where-Object { Test-Jdk17 $_.FullName } | Select-Object -First 1
         }
@@ -134,6 +134,7 @@ try {
             Remove-Item -LiteralPath $zip -Force
         }
         Download-Tool 'https://dl.google.com/android/repository/commandlinetools-win-13114758_latest.zip' $zip
+        Assert-ArcanaBuildTool -Path $zip -Name commandlinetools-win-13114758_latest.zip
         Install-AndroidCommandLineTools -ArchivePath $zip -SdkPath $AndroidSdkPath
     }
     $env:ANDROID_HOME = $AndroidSdkPath
@@ -160,6 +161,7 @@ try {
     if (@($templateNames | Where-Object { !(Test-Path -LiteralPath (Join-Path $templateCache $_)) }).Count -gt 0) {
         $zip = Join-Path $cache "Godot-$godotVersion-mono-templates.zip"
         Download-Tool "$release/Godot_v$godotVersion-stable_mono_export_templates.tpz" $zip
+        Assert-ArcanaBuildTool -Path $zip -Name "Godot_v$godotVersion-stable_mono_export_templates.tpz"
         $archive = [IO.Compression.ZipFile]::OpenRead($zip)
         try {
             foreach ($name in $templateNames) {
@@ -200,6 +202,7 @@ try {
     if (!(Test-Path -LiteralPath $gradleCmd)) {
         $gradleZip = Join-Path $cache 'gradle-8.9-bin.zip'
         Download-Tool 'https://services.gradle.org/distributions/gradle-8.9-bin.zip' $gradleZip
+        Assert-ArcanaBuildTool -Path $gradleZip -Name gradle-8.9-bin.zip
         Expand-Archive -LiteralPath $gradleZip -DestinationPath $gradleDir -Force
     }
     if (!(Test-Path -LiteralPath $gradleCmd)) { throw 'No se pudo instalar Gradle 8.9 para el acceso Google.' }

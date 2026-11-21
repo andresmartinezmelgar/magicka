@@ -6,6 +6,8 @@ namespace Arcana.Server;
 
 public interface IAccountRepository
 {
+    Task<bool> IsDeletionRequested(string uid, CancellationToken token = default) => Task.FromResult(false);
+    Task RequestDeletion(string uid, CancellationToken token = default) => Task.FromException(new NotSupportedException("Borrado no disponible."));
     Task SaveMatchStatistics(MatchStatisticsReport report, CancellationToken token = default) =>
         Task.FromException(new NotSupportedException("El repositorio no admite estadísticas."));
     Task<BestiaryTotals> SaveBestiary(BestiaryProgress progress, CancellationToken token = default) =>
@@ -91,6 +93,8 @@ public sealed partial class FirestoreAccountRepository(FirestoreDb database, Tim
         var doc = User(uid);
         await database.RunTransactionAsync(async transaction =>
         {
+            var deleted = await transaction.GetSnapshotAsync(Deletion(uid), token);
+            if (deleted.Exists) throw new UnauthorizedAccessException("La cuenta se está eliminando.");
             var existing = await transaction.GetSnapshotAsync(doc, token);
             if (!existing.Exists) transaction.Create(doc, FirestoreData.Map(new AccountHeader(uid, name)));
             else _ = Header(existing);
@@ -102,11 +106,19 @@ public sealed partial class FirestoreAccountRepository(FirestoreDb database, Tim
         var user = User(uid);
         return await database.RunTransactionAsync(async transaction =>
         {
-            var h = Header(await transaction.GetSnapshotAsync(user, token));
-            var inventory = await transaction.GetSnapshotAsync(user.Collection("items").Limit(EquipmentCatalogue.InventoryLimit + 1), token);
+            var headerSnapshot = await transaction.GetSnapshotAsync(user, token);
+            var h = Header(headerSnapshot);
+            var inventoryRevision = headerSnapshot.UpdateTime ?? throw new InvalidDataException("Falta la revisión del perfil.");
+            EquipmentItem[] items;
+            if (!CachedItems(uid, inventoryRevision, out items))
+            {
+                var inventory = await transaction.GetSnapshotAsync(user.Collection("items").Limit(EquipmentCatalogue.InventoryLimit + 1), token);
+                items = inventory.Documents.Select(FirestoreData.Read<EquipmentItem>).OrderByDescending(i => i.CreatedAt).ToArray();
+                if (items.Length > EquipmentCatalogue.InventoryLimit || items.Any(i => !EquipmentCatalogue.Valid(i))) throw new InvalidDataException("Inventario inválido.");
+                CacheItems(uid, inventoryRevision, items);
+            }
             var saved = await transaction.GetSnapshotAsync(user.Collection("loadouts").Document("active"), token);
             var access = await transaction.GetSnapshotAsync(AccountConfigurationDocument(uid), token);
-            var items = inventory.Documents.Select(FirestoreData.Read<EquipmentItem>).OrderByDescending(i => i.CreatedAt).ToArray();
             if (items.Length > EquipmentCatalogue.InventoryLimit || items.Any(i => !EquipmentCatalogue.Valid(i))) throw new InvalidDataException("Inventario inválido.");
             var profile = new AccountProfile(uid, h.Name, h.Gold, h.Wins, h.Losses,
                 saved.Exists ? FirestoreData.Read<EquipmentLoadout>(saved) : new(), items)
@@ -178,7 +190,7 @@ public sealed partial class FirestoreAccountRepository(FirestoreDb database, Tim
             var upgraded = AccountInventory.UpgradeRing(profile, request);
             if (upgraded == profile) return;
             transaction.Set(itemRef, FirestoreData.Map(upgraded.Items.Single()));
-            transaction.Update(user, new Dictionary<string, object> { ["gold"] = upgraded.Gold });
+            transaction.Update(user, new Dictionary<string, object> { ["inventoryUpdatedAt"] = FieldValue.ServerTimestamp, ["gold"] = upgraded.Gold });
         }, cancellationToken: token);
     }
 
@@ -187,8 +199,10 @@ public sealed partial class FirestoreAccountRepository(FirestoreDb database, Tim
         if (!Guid.TryParseExact(itemId, "N", out _)) throw new ArgumentException("Objeto inválido.");
         var user = User(uid); var itemRef = user.Collection("items").Document(itemId);
         var active = user.Collection("loadouts").Document("active"); var receipt = user.Collection("sales").Document(itemId);
-        return await database.RunTransactionAsync(async transaction =>
+        Timestamp? soldFrom = null; EquipmentItem? soldItem = null;
+        int result = await database.RunTransactionAsync(async transaction =>
         {
+            soldFrom = null; soldItem = null;
             var previous = await transaction.GetSnapshotAsync(receipt, token);
             if (previous.Exists) return 0; // Reintentar una respuesta perdida no vuelve a pagar oro.
             var itemDoc = await transaction.GetSnapshotAsync(itemRef, token);
@@ -200,10 +214,23 @@ public sealed partial class FirestoreAccountRepository(FirestoreDb database, Tim
             var loadout = equippedDoc.Exists ? FirestoreData.Read<EquipmentLoadout>(equippedDoc) : new();
             if (loadout.Get(item.Slot) == itemId) throw new ArgumentException("Desequipa y guarda el equipo antes de vender este objeto.");
             transaction.Delete(itemRef);
-            transaction.Update(user, new Dictionary<string, object> { ["gold"] = checked(h.Gold + item.SaleGold), ["itemCount"] = Math.Max(0, h.ItemCount - 1) });
+            transaction.Update(user, new Dictionary<string, object> { ["inventoryUpdatedAt"] = FieldValue.ServerTimestamp, ["gold"] = checked(h.Gold + item.SaleGold), ["itemCount"] = Math.Max(0, h.ItemCount - 1) });
             transaction.Create(receipt, new Dictionary<string, object> { ["gold"] = item.SaleGold, ["soldAt"] = Timestamp.GetCurrentTimestamp() });
+            soldFrom = accountDoc.UpdateTime; soldItem = item;
             return item.SaleGold;
         }, cancellationToken: token);
+        if (soldFrom is { } before && soldItem != null)
+        {
+            try
+            {
+                // Recibo y cabecera se escriben en el mismo commit. Una
+                // mutación posterior cambia UpdateTime e invalida esta caché.
+                var delivered = await receipt.GetSnapshotAsync(token);
+                if (delivered.UpdateTime is { } after) CacheSale(uid, before, after, soldItem);
+            }
+            catch (Exception) { _inventoryCache.TryRemove(uid, out _); }
+        }
+        return result;
     }
     public async Task Award(RewardMatch match, CancellationToken token = default)
     {
@@ -213,7 +240,8 @@ public sealed partial class FirestoreAccountRepository(FirestoreDb database, Tim
         await database.RunTransactionAsync(async transaction =>
         {
             var existing = await transaction.GetSnapshotAsync(matchRef, token);
-            if (!existing.Exists) transaction.Create(matchRef, FirestoreData.Map(match));
+            if (!existing.Exists) transaction.Create(matchRef, FirestoreData.Map(match with
+                { Participants = match.Participants.Select(p => p with { Uid = "" }).ToArray() }));
         }, cancellationToken: token);
         foreach (var player in eligible)
         {
@@ -222,6 +250,8 @@ public sealed partial class FirestoreAccountRepository(FirestoreDb database, Tim
             var user = User(player.Uid); var receipt = user.Collection("rewards").Document(match.Id);
             await database.RunTransactionAsync(async transaction =>
             {
+                var deleted = await transaction.GetSnapshotAsync(Deletion(player.Uid), token);
+                if (deleted.Exists) return;
                 var previous = await transaction.GetSnapshotAsync(receipt, token);
                 var account = await transaction.GetSnapshotAsync(user, token);
                 if (previous.Exists) return;
@@ -232,6 +262,7 @@ public sealed partial class FirestoreAccountRepository(FirestoreDb database, Tim
                 if (item != null && !full) transaction.Create(user.Collection("items").Document(item.Id), FirestoreData.Map(item));
                 transaction.Update(user, new Dictionary<string, object>
                 {
+                    ["inventoryUpdatedAt"] = FieldValue.ServerTimestamp,
                     ["wins"] = checked(h.Wins + (match.Mode != GameMode.Defense && player.Winner ? 1 : 0)), ["losses"] = checked(h.Losses + (match.Mode != GameMode.Defense && !player.Winner ? 1 : 0)),
                     ["itemCount"] = h.ItemCount + (item != null && !full ? 1 : 0), ["gold"] = checked(h.Gold + gold)
                 });

@@ -9,6 +9,7 @@ using var processDiagnostics = new ProcessDiagnostics(log);
 try
 {
     if (args.FirstOrDefault() == "--statistics-readers") { await StatisticsReaderSetup.Run(args.Skip(1).ToArray()); return; }
+    if (args.FirstOrDefault() == "--statistics-maintenance") { await StatisticsMaintenance.Run(args.Skip(1).ToArray()); return; }
     if (args.FirstOrDefault() == "--account-admins") { await AccountAdminSetup.Run(args.Skip(1).ToArray()); return; }
     var settings = ServerSettings.FromEnvironment();
     log.ProtectSecret(settings.Password);
@@ -27,6 +28,7 @@ try
     builder.WebHost.UseUrls($"http://0.0.0.0:{settings.Port}");
     builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = Protocol.MaxMessageBytes);
     builder.Services.AddSingleton(settings);
+    builder.Services.AddArcanaProtection();
     builder.Services.ConfigureHttpJsonOptions(options =>
     {
         options.SerializerOptions.PropertyNamingPolicy = Protocol.Json.PropertyNamingPolicy;
@@ -36,6 +38,8 @@ try
     // Firebase Admin valida tokens Google y escribe resultados en Firestore.
     builder.Services.AddSingleton(new AccountService(activeAccounts));
     builder.Services.AddPublicDashboard();
+    builder.Services.AddHostedService<AccountDeletionService>();
+    builder.Services.AddHostedService<StatisticsRetentionService>();
     if (publicHost != null)
         builder.Services.AddHostedService(service => new PublicAccountServerPublisher(activeAccounts,
             settings.Port, service.GetRequiredService<ILogger<PublicAccountServerPublisher>>()));
@@ -66,6 +70,7 @@ try
             await context.Response.WriteAsJsonAsync(new ApiError($"Error interno. Referencia: {context.TraceIdentifier}"), Protocol.Json);
         }
     });
+    app.UseArcanaProtection();
     app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(15) });
     app.UseDefaultFiles();
     var webTypes = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
@@ -76,8 +81,9 @@ try
     app.MapGet("/health", (GameService game) => Results.Ok(new { status = "ok", version = BuildInfo.Version, tick = game.CurrentTick }));
     app.MapGet("/info", (GameService game) => Results.Json(game.Info(), Protocol.Json));
     app.MapGet("/rooms", (GameService game) => Results.Json(game.ListRooms(), Protocol.Json));
-    app.MapPost("/rooms", async (HttpContext context, GameService game) =>
+    app.MapPost("/rooms", async (HttpContext context, GameService game, AccountService accounts) =>
     {
+        if (accounts.GameEnabled && await accounts.AuthenticateHttp(context) == null) return Results.Unauthorized();
         if (!context.Request.HasJsonContentType())
             return Results.Json(new ApiError("Envía los datos de la sala como application/json."), Protocol.Json, statusCode: 415);
         try
@@ -106,7 +112,7 @@ try
         string authorization = context.Request.Headers.Authorization.ToString();
         if (!authorization.StartsWith("Bearer ", StringComparison.Ordinal))
             return Results.Unauthorized();
-        var identity = await accounts.AuthenticateGame(authorization[7..], context.RequestAborted);
+        var identity = await accounts.AuthenticateHttp(context);
         if (identity == null) return Results.Unauthorized();
         try { return Results.Json(await operation(identity, context.RequestAborted), Protocol.Json); }
         catch (ArgumentException error) { return Results.Json(new ApiError(error.Message), Protocol.Json, statusCode: 400); }
@@ -138,7 +144,9 @@ try
                 gold > 0 ? $"Objeto vendido: +{gold} de oro." : "Esta venta ya estaba registrada.");
         }));
     app.MapItemShop();
+    app.MapAccountDeletion();
     app.MapMatchStatistics();
+    app.MapDeployment();
     app.Map("/play", async (HttpContext context, GameService game) => await game.HandleConnection(context));
     app.MapGet("/server-info", () => $"Arcana Arena v{BuildInfo.Version}. Cliente: /play. Salas: /rooms. Estado: /health.");
     Diagnostics.Info("server.start", "Iniciando servidor.", new Dictionary<string, object?>

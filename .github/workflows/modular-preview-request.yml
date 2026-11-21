@@ -1,10 +1,9 @@
-name: Publicar prueba visual y acceso solicitada
+name: Publicar APK de pruebas solicitada
 
-# Petición expresa de APK y tag tras la revisión visual y el acceso de pruebas.
-# Repetir la validación con la limpieza nativa de las capturas de biomas corregida.
+# Compilar la revisión que valida la capacidad LAN y conserva las reservas de reconexión.
 on:
   push:
-    branches: [pruebas/mejoras-supervivencia]
+    branches: [pruebas/seguridad-rendimiento-integral]
     paths: [.github/workflows/modular-preview-request.yml]
 
 permissions:
@@ -14,11 +13,11 @@ permissions:
 
 jobs:
   requested-preview:
-    if: github.event.head_commit.message == 'Publicar prueba visual y acceso 0.29.60'
+    if: github.event.head_commit.message == 'Generar APK de pruebas 0.29.70'
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Validar, compilar y comprobar la preliminar
         env:
           GH_TOKEN: ${{ github.token }}
@@ -29,13 +28,13 @@ jobs:
           url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           status() {
             gh api --method POST "$api/statuses/$GITHUB_SHA" -f state="$1" \
-              -f context=publicacion/controles-tactiles -f description="$2" -f target_url="$url" >/dev/null
+              -f context=publicacion/apk-de-pruebas -f description="$2" -f target_url="$url" >/dev/null
           }
           trap 'status failure "La compilación o publicación requiere revisión" || true' ERR
           status pending "Validando la revisión solicitada"
-          test "$GITHUB_REF_NAME" = 'pruebas/mejoras-supervivencia'
+          test "$GITHUB_REF_NAME" = 'pruebas/seguridad-rendimiento-integral'
           version=$(tr -d '\r\n' < VERSION)
-          test "$version" = '0.29.60'
+          test "$version" = '0.29.70'
           python3 scripts/version-support.py check .
           test "$(gh api "$api/git/ref/heads/$GITHUB_REF_NAME" --jq '.object.sha')" = "$GITHUB_SHA"
           find_run() {
@@ -47,7 +46,7 @@ jobs:
           if [ -z "$run_id" ]; then
             for attempt in 1 2 3; do
               if gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" \
-                -f publish_preview=true -f publish_stable=false; then break; fi
+                -f publish_preview=true -f publish_stable=false -f build_play_bundle=true; then break; fi
               sleep $((attempt * 5))
               run_id=$(find_run)
               if [ -n "$run_id" ]; then break; fi
@@ -72,6 +71,7 @@ jobs:
           grep -Fx "ArcanaArena-v$version-Android-arm64.apk" <<< "$assets"
           grep -Fx "ArcanaArena-v$version-Windows-x64.zip" <<< "$assets"
           grep -Fx "ArcanaArena-v$version-Windows-x64.rar" <<< "$assets"
+          grep -Fx "ArcanaArena-v$version-GooglePlay-arm64.aab" <<< "$assets"
           grep -Fx 'PREVIEW.json' <<< "$assets"
           url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$tag"
           status success "Paquetes verificados en $tag"
