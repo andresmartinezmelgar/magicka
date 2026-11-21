@@ -98,7 +98,11 @@ public static class SnapshotDelta
                 var changed = Diff(oldArray[i], newArray[i]);
                 if (changed != null) changes[i.ToString(System.Globalization.CultureInfo.InvariantCulture)] = changed;
             }
-            return changes.Count == 0 ? null : new JsonObject { ["$array"] = changes };
+            if (changes.Count == 0) return null;
+            // Para elementos o tiempos de recarga, el literal evita repetir un índice por cada valor.
+            if (newArray.Count <= 16 && changes.Count * 2 >= newArray.Count && newArray.All(item => item is JsonValue))
+                return newArray.DeepClone();
+            return new JsonObject { ["$array"] = changes };
         }
         // Al cambiar el número de entidades, sustituir la colección completa.
 

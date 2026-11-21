@@ -23,26 +23,28 @@ internal static class AccountSessionTests
         client.SetFirebaseSession("test-project", uid, uid, "token-" + uid, DateTimeOffset.UtcNow.AddHours(1));
     private static async Task ConfiguredPvpServer()
     {
-        var socket = ArenaConnection.Address(PvpServer.Address);
-        var rooms = RoomBrowser.Endpoint(PvpServer.Address, "rooms");
+        const string host = "arena.example";
+        string address = PublicAccountServer.ValidateAddress("wss://" + host + "/play");
+        var socket = ArenaConnection.Address(address);
+        var rooms = RoomBrowser.Endpoint(address, "rooms");
         Check(socket.Scheme == "wss" && socket.Port == 443 && socket.AbsolutePath == "/play" &&
             rooms.Scheme == "https" && rooms.Port == 443 && rooms.AbsolutePath == "/rooms",
             "PvP perdió TLS, el puerto HTTPS o la ruta del proxy.");
         using var http = new HttpClient(new DelayedHandler());
         using var client = new AccountClient(http);
         await Connect(client, "accountA");
-        Check(client.TokenForVerifiedServer(PvpServer.Address, PvpServer.Address) == client.Token,
+        Check(client.TokenForVerifiedServer(address, address) == client.Token,
             "La sesión no llega al servidor WSS configurado.");
-        foreach (string target in new[] { "ws://" + PvpServer.Host + "/play", "wss://" + PvpServer.Host + ":27015/play",
-            "wss://" + PvpServer.Host + ".example.org/play", "wss://" + PvpServer.Host + "/other",
-            PvpServer.Address + "?token=secret", "wss://user@" + PvpServer.Host + "/play" })
-            Check(client.TokenForVerifiedServer(target, PvpServer.Address).Length == 0,
+        foreach (string target in new[] { "ws://" + host + "/play", "wss://" + host + ":27015/play",
+            "wss://" + host + ".example.org/play", "wss://" + host + "/other",
+            address + "?token=secret", "wss://user@" + host + "/play" })
+            Check(client.TokenForVerifiedServer(target, address).Length == 0,
                 "Se entregó la sesión a un destino diferente del configurado.");
-        string message = PvpServer.DisplayText("No responde " + PvpServer.Address + " ni https://" + PvpServer.Host + "/rooms");
-        Check(!message.Contains(PvpServer.Host, StringComparison.OrdinalIgnoreCase) && message.StartsWith("No responde"),
+        string message = PvpServer.DisplayText("No responde " + address + " ni https://" + host + "/rooms");
+        Check(!message.Contains(host, StringComparison.OrdinalIgnoreCase) && message.StartsWith("No responde"),
             "El error expone el dominio o pierde su explicación.");
         await client.SignOut();
-        Check(client.TokenForVerifiedServer(PvpServer.Address, PvpServer.Address).Length == 0,
+        Check(client.TokenForVerifiedServer(address, address).Length == 0,
             "Se conserva un token después de cerrar sesión.");
     }
     private static async Task Race(string operation, bool changeAccount, bool unauthorized = false)

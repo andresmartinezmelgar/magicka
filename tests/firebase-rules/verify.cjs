@@ -16,6 +16,26 @@ async function main() {
     const other = env.authenticatedContext("bob", { firebase: { sign_in_provider: "google.com" } }).firestore();
     const password = env.authenticatedContext("alice", { firebase: { sign_in_provider: "password" } }).firestore();
     const anonymous = env.unauthenticatedContext().firestore();
+    const directory = 'publicConfig/pvpServer';
+    const publicUrl = {url:'wss://arena.example/play'};
+    async function seedDirectory(record) {
+      await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), directory), record));
+    }
+    await assertSucceeds(getDoc(doc(anonymous, directory)));
+    await seedDirectory(publicUrl);
+    await assertSucceeds(getDoc(doc(anonymous, directory)));
+    await assertSucceeds(getDoc(doc(google, directory)));
+    await assertFails(getDocs(collection(anonymous,'publicConfig')));
+    for (const client of [anonymous,google]) {
+      await assertFails(setDoc(doc(client,directory),publicUrl));
+      await assertFails(deleteDoc(doc(client,directory)));
+    }
+    for (const bad of [{...publicUrl,token:'extra'},{url:'ws://arena.example/play'},
+        {url:'wss://host.local/play'},{url:'wss://arena.example/play?secret=x'}]) {
+      await seedDirectory(bad);
+      await assertFails(getDoc(doc(anonymous,directory)));
+    }
+    await seedDirectory(publicUrl);
     const user = doc(google, "users/alice");
     const initial = { uid: "alice", name: "Mago", gold: 0, wins: 0, losses: 0, itemCount: 0, schemaVersion: 1 };
 

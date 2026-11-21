@@ -412,6 +412,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                             room.Sessions.Add(player.Id, session); _sessions[session.Key] = session; room.LastOccupied = Environment.TickCount64;
                             if (!resume && !restoredDefense) player.Invulnerable = 1.2f;
                             welcome = DefenseFrame(RoomSnapshot(room), player.Id); welcome.Type = "welcome"; welcome.PlayerId = player.Id;
+                            welcome.CompactActions = hello.CompactActions;
                             welcome.ResumeToken = session.ResumeToken; welcome.Server = Info(); welcome.Room = room.Info(); welcome.RequiresReady = true;
                             session.Network = new(welcome);
                         }

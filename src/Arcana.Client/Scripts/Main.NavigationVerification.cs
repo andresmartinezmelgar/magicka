@@ -128,7 +128,7 @@ public partial class Main
                     if (page is 1 or 2)
                         Check(!tutorial.IsVisibleInTree(), "La burbuja de Inicio tapa el selector de partida.");
                     if (page == 1)
-                        Check(_launcher.RoomsForVerification?.AddressForVerification == PvpServer.Address,
+                        Check(_launcher.RoomsForVerification?.UsesPvpDirectory == true,
                             "La navegación PvP no abre el servidor configurado.");
                     Control screen = page switch { 1 => _launcher.RoomsForVerification!, 3 => _accountProfilePanel!, 4 => _equipmentPanel!,
                         5 => _menuHelp!, 7 => _itemShopPanel!, _ => _launcher };

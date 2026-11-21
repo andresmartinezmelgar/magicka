@@ -6,12 +6,15 @@ public partial class Main
     {
         string result = Accounts.TokenFor(address);
         if (result.Length > 0 || !Accounts.IsDirectFirebaseSession) return result;
-        result = Accounts.TokenForVerifiedServer(address, PvpServer.Address);
-        if (result.Length > 0 || Arcana.Core.ArenaConnection.Address(address).Scheme != "wss") return result;
+        var endpoint = Arcana.Core.ArenaConnection.Address(address);
+        if (endpoint.Scheme != "wss") return "";
         try
         {
             string advertised = await Arcana.Core.PublicAccountServer.Resolve(FirebaseProjectId, token);
-            return Accounts.TokenForVerifiedServer(address, advertised);
+            result = Accounts.TokenForVerifiedServer(address, advertised);
+            if (result.Length == 0 && endpoint.IdnHost.EndsWith(".trycloudflare.com", StringComparison.Ordinal))
+                result = Accounts.TokenForVerifiedServer(address, await Arcana.Core.PublicAccountServer.ResolveTunnel(FirebaseProjectId, token));
+            return result;
         }
         catch (Exception error) when (error is HttpRequestException or System.IO.IOException or System.Text.Json.JsonException or InvalidOperationException)
         { return ""; }

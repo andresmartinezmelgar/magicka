@@ -76,6 +76,14 @@ service cloud.firestore {
     }
 
     // Aviso publico del antiguo servicio, conservado para compatibilidad.
+    match /publicConfig/pvpServer {
+      allow get: if resource == null || (resource.data.keys().hasOnly(['url'])
+        && resource.data.url is string && resource.data.url.size() <= 256
+        && resource.data.url.matches('wss://([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?[.])+[a-z]{2,63}/play')
+        && !resource.data.url.matches('.*[.](local|localhost)/play'));
+      allow list, write: if false;
+    }
+
     match /publicAccountServer/current {
       allow get: if resource.data.keys().hasOnly(['url', 'expiresAt', 'protocol'])
         && resource.data.url is string && resource.data.url.size() <= 256

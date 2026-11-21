@@ -24,6 +24,7 @@ public sealed partial class ArenaConnection : IAsyncDisposable
     private readonly object _sendGate = new(), _disposeGate = new();
     private readonly string _connectionId = Guid.NewGuid().ToString("N");
     private long _sequence;
+    private bool _compactActions;
     private long _bytesSent, _bytesReceived;
     public long BytesSent => Interlocked.Read(ref _bytesSent);
     public long BytesReceived => Interlocked.Read(ref _bytesReceived);
@@ -103,7 +104,7 @@ public sealed partial class ArenaConnection : IAsyncDisposable
             _socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(10);
             if (resumeToken.Length != 0) _socket.Options.SetRequestHeader("X-Arcana-Version", BuildInfo.Version);
             await _socket.ConnectAsync(endpoint, timeout.Token).ConfigureAwait(false);
-            var hello = new ClientMessage { Type = "hello", Name = name, Team = team, Password = password,
+            var hello = new ClientMessage { Type = "hello", CompactActions = true, Name = name, Team = team, Password = password,
                 RoomId = roomId, RoomPassword = roomPassword, Protocol = Protocol.Version, GameVersion = BuildInfo.Version, WizardType = wizardType, AccountToken = accountToken, ResumeToken = resumeToken };
             await SendFrame(hello, timeout.Token).ConfigureAwait(false);
             var welcome = await Read(timeout.Token).ConfigureAwait(false);
@@ -119,6 +120,7 @@ public sealed partial class ArenaConnection : IAsyncDisposable
             if (!string.Equals(welcome.Server!.GameVersion, BuildInfo.Version, StringComparison.Ordinal))
                 throw new InvalidOperationException($"Versión incompatible. Servidor: {welcome.Server.GameVersion ?? "desconocida"}; cliente: {BuildInfo.Version}.");
             PlayerId = welcome.PlayerId; Server = welcome.Server; Room = welcome.Room;
+            _compactActions = welcome.CompactActions;
             _requiresReady = welcome.RequiresReady;
             ApplyReadiness(welcome);
             _snapshotReceiver = new(welcome); ResumeToken = welcome.ResumeToken;
@@ -191,9 +193,9 @@ public sealed partial class ArenaConnection : IAsyncDisposable
         try
         {
             if (Volatile.Read(ref _disposing) != 0) return;
-            var data = message.Type == "hello" ? Protocol.SerializeAction(message) : Protocol.SerializeBinaryAction(message);
+            var data = message.Type == "hello" ? Protocol.SerializeAction(message) : Protocol.SerializeBinaryAction(message, _compactActions);
             if (message.Type == "ping") MarkPingSent(message.PingId);
-            await _socket.SendAsync(data, data.Length > 0 && data[0] == 0xB1 ? WebSocketMessageType.Binary : WebSocketMessageType.Text, true, token).ConfigureAwait(false);
+            await _socket.SendAsync(data, data.Length > 0 && data[0] is (0xB1 or 0xB2) ? WebSocketMessageType.Binary : WebSocketMessageType.Text, true, token).ConfigureAwait(false);
             Interlocked.Add(ref _bytesSent, data.Length);
             RecordSentTraffic(message.Type, data.Length);
         }

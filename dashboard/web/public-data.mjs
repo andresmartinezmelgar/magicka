@@ -1,13 +1,21 @@
-const PUBLIC_SERVER = 'https://familiamelgar.duckdns.org';
-export function defaultApiRoot(location = globalThis.location) {
-  const origin = location && !['localhost', '127.0.0.1', '[::1]'].includes(location.hostname) && location.protocol !== 'file:'
-    ? location.origin : PUBLIC_SERVER;
-  return origin + '/api/dashboard';
+const directoryUrl = 'https://firestore.googleapis.com/v1/projects/arcana-arena-f2997/databases/(default)/documents/publicConfig/pvpServer';
+
+export async function defaultApiRoot(location = globalThis.location, fetchImpl = globalThis.fetch, signal) {
+  if (location && !['localhost','127.0.0.1','[::1]'].includes(location.hostname) && ['http:','https:'].includes(location.protocol))
+    return location.origin + '/api/dashboard';
+  const response = await fetchImpl(directoryUrl, {signal, credentials:'omit', redirect:'error', cache:'no-store'});
+  if (!response.ok) throw Error('No se ha podido leer el servidor PvP de Firebase.');
+  const fields = (await response.json()).fields;
+  const url = fields?.url?.stringValue;
+  if (Object.keys(fields ?? {}).length !== 1 || typeof url !== 'string' || url.length > 256 ||
+      !/^wss:\/\/([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}\/play$/.test(url) ||
+      /\.(local|localhost)\/play$/.test(url)) throw Error('La dirección PvP publicada no es válida.');
+  return 'https://' + new URL(url).host + '/api/dashboard';
 }
 
 // No Firebase SDK, accounts, tokens or browser persistence in this read-only client.
 export function createPublicSource({fetchImpl = globalThis.fetch, documentImpl = globalThis.document,
-  setTimer = globalThis.setTimeout, clearTimer = globalThis.clearTimeout, apiRoot = defaultApiRoot()} = {}) {
+  setTimer = globalThis.setTimeout, clearTimer = globalThis.clearTimeout, apiRoot, location = globalThis.location} = {}) {
   let generation = 0, timer, controller, visibility;
   function stop() {
     generation++; clearTimer(timer); controller?.abort(); controller = null;
@@ -17,8 +25,9 @@ export function createPublicSource({fetchImpl = globalThis.fetch, documentImpl =
   function subscribe(_range, callbacks) {
     stop(); const current = generation, pages = {}, etags = {};
     const active = () => current === generation;
-    async function read(part, signal) {
-      const response = await fetchImpl(apiRoot + '/' + part, {signal, credentials:'omit', cache:'no-cache',
+    let cachedRoot, expires = 0;
+    async function read(root, part, signal) {
+      const response = await fetchImpl(root + '/' + part, {signal, credentials:'omit', cache:'no-cache',
         headers: etags[part] ? {'If-None-Match':etags[part]} : {}});
       if (response.status === 304 && pages[part]) return pages[part];
       if (!response.ok) throw Error(response.status === 503 ? 'El servidor aún no dispone de estadísticas públicas. Se reintentará automáticamente.' : 'No se han podido leer las estadísticas del servidor.');
@@ -39,7 +48,12 @@ export function createPublicSource({fetchImpl = globalThis.fetch, documentImpl =
       clearTimer(timer); controller = new AbortController();
       const request = controller, timeout = setTimer(() => request.abort(), 12000);
       try {
-        const results = await Promise.allSettled(['history','live'].map(part => read(part, request.signal)));
+        if (!cachedRoot || Date.now() >= expires) {
+          const next = apiRoot ?? await defaultApiRoot(location, fetchImpl, request.signal);
+          if (cachedRoot !== next) { delete etags.live; delete etags.history; }
+          cachedRoot = next; expires = Date.now() + 60_000;
+        }
+        const results = await Promise.allSettled(['history','live'].map(part => read(cachedRoot, part, request.signal)));
         if (!active() || documentImpl?.hidden) return;
         const history = pages.history, live = pages.live;
         if (history && results[0].status === 'fulfilled') callbacks.history(history.reports, !!history.stale);
@@ -56,6 +70,8 @@ export function createPublicSource({fetchImpl = globalThis.fetch, documentImpl =
         results.forEach((result, index) => {
           if (result.status === 'rejected') callbacks.error(result.reason, index === 1);
         });
+      } catch (error) {
+        if (active() && !documentImpl?.hidden) callbacks.error(error, false);
       } finally {
         clearTimer(timeout);
         if (controller === request) controller = null;

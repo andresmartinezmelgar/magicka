@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <NoWarn>$(NoWarn);CS0436</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Both encoders see snapshots produced by the same released simulation. -->
+    <Reference Include="Arcana.Core" HintPath="$(BaselineCore)" Aliases="global,baseline" />
+    <Compile Include="../../src/Arcana.Core/Protocol.cs" />
+    <Compile Include="../../src/Arcana.Core/SnapshotDelta.cs" />
+    <Compile Include="../../src/Arcana.Core/SnapshotStream.cs" />
+  </ItemGroup>
+</Project>

@@ -67,7 +67,14 @@ test('rechaza respuestas incompatibles y mantiene acotado el contenido',async()=
   f.source.subscribe({},f.callbacks);await settle();assert.equal(f.history.length,0);assert.equal(f.errors.length,2);f.source.stop();
 });
 
-test('el panel local de Windows usa el servidor público sin configurar Firebase',()=>{
-  assert.equal(defaultApiRoot({hostname:'localhost',origin:'http://localhost:8080',protocol:'http:'}),'https://familiamelgar.duckdns.org/api/dashboard');
-  assert.equal(defaultApiRoot({hostname:'familiamelgar.duckdns.org',origin:'https://familiamelgar.duckdns.org',protocol:'https:'}),'https://familiamelgar.duckdns.org/api/dashboard');
+test('el panel local resuelve la URL de Firestore y el panel remoto usa su propio origen',async()=>{
+  const local = {hostname:'localhost',origin:'http://localhost:8080',protocol:'http:'};
+  const doc = url => async endpoint => {
+    assert.match(endpoint,/documents\/publicConfig\/pvpServer$/);
+    return response({fields:{url:{stringValue:url}}});
+  };
+  assert.equal(await defaultApiRoot(local,doc('wss://arena.example/play')),'https://arena.example/api/dashboard');
+  for (const url of ['ws://arena.example/play','wss://arena.example/play?q=x','wss://127.0.0.1/play','wss://host.local/play'])
+    await assert.rejects(defaultApiRoot(local,doc(url)));
+  assert.equal(await defaultApiRoot({hostname:'arena.example',origin:'https://arena.example',protocol:'https:'}),'https://arena.example/api/dashboard');
 });

@@ -36,12 +36,12 @@ public partial class RoomLobby : Control
     private string _startupMessage = "";
     private bool _busy;
     private readonly CancellationTokenSource _lifetime = new();
-    internal string AddressForVerification => _address;
+    internal bool UsesPvpDirectory { get; private set; }
 
     public void Build(Main main, string address, string password, string name, int team, WizardType wizardType,
         bool refreshRooms = true)
     {
-        _main = main; _address = address; _serverPassword = password; _playerName = name; _wizardType = wizardType;
+        _main = main; UsesPvpDirectory = address == PvpServer.Automatic; _address = address; _serverPassword = password; _playerName = name; _wizardType = wizardType;
         Theme = Ui.Theme(); Ui.Full(this);
         var shade = new ColorRect { Color = Ui.ModalDim }; AddChild(shade); Ui.Full(shade);
         var safeMargin = new MarginContainer();
@@ -317,7 +317,7 @@ public partial class RoomLobby : Control
         Loading("Consultando salas…");
         try
         {
-            string target = _address;
+            string target = UsesPvpDirectory ? await PublicAccountServer.Resolve(PublicAccountServer.Project, _lifetime.Token) : _address;
             RoomDirectory directory = await RoomBrowser.ListAsync(target, _lifetime.Token);
             // Al descubrir por LAN un servidor que requiere Firebase, sustituir
             // automáticamente su ws:// por la WSS publicada. Así tanto Entrar
@@ -326,12 +326,7 @@ public partial class RoomLobby : Control
             if (directory.Server.RewardsAvailable && endpoint.Scheme == "ws" && !endpoint.IsLoopback &&
                 _main.Accounts.IsDirectFirebaseSession)
             {
-                string official = await PublicAccountServer.Resolve("arcana-arena-f2997", _lifetime.Token);
-                RoomDirectory verified = await RoomBrowser.ListAsync(official, _lifetime.Token);
-                if (!PublicAccountServer.SameInstance(directory.Server, verified.Server))
-                    throw new InvalidOperationException("La sala LAN no coincide con el servidor oficial de Firebase. Revisa el alojamiento.");
-                directory = verified;
-                target = official;
+                (target, directory) = await PublicAccountServer.ForInstance(directory.Server, _lifetime.Token);
             }
             string secureTarget = target;
             RoomDirectory result = directory;
@@ -474,6 +469,7 @@ public partial class RoomLobby : Control
         Loading("Creando sala…");
         try
         {
+            if (UsesPvpDirectory) _address = await PublicAccountServer.Resolve(PublicAccountServer.Project, _lifetime.Token);
             string accountToken = await _main.AccountTokenForRoomServer(_address, _lifetime.Token);
             var room = await RoomBrowser.CreateAsync(_address, request, _lifetime.Token, accountToken);
             _main.Post(() =>

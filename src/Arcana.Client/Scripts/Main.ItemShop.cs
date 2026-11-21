@@ -6,7 +6,7 @@ namespace Arcana.Client;
 public partial class Main
 {
     private ItemShopPanel? _itemShopPanel;
-    private Func<CancellationToken, Task<string>> _accountServerResolver = _ => Task.FromResult(PvpServer.Address);
+    private Func<CancellationToken, Task<string>> _accountServerResolver = token => PublicAccountServer.Resolve(PublicAccountServer.Project, token);
     private readonly AccountShopPreload _preparedShop = new();
     private bool _shopPreloadEnabled;
     private AndroidRewardedAds? _rewardedAds;

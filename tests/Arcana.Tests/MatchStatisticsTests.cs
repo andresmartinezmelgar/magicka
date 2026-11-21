@@ -191,14 +191,14 @@ internal static class MatchStatisticsTests
             var (w, _, _) = Arena(); var report = w.MatchStatistics(MatchRecordStatus.Completed);
             var handler = new Handler(request =>
             {
-                Check(request.Method == HttpMethod.Post && request.RequestUri!.Scheme == "https" && request.RequestUri.Host == "familiamelgar.duckdns.org" &&
+                Check(request.Method == HttpMethod.Post && request.RequestUri!.Scheme == "https" && request.RequestUri.Host == "juego.example" &&
                     request.RequestUri.AbsolutePath == "/analytics/matches", "La ingesta no pasó por el servidor protegido.");
                 Check(request.Headers.Authorization == null && !request.Headers.Contains("Cookie"), "Se envió identidad en telemetría local.");
                 var payload = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
                 Check(MatchStatisticsReport.Parse(payload).ToJson() == report.ToJson(), "Alteró el daño acumulado.");
                 return new(HttpStatusCode.OK);
             });
-            using var http = new HttpClient(handler); using var transport = new MatchStatisticsTransport("demo-arcana", http);
+            using var http = new HttpClient(handler); using var transport = new MatchStatisticsTransport("demo-arcana", http, _ => Task.FromResult("wss://juego.example/play"));
             transport.Upload(report).GetAwaiter().GetResult(); Check(handler.Calls == 1, "No envió el informe.");
             bool rejected = false;
             try { transport.Upload(w.MatchStatistics()).GetAwaiter().GetResult(); } catch (InvalidOperationException) { rejected = true; }
@@ -211,12 +211,12 @@ internal static class MatchStatisticsTests
             {
                 var outbox = new MatchStatisticsOutbox(); outbox.Enqueue(report);
                 using var http = new HttpClient(new Handler(_ => new(status) { Content = new StringContent("{\"error\":{\"status\":\"ABORTED\"}}") }));
-                using var transport = new MatchStatisticsTransport("demo-arcana", http);
+                using var transport = new MatchStatisticsTransport("demo-arcana", http, _ => Task.FromResult("wss://juego.example/play"));
                 try { outbox.Flush(transport.Upload).GetAwaiter().GetResult(); throw new Exception("Se confirmó un envío fallido."); }
                 catch (IOException) { }
                 Check(outbox.PendingCount == 1, "El fallo borró el informe pendiente.");
                 using var success = new HttpClient(new Handler(_ => new(HttpStatusCode.Accepted)));
-                using var retry = new MatchStatisticsTransport("demo-arcana", success);
+                using var retry = new MatchStatisticsTransport("demo-arcana", success, _ => Task.FromResult("wss://juego.example/play"));
                 outbox.Flush(retry.Upload).GetAwaiter().GetResult();
                 Check(outbox.PendingCount == 0, "El reintento duplicado no confirmó la cola en memoria.");
             }

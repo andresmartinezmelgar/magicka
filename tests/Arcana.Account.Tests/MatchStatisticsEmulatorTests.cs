@@ -38,7 +38,7 @@ internal static class MatchStatisticsEmulatorTests
         {
             var address = new Uri(app.Urls.Single());
             using var handler = new IngestionHandler(address); using var http = new HttpClient(handler);
-            using var transport = new MatchStatisticsTransport(database.ProjectId, http);
+            using var transport = new MatchStatisticsTransport(database.ProjectId, http, _ => Task.FromResult("wss://juego.example/play"));
             var incoming = final with { RunId = Guid.NewGuid().ToString("N") };
             await Task.WhenAll(Enumerable.Range(0, 3).Select(_ => transport.Upload(incoming)));
             await transport.Upload(report with { RunId = incoming.RunId, Status = MatchRecordStatus.Left });
@@ -77,7 +77,7 @@ internal static class MatchStatisticsEmulatorTests
         public int Requests;
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
         {
-            if (request.RequestUri?.Host != "familiamelgar.duckdns.org" || request.Headers.Authorization != null || !target.IsLoopback)
+            if (request.RequestUri?.Host != "juego.example" || request.Headers.Authorization != null || !target.IsLoopback)
                 throw new InvalidOperationException("La prueba intenta usar identidad o una dirección no local.");
             Interlocked.Increment(ref Requests); request.RequestUri = new Uri(target, "analytics/matches");
             return base.SendAsync(request, token);

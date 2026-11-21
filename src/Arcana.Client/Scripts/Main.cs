@@ -209,8 +209,7 @@ public partial class Main : Node
                 {
                     if (!Accounts.IsDirectFirebaseSession)
                         throw new InvalidOperationException(GoogleConnectionMessage());
-                    string officialUrl = await PublicAccountServer.Resolve(FirebaseProjectId, _lifetime.Token).ConfigureAwait(false);
-                    var officialRooms = await RoomBrowser.ListAsync(officialUrl, _lifetime.Token).ConfigureAwait(false);
+                    var (officialUrl, officialRooms) = await PublicAccountServer.ForInstance(localRooms.Server, _lifetime.Token).ConfigureAwait(false);
                     if (!PublicAccountServer.SameInstance(localRooms.Server, officialRooms.Server) ||
                         !officialRooms.Rooms.Any(room => room.Id == roomId))
                         throw new InvalidOperationException("Esta sala LAN no coincide con el servidor seguro anunciado en Firebase. Usa «Servidor online con Google».");
@@ -220,17 +219,9 @@ public partial class Main : Node
             }
 
             string accountToken = Accounts.TokenFor(destination);
-            // La WSS fija de PvP es un destino de confianza de la aplicación.
-            // Otros destinos deben coincidir con el anuncio actual de Firestore.
-            if (accountToken.Length == 0 && Accounts.IsDirectFirebaseSession &&
-                ArenaConnection.Address(destination).Scheme == "wss")
+            if (accountToken.Length == 0 && Accounts.IsDirectFirebaseSession && ArenaConnection.Address(destination).Scheme == "wss")
             {
-                accountToken = Accounts.TokenForVerifiedServer(destination, PvpServer.Address);
-                if (accountToken.Length == 0)
-                {
-                    string verified = await PublicAccountServer.Resolve(FirebaseProjectId, _lifetime.Token).ConfigureAwait(false);
-                    accountToken = Accounts.TokenForVerifiedServer(destination, verified);
-                }
+                accountToken = await AccountTokenForRoomServer(destination, _lifetime.Token).ConfigureAwait(false);
                 if (accountToken.Length == 0)
                     throw new InvalidOperationException("Este servidor no coincide con el servidor oficial anunciado en Firebase.");
             }

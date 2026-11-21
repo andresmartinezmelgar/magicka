@@ -11,6 +11,7 @@ try
     if (args.Contains("--gateway")) { await RollingGateway.Run(args); return; }
     if (args.FirstOrDefault() == "--statistics-readers") { await StatisticsReaderSetup.Run(args.Skip(1).ToArray()); return; }
     if (args.FirstOrDefault() == "--statistics-maintenance") { await StatisticsMaintenance.Run(args.Skip(1).ToArray()); return; }
+    if (args.FirstOrDefault() == "--publish-pvp-server") { await PvpDirectorySetup.Publish(args.Skip(1).ToArray()); return; }
     if (args.FirstOrDefault() == "--account-admins") { await AccountAdminSetup.Run(args.Skip(1).ToArray()); return; }
     var settings = ServerSettings.FromEnvironment();
     log.ProtectSecret(settings.Password);

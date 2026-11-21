@@ -60,11 +60,11 @@ public partial class Main
                 GetWindow().ContentScaleSize = size; GetWindow().Size = size; await Frames();
                 NavigateOptionAMenu(1); await Frames(); CheckText(_launcher);
                 var onlineLobby = _launcher.RoomsForVerification;
-                Check(onlineLobby?.AddressForVerification == PvpServer.Address,
+                Check(onlineLobby?.UsesPvpDirectory == true,
                     "PvP no abre directamente el servidor configurado.");
-                onlineLobby!.ShowError("No responde https://" + PvpServer.Address + "/rooms");
+                onlineLobby!.ShowError("No responde https://prueba.example/rooms");
                 Check(!onlineLobby.FindChildren("*", "Control", true, false).OfType<ElementTextLabel>()
-                    .Any(label => label.Text.Contains(PvpServer.Host, StringComparison.OrdinalIgnoreCase)),
+                    .Any(label => label.Text.Contains("prueba.example", StringComparison.OrdinalIgnoreCase)),
                     "La dirección del servidor aparece en la pantalla o sus errores.");
                 _launcher.CloseRooms(); await Frames();
                 var lobby = new RoomLobby(); _ui.AddChild(lobby);

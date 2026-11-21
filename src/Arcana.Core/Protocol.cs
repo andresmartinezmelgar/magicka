@@ -28,13 +28,16 @@ public static class Protocol
         if (!float.IsFinite(value)) throw new InvalidDataException("Eje no finito.");
         return (short)MathF.Round(Math.Clamp(value, -1f, 1f) * 32767f);
     }
-    public static byte[] SerializeBinaryAction(ClientMessage message)
+    public static byte[] SerializeBinaryAction(ClientMessage message, bool compact = false)
     {
         int code = Array.IndexOf(BinaryActionNames, message.Type);
         if (code < 0) return SerializeAction(message);
         using var stream = new MemoryStream(48);
         using var writer = new BinaryWriter(stream);
-        writer.Write((byte)0xB1); writer.Write((byte)code); writer.Write(message.Sequence);
+        writer.Write(compact ? (byte)0xB2 : (byte)0xB1);
+        writer.Write((byte)code);
+        if (compact) writer.Write7BitEncodedInt64(message.Sequence);
+        else writer.Write(message.Sequence);
         switch (message.Type)
         {
             case "input":
@@ -49,14 +52,15 @@ public static class Protocol
     }
     public static ClientMessage DeserializeBinaryAction(ReadOnlySpan<byte> bytes)
     {
-        if (bytes.Length < 10 || bytes[0] != 0xB1 || bytes[1] >= BinaryActionNames.Length)
+        if (bytes.Length < 3 || bytes[0] is not (0xB1 or 0xB2) || bytes[1] >= BinaryActionNames.Length)
             throw new InvalidDataException("Acción binaria inválida.");
         using var stream = new MemoryStream(bytes.ToArray(), false);
         using var reader = new BinaryReader(stream);
         reader.ReadByte();
-        var message = new ClientMessage { Type = BinaryActionNames[reader.ReadByte()], Sequence = reader.ReadInt64() };
+        var message = new ClientMessage { Type = BinaryActionNames[reader.ReadByte()] };
         try
         {
+            message.Sequence = bytes[0] == 0xB2 ? reader.Read7BitEncodedInt64() : reader.ReadInt64();
             switch (message.Type)
             {
                 case "input":
@@ -70,7 +74,8 @@ public static class Protocol
                 case "inspect": message.InspectionRequestId = reader.ReadInt64(); message.InspectPlayerId = reader.ReadInt32(); break;
             }
         }
-        catch (EndOfStreamException e) { throw new InvalidDataException("Acción binaria truncada.", e); }
+        catch (Exception error) when (error is EndOfStreamException or FormatException)
+        { throw new InvalidDataException("Acción binaria truncada o inválida.", error); }
         if (stream.Position != stream.Length) throw new InvalidDataException("Acción binaria con datos adicionales.");
         return message;
     }
@@ -118,7 +123,7 @@ public static class Protocol
     // Fotogramas comprimidos: prefijo 0xA1 + Brotli. El saludo permanece en JSON.
     // Límite descomprimido para impedir cargas excesivas de memoria.
     public const int MaxSnapshotBytes = 256 * 1024;
-    public const int MinSnapshotCompressionBytes = 256;
+    public const int MinSnapshotCompressionBytes = 96;
     public static byte[] DecompressSnapshotPayload(ReadOnlySpan<byte> data)
     {
         if (data.Length < 2 || data[0] != 0xA1)
@@ -136,24 +141,29 @@ public static class Protocol
         }
         return output.ToArray();
     }
-    public static byte[] CompressSnapshotPayload(byte[] raw)
+    public static byte[] CompressSnapshotPayload(byte[] raw, int quality = 4)
     {
         // Los deltas pequeños de PvP también contienen nombres/campos repetidos.
         // Mantener el filtro de ahorro: nunca enviar Brotli si no ahorra al menos 17 bytes.
         if (raw.Length < MinSnapshotCompressionBytes) return raw;
-        // Wire-compatible Brotli. Quality 3 reduces bytes without lowering snapshot frequency.
+        // La trama conserva el prefijo y el decodificador de las versiones anteriores.
         int length = BrotliEncoder.GetMaxCompressedLength(raw.Length);
         byte[] buffer = ArrayPool<byte>.Shared.Rent(length + 1);
         try
         {
             buffer[0] = 0xA1;
-            if (BrotliEncoder.TryCompress(raw, buffer.AsSpan(1, length), out int written, quality: 3, window: 22) && written + 17 < raw.Length)
+            if (BrotliEncoder.TryCompress(raw, buffer.AsSpan(1, length), out int written, quality, window: 22) && written + 17 < raw.Length)
                 return buffer.AsSpan(0, written + 1).ToArray();
             return raw;
         }
         finally { ArrayPool<byte>.Shared.Return(buffer); }
     }
-    public static byte[] SerializeSnapshot(ServerMessage message) => CompressSnapshotPayload(SerializeUtf8(message));
+    public static byte[] SerializeSnapshot(ServerMessage message)
+    {
+        if (message.Type != "keyframe") return CompressSnapshotPayload(SerializeUtf8(message));
+        var basis = new { message.Type, message.BaselineId, message.Snapshot, message.PreparingPlayers, message.ReadyPlayerIds };
+        return CompressSnapshotPayload(SerializeUtf8(basis), quality: 5);
+    }
     public static ServerMessage? DeserializeFrame(ReadOnlySpan<byte> bytes, bool binary)
     {
         if (!binary) return Deserialize<ServerMessage>(bytes);
@@ -168,6 +178,7 @@ public static class Protocol
 // Un mensaje contiene una intención, nunca daño, vida ni una posición impuesta por el cliente.
 public sealed class ClientMessage
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public bool CompactActions { get; set; }
     public string Type { get; set; } = "";
     public long Sequence { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public long PingId { get; set; }
@@ -208,6 +219,7 @@ public sealed record ServerInfo(string Name, int Port, int DiscoveryPort, GameMo
 public sealed record DiscoveryReply(string Magic, string Nonce, ServerInfo Server);
 public sealed class ServerMessage
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public bool CompactActions { get; set; }
     public string Type { get; set; } = "";
     public int PlayerId { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public long PingId { get; set; }

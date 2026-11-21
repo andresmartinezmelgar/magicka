@@ -232,7 +232,7 @@ public partial class Launcher : Control
     {
         if (_busy || !_main.CanStartRegularMatch()) return;
         CloseRooms(); OpenPage(1); _password.Text = ""; Remember();
-        OpenRooms(PvpServer.Address, "");
+        OpenRooms(PvpServer.Automatic, "");
     }
 
     private void OpenPage(int page)
@@ -329,7 +329,7 @@ public partial class Launcher : Control
                 SelectedWizardType, (ArenaMapId)_practiceMap.GetSelectedId(), DefenseFlow.Continuous); return;
         }
         if (_tabs.CurrentTab == 3) { _ = Host(); return; }
-        string address = PvpServer.Address;
+        string address = PvpServer.Automatic;
         if (_tabs.CurrentTab == 1)
         {
             int selected = _servers.SelectedIndex;
