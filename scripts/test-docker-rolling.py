@@ -47,16 +47,18 @@ def main():
                     "-e", "ARCANA_DISCOVERY_ENABLED=false", "-e", "ARCANA_ADVERTISED_PORT=" + str(public_port), args.image)
                 port = int(command("port", name, "27015/tcp").split(":")[-1])
                 base = "http://127.0.0.1:" + str(port)
+                last_error = None
                 for attempt in range(120):
                     try:
                         status = get_json(base + "/internal/lifecycle", secret=token)
                         if status["instanceId"] == generation and status["version"] == args.version:
                             break
-                    except (OSError, ValueError):
-                        pass
+                    except (OSError, ValueError) as error:
+                        last_error = str(error)
                     time.sleep(.5)
                 else:
-                    raise RuntimeError("El backend Docker no responde al control privado.")
+                    subprocess.run(["docker", "logs", "--tail", "30", name], check=False)
+                    raise RuntimeError("El backend Docker no responde al control privado: " + str(last_error))
                 nodes.append(dict(id=generation, version=args.version, port=port))
             gateway = prefix + "-gateway"; names.append(gateway)
             route = dict(phase="ready", active=nodes[0]["id"], targetVersion="", nodes=nodes)

@@ -34,7 +34,7 @@ public sealed partial class GameService
 
 public static class DeploymentEndpoints
 {
-    private static bool Authorized(HttpContext context)
+    internal static bool Authorized(HttpContext context)
     {
         string expected = Environment.GetEnvironmentVariable("ARCANA_DEPLOYMENT_KEY") ?? "";
         string supplied = context.Request.Headers["X-Arcana-Deployment-Key"].ToString();
@@ -43,8 +43,6 @@ public static class DeploymentEndpoints
     }
     public static void MapDeployment(this WebApplication app)
     {
-        app.MapGet("/internal/lifecycle", (HttpContext context, GameService game) =>
-            Authorized(context) ? Results.Json(game.DeploymentState(), Protocol.Json) : Results.Unauthorized());
         app.MapPost("/internal/drain", (DrainRequest request, HttpContext context, GameService game) =>
         {
             if (!Authorized(context)) return Results.Unauthorized();

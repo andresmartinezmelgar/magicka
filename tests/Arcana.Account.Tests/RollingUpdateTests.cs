@@ -43,7 +43,7 @@ internal static class RollingUpdateTests
         builder.Services.AddSingleton<RewardService>(); builder.Services.AddHostedService(p => p.GetRequiredService<RewardService>());
         builder.Services.AddSingleton<MatchStatisticsService>(); builder.Services.AddHostedService(p => p.GetRequiredService<MatchStatisticsService>());
         builder.Services.AddSingleton<GameService>(); builder.Services.AddHostedService(p => p.GetRequiredService<GameService>());
-        var app = builder.Build(); app.UseWebSockets(); app.MapServerLifecycle();
+        var app = builder.Build(); app.UseWebSockets(); app.MapServerLifecycle(); app.MapDeployment();
         app.MapGet("/health", () => Results.Json(new { status = "ok", version = BuildInfo.Version }, Protocol.Json));
         app.MapGet("/info", (GameService g) => Results.Json(g.Info(), Protocol.Json));
         app.MapGet("/rooms", (GameService g) => Results.Json(g.ListRooms(), Protocol.Json));
@@ -105,6 +105,8 @@ internal static class RollingUpdateTests
         string? oldOutbox = Environment.GetEnvironmentVariable("ARCANA_REWARD_OUTBOX");
         string? oldService = Environment.GetEnvironmentVariable("ARCANA_ACCOUNT_SERVICE_URL");
         string? oldKey = Environment.GetEnvironmentVariable("ARCANA_ACCOUNT_SERVICE_KEY");
+        string? oldDeploymentKey = Environment.GetEnvironmentVariable("ARCANA_DEPLOYMENT_KEY");
+        Environment.SetEnvironmentVariable("ARCANA_DEPLOYMENT_KEY", new string('b', 64));
         Environment.SetEnvironmentVariable("ARCANA_ACCOUNT_SERVICE_URL", null); Environment.SetEnvironmentVariable("ARCANA_ACCOUNT_SERVICE_KEY", null);
         Environment.SetEnvironmentVariable("ARCANA_REWARD_OUTBOX", Path.Combine(root, "rewards"));
         try
@@ -115,6 +117,13 @@ internal static class RollingUpdateTests
             while (secondPort == publicPort || secondPort == firstPort) secondPort = Port();
             await using var first = await Server(firstPort, publicPort, Guid.NewGuid().ToString("N"));
             await using var second = await Server(secondPort, publicPort, Guid.NewGuid().ToString("N"));
+            using (var legacy = new HttpClient())
+            {
+                legacy.DefaultRequestHeaders.Add("X-Arcana-Deployment-Key", new string('b', 64));
+                var legacyState = await legacy.GetFromJsonAsync<DeploymentState>($"http://127.0.0.1:{firstPort}/internal/lifecycle", Protocol.Json);
+                Check(legacyState?.Version == BuildInfo.Version && !legacyState.Draining,
+                    "El actualizador anterior no puede consultar el estado con ambos controles registrados.");
+            }
             second.Game.SetAdmission(new(second.Settings.InstanceId, false));
             string state = Path.Combine(root, "routes.json"); Routes(state, "ready", first, first, second);
             await using var gateway = RollingGateway.Build(state, publicPort, discovery: false, bind: "127.0.0.1");
@@ -189,6 +198,7 @@ internal static class RollingUpdateTests
         finally
         {
             Environment.SetEnvironmentVariable("ARCANA_REWARD_OUTBOX", oldOutbox);
+            Environment.SetEnvironmentVariable("ARCANA_DEPLOYMENT_KEY", oldDeploymentKey);
             Environment.SetEnvironmentVariable("ARCANA_ACCOUNT_SERVICE_URL", oldService); Environment.SetEnvironmentVariable("ARCANA_ACCOUNT_SERVICE_KEY", oldKey);
             Directory.Delete(root, true);
         }

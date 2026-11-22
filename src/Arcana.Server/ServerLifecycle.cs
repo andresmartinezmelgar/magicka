@@ -33,7 +33,11 @@ internal static class ServerLifecycleEndpoints
             return CryptographicOperations.FixedTimeEquals(supplied, expected);
         }
         app.MapGet("/internal/lifecycle", (HttpContext context, ServerSettings settings, GameService game) =>
-            Authorized(context, settings) ? (IResult)Results.Json(game.Lifecycle(), Protocol.Json) : Results.NotFound());
+        {
+            if (Authorized(context, settings)) return (IResult)Results.Json(game.Lifecycle(), Protocol.Json);
+            return DeploymentEndpoints.Authorized(context)
+                ? Results.Json(game.DeploymentState(), Protocol.Json) : Results.NotFound();
+        });
         app.MapPost("/internal/admission", (ServerAdmission request, HttpContext context, ServerSettings settings, GameService game) =>
         {
             if (!Authorized(context, settings)) return (IResult)Results.NotFound();

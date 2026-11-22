@@ -2,7 +2,7 @@ name: Publicacion estable 0.29.71 solicitada
 
 # Petición expresa: publicar la versión estable de main y entregar la APK firmada.
 # Solo este mensaje exacto y esta versión activan la publicación solicitada.
-# Publica después de las pruebas y verifica la firma y los paquetes finales.
+# Publica tras verificar también la convivencia de ambos controles de actualización.
 on:
   push:
     branches: [main]
