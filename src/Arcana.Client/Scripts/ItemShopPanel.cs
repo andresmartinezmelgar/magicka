@@ -148,9 +148,16 @@ public partial class ItemShopPanel : Control
             Wrapped(itemName, EquipmentCatalogue.TierName(offer.Item.Tier).ToUpperInvariant(), 14, EquipmentPanel.TierColor(offer.Item.Tier));
             Wrapped(itemName, EquipmentCatalogue.SlotName(offer.Item.Slot), 21, Ui.Text);
             Wrapped(itemName, EquipmentCatalogue.FamilyName(offer.Item.Family), 15, EquipmentIcons.FamilyColor(offer.Item.Family));
-            var stats = Ui.Table(2, "ShopStats_" + offer.Item.Id); box.AddChild(stats);
+            // Los atributos largos se desplazan sin alargar la ficha ni sus botones.
+            var detailsScroll = new ContentScrollContainer { Name = "ShopDetailsScroll_" + offer.Item.Id,
+                CustomMinimumSize = new(0, Ui.IsMobile ? 120 : 168),
+                SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.Fill };
+            box.AddChild(detailsScroll); Ui.VisibleVerticalScroll(detailsScroll);
+            var details = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            details.AddThemeConstantOverride("separation", 7); detailsScroll.AddChild(details);
+            var stats = Ui.Table(2, "ShopStats_" + offer.Item.Id); details.AddChild(stats);
             EquipmentPanel.RenderItemStats(stats, offer.Item);
-            EquipmentPanel.AddItemEffects(box, EquipmentPanel.ItemEffects(offer.Item, offer.Item.UpgradeLevel,
+            EquipmentPanel.AddItemEffects(details, EquipmentPanel.ItemEffects(offer.Item, offer.Item.UpgradeLevel,
                 EquipmentQuery.Preview(result.Profile, offer.Item).After.Modifiers));
             var purchaseRow = new HBoxContainer(); purchaseRow.AddThemeConstantOverride("separation", 6); box.AddChild(purchaseRow);
             var compare = Ui.Button("Comparar", () =>
