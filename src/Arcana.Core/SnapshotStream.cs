@@ -3,6 +3,19 @@ using System.Text.Json.Nodes;
 
 namespace Arcana.Core;
 
+/// <summary>Prepara una vista una vez; el llamante mantiene el snapshot inmutable durante su difusión.</summary>
+public sealed class PreparedSnapshotFrame
+{
+    internal ServerMessage Message { get; }
+    internal JsonNode Json { get; }
+
+    public PreparedSnapshotFrame(ServerMessage message)
+    {
+        Message = SnapshotSender.Snapshot(message);
+        Json = SnapshotDelta.Node(SnapshotSender.Snapshot(Message, true));
+    }
+}
+
 /// <summary>Bases confirmadas y deltas independientes: descartar una trama nunca invalida la siguiente.</summary>
 public sealed class SnapshotSender
 {
@@ -27,17 +40,20 @@ public sealed class SnapshotSender
             { _baseline = Snapshot(_pending); _baselineJson = SnapshotDelta.Node(Snapshot(_baseline, true)); _minions = new(_baseline.Snapshot!.Defense?.Minions ?? []); _id = id; _pending = null; _frames = 0; }
     }
 
-    public byte[] Encode(ServerMessage current, out byte[]? keyframe)
+    public byte[] Encode(ServerMessage current, out byte[]? keyframe) => EncodePrepared(new(current), out keyframe);
+
+    public byte[] EncodePrepared(PreparedSnapshotFrame prepared, out byte[]? keyframe)
     {
         lock (_gate)
         {
+            var current = prepared.Message;
             _frames++;
             if (_pending == null && _frames >= 40)
                 _pending = new ServerMessage { Type = "keyframe", BaselineId = _id + 1, Snapshot = current.Snapshot,
                     PreparingPlayers = current.PreparingPlayers, ReadyPlayerIds = current.ReadyPlayerIds };
             // Si el keyframe se descarta o se pierde su confirmación, volver a enviarlo.
             keyframe = _pending != null && (_frames - 40) % 20 == 0 ? Protocol.SerializeSnapshot(_pending) : null;
-            return Protocol.CompressSnapshotPayload(SnapshotDelta.Encode(Snapshot(current, true), _baselineJson, _baseline.Snapshot!.Tick, _id,
+            return Protocol.CompressSnapshotPayload(SnapshotDelta.Encode(prepared.Json, _baselineJson, _baseline.Snapshot!.Tick, _id,
                 current.Snapshot?.Defense is { } defense ? _minions.Encode(defense.Minions) : null));
         }
     }
@@ -45,9 +61,25 @@ public sealed class SnapshotSender
 
 public sealed class SnapshotReceiver
 {
-    private readonly Dictionary<long, ServerMessage> _baselines = [];
+    private sealed class Baseline(ServerMessage message)
+    {
+        private JsonNode? _fullJson, _withoutMinionsJson;
+        private MinionDeltaCodec? _minions;
+
+        internal ServerMessage Decode(JsonObject packet)
+        {
+            bool hasMinions = packet["minions"] != null;
+            var json = hasMinions
+                ? (_withoutMinionsJson ??= SnapshotDelta.Node(SnapshotSender.Snapshot(message, true)))
+                : (_fullJson ??= SnapshotDelta.Node(message));
+            if (hasMinions) _minions ??= new(message.Snapshot?.Defense?.Minions ?? []);
+            return SnapshotDelta.Decode(packet, message, json, _minions);
+        }
+    }
+
+    private readonly Dictionary<long, Baseline> _baselines = [];
     private long _latestId = 1;
-    public SnapshotReceiver(ServerMessage welcome) => _baselines[1] = SnapshotSender.Snapshot(welcome);
+    public SnapshotReceiver(ServerMessage welcome) => _baselines[1] = new(SnapshotSender.Snapshot(welcome));
 
     /// <summary>Lee el discriminante sin construir un ServerMessage ni un árbol del contenido.</summary>
     public static string? ReadMessageType(ReadOnlySpan<byte> raw)
@@ -85,13 +117,14 @@ public sealed class SnapshotReceiver
             throw new InvalidDataException("Base de red inválida.");
         if (keyframe.BaselineId < _latestId) return;
         _latestId = keyframe.BaselineId;
-        _baselines[_latestId] = SnapshotSender.Snapshot(keyframe);
-        foreach (long id in _baselines.Keys.Where(id => id < _latestId - 1).ToArray()) _baselines.Remove(id);
+        _baselines[_latestId] = new(SnapshotSender.Snapshot(keyframe));
+        // Las bases solo avanzan de una en una. Basta retirar la anterior a las dos conservadas.
+        _baselines.Remove(_latestId - 2);
     }
     public ServerMessage? Decode(ReadOnlySpan<byte> raw)
     {
         var node = JsonNode.Parse(raw) as JsonObject ?? throw new InvalidDataException("Delta inválido.");
         long id = node["baseId"]?.GetValue<long>() ?? 1;
-        return _baselines.TryGetValue(id, out var baseline) ? SnapshotDelta.Decode(node, baseline) : null;
+        return _baselines.TryGetValue(id, out var baseline) ? baseline.Decode(node) : null;
     }
 }

@@ -36,6 +36,7 @@ public partial class ArenaRenderer
     private readonly Dictionary<(DefenseDropKind, BuffKind, EquipmentSlot?, ItemTier?), Stack<DefenseLootVisual>> _freeLoot = [];
     private readonly Dictionary<int, (DefenseDropKind, BuffKind, EquipmentSlot?, ItemTier?)> _lootKeys = [];
     private readonly HashSet<int> _visibleLootIds = [];
+    private readonly List<int> _missingLootIds = [];
     private int _freeLootCount;
     internal int DefenseLootBuilds { get; private set; }
     private static readonly float[] MinionCooldowns = [0, 0, 0, 0];
@@ -53,6 +54,8 @@ public partial class ArenaRenderer
         _defenseLootVisuals.Remove(id); _lootKeys.Remove(id);
     }
     private readonly Dictionary<(int Player, int Aura), MeshInstance3D> _defenseAuraVisuals = [];
+    private readonly HashSet<int> _auraDefenderIds = [];
+    private readonly List<(int Player, int Aura)> _missingAuraKeys = [];
     internal IReadOnlyDictionary<(int Player, int Aura), MeshInstance3D> DefenseAuraVisuals => _defenseAuraVisuals;
     internal int DefenseMinionVisualCount => _minionVisuals.Count;
     internal IReadOnlyDictionary<int, DefenseLootVisual> DefenseLootVisuals => _defenseLootVisuals;
@@ -61,7 +64,9 @@ public partial class ArenaRenderer
     {
         foreach (var v in _minionVisuals.Values) ReturnMinionVisual(v); _minionVisuals.Clear();
         foreach (var pool in _freeMinions) foreach (var v in pool) v.Root.Visible = false;
-        foreach (int id in _defenseLootVisuals.Keys.ToArray()) ReturnLoot(id);
+        _missingLootIds.Clear(); _missingLootIds.AddRange(_defenseLootVisuals.Keys);
+        foreach (int id in _missingLootIds) ReturnLoot(id);
+        _missingLootIds.Clear(); _missingAuraKeys.Clear(); _auraDefenderIds.Clear();
         foreach (var v in _defenseAuraVisuals.Values) v.QueueFree(); _defenseAuraVisuals.Clear();
     }
 
@@ -80,8 +85,9 @@ public partial class ArenaRenderer
         foreach (int id in _minionVisuals.Keys) if (!_visibleMinionIds.Contains(id)) _missingMinionIds.Add(id);
         foreach (int id in _missingMinionIds) { ReturnMinionVisual(_minionVisuals[id]); _minionVisuals.Remove(id); }
         var vitalsBasis = Camera.GlobalBasis;
-        foreach (var m in defense.Minions.Where(m => NearSurvival(m.Position)))
+        foreach (var m in defense.Minions)
         {
+            if (!_visibleMinionIds.Contains(m.Id)) continue;
             if (!_minionVisuals.TryGetValue(m.Id, out var v))
             {
                 var pool = _freeMinions[(int)m.Kind];
@@ -181,9 +187,14 @@ public partial class ArenaRenderer
             }
             visual.Update(_time);
         }
-        foreach (int id in _defenseLootVisuals.Keys.Where(id => !_visibleLootIds.Contains(id)).ToArray()) ReturnLoot(id);
+        _missingLootIds.Clear();
+        foreach (int id in _defenseLootVisuals.Keys)
+            if (!_visibleLootIds.Contains(id)) _missingLootIds.Add(id);
+        foreach (int id in _missingLootIds) ReturnLoot(id);
+        _auraDefenderIds.Clear();
         foreach (var defender in defense.Defenders)
         {
+            _auraDefenderIds.Add(defender.PlayerId);
             var player = snapshot.Players.FirstOrDefault(p => p.Id == defender.PlayerId);
             if (player == null) continue;
             for (int i = 0; i <= DefenseRules.AuraCount; i++)
@@ -204,7 +215,10 @@ public partial class ArenaRenderer
                 }
             }
         }
-        foreach (var key in _defenseAuraVisuals.Keys.Where(k => !defense.Defenders.Any(d => d.PlayerId == k.Player)).ToArray())
+        _missingAuraKeys.Clear();
+        foreach (var key in _defenseAuraVisuals.Keys)
+            if (!_auraDefenderIds.Contains(key.Player)) _missingAuraKeys.Add(key);
+        foreach (var key in _missingAuraKeys)
         { _defenseAuraVisuals[key].QueueFree(); _defenseAuraVisuals.Remove(key); }
     }
 

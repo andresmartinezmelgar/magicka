@@ -295,21 +295,58 @@ public partial class ArenaRenderer : Node3D
 
     private WorldSnapshot? _visibleSource, _visibleState;
     private (V2 Center, float HalfX, float HalfY) _visibleBounds;
+    private Predicate<WizardSnapshot>? _visiblePlayerFilter;
+    private Predicate<ProjectileSnapshot>? _visibleProjectileFilter;
+    private Predicate<WallSnapshot>? _visibleWallFilter;
+    private Predicate<FieldSnapshot>? _visibleFieldFilter;
+    private Predicate<BeamSnapshot>? _visibleBeamFilter;
     private WorldSnapshot VisibleState(WorldSnapshot snapshot)
     {
         if (snapshot.Defense == null) return snapshot;
         var bounds = (_survivalCenter, _survivalHalfX, _survivalHalfY);
-        if (ReferenceEquals(snapshot, _visibleSource) && bounds == _visibleBounds && _visibleState != null) return _visibleState;
+        bool sameSource = ReferenceEquals(snapshot, _visibleSource);
+        if (sameSource && bounds == _visibleBounds && _visibleState != null) return _visibleState;
+        var players = VisibleItems(snapshot.Players, _visibleState?.Players,
+            _visiblePlayerFilter ??= p => NearSurvival(p.Position));
+        var projectiles = VisibleItems(snapshot.Projectiles, _visibleState?.Projectiles,
+            _visibleProjectileFilter ??= p => NearSurvival(p.Position));
+        var walls = VisibleItems(snapshot.Walls, _visibleState?.Walls,
+            _visibleWallFilter ??= p => NearSurvivalSegment(p.A, p.B));
+        var fields = VisibleItems(snapshot.Fields, _visibleState?.Fields,
+            _visibleFieldFilter ??= p => NearSurvival(p.Position, p.Radius + 4));
+        var beams = VisibleItems(snapshot.Beams, _visibleState?.Beams,
+            _visibleBeamFilter ??= p => NearSurvivalSegment(p.From, p.To));
         _visibleSource = snapshot; _visibleBounds = bounds;
+        if (sameSource && _visibleState != null && ReferenceEquals(players, _visibleState.Players) &&
+            ReferenceEquals(projectiles, _visibleState.Projectiles) && ReferenceEquals(walls, _visibleState.Walls) &&
+            ReferenceEquals(fields, _visibleState.Fields) && ReferenceEquals(beams, _visibleState.Beams)) return _visibleState;
+        if (ReferenceEquals(players, snapshot.Players) && ReferenceEquals(projectiles, snapshot.Projectiles) &&
+            ReferenceEquals(walls, snapshot.Walls) && ReferenceEquals(fields, snapshot.Fields) && ReferenceEquals(beams, snapshot.Beams))
+            return _visibleState = snapshot;
         _visibleState = snapshot with
         {
-            Players = snapshot.Players.Where(p => NearSurvival(p.Position)).ToArray(),
-            Projectiles = snapshot.Projectiles.Where(p => NearSurvival(p.Position)).ToArray(),
-            Walls = snapshot.Walls.Where(p => NearSurvivalSegment(p.A, p.B)).ToArray(),
-            Fields = snapshot.Fields.Where(p => NearSurvival(p.Position, p.Radius + 4)).ToArray(),
-            Beams = snapshot.Beams.Where(p => NearSurvivalSegment(p.From, p.To)).ToArray()
+            Players = players, Projectiles = projectiles, Walls = walls, Fields = fields, Beams = beams
         };
         return _visibleState;
+    }
+
+    private static T[] VisibleItems<T>(T[] source, T[]? previous, Predicate<T> visible) where T : class
+    {
+        int count = 0;
+        bool unchanged = previous != null;
+        foreach (var item in source)
+        {
+            if (!visible(item)) continue;
+            if (unchanged && (count >= previous!.Length || !ReferenceEquals(previous[count], item))) unchanged = false;
+            count++;
+        }
+        // Solo se comparten arrays de snapshots inmutables; nunca un buffer que se sobrescriba después.
+        if (count == source.Length) return source;
+        if (unchanged && count == previous!.Length) return previous!;
+        if (count == 0) return [];
+        var result = new T[count]; int index = 0;
+        foreach (var item in source) if (visible(item)) result[index++] = item;
+        return result;
     }
 
     private void RemoveMissing<T, TState>(Dictionary<int, T> nodes, TState[] present, Func<TState, int> id) where T : Node

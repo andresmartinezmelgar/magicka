@@ -9,6 +9,90 @@ internal static class PerformanceRegressionTests
     private static void Check(bool valid, string reason) { if (!valid) throw new Exception(reason); }
     internal static void Run(Action<string, Action> test)
     {
+        test("Una preparación PvP compartida conserva bytes y bases independientes por destinatario", () =>
+        {
+            var world = new GameWorld(new() { MaxPlayers = 8, SpawnSeed = 731, PickupSeed = 731, EnvironmentSeed = 731 });
+            var player = world.AddPlayer("Red ñ")!;
+            var welcome = new ServerMessage { Type = "welcome", Snapshot = world.Snapshot(), ReadyPlayerIds = [player.Id], ResumeToken = "secreto" };
+            var sharedSenders = Enumerable.Range(0, 3).Select(_ => new SnapshotSender(welcome)).ToArray();
+            var separateSenders = Enumerable.Range(0, 3).Select(_ => new SnapshotSender(welcome)).ToArray();
+            var receivers = Enumerable.Range(0, 3).Select(_ => new SnapshotReceiver(welcome)).ToArray();
+            var bases = new HashSet<long>();
+            for (int frame = 1; frame <= 100; frame++)
+            {
+                player.Position = new(frame * .01f, -frame * .02f); world.Step();
+                var current = new ServerMessage { Type = "snapshot", Snapshot = world.Snapshot(), ReadyPlayerIds = [player.Id] };
+                var prepared = new PreparedSnapshotFrame(current);
+                for (int recipient = 0; recipient < sharedSenders.Length; recipient++)
+                {
+                    var bytes = sharedSenders[recipient].EncodePrepared(prepared, out var keyframe);
+                    var separate = separateSenders[recipient].Encode(current, out var separateKeyframe);
+                    Check(bytes.AsSpan().SequenceEqual(separate) &&
+                        (keyframe == null && separateKeyframe == null || keyframe != null && separateKeyframe != null && keyframe.AsSpan().SequenceEqual(separateKeyframe)),
+                        "Una preparación reutilizada modifica el contenido de otro destinatario.");
+                    if (keyframe != null && (recipient != 2 || frame >= 60))
+                    {
+                        var key = Protocol.DeserializeFrame(keyframe, keyframe[0] == 0xA1)!;
+                        receivers[recipient].Accept(key);
+                        if (recipient != 1 || frame >= 60)
+                        {
+                            sharedSenders[recipient].Acknowledge(key.BaselineId);
+                            separateSenders[recipient].Acknowledge(key.BaselineId);
+                        }
+                        bases.Add(key.BaselineId);
+                    }
+                    if (frame % 7 == recipient) continue;
+                    var raw = bytes[0] == 0xA1 ? Protocol.DecompressSnapshotPayload(bytes) : bytes;
+                    var decoded = receivers[recipient].Decode(raw)!;
+                    Check(Protocol.Serialize(decoded.Snapshot) == Protocol.Serialize(current.Snapshot) &&
+                        decoded.ReadyPlayerIds!.SequenceEqual(current.ReadyPlayerIds!), "ACK o tramas perdidos corrompen una base compartida.");
+                    Check(!Encoding.UTF8.GetString(raw).Contains("secreto"), "La preparación comparte credenciales privadas.");
+                }
+            }
+            Check(bases.Contains(3), "No se ejercitaron dos renovaciones de base independientes.");
+        });
+        test("Las bases de recepción preparadas aíslan resultados y admiten deltas con y sin códec de horda", () =>
+        {
+            var world = new GameWorld(new() { Mode = GameMode.Defense, Map = ArenaMapId.Bastion,
+                SurvivalMap = SurvivalMapSpec.Legacy, MaxPlayers = 1, SpawnSeed = 317 });
+            world.AddPlayer("Caché");
+            var seed = world.Snapshot();
+            var enemy = new MinionSnapshot(1000, MinionKind.Mage, new(5, 5), new(1, 0), 100, 100,
+                0, 0, 0, 0, false, [Element.Fire, Element.Arcane], false);
+            var initialState = seed with { Defense = seed.Defense! with { Minions = [enemy] } };
+            var baseline = new ServerMessage { Type = "snapshot", Snapshot = initialState };
+            string untouched = Protocol.Serialize(baseline);
+            var sender = new SnapshotSender(baseline); var receiver = new SnapshotReceiver(baseline);
+            for (int frame = 1; frame <= 4; frame++)
+            {
+                var expected = initialState with { Tick = frame, Time = frame / 20.0,
+                    Defense = initialState.Defense! with { Minions = [enemy with { Health = 100 - frame }] } };
+                var current = new ServerMessage { Type = "snapshot", Snapshot = expected };
+                var bytes = frame == 3 ? SnapshotDelta.Encode(current, baseline) : sender.Encode(current, out _);
+                var decoded = receiver.Decode(bytes[0] == 0xA1 ? Protocol.DecompressSnapshotPayload(bytes) : bytes)!;
+                Check(Protocol.Serialize(decoded.Snapshot) == Protocol.Serialize(expected), "Se reutilizó un resultado antiguo o una base de otro formato.");
+                var owned = decoded.Snapshot!;
+                Array.Fill(owned.Players[0].Cooldowns, 999);
+                Array.Fill(owned.Defense!.Minions[0].Elements, Element.Water);
+                Array.Fill(owned.Scores, 999);
+                Check(Protocol.Serialize(baseline) == untouched, "El resultado de recepción modifica la base original.");
+            }
+            bool rejected = false;
+            try { receiver.Decode(Encoding.UTF8.GetBytes("{\"type\":\"delta\",\"baseId\":1,\"baseTick\":999,\"changes\":{}}")); }
+            catch (InvalidDataException) { rejected = true; }
+            Check(rejected, "La caché admite un delta de otro tick de base.");
+        });
+        test("El códec de enemigos conserva sus elementos aunque se modifique la entrada o un resultado", () =>
+        {
+            var enemy = new MinionSnapshot(1000, MinionKind.Mage, new(5, 5), new(1, 0), 100, 100,
+                0, 0, 0, 0, false, [Element.Fire, Element.Arcane], false);
+            var codec = new MinionDeltaCodec([enemy]); var bytes = codec.Encode([enemy]);
+            Array.Fill(enemy.Elements, Element.Life);
+            var first = codec.Decode(bytes)[0];
+            Check(first.Elements.SequenceEqual(new[] { Element.Fire, Element.Arcane }), "El llamante modifica la base del códec.");
+            Array.Fill(first.Elements, Element.Water);
+            Check(codec.Decode(bytes)[0].Elements.SequenceEqual(new[] { Element.Fire, Element.Arcane }), "Un delta modifica el siguiente resultado.");
+        });
         test("JSON UTF-8 conserva exactamente el protocolo de todos los mapas", () =>
         {
             foreach (var id in Enum.GetValues<ArenaMapId>())

@@ -16,9 +16,12 @@ public static class SnapshotDelta
     }
 
     internal static byte[] Encode(ServerMessage current, JsonNode old, long tick, long baseId, byte[]? minions = null)
+        => Encode(Node(current), old, tick, baseId, minions);
+
+    internal static byte[] Encode(JsonNode current, JsonNode old, long tick, long baseId, byte[]? minions = null)
     {
         var envelope = new JsonObject { ["type"] = "delta", ["baseTick"] = tick, ["baseId"] = baseId,
-            ["changes"] = Diff(old, Node(current)) ?? new JsonObject() };
+            ["changes"] = Diff(old, current) ?? new JsonObject() };
         if (minions != null) envelope["minions"] = Convert.ToBase64String(minions);
         return Protocol.SerializeUtf8(envelope);
     }
@@ -29,14 +32,16 @@ public static class SnapshotDelta
         return Decode(packet, baseline);
     }
 
-    internal static ServerMessage Decode(JsonObject packet, ServerMessage baseline)
+    internal static ServerMessage Decode(JsonObject packet, ServerMessage baseline, JsonNode? preparedJson = null,
+        MinionDeltaCodec? minionCodec = null)
     {
         if (baseline.Snapshot == null) throw new InvalidDataException("Falta el keyframe.");
         if (packet["type"]?.GetValue<string>() != "delta" ||
             packet["baseTick"]?.GetValue<long>() != baseline.Snapshot.Tick)
             throw new InvalidDataException("Keyframe incompatible.");
         string? minionData = packet["minions"]?.GetValue<string>();
-        var root = Node(minionData == null ? baseline : SnapshotSender.Snapshot(baseline, true));
+        // Merge modifica su entrada: la base preparada nunca se presta al resultado.
+        var root = preparedJson?.DeepClone() ?? Node(minionData == null ? baseline : SnapshotSender.Snapshot(baseline, true));
         var patched = Merge(root, packet["changes"]) ?? throw new InvalidDataException("Delta vacío.");
         if (patched is JsonObject result) result["type"] = "snapshot";
         var message = Protocol.Deserialize<ServerMessage>(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(patched, Protocol.Json))
@@ -47,7 +52,7 @@ public static class SnapshotDelta
             byte[] bytes;
             try { bytes = Convert.FromBase64String(minionData); }
             catch (FormatException error) { throw new InvalidDataException("Estado de enemigos inválido.", error); }
-            var minions = new MinionDeltaCodec(baseline.Snapshot.Defense?.Minions ?? []).Decode(bytes);
+            var minions = (minionCodec ?? new MinionDeltaCodec(baseline.Snapshot.Defense?.Minions ?? [])).Decode(bytes);
             message.Snapshot = message.Snapshot with { Defense = message.Snapshot.Defense with { Minions = minions } };
         }
         return message;

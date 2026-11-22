@@ -157,7 +157,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
         var clock = Stopwatch.StartNew();
         double previous = clock.Elapsed.TotalSeconds, accumulator = 0;
         long cleanupAt = Environment.TickCount64, metricsAt = cleanupAt, lagAt = 0;
-        var snapshots = new List<(ServerMessage Message, PlayerSession[] Recipients, GameRoom Room)>(MaxRooms);
+        var snapshots = new List<(ServerMessage Message, PlayerSession[] Recipients)>(MaxRooms);
         var dirty = new HashSet<GameRoom>();
         double maxStepMs = 0;
         long snapshotBytes = 0, snapshotFrames = 0, compressedFrames = 0;
@@ -275,7 +275,7 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                         accumulator -= GameWorld.StepSeconds;
                     }
                     // Si hubo varios pasos atrasados, envía únicamente el estado más reciente.
-                    foreach (var room in dirty) snapshots.Add((RoomSnapshot(room), room.Sessions.Values.ToArray(), room));
+                    foreach (var room in dirty) snapshots.Add((RoomSnapshot(room), room.Sessions.Values.ToArray()));
                     if (Environment.TickCount64 - cleanupAt > 60000) { RemoveIdleRooms(); cleanupAt = Environment.TickCount64; }
                     maxStepMs = Math.Max(maxStepMs, Stopwatch.GetElapsedTime(stepStarted).TotalMilliseconds);
                     if (Environment.TickCount64 - metricsAt >= 30000)
@@ -294,12 +294,14 @@ public sealed partial class GameService(ServerSettings settings, ILogger<GameSer
                 }
                 foreach (var snapshot in snapshots)
                 {
+                    // PvP comparte la preparación JSON. Supervivencia se filtra antes para cada jugador.
+                    var shared = snapshot.Message.Snapshot?.Defense == null ? new PreparedSnapshotFrame(snapshot.Message) : null;
                     // Cada destinatario conserva su propia base confirmada y sus datos privados.
                     // Keyframes y deltas se pueden descartar sin crear dependencias entre fotogramas.
                     foreach (var session in snapshot.Recipients)
                     {
-                        var frame = DefenseFrame(snapshot.Message, session.Id);
-                        byte[] bytes = session.Network.Encode(frame, out var keyframe);
+                        var frame = shared ?? new PreparedSnapshotFrame(DefenseFrame(snapshot.Message, session.Id));
+                        byte[] bytes = session.Network.EncodePrepared(frame, out var keyframe);
                         if (keyframe != null && session.Outbox.Writer.TryWrite(keyframe)) Interlocked.Add(ref snapshotBytes, keyframe.Length);
                         if (session.Outbox.Writer.TryWrite(bytes))
                         {

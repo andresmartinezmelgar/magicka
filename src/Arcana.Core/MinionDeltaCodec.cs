@@ -1,10 +1,18 @@
 namespace Arcana.Core;
 
 /// <summary>Campos exactos de cada enemigo respecto a una base inmutable. No cuantiza el combate.</summary>
-public sealed class MinionDeltaCodec(MinionSnapshot[] baseline)
+public sealed class MinionDeltaCodec
 {
     private const ushort All = ushort.MaxValue;
-    private readonly Dictionary<int, MinionSnapshot> _baseline = baseline.ToDictionary(m => m.Id);
+    private readonly Dictionary<int, MinionSnapshot> _baseline;
+
+    public MinionDeltaCodec(MinionSnapshot[] baseline)
+    {
+        _baseline = new(baseline.Length);
+        foreach (var minion in baseline)
+            _baseline.Add(minion.Id, minion.Elements.Length == 0 ? minion
+                : minion with { Elements = (Element[])minion.Elements.Clone() });
+    }
     public byte[] Encode(MinionSnapshot[] current)
     {
         using var stream = new MemoryStream(current.Length * 24 + 2);
@@ -89,6 +97,7 @@ public sealed class MinionDeltaCodec(MinionSnapshot[] baseline)
                     int length = reader.ReadByte(); if (length > 3) throw new InvalidDataException("Demasiados elementos.");
                     elements = new Element[length]; for (int e = 0; e < length; e++) elements[e] = (Element)reader.ReadByte();
                 }
+                else if (elements.Length > 0) elements = (Element[])elements.Clone();
                 bool empowered = (mask & 1024) != 0 ? reader.ReadBoolean() : old.Empowered;
                 float speed = (mask & 2048) != 0 ? reader.ReadSingle() : old.SpeedBoostSeconds;
                 float warning = (mask & 4096) != 0 ? reader.ReadSingle() : old.AttackWarningSeconds;

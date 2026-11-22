@@ -8,14 +8,28 @@ public sealed partial class GameWorld
     private readonly Dictionary<int, DefenseProgress> _defenders = [];
     private readonly Dictionary<string, DefenseProgress> _defenseAccounts = new(StringComparer.Ordinal);
     private readonly List<DefenseDrop> _defenseDrops = [];
+    private readonly List<int> _deadMinionIds = [];
     private int _nextMinion = 1000, _defenseKills, _bossesKilled, _defenseDifficulty = 1;
     private double _defenseElapsed;
     private float _spawnClock, _auraClock, _bossClock, _oracleSpawnCooldown;
     private float _prismSpawnCooldown = DefenseRules.PrismMinimumSpawnGap;
     private int _defensePartySize = 1;
 
-    public bool DefensePaused => IsDefense && !MatchEnded && _players.Values.Count(p => !p.Bot) == 1 &&
-        _players.Values.Any(p => !p.Bot && _defenders[p.Id].ShopOpen);
+    public bool DefensePaused
+    {
+        get
+        {
+            if (!IsDefense || MatchEnded) return false;
+            Wizard? human = null;
+            foreach (var player in _players.Values)
+            {
+                if (player.Bot) continue;
+                if (human != null) return false;
+                human = player;
+            }
+            return human != null && _defenders[human.Id].ShopOpen;
+        }
+    }
     private float DefenseDamagePower(int id)
     {
         if (!IsDefense || !_defenders.TryGetValue(id, out var progress)) return 1;
@@ -488,25 +502,37 @@ public sealed partial class GameWorld
     private void CleanupDefense()
     {
         if (!IsDefense) return;
-        foreach (int id in _minions.Where(m => !m.Value.Body.Alive).Select(m => m.Key).ToArray())
+        _deadMinionIds.Clear();
+        foreach (var entry in _minions)
+            if (!entry.Value.Body.Alive) _deadMinionIds.Add(entry.Key);
+        foreach (int id in _deadMinionIds)
         {
-            if (_minions[id].Kind == MinionKind.Prism)
+            var minion = _minions[id];
+            if (minion.Kind == MinionKind.Prism)
                 _prismSpawnCooldown = Math.Max(_prismSpawnCooldown, DefenseRules.PrismRespawnDelay);
-            var body = _minions[id].Body;
-            RememberEffectSource(id, _minions[id].Kind, body.Equipment.Power);
+            var body = minion.Body;
+            RememberEffectSource(id, minion.Kind, body.Equipment.Power);
             _statistics.Retire(id);
             _minions.Remove(id); _combatants.Remove(id); _orderedPlayers.Remove(body); _routes.Remove(id);
         }
+        _deadMinionIds.Clear();
         CleanupEffectSources();
     }
 
     private void CheckSurvivalEnd()
     {
-        var humans = _players.Values.Where(p => !p.Bot).ToArray();
-        if (MatchEnded || humans.Length == 0 || humans.Any(p => p.Deaths < DefenseRules.PlayerLives)) return;
+        if (MatchEnded) return;
+        Wizard? firstHuman = null;
+        foreach (var player in _players.Values)
+        {
+            if (player.Bot) continue;
+            firstHuman ??= player;
+            if (player.Deaths < DefenseRules.PlayerLives) return;
+        }
+        if (firstHuman == null) return;
         MatchEnded = true; Winner = 1; RestartIn = 0;
         foreach (var body in _combatants.Values) CancelCast(body);
-        Emit("defense_end", humans[0].Position, [], "No quedan vidas");
+        Emit("defense_end", firstHuman.Position, [], "No quedan vidas");
     }
 
     public bool RestartDefense()
@@ -529,6 +555,7 @@ public sealed partial class GameWorld
         _minions.Clear(); _lingeringSources.Clear(); _effectOwners.Clear();
         _defenseDrops.Clear(); _defenseAccounts.Clear(); _defenseBestiary.Clear();
         _defenseBotPlans.Clear(); _defenseBotPlanClock = 0;
+        ClearDefensePlanningScratch(); _deadMinionIds.Clear();
         _defenseKills = _bossesKilled = 0; _defenseDifficulty = _defensePartySize = 1;
         _defenseElapsed = _spawnClock = _auraClock = _oracleSpawnCooldown = 0;
         _colossusMomentumRemaining = 0;

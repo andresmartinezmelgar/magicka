@@ -10,29 +10,50 @@ public sealed partial class GameWorld
         public int SpellTurn;
     }
     private readonly Dictionary<int, DefenseBotPlan> _defenseBotPlans = [];
+    private readonly List<Wizard> _planningBots = [], _planningHumans = [];
+    private readonly List<DefenseMinion> _planningThreats = [];
+    private readonly HashSet<int> _planningAttacks = [], _planningHealers = [];
     private float _defenseBotPlanClock;
+
+    private void ClearDefensePlanningScratch()
+    {
+        _planningBots.Clear(); _planningHumans.Clear(); _planningThreats.Clear();
+        _planningAttacks.Clear(); _planningHealers.Clear();
+    }
 
     private void PlanDefenseBots(float dt)
     {
         _defenseBotPlanClock -= dt;
         if (_defenseBotPlanClock > 0) return;
         _defenseBotPlanClock = 0.45f;
-        var bots = _players.Values.Where(p => p.Bot && p.Alive).OrderBy(p => p.Id).ToArray();
-        var humans = _players.Values.Where(p => !p.Bot && p.Deaths < DefenseRules.PlayerLives).ToArray();
-        if (humans.Length == 0) return;
-        var threats = _minions.Values.Where(m => m.Body.Alive && humans.Any(p => V2.Distance(m.Body.Position, p.Position) < 28)).ToArray();
-        var attacks = new Dictionary<int, int>();
-        var healers = new HashSet<int>(bots.Where(p => p.Health < p.MaxHealth * 0.4f).Select(p => p.Id));
+        ClearDefensePlanningScratch();
+        var bots = _planningBots; var humans = _planningHumans; var threats = _planningThreats;
+        var attacks = _planningAttacks; var healers = _planningHealers;
+        foreach (var player in _players.Values)
+        {
+            if (player.Bot && player.Alive) bots.Add(player);
+            else if (!player.Bot && player.Deaths < DefenseRules.PlayerLives) humans.Add(player);
+        }
+        if (humans.Count == 0 || bots.Count == 0) { ClearDefensePlanningScratch(); return; }
+        bots.Sort(static (a, b) => a.Id.CompareTo(b.Id));
+        foreach (var minion in _minions.Values)
+        {
+            if (!minion.Body.Alive) continue;
+            foreach (var human in humans)
+                if (V2.Distance(minion.Body.Position, human.Position) < 28)
+                { threats.Add(minion); break; }
+        }
+        foreach (var bot in bots) if (bot.Health < bot.MaxHealth * 0.4f) healers.Add(bot.Id);
         int medics = 0;
-        for (int index = 0; index < bots.Length; index++)
+        for (int index = 0; index < bots.Count; index++)
         {
             var bot = bots[index];
             if (!_defenseBotPlans.TryGetValue(bot.Id, out var plan)) _defenseBotPlans[bot.Id] = plan = new();
-            float lane = bots.Length == 1 ? 0 : (index / (float)(bots.Length - 1) * 2 - 1) * 5;
+            float lane = bots.Count == 1 ? 0 : (index / (float)(bots.Count - 1) * 2 - 1) * 5;
             var anchor = humans.MinBy(p => (p.Position - bot.Position).LengthSquared)!.Position;
             var home = SpacedDefenseBotGoal(anchor + new V2(5 + index % 2 * 2, lane), anchor, bot.Id);
             Wizard? healing = bot.Health < bot.MaxHealth * 0.4f ? bot : null;
-            if (healing == null && (threats.Length == 0 || medics < Math.Max(1, bots.Length - 1)))
+            if (healing == null && (threats.Count == 0 || medics < Math.Max(1, bots.Count - 1)))
             {
                 // Un único sanador por aliado. Mantiene la ayuda hasta estabilizarlo, sin cambiar a cada paso.
                 healing = _players.Values.Where(a => a.Alive && a.Id != bot.Id && !healers.Contains(a.Id) &&
@@ -48,19 +69,20 @@ public sealed partial class GameWorld
                 continue;
             }
             plan.HealTargetId = 0;
-            bool uncovered = threats.Any(m => !attacks.ContainsKey(m.Body.Id));
-            var target = threats.Where(m => !uncovered || !attacks.ContainsKey(m.Body.Id))
+            bool uncovered = threats.Any(m => !attacks.Contains(m.Body.Id));
+            var target = threats.Where(m => !uncovered || !attacks.Contains(m.Body.Id))
                 .OrderBy(m => DefenseThreatScore(m, bot, anchor, plan.TargetId)).ThenBy(m => m.Body.Id).FirstOrDefault();
             plan.TargetId = target?.Body.Id ?? 0;
             if (target == null) { plan.Goal = home; continue; }
-            attacks[target.Body.Id] = attacks.GetValueOrDefault(target.Body.Id) + 1;
+            attacks.Add(target.Body.Id);
             var forward = (target.Body.Position - anchor).Normalized;
             var lateral = new V2(-forward.Y, forward.X);
-            float flank = bots.Length == 1 ? 0 : (index - (bots.Length - 1) * 0.5f) * 3;
+            float flank = bots.Count == 1 ? 0 : (index - (bots.Count - 1) * 0.5f) * 3;
             var goal = target.Body.Position - forward * (target.Body.VulnerableElement == Element.Water ? 4.5f : 6) + lateral * flank;
             if (V2.Distance(goal, anchor) > 18) goal = anchor + (goal - anchor).Normalized * 18;
             plan.Goal = SpacedDefenseBotGoal(goal, home, bot.Id);
         }
+        ClearDefensePlanningScratch();
     }
     private float DefenseThreatScore(DefenseMinion minion, Wizard bot, V2 anchor, int previous)
     {
