@@ -2,6 +2,11 @@ namespace Arcana.Core;
 
 public sealed partial class AccountClient
 {
+    public Task<AdvertisingSettings> Advertising(CancellationToken token = default) =>
+        Request<AdvertisingSettings>(HttpMethod.Get, "account/advertising", null, token);
+    public Task<AdvertisingSettings> UpdateAdvertising(AdvertisingUpdate update, CancellationToken token = default) =>
+        Request<AdvertisingSettings>(HttpMethod.Post, "account/advertising", update, token);
+
     public Task<ShopResult> Shop(CancellationToken token = default) => ShopRequest(HttpMethod.Get, "account/shop", null, token);
     public Task<ShopResult> VerifyNoAds(string purchaseToken, CancellationToken token) =>
         ShopRequest(HttpMethod.Post, "account/shop/play/verify", new PlayNoAdsRequest(purchaseToken), token);

@@ -14,6 +14,7 @@ public sealed record VerifiedAdMobReward(string Uid, string TicketId, string Tra
 }
 public sealed record ShopResult(AccountProfile Profile, ItemShop Shop, string Message, DateTimeOffset? ServerTime = null)
 {
+    public bool AdsEnabled { get; init; } = true;
     public string? NoAdsProductId { get; init; }
     public RewardedAdsConfiguration? RewardedAds { get; init; }
 }

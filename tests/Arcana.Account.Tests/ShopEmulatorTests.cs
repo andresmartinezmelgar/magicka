@@ -181,11 +181,10 @@ internal static class ShopEmulatorTests
             var shop = await firstDevice.Shop(uid, "Comprador");
             await Reject<InvalidOperationException>(() => firstDevice.RefreshShopWithoutAd(uid, new(shop.Id)));
             await configuration.SetAsync(new Dictionary<string, object> { ["isAdmin"] = true, ["adsRemoved"] = false });
-            await Reject<InvalidOperationException>(() => firstDevice.RefreshShopWithoutAd(uid, new(shop.Id)));
-            await configuration.UpdateAsync("adsRemoved", true);
+            await Reject<InvalidOperationException>(() => firstDevice.StartVerifiedShopAd(uid, new(shop.Id)));
             await firstDevice.Buy(uid, new(shop.Id, shop.Offers[0].Item.Id));
             var before = await firstDevice.Profile(uid, "Comprador");
-            Check(before.Access is { IsAdmin: true, AdsRemoved: true, MatchStatistics: false }, "El perfil perdió la configuración o abrió estadísticas por ser admin.");
+            Check(before.Access is { IsAdmin: true, AdsRemoved: false, MatchStatistics: false }, "El perfil confundió el rol con una compra o abrió estadísticas por ser admin.");
             var renewed = await Task.WhenAll(firstDevice.RefreshShopWithoutAd(uid, new(shop.Id)),
                 secondDevice.RefreshShopWithoutAd(uid, new(shop.Id)), firstDevice.RefreshShopWithoutAd(uid, new(shop.Id)));
             var current = renewed[0];
@@ -198,7 +197,7 @@ internal static class ShopEmulatorTests
             var after = await firstDevice.Profile(uid, "Comprador");
             Check(before.Gold == after.Gold && before.Items.Select(i => i.Id).SequenceEqual(after.Items.Select(i => i.Id)),
                 "Renovar cobró oro o modificó los objetos comprados.");
-            await configuration.UpdateAsync("adsRemoved", false);
+            await configuration.UpdateAsync("isAdmin", false);
             await Reject<InvalidOperationException>(() => secondDevice.RefreshShopWithoutAd(uid, new(shop.Id)));
             await configuration.UpdateAsync("adsRemoved", true);
             clock.Now = current.RefreshAt!.Value;

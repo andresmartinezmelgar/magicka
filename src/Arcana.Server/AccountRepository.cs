@@ -6,6 +6,9 @@ namespace Arcana.Server;
 
 public interface IAccountRepository
 {
+    Task<AdvertisingSettings> Advertising(CancellationToken token = default) => Task.FromResult(new AdvertisingSettings());
+    Task<AdvertisingSettings> UpdateAdvertising(string uid, AdvertisingUpdate update, CancellationToken token = default) =>
+        Task.FromException<AdvertisingSettings>(new NotSupportedException("El control de anuncios no está disponible."));
     Task<bool> IsDeletionRequested(string uid, CancellationToken token = default) => Task.FromResult(false);
     Task RequestDeletion(string uid, CancellationToken token = default) => Task.FromException(new NotSupportedException("Borrado no disponible."));
     Task SaveMatchStatistics(MatchStatisticsReport report, CancellationToken token = default) =>

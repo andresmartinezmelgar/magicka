@@ -15,6 +15,8 @@ public partial class ItemShopPanel : Control
     private ContentScrollContainer _scroll = null!;
     private readonly Dictionary<string, Button> _buyButtons = new(StringComparer.Ordinal);
     private bool _busy, _connected, _waitingForAutoSales, _adsRemoved;
+    private bool _adsEnabled = true, _checkingAdPolicy;
+    private ulong _adPolicyRetryAt;
     internal void ResumeAfterAutoSales() { if (_waitingForAutoSales && !_lifetime.IsCancellationRequested) _ = Load(); }
     private string? _owner;
     private AccountClient _account = null!;
@@ -29,6 +31,7 @@ public partial class ItemShopPanel : Control
     private AndroidPlayBilling? _billing;
     private string? _product;
     private DateTimeOffset ShopNow => _serverTime.AddMilliseconds(Time.GetTicksMsec() - _receivedAt);
+    private bool WithoutAd => !_adsEnabled || _main.Accounts.SignedIn && _main.Accounts.Profile?.Access.WithoutAds(ShopNow) == true;
     internal ItemShop? Catalogue => _shop;
     internal bool Busy => _busy;
     internal int Columns => _offers.Columns;
@@ -131,7 +134,8 @@ public partial class ItemShopPanel : Control
         result = result with { Profile = _main.Accounts.Profile! };
         ClearOffers();
         _owner = result.Profile.Uid; _shop = result.Shop; _connected = true; _buyButtons.Clear();
-        _ads = result.RewardedAds; _product = result.NoAdsProductId;
+        _ads = result.RewardedAds; _product = result.NoAdsProductId; _adsEnabled = result.AdsEnabled;
+        _adPolicyRetryAt = Time.GetTicksMsec() + 60000;
         _serverTime = result.ServerTime ?? DateTimeOffset.UtcNow; _receivedAt = Time.GetTicksMsec();
         _wallet.Text = $"Oro de cuenta: {result.Profile.Gold:N0} · Inventario: {result.Profile.Items.Length}/{EquipmentCatalogue.InventoryLimit}";
         foreach (var offer in result.Shop.Offers)
@@ -176,15 +180,19 @@ public partial class ItemShopPanel : Control
     {
         _busy = value; _reload.Disabled = value;
         bool used = _shop?.RewardedRefreshAvailableAt > _serverTime.AddMilliseconds(Time.GetTicksMsec() - _receivedAt);
-        bool noAds = _main.Accounts.SignedIn && _main.Accounts.Profile?.Access.WithoutAds(ShopNow) == true;
+        bool noAds = WithoutAd;
         _adsRemoved = noAds;
-        _purchase.Visible = _restore.Visible = _connected && _billing?.Available == true && !string.IsNullOrEmpty(_product) && !noAds;
+        _restore.Visible = _connected && _billing?.Available == true && !string.IsNullOrEmpty(_product) &&
+            _main.Accounts.Profile?.Access.WithoutAds(ShopNow) != true;
+        _purchase.Visible = _restore.Visible && _adsEnabled;
         _purchase.Disabled = _restore.Disabled = value;
-        bool supported = _main.RewardedAds.Supports(_ads);
+        bool supported = !noAds && _main.RewardedAds.Supports(_ads);
         _refresh.Disabled = value || !_connected || !(noAds || supported) || used;
         _refresh.Text = used ? "Renovación usada hoy" : noAds ? "Renovar ofertas · 1/día · Sin anuncios" :
             supported ? "Ver anuncio y renovar ofertas · 1/día" : "Anuncios no disponibles";
-        _refresh.TooltipText = noAds
+        _refresh.TooltipText = !_adsEnabled
+            ? "Los anuncios están desactivados para todos. Puedes renovar una vez al día sin publicidad."
+            : noAds
             ? "Tu cuenta tiene activada la opción sin anuncios. Puedes sustituir las seis ofertas una vez al día, también desde otro dispositivo."
             : "Un anuncio completado permite sustituir las seis ofertas una vez al día. El día se reinicia a las 00:00, hora peninsular.";
         foreach (var button in _buyButtons.Values) button.Disabled = value || !_connected || !button.GetMeta("available").AsBool();
@@ -265,7 +273,18 @@ public partial class ItemShopPanel : Control
         var shopId = _shop.Id; SetBusy(true, "Preparando anuncio recompensado…");
         try
         {
-            if (account.Profile?.Access.WithoutAds(ShopNow) == true)
+            // La política precargada puede haber cambiado desde otro dispositivo.
+            // Antes de mostrar publicidad se consulta el estado actual del servidor.
+            var latest = await account.Shop(_lifetime.Token);
+            if (!ReferenceEquals(account, _main.Accounts) || session != account.SessionRevision) return;
+            if (latest.Shop.Id != shopId)
+            {
+                _main.RememberShop(account, session, latest);
+                Publish(request, () => Render(latest, "Las ofertas han cambiado. Consulta el catálogo antes de renovarlo."));
+                return;
+            }
+            _adsEnabled = latest.AdsEnabled; _ads = latest.RewardedAds;
+            if (!latest.AdsEnabled || latest.Profile.Access.WithoutAds(latest.ServerTime ?? ShopNow))
             {
                 SetBusy(true, "Renovando ofertas sin anuncios…");
                 var renewed = await account.RefreshShopWithoutAd(shopId, _lifetime.Token);
@@ -290,6 +309,29 @@ public partial class ItemShopPanel : Control
         catch (Exception error) { Publish(request, () => SetBusy(false, PvpServer.DisplayText(error.Message))); }
     }
     internal void HandleBack() { if (_comparison.Visible) _comparison.Hide(); else _main.NavigateOptionAMenu(0); }
+    private async Task RefreshAdPolicy()
+    {
+        _checkingAdPolicy = true; _adPolicyRetryAt = Time.GetTicksMsec() + 60000;
+        var account = _main.Accounts; long session = account.SessionRevision; int request = _requestVersion;
+        AdvertisingSettings? settings = null;
+        try { settings = await account.Advertising(_lifetime.Token).ConfigureAwait(false); }
+        catch (Exception error) when (error is OperationCanceledException or System.IO.IOException or
+            System.Net.Http.HttpRequestException or InvalidOperationException) { }
+        finally
+        {
+            _main.Post(() =>
+            {
+                if (_lifetime.IsCancellationRequested) return;
+                _checkingAdPolicy = false;
+                if (settings == null || request != _requestVersion || !ReferenceEquals(account, _main.Accounts) ||
+                    session != account.SessionRevision || _busy || !_connected) return;
+                bool changed = settings.Enabled != _adsEnabled;
+                _adsEnabled = settings.Enabled; SetBusy(false);
+                // Solo al reactivarse se necesita recuperar la unidad publicitaria.
+                if (changed && settings.Enabled && !WithoutAd && _ads == null) _ = Load(refresh: true);
+            });
+        }
+    }
     internal void Close()
     {
         _lifetime.Cancel(); QueueFree();
@@ -297,7 +339,7 @@ public partial class ItemShopPanel : Control
     public override void _Process(double delta)
     {
         if (_lifetime.IsCancellationRequested) return;
-        if (_adsRemoved != (_main.Accounts.SignedIn && _main.Accounts.Profile?.Access.WithoutAds(ShopNow) == true)) SetBusy(_busy);
+        if (_adsRemoved != WithoutAd) SetBusy(_busy);
         _privacy.Visible = _main.RewardedAds.PrivacyRequired;
         if (!ReferenceEquals(_account, _main.Accounts) || _session != _main.Accounts.SessionRevision ||
             _owner != _main.Accounts.Profile?.Uid || _connected && !_main.Accounts.SignedIn)
@@ -312,6 +354,7 @@ public partial class ItemShopPanel : Control
         }
         if (_busy || !_connected || !_main.Accounts.SignedIn || _shop?.RefreshAt == null) return;
         ulong now = Time.GetTicksMsec();
+        if (!_checkingAdPolicy && now >= _adPolicyRetryAt) _ = RefreshAdPolicy();
         // La decisión se basa en la hora del servidor y tiempo transcurrido,
         // sin confiar en que el reloj del teléfono esté bien ajustado.
         if (now >= _renewalRetryAt && _serverTime.AddMilliseconds(now - _receivedAt) >= _shop.RefreshAt.Value)

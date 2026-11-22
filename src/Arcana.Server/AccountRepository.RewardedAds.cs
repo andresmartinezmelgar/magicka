@@ -15,6 +15,10 @@ public sealed partial class FirestoreAccountRepository
         ValidId(request.ShopId);
         return database.RunTransactionAsync(async tx =>
         {
+            var access = await tx.GetSnapshotAsync(AccountConfigurationDocument(uid), token);
+            var advertising = ReadAdvertising(await tx.GetSnapshotAsync(AdvertisingDocument, token));
+            if (!advertising.RequiresAd(access.Exists ? FirestoreData.Read<AccountAccess>(access) : new(), _shopTime.GetUtcNow()))
+                throw new InvalidOperationException("No necesitas ver un anuncio. Consulta la tienda para renovar directamente.");
             var shop = ReadShop(await tx.GetSnapshotAsync(ShopDocument(uid), token));
             var challenge = RewardChallenge(uid); var previous = await tx.GetSnapshotAsync(challenge, token);
             var now = _shopTime.GetUtcNow();

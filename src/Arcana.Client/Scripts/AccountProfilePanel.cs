@@ -22,7 +22,7 @@ public partial class AccountProfilePanel : Control
     private PanelContainer? _responsiveCard;
     private int _responsivePadding;
 
-    internal Button[] VisibleFooterButtons => new[] { _login, _logout, _equipment, _statistics, _checkUpdate, _touchControls, _bestiary, _deleteAccount }
+    internal Button[] VisibleFooterButtons => new[] { _login, _logout, _equipment, _statistics, _checkUpdate, _touchControls, _bestiary, _deleteAccount, _advertisingToggle }
         .Where(b => GodotObject.IsInstanceValid(b) && b.IsVisibleInTree()).ToArray();
 
     public void Build(Main main)
@@ -101,10 +101,13 @@ public partial class AccountProfilePanel : Control
         _touchControls = Ui.Button("Configurar joystick y botones", main.OpenTouchSettings);
         _touchControls.Name = "ProfileTouchControls";
         _touchControls.TooltipText = "Tamaño, posiciones, zona muerta, sensibilidad y modo zurdo. Se guardan en este dispositivo.";
+        _advertisingToggle = Ui.Button("Consultar anuncios globales", () => _ = ChangeAdvertising());
+        _advertisingToggle.Name = "ProfileAdvertisingToggle";
+        _advertisingToggle.TooltipText = "Activa o desactiva la publicidad para los jugadores. Administradores y cuentas sin anuncios quedan siempre exentos.";
         _profileActions = new GridContainer { Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _profileActions.AddThemeConstantOverride("h_separation", 10); _profileActions.AddThemeConstantOverride("v_separation", 8);
         content.AddChild(_profileActions);
-        foreach (var button in new[] { _login, _logout, _equipment, _statistics, _checkUpdate, _touchControls, _bestiary, _deleteAccount })
+        foreach (var button in new[] { _login, _logout, _equipment, _statistics, _checkUpdate, _touchControls, _bestiary, _deleteAccount, _advertisingToggle })
         {
             button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             button.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -116,6 +119,10 @@ public partial class AccountProfilePanel : Control
         _updateStatus.Name = "ProfileUpdateStatus";
         _updateStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _updateStatus.HorizontalAlignment = HorizontalAlignment.Center; content.AddChild(_updateStatus);
+        _advertisingStatus = Ui.Label("", Ui.IsMobile ? 17 : 16, Ui.Muted);
+        _advertisingStatus.Name = "ProfileAdvertisingStatus";
+        _advertisingStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        content.AddChild(_advertisingStatus);
         ArcanaMenuChrome.Attach(this, margin, main, "Mi perfil", 3, main.NavigateOptionAMenu);
         _message = main.GoogleLoginStatus;
         GetViewport().SizeChanged += ResizeProfileCard;
@@ -162,7 +169,7 @@ public partial class AccountProfilePanel : Control
         _profileActions.Columns = width < 560 ? 1 : 2;
         _wizardFields.Columns = width < 560 ? 1 : 2;
         float height = GetViewport().GetVisibleRect().Size.Y < 640 ? 60 : 76;
-        foreach (var button in new[] { _login, _logout, _equipment, _statistics, _checkUpdate, _touchControls, _bestiary, _deleteAccount }) button.CustomMinimumSize = new(0, height);
+        foreach (var button in new[] { _login, _logout, _equipment, _statistics, _checkUpdate, _touchControls, _bestiary, _deleteAccount, _advertisingToggle }) button.CustomMinimumSize = new(0, height);
     }
 
     /// <summary>Selecciona el JSON OAuth sin copiarlo ni renombrarlo manualmente.</summary>
@@ -197,6 +204,7 @@ public partial class AccountProfilePanel : Control
     private void Render()
     {
         if (!IsInsideTree()) return;
+        RenderAdvertising();
         _statistics.Visible = _main.CanViewMatchStatistics;
         bool google = _main.GoogleIdentityKnown || _main.Accounts.SignedIn;
         bool firestoreError = _message.StartsWith("Error al leer Firestore:", StringComparison.Ordinal);

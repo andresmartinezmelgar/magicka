@@ -29,7 +29,9 @@ Las reglas existentes impiden escrituras de clientes en los documentos de tienda
 
 ## Cuentas con opción sin anuncios
 
-La configuración privada `users/{uid}/configuration/account.adsRemoved` se lee en el servidor. Si está activa, la tienda utiliza `POST /account/shop/refresh` sin mostrar un anuncio, también en Windows. Comparte el mismo límite de una renovación extra al día con la vía recompensada; cambiar de dispositivo o reinstalar no restablece el límite. Ser administrador no equivale a tener esta compra.
+La configuración privada `users/{uid}/configuration/account` se lee en el servidor. El administrador queda exento por `isAdmin`; una compra o derecho vigente exime por `adsRemoved` o `playAdsValidUntil`. Son permisos independientes: comprar no convierte al jugador en administrador y ser administrador no registra una compra. La tienda utiliza `POST /account/shop/refresh` sin mostrar publicidad, también en Windows. Comparte el mismo límite de una renovación extra al día con la vía recompensada; cambiar de dispositivo o reinstalar no restablece el límite.
+
+El interruptor global `gameConfig/advertising.enabled` se cambia desde **Mi perfil** por un administrador. Desactivarlo permite a los demás jugadores la misma renovación diaria sin publicidad; reactivarlo siempre respeta las exenciones. Se conserva la configuración real de AdMob para volver a usarla al reactivar. Los clientes no escriben directamente este documento. Ver [CONFIGURACION-CUENTAS.md](CONFIGURACION-CUENTAS.md#interruptor-global-de-anuncios).
 
 Android integra Google Play Billing 8.3.0. El servidor comprueba el producto y la cuenta, confirma el pago y revalida los recibos. El editor configura el producto y su precio, los permisos del servidor y los probadores en Play Console. Ver [CONFIGURACION-CUENTAS.md](CONFIGURACION-CUENTAS.md).
 

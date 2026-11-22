@@ -6,10 +6,11 @@ Los UID de las cuentas administradoras no se incluyen en el cliente, el motor ni
 
 | Campo | Tipo | Función |
 | --- | --- | --- |
-| `isAdmin` | boolean | Administrador del juego; recibe versiones de pruebas con sesión vigente. |
+| `isAdmin` | boolean | Administrador del juego: versiones de pruebas, exención de anuncios y control del interruptor global. No concede acceso a estadísticas por sí solo. |
 | `previewUpdates` | boolean | Acceso a versiones de pruebas sin convertir la cuenta en administradora. |
 | `matchStatistics` | boolean | Consultar y borrar el historial global de estadísticas. Es independiente de `isAdmin`. |
 | `adsRemoved` | boolean | Exención de anuncios; permite la renovación extra diaria sin reproducir publicidad. No concede renovaciones ilimitadas. |
+| `playAdsValidUntil` | integer | Caducidad Unix del derecho de Google Play revalidado por el servidor. No concede permisos de administrador. |
 | `updatedAt` | timestamp, opcional | Fecha de la última administración de permisos. |
 
 Los campos ausentes equivalen a `false`. El propietario solo puede leer su documento concreto, nunca enumerar configuraciones ni cambiar roles, cuotas o compras. Las escrituras requieren Firebase Admin/IAM desde un entorno de confianza. No se incorpora ninguna credencial privada a la APK. Los permisos de la caché sin sesión no habilitan versiones de pruebas, estadísticas ni acciones protegidas.
@@ -25,7 +26,23 @@ El cliente carga estos campos tanto mediante la lectura directa de Firestore com
 
 La configuración nueva prevalece sobre `statisticsReaders`: poner `matchStatistics: false` revoca el acceso aunque el documento antiguo siga habilitado. Se conserva la ruta antigua para compatibilidad con clientes anteriores. El comando `--statistics-readers` actualiza ambas rutas para las cuentas que administra.
 
-Esta revisión prepara la migración; no la ejecuta automáticamente al arrancar ni contiene una lista de UID para hacerlo. La sesión disponible no tiene acceso autenticado al proyecto de producción.
+El 22/11/2026 se completó y verificó la migración de las tres cuentas originales en la base de producción: `isAdmin: true`, `previewUpdates: true` y `adsRemoved: false`. Se conservaron los permisos de estadísticas anteriores: dos habilitados y uno deshabilitado. Los UID reales permanecen en Firebase, fuera del código. El comando sigue disponible para administrar o repetir la migración con credenciales de confianza; nunca se ejecuta automáticamente al arrancar.
+
+## Interruptor global de anuncios
+
+El botón de **Mi perfil**, visible solo para administradores con sesión vigente, alterna «Activar anuncios para todos» y «Desactivar anuncios para todos». La desactivación se mantiene hasta que un administrador vuelva a activarlos. No cambia compras, roles ni la cuota diaria.
+
+| Cuenta | Anuncios activados | Anuncios desactivados | Cambiar el interruptor |
+| --- | --- | --- | --- |
+| Administrador | Sin anuncios | Sin anuncios | Sí |
+| Derecho sin anuncios vigente | Sin anuncios | Sin anuncios | No |
+| Jugador ordinario | Anuncio para la renovación extra | Renovación extra sin anuncio | No |
+
+La configuración reside en `gameConfig/advertising`, con `enabled` boolean y `revision` integer. El servidor añade `updatedBy` y `updatedAt` al guardar. El documento está protegido por las reglas existentes: ni siquiera el SDK de un administrador puede leerlo o escribirlo directamente. `GET /account/advertising` devuelve únicamente el estado y la revisión a una cuenta autenticada; `POST` comprueba el rol actual dentro de la misma transacción y rechaza revisiones antiguas con HTTP 409. Una compra sin anuncios no permite administrar; un rol revocado devuelve HTTP 403 sin cerrar la sesión Google.
+
+El estado inicial de producción se guardó y verificó el 22/11/2026: `enabled: false`, `revision: 1`. No hace falta publicar reglas nuevas. Para usar el botón falta compilar y distribuir este cliente y desplegar su servidor; la APK estable 0.29.71 no incluye este cambio.
+
+La tienda consulta un estado pequeño cada minuto mientras está abierta y vuelve a consultar el catálogo antes de iniciar publicidad. El servidor relee la política y la exención en las transacciones de renovación e inicio del anuncio. Desactivar no cierra un anuncio ya abierto: su confirmación y la renovación directa comparten la misma cuota, de una vez al día. Reactivar el interruptor requiere además la configuración real de AdMob; no instala ni configura monetización.
 
 ## Estado diario de cada jugador
 
@@ -40,11 +57,11 @@ Esta revisión prepara la migración; no la ejecuta automáticamente al arrancar
 
 Consultar, cerrar el juego, reinstalarlo, usar otro dispositivo o reiniciar el servidor no restablece estas cuotas. El día cambia a las 00:00 en `Europe/Madrid`, incluidos los cambios de hora. Las escrituras de tienda, recibos y cuotas siguen reservadas al servidor.
 
-`POST /account/shop/refresh` recibe solo el identificador del catálogo. La identidad procede del token autenticado y el servidor lee `adsRemoved` dentro de la transacción. Tres solicitudes simultáneas sobre el mismo catálogo confirman una única renovación. La ruta funciona también en Windows y con AdMob desactivado para cuentas con exención. Las compras y el oro se conservan.
+`POST /account/shop/refresh` recibe solo el identificador del catálogo. La identidad procede del token autenticado y el servidor lee la política global y la exención dentro de la transacción. Tres solicitudes simultáneas sobre el mismo catálogo confirman una única renovación. La ruta funciona también en Windows, para administradores, derechos sin anuncios vigentes o con el interruptor global desactivado. Las compras y el oro se conservan.
 
 ## Pago real y anuncios pendientes
 
-`adsRemoved` representa un derecho concedido por el servidor. Esta revisión no integra una pasarela ni afirma que un jugador haya pagado. Para venderlo mediante Google Play falta implementar Billing con un producto no consumible, validar el token en el servidor con Google Play Developer API, reconocer la compra, guardar el recibo vinculado a la cuenta y tratar restauraciones y reembolsos. Solo una compra validada debe activar el derecho. Nunca aceptar del cliente un booleano que afirme el pago.
+`adsRemoved` representa un derecho concedido por el servidor. La integración existente de Google Play Billing valida el producto, la cuenta y el recibo en el servidor, reconoce la compra y permite restauración y revalidación. La configuración comercial y la validación con una compra real y un reembolso siguen requiriendo la cuenta del editor. Solo una compra validada debe activar el derecho; nunca se acepta del cliente un booleano que afirme el pago. Ser administrador exime por su rol y no registra una compra ficticia.
 
 La integración recompensada de Android ya incluye consentimiento UMP y validación SSV. Para monetizar faltan la cuenta y aplicación de AdMob, App ID y unidad reales, mensaje de privacidad, política publicada, verificación de la aplicación y configuración del callback y del servidor. Los detalles están en [ADMOB.md](ADMOB.md).
 

@@ -215,6 +215,11 @@ async function main() {
       await assertFails(deleteDoc(doc(client, configuration)));
       await assertFails(setDoc(doc(client, "users/bob/configuration/account"), accountAccess));
       await assertFails(getDocs(collection(client, "users/alice/configuration")));
+      // Incluso un admin del juego usa el servidor: el documento global
+      // contiene auditoría privada y no se modifica con el SDK del cliente.
+      await assertFails(getDoc(doc(client, "gameConfig/advertising")));
+      await assertFails(setDoc(doc(client, "gameConfig/advertising"), { enabled: false, revision: 1 }));
+      await assertFails(deleteDoc(doc(client, "gameConfig/advertising")));
     }
     await assertFails(getDoc(doc(google, "users/alice/configuration/other")));
     await assertFails(setDoc(doc(google, "users/alice/shop/current"), { rewardedRefreshAvailableAt: null }));

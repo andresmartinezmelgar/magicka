@@ -16,8 +16,9 @@ public sealed partial class FirestoreAccountRepository
             // Leer la exención dentro de la transacción. El perfil o el teléfono
             // nunca pueden afirmar que se ha pagado ni elegir el límite diario.
             var access = await tx.GetSnapshotAsync(AccountConfigurationDocument(uid), token);
-            if (!access.Exists || !FirestoreData.Read<AccountAccess>(access).WithoutAds(_shopTime.GetUtcNow()))
-                throw new InvalidOperationException("Esta cuenta no tiene activada la opción sin anuncios.");
+            var advertising = ReadAdvertising(await tx.GetSnapshotAsync(AdvertisingDocument, token));
+            if (advertising.RequiresAd(access.Exists ? FirestoreData.Read<AccountAccess>(access) : new(), _shopTime.GetUtcNow()))
+                throw new InvalidOperationException("Los anuncios están activos para esta cuenta. Consulta la tienda para renovar con un anuncio.");
             var doc = ShopDocument(uid);
             var shop = ReadShop(await tx.GetSnapshotAsync(doc, token));
             var now = _shopTime.GetUtcNow();

@@ -9,6 +9,7 @@
     <Compile Include="../Arcana.Server/AccountRepository.Shop.cs" Link="AccountRepository.Shop.cs" />
     <Compile Include="../Arcana.Server/AccountRepository.RewardedAds.cs" Link="AccountRepository.RewardedAds.cs" />
     <Compile Include="../Arcana.Server/AccountRepository.Access.cs" Link="AccountRepository.Access.cs" />
+    <Compile Include="../Arcana.Server/AccountRepository.Advertising.cs" Link="AccountRepository.Advertising.cs" />
     <Compile Include="../Arcana.Server/PlayBilling.cs" Link="PlayBilling.cs" />
     <Compile Include="../Arcana.Server/AdMobRewardVerifier.cs" Link="AdMobRewardVerifier.cs" />
     <Compile Include="../Arcana.Server/StatisticsMaintenance.cs" Link="StatisticsMaintenance.cs" />

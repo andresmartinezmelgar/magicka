@@ -10,6 +10,26 @@ internal static class AccountAccessTests
     private static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
     public static void Run(Action<string, Action> test)
     {
+        test("Anuncios: el interruptor global respeta administradores, compras y vencimientos", () =>
+        {
+            var now = DateTimeOffset.Parse("2026-11-22T12:00:00Z");
+            var admin = new AccountAccess(IsAdmin: true);
+            var purchase = new AccountAccess(AdsRemoved: true);
+            var active = new AccountAccess { PlayAdsValidUntil = now.AddHours(1).ToUnixTimeSeconds() };
+            var expired = new AccountAccess { PlayAdsValidUntil = now.ToUnixTimeSeconds() };
+            foreach (bool enabled in new[] { false, true })
+            {
+                var policy = new AdvertisingSettings(enabled);
+                foreach (var exempt in new[] { admin, purchase, active })
+                    Check(!policy.RequiresAd(exempt, now), "El interruptor mostró anuncios a una cuenta exenta.");
+                foreach (var ordinary in new[] { new AccountAccess(), expired, new AccountAccess(PreviewUpdates: true, MatchStatistics: true) })
+                    Check(policy.RequiresAd(ordinary, now) == enabled, "Se concedió una exención por un permiso ajeno o un pago caducado.");
+            }
+            Check(admin.WithoutAds(now) && !admin.AdsRemoved && !admin.MatchStatistics,
+                "Ser administrador se confundió con una compra o concedió acceso a estadísticas.");
+            Check(purchase.WithoutAds(now) && !purchase.IsAdmin && !purchase.CanReceivePreview,
+                "Una compra concedió permisos de administrador.");
+        });
         test("Configuración Firebase: permisos por cuenta y sin identificadores especiales", () =>
         {
             bool enabled = true;
