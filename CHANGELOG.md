@@ -2,6 +2,15 @@
 
 ## Sin publicar
 
+## 0.29.71
+
+- Dirección PvP y tienda obtenida de Firestore. Requiere publicar las reglas actualizadas y configurar publicConfig/pvpServer con la URL del servidor.
+- Menor tráfico de controles y estados PvP. Se conservan la precisión, la frecuencia de actualización y la recuperación de las bases confirmadas.
+- Integración de actualizaciones del servidor por generaciones y recuperación de estadísticas y premios entre contenedores. La primera activación requiere configurar la Raspberry.
+- Revisión de permisos de cuentas, persistencia y aislamiento de estadísticas. Panel web y operaciones de cuenta alineados con el directorio del servidor.
+- APK estable con código Android 29071 y firma permanente para actualizar las instalaciones anteriores.
+
+
 - Actualización del servidor por generaciones: bloquea nuevas partidas en la versión anterior, arranca otra y cambia el destino de las nuevas cuando está lista. Conserva partidas y reconexiones; retira el contenedor anterior después de terminar y guardar sus resultados.
 - Entrada pública estable, aviso de inicio de versión y consulta automática de salas mientras arranca. Las series continúan hasta terminar; no se inician revanchas ni reinicios en la versión que se retira.
 - Cola temporal compartida de estadísticas, premios y bestiario con coordinación entre procesos. Permite retirar una generación aunque Firebase esté temporalmente caído, manteniendo sus reintentos en la nueva.
