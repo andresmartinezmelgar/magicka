@@ -106,6 +106,9 @@ public partial class Main
                     "No se muestran los cuatro paquetes en el área de oro.");
                 foreach (var product in StoreCatalogue.Products().Where(p => p.Gold > 0))
                     Check(Button("ShopProductBuy_" + product.Key).Disabled, "Una compra sin precio real está habilitada.");
+                if (GetViewport().GetVisibleRect().Size.Y >= 520)
+                    Check(((Control)shop.FindChild("ShopOffersScroll", true, false)).GetGlobalRect().Grow(1)
+                        .Encloses(Button("ShopProductBuy_gold_1000").GetGlobalRect()), "La cabecera oculta la primera compra de oro.");
                 CaptureShop("02-oro"); Button("ShopArea2").EmitSignal(Godot.Button.SignalName.Pressed); _shopSmokePhase = 212; return false;
             }
             if (_shopSmokePhase == 212)
@@ -113,6 +116,12 @@ public partial class Main
                 Check(((Control)shop!.FindChild("ShopPassesArea", true, false)).Visible &&
                     ((GridContainer)shop.FindChild("ShopNoAdsPlans", true, false)).GetChildCount() == 3 && Button("ShopRestorePurchases").Disabled,
                     "Faltan los tres pases o se habilita una restauración sin Google Play.");
+                if (GetViewport().GetVisibleRect().Size.Y >= 520)
+                    Check(((Control)shop.FindChild("ShopOffersScroll", true, false)).GetGlobalRect().Grow(1)
+                        .Encloses(Button("ShopProductBuy_no_ads_month").GetGlobalRect()),
+                        "La cabecera oculta la primera compra de un pase: vista=" + ((Control)shop.FindChild("ShopOffersScroll", true, false)).GetGlobalRect() +
+                        ", botón=" + Button("ShopProductBuy_no_ads_month").GetGlobalRect() + ", cuadrícula=" +
+                        ((Control)shop.FindChild("ShopNoAdsPlans", true, false)).GetGlobalRect());
                 CaptureShop("02-pases"); Button("ShopArea0").EmitSignal(Godot.Button.SignalName.Pressed); _shopSmokePhase = 213; return false;
             }
             if (_shopSmokePhase == 213)

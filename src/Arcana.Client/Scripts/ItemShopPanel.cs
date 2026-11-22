@@ -195,6 +195,7 @@ public partial class ItemShopPanel : Control
             : "Un anuncio completado permite sustituir las seis ofertas una vez al día. El día se reinicia a las 00:00, hora peninsular.";
         foreach (var button in _buyButtons.Values) button.Disabled = value || !_connected || !button.GetMeta("available").AsBool();
         if (status != null) _status.Text = status;
+        RefreshStoreStatusVisibility();
     }
     private void Publish(int request, Action action) => _main.Post(() =>
     { if (!_lifetime.IsCancellationRequested && request == _requestVersion) action(); });

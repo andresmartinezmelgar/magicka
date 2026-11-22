@@ -2,6 +2,11 @@
 
 ## Sin publicar
 
+## 0.29.73
+
+- Tienda móvil compacta: saldo y restauración en una fila, tarjetas visibles al entrar y menos cabecera. Los textos y controles de pago acompañan a su sección.
+- Tres pases en paralelo en pantallas de juego y comprobación automática de que el primer paquete de oro se puede comprar sin desplazar la vista inicial.
+
 ## 0.29.72
 
 - Tienda renovada con tres áreas: equipamiento diario, cuatro paquetes de oro y pases sin anuncios de un mes, seis meses y para siempre.

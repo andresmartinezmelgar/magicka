@@ -9,6 +9,9 @@ public partial class ItemShopPanel
     private GridContainer _goldGrid = null!, _passesGrid = null!;
     private HBoxContainer _paymentFooter = null!;
     private ElementTextLabel _passStatus = null!;
+    private ElementTextLabel _heroTitle = null!;
+    private StoreIllustration _heroArt = null!;
+    private HBoxContainer _heroRow = null!;
     private readonly List<Button> _areaTabs = [];
     private readonly Dictionary<string, Button> _commercialButtons = new(StringComparer.Ordinal);
     private readonly Dictionary<string, ElementTextLabel> _commercialPrices = new(StringComparer.Ordinal);
@@ -24,14 +27,16 @@ public partial class ItemShopPanel
         var style = Ui.Panel(new("112b46"), 12, new("426588"));
         style.ContentMarginTop = style.ContentMarginBottom = Ui.IsMobile ? 8 : 14;
         hero.AddThemeStyleboxOverride("panel", style); layout.AddChild(hero);
-        var row = new HBoxContainer(); row.AddThemeConstantOverride("separation", 16); hero.AddChild(row);
-        row.AddChild(new StoreIllustration { ThemeKind = "gold", Level = 2, CustomMinimumSize = new(Ui.IsMobile ? 62 : 84, Ui.IsMobile ? 62 : 84) });
+        var row = _heroRow = new HBoxContainer(); row.AddThemeConstantOverride("separation", 12); hero.AddChild(row);
+        _heroArt = new StoreIllustration { ThemeKind = "gold", Level = 2, CustomMinimumSize = new(Ui.IsMobile ? 62 : 84, Ui.IsMobile ? 62 : 84) };
+        row.AddChild(_heroArt);
         var copy = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; copy.AddThemeConstantOverride("separation", 3); row.AddChild(copy);
-        Wrapped(copy, "EL BAZAR ARCANO", Ui.IsMobile ? 24 : 31, Ui.Gold);
+        _heroTitle = Wrapped(copy, "EL BAZAR ARCANO", Ui.IsMobile ? 24 : 31, Ui.Gold);
         if (!Ui.IsMobile) Wrapped(copy, "Equipa tu magia. Elige tu próxima ventaja.", 17, Ui.Muted);
         _wallet = Wrapped(copy, "Oro de cuenta: —", Ui.IsMobile ? 16 : 18, Ui.Text); _wallet.Name = "ShopWallet";
         _reload = Ui.Button("Consultar", () => { _priceKey = ""; _ = Load(refresh: true); }); _reload.Name = "ShopConnect";
         _reload.CustomMinimumSize = new(0, 44); _reload.AddThemeFontSizeOverride("font_size", 14); row.AddChild(_reload);
+        _reload.SizeFlagsVertical = SizeFlags.ShrinkCenter;
     }
 
     private void BuildStoreTabs(VBoxContainer layout)
@@ -53,13 +58,13 @@ public partial class ItemShopPanel
     {
         _goldArea = new VBoxContainer { Name = "ShopGoldArea", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _passesArea = new VBoxContainer { Name = "ShopPassesArea", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        foreach (var area in new[] { _goldArea, _passesArea }) { area.AddThemeConstantOverride("separation", 12); body.AddChild(area); }
-        Wrapped(_goldArea, "MÁS ORO. MÁS POSIBILIDADES.", 24, Ui.Gold);
-        Wrapped(_goldArea, "Elige tu reserva y guárdala en tu cuenta. Úsala en equipo y mejoras cuando quieras.", 16, Ui.Muted);
+        foreach (var area in new[] { _goldArea, _passesArea }) { area.AddThemeConstantOverride("separation", Ui.IsMobile ? 8 : 12); body.AddChild(area); }
+        Wrapped(_goldArea, Ui.IsMobile ? "ELIGE TU RESERVA DE ORO" : "MÁS ORO. MÁS POSIBILIDADES.", Ui.IsMobile ? 18 : 24, Ui.Gold);
+        Wrapped(_goldArea, "Elige tu reserva y guárdala en tu cuenta. Úsala en equipo y mejoras cuando quieras.", 16, Ui.Muted).Visible = !Ui.IsMobile;
         _goldGrid = new GridContainer { Name = "ShopGoldPacks", Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _goldGrid.AddThemeConstantOverride("h_separation", 14); _goldGrid.AddThemeConstantOverride("v_separation", 14); _goldArea.AddChild(_goldGrid);
-        Wrapped(_passesArea, "TU MAGIA, SIN INTERRUPCIONES", 24, new("bda4ff"));
-        Wrapped(_passesArea, "Un mes, seis meses o para siempre. Pago único en cada compra. Sin renovación automática.", 16, Ui.Muted);
+        Wrapped(_passesArea, Ui.IsMobile ? "Pago único · Sin renovación automática" : "TU MAGIA, SIN INTERRUPCIONES", Ui.IsMobile ? 16 : 24, new("bda4ff"));
+        Wrapped(_passesArea, "Un mes, seis meses o para siempre. Pago único en cada compra. Sin renovación automática.", 16, Ui.Muted).Visible = !Ui.IsMobile;
         _passStatus = Wrapped(_passesArea, "", 16, Ui.Gold); _passStatus.Name = "ShopPassStatus";
         _passesGrid = new GridContainer { Name = "ShopNoAdsPlans", Columns = 3, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _passesGrid.AddThemeConstantOverride("h_separation", 14); _passesGrid.AddThemeConstantOverride("v_separation", 14); _passesArea.AddChild(_passesGrid);
@@ -68,11 +73,12 @@ public partial class ItemShopPanel
         var manage = Ui.Button("Gestionar el pase en Google Play", () => OS.ShellOpen(
             "https://play.google.com/store/account/subscriptions?sku=" + StoreCatalogue.PassProduct + "&package=com.arcana.arena"));
         manage.Name = "ShopManagePass"; manage.CustomMinimumSize = new(0, 44); _passesArea.AddChild(manage);
-        _paymentFooter = new HBoxContainer(); _paymentFooter.AddThemeConstantOverride("separation", 10); layout.AddChild(_paymentFooter);
+        _paymentFooter = new HBoxContainer(); _paymentFooter.AddThemeConstantOverride("separation", 10); body.AddChild(_paymentFooter);
         var secure = Wrapped(_paymentFooter, "Pago seguro con Google Play. El importe final se confirma antes de pagar.", 13, Ui.Muted);
         secure.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        _restore = Ui.Button("Restaurar compras", () => _ = RestoreCommercialPurchases()); _restore.Name = "ShopRestorePurchases";
-        _restore.CustomMinimumSize = new(0, 44); _restore.AddThemeFontSizeOverride("font_size", 15); _paymentFooter.AddChild(_restore);
+        _restore = Ui.Button(Ui.IsMobile ? "Restaurar" : "Restaurar compras", () => _ = RestoreCommercialPurchases()); _restore.Name = "ShopRestorePurchases";
+        _restore.CustomMinimumSize = new(0, 44); _restore.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        _restore.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 13 : 15); _heroRow.AddChild(_restore);
         ShowStoreArea(0);
     }
 
@@ -83,29 +89,35 @@ public partial class ItemShopPanel
         var card = new PanelContainer { Name = "ShopProduct_" + product.Key, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         var style = Ui.Panel(gold ? new("15283c") : new("211f3b"), 14, accent.Darkened(.28f));
         style.BorderWidthBottom = 3; style.ContentMarginLeft = style.ContentMarginRight = 16;
+        if (Ui.IsMobile)
+        {
+            style.ContentMarginTop = style.ContentMarginBottom = 10;
+            style.ContentMarginLeft = style.ContentMarginRight = 12;
+        }
         card.AddThemeStyleboxOverride("panel", style); (gold ? _goldGrid : _passesGrid).AddChild(card);
-        var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; box.AddThemeConstantOverride("separation", 8); card.AddChild(box);
+        var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; box.AddThemeConstantOverride("separation", Ui.IsMobile ? 6 : 8); card.AddChild(box);
         var tag = Wrapped(box, gold ? new[] { "ESENCIAL", "RESERVA", "GRAN COFRE", "TESORO" }[index] : forever ? "SIN FECHA DE CADUCIDAD" : "PASE DE PREPAGO", 12, accent);
         tag.HorizontalAlignment = HorizontalAlignment.Center;
         tag.Visible = !Ui.IsMobile;
         Container identity = Ui.IsMobile ? new HBoxContainer() : box;
         if (Ui.IsMobile) { identity.AddThemeConstantOverride("separation", 8); box.AddChild(identity); }
         identity.AddChild(new StoreIllustration { ThemeKind = gold ? "gold" : "noAds", Level = gold ? index : product.Months,
-            Forever = forever, CustomMinimumSize = Ui.IsMobile ? new(64, 72) : new(100, 100),
+            Forever = forever, CustomMinimumSize = Ui.IsMobile ? new(56, 56) : new(100, 100),
             SizeFlagsHorizontal = Ui.IsMobile ? SizeFlags.ShrinkCenter : SizeFlags.ExpandFill });
         var headings = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; identity.AddChild(headings);
         var amount = Wrapped(headings, gold ? product.Gold.ToString("N0") + " ORO" : forever ? "PARA SIEMPRE" : product.Months == 1 ? "1 MES" : "6 MESES", Ui.IsMobile ? 21 : 27, accent);
         amount.HorizontalAlignment = HorizontalAlignment.Center;
         var title = Wrapped(headings, product.Title, Ui.IsMobile ? 14 : 17); title.HorizontalAlignment = HorizontalAlignment.Center;
+        title.Visible = !Ui.IsMobile || gold;
         var description = Wrapped(box, gold ? "Oro permanente en tu cuenta" : forever ? "Una compra. Sin anuncios." : "Sin anuncios durante todo el pase", 14, Ui.Muted);
         description.HorizontalAlignment = HorizontalAlignment.Center;
         description.Visible = !Ui.IsMobile;
-        var price = Wrapped(box, "Precio disponible en Google Play", 15, Ui.Muted); price.HorizontalAlignment = HorizontalAlignment.Center;
+        var price = Wrapped(box, "Precio de Google Play", Ui.IsMobile ? 13 : 15, Ui.Muted); price.HorizontalAlignment = HorizontalAlignment.Center;
         _commercialPrices.Add(product.Key, price);
-        var spacer = new Control { CustomMinimumSize = new(0, 4), SizeFlagsVertical = SizeFlags.ExpandFill }; box.AddChild(spacer);
+        var spacer = new Control { CustomMinimumSize = new(0, Ui.IsMobile ? 0 : 4), SizeFlagsVertical = SizeFlags.ExpandFill }; box.AddChild(spacer);
         var buy = Ui.Button("Próximamente", () => _ = BuyCommercialProduct(product.Key), true);
-        buy.Name = "ShopProductBuy_" + product.Key; buy.CustomMinimumSize = new(0, 50);
-        buy.AutowrapMode = TextServer.AutowrapMode.WordSmart; buy.AddThemeFontSizeOverride("font_size", 17);
+        buy.Name = "ShopProductBuy_" + product.Key; buy.CustomMinimumSize = new(0, Ui.IsMobile ? 48 : 50);
+        buy.AutowrapMode = TextServer.AutowrapMode.WordSmart; buy.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 16 : 17);
         var buttonStyle = Ui.Panel(gold ? new("66502d") : new("4e3e79"), 9, accent.Darkened(.1f));
         buttonStyle.ContentMarginLeft = buttonStyle.ContentMarginRight = 8;
         buy.AddThemeStyleboxOverride("normal", buttonStyle);
@@ -118,6 +130,9 @@ public partial class ItemShopPanel
         _areaIndex = Math.Clamp(area, 0, 2);
         _equipmentArea.Visible = area == 0; _goldArea.Visible = area == 1; _passesArea.Visible = area == 2;
         _paymentFooter.Visible = area != 0;
+        _restore.Visible = area != 0;
+        _heroArt.Visible = _heroTitle.Visible = !Ui.IsMobile || area == 0;
+        RefreshStoreStatusVisibility();
         for (int i = 0; i < _areaTabs.Count; i++)
         {
             var style = Ui.Panel(i == area ? new("2c405b") : new("111e30"), 8, i == area ? Ui.Gold : ArcanaMenuChrome.Border);
@@ -132,7 +147,7 @@ public partial class ItemShopPanel
     {
         if (_goldGrid == null) return;
         _goldGrid.Columns = width >= 1180 ? 4 : width >= 480 ? 2 : 1;
-        _passesGrid.Columns = width >= 780 ? 3 : width >= 480 ? 2 : 1;
+        _passesGrid.Columns = width >= 540 ? 3 : width >= 480 ? 2 : 1;
     }
 
     private void ReceiveCommercialProducts(ShopResult result)
@@ -152,7 +167,8 @@ public partial class ItemShopPanel
         _passStatus.Text = access.IsAdmin ? "Sin anuncios incluido por tu cuenta de administrador." :
             access.AdsRemoved || access.PlayAdsValidUntil > ShopNow.ToUnixTimeSeconds() ? "Tu cuenta ya tiene acceso sin anuncios para siempre." :
             access.PlayPassValidUntil > ShopNow.ToUnixTimeSeconds() ? "Pase activo hasta el " + DateTimeOffset.FromUnixTimeSeconds(access.PlayPassExpiresAt).ToLocalTime().ToString("dd/MM/yyyy HH:mm") + "." :
-            !_adsEnabled ? "Los anuncios están pausados para todos. Los pases estarán disponibles al reactivarlos." : "Los pases conservan una renovación extra de tienda al día, sin ver publicidad.";
+            !_adsEnabled ? "Publicidad pausada para todos." : "";
+        _passStatus.Visible = _passStatus.Text.Length > 0;
         _restore.Disabled = _busy || _pricesLoading || !_connected || _billing?.Available != true || _availableProducts.Length == 0;
         foreach (var pair in _commercialButtons)
         {
@@ -161,9 +177,16 @@ public partial class ItemShopPanel
             bool noAds = !pair.Key.StartsWith("gold_", StringComparison.Ordinal);
             pair.Value.Disabled = _busy || _pricesLoading || !_connected || _billing?.Available != true || product == null || !hasPrice || noAds && (exempt || !_adsEnabled);
             pair.Value.Text = noAds && exempt ? "Ya incluido" : noAds && !_adsEnabled ? "Anuncios pausados" : _pricesLoading ? "Consultando precio…" :
-                _billing?.Available != true ? "Disponible en Android" : !hasPrice || product == null ? "Próximamente" : "Comprar · " + price!.Price;
-            _commercialPrices[pair.Key].Text = hasPrice ? price!.Price + (noAds ? " · pago único" : "") : "Precio disponible en Google Play";
+                _billing?.Available != true ? Ui.IsMobile ? "Solo Android" : "Disponible en Android" : !hasPrice || product == null ? "Próximamente" : "Comprar · " + price!.Price;
+            _commercialPrices[pair.Key].Text = hasPrice ? price!.Price + (noAds ? " · pago único" : "") : "Precio de Google Play";
         }
+        RefreshStoreStatusVisibility();
+    }
+
+    private void RefreshStoreStatusVisibility()
+    {
+        if (_status != null) _status.Visible = _areaIndex == 0 || _busy || !_connected ||
+            !_status.Text.StartsWith("Ofertas del día.", StringComparison.Ordinal);
     }
 
     private async Task LoadCommercialPrices()
