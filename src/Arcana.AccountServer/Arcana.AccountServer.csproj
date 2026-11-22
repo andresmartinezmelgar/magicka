@@ -11,6 +11,8 @@
     <Compile Include="../Arcana.Server/AccountRepository.Access.cs" Link="AccountRepository.Access.cs" />
     <Compile Include="../Arcana.Server/AccountRepository.Advertising.cs" Link="AccountRepository.Advertising.cs" />
     <Compile Include="../Arcana.Server/PlayBilling.cs" Link="PlayBilling.cs" />
+    <Compile Include="../Arcana.Server/PlayBilling.Store.cs" Link="PlayBilling.Store.cs" />
+    <Compile Include="../Arcana.Server/AccountRepository.Store.cs" Link="AccountRepository.Store.cs" />
     <Compile Include="../Arcana.Server/AdMobRewardVerifier.cs" Link="AdMobRewardVerifier.cs" />
     <Compile Include="../Arcana.Server/StatisticsMaintenance.cs" Link="StatisticsMaintenance.cs" />
     <Compile Include="../Arcana.Server/AccountRepository.Statistics.cs" Link="AccountRepository.Statistics.cs" />

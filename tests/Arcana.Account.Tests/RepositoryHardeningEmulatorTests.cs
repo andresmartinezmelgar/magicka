@@ -17,7 +17,7 @@ internal static class RepositoryHardeningEmulatorTests
         var purchase = new PlayReceipt("fixture-token", "test_no_ads", now.ToUnixTimeMilliseconds(), false);
         if (!await repository.StorePlayReceipt(uid, null, purchase, default) ||
             !(await repository.Profile(uid, "Caché")).Access.WithoutAds(now) ||
-            (await repository.Profile(uid, "Caché")).Access.WithoutAds(now.AddHours(25)) ||
+            (await repository.Profile(uid, "Caché")).Access.PlayAdsValidUntil > now.AddHours(25).ToUnixTimeSeconds() ||
             !await olderServer.StorePlayReceipt(uid, purchase, purchase with { Acknowledged = true }, default) ||
             await repository.StorePlayReceipt(uid, purchase, null, default))
             throw new Exception("No se conserva la compra o una verificación antigua revoca una más reciente.");

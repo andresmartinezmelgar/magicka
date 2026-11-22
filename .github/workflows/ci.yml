@@ -316,7 +316,7 @@ jobs:
             mkdir -p "$target"
             xvfb-run -a -s "-screen 0 1920x1080x24" "$ARCANA_GODOT" --audio-driver Dummy --path src/Arcana.Client -- --shop-smoke "${args[@]}" "--shop-captures=$target" 2>&1 | tee "$RUNNER_TEMP/shop-$surface.log"
             grep -q 'SHOP_SMOKE_OK' "$RUNNER_TEMP/shop-$surface.log"
-            test "$(find "$target" -name '*.png' | wc -l)" -eq 7
+            test "$(find "$target" -name '*.png' | wc -l)" -eq 9
             test -s "$target/03-comparacion.png"
             ! grep -E '^(ERROR:|SCRIPT ERROR:)|SMOKE_FAILED' "$RUNNER_TEMP/shop-$surface.log"
           done
@@ -989,7 +989,7 @@ jobs:
             grep -qx 'Tipo de firma: PERMANENTE' dist/FIRMA-ANDROID.txt
             apksigner verify "dist/ArcanaArena-v$version-Android-arm64.apk"
             shopt -s nullglob
-            assets=(dist/*.zip dist/*.rar dist/*.apk dist/*.delta dist/SHA256SUMS*.txt dist/DELTAS-*.json)
+            assets=(dist/*.zip dist/*.rar dist/*.apk dist/*.aab dist/*.delta dist/SHA256SUMS*.txt dist/DELTAS-*.json)
             if gh release view "$tag" >/dev/null 2>&1; then
               target=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" --jq '.target_commitish')
               test "$target" = "$GITHUB_SHA" || { echo '::error::La versión pertenece a otro commit.'; exit 1; }

@@ -210,6 +210,9 @@ async function main() {
       await assertFails(setDoc(doc(client, configuration), accountAccess));
       await assertFails(updateDoc(doc(client, configuration), { adsRemoved: false }));
       await assertFails(updateDoc(doc(client, configuration), { playAdsValidUntil: 9999999999 }));
+      await assertFails(updateDoc(doc(client, configuration), { playPassValidUntil: 9999999999, playPassExpiresAt: 9999999999 }));
+      await assertFails(setDoc(doc(client, "playPurchases/forged"), { uid: "alice", gold: 50000 }));
+      await assertFails(getDoc(doc(client, "playPurchases/forged")));
       await assertFails(getDoc(doc(client, "users/alice/billing/noAds")));
       await assertFails(setDoc(doc(client, "users/alice/billing/noAds"), { token: "fixture" }));
       await assertFails(deleteDoc(doc(client, configuration)));

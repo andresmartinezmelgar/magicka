@@ -10,6 +10,8 @@ public sealed partial class AccountClient
     public Task<ShopResult> Shop(CancellationToken token = default) => ShopRequest(HttpMethod.Get, "account/shop", null, token);
     public Task<ShopResult> VerifyNoAds(string purchaseToken, CancellationToken token) =>
         ShopRequest(HttpMethod.Post, "account/shop/play/verify", new PlayNoAdsRequest(purchaseToken), token);
+    public Task<ShopResult> VerifyStorePurchase(string productId, string purchaseToken, CancellationToken token) =>
+        ShopRequest(HttpMethod.Post, "account/shop/play/purchase", new StorePurchaseRequest(productId, purchaseToken), token);
     public Task<ShopResult> BuyShopItem(ShopPurchaseRequest request, CancellationToken token = default) =>
         ShopRequest(HttpMethod.Post, "account/shop/buy", request, token);
     public Task<ShopResult> CompleteShopAd(ShopAdCompleteRequest request, CancellationToken token = default) =>

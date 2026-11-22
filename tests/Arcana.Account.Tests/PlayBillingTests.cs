@@ -25,5 +25,6 @@ internal static class PlayBillingTests
             catch (InvalidOperationException) { }
         }
         Console.WriteLine("PLAY_BILLING_DECISIONS_OK: confirmada, pendiente, anulada, propietario y producto.");
+        PlayStoreTests.Run();
     }
 }

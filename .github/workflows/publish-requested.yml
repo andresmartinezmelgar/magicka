@@ -1,4 +1,4 @@
-name: Publicacion estable 0.29.71 solicitada
+name: Publicacion estable 0.29.72 solicitada
 
 # Petición expresa: publicar la versión estable de main y entregar la APK firmada.
 # Solo este mensaje exacto y esta versión activan la publicación solicitada.
@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   publish-requested-version:
-    if: github.ref == 'refs/heads/main' && github.event.head_commit.message == 'Publicar Arcana Arena 0.29.71'
+    if: github.ref == 'refs/heads/main' && github.event.head_commit.message == 'Publicar Arcana Arena 0.29.72'
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
@@ -29,10 +29,10 @@ jobs:
         run: |
           set -euo pipefail
           test "$GITHUB_REF_NAME" = main
-          test "$(tr -d '\r\n' < VERSION)" = '0.29.71'
+          test "$(tr -d '\r\n' < VERSION)" = '0.29.72'
           python3 scripts/version-support.py check .
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" = "$GITHUB_SHA"
-          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref main -f publish_preview=false -f publish_stable=true
+          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref main -f publish_preview=false -f publish_stable=true -f build_play_bundle=true
           run_id=''
           for attempt in $(seq 1 60); do
             run_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&event=workflow_dispatch&per_page=10" \
@@ -50,7 +50,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          version=0.29.71
+          version=0.29.72
           tag="v$version"
           release="repos/$GITHUB_REPOSITORY/releases/tags/$tag"
           test "$(gh api "$release" --jq '.target_commitish')" = "$GITHUB_SHA"
@@ -62,9 +62,10 @@ jobs:
             --pattern "ArcanaArena-v$version-Android-arm64.apk" \
             --pattern "ArcanaArena-v$version-Windows-x64.zip" \
             --pattern "ArcanaArena-v$version-Windows-x64.rar" \
-            --pattern SHA256SUMS.txt --dir "$RUNNER_TEMP/published-release"
+            --pattern "ArcanaArena-v$version-GooglePlay-arm64.aab" --pattern SHA256SUMS-GooglePlay.txt --pattern SHA256SUMS.txt --dir "$RUNNER_TEMP/published-release"
           test "$(stat -c %s "$RUNNER_TEMP/published-release/ArcanaArena-v$version-Android-arm64.apk")" -gt 1048576
           test "$(stat -c %s "$RUNNER_TEMP/published-release/ArcanaArena-v$version-Windows-x64.zip")" -gt 1048576
           test "$(stat -c %s "$RUNNER_TEMP/published-release/ArcanaArena-v$version-Windows-x64.rar")" -gt 1048576
           (cd "$RUNNER_TEMP/published-release" && sha256sum --check SHA256SUMS.txt --ignore-missing)
-          printf 'Tag, APK, ZIP y RAR publicados; SHA-256 verificados.\n' >> "$GITHUB_STEP_SUMMARY"
+          (cd "$RUNNER_TEMP/published-release" && sha256sum --check SHA256SUMS-GooglePlay.txt)
+          printf 'Tag, APK, AAB, ZIP y RAR publicados; SHA-256 verificados.\n' >> "$GITHUB_STEP_SUMMARY"

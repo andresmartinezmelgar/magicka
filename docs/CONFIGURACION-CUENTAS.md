@@ -11,6 +11,8 @@ Los UID de las cuentas administradoras no se incluyen en el cliente, el motor ni
 | `matchStatistics` | boolean | Consultar y borrar el historial global de estadísticas. Es independiente de `isAdmin`. |
 | `adsRemoved` | boolean | Exención de anuncios; permite la renovación extra diaria sin reproducir publicidad. No concede renovaciones ilimitadas. |
 | `playAdsValidUntil` | integer | Caducidad Unix del derecho de Google Play revalidado por el servidor. No concede permisos de administrador. |
+| `playPassValidUntil` | integer | Caducidad de la última comprobación del pase de prepago, como máximo 24 horas. |
+| `playPassExpiresAt` | integer | Caducidad real del pase devuelta por Google, visible en la tienda. No concede derechos sin una comprobación vigente. |
 | `updatedAt` | timestamp, opcional | Fecha de la última administración de permisos. |
 
 Los campos ausentes equivalen a `false`. El propietario solo puede leer su documento concreto, nunca enumerar configuraciones ni cambiar roles, cuotas o compras. Las escrituras requieren Firebase Admin/IAM desde un entorno de confianza. No se incorpora ninguna credencial privada a la APK. Los permisos de la caché sin sesión no habilitan versiones de pruebas, estadísticas ni acciones protegidas.
@@ -40,7 +42,7 @@ El botón de **Mi perfil**, visible solo para administradores con sesión vigent
 
 La configuración reside en `gameConfig/advertising`, con `enabled` boolean y `revision` integer. El servidor añade `updatedBy` y `updatedAt` al guardar. El documento está protegido por las reglas existentes: ni siquiera el SDK de un administrador puede leerlo o escribirlo directamente. `GET /account/advertising` devuelve únicamente el estado y la revisión a una cuenta autenticada; `POST` comprueba el rol actual dentro de la misma transacción y rechaza revisiones antiguas con HTTP 409. Una compra sin anuncios no permite administrar; un rol revocado devuelve HTTP 403 sin cerrar la sesión Google.
 
-El estado inicial de producción se guardó y verificó el 22/11/2026: `enabled: false`, `revision: 1`. No hace falta publicar reglas nuevas. Para usar el botón falta compilar y distribuir este cliente y desplegar su servidor; la APK estable 0.29.71 no incluye este cambio.
+El estado inicial de producción se guardó y verificó el 22/11/2026: `enabled: false`, `revision: 1`. No hace falta publicar reglas nuevas. El botón se incluye a partir del cliente y servidor 0.29.72; la APK 0.29.71 no lo incluye.
 
 La tienda consulta un estado pequeño cada minuto mientras está abierta y vuelve a consultar el catálogo antes de iniciar publicidad. El servidor relee la política y la exención en las transacciones de renovación e inicio del anuncio. Desactivar no cierra un anuncio ya abierto: su confirmación y la renovación directa comparten la misma cuota, de una vez al día. Reactivar el interruptor requiere además la configuración real de AdMob; no instala ni configura monetización.
 

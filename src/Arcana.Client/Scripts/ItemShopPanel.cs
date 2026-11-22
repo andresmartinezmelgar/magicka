@@ -27,10 +27,9 @@ public partial class ItemShopPanel : Control
     private AcceptDialog _comparison = null!;
     private ElementTextLabel _comparisonText = null!;
     private RewardedAdsConfiguration? _ads;
-    private Button _privacy = null!, _purchase = null!, _restore = null!;
+    private Button _privacy = null!, _restore = null!;
     private AndroidPlayBilling? _billing;
-    private string? _product;
-    private DateTimeOffset ShopNow => _serverTime.AddMilliseconds(Time.GetTicksMsec() - _receivedAt);
+    private DateTimeOffset ShopNow => _serverTime == default ? DateTimeOffset.UtcNow : _serverTime.AddMilliseconds(Time.GetTicksMsec() - _receivedAt);
     private bool WithoutAd => !_adsEnabled || _main.Accounts.SignedIn && _main.Accounts.Profile?.Access.WithoutAds(ShopNow) == true;
     internal ItemShop? Catalogue => _shop;
     internal bool Busy => _busy;
@@ -45,40 +44,35 @@ public partial class ItemShopPanel : Control
         var background = new ColorRect { Color = ArcanaMenuChrome.Backdrop }; AddChild(background); Ui.Full(background);
         var margin = new MarginContainer(); AddChild(margin); Ui.Full(margin);
         foreach (string side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, Ui.IsMobile ? 9 : 15);
-        var panel = new PanelContainer(); panel.AddThemeStyleboxOverride("panel", Ui.Panel(ArcanaMenuChrome.Surface, 10, ArcanaMenuChrome.Border)); margin.AddChild(panel);
+        var panel = new PanelContainer(); panel.AddThemeStyleboxOverride("panel", Ui.Panel(ArcanaMenuChrome.Surface, 14, ArcanaMenuChrome.Border)); margin.AddChild(panel);
+        var layout = new VBoxContainer(); layout.AddThemeConstantOverride("separation", 10); panel.AddChild(layout);
+        _billing = new AndroidPlayBilling();
+        BuildStoreHeader(layout);
+        BuildStoreTabs(layout);
         _scroll = new ContentScrollContainer { Name = "ShopOffersScroll", SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-        panel.AddChild(_scroll); Ui.VisibleVerticalScroll(_scroll);
+        layout.AddChild(_scroll); Ui.VisibleVerticalScroll(_scroll);
         var body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         body.AddThemeConstantOverride("separation", 8); _scroll.AddChild(body);
-        if (Ui.IsMobile) Wrapped(body, "TIENDA · OBJETOS PERMANENTES", 20, Ui.Gold);
-        _wallet = Wrapped(body, "Oro de cuenta: —", 21, Ui.Gold); _wallet.Name = "ShopWallet";
-        var explanation = Wrapped(body, "Objetos permanentes, ofertas nuevas cada día. Los objetos llegan al inventario sin equiparse.", 15, Ui.Muted);
+        _status = Wrapped(body, "Conectando con la tienda…", 15, Ui.Muted); _status.Name = "ShopStatus";
+        _equipmentArea = new VBoxContainer { Name = "ShopEquipmentArea", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _equipmentArea.AddThemeConstantOverride("separation", 10); body.AddChild(_equipmentArea);
+        var explanation = Wrapped(_equipmentArea, "EQUIPAMIENTO DEL DÍA · Seis piezas para tu próxima partida", 18, Ui.Gold);
         explanation.Visible = !Ui.IsMobile;
-        var toolbar = new HBoxContainer(); toolbar.AddThemeConstantOverride("separation", 8); body.AddChild(toolbar);
-        _reload = Ui.Button("Consultar", () => _ = Load(refresh: true)); _reload.Name = "ShopConnect";
+        var toolbar = new HBoxContainer(); toolbar.AddThemeConstantOverride("separation", 8); _equipmentArea.AddChild(toolbar);
         _refresh = Ui.Button("Ver anuncio y renovar ofertas · 1/día", () => _ = RenewAfterAd()); _refresh.Name = "ShopRefreshAd";
         _refresh.Disabled = true;
         _refresh.TooltipText = "Un anuncio completado permite sustituir las seis ofertas una vez al día. Las compras anteriores se conservan. El día se reinicia a las 00:00, hora peninsular.";
-        _billing = new AndroidPlayBilling();
-        var billingButtons = new HBoxContainer(); body.AddChild(billingButtons);
-        _purchase = Ui.Button("Quitar anuncios", () => _ = PurchaseNoAds(false));
-        _restore = Ui.Button("Restaurar compra", () => _ = PurchaseNoAds(true));
-        foreach (var button in new[] { _purchase, _restore })
-        {
-            button.SizeFlagsHorizontal = SizeFlags.ExpandFill; button.Visible = false;
-            button.AutowrapMode = TextServer.AutowrapMode.WordSmart; billingButtons.AddChild(button);
-        }
         _privacy = Ui.Button("Privacidad de anuncios", () => _main.RewardedAds.PrivacyOptions()); _privacy.Name = "ShopAdsPrivacy";
-        _privacy.Visible = false; body.AddChild(_privacy);
-        foreach (var button in new[] { _reload, _refresh })
+        _privacy.Visible = false; _equipmentArea.AddChild(_privacy);
+        foreach (var button in new[] { _refresh })
         {
             button.SizeFlagsHorizontal = SizeFlags.ExpandFill; button.CustomMinimumSize = new(0, Ui.IsMobile ? 54 : 46);
             button.AutowrapMode = TextServer.AutowrapMode.WordSmart; button.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 17 : 16); toolbar.AddChild(button);
         }
-        _status = Wrapped(body, "Conectando con la tienda…", 16, Ui.Muted); _status.Name = "ShopStatus";
         _offers = new GridContainer { Name = "ShopOffers", Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        _offers.AddThemeConstantOverride("h_separation", 10); _offers.AddThemeConstantOverride("v_separation", 10); body.AddChild(_offers);
+        _offers.AddThemeConstantOverride("h_separation", 12); _offers.AddThemeConstantOverride("v_separation", 12); _equipmentArea.AddChild(_offers);
+        BuildCommercialAreas(body, layout);
         _scroll.Resized += ResizeOffers;
         _comparison = new AcceptDialog { Name = "ShopComparison", Title = "Comparación del equipo", OkButtonText = "Volver a la oferta",
             Theme = Ui.Theme(), Exclusive = true, Transient = true }; AddChild(_comparison);
@@ -88,7 +82,7 @@ public partial class ItemShopPanel : Control
         var comparisonBody = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; comparisonScroll.AddChild(comparisonBody);
         comparisonBody.AddThemeConstantOverride("separation", 12); comparisonBody.AddChild(Ui.Label("COMPARACIÓN DEL EQUIPO", 24, Ui.Gold));
         _comparisonText = Wrapped(comparisonBody, "", 17); _comparisonText.Name = "ShopComparisonText";
-        ArcanaMenuChrome.Attach(this, margin, main, "Tienda de objetos", 7, main.NavigateOptionAMenu);
+        ArcanaMenuChrome.Attach(this, margin, main, "Tienda", 7, main.NavigateOptionAMenu);
         if (!main.InventoryAutoSelling && main.PreparedShop is { } prepared) Render(prepared);
         else
         {
@@ -106,10 +100,12 @@ public partial class ItemShopPanel : Control
         if (_scroll == null || _offers == null) return;
         float width = _scroll.Size.X - _scroll.GetVScrollBar().Size.X;
         _offers.Columns = width >= 1100 ? 3 : width >= 600 ? 2 : 1;
+        ResizeCommercialAreas(width);
     }
     private void ClearOffers()
     {
-        _shop = null; _product = null; _connected = false; _buyButtons.Clear();
+        _shop = null; _connected = false; _buyButtons.Clear();
+        _availableProducts = []; _storeApi = false;
         _comparison?.Hide();
         foreach (var child in _offers.GetChildren()) { _offers.RemoveChild(child); child.QueueFree(); }
     }
@@ -134,7 +130,8 @@ public partial class ItemShopPanel : Control
         result = result with { Profile = _main.Accounts.Profile! };
         ClearOffers();
         _owner = result.Profile.Uid; _shop = result.Shop; _connected = true; _buyButtons.Clear();
-        _ads = result.RewardedAds; _product = result.NoAdsProductId; _adsEnabled = result.AdsEnabled;
+        _ads = result.RewardedAds; _adsEnabled = result.AdsEnabled;
+        ReceiveCommercialProducts(result);
         _adPolicyRetryAt = Time.GetTicksMsec() + 60000;
         _serverTime = result.ServerTime ?? DateTimeOffset.UtcNow; _receivedAt = Time.GetTicksMsec();
         _wallet.Text = $"Oro de cuenta: {result.Profile.Gold:N0} · Inventario: {result.Profile.Items.Length}/{EquipmentCatalogue.InventoryLimit}";
@@ -145,8 +142,12 @@ public partial class ItemShopPanel : Control
             style.ContentMarginLeft = style.ContentMarginRight = 10; style.ContentMarginTop = style.ContentMarginBottom = 10;
             card.AddThemeStyleboxOverride("panel", style); _offers.AddChild(card);
             var box = new VBoxContainer(); box.AddThemeConstantOverride("separation", 7); card.AddChild(box);
-            Wrapped(box, EquipmentCatalogue.SlotName(offer.Item.Slot) + " · " + EquipmentCatalogue.TierName(offer.Item.Tier), 19, EquipmentPanel.TierColor(offer.Item.Tier));
-            Wrapped(box, EquipmentCatalogue.FamilyName(offer.Item.Family), 15, Ui.Muted);
+            var itemHeader = new HBoxContainer(); itemHeader.AddThemeConstantOverride("separation", 12); box.AddChild(itemHeader);
+            itemHeader.AddChild(EquipmentIcons.View(EquipmentIcons.Slot(offer.Item.Slot), 58, EquipmentPanel.TierColor(offer.Item.Tier)));
+            var itemName = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; itemHeader.AddChild(itemName);
+            Wrapped(itemName, EquipmentCatalogue.TierName(offer.Item.Tier).ToUpperInvariant(), 14, EquipmentPanel.TierColor(offer.Item.Tier));
+            Wrapped(itemName, EquipmentCatalogue.SlotName(offer.Item.Slot), 21, Ui.Text);
+            Wrapped(itemName, EquipmentCatalogue.FamilyName(offer.Item.Family), 15, EquipmentIcons.FamilyColor(offer.Item.Family));
             var stats = Ui.Table(2, "ShopStats_" + offer.Item.Id); box.AddChild(stats);
             EquipmentPanel.RenderItemStats(stats, offer.Item);
             EquipmentPanel.AddItemEffects(box, EquipmentPanel.ItemEffects(offer.Item, offer.Item.UpgradeLevel,
@@ -182,10 +183,7 @@ public partial class ItemShopPanel : Control
         bool used = _shop?.RewardedRefreshAvailableAt > _serverTime.AddMilliseconds(Time.GetTicksMsec() - _receivedAt);
         bool noAds = WithoutAd;
         _adsRemoved = noAds;
-        _restore.Visible = _connected && _billing?.Available == true && !string.IsNullOrEmpty(_product) &&
-            _main.Accounts.Profile?.Access.WithoutAds(ShopNow) != true;
-        _purchase.Visible = _restore.Visible && _adsEnabled;
-        _purchase.Disabled = _restore.Disabled = value;
+        RefreshCommercialButtons();
         bool supported = !noAds && _main.RewardedAds.Supports(_ads);
         _refresh.Disabled = value || !_connected || !(noAds || supported) || used;
         _refresh.Text = used ? "Renovación usada hoy" : noAds ? "Renovar ofertas · 1/día · Sin anuncios" :
@@ -248,23 +246,6 @@ public partial class ItemShopPanel : Control
             });
         }
         catch (Exception error) { _main.ForgetShop(account, session); Publish(request, () => Failed(error)); }
-    }
-    private async Task PurchaseNoAds(bool restore)
-    {
-        var account = _main.Accounts;
-        if (_busy || !_connected || _product == null || _billing == null || !account.SignedIn || account.Profile is not { } profile) return;
-        int request = ++_requestVersion; long session = account.SessionRevision;
-        SetBusy(true, restore ? "Consultando tus compras en Google Play…" : "Abriendo Google Play…");
-        try
-        {
-            string receipt = await _billing.Request(_product, profile.Uid, restore, _lifetime.Token);
-            if (!ReferenceEquals(account, _main.Accounts) || account.SessionRevision != session) return;
-            var result = await account.VerifyNoAds(receipt, _lifetime.Token);
-            _main.RememberShop(account, session, result);
-            Publish(request, () => Render(result, "Compra confirmada. Puedes renovar la tienda sin ver anuncios."));
-        }
-        catch (TimeoutException) { Publish(request, () => SetBusy(false, "Google Play no respondió. Puedes restaurar la compra.")); }
-        catch (Exception error) { Publish(request, () => SetBusy(false, PvpServer.DisplayText(error.Message))); }
     }
     private async Task RenewAfterAd()
     {

@@ -51,6 +51,15 @@ public sealed partial class FirestoreAccountRepository
                 batch.Update(receipt.Reference, new Dictionary<string, object> { ["uid"] = "", ["ticket"] = "" });
             await batch.CommitAsync(token);
         }
+        // Se conserva el hash antirrepetición del recibo sin conservar el UID.
+        while (true)
+        {
+            var receipts = await database.Collection("playPurchases").WhereEqualTo("uid", uid).Limit(100).GetSnapshotAsync(token);
+            if (receipts.Count == 0) break;
+            var batch = database.StartBatch();
+            foreach (var receipt in receipts.Documents) batch.Update(receipt.Reference, new Dictionary<string, object> { ["uid"] = "" });
+            await batch.CommitAsync(token);
+        }
         await DeleteTree(User(uid), token);
         _inventoryCache.TryRemove(uid, out _);
         await database.Collection("statisticsReaders").Document(uid).DeleteAsync(cancellationToken: token);

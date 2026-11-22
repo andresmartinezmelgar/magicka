@@ -487,6 +487,7 @@ await Test("Defensa online: salida voluntaria y nueva entrada conservan recursos
 });
 await ShopEmulatorTests.Run(database, repository, new Uri(options.PublicUrl), Test);
 await AdvertisingEmulatorTests.Run(database, repository, new Uri(options.PublicUrl), Test);
+await StoreEmulatorTests.Run(database, repository, Test);
 await app.StopAsync(); await app.DisposeAsync();
 
 await Test("Diario: un resultado pendiente se recupera al reiniciar sin duplicar la recompensa", async () =>

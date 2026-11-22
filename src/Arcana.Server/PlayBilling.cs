@@ -13,7 +13,7 @@ internal sealed record PlayPurchase(bool Purchased, bool Acknowledged);
 internal sealed class PlayUnavailableException() : Exception("Google Play no está disponible. Vuelve a consultar la tienda.");
 
 // Solo el servidor consulta al editor de Google. El teléfono nunca decide si se concede la compra.
-internal sealed class PlayBilling
+internal sealed partial class PlayBilling
 {
     internal const string Package = "com.arcana.arena";
     private static readonly HttpClient Client = new(new HttpClientHandler { AllowAutoRedirect = false })
@@ -21,10 +21,15 @@ internal sealed class PlayBilling
     private readonly Lazy<GoogleCredential> _credential = new(() =>
         GoogleCredential.GetApplicationDefault().CreateScoped("https://www.googleapis.com/auth/androidpublisher"));
     internal string? Product { get; }
+    internal StoreProduct[] Products { get; }
     internal PlayBilling(IConfiguration config)
     {
         string? id = config["ARCANA_PLAY_NO_ADS_PRODUCT_ID"];
+        bool shop = config.GetValue("ARCANA_PLAY_SHOP_ENABLED", false);
+        if (shop && string.IsNullOrWhiteSpace(id)) id = "arcana_no_ads_forever";
         if (id != null && Regex.IsMatch(id, @"\A[a-z0-9][a-z0-9_.]{0,39}\z")) Product = id;
+        Products = shop && Product != null ? StoreCatalogue.Products(Product) : Product != null
+            ? StoreCatalogue.Products(Product).Where(p => p.Key == "no_ads_forever").ToArray() : [];
     }
     internal static PlayPurchase ReadPurchase(JsonElement json, string uid, string product)
     {
@@ -95,6 +100,7 @@ internal sealed class PlayBilling
     internal async Task RefreshIfDue(IAccountRepository? repository, string uid, CancellationToken token)
     {
         if (Product == null || repository is not FirestoreAccountRepository db) return;
+        if (Products.Any(p => p.Months > 0)) await RefreshPassIfDue(db, uid, token);
         var current = await db.PlayReceiptFor(uid, token);
         if (current == null || current.Product != Product || current.Acknowledged &&
             DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - current.CheckedAt < TimeSpan.FromHours(12).TotalMilliseconds) return;

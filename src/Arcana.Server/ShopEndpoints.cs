@@ -15,6 +15,7 @@ public static class ShopEndpoints
             return new(profile, shop, message, DateTimeOffset.UtcNow)
             {
                 AdsEnabled = advertising.Enabled,
+                BillingProducts = billing.Products,
                 RewardedAds = advertising.RequiresAd(profile.Access, DateTimeOffset.UtcNow)
                     ? AdMobRewardVerifier.Configuration(app.Configuration) : null,
                 NoAdsProductId = billing.Product
@@ -38,6 +39,16 @@ public static class ShopEndpoints
                 await billing.Verify(repository, user.Uid, request.PurchaseToken, true, context.RequestAborted);
                 return await Result(repository, await repository.Profile(user.Uid, user.Name, context.RequestAborted),
                     await repository.Shop(user.Uid, user.Name, context.RequestAborted), "Compra sin anuncios confirmada.", context.RequestAborted);
+            }));
+        app.MapPost("/account/shop/play/purchase", (StorePurchaseRequest request, AccountService accounts, HttpContext context) =>
+            Auth(accounts, context, async user =>
+            {
+                if (accounts.Repository is not FirestoreAccountRepository repository)
+                    throw new InvalidOperationException("Las compras necesitan un servidor conectado a Firebase.");
+                await repository.Profile(user.Uid, user.Name, context.RequestAborted);
+                await billing.VerifyStore(repository, user.Uid, request, context.RequestAborted);
+                return await Result(repository, await repository.Profile(user.Uid, user.Name, context.RequestAborted),
+                    await repository.Shop(user.Uid, user.Name, context.RequestAborted), "Compra confirmada y guardada en tu cuenta.", context.RequestAborted);
             }));
         app.MapPost("/account/shop/buy", (ShopPurchaseRequest request, AccountService accounts, HttpContext context) => Auth(accounts, context, async user =>
         {

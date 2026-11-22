@@ -93,6 +93,31 @@ public partial class Main
                 }
                 _shopSmokeId = shop.Catalogue.Id; var offer = shop.Catalogue.Offers[0]; _shopBoughtId = offer.Item.Id; _shopBoughtPrice = offer.Price;
                 offersScroll.EnsureControlVisible(Button("ShopBuy_" + _shopBoughtId));
+                _shopSmokePhase = 210; return false;
+            }
+            if (_shopSmokePhase == 210)
+            {
+                Button("ShopArea1").EmitSignal(Godot.Button.SignalName.Pressed); _shopSmokePhase = 211; return false;
+            }
+            if (_shopSmokePhase == 211)
+            {
+                Check(((Control)shop!.FindChild("ShopGoldArea", true, false)).Visible &&
+                    ((GridContainer)shop.FindChild("ShopGoldPacks", true, false)).GetChildCount() == 4,
+                    "No se muestran los cuatro paquetes en el área de oro.");
+                foreach (var product in StoreCatalogue.Products().Where(p => p.Gold > 0))
+                    Check(Button("ShopProductBuy_" + product.Key).Disabled, "Una compra sin precio real está habilitada.");
+                CaptureShop("02-oro"); Button("ShopArea2").EmitSignal(Godot.Button.SignalName.Pressed); _shopSmokePhase = 212; return false;
+            }
+            if (_shopSmokePhase == 212)
+            {
+                Check(((Control)shop!.FindChild("ShopPassesArea", true, false)).Visible &&
+                    ((GridContainer)shop.FindChild("ShopNoAdsPlans", true, false)).GetChildCount() == 3 && Button("ShopRestorePurchases").Disabled,
+                    "Faltan los tres pases o se habilita una restauración sin Google Play.");
+                CaptureShop("02-pases"); Button("ShopArea0").EmitSignal(Godot.Button.SignalName.Pressed); _shopSmokePhase = 213; return false;
+            }
+            if (_shopSmokePhase == 213)
+            {
+                ((ScrollContainer)shop!.FindChild("ShopOffersScroll", true, false)).EnsureControlVisible(Button("ShopBuy_" + _shopBoughtId));
                 _shopSmokePhase = 20; return false;
             }
             if (_shopSmokePhase == 20)

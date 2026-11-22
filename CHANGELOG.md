@@ -2,6 +2,14 @@
 
 ## Sin publicar
 
+## 0.29.72
+
+- Tienda renovada con tres áreas: equipamiento diario, cuatro paquetes de oro y pases sin anuncios de un mes, seis meses y para siempre.
+- Tarjetas con ilustraciones vectoriales, colores de calidad, navegación por áreas y diseño adaptable a escritorio y móvil. Los precios proceden de Google Play.
+- Paquetes de oro consumibles con entrega atómica e idempotente en Firebase. Pases temporales de prepago, sin renovación automática, con vencimiento validado por el servidor y restauración de compras.
+- Interruptor global de anuncios en Mi perfil para administradores. Los administradores y los derechos sin anuncios vigentes quedan siempre exentos; se conserva la cuota diaria de renovación de ofertas.
+- APK firmada y AAB para Google Play. La venta y la publicidad permanecen desactivadas hasta completar la configuración comercial indicada en la guía.
+
 ## 0.29.71
 
 - Dirección PvP y tienda obtenida de Firestore. Requiere publicar las reglas actualizadas y configurar publicConfig/pvpServer con la URL del servidor.
