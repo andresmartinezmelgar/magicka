@@ -279,7 +279,7 @@ public partial class Main
                 RenewalPhase = 3; DailyRenewals++;
             }
             if (path.StartsWith("/account/shop", StringComparison.Ordinal)) return Json(new ShopResult(Profile, _shop, "Tienda conectada.", _serverNow));
-            if (path.EndsWith("/items", StringComparison.Ordinal)) return Json(new { documents = _items.Select(Document).ToArray() });
+            if (path.EndsWith("/items", StringComparison.Ordinal)) return Json(new { documents = _items.Select(FirestoreFixture.Document).ToArray() });
             if (path.EndsWith("/loadouts/active", StringComparison.Ordinal)) return Json(FirestoreFixture.Document(new EquipmentLoadout()));
             return Json(FirestoreFixture.Document(new { uid = Profile.Uid, name = Profile.Name, gold = Gold, wins = 0, losses = 0, itemCount = _items.Count, schemaVersion = 1 }));
         }

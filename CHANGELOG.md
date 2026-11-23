@@ -2,6 +2,14 @@
 
 ## Sin publicar
 
+## 0.29.74
+
+- Refactorización del núcleo, protocolo PvP, supervivencia, cuentas y cliente para separar responsabilidades y facilitar su mantenimiento.
+- Dashboard: reutiliza validaciones y totales al buscar, paginar o cambiar de pestaña; el estado en directo mantiene su caducidad por tiempo.
+- Bots de Supervivencia: selección de objetivos con menos consultas y asignaciones temporales, conservando prioridades, umbrales y desempates.
+- Menús, estadísticas, controles móviles, materiales y geometría organizados en componentes específicos. Verificación de integridad de actualizaciones Android separada del controlador de instalación.
+- Menos lecturas repetidas de metadatos y preparación de secretos para los logs; nuevas regresiones para el dashboard, selección de bots y censura de datos.
+
 ## 0.29.73
 
 - Tienda móvil compacta: saldo y restauración en una fila, tarjetas visibles al entrar y menos cabecera. Los textos y controles de pago acompañan a su sección.

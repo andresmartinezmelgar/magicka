@@ -264,7 +264,7 @@ public partial class Main
                 _loadout = AccountInventory.ApplyLoadout(Profile, desired).Loadout;
                 return Json(FirestoreFixture.Document(Loadout));
             }
-            if (path.EndsWith("/items", StringComparison.Ordinal)) return Json(new { documents = Items.Select(Document).ToArray() });
+            if (path.EndsWith("/items", StringComparison.Ordinal)) return Json(new { documents = Items.Select(FirestoreFixture.Document).ToArray() });
             if (path.EndsWith("/loadouts/active", StringComparison.Ordinal)) return Json(FirestoreFixture.Document(Loadout));
             return Json(FirestoreFixture.Document(new { uid = Profile.Uid, name = Profile.Name, gold = _gold, wins = 0, losses = 0, itemCount = Items.Length, schemaVersion = 1 }));
         }
