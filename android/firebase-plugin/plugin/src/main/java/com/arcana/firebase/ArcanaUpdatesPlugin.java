@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.app.ActivityOptions;
 import android.app.PendingIntent;
 import android.content.Intent;
-import android.content.pm.PackageInfo;
 import android.content.pm.PackageInstaller;
 import android.net.Uri;
 import android.os.Build;
@@ -22,7 +21,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.OutputStream;
 import java.lang.ref.WeakReference;
-import java.security.MessageDigest;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.Executors;
@@ -222,27 +220,9 @@ public final class ArcanaUpdatesPlugin extends GodotPlugin {
 
     private void createSession(Activity activity, boolean requireConfirmation) throws Exception {
         var preferences = activity.getSharedPreferences(PREFS, 0);
-        File apk = new File(preferences.getString("path", "")).getCanonicalFile();
-        if (!apk.toPath().startsWith(activity.getFilesDir().getCanonicalFile().toPath()))
-            throw new IllegalArgumentException("La APK no pertenece al almacenamiento privado.");
-        MessageDigest hash = MessageDigest.getInstance("SHA-256");
-        byte[] buffer = new byte[65536];
-        try (var input = new FileInputStream(apk)) {
-            int read;
-            while ((read = input.read(buffer)) != -1) hash.update(buffer, 0, read);
-        }
-        StringBuilder digest = new StringBuilder();
-        for (byte value : hash.digest()) digest.append(String.format("%02x", value & 255));
-        if (!digest.toString().equalsIgnoreCase(preferences.getString("sha256", "")))
-            throw new IllegalArgumentException("La APK ha cambiado despues de descargarse.");
-        PackageInfo candidate = activity.getPackageManager().getPackageArchiveInfo(apk.getPath(), 0);
-        PackageInfo installed = activity.getPackageManager().getPackageInfo(activity.getPackageName(), 0);
-        long wanted = preferences.getLong("version", 0);
-        long candidateCode = candidate == null ? 0 : Build.VERSION.SDK_INT >= 28 ? candidate.getLongVersionCode() : candidate.versionCode;
-        long installedCode = Build.VERSION.SDK_INT >= 28 ? installed.getLongVersionCode() : installed.versionCode;
-        if (candidate == null || !activity.getPackageName().equals(candidate.packageName) ||
-            !UpdateVersionPolicy.accepts(candidateCode, wanted, installedCode, preferences.getBoolean("preview", false)))
-            throw new IllegalArgumentException("La APK no es una version nueva de Arcana Arena.");
+        var verified = UpdateApkVerifier.verify(activity, preferences);
+        File apk = verified.file;
+        byte[] buffer = verified.buffer;
         // PackageInstaller verifica además la firma contra la app ya instalada.
         PackageInstaller installer = activity.getPackageManager().getPackageInstaller();
         PackageInstaller.SessionParams params = new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);

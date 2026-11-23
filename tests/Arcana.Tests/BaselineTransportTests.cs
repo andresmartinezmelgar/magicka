@@ -6,6 +6,7 @@ internal static class BaselineTransportTests
 {
     public static async Task Run(Func<string, Func<Task>, Task> AsyncTest)
     {
+        await DiagnosticRedactionTests.Run(AsyncTest);
         await PerformanceRegressionTests.RunTransport(AsyncTest);
         async Task ReplyOnce(object value, Func<string, Task> request)
         {

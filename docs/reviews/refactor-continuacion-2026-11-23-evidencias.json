@@ -1,0 +1,249 @@
+{
+  "date": "2026-11-23",
+  "baseCommit": "9bda7e07158b5619a904246370bfb26da3b5ca8c",
+  "changes": {
+    "totalFiles": 74,
+    "newFiles": 56,
+    "existingModified": 18,
+    "newlyAddressedOriginalFiles": 15,
+    "paths": [
+      "android/firebase-plugin/plugin/src/main/java/com/arcana/firebase/ArcanaUpdatesPlugin.java",
+      "android/firebase-plugin/plugin/src/main/java/com/arcana/firebase/UpdateApkVerifier.java",
+      "docs/reviews/refactor-continuacion-2026-11-23-evidencias.json",
+      "docs/reviews/refactor-continuacion-2026-11-23.md",
+      "scripts/check-firebase-auth.py",
+      "scripts/study-pvp-bandwidth.py",
+      "src/Arcana.AccountServer/Arcana.AccountServer.csproj",
+      "src/Arcana.Client/Scripts/AccountProfilePanel.Actions.cs",
+      "src/Arcana.Client/Scripts/AccountProfilePanel.State.cs",
+      "src/Arcana.Client/Scripts/AccountProfilePanel.cs",
+      "src/Arcana.Client/Scripts/ArenaRenderer.Entities.cs",
+      "src/Arcana.Client/Scripts/ArenaRenderer.Geometry.cs",
+      "src/Arcana.Client/Scripts/ArenaRenderer.Visibility.cs",
+      "src/Arcana.Client/Scripts/ArenaRenderer.cs",
+      "src/Arcana.Client/Scripts/ItemShopPanel.Actions.cs",
+      "src/Arcana.Client/Scripts/ItemShopPanel.Offers.cs",
+      "src/Arcana.Client/Scripts/ItemShopPanel.cs",
+      "src/Arcana.Client/Scripts/Main.DesktopHeaderVerification.cs",
+      "src/Arcana.Client/Scripts/Main.MenuLayoutAssertions.cs",
+      "src/Arcana.Client/Scripts/Main.MobileMenuSmoke.cs",
+      "src/Arcana.Client/Scripts/MobileControls.Drawing.cs",
+      "src/Arcana.Client/Scripts/MobileControls.Input.cs",
+      "src/Arcana.Client/Scripts/MobileControls.cs",
+      "src/Arcana.Core/BuildInfo.cs",
+      "src/Arcana.Core/DiagnosticLog.Export.cs",
+      "src/Arcana.Core/DiagnosticLog.Redaction.cs",
+      "src/Arcana.Core/DiagnosticLog.cs",
+      "src/Arcana.Core/Diagnostics.cs",
+      "src/Arcana.Core/GameWorld.DefenseCommands.cs",
+      "src/Arcana.Core/GameWorld.DefenseControlCommands.cs",
+      "src/Arcana.Core/GameWorld.DefenseDrops.cs",
+      "src/Arcana.Core/GameWorld.DefenseEconomy.cs",
+      "src/Arcana.Core/GameWorld.DefensePowers.cs",
+      "src/Arcana.Core/GameWorld.DefenseSnapshot.cs",
+      "src/Arcana.Core/GameWorld.SurvivalRestore.cs",
+      "src/Arcana.Core/GameWorld.SurvivalSave.Types.cs",
+      "src/Arcana.Core/GameWorld.SurvivalSave.cs",
+      "src/Arcana.Core/GameWorld.SurvivalSaveValidation.cs",
+      "src/Arcana.Core/ProcessDiagnostics.cs",
+      "src/Arcana.Core/Protocol.Actions.cs",
+      "src/Arcana.Core/Protocol.Messages.cs",
+      "src/Arcana.Core/Protocol.Snapshots.cs",
+      "src/Arcana.Core/Protocol.WorldSnapshot.cs",
+      "src/Arcana.Core/Protocol.cs",
+      "src/Arcana.Server/AccountOptions.cs",
+      "src/Arcana.Server/AccountRepository.Equipment.cs",
+      "src/Arcana.Server/AccountRepository.Rewards.cs",
+      "src/Arcana.Server/AccountRepository.cs",
+      "src/Arcana.Server/AccountService.Login.cs",
+      "src/Arcana.Server/AccountService.Remote.cs",
+      "src/Arcana.Server/AccountService.cs",
+      "src/Arcana.Server/FirestoreData.cs",
+      "src/Arcana.Server/GoogleAccountVerifier.cs",
+      "tests/Arcana.Account.Tests/AccountIntegrationSuite.Http.cs",
+      "tests/Arcana.Account.Tests/AccountIntegrationSuite.Inventory.cs",
+      "tests/Arcana.Account.Tests/AccountIntegrationSuite.Login.cs",
+      "tests/Arcana.Account.Tests/AccountIntegrationSuite.Network.cs",
+      "tests/Arcana.Account.Tests/AccountIntegrationSuite.Rewards.cs",
+      "tests/Arcana.Account.Tests/AccountIntegrationSuite.cs",
+      "tests/Arcana.Account.Tests/Program.cs",
+      "tests/Arcana.Account.Tests/TestVerifier.cs",
+      "tests/Arcana.Tests/BaselineTransportTests.cs",
+      "tests/Arcana.Tests/DefenseTests.Assistance.cs",
+      "tests/Arcana.Tests/DefenseTests.Benchmark.cs",
+      "tests/Arcana.Tests/DefenseTests.BotInventory.cs",
+      "tests/Arcana.Tests/DefenseTests.Catalogue.cs",
+      "tests/Arcana.Tests/DefenseTests.Combat.cs",
+      "tests/Arcana.Tests/DefenseTests.Continuity.cs",
+      "tests/Arcana.Tests/DefenseTests.Economy.cs",
+      "tests/Arcana.Tests/DefenseTests.Network.cs",
+      "tests/Arcana.Tests/DefenseTests.Powers.cs",
+      "tests/Arcana.Tests/DefenseTests.Progression.cs",
+      "tests/Arcana.Tests/DefenseTests.cs",
+      "tests/Arcana.Tests/DiagnosticRedactionTests.cs"
+    ]
+  },
+  "syntax": {
+    "csharpFiles": 624,
+    "javaFiles": 17,
+    "pythonFiles": 32,
+    "errors": []
+  },
+  "sourceEquivalence": {
+    "status": "passed",
+    "baseCommit": "9bda7e07158b5619a904246370bfb26da3b5ca8c",
+    "csharpFiles": 624,
+    "baselineMembers": 6020,
+    "membersPreservedExactly": 6012,
+    "intentionalChangedMembers": [
+      {
+        "owner": "BuildInfo",
+        "kind": "property_declaration",
+        "member": "Version",
+        "count": 1
+      },
+      {
+        "owner": "BuildInfo",
+        "kind": "property_declaration",
+        "member": "UpdateBuildNumber",
+        "count": 1
+      },
+      {
+        "owner": "DiagnosticLog",
+        "kind": "field_declaration",
+        "member": "",
+        "count": 1
+      },
+      {
+        "owner": "DiagnosticLog",
+        "kind": "method_declaration",
+        "member": "ProtectSecret",
+        "count": 1
+      },
+      {
+        "owner": "DiagnosticLog",
+        "kind": "method_declaration",
+        "member": "Clean",
+        "count": 1
+      },
+      {
+        "owner": "GameWorld",
+        "kind": "method_declaration",
+        "member": "DefenseCommand",
+        "count": 1
+      },
+      {
+        "owner": "BaselineTransportTests",
+        "kind": "method_declaration",
+        "member": "Run",
+        "count": 1
+      },
+      {
+        "owner": "DefenseTests",
+        "kind": "method_declaration",
+        "member": "Run",
+        "count": 1
+      }
+    ],
+    "typeHeadersAndRecordConstructorsPreserved": 880,
+    "fieldOrderPreserved": true,
+    "economyControlBranchesEquivalent": 6,
+    "androidVerificationBlockEquivalent": true,
+    "accountTestRegistrationsPreserved": 38,
+    "defenseTestRegistrationsPreserved": 36,
+    "assemblyMetadataExpressionsPreserved": 2,
+    "compiled": false
+  },
+  "lineCounts": [
+    {
+      "path": "src/Arcana.Core/Protocol.cs",
+      "before": 282,
+      "after": 34
+    },
+    {
+      "path": "src/Arcana.Core/Diagnostics.cs",
+      "before": 244,
+      "after": 22
+    },
+    {
+      "path": "src/Arcana.Core/GameWorld.DefenseEconomy.cs",
+      "before": 406,
+      "after": 50
+    },
+    {
+      "path": "src/Arcana.Core/GameWorld.SurvivalSave.cs",
+      "before": 372,
+      "after": 66
+    },
+    {
+      "path": "src/Arcana.Server/AccountService.cs",
+      "before": 254,
+      "after": 74
+    },
+    {
+      "path": "src/Arcana.Server/AccountRepository.cs",
+      "before": 277,
+      "after": 119
+    },
+    {
+      "path": "src/Arcana.Client/Scripts/ArenaRenderer.cs",
+      "before": 476,
+      "after": 234
+    },
+    {
+      "path": "src/Arcana.Client/Scripts/AccountProfilePanel.cs",
+      "before": 299,
+      "after": 175
+    },
+    {
+      "path": "src/Arcana.Client/Scripts/ItemShopPanel.cs",
+      "before": 356,
+      "after": 120
+    },
+    {
+      "path": "src/Arcana.Client/Scripts/MobileControls.cs",
+      "before": 348,
+      "after": 164
+    },
+    {
+      "path": "tests/Arcana.Account.Tests/Program.cs",
+      "before": 567,
+      "after": 74
+    },
+    {
+      "path": "tests/Arcana.Tests/DefenseTests.cs",
+      "before": 754,
+      "after": 67
+    }
+  ],
+  "checksExecuted": [
+    "All C# and Java sources parsed with tree-sitter",
+    "All Python sources parsed with stdlib ast",
+    "C# type/record headers and field declaration order compared with base commit",
+    "Expanded defense command branches and APK validation compared by tokens",
+    "Expanded account and defense test registrations compared by tokens and order",
+    "Linked source/project paths validated and legacy account host dependencies checked",
+    "python scripts/check-firebase-auth.py",
+    "python scripts/version-support.py check .",
+    "git diff --check"
+  ],
+  "regressionsPrepared": {
+    "path": "tests/Arcana.Tests/DiagnosticRedactionTests.cs",
+    "cases": 2,
+    "executed": false,
+    "coverage": [
+      "Concurrent registration and masking of raw/JSON-escaped Unicode secrets",
+      "Duplicate registration and FIFO retention at 256 protected values"
+    ]
+  },
+  "runtimeTestsExecuted": false,
+  "buildsTriggered": false,
+  "apkCreated": false,
+  "tagsOrReleasesCreated": false,
+  "pending": [
+    ".NET/Godot compilation and C# tests, including the two new regressions",
+    "Account integrations and Firebase Emulator tests",
+    "Android compilation and real installation flow",
+    "Visual checks and runtime performance measurements"
+  ]
+}

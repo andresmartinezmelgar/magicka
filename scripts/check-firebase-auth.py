@@ -4,8 +4,10 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 checks = {
-    "src/Arcana.Server/AccountService.cs": [
+    "src/Arcana.Server/GoogleAccountVerifier.cs": [
         "VerifyIdTokenAsync", "sign_in_provider", "google.com",
+    ],
+    "src/Arcana.Server/AccountService.Login.cs": [
         "StartLogin(", "CompleteLogin(", "Authenticate(",
     ],
     "src/Arcana.Core/AccountClient.Authentication.cs": [
@@ -15,7 +17,10 @@ checks = {
         "GOOGLE_APPLICATION_CREDENTIALS",
     ],
     "src/Arcana.Client/Scripts/AccountProfilePanel.cs": [
-        "_main.StartGoogleLogin()", "_main.StopGoogleSession()",
+        "_main.StartGoogleLogin()",
+    ],
+    "src/Arcana.Client/Scripts/AccountProfilePanel.Actions.cs": [
+        "_main.StopGoogleSession()",
     ],
     "scripts/test-accounts.sh": ["Arcana.Account.Tests"],
 }

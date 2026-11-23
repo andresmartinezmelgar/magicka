@@ -22,6 +22,13 @@
     <Compile Include="../Arcana.Server/HttpAbuseProtection.cs" Link="HttpAbuseProtection.cs" />
     <Compile Include="../Arcana.Server/ShopEndpoints.cs" Link="ShopEndpoints.cs" />
     <Compile Include="../Arcana.Server/AccountService.cs" Link="AccountService.cs" />
+    <Compile Include="../Arcana.Server/AccountService.Remote.cs" Link="AccountService.Remote.cs" />
+    <Compile Include="../Arcana.Server/AccountService.Login.cs" Link="AccountService.Login.cs" />
+    <Compile Include="../Arcana.Server/AccountOptions.cs" Link="AccountOptions.cs" />
+    <Compile Include="../Arcana.Server/GoogleAccountVerifier.cs" Link="GoogleAccountVerifier.cs" />
+    <Compile Include="../Arcana.Server/AccountRepository.Equipment.cs" Link="AccountRepository.Equipment.cs" />
+    <Compile Include="../Arcana.Server/AccountRepository.Rewards.cs" Link="AccountRepository.Rewards.cs" />
+    <Compile Include="../Arcana.Server/FirestoreData.cs" Link="FirestoreData.cs" />
     <Compile Include="../Arcana.Server/PublicDashboardService.cs" Link="PublicDashboardService.cs" />
     <Compile Include="../Arcana.Server/PublicDashboardEndpoints.cs" Link="PublicDashboardEndpoints.cs" />
   </ItemGroup>

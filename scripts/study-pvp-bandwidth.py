@@ -3,7 +3,7 @@
 
 Run: python3 scripts/study-pvp-bandwidth.py --output docs/benchmarks/pvp-network-2026-11-09.json
 
-The fixtures follow Protocol.cs / SnapshotDelta.cs, but are NOT a game recording
+The fixtures follow Protocol.*.cs / SnapshotDelta.cs, but are NOT a game recording
 or a substitute for the C# tests. Python JSON numbers need not have the same text
 as System.Text.Json floats. Timings include Python/ctypes/native Brotli overhead,
 not .NET, Godot, networking, Raspberry Pi or Android execution.
@@ -282,7 +282,7 @@ def main():
                          "acceptCompressedWhen": "compressedBytes + 17 < rawBytes",
                          "timing": "Median of five passes, eight warmup messages; Python/ctypes and native Brotli, including keyframes, per simulation frame.",
                          "acknowledgement": "Immediate before the next delta, no loss or retry.",
-                         "fixtures": "Protocol.cs field names, deterministic idle/movement/combat states and SnapshotDelta JSON representations; not C# serializer output.",
+                         "fixtures": "Protocol.*.cs field names, deterministic idle/movement/combat states and SnapshotDelta JSON representations; not C# serializer output.",
                          "excluded": ["welcome", "statistics", "control messages", "uplink", "WebSocket headers", "TCP/TLS/IP", "HTTP/Firebase", "retransmissions"],
                          "limitations": "Synthetic 12-second payload samples extrapolated to one minute. Not real game traffic, .NET CPU, Android FPS, or Raspberry Pi measurements. Python numeric spelling can differ from System.Text.Json. Timing differences near zero are noise."},
               "scenarios": rows,
