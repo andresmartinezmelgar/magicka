@@ -4,6 +4,7 @@ import importlib.util
 import json
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -202,6 +203,9 @@ class ConfigurationTests(unittest.TestCase):
         self.assertEqual(json.loads(configuration.read_text())["compose_files"], [str(base), str(private)])
         self.assertEqual(configuration.stat().st_mode & 0o777, 0o600)
         self.assertTrue(program.exists())
+        self.assertTrue(program.with_name("server_release.py").is_file())
+        subprocess.run([sys.executable, "-E", str(program), "--help"], cwd=self.root,
+                       check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=10)
         timer = (units / "arcana-server-update.timer").read_text()
         self.assertIn("OnCalendar=*-*-* *:00,30:00", timer)
         self.assertIn("Persistent=true", timer)

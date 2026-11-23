@@ -1,6 +1,6 @@
 #requires -Version 5.1
 [CmdletBinding()]
-param([string]$Repository = (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent), [string]$Branch = 'pruebas/dashboard-estadisticas')
+param([string]$Repository = (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent), [string]$Branch = 'main')
 $ErrorActionPreference = 'Stop'
 $Repository = [IO.Path]::GetFullPath($Repository)
 $stateFolder = Join-Path $env:LOCALAPPDATA 'ArcanaArenaDashboard'

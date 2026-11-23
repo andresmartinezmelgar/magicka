@@ -280,19 +280,9 @@ public partial class Main
             }
             if (path.StartsWith("/account/shop", StringComparison.Ordinal)) return Json(new ShopResult(Profile, _shop, "Tienda conectada.", _serverNow));
             if (path.EndsWith("/items", StringComparison.Ordinal)) return Json(new { documents = _items.Select(Document).ToArray() });
-            if (path.EndsWith("/loadouts/active", StringComparison.Ordinal)) return Json(Document(new EquipmentLoadout()));
-            return Json(Document(new { uid = Profile.Uid, name = Profile.Name, gold = Gold, wins = 0, losses = 0, itemCount = _items.Count, schemaVersion = 1 }));
+            if (path.EndsWith("/loadouts/active", StringComparison.Ordinal)) return Json(FirestoreFixture.Document(new EquipmentLoadout()));
+            return Json(FirestoreFixture.Document(new { uid = Profile.Uid, name = Profile.Name, gold = Gold, wins = 0, losses = 0, itemCount = _items.Count, schemaVersion = 1 }));
         }
-        private static object Document(object value) => new { fields = JsonSerializer.SerializeToElement(value, Protocol.Json).EnumerateObject().ToDictionary(p => p.Name, p => FirestoreValue(p.Value)) };
-        private static object FirestoreValue(JsonElement value) => value.ValueKind switch
-        {
-            JsonValueKind.String => new { stringValue = value.GetString() },
-            JsonValueKind.Number when value.TryGetInt64(out long integer) => new { integerValue = integer.ToString(System.Globalization.CultureInfo.InvariantCulture) },
-            JsonValueKind.Number => new { doubleValue = value.GetDouble() },
-            JsonValueKind.Array => new { arrayValue = new { values = value.EnumerateArray().Select(FirestoreValue).ToArray() } },
-            JsonValueKind.Object => new { mapValue = new { fields = value.EnumerateObject().ToDictionary(p => p.Name, p => FirestoreValue(p.Value)) } },
-            _ => new { nullValue = (object?)null }
-        };
         private static HttpResponseMessage Json(object value) => new(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(value, Protocol.Json)) };
     }
 }

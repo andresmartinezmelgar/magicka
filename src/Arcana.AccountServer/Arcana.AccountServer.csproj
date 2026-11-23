@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="../Arcana.Core/Arcana.Core.csproj" />
     <Compile Include="../Arcana.Server/AccountEndpoints.cs" Link="AccountEndpoints.cs" />
+    <Compile Include="../Arcana.Server/ArcanaWebServices.cs" Link="ArcanaWebServices.cs" />
     <Compile Include="../Arcana.Server/AccountLoginPage.cs" Link="AccountLoginPage.cs" />
     <Compile Include="../Arcana.Server/AccountRepository.InventoryCache.cs" Link="AccountRepository.InventoryCache.cs" />
     <Compile Include="../Arcana.Server/AccountRepository.cs" Link="AccountRepository.cs" />

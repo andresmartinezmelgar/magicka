@@ -47,30 +47,6 @@ public final class ArcanaBillingPlugin extends GodotPlugin {
     }
     @Override public void onMainDestroy() { if (active != null) active.finish("closed", ""); }
 
-    private static final class Quote {
-        final String price, token, period;
-        Quote(String price, String token, String period) { this.price = price; this.token = token; this.period = period; }
-    }
-    private static Quote quote(ProductDetails item, String plan) {
-        if (item.getProductType().equals("inapp")) {
-            var offers = item.getOneTimePurchaseOfferDetailsList();
-            if (offers != null) for (var offer : offers)
-                if (offer.getRentalDetails() == null && offer.getPreorderDetails() == null)
-                    return new Quote(offer.getFormattedPrice(), offer.getOfferToken(), "");
-        } else {
-            var offers = item.getSubscriptionOfferDetails();
-            if (offers != null) for (var offer : offers) {
-                if (!plan.equals(offer.getBasePlanId()) || offer.getOfferId() != null) continue;
-                var phases = offer.getPricingPhases().getPricingPhaseList(); if (phases.size() != 1) continue;
-                var phase = phases.get(0);
-                String expected = plan.equals("month-prepaid") ? "P1M" : plan.equals("six-months-prepaid") ? "P6M" : "";
-                if (expected.isEmpty() || !expected.equals(phase.getBillingPeriod()) ||
-                    phase.getRecurrenceMode() != ProductDetails.RecurrenceMode.NON_RECURRING) continue;
-                return new Quote(phase.getFormattedPrice(), offer.getOfferToken(), phase.getBillingPeriod());
-            }
-        }
-        return null;
-    }
     private final class Operation implements BillingClientStateListener, PurchasesUpdatedListener {
         final String id, product, type, plan, owner;
         final boolean restore;
@@ -116,7 +92,7 @@ public final class ArcanaBillingPlugin extends GodotPlugin {
                         for (var item : details.getProductDetailsList()) for (int i = 0; i < catalogue.length(); i++) {
                             var entry = catalogue.getJSONObject(i);
                             if (!productType.equals(entry.optString("productType")) || !item.getProductId().equals(entry.optString("productId"))) continue;
-                            var value = quote(item, entry.optString("basePlanId"));
+                            var value = StoreProductQuote.find(item, entry.optString("basePlanId"));
                             if (value != null) prices.put(new JSONObject().put("key", entry.getString("key"))
                                 .put("price", value.price).put("period", value.period));
                         }
@@ -153,7 +129,7 @@ public final class ArcanaBillingPlugin extends GodotPlugin {
                     if (result.getResponseCode() != BillingClient.BillingResponseCode.OK || getActivity() == null) { finish("unavailable", ""); return; }
                     for (var item : details.getProductDetailsList()) {
                         if (!product.equals(item.getProductId())) continue;
-                        var value = quote(item, plan); if (value == null) continue;
+                        var value = StoreProductQuote.find(item, plan); if (value == null) continue;
                         var entry = BillingFlowParams.ProductDetailsParams.newBuilder().setProductDetails(item).setOfferToken(value.token).build();
                         var started = client.launchBillingFlow(getActivity(), BillingFlowParams.newBuilder()
                             .setObfuscatedAccountId(owner).setProductDetailsParamsList(Collections.singletonList(entry)).build());

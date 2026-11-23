@@ -95,7 +95,8 @@ def install(checkout, compose_file=None, backend_ports=(27017, 27019)):
         updater.bootstrap(node["image"], node["commit"], node["version"])
     PROGRAM.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
     for source, target in [(Path(__file__), PROGRAM),
-                           (Path(__file__).with_name("arcana_rolling_update.py"), PROGRAM.with_name("arcana_rolling_update.py"))]:
+                           (Path(__file__).with_name("arcana_rolling_update.py"), PROGRAM.with_name("arcana_rolling_update.py")),
+                           (Path(__file__).with_name("server_release.py"), PROGRAM.with_name("server_release.py"))]:
         if source.resolve() != target.resolve():
             shutil.copyfile(source, target)
         target.chmod(0o755)

@@ -8,14 +8,14 @@ checks = {
         "VerifyIdTokenAsync", "sign_in_provider", "google.com",
         "StartLogin(", "CompleteLogin(", "Authenticate(",
     ],
-    "src/Arcana.Core/AccountClient.cs": [
+    "src/Arcana.Core/AccountClient.Authentication.cs": [
         "account/login/start", "account/login/poll", "AuthenticationHeaderValue",
     ],
     "src/Arcana.Core/LocalFirebaseHosting.cs": [
         "GOOGLE_APPLICATION_CREDENTIALS",
     ],
     "src/Arcana.Client/Scripts/AccountProfilePanel.cs": [
-        "Entrar o registrarse con Google",
+        "_main.StartGoogleLogin()", "_main.StopGoogleSession()",
     ],
     "scripts/test-accounts.sh": ["Arcana.Account.Tests"],
 }

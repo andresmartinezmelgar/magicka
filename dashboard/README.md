@@ -23,7 +23,7 @@ Requisito: Git para Windows instalado y accesible como `git`. Ejecuta en **Windo
 
 ```powershell
 $repo = Join-Path $env:USERPROFILE 'ArcanaArenaDashboard'
-git clone --filter=blob:none --sparse --branch pruebas/dashboard-estadisticas https://github.com/andresmartinezmelgar/magicka.git $repo
+git clone --filter=blob:none --sparse --branch main https://github.com/andresmartinezmelgar/magicka.git $repo
 if ($LASTEXITCODE -ne 0) { throw 'No se ha podido clonar el repositorio.' }
 git -C $repo sparse-checkout set dashboard
 if ($LASTEXITCODE -ne 0) { throw 'No se ha podido preparar el dashboard.' }
@@ -41,7 +41,7 @@ Las estadísticas públicas se comprueban cada 15 segundos mientras la pestaña 
 
 Se rechazan cambios locales, otra rama, otro remoto y divergencias. No se usa reset, limpieza, rebase ni push forzado. Un mutex evita actualizaciones simultáneas. Registro: `%LOCALAPPDATA%\ArcanaArenaDashboard\updates.log`, con rotación de 1 MiB.
 
-Si usas un checkout existente, sustituye `$repo` por su ruta y pasa la rama exacta que contiene este dashboard. Cuando se integre en main, vuelve a ejecutar el instalador con `-Branch main` desde un checkout de main. La reinstalación actualiza las mismas dos tareas. El instalador no modifica la rama actual por su cuenta.
+Si usas un checkout existente, sustituye `$repo` por su ruta. La rama predeterminada es `main`. Para actualizar una instalación que apuntaba a una rama antigua, ejecuta de nuevo el instalador con `-Branch main` desde un checkout de main. La reinstalación actualiza las mismas dos tareas. El instalador no modifica la rama actual por su cuenta.
 
 Arranque manual:
 

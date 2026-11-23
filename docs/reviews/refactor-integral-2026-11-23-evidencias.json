@@ -1,0 +1,342 @@
+{
+  "date": "2026-11-23",
+  "baseCommit": "b4ff22eaf30afc33af4ab334b39aa37806a2960b",
+  "scope": {
+    "initialSourceInventory": 615,
+    "additionalShaders": 13,
+    "additionalCmdScripts": 2,
+    "sourceAndAutomationFilesBefore": 630,
+    "sourceAndAutomationFilesAfter": 705,
+    "csharpFilesBefore": 503,
+    "csharpFilesAfter": 571
+  },
+  "changes": {
+    "totalFiles": 110,
+    "newFiles": 77,
+    "existingFilesModified": 33,
+    "paths": [
+      "android/firebase-plugin/plugin/src/main/java/com/arcana/firebase/ArcanaBillingPlugin.java",
+      "android/firebase-plugin/plugin/src/main/java/com/arcana/firebase/StoreProductQuote.java",
+      "dashboard/README.md",
+      "dashboard/tests/export.test.mjs",
+      "dashboard/web/app.mjs",
+      "dashboard/web/csv-export.mjs",
+      "dashboard/web/format.mjs",
+      "dashboard/web/model.mjs",
+      "dashboard/web/report-validation.mjs",
+      "dashboard/web/schema.mjs",
+      "dashboard/web/selection-view.mjs",
+      "dashboard/windows/Install-Dashboard.ps1",
+      "dashboard/windows/Update-Dashboard.ps1",
+      "docs/reviews/refactor-integral-2026-11-23-evidencias.json",
+      "docs/reviews/refactor-integral-2026-11-23.md",
+      "scripts/arcana_rolling_update.py",
+      "scripts/check-firebase-auth.py",
+      "scripts/raspberry-auto-update.py",
+      "scripts/raspberry-generations.py",
+      "scripts/server_release.py",
+      "scripts/test-raspberry-auto-update.py",
+      "src/Arcana.AccountServer/Arcana.AccountServer.csproj",
+      "src/Arcana.AccountServer/InternalAccountEndpoints.cs",
+      "src/Arcana.AccountServer/Program.cs",
+      "src/Arcana.Client/Scripts/CombatEffects.Advance.cs",
+      "src/Arcana.Client/Scripts/CombatEffects.cs",
+      "src/Arcana.Client/Scripts/DefensePanel.Inventory.cs",
+      "src/Arcana.Client/Scripts/DefensePanel.State.cs",
+      "src/Arcana.Client/Scripts/DefensePanel.cs",
+      "src/Arcana.Client/Scripts/EquipmentPanel.AccountActions.cs",
+      "src/Arcana.Client/Scripts/EquipmentPanel.Rendering.cs",
+      "src/Arcana.Client/Scripts/EquipmentPanel.cs",
+      "src/Arcana.Client/Scripts/FirebaseDesktopBridge.Configuration.cs",
+      "src/Arcana.Client/Scripts/FirebaseDesktopBridge.Session.cs",
+      "src/Arcana.Client/Scripts/FirebaseDesktopBridge.cs",
+      "src/Arcana.Client/Scripts/Hud.Layout.cs",
+      "src/Arcana.Client/Scripts/Hud.State.cs",
+      "src/Arcana.Client/Scripts/Hud.cs",
+      "src/Arcana.Client/Scripts/Launcher.Connection.cs",
+      "src/Arcana.Client/Scripts/Launcher.Hosting.cs",
+      "src/Arcana.Client/Scripts/Launcher.cs",
+      "src/Arcana.Client/Scripts/Main.Diagnostics.cs",
+      "src/Arcana.Client/Scripts/Main.Frame.cs",
+      "src/Arcana.Client/Scripts/Main.Input.cs",
+      "src/Arcana.Client/Scripts/Main.Pause.cs",
+      "src/Arcana.Client/Scripts/Main.Profiling.cs",
+      "src/Arcana.Client/Scripts/Main.SaleVerification.cs",
+      "src/Arcana.Client/Scripts/Main.Session.cs",
+      "src/Arcana.Client/Scripts/Main.ShopVerification.cs",
+      "src/Arcana.Client/Scripts/Main.cs",
+      "src/Arcana.Client/Scripts/ReleaseUpdateNotice.Installation.cs",
+      "src/Arcana.Client/Scripts/ReleaseUpdateNotice.Presentation.cs",
+      "src/Arcana.Client/Scripts/ReleaseUpdateNotice.Transfer.cs",
+      "src/Arcana.Client/Scripts/ReleaseUpdateNotice.Verification.cs",
+      "src/Arcana.Client/Scripts/ReleaseUpdateNotice.cs",
+      "src/Arcana.Client/Scripts/RoomLobby.Layout.cs",
+      "src/Arcana.Client/Scripts/RoomLobby.Requests.cs",
+      "src/Arcana.Client/Scripts/RoomLobby.cs",
+      "src/Arcana.Client/Scripts/Verification/FirestoreFixture.cs",
+      "src/Arcana.Core/AccountClient.Authentication.cs",
+      "src/Arcana.Core/AccountClient.Loadout.cs",
+      "src/Arcana.Core/AccountClient.cs",
+      "src/Arcana.Core/ArenaConnection.Lifecycle.cs",
+      "src/Arcana.Core/ArenaConnection.Transport.cs",
+      "src/Arcana.Core/ArenaConnection.cs",
+      "src/Arcana.Core/Equipment.cs",
+      "src/Arcana.Core/EquipmentCatalogue.Generation.cs",
+      "src/Arcana.Core/EquipmentCatalogue.cs",
+      "src/Arcana.Core/EquipmentModifiers.cs",
+      "src/Arcana.Core/GameWorld.AreaSpells.cs",
+      "src/Arcana.Core/GameWorld.BotCombat.cs",
+      "src/Arcana.Core/GameWorld.Casting.cs",
+      "src/Arcana.Core/GameWorld.CombatDamage.cs",
+      "src/Arcana.Core/GameWorld.Commands.cs",
+      "src/Arcana.Core/GameWorld.Defense.cs",
+      "src/Arcana.Core/GameWorld.DefenseLifecycle.cs",
+      "src/Arcana.Core/GameWorld.DefenseMinionAI.cs",
+      "src/Arcana.Core/GameWorld.DefenseSpawning.cs",
+      "src/Arcana.Core/GameWorld.Entities.cs",
+      "src/Arcana.Core/GameWorld.Match.cs",
+      "src/Arcana.Core/GameWorld.Simulation.cs",
+      "src/Arcana.Core/GameWorld.cs",
+      "src/Arcana.Core/LanDiscovery.cs",
+      "src/Arcana.Core/LootRandom.cs",
+      "src/Arcana.Server/ArcanaWebServices.cs",
+      "src/Arcana.Server/GameRoom.cs",
+      "src/Arcana.Server/GameService.Connections.cs",
+      "src/Arcana.Server/GameService.Input.cs",
+      "src/Arcana.Server/GameService.Rewards.cs",
+      "src/Arcana.Server/GameService.Simulation.cs",
+      "src/Arcana.Server/GameService.Transport.cs",
+      "src/Arcana.Server/GameService.cs",
+      "src/Arcana.Server/PlayerSession.cs",
+      "src/Arcana.Server/Program.cs",
+      "tests/Arcana.Tests/BaselineAscensionTests.cs",
+      "tests/Arcana.Tests/BaselineCitadelTests.cs",
+      "tests/Arcana.Tests/BaselineEndpointTests.cs",
+      "tests/Arcana.Tests/BaselineInputTests.cs",
+      "tests/Arcana.Tests/BaselineLobbyTests.cs",
+      "tests/Arcana.Tests/BaselineMatchTests.cs",
+      "tests/Arcana.Tests/BaselineNetworkTests.cs",
+      "tests/Arcana.Tests/BaselinePackageTests.cs",
+      "tests/Arcana.Tests/BaselineProtocolTests.cs",
+      "tests/Arcana.Tests/BaselineRelicTests.cs",
+      "tests/Arcana.Tests/BaselineSpellCatalogueTests.cs",
+      "tests/Arcana.Tests/BaselineSpellTests.cs",
+      "tests/Arcana.Tests/BaselineTestSupport.cs",
+      "tests/Arcana.Tests/BaselineTransportTests.cs",
+      "tests/Arcana.Tests/Program.cs",
+      "tests/Arcana.Tests/UnknownLengthStream.cs"
+    ]
+  },
+  "staticChecks": {
+    "status": "passed",
+    "checks": {
+      "yaml": 7,
+      "xml": 10,
+      ".java": 16,
+      ".mjs": 12,
+      "json": 33,
+      ".ps1": 27,
+      "python": 32,
+      ".cjs": 3,
+      "bash": 16,
+      ".cs": 571,
+      "shader includes": 13
+    },
+    "errors": [],
+    "powershellGrammarBaselineErrors": [
+      "scripts/Apply-WindowsUpdate.ps1",
+      "scripts/android-tools-support.ps1",
+      "scripts/test-delta-install.ps1",
+      "scripts/test-windows-update.ps1"
+    ],
+    "compiled": false
+  },
+  "csharpStructuralEquivalence": {
+    "status": "passed",
+    "baselineProductionMembers": 5306,
+    "productionMembersPreservedExactly": 5298,
+    "modifiedOrConsolidatedMembers": [
+      {
+        "file": "src/Arcana.Client/Scripts/Main.SaleVerification.cs",
+        "member": "FirestoreValue",
+        "count": 1
+      },
+      {
+        "file": "src/Arcana.Client/Scripts/Main.SaleVerification.cs",
+        "member": "Document",
+        "count": 1
+      },
+      {
+        "file": "src/Arcana.Client/Scripts/Main.SaleVerification.cs",
+        "member": "SendAsync",
+        "count": 1
+      },
+      {
+        "file": "src/Arcana.Client/Scripts/Main.ShopVerification.cs",
+        "member": "FirestoreValue",
+        "count": 1
+      },
+      {
+        "file": "src/Arcana.Client/Scripts/Main.ShopVerification.cs",
+        "member": "Document",
+        "count": 1
+      },
+      {
+        "file": "src/Arcana.Client/Scripts/Main.ShopVerification.cs",
+        "member": "SendAsync",
+        "count": 1
+      },
+      {
+        "file": "src/Arcana.Core/GameWorld.cs",
+        "member": "Step",
+        "count": 1
+      },
+      {
+        "file": "src/Arcana.Server/GameService.cs",
+        "member": "ExecuteAsync",
+        "count": 1
+      }
+    ],
+    "newOrUpdatedMembers": [
+      {
+        "file": "src/Arcana.Client/Scripts/Main.SaleVerification.cs",
+        "member": "SendAsync",
+        "count": 1
+      },
+      {
+        "file": "src/Arcana.Server/ArcanaWebServices.cs",
+        "member": "ConfigureArcanaHttp",
+        "count": 1
+      },
+      {
+        "file": "src/Arcana.Server/ArcanaWebServices.cs",
+        "member": "AddArcanaAccounts",
+        "count": 1
+      },
+      {
+        "file": "src/Arcana.Core/GameWorld.Simulation.cs",
+        "member": "Step",
+        "count": 1
+      },
+      {
+        "file": "src/Arcana.Core/GameWorld.Simulation.cs",
+        "member": "TickPlayers",
+        "count": 1
+      },
+      {
+        "file": "src/Arcana.Server/GameService.Input.cs",
+        "member": "ProcessRoomInput",
+        "count": 1
+      },
+      {
+        "file": "src/Arcana.Client/Scripts/Main.ShopVerification.cs",
+        "member": "SendAsync",
+        "count": 1
+      },
+      {
+        "file": "src/Arcana.AccountServer/InternalAccountEndpoints.cs",
+        "member": "MapInternalAccounts",
+        "count": 1
+      },
+      {
+        "file": "src/Arcana.Server/GameService.Simulation.cs",
+        "member": "ExecuteAsync",
+        "count": 1
+      },
+      {
+        "file": "src/Arcana.Client/Scripts/Verification/FirestoreFixture.cs",
+        "member": "Document",
+        "count": 1
+      },
+      {
+        "file": "src/Arcana.Client/Scripts/Verification/FirestoreFixture.cs",
+        "member": "FirestoreValue",
+        "count": 1
+      }
+    ],
+    "expandedTestRegistrationsUnchanged": 195,
+    "inlineTestBodiesUnchanged": 118,
+    "outlinedSimulationMethodsEquivalent": 2,
+    "compiled": false
+  },
+  "crossLanguageEquivalence": {
+    "status": "passed",
+    "pythonReleaseFunctionsPreserved": 4,
+    "androidOfferSelectionBodyPreserved": true,
+    "fixtureSerializerDefinitionsPreserved": 4,
+    "internalAccountEndpointsPreserved": true
+  },
+  "dashboardCompatibility": {
+    "publicExports": 23,
+    "functionsPreserved": 15,
+    "reportCasesEquivalent": 440,
+    "status": "passed"
+  },
+  "executedTests": [
+    {
+      "command": "node --test dashboard/tests/*.test.mjs",
+      "passed": 29
+    },
+    {
+      "command": "python scripts/test-raspberry-auto-update.py",
+      "passed": 19
+    },
+    {
+      "command": "python scripts/test-raspberry-generations.py",
+      "passed": 39
+    },
+    {
+      "command": "python scripts/test-rolling-deploy.py",
+      "passed": 10
+    },
+    {
+      "command": "python scripts/test-preview-release.py",
+      "passed": 10
+    },
+    {
+      "command": "python scripts/test-delta-publisher.py",
+      "passed": 6
+    },
+    {
+      "command": "python scripts/test-update-deltas.py",
+      "passed": 5
+    },
+    {
+      "command": "python scripts/test-build-tool-hashes.py",
+      "passed": 2
+    },
+    {
+      "command": "scripts/test-version-support.py via unittest; MSBuild property check explicitly skipped",
+      "passed": 6,
+      "skipped": 2
+    },
+    {
+      "command": "python scripts/test-build-lock.py",
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/check-firebase-auth.py",
+      "status": "passed"
+    },
+    {
+      "command": "python scripts/version-support.py check .",
+      "status": "passed"
+    }
+  ],
+  "passedUnitTests": 126,
+  "skippedVersionTests": [
+    "test_msbuild_reads_version_from_file: reserved for an explicit compilation request",
+    "test_powershell_matches_python: ARCANA_TEST_PWSH not configured"
+  ],
+  "pending": [
+    "Complete .NET / Godot solution compilation",
+    "C# unit and integration tests",
+    "Firebase Emulator and rules tests",
+    "Java / Gradle and Android device verification",
+    "Native Windows PowerShell tests",
+    "Godot visual and performance measurements"
+  ],
+  "buildsTriggered": false,
+  "apkCreated": false,
+  "tagsOrReleasesCreated": false
+}

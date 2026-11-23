@@ -1,6 +1,7 @@
+import {numberFormatter} from './format.mjs';
 import {selectionUsage} from './model.mjs';
 
-const fmt = (value, digits=0) => new Intl.NumberFormat('es-ES',{maximumFractionDigits:digits}).format(value);
+const fmt = (value, digits=0) => numberFormatter(digits).format(value);
 export const hasSelectionData = usage => usage.manualSeconds + usage.automaticSeconds > 0;
 export function selectionTime(seconds) {
   const total = Math.round(seconds);

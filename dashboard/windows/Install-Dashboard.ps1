@@ -1,6 +1,6 @@
 #requires -Version 5.1
 [CmdletBinding()]
-param([string]$Repository = (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent), [string]$Branch = 'pruebas/dashboard-estadisticas', [ValidateRange(1024,65535)][int]$Port = 8787)
+param([string]$Repository = (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent), [string]$Branch = 'main', [ValidateRange(1024,65535)][int]$Port = 8787)
 $ErrorActionPreference = 'Stop'
 $Repository = [IO.Path]::GetFullPath($Repository)
 if ($Repository.Contains('"') -or $Branch.Contains('"')) { throw 'Ruta o rama no valida.' }

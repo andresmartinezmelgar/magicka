@@ -5,7 +5,6 @@ import fcntl
 import json
 import os
 from pathlib import Path
-import re
 import shutil
 import subprocess
 import sys
@@ -13,12 +12,14 @@ import time
 import urllib.request
 
 
+from server_release import TAG, stable_tag, version
+
+
 REPOSITORY = "andresmartinezmelgar/magicka"
 STATE = Path("/var/lib/arcana-server-updater")
 CONFIG = Path("/etc/arcana-server-updater.json")
 PROGRAM = Path("/usr/local/lib/arcana-server-updater/update.py")
 UNITS = Path("/etc/systemd/system")
-TAG = re.compile(r"v(\d+)\.(\d+)\.(\d+)")
 
 
 def log(message):
@@ -57,20 +58,6 @@ def get_json(url):
     if len(content) > 1024 * 1024:
         raise RuntimeError("Respuesta HTTP demasiado grande.")
     return json.loads(content)
-
-
-def version(value):
-    match = TAG.fullmatch("v" + str(value).removeprefix("v"))
-    if not match:
-        raise RuntimeError("Versión no reconocida: " + str(value))
-    return tuple(map(int, match.groups()))
-
-
-def stable_tag(release):
-    tag = release.get("tag_name", "")
-    if release.get("draft") is not False or release.get("prerelease") is not False or not TAG.fullmatch(tag):
-        raise RuntimeError("GitHub no ha devuelto una Release estable válida.")
-    return tag
 
 
 class Updater:
@@ -230,9 +217,10 @@ def install(checkout, compose_file=None, rolling_proxy=None, deployment_key_file
     PROGRAM.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
     if Path(__file__).resolve() != PROGRAM:
         shutil.copyfile(__file__, PROGRAM)
-    helper = Path(__file__).with_name("rolling_deploy.py")
-    if helper.exists() and helper.resolve() != (PROGRAM.parent / helper.name).resolve():
-        shutil.copyfile(helper, PROGRAM.parent / helper.name)
+    for name in ("rolling_deploy.py", "server_release.py"):
+        helper = Path(__file__).with_name(name)
+        if helper.exists() and helper.resolve() != (PROGRAM.parent / helper.name).resolve():
+            shutil.copyfile(helper, PROGRAM.parent / helper.name)
     PROGRAM.chmod(0o755)
     write_json(CONFIG, {"checkout": str(checkout), "project": labels["com.docker.compose.project"], "compose_files": files})
     if rolling_proxy:

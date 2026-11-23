@@ -1,0 +1,11 @@
+export const ELEMENTS = ['Agua','Vida','Escudo','Frío','Rayo','Arcano','Piedra','Fuego','Físico'];
+export const COLORS = ['#55c1ff','#77d8a1','#c8b7ff','#abe9f6','#f1cf70','#b68bff','#d6ac7b','#fa886d','#95a6bd'];
+export const MODES = {duel:'Duelo',arena:'Arena',warfare:'Guerra',defense:'Supervivencia'};
+export const MAPS = {classic:'Clásico',citadel:'Ciudadela',ascension:'Ascensión',relics:'Reliquias',frontline:'Frente',practice:'Prácticas',bastion:'Bastión'};
+export const STATUSES = ['playing','completed','left','disconnected','suspended','interrupted'];
+export const STATUS_NAMES = {playing:'En curso',completed:'Finalizada',left:'Abandonada',disconnected:'Desconectada',suspended:'Suspendida',interrupted:'Interrumpida'};
+export const ATTACKS = ['Haz','Rayo','Chorro','Roca','Fragmentos','Fuerza','Barrera','Cuerpo a cuerpo','Sobre sí mismo','Nova','Mina','Meteorito','Prisa','Teletransporte','Reanimación','Aura de fuego','Aura de rayo','Aura regeneradora','Roca automática','Nova de frío','Cadena de rayos','Quemadura','Golpe enemigo','Área enemiga','Bombardeo del oráculo','Regeneración','Escudo de anillo','Pulso de anillo','Robo de escudo','Reflejo de escudo','Aura arcana','Aura de agua','Marca arcana','Eco arcano'];
+export const CLASSES = ['Equilibrado','Piromante','Criomante','Invocador de tormentas','Geomante'];
+export const GROUPS=['total','actor','element','attack','recipe','enemy','enemyElement','difficulty','equipment','relic','performance','humanElement','botElement','enemyElementDealt','humanAttack','botAttack','enemyAttack','environmentElement','environmentAttack','humanElementSource','botElementSource','enemyElementSource','environmentElementSource','actorShieldSource'];
+export const MEASURES=['damage','shieldDamage','damageReceived','shieldAbsorbed','overkill','immuneHits','hits','kills','deaths','spawns','casts','healing','healingReceived','shieldGranted','shieldRepaired','aliveSeconds','wetSeconds','burningSeconds','frozenSeconds','friendlyDamage','selfDamage','revives','revived','collected','goldEarned','goldSpent','levels','spawnHealth','samples','valueSum','distance','captures','manualSelectionSeconds','automaticSelectionSeconds','unreportedSelectionSeconds'];
+export const SELECTION_FIELDS = ['manualSeconds','automaticSeconds','unreportedSeconds'];

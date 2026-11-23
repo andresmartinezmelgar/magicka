@@ -262,22 +262,12 @@ public partial class Main
                 string Slot(string name) => fields.TryGetProperty(name, out var v) ? v.GetProperty("stringValue").GetString()! : "";
                 var desired = new EquipmentLoadout(Slot("boots"), Slot("hat"), Slot("chest"), Slot("weapon"), Slot("goldRing"), Slot("magicRing"));
                 _loadout = AccountInventory.ApplyLoadout(Profile, desired).Loadout;
-                return Json(Document(Loadout));
+                return Json(FirestoreFixture.Document(Loadout));
             }
             if (path.EndsWith("/items", StringComparison.Ordinal)) return Json(new { documents = Items.Select(Document).ToArray() });
-            if (path.EndsWith("/loadouts/active", StringComparison.Ordinal)) return Json(Document(Loadout));
-            return Json(Document(new { uid = Profile.Uid, name = Profile.Name, gold = _gold, wins = 0, losses = 0, itemCount = Items.Length, schemaVersion = 1 }));
+            if (path.EndsWith("/loadouts/active", StringComparison.Ordinal)) return Json(FirestoreFixture.Document(Loadout));
+            return Json(FirestoreFixture.Document(new { uid = Profile.Uid, name = Profile.Name, gold = _gold, wins = 0, losses = 0, itemCount = Items.Length, schemaVersion = 1 }));
         }
-        private static object Document(object value) => new { fields = JsonSerializer.SerializeToElement(value, Protocol.Json).EnumerateObject().ToDictionary(p => p.Name, p => FirestoreValue(p.Value)) };
-        private static object FirestoreValue(JsonElement value) => value.ValueKind switch
-        {
-            JsonValueKind.String => new { stringValue = value.GetString() },
-            JsonValueKind.Number when value.TryGetInt64(out long integer) => new { integerValue = integer.ToString(System.Globalization.CultureInfo.InvariantCulture) },
-            JsonValueKind.Number => new { doubleValue = value.GetDouble() },
-            JsonValueKind.Array => new { arrayValue = new { values = value.EnumerateArray().Select(FirestoreValue).ToArray() } },
-            JsonValueKind.Object => new { mapValue = new { fields = value.EnumerateObject().ToDictionary(p => p.Name, p => FirestoreValue(p.Value)) } },
-            _ => new { nullValue = (object?)null }
-        };
         private static HttpResponseMessage Json(object value, HttpStatusCode status = HttpStatusCode.OK) => new(status) { Content = new StringContent(JsonSerializer.Serialize(value, Protocol.Json)) };
     }
 }

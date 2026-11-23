@@ -1,12 +1,9 @@
+import {escapeHtml as esc,formatNumber as fmt,compactNumber as compact,formatDuration as duration,formatTime as stamp} from './format.mjs';
+import {exportRows,encodeCsv} from './csv-export.mjs';
 import {ELEMENTS,COLORS,MODES,MAPS,STATUS_NAMES,CLASSES,dayRange,utcDay,deduplicate,filterReports,aggregate,metric,liveRuns,pingSummary,playersRanking,matchPlayers,selectionUsage} from './model.mjs';
 import * as cloud from './public-data.mjs';
-import {hasSelectionData,selectionDetails,playerSelection,selectionCsv} from './selection-view.mjs';
+import {hasSelectionData,selectionDetails,playerSelection} from './selection-view.mjs';
 const $=s=>document.querySelector(s);
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fmt=(n,d=0)=>n===null||n===undefined?'—':new Intl.NumberFormat('es-ES',{maximumFractionDigits:d}).format(n);
-const compact=n=>n>=1e6?fmt(n/1e6,2)+' M':n>=10000?fmt(n/1000,1)+' mil':fmt(n);
-const duration=n=>n>=3600?fmt(n/3600,1)+' h':fmt(n/60,1)+' min';
-const stamp=n=>n?new Date(n).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'—';
 const paths={overview:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',live:'M3 12h4l3-8 4 16 3-8h4',matches:'M5 4h14v17H5z M9 2v4 M15 2v4 M8 10h8 M8 14h5',players:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M17 4a4 4 0 0 1 0 7 M22 21v-2a4 4 0 0 0-3-3.9',elements:'m13 2-9 12h7l-1 8 10-13h-7z',connection:'M2 8a16 16 0 0 1 20 0 M5 12a11 11 0 0 1 14 0 M8 16a6 6 0 0 1 8 0 M12 20h.01'};
 const icon=(name)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]||paths.elements}"/></svg>`;
 const views={overview:['Resumen','Todo lo que ocurre.','Partidas, elementos y jugadores en una sola vista.'],live:['En directo','La arena, en este instante.','Partidas activas, participantes y daño acumulado.'],matches:['Partidas','Cada partida cuenta.','Consulta la actividad y abre una partida para ver su desglose.'],players:['Jugadores','Quienes marcan la diferencia.','Daño, bajas y participación dentro de cada partida.'],elements:['Elementos y ataques','El poder de cada elemento.','Compara el daño efectivo, las formas de ataque y su origen.'],connection:['Conexión','El ritmo de la conexión.','Ping ponderado, muestras recibidas y rendimiento del juego.']};
@@ -175,7 +172,10 @@ function showMore() {
   row?.scrollIntoView({block:'nearest'});
 }
 
-function exportCsv(){const d=data();let rows;if(state.view==='players')rows=[['jugador','partida','fecha_utc','bot','dano_vida_escudo','bajas','muertes'],...playersRanking(d.sessions.filter(r=>r.status!=='playing'&&(state.status==='all'||r.status===state.status)),state.bots).map(p=>[p.name,p.runId,p.day,p.bot,p.damage,p.kills,p.deaths])];else if(state.view==='elements')rows=[['elemento','dano_vida','dano_escudo','curacion','absorcion'],...d.totals.elements.map(e=>[e.name,e.health,e.shield,e.healing,e.absorbed])];else if(state.view==='connection')rows=[['partida','participante','muestras','ping_medio_ms','ping_min_ms','ping_max_ms'],...d.streams.filter(r=>r.network&&r.ping?.samples&&(state.status==='all'||r.status===state.status)).map(r=>[r.runId,r.players.find(p=>p.id===r.reporterId)?.name||'Participante',r.ping.samples,r.ping.sumMs/r.ping.samples,r.ping.minMs,r.ping.maxMs])];else rows=[['partida','fecha_utc','modo','mapa','estado','duracion_s','humanos','bots','dano_vida_escudo','seleccion_manual_s','seleccion_automatica_s','seleccion_manual_pct','seleccion_automatica_pct'],...d.reports.map(r=>[r.runId,r.day,r.mode,r.map,r.status,r.seconds,r.humans,r.bots,aggregate([r],state.bots).damage,...selectionCsv(r)])];const safe=v=>{let s=String(v??'');if(/^[=+\-@\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';};const blob=new Blob(['\uFEFF'+rows.map(row=>row.map(safe).join(';')).join('\r\n')],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`arcana-${state.view}-${state.start}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function exportCsv() {
+ const blob = new Blob([encodeCsv(exportRows(state.view,data(),state))],{type:'text/csv;charset=utf-8'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`arcana-${state.view}-${state.start}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
 $('#mode').value=state.mode;$('#record-status').value=state.status;$('#include-bots').checked=state.bots;$('#start-date').value=state.range.start;$('#end-date').value=state.range.end;
 for(const b of document.querySelectorAll('[data-days]')){b.classList.toggle('selected',String(state.days)===b.dataset.days);b.setAttribute('aria-pressed',String(String(state.days)===b.dataset.days));b.addEventListener('click',()=>{state.days=b.dataset.days==='custom'?'custom':Number(b.dataset.days);document.querySelectorAll('[data-days]').forEach(el=>{el.classList.toggle('selected',el===b);el.setAttribute('aria-pressed',String(el===b));});$('#date-inputs').hidden=state.days!=='custom';changeRange();});}
 $('#mode').onchange=e=>{state.mode=e.target.value;state.extraRows=0;render();};$('#record-status').onchange=e=>{state.status=e.target.value;state.extraRows=0;render();};$('#include-bots').onchange=e=>{state.bots=e.target.checked;render();};$('#start-date').onchange=changeRange;$('#end-date').onchange=changeRange;

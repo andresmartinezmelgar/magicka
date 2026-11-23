@@ -29,20 +29,11 @@ try
     var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = args,
         WebRootPath = Directory.Exists(dashboardRoot) ? dashboardRoot : null });
     builder.WebHost.UseUrls($"http://{(settings.LoopbackOnly ? "127.0.0.1" : "0.0.0.0")}:{settings.Port}");
-    builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = Protocol.MaxMessageBytes);
+    builder.ConfigureArcanaHttp();
     builder.Services.AddSingleton(settings);
     builder.Services.AddArcanaProtection();
-    builder.Services.ConfigureHttpJsonOptions(options =>
-    {
-        options.SerializerOptions.PropertyNamingPolicy = Protocol.Json.PropertyNamingPolicy;
-        options.SerializerOptions.MaxDepth = Protocol.Json.MaxDepth;
-        foreach (var converter in Protocol.Json.Converters) options.SerializerOptions.Converters.Add(converter);
-    });
     // Firebase Admin valida tokens Google y escribe resultados en Firestore.
-    builder.Services.AddSingleton(new AccountService(activeAccounts));
-    builder.Services.AddPublicDashboard();
-    builder.Services.AddHostedService<AccountDeletionService>();
-    builder.Services.AddHostedService<StatisticsRetentionService>();
+    builder.Services.AddArcanaAccounts(activeAccounts);
     if (publicHost == null && activeAccounts.Enabled)
         builder.Services.AddHostedService(services => new PvpDirectorySetup(activeAccounts,
             services.GetRequiredService<GameService>(), services.GetRequiredService<ILogger<PvpDirectorySetup>>()));
