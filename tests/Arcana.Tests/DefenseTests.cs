@@ -62,6 +62,7 @@ internal static partial class DefenseTests
         RunAssistance(test);
         RunProgression(test);
         RunPowers(test);
+        DefenseBotTargetTests.Run(test);
     }
 
 }

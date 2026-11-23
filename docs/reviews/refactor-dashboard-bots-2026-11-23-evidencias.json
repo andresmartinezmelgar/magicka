@@ -1,0 +1,109 @@
+{
+  "date": "2026-11-23",
+  "baseCommit": "e461416c32ee6f0840b396d1835502ca7d5dda19",
+  "scope": "Dashboard, planificación y selección de bots, geometría y materiales, navegación y estadísticas",
+  "files": {
+    "total": 33,
+    "modified": 10,
+    "added": 23,
+    "paths": [
+      "dashboard/tests/app.test.mjs",
+      "dashboard/tests/data-view.test.mjs",
+      "dashboard/web/app.mjs",
+      "dashboard/web/data-view.mjs",
+      "dashboard/web/model.mjs",
+      "dashboard/web/record-order.mjs",
+      "dashboard/web/telemetry.mjs",
+      "dashboard/web/view-components.mjs",
+      "dashboard/web/views.mjs",
+      "docs/reviews/refactor-dashboard-bots-2026-11-23-evidencias.json",
+      "docs/reviews/refactor-dashboard-bots-2026-11-23.md",
+      "scripts/test-dashboard-windows.ps1",
+      "scripts/test-docker-server.sh",
+      "src/Arcana.Client/Scripts/AreaVisuals.Ink.cs",
+      "src/Arcana.Client/Scripts/AreaVisuals.Materials.cs",
+      "src/Arcana.Client/Scripts/AreaVisuals.cs",
+      "src/Arcana.Client/Scripts/ArenaRenderer.Defense.cs",
+      "src/Arcana.Client/Scripts/ArenaRenderer.DefenseVerification.cs",
+      "src/Arcana.Client/Scripts/ArenaRenderer.MinionPool.cs",
+      "src/Arcana.Client/Scripts/Launcher.Navigation.cs",
+      "src/Arcana.Client/Scripts/Launcher.OptionA.cs",
+      "src/Arcana.Client/Scripts/Launcher.Responsive.cs",
+      "src/Arcana.Client/Scripts/Launcher.TutorialPrompt.cs",
+      "src/Arcana.Client/Scripts/MatchStatisticsPanel.Data.cs",
+      "src/Arcana.Client/Scripts/MatchStatisticsPanel.Metrics.cs",
+      "src/Arcana.Client/Scripts/MatchStatisticsPanel.Presentation.cs",
+      "src/Arcana.Client/Scripts/MatchStatisticsPanel.cs",
+      "src/Arcana.Core/GameWorld.DefenseBotPlanning.cs",
+      "src/Arcana.Core/GameWorld.DefenseBotSpells.cs",
+      "src/Arcana.Core/GameWorld.DefenseBotTargets.cs",
+      "src/Arcana.Core/GameWorld.DefenseBots.cs",
+      "tests/Arcana.Tests/DefenseBotTargetTests.cs",
+      "tests/Arcana.Tests/DefenseTests.cs"
+    ]
+  },
+  "dashboardTests": {
+    "command": "node --test dashboard/tests/*.test.mjs",
+    "status": "passed",
+    "passed": 37,
+    "failed": 0,
+    "added": 8
+  },
+  "dashboardEquivalence": {
+    "status": "passed",
+    "publicModelExports": 23,
+    "modelCasesEquivalent": 432,
+    "htmlOutputsIdentical": 2592,
+    "htmlCorpusSha256": "f52bff0c6bb947da1c6560615cfc21c94e20d19c2b4778623358ffac25ebfa70",
+    "liveClockBoundariesEquivalent": 5
+  },
+  "sourceChecks": {
+    "status": "passed",
+    "baseCommit": "e461416c32ee6f0840b396d1835502ca7d5dda19",
+    "csharpFiles": 638,
+    "syntax": {
+      "java": 17,
+      "javascript": 22,
+      "python": 32
+    },
+    "baselineMembers": 6054,
+    "membersPreservedExactly": 6052,
+    "intentionalChangedMembers": [
+      {
+        "owner": "GameWorld",
+        "kind": "method_declaration",
+        "member": "PlanDefenseBots"
+      },
+      {
+        "owner": "DefenseTests",
+        "kind": "method_declaration",
+        "member": "Run"
+      }
+    ],
+    "typeHeadersAndRecordConstructorsPreserved": 924,
+    "fieldOrderPreserved": true,
+    "plannerUnchangedOutsideThreeQueries": true,
+    "existingDefenseRegistrationsPreserved": true,
+    "compiled": false
+  },
+  "packaging": {
+    "serverIncludesAllDashboardModules": true,
+    "windowsSupportsModuleMime": true,
+    "dockerCheckCoversAllModules": true,
+    "windowsCheckCoversAllModules": true,
+    "bashSyntax": "passed",
+    "powershellSyntax": "passed",
+    "integrationExecuted": false
+  },
+  "pending": [
+    "Compilación .NET/Godot y pruebas C#",
+    "DefenseBotTargetTests: humano próximo, sanación y amenazas (3 casos registrados)",
+    "Integración del dashboard en Docker y Windows",
+    "Verificación visual y mediciones de rendimiento en partida real"
+  ],
+  "buildsExecuted": false,
+  "workflowsDispatched": false,
+  "apkGenerated": false,
+  "tagsOrReleasesCreated": false,
+  "reasonForDeferredCompilation": "AGENTS.md reserva compilaciones y publicaciones para petición expresa."
+}

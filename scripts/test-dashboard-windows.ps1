@@ -24,8 +24,10 @@ try {
     if (-not $response -or $response.StatusCode -ne 200 -or $response.Content -notmatch 'Observatorio' -or $response.Headers['X-Content-Type-Options'] -ne 'nosniff') { throw ('El dashboard no sirve su HTML de forma correcta. Ultimo error: ' + $lastRequestError) }
     $localName = Invoke-WebRequest ('http://localhost:' + $port + '/') -UseBasicParsing -TimeoutSec 10
     if ($localName.StatusCode -ne 200) { throw 'No responde localhost.' }
-    $head = Invoke-WebRequest ($base + '/model.mjs') -UseBasicParsing -Method Head -TimeoutSec 5
-    if ($head.StatusCode -ne 200 -or $head.Headers['Content-Type'] -notmatch 'javascript') { throw 'HEAD o MIME de módulos inválido.' }
+    foreach ($module in Get-ChildItem -LiteralPath (Join-Path $repository 'dashboard\web') -Filter *.mjs -File) {
+        $head = Invoke-WebRequest ($base + '/' + $module.Name) -UseBasicParsing -Method Head -TimeoutSec 5
+        if ($head.StatusCode -ne 200 -or $head.Headers['Content-Type'] -notmatch 'javascript') { throw ('HEAD o MIME de módulo inválido: ' + $module.Name) }
+    }
     $version = Invoke-RestMethod ($base + '/version.json') -TimeoutSec 5
     $expected = (& git -C $repository rev-parse HEAD) -join ''
     if ($version.version -ne $expected.Trim()) { throw 'La versión del servidor no coincide con el commit.' }

@@ -4,7 +4,7 @@ using Godot;
 namespace Arcana.Client;
 
 /// <summary>Geometría compartida: una superficie por símbolo, sin texturas, luces ni ruido por píxel.</summary>
-internal static class AreaVisuals
+internal static partial class AreaVisuals
 {
     internal enum Pattern { Fire, Water, Frost, Mine, HealingMine, MineTrigger, HealingTrigger,
         FireAura, LightningAura, RegenerationAura, Berserker, FrostPulse, Impact, LightningLink, ShieldAura, ArcaneAura, WaterAura }
@@ -14,78 +14,6 @@ internal static class AreaVisuals
     private static Shader? _shader, _warningShader;
     private static readonly Color Ember = new("ff6b28"), Gold = new("ffd78b"), Water = new("56bcff"),
         Ice = new("b6f1ff"), Electric = new("c4b5ff"), Green = new("65edbb"), Rage = new("ff705d"), Arcane = new("ed59ba");
-
-    internal static ShaderMaterial Skin(Color? tint = null)
-    {
-        var color = tint ?? Colors.White;
-        if (Skins.TryGetValue(color, out var skin)) return skin;
-        _shader ??= new Shader { Code = """
-            shader_type spatial;
-            render_mode unshaded, cull_disabled, blend_mix, depth_draw_never, shadows_disabled;
-            uniform vec4 tint : source_color = vec4(1.0);
-            varying vec4 ink;
-            void vertex() {
-                float pulse = sin(TIME * UV.y + dot(VERTEX.xz, vec2(7.0, 11.0)));
-                ink = vec4(COLOR.rgb, COLOR.a * (0.84 + pulse * 0.16));
-                VERTEX.y += pulse * UV2.x;
-                VERTEX.xz *= 1.0 + pulse * UV2.y;
-            }
-            void fragment() {
-                float edge = abs(UV.x);
-                float feather = max(fwidth(UV.x), 0.08);
-                float core = 1.0 - smoothstep(0.18, 0.28 + feather, edge);
-                float glow = (1.0 - smoothstep(0.0, 1.0, edge)) * 0.14;
-                float stroke = mix(1.0, min(1.0, core * 0.86 + glow), 1.0 - step(1.5, edge));
-                ALBEDO = ink.rgb * tint.rgb;
-                EMISSION = ALBEDO * 0.28;
-                ALPHA = ink.a * tint.a * stroke;
-            }
-            """ };
-        skin = new ShaderMaterial { Shader = _shader };
-        skin.SetShaderParameter("tint", color); Skins[color] = skin; return skin;
-    }
-
-    internal static ShaderMaterial WarningSkin()
-    {
-        _warningShader ??= new Shader { Code = """
-            shader_type spatial;
-            render_mode unshaded, cull_disabled, blend_mix, depth_draw_never, shadows_disabled;
-            uniform float progress = 0.0;
-            void fragment() {
-                vec2 p = UV * 2.0 - 1.0;
-                float radius = length(p);
-                float pixel = max(fwidth(radius), 0.0005);
-                float rim = 1.0 - smoothstep(pixel * 0.35, pixel * 1.25, abs(radius - 0.985));
-                float halo = (1.0 - smoothstep(0.0, 0.045, abs(radius - 0.97))) * 0.12;
-                float timer_radius = 0.18 + progress * 0.76;
-                float timer = 1.0 - smoothstep(pixel * 0.3, pixel, abs(radius - timer_radius));
-                float haze = (1.0 - smoothstep(0.15, 0.98, radius)) * 0.035;
-                float pulse = 0.82 + sin(TIME * (2.2 + progress * 2.6)) * 0.18;
-                float mask = 1.0 - smoothstep(0.995, 1.0, radius);
-                ALBEDO = mix(vec3(1.0, 0.19, 0.055), vec3(1.0, 0.68, 0.28), timer * 0.8 + progress * 0.12);
-                EMISSION = ALBEDO * (rim * (0.25 + pulse * 0.16) + timer * 0.18);
-                ALPHA = min(0.95, rim * (0.86 + progress * 0.08) + timer * (0.5 + progress * 0.16)
-                    + (halo + haze) * (0.75 + pulse * 0.25)) * mask;
-            }
-            """ };
-        return new ShaderMaterial { Shader = _warningShader, RenderPriority = 8 };
-    }
-
-    internal static Pattern GroundPattern(string kind) => kind switch
-    {
-        "burning_ground" => Pattern.Fire, "frost_ground" => Pattern.Frost, "water_pool" or "equipment_water_pool" => Pattern.Water,
-        "healing_mine" => Pattern.HealingMine, _ => Pattern.Mine
-    };
-    internal static Pattern AuraPattern(int index) => index switch
-    { 0 => Pattern.FireAura, 1 => Pattern.LightningAura, 2 => Pattern.RegenerationAura,
-        3 => Pattern.ArcaneAura, 4 => Pattern.WaterAura, _ => Pattern.Berserker };
-
-    internal static MeshInstance3D Piece(Node3D root, Pattern pattern, Color? tint = null)
-    {
-        var piece = new MeshInstance3D { Mesh = Shape(pattern), MaterialOverride = Skin(tint),
-            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, ExtraCullMargin = 0.06f };
-        root.AddChild(piece); return piece;
-    }
 
     internal static ArrayMesh Shape(Pattern pattern)
     {
@@ -269,78 +197,4 @@ internal static class AreaVisuals
 
     private static Vector3 At(float radius, float angle) => new(MathF.Cos(angle) * radius, 0, MathF.Sin(angle) * radius);
 
-    private sealed class Ink : IDisposable
-    {
-        private readonly SurfaceTool _surface = new();
-        internal float Speed = 3.2f, RadialMotion;
-        internal Ink() => _surface.Begin(Godot.Mesh.PrimitiveType.Triangles);
-        private void Vertex(Vector3 point, Color color, float lift = 0, float coverage = 2)
-        {
-            _surface.SetNormal(Vector3.Up); _surface.SetColor(color);
-            // [-1,1] suaviza los trazos; 2 conserva el relleno de discos y símbolos.
-            _surface.SetUV(new(coverage, Speed)); _surface.SetUV2(new(lift, RadialMotion));
-            _surface.AddVertex(point);
-        }
-        internal void Triangle(Vector3 a, Vector3 b, Vector3 c, Color color, float lift = 0)
-        { Vertex(a, color, lift); Vertex(b, color, lift); Vertex(c, color, lift); }
-        private void FeatheredTriangle(Vector3 a, Vector3 b, Vector3 c, Color color, float lift)
-        {
-            Vertex(a, color, lift, -1);
-            Vertex(b, color, lift, 0);
-            Vertex(c, color, lift, 1);
-        }
-        internal void Disc(Color center, Color edge)
-        {
-            for (int i = 0; i < 48; i++)
-            { Vertex(Vector3.Zero, center); Vertex(At(0.99f, i * Mathf.Tau / 48), edge); Vertex(At(0.99f, (i+1) * Mathf.Tau / 48), edge); }
-        }
-        internal void Ring(float inner, float outer, Color color) => Arc(inner, outer, 0, Mathf.Tau, color, 64);
-        internal void Arc(float inner, float outer, float start, float end, Color color, int segments)
-        {
-            for (int i = 0; i < segments; i++)
-            {
-                float a = Mathf.Lerp(start, end, i / (float)segments), b = Mathf.Lerp(start, end, (i+1) / (float)segments);
-                Vertex(At(inner, a), color, coverage: -1);
-                Vertex(At(outer, a), color, coverage: 1);
-                Vertex(At(outer, b), color, coverage: 1);
-                Vertex(At(inner, a), color, coverage: -1);
-                Vertex(At(outer, b), color, coverage: 1);
-                Vertex(At(inner, b), color, coverage: -1);
-            }
-        }
-        internal void Line(Vector3 a, Vector3 b, float width, Color color)
-        {
-            var side = new Vector3(-(b-a).Z, 0, (b-a).X).Normalized() * width * 0.5f;
-            Vertex(a-side, color, coverage: -1);
-            Vertex(a+side, color, coverage: 1);
-            Vertex(b+side, color, coverage: 1);
-            Vertex(a-side, color, coverage: -1);
-            Vertex(b+side, color, coverage: 1);
-            Vertex(b-side, color, coverage: -1);
-        }
-        internal void Cross(Vector3 at, float radius, Color color)
-        {
-            Line(at - Vector3.Right * radius, at + Vector3.Right * radius, radius * 0.6f, color);
-            Line(at - Vector3.Back * radius, at + Vector3.Back * radius, radius * 0.6f, color);
-        }
-        internal void Flame(float angle, float radius, Color color)
-        {
-            var at = At(radius, angle); var side = At(0.035f, angle + Mathf.Pi / 2);
-            FeatheredTriangle(at-side, at + Vector3.Up * 0.28f + At(0.025f, angle + 0.7f), at+side, color, 0.035f);
-            FeatheredTriangle(at-side*0.45f, at + Vector3.Up * 0.17f, at+side*0.45f, new(Gold, 0.82f), 0.02f);
-        }
-        internal void Drop(Vector3 at, float angle, Color color)
-        {
-            var side = At(0.035f, angle + Mathf.Pi / 2); var tip = At(0.085f, angle);
-            Triangle(at-side, at+tip, at+side, color);
-            Triangle(at-side, at+side, at-tip*0.5f, color);
-        }
-        internal void Leaf(Vector3 at, float angle, Color color)
-        {
-            var tip = At(0.1f, angle); var side = At(0.04f, angle + Mathf.Pi / 2);
-            Triangle(at-tip, at+side, at+tip, color); Triangle(at-tip, at+tip, at-side, color);
-        }
-        internal ArrayMesh Finish() => _surface.Commit();
-        public void Dispose() => _surface.Dispose();
-    }
 }

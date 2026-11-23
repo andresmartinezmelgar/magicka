@@ -23,7 +23,8 @@ dashboard=$(curl -fsS "$base/")
 grep -Fq 'Arcana Arena · Observatorio' <<< "$dashboard"
 module_type=$(curl -fsS -o /dev/null -w '%{content_type}' "$base/app.mjs")
 test "$module_type" = text/javascript
-for asset in model.mjs public-data.mjs style.css mark.svg version.json; do
+for asset_path in dashboard/web/*.mjs dashboard/web/style.css dashboard/web/mark.svg dashboard/web/version.json; do
+  asset="${asset_path##*/}"
   asset_status=$(curl -fsS -o /dev/null -w '%{http_code}' "$base/$asset")
   test "$asset_status" = 200
 done
