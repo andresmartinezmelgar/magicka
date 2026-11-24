@@ -65,12 +65,19 @@ public partial class Hud
         float s = MobileLayout || _lastSnapshot?.Defense != null ? Math.Min(1, GetViewportRect().Size.Y / 720f) / GameplayScale : 1;
         _rewardBackdrop.Scale = Vector2.One * s;
         _rewardBackdrop.CustomMinimumSize = _rewardBackdrop.Size = new(310, 62);
-        var edge = _playerPanel.Position + new Vector2(0, _playerPanel.Size.Y * _playerPanel.Scale.Y + 8);
-        if (GetParent()?.FindChild("DefenseSummary", true, false) is Control summary && summary.IsVisibleInTree())
-            edge.Y = (summary.GetGlobalRect().End.Y - GlobalPosition.Y) / GameplayScale + 8;
+        var player = _playerPanel.GetGlobalRect();
+        var status = _rewardStatusBounds ?? player;
+        float bottom = status.End.Y, top = status.Position.Y;
+        float width = 310 * s * GameplayScale;
+        if (player.Position.X < status.Position.X + width && player.End.X > status.Position.X)
+        { bottom = Math.Max(bottom, player.End.Y); top = Math.Min(top, player.Position.Y); }
+        var edge = new Vector2((status.Position.X - GlobalPosition.X) / GameplayScale,
+            (bottom - GlobalPosition.Y) / GameplayScale + 8);
         // En escritorio el panel puede estar abajo: el aviso se coloca encima.
-        if (edge.Y + 62 * s > Size.Y - 80) edge.Y = _playerPanel.Position.Y - 70 * s;
-        _rewardBackdrop.Position = new(Math.Clamp(edge.X, 8, Math.Max(8, Size.X - 310 * s - 8)), Math.Max(8, edge.Y));
+        if (edge.Y + 62 * s > Size.Y - 80)
+            edge.Y = (top - GlobalPosition.Y) / GameplayScale - 62 * s - 8;
+        _rewardBackdrop.Position = new(Math.Clamp(edge.X, 8, Math.Max(8, Size.X - 310 * s - 8)),
+            Math.Clamp(edge.Y, 8, Math.Max(8, Size.Y - 62 * s - 8)));
     }
 
     private static ProgressBar Bar(Color color, float max, int height)

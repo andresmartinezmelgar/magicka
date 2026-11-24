@@ -2,6 +2,11 @@
 
 ## Sin publicar
 
+- Los ítems equipados se ocultan al abrir el resumen de daño, menús, inventario o clasificación. Cerrar la tienda de Supervivencia deja de colocar su HUD por delante del resumen.
+- Los avisos de botín siguen el tamaño real del bloque de conexión y vida, se muestran por delante del HUD y conservan su tiempo mientras un menú los oculta.
+- Las compras confirmadas de equipamiento muestran una celebración breve con estrellas y el nombre del objeto, sin bloquear los controles.
+- Fichas de tienda con más altura para atributos y efectos. En móviles bajos se compacta la decoración de la cabecera para ampliar el espacio de scroll.
+
 ## 0.29.74
 
 - Refactorización del núcleo, protocolo PvP, supervivencia, cuentas y cliente para separar responsabilidades y facilitar su mantenimiento.

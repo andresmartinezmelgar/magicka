@@ -14,6 +14,8 @@ public partial class Hud : Control
     private ElementTextLabel _controls = null!;
     private ElementTextLabel _reward = null!;
     private float _rewardSeconds;
+    private bool _rewardNoticeBlocked;
+    private Rect2? _rewardStatusBounds;
     private ElementTextLabel _actionNotice = null!;
     private Panel _actionNoticeBackdrop = null!;
     private float _actionNoticeSeconds;
@@ -68,9 +70,20 @@ public partial class Hud : Control
     public void RewardNotice(string message)
     {
         _reward.Text = message; _reward.TooltipText = message; _rewardSeconds = 2.2f;
-        _reward.Visible = _rewardBackdrop.Visible = true;
+        _reward.Visible = _rewardBackdrop.Visible = !_rewardNoticeBlocked;
         _rewardBackdrop.Modulate = Colors.White;
         PlaceRewardNotice();
+    }
+    internal void SetRewardNoticeBlocked(bool blocked)
+    {
+        _rewardNoticeBlocked = blocked;
+        _reward.Visible = _rewardBackdrop.Visible = !blocked && _rewardSeconds > 0;
+    }
+    internal void SetRewardStatusBounds(Rect2? bounds)
+    {
+        if (_rewardStatusBounds == bounds) return;
+        _rewardStatusBounds = bounds;
+        if (_rewardSeconds > 0) PlaceRewardNotice();
     }
     private void DismissRewardNotice()
     {
@@ -206,7 +219,7 @@ public partial class Hud : Control
         _noticeStack.AddChild(_bannerBackdrop);
         // Toda la tarjeta responde al clic/toque. El botón consume el gesto al soltarlo,
         // mientras la etiqueta deja pasar el evento y el mundo no recibe el contacto.
-        _rewardBackdrop = new Button { Name = "MatchRewardBackground", Visible = false,
+        _rewardBackdrop = new Button { Name = "MatchRewardBackground", Visible = false, ZIndex = 1,
             FocusMode = FocusModeEnum.None, MouseFilter = MouseFilterEnum.Stop,
             MouseDefaultCursorShape = CursorShape.PointingHand, TooltipText = "Cerrar aviso" };
         var rewardStyle = Ui.Panel(new Color(0.025f, 0.05f, 0.09f, 0.94f), 10);

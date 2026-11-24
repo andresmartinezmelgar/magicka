@@ -106,10 +106,21 @@ public partial class Main
     }
     private void UpdateTouchVisibility()
     {
+        UpdateGameplayHudVisibility();
         if (_touch == null) return;
         bool visible = _playing && _tutorialInventory == null && !_paused && !_help.Visible && !InspectingEquipment && !ControlsOpen && !ViewingDamageSummary && _waitingPanel?.Visible != true;
         if (_touch.Visible && !visible) _touch.Reset();
         _touch.Visible = visible;
+    }
+
+    private void UpdateGameplayHudVisibility()
+    {
+        bool visible = _playing && _tutorialInventory == null && !_paused && !_help.Visible &&
+            !InspectingEquipment && !ControlsOpen && !ViewingDamageSummary && _defensePanel?.ShopOpen != true &&
+            _hud?.ScoreOpen != true && !Input.IsPhysicalKeyPressed(Key.Tab) &&
+            _relicWindow?.Visible != true && _waitingPanel?.Visible != true;
+        if (_defensePanel?.EquippedHud is { } equipment) equipment.Visible = visible;
+        _hud?.SetRewardNoticeBlocked(!visible);
     }
     public override void _Notification(int what)
     {

@@ -29,7 +29,11 @@ public partial class DefensePanel
         FinishClosingShop();
     }
 
-    private void FinishClosingShop() { _shop.Visible = false; OpenChanged?.Invoke(); }
+    private void FinishClosingShop()
+    {
+        if (!_shop.Visible) return;
+        _shop.Visible = false; OpenChanged?.Invoke();
+    }
 
     internal void HandleBack()
     {

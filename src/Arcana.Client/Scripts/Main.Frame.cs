@@ -97,6 +97,8 @@ public partial class Main
                 _defenseEnded = latest.MatchEnded;
             }
             _waitingPanel?.Update(latest, _localId, _connection?.Server?.RewardsAvailable == true);
+            _hud?.SetRewardStatusBounds(_defensePanel?.SummaryRectForVerification ??
+                (_networkPanel.IsVisibleInTree() ? (Rect2?)_networkPanel.GetGlobalRect() : null));
             UpdateTouchVisibility();
             if (_practicePanel != null)
             { _practicePanel.Visible = !_paused && !_help.Visible; _practicePanel.Update(_aim); }

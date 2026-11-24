@@ -183,9 +183,13 @@ public partial class Main
                     _touch.ConfigureSpellShortcuts(CurrentSpellShortcuts); await Frames();
                 }
                 OpenPersonalDamageSummary(); await Frames();
+                _defensePanel!.CloseShop(); await Frames();
                 var damageCard = (Control)_personalDamagePanel!.FindChild("PersonalDamageCard", true, false);
                 Check(ViewingDamageSummary && _practice!.DefensePaused && GetViewport().GetVisibleRect().Encloses(damageCard.GetGlobalRect()),
                     "El resumen personal no pausa al humano vivo o queda fuera de la pantalla.");
+                Check(!_defensePanel.EquippedHud.IsVisibleInTree() &&
+                    _personalDamagePanel.GetIndex() > _defensePanel.GetIndex(),
+                    "Cerrar la tienda deja los ítems equipados delante del resumen personal.");
                 Check(((GridContainer)_personalDamagePanel.FindChild("PersonalDamageTable", true, false)).GetChildCount() == 40 &&
                     ((StatisticsBarChart)_personalDamagePanel.FindChild("PersonalElementDamageBars", true, false)).Categories.Length == 9,
                     "El resumen personal no incluye los ocho elementos y el daño sin elemento.");
@@ -197,14 +201,25 @@ public partial class Main
                 await Frames(); Capture(size.X + "-dano-personal");
                 await Click(Exit(_personalDamagePanel, "PersonalDamageClose"));
                 Check(!ViewingDamageSummary && !_practice!.DefensePaused, "Cerrar el resumen dejó pausada la partida.");
-                _hud!.RewardNotice("Objeto temporal de prueba"); await Frames();
+                Check(_defensePanel.EquippedHud.IsVisibleInTree(), "El equipo no vuelve al cerrar el resumen.");
+                _networkStatsTime = 0;
+                _defensePanel.SetNetworkStats("FPS: 60 | Ping: 54 ms\n↑ 0,6 KB/s · ↓ 3,9 KB/s\nTotal: ↑ 37,4 KB · ↓ 1992,6 KB");
+                _hud!.RewardNotice("Objeto temporal de prueba"); await Frames(3);
                 var rewardCard = (Control)_hud.FindChild("MatchRewardBackground", true, false);
+                Check(!rewardCard.GetGlobalRect().Intersects(_defensePanel.SummaryRectForVerification),
+                    "El aviso de botín queda detrás del panel de ping y datos tras crecer su contenido.");
                 var dismissReward = (Button)rewardCard;
                 _moveTo = false;
                 await Click(dismissReward);
                 Check(!rewardCard.Visible && !_moveTo, "Cerrar el aviso de botín con el ratón mueve al jugador o mantiene el aviso.");
                 _hud.RewardNotice("Otro objeto temporal"); await Frames();
                 Check(rewardCard.Visible, "Un aviso cerrado no permite mostrar el siguiente objeto.");
+                OpenPersonalDamageSummary(); await Frames();
+                Check(!rewardCard.IsVisibleInTree() && !_defensePanel.EquippedHud.IsVisibleInTree(),
+                    "El resumen deja visibles avisos o ítems del HUD.");
+                _hud.Update(_snapshot!, _localId, _serverName, 3);
+                ClosePersonalDamageSummary(); await Frames();
+                Check(rewardCard.IsVisibleInTree(), "El aviso caduca mientras permanece oculto por un resumen.");
                 if (_touch != null)
                 {
                     bool emulateMouse = Input.EmulateMouseFromTouch;

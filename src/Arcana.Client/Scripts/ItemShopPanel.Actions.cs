@@ -61,6 +61,7 @@ public partial class ItemShopPanel
     {
         if (_busy || !_connected || _shop == null || !_main.Accounts.SignedIn || !_buyButtons.TryGetValue(itemId, out var button) || button.Disabled) return;
         int request = ++_requestVersion;
+        var item = _shop.Offers.FirstOrDefault(offer => offer.Item.Id == itemId)?.Item;
         var purchase = new ShopPurchaseRequest(_shop.Id, itemId);
         var account = _main.Accounts;
         long session = account.SessionRevision;
@@ -74,7 +75,10 @@ public partial class ItemShopPanel
             Publish(request, () =>
             {
                 if (remembered && ReferenceEquals(account, _main.Accounts) && account.SessionRevision == session)
+                {
                     Render(_main.PreparedShop ?? result, "Objeto añadido al inventario.");
+                    if (item != null) PurchaseCelebration.Play(this, EquipmentCatalogue.ItemName(item), EquipmentPanel.TierColor(item.Tier));
+                }
                 else ShowUnavailable("La cuenta ha cambiado. Consulta las ofertas de la sesión actual.");
             });
         }

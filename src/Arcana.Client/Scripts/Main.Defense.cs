@@ -53,7 +53,7 @@ public partial class Main
             StopInput();
             SynchronizeDefenseInterface();
             _ignoreLeftUntilRelease = true; UpdateTouchVisibility();
-            if (_defensePanel != null) _ui.MoveChild(_defensePanel, -1);
+            if (_defensePanel?.ShopOpen == true) _ui.MoveChild(_defensePanel, -1);
         };
         _defensePanel.Update(snapshot, _localId, _connection != null, _connection?.Server?.RewardsAvailable == true);
     }

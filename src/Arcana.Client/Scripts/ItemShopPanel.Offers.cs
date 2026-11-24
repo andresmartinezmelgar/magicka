@@ -16,8 +16,16 @@ public partial class ItemShopPanel
         if (_scroll == null || _offers == null) return;
         float width = _scroll.Size.X - _scroll.GetVScrollBar().Size.X;
         _offers.Columns = width >= 1100 ? 3 : width >= 600 ? 2 : 1;
+        foreach (var card in _offers.GetChildren())
+            if (card.FindChild("ShopDetailsScroll_*", true, false) is Control details)
+                details.CustomMinimumSize = new(0, OfferDetailsHeight);
+        UpdateStoreHeaderVisibility();
         ResizeCommercialAreas(width);
     }
+
+    private float OfferDetailsHeight => Ui.IsMobile
+        ? Math.Clamp(GetViewportRect().Size.Y * .3f, 180, 240)
+        : Math.Clamp(GetViewportRect().Size.Y * .3f, 224, 280);
 
     private void ClearOffers()
     {
@@ -69,7 +77,7 @@ public partial class ItemShopPanel
             Wrapped(itemName, EquipmentCatalogue.FamilyName(offer.Item.Family), 15, EquipmentIcons.FamilyColor(offer.Item.Family));
             // Los atributos largos se desplazan sin alargar la ficha ni sus botones.
             var detailsScroll = new ContentScrollContainer { Name = "ShopDetailsScroll_" + offer.Item.Id,
-                CustomMinimumSize = new(0, Ui.IsMobile ? 120 : 168),
+                CustomMinimumSize = new(0, OfferDetailsHeight),
                 SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.Fill };
             box.AddChild(detailsScroll); Ui.VisibleVerticalScroll(detailsScroll);
             var details = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };

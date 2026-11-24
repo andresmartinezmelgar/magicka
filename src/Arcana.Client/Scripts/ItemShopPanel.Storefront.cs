@@ -131,7 +131,7 @@ public partial class ItemShopPanel
         _equipmentArea.Visible = area == 0; _goldArea.Visible = area == 1; _passesArea.Visible = area == 2;
         _paymentFooter.Visible = area != 0;
         _restore.Visible = area != 0;
-        _heroArt.Visible = _heroTitle.Visible = !Ui.IsMobile || area == 0;
+        UpdateStoreHeaderVisibility();
         RefreshStoreStatusVisibility();
         for (int i = 0; i < _areaTabs.Count; i++)
         {
@@ -148,6 +148,13 @@ public partial class ItemShopPanel
         if (_goldGrid == null) return;
         _goldGrid.Columns = width >= 1180 ? 4 : width >= 480 ? 2 : 1;
         _passesGrid.Columns = width >= 540 ? 3 : width >= 480 ? 2 : 1;
+    }
+
+    private void UpdateStoreHeaderVisibility()
+    {
+        // El saldo y Consultar siguen visibles; la decoración cede altura al catálogo.
+        bool decorated = !Ui.IsMobile || _areaIndex == 0 && GetViewportRect().Size.Y >= 600;
+        _heroArt.Visible = _heroTitle.Visible = decorated;
     }
 
     private void ReceiveCommercialProducts(ShopResult result)
@@ -185,7 +192,7 @@ public partial class ItemShopPanel
 
     private void RefreshStoreStatusVisibility()
     {
-        if (_status != null) _status.Visible = _areaIndex == 0 || _busy || !_connected ||
+        if (_status != null) _status.Visible = (!Ui.IsMobile && _areaIndex == 0) || _busy || !_connected ||
             !_status.Text.StartsWith("Ofertas del día.", StringComparison.Ordinal);
     }
 

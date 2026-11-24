@@ -44,7 +44,10 @@ public partial class ItemShopPanel : Control
         var background = new ColorRect { Color = ArcanaMenuChrome.Backdrop }; AddChild(background); Ui.Full(background);
         var margin = new MarginContainer(); AddChild(margin); Ui.Full(margin);
         foreach (string side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, Ui.IsMobile ? 9 : 15);
-        var panel = new PanelContainer(); panel.AddThemeStyleboxOverride("panel", Ui.Panel(ArcanaMenuChrome.Surface, 14, ArcanaMenuChrome.Border)); margin.AddChild(panel);
+        var panel = new PanelContainer();
+        var panelStyle = Ui.Panel(ArcanaMenuChrome.Surface, 14, ArcanaMenuChrome.Border);
+        if (Ui.IsMobile) panelStyle.ContentMarginTop = panelStyle.ContentMarginBottom = 10;
+        panel.AddThemeStyleboxOverride("panel", panelStyle); margin.AddChild(panel);
         var layout = new VBoxContainer(); layout.AddThemeConstantOverride("separation", 10); panel.AddChild(layout);
         _billing = new AndroidPlayBilling();
         BuildStoreHeader(layout);

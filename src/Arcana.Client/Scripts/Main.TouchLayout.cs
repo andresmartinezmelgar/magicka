@@ -37,7 +37,7 @@ public partial class Main
     {
         if (_hud == null) return;
         var equipment = _defensePanel?.EquippedHud;
-        if (equipment != null) equipment.Visible = !_hud.ScoreOpen && !Input.IsPhysicalKeyPressed(Key.Tab);
+        UpdateGameplayHudVisibility();
         if (_touch == null)
         {
             if (equipment == null) return;

@@ -86,6 +86,8 @@ public partial class Main
                 float offersWidth = offersScroll.Size.X - offersScroll.GetVScrollBar().Size.X;
                 Check(shop.Catalogue.Offers.Length == 6 && shop.Columns == (offersWidth >= 1100 ? 3 : offersWidth >= 600 ? 2 : 1), "No se muestran seis ofertas en columnas adaptadas.");
                 AssertOptionAScreen("TIENDA_CONECTADA", shop);
+                Check(shop.FindChild("PurchaseCelebration", true, false) == null,
+                    "Consultar las ofertas reproduce una celebración sin compra.");
                 foreach (string name in new[] { "ShopOffersScroll", "OptionANav0", "OptionANav4", "OptionANav7" })
                 {
                     var control = (Control)shop.FindChild(name, true, false);
@@ -162,6 +164,10 @@ public partial class Main
                 if (shop!.Busy) return false;
                 Check(_shopFixture!.Purchases == 1 && Accounts.Profile!.Items.Single().Id == _shopBoughtId && Accounts.Profile.Gold == 10000 - _shopBoughtPrice &&
                     shop.Catalogue!.Offers[0].Sold && Button("ShopBuy_" + _shopBoughtId).Disabled, "La compra no actualiza el saldo o permite un cobro duplicado.");
+                var celebration = shop.FindChild("PurchaseCelebration", true, false) as PurchaseCelebration;
+                Check(celebration != null && celebration.IsVisibleInTree() && celebration.MouseFilter == Control.MouseFilterEnum.Ignore &&
+                    GetViewport().GetVisibleRect().Grow(1).Encloses(((Control)celebration.FindChild("PurchaseCelebrationCard", true, false)).GetGlobalRect()),
+                    "La compra confirmada no muestra su celebración, bloquea gestos o sale de la pantalla.");
                 _shopGoldAfterPurchase = Accounts.Profile!.Gold;
                 _shopCatalogueReads = _shopFixture.CatalogueReads;
                 Button("ShopRefreshAd").EmitSignal(Godot.Button.SignalName.Pressed);
@@ -189,6 +195,8 @@ public partial class Main
                 Check(shop.Catalogue.Id == _shopSmokeId && shop.Catalogue.Offers[0].Sold &&
                     _shopFixture!.CatalogueReads == _shopCatalogueReads,
                     "Cerrar y abrir volvió a consultar el catálogo o restauró la oferta comprada.");
+                Check(shop.FindChild("PurchaseCelebration", true, false) == null,
+                    "Abrir una compra anterior desde la caché vuelve a celebrarla.");
                 _shopFixture!.Connected = false;
                 Button("ShopBuy_" + shop.Catalogue.Offers.First(o => !o.Sold).Item.Id).EmitSignal(Godot.Button.SignalName.Pressed);
                 _shopSmokePhase++; return false;
@@ -198,6 +206,8 @@ public partial class Main
                 if (shop!.Busy) return false;
                 CheckUnavailable(); Check(shop.Status.Contains("Sin conexión") && Accounts.Profile!.Gold == _shopGoldAfterPurchase && _shopFixture!.Purchases == 1,
                     "Una compra sin conexión gastó oro o conservó las ofertas.");
+                Check(shop.FindChild("PurchaseCelebration", true, false) == null,
+                    "La compra rechazada muestra una celebración de éxito.");
                 CaptureShop("05-desconexion"); _shopFixture!.Connected = true; _shopFixture.Gold = 0;
                 Button("ShopConnect").EmitSignal(Godot.Button.SignalName.Pressed); _shopSmokePhase++; return false;
             }
