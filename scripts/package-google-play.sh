@@ -67,7 +67,7 @@ for parent in doc.getroot().iter():
 if excluded: raise ValueError('Manifiesto del instalador inesperado')
 doc.write(manifest, encoding='utf-8', xml_declaration=True)
 classes = plugin / 'java/com/arcana/firebase'
-for name in ['ArcanaUpdatesPlugin','ArcanaUpdateResultActivity','UpdateVersionPolicy','UpdateForegroundGate','UpdateRetryPolicy']:
+for name in ['ArcanaUpdatesPlugin','ArcanaUpdateResultActivity','UpdateApkVerifier','UpdateVersionPolicy','UpdateForegroundGate','UpdateRetryPolicy']:
     (classes / (name + '.java')).unlink()
 PY
 gradle -p android/firebase-plugin :plugin:assembleRelease --no-daemon
