@@ -64,7 +64,8 @@ public sealed partial class GameWorld
     private bool TrySpawnMinion(MinionKind kind)
     {
         if (_minions.Count >= DefenseRules.MaxMinions || !TryDefenseSpawn(out var at)) return false;
-        SpawnDefenseMinion(kind, at);
+        var minion = SpawnDefenseMinion(kind, at);
+        TryPromoteDefenseSpecial(minion);
         return true;
     }
 

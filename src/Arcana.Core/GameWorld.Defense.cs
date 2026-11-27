@@ -131,6 +131,7 @@ public sealed partial class GameWorld
     {
         if (!IsDefense || !_players.Values.Any(p => !p.Bot)) return;
         _defenseElapsed += dt;
+        _specialSpawnCooldown = Math.Max(0, _specialSpawnCooldown - dt);
         _colossusMomentumRemaining = Math.Max(0, _colossusMomentumRemaining - dt);
         _oracleSpawnCooldown = Math.Max(0, _oracleSpawnCooldown - dt);
         _prismSpawnCooldown = Math.Max(0, _prismSpawnCooldown - dt);
@@ -167,6 +168,8 @@ public sealed partial class GameWorld
         if (target.Role != CombatantRole.Minion) return false;
         if (_minions[target.Id].Kind == MinionKind.Prism)
             _prismSpawnCooldown = Math.Max(_prismSpawnCooldown, DefenseRules.PrismRespawnDelay);
+        var special = _minions[target.Id].SpecialAbility != DefenseSpecialAbility.None;
+        if (special) _specialSpawnCooldown = Math.Max(_specialSpawnCooldown, DefenseRules.SpecialDeathGap);
         CancelCast(target); _defenseKills++;
         if (_minions[target.Id].Kind == MinionKind.Oracle)
             foreach (var field in _fields)
@@ -191,7 +194,7 @@ public sealed partial class GameWorld
         {
             var progress = _defenders[defender.Id];
             if (defender.Deaths >= DefenseRules.PlayerLives) continue;
-            progress.Experience += boss ? 60 : 10;
+            progress.Experience += (boss ? 60 : 10) * (special ? DefenseRules.SpecialExperienceMultiplier : 1);
             bool levelled = false;
             while (progress.Level < 100 && progress.Experience >= DefenseRules.ExperienceForLevel(progress.Level))
             {
@@ -200,10 +203,17 @@ public sealed partial class GameWorld
             }
             if (progress.Level == 100) progress.Experience = Math.Min(progress.Experience, DefenseRules.ExperienceForLevel(100) - 1);
             if (levelled) RecalculateDefender(defender);
-            if (_random.Next(100) < DefenseRules.EquipmentDropChance) AddDefenseDrop(target.Position, defender.Id, DefenseDropKind.Equipment);
-            if (_random.Next(10000) < DefenseRules.RelicDropChance * 100) AddDefenseDrop(target.Position, defender.Id, DefenseDropKind.Relic);
+            int lootMultiplier = special ? DefenseRules.SpecialLootMultiplier : 1;
+            if (_random.Next(100) < DefenseRules.EquipmentDropChance * lootMultiplier) AddDefenseDrop(target.Position, defender.Id, DefenseDropKind.Equipment);
+            if (_random.Next(10000) < DefenseRules.RelicDropChance * 100 * lootMultiplier) AddDefenseDrop(target.Position, defender.Id, DefenseDropKind.Relic);
         }
-        if (_random.Next(100) < DefenseRules.GoldDropChance) AddDefenseDrop(target.Position, 0, DefenseDropKind.Gold);
+        if (special)
+        {
+            AddDefenseDrop(target.Position, 0, DefenseDropKind.Gold);
+            _defenseDrops[^1].Gold *= DefenseRules.SpecialGoldMultiplier;
+            _defenseDrops[^1].SpecialReward = true;
+        }
+        else if (_random.Next(100) < DefenseRules.GoldDropChance) AddDefenseDrop(target.Position, 0, DefenseDropKind.Gold);
         return true;
     }
 

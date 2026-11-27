@@ -7,7 +7,7 @@ namespace Arcana.Core;
 
 public static partial class Protocol
 {
-    public const int Version = 46;
+    public const int Version = 47; // El delta de minions incluye habilidad especial y escudo frontal.
     public const int GamePort = 27015;
     public const int DiscoveryPort = 27016;
     public const string DiscoveryMagic = "ARCANA_DISCOVER_V30";

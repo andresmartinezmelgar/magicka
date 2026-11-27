@@ -17,6 +17,7 @@ public sealed partial class GameWorld
         public double Elapsed;
         public float SpawnClock, AuraClock, BossClock, SurgeTime, SurgeCooldown, SurgeClock, BotClock;
         public float OracleSpawnCooldown;
+        public float SpecialSpawnCooldown;
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public float ColossusMomentumRemaining;
         public float PrismSpawnCooldown = DefenseRules.PrismMinimumSpawnGap;
@@ -77,6 +78,9 @@ public sealed partial class GameWorld
         public int FocusTargetId { get; init; }
         public float FocusTime { get; init; }
         public float AuraRepairCooldown { get; init; }
+        public DefenseSpecialAbility SpecialAbility { get; init; }
+        public float SpecialShieldSeconds { get; init; }
+        public float SpecialShieldCooldown { get; init; }
     }
 
     private sealed record SavedProjectile(int Id, int Owner, V2 Position, V2 Velocity, Element[] Elements, float Radius, float Power, float Lifetime)
@@ -96,7 +100,10 @@ public sealed partial class GameWorld
     }
 
     private sealed record SavedDrop(int Id, int OwnerId, int Gold, V2 Position, DefenseDropKind Kind,
-        EquipmentItem? Item, BuffKind Buff, float Remaining);
+        EquipmentItem? Item, BuffKind Buff, float Remaining)
+    {
+        public bool SpecialReward { get; init; }
+    }
 
     private sealed record SavedBotPlan(int Id, int TargetId, int HealTargetId, V2 Goal, float SpellTime, int SpellTurn);
 }

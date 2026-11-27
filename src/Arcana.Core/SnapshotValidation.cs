@@ -91,8 +91,10 @@ public static partial class SnapshotValidation
             !Size(w.Health, state.Players!.Any(p => p.Id == w.Owner && p.Equipment != null) ? 1300 * wallCapacity + .01f : 1300) ||
             !Size(w.Lifetime, map.SequentialCapture && w.Owner == 0 ? 30.01f : state.Players!.Any(p => p.Id == w.Owner && p.Equipment != null) ? 16.01f : 10.01f)) Invalid();
         foreach (var f in state.Fields!) if (f == null || f.Id <= 0 || !ids.Add(f.Id) || !Position(map, f.Position) || !Elements(f.Elements) ||
-            !Size(f.Radius, SpellBalance.MeteorRadius) || !Size(f.Lifetime, 12.01f) || !Size(f.TriggerRadius, 1) ||
-            (f.Kind == DefenseRules.ColossusFissureKind ? !defense || f.Radius != DefenseRules.ColossusFissureRadius :
+            !Size(f.Radius, f.Kind == DefenseRules.SpecialExplosionKind ? DefenseRules.SpecialExplosionRadius * 1.35f : SpellBalance.MeteorRadius) || !Size(f.Lifetime, 12.01f) || !Size(f.TriggerRadius, 1) ||
+            (f.Kind == DefenseRules.SpecialExplosionKind ? !defense || f.Lifetime > DefenseRules.SpecialExplosionDelay + .21f ||
+                Math.Abs(f.Radius - DefenseRules.SpecialExplosionRadius) > .001f && Math.Abs(f.Radius - DefenseRules.SpecialExplosionRadius * 1.35f) > .001f :
+            f.Kind == DefenseRules.ColossusFissureKind ? !defense || f.Radius != DefenseRules.ColossusFissureRadius :
                 f.Kind is not ("meteor" or "defense_meteor" or "oracle_bombardment" or "mine" or "healing_mine" or "burning_ground" or "frost_ground" or "water_pool" or "equipment_water_pool"))) Invalid();
         foreach (var b in state.Beams!) if (b == null || !Position(map, b.From) || !Position(map, b.To) ||
             // Una cadena eléctrica puede unir dos objetivos a lados distintos del cono.

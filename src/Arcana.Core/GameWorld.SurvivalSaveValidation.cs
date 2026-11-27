@@ -11,7 +11,7 @@ public sealed partial class GameWorld
     {
         static void Require([System.Diagnostics.CodeAnalysis.DoesNotReturnIf(false)] bool valid)
         { if (!valid) throw new InvalidDataException("Partida de supervivencia incompleta o incompatible."); }
-        Require(save != null && (save.Version is 1 or SurvivalSave.CurrentVersion) && Guid.TryParseExact(save.RunId, "N", out _) &&
+        Require(save != null && (save.Version is >= 1 and <= SurvivalSave.CurrentVersion) && Guid.TryParseExact(save.RunId, "N", out _) &&
             save.BestiaryUid is { Length: <= 128 } && save.State.ValueKind == JsonValueKind.Object);
         var s = save!.State.Deserialize<SavedSurvival>(SurvivalSave.Json);
         Require(s != null && s.Options != null && s.Options.Mode == GameMode.Defense && s.Options.Map == ArenaMapId.Bastion &&
@@ -32,6 +32,13 @@ public sealed partial class GameWorld
         Require(float.IsFinite(s.ColossusMomentumRemaining) && s.ColossusMomentumRemaining is >= 0 and <= DefenseRules.ColossusMomentumDuration);
         Require(float.IsFinite(s.PrismSpawnCooldown) && s.PrismSpawnCooldown >= 0 &&
             s.PrismSpawnCooldown <= DefenseRules.PrismMinimumSpawnGap + DefenseRules.PrismSpawnGapVariation);
+        Require(float.IsFinite(s.SpecialSpawnCooldown) && s.SpecialSpawnCooldown >= 0 &&
+            s.SpecialSpawnCooldown <= DefenseRules.SpecialSpawnGap + DefenseRules.SpecialSpawnGapVariation);
+        Require(s.Minions.Count(m => m != null && m.SpecialAbility != DefenseSpecialAbility.None) <=
+            DefenseRules.SpecialLimit(DefenseRules.TimedDifficulty(s.Elapsed)));
+        Require(save.Version >= 3 || s.SpecialSpawnCooldown == 0 &&
+            s.Minions.All(m => m != null && m.SpecialAbility == DefenseSpecialAbility.None && m.SpecialShieldSeconds == 0 && m.SpecialShieldCooldown == 0) &&
+            s.Drops.All(d => d != null && !d.SpecialReward) && s.Fields.All(f => f != null && f.Kind != DefenseRules.SpecialExplosionKind));
         s.Statistics?.Validate();
         Require(s.Statistics == null || s.Statistics.Mode == GameMode.Defense && s.Statistics.Map == s.Options.Map && !s.Statistics.Complete);
         var ids = new HashSet<int>();
@@ -79,11 +86,15 @@ public sealed partial class GameWorld
                 (m.FocusTargetId == 0 || s.Defenders.Any(d => d.Body.Id == m.FocusTargetId)) &&
                 float.IsFinite(m.FocusTime) && m.FocusTime is >= 0 and <= DefenseRules.PrismFocusSeconds &&
                 float.IsFinite(m.AuraRepairCooldown) && m.AuraRepairCooldown is >= 0 and <= DefenseRules.OracleShieldInterval &&
+                Enum.IsDefined(m.SpecialAbility) && float.IsFinite(m.SpecialShieldSeconds) && float.IsFinite(m.SpecialShieldCooldown) &&
+                m.SpecialShieldSeconds is >= 0 and <= DefenseRules.SpecialShieldDuration &&
+                m.SpecialShieldCooldown is >= 0 and <= DefenseRules.SpecialShieldCycle &&
+                (m.SpecialAbility == DefenseSpecialAbility.FrontalShield || m.SpecialShieldSeconds == 0 && m.SpecialShieldCooldown == 0) &&
                 new[] { m.Strength, m.Attack, m.ChannelTime, m.SpeedBoost,
                     m.SpeedClock, m.NavigationClock, m.Windup, m.SupportCooldown, m.ShieldCooldown }.All(float.IsFinite));
         foreach (var source in s.EffectSources)
             Require(source != null && source.Id >= 1000 && ids.Add(source.Id) && Enum.IsDefined(source.Kind) &&
-                float.IsFinite(source.Power) && source.Power is > 0 and <= 1350.01f);
+                float.IsFinite(source.Power) && source.Power > 0 && source.Power <= 1000 * DefenseRules.PartyDamageMultiplier(DefenseRules.MaxDefenders) * 1.35f * DefenseRules.SpecialDamageMultiplier + .01f);
         Require(s.NextMinion > ids.Max() && s.NextMinion < int.MaxValue - 1);
         foreach (var body in s.Defenders.Select(d => d.Body).Concat(s.Minions.Select(m => m.Body)))
             Require(RecentDamageWindow.Valid(body.RecentDamage, s.Tick) &&
@@ -107,11 +118,17 @@ public sealed partial class GameWorld
             float.IsFinite(w.Health) && float.IsFinite(w.Lifetime));
         foreach (var f in s.Fields) Require(f != null && Entity(f.Id) && f.Position.IsFinite && Elements(f.Elements) && f.Kind is { Length: > 0 and < 48 } &&
             new[] { f.Radius, f.Lifetime, f.Delay, f.TriggerRadius, f.Power }.All(float.IsFinite) &&
+            (f.Kind != DefenseRules.SpecialExplosionKind || f.Owner >= 1000 && s.EffectSources.Any(source => source.Id == f.Owner) &&
+                f.Lifetime > 0 && f.Lifetime <= DefenseRules.SpecialExplosionDelay + .21f &&
+                f.Delay >= -.2f && f.Delay <= DefenseRules.SpecialExplosionDelay && f.TriggerRadius == 0 &&
+                f.Power > 0 && f.Power <= DefenseRules.SpecialExplosionDamage * 1.35f + .01f &&
+                (Math.Abs(f.Radius - DefenseRules.SpecialExplosionRadius) <= .001f || Math.Abs(f.Radius - DefenseRules.SpecialExplosionRadius * 1.35f) <= .001f)) &&
             (!f.IsRockFragmentArea || (f.Kind is "burning_ground" or "frost_ground" or "water_pool") &&
                 f.Radius == CombatAffixes.RockFragmentGroundRadius && f.Lifetime is > 0 and <= CombatAffixes.RockFragmentGroundSeconds &&
                 !f.Elements.Contains(Element.Earth)));
         foreach (var d in s.Drops) Require(d != null && Entity(d.Id) && d.Position.IsFinite && Enum.IsDefined(d.Kind) && Enum.IsDefined(d.Buff) &&
-            d.Gold is >= 0 and <= 208 && float.IsFinite(d.Remaining) &&
+            d.Gold >= 0 && d.Gold <= (d.SpecialReward ? DefenseRules.MaximumDropGold : 208) && float.IsFinite(d.Remaining) &&
+            (!d.SpecialReward || d.Kind == DefenseDropKind.Gold && d.Gold % DefenseRules.SpecialGoldMultiplier == 0) &&
             (d.Kind != DefenseDropKind.Equipment || d.Item != null && EquipmentCatalogue.Valid(d.Item)));
         Require(s.NextEntity > entities.DefaultIfEmpty(0).Max() && s.NextEntity < int.MaxValue - 1);
         Require(s.Bestiary.All(b => b != null && Enum.IsDefined(b.Kind)) && s.Bestiary.Select(b => b.Kind).Distinct().Count() == s.Bestiary.Length &&

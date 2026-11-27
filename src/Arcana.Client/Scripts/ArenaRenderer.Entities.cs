@@ -80,6 +80,18 @@ public partial class ArenaRenderer
     {
         foreach (var field in snapshot.Fields)
         {
+            if (field.Kind == DefenseRules.SpecialExplosionKind)
+            {
+                if (!_fields.TryGetValue(field.Id, out var existingExplosion))
+                {
+                    var warning = new EnemyAttackWarning { Name = "SpecialDeathWarning", Position = World(field.Position) };
+                    AddChild(warning); warning.Build(field.Radius); _fields[field.Id] = existingExplosion = warning;
+                }
+                var deathWarning = (EnemyAttackWarning)existingExplosion;
+                deathWarning.Visible = field.Lifetime > 0;
+                if (deathWarning.Visible) deathWarning.ShowRemaining(field.Lifetime - .2f, DefenseRules.SpecialExplosionDelay);
+                continue;
+            }
             if (field.Kind == DefenseRules.ColossusFissureKind)
             {
                 if (!_fields.TryGetValue(field.Id, out var existingWarning))

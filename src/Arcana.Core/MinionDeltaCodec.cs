@@ -39,7 +39,8 @@ public sealed class MinionDeltaCodec
                 if (m.AttackWarningSeconds != old.AttackWarningSeconds) mask |= 4096;
                 if (m.Kind != old.Kind) mask |= 8192;
                 if (m.Shield != old.Shield || m.ShieldMax != old.ShieldMax || m.VulnerableElement != old.VulnerableElement ||
-                    m.ArcaneMarked != old.ArcaneMarked || m.Stunned != old.Stunned || m.WaterSlowed != old.WaterSlowed) mask |= 16384;
+                    m.ArcaneMarked != old.ArcaneMarked || m.Stunned != old.Stunned || m.WaterSlowed != old.WaterSlowed ||
+                    m.SpecialAbility != old.SpecialAbility || m.FrontalShieldSeconds != old.FrontalShieldSeconds) mask |= 16384;
                 if (m.FocusTargetId != old.FocusTargetId) mask |= 32768;
             }
             writer.Write(m.Id); writer.Write(mask);
@@ -62,6 +63,7 @@ public sealed class MinionDeltaCodec
                 writer.Write(m.Shield); writer.Write(m.ShieldMax);
                 writer.Write((sbyte)(m.VulnerableElement.HasValue ? (int)m.VulnerableElement.Value : -1));
                 writer.Write(m.ArcaneMarked); writer.Write(m.Stunned); writer.Write(m.WaterSlowed);
+                writer.Write((byte)m.SpecialAbility); writer.Write(m.FrontalShieldSeconds);
             }
             if ((mask & 32768) != 0) writer.Write(m.FocusTargetId);
         }
@@ -104,6 +106,7 @@ public sealed class MinionDeltaCodec
                 var kind = (mask & 8192) != 0 ? (MinionKind)reader.ReadByte() : old.Kind;
                 float shield = old.Shield, shieldMax = old.ShieldMax; Element? weakness = old.VulnerableElement;
                 bool marked = old.ArcaneMarked, stunned = old.Stunned, waterSlowed = old.WaterSlowed;
+                var special = old.SpecialAbility; float frontalShield = old.FrontalShieldSeconds;
                 if ((mask & 16384) != 0)
                 {
                     shield = reader.ReadSingle(); shieldMax = reader.ReadSingle(); int element = reader.ReadSByte();
@@ -111,11 +114,15 @@ public sealed class MinionDeltaCodec
                     weakness = element == -1 ? null : (Element)element;
                     marked = reader.ReadBoolean();
                     stunned = reader.ReadBoolean(); waterSlowed = reader.ReadBoolean();
+                    special = (DefenseSpecialAbility)reader.ReadByte(); frontalShield = reader.ReadSingle();
+                    if (!Enum.IsDefined(special) || !float.IsFinite(frontalShield) || frontalShield < 0 || frontalShield > DefenseRules.SpecialShieldDuration ||
+                        special != DefenseSpecialAbility.FrontalShield && frontalShield != 0) throw new InvalidDataException("Especial inválido.");
                 }
                 int focus = (mask & 32768) != 0 ? reader.ReadInt32() : old.FocusTargetId;
                 result[i] = new(id, kind, position, facing, health, maximum, wet, burning, chill, frozen, casting, elements, empowered)
                     { SpeedBoostSeconds = speed, AttackWarningSeconds = warning, Shield = shield, ShieldMax = shieldMax,
-                        VulnerableElement = weakness, FocusTargetId = focus, ArcaneMarked = marked, Stunned = stunned, WaterSlowed = waterSlowed };
+                        VulnerableElement = weakness, FocusTargetId = focus, ArcaneMarked = marked, Stunned = stunned, WaterSlowed = waterSlowed,
+                        SpecialAbility = special, FrontalShieldSeconds = frontalShield };
             }
             if (stream.Position != stream.Length) throw new InvalidDataException("Datos de enemigos adicionales.");
             return result;

@@ -18,6 +18,7 @@ public sealed partial class GameWorld
             RandomState = ((SurvivalRandom)_random).State, Kills = _defenseKills, Bosses = _bossesKilled,
             Elapsed = _defenseElapsed, PartySize = _defensePartySize, SpawnClock = _spawnClock, AuraClock = _auraClock,
             OracleSpawnCooldown = _oracleSpawnCooldown, PrismSpawnCooldown = _prismSpawnCooldown,
+            SpecialSpawnCooldown = _specialSpawnCooldown,
             ColossusMomentumRemaining = _colossusMomentumRemaining,
             BossClock = _bossClock, SurgeTime = _commanderSurgeTime, SurgeCooldown = _commanderSurgeCooldown,
             SurgeClock = _commanderSpawnClock, Reinforcements = _commanderReinforcements, BotClock = _defenseBotPlanClock,
@@ -43,7 +44,9 @@ public sealed partial class GameWorld
                 m.Kind, m.Strength, m.Attack, m.ChannelTime, m.SpeedBoost, m.SpeedClock, m.NavigationClock, m.Navigation,
                 m.Windup, m.SupportCooldown, m.ShieldCooldown, m.SpellTurn)
                 { PartySize = m.PartySize, FocusTargetId = _players.ContainsKey(m.FocusTargetId) ? m.FocusTargetId : 0,
-                    FocusTime = m.FocusTime, AuraRepairCooldown = m.AuraRepairCooldown }).ToArray(),
+                    FocusTime = m.FocusTime, AuraRepairCooldown = m.AuraRepairCooldown,
+                    SpecialAbility = m.SpecialAbility, SpecialShieldSeconds = m.SpecialShieldSeconds,
+                    SpecialShieldCooldown = m.SpecialShieldCooldown }).ToArray(),
             EffectSources = _lingeringSources.Select(s => new SavedEffectSource(s.Key, s.Value.Kind, s.Value.Body.Equipment.Power)).ToArray(),
             Projectiles = _projectiles.Select(p => new SavedProjectile(p.Id, p.Owner, p.Position, p.Velocity,
                 p.Recipe.Elements, p.Radius, p.Power, p.Lifetime)
@@ -51,7 +54,7 @@ public sealed partial class GameWorld
             Walls = _walls.Select(w => new SavedWall(w.Id, w.Owner, w.A, w.B, w.Health, w.Lifetime, w.Recipe.Elements)).ToArray(),
             Fields = _fields.Select(f => new SavedField(f.Id, f.Owner, f.Position, f.Radius, f.Lifetime, f.Delay,
                 f.TriggerRadius, f.Power, f.Recipe.Elements, f.Kind) { IsRockFragmentArea = f.IsRockFragmentArea }).ToArray(),
-            Drops = _defenseDrops.Select(d => new SavedDrop(d.Id, d.OwnerId, d.Gold, d.Position, d.Kind, d.Item, d.Buff, d.Remaining)).ToArray(),
+            Drops = _defenseDrops.Select(d => new SavedDrop(d.Id, d.OwnerId, d.Gold, d.Position, d.Kind, d.Item, d.Buff, d.Remaining) { SpecialReward = d.SpecialReward }).ToArray(),
             Bestiary = _defenseBestiary.Values.ToArray(),
             BotPlans = _defenseBotPlans.Select(p => new SavedBotPlan(p.Key, p.Value.TargetId, p.Value.HealTargetId,
                 p.Value.Goal, p.Value.SpellTime, p.Value.SpellTurn)).ToArray()

@@ -24,7 +24,7 @@ public partial class DefensePanel
         Row(drops, "Pieza de equipo · por defensor", Percent(DefenseRules.EquipmentDropChance));
         Row(drops, "Reliquia pasiva · por defensor", Percent(DefenseRules.RelicDropChance));
         Wrapped(_lootGuide, "Cada categoría se sortea por separado: puedes recibir varias recogidas o ninguna. Equipo y reliquias se sortean por defensor; solo ves los tuyos.", 15, Ui.Muted);
-        Wrapped(_lootGuide, "Monedas: 8 + 2 × dificultad, hasta 208 oro por defensor. El botín dura 75 s de combate; al alcanzar 96 recogidas se retira la más antigua.", 15, Ui.Muted);
+        Wrapped(_lootGuide, "Monedas normales: 8 + 2 × dificultad, hasta 208 oro por defensor. Los especiales garantizan monedas con triple oro (hasta 624), dan doble EXP y triplican la probabilidad de equipo y reliquias. La calidad del equipo mantiene sus porcentajes. El botín dura 75 s de combate; al alcanzar 96 recogidas se retira la más antigua.", 15, Ui.Muted);
         Wrapped(_lootGuide, "Dos anillos: oro y magia, con efectos en todas las calidades. El mágico aporta capacidad de escudo y habilidad elemental, sin afijos. Repone el escudo y activa la habilidad cada 16–8 s; desde nivel 6 duplica el elemento. Su ficha muestra los efectos y cifras. Las mejoras usan oro de partida y se conservan al guardar.", 15, Ui.Muted);
         Wrapped(_lootGuide, $"Diamante y Mítico tienen {ItemAffixes.CombatEffectCount} posibles afijos de combate; la ficha explica sus cifras y condiciones. Los repetidos aplican solo el más fuerte. El anillo mágico no recibe afijos. Última barrera conserva su recarga al guardar, cambiar equipo o reconectar. Con seis piezas míticas, incluidos los anillos, los ojos mezclan los colores del equipo.", 15, Ui.Muted);
         Wrapped(_lootGuide, "El anillo de oro equipado da 1 extra cada 11 monedas en nivel 0, cada 6 en nivel 5 y cada moneda en nivel 10. Puede añadir +10 % en Diamante o +20 % en Mítico. Cada defensor aplica ambos bonos sobre su oro base; los restos se guardan. Excluye ventas y conversión por inventario lleno. Los afijos antiguos de oro de otras ranuras están inactivos.", 15, Ui.Muted);
@@ -55,6 +55,10 @@ public partial class DefensePanel
         Wrapped(_lootGuide, "Las bajas normales dan 10 EXP y los colosos 60 EXP a cada defensor, aunque no dejen botín. Las auras y las habilidades automáticas se compran en Poderes. Los premios permanentes dependen del tiempo activo y se consultan en Estadísticas.", 15, Ui.Muted);
         _enemyGuide = new VBoxContainer { Name = "DefenseEnemyGuide" }; section.AddChild(_enemyGuide);
         _enemyGuide.AddThemeConstantOverride("separation", 12);
+        Wrapped(_enemyGuide, "ESPECIALES · Desde dificultad 10", 18, Ui.Gold);
+        Wrapped(_enemyGuide, "Cualquier especie, incluido el coloso, puede aparecer como especial: +75 % de vida, +20 % de ataque y una sola habilidad. Aura eléctrica y cuerpo oscuro. Aparecen por azar (8 % por aparición elegible), con 30–50 s entre especiales y al menos 15 s tras una baja. Máximo simultáneo: 1 en dificultad 10, 2 en 15, 3 en 20, 4 en 25 y uno más cada cinco niveles.", 15, Ui.Muted);
+        Wrapped(_enemyGuide, "Escudo frontal · Reduce un 75 % los impactos de su cono frontal durante 3 s de cada 9. Ataca por detrás o de lado; congelarlo o aturdirlo interrumpe el escudo. Las auras y quemaduras atraviesan esta defensa.", 15);
+        Wrapped(_enemyGuide, "Detonación final · Al morir marca el suelo y explota 1,4 s después, en 4,5 m (6,1 m el coloso). Sal del círculo o interpón una pared. No daña a otros monstruos.", 15);
         _enemyCards = new VBoxContainer { Name = "DefenseEnemyCards" }; _enemyCards.AddThemeConstantOverride("separation", 12); _enemyGuide.AddChild(_enemyCards);
         _guideStatus = Wrapped(_enemyGuide, "", 15, Ui.Muted); _guideStatus.Name = "DefenseGuideStatus";
         Wrapped(_enemyGuide, "Cada tipo se descubre al aparecer. Su ficha conserva el último ejemplar, aunque muera. Los magos muestran su primer hechizo; consulta todas las variantes en Mi perfil → Bestiario. Daño base sin defensas, estados ni mejoras de capitán.", 15, Ui.Muted);
@@ -81,6 +85,7 @@ public partial class DefensePanel
     {
         if (_state is not { } state) return;
         _guideStatus.Text = $"Dificultad {state.Difficulty} · {state.Minions.Length}/{state.MinionLimit} enemigos · {state.TotalKills} bajas · {state.Defenders.Length} defensores\n" +
+            $"Especiales: {state.Minions.Count(m => m.SpecialAbility != DefenseSpecialAbility.None)}/{DefenseRules.SpecialLimit(state.Difficulty)} · " +
             $"Tope por rendimiento: {state.PerformanceLimit}. En local se ajusta a los FPS; online lo decide la simulación del servidor.";
         string stamp = string.Join('|', state.Bestiary.Select(e => e.ToString()));
         // La primera ficha vacía también se construye, sin revelar nombres aún no descubiertos.

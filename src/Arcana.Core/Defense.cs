@@ -176,6 +176,8 @@ internal sealed class DefenseMinion(Wizard body, MinionKind kind, float strength
     public readonly MinionKind Kind = kind;
     public float Strength = strength;
     public int PartySize = 1;
+    public DefenseSpecialAbility SpecialAbility;
+    public float SpecialShieldSeconds, SpecialShieldCooldown;
     public float Attack = 1, ChannelTime, SpeedBoost, SpeedClock, NavigationClock, Windup, SupportCooldown = 3, ShieldCooldown;
     public float FocusTime, AuraRepairCooldown;
     public int FocusTargetId;
@@ -187,6 +189,7 @@ internal sealed class DefenseMinion(Wizard body, MinionKind kind, float strength
 internal sealed class DefenseDrop
 {
     public int Id, OwnerId, Gold;
+    public bool SpecialReward;
     public V2 Position;
     public DefenseDropKind Kind;
     public EquipmentItem? Item;
@@ -197,6 +200,10 @@ internal sealed class DefenseDrop
 public sealed record MinionSnapshot(int Id, MinionKind Kind, V2 Position, V2 Facing, float Health, float MaxHealth,
     float Wet, float Burning, float Chill, float Frozen, bool Casting, Element[] Elements, bool Empowered)
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public DefenseSpecialAbility SpecialAbility { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public float FrontalShieldSeconds { get; init; }
     public float SpeedBoostSeconds { get; init; }
     public float AttackWarningSeconds { get; init; }
     public float Shield { get; init; }
@@ -213,7 +220,11 @@ public sealed record MinionSnapshot(int Id, MinionKind Kind, V2 Position, V2 Fac
 public sealed record DefenseEnemySnapshot(MinionKind Kind, int Difficulty, float MaxHealth, float Attack, float AttackMaximum,
     float AttackInterval, float Speed, float Range, int Spawned, int Killed);
 public sealed record DefenseDropSnapshot(int Id, int OwnerId, V2 Position, DefenseDropKind Kind, int Gold,
-    BuffKind Buff, EquipmentSlot? Slot, ItemTier? Tier);
+    BuffKind Buff, EquipmentSlot? Slot, ItemTier? Tier)
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool SpecialReward { get; init; }
+}
 public sealed record DefenseItemSnapshot(EquipmentItem Item, int Upgrades, bool Equipped);
 public sealed record DefensePlayerSnapshot(int PlayerId, int Level, int Experience, int NextLevelExperience, int Gold,
     double ActiveSeconds, int Kills, int Deaths, int[] Auras, DefenseItemSnapshot[] Items, EquipmentModifiers Modifiers,
