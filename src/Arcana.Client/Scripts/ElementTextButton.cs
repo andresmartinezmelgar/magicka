@@ -52,11 +52,15 @@ public partial class ElementTextButton : Button
         _caption.Position = new(style.GetContentMargin(Side.Left), style.GetContentMargin(Side.Top));
         _caption.Size = (Size - style.GetMinimumSize()).Max(Vector2.Zero);
         _caption.AutowrapMode = AutowrapMode;
+        _caption.ClipText = ClipText;
         _caption.HorizontalAlignment = Alignment;
         _caption.VerticalAlignment = VerticalAlignment.Center;
         _caption.TextOverrunBehavior = TextOverrunBehavior;
         _caption.AddThemeFontSizeOverride("font_size", GetThemeFontSize("font_size"));
         _caption.AddThemeFontOverride("normal_font", GetThemeFont("font"));
+        // El botón mide con su propio interlineado. La etiqueta coloreada debe
+        // usarlo también para no recortar la última línea de un título largo.
+        _caption.AddThemeConstantOverride("line_spacing", GetThemeConstant("line_spacing"));
         string state = Disabled ? "font_disabled_color" : IsPressed() ? "font_pressed_color"
             : IsHovered() ? "font_hover_color" : "font_color";
         _caption.AddThemeColorOverride("font_color", _colors[state].Color);

@@ -33,22 +33,23 @@ public partial class PlayerEquipmentPanel : Control
         var panel = new PanelContainer(); panel.AddThemeStyleboxOverride("panel", Ui.ModalPanel()); margin.AddChild(panel);
         var box = new VBoxContainer(); box.AddThemeConstantOverride("separation", 10); panel.AddChild(box);
         var heading = new HBoxContainer(); box.AddChild(heading);
-        var title = Ui.Label("BONOS DE LOS MAGOS", 22, Ui.Gold); title.ClipText = true;
+        var title = Ui.TextBlock("BONOS DE LOS MAGOS", 22, Ui.Gold);
         title.SizeFlagsHorizontal = SizeFlags.ExpandFill; heading.AddChild(title);
         heading.AddChild(Ui.ExitButton("Volver", Close, "PlayerEquipmentBack"));
         var header = new GridContainer { Columns = 2 }; _headerGrid = header;
         header.AddThemeConstantOverride("h_separation", 12); box.AddChild(header);
-        _choice = new ScrollOptionButton { Name = "InspectedPlayerChoice", CustomMinimumSize = new(240, Ui.IsMobile ? 66 : 48), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _choice = new ScrollOptionButton { Name = "InspectedPlayerChoice", CustomMinimumSize = new(240, Ui.IsMobile ? 66 : 48), SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            FitToLongestItem = false, ClipText = true, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
         _choice.AddThemeFontSizeOverride("font_size", 20); header.AddChild(_choice);
         _choice.ItemSelected += index => { _selected = _choice.GetItemId((int)index); _ = Load(); };
         header.AddChild(Ui.Button("Actualizar", Refresh));
-        _name = Ui.Label("", 20, Ui.Gold); box.AddChild(_name);
+        _name = Ui.TextBlock("", 20, Ui.Gold); box.AddChild(_name);
         _name.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         var columns = new GridContainer { Columns = 2, SizeFlagsVertical = SizeFlags.ExpandFill,
             SizeFlagsHorizontal = SizeFlags.ExpandFill }; _contentGrid = columns;
         columns.AddThemeConstantOverride("h_separation", 24); columns.AddThemeConstantOverride("v_separation", 8); box.AddChild(columns);
         _pieces = Column(columns); _summary = Column(columns);
-        _status = Ui.Label("", 16, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_status);
+        _status = Ui.TextBlock("", 16, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; box.AddChild(_status);
         GetViewport().SizeChanged += UpdateResponsivePlayerEquipment;
         UpdateResponsivePlayerEquipment();
         Refresh();
@@ -121,7 +122,7 @@ public partial class PlayerEquipmentPanel : Control
         foreach (var slot in Enum.GetValues<EquipmentSlot>())
         {
             var item = view.Equipment.Items.FirstOrDefault(i => i.Slot == slot);
-            _pieces.AddChild(Ui.Label(EquipmentCatalogue.SlotName(slot) + " · " + (item == null ? "Sin equipo" : EquipmentCatalogue.TierName(item.Tier)
+            _pieces.AddChild(Ui.TextBlock(EquipmentCatalogue.SlotName(slot) + " · " + (item == null ? "Sin equipo" : EquipmentCatalogue.TierName(item.Tier)
                 + " · " + EquipmentCatalogue.FamilyName(item.Family)), 20, item == null ? Ui.Muted : EquipmentPanel.TierColor(item.Tier)));
             if (item == null) continue;
             var grid = Ui.Table(2, "PlayerPiece" + slot + "Table"); _pieces.AddChild(grid);
@@ -131,22 +132,22 @@ public partial class PlayerEquipmentPanel : Control
                 item.Affix == null ? "" : ItemAffixes.Describe(item.Affix, item.UpgradeLevel, item.Slot),
                 RingEffects.Describe(item, ringEquipment) }.Where(s => s.Length > 0)));
         }
-        _summary.AddChild(Ui.Label("TOTAL DEL EQUIPO", 22, Ui.Gold));
+        _summary.AddChild(Ui.TextBlock("TOTAL DEL EQUIPO", 22, Ui.Gold));
         var specials = view.Equipment.Items.Where(i => ItemAffixes.Active(i.Affix, i.Slot) != null)
             .GroupBy(i => i.Affix!.Kind).Select(g => g.OrderByDescending(i => i.Affix!.Value).First())
             .Select(i => ItemAffixes.Describe(i.Affix, i.UpgradeLevel, i.Slot))
             .Concat(view.Equipment.Items.Select(i => RingEffects.Describe(i, ringEquipment)))
             .Where(s => s.Length > 0).Distinct();
-        var specialText = Ui.Label(EquipmentPanel.NumberedImprovements(string.Join("\n", specials)), 16, Ui.Gold);
+        var specialText = Ui.TextBlock(EquipmentPanel.NumberedImprovements(string.Join("\n", specials)), 16, Ui.Gold);
         specialText.AutowrapMode = TextServer.AutowrapMode.WordSmart; _summary.AddChild(specialText);
         var activeSets = view.Equipment.Sets.Where(s => s.Pieces >= 2).ToArray();
         string sets = activeSets.Length == 0 ? "Sin conjuntos activos." : string.Join("\n", activeSets.Select(s =>
             EquipmentCatalogue.FamilyName(s.Family) + " " + s.Pieces + "/4 · " + EquipmentPanel.SetDescription(s.Family, s.Pieces == 4)));
-        var setLabel = Ui.Label(sets, 16, Ui.Gold); setLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart; _summary.AddChild(setLabel);
+        var setLabel = Ui.TextBlock(sets, 16, Ui.Gold); setLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart; _summary.AddChild(setLabel);
         var totals = Ui.Table(_compactStats ? 2 : Enum.GetValues<EquipmentSlot>().Length + 4, "PlayerEquipmentTotalsTable"); _summary.AddChild(totals);
         if (!EquipmentPanel.RenderTotals(totals, view.Equipment.Stats, view.Equipment.Items))
         {
-            var empty = Ui.Label("No hay bonificaciones activas en el equipo actual.", 16, Ui.Muted);
+            var empty = Ui.TextBlock("No hay bonificaciones activas en el equipo actual.", 16, Ui.Muted);
             empty.AutowrapMode = TextServer.AutowrapMode.WordSmart; _summary.AddChild(empty);
         }
         _status.Text = "Equipo de la ronda actual. Aplicado muestra el bono real después de los límites. La partida continúa mientras consultas.";

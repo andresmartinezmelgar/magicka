@@ -19,7 +19,7 @@ public partial class LoadingScreen : Control
         _panel = new PanelContainer(); center.AddChild(_panel);
         var frame = new VBoxContainer(); frame.AddThemeConstantOverride("separation", 8); _panel.AddChild(frame);
         var header = new HBoxContainer(); frame.AddChild(header);
-        var title = Ui.Label("PREPARANDO PARTIDA", 22, Ui.Gold); title.ClipText = true;
+        var title = Ui.TextBlock("PREPARANDO PARTIDA", 22, Ui.Gold);
         title.SizeFlagsHorizontal = SizeFlags.ExpandFill; header.AddChild(title);
         header.AddChild(Ui.ExitButton("Cancelar", cancel, "LoadingCancel"));
         _scroll = new ContentScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };

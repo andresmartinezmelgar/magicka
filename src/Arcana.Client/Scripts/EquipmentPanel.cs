@@ -66,7 +66,7 @@ public partial class EquipmentPanel : Control
             back.SizeFlagsHorizontal = resume.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             exits.AddChild(back); exits.AddChild(resume);
         }
-        _profile = Ui.Label("", 14, Ui.Gold); _profile.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _profile = Ui.TextBlock("", 14, Ui.Gold); _profile.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _profile.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _equipmentToolbar = new HBoxContainer(); box.AddChild(_equipmentToolbar);
         _inventoryMenu = new MenuButton { Name = "EquipmentActions", Text = "Opciones", CustomMinimumSize = new(72, 44) };
@@ -103,7 +103,7 @@ public partial class EquipmentPanel : Control
             _optionAChrome!.ContentHost.AddChild(_savedEquipmentDialog); Ui.ConfigureDialog(_savedEquipmentDialog);
             var teams = new VBoxContainer { CustomMinimumSize = new(360, 0) }; _savedEquipmentDialog.AddChild(teams); BuildSavedEquipment(teams);
         }
-        _status = Ui.Label("", 15, Ui.Gold); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; _status.MaxLinesVisible = 1; _status.Visible = false; box.AddChild(_status);
+        _status = Ui.TextBlock("", 15, Ui.Gold); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; _status.Visible = false; box.AddChild(_status);
         var columns = new HBoxContainer { Name = "EquipmentSplit", SizeFlagsVertical = SizeFlags.ExpandFill };
         columns.AddThemeConstantOverride("separation", Ui.IsMobile ? 8 : 16); box.AddChild(columns);
         _avatarPane = new PanelContainer { Name = "EquipmentAvatarPane", SizeFlagsVertical = SizeFlags.ExpandFill };
@@ -114,7 +114,7 @@ public partial class EquipmentPanel : Control
         _avatar = new EquipmentAvatar(); left.AddChild(_avatar);
         _avatar.Build(_defenseWizard?.WizardType ?? main.InventoryWizardType, OpenItemPicker);
         foreach (var slot in Enum.GetValues<EquipmentSlot>()) _slots[(int)slot] = _avatar.Buttons[slot];
-        _salesHelp = Ui.Label("Los favoritos y las piezas equipadas están protegidos de la venta.", 13, Ui.Muted);
+        _salesHelp = Ui.TextBlock("Los favoritos y las piezas equipadas están protegidos de la venta.", 13, Ui.Muted);
         _salesHelp.AutowrapMode = TextServer.AutowrapMode.WordSmart; left.AddChild(_salesHelp);
         var right = new PanelContainer { Name = "EquipmentItemsPane", SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
         var itemsStyle = Ui.Panel(new("0d2036"), 9, new("29475e")); itemsStyle.ContentMarginLeft = itemsStyle.ContentMarginRight = itemsStyle.ContentMarginTop = itemsStyle.ContentMarginBottom = 8;
@@ -130,24 +130,24 @@ public partial class EquipmentPanel : Control
         var totalsScroll = new ContentScrollContainer { Name = "EquipmentTotalsScroll", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, Visible = false };
         _rightHost.AddChild(totalsScroll); Ui.Full(totalsScroll); Ui.VisibleVerticalScroll(totalsScroll); _optionAStats = totalsScroll;
         var summary = _totalsSummary = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; summary.AddThemeConstantOverride("separation", 8); totalsScroll.AddChild(summary);
-        _totalsTitle = Ui.Label("ESTADÍSTICAS TOTALES", 18, Ui.Gold); summary.AddChild(_totalsTitle);
-        _sets = Ui.Label("", 14, Ui.Gold); _sets.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_sets);
+        _totalsTitle = Ui.TextBlock("ESTADÍSTICAS TOTALES", 18, Ui.Gold); summary.AddChild(_totalsTitle);
+        _sets = Ui.TextBlock("", 14, Ui.Gold); _sets.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_sets);
         _totals = Ui.Table(2, "EquipmentTotalsTable"); summary.AddChild(_totals);
-        _totalsEmpty = Ui.Label("No hay bonificaciones activas.", 16, Ui.Muted); _totalsEmpty.Name = "EquipmentNoActiveBonuses"; summary.AddChild(_totalsEmpty);
-        _progressStatsTitle = Ui.Label("MEJORAS DE PARTIDA · NIVEL, RELIQUIAS Y PODERES", 17, Ui.Gold);
+        _totalsEmpty = Ui.TextBlock("No hay bonificaciones activas.", 16, Ui.Muted); _totalsEmpty.Name = "EquipmentNoActiveBonuses"; summary.AddChild(_totalsEmpty);
+        _progressStatsTitle = Ui.TextBlock("MEJORAS DE PARTIDA · NIVEL, RELIQUIAS Y PODERES", 17, Ui.Gold);
         _progressStatsTitle.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_progressStatsTitle);
         _progressStats = Ui.Table(2, "EquipmentProgressStatsTable"); summary.AddChild(_progressStats);
-        _combatPreview = Ui.Label("", 15, Ui.Muted); _combatPreview.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_combatPreview);
-        _detailTitle = Ui.Label("", 17, Ui.Gold); _detailTitle.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_detailTitle);
+        _combatPreview = Ui.TextBlock("", 15, Ui.Muted); _combatPreview.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_combatPreview);
+        _detailTitle = Ui.TextBlock("", 17, Ui.Gold); _detailTitle.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_detailTitle);
         _details = Ui.Table(2, "EquipmentDetailsTable"); summary.AddChild(_details);
         _detailEffects = new VBoxContainer { Name = "EquipmentDetailEffects" }; summary.AddChild(_detailEffects);
-        _empty = Ui.Label("", 14, Ui.Muted); _empty.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_empty);
+        _empty = Ui.TextBlock("", 14, Ui.Muted); _empty.AutowrapMode = TextServer.AutowrapMode.WordSmart; summary.AddChild(_empty);
         BuildSaleModal();
         _setsInfo = new AcceptDialog { Name = "EquipmentSets", Title = "Conjuntos Míticos", OkButtonText = "Cerrar" }; AddChild(_setsInfo); Ui.ConfigureDialog(_setsInfo);
         var setsScroll = new ContentScrollContainer { CustomMinimumSize = new(400, 240), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         _setsInfo.AddChild(setsScroll); _setsScroll = setsScroll; Ui.VisibleVerticalScroll(setsScroll);
         var setsBody = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; setsScroll.AddChild(setsBody);
-        var descriptions = Ui.Label(string.Join("\n\n", EquipmentCatalogue.FocusedFamilies.Select(f => EquipmentCatalogue.FamilyName(f) + "\n2 o 3 piezas: " + SetDescription(f, false) + "\n4 piezas: " + SetDescription(f, true))) + "\n\nLos anillos no cuentan para conjuntos.", 16);
+        var descriptions = Ui.TextBlock(string.Join("\n\n", EquipmentCatalogue.FocusedFamilies.Select(f => EquipmentCatalogue.FamilyName(f) + "\n2 o 3 piezas: " + SetDescription(f, false) + "\n4 piezas: " + SetDescription(f, true))) + "\n\nLos anillos no cuentan para conjuntos.", 16);
         descriptions.AutowrapMode = TextServer.AutowrapMode.WordSmart; descriptions.SizeFlagsHorizontal = SizeFlags.ExpandFill; setsBody.AddChild(descriptions);
         BuildItemPicker();
         GetViewport().SizeChanged += UpdateEquipmentResponsive; UpdateEquipmentResponsive();
@@ -162,6 +162,7 @@ public partial class EquipmentPanel : Control
     private Button Action(Node parent, string text, Action action, bool primary = false)
     {
         var button = Ui.Button(text, action, primary); button.CustomMinimumSize = new(0, Ui.IsMobile ? 68 : 48);
+        button.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         parent.AddChild(button);
         button.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 20 : 17);
         foreach (string state in new[] { "normal", "hover", "pressed", "disabled" })

@@ -113,6 +113,14 @@ public static partial class Ui
         label.AddThemeColorOverride("font_color", color ?? Text);
         return label;
     }
+    /// <summary>Texto completo que usa el ancho disponible y hace crecer su fila.</summary>
+    public static ElementTextLabel TextBlock(string text, int size = 17, Color? color = null)
+    {
+        var label = Label(text, size, color);
+        label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        label.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        return label;
+    }
     public static readonly Color TableBorder = new("7292b5");
     public static GridContainer Table(int columns, string name)
     {

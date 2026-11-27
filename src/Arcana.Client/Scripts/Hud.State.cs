@@ -7,9 +7,8 @@ public partial class Hud
 {
     public void Update(WorldSnapshot snapshot, int id, string serverName, double delta)
     {
-        if (!_rewardNoticeBlocked) _rewardSeconds = Math.Max(0, _rewardSeconds - (float)delta);
-        _reward.Visible = !_rewardNoticeBlocked && _rewardSeconds > 0;
-        _rewardBackdrop.Visible = _reward.Visible;
+        if (!_rewardNoticeBlocked && _rewardFits) _rewardSeconds = Math.Max(0, _rewardSeconds - (float)delta);
+        UpdateRewardVisibility();
         _rewardBackdrop.Modulate = new Color(1, 1, 1, Math.Clamp(_rewardSeconds / .25f, 0, 1));
         _actionNoticeSeconds = Math.Max(0, _actionNoticeSeconds - (float)delta);
         _actionNotice.Visible = _actionNoticeSeconds > 0;

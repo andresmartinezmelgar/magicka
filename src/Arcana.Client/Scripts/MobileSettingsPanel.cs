@@ -52,7 +52,7 @@ public partial class MobileSettingsPanel : Control
         var panel = new PanelContainer(); margin.AddChild(panel);
         var frame = new VBoxContainer(); panel.AddChild(frame);
         var header = new HBoxContainer(); frame.AddChild(header);
-        var title = Ui.Label("CONTROLES TÁCTILES", 22, Ui.Gold); title.ClipText = true;
+        var title = Ui.TextBlock("CONTROLES TÁCTILES", 22, Ui.Gold);
         title.SizeFlagsHorizontal = SizeFlags.ExpandFill; header.AddChild(title);
         header.AddChild(Ui.ExitButton("Cancelar", () => Canceled?.Invoke(), "TouchSettingsCancel"));
         var scroll = new ContentScrollContainer { Name = "TouchSettingsScroll", SizeFlagsVertical = SizeFlags.ExpandFill,

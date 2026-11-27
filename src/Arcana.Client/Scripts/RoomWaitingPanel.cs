@@ -41,10 +41,10 @@ public partial class RoomWaitingPanel : Control
         Ui.VisibleVerticalScroll(scroll);
         var body = new VBoxContainer { Name = "WaitingRoomBody", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         body.AddThemeConstantOverride("separation", 10); scroll.AddChild(body);
-        _headline = Ui.Label("SALA DE ESPERA", 24, Ui.Gold);
+        _headline = Ui.TextBlock("SALA DE ESPERA", 24, Ui.Gold);
         _headline.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _headline.HorizontalAlignment = HorizontalAlignment.Center; body.AddChild(_headline);
-        _details = Ui.Label("Elige equipo y confirma que estás preparado.", 16, Ui.Muted);
+        _details = Ui.TextBlock("Elige equipo y confirma que estás preparado.", 16, Ui.Muted);
         _details.HorizontalAlignment = HorizontalAlignment.Center;
         _details.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         body.AddChild(_details);
@@ -55,11 +55,11 @@ public partial class RoomWaitingPanel : Control
         body.AddChild(_teams);
         _blue = TeamList("EQUIPO AZUL", Ui.Blue, 0, out _blueCount, out _blueEmpty, out _blueJoin);
         _red = TeamList("EQUIPO ROJO", Ui.Red, 1, out _redCount, out _redEmpty, out _redJoin);
-        _prizes = Ui.Label("", 14, Ui.Muted); _prizes.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _prizes = Ui.TextBlock("", 14, Ui.Muted); _prizes.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _prizes.HorizontalAlignment = HorizontalAlignment.Center; body.AddChild(_prizes);
 
         // Preparación, comienzo y salida no se desplazan con el listado de jugadores.
-        _status = Ui.Label("", 16, Ui.Gold); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _status = Ui.TextBlock("", 16, Ui.Gold); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _status.HorizontalAlignment = HorizontalAlignment.Center; content.AddChild(_status);
         _actions = new GridContainer { Columns = 2 };
         _actions.AddThemeConstantOverride("v_separation", 8);
@@ -106,18 +106,18 @@ public partial class RoomWaitingPanel : Control
         panel.AddChild(box);
         var header = new HBoxContainer();
         header.AddThemeConstantOverride("separation", 6); box.AddChild(header);
-        var title = Ui.Label(name, 18, color);
+        var title = Ui.TextBlock(name, 18, color);
         title.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         title.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         header.AddChild(title);
-        count = Ui.Label("0/0 listos", 14, Ui.Muted);
+        count = Ui.TextBlock("0/0 listos", 14, Ui.Muted);
         count.VerticalAlignment = VerticalAlignment.Center;
         count.TooltipText = "Jugadores preparados / jugadores del equipo";
         header.AddChild(count);
         var members = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill };
         members.AddThemeConstantOverride("separation", 6); box.AddChild(members);
-        empty = Ui.Label("Esperando jugadores", 15, Ui.Muted);
+        empty = Ui.TextBlock("Esperando jugadores", 15, Ui.Muted);
         empty.CustomMinimumSize = new(0, 128);
         empty.HorizontalAlignment = HorizontalAlignment.Center;
         empty.VerticalAlignment = VerticalAlignment.Center;

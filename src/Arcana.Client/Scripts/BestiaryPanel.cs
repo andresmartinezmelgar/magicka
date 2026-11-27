@@ -22,10 +22,10 @@ public partial class BestiaryPanel : Control
         foreach (string side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, Ui.IsMobile ? 14 : 28);
         var layout = new VBoxContainer(); layout.AddThemeConstantOverride("separation", 12); margin.AddChild(layout);
         var heading = new HBoxContainer(); heading.AddThemeConstantOverride("separation", 12); layout.AddChild(heading);
-        var title = Ui.Label("MI PERFIL · BESTIARIO", Ui.IsMobile ? 22 : 28, Ui.Gold);
+        var title = Ui.TextBlock("MI PERFIL · BESTIARIO", Ui.IsMobile ? 22 : 28, Ui.Gold);
         title.AutowrapMode = TextServer.AutowrapMode.WordSmart; title.SizeFlagsHorizontal = SizeFlags.ExpandFill; heading.AddChild(title);
         heading.AddChild(Ui.ExitButton("Volver", () => main.NavigateBack(), "BestiaryBack"));
-        _status = Ui.Label("", 16, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; layout.AddChild(_status);
+        _status = Ui.TextBlock("", 16, Ui.Muted); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart; layout.AddChild(_status);
         _refresh = Ui.Button("Actualizar bajas", () => _ = Refresh()); _refresh.Name = "BestiaryRefresh"; heading.AddChild(_refresh);
         var scroll = new ContentScrollContainer { Name = "BestiaryScroll", SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
@@ -58,9 +58,9 @@ public partial class BestiaryPanel : Control
             row.AddChild(portrait); portrait.Build(kind);
             var body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; body.AddThemeConstantOverride("separation", 6); row.AddChild(body);
             long kills = _lastProfile?.Bestiary.GetValueOrDefault(BestiaryCatalogue.Key(kind)) ?? 0;
-            var heading = Ui.Label(DefenseRules.MinionName(kind) + $" · Bajas: {kills}", 20, Ui.Gold);
+            var heading = Ui.TextBlock(DefenseRules.MinionName(kind) + $" · Bajas: {kills}", 20, Ui.Gold);
             heading.AutowrapMode = TextServer.AutowrapMode.WordSmart; body.AddChild(heading);
-            var description = Ui.Label(BestiaryCatalogue.Description(kind), Ui.IsMobile ? 17 : 18);
+            var description = Ui.TextBlock(BestiaryCatalogue.Description(kind), Ui.IsMobile ? 17 : 18);
             description.AutowrapMode = TextServer.AutowrapMode.WordSmart; description.SizeFlagsHorizontal = SizeFlags.ExpandFill; body.AddChild(description);
             var stats = Ui.Table(2, "BestiaryStats_" + kind); content.AddChild(stats); _stats[kind] = stats;
         }
@@ -83,7 +83,7 @@ public partial class BestiaryPanel : Control
         party.TooltipText = "Humanos y bots aliados. El número de defensores aumenta la vida de los monstruos.";
         party.Select(_defenders - 1); partyBox.AddChild(party); Ui.TouchTarget(party);
         party.ItemSelected += _ => { _defenders = party.GetSelectedId(); UpdateStats(); };
-        var note = Ui.Label("Daño base sin defensas, estados ni potenciadores. La pausa se añade a la duración de cada ataque.", 15, Ui.Muted);
+        var note = Ui.TextBlock("Daño base sin defensas, estados ni potenciadores. La pausa se añade a la duración de cada ataque.", 15, Ui.Muted);
         note.Name = "BestiaryStatsNote"; note.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         note.TooltipText = "Los haces muestran el intervalo de daño según su carga. Las pausas no incluyen la canalización ni la preparación del ataque.";
         note.AutowrapMode = TextServer.AutowrapMode.WordSmart; context.AddChild(note);

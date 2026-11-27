@@ -57,7 +57,7 @@ public partial class HelpPanel : Control
         outer.AddThemeConstantOverride("separation", 8); panel.AddChild(outer);
         var header = new HBoxContainer(); header.AddThemeConstantOverride("separation", 10); outer.AddChild(header);
         _back = Ui.ExitButton("Índice", () => HandleBack(), "HelpBack"); header.AddChild(_back);
-        _title = Ui.Label("Ayuda", 23, Ui.Gold); _title.ClipText = true;
+        _title = Ui.TextBlock("Ayuda", 23, Ui.Gold);
         _title.SizeFlagsHorizontal = SizeFlags.ExpandFill; _title.VerticalAlignment = VerticalAlignment.Center; header.AddChild(_title);
         header.AddChild(Ui.ExitButton(_inGame ? "Volver al juego" : "Cerrar", _close,
             _inGame ? "InGameHelpClose" : "HelpClose"));

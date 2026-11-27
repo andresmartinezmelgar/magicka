@@ -21,8 +21,9 @@ public partial class Main
             measure.AddThemeFontSizeOverride("font_size", 18);
             _ui.AddChild(measure); measure.Hide();
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-            if (label.GetMinimumSize().DistanceTo(measure.GetMinimumSize()) > 1)
-                throw new InvalidDataException($"El texto con colores cambia las medidas de la etiqueta: {label.GetMinimumSize()} frente a {measure.GetMinimumSize()}, tamaño {label.Size}.");
+            if (Math.Abs(label.GetMinimumSize().X - measure.GetMinimumSize().X) > 1 ||
+                label.GetMinimumSize().Y + 1 < Math.Max(measure.GetMinimumSize().Y, label.RenderedTextSize.Y))
+                throw new InvalidDataException($"El texto con colores reserva menos espacio del que necesita: {label.GetMinimumSize()}, contenido {label.RenderedTextSize}, medida nativa {measure.GetMinimumSize()}.");
             label.Text = "[color=red]Fuego[/color] + Vida";
             if (label.GetParsedText() != label.Text) throw new InvalidDataException("El nombre externo puede inyectar marcado.");
             label.Text = "";

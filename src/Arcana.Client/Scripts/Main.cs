@@ -95,7 +95,7 @@ public partial class Main : Node
         networkBackground.ContentMarginTop = 5;
         networkBackground.ContentMarginBottom = 5;
         networkPanel.AddThemeStyleboxOverride("panel", networkBackground);
-        _networkStats = Ui.Label("", 13, Ui.Muted);
+        _networkStats = Ui.TextBlock("", 13, Ui.Muted);
         _networkStats.Name = "NetworkMetricsText";
         _networkStats.MouseFilter = Control.MouseFilterEnum.Ignore;
         _networkStats.HorizontalAlignment = HorizontalAlignment.Right;

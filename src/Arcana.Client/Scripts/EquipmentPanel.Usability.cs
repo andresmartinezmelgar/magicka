@@ -143,7 +143,7 @@ public partial class EquipmentPanel
     private void BuildSavedEquipment(VBoxContainer box)
     {
         var panel = new VBoxContainer { Name = "EquipmentSavedTeams" }; panel.AddThemeConstantOverride("separation", 4); box.AddChild(panel);
-        var label = Ui.Label("EQUIPOS GUARDADOS · en este dispositivo", 15, Ui.Gold); panel.AddChild(label);
+        var label = Ui.TextBlock("EQUIPOS GUARDADOS · en este dispositivo", 15, Ui.Gold); panel.AddChild(label);
         var row = new HBoxContainer(); panel.AddChild(row);
         _savedTeams = new ScrollOptionButton { Name = "EquipmentSavedTeam", SizeFlagsHorizontal = SizeFlags.ExpandFill, ClipText = true, CustomMinimumSize = new(100, 44) };
         row.AddChild(_savedTeams); _savedTeams.ItemSelected += _ => RenderSavedEquipment();
@@ -157,7 +157,7 @@ public partial class EquipmentPanel
         _teamName = new LineEdit { Name = "EquipmentTeamName", PlaceholderText = "Nombre del equipo", MaxLength = 24,
             SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new(0, 44) }; saveRow.AddChild(_teamName);
         var save = Ui.Button("Guardar actual", SaveCurrentTeam); save.Name = "EquipmentSaveTeam"; saveRow.AddChild(save); _actions.Add(save);
-        _teamStatus = Ui.Label("", 14, Ui.Muted); _teamStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart; panel.AddChild(_teamStatus);
+        _teamStatus = Ui.TextBlock("", 14, Ui.Muted); _teamStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart; panel.AddChild(_teamStatus);
     }
     private void RenderSavedEquipment()
     {

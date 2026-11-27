@@ -93,6 +93,7 @@ public partial class ArcanaMenuChrome : Control
         // agrandando la cabecera hasta tapar el launcher.
         _player.AutowrapMode = TextServer.AutowrapMode.Off;
         _player.ClipText = true;
+        _player.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
         _player.SizeFlagsHorizontal = SizeFlags.ShrinkEnd;
         _player.SizeFlagsVertical = SizeFlags.ShrinkCenter;
         _player.CustomMinimumSize = new Vector2(Ui.IsMobile ? 210 : 300, 44);
@@ -123,6 +124,7 @@ public partial class ArcanaMenuChrome : Control
             var action = Ui.Button(page.FullName, () => navigate(id), false);
             action.Name = "OptionANav" + id;
             action.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            action.AutowrapMode = TextServer.AutowrapMode.WordSmart;
             action.CustomMinimumSize = new(0, Ui.IsMobile ? 58 : 48);
             action.AddThemeFontSizeOverride("font_size", Ui.IsMobile ? 17 : 16);
             nav.AddChild(action);

@@ -45,7 +45,7 @@ public partial class AccountProfilePanel : Control
 
         var layout = new VBoxContainer(); layout.AddThemeConstantOverride("separation", 10); margin.AddChild(layout);
         var header = new HBoxContainer(); layout.AddChild(header);
-        var title = Ui.Label("MI PERFIL", Ui.IsMobile ? 22 : 28, Ui.Gold);
+        var title = Ui.TextBlock("MI PERFIL", Ui.IsMobile ? 22 : 28, Ui.Gold);
         title.SizeFlagsHorizontal = SizeFlags.ExpandFill; header.AddChild(title);
         header.AddChild(Ui.ExitButton("Volver", () => main.NavigateBack(), "ProfileBack"));
         var scroll = new ContentScrollContainer { Name = "ProfileContentScroll", SizeFlagsHorizontal = SizeFlags.ExpandFill,
@@ -75,12 +75,12 @@ public partial class AccountProfilePanel : Control
         }
         BuildWizardSettings(content);
         main.BuildAudioControls(content);
-        content.AddChild(Ui.Label("CUENTA DE GOOGLE", Ui.IsMobile ? 20 : 19, Ui.Gold));
-        _heading = Ui.Label("", Ui.IsMobile ? 27 : 25, Ui.Text);
+        content.AddChild(Ui.TextBlock("CUENTA DE GOOGLE", Ui.IsMobile ? 20 : 19, Ui.Gold));
+        _heading = Ui.TextBlock("", Ui.IsMobile ? 27 : 25, Ui.Text);
         _heading.HorizontalAlignment = HorizontalAlignment.Center;
         _heading.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         content.AddChild(_heading);
-        _status = Ui.Label("", Ui.IsMobile ? 18 : 16, Ui.Muted);
+        _status = Ui.TextBlock("", Ui.IsMobile ? 18 : 16, Ui.Muted);
         _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _status.HorizontalAlignment = HorizontalAlignment.Center;
         content.AddChild(_status);
@@ -115,11 +115,11 @@ public partial class AccountProfilePanel : Control
             Ui.TouchTarget(button, 76);
             _profileActions.AddChild(button);
         }
-        _updateStatus = Ui.Label("", Ui.IsMobile ? 17 : 16, Ui.Muted);
+        _updateStatus = Ui.TextBlock("", Ui.IsMobile ? 17 : 16, Ui.Muted);
         _updateStatus.Name = "ProfileUpdateStatus";
         _updateStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _updateStatus.HorizontalAlignment = HorizontalAlignment.Center; content.AddChild(_updateStatus);
-        _advertisingStatus = Ui.Label("", Ui.IsMobile ? 17 : 16, Ui.Muted);
+        _advertisingStatus = Ui.TextBlock("", Ui.IsMobile ? 17 : 16, Ui.Muted);
         _advertisingStatus.Name = "ProfileAdvertisingStatus";
         _advertisingStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         content.AddChild(_advertisingStatus);
@@ -132,24 +132,24 @@ public partial class AccountProfilePanel : Control
 
     private void BuildWizardSettings(VBoxContainer content)
     {
-        content.AddChild(Ui.Label("TU PERSONAJE", Ui.IsMobile ? 20 : 19, Ui.Gold));
+        content.AddChild(Ui.TextBlock("TU PERSONAJE", Ui.IsMobile ? 20 : 19, Ui.Gold));
         _wizardFields = new GridContainer { Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _wizardFields.AddThemeConstantOverride("h_separation", 12); content.AddChild(_wizardFields);
         var nameColumn = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         var typeColumn = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _wizardFields.AddChild(nameColumn); _wizardFields.AddChild(typeColumn);
-        nameColumn.AddChild(Ui.Label("Nombre del mago", 16, Ui.Muted));
+        nameColumn.AddChild(Ui.TextBlock("Nombre del mago", 16, Ui.Muted));
         var name = new LineEdit { Name = "ProfileWizardName", MaxLength = 24, Text = _main.LocalWizardName,
             SizeFlagsHorizontal = SizeFlags.ExpandFill };
         Ui.TouchTarget(name); nameColumn.AddChild(name);
-        typeColumn.AddChild(Ui.Label("Tipo de mago", 16, Ui.Muted));
+        typeColumn.AddChild(Ui.TextBlock("Tipo de mago", 16, Ui.Muted));
         var wizardType = new ScrollOptionButton { Name = "WizardTypeChoice", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         foreach (var type in Enum.GetValues<WizardType>()) wizardType.AddItem(WizardTypes.Name(type), (int)type);
         wizardType.Select(wizardType.GetItemIndex((int)_main.InventoryWizardType));
         Ui.TouchTarget(wizardType); typeColumn.AddChild(wizardType);
-        var description = Ui.Label(WizardTypes.Description(_main.InventoryWizardType), 15, Ui.Muted);
+        var description = Ui.TextBlock(WizardTypes.Description(_main.InventoryWizardType), 15, Ui.Muted);
         description.AutowrapMode = TextServer.AutowrapMode.WordSmart; content.AddChild(description);
-        var savedHint = Ui.Label("Los cambios del personaje se guardan automáticamente.", 14, Ui.Muted);
+        var savedHint = Ui.TextBlock("Los cambios del personaje se guardan automáticamente.", 14, Ui.Muted);
         savedHint.AutowrapMode = TextServer.AutowrapMode.WordSmart; content.AddChild(savedHint);
         void Save() => _main.SetWizardProfile(name.Text, (WizardType)wizardType.GetSelectedId());
         name.TextChanged += _ => Save();

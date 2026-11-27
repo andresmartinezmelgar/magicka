@@ -154,7 +154,8 @@ public partial class Main
         _localWasAlive = local?.Alive ?? false; _localDeaths = local?.Deaths ?? 0;
         ResetPersonalDamageSummary();
         if (!prepared) PrepareGameControls(snapshot);
-        _ui.MoveChild(_networkPanel, -1);
+        // Los datos de red quedan bajo el HUD, la clasificación y las ventanas.
+        _ui.MoveChild(_networkPanel, 0);
         _ui.MoveChild(_help, -1); _ui.MoveChild(_pause, -1);
         if (_connection != null)
         {

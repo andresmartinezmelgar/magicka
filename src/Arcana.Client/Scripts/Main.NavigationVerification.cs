@@ -204,10 +204,19 @@ public partial class Main
                 Check(_defensePanel.EquippedHud.IsVisibleInTree(), "El equipo no vuelve al cerrar el resumen.");
                 _networkStatsTime = 0;
                 _defensePanel.SetNetworkStats("FPS: 60 | Ping: 54 ms\n↑ 0,6 KB/s · ↓ 3,9 KB/s\nTotal: ↑ 37,4 KB · ↓ 1992,6 KB");
-                _hud!.RewardNotice("Objeto temporal de prueba"); await Frames(3);
+                const string longLoot = "Nuevo objeto temporal: Anillo mágico de Rayo · Mítico · Nivel 10\nEscudo protector, potencia elemental y una descripción larga de su habilidad especial.";
+                _hud!.RewardNotice(longLoot); await Frames(3);
                 var rewardCard = (Control)_hud.FindChild("MatchRewardBackground", true, false);
-                Check(!rewardCard.GetGlobalRect().Intersects(_defensePanel.SummaryRectForVerification),
+                AssertVisibleTextFits(_hud);
+                var rewardText = (ElementTextLabel)_hud.FindChild("MatchRewardNotice", true, false);
+                Check(rewardText.GetParsedText() == longLoot && rewardCard.IsVisibleInTree() &&
+                    GetViewport().GetVisibleRect().Grow(1).Encloses(rewardCard.GetGlobalRect()) &&
+                    !rewardCard.GetGlobalRect().Intersects(_defensePanel.SummaryRectForVerification),
                     "El aviso de botín queda detrás del panel de ping y datos tras crecer su contenido.");
+                if (_touch != null)
+                    Check(_touch.LayoutRectangles.Where(pair => !_touch.Settings.Hidden(pair.Key)).All(pair =>
+                        !rewardCard.GetGlobalRect().Intersects(new Rect2(pair.Value.Position + _touch.GlobalPosition, pair.Value.Size))),
+                        "El aviso de botín tapa un control táctil.");
                 var dismissReward = (Button)rewardCard;
                 _moveTo = false;
                 await Click(dismissReward);
@@ -250,6 +259,7 @@ public partial class Main
                 foreach (int section in new[] { 0, 2, 3, 4, 5, 6 })
                 {
                     shop.OpenShop(); shop.ShowSection(section); await Frames();
+                    AssertVisibleTextFits(shop);
                     Check(!((Control)shop.FindChild("DefenseMenu", true, false)).IsVisibleInTree() &&
                         ((Control)shop.FindChild("DefenseSection" + section, true, false)).IsVisibleInTree(),
                         "Un apartado mezcla el menú con su contenido: " + section);

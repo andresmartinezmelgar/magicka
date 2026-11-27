@@ -97,9 +97,9 @@ public partial class Launcher : Control
         _discoveryPort = new SpinBox { MinValue = 1024, MaxValue = 65535, Value = Protocol.DiscoveryPort, CustomMinimumSize = new(120, 45) }; lanActions.AddChild(_discoveryPort);
         _servers = new ScrollChoiceList { Name = "LanServersScroll", CustomMinimumSize = new(0, 126) }; lan.AddChild(_servers);
         _servers.ItemActivated += _ => Connect();
-        lan.AddChild(Ui.Label("Misma red local · Puerto de búsqueda UDP a la derecha", 13, Ui.Muted));
+        lan.AddChild(Ui.TextBlock("Misma red local · Puerto de búsqueda UDP a la derecha", 13, Ui.Muted));
         var practice = TabBox("Práctica");
-        practice.AddChild(Ui.Label("Simulación local: las mismas reglas del servidor.", 15, Ui.Muted));
+        practice.AddChild(Ui.TextBlock("Simulación local: las mismas reglas del servidor.", 15, Ui.Muted));
         _practiceMode = new ScrollOptionButton { CustomMinimumSize = new(0, 45) };
         _practiceMode.AddItem("Guerra de puntos", (int)GameMode.Warfare);
         _practiceMode.AddItem("Todos contra todos", (int)GameMode.Arena);
@@ -161,7 +161,7 @@ public partial class Launcher : Control
         botControls.AddChild(moreBots);
         _practiceMap.ItemSelected += _ => { _bots.Editable = (ArenaMapId)_practiceMap.GetSelectedId() != ArenaMapId.Practice; };
         _bots.Editable = (ArenaMapId)_practiceMap.GetSelectedId() != ArenaMapId.Practice; Objective();
-        practice.AddChild(Ui.Label("El duelo usa un bot. Defensa permite jugar solo o con hasta tres aliados IA.", 13, Ui.Muted));
+        practice.AddChild(Ui.TextBlock("El duelo usa un bot. Defensa permite jugar solo o con hasta tres aliados IA.", 13, Ui.Muted));
         practice.AddChild(measureSurvival);
         _continueSurvival = Ui.Button("Continuar supervivencia guardada", _main.ContinueSurvival, true);
         _continueSurvival.Name = "ContinueSurvival";
@@ -178,7 +178,7 @@ public partial class Launcher : Control
         ports.AddChild(Ui.Label("LAN UDP", 14, Ui.Muted));
         _hostDiscovery = new SpinBox { MinValue = 1024, MaxValue = 65535, Value = _config.GetValue("host", "discovery", Protocol.DiscoveryPort).AsInt32(),
             SizeFlagsHorizontal = SizeFlags.ExpandFill }; ports.AddChild(_hostDiscovery);
-        _hostInfo = Ui.Label("Inicia el servidor incluido y crea salas desde el juego.\nEl servidor permanece activo mientras el juego esté abierto.", 14, Ui.Muted);
+        _hostInfo = Ui.TextBlock("Inicia el servidor incluido y crea salas desde el juego.\nEl servidor permanece activo mientras el juego esté abierto.", 14, Ui.Muted);
         _hostInfo.AutowrapMode = TextServer.AutowrapMode.WordSmart; hosting.AddChild(_hostInfo);
         var hostActions = new HBoxContainer(); hosting.AddChild(hostActions);
         _stopHost = Ui.Button("Detener servidor", StopHost); _stopHost.Disabled = true; _stopHost.SizeFlagsHorizontal = SizeFlags.ExpandFill; hostActions.AddChild(_stopHost);

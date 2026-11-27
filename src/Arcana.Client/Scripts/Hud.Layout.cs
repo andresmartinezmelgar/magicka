@@ -60,24 +60,40 @@ public partial class Hud
 
     private void PlaceRewardNotice()
     {
-        // Mismo lateral que el estado del jugador, junto a su borde inferior.
-        // La altura acotada deja libres los joysticks y el combate central.
+        // Medir después de fijar el ancho: dos líneas fijas cortaban nombres,
+        // afijos y cantidades. La tarjeta crece con su contenido real.
         float s = MobileLayout || _lastSnapshot?.Defense != null ? Math.Min(1, GetViewportRect().Size.Y / 720f) / GameplayScale : 1;
         _rewardBackdrop.Scale = Vector2.One * s;
-        _rewardBackdrop.CustomMinimumSize = _rewardBackdrop.Size = new(310, 62);
+        float cardWidth = Math.Min(310, Math.Max(1, (Size.X - 16) / s));
+        _rewardBackdrop.CustomMinimumSize = new(cardWidth, 0);
+        _rewardBackdrop.Size = new(cardWidth, 62);
+        float cardHeight = Math.Max(62, _reward.GetMinimumSize().Y + 16);
+        _rewardBackdrop.CustomMinimumSize = _rewardBackdrop.Size = new(cardWidth, cardHeight);
         var player = _playerPanel.GetGlobalRect();
         var status = _rewardStatusBounds ?? player;
-        float bottom = status.End.Y, top = status.Position.Y;
-        float width = 310 * s * GameplayScale;
-        if (player.Position.X < status.Position.X + width && player.End.X > status.Position.X)
-        { bottom = Math.Max(bottom, player.End.Y); top = Math.Min(top, player.Position.Y); }
-        var edge = new Vector2((status.Position.X - GlobalPosition.X) / GameplayScale,
-            (bottom - GlobalPosition.Y) / GameplayScale + 8);
-        // En escritorio el panel puede estar abajo: el aviso se coloca encima.
-        if (edge.Y + 62 * s > Size.Y - 80)
-            edge.Y = (top - GlobalPosition.Y) / GameplayScale - 62 * s - 8;
-        _rewardBackdrop.Position = new(Math.Clamp(edge.X, 8, Math.Max(8, Size.X - 310 * s - 8)),
-            Math.Clamp(edge.Y, 8, Math.Max(8, Size.Y - 62 * s - 8)));
+        var cardSize = _rewardBackdrop.Size * s * GameplayScale;
+        var wanted = new ScreenRect(status.Position.X, Math.Max(status.End.Y, player.End.Y) + ScreenPlacement.MinimumGap,
+            cardSize.X, cardSize.Y);
+        var occupied = new List<ScreenRect> { TouchHudLayout.Rect(status) };
+        foreach (Control control in new Control[] { _playerPanel, _topScore, _spellsPanel, _mapPanel, _actionNotice, _buffs })
+            if (control.IsVisibleInTree()) occupied.Add(TouchHudLayout.Rect(control.GetGlobalRect()));
+        // Buscar también a los lados cuando no cabe debajo ni encima. Limitar
+        // las coordenadas al viewport sin buscar hueco volvía a solapar el panel.
+        _rewardFits = ScreenPlacement.TryPlace(wanted, TouchHudLayout.Rect(GetViewportRect()), occupied, out var safe);
+        if (_rewardFits) _rewardBackdrop.GlobalPosition = new(safe.X, safe.Y);
+        UpdateRewardVisibility();
+    }
+
+    internal void KeepRewardNoticeClear(IReadOnlyList<Rect2> obstacles)
+    {
+        if (!RewardNoticePending) return;
+        float height = Math.Max(62, _reward.GetMinimumSize().Y + 16);
+        if (!Mathf.IsEqualApprox(height, _rewardBackdrop.Size.Y))
+            _rewardBackdrop.CustomMinimumSize = _rewardBackdrop.Size = new(_rewardBackdrop.Size.X, height);
+        _rewardFits = ScreenPlacement.TryPlace(TouchHudLayout.Rect(_rewardBackdrop.GetGlobalRect()),
+            TouchHudLayout.Rect(GetViewportRect()), obstacles.Select(TouchHudLayout.Rect).ToArray(), out var safe);
+        if (_rewardFits) _rewardBackdrop.GlobalPosition = new(safe.X, safe.Y);
+        UpdateRewardVisibility();
     }
 
     private static ProgressBar Bar(Color color, float max, int height)

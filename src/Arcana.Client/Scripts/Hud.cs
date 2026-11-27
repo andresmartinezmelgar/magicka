@@ -15,6 +15,7 @@ public partial class Hud : Control
     private ElementTextLabel _reward = null!;
     private float _rewardSeconds;
     private bool _rewardNoticeBlocked;
+    private bool _rewardFits = true;
     private Rect2? _rewardStatusBounds;
     private ElementTextLabel _actionNotice = null!;
     private Panel _actionNoticeBackdrop = null!;
@@ -57,6 +58,7 @@ public partial class Hud : Control
     private readonly float[] _magickCosts = new float[4];
     private readonly bool?[] _magickReady = new bool?[4];
     public bool ScoreOpen { get; set; }
+    internal bool RewardNoticePending => _rewardSeconds > 0 && !_rewardNoticeBlocked;
     internal Rect2 ScoreboardRectForSmoke => _scorePanel.GetGlobalRect();
     internal string RoundAnnouncementForSmoke => _banner.Text;
     internal bool RoundAnnouncementVisibleForSmoke => _banner.IsVisibleInTree() && _bannerBackdrop.IsVisibleInTree();
@@ -70,15 +72,16 @@ public partial class Hud : Control
     public void RewardNotice(string message)
     {
         _reward.Text = message; _reward.TooltipText = message; _rewardSeconds = 2.2f;
-        _reward.Visible = _rewardBackdrop.Visible = !_rewardNoticeBlocked;
         _rewardBackdrop.Modulate = Colors.White;
         PlaceRewardNotice();
     }
     internal void SetRewardNoticeBlocked(bool blocked)
     {
         _rewardNoticeBlocked = blocked;
-        _reward.Visible = _rewardBackdrop.Visible = !blocked && _rewardSeconds > 0;
+        UpdateRewardVisibility();
     }
+    private void UpdateRewardVisibility() =>
+        _reward.Visible = _rewardBackdrop.Visible = !_rewardNoticeBlocked && _rewardFits && _rewardSeconds > 0;
     internal void SetRewardStatusBounds(Rect2? bounds)
     {
         if (_rewardStatusBounds == bounds) return;
@@ -236,8 +239,6 @@ public partial class Hud : Control
         _reward.HorizontalAlignment = HorizontalAlignment.Left;
         _reward.VerticalAlignment = VerticalAlignment.Center;
         _reward.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _reward.MaxLinesVisible = 2;
-        _reward.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
         _reward.Visible = false;
         _rewardBackdrop.AddChild(_reward);
         Ui.Full(_reward);
