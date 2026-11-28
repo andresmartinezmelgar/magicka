@@ -20,6 +20,7 @@ public sealed partial class GameWorld
         TickStatus(p, dt);
         minion.AuraRepairCooldown = Math.Max(0, minion.AuraRepairCooldown - dt);
         if (!p.Alive) return;
+        TickSpecialDefenseShield(minion, dt);
         minion.SpeedBoost = Math.Max(0, minion.SpeedBoost - dt);
         minion.SpeedClock -= dt;
         if (minion.SpeedClock <= 0)

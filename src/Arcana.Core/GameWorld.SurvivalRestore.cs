@@ -21,6 +21,7 @@ public sealed partial class GameWorld
         world._defensePartySize = s.PartySize; world._defenseKills = s.Kills; world._bossesKilled = s.Bosses;
         world._spawnClock = s.SpawnClock; world._auraClock = s.AuraClock; world._bossClock = s.BossClock;
         world._oracleSpawnCooldown = s.OracleSpawnCooldown;
+        world._specialSpawnCooldown = s.SpecialSpawnCooldown;
         world._colossusMomentumRemaining = s.ColossusMomentumRemaining;
         world._prismSpawnCooldown = s.PrismSpawnCooldown;
         world._commanderSurgeTime = s.SurgeTime; world._commanderSurgeCooldown = s.SurgeCooldown;
@@ -70,7 +71,9 @@ public sealed partial class GameWorld
                 Attack = m.Attack, ChannelTime = m.ChannelTime, SpeedBoost = m.SpeedBoost, SpeedClock = m.SpeedClock,
                 NavigationClock = m.NavigationClock, Navigation = m.Navigation, Windup = m.Windup,
                 SupportCooldown = m.SupportCooldown, ShieldCooldown = m.ShieldCooldown, SpellTurn = m.SpellTurn,
-                FocusTargetId = m.FocusTargetId, FocusTime = m.FocusTime, AuraRepairCooldown = m.AuraRepairCooldown
+                FocusTargetId = m.FocusTargetId, FocusTime = m.FocusTime, AuraRepairCooldown = m.AuraRepairCooldown,
+                SpecialAbility = m.SpecialAbility, SpecialShieldSeconds = m.SpecialShieldSeconds,
+                SpecialShieldCooldown = m.SpecialShieldCooldown
             };
             if (m.PartySize == 0)
             {
@@ -93,7 +96,7 @@ public sealed partial class GameWorld
             Radius = f.Radius, Lifetime = f.Lifetime, Delay = f.Delay, TriggerRadius = f.TriggerRadius,
             Power = f.Power, Recipe = new(f.Elements), Kind = f.Kind, IsRockFragmentArea = f.IsRockFragmentArea });
         foreach (var d in s.Drops) world._defenseDrops.Add(new() { Id = d.Id, OwnerId = d.OwnerId, Gold = d.Gold,
-            Position = d.Position, Kind = d.Kind, Item = d.Item, Buff = d.Buff, Remaining = d.Remaining });
+            Position = d.Position, Kind = d.Kind, Item = d.Item, Buff = d.Buff, Remaining = d.Remaining, SpecialReward = d.SpecialReward });
         foreach (var b in s.Bestiary) world._defenseBestiary.Add(b.Kind, b);
         foreach (var b in s.BotPlans) world._defenseBotPlans.Add(b.Id, new()
             { TargetId = b.TargetId, HealTargetId = b.HealTargetId, Goal = b.Goal, SpellTime = b.SpellTime, SpellTurn = b.SpellTurn });

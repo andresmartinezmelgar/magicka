@@ -69,10 +69,11 @@ public sealed partial class GameWorld
             }
         }
         if (spell.Has(Element.Earth) && AcceptsDefenseElement(target, Element.Earth)) target.Knockback += force * (10 * scale);
-        damage *= damageMultiplier;
+        float frontal = SpecialFrontalShieldMultiplier(target, force);
+        damage *= damageMultiplier * frontal;
         ApplyDamage(target, damage * scale, owner, spell.Elements, false, true, weights, _statisticsAttack ?? MatchStatisticsCollector.Shape(spell.Shape));
         if (weights[(int)Element.Lightning] > 0) RecordLightningContact(target, owner);
-        if (target.Shield > 0) DamageProtection(target, UtilityPressure(target, spell, owner) * scale, owner, spell.Elements);
+        if (target.Shield > 0) DamageProtection(target, UtilityPressure(target, spell, owner) * scale * frontal, owner, spell.Elements);
         if (TryCombatSource(owner, out var caster) && caster.Id != target.Id)
             caster.Energy = Math.Min(100, caster.Energy + damage * scale * 0.015f);
     }

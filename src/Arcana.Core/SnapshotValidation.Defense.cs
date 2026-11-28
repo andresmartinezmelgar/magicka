@@ -16,6 +16,7 @@ public static partial class SnapshotValidation
             d.MinionLimit is < 1 or > DefenseRules.MaxMinions || d.PerformanceLimit is < DefensePerformanceBudget.MinimumLimit or > DefenseRules.MaxMinions ||
             d.Defenders == null || d.Defenders.Length != state.Players.Length || state.Players.Length > DefenseRules.MaxDefenders ||
             state.Players.Any(p => p.Team != 0)) Invalid();
+        if (d!.Minions!.Count(m => m != null && m.SpecialAbility != DefenseSpecialAbility.None) > DefenseRules.SpecialLimit(d.Difficulty)) Invalid();
         var map = ArenaMap.Get(state);
         var kinds = new HashSet<MinionKind>();
         long discoveredKills = 0;
@@ -32,6 +33,8 @@ public static partial class SnapshotValidation
         foreach (var m in d!.Minions!)
             if (m == null || m.Id < 1000 || !ids.Add(m.Id) || !Enum.IsDefined(m.Kind) ||
                 !Position(map, m.Position) || !Direction(m.Facing) || !NonNegative([m.Health, m.MaxHealth, m.Wet, m.Burning, m.Chill, m.Frozen, m.Shield, m.ShieldMax]) ||
+                !Enum.IsDefined(m.SpecialAbility) || !Size(m.FrontalShieldSeconds, DefenseRules.SpecialShieldDuration) ||
+                m.SpecialAbility != DefenseSpecialAbility.FrontalShield && m.FrontalShieldSeconds != 0 ||
                 m.Shield > m.ShieldMax || m.FocusTargetId != 0 && !state.Players.Any(p => p.Id == m.FocusTargetId) ||
                 m.WaterSlowed && m.Wet <= 0 || m.Stunned && m.Casting ||
                 (m.Kind == MinionKind.Prism ? m.VulnerableElement == null || !DefenseRules.ValidPrismElement(m.VulnerableElement.Value) : m.VulnerableElement != null) ||
@@ -72,7 +75,8 @@ public static partial class SnapshotValidation
         foreach (var drop in d.Drops!)
             if (drop == null || drop.Id <= 0 || !ids.Add(drop.Id) || !Position(map, drop.Position) || !Enum.IsDefined(drop.Kind) ||
                 !Enum.IsDefined(drop.Buff) || drop.OwnerId != 0 && !state.Players.Any(p => p.Id == drop.OwnerId) ||
-                drop.Gold is < 0 or > 208 || !Tier(drop.Tier) || drop.Slot.HasValue && !Enum.IsDefined(drop.Slot.Value) ||
+                drop.Gold < 0 || drop.Gold > (drop.SpecialReward ? DefenseRules.MaximumDropGold : 208) ||
+                drop.SpecialReward && (drop.Kind != DefenseDropKind.Gold || drop.Gold % DefenseRules.SpecialGoldMultiplier != 0) || !Tier(drop.Tier) || drop.Slot.HasValue && !Enum.IsDefined(drop.Slot.Value) ||
                 drop.Kind == DefenseDropKind.Equipment && (!drop.Slot.HasValue || !drop.Tier.HasValue)) Invalid();
     }
 }

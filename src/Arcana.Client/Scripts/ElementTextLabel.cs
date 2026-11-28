@@ -34,7 +34,12 @@ public partial class ElementTextLabel : Control
     public TextServer.AutowrapMode AutowrapMode
     {
         get => _measure.AutowrapMode;
-        set { _content.AutowrapMode = _measure.AutowrapMode = value; UpdateMinimumSize(); }
+        set
+        {
+            if (_measure.AutowrapMode == value) return;
+            _content.AutowrapMode = _measure.AutowrapMode = value;
+            RenderText(); UpdateMinimumSize();
+        }
     }
     public new string TooltipText
     {
@@ -59,21 +64,34 @@ public partial class ElementTextLabel : Control
         _measure.MinimumSizeChanged += UpdateMinimumSize;
         Resized += () => { _measure.Size = _content.Size = Size; RenderText(); UpdateMinimumSize(); };
     }
-    public override Vector2 _GetMinimumSize() => _measure?.GetMinimumSize() ?? Vector2.Zero;
+    public override Vector2 _GetMinimumSize()
+    {
+        var minimum = _measure?.GetMinimumSize() ?? Vector2.Zero;
+        // RichTextLabel y Label pueden distribuir de forma distinta los párrafos.
+        // La fila debe reservar también la altura del texto que realmente dibujamos.
+        if (_content != null && IsInsideTree() && Size.X > 0 && _plainText.Length > 0 &&
+            AutowrapMode != TextServer.AutowrapMode.Off && MaxLinesVisible < 0)
+            minimum.Y = Math.Max(minimum.Y, _content.GetContentHeight());
+        return minimum;
+    }
+    internal Vector2 RenderedTextSize => new(_content.GetContentWidth(), _content.GetContentHeight());
     public string GetParsedText() => _content.GetParsedText();
     public int GetLineCount() => _content.GetLineCount();
     public int GetVisibleLineCount() => _content.GetVisibleLineCount();
     public new void AddThemeFontSizeOverride(StringName name, int size)
     {
+        if (HasThemeFontSizeOverride(name) && GetThemeFontSize(name) == size) return;
         base.AddThemeFontSizeOverride(name, size);
         _content.AddThemeFontSizeOverride(name == "font_size" ? "normal_font_size" : name, size);
-        _measure.AddThemeFontSizeOverride(name, size); UpdateMinimumSize();
+        _measure.AddThemeFontSizeOverride(name, size); RenderText(); UpdateMinimumSize();
     }
     public new void AddThemeFontOverride(StringName name, Font font)
     {
+        StringName measureName = name == "normal_font" ? "font" : name;
+        if (HasThemeFontOverride(measureName) && GetThemeFont(measureName) == font) return;
         base.AddThemeFontOverride(name == "normal_font" ? "font" : name, font);
         _content.AddThemeFontOverride(name == "font" ? "normal_font" : name, font);
-        _measure.AddThemeFontOverride(name == "normal_font" ? "font" : name, font); UpdateMinimumSize();
+        _measure.AddThemeFontOverride(name == "normal_font" ? "font" : name, font); RenderText(); UpdateMinimumSize();
     }
     public new void AddThemeColorOverride(StringName name, Color color)
     {
@@ -82,13 +100,14 @@ public partial class ElementTextLabel : Control
     }
     public new void AddThemeStyleboxOverride(StringName name, StyleBox style)
     {
-        base.AddThemeStyleboxOverride(name, style); _content.AddThemeStyleboxOverride(name, style); _measure.AddThemeStyleboxOverride(name, style); UpdateMinimumSize();
+        base.AddThemeStyleboxOverride(name, style); _content.AddThemeStyleboxOverride(name, style); _measure.AddThemeStyleboxOverride(name, style); RenderText(); UpdateMinimumSize();
     }
     public new void AddThemeConstantOverride(StringName name, int value)
     {
+        if (HasThemeConstantOverride(name) && GetThemeConstant(name) == value) return;
         base.AddThemeConstantOverride(name, value);
         _content.AddThemeConstantOverride(name == "line_spacing" ? "line_separation" : name, value);
-        _measure.AddThemeConstantOverride(name, value); UpdateMinimumSize();
+        _measure.AddThemeConstantOverride(name, value); RenderText(); UpdateMinimumSize();
     }
     public override void _Notification(int what)
     {
@@ -101,7 +120,7 @@ public partial class ElementTextLabel : Control
             _measure.AddThemeFontSizeOverride("font_size", size); _content.AddThemeFontSizeOverride("normal_font_size", size);
             _content.AddThemeColorOverride("default_color", GetThemeColor("font_color"));
             _content.AddThemeConstantOverride("line_separation", _measure.GetThemeConstant("line_spacing"));
-            RenderText();
+            RenderText(); UpdateMinimumSize();
         }
         finally { _updatingTheme = false; }
     }

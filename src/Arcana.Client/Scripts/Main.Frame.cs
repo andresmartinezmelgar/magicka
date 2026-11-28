@@ -103,6 +103,7 @@ public partial class Main
             if (_practicePanel != null)
             { _practicePanel.Visible = !_paused && !_help.Visible; _practicePanel.Update(_aim); }
             UpdateTouchLayout();
+            PlaceRewardNoticeAfterLayout();
             _touch?.Update(latest.Players.FirstOrDefault(p => p.Id == _localId), latest);
             UpdateAimMarker(latest);
             UpdateTutorial(latest);

@@ -73,6 +73,11 @@ public sealed partial class GameWorld
         {
             f.Lifetime -= dt; f.Delay -= dt;
             if (f.Lifetime <= 0 || f.Delay > 0) continue;
+            if (f.Kind == DefenseRules.SpecialExplosionKind)
+            {
+                ResolveSpecialDeathExplosion(f);
+                continue;
+            }
             if (f.Kind == DefenseRules.ColossusFissureKind)
             {
                 ResolveColossusFissures(f);

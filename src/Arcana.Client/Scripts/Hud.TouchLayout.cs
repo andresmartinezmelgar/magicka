@@ -92,7 +92,7 @@ public partial class Hud
             var widget = control == _topScore ? (Control)_topScore.GetParent() : control;
             areas.Add(new(control.Name, widget.GetGlobalRect(), widget));
         }
-        areas.Add(new("HudLootNotice", _rewardBackdrop.GetGlobalRect(), _rewardBackdrop, Floating: true));
+        areas.Add(new("HudLootNotice", _rewardBackdrop.GetGlobalRect(), _rewardBackdrop, Floating: !RewardNoticePending));
         areas.Add(new("HudEventFeed", _feed.GetGlobalRect(), _feed, Floating: true));
         areas.Add(new("HudServerInfo", _server.GetGlobalRect(), _server, Floating: true));
         areas.Add(new("HudControlHints", _controls.GetGlobalRect(), _controls, Floating: true));

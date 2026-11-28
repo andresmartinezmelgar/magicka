@@ -13,6 +13,9 @@ public sealed partial class GameWorld
             var minion = _minions[id];
             if (minion.Kind == MinionKind.Prism)
                 _prismSpawnCooldown = Math.Max(_prismSpawnCooldown, DefenseRules.PrismRespawnDelay);
+            if (minion.SpecialAbility != DefenseSpecialAbility.None)
+                _specialSpawnCooldown = Math.Max(_specialSpawnCooldown, DefenseRules.SpecialDeathGap);
+            AddSpecialDeathExplosion(minion);
             var body = minion.Body;
             RememberEffectSource(id, minion.Kind, body.Equipment.Power);
             _statistics.Retire(id);
@@ -60,7 +63,7 @@ public sealed partial class GameWorld
         _defenseBotPlans.Clear(); _defenseBotPlanClock = 0;
         ClearDefensePlanningScratch(); _deadMinionIds.Clear();
         _defenseKills = _bossesKilled = 0; _defenseDifficulty = _defensePartySize = 1;
-        _defenseElapsed = _spawnClock = _auraClock = _oracleSpawnCooldown = 0;
+        _defenseElapsed = _spawnClock = _auraClock = _oracleSpawnCooldown = _specialSpawnCooldown = 0;
         _colossusMomentumRemaining = 0;
         _prismSpawnCooldown = DefenseRules.PrismMinimumSpawnGap;
         _commanderSurgeTime = _commanderSurgeCooldown = _commanderSpawnClock = 0;

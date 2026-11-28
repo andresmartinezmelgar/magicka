@@ -6,7 +6,7 @@ namespace Arcana.Core;
 public sealed record SurvivalSave(int Version, DateTimeOffset SavedAt, string RunId, string BestiaryUid,
     int LocalPlayerId, JsonElement State)
 {
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 3; // Los especiales y sus detonaciones no se deben cargar en clientes antiguos.
     internal static readonly JsonSerializerOptions Json = new() { IncludeFields = true, MaxDepth = 32 };
 }
 

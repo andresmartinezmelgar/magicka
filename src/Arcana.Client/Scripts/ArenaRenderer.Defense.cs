@@ -16,6 +16,7 @@ public partial class ArenaRenderer
         public Label3D? ElementLabel;
         public Element? LabelElement;
         public WizardVisual? Mage;
+        public SpecialMinionVisual? Special;
         public MinionSnapshot? Sample;
         public WizardSnapshot? Wizard;
         public Color? BodyColor, AuraColor;
@@ -104,6 +105,12 @@ public partial class ArenaRenderer
                 v.Root.Position = v.Mage.Position; v.Mage.Position = Vector3.Zero;
             }
             else { v.Root.Position = m.Stunned ? World(m.Position) : v.Root.Position.Lerp(World(m.Position), Math.Min(1, dt * 18)); v.Sample = m; }
+            if (m.SpecialAbility != DefenseSpecialAbility.None && v.Special == null)
+            {
+                v.Special = new SpecialMinionVisual(); v.Root.AddChild(v.Special); v.Special.Build(m.Kind);
+            }
+            v.Special?.Update(m, (float)_time);
+            v.Mage?.SetEnemyTint(m.SpecialAbility == DefenseSpecialAbility.None ? null : SpecialMinionVisual.BodyColor(m.SpecialAbility));
             if (v.ArcaneMark != null) v.ArcaneMark.Visible = m.ArcaneMarked;
             if (v.LightningStun != null)
             {
@@ -122,7 +129,8 @@ public partial class ArenaRenderer
                 }
             }
             Color bodyColor = m.VulnerableElement is { } weakness ? Ui.ElementColor(weakness)
-                : m.Frozen > 0 ? new("8bdeff") : m.Burning > 0 ? Ui.ElementColor(Element.Fire) : MinionColor(m.Kind);
+                : m.Frozen > 0 ? new("8bdeff") : m.Burning > 0 ? Ui.ElementColor(Element.Fire)
+                : m.SpecialAbility != DefenseSpecialAbility.None ? SpecialMinionVisual.BodyColor(m.SpecialAbility) : MinionColor(m.Kind);
             bool fixedColor = m.Kind is MinionKind.Prism or MinionKind.Oracle;
             if (bodyColor != v.BodyColor)
             {

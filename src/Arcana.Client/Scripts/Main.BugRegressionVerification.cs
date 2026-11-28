@@ -20,6 +20,7 @@ public partial class Main
         }
         void CheckText(Control root)
         {
+            AssertVisibleTextFits(root);
             float right = GetViewport().GetVisibleRect().End.X;
             foreach (var label in root.FindChildren("*", "Control", true, false).OfType<ElementTextLabel>())
             {

@@ -9,12 +9,13 @@ public sealed partial class GameWorld
             _minions.Values.Where(m => m.Body.Alive).Select(m => new MinionSnapshot(m.Body.Id, m.Kind, m.Body.Position, m.Body.Facing,
                 m.Body.Health, m.Body.MaxHealth, m.Body.Wet, m.Body.Burning, m.Body.Chill, m.Body.Frozen,
                 m.Body.Channel != null, Copy(m.Body.Channel?.Elements ?? []), Empowered(m))
-                { SpeedBoostSeconds = m.SpeedBoost, AttackWarningSeconds = m.Windup,
+                { SpecialAbility = m.SpecialAbility, FrontalShieldSeconds = m.SpecialShieldSeconds,
+                    SpeedBoostSeconds = m.SpeedBoost, AttackWarningSeconds = m.Windup,
                     Shield = m.Body.Shield, ShieldMax = m.Body.ShieldMax, VulnerableElement = m.Body.VulnerableElement,
                     ArcaneMarked = m.Body.ArcaneMarkRank > 0,
                     Stunned = m.Body.StunTime > 0, WaterSlowed = WaterSlowMultiplier(m.Body) < 1,
                     FocusTargetId = _players.TryGetValue(m.FocusTargetId, out var focused) && focused.Alive ? focused.Id : 0 }).ToArray(),
-            _defenseDrops.Select(d => new DefenseDropSnapshot(d.Id, d.OwnerId, d.Position, d.Kind, d.Gold, d.Buff, d.Item?.Slot, d.Item?.Tier)).ToArray(),
+            _defenseDrops.Select(d => new DefenseDropSnapshot(d.Id, d.OwnerId, d.Position, d.Kind, d.Gold, d.Buff, d.Item?.Slot, d.Item?.Tier) { SpecialReward = d.SpecialReward }).ToArray(),
             _players.Values.Select(p =>
             {
                 var s = _defenders[p.Id];

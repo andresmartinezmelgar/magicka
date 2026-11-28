@@ -29,15 +29,15 @@ public partial class EquipmentPanel
         var box = new VBoxContainer { Name = "EquipmentItemPicker" }; _itemPicker = box;
         box.AddThemeConstantOverride("separation", 6); _rightHost.AddChild(box); Ui.Full(box);
         BuildBulkActions(box);
-        _pickerHelp = Ui.Label("", 13, Ui.Muted); _pickerHelp.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _pickerStatus = Ui.Label("", 14, Ui.Gold); _pickerStatus.Name = "EquipmentPickerStatus"; _pickerStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart; _pickerStatus.Visible = false;
+        _pickerHelp = Ui.TextBlock("", 13, Ui.Muted); _pickerHelp.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _pickerStatus = Ui.TextBlock("", 14, Ui.Gold); _pickerStatus.Name = "EquipmentPickerStatus"; _pickerStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart; _pickerStatus.Visible = false;
         _pickerScroll = new ContentScrollContainer { Name = "EquipmentPickerScroll", SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         box.AddChild(_pickerScroll); Ui.VisibleVerticalScroll(_pickerScroll);
         var body = new VBoxContainer { Name = "EquipmentPickerBody", SizeFlagsHorizontal = SizeFlags.ExpandFill }; _pickerScroll.AddChild(body);
         body.AddThemeConstantOverride("separation", 8); body.AddChild(_pickerStatus);
         _pickerGrid = new GridContainer { Name = "EquipmentPickerGrid", Columns = 1, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _pickerGrid.AddThemeConstantOverride("h_separation", 10); _pickerGrid.AddThemeConstantOverride("v_separation", 10); body.AddChild(_pickerGrid);
-        _pickerEmpty = Ui.Label("No tienes objetos para esta zona.", 17, Ui.Muted); _pickerEmpty.AutowrapMode = TextServer.AutowrapMode.WordSmart; body.AddChild(_pickerEmpty); body.AddChild(_pickerHelp);
+        _pickerEmpty = Ui.TextBlock("No tienes objetos para esta zona.", 17, Ui.Muted); _pickerEmpty.AutowrapMode = TextServer.AutowrapMode.WordSmart; body.AddChild(_pickerEmpty); body.AddChild(_pickerHelp);
         _pickerScroll.Resized += UpdatePickerColumns; BuildQuickActions();
     }
 
@@ -75,13 +75,13 @@ public partial class EquipmentPanel
             content.AddChild(EquipmentIcons.View(EquipmentIcons.Slot(item.Slot), 32, TierColor(item.Tier)));
             var description = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
             description.AddThemeConstantOverride("separation", 8); content.AddChild(description);
-            var label = Ui.Label(title, Ui.IsMobile ? 18 : 17, selected ? Ui.Gold : TierColor(item.Tier));
+            var label = Ui.TextBlock(title, Ui.IsMobile ? 18 : 17, selected ? Ui.Gold : TierColor(item.Tier));
             label.AutowrapMode = TextServer.AutowrapMode.WordSmart; label.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             label.MouseFilter = MouseFilterEnum.Ignore; description.AddChild(label);
             EquipmentIcons.AddBadges(description, item.Slot, item.Family, item.Affix, ItemLevel(item));
             if (!BotInventory) BuildItemPreferences(description, item);
             BuildSaleSelection(description, item);
-            var equippedLabel = Ui.Label(selected ? "EQUIPADA" : "Sin equipar", 15, selected ? Ui.Gold : Ui.Muted);
+            var equippedLabel = Ui.TextBlock(selected ? "EQUIPADA" : "Sin equipar", 15, selected ? Ui.Gold : Ui.Muted);
             equippedLabel.MouseFilter = MouseFilterEnum.Ignore; description.AddChild(equippedLabel);
             var ringPreview = item.Slot == EquipmentSlot.MagicRing && _draft != null
                 ? EquipmentQuery.Preview(_draft, item, _itemLevels) : null;
@@ -90,7 +90,7 @@ public partial class EquipmentPanel
             AddItemEffects(body, ItemEffects(item, ItemLevel(item), ringPreview?.After.Modifiers), "EquipmentItemEffects_" + item.Id);
             AddComparison(body, item, ringPreview);
             var entry = _defensePlayer?.Items.FirstOrDefault(i => i.Item.Id == item.Id);
-            if (entry != null) description.AddChild(Ui.Label($"Mejoras: {entry.Upgrades} / 10", 15, Ui.Muted));
+            if (entry != null) description.AddChild(Ui.TextBlock($"Mejoras: {entry.Upgrades} / 10", 15, Ui.Muted));
             var actions = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ShrinkEnd };
             actions.AddThemeConstantOverride("separation", 8); content.AddChild(actions);
             string proceeds = BotInventory ? " para el bot." : TemporaryInventory ? " de esta partida." : ".";
@@ -125,7 +125,7 @@ public partial class EquipmentPanel
             string blocked = UpgradeBlockedReason(item.Id);
             if (blocked.Length > 0)
             {
-                var reason = Ui.Label(blocked, 14, Ui.Muted); reason.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+                var reason = Ui.TextBlock(blocked, 14, Ui.Muted); reason.AutowrapMode = TextServer.AutowrapMode.WordSmart;
                 description.AddChild(reason);
             }
         }
@@ -146,7 +146,7 @@ public partial class EquipmentPanel
         button.AddThemeColorOverride("icon_normal_color", color);
         button.CustomMinimumSize = new(Ui.IsMobile ? 64 : 48, Ui.IsMobile ? 64 : 48);
         button.MouseFilter = MouseFilterEnum.Pass; button.TooltipText = tooltip; box.AddChild(button);
-        var label = Ui.Label(caption, 14, color); label.HorizontalAlignment = HorizontalAlignment.Center;
+        var label = Ui.TextBlock(caption, 14, color); label.HorizontalAlignment = HorizontalAlignment.Center;
         label.MouseFilter = MouseFilterEnum.Ignore; box.AddChild(label);
         return button;
     }

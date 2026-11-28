@@ -93,6 +93,8 @@ public partial class Main
             {
                 RenderEliteSmoke();
                 _renderer.VerifyEnemyShieldIndicators();
+                if (_bestiaryCaptures != null && _bestiarySmokeFrames == 20)
+                    GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(_bestiaryCaptures, "elite-specials.png"));
                 if (_enemyShieldSmokeBuilds == 0) _enemyShieldSmokeBuilds = _renderer.DefenseMinionBuilds;
                 else if (_renderer.DefenseMinionBuilds != _enemyShieldSmokeBuilds)
                     throw new InvalidOperationException("Cambiar los escudos reconstruye los enemigos.");
@@ -164,8 +166,20 @@ public partial class Main
                 { Shield = 66 * shieldFactor, ShieldMax = caster == 0 ? 0 : 220, ArcaneMarked = _bestiarySmokeFrames is >= 15 and < 35 });
             caster++;
         }
+        int extra = 0;
+        foreach (var kind in new[] { MinionKind.Melee, MinionKind.Archer, MinionKind.Captain, MinionKind.Tank, MinionKind.Runner, MinionKind.Brute, MinionKind.Bomber })
+            samples.Add(new(9300 + extra, kind, new(-9 + extra++ * 3, -7), new(0, 1), 1000, 1000, 0, 0, 0, 0, false, [], false));
+        for (int i = 0; i < samples.Count; i++)
+        {
+            bool special = _bestiarySmokeFrames is >= 15 and < 35;
+            var ability = !special ? DefenseSpecialAbility.None : i % 2 == 0
+                ? DefenseSpecialAbility.FrontalShield : DefenseSpecialAbility.DeathExplosion;
+            samples[i] = samples[i] with { SpecialAbility = ability,
+                FrontalShieldSeconds = ability == DefenseSpecialAbility.FrontalShield && _bestiarySmokeFrames < 25 ? 1 : 0 };
+        }
         var sample = live with { Defense = live.Defense! with { Minions = samples.ToArray(), Drops = [] },
-            Fields = [new(9900, 9008, new(0, -7), DefenseRules.OracleStrikeRadius, 1.1f, [Element.Earth, Element.Arcane], "oracle_bombardment")] };
+            Fields = [new(9900, 9008, new(0, -7), DefenseRules.OracleStrikeRadius, 1.1f, [Element.Earth, Element.Arcane], "oracle_bombardment"),
+                new(9901, 9300, new(8, -7), DefenseRules.SpecialExplosionRadius, 1.1f, [Element.Lightning, Element.Fire], DefenseRules.SpecialExplosionKind)] };
         _renderer.Render(sample, _localId, 1 / 60.0, true);
     }
 }

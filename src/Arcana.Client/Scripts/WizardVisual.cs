@@ -46,6 +46,14 @@ public partial class WizardVisual : Node3D
     internal bool ArcaneMarkVisible => _arcaneMark.Visible;
     internal bool LightningStunVisible => _lightningStun.Visible;
     private Color _color;
+    private Color? _enemyTint;
+    internal Color? EnemyTintForVerification => _enemyTint;
+    internal void SetEnemyTint(Color? color)
+    {
+        if (_enemyTint == color) return;
+        _enemyTint = color;
+        _spriteMaterial.SetShaderParameter("team_color", color ?? (_team == 0 ? Ui.Blue : Ui.Red));
+    }
     private Node3D _elementsRoot = null!;
     private readonly List<MeshInstance3D> _elementFills = [];
     private readonly List<Label3D> _elementKeys = [];
@@ -171,7 +179,7 @@ public partial class WizardVisual : Node3D
         bool appearanceChanged = _wizardType != p.WizardType || _team != p.Team;
         if (appearanceChanged)
         {
-            _wizardType = p.WizardType; _team = p.Team;
+            _wizardType = p.WizardType; _team = p.Team; _enemyTint = null;
             _atlas = WizardSprites.Load(_wizardType);
             _sprite.PixelSize = _atlas.Spec.PixelSize;
             _spriteMaterial.SetShaderParameter("team_color", _team == 0 ? Ui.Blue : Ui.Red);

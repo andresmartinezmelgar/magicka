@@ -6,6 +6,7 @@ public partial class Main
 {
     private void AssertInventorySplit(EquipmentPanel panel)
     {
+        AssertVisibleTextFits(panel);
         var left = (Control)panel.FindChild("EquipmentAvatarPane", true, false);
         var right = (Control)panel.FindChild("EquipmentItemsPane", true, false);
         var screen = GetViewport().GetVisibleRect().Grow(2);
@@ -29,6 +30,7 @@ public partial class Main
 
     private void AssertHudBounds(Hud hud, string stage)
     {
+        AssertVisibleTextFits(hud);
         Rect2 screen = GetViewport().GetVisibleRect();
         foreach (var name in new[] { "MatchBanner", "MatchRewardNotice", "PlayerStatusPanel", "SpellControlsPanel", "MiniMapPanel", "MatchObjective" })
         {
@@ -61,6 +63,7 @@ public partial class Main
 
     private static void AssertHeaderAndHome(Launcher launcher, Rect2 screen, string mode)
     {
+        AssertVisibleTextFits(launcher);
         if (launcher.FindChild("OptionAHeader", true, false) is not Control header ||
             launcher.FindChild("OptionAAccountSummary", true, false) is not ElementTextLabel summary ||
             launcher.FindChild("OptionAHomeCards", true, false) is not GridContainer home)

@@ -53,7 +53,7 @@ public partial class Launcher
         var titles = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ShrinkCenter };
         titles.AddThemeConstantOverride("separation", 0);
         heroRow.AddChild(titles);
-        _optionAHeading = Ui.Label("ELIGE TU AVENTURA", Ui.IsMobile ? 21 : 26, Ui.Gold);
+        _optionAHeading = Ui.TextBlock("ELIGE TU AVENTURA", Ui.IsMobile ? 21 : 26, Ui.Gold);
         titles.AddChild(_optionAHeading);
         var subtitle = Ui.Label("Hechizos, estrategia y duelos elementales", Ui.IsMobile ? 14 : 16, Ui.Muted);
         subtitle.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -107,7 +107,7 @@ public partial class Launcher
         var settings = new VBoxContainer();
         settings.AddThemeConstantOverride("separation", Ui.IsMobile ? 7 : 9);
         settingsCard.AddChild(settings);
-        var settingLabel = Ui.Label("EQUIPO Y CONEXIÓN", Ui.IsMobile ? 18 : 20, Ui.Gold);
+        var settingLabel = Ui.TextBlock("EQUIPO Y CONEXIÓN", Ui.IsMobile ? 18 : 20, Ui.Gold);
         settings.AddChild(settingLabel);
         identity.Reparent(settings);
         _optionAPasswordLabel = form.GetChildren().OfType<ElementTextLabel>()

@@ -30,7 +30,6 @@ public partial class RoomWaitingPlayerCard : PanelContainer
         details.AddThemeConstantOverride("separation", 4);
         row.AddChild(details);
         _name = Detail(details, "", 18, Ui.Text);
-        _name.MaxLinesVisible = 2;
         _type = Detail(details, "", 14, Ui.Muted);
         _role = Detail(details, "", 13, Ui.Gold);
         _state = Detail(details, "", 15, Ui.Muted);
