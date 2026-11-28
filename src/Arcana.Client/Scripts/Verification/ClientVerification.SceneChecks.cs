@@ -236,25 +236,29 @@ public partial class ClientVerification
             var sprite = wizard.Sprite;
             var atlas = WizardSprites.Load(player.WizardType);
             valid &= sprite.Texture == atlas.Texture && sprite.IsVisibleInTree() == player.Alive &&
-                sprite.Frame is >= 0 and < 16 && sprite.Offset == atlas.Offset(sprite.Frame);
+                sprite.Frame >= 0 && sprite.Frame < WizardSprites.Directions * WizardSprites.Poses && sprite.Offset == atlas.Offset(sprite.Frame);
             valid &= wizard.ElementSlotCount == 3 && wizard.ElementSlotsVisible == player.Alive;
-            if (player.Alive && player.Frozen <= 0) _spriteCoverage.Add((player.WizardType, player.Team, sprite.Frame / 4, sprite.Frame % 4));
-            if (player.Frozen > 0) valid &= sprite.Frame % 4 == 0;
-            if (_renderFrames == 7) valid &= sprite.Frame % 4 == 3; // Evento instantáneo, sin Casting en el snapshot.
+            if (player.Alive && player.Frozen <= 0) _spriteCoverage.Add((player.WizardType, player.Team, sprite.Frame / WizardSprites.Poses, sprite.Frame % WizardSprites.Poses));
+            if (player.Frozen > 0) valid &= sprite.Frame % WizardSprites.Poses == 0;
+            if (_renderFrames == 7) valid &= sprite.Frame % WizardSprites.Poses == 3; // Evento instantáneo, sin Casting en el snapshot.
             var material = (ShaderMaterial)sprite.MaterialOverride;
             valid &= material.GetShaderParameter("team_color").AsColor() == (player.Team == 0 ? Ui.Blue : Ui.Red);
         }
         if (_renderFrames == 270)
         {
-            // Cinco atlas compartidos, ambos equipos, cuatro direcciones y tres poses usadas.
-            valid &= _spriteCoverage.Count == 120;
+            // Se conservan todas las combinaciones anteriores y se comprueban
+            // además las 24 orientaciones con CheckWizardFacing.
+            valid &= Enum.GetValues<WizardType>().All(type => new[] { 0, 1 }.All(team =>
+                new[] { 0, 6, 12, 18 }.All(direction => new[] { 0, 1, 3 }.All(pose =>
+                    _spriteCoverage.Contains((type, team, direction, pose))))));
             valid &= CheckWizardMotion();
             valid &= CheckWizardFacing();
+            valid &= CheckWizardDirections();
             valid &= CheckOutfitSwap(snapshot.Players[0]);
             valid &= CheckTranslationInput();
             valid &= CheckRespawnInput();
             _runtime.Renderer.Clear(); valid &= _runtime.Renderer.Wizards.Count == 0;
-            if (valid) CompleteSmoke("SPRITES_SMOKE_OK: 5 atlas, 120 combinaciones, equipos, anclajes, congelación, muerte, reaparición y limpieza");
+            if (valid) CompleteSmoke("SPRITES_SMOKE_OK: 5 atlas, 24 direcciones, equipo por ranuras, anclajes, congelación, muerte, reaparición y limpieza");
         }
         if (!valid) { GD.PushError($"SPRITES_SMOKE_FAILED: frame {_renderFrames}, cobertura {_spriteCoverage.Count}"); GetTree().Quit(1); }
     }

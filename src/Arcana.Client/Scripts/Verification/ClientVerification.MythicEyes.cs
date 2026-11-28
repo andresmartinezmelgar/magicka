@@ -23,7 +23,7 @@ public partial class ClientVerification
             for (int frame = 0; frame < WizardSprites.Rows * WizardSprites.Columns; frame++)
             {
                 var anchors = atlas.Spec.EyeAnchors![frame];
-                if (frame / WizardSprites.Columns == 2) Check(anchors.Length == 0, "Ojos visibles de espaldas.");
+                if (WizardDirectionalAtlas.SourceRow(frame / WizardSprites.Poses) == 2) Check(anchors.Length == 0, "Ojos visibles de espaldas.");
                 else Check(MythicEyeVisuals.Mesh(atlas, frame).GetFaces().Length == anchors.Length * 6, "Geometría distinta de los anclajes.");
             }
             var player = template with { WizardType = type };
@@ -34,7 +34,8 @@ public partial class ClientVerification
                 foreach (var (direction, count) in new (V2, int)[] { (new(0, 1), 2), (new(-1, 0), 1), (new(0, -1), 0), (new(1, 0), 1) })
                 {
                     player = player with { Facing = direction };
-                    wizard.Update(player, 1 / 60f, 0, _runtime.Renderer.Camera, 0, 0);
+                    for (int step = 0; step < 16; step++)
+                        wizard.Update(player, 1 / 60f, step / 60f, _runtime.Renderer.Camera, 0, 0);
                     Check(wizard.MythicEyeCount == count, "La orientación no respeta la cara visible de " + type);
                     Check(wizard.MythicAuraPieces == 6 && wizard.EquipmentAuraVisible,
                         "El equipo mítico completo no tiene aura en combate.");
@@ -68,7 +69,7 @@ public partial class ClientVerification
             }
             finally { wizard.QueueFree(); avatar.QueueFree(); }
         }
-        GD.Print("MYTHIC_EYES_OK: cinco magos, 80 poses, anclajes, caras visibles, mezcla, inventario, anillos, muerte y limpieza");
+        GD.Print("MYTHIC_EYES_OK: cinco magos, 480 poses, anclajes, caras visibles, mezcla, inventario, anillos, muerte y limpieza");
         return true;
     }
 }

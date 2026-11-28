@@ -40,7 +40,8 @@ public partial class ArenaRenderer
             if (visual.Mage == null)
             {
                 float health = Math.Clamp(sample.Health / Math.Max(1, sample.MaxHealth), 0, 1);
-                Color expected = sample.VulnerableElement is { } weakness ? Ui.ElementColor(weakness) : sample.Frozen > 0
+                Color expected = sample.VulnerableElement is { } weakness ? sample.SpecialAbility == DefenseSpecialAbility.None
+                    ? Ui.ElementColor(weakness) : SpecialMinionVisual.BodyColor(sample.SpecialAbility, weakness) : sample.Frozen > 0
                     ? new("8bdeff") : sample.Burning > 0 ? Ui.ElementColor(Element.Fire)
                     : sample.SpecialAbility != DefenseSpecialAbility.None ? SpecialMinionVisual.BodyColor(sample.SpecialAbility) : MinionColor(sample.Kind);
                 if (visual.Health == null || Math.Abs(visual.Health.Scale.X - Math.Max(0.001f, health)) > 0.001f ||
@@ -54,6 +55,11 @@ public partial class ArenaRenderer
                 throw new InvalidOperationException("El mago conserva el color de un especial después de reutilizarse.");
             if ((visual.Special?.Visible ?? false) != special || (visual.Special?.ShieldVisible ?? false) != frontal)
                 throw new InvalidOperationException("El aura o escudo frontal conserva un estado anterior al reutilizar un especial.");
+            if ((visual.Special?.DeathRadiusVisible ?? false) != (sample.SpecialAbility == DefenseSpecialAbility.DeathExplosion))
+                throw new InvalidOperationException("El alcance de detonación no coincide con la habilidad del especial.");
+            if (special && (visual.Special!.FindChild("SpecialElectricity", true, false) is not MeshInstance3D { Mesh: not null } ||
+                visual.Special.FindChild("SpecialFrontalShield", true, false)!.GetChildCount() != SpecialMinionVisual.FrontalPaneCount))
+                throw new InvalidOperationException("Faltan los rayos o las cinco placas del especial.");
             var fill = visual.Mage?.FindChild("ShieldFill", true, false) as MeshInstance3D ?? visual.Shield!;
             var track = visual.Mage?.FindChild("ShieldTrack", true, false) as MeshInstance3D ?? visual.ShieldTrack!;
             bool shielded = sample.Shield > 0;

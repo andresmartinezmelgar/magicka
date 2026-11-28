@@ -33,7 +33,7 @@ internal sealed class WizardOutfitParts
         foreach (var piece in spec.Pieces)
         {
             ValidateFrames(piece.Frames);
-            if (piece.Slot == EquipmentSlot.Weapon && piece.CastOrigins?.Length != WizardSprites.Rows)
+            if (piece.Slot == EquipmentSlot.Weapon && piece.CastOrigins?.Length != WizardSprites.SourceRows)
                 throw new InvalidDataException("Faltan anclajes de lanzamiento del arma.");
             if (piece.GripOffsets is { } grips && grips.Length != piece.Frames.Length)
                 throw new InvalidDataException("Faltan posiciones de la mano para las poses del pecho.");
@@ -79,7 +79,7 @@ internal sealed class WizardOutfitParts
 
     private void ValidateFrames(Region?[] frames)
     {
-        if (frames.Length != WizardSprites.Columns * WizardSprites.Rows)
+        if (frames.Length != WizardSprites.SourceColumns * WizardSprites.SourceRows)
             throw new InvalidDataException("Número incorrecto de poses para una pieza del mago.");
         foreach (var region in frames)
             if (region != null && (region.Width <= 0 || region.Height <= 0 ||
@@ -112,8 +112,24 @@ internal sealed class WizardOutfitParts
         if (grips == null) return origins;
         return origins.Select((point, row) =>
         {
-            var grip = grips[row * WizardSprites.Columns + 3];
+            var grip = grips[row * WizardSprites.SourceColumns + 3];
             return new WizardSprites.FrameSpec(point.AnchorX + grip.X, point.AnchorY + grip.Y);
+        }).ToArray();
+    }
+
+    internal WizardSprites.FrameSpec[] StaffAnchors(EquipmentOutfit outfit)
+    {
+        var weapon = _pieces[(EquipmentSlot.Weapon, outfit.Weapon)];
+        var grips = _pieces[(EquipmentSlot.Chest, outfit.Chest)].GripOffsets;
+        var cast = CastOrigins(outfit);
+        return weapon.Frames.Select((region, frame) =>
+        {
+            if (frame % WizardSprites.Poses == 3) return cast[frame / WizardSprites.Poses];
+            if (region == null) return cast[frame / WizardSprites.Poses];
+            return new WizardSprites.FrameSpec(region.AtX - frame % WizardSprites.SourceColumns * (_spec.Width / (float)WizardSprites.SourceColumns)
+                + region.Width * .5f + (grips?[frame].X ?? 0),
+                region.AtY - frame / WizardSprites.SourceColumns * (_spec.Height / (float)WizardSprites.SourceRows)
+                + Math.Min(20, region.Height * .1f) + (grips?[frame].Y ?? 0));
         }).ToArray();
     }
 
@@ -132,7 +148,6 @@ internal sealed class WizardOutfitParts
             Paint(image, chest);
             Paint(image, _spec.Body, _spec.Texture);
             Paint(image, _pieces[(EquipmentSlot.Hat, outfit.Hat)]);
-            image.GenerateMipmaps();
             return image;
         }
         catch { image.Dispose(); throw; }
@@ -164,41 +179,70 @@ internal sealed class WizardOutfitParts
 /// <summary>Una textura reutilizable por vista. Se recompone únicamente al cambiar el equipo.</summary>
 internal sealed class WizardOutfitTexture : IDisposable
 {
+    private readonly bool _directional;
+    internal WizardOutfitTexture(bool directional = true) { _directional = directional; }
     private ImageTexture? _texture;
     private EquipmentOutfit _requested, _painted;
     private bool _custom;
-    internal WizardSprites.FrameSpec[]? CastOrigins { get; private set; }
+    private WizardSprites.AtlasSpec? _paintedSpec;
+    private readonly Dictionary<int, ArrayMesh> _eyeMeshes = [];
+    internal WizardSprites.FrameSpec[]? CastOrigins => _custom ? _paintedSpec?.CastOrigins : null;
+    internal int Revision { get; private set; }
+
+    internal int EyeCount(WizardSprites.Atlas atlas, int frame) =>
+        (_custom ? _paintedSpec! : _directional ? atlas.Spec : atlas.SourceSpec).EyeAnchors![frame].Length;
+
+    internal ArrayMesh EyeMesh(WizardSprites.Atlas atlas, int frame)
+    {
+        if (!_custom) return MythicEyeVisuals.Mesh(atlas, frame);
+        if (_eyeMeshes.TryGetValue(frame, out var cached)) return cached;
+        return _eyeMeshes[frame] = MythicEyeVisuals.CreateMesh(_paintedSpec!, atlas.SourceSpec.PixelSize, frame);
+    }
+
+    private void ClearEyeMeshes()
+    { foreach (var mesh in _eyeMeshes.Values) mesh.Dispose(); _eyeMeshes.Clear(); }
 
     internal Texture2D Get(WizardSprites.Atlas atlas, EquipmentOutfit outfit)
     {
         if (atlas.Spec.Type != WizardType.Balanced)
         {
-            CastOrigins = null;
+            if (_custom) { ClearEyeMeshes(); Revision++; }
             _requested = default;
             _custom = false;
-            return atlas.Texture;
+            return _directional ? atlas.Texture : atlas.SourceTexture;
         }
-        if (_requested == outfit) return _custom ? _texture! : atlas.Texture;
+        if (_requested == outfit) return _custom ? _texture! : _directional ? atlas.Texture : atlas.SourceTexture;
 
         var parts = WizardOutfitParts.Load();
         var look = parts.Normalize(outfit);
+        bool changed = _custom != (look != default) || look != default && look != _painted;
         if (look != default && look != _painted)
         {
-            using var art = parts.Assemble(atlas.Spec, look);
-            if (_texture == null) _texture = ImageTexture.CreateFromImage(art);
-            else _texture.Update(art);
-            _painted = look;
+            using var source = parts.Assemble(atlas.SourceSpec, look);
+            var rendered = atlas.SourceSpec with { CastOrigins = parts.CastOrigins(look) };
+            Image? generated = null;
+            try
+            {
+                var art = source;
+                if (_directional) art = generated = WizardDirectionalAtlas.Bake(source, atlas.SourceSpec,
+                    parts.CastOrigins(look), parts.StaffAnchors(look), out rendered);
+                if (_texture == null) _texture = ImageTexture.CreateFromImage(art);
+                else _texture.Update(art);
+                _painted = look; _paintedSpec = rendered;
+            }
+            finally { generated?.Dispose(); }
         }
-        CastOrigins = look == default ? null : parts.CastOrigins(look);
+        if (changed) { ClearEyeMeshes(); Revision++; }
         _custom = look != default;
         _requested = outfit;
-        return _custom ? _texture! : atlas.Texture;
+        return _custom ? _texture! : _directional ? atlas.Texture : atlas.SourceTexture;
     }
 
     public void Dispose()
     {
         _texture?.Dispose(); _texture = null;
+        ClearEyeMeshes(); _paintedSpec = null;
         _requested = _painted = default;
-        _custom = false; CastOrigins = null;
+        _custom = false; Revision++;
     }
 }

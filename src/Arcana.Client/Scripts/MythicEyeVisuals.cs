@@ -36,12 +36,18 @@ internal static class MythicEyeVisuals
     {
         var key = (atlas.Spec.Type, frame);
         if (Meshes.TryGetValue(key, out var cached)) return cached;
+        cached = CreateMesh(atlas.Spec, atlas.SourceSpec.PixelSize, frame);
+        Meshes.Add(key, cached); return cached;
+    }
+
+    internal static ArrayMesh CreateMesh(WizardSprites.AtlasSpec spec, float sourcePixelSize, int frame)
+    {
         using var surface = new SurfaceTool(); surface.Begin(Godot.Mesh.PrimitiveType.Triangles);
-        float pixels = atlas.Spec.PixelSize; var feet = atlas.Spec.Frames[frame];
-        var size = Size * pixels;
+        float pixels = spec.PixelSize; var feet = spec.Frames[frame];
+        var size = Size * sourcePixelSize;
         void Vertex(Vector3 center, float x, float y, Vector2 uv)
         { surface.SetNormal(Vector3.Back); surface.SetUV(uv); surface.AddVertex(center + new Vector3(x, y, 0)); }
-        foreach (var eye in atlas.Spec.EyeAnchors![frame])
+        foreach (var eye in spec.EyeAnchors![frame])
         {
             var center = new Vector3((eye.AnchorX - feet.AnchorX) * pixels,
                 (feet.AnchorY - eye.AnchorY) * pixels + size.Y * .32f, .018f);
@@ -49,7 +55,7 @@ internal static class MythicEyeVisuals
             Vertex(center, -x, y, new(0, 0)); Vertex(center, -x, -y, new(0, 1)); Vertex(center, x, -y, new(1, 1));
             Vertex(center, -x, y, new(0, 0)); Vertex(center, x, -y, new(1, 1)); Vertex(center, x, y, new(1, 0));
         }
-        cached = surface.Commit(); Meshes.Add(key, cached); return cached;
+        return surface.Commit();
     }
     internal static void ClearCache()
     {

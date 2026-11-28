@@ -141,6 +141,11 @@ internal static partial class VisualFixture
         state = state with { Players = state.Players.Select(p => p with { InvulnerableSeconds = 0 }).ToArray() };
         int row = view switch { "front" => 0, "west" => 1, "back" => 2, "east" => 3, _ => frame / 60 % 4 };
         V2 facing = row switch { 1 => new(-1, 0), 2 => new(0, -1), 3 => new(1, 0), _ => new(0, 1) };
+        if (view == "turntable")
+        {
+            float angle = frame / 8 % WizardSprites.Directions * MathF.Tau / WizardSprites.Directions;
+            facing = new(MathF.Sin(angle), MathF.Cos(angle));
+        }
         int phase = frame % 60;
         var movement = facing * (view == null && phase is >= 20 and < 45 ? (phase - 20) * 0.05f : 0);
         var players = state.Players.Select((p, index) => p with

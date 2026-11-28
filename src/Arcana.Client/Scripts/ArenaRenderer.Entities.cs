@@ -85,7 +85,7 @@ public partial class ArenaRenderer
                 if (!_fields.TryGetValue(field.Id, out var existingExplosion))
                 {
                     var warning = new EnemyAttackWarning { Name = "SpecialDeathWarning", Position = World(field.Position) };
-                    AddChild(warning); warning.Build(field.Radius); _fields[field.Id] = existingExplosion = warning;
+                    AddChild(warning); warning.Build(field.Radius, special: true); _fields[field.Id] = existingExplosion = warning;
                 }
                 var deathWarning = (EnemyAttackWarning)existingExplosion;
                 deathWarning.Visible = field.Lifetime > 0;

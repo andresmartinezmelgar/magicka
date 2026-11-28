@@ -43,8 +43,8 @@ public partial class WizardVisual
         // Recupera el contador también al reaparecer sin cambiar de equipo.
         MythicAuraPieces = _equipmentMythicCount;
         float pixels = _atlas.Spec.PixelSize;
-        var scale = new Vector3(_atlas.Spec.Width / 4f * pixels * 1.28f,
-            _atlas.Spec.Height / 4f * pixels * 1.28f, 1);
+        var scale = new Vector3(_atlas.SourceSpec.Width / (float)WizardSprites.SourceColumns * _atlas.SourceSpec.PixelSize * 1.28f,
+            _atlas.SourceSpec.Height / (float)WizardSprites.SourceRows * _atlas.SourceSpec.PixelSize * 1.28f, 1);
         var position = new Vector3(_sprite.Offset.X * pixels, _sprite.Offset.Y * pixels, -.012f);
         if (_equipmentAura.Scale != scale) _equipmentAura.Scale = scale;
         if (_equipmentAura.Position != position) _equipmentAura.Position = position;

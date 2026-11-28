@@ -1,5 +1,11 @@
 # Cambios
 
+## Sin publicar
+
+- Magos con 24 orientaciones visuales, separadas 15°, y giro suave por el arco corto. Las vistas se generan desde el arte original con sus anclajes de pies, rostro y báculo; la marcha y el apuntado conservan sus funciones.
+- El equipo se compone antes de generar las vistas intermedias. Se conservan las piezas por ranura, las auras de calidad, los ojos míticos y el origen de los hechizos. Inventario y sala de espera mantienen el arte fuente a su resolución original.
+- Especiales ajustados a la referencia: cuerpo gris o violeta oscuro, rayos grandes con núcleo luminoso, cinco placas frontales cian con bordes brillantes y círculo naranja de detonación. El círculo anticipa su alcance mientras viven; el daño sigue ocurriendo tras morir.
+
 ## 0.29.75
 
 - Textos de inventario, perfil, bestiario y menús con altura adaptada al contenido. Los avisos largos de botín buscan un hueco visible sin tapar los datos de conexión, el equipo ni los controles.

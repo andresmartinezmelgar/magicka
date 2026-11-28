@@ -10,10 +10,11 @@ public partial class WizardVisual
     private ulong _mythicMix;
     private int _mythicFrame = -1;
     private WizardType? _mythicType;
+    private int _mythicOutfitRevision = -1;
     internal int MythicEyeCount { get; private set; }
     private void UpdateMythicEyes(WizardSnapshot player, int frame)
     {
-        MythicEyeCount = player.Alive && MythicEyes.Active(player.Equipment) ? _atlas.Spec.EyeAnchors![frame].Length : 0;
+        MythicEyeCount = player.Alive && MythicEyes.Active(player.Equipment) ? _outfitTexture.EyeCount(_atlas, frame) : 0;
         if (MythicEyeCount == 0) { if (_mythicEyes != null) _mythicEyes.Visible = false; return; }
         if (_mythicEyes == null)
         {
@@ -24,10 +25,11 @@ public partial class WizardVisual
         }
         ulong mix = player.Equipment!.MythicFamilies;
         if (_mythicMix != mix) { _mythicMix = mix; MythicEyeVisuals.SetMix(_mythicEyeMaterial!, mix); }
-        if (_mythicFrame != frame || _mythicType != _atlas.Spec.Type)
+        if (_mythicFrame != frame || _mythicType != _atlas.Spec.Type || _mythicOutfitRevision != _outfitTexture.Revision)
         {
             _mythicFrame = frame; _mythicType = _atlas.Spec.Type;
-            _mythicEyes.Mesh = MythicEyeVisuals.Mesh(_atlas, frame);
+            _mythicOutfitRevision = _outfitTexture.Revision;
+            _mythicEyes.Mesh = _outfitTexture.EyeMesh(_atlas, frame);
         }
         _mythicEyes.Visible = true;
     }
