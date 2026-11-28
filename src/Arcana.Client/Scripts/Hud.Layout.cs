@@ -58,16 +58,22 @@ public partial class Hud
         PlaceRewardNotice();
     }
 
+    internal void PrepareRewardNoticeLayout()
+    {
+        if (RewardNoticePending) PlaceRewardNotice();
+    }
+
     private void PlaceRewardNotice()
     {
         // Medir después de fijar el ancho: dos líneas fijas cortaban nombres,
         // afijos y cantidades. La tarjeta crece con su contenido real.
         float s = MobileLayout || _lastSnapshot?.Defense != null ? Math.Min(1, GetViewportRect().Size.Y / 720f) / GameplayScale : 1;
         _rewardBackdrop.Scale = Vector2.One * s;
+        _reward.AddThemeFontSizeOverride("font_size", GetViewportRect().Size.Y < 500 ? 16 : 18);
         float cardWidth = Math.Min(310, Math.Max(1, (Size.X - 16) / s));
         _rewardBackdrop.CustomMinimumSize = new(cardWidth, 0);
         _rewardBackdrop.Size = new(cardWidth, 62);
-        float cardHeight = Math.Max(62, _reward.GetMinimumSize().Y + 16);
+        float cardHeight = RewardNoticeHeight(cardWidth);
         _rewardBackdrop.CustomMinimumSize = _rewardBackdrop.Size = new(cardWidth, cardHeight);
         var player = _playerPanel.GetGlobalRect();
         var status = _rewardStatusBounds ?? player;
@@ -87,13 +93,36 @@ public partial class Hud
     internal void KeepRewardNoticeClear(IReadOnlyList<Rect2> obstacles)
     {
         if (!RewardNoticePending) return;
-        float height = Math.Max(62, _reward.GetMinimumSize().Y + 16);
-        if (!Mathf.IsEqualApprox(height, _rewardBackdrop.Size.Y))
-            _rewardBackdrop.CustomMinimumSize = _rewardBackdrop.Size = new(_rewardBackdrop.Size.X, height);
-        _rewardFits = ScreenPlacement.TryPlace(TouchHudLayout.Rect(_rewardBackdrop.GetGlobalRect()),
-            TouchHudLayout.Rect(GetViewportRect()), obstacles.Select(TouchHudLayout.Rect).ToArray(), out var safe);
-        if (_rewardFits) _rewardBackdrop.GlobalPosition = new(safe.X, safe.Y);
+        var screen = TouchHudLayout.Rect(GetViewportRect());
+        var occupied = obstacles.Select(TouchHudLayout.Rect).ToArray();
+        float scale = _rewardBackdrop.GetGlobalRect().Size.X / _rewardBackdrop.Size.X;
+        var preferred = _rewardBackdrop.GlobalPosition;
+        // Un aviso largo puede caber con otra proporción aunque no exista un
+        // hueco para su ancho habitual. Refluir el texto conserva su tamaño legible.
+        _rewardFits = false;
+        foreach (float requested in new[] { _rewardBackdrop.Size.X, 360f, 420f, 480f, 560f, 240f, 200f })
+        {
+            float width = Math.Min(requested, (screen.Width - ScreenPlacement.MinimumGap * 2) / scale);
+            _rewardBackdrop.CustomMinimumSize = new(width, 0);
+            _rewardBackdrop.Size = new(width, _rewardBackdrop.Size.Y);
+            float height = RewardNoticeHeight(width);
+            _rewardBackdrop.CustomMinimumSize = _rewardBackdrop.Size = new(width, height);
+            var wanted = new ScreenRect(preferred.X, preferred.Y, width * scale, height * scale);
+            if (!ScreenPlacement.TryPlace(wanted, screen, occupied, out var safe)) continue;
+            _rewardBackdrop.GlobalPosition = new(safe.X, safe.Y);
+            _rewardFits = true; break;
+        }
         UpdateRewardVisibility();
+    }
+
+    private float RewardNoticeHeight(float width)
+    {
+        var font = _reward.GetThemeFont("font");
+        int size = _reward.GetThemeFontSize("font_size");
+        float height = font.GetMultilineStringSize(_reward.Text, width: Math.Max(1, width - 24), fontSize: size,
+            brkFlags: TextServer.LineBreakFlag.Mandatory | TextServer.LineBreakFlag.WordBound | TextServer.LineBreakFlag.Adaptive).Y;
+        int lines = Math.Max(1, (int)MathF.Ceiling(height / font.GetHeight(size)));
+        return Math.Max(62, height + (lines - 1) * _reward.GetThemeConstant("line_spacing") + 16);
     }
 
     private static ProgressBar Bar(Color color, float max, int height)

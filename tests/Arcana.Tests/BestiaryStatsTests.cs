@@ -17,6 +17,8 @@ internal static class BestiaryStatsTests
         var target = w.AddPlayer("Objetivo")!; target.Invulnerable = 0;
         for (int i = 1; i < party; i++) w.AddPlayer("Aliado " + i, bot: true);
         Set(w, "_defenseDifficulty", stage); Set(w, "_defensePartySize", party);
+        // Estas fichas describen las especies normales; los bonos especiales se verifican por separado.
+        Set(w, "_specialSpawnCooldown", 100000f);
         return (w, target);
     }
     private static Wizard Spawn(GameWorld w, MinionKind kind)

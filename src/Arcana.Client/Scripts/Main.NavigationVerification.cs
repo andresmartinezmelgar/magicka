@@ -209,10 +209,11 @@ public partial class Main
                 var rewardCard = (Control)_hud.FindChild("MatchRewardBackground", true, false);
                 AssertVisibleTextFits(_hud);
                 var rewardText = (ElementTextLabel)_hud.FindChild("MatchRewardNotice", true, false);
+                Capture(size.X + "-aviso-botin");
                 Check(rewardText.GetParsedText() == longLoot && rewardCard.IsVisibleInTree() &&
                     GetViewport().GetVisibleRect().Grow(1).Encloses(rewardCard.GetGlobalRect()) &&
                     !rewardCard.GetGlobalRect().Intersects(_defensePanel.SummaryRectForVerification),
-                    "El aviso de botín queda detrás del panel de ping y datos tras crecer su contenido.");
+                    $"El aviso de botín queda detrás del panel de ping y datos tras crecer su contenido. Pantalla {size}, visible {rewardCard.IsVisibleInTree()}, tarjeta {rewardCard.GetGlobalRect()}, datos {_defensePanel.SummaryRectForVerification}, texto completo {rewardText.GetParsedText() == longLoot}.");
                 if (_touch != null)
                     Check(_touch.LayoutRectangles.Where(pair => !_touch.Settings.Hidden(pair.Key)).All(pair =>
                         !rewardCard.GetGlobalRect().Intersects(new Rect2(pair.Value.Position + _touch.GlobalPosition, pair.Value.Size))),

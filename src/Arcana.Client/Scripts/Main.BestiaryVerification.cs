@@ -93,6 +93,8 @@ public partial class Main
             {
                 RenderEliteSmoke();
                 _renderer.VerifyEnemyShieldIndicators();
+                if (_bestiaryCaptures != null && _bestiarySmokeFrames == 20)
+                    GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(_bestiaryCaptures, "elite-specials.png"));
                 if (_enemyShieldSmokeBuilds == 0) _enemyShieldSmokeBuilds = _renderer.DefenseMinionBuilds;
                 else if (_renderer.DefenseMinionBuilds != _enemyShieldSmokeBuilds)
                     throw new InvalidOperationException("Cambiar los escudos reconstruye los enemigos.");

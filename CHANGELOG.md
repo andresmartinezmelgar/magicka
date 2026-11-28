@@ -1,6 +1,12 @@
 # Cambios
 
-## Sin publicar
+## 0.29.75
+
+- Textos de inventario, perfil, bestiario y menús con altura adaptada al contenido. Los avisos largos de botín buscan un hueco visible sin tapar los datos de conexión, el equipo ni los controles.
+- Enemigos especiales desde dificultad 10, con un 8 % de probabilidad y espera entre apariciones. Máximo simultáneo: uno al 10, dos al 15, tres al 20 y uno más cada cinco niveles; pueden ser de cualquier especie, incluido el coloso.
+- Especiales con un 75 % más de vida, un 20 % más de ataque, cuerpo oscuro y aura eléctrica. Cada uno recibe escudo frontal o detonación final: defensa direccional con ventanas de ataque, o explosión anunciada al morir.
+- Doble experiencia, triple oro garantizado y mayor probabilidad de botín al derrotarlos. Las habilidades y explosiones pendientes se conservan al guardar la partida.
+- Protocolo de partida 47; cliente y servidor deben usar esta versión para jugar juntos.
 
 - Los ítems equipados se ocultan al abrir el resumen de daño, menús, inventario o clasificación. Cerrar la tienda de Supervivencia deja de colocar su HUD por delante del resumen.
 - Los avisos de botín siguen el tamaño real del bloque de conexión y vida, se muestran por delante del HUD y conservan su tiempo mientras un menú los oculta.

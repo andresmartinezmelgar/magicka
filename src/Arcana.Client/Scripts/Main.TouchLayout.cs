@@ -39,6 +39,7 @@ public partial class Main
         var equipment = _defensePanel?.EquippedHud;
         UpdateGameplayHudVisibility();
         LayoutInformationalPanels();
+        _hud.PrepareRewardNoticeLayout();
         if (_touch == null)
         {
             if (equipment == null) return;
