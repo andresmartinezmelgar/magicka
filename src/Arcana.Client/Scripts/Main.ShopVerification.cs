@@ -167,7 +167,7 @@ public partial class Main
                 var celebration = shop.FindChild("PurchaseCelebration", true, false) as PurchaseCelebration;
                 Check(celebration != null && celebration.IsVisibleInTree() && celebration.MouseFilter == Control.MouseFilterEnum.Ignore &&
                     GetViewport().GetVisibleRect().Grow(1).Encloses(((Control)celebration.FindChild("PurchaseCelebrationCard", true, false)).GetGlobalRect()),
-                    "La compra confirmada no muestra su celebración, bloquea gestos o sale de la pantalla.");
+                    $"La compra confirmada no muestra su celebración, bloquea gestos o sale de la pantalla. Visible {celebration?.IsVisibleInTree()}, tarjeta {(celebration?.FindChild("PurchaseCelebrationCard", true, false) as Control)?.GetGlobalRect()}, viewport {GetViewport().GetVisibleRect()}.");
                 _shopGoldAfterPurchase = Accounts.Profile!.Gold;
                 _shopCatalogueReads = _shopFixture.CatalogueReads;
                 Button("ShopRefreshAd").EmitSignal(Godot.Button.SignalName.Pressed);

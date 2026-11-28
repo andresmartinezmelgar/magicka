@@ -38,6 +38,7 @@ internal partial class PurchaseCelebration : Control
             label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
             label.MouseFilter = MouseFilterEnum.Ignore; body.AddChild(label);
         }
+        _card.MinimumSizeChanged += LayoutCard;
         Resized += LayoutCard; LayoutCard();
     }
 
