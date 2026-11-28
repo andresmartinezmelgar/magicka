@@ -14,7 +14,8 @@ public partial class WizardVisual : Node3D
     private MeshInstance3D _shadow = null!;
     private WizardType _wizardType;
     private bool _local, _compactEnemy;
-    private int _team, _facingRow;
+    private int _team, _facingDirection;
+    private readonly WizardFacing _facing = new();
     private float _castPose, _hitFlash, _previousHealth, _renderedFlash = -1;
     private readonly WizardMotion _motion = new();
     private bool _wasAlive;
@@ -24,9 +25,9 @@ public partial class WizardVisual : Node3D
     {
         get
         {
-            if (_renderedFrame < 0 || _renderedFrame % WizardSprites.Columns != 3 || !_body.Visible ||
-                (_outfitTexture.CastOrigins ?? _atlas.Spec.CastOrigins) is not { Length: WizardSprites.Rows } origins) return null;
-            var point = origins[_renderedFrame / WizardSprites.Columns];
+            if (_renderedFrame < 0 || _renderedFrame % WizardSprites.Poses != 3 || !_body.Visible ||
+                (_outfitTexture.CastOrigins ?? _atlas.Spec.CastOrigins) is not { Length: WizardSprites.Directions } origins) return null;
+            var point = origins[_renderedFrame / WizardSprites.Poses];
             var feet = _atlas.Spec.Frames[_renderedFrame];
             float pixels = _atlas.Spec.PixelSize;
             return _sprite.ToGlobal(new((point.AnchorX - feet.AnchorX) * pixels,
@@ -52,7 +53,8 @@ public partial class WizardVisual : Node3D
     {
         if (_enemyTint == color) return;
         _enemyTint = color;
-        _spriteMaterial.SetShaderParameter("team_color", color ?? (_team == 0 ? Ui.Blue : Ui.Red));
+        _spriteMaterial.SetShaderParameter("special_tint", color ?? Colors.White);
+        _spriteMaterial.SetShaderParameter("special_strength", color.HasValue ? 1f : 0f);
     }
     private Node3D _elementsRoot = null!;
     private readonly List<MeshInstance3D> _elementFills = [];
@@ -94,6 +96,7 @@ public partial class WizardVisual : Node3D
         _lightningStun.Scale = new(.35f, 1, .35f); _lightningStun.Visible = p.Stunned;
         _color = p.Team == 0 ? Ui.Blue : Ui.Red;
         _team = p.Team; _wizardType = p.WizardType; _local = local;
+        _facing.Reset(p.Facing);
         _previousHealth = p.Health;
         _wasAlive = p.Alive;
         Position = ArenaRenderer.World(p.Position);
@@ -165,13 +168,16 @@ public partial class WizardVisual : Node3D
         _motion.Advance(p.Position, 0, 0, 0, true);
         _wasAlive = p.Alive; _deaths = p.Deaths; _previousHealth = p.Health;
         _hitFlash = _castPose = 0; _lastCastElements = [];
+        _facing.Reset(p.Facing);
     }
 
     public void Update(WizardSnapshot p, float dt, float time, Camera3D camera, double sampleTime, double interpolationDelay,
         EquipmentOutfit? outfitPreview = null)
     {
+        bool lifeChanged = p.Alive != _wasAlive || p.Deaths != _deaths;
         _motion.Advance(p.Position, sampleTime, dt, interpolationDelay,
-            p.Alive != _wasAlive || p.Deaths != _deaths || p.Frozen > 0 || p.Stunned);
+            lifeChanged || p.Frozen > 0 || p.Stunned);
+        if (lifeChanged) _facing.Reset(p.Facing);
         _lightningStun.Visible = p.Alive && p.Stunned;
         if (_lightningStun.Visible) _lightningStun.Rotation = new(0, time * 8, 0);
         _wasAlive = p.Alive; _deaths = p.Deaths;
@@ -183,6 +189,7 @@ public partial class WizardVisual : Node3D
             _atlas = WizardSprites.Load(_wizardType);
             _sprite.PixelSize = _atlas.Spec.PixelSize;
             _spriteMaterial.SetShaderParameter("team_color", _team == 0 ? Ui.Blue : Ui.Red);
+            _spriteMaterial.SetShaderParameter("special_strength", 0f);
             _color = _team == 0 ? Ui.Blue : Ui.Red;
             var halo = (StandardMaterial3D)_halo.MaterialOverride; halo.AlbedoColor = halo.Emission = _color;
             ((StandardMaterial3D)_affinityRing.MaterialOverride).AlbedoColor = Ui.WizardColor(_wizardType);
@@ -202,9 +209,9 @@ public partial class WizardVisual : Node3D
         bool casting = !p.Stunned && (p.Casting || _castPose > 0);
         // El apuntado de combate no determina hacia dónde camina el sprite.
         var facing = moving && !casting ? _motion.Direction : p.Facing;
-        _facingRow = WizardSprites.FacingRow(facing, _facingRow);
+        _facingDirection = _facing.Advance(facing, dt, casting, !p.Alive || p.Frozen > 0 || p.Stunned);
         int pose = !p.Alive || p.Frozen > 0 || p.Stunned ? 0 : casting ? 3 : moving ? (int)(_motion.WalkCycle * 2) : 0;
-        int frame = _facingRow * WizardSprites.Columns + pose;
+        int frame = _facingDirection * WizardSprites.Poses + pose;
         if (_renderedFrame != frame) { _sprite.Frame = frame; _renderedFrame = frame; }
         Vector2 offset = _atlas.Offset(frame);
         if (_renderedOffset != offset) { _sprite.Offset = offset; _renderedOffset = offset; }

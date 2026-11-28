@@ -26,7 +26,7 @@ public partial class ClientVerification
             {
                 wizard.Update(player, 0, 0, _runtime.Renderer.Camera, 0, delay);
                 foreach (var (direction, row) in new (V2, int)[]
-                    { (new(1, 0), 3), (new(-1, 0), 1), (new(0, -1), 2), (new(0, 1), 0) })
+                    { (new(1, 0), 6), (new(-1, 0), 18), (new(0, -1), 12), (new(0, 1), 0) })
                 {
                     player = player with { Facing = direction * -1 };
                     var poses = new HashSet<int>();
@@ -43,28 +43,28 @@ public partial class ClientVerification
                 for (int frame = 0; frame < fps / 2; frame++)
                 {
                     Render(new(1, 0), casting: true);
-                    Require(wizard.Sprite.Frame / 4 == 1 && wizard.Sprite.Frame % 4 == 3,
+                    Require(wizard.Sprite.Frame % 4 == 3 && (frame < fps / 5 || wizard.Sprite.Frame / 4 == 18),
                         "el lanzamiento deja de mirar al objetivo al desplazarse.");
                 }
-                Render(new(1, 0));
-                Require(wizard.Sprite.Frame / 4 == 3 && wizard.Sprite.Frame % 4 < 2,
+                for (int frame = 0; frame < fps / 3; frame++) Render(new(1, 0));
+                Require(wizard.Sprite.Frame / 4 == 6 && wizard.Sprite.Frame % 4 < 2,
                     "soltar el hechizo no devuelve la orientación y los pasos de marcha.");
                 wizard.PlayCastPose([Element.Earth]);
-                for (int frame = 0; frame < fps / 8; frame++)
+                for (int frame = 0; frame < fps / 5; frame++)
                 {
                     Render(new(1, 0));
-                    Require(wizard.Sprite.Frame / 4 == 1 && wizard.Sprite.Frame % 4 == 3,
+                    Require(wizard.Sprite.Frame % 4 == 3 && (frame < fps / 7 || wizard.Sprite.Frame / 4 == 18),
                         "el lanzamiento instantáneo pierde su orientación o su pose.");
                 }
                 for (int frame = 0; frame < fps / 2; frame++) Render(new(1, 0));
-                Require(wizard.Sprite.Frame / 4 == 3 && wizard.Sprite.Frame % 4 < 2,
+                Require(wizard.Sprite.Frame / 4 == 6 && wizard.Sprite.Frame % 4 < 2,
                     "la pose instantánea deja al mago mirando en la dirección anterior.");
                 for (int frame = 0; frame < fps / 2; frame++) Render(V2.Zero);
                 Require(wizard.Sprite.Frame % 4 == 0, "la animación sigue caminando después de parar.");
             }
             finally { wizard.QueueFree(); }
         }
-        GD.Print("FACING_OK: cuatro direcciones, 30/60/120 FPS, práctica y red, apuntado opuesto, marcha, lanzamiento, soltar, pose instantánea y parada");
+        GD.Print("FACING_OK: giro suave, 30/60/120 FPS, práctica y red, apuntado opuesto, marcha, lanzamiento, soltar, pose instantánea y parada");
         return true;
     }
 

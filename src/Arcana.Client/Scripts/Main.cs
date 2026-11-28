@@ -172,6 +172,7 @@ public partial class Main : Node
         WizardSprites.ClearCache();
         MythicEyeVisuals.ClearCache();
         EquipmentAuraVisuals.ClearCache();
+        SpecialMinionVisual.ClearCache();
         ElementChannelVisuals.ClearCache();
         EquipmentIcons.ClearCache();
         Interlocked.Exchange(ref _exiting, 1); _lifetime.Cancel();

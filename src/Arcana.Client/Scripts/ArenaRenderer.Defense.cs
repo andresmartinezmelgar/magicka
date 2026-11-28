@@ -128,7 +128,8 @@ public partial class ArenaRenderer
                     v.Health.Position = new(-(1 - health) * 0.625f, 0, 0.01f); v.HealthFraction = health;
                 }
             }
-            Color bodyColor = m.VulnerableElement is { } weakness ? Ui.ElementColor(weakness)
+            Color bodyColor = m.VulnerableElement is { } weakness ? m.SpecialAbility == DefenseSpecialAbility.None
+                ? Ui.ElementColor(weakness) : SpecialMinionVisual.BodyColor(m.SpecialAbility, weakness)
                 : m.Frozen > 0 ? new("8bdeff") : m.Burning > 0 ? Ui.ElementColor(Element.Fire)
                 : m.SpecialAbility != DefenseSpecialAbility.None ? SpecialMinionVisual.BodyColor(m.SpecialAbility) : MinionColor(m.Kind);
             bool fixedColor = m.Kind is MinionKind.Prism or MinionKind.Oracle;

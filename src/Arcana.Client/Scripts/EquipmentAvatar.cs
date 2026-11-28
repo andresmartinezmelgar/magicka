@@ -7,7 +7,7 @@ namespace Arcana.Client;
 public partial class EquipmentAvatar : Control
 {
     private WizardSprites.Atlas _atlas = null!;
-    private readonly WizardOutfitTexture _outfitTexture = new();
+    private readonly WizardOutfitTexture _outfitTexture = new(directional: false);
     private EquipmentOutfit _outfit;
     private EquipmentSlot _selected;
     private EquipmentSlot? _hovered;
@@ -88,9 +88,9 @@ public partial class EquipmentAvatar : Control
     private Rect2 SpriteBounds()
     {
         float height = _portrait
-            ? Math.Min(Size.Y * .78f, Size.X * .78f * _atlas.Spec.Height / _atlas.Spec.Width)
+            ? Math.Min(Size.Y * .78f, Size.X * .78f * _atlas.SourceSpec.Height / _atlas.SourceSpec.Width)
             : Math.Min(Size.Y * .88f, Size.X * 1.28f);
-        float width = height * _atlas.Spec.Width / _atlas.Spec.Height;
+        float width = height * _atlas.SourceSpec.Width / _atlas.SourceSpec.Height;
         return new((Size.X - width) / 2, (Size.Y - height) / 2, width, height);
     }
     private Vector2 Target(EquipmentSlot slot)
@@ -110,7 +110,8 @@ public partial class EquipmentAvatar : Control
         if (_atlas == null || Size.X < 1 || Size.Y < 1) return;
         DrawCircle(Size * new Vector2(.5f, .88f), Size.X * .24f, new Color(.12f, .30f, .44f, .16f));
         DrawAuraParticles();
-        var source = new Rect2(0, 0, _atlas.Spec.Width / 4f, _atlas.Spec.Height / 4f);
+        var source = new Rect2(0, 0, _atlas.SourceSpec.Width / (float)WizardSprites.SourceColumns,
+            _atlas.SourceSpec.Height / (float)WizardSprites.SourceRows);
         DrawTextureRectRegion(_outfitTexture.Get(_atlas, _outfit), SpriteBounds(), source);
         if (_portrait) return;
         foreach (var slot in Order)
